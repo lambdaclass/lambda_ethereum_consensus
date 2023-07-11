@@ -159,6 +159,7 @@ Clients MUST locally store the following `MetaData`:
 (
   seq_number: uint64
   attnets: Bitvector[ATTESTATION_SUBNET_COUNT]
+  syncnets: Bitvector[SYNC_COMMITTEE_SUBNET_COUNT]
 )
 ```
 
@@ -167,6 +168,7 @@ Where
 - `seq_number` is a `uint64` starting at `0` used to version the node's metadata.
   If any other field in the local `MetaData` changes, the node MUST increment `seq_number` by 1.
 - `attnets` is a `Bitvector` representing the node's persistent attestation subnet subscriptions.
+- `syncnets` is a `Bitvector` representing the node's sync committee subnet subscriptions. This field should mirror the data in the node's ENR as outlined in the [validator guide](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/validator.md#sync-committee-subnet-stability).
 
 *Note*: `MetaData.seq_number` is used for versioning of the node's metadata,
 is entirely independent of the ENR sequence number,
@@ -235,6 +237,23 @@ The `message-id` of a gossipsub message MUST be the following 20 byte value comp
 (1) multiple snappy `data` can decompress to the same value,
 and (2) some message `data` can fail to snappy decompress altogether.
 
+The derivation of the `message-id` has changed starting with Altair to incorporate the message `topic` along with the message `data`. These are fields of the `Message` Protobuf, and interpreted as empty byte strings if missing.
+The `message-id` MUST be the following 20 byte value computed from the message:
+* If `message.data` has a valid snappy decompression, set `message-id` to the first 20 bytes of the `SHA256` hash of
+  the concatenation of the following data: `MESSAGE_DOMAIN_VALID_SNAPPY`, the length of the topic byte string (encoded as little-endian `uint64`),
+  the topic byte string, and the snappy decompressed message data:
+  i.e. `SHA256(MESSAGE_DOMAIN_VALID_SNAPPY + uint_to_bytes(uint64(len(message.topic))) + message.topic + snappy_decompress(message.data))[:20]`.
+* Otherwise, set `message-id` to the first 20 bytes of the `SHA256` hash of
+  the concatenation of the following data: `MESSAGE_DOMAIN_INVALID_SNAPPY`, the length of the topic byte string (encoded as little-endian `uint64`),
+  the topic byte string, and the raw message data:
+  i.e. `SHA256(MESSAGE_DOMAIN_INVALID_SNAPPY + uint_to_bytes(uint64(len(message.topic))) + message.topic + message.data)[:20]`.
+
+Implementations may need to carefully handle the function that computes the `message-id`. In particular, messages on topics with the Phase 0
+fork digest should use the `message-id` procedure specified in the Phase 0 document.
+Messages on topics with the Altair fork digest should use the `message-id` procedure defined here.
+If an implementation only supports a single `message-id` function, it can define a switch inline;
+for example, `if topic in phase0_topics: return phase0_msg_id_fn(message) else return altair_msg_id_fn(message)`.
+
 The payload is carried in the `data` field of a gossipsub message, and varies depending on the topic:
 
 | Name                             | Message Type              |
@@ -245,6 +264,14 @@ The payload is carried in the `data` field of a gossipsub message, and varies de
 | `voluntary_exit`                 | `SignedVoluntaryExit`     |
 | `proposer_slashing`              | `ProposerSlashing`        |
 | `attester_slashing`              | `AttesterSlashing`        |
+
+Altair topics:
+
+| Name | Message Type |
+| - | - |
+| `beacon_block` | `SignedBeaconBlock` (modified) |
+| `sync_committee_contribution_and_proof` | `SignedContributionAndProof` |
+| `sync_committee_{subnet_id}` | `SyncCommitteeMessage` |
 
 Clients MUST reject (fail validation) messages containing an incorrect type, or invalid payload.
 
@@ -270,6 +297,8 @@ There are three additional global topics that are used to propagate lower freque
 
 The `beacon_block` topic is used solely for propagating new signed beacon blocks to all nodes on the networks.
 Signed blocks are sent in their entirety.
+
+Modified in Altair due to the inner `BeaconBlockBody` change.
 
 The following validations MUST pass before forwarding the `signed_beacon_block` on the network.
 - _[IGNORE]_ The block is not from a future slot (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance) --
@@ -361,6 +390,43 @@ Clients who receive an attester slashing on this topic MUST validate the conditi
   verify if `any(attester_slashed_indices.difference(prior_seen_attester_slashed_indices))`).
 - _[REJECT]_ All of the conditions within `process_attester_slashing` pass validation.
 
+###### `sync_committee_contribution_and_proof`
+
+This topic is used to propagate partially aggregated sync committee messages to be included in future blocks.
+
+The following validations MUST pass before forwarding the `signed_contribution_and_proof` on the network; define `contribution_and_proof = signed_contribution_and_proof.message`, `contribution = contribution_and_proof.contribution`, and the following function `get_sync_subcommittee_pubkeys` for convenience:
+
+```python
+def get_sync_subcommittee_pubkeys(state: BeaconState, subcommittee_index: uint64) -> Sequence[BLSPubkey]:
+    # Committees assigned to `slot` sign for `slot - 1`
+    # This creates the exceptional logic below when transitioning between sync committee periods
+    next_slot_epoch = compute_epoch_at_slot(Slot(state.slot + 1))
+    if compute_sync_committee_period(get_current_epoch(state)) == compute_sync_committee_period(next_slot_epoch):
+        sync_committee = state.current_sync_committee
+    else:
+        sync_committee = state.next_sync_committee
+
+    # Return pubkeys for the subcommittee index
+    sync_subcommittee_size = SYNC_COMMITTEE_SIZE // SYNC_COMMITTEE_SUBNET_COUNT
+    i = subcommittee_index * sync_subcommittee_size
+    return sync_committee.pubkeys[i:i + sync_subcommittee_size]
+```
+
+- _[IGNORE]_ The contribution's slot is for the current slot (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e. `contribution.slot == current_slot`.
+- _[REJECT]_ The subcommittee index is in the allowed range, i.e. `contribution.subcommittee_index < SYNC_COMMITTEE_SUBNET_COUNT`.
+- _[REJECT]_ The contribution has participants --
+  that is, `any(contribution.aggregation_bits)`.
+- _[REJECT]_ `contribution_and_proof.selection_proof` selects the validator as an aggregator for the slot -- i.e. `is_sync_committee_aggregator(contribution_and_proof.selection_proof)` returns `True`.
+- _[REJECT]_ The aggregator's validator index is in the declared subcommittee of the current sync committee --
+  i.e. `state.validators[contribution_and_proof.aggregator_index].pubkey in get_sync_subcommittee_pubkeys(state, contribution.subcommittee_index)`.
+- _[IGNORE]_ A valid sync committee contribution with equal `slot`, `beacon_block_root` and `subcommittee_index` whose `aggregation_bits` is non-strict superset has _not_ already been seen.
+- _[IGNORE]_ The sync committee contribution is the first valid contribution received for the aggregator with index `contribution_and_proof.aggregator_index`
+  for the slot `contribution.slot` and subcommittee index `contribution.subcommittee_index`
+  (this requires maintaining a cache of size `SYNC_COMMITTEE_SIZE` for this topic that can be flushed after each slot).
+- _[REJECT]_ The `contribution_and_proof.selection_proof` is a valid signature of the `SyncAggregatorSelectionData` derived from the `contribution` by the validator with index `contribution_and_proof.aggregator_index`.
+- _[REJECT]_ The aggregator signature, `signed_contribution_and_proof.signature`, is valid.
+- _[REJECT]_ The aggregate signature is valid for the message `beacon_block_root` and aggregate pubkey derived from the participation info in `aggregation_bits` for the subcommittee specified by the `contribution.subcommittee_index`.
+
 ##### Attestation subnets
 
 Attestation subnets are used to propagate unaggregated attestations to subsections of the network.
@@ -414,6 +480,59 @@ Unaggregated attestations are sent as `Attestation`s to the subnet topic,
 
 Aggregated attestations are sent to the `beacon_aggregate_and_proof` topic as `AggregateAndProof`s.
 
+##### Sync committee subnets
+
+Sync committee subnets are used to propagate unaggregated sync committee messages to subsections of the network.
+
+###### `sync_committee_{subnet_id}`
+
+The `sync_committee_{subnet_id}` topics are used to propagate unaggregated sync committee messages to the subnet `subnet_id` to be aggregated before being gossiped to the global `sync_committee_contribution_and_proof` topic.
+
+The following validations MUST pass before forwarding the `sync_committee_message` on the network:
+
+- _[IGNORE]_ The message's slot is for the current slot (with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e. `sync_committee_message.slot == current_slot`.
+- _[REJECT]_ The `subnet_id` is valid for the given validator, i.e. `subnet_id in compute_subnets_for_sync_committee(state, sync_committee_message.validator_index)`.
+  Note this validation implies the validator is part of the broader current sync committee along with the correct subcommittee.
+- _[IGNORE]_ There has been no other valid sync committee message for the declared `slot` for the validator referenced by `sync_committee_message.validator_index`
+  (this requires maintaining a cache of size `SYNC_COMMITTEE_SIZE // SYNC_COMMITTEE_SUBNET_COUNT` for each subnet that can be flushed after each slot).
+  Note this validation is _per topic_ so that for a given `slot`, multiple messages could be forwarded with the same `validator_index` as long as the `subnet_id`s are distinct.
+- _[REJECT]_ The `signature` is valid for the message `beacon_block_root` for the validator referenced by `validator_index`.
+
+##### Sync committees and aggregation
+
+The aggregation scheme closely follows the design of the attestation aggregation scheme.
+Sync committee messages are broadcast into "subnets" defined by a topic.
+The number of subnets is defined by `SYNC_COMMITTEE_SUBNET_COUNT` in the [Altair validator guide](./validator.md#constants).
+Sync committee members are divided into "subcommittees" which are then assigned to a subnet for the duration of tenure in the sync committee.
+Individual validators can be duplicated in the broader sync committee such that they are included multiple times in a given subcommittee or across multiple subcommittees.
+
+Unaggregated messages (along with metadata) are sent as `SyncCommitteeMessage`s on the `sync_committee_{subnet_id}` topics.
+
+Aggregated sync committee messages are packaged into (signed) `SyncCommitteeContribution` along with proofs and gossiped to the `sync_committee_contribution_and_proof` topic.
+
+#### Transitioning the gossip
+
+With any fork, the fork version, and thus the `ForkDigestValue`, change.
+Message types are unique per topic, and so for a smooth transition a node must temporarily subscribe to both the old and new topics.
+
+The topics that are not removed in a fork are updated with a new `ForkDigestValue`. In advance of the fork, a node SHOULD subscribe to the post-fork variants of the topics.
+
+Subscriptions are expected to be well-received, all updated nodes should subscribe as well.
+Topic-meshes can be grafted quickly as the nodes are already connected and exchanging gossip control messages.
+
+Messages SHOULD NOT be re-broadcast from one fork to the other.
+A node's behavior before the fork and after the fork are as follows:
+Pre-fork:
+- Peers who propagate messages on the post-fork topics MAY be scored negatively proportionally to time till fork,
+  to account for clock discrepancy.
+- Messages can be IGNORED on the post-fork topics, with a `MAXIMUM_GOSSIP_CLOCK_DISPARITY` margin.
+
+Post-fork:
+- Peers who propagate messages on the pre-fork topics MUST NOT be scored negatively. Lagging IWANT may force them to.
+- Messages on pre and post-fork variants of topics share application-level caches.
+  E.g. an attestation on the both the old and new topic is ignored like any duplicate.
+- Two epochs after the fork, pre-fork topics SHOULD be unsubscribed from. This is well after the configured `seen_ttl`.
+
 #### Encodings
 
 Topics are post-fixed with an encoding. Encodings define how the payload of a gossipsub message is encoded.
@@ -464,9 +583,14 @@ Request/response messages MUST adhere to the encoding specified in the protocol 
 ```
 request   ::= <encoding-dependent-header> | <encoded-payload>
 response  ::= <response_chunk>*
-response_chunk  ::= <result> | <encoding-dependent-header> | <encoded-payload>
+response_chunk  ::= <result> | <context-bytes> | <encoding-dependent-header> | <encoded-payload>
 result    ::= “0” | “1” | “2” | [“128” ... ”255”]
 ```
+
+`<context-bytes>` is empty by default.
+On a non-zero `<result>` with `ErrorMessage` payload, the `<context-bytes>` is also empty.
+In Altair and later forks, `<context-bytes>` functions as a short meta-data,
+defined per req-resp method, and can parametrize the payload decoder.
 
 The encoding-dependent header may carry metadata or assertions such as the encoded payload length, for integrity and attack proofing purposes.
 Because req/resp streams are single-use and stream closures implicitly delimit the boundaries, it is not strictly necessary to length-prefix payloads;
@@ -483,6 +607,14 @@ Regardless of these type specific bounds, a global maximum uncompressed byte siz
 
 Clients MUST ensure that lengths are within these bounds; if not, they SHOULD reset the stream immediately.
 Clients tracking peer reputation MAY decrement the score of the misbehaving peer under this circumstance.
+
+##### `ForkDigest`-context
+
+Starting with Altair, and in future forks, SSZ type definitions may change.
+For this common case, we define the `ForkDigest`-context:
+
+A fixed-width 4 byte `<context-bytes>`, set to the `ForkDigest` matching the chunk:
+ `compute_fork_digest(fork_version, genesis_validators_root)`.
 
 ##### Requesting side
 
@@ -764,6 +896,21 @@ In particular when `step == 1`, each `parent_root` MUST match the `hash_tree_roo
 After the initial block, clients MAY stop in the process of responding
 if their fork choice changes the view of the chain in the context of the request.
 
+##### BeaconBlocksByRange v2
+
+**Protocol ID:** `/eth2/beacon_chain/req/beacon_blocks_by_range/2/`
+
+Request and Response remain unchanged. A `ForkDigest`-context is used to select the fork namespace of the Response type.
+
+Per `context = compute_fork_digest(fork_version, genesis_validators_root)`:
+
+[0]: # (eth2spec: skip)
+
+| `fork_version`           | Chunk SSZ type             |
+| ------------------------ | -------------------------- |
+| `GENESIS_FORK_VERSION`   | `phase0.SignedBeaconBlock` |
+| `ALTAIR_FORK_VERSION`    | `altair.SignedBeaconBlock` |
+
 ##### BeaconBlocksByRoot
 
 **Protocol ID:** `/eth2/beacon_chain/req/beacon_blocks_by_root/1/`
@@ -803,6 +950,21 @@ Clients MUST respond with at least one block, if they have it.
 Clients MAY limit the number of blocks in the response.
 
 `/eth2/beacon_chain/req/beacon_blocks_by_root/1/` is deprecated. Clients MAY respond with an empty list during the deprecation transition period.
+
+##### BeaconBlocksByRoot v2
+
+**Protocol ID:** `/eth2/beacon_chain/req/beacon_blocks_by_root/2/`
+
+Request and Response remain unchanged. A `ForkDigest`-context is used to select the fork namespace of the Response type.
+
+Per `context = compute_fork_digest(fork_version, genesis_validators_root)`:
+
+[1]: # (eth2spec: skip)
+
+| `fork_version`           | Chunk SSZ type             |
+| ------------------------ | -------------------------- |
+| `GENESIS_FORK_VERSION`   | `phase0.SignedBeaconBlock` |
+| `ALTAIR_FORK_VERSION`    | `altair.SignedBeaconBlock` |
 
 ##### Ping
 
@@ -859,6 +1021,36 @@ The response MUST be encoded as an SSZ-container.
 
 The response MUST consist of a single `response_chunk`.
 
+##### GetMetaData v2
+
+**Protocol ID:** `/eth2/beacon_chain/req/metadata/2/`
+
+No Request Content.
+
+Response Content:
+
+```
+(
+  MetaData
+)
+```
+
+Requests the MetaData of a peer, using the new `MetaData` definition given above
+that is extended from phase 0 in Altair. Other conditions for the `GetMetaData`
+protocol are unchanged from the phase 0 p2p networking document.
+
+#### Transitioning from v1 to v2
+
+In advance of the fork, implementations can opt in to both run the v1 and v2 for a smooth transition.
+This is non-breaking, and is recommended as soon as the fork specification is stable.
+
+The v1 variants will be deprecated, and implementations should use v2 when available
+(as negotiated with peers via LibP2P multistream-select).
+
+The v1 method MAY be unregistered at the fork boundary.
+In the event of a request on v1 for an Altair specific payload,
+the responder MUST return the **InvalidRequest** response code.
+
 ### The discovery domain: discv5
 
 Discovery Version 5 ([discv5](https://github.com/ethereum/devp2p/blob/master/discv5/discv5.md)) (Protocol version v5.1) is used for peer discovery.
@@ -904,6 +1096,14 @@ to more easily discover peers participating in particular attestation gossip sub
 If a node's `MetaData.attnets` has any non-zero bit, the ENR MUST include the `attnets` entry with the same value as `MetaData.attnets`.
 
 If a node's `MetaData.attnets` is composed of all zeros, the ENR MAY optionally include the `attnets` entry or leave it out entirely.
+
+##### `syncnets` bitfield
+
+An additional bitfield is added to the ENR under the key `syncnets` to facilitate sync committee subnet discovery.
+The length of this bitfield is `SYNC_COMMITTEE_SUBNET_COUNT` where each bit corresponds to a distinct `subnet_id` for a specific sync committee subnet.
+The `i`th bit is set in this bitfield if the validator is currently subscribed to the `sync_committee_{i}` topic.
+
+See the [validator document](./validator.md#sync-committee-subnet-stability) for further details on how the new bits are used.
 
 ##### `eth2` field
 
