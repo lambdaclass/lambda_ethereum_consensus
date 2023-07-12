@@ -29,6 +29,7 @@ It consists of four main sections:
       - [Global topics](#global-topics)
         - [`beacon_block`](#beacon_block)
         - [`beacon_aggregate_and_proof`](#beacon_aggregate_and_proof)
+        - [`bls_to_execution_change`](#bls_to_execution_change)
         - [`voluntary_exit`](#voluntary_exit)
         - [`proposer_slashing`](#proposer_slashing)
         - [`attester_slashing`](#attester_slashing)
@@ -279,7 +280,14 @@ Bellatrix:
 | - | - |
 | `beacon_block` | `SignedBeaconBlock` (modified) |
 
-Note that the ForkDigestValue path segment of the topic separates the old and the new beacon_block topics.
+Capella:
+
+| Name | Message Type |
+| - | - |
+| `beacon_block` | `SignedBeaconBlock` (modified) |
+| `bls_to_execution_change` | `SignedBLSToExecutionChange` |
+
+Note that the `ForkDigestValue` path segment of the topic separates the old and the new `beacon_block` topics.
 
 Clients MUST reject (fail validation) messages containing an incorrect type, or invalid payload.
 
@@ -332,6 +340,7 @@ The following validations MUST pass before forwarding the `signed_beacon_block` 
   in such a case _do not_ `REJECT`, instead `IGNORE` this message.
 
 Modified in Bellatrix due to the inner `BeaconBlockBody` change.
+
 In addition to the gossip validations for this topic from prior specifications,
 the following validations MUST pass before forwarding the `signed_beacon_block` on the network.
 Alias `block = signed_beacon_block.message`, `execution_payload = block.body.execution_payload`.
@@ -350,6 +359,10 @@ Alias `block = signed_beacon_block.message`, `execution_payload = block.body.exe
 The following gossip validation from prior specifications MUST NOT be applied if the execution is enabled for the block -- i.e. `is_execution_enabled(state, block.body)`:
 
   - [REJECT] The block's parent (defined by `block.parent_root`) passes validation.
+
+Modified in Capella:
+The *type* of the payload of this topic changes to the (modified) `SignedBeaconBlock` found in Capella.
+Specifically, this type changes with the addition of `bls_to_execution_changes` to the inner `BeaconBlockBody`.
 
 ###### `beacon_aggregate_and_proof`
 
@@ -385,6 +398,19 @@ The following validations MUST pass before forwarding the `signed_aggregate_and_
   `get_checkpoint_block(store, aggregate.data.beacon_block_root, finalized_checkpoint.epoch)
   == store.finalized_checkpoint.root`
 
+###### `bls_to_execution_change`
+
+(Added in Capella)
+
+This topic is used to propagate signed bls to execution change messages to be included in future blocks.
+
+The following validations MUST pass before forwarding the `signed_bls_to_execution_change` on the network:
+
+- _[IGNORE]_ `current_epoch >= CAPELLA_FORK_EPOCH`,
+  where `current_epoch` is defined by the current wall-clock time.
+- _[IGNORE]_ The `signed_bls_to_execution_change` is the first valid signed bls to execution change received
+  for the validator with index `signed_bls_to_execution_change.message.validator_index`.
+- _[REJECT]_ All of the conditions within `process_bls_to_execution_change` pass validation.
 
 ###### `voluntary_exit`
 
@@ -939,6 +965,7 @@ Per `context = compute_fork_digest(fork_version, genesis_validators_root)`:
 | `GENESIS_FORK_VERSION`   | `phase0.SignedBeaconBlock` |
 | `ALTAIR_FORK_VERSION`    | `altair.SignedBeaconBlock` |
 | `BELLATRIX_FORK_VERSION` | `bellatrix.SignedBeaconBlock` |
+| `CAPELLA_FORK_VERSION`   | `capella.SignedBeaconBlock` |
 
 ##### BeaconBlocksByRoot
 
@@ -995,6 +1022,7 @@ Per `context = compute_fork_digest(fork_version, genesis_validators_root)`:
 | `GENESIS_FORK_VERSION`   | `phase0.SignedBeaconBlock` |
 | `ALTAIR_FORK_VERSION`    | `altair.SignedBeaconBlock` |
 | `BELLATRIX_FORK_VERSION` | `bellatrix.SignedBeaconBlock` |
+| `CAPELLA_FORK_VERSION`   | `capella.SignedBeaconBlock` |
 
 ##### Ping
 
