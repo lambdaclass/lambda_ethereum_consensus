@@ -273,6 +273,14 @@ Altair topics:
 | `sync_committee_contribution_and_proof` | `SignedContributionAndProof` |
 | `sync_committee_{subnet_id}` | `SyncCommitteeMessage` |
 
+Bellatrix:
+
+| Name | Message Type |
+| - | - |
+| `beacon_block` | `SignedBeaconBlock` (modified) |
+
+Note that the ForkDigestValue path segment of the topic separates the old and the new beacon_block topics.
+
 Clients MUST reject (fail validation) messages containing an incorrect type, or invalid payload.
 
 When processing incoming gossip, clients MAY descore or disconnect peers who fail to observe these constraints.
@@ -322,6 +330,26 @@ The following validations MUST pass before forwarding the `signed_beacon_block` 
   If the `proposer_index` cannot immediately be verified against the expected shuffling,
   the block MAY be queued for later processing while proposers for the block's branch are calculated --
   in such a case _do not_ `REJECT`, instead `IGNORE` this message.
+
+Modified in Bellatrix due to the inner `BeaconBlockBody` change.
+In addition to the gossip validations for this topic from prior specifications,
+the following validations MUST pass before forwarding the `signed_beacon_block` on the network.
+Alias `block = signed_beacon_block.message`, `execution_payload = block.body.execution_payload`.
+
+- If the execution is enabled for the block -- i.e. `is_execution_enabled(state, block.body)`
+  then validate the following:
+  - _[REJECT]_ The block's execution payload timestamp is correct with respect to the slot
+      -- i.e. `execution_payload.timestamp == compute_timestamp_at_slot(state, block.slot)`.
+  - If `exection_payload` verification of block's parent by an execution node is *not* complete:
+    - [REJECT] The block's parent (defined by `block.parent_root`) passes all
+      validation (excluding execution node verification of the `block.body.execution_payload`).
+  - otherwise:
+    - [IGNORE] The block's parent (defined by `block.parent_root`) passes all
+      validation (including execution node verification of the `block.body.execution_payload`).
+
+The following gossip validation from prior specifications MUST NOT be applied if the execution is enabled for the block -- i.e. `is_execution_enabled(state, block.body)`:
+
+  - [REJECT] The block's parent (defined by `block.parent_root`) passes validation.
 
 ###### `beacon_aggregate_and_proof`
 
@@ -910,6 +938,7 @@ Per `context = compute_fork_digest(fork_version, genesis_validators_root)`:
 | ------------------------ | -------------------------- |
 | `GENESIS_FORK_VERSION`   | `phase0.SignedBeaconBlock` |
 | `ALTAIR_FORK_VERSION`    | `altair.SignedBeaconBlock` |
+| `BELLATRIX_FORK_VERSION` | `bellatrix.SignedBeaconBlock` |
 
 ##### BeaconBlocksByRoot
 
@@ -965,6 +994,7 @@ Per `context = compute_fork_digest(fork_version, genesis_validators_root)`:
 | ------------------------ | -------------------------- |
 | `GENESIS_FORK_VERSION`   | `phase0.SignedBeaconBlock` |
 | `ALTAIR_FORK_VERSION`    | `altair.SignedBeaconBlock` |
+| `BELLATRIX_FORK_VERSION` | `bellatrix.SignedBeaconBlock` |
 
 ##### Ping
 
