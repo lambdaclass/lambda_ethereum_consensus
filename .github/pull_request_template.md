@@ -4,7 +4,7 @@
 
 **Description**
 
-<!-- A clear and concise general description of the changes of this PR commits -->
+<!-- A clear and concise general description of the changes this PR introduces -->
 
 <!-- Link to issues: Resolves #111, Resolves #222 -->
 
