@@ -170,6 +170,10 @@ We define the following Python custom types for type hinting and readability:
 | `BLSPubkey` | `Bytes48` | a BLS12-381 public key |
 | `BLSSignature` | `Bytes96` | a BLS12-381 signature |
 | `ParticipationFlags` | `uint8` | a succinct representation of 8 boolean participation flags |
+| `Transaction` | `ByteList[MAX_BYTES_PER_TRANSACTION]` | either a [typed transaction envelope](https://eips.ethereum.org/EIPS/eip-2718#opaque-byte-array-rather-than-an-rlp-array) or a legacy transaction |
+| `ExecutionAddress` | `Bytes20` | Address of account on the execution layer |
+
+*Note*: The `Transaction` type is a stub which is not final.
 
 ## Constants
 
@@ -299,6 +303,19 @@ Additional preset configurations can be found in the [`configs`](../../configs) 
 
 - The `PROPORTIONAL_SLASHING_MULTIPLIER` is set to `1` at initial mainnet launch, resulting in one-third of the minimum accountable safety margin in the event of a finality attack. After Phase 0 mainnet stabilizes, this value will be upgraded to `3` to provide the maximal minimum accountable safety margin.
 
+### Updated penalty values (from Altair onwards)
+
+*Note*: The spec does *not* override previous configuration values but instead creates new values and replaces usage throughout.
+
+| Name | Value |
+| - | - |
+| `INACTIVITY_PENALTY_QUOTIENT_ALTAIR` | `uint64(3 * 2**24)` (= 50,331,648) |
+| `MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR` | `uint64(2**6)` (= 64) |
+| `PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR` | `uint64(2)` |
+| `INACTIVITY_PENALTY_QUOTIENT_BELLATRIX` | `uint64(2**24)` (= 16,777,216) |
+| `MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX` | `uint64(2**5)` (= 32) |
+| `PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX` | `uint64(3)` |
+
 ### Max operations per block
 
 | Name | Value |
@@ -309,24 +326,21 @@ Additional preset configurations can be found in the [`configs`](../../configs) 
 | `MAX_DEPOSITS` | `2**4` (= 16) |
 | `MAX_VOLUNTARY_EXITS` | `2**4` (= 16) |
 
-### Updated penalty values (Altair)
-
-This patch updates a few configuration values to move penalty parameters closer to their final, maximum security values.
-
-*Note*: The spec does *not* override previous configuration values but instead creates new values and replaces usage throughout.
-
-| Name | Value |
-| - | - |
-| `INACTIVITY_PENALTY_QUOTIENT_ALTAIR` | `uint64(3 * 2**24)` (= 50,331,648) |
-| `MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR` | `uint64(2**6)` (= 64) |
-| `PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR` | `uint64(2)` |
-
 ### Sync committee
 
 | Name | Value | Unit | Duration |
 | - | - | - | - |
 | `SYNC_COMMITTEE_SIZE` | `uint64(2**9)` (= 512) | validators | |
 | `EPOCHS_PER_SYNC_COMMITTEE_PERIOD` | `uint64(2**8)` (= 256) | epochs | ~27 hours |
+
+### Execution
+
+| Name | Value |
+| - | - |
+| `MAX_BYTES_PER_TRANSACTION` | `uint64(2**30)` (= 1,073,741,824) |
+| `MAX_TRANSACTIONS_PER_PAYLOAD` | `uint64(2**20)` (= 1,048,576) |
+| `BYTES_PER_LOGS_BLOOM` | `uint64(2**8)` (= 256) |
+| `MAX_EXTRA_DATA_BYTES` | `2**5` (= 32) |
 
 ## Configuration
 
@@ -367,6 +381,14 @@ Testnets and other types of chain instances may use a different configuration.
 | - | - | - |
 | `INACTIVITY_SCORE_BIAS` | `uint64(2**2)` (= 4) | score points per inactive epoch |
 | `INACTIVITY_SCORE_RECOVERY_RATE` | `uint64(2**4)` (= 16) | score points per leak-free epoch |
+
+### Transition settings
+
+| Name | Value |
+| - | - |
+| `TERMINAL_TOTAL_DIFFICULTY` | `58750000000000000000000` (Estimated: Sept 15, 2022)|
+| `TERMINAL_BLOCK_HASH` | `Hash32()` |
+| `TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH` | `FAR_FUTURE_EPOCH` |
 
 ## Containers
 
@@ -505,6 +527,50 @@ class SigningData(Container):
     domain: Domain
 ```
 
+#### `ExecutionPayload`
+
+```python
+class ExecutionPayload(Container):
+    # Execution block header fields
+    parent_hash: Hash32
+    fee_recipient: ExecutionAddress  # 'beneficiary' in the yellow paper
+    state_root: Bytes32
+    receipts_root: Bytes32
+    logs_bloom: ByteVector[BYTES_PER_LOGS_BLOOM]
+    prev_randao: Bytes32  # 'difficulty' in the yellow paper
+    block_number: uint64  # 'number' in the yellow paper
+    gas_limit: uint64
+    gas_used: uint64
+    timestamp: uint64
+    extra_data: ByteList[MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas: uint256
+    # Extra payload fields
+    block_hash: Hash32  # Hash of execution block
+    transactions: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+```
+
+#### `ExecutionPayloadHeader`
+
+```python
+class ExecutionPayloadHeader(Container):
+    # Execution block header fields
+    parent_hash: Hash32
+    fee_recipient: ExecutionAddress
+    state_root: Bytes32
+    receipts_root: Bytes32
+    logs_bloom: ByteVector[BYTES_PER_LOGS_BLOOM]
+    prev_randao: Bytes32
+    block_number: uint64
+    gas_limit: uint64
+    gas_used: uint64
+    timestamp: uint64
+    extra_data: ByteList[MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas: uint256
+    # Extra payload fields
+    block_hash: Hash32  # Hash of execution block
+    transactions_root: Root
+```
+
 ### Beacon operations
 
 #### `ProposerSlashing`
@@ -564,6 +630,8 @@ class BeaconBlockBody(Container):
     deposits: List[Deposit, MAX_DEPOSITS]
     voluntary_exits: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
     sync_aggregate: SyncAggregate  # [New in Altair]
+    # Execution
+    execution_payload: ExecutionPayload  # [New in Bellatrix]
 ```
 
 #### `BeaconBlock`
@@ -654,6 +722,48 @@ class BeaconState(Container):
     # Sync
     current_sync_committee: SyncCommittee  # [New in Altair]
     next_sync_committee: SyncCommittee  # [New in Altair]
+```
+
+Modified in Bellatrix:
+
+```python
+class BeaconState(Container):
+    # Versioning
+    genesis_time: uint64
+    genesis_validators_root: Root
+    slot: Slot
+    fork: Fork
+    # History
+    latest_block_header: BeaconBlockHeader
+    block_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
+    state_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
+    historical_roots: List[Root, HISTORICAL_ROOTS_LIMIT]
+    # Eth1
+    eth1_data: Eth1Data
+    eth1_data_votes: List[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+    eth1_deposit_index: uint64
+    # Registry
+    validators: List[Validator, VALIDATOR_REGISTRY_LIMIT]
+    balances: List[Gwei, VALIDATOR_REGISTRY_LIMIT]
+    # Randomness
+    randao_mixes: Vector[Bytes32, EPOCHS_PER_HISTORICAL_VECTOR]
+    # Slashings
+    slashings: Vector[Gwei, EPOCHS_PER_SLASHINGS_VECTOR]  # Per-epoch sums of slashed effective balances
+    # Participation
+    previous_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
+    current_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
+    # Finality
+    justification_bits: Bitvector[JUSTIFICATION_BITS_LENGTH]  # Bit set for every recent justified epoch
+    previous_justified_checkpoint: Checkpoint
+    current_justified_checkpoint: Checkpoint
+    finalized_checkpoint: Checkpoint
+    # Inactivity
+    inactivity_scores: List[uint64, VALIDATOR_REGISTRY_LIMIT]
+    # Sync
+    current_sync_committee: SyncCommittee
+    next_sync_committee: SyncCommittee
+    # Execution
+    latest_execution_payload_header: ExecutionPayloadHeader  # [New in Bellatrix]
 ```
 
 ### Signed envelopes
@@ -875,6 +985,27 @@ def is_valid_merkle_branch(leaf: Bytes32, branch: Sequence[Bytes32], depth: uint
     return value == root
 ```
 
+#### `is_merge_transition_complete`
+
+```python
+def is_merge_transition_complete(state: BeaconState) -> bool:
+    return state.latest_execution_payload_header != ExecutionPayloadHeader()
+```
+
+#### `is_merge_transition_block`
+
+```python
+def is_merge_transition_block(state: BeaconState, body: BeaconBlockBody) -> bool:
+    return not is_merge_transition_complete(state) and body.execution_payload != ExecutionPayload()
+```
+
+#### `is_execution_enabled`
+
+```python
+def is_execution_enabled(state: BeaconState, body: BeaconBlockBody) -> bool:
+    return is_merge_transition_block(state, body) or is_merge_transition_complete(state)
+```
+
 ### Misc
 
 #### `compute_shuffled_index`
@@ -1060,6 +1191,16 @@ def set_or_append_list(list: List, index: ValidatorIndex, value: Any) -> None:
         list.append(value)
     else:
         list[index] = value
+```
+
+#### `compute_timestamp_at_slot`
+
+*Note*: This function is unsafe with respect to overflows and underflows.
+
+```python
+def compute_timestamp_at_slot(state: BeaconState, slot: Slot) -> uint64:
+    slots_since_genesis = slot - GENESIS_SLOT
+    return uint64(state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT)
 ```
 
 ### Beacon state accessors
@@ -1435,6 +1576,8 @@ def get_inactivity_penalty_deltas(state: BeaconState) -> Tuple[Sequence[Gwei], S
     return rewards, penalties
 ```
 
+Modified in Bellatrix to use `INACTIVITY_PENALTY_QUOTIENT_BELLATRIX` instead of `INACTIVITY_PENALTY_QUOTIENT_ALTAIR`
+
 ### Beacon state mutators
 
 #### `increase_balance`
@@ -1538,6 +1681,8 @@ def slash_validator(state: BeaconState,
     increase_balance(state, whistleblower_index, Gwei(whistleblower_reward - proposer_reward))
 ```
 
+Modified in altair to use `MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX` instead of `MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR`
+
 ## Genesis
 
 Before the Ethereum beacon chain genesis has been triggered, and for every Ethereum proof-of-work block, let `candidate_state = initialize_beacon_state_from_eth1(eth1_block_hash, eth1_timestamp, deposits)` where:
@@ -1613,6 +1758,66 @@ def initialize_beacon_state_from_eth1(eth1_block_hash: Hash32,
 ```
 
 *Note*: The ETH1 block with `eth1_timestamp` meeting the minimum genesis active validator count criteria can also occur before `MIN_GENESIS_TIME`.
+
+### Initialize state for pure Bellatrix testnets and test vectors
+
+*Note*: The function `initialize_beacon_state_from_eth1` is modified for pure Bellatrix testing only.
+Modifications include:
+
+1. Use `BELLATRIX_FORK_VERSION` as the previous and current fork version.
+2. Utilize the Bellatrix `BeaconBlockBody` when constructing the initial `latest_block_header`.
+3. Initialize `latest_execution_payload_header`.
+  If `execution_payload_header == ExecutionPayloadHeader()`, then the Merge has not yet occurred.
+  Else, the Merge starts from genesis and the transition is incomplete.
+
+```python
+def initialize_beacon_state_from_eth1(eth1_block_hash: Hash32,
+                                      eth1_timestamp: uint64,
+                                      deposits: Sequence[Deposit],
+                                      execution_payload_header: ExecutionPayloadHeader=ExecutionPayloadHeader()
+                                      ) -> BeaconState:
+    fork = Fork(
+        previous_version=BELLATRIX_FORK_VERSION,  # [Modified in Bellatrix] for testing only
+        current_version=BELLATRIX_FORK_VERSION,  # [Modified in Bellatrix]
+        epoch=GENESIS_EPOCH,
+    )
+    state = BeaconState(
+        genesis_time=eth1_timestamp + GENESIS_DELAY,
+        fork=fork,
+        eth1_data=Eth1Data(block_hash=eth1_block_hash, deposit_count=uint64(len(deposits))),
+        latest_block_header=BeaconBlockHeader(body_root=hash_tree_root(BeaconBlockBody())),
+        randao_mixes=[eth1_block_hash] * EPOCHS_PER_HISTORICAL_VECTOR,  # Seed RANDAO with Eth1 entropy
+    )
+
+    # Process deposits
+    leaves = list(map(lambda deposit: deposit.data, deposits))
+    for index, deposit in enumerate(deposits):
+        deposit_data_list = List[DepositData, 2**DEPOSIT_CONTRACT_TREE_DEPTH](*leaves[:index + 1])
+        state.eth1_data.deposit_root = hash_tree_root(deposit_data_list)
+        process_deposit(state, deposit)
+
+    # Process activations
+    for index, validator in enumerate(state.validators):
+        balance = state.balances[index]
+        validator.effective_balance = min(balance - balance % EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+        if validator.effective_balance == MAX_EFFECTIVE_BALANCE:
+            validator.activation_eligibility_epoch = GENESIS_EPOCH
+            validator.activation_epoch = GENESIS_EPOCH
+
+    # Set genesis validators root for domain separation and chain versioning
+    state.genesis_validators_root = hash_tree_root(state.validators)
+
+    # Fill in sync committees
+    # Note: A duplicate committee is assigned for the current and next committee at genesis
+    state.current_sync_committee = get_next_sync_committee(state)
+    state.next_sync_committee = get_next_sync_committee(state)
+
+    # [New in Bellatrix] Initialize the execution payload header
+    # If empty, will initialize a chain that has not yet gone through the Merge transition
+    state.latest_execution_payload_header = execution_payload_header
+
+    return state
+```
 
 ### Genesis state
 
@@ -2064,9 +2269,9 @@ def process_slashings(state: BeaconState) -> None:
             decrease_balance(state, ValidatorIndex(index), penalty)
 ```
 
-Modified in Altair:
+Modified in Altair to use `PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR` instead of `PROPORTIONAL_SLASHING_MULTIPLIER`.
 
-*Note*: The function `process_slashings` is modified to use `PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR` instead of `PROPORTIONAL_SLASHING_MULTIPLIER`.
+Modified in Bellatrix to use `PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX` instead of `PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR`.
 
 #### Eth1 data votes updates
 
@@ -2158,9 +2363,13 @@ def process_participation_record_updates(state: BeaconState) -> None:
 
 ### Block processing
 
+*Note*: The call to the `process_execution_payload` must happen before the call to the `process_randao` as the former depends on the `randao_mix` computed with the reveal of the previous block.
+
 ```python
 def process_block(state: BeaconState, block: BeaconBlock) -> None:
     process_block_header(state, block)
+    if is_execution_enabled(state, block.body):
+        process_execution_payload(state, block.body, EXECUTION_ENGINE)  # [New in Bellatrix]
     process_randao(state, block.body)
     process_eth1_data(state, block.body)
     process_operations(state, block.body)
@@ -2501,4 +2710,99 @@ def process_sync_aggregate(state: BeaconState, sync_aggregate: SyncAggregate) ->
             increase_balance(state, get_beacon_proposer_index(state), proposer_reward)
         else:
             decrease_balance(state, participant_index, participant_reward)
+```
+
+#### Execution payload (new in Bellatrix)
+
+##### `process_execution_payload`
+
+```python
+def process_execution_payload(state: BeaconState, body: BeaconBlockBody, execution_engine: ExecutionEngine) -> None:
+    payload = body.execution_payload
+
+    # Verify consistency of the parent hash with respect to the previous execution payload header
+    if is_merge_transition_complete(state):
+        assert payload.parent_hash == state.latest_execution_payload_header.block_hash
+    # Verify prev_randao
+    assert payload.prev_randao == get_randao_mix(state, get_current_epoch(state))
+    # Verify timestamp
+    assert payload.timestamp == compute_timestamp_at_slot(state, state.slot)
+    # Verify the execution payload is valid
+    assert execution_engine.verify_and_notify_new_payload(NewPayloadRequest(execution_payload=payload))
+    # Cache execution payload header
+    state.latest_execution_payload_header = ExecutionPayloadHeader(
+        parent_hash=payload.parent_hash,
+        fee_recipient=payload.fee_recipient,
+        state_root=payload.state_root,
+        receipts_root=payload.receipts_root,
+        logs_bloom=payload.logs_bloom,
+        prev_randao=payload.prev_randao,
+        block_number=payload.block_number,
+        gas_limit=payload.gas_limit,
+        gas_used=payload.gas_used,
+        timestamp=payload.timestamp,
+        extra_data=payload.extra_data,
+        base_fee_per_gas=payload.base_fee_per_gas,
+        block_hash=payload.block_hash,
+        transactions_root=hash_tree_root(payload.transactions),
+    )
+```
+
+### Execution engine (new in Bellatrix)
+
+#### Request data
+
+##### `NewPayloadRequest`
+
+```python
+@dataclass
+class NewPayloadRequest(object):
+    execution_payload: ExecutionPayload
+```
+
+#### Engine APIs
+
+The implementation-dependent `ExecutionEngine` protocol encapsulates the execution sub-system logic via:
+
+* a state object `self.execution_state` of type `ExecutionState`
+* a notification function `self.notify_new_payload` which may apply changes to the `self.execution_state`
+
+The body of these functions are implementation dependent.
+The Engine API may be used to implement this and similarly defined functions via an external execution engine.
+
+#### `notify_new_payload`
+
+`notify_new_payload` is a function accessed through the `EXECUTION_ENGINE` module which instantiates the `ExecutionEngine` protocol.
+
+```python
+def notify_new_payload(self: ExecutionEngine, execution_payload: ExecutionPayload) -> bool:
+    """
+    Return ``True`` if and only if ``execution_payload`` is valid with respect to ``self.execution_state``.
+    """
+    ...
+```
+
+#### `is_valid_block_hash`
+
+```python
+def is_valid_block_hash(self: ExecutionEngine, execution_payload: ExecutionPayload) -> bool:
+    """
+    Return ``True`` if and only if ``execution_payload.block_hash`` is computed correctly.
+    """
+    ...
+```
+
+#### `verify_and_notify_new_payload`
+
+```python
+def verify_and_notify_new_payload(self: ExecutionEngine,
+                                  new_payload_request: NewPayloadRequest) -> bool:
+    """
+    Return ``True`` if and only if ``new_payload_request`` is valid with respect to ``self.execution_state``.
+    """
+    if not self.is_valid_block_hash(new_payload_request.execution_payload):
+        return False
+    if not self.notify_new_payload(new_payload_request.execution_payload):
+        return False
+    return True
 ```
