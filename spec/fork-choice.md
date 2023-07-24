@@ -392,6 +392,7 @@ class PayloadAttributes(object):
     timestamp: uint64
     prev_randao: Bytes32
     suggested_fee_recipient: ExecutionAddress
+    withdrawals: Sequence[Withdrawal]  # [New in Capella]
 ```
 
 ##### `PowBlock`
@@ -601,16 +602,16 @@ def on_block(store: Store, signed_block: SignedBeaconBlock) -> None:
         block.parent_root,
         store.finalized_checkpoint.epoch,
     )
-    assert store.finalized_checkpoint.root == finalized_checkpoint_block    
+    assert store.finalized_checkpoint.root == finalized_checkpoint_block
 
     # Check the block is valid and compute the post-state
     state = pre_state.copy()
     block_root = hash_tree_root(block)
     state_transition(state, signed_block, True)
 
-    # [New in Bellatrix]
-    if is_merge_transition_block(pre_state, block.body):
-        validate_merge_block(block)
+    # [Added in Bellatrix; removed in Capella]
+    # if is_merge_transition_block(pre_state, block.body):
+        # validate_merge_block(block)
 
     # Add new block to the store
     store.blocks[block_root] = block
