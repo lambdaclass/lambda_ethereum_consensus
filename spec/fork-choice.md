@@ -48,6 +48,12 @@
 
 This document is the beacon chain fork choice spec, part of Phase 0. It assumes the [beacon chain state transition function spec](./beacon-chain.md).
 
+## Custom types (new in Bellatrix)
+
+| Name | SSZ equivalent | Description |
+| - | - | - |
+| `PayloadId` | `Bytes8` | Identifier of a payload building process |
+
 ## Fork choice
 
 The head block root associated with a `store` is defined as `get_head(store)`. At genesis, let `store = get_forkchoice_store(genesis_state, genesis_block)` and update `store` by running:
@@ -374,6 +380,74 @@ def update_unrealized_checkpoints(store: Store, unrealized_justified_checkpoint:
         store.unrealized_finalized_checkpoint = unrealized_finalized_checkpoint
 ```
 
+#### Execution helpers (new in Bellatrix)
+
+##### `PayloadAttributes`
+
+Used to signal to initiate the payload build process via `notify_forkchoice_updated`.
+
+```python
+@dataclass
+class PayloadAttributes(object):
+    timestamp: uint64
+    prev_randao: Bytes32
+    suggested_fee_recipient: ExecutionAddress
+```
+
+##### `PowBlock`
+
+```python
+class PowBlock(Container):
+    block_hash: Hash32
+    parent_hash: Hash32
+    total_difficulty: uint256
+```
+
+##### `get_pow_block`
+
+Let `get_pow_block(block_hash: Hash32) -> Optional[PowBlock]` be the function that given the hash of the PoW block returns its data.
+It may result in `None` if the requested block is not yet available.
+
+*Note*: The `eth_getBlockByHash` JSON-RPC method may be used to pull this information from an execution client.
+
+##### `is_valid_terminal_pow_block`
+
+Used by fork-choice handler, `on_block`.
+
+```python
+def is_valid_terminal_pow_block(block: PowBlock, parent: PowBlock) -> bool:
+    is_total_difficulty_reached = block.total_difficulty >= TERMINAL_TOTAL_DIFFICULTY
+    is_parent_total_difficulty_valid = parent.total_difficulty < TERMINAL_TOTAL_DIFFICULTY
+    return is_total_difficulty_reached and is_parent_total_difficulty_valid
+```
+
+### `validate_merge_block`
+
+```python
+def validate_merge_block(block: BeaconBlock) -> None:
+    """
+    Check the parent PoW block of execution payload is a valid terminal PoW block.
+
+    Note: Unavailable PoW block(s) may later become available,
+    and a client software MAY delay a call to ``validate_merge_block``
+    until the PoW block(s) become available.
+    """
+    if TERMINAL_BLOCK_HASH != Hash32():
+        # If `TERMINAL_BLOCK_HASH` is used as an override, the activation epoch must be reached.
+        assert compute_epoch_at_slot(block.slot) >= TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH
+        assert block.body.execution_payload.parent_hash == TERMINAL_BLOCK_HASH
+        return
+
+    pow_block = get_pow_block(block.body.execution_payload.parent_hash)
+    # Check if `pow_block` is available
+    assert pow_block is not None
+    pow_parent = get_pow_block(pow_block.parent_hash)
+    # Check if `pow_parent` is available
+    assert pow_parent is not None
+    # Check if `pow_block` is a valid terminal PoW block
+    assert is_valid_terminal_pow_block(pow_block, pow_parent)
+```
+
 #### Pull-up tip helpers
 
 ##### `compute_pulled_up_tip`
@@ -504,6 +578,12 @@ def on_tick(store: Store, time: uint64) -> None:
 
 ```python
 def on_block(store: Store, signed_block: SignedBeaconBlock) -> None:
+    """
+    Run ``on_block`` upon receiving a new block.
+
+    A block that is asserted as invalid due to unavailable PoW block may be valid at a later time,
+    consider scheduling it for later processing in such case.
+    """
     block = signed_block.message
     # Parent block must be known
     assert block.parent_root in store.block_states
@@ -527,6 +607,11 @@ def on_block(store: Store, signed_block: SignedBeaconBlock) -> None:
     state = pre_state.copy()
     block_root = hash_tree_root(block)
     state_transition(state, signed_block, True)
+
+    # [New in Bellatrix]
+    if is_merge_transition_block(pre_state, block.body):
+        validate_merge_block(block)
+
     # Add new block to the store
     store.blocks[block_root] = block
     # Add new state for this block to the store
@@ -589,3 +674,44 @@ def on_attester_slashing(store: Store, attester_slashing: AttesterSlashing) -> N
     for index in indices:
         store.equivocating_indices.add(index)
 ```
+
+## Protocols (new in Bellatrix)
+
+### `ExecutionEngine`
+
+*Note*: The `notify_forkchoice_updated` function is added to the `ExecutionEngine` protocol to signal the fork choice updates.
+
+The body of this function is implementation dependent.
+The Engine API may be used to implement it with an external execution engine.
+
+#### `notify_forkchoice_updated`
+
+This function performs three actions *atomically*:
+* Re-organizes the execution payload chain and corresponding state to make `head_block_hash` the head.
+* Updates safe block hash with the value provided by `safe_block_hash` parameter.
+* Applies finality to the execution state: it irreversibly persists the chain of all execution payloads
+and corresponding state, up to and including `finalized_block_hash`.
+
+Additionally, if `payload_attributes` is provided, this function sets in motion a payload build process on top of
+`head_block_hash` and returns an identifier of initiated process.
+
+```python
+def notify_forkchoice_updated(self: ExecutionEngine,
+                              head_block_hash: Hash32,
+                              safe_block_hash: Hash32,
+                              finalized_block_hash: Hash32,
+                              payload_attributes: Optional[PayloadAttributes]) -> Optional[PayloadId]:
+    ...
+```
+
+*Note*: The `(head_block_hash, finalized_block_hash)` values of the `notify_forkchoice_updated` function call maps on the `POS_FORKCHOICE_UPDATED` event defined in the [EIP-3675](https://eips.ethereum.org/EIPS/eip-3675#definitions).
+As per EIP-3675, before a post-transition block is finalized, `notify_forkchoice_updated` MUST be called with `finalized_block_hash = Hash32()`.
+
+*Note*: Client software MUST NOT call this function until the transition conditions are met on the PoW network, i.e. there exists a block for which `is_valid_terminal_pow_block` function returns `True`.
+
+*Note*: Client software MUST call this function to initiate the payload build process to produce the merge transition block; the `head_block_hash` parameter MUST be set to the hash of a terminal PoW block in this case.
+
+##### `safe_block_hash`
+
+The `safe_block_hash` parameter MUST be set to return value of
+[`get_safe_execution_payload_hash(store: Store)`](../../fork_choice/safe-block.md#get_safe_execution_payload_hash) function.
