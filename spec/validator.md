@@ -185,8 +185,9 @@ class SyncAggregatorSelectionData(Container):
 
 ```python
 @dataclass
-class GetPayloadResponse(object):
+class A(object):
     execution_payload: ExecutionPayload
+    block_value: uint256  # [New in Capella]
 ```
 
 ## Helpers
@@ -650,29 +651,32 @@ def prepare_execution_payload(state: BeaconState,
                               suggested_fee_recipient: ExecutionAddress,
                               execution_engine: ExecutionEngine,
                               pow_chain: Optional[Dict[Hash32, PowBlock]]=None) -> Optional[PayloadId]:
-    if not is_merge_transition_complete(state):
-        assert pow_chain is not None
-        is_terminal_block_hash_set = TERMINAL_BLOCK_HASH != Hash32()
-        is_activation_epoch_reached = get_current_epoch(state) >= TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH
-        if is_terminal_block_hash_set and not is_activation_epoch_reached:
-            # Terminal block hash is set but activation epoch is not yet reached, no prepare payload call is needed
-            return None
+    # [Modified in Capella] Removed `is_merge_transition_complete` check in Capella
+    # if not is_merge_transition_complete(state):
+    #     assert pow_chain is not None
+    #     is_terminal_block_hash_set = TERMINAL_BLOCK_HASH != Hash32()
+    #     is_activation_epoch_reached = get_current_epoch(state) >= TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH
+    #     if is_terminal_block_hash_set and not is_activation_epoch_reached:
+    #         # Terminal block hash is set but activation epoch is not yet reached, no prepare payload call is needed
+    #         return None
 
-        terminal_pow_block = get_terminal_pow_block(pow_chain)
-        if terminal_pow_block is None:
-            # Pre-merge, no prepare payload call is needed
-            return None
-        # Signify merge via producing on top of the terminal PoW block
-        parent_hash = terminal_pow_block.block_hash
-    else:
-        # Post-merge, normal payload
-        parent_hash = state.latest_execution_payload_header.block_hash
+    #     terminal_pow_block = get_terminal_pow_block(pow_chain)
+    #     if terminal_pow_block is None:
+    #         # Pre-merge, no prepare payload call is needed
+    #         return None
+    #     # Signify merge via producing on top of the terminal PoW block
+    #     parent_hash = terminal_pow_block.block_hash
+    # else:
+    #     # Post-merge, normal payload
+    #     parent_hash = state.latest_execution_payload_header.block_hash
+    parent_hash = state.latest_execution_payload_header.block_hash
 
     # Set the forkchoice head and initiate the payload build process
     payload_attributes = PayloadAttributes(
         timestamp=compute_timestamp_at_slot(state, state.slot),
         prev_randao=get_randao_mix(state, get_current_epoch(state)),
         suggested_fee_recipient=suggested_fee_recipient,
+        withdrawals=get_expected_withdrawals(state),  # [New in Capella]
     )
     return execution_engine.notify_forkchoice_updated(
         head_block_hash=parent_hash,
@@ -695,6 +699,31 @@ def get_execution_payload(payload_id: Optional[PayloadId], execution_engine: Exe
 
 *Note*: It is recommended for a validator to call `prepare_execution_payload` as soon as input parameters become known,
 and make subsequent calls to this function when any of these parameters gets updated.
+
+##### BLS to execution changes
+
+Up to `MAX_BLS_TO_EXECUTION_CHANGES`, [`BLSToExecutionChange`](./beacon-chain.md#blstoexecutionchange) objects can be included in the `block`. The BLS to execution changes must satisfy the verification conditions found in [BLS to execution change processing](./beacon-chain.md#new-process_bls_to_execution_change).
+
+### Changing from BLS to execution withdrawal credentials
+
+First, the validator must construct a valid [`BLSToExecutionChange`](./beacon-chain.md#blstoexecutionchange) `message`.
+This `message` contains the `validator_index` for the validator who wishes to change their credentials, the `from_bls_pubkey` -- the BLS public key corresponding to the **withdrawal BLS secret key** used to form the `BLS_WITHDRAWAL_PREFIX` withdrawal credential, and the `to_execution_address` specifying the execution layer address to which the validator's balances will be withdrawn.
+
+*Note*: The withdrawal key pair used to construct the `BLS_WITHDRAWAL_PREFIX` withdrawal credential should be distinct from the signing key pair used to operate the validator under typical circumstances. Consult your validator deposit tooling documentation for further details if you are not aware of the difference.
+
+*Warning*: This message can only be included on-chain once and is
+irreversible so ensure the correctness and accessibility to `to_execution_address`.
+
+Next, the validator signs the assembled `message: BLSToExecutionChange` with the **withdrawal BLS secret key** and this
+`signature` is placed into a `SignedBLSToExecutionChange` message along with the inner `BLSToExecutionChange` `message`.
+Note that the `SignedBLSToExecutionChange` message should pass all of the validations in [`process_bls_to_execution_change`](./beacon-chain.md#new-process_bls_to_execution_change).
+
+The `SignedBLSToExecutionChange` message should then be submitted to the consensus layer network. Once included on-chain,
+the withdrawal credential change takes effect. No further action is required for a validator to enter into the automated
+withdrawal process.
+
+*Note*: A node *should* prioritize locally received `BLSToExecutionChange` operations to ensure these changes make it on-chain
+through self published blocks even if the rest of the network censors.
 
 #### Packaging into a `SignedBeaconBlock`
 
@@ -1112,3 +1141,18 @@ Some early sync committee rewards may be missed while the initial subnets form.
 Validators should join their member subnet at the beginning of the epoch they have randomly selected.
 For example, if the next sync committee period starts at epoch `853,248` and the validator randomly selects an offset of `3`, they should join the subnet at the beginning of epoch `853,245`.
 Validators should leverage the lookahead period on sync committee assignments so that they can join the appropriate subnets ahead of their assigned sync committee period.
+
+## Enabling validator withdrawals
+
+Validator balances are withdrawn periodically via an automatic process. For exited validators, the full balance is withdrawn. For active validators, the balance in excess of `MAX_EFFECTIVE_BALANCE` is withdrawn.
+
+There is one prerequisite for this automated process:
+the validator's withdrawal credentials pointing to an execution layer address, i.e. having an `ETH1_ADDRESS_WITHDRAWAL_PREFIX`.
+
+If a validator has a `BLS_WITHDRAWAL_PREFIX` withdrawal credential prefix, to participate in withdrawals the validator must 
+create a one-time message to change their withdrawal credential from the version authenticated with a BLS key to the
+version compatible with the execution layer. This message -- a `BLSToExecutionChange` -- is available starting in Capella
+
+Validators who wish to enable withdrawals **MUST** assemble, sign, and broadcast this message so that it is accepted
+on the beacon chain. Validators who do not want to enable withdrawals and have the `BLS_WITHDRAWAL_PREFIX` version of
+withdrawal credentials can delay creating this message until they are ready to enable withdrawals.
