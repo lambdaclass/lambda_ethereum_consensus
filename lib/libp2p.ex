@@ -34,4 +34,17 @@ defmodule Libp2p do
   def my_function(_a, _b) do
     raise "NIF my_function not implemented"
   end
+
+  @doc """
+  Hello world.
+
+  ## Examples
+
+      iex> Libp2p.host_new()
+      :ok
+
+  """
+  def host_new() do
+    raise "NIF host_new not implemented"
+  end
 end
