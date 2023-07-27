@@ -1,14 +1,16 @@
 // NOTE: the package **must** be named main
 package main
 
+/*
+#include <stdint.h> // for uintptr_t
+*/
 import "C"
-
 import (
+	"runtime/cgo"
+
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
 )
-
-var h host.Host
 
 //export MyFunction
 func MyFunction(a, b int) int {
@@ -16,13 +18,17 @@ func MyFunction(a, b int) int {
 }
 
 //export New
-func New() int {
-	var err error
-	h, err = libp2p.New()
+func New() C.uintptr_t {
+	h, err := libp2p.New()
 	if err != nil {
-		return 1
+		return 0
 	}
-	return 0
+	return C.uintptr_t(cgo.NewHandle(h))
+}
+
+//export Close
+func (h C.uintptr_t) Close() {
+	cgo.Handle(h).Value().(host.Host).Close()
 }
 
 // NOTE: this is needed to build it as an archive (.a)

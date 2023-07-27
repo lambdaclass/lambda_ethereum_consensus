@@ -8,10 +8,10 @@ GO_ARCHIVES := $(patsubst %.go,%.a,$(GO_SOURCES))
 GO_HEADERS := $(patsubst %.go,%.h,$(GO_SOURCES))
 
 
-libp2p/%.a: libp2p/%.go
+libp2p/%.a libp2p/%.h: libp2p/%.go
 	cd libp2p; go build -buildmode=c-archive $*.go
 
-libp2p.so: libp2p/libp2p.c $(GO_ARCHIVES)
+libp2p.so: libp2p/libp2p.c $(GO_ARCHIVES) $(GO_HEADERS)
 	gcc -Wall -Werror -dynamiclib -undefined dynamic_lookup -I $(ERLANG_INCLUDES) -o libp2p.so \
 		libp2p/libp2p.c $(GO_ARCHIVES)
 

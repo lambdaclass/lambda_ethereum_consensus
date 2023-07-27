@@ -1,8 +1,5 @@
+#include "main.h"
 #include <erl_nif.h>
-
-extern int MyFunction(int a, int b);
-
-extern int New();
 
 static ERL_NIF_TERM hello(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -23,16 +20,27 @@ static ERL_NIF_TERM my_function(ErlNifEnv *env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM host_new(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
     int result = New();
-    if (result != 0)
+    if (result == 0)
     {
         return enif_make_atom(env, "error");
     }
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_uint64(env, result));
+}
+
+static ERL_NIF_TERM host_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    uintptr_t handle;
+    enif_get_uint64(env, argv[0], &handle);
+
+    Close(handle);
+
     return enif_make_atom(env, "ok");
 }
 
 static ErlNifFunc nif_funcs[] = {
     {"hello", 0, hello},
     {"my_function", 2, my_function},
+    {"host_close", 1, host_close},
     {"host_new", 0, host_new},
 };
 

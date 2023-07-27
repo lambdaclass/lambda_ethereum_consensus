@@ -23,7 +23,7 @@ defmodule Libp2p do
   end
 
   @doc """
-  Hello world.
+  Test function.
 
   ## Examples
 
@@ -36,15 +36,19 @@ defmodule Libp2p do
   end
 
   @doc """
-  Hello world.
+  Creates a new Host.
 
   ## Examples
 
       iex> Libp2p.host_new()
-      :ok
+      {:ok, 1}
 
   """
   def host_new() do
     raise "NIF host_new not implemented"
+  end
+
+  def host_close(_host) do
+    raise "NIF host_close not implemented"
   end
 end
