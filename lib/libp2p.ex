@@ -36,6 +36,13 @@ defmodule Libp2p do
   end
 
   @doc """
+  Test function that sends a message asynchronously.
+  """
+  def test_send_message() do
+    raise "NIF test_send_message not implemented"
+  end
+
+  @doc """
   Creates a new Host.
   """
   def host_new() do

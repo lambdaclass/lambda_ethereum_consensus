@@ -8,7 +8,7 @@ import "C"
 
 import (
 	"runtime/cgo"
-	"unsafe"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -19,6 +19,15 @@ import (
 //export MyFunction
 func MyFunction(a, b int) int {
 	return a + 2*b
+}
+
+//export TestSendMessage
+func TestSendMessage(proc_id C.erl_pid_t) {
+	go func() {
+		// wait for 500 ms
+		time.Sleep(500 * time.Millisecond)
+		C.go_test_send_message(proc_id)
+	}()
 }
 
 //export New
@@ -38,7 +47,7 @@ func (h C.uintptr_t) Close() {
 }
 
 //export SetStreamHandler
-func (h C.uintptr_t) SetStreamHandler(proto_id *C.char, proc_id unsafe.Pointer) {
+func (h C.uintptr_t) SetStreamHandler(proto_id *C.char, proc_id C.erl_pid_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
 	handler := func(stream network.Stream) {

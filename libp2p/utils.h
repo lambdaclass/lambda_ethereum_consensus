@@ -2,4 +2,8 @@
 
 #include <stdint.h> // for uintptr_t
 
-void send_message(void *pid, uintptr_t stream);
+typedef void *erl_pid_t;
+
+void send_message(erl_pid_t pid, uintptr_t stream);
+
+void go_test_send_message(erl_pid_t pid);

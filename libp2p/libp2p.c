@@ -22,6 +22,21 @@ ERL_FUNCTION(my_function)
     return enif_make_int(env, result);
 }
 
+ERL_FUNCTION(test_send_message)
+{
+    // TODO: This is a memory leak.
+    ErlNifPid *pid = malloc(sizeof(ErlNifPid));
+
+    if (!enif_self(env, pid))
+    {
+        return enif_make_atom(env, "error");
+    }
+
+    TestSendMessage(pid);
+
+    return enif_make_atom(env, "ok");
+}
+
 ERL_FUNCTION(host_new)
 {
     int result = New();
@@ -69,6 +84,7 @@ static ErlNifFunc nif_funcs[] = {
     {"host_new", 0, host_new},
     {"host_close", 1, host_close},
     {"host_set_stream_handler", 2, host_set_stream_handler},
+    {"test_send_message", 0, test_send_message},
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, NULL, NULL, NULL, NULL)

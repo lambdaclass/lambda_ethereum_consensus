@@ -10,6 +10,16 @@ defmodule Libp2pTest do
     assert Libp2p.my_function(5, 124) == 5 + 2 * 124
   end
 
+  test "test_send_message sends a message" do
+    :ok = Libp2p.test_send_message()
+
+    receive do
+      msg -> {:ok, 5353} = msg
+    after
+      1_000 -> :timeout
+    end
+  end
+
   test "Create and destroy host" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0
