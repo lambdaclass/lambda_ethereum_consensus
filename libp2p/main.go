@@ -28,7 +28,9 @@ func New() C.uintptr_t {
 
 //export Close
 func (h C.uintptr_t) Close() {
-	cgo.Handle(h).Value().(host.Host).Close()
+	handle := cgo.Handle(h)
+	defer handle.Delete()
+	handle.Value().(host.Host).Close()
 }
 
 // NOTE: this is needed to build it as an archive (.a)

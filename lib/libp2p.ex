@@ -37,17 +37,14 @@ defmodule Libp2p do
 
   @doc """
   Creates a new Host.
-
-  ## Examples
-
-      iex> Libp2p.host_new()
-      {:ok, 1}
-
   """
   def host_new() do
     raise "NIF host_new not implemented"
   end
 
+  @doc """
+  Deletes a Host.
+  """
   def host_close(_host) do
     raise "NIF host_close not implemented"
   end
