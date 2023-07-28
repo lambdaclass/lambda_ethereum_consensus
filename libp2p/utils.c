@@ -36,4 +36,5 @@ void go_test_send_message(erl_pid_t _pid)
     {
         enif_free_env(env);
     }
+    free(pid);
 }

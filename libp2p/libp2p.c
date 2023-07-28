@@ -24,7 +24,6 @@ ERL_FUNCTION(my_function)
 
 ERL_FUNCTION(test_send_message)
 {
-    // TODO: This is a memory leak.
     ErlNifPid *pid = malloc(sizeof(ErlNifPid));
 
     if (!enif_self(env, pid))
@@ -81,10 +80,10 @@ ERL_FUNCTION(host_set_stream_handler)
 static ErlNifFunc nif_funcs[] = {
     {"hello", 0, hello},
     {"my_function", 2, my_function},
+    {"test_send_message", 0, test_send_message},
     {"host_new", 0, host_new},
     {"host_close", 1, host_close},
     {"host_set_stream_handler", 2, host_set_stream_handler},
-    {"test_send_message", 0, test_send_message},
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, NULL, NULL, NULL, NULL)
