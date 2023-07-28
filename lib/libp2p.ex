@@ -48,4 +48,11 @@ defmodule Libp2p do
   def host_close(_host) do
     raise "NIF host_close not implemented"
   end
+
+  @doc """
+  Sets the stream handler associated to a protocol id.
+  """
+  def host_set_stream_handler(_host, _protocol_id) do
+    raise "NIF host_set_stream_handler not implemented"
+  end
 end

@@ -11,9 +11,9 @@ GO_HEADERS := $(patsubst %.go,%.h,$(GO_SOURCES))
 libp2p/%.a libp2p/%.h: libp2p/%.go
 	cd libp2p; go build -buildmode=c-archive $*.go
 
-libp2p.so: libp2p/libp2p.c $(GO_ARCHIVES) $(GO_HEADERS)
+libp2p.so: $(GO_ARCHIVES) $(GO_HEADERS) libp2p/libp2p.c libp2p/utils.c
 	gcc -Wall -Werror -dynamiclib -undefined dynamic_lookup -I $(ERLANG_INCLUDES) -o libp2p.so \
-		libp2p/libp2p.c $(GO_ARCHIVES)
+		libp2p/libp2p.c libp2p/utils.c $(GO_ARCHIVES)
 
 clean:
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) libp2p.so

@@ -1,7 +1,10 @@
 #include "main.h"
+#include "utils.h"
 #include <erl_nif.h>
 
 #define ERL_FUNCTION(FUNCTION_NAME) static ERL_NIF_TERM FUNCTION_NAME(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+
+const uint64_t PID_LENGTH = 1024;
 
 ERL_FUNCTION(hello)
 {
@@ -39,11 +42,33 @@ ERL_FUNCTION(host_close)
     return enif_make_atom(env, "ok");
 }
 
+ERL_FUNCTION(host_set_stream_handler)
+{
+    uintptr_t handle;
+    enif_get_uint64(env, argv[0], &handle);
+
+    char proto_id[PID_LENGTH];
+    enif_get_string(env, argv[1], proto_id, PID_LENGTH, ERL_NIF_UTF8);
+
+    // TODO: This is a memory leak.
+    ErlNifPid *pid = malloc(sizeof(ErlNifPid));
+
+    if (!enif_self(env, pid))
+    {
+        return enif_make_atom(env, "error");
+    }
+
+    SetStreamHandler(handle, proto_id, (void *)pid);
+
+    return enif_make_atom(env, "ok");
+}
+
 static ErlNifFunc nif_funcs[] = {
     {"hello", 0, hello},
     {"my_function", 2, my_function},
     {"host_new", 0, host_new},
     {"host_close", 1, host_close},
+    {"host_set_stream_handler", 2, host_set_stream_handler},
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, NULL, NULL, NULL, NULL)

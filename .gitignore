@@ -41,3 +41,5 @@ lambda_ethereum_consensus-*.tar
 
 # VSCode configuration dir.
 .vscode/
+
+!libp2p/utils.h
