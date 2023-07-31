@@ -51,7 +51,7 @@ ERL_FUNCTION(host_close)
     uintptr_t handle;
     enif_get_uint64(env, argv[0], &handle);
 
-    Close(handle);
+    HostClose(handle);
 
     return enif_make_atom(env, "ok");
 }

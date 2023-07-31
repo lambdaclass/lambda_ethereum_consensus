@@ -2,13 +2,16 @@
 package main
 
 /*
+#include <string.h>
 #include "utils.h"
 */
 import "C"
 
 import (
+	"context"
 	"runtime/cgo"
 	"time"
+	"unsafe"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -64,8 +67,8 @@ func New(len uint, options *C.uintptr_t) C.uintptr_t {
 	return C.uintptr_t(cgo.NewHandle(h))
 }
 
-//export Close
-func (h C.uintptr_t) Close() {
+//export HostClose
+func (h C.uintptr_t) HostClose() {
 	handle := cgo.Handle(h)
 	defer handle.Delete()
 	handle.Value().(host.Host).Close()
@@ -88,6 +91,17 @@ func (h C.uintptr_t) Peerstore() C.uintptr_t {
 	return C.uintptr_t(cgo.NewHandle(host.Peerstore()))
 }
 
+//export NewStream
+func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId *C.char) C.uintptr_t {
+	host := cgo.Handle(h).Value().(host.Host)
+	peerId := cgo.Handle(pid).Value().(peer.ID)
+	stream, err := host.NewStream(context.TODO(), peerId, protocol.ID(C.GoString(protoId)))
+	if err != nil {
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(stream))
+}
+
 /*********************/
 /* Peerstore methods */
 /*********************/
@@ -98,6 +112,41 @@ func (ps C.uintptr_t) AddAddrs(id, addrs C.uintptr_t, ttl uint64) {
 	idv := cgo.Handle(id).Value().(peer.ID)
 	addrsv := cgo.Handle(addrs).Value().([]multiaddr.Multiaddr)
 	psv.AddAddrs(idv, addrsv, time.Duration(ttl))
+}
+
+/******************/
+/* Stream methods */
+/******************/
+
+//export Read
+func (s C.uintptr_t) Read(len uint, buffer *C.char) int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	goBuffer := make([]byte, len)
+	n, err := stream.Read(goBuffer)
+	C.memcpy(unsafe.Pointer(buffer), unsafe.Pointer(&goBuffer[0]), C.size_t(n))
+	if err != nil {
+		return -1
+	}
+	return n
+}
+
+//export Write
+func (s C.uintptr_t) Write(len uint, buffer *C.char) int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	goBuffer := C.GoBytes(unsafe.Pointer(buffer), C.int(len))
+	n, err := stream.Write(goBuffer)
+	if err != nil {
+		return -1
+	}
+	return n
+}
+
+//export StreamClose
+func (s C.uintptr_t) StreamClose() {
+	handle := cgo.Handle(s)
+	defer handle.Delete()
+	stream := handle.Value().(network.Stream)
+	stream.Close()
 }
 
 // NOTE: this is needed to build it as an archive (.a)
