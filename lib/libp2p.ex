@@ -109,4 +109,25 @@ defmodule Libp2p do
   def peerstore_add_addrs(_peerstore, _peer_id, _addrs, _ttl) do
     raise "NIF peerstore_add_addrs not implemented"
   end
+
+  @doc """
+  Reads bytes from the stream (up to a predefined maximum).
+  """
+  def stream_read(_stream) do
+    raise "NIF stream_read not implemented"
+  end
+
+  @doc """
+  Writes data into the stream.
+  """
+  def stream_write(_stream, _data) do
+    raise "NIF stream_write not implemented"
+  end
+
+  @doc """
+  Closes the stream.
+  """
+  def stream_close(_stream) do
+    raise "NIF stream_close not implemented"
+  end
 end

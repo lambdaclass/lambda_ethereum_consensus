@@ -11,7 +11,6 @@ import (
 	"context"
 	"runtime/cgo"
 	"time"
-	"unsafe"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -140,11 +139,9 @@ func (ps C.uintptr_t) AddAddrs(id, addrs C.uintptr_t, ttl uint64) {
 /******************/
 
 //export StreamRead
-func (s C.uintptr_t) StreamRead(len uint, buffer *C.char) int {
+func (s C.uintptr_t) StreamRead(buffer []byte) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
-	goBuffer := make([]byte, len)
-	n, err := stream.Read(goBuffer)
-	C.memcpy(unsafe.Pointer(buffer), unsafe.Pointer(&goBuffer[0]), C.size_t(n))
+	n, err := stream.Read(buffer)
 	if err != nil {
 		return -1
 	}
@@ -152,10 +149,9 @@ func (s C.uintptr_t) StreamRead(len uint, buffer *C.char) int {
 }
 
 //export StreamWrite
-func (s C.uintptr_t) StreamWrite(len uint, buffer *C.char) int {
+func (s C.uintptr_t) StreamWrite(data []byte) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
-	goBuffer := C.GoBytes(unsafe.Pointer(buffer), C.int(len))
-	n, err := stream.Write(goBuffer)
+	n, err := stream.Write(data)
 	if err != nil {
 		return -1
 	}

@@ -162,11 +162,47 @@ ERL_FUNCTION(peerstore_add_addrs)
     return enif_make_atom(env, "nil");
 }
 
-/* Functions left to port
-- StreamRead
-- StreamWrite
-- StreamClose
-*/
+/******************/
+/* Stream methods */
+/******************/
+
+ERL_FUNCTION(stream_read)
+{
+    uintptr_t stream = get_handle_from_term(env, argv[0]);
+
+    uint64_t len = 4096;
+
+    char buffer[len];
+    GoSlice go_buffer = {buffer, len, len};
+
+    uint64_t read = StreamRead(stream, go_buffer);
+
+    return get_handle_result(env, read);
+}
+
+ERL_FUNCTION(stream_write)
+{
+    uintptr_t stream = get_handle_from_term(env, argv[0]);
+
+    uint32_t len;
+    enif_get_string_length(env, argv[1], &len, ERL_NIF_UTF8);
+    char data[len];
+    enif_get_string(env, argv[1], data, len, ERL_NIF_UTF8);
+    GoSlice go_data = {data, len, len};
+
+    uint64_t read = StreamWrite(stream, go_data);
+
+    return get_handle_result(env, read);
+}
+
+ERL_FUNCTION(stream_close)
+{
+    uintptr_t stream = get_handle_from_term(env, argv[0]);
+
+    StreamClose(stream);
+
+    return enif_make_atom(env, "nil");
+}
 
 static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(hello, 0),
@@ -181,6 +217,9 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(host_id, 1),
     NIF_ENTRY(host_addrs, 1),
     NIF_ENTRY(peerstore_add_addrs, 4),
+    NIF_ENTRY(stream_read, 1),
+    NIF_ENTRY(stream_write, 2),
+    NIF_ENTRY(stream_close, 1),
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, NULL, NULL, NULL, NULL)
