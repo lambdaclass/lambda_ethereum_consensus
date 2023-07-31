@@ -46,40 +46,6 @@ static ERL_NIF_TERM make_error_msg(ErlNifEnv *env, const char *msg)
 }
 
 /*********/
-/* Tests */
-/*********/
-
-ERL_FUNCTION(hello)
-{
-    return enif_make_atom(env, "world");
-}
-
-ERL_FUNCTION(my_function)
-{
-    int a, b;
-    enif_get_int(env, argv[0], &a);
-    enif_get_int(env, argv[1], &b);
-
-    int result = MyFunction(a, b);
-
-    return enif_make_int(env, result);
-}
-
-ERL_FUNCTION(test_send_message)
-{
-    ErlNifPid *pid = malloc(sizeof(ErlNifPid));
-
-    if (!enif_self(env, pid))
-    {
-        return make_error_msg(env, "failed to get pid");
-    }
-
-    TestSendMessage(pid);
-
-    return enif_make_atom(env, "ok");
-}
-
-/*********/
 /* Utils */
 /*********/
 
@@ -225,9 +191,6 @@ ERL_FUNCTION(stream_close)
 }
 
 static ErlNifFunc nif_funcs[] = {
-    NIF_ENTRY(hello, 0),
-    NIF_ENTRY(my_function, 2),
-    NIF_ENTRY(test_send_message, 0),
     NIF_ENTRY(listen_addr_strings, 1),
     NIF_ENTRY(host_new, 0),
     NIF_ENTRY(host_close, 1),

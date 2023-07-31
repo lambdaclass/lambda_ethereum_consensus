@@ -36,24 +36,6 @@ func callGetter[T any, R any](h C.uintptr_t, g func(T) R) C.uintptr_t {
 }
 
 /*********/
-/* Tests */
-/*********/
-
-//export MyFunction
-func MyFunction(a, b int) int {
-	return a + 2*b
-}
-
-//export TestSendMessage
-func TestSendMessage(procId C.erl_pid_t) {
-	go func() {
-		// wait for 500 ms
-		time.Sleep(500 * time.Millisecond)
-		C.go_test_send_message(procId)
-	}()
-}
-
-/*********/
 /* Utils */
 /*********/
 

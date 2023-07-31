@@ -10,39 +10,6 @@ defmodule Libp2p do
   end
 
   @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> Libp2p.hello()
-      :world
-
-  """
-  def hello do
-    raise "NIF hello not implemented"
-  end
-
-  @doc """
-  Test function.
-
-  ## Examples
-
-      iex> Libp2p.my_function(2, 3)
-      8
-
-  """
-  def my_function(_a, _b) do
-    raise "NIF my_function not implemented"
-  end
-
-  @doc """
-  Test function that sends a message asynchronously.
-  """
-  def test_send_message() do
-    raise "NIF test_send_message not implemented"
-  end
-
-  @doc """
   Creates a new Host.
   """
   def host_new() do
