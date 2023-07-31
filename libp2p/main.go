@@ -43,6 +43,16 @@ func TestSendMessage(procId C.erl_pid_t) {
 	}()
 }
 
+/***********/
+/* Helpers */
+/***********/
+
+func callGetter[T any, R any](h C.uintptr_t, g func(T) R) C.uintptr_t {
+	recver := cgo.Handle(h).Value().(T)
+	prop := g(recver)
+	return C.uintptr_t(cgo.NewHandle(prop))
+}
+
 /*********/
 /* Utils */
 /*********/
@@ -87,8 +97,17 @@ func (h C.uintptr_t) SetStreamHandler(protoId *C.char, procId C.erl_pid_t) {
 
 //export Peerstore
 func (h C.uintptr_t) Peerstore() C.uintptr_t {
-	host := cgo.Handle(h).Value().(host.Host)
-	return C.uintptr_t(cgo.NewHandle(host.Peerstore()))
+	return callGetter(h, host.Host.Peerstore)
+}
+
+//export ID
+func (h C.uintptr_t) ID() C.uintptr_t {
+	return callGetter(h, host.Host.ID)
+}
+
+//export Addrs
+func (h C.uintptr_t) Addrs() C.uintptr_t {
+	return callGetter(h, host.Host.Addrs)
 }
 
 //export NewStream
