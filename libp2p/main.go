@@ -153,8 +153,7 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 func (s C.uintptr_t) StreamClose() {
 	handle := cgo.Handle(s)
 	defer handle.Delete()
-	stream := handle.Value().(network.Stream)
-	stream.Close()
+	handle.Value().(network.Stream).Close()
 }
 
 // NOTE: this is needed to build it as an archive (.a)

@@ -29,12 +29,7 @@ defmodule Libp2pTest do
     {:ok, id} = Libp2p.host_id(recver)
     {:ok, addrs} = Libp2p.host_addrs(recver)
 
-    Libp2p.peerstore_add_addrs(
-      peerstore,
-      id,
-      addrs,
-      2_512_512
-    )
+    Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
 
     # (sender) Create stream sender -> recver
     {:ok, send} = Libp2p.host_new_stream(sender, id, ~c"/pong")

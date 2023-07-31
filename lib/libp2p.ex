@@ -10,6 +10,11 @@ defmodule Libp2p do
   end
 
   @doc """
+  The ttl for a "permanent address" (e.g. bootstrap nodes).
+  """
+  def ttl_permanent_addr, do: 2 ** 63 - 1
+
+  @doc """
   Creates a new Host.
   """
   def host_new() do

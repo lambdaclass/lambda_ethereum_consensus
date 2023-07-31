@@ -4,13 +4,16 @@
 
 #define ERL_FUNCTION(FUNCTION_NAME) static ERL_NIF_TERM FUNCTION_NAME(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
-#define ERL_FUNCTION_GETTER(NAME, GETTER)                    \
-    ERL_FUNCTION(NAME)                                       \
-    {                                                        \
-        uintptr_t host = get_handle_from_term(env, argv[0]); \
-        uintptr_t host_id = GETTER(host);                    \
-        return get_handle_result(env, host_id);              \
+#define ERL_FUNCTION_GETTER(NAME, GETTER)                       \
+    ERL_FUNCTION(NAME)                                          \
+    {                                                           \
+        uintptr_t _handle = get_handle_from_term(env, argv[0]); \
+        uintptr_t _res = GETTER(_handle);                       \
+        return get_handle_result(env, _res);                    \
     }
+
+#define ERL_CONSTANT_UINT(NAME, VALUE) \
+    ERL_FUNCTION(NAME) { return enif_make_uint64(env, (VALUE)); }
 
 #define NIF_ENTRY(FUNCTION_NAME, ARITY)      \
     {                                        \
@@ -31,18 +34,23 @@ static uintptr_t get_handle_from_term(ErlNifEnv *env, ERL_NIF_TERM term)
     return handle;
 }
 
+static ERL_NIF_TERM make_error_msg(ErlNifEnv *env, const char *msg)
+{
+    return enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_string(env, msg, ERL_NIF_UTF8));
+}
+
+static ERL_NIF_TERM make_ok_tuple2(ErlNifEnv *env, ERL_NIF_TERM term)
+{
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), term);
+}
+
 static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, uintptr_t handle)
 {
     if (handle == 0)
     {
-        return enif_make_atom(env, "error");
+        return make_error_msg(env, "invalid handle returned");
     }
-    return enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_uint64(env, handle));
-}
-
-static ERL_NIF_TERM make_error_msg(ErlNifEnv *env, const char *msg)
-{
-    return enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_string(env, msg, ERL_NIF_UTF8));
+    return make_ok_tuple2(env, enif_make_uint64(env, handle));
 }
 
 /*********/
@@ -51,16 +59,18 @@ static ERL_NIF_TERM make_error_msg(ErlNifEnv *env, const char *msg)
 
 ERL_FUNCTION(listen_addr_strings)
 {
-    uint32_t len;
-    enif_get_string_length(env, argv[0], &len, ERL_NIF_UTF8);
-    char addr_string[len];
-    enif_get_string(env, argv[0], addr_string, len, ERL_NIF_UTF8);
+    char addr_string[PID_LENGTH];
+    uint64_t len = enif_get_string(env, argv[0], addr_string, PID_LENGTH, ERL_NIF_UTF8);
+    if (len <= 0)
+    {
+        return make_error_msg(env, "invalid string");
+    }
 
-    GoString go_listenAddr = {addr_string, len};
+    GoString go_listenAddr = {addr_string, len - 1};
 
-    ListenAddrStrings(go_listenAddr);
+    uintptr_t handle = ListenAddrStrings(go_listenAddr);
 
-    return enif_make_atom(env, "nil");
+    return get_handle_result(env, handle);
 }
 
 /****************/
@@ -69,6 +79,7 @@ ERL_FUNCTION(listen_addr_strings)
 
 ERL_FUNCTION(host_new)
 {
+    // TODO: add option passing
     uintptr_t result = New(0, NULL);
     return get_handle_result(env, result);
 }
@@ -153,10 +164,7 @@ ERL_FUNCTION(stream_read)
     {
         return make_error_msg(env, "failed to read");
     }
-
-    ERL_NIF_TERM msg = enif_make_string_len(env, buffer, read, ERL_NIF_UTF8);
-
-    return enif_make_tuple2(env, enif_make_atom(env, "ok"), msg);
+    return make_ok_tuple2(env, enif_make_string_len(env, buffer, read, ERL_NIF_UTF8));
 }
 
 ERL_FUNCTION(stream_write)
@@ -165,6 +173,7 @@ ERL_FUNCTION(stream_write)
 
     char data[BUFFER_SIZE];
     uint64_t len = enif_get_string(env, argv[1], data, BUFFER_SIZE, ERL_NIF_UTF8);
+
     if (len <= 0)
     {
         return make_error_msg(env, "invalid string");
@@ -177,16 +186,12 @@ ERL_FUNCTION(stream_write)
     {
         return make_error_msg(env, "failed to write");
     }
-
-    return enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_uint64(env, written));
+    return make_ok_tuple2(env, enif_make_uint64(env, written));
 }
 
 ERL_FUNCTION(stream_close)
 {
-    uintptr_t stream = get_handle_from_term(env, argv[0]);
-
-    StreamClose(stream);
-
+    StreamClose(get_handle_from_term(env, argv[0]));
     return enif_make_atom(env, "nil");
 }
 
