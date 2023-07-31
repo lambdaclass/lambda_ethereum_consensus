@@ -32,4 +32,16 @@ defmodule Libp2pTest do
     :ok = Libp2p.host_set_stream_handler(host, "/my-app/amazing-protocol/1.0.1")
     :ok = Libp2p.host_close(host)
   end
+
+  test "Start two hosts, and play one round of ping-pong" do
+    # Setup sender
+    {:ok, sender} = Libp2p.host_new()
+    # Setup receiver
+    {:ok, recver} = Libp2p.host_new()
+
+    :ok = Libp2p.host_set_stream_handler(recver, "/pong")
+
+    :ok = Libp2p.host_close(host1)
+    :ok = Libp2p.host_close(host2)
+  end
 end

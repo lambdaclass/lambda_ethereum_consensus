@@ -38,7 +38,7 @@ ERL_FUNCTION(test_send_message)
 
 ERL_FUNCTION(host_new)
 {
-    int result = New();
+    int result = New(0, NULL);
     if (result == 0)
     {
         return enif_make_atom(env, "error");
