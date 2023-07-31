@@ -18,6 +18,7 @@
     }
 
 const uint64_t PID_LENGTH = 1024;
+const uint64_t BUFFER_SIZE = 4096;
 
 /***********/
 /* Helpers */
@@ -37,6 +38,11 @@ static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, uintptr_t handle)
         return enif_make_atom(env, "error");
     }
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_uint64(env, handle));
+}
+
+static ERL_NIF_TERM make_error_msg(ErlNifEnv *env, const char *msg)
+{
+    return enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_string(env, msg, ERL_NIF_UTF8));
 }
 
 /*********/
@@ -65,7 +71,7 @@ ERL_FUNCTION(test_send_message)
 
     if (!enif_self(env, pid))
     {
-        return enif_make_atom(env, "error");
+        return make_error_msg(env, "failed to get pid");
     }
 
     TestSendMessage(pid);
@@ -115,6 +121,7 @@ ERL_FUNCTION(host_set_stream_handler)
     uintptr_t handle = get_handle_from_term(env, argv[0]);
 
     char proto_id[PID_LENGTH];
+    // TODO: use GoString
     enif_get_string(env, argv[1], proto_id, PID_LENGTH, ERL_NIF_UTF8);
 
     // TODO: This is a memory leak.
@@ -122,7 +129,7 @@ ERL_FUNCTION(host_set_stream_handler)
 
     if (!enif_self(env, pid))
     {
-        return enif_make_atom(env, "error");
+        return make_error_msg(env, "failed to get pid");
     }
 
     SetStreamHandler(handle, proto_id, (void *)pid);
@@ -136,6 +143,7 @@ ERL_FUNCTION(host_new_stream)
     uintptr_t id = get_handle_from_term(env, argv[1]);
 
     char proto_id[PID_LENGTH];
+    // TODO: use GoString
     enif_get_string(env, argv[1], proto_id, PID_LENGTH, ERL_NIF_UTF8);
 
     int result = NewStream(handle, id, proto_id);
@@ -170,29 +178,41 @@ ERL_FUNCTION(stream_read)
 {
     uintptr_t stream = get_handle_from_term(env, argv[0]);
 
-    uint64_t len = 4096;
-
-    char buffer[len];
-    GoSlice go_buffer = {buffer, len, len};
+    char buffer[BUFFER_SIZE];
+    GoSlice go_buffer = {buffer, BUFFER_SIZE, BUFFER_SIZE};
 
     uint64_t read = StreamRead(stream, go_buffer);
 
-    return get_handle_result(env, read);
+    if (read == -1)
+    {
+        return make_error_msg(env, "failed to read");
+    }
+
+    ERL_NIF_TERM msg = enif_make_string_len(env, buffer, read, ERL_NIF_UTF8);
+
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), msg);
 }
 
 ERL_FUNCTION(stream_write)
 {
     uintptr_t stream = get_handle_from_term(env, argv[0]);
 
-    uint32_t len;
-    enif_get_string_length(env, argv[1], &len, ERL_NIF_UTF8);
-    char data[len];
-    enif_get_string(env, argv[1], data, len, ERL_NIF_UTF8);
-    GoSlice go_data = {data, len, len};
+    char data[BUFFER_SIZE];
+    uint64_t len = enif_get_string(env, argv[1], data, BUFFER_SIZE, ERL_NIF_UTF8);
+    if (len <= 0)
+    {
+        return make_error_msg(env, "invalid string");
+    }
+    GoSlice go_data = {data, len - 1, len - 1};
 
-    uint64_t read = StreamWrite(stream, go_data);
+    uint64_t written = StreamWrite(stream, go_data);
 
-    return get_handle_result(env, read);
+    if (written == -1)
+    {
+        return make_error_msg(env, "failed to write");
+    }
+
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_uint64(env, written));
 }
 
 ERL_FUNCTION(stream_close)

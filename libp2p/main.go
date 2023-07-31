@@ -9,6 +9,7 @@ import "C"
 
 import (
 	"context"
+	"fmt"
 	"runtime/cgo"
 	"time"
 
@@ -72,6 +73,8 @@ func New(len uint, options *C.uintptr_t) C.uintptr_t {
 	// TODO: pass options
 	h, err := libp2p.New()
 	if err != nil {
+		// TODO: handle in better way
+		fmt.Println(err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(h))
@@ -102,6 +105,8 @@ func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId *C.char) C.uintptr_t {
 	// TODO: revisit context.TODO() and add multi-protocol support
 	stream, err := host.NewStream(context.TODO(), peerId, protocol.ID(C.GoString(protoId)))
 	if err != nil {
+		// TODO: handle in better way
+		fmt.Println(err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(stream))
@@ -143,6 +148,8 @@ func (s C.uintptr_t) StreamRead(buffer []byte) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	n, err := stream.Read(buffer)
 	if err != nil {
+		// TODO: handle in better way
+		fmt.Println(err)
 		return -1
 	}
 	return n
@@ -153,6 +160,8 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	n, err := stream.Write(data)
 	if err != nil {
+		// TODO: handle in better way
+		fmt.Println(err)
 		return -1
 	}
 	return n

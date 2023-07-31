@@ -55,10 +55,10 @@ defmodule Libp2pTest do
     )
 
     # (sender) Create stream sender -> recver
-    {:ok, send} = Libp2p.host_new_stream(sender, id, "/pong")
+    {:ok, send} = Libp2p.host_new_stream(sender, id, ~c"/pong")
 
     # (sender) Write "ping" to stream
-    {:ok, 4} = Libp2p.stream_write(send, "ping")
+    {:ok, 4} = Libp2p.stream_write(send, ~c"ping")
 
     # (recver) Receive the stream via the configured stream handler
     {:ok, recv} =
@@ -69,13 +69,13 @@ defmodule Libp2pTest do
       end
 
     # (recver) Read the "ping" message from the stream
-    {:ok, "ping"} = Libp2p.stream_read(recv)
+    {:ok, ~c"ping"} = Libp2p.stream_read(recv)
 
     # (recver) Write "pong" to the stream
-    {:ok, 4} = Libp2p.stream_write(recv, "pong")
+    {:ok, 4} = Libp2p.stream_write(recv, ~c"pong")
 
     # (sender) Read the "pong" message from the stream
-    {:ok, "pong"} = Libp2p.stream_read(send)
+    {:ok, ~c"pong"} = Libp2p.stream_read(send)
 
     # Close both streams
     Libp2p.stream_close(send)
