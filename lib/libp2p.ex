@@ -112,13 +112,17 @@ defmodule Libp2p do
 
   @doc """
   Reads bytes from the stream (up to a predefined maximum).
+  Note that the data is returned as a charlist.
+  TODO: return a binary.
   """
   def stream_read(_stream) do
     raise "NIF stream_read not implemented"
   end
 
   @doc """
-  Writes data into the stream.
+  Writes data into the stream. Note that the data must be
+  a charlist.
+  TODO: make it work with binaries.
   """
   def stream_write(_stream, _data) do
     raise "NIF stream_write not implemented"
