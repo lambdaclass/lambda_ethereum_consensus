@@ -97,7 +97,7 @@ ERL_FUNCTION(listen_addr_strings)
 
 ERL_FUNCTION(host_new)
 {
-    int result = New(0, NULL);
+    uintptr_t result = New(0, NULL);
     return get_handle_result(env, result);
 }
 
@@ -130,12 +130,23 @@ ERL_FUNCTION(host_set_stream_handler)
     return enif_make_atom(env, "ok");
 }
 
+ERL_FUNCTION(host_new_stream)
+{
+    uintptr_t handle = get_handle_from_term(env, argv[0]);
+    uintptr_t id = get_handle_from_term(env, argv[1]);
+
+    char proto_id[PID_LENGTH];
+    enif_get_string(env, argv[1], proto_id, PID_LENGTH, ERL_NIF_UTF8);
+
+    int result = NewStream(handle, id, proto_id);
+    return get_handle_result(env, result);
+}
+
 ERL_FUNCTION_GETTER(host_peerstore, Peerstore)
 ERL_FUNCTION_GETTER(host_id, ID)
 ERL_FUNCTION_GETTER(host_addrs, Addrs)
 
 /* Functions left to port
-- NewStream
 - AddAddrs
 - StreamRead
 - StreamWrite
@@ -150,6 +161,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(host_new, 0),
     NIF_ENTRY(host_close, 1),
     NIF_ENTRY(host_set_stream_handler, 2),
+    NIF_ENTRY(host_new_stream, 3),
     NIF_ENTRY(host_peerstore, 1),
     NIF_ENTRY(host_id, 1),
     NIF_ENTRY(host_addrs, 1),

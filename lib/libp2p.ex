@@ -74,6 +74,14 @@ defmodule Libp2p do
   end
 
   @doc """
+  host_new_stream creates a new `Stream` connected to the
+  peer with the given id, using the protocol with given id.
+  """
+  def host_new_stream(_host, _peer_id, _protocol_id) do
+    raise "NIF host_new_stream not implemented"
+  end
+
+  @doc """
   host_peerstore gets the `Peerstore` of the given `Host`.
   """
   def host_peerstore(_host) do

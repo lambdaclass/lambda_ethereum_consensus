@@ -96,6 +96,18 @@ func (h C.uintptr_t) SetStreamHandler(protoId *C.char, procId C.erl_pid_t) {
 	host.SetStreamHandler(protocol.ID(C.GoString(protoId)), handler)
 }
 
+//export NewStream
+func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId *C.char) C.uintptr_t {
+	host := cgo.Handle(h).Value().(host.Host)
+	peerId := cgo.Handle(pid).Value().(peer.ID)
+	// TODO: revisit context.TODO() and add multi-protocol support
+	stream, err := host.NewStream(context.TODO(), peerId, protocol.ID(C.GoString(protoId)))
+	if err != nil {
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(stream))
+}
+
 //export Peerstore
 func (h C.uintptr_t) Peerstore() C.uintptr_t {
 	return callGetter(h, host.Host.Peerstore)
@@ -109,17 +121,6 @@ func (h C.uintptr_t) ID() C.uintptr_t {
 //export Addrs
 func (h C.uintptr_t) Addrs() C.uintptr_t {
 	return callGetter(h, host.Host.Addrs)
-}
-
-//export NewStream
-func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId *C.char) C.uintptr_t {
-	host := cgo.Handle(h).Value().(host.Host)
-	peerId := cgo.Handle(pid).Value().(peer.ID)
-	stream, err := host.NewStream(context.TODO(), peerId, protocol.ID(C.GoString(protoId)))
-	if err != nil {
-		return 0
-	}
-	return C.uintptr_t(cgo.NewHandle(stream))
 }
 
 /*********************/
