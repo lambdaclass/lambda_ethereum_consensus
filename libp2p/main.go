@@ -25,6 +25,16 @@ import (
 //export PermanentAddrTTL
 const PermanentAddrTTL = peerstore.PermanentAddrTTL
 
+/***********/
+/* Helpers */
+/***********/
+
+func callGetter[T any, R any](h C.uintptr_t, g func(T) R) C.uintptr_t {
+	recver := cgo.Handle(h).Value().(T)
+	prop := g(recver)
+	return C.uintptr_t(cgo.NewHandle(prop))
+}
+
 /*********/
 /* Tests */
 /*********/
@@ -43,23 +53,14 @@ func TestSendMessage(procId C.erl_pid_t) {
 	}()
 }
 
-/***********/
-/* Helpers */
-/***********/
-
-func callGetter[T any, R any](h C.uintptr_t, g func(T) R) C.uintptr_t {
-	recver := cgo.Handle(h).Value().(T)
-	prop := g(recver)
-	return C.uintptr_t(cgo.NewHandle(prop))
-}
-
 /*********/
 /* Utils */
 /*********/
 
 //export ListenAddrStrings
-func ListenAddrStrings(listenAddr *C.char) C.uintptr_t {
-	addr := libp2p.ListenAddrStrings(C.GoString(listenAddr))
+func ListenAddrStrings(listenAddr string) C.uintptr_t {
+	// TODO: this function is variadic
+	addr := libp2p.ListenAddrStrings(listenAddr)
 	return C.uintptr_t(cgo.NewHandle(addr))
 }
 
@@ -137,8 +138,8 @@ func (ps C.uintptr_t) AddAddrs(id, addrs C.uintptr_t, ttl uint64) {
 /* Stream methods */
 /******************/
 
-//export Read
-func (s C.uintptr_t) Read(len uint, buffer *C.char) int {
+//export StreamRead
+func (s C.uintptr_t) StreamRead(len uint, buffer *C.char) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	goBuffer := make([]byte, len)
 	n, err := stream.Read(goBuffer)
@@ -149,8 +150,8 @@ func (s C.uintptr_t) Read(len uint, buffer *C.char) int {
 	return n
 }
 
-//export Write
-func (s C.uintptr_t) Write(len uint, buffer *C.char) int {
+//export StreamWrite
+func (s C.uintptr_t) StreamWrite(len uint, buffer *C.char) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	goBuffer := C.GoBytes(unsafe.Pointer(buffer), C.int(len))
 	n, err := stream.Write(goBuffer)

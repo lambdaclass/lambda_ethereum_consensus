@@ -62,4 +62,35 @@ defmodule Libp2p do
   def host_set_stream_handler(_host, _protocol_id) do
     raise "NIF host_set_stream_handler not implemented"
   end
+
+  @doc """
+  `listen_addr_strings` configures libp2p to listen on the
+  given (unparsed) addresses.
+  Returns an `Option` that can be passed to `host_new`
+  as an argument.
+  """
+  def listen_addr_strings(_addr) do
+    raise "NIF listen_addr_strings not implemented"
+  end
+
+  @doc """
+  host_peerstore gets the `Peerstore` of the given `Host`.
+  """
+  def host_peerstore(_host) do
+    raise "NIF host_peerstore not implemented"
+  end
+
+  @doc """
+  host_id gets the `ID` of the given `Host`.
+  """
+  def host_id(_host) do
+    raise "NIF host_id not implemented"
+  end
+
+  @doc """
+  host_id gets the addresses of the given `Host`.
+  """
+  def host_addrs(_host) do
+    raise "NIF host_addrs not implemented"
+  end
 end

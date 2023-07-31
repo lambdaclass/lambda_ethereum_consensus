@@ -4,7 +4,44 @@
 
 #define ERL_FUNCTION(FUNCTION_NAME) static ERL_NIF_TERM FUNCTION_NAME(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
+#define ERL_FUNCTION_GETTER(NAME, GETTER)                    \
+    ERL_FUNCTION(NAME)                                       \
+    {                                                        \
+        uintptr_t host = get_handle_from_term(env, argv[0]); \
+        uintptr_t host_id = GETTER(host);                    \
+        return get_handle_result(env, host_id);              \
+    }
+
+#define NIF_ENTRY(FUNCTION_NAME, ARITY)      \
+    {                                        \
+        #FUNCTION_NAME, ARITY, FUNCTION_NAME \
+    }
+
 const uint64_t PID_LENGTH = 1024;
+
+/***********/
+/* Helpers */
+/***********/
+
+static uintptr_t get_handle_from_term(ErlNifEnv *env, ERL_NIF_TERM term)
+{
+    uintptr_t handle;
+    enif_get_uint64(env, term, &handle);
+    return handle;
+}
+
+static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, uintptr_t handle)
+{
+    if (handle == 0)
+    {
+        return enif_make_atom(env, "error");
+    }
+    return enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_uint64(env, handle));
+}
+
+/*********/
+/* Tests */
+/*********/
 
 ERL_FUNCTION(hello)
 {
@@ -36,20 +73,37 @@ ERL_FUNCTION(test_send_message)
     return enif_make_atom(env, "ok");
 }
 
+/*********/
+/* Utils */
+/*********/
+
+ERL_FUNCTION(listen_addr_strings)
+{
+    uint32_t len;
+    enif_get_string_length(env, argv[0], &len, ERL_NIF_UTF8);
+    char addr_string[len];
+    enif_get_string(env, argv[0], addr_string, len, ERL_NIF_UTF8);
+
+    GoString go_listenAddr = {addr_string, len};
+
+    ListenAddrStrings(go_listenAddr);
+
+    return enif_make_atom(env, "ok");
+}
+
+/****************/
+/* Host methods */
+/****************/
+
 ERL_FUNCTION(host_new)
 {
     int result = New(0, NULL);
-    if (result == 0)
-    {
-        return enif_make_atom(env, "error");
-    }
-    return enif_make_tuple2(env, enif_make_atom(env, "ok"), enif_make_uint64(env, result));
+    return get_handle_result(env, result);
 }
 
 ERL_FUNCTION(host_close)
 {
-    uintptr_t handle;
-    enif_get_uint64(env, argv[0], &handle);
+    uintptr_t handle = get_handle_from_term(env, argv[0]);
 
     HostClose(handle);
 
@@ -58,8 +112,7 @@ ERL_FUNCTION(host_close)
 
 ERL_FUNCTION(host_set_stream_handler)
 {
-    uintptr_t handle;
-    enif_get_uint64(env, argv[0], &handle);
+    uintptr_t handle = get_handle_from_term(env, argv[0]);
 
     char proto_id[PID_LENGTH];
     enif_get_string(env, argv[1], proto_id, PID_LENGTH, ERL_NIF_UTF8);
@@ -77,13 +130,29 @@ ERL_FUNCTION(host_set_stream_handler)
     return enif_make_atom(env, "ok");
 }
 
+ERL_FUNCTION_GETTER(host_peerstore, Peerstore)
+ERL_FUNCTION_GETTER(host_id, ID)
+ERL_FUNCTION_GETTER(host_addrs, Addrs)
+
+/* Functions left to port
+- NewStream
+- AddAddrs
+- StreamRead
+- StreamWrite
+- StreamClose
+*/
+
 static ErlNifFunc nif_funcs[] = {
-    {"hello", 0, hello},
-    {"my_function", 2, my_function},
-    {"test_send_message", 0, test_send_message},
-    {"host_new", 0, host_new},
-    {"host_close", 1, host_close},
-    {"host_set_stream_handler", 2, host_set_stream_handler},
+    NIF_ENTRY(hello, 0),
+    NIF_ENTRY(my_function, 2),
+    NIF_ENTRY(test_send_message, 0),
+    NIF_ENTRY(listen_addr_strings, 1),
+    NIF_ENTRY(host_new, 0),
+    NIF_ENTRY(host_close, 1),
+    NIF_ENTRY(host_set_stream_handler, 2),
+    NIF_ENTRY(host_peerstore, 1),
+    NIF_ENTRY(host_id, 1),
+    NIF_ENTRY(host_addrs, 1),
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, NULL, NULL, NULL, NULL)
