@@ -12,9 +12,6 @@
         return get_handle_result(env, _res);                    \
     }
 
-#define ERL_CONSTANT_UINT(NAME, VALUE) \
-    ERL_FUNCTION(NAME) { return enif_make_uint64(env, (VALUE)); }
-
 #define NIF_ENTRY(FUNCTION_NAME, ARITY)      \
     {                                        \
         #FUNCTION_NAME, ARITY, FUNCTION_NAME \
