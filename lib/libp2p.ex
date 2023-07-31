@@ -34,6 +34,8 @@ defmodule Libp2p do
   Returns an `Option` that can be passed to `host_new`
   as an argument to configures libp2p to listen on the
   given (unparsed) addresses.
+  Note that the address must be a charlist.
+  TODO: make it work with binaries.
   """
   def listen_addr_strings(_addr) do
     raise "NIF listen_addr_strings not implemented"
