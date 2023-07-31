@@ -64,17 +64,16 @@ defmodule Libp2p do
   end
 
   @doc """
-  `listen_addr_strings` configures libp2p to listen on the
-  given (unparsed) addresses.
   Returns an `Option` that can be passed to `host_new`
-  as an argument.
+  as an argument to configures libp2p to listen on the
+  given (unparsed) addresses.
   """
   def listen_addr_strings(_addr) do
     raise "NIF listen_addr_strings not implemented"
   end
 
   @doc """
-  host_new_stream creates a new `Stream` connected to the
+  Creates a new `Stream` connected to the
   peer with the given id, using the protocol with given id.
   """
   def host_new_stream(_host, _peer_id, _protocol_id) do
@@ -82,23 +81,32 @@ defmodule Libp2p do
   end
 
   @doc """
-  host_peerstore gets the `Peerstore` of the given `Host`.
+  Gets the `Peerstore` of the given `Host`.
   """
   def host_peerstore(_host) do
     raise "NIF host_peerstore not implemented"
   end
 
   @doc """
-  host_id gets the `ID` of the given `Host`.
+  Gets the `ID` of the given `Host`.
   """
   def host_id(_host) do
     raise "NIF host_id not implemented"
   end
 
   @doc """
-  host_id gets the addresses of the given `Host`.
+  Gets the addresses of the given `Host`.
   """
   def host_addrs(_host) do
     raise "NIF host_addrs not implemented"
+  end
+
+  @doc """
+  Adds the addresses of the peer with the given ID to
+  the `Peerstore`. The addresses are valid for the given
+  TTL.
+  """
+  def peerstore_add_addrs(_peerstore, _peer_id, _addrs, _ttl) do
+    raise "NIF peerstore_add_addrs not implemented"
   end
 end

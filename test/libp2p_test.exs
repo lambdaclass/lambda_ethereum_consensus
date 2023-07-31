@@ -23,14 +23,14 @@ defmodule Libp2pTest do
   test "Create and destroy host" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0
-    :ok = Libp2p.host_close(host)
+    Libp2p.host_close(host)
   end
 
   test "Set stream handler" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0
     :ok = Libp2p.host_set_stream_handler(host, "/my-app/amazing-protocol/1.0.1")
-    :ok = Libp2p.host_close(host)
+    Libp2p.host_close(host)
   end
 
   # test "Start two hosts, and play one round of ping-pong" do

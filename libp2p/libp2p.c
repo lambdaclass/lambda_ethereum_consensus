@@ -88,7 +88,7 @@ ERL_FUNCTION(listen_addr_strings)
 
     ListenAddrStrings(go_listenAddr);
 
-    return enif_make_atom(env, "ok");
+    return enif_make_atom(env, "nil");
 }
 
 /****************/
@@ -107,7 +107,7 @@ ERL_FUNCTION(host_close)
 
     HostClose(handle);
 
-    return enif_make_atom(env, "ok");
+    return enif_make_atom(env, "nil");
 }
 
 ERL_FUNCTION(host_set_stream_handler)
@@ -146,8 +146,23 @@ ERL_FUNCTION_GETTER(host_peerstore, Peerstore)
 ERL_FUNCTION_GETTER(host_id, ID)
 ERL_FUNCTION_GETTER(host_addrs, Addrs)
 
+/*********************/
+/* Peerstore methods */
+/*********************/
+
+ERL_FUNCTION(peerstore_add_addrs)
+{
+    uintptr_t ps = get_handle_from_term(env, argv[0]);
+    uintptr_t id = get_handle_from_term(env, argv[1]);
+    uintptr_t addrs = get_handle_from_term(env, argv[2]);
+    u_long ttl;
+    enif_get_uint64(env, argv[3], &ttl);
+
+    AddAddrs(ps, id, addrs, ttl);
+    return enif_make_atom(env, "nil");
+}
+
 /* Functions left to port
-- AddAddrs
 - StreamRead
 - StreamWrite
 - StreamClose
@@ -165,6 +180,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(host_peerstore, 1),
     NIF_ENTRY(host_id, 1),
     NIF_ENTRY(host_addrs, 1),
+    NIF_ENTRY(peerstore_add_addrs, 4),
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, NULL, NULL, NULL, NULL)
