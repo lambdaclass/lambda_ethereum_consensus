@@ -95,8 +95,13 @@ ERL_FUNCTION(host_set_stream_handler)
     uintptr_t handle = get_handle_from_term(env, argv[0]);
 
     char proto_id[PID_LENGTH];
-    // TODO: use GoString
-    enif_get_string(env, argv[1], proto_id, PID_LENGTH, ERL_NIF_UTF8);
+    uint64_t len = enif_get_string(env, argv[1], proto_id, PID_LENGTH, ERL_NIF_UTF8);
+
+    if (len <= 0)
+    {
+        return make_error_msg(env, "invalid string");
+    }
+    GoString go_protoId = {proto_id, len - 1};
 
     // TODO: This is a memory leak.
     ErlNifPid *pid = malloc(sizeof(ErlNifPid));
@@ -106,7 +111,7 @@ ERL_FUNCTION(host_set_stream_handler)
         return make_error_msg(env, "failed to get pid");
     }
 
-    SetStreamHandler(handle, proto_id, (void *)pid);
+    SetStreamHandler(handle, go_protoId, (void *)pid);
 
     return enif_make_atom(env, "ok");
 }
@@ -117,10 +122,15 @@ ERL_FUNCTION(host_new_stream)
     uintptr_t id = get_handle_from_term(env, argv[1]);
 
     char proto_id[PID_LENGTH];
-    // TODO: use GoString
-    enif_get_string(env, argv[1], proto_id, PID_LENGTH, ERL_NIF_UTF8);
+    uint64_t len = enif_get_string(env, argv[2], proto_id, PID_LENGTH, ERL_NIF_UTF8);
 
-    int result = NewStream(handle, id, proto_id);
+    if (len <= 0)
+    {
+        return make_error_msg(env, "invalid string");
+    }
+    GoString go_protoId = {proto_id, len - 1};
+
+    int result = NewStream(handle, id, go_protoId);
     return get_handle_result(env, result);
 }
 
@@ -183,7 +193,7 @@ ERL_FUNCTION(stream_write)
     {
         return make_error_msg(env, "failed to write");
     }
-    return make_ok_tuple2(env, enif_make_uint64(env, written));
+    return enif_make_atom(env, "ok");
 }
 
 ERL_FUNCTION(stream_close)

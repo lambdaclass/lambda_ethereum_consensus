@@ -56,7 +56,7 @@ func New(len uint, options *C.uintptr_t) C.uintptr_t {
 	h, err := libp2p.New()
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Println(err)
+		fmt.Errorf("%s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(h))
@@ -70,25 +70,25 @@ func (h C.uintptr_t) HostClose() {
 }
 
 //export SetStreamHandler
-func (h C.uintptr_t) SetStreamHandler(protoId *C.char, procId C.erl_pid_t) {
+func (h C.uintptr_t) SetStreamHandler(protoId string, procId C.erl_pid_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
 	handler := func(stream network.Stream) {
 		// NOTE: the stream handle should be deleted when calling Stream.Close()
 		C.send_message(procId, C.uintptr_t(cgo.NewHandle(stream)))
 	}
-	host.SetStreamHandler(protocol.ID(C.GoString(protoId)), handler)
+	host.SetStreamHandler(protocol.ID(protoId), handler)
 }
 
 //export NewStream
-func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId *C.char) C.uintptr_t {
+func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId string) C.uintptr_t {
 	host := cgo.Handle(h).Value().(host.Host)
 	peerId := cgo.Handle(pid).Value().(peer.ID)
 	// TODO: revisit context.TODO() and add multi-protocol support
-	stream, err := host.NewStream(context.TODO(), peerId, protocol.ID(C.GoString(protoId)))
+	stream, err := host.NewStream(context.TODO(), peerId, protocol.ID(protoId))
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Println(err)
+		fmt.Errorf("%s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(stream))
@@ -131,7 +131,7 @@ func (s C.uintptr_t) StreamRead(buffer []byte) int {
 	n, err := stream.Read(buffer)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Println(err)
+		fmt.Errorf("%s\n", err)
 		return -1
 	}
 	return n
@@ -143,7 +143,7 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 	n, err := stream.Write(data)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Println(err)
+		fmt.Errorf("%s\n", err)
 		return -1
 	}
 	return n

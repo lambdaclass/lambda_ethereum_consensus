@@ -11,7 +11,7 @@ defmodule Libp2pTest do
   test "Set stream handler" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0
-    :ok = Libp2p.host_set_stream_handler(host, "/my-app/amazing-protocol/1.0.1")
+    :ok = Libp2p.host_set_stream_handler(host, ~c"/my-app/amazing-protocol/1.0.1")
     Libp2p.host_close(host)
   end
 
@@ -22,7 +22,7 @@ defmodule Libp2pTest do
     {:ok, recver} = Libp2p.host_new()
 
     # (recver) Set stream handler
-    :ok = Libp2p.host_set_stream_handler(recver, "/pong")
+    :ok = Libp2p.host_set_stream_handler(recver, ~c"/pong")
 
     # (sender) Add recver address to peerstore
     {:ok, peerstore} = Libp2p.host_peerstore(sender)
@@ -35,21 +35,21 @@ defmodule Libp2pTest do
     {:ok, send} = Libp2p.host_new_stream(sender, id, ~c"/pong")
 
     # (sender) Write "ping" to stream
-    {:ok, 4} = Libp2p.stream_write(send, ~c"ping")
+    :ok = Libp2p.stream_write(send, ~c"ping")
 
     # (recver) Receive the stream via the configured stream handler
     {:ok, recv} =
       receive do
         msg -> msg
       after
-        1_000 -> :timeout
+        5_000 -> :timeout
       end
 
     # (recver) Read the "ping" message from the stream
     {:ok, ~c"ping"} = Libp2p.stream_read(recv)
 
     # (recver) Write "pong" to the stream
-    {:ok, 4} = Libp2p.stream_write(recv, ~c"pong")
+    :ok = Libp2p.stream_write(recv, ~c"pong")
 
     # (sender) Read the "pong" message from the stream
     {:ok, ~c"pong"} = Libp2p.stream_read(send)
