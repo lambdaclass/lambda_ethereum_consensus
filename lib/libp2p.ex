@@ -47,7 +47,7 @@ defmodule Libp2p do
   @typedoc """
   An error returned by this module.
   """
-  @type error :: {:error, charlist}
+  @type error :: {:error, binary}
 
   @doc """
   The ttl for a "permanent address" (e.g. bootstrap nodes).
@@ -75,7 +75,7 @@ defmodule Libp2p do
   @doc """
   Sets the stream handler associated to a protocol id.
   """
-  @spec host_set_stream_handler(host, charlist) :: :ok | error
+  @spec host_set_stream_handler(host, binary) :: :ok | error
   def host_set_stream_handler(_host, _protocol_id),
     do: :erlang.nif_error(:not_implemented)
 
@@ -83,10 +83,8 @@ defmodule Libp2p do
   Returns an `Option` that can be passed to `host_new`
   as an argument to configures libp2p to listen on the
   given (unparsed) addresses.
-  Note that the address must be a charlist.
-  TODO: make it work with binaries.
   """
-  @spec listen_addr_strings(charlist) :: {:ok, option} | error
+  @spec listen_addr_strings(binary) :: {:ok, option} | error
   def listen_addr_strings(_addr),
     do: :erlang.nif_error(:not_implemented)
 
@@ -94,7 +92,7 @@ defmodule Libp2p do
   Creates a new `Stream` connected to the
   peer with the given id, using the protocol with given id.
   """
-  @spec host_new_stream(host, peer_id, charlist) :: {:ok, stream} | error
+  @spec host_new_stream(host, peer_id, binary) :: {:ok, stream} | error
   def host_new_stream(_host, _peer_id, _protocol_id),
     do: :erlang.nif_error(:not_implemented)
 
@@ -130,19 +128,15 @@ defmodule Libp2p do
 
   @doc """
   Reads bytes from the stream (up to a predefined maximum).
-  Note that the data is returned as a charlist.
-  TODO: return a binary.
   """
-  @spec stream_read(stream) :: {:ok, charlist} | error
+  @spec stream_read(stream) :: {:ok, binary} | error
   def stream_read(_stream),
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
-  Writes data into the stream. Note that the data must be
-  a charlist.
-  TODO: make it work with binaries.
+  Writes data into the stream.
   """
-  @spec stream_write(stream, charlist) :: :ok | error
+  @spec stream_write(stream, binary) :: :ok | error
   def stream_write(_stream, _data),
     do: :erlang.nif_error(:not_implemented)
 

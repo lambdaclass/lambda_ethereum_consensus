@@ -11,23 +11,24 @@ defmodule Libp2pTest do
   test "Set stream handler" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0
-    :ok = Libp2p.host_set_stream_handler(host, ~c"/my-app/amazing-protocol/1.0.1")
+    :ok = Libp2p.host_set_stream_handler(host, "/my-app/amazing-protocol/1.0.1")
     :ok = Libp2p.host_close(host)
   end
 
   test "listen_addr_strings parsing" do
-    {:ok, option} = Libp2p.listen_addr_strings(~c"/ip4/127.0.0.1/tcp/48787")
+    {:ok, option} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48787")
     assert option != 0
   end
 
   test "Start two hosts, and play one round of ping-pong" do
-    protocol_id = ~c"/pong"
     # Setup sender
-    {:ok, addr} = Libp2p.listen_addr_strings(~c"/ip4/127.0.0.1/tcp/48787")
+    {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48787")
     {:ok, sender} = Libp2p.host_new([addr])
     # Setup receiver
-    {:ok, addr} = Libp2p.listen_addr_strings(~c"/ip4/127.0.0.1/tcp/48789")
+    {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48789")
     {:ok, recver} = Libp2p.host_new([addr])
+
+    protocol_id = "/pong"
 
     # (recver) Set stream handler
     :ok = Libp2p.host_set_stream_handler(recver, protocol_id)
@@ -43,7 +44,7 @@ defmodule Libp2pTest do
     {:ok, send} = Libp2p.host_new_stream(sender, id, protocol_id)
 
     # (sender) Write "ping" to stream
-    :ok = Libp2p.stream_write(send, ~c"ping")
+    :ok = Libp2p.stream_write(send, "ping")
 
     # (recver) Receive the stream via the configured stream handler
     {:ok, recv} =
@@ -54,13 +55,13 @@ defmodule Libp2pTest do
       end
 
     # (recver) Read the "ping" message from the stream
-    {:ok, ~c"ping"} = Libp2p.stream_read(recv)
+    {:ok, "ping"} = Libp2p.stream_read(recv)
 
     # (recver) Write "pong" to the stream
-    :ok = Libp2p.stream_write(recv, ~c"pong")
+    :ok = Libp2p.stream_write(recv, "pong")
 
     # (sender) Read the "pong" message from the stream
-    {:ok, ~c"pong"} = Libp2p.stream_read(send)
+    {:ok, "pong"} = Libp2p.stream_read(send)
 
     # Close both streams
     :ok = Libp2p.stream_close(send)

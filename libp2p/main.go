@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/cgo"
+	"strings"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -41,9 +42,10 @@ func callGetter[T any, R any](h C.uintptr_t, g func(T) R) C.uintptr_t {
 /*********/
 
 //export ListenAddrStrings
-func ListenAddrStrings(listenAddr *C.char) C.uintptr_t {
+func ListenAddrStrings(listenAddr string) C.uintptr_t {
 	// TODO: this function is variadic
-	goListenAddr := C.GoString(listenAddr)
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	goListenAddr := strings.Clone(listenAddr)
 	addr := libp2p.ListenAddrStrings(goListenAddr)
 	return C.uintptr_t(cgo.NewHandle(addr))
 }
@@ -75,10 +77,11 @@ func (h C.uintptr_t) HostClose() {
 }
 
 //export SetStreamHandler
-func (h C.uintptr_t) SetStreamHandler(protoId *C.char, procId C.erl_pid_t) {
+func (h C.uintptr_t) SetStreamHandler(protoId string, procId C.erl_pid_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
-	goProtoId := protocol.ID(C.GoString(protoId))
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	goProtoId := protocol.ID(strings.Clone(protoId))
 	handler := func(stream network.Stream) {
 		// NOTE: the stream handle should be deleted by calling Stream.Close()
 		C.send_message(procId, C.uintptr_t(cgo.NewHandle(stream)))
@@ -87,10 +90,11 @@ func (h C.uintptr_t) SetStreamHandler(protoId *C.char, procId C.erl_pid_t) {
 }
 
 //export NewStream
-func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId *C.char) C.uintptr_t {
+func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId string) C.uintptr_t {
 	host := cgo.Handle(h).Value().(host.Host)
 	peerId := cgo.Handle(pid).Value().(peer.ID)
-	goProtoId := protocol.ID(C.GoString(protoId))
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	goProtoId := protocol.ID(strings.Clone(protoId))
 	// TODO: revisit context.TODO() and add multi-protocol support
 	stream, err := host.NewStream(context.TODO(), peerId, goProtoId)
 	if err != nil {
