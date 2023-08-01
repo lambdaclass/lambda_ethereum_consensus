@@ -49,7 +49,7 @@ defmodule Libp2pTest do
       receive do
         msg -> msg
       after
-        5_000 -> :timeout
+        1000 -> :timeout
       end
 
     # (recver) Read the "ping" message from the stream

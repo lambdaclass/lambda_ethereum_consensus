@@ -63,9 +63,7 @@ ERL_FUNCTION(listen_addr_strings)
         return make_error_msg(env, "invalid string");
     }
 
-    GoString go_listenAddr = {addr_string, len - 1};
-
-    uintptr_t handle = ListenAddrStrings(go_listenAddr);
+    uintptr_t handle = ListenAddrStrings(addr_string);
 
     return get_handle_result(env, handle);
 }
@@ -117,7 +115,6 @@ ERL_FUNCTION(host_set_stream_handler)
     {
         return make_error_msg(env, "invalid string");
     }
-    GoString go_protoId = {proto_id, len - 1};
 
     // TODO: This is a memory leak.
     ErlNifPid *pid = malloc(sizeof(ErlNifPid));
@@ -127,7 +124,7 @@ ERL_FUNCTION(host_set_stream_handler)
         return make_error_msg(env, "failed to get pid");
     }
 
-    SetStreamHandler(handle, go_protoId, (void *)pid);
+    SetStreamHandler(handle, proto_id, (void *)pid);
 
     return enif_make_atom(env, "ok");
 }
@@ -144,9 +141,8 @@ ERL_FUNCTION(host_new_stream)
     {
         return make_error_msg(env, "invalid string");
     }
-    GoString go_protoId = {proto_id, len - 1};
 
-    int result = NewStream(handle, id, go_protoId);
+    int result = NewStream(handle, id, proto_id);
     return get_handle_result(env, result);
 }
 
