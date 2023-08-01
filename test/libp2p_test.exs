@@ -15,11 +15,18 @@ defmodule Libp2pTest do
     Libp2p.host_close(host)
   end
 
+  test "listen_addr_strings parsing" do
+    {:ok, option} = Libp2p.listen_addr_strings(~c"/ip4/127.0.0.1/tcp/48787")
+    assert option != 0
+  end
+
   test "Start two hosts, and play one round of ping-pong" do
     # Setup sender
-    {:ok, sender} = Libp2p.host_new()
+    {:ok, addr} = Libp2p.listen_addr_strings(~c"/ip4/127.0.0.1/tcp/48787")
+    {:ok, sender} = Libp2p.host_new([addr])
     # Setup receiver
-    {:ok, recver} = Libp2p.host_new()
+    {:ok, addr} = Libp2p.listen_addr_strings(~c"/ip4/127.0.0.1/tcp/48789")
+    {:ok, recver} = Libp2p.host_new([addr])
 
     # (recver) Set stream handler
     :ok = Libp2p.host_set_stream_handler(recver, ~c"/pong")

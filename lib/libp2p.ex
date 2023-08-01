@@ -60,6 +60,11 @@ defmodule Libp2p do
   """
   @spec host_new :: {:ok, host} | error
   def host_new() do
+    host_new([])
+  end
+
+  @spec host_new(list(option)) :: {:ok, host} | error
+  def host_new(_option_list) do
     raise "NIF host_new not implemented"
   end
 

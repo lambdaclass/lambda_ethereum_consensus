@@ -50,10 +50,13 @@ func ListenAddrStrings(listenAddr string) C.uintptr_t {
 /* Host methods */
 /****************/
 
-//export New
-func New(len uint, options *C.uintptr_t) C.uintptr_t {
-	// TODO: pass options
-	h, err := libp2p.New()
+//export HostNew
+func HostNew(options []C.uintptr_t) C.uintptr_t {
+	optionsSlice := make([]libp2p.Option, len(options))
+	for i := 0; i < len(options); i++ {
+		optionsSlice[i] = cgo.Handle(options[i]).Value().(libp2p.Option)
+	}
+	h, err := libp2p.New(optionsSlice...)
 	if err != nil {
 		// TODO: handle in better way
 		fmt.Errorf("%s\n", err)

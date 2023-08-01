@@ -76,8 +76,24 @@ ERL_FUNCTION(listen_addr_strings)
 
 ERL_FUNCTION(host_new)
 {
-    // TODO: add option passing
-    uintptr_t result = New(0, NULL);
+    const int MAX_OPTIONS = 256;
+    uintptr_t options[MAX_OPTIONS];
+    int i = 0;
+    if (argc == 1)
+    {
+        if (!enif_is_list(env, argv[0]))
+        {
+            return make_error_msg(env, "options is not a list");
+        }
+        ERL_NIF_TERM head, tail = argv[0];
+        while (!enif_is_empty_list(env, tail) && i < MAX_OPTIONS)
+        {
+            enif_get_list_cell(env, tail, &head, &tail);
+            options[i++] = get_handle_from_term(env, head);
+        }
+    }
+    GoSlice go_options = {options, i, MAX_OPTIONS};
+    uintptr_t result = HostNew(go_options);
     return get_handle_result(env, result);
 }
 
@@ -204,7 +220,7 @@ ERL_FUNCTION(stream_close)
 
 static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(listen_addr_strings, 1),
-    NIF_ENTRY(host_new, 0),
+    NIF_ENTRY(host_new, 1),
     NIF_ENTRY(host_close, 1),
     NIF_ENTRY(host_set_stream_handler, 2),
     NIF_ENTRY(host_new_stream, 3),
