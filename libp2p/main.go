@@ -10,6 +10,7 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"os"
 	"runtime/cgo"
 	"time"
 
@@ -60,7 +61,7 @@ func HostNew(options []C.uintptr_t) C.uintptr_t {
 	h, err := libp2p.New(optionsSlice...)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Errorf("%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(h))
@@ -79,7 +80,7 @@ func (h C.uintptr_t) SetStreamHandler(protoId *C.char, procId C.erl_pid_t) {
 	host := handle.Value().(host.Host)
 	goProtoId := protocol.ID(C.GoString(protoId))
 	handler := func(stream network.Stream) {
-		// NOTE: the stream handle should be deleted when calling Stream.Close()
+		// NOTE: the stream handle should be deleted by calling Stream.Close()
 		C.send_message(procId, C.uintptr_t(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
@@ -94,7 +95,7 @@ func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId *C.char) C.uintptr_t {
 	stream, err := host.NewStream(context.TODO(), peerId, goProtoId)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Errorf("%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(stream))
@@ -137,7 +138,7 @@ func (s C.uintptr_t) StreamRead(buffer []byte) int {
 	n, err := stream.Read(buffer)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Errorf("%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return -1
 	}
 	return n
@@ -149,7 +150,7 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 	n, err := stream.Write(data)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Errorf("%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return -1
 	}
 	return n

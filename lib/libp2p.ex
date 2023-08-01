@@ -71,7 +71,7 @@ defmodule Libp2p do
   @doc """
   Deletes a Host.
   """
-  @spec host_close(host) :: nil
+  @spec host_close(host) :: :ok | error
   def host_close(_host) do
     raise "NIF host_close not implemented"
   end
@@ -134,7 +134,7 @@ defmodule Libp2p do
   the `Peerstore`. The addresses are valid for the given
   TTL.
   """
-  @spec peerstore_add_addrs(peerstore, peer_id, addrs, integer) :: nil
+  @spec peerstore_add_addrs(peerstore, peer_id, addrs, integer) :: :ok | error
   def peerstore_add_addrs(_peerstore, _peer_id, _addrs, _ttl) do
     raise "NIF peerstore_add_addrs not implemented"
   end
@@ -162,7 +162,7 @@ defmodule Libp2p do
   @doc """
   Closes the stream.
   """
-  @spec stream_close(stream) :: nil
+  @spec stream_close(stream) :: :ok | error
   def stream_close(_stream) do
     raise "NIF stream_close not implemented"
   end
