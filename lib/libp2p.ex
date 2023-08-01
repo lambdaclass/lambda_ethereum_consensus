@@ -59,30 +59,25 @@ defmodule Libp2p do
   Creates a new Host.
   """
   @spec host_new :: {:ok, host} | error
-  def host_new() do
-    host_new([])
-  end
+  def host_new(), do: host_new([])
 
   @spec host_new(list(option)) :: {:ok, host} | error
-  def host_new(_option_list) do
-    raise "NIF host_new not implemented"
-  end
+  def host_new(_option_list),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Deletes a Host.
   """
   @spec host_close(host) :: :ok | error
-  def host_close(_host) do
-    raise "NIF host_close not implemented"
-  end
+  def host_close(_host),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Sets the stream handler associated to a protocol id.
   """
   @spec host_set_stream_handler(host, charlist) :: :ok | error
-  def host_set_stream_handler(_host, _protocol_id) do
-    raise "NIF host_set_stream_handler not implemented"
-  end
+  def host_set_stream_handler(_host, _protocol_id),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Returns an `Option` that can be passed to `host_new`
@@ -92,42 +87,37 @@ defmodule Libp2p do
   TODO: make it work with binaries.
   """
   @spec listen_addr_strings(charlist) :: {:ok, option} | error
-  def listen_addr_strings(_addr) do
-    raise "NIF listen_addr_strings not implemented"
-  end
+  def listen_addr_strings(_addr),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Creates a new `Stream` connected to the
   peer with the given id, using the protocol with given id.
   """
   @spec host_new_stream(host, peer_id, charlist) :: {:ok, stream} | error
-  def host_new_stream(_host, _peer_id, _protocol_id) do
-    raise "NIF host_new_stream not implemented"
-  end
+  def host_new_stream(_host, _peer_id, _protocol_id),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Gets the `Peerstore` of the given `Host`.
   """
   @spec host_peerstore(host) :: {:ok, peerstore} | error
-  def host_peerstore(_host) do
-    raise "NIF host_peerstore not implemented"
-  end
+  def host_peerstore(_host),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Gets the `ID` of the given `Host`.
   """
   @spec host_id(host) :: {:ok, peer_id} | error
-  def host_id(_host) do
-    raise "NIF host_id not implemented"
-  end
+  def host_id(_host),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Gets the addresses of the given `Host`.
   """
   @spec host_addrs(host) :: {:ok, addrs} | error
-  def host_addrs(_host) do
-    raise "NIF host_addrs not implemented"
-  end
+  def host_addrs(_host),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Adds the addresses of the peer with the given ID to
@@ -135,9 +125,8 @@ defmodule Libp2p do
   TTL.
   """
   @spec peerstore_add_addrs(peerstore, peer_id, addrs, integer) :: :ok | error
-  def peerstore_add_addrs(_peerstore, _peer_id, _addrs, _ttl) do
-    raise "NIF peerstore_add_addrs not implemented"
-  end
+  def peerstore_add_addrs(_peerstore, _peer_id, _addrs, _ttl),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Reads bytes from the stream (up to a predefined maximum).
@@ -145,9 +134,8 @@ defmodule Libp2p do
   TODO: return a binary.
   """
   @spec stream_read(stream) :: {:ok, charlist} | error
-  def stream_read(_stream) do
-    raise "NIF stream_read not implemented"
-  end
+  def stream_read(_stream),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Writes data into the stream. Note that the data must be
@@ -155,15 +143,13 @@ defmodule Libp2p do
   TODO: make it work with binaries.
   """
   @spec stream_write(stream, charlist) :: :ok | error
-  def stream_write(_stream, _data) do
-    raise "NIF stream_write not implemented"
-  end
+  def stream_write(_stream, _data),
+    do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Closes the stream.
   """
   @spec stream_close(stream) :: :ok | error
-  def stream_close(_stream) do
-    raise "NIF stream_close not implemented"
-  end
+  def stream_close(_stream),
+    do: :erlang.nif_error(:not_implemented)
 end
