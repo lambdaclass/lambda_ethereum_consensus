@@ -1,5 +1,6 @@
 #include "main.h"
 #include "utils.h"
+#include <stdbool.h>
 #include <erl_nif.h>
 
 #define ERL_FUNCTION(FUNCTION_NAME) static ERL_NIF_TERM FUNCTION_NAME(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -31,7 +32,6 @@
         #FUNCTION_NAME, ARITY, FUNCTION_NAME \
     }
 
-const uint64_t PID_LENGTH = 1024;
 const uint64_t BUFFER_SIZE = 4096;
 
 /*************/
@@ -46,22 +46,24 @@ ErlNifResourceType *Multiaddr_arr;
 ErlNifResourceType *Stream;
 
 // Resource type helpers
-void handle_cleanup(ErlNifEnv *env, void *arg)
+void handle_cleanup(ErlNifEnv *env, void *obj)
 {
-    uintptr_t handle = (uintptr_t)arg;
-    DeleteHandle(handle);
+    uintptr_t *handle = obj;
+    DeleteHandle(*handle);
 }
+
+#define OPEN_RESOURCE_TYPE(NAME) ((NAME) = enif_open_resource_type(env, NULL, (#NAME), handle_cleanup, flags, NULL))
 
 static int open_resource_types(ErlNifEnv *env, ErlNifResourceFlags flags)
 {
-    int ok = 0;
-    ok &= NULL == (Option = enif_open_resource_type(env, NULL, "Option_type", handle_cleanup, flags, NULL));
-    ok &= NULL == (Host = enif_open_resource_type(env, NULL, "Host_type", handle_cleanup, flags, NULL));
-    ok &= NULL == (Peerstore = enif_open_resource_type(env, NULL, "Peerstore_type", handle_cleanup, flags, NULL));
-    ok &= NULL == (peer_ID = enif_open_resource_type(env, NULL, "peer_ID_type", handle_cleanup, flags, NULL));
-    ok &= NULL == (Multiaddr_arr = enif_open_resource_type(env, NULL, "Multiaddr_arr_type", handle_cleanup, flags, NULL));
-    ok &= NULL == (Stream = enif_open_resource_type(env, NULL, "Stream_type", handle_cleanup, flags, NULL));
-    return ok ? 1 : 0;
+    int failed = false;
+    failed |= NULL == OPEN_RESOURCE_TYPE(Option);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Host);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Peerstore);
+    failed |= NULL == OPEN_RESOURCE_TYPE(peer_ID);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Multiaddr_arr);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Stream);
+    return failed;
 }
 
 static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
@@ -111,6 +113,8 @@ static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, ErlNifResourceType *type, 
     IF_ERROR(obj == NULL, "couldn't create resource");
     *obj = handle;
     ERL_NIF_TERM term = enif_make_resource(env, obj);
+    // NOTE: we need to release our reference, so it can be GC'd
+    enif_release_resource(obj);
     return make_ok_tuple2(env, term);
 }
 

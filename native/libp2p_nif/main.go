@@ -77,7 +77,6 @@ func HostNew(options []C.uintptr_t) C.uintptr_t {
 //export HostClose
 func (h C.uintptr_t) HostClose() {
 	handle := cgo.Handle(h)
-	defer handle.Delete()
 	handle.Value().(host.Host).Close()
 }
 
@@ -167,7 +166,6 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 //export StreamClose
 func (s C.uintptr_t) StreamClose() {
 	handle := cgo.Handle(s)
-	defer handle.Delete()
 	handle.Value().(network.Stream).Close()
 }
 
