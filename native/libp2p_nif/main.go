@@ -110,18 +110,18 @@ func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId string) C.uintptr_t {
 	return C.uintptr_t(cgo.NewHandle(stream))
 }
 
-//export Peerstore
-func (h C.uintptr_t) Peerstore() C.uintptr_t {
+//export HostPeerstore
+func (h C.uintptr_t) HostPeerstore() C.uintptr_t {
 	return callGetter(h, host.Host.Peerstore)
 }
 
-//export ID
-func (h C.uintptr_t) ID() C.uintptr_t {
+//export HostID
+func (h C.uintptr_t) HostID() C.uintptr_t {
 	return callGetter(h, host.Host.ID)
 }
 
-//export Addrs
-func (h C.uintptr_t) Addrs() C.uintptr_t {
+//export HostAddrs
+func (h C.uintptr_t) HostAddrs() C.uintptr_t {
 	return callGetter(h, host.Host.Addrs)
 }
 

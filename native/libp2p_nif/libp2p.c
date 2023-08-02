@@ -4,13 +4,13 @@
 
 #define ERL_FUNCTION(FUNCTION_NAME) static ERL_NIF_TERM FUNCTION_NAME(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
-#define ERL_FUNCTION_GETTER(NAME, GETTER)                       \
-    ERL_FUNCTION(NAME)                                          \
-    {                                                           \
-        uintptr_t _handle = get_handle_from_term(env, argv[0]); \
-        IF_ERROR(_handle == 0, "invalid first argument");       \
-        uintptr_t _res = GETTER(_handle);                       \
-        return get_handle_result(env, _res);                    \
+#define ERL_FUNCTION_GETTER(NAME, RECV_TYPE, ATTR_TYPE, GETTER)            \
+    ERL_FUNCTION(NAME)                                                     \
+    {                                                                      \
+        uintptr_t _handle = get_handle_from_term(env, RECV_TYPE, argv[0]); \
+        IF_ERROR(_handle == 0, "invalid first argument");                  \
+        uintptr_t _res = GETTER(_handle);                                  \
+        return get_handle_result(env, ATTR_TYPE, _res);                    \
     }
 
 #define IF_ERROR(COND, MSG)                \
@@ -19,11 +19,11 @@
         return make_error_msg(env, (MSG)); \
     }
 
-#define GET_HANDLE(TERM, NAME)                                 \
-    ({                                                         \
-        uintptr_t _handle = get_handle_from_term(env, (TERM)); \
-        IF_ERROR(_handle == 0, "invalid " NAME);               \
-        _handle;                                               \
+#define GET_HANDLE(TERM, TYPE)                                         \
+    ({                                                                 \
+        uintptr_t _handle = get_handle_from_term(env, (TYPE), (TERM)); \
+        IF_ERROR(_handle == 0, "invalid " #TYPE);                      \
+        _handle;                                                       \
     })
 
 #define NIF_ENTRY(FUNCTION_NAME, ARITY)      \
@@ -38,38 +38,52 @@ const uint64_t BUFFER_SIZE = 4096;
 /* NIF Setup */
 /*************/
 
-ErlNifResourceType *Option_type;
+ErlNifResourceType *Option;
+ErlNifResourceType *Host;
+ErlNifResourceType *Peerstore;
+ErlNifResourceType *peer_ID;
+ErlNifResourceType *Multiaddr_arr;
+ErlNifResourceType *Stream;
 
 // Resource type helpers
-void Option_type_cleanup(ErlNifEnv *env, void *arg)
+void handle_cleanup(ErlNifEnv *env, void *arg)
 {
     uintptr_t handle = (uintptr_t)arg;
     DeleteHandle(handle);
 }
 
+static int open_resource_types(ErlNifEnv *env, ErlNifResourceFlags flags)
+{
+    int ok = 0;
+    ok &= NULL == (Option = enif_open_resource_type(env, NULL, "Option_type", handle_cleanup, flags, NULL));
+    ok &= NULL == (Host = enif_open_resource_type(env, NULL, "Host_type", handle_cleanup, flags, NULL));
+    ok &= NULL == (Peerstore = enif_open_resource_type(env, NULL, "Peerstore_type", handle_cleanup, flags, NULL));
+    ok &= NULL == (peer_ID = enif_open_resource_type(env, NULL, "peer_ID_type", handle_cleanup, flags, NULL));
+    ok &= NULL == (Multiaddr_arr = enif_open_resource_type(env, NULL, "Multiaddr_arr_type", handle_cleanup, flags, NULL));
+    ok &= NULL == (Stream = enif_open_resource_type(env, NULL, "Stream_type", handle_cleanup, flags, NULL));
+    return ok ? 1 : 0;
+}
+
 static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
 {
-    ErlNifResourceFlags flags = ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER;
-    Option_type = enif_open_resource_type(env, NULL, "Option_type", Option_type_cleanup, flags, NULL);
-    return Option_type == NULL ? 1 : 0;
+    return open_resource_types(env, ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER);
 }
 
 static int upgrade(ErlNifEnv *env, void **priv_data, void **old_priv_data,
                    ERL_NIF_TERM load_info)
 {
-    ErlNifResourceFlags flags = ERL_NIF_RT_TAKEOVER;
-    Option_type = enif_open_resource_type(env, NULL, "Option_type", Option_type_cleanup, flags, NULL);
-    return Option_type == NULL ? 1 : 0;
+    return open_resource_types(env, ERL_NIF_RT_TAKEOVER);
 }
 
 /***********/
 /* Helpers */
 /***********/
 
-static uintptr_t get_handle_from_term(ErlNifEnv *env, ERL_NIF_TERM term)
+static uintptr_t get_handle_from_term(ErlNifEnv *env, ErlNifResourceType *type, ERL_NIF_TERM term)
 {
-    uintptr_t handle;
-    return enif_get_uint64(env, term, &handle) ? handle : 0;
+    uintptr_t *obj;
+    int result = enif_get_resource(env, term, type, (void **)&obj);
+    return (!result || obj == NULL) ? 0 : *obj;
 }
 
 static ERL_NIF_TERM _make_error_msg(ErlNifEnv *env, uint len, const char *msg)
@@ -90,10 +104,14 @@ static ERL_NIF_TERM make_ok_tuple2(ErlNifEnv *env, ERL_NIF_TERM term)
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), term);
 }
 
-static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, uintptr_t handle)
+static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, ErlNifResourceType *type, uintptr_t handle)
 {
     IF_ERROR(handle == 0, "invalid handle returned");
-    return make_ok_tuple2(env, enif_make_uint64(env, handle));
+    uintptr_t *obj = enif_alloc_resource(type, sizeof(uintptr_t));
+    IF_ERROR(obj == NULL, "couldn't create resource");
+    *obj = handle;
+    ERL_NIF_TERM term = enif_make_resource(env, obj);
+    return make_ok_tuple2(env, term);
 }
 
 /*********/
@@ -108,12 +126,7 @@ ERL_FUNCTION(listen_addr_strings)
 
     uintptr_t handle = ListenAddrStrings(listen_addr);
 
-    IF_ERROR(handle == 0, "invalid handle returned");
-    uintptr_t *obj = enif_alloc_resource(Option_type, sizeof(uintptr_t));
-    IF_ERROR(obj == NULL, "couldn't create resource");
-    *obj = handle;
-    ERL_NIF_TERM term = enif_make_resource(env, obj);
-    return make_ok_tuple2(env, term);
+    return get_handle_result(env, Option, handle);
 }
 
 /****************/
@@ -130,26 +143,24 @@ ERL_FUNCTION(host_new)
     while (!enif_is_empty_list(env, tail) && i < MAX_OPTIONS)
     {
         enif_get_list_cell(env, tail, &head, &tail);
-        uintptr_t *obj;
-        enif_get_resource(env, head, Option_type, (void **)&obj);
-        IF_ERROR(obj == NULL, "invalid option");
-        options[i++] = *obj;
+        uintptr_t handle = GET_HANDLE(head, Option);
+        options[i++] = handle;
     }
     GoSlice go_options = {options, i, MAX_OPTIONS};
     uintptr_t result = HostNew(go_options);
-    return get_handle_result(env, result);
+    return get_handle_result(env, Host, result);
 }
 
 ERL_FUNCTION(host_close)
 {
-    uintptr_t host = GET_HANDLE(argv[0], "host");
+    uintptr_t host = GET_HANDLE(argv[0], Host);
     HostClose(host);
     return enif_make_atom(env, "ok");
 }
 
 ERL_FUNCTION(host_set_stream_handler)
 {
-    uintptr_t host = GET_HANDLE(argv[0], "host");
+    uintptr_t host = GET_HANDLE(argv[0], Host);
 
     ErlNifBinary bin;
     IF_ERROR(!enif_inspect_binary(env, argv[1], &bin), "invalid protocol ID");
@@ -167,20 +178,20 @@ ERL_FUNCTION(host_set_stream_handler)
 
 ERL_FUNCTION(host_new_stream)
 {
-    uintptr_t host = GET_HANDLE(argv[0], "host");
-    uintptr_t id = GET_HANDLE(argv[1], "peer id");
+    uintptr_t host = GET_HANDLE(argv[0], Host);
+    uintptr_t id = GET_HANDLE(argv[1], peer_ID);
 
     ErlNifBinary bin;
     IF_ERROR(!enif_inspect_binary(env, argv[2], &bin), "invalid protocol ID");
     GoString proto_id = {(const char *)bin.data, bin.size};
 
-    int result = NewStream(host, id, proto_id);
-    return get_handle_result(env, result);
+    uintptr_t result = NewStream(host, id, proto_id);
+    return get_handle_result(env, Stream, result);
 }
 
-ERL_FUNCTION_GETTER(host_peerstore, Peerstore)
-ERL_FUNCTION_GETTER(host_id, ID)
-ERL_FUNCTION_GETTER(host_addrs, Addrs)
+ERL_FUNCTION_GETTER(host_peerstore, Host, Peerstore, HostPeerstore)
+ERL_FUNCTION_GETTER(host_id, Host, peer_ID, HostID)
+ERL_FUNCTION_GETTER(host_addrs, Host, Multiaddr_arr, HostAddrs)
 
 /*********************/
 /* Peerstore methods */
@@ -188,9 +199,9 @@ ERL_FUNCTION_GETTER(host_addrs, Addrs)
 
 ERL_FUNCTION(peerstore_add_addrs)
 {
-    uintptr_t ps = GET_HANDLE(argv[0], "peerstore");
-    uintptr_t id = GET_HANDLE(argv[1], "peer id");
-    uintptr_t addrs = GET_HANDLE(argv[2], "addrs");
+    uintptr_t ps = GET_HANDLE(argv[0], Peerstore);
+    uintptr_t id = GET_HANDLE(argv[1], peer_ID);
+    uintptr_t addrs = GET_HANDLE(argv[2], Multiaddr_arr);
     u_long ttl;
     IF_ERROR(!enif_get_uint64(env, argv[3], &ttl), "invalid TTL");
 
@@ -204,7 +215,7 @@ ERL_FUNCTION(peerstore_add_addrs)
 
 ERL_FUNCTION(stream_read)
 {
-    uintptr_t stream = GET_HANDLE(argv[0], "stream");
+    uintptr_t stream = GET_HANDLE(argv[0], Stream);
 
     char buffer[BUFFER_SIZE];
     GoSlice go_buffer = {buffer, BUFFER_SIZE, BUFFER_SIZE};
@@ -221,7 +232,7 @@ ERL_FUNCTION(stream_read)
 
 ERL_FUNCTION(stream_write)
 {
-    uintptr_t stream = GET_HANDLE(argv[0], "stream");
+    uintptr_t stream = GET_HANDLE(argv[0], Stream);
 
     ErlNifBinary bin;
     IF_ERROR(!enif_inspect_binary(env, argv[1], &bin), "invalid data");
@@ -235,7 +246,7 @@ ERL_FUNCTION(stream_write)
 
 ERL_FUNCTION(stream_close)
 {
-    uintptr_t stream = GET_HANDLE(argv[0], "stream");
+    uintptr_t stream = GET_HANDLE(argv[0], Stream);
     StreamClose(stream);
     return enif_make_atom(env, "ok");
 }
