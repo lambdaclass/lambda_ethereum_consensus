@@ -82,14 +82,13 @@ func (h C.uintptr_t) HostClose() {
 }
 
 //export SetStreamHandler
-func (h C.uintptr_t) SetStreamHandler(protoId string, procId C.erl_pid_t) {
+func (h C.uintptr_t) SetStreamHandler(protoId string, procId C.erl_pid_t, callback C.send_message_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
 	goProtoId := protocol.ID(strings.Clone(protoId))
 	handler := func(stream network.Stream) {
-		// NOTE: the stream handle should be deleted by calling Stream.Close()
-		C.send_message(procId, C.uintptr_t(cgo.NewHandle(stream)))
+		C.run_callback(callback, procId, C.uintptr_t(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }

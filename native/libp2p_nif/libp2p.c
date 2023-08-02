@@ -114,6 +114,22 @@ static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, ErlNifResourceType *type, 
     return make_ok_tuple2(env, term);
 }
 
+void send_message(erl_pid_t _pid, uintptr_t stream_handle)
+{
+    // Passed as void* to avoid including erl_nif.h in the header.
+    ErlNifPid *pid = (ErlNifPid *)_pid;
+    ErlNifEnv *env = enif_alloc_env();
+
+    ERL_NIF_TERM message = get_handle_result(env, Stream, stream_handle);
+
+    int result = enif_send(NULL, pid, env, message);
+    // On error, the env isn't freed by the function.
+    if (!result)
+    {
+        enif_free_env(env);
+    }
+}
+
 /*********/
 /* Utils */
 /*********/
@@ -171,7 +187,7 @@ ERL_FUNCTION(host_set_stream_handler)
 
     IF_ERROR(!enif_self(env, pid), "failed to get pid");
 
-    SetStreamHandler(host, proto_id, (void *)pid);
+    SetStreamHandler(host, proto_id, (void *)pid, send_message);
 
     return enif_make_atom(env, "ok");
 }
