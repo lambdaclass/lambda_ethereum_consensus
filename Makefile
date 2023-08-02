@@ -1,4 +1,4 @@
-.PHONY: iex deps test clean compile
+.PHONY: iex deps test clean compile-native
 
 BREW_PREFIX := $(shell brew --prefix)
 ERLANG_INCLUDES = $(BREW_PREFIX)/Cellar/erlang/26.0.2/lib/erlang/usr/include/
@@ -30,5 +30,5 @@ deps:
 	mix deps.get
 
 # Run tests
-test: compile
+test: compile-native
 	mix test
