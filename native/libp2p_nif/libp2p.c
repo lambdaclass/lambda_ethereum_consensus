@@ -108,7 +108,12 @@ ERL_FUNCTION(listen_addr_strings)
 
     uintptr_t handle = ListenAddrStrings(listen_addr);
 
-    return get_handle_result(env, handle);
+    IF_ERROR(handle == 0, "invalid handle returned");
+    uintptr_t *obj = enif_alloc_resource(Option_type, sizeof(uintptr_t));
+    IF_ERROR(obj == NULL, "couldn't create resource");
+    *obj = handle;
+    ERL_NIF_TERM term = enif_make_resource(env, obj);
+    return make_ok_tuple2(env, term);
 }
 
 /****************/
@@ -125,7 +130,10 @@ ERL_FUNCTION(host_new)
     while (!enif_is_empty_list(env, tail) && i < MAX_OPTIONS)
     {
         enif_get_list_cell(env, tail, &head, &tail);
-        options[i++] = GET_HANDLE(head, "option");
+        uintptr_t *obj;
+        enif_get_resource(env, head, Option_type, (void **)&obj);
+        IF_ERROR(obj == NULL, "invalid option");
+        options[i++] = *obj;
     }
     GoSlice go_options = {options, i, MAX_OPTIONS};
     uintptr_t result = HostNew(go_options);
