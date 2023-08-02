@@ -34,6 +34,34 @@
 const uint64_t PID_LENGTH = 1024;
 const uint64_t BUFFER_SIZE = 4096;
 
+/*************/
+/* NIF Setup */
+/*************/
+
+ErlNifResourceType *Option_type;
+
+// Resource type helpers
+void Option_type_cleanup(ErlNifEnv *env, void *arg)
+{
+    uintptr_t handle = (uintptr_t)arg;
+    DeleteHandle(handle);
+}
+
+static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
+{
+    ErlNifResourceFlags flags = ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER;
+    Option_type = enif_open_resource_type(env, NULL, "Option_type", Option_type_cleanup, flags, NULL);
+    return Option_type == NULL ? 1 : 0;
+}
+
+static int upgrade(ErlNifEnv *env, void **priv_data, void **old_priv_data,
+                   ERL_NIF_TERM load_info)
+{
+    ErlNifResourceFlags flags = ERL_NIF_RT_TAKEOVER;
+    Option_type = enif_open_resource_type(env, NULL, "Option_type", Option_type_cleanup, flags, NULL);
+    return Option_type == NULL ? 1 : 0;
+}
+
 /***********/
 /* Helpers */
 /***********/
@@ -219,4 +247,4 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(stream_close, 1),
 };
 
-ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, NULL, NULL, NULL, NULL)
+ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, load, NULL, upgrade, NULL)

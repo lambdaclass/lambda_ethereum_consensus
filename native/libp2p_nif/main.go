@@ -41,6 +41,11 @@ func callGetter[T any, R any](h C.uintptr_t, g func(T) R) C.uintptr_t {
 /* Utils */
 /*********/
 
+//export DeleteHandle
+func DeleteHandle(h C.uintptr_t) {
+	cgo.Handle(h).Delete()
+}
+
 //export ListenAddrStrings
 func ListenAddrStrings(listenAddr string) C.uintptr_t {
 	// TODO: this function is variadic
