@@ -19,7 +19,7 @@ clean:
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) libp2p.so
 
 # Compile C and Go artifacts.
-compile: libp2p.so
+compile-native: libp2p.so
 
 # Run an interactive terminal with the main supervisor setup.
 iex:
