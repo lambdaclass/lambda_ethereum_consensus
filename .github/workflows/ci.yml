@@ -16,17 +16,12 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        elixir: [1.15]
-        otp: [25]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Elixir
-      uses: erlef/setup-beam@988e02bfe678367a02564f65ca2e37726dc0268f
+      uses: erlef/setup-beam@v1
       with:
-        elixir-version: ${{ matrix.elixir }} # Define the elixir version [required]
-        otp-version: ${{ matrix.otp }} # Define the OTP version [required]
+        version-file: .tool-versions
       env:
         ImageOS: ubuntu20 
     - name: Restore dependencies cache
@@ -42,7 +37,7 @@ jobs:
       id: plt-cache
       with:
         path: priv/plts
-        key: ${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-plts-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+        key: ${{ runner.os }}-plts-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
     - name: Create PLTs
       if: steps.plt-cache.outputs.cache-hit != 'true'
       run: |
@@ -53,17 +48,12 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        elixir: [1.15]
-        otp: [25]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Elixir
-      uses: erlef/setup-beam@988e02bfe678367a02564f65ca2e37726dc0268f
+      uses: erlef/setup-beam@v1
       with:
-        elixir-version: ${{ matrix.elixir }} # Define the elixir version [required]
-        otp-version: ${{ matrix.otp }} # Define the OTP version [required]
+        version-file: .tool-versions
       env:
         ImageOS: ubuntu20
     - name: Restore dependencies cache
