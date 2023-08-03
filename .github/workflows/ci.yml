@@ -14,12 +14,12 @@ permissions:
 
 jobs:
   build:
-    name: Build and test
+    name: Build
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        elixir: [1.15.4]
-        otp: [25.3.2.5]
+        elixir: [1.15]
+        otp: [25]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Elixir
@@ -50,5 +50,21 @@ jobs:
         mix dialyzer --plt
     - name: Run dialyzer
       run: mix dialyzer --no-check --halt-exit-status
+  test:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        elixir: [1.15]
+        otp: [25]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Elixir
+      uses: erlef/setup-beam@988e02bfe678367a02564f65ca2e37726dc0268f
+      with:
+        elixir-version: ${{ matrix.elixir }} # Define the elixir version [required]
+        otp-version: ${{ matrix.otp }} # Define the OTP version [required]
+      env:
+        ImageOS: ubuntu20 
     - name: Run tests
       run: mix test
