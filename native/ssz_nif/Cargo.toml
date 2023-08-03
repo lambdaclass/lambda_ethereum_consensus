@@ -1,0 +1,17 @@
+[package]
+name = "ssz_nif"
+version = "0.1.0"
+authors = []
+edition = "2021"
+
+[lib]
+name = "ssz_nif"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = { version = "0.29.1", features = ["nif_version_2_16"] }
+ssz-rs = { git = "https://github.com/ralexstokes//ssz-rs", rev = "adf1a0b14cef90b9536f28ef89da1fab316465e1" }
+serde_rustler = "0.0.3"
+
+
