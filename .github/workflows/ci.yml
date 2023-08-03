@@ -37,11 +37,6 @@ jobs:
         with:
           path: priv/native/*.so
           key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
-      - name: DEBUG print
-        run: |
-          which erl || true
-          which iex || true
-          which mix || true
       - name: Compile native code
         if: steps.output-cache.outputs.cache-hit != 'true'
         run: make compile-native
