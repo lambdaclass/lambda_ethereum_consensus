@@ -12,10 +12,12 @@ GO_HEADERS := $(patsubst %.go,%.h,$(GO_SOURCES))
 
 
 $(LIBP2P_DIR)/%.a $(LIBP2P_DIR)/%.h: $(LIBP2P_DIR)/%.go
-	cd $(LIBP2P_DIR); go build -buildmode=c-archive $*.go
+	cd $(LIBP2P_DIR); \
+	go install; \
+	go build -buildmode=c-archive -tags only_go $*.go
 
 $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c
-	gcc -Wall -Werror -dynamiclib -undefined dynamic_lookup -I $(ERLANG_INCLUDES) -o $(OUTPUT_DIR)/libp2p_nif.so \
+	gcc -Wall -Werror -dynamiclib -undefined dynamic_lookup -I $(ERLANG_INCLUDES) -I $(LIBP2P_DIR) -o $(OUTPUT_DIR)/libp2p_nif.so \
 		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c $(GO_ARCHIVES)
 
 clean:
