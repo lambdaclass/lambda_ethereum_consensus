@@ -1,7 +1,7 @@
 .PHONY: iex deps test clean compile-native
 
-BREW_PREFIX := $(shell brew --prefix)
-ERLANG_INCLUDES = $(BREW_PREFIX)/Cellar/erlang/26.0.2/lib/erlang/usr/include/
+ERLANG_DIR := $(shell asdf where erlang)
+ERLANG_INCLUDES = $(ERLANG_DIR)/usr/include/
 
 LIBP2P_DIR = native/libp2p_nif
 OUTPUT_DIR = priv/native
