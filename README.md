@@ -1,9 +1,7 @@
 # lambda_ethereum_consensus
 
 ## Prerequisites
-
-- Elixir and mix [installed](https://elixir-lang.org/install.html) (e.g. with asdf, or brew).
-
+- [asdf](https://github.com/asdf-vm/asdf), see `.tool-versions` for the required versions.
 ## Installing and running
 
 There are Makefile targets for these tasks.
