@@ -8,8 +8,9 @@ ERLANG_INCLUDES := $(shell erl -eval 'io:format("~s", \
 LIBP2P_DIR = native/libp2p_nif
 OUTPUT_DIR = priv/native
 
-# create dir if it doesn't exist
-dir_guard=@mkdir -p $(@D)
+# create directories if they don't exist
+DIRS=$(OUTPUT_DIR)
+$(info $(shell mkdir -p $(DIRS)))
 
 GO_SOURCES = $(LIBP2P_DIR)/main.go
 GO_ARCHIVES := $(patsubst %.go,%.a,$(GO_SOURCES))
@@ -25,7 +26,6 @@ $(LIBP2P_DIR)/%.a $(LIBP2P_DIR)/%.h: $(LIBP2P_DIR)/%.go
 	go build -buildmode=c-archive -tags only_go $*.go
 
 $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c
-	$(dir_guard)
 	gcc $(CFLAGS) -o $@ \
 		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c $(GO_ARCHIVES)
 
