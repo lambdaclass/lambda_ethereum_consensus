@@ -1,7 +1,9 @@
 .PHONY: iex deps test clean compile-native
 
-ERLANG_DIR := $(shell asdf where erlang)
-ERLANG_INCLUDES = $(ERLANG_DIR)/usr/include/
+# magic from sym_num https://elixirforum.com/t/where-is-erl-nif-h-header-file-required-for-nif/27142/5
+ERLANG_INCLUDES := $(shell erl -eval 'io:format("~s", \
+		[lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])] \
+		)' -s init stop -noshell)
 
 LIBP2P_DIR = native/libp2p_nif
 OUTPUT_DIR = priv/native
