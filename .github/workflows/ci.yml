@@ -18,6 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Set up Elixir
+        # NOTE: this is needed for the NIF header files
+        uses: erlef/setup-beam@v1
+        with:
+          version-type: strict
+          version-file: .tool-versions
+        env:
+          ImageOS: ubuntu20
       - name: Set up Go
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v4
@@ -29,6 +37,11 @@ jobs:
         with:
           path: priv/native/*.so
           key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
+      - name: DEBUG print
+        run: |
+          which erl || true
+          which iex || true
+          which mix || true
       - name: Compile native code
         if: steps.output-cache.outputs.cache-hit != 'true'
         run: make compile-native
