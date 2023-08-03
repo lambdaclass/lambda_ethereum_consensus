@@ -51,7 +51,7 @@ jobs:
     - name: Run dialyzer
       run: mix dialyzer --no-check --halt-exit-status
   test:
-    name: Build
+    name: Test
     runs-on: ubuntu-latest
     strategy:
       matrix:
