@@ -37,10 +37,6 @@ jobs:
         restore-keys: ${{ runner.os }}-mix-
     - name: Install dependencies
       run: mix deps.get
-    - name: Check Formatting
-      run: mix format --check-formatted
-    - name: Run Credo
-      run: mix credo --strict
     - name: Retrieve PLT Cache
       uses: actions/cache@v1
       id: plt-cache

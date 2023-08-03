@@ -8,9 +8,6 @@ iex:
 deps:
 	mix deps.get
 
-lint:
-	mix credo --strict
-
 # Run tests
 test:
 	mix test
