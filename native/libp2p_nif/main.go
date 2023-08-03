@@ -80,8 +80,8 @@ func (h C.uintptr_t) HostClose() {
 	handle.Value().(host.Host).Close()
 }
 
-//export SetStreamHandler
-func (h C.uintptr_t) SetStreamHandler(protoId string, procId C.erl_pid_t, callback C.send_message_t) {
+//export HostSetStreamHandler
+func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId C.erl_pid_t, callback C.send_message_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
@@ -92,8 +92,8 @@ func (h C.uintptr_t) SetStreamHandler(protoId string, procId C.erl_pid_t, callba
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }
 
-//export NewStream
-func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId string) C.uintptr_t {
+//export HostNewStream
+func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t {
 	host := cgo.Handle(h).Value().(host.Host)
 	peerId := cgo.Handle(pid).Value().(peer.ID)
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
@@ -127,8 +127,8 @@ func (h C.uintptr_t) HostAddrs() C.uintptr_t {
 /* Peerstore methods */
 /*********************/
 
-//export AddAddrs
-func (ps C.uintptr_t) AddAddrs(id, addrs C.uintptr_t, ttl uint64) {
+//export PeerstoreAddAddrs
+func (ps C.uintptr_t) PeerstoreAddAddrs(id, addrs C.uintptr_t, ttl uint64) {
 	psv := cgo.Handle(ps).Value().(peerstore.Peerstore)
 	idv := cgo.Handle(id).Value().(peer.ID)
 	addrsv := cgo.Handle(addrs).Value().([]multiaddr.Multiaddr)

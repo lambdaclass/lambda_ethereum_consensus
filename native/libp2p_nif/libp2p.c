@@ -191,7 +191,7 @@ ERL_FUNCTION(host_set_stream_handler)
 
     IF_ERROR(!enif_self(env, pid), "failed to get pid");
 
-    SetStreamHandler(host, proto_id, (void *)pid, send_message);
+    HostSetStreamHandler(host, proto_id, (void *)pid, send_message);
 
     return enif_make_atom(env, "ok");
 }
@@ -205,7 +205,7 @@ ERL_FUNCTION(host_new_stream)
     IF_ERROR(!enif_inspect_binary(env, argv[2], &bin), "invalid protocol ID");
     GoString proto_id = {(const char *)bin.data, bin.size};
 
-    uintptr_t result = NewStream(host, id, proto_id);
+    uintptr_t result = HostNewStream(host, id, proto_id);
     return get_handle_result(env, Stream, result);
 }
 
@@ -225,7 +225,7 @@ ERL_FUNCTION(peerstore_add_addrs)
     u_long ttl;
     IF_ERROR(!enif_get_uint64(env, argv[3], &ttl), "invalid TTL");
 
-    AddAddrs(ps, id, addrs, ttl);
+    PeerstoreAddAddrs(ps, id, addrs, ttl);
     return enif_make_atom(env, "ok");
 }
 
