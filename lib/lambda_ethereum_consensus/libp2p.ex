@@ -13,7 +13,7 @@ defmodule Libp2p do
   @typedoc """
   A handle to a Go resource.
   """
-  @opaque handle :: integer
+  @opaque handle :: reference
 
   @typedoc """
   A handle to a host.Host.
