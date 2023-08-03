@@ -3,23 +3,26 @@
 BREW_PREFIX := $(shell brew --prefix)
 ERLANG_INCLUDES = $(BREW_PREFIX)/Cellar/erlang/26.0.2/lib/erlang/usr/include/
 
-GO_SOURCES = libp2p/main.go
+LIBP2P_DIR = native/libp2p_nif
+OUTPUT_DIR = priv/native
+
+GO_SOURCES = $(LIBP2P_DIR)/main.go
 GO_ARCHIVES := $(patsubst %.go,%.a,$(GO_SOURCES))
 GO_HEADERS := $(patsubst %.go,%.h,$(GO_SOURCES))
 
 
-libp2p/%.a libp2p/%.h: libp2p/%.go
-	cd libp2p; go build -buildmode=c-archive $*.go
+$(LIBP2P_DIR)/%.a $(LIBP2P_DIR)/%.h: $(LIBP2P_DIR)/%.go
+	cd $(LIBP2P_DIR); go build -buildmode=c-archive $*.go
 
-libp2p.so: $(GO_ARCHIVES) $(GO_HEADERS) libp2p/libp2p.c libp2p/utils.c
-	gcc -Wall -Werror -dynamiclib -undefined dynamic_lookup -I $(ERLANG_INCLUDES) -o libp2p.so \
-		libp2p/libp2p.c libp2p/utils.c $(GO_ARCHIVES)
+$(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c
+	gcc -Wall -Werror -dynamiclib -undefined dynamic_lookup -I $(ERLANG_INCLUDES) -o $(OUTPUT_DIR)/libp2p_nif.so \
+		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c $(GO_ARCHIVES)
 
 clean:
-	-rm $(GO_ARCHIVES) $(GO_HEADERS) libp2p.so
+	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
 
 # Compile C and Go artifacts.
-compile-native: libp2p.so
+compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
 # Run an interactive terminal with the main supervisor setup.
 iex:

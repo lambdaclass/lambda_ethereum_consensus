@@ -6,7 +6,8 @@ defmodule Libp2p do
   @on_load :load_nifs
 
   def load_nifs do
-    :erlang.load_nif(~c"./libp2p", 0)
+    dir = :code.priv_dir(:lambda_ethereum_consensus)
+    :erlang.load_nif(dir ++ ~c"/native/libp2p_nif", 0)
   end
 
   @typedoc """
@@ -55,14 +56,8 @@ defmodule Libp2p do
   @spec ttl_permanent_addr :: integer
   def ttl_permanent_addr, do: 2 ** 63 - 1
 
-  @doc """
-  Creates a new Host.
-  """
-  @spec host_new :: {:ok, host} | error
-  def host_new(), do: host_new([])
-
   @spec host_new(list(option)) :: {:ok, host} | error
-  def host_new(_option_list),
+  def host_new(_option_list \\ []),
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
