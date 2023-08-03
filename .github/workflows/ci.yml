@@ -21,6 +21,7 @@ jobs:
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
+        version-type: strict
         version-file: .tool-versions
       env:
         ImageOS: ubuntu20 
@@ -44,7 +45,7 @@ jobs:
         mkdir -p priv/plts
         mix dialyzer --plt
     - name: Run dialyzer
-      run: mix dialyzer --no-check --halt-exit-status
+      run: mix dialyzer --no-check
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -53,6 +54,7 @@ jobs:
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
+        version-type: strict
         version-file: .tool-versions
       env:
         ImageOS: ubuntu20
