@@ -14,7 +14,7 @@ Algorithms like Raft assume a setup where nodes are known, running the same soft
 
 ## Bizantine consensus
 
-Blockchains like ethereum are designed to prioritize liveness in a bizantine environment, where anyone can join the network running a software that may be different, due to bugs or intentionally ill-intentioned. This means there are several fundamental differences:
+Blockchains like Ethereum work in a bizantine environment, where anyone can join the network running a software that may be different, due to bugs or intentionally. This means there are several fundamental differences:
 
 - Cryptographic signatures are introduced to validate authority of transactions.
 - Transactions are batched into blocks, so that the consensus overhead is reduced.
@@ -23,7 +23,7 @@ Blockchains like ethereum are designed to prioritize liveness in a bizantine env
 
 ## Forks
 
-In ethereum, liveness is prioritized over safety, by allowing forks: different versions of history can be live at the same time. Due to networking delays (e.g. block production being faster than propagation) or client differences, a client may receive to different blocks at the same time as the next one.
+In Ethereum, liveness is prioritized over safety, by allowing forks: different versions of history can be live at the same time. Due to networking delays (e.g. block production being faster than propagation) or client differences, a client may receive to different blocks at the same time as the next one.
 
 ```mermaid
 graph LR
@@ -59,13 +59,8 @@ graph LR
 
 In post-merge Ethereum, consensus is reached by two combined fork-related algorithms:
 
-- LMD GHOST: provides per-slot liveness by allowing blocks to be added in separate forks if they are not in the chain percieved as canonical.
-- Casper FFC: provides some level of safety by defining a finalization criterion. It takes a fork tree and defines a strategy to prune it (make branches inaccessible). Once a block is tagged as "final", blocks that aren't either parents (which are also final) or decendents of it, are not valid blocks. This prevents long reorganizations, which might make users vulnerable to double spends.
-
-Here we expand a bit on those:
-
-- Fork choice: [LMD GHOST](fork_choice.md).
-- Finality: [Casper FFC](finality.md).
+- LMD GHOST: a fork-choice algorithm based on votes (attestations). If a majority of nodes follow this algorithm, they will tend to converge to the same canonical chain. We expand more on it on [this document](fork_choice.md).
+- Casper FFC: provides some level of safety by defining a finalization criterion. It takes a fork tree and defines a strategy to prune it (make branches inaccessible). Once a block is tagged as "final", blocks that aren't either parents (which are also final) or decendents of it, are not valid blocks. This prevents long reorganizations, which might make users vulnerable to double spends. We expand on it in [this document](finality.md).
 
 ### Attestation messages
 

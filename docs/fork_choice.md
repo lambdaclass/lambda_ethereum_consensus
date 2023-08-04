@@ -2,8 +2,8 @@
 
 Let's separate the two parts of the name.
 
-- GHOST: Greediest, heaviest-observed sub-tree. The algorithm recognizes that by voting block B, we also vote its parent, block A, so the amount of votes of A represents the "weitght" of that whole tree.
-- LMD: in proof of work, each block would be a single vote for its parents. In proof of stake, each validator gives attestations/votes to the block they think is the current head of the chain (message driven). "Latest" means that only the last attestation for each validator will be taken into account.
+- GHOST: Greediest, heaviest-observed sub-tree. The algorithm recognizes that by voting block $B$, we also vote its parent, block $A$, so the amount of votes of A represents the "weight" of that whole tree.
+- LMD: each validator gives attestations/votes to the block they think is the current head of the chain (Message Driven). "Latest" means that only the last attestation for each validator will be taken into account.
 
 By choosing a fork, each node has a single, linear chain of blocks that it considers canonical. The last child of that chain is called the chain's "head".
 
@@ -58,7 +58,7 @@ $$W_N = B_N + \sum_i^{i \in \text{children}[N]}W_i$$
 In the previous scheme, there are two rewards:
 
 - Proposer rewards, given to a proposer when their block is included in the chain. This also adds an incentive for them to try to predict the most-likely branch to be the canonical one.
-- Attester rewards, which are smaller. These are in effect if the blocks they attest to are included.
+- Attester rewards, which are smaller. These are given if the blocks they attest to are included.
 
 These incentives, however, are not enough. To maximize their likelyhood of getting rewards, they may missbehave:
 
