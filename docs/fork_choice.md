@@ -53,6 +53,25 @@ In general:
 
 $$W_N = B_N + \sum_i^{i \in \text{children}[N]}W_i$$
 
+## Slashing
+
+In the previous scheme, there are two rewards:
+
+- Proposer rewards, given to a proposer when their block is included in the chain. This also adds an incentive for them to try to predict the most-likely branch to be the canonical one.
+- Attester rewards, which are smaller. These are in effect if the blocks they attest to are included.
+
+These incentives, however, are not enough. To maximize their likelyhood of getting rewards, they may missbehave:
+
+- Proposers may propose a block for every current fork.
+- Attesters may attest to every current head in their local chains.
+
+These missbehaviors debilitate the protocol (they give weight to all forks) and no honest node running fork-choice would take part on them. To prevent them, nodes that are detected while doing them are slashed (punished), which means that they are excluded from the validator set and a portion of their stake is burned.
+
+In turn, nodes that provide proof of offending nodes are given a whistleblower reward. Proofs are:
+
+- For proposer slashing: two block headers in the same slot signed by the same signature.
+- For attester slashing: two attestations signed in the same slot by the same signature.
+
 ## Guarantees
 
 - Majority honest progress: if the network has over 50% nodes running this algorithm honestly, the chain progresses and each older block is exponentially more unlikely to be reverted.
