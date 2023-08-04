@@ -27,9 +27,9 @@
         _handle;                                                       \
     })
 
-#define NIF_ENTRY(FUNCTION_NAME, ARITY)      \
-    {                                        \
-        #FUNCTION_NAME, ARITY, FUNCTION_NAME \
+#define NIF_ENTRY(FUNCTION_NAME, ARITY, ...)              \
+    {                                                     \
+        #FUNCTION_NAME, ARITY, FUNCTION_NAME, __VA_ARGS__ \
     }
 
 const uint64_t BUFFER_SIZE = 4096;
@@ -276,13 +276,14 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(host_new, 1),
     NIF_ENTRY(host_close, 1),
     NIF_ENTRY(host_set_stream_handler, 2),
-    NIF_ENTRY(host_new_stream, 3),
+    // TODO: check if host_new_stream is truly dirty
+    NIF_ENTRY(host_new_stream, 3, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks negotiating protocol
     NIF_ENTRY(host_peerstore, 1),
     NIF_ENTRY(host_id, 1),
     NIF_ENTRY(host_addrs, 1),
     NIF_ENTRY(peerstore_add_addrs, 4),
-    NIF_ENTRY(stream_read, 1),
-    NIF_ENTRY(stream_write, 2),
+    NIF_ENTRY(stream_read, 1, ERL_NIF_DIRTY_JOB_IO_BOUND),  // blocks until reading
+    NIF_ENTRY(stream_write, 2, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks when buffer is full
     NIF_ENTRY(stream_close, 1),
 };
 
