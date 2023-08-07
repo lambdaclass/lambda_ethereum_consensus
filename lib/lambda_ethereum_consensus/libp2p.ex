@@ -46,6 +46,11 @@ defmodule Libp2p do
   @opaque option :: handle
 
   @typedoc """
+  A handle to a discv5 listener.
+  """
+  @opaque listener :: handle
+
+  @typedoc """
   An error returned by this module.
   """
   @type error :: {:error, binary}
@@ -140,5 +145,12 @@ defmodule Libp2p do
   """
   @spec stream_close(stream) :: :ok | error
   def stream_close(_stream),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Creates a discv5 listener.
+  """
+  @spec listen_v5(binary, list(binary)) :: listener | error
+  def listen_v5(_addr, _bootnodes),
     do: :erlang.nif_error(:not_implemented)
 end

@@ -44,6 +44,7 @@ ErlNifResourceType *Peerstore;
 ErlNifResourceType *peer_ID;
 ErlNifResourceType *Multiaddr_arr;
 ErlNifResourceType *Stream;
+ErlNifResourceType *Listener;
 
 // Resource type helpers
 void handle_cleanup(ErlNifEnv *env, void *obj)
@@ -63,6 +64,7 @@ static int open_resource_types(ErlNifEnv *env, ErlNifResourceFlags flags)
     failed |= NULL == OPEN_RESOURCE_TYPE(peer_ID);
     failed |= NULL == OPEN_RESOURCE_TYPE(Multiaddr_arr);
     failed |= NULL == OPEN_RESOURCE_TYPE(Stream);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Listener);
     return failed;
 }
 
@@ -271,6 +273,37 @@ ERL_FUNCTION(stream_close)
     return enif_make_atom(env, "ok");
 }
 
+/***************/
+/** Discovery **/
+/***************/
+
+ERL_FUNCTION(listen_v5)
+{
+    ErlNifBinary bin;
+    IF_ERROR(!enif_inspect_binary(env, argv[0], &bin), "invalid address");
+    GoString go_addr = {(const char *)bin.data, bin.size};
+
+    IF_ERROR(!enif_is_list(env, argv[1]), "bootnodes is not a list");
+    const int MAX_BOOTNODES = 256;
+    GoString bootnodes[MAX_BOOTNODES];
+    int i = 0;
+
+    ERL_NIF_TERM head, tail = argv[1];
+    while (!enif_is_empty_list(env, tail) && i < MAX_BOOTNODES)
+    {
+        enif_get_list_cell(env, tail, &head, &tail);
+        ErlNifBinary bin;
+        IF_ERROR(!enif_inspect_binary(env, head, &bin), "invalid bootnode");
+        GoString bootnode = {(const char *)bin.data, bin.size};
+        bootnodes[i++] = bootnode;
+    }
+    GoSlice go_bootnodes = {bootnodes, i, MAX_BOOTNODES};
+
+    uintptr_t handle = ListenV5(go_addr, go_bootnodes);
+
+    return get_handle_result(env, Listener, handle);
+}
+
 static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(listen_addr_strings, 1),
     NIF_ENTRY(host_new, 1),
@@ -285,6 +318,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(stream_read, 1, ERL_NIF_DIRTY_JOB_IO_BOUND),  // blocks until reading
     NIF_ENTRY(stream_write, 2, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks when buffer is full
     NIF_ENTRY(stream_close, 1),
+    NIF_ENTRY(listen_v5, 2),
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, load, NULL, upgrade, NULL)
