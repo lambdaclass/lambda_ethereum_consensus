@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	gcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -50,6 +51,7 @@ func callGetter[T any, R any](h C.uintptr_t, g func(T) R) C.uintptr_t {
 	return C.uintptr_t(cgo.NewHandle(prop))
 }
 
+// Taken from Prysm
 func convertFromInterfacePrivKey(privkey crypto.PrivKey) (*ecdsa.PrivateKey, error) {
 	secpKey, ok := privkey.(*crypto.Secp256k1PrivateKey)
 	if !ok {
@@ -65,6 +67,22 @@ func convertFromInterfacePrivKey(privkey crypto.PrivKey) (*ecdsa.PrivateKey, err
 	privKey.Curve = gcrypto.S256() // Temporary hack, so libp2p Secp256k1 is recognized as geth Secp256k1 in disc v5.1.
 	privKey.X, privKey.Y = gcrypto.S256().ScalarBaseMult(rawKey)
 	return privKey, nil
+}
+
+// Taken from Prysm
+func convertToInterfacePubkey(pubkey *ecdsa.PublicKey) (crypto.PubKey, error) {
+	xVal, yVal := new(btcec.FieldVal), new(btcec.FieldVal)
+	if xVal.SetByteSlice(pubkey.X.Bytes()) {
+		return nil, errors.New("X value overflows")
+	}
+	if yVal.SetByteSlice(pubkey.Y.Bytes()) {
+		return nil, errors.New("Y value overflows")
+	}
+	newKey := crypto.PubKey((*crypto.Secp256k1PublicKey)(btcec.NewPublicKey(xVal, yVal)))
+	// Zero out temporary values.
+	xVal.Zero()
+	yVal.Zero()
+	return newKey, nil
 }
 
 /*********/
@@ -296,6 +314,51 @@ func (i C.uintptr_t) IteratorNext() bool {
 
 //export IteratorNode
 func (i C.uintptr_t) IteratorNode() C.uintptr_t {
-	iterator := cgo.Handle(i).Value().(enode.Iterator)
-	return C.uintptr_t(cgo.NewHandle(iterator.Node()))
+	return callGetter(i, enode.Iterator.Node)
+}
+
+//export NodeMultiaddr
+func (n C.uintptr_t) NodeMultiaddr() C.uintptr_t {
+	node := cgo.Handle(n).Value().(*enode.Node)
+	var addrArr []multiaddr.Multiaddr
+	if node.TCP() != 0 {
+		str := fmt.Sprintf("/ip4/%s/tcp/%d", node.IP(), node.TCP())
+		addr, err := multiaddr.NewMultiaddr(str)
+		if err != nil {
+			// TODO: handle in better way
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			return 0
+		}
+		addrArr = append(addrArr, addr)
+	} else if node.UDP() != 0 {
+		str := fmt.Sprintf("/ip4/%s/udp/%d/quic", node.IP(), node.UDP())
+		addr, err := multiaddr.NewMultiaddr(str)
+		if err != nil {
+			// TODO: handle in better way
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			return 0
+		}
+		addrArr = append(addrArr, addr)
+	} else {
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(addrArr))
+}
+
+//export NodeID
+func (n C.uintptr_t) NodeID() C.uintptr_t {
+	node := cgo.Handle(n).Value().(*enode.Node)
+	key, err := convertToInterfacePubkey(node.Pubkey())
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 0
+	}
+	nodeID, err := peer.IDFromPublicKey(key)
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(nodeID))
 }

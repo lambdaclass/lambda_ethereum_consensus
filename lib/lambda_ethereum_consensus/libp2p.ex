@@ -160,14 +160,14 @@ defmodule Libp2p do
   @doc """
   Creates a discv5 listener.
   """
-  @spec listen_v5(binary, list(binary)) :: listener | error
+  @spec listen_v5(binary, list(binary)) :: {:ok, listener} | error
   def listen_v5(_addr, _bootnodes),
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Creates a discv5 nodes iterator for random nodes.
   """
-  @spec listener_random_nodes(listener) :: iterator | error
+  @spec listener_random_nodes(listener) :: {:ok, iterator} | error
   def listener_random_nodes(_listener),
     do: :erlang.nif_error(:not_implemented)
 
@@ -181,8 +181,23 @@ defmodule Libp2p do
 
   @doc """
   Returns the current node.
+  WARN: you need to call iterator_next before calling this function!
   """
-  @spec iterator_node(iterator) :: discv5_node | error
+  @spec iterator_node(iterator) :: {:ok, discv5_node} | error
   def iterator_node(_iterator),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Returns the multiaddresses of the node.
+  """
+  @spec node_multiaddr(discv5_node) :: {:ok, addrs} | error
+  def node_multiaddr(_node),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Returns the ID of the node.
+  """
+  @spec node_id(discv5_node) :: {:ok, peer_id} | error
+  def node_id(_node),
     do: :erlang.nif_error(:not_implemented)
 end

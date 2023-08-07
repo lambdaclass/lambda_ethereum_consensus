@@ -3,6 +3,7 @@ module lambdaclass.com/libp2p
 go 1.20
 
 require (
+	github.com/btcsuite/btcd/btcec/v2 v2.2.0
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/libp2p/go-libp2p v0.29.0
 	github.com/multiformats/go-multiaddr v0.10.1
@@ -12,7 +13,6 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect

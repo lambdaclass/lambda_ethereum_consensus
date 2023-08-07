@@ -324,6 +324,9 @@ ERL_FUNCTION(iterator_next)
 
 ERL_FUNCTION_GETTER(iterator_node, Iterator, Node, IteratorNode)
 
+ERL_FUNCTION_GETTER(node_multiaddr, Node, Multiaddr_arr, NodeMultiaddr)
+ERL_FUNCTION_GETTER(node_id, Node, peer_ID, NodeID)
+
 static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(listen_addr_strings, 1),
     NIF_ENTRY(host_new, 1),
@@ -340,8 +343,10 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(stream_close, 1),
     NIF_ENTRY(listen_v5, 2),
     NIF_ENTRY(listener_random_nodes, 1),
-    NIF_ENTRY(iterator_next, 1),
+    NIF_ENTRY(iterator_next, 1, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks until gets next node
     NIF_ENTRY(iterator_node, 1),
+    NIF_ENTRY(node_multiaddr, 1),
+    NIF_ENTRY(node_id, 1),
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, load, NULL, upgrade, NULL)
