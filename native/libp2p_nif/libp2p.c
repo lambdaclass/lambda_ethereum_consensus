@@ -45,6 +45,8 @@ ErlNifResourceType *peer_ID;
 ErlNifResourceType *Multiaddr_arr;
 ErlNifResourceType *Stream;
 ErlNifResourceType *Listener;
+ErlNifResourceType *Iterator;
+ErlNifResourceType *Node;
 
 // Resource type helpers
 void handle_cleanup(ErlNifEnv *env, void *obj)
@@ -65,6 +67,8 @@ static int open_resource_types(ErlNifEnv *env, ErlNifResourceFlags flags)
     failed |= NULL == OPEN_RESOURCE_TYPE(Multiaddr_arr);
     failed |= NULL == OPEN_RESOURCE_TYPE(Stream);
     failed |= NULL == OPEN_RESOURCE_TYPE(Listener);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Iterator);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Node);
     return failed;
 }
 
@@ -304,6 +308,22 @@ ERL_FUNCTION(listen_v5)
     return get_handle_result(env, Listener, handle);
 }
 
+ERL_FUNCTION(listener_random_nodes)
+{
+    uintptr_t listener = GET_HANDLE(argv[0], Listener);
+    uintptr_t result = ListenerRandomNodes(listener);
+    return get_handle_result(env, Iterator, result);
+}
+
+ERL_FUNCTION(iterator_next)
+{
+    uintptr_t listener = GET_HANDLE(argv[0], Iterator);
+    bool result = IteratorNext(listener);
+    return enif_make_atom(env, result ? "true" : "false");
+}
+
+ERL_FUNCTION_GETTER(iterator_node, Iterator, Node, IteratorNode)
+
 static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(listen_addr_strings, 1),
     NIF_ENTRY(host_new, 1),
@@ -319,6 +339,9 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(stream_write, 2, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks when buffer is full
     NIF_ENTRY(stream_close, 1),
     NIF_ENTRY(listen_v5, 2),
+    NIF_ENTRY(listener_random_nodes, 1),
+    NIF_ENTRY(iterator_next, 1),
+    NIF_ENTRY(iterator_node, 1),
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, load, NULL, upgrade, NULL)

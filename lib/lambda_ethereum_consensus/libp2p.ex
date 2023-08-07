@@ -51,6 +51,16 @@ defmodule Libp2p do
   @opaque listener :: handle
 
   @typedoc """
+  A discv5 node iterator.
+  """
+  @opaque iterator :: handle
+
+  @typedoc """
+  A node using discv5.
+  """
+  @opaque discv5_node :: handle
+
+  @typedoc """
   An error returned by this module.
   """
   @type error :: {:error, binary}
@@ -152,5 +162,27 @@ defmodule Libp2p do
   """
   @spec listen_v5(binary, list(binary)) :: listener | error
   def listen_v5(_addr, _bootnodes),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Creates a discv5 nodes iterator for random nodes.
+  """
+  @spec listener_random_nodes(listener) :: iterator | error
+  def listener_random_nodes(_listener),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Moves the iterator to the next node.
+  Returns false if there are no more nodes.
+  """
+  @spec iterator_next(iterator) :: boolean
+  def iterator_next(_iterator),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Returns the current node.
+  """
+  @spec iterator_node(iterator) :: discv5_node | error
+  def iterator_node(_iterator),
     do: :erlang.nif_error(:not_implemented)
 end

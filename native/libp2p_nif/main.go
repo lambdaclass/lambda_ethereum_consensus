@@ -280,3 +280,22 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 	}
 	return C.uintptr_t(cgo.NewHandle(listener))
 }
+
+//export ListenerRandomNodes
+func (l C.uintptr_t) ListenerRandomNodes() C.uintptr_t {
+	listener := cgo.Handle(l).Value().(*discover.UDPv5)
+	iter := listener.RandomNodes()
+	return C.uintptr_t(cgo.NewHandle(iter))
+}
+
+//export IteratorNext
+func (i C.uintptr_t) IteratorNext() bool {
+	iterator := cgo.Handle(i).Value().(enode.Iterator)
+	return iterator.Next()
+}
+
+//export IteratorNode
+func (i C.uintptr_t) IteratorNode() C.uintptr_t {
+	iterator := cgo.Handle(i).Value().(enode.Iterator)
+	return C.uintptr_t(cgo.NewHandle(iterator.Node()))
+}
