@@ -188,6 +188,13 @@ defmodule Libp2p do
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
+  Returns the published TCP port of the node, or nil.
+  """
+  @spec node_tcp(discv5_node) :: integer | nil
+  def node_tcp(_node),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
   Returns the multiaddresses of the node.
   """
   @spec node_multiaddr(discv5_node) :: {:ok, addrs} | error

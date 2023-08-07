@@ -5,7 +5,7 @@
 
 #define ERL_FUNCTION(FUNCTION_NAME) static ERL_NIF_TERM FUNCTION_NAME(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
-#define ERL_FUNCTION_GETTER(NAME, RECV_TYPE, ATTR_TYPE, GETTER)            \
+#define ERL_HANDLE_GETTER(NAME, RECV_TYPE, ATTR_TYPE, GETTER)              \
     ERL_FUNCTION(NAME)                                                     \
     {                                                                      \
         uintptr_t _handle = get_handle_from_term(env, RECV_TYPE, argv[0]); \
@@ -215,9 +215,9 @@ ERL_FUNCTION(host_new_stream)
     return get_handle_result(env, Stream, result);
 }
 
-ERL_FUNCTION_GETTER(host_peerstore, Host, Peerstore, HostPeerstore)
-ERL_FUNCTION_GETTER(host_id, Host, peer_ID, HostID)
-ERL_FUNCTION_GETTER(host_addrs, Host, Multiaddr_arr, HostAddrs)
+ERL_HANDLE_GETTER(host_peerstore, Host, Peerstore, HostPeerstore)
+ERL_HANDLE_GETTER(host_id, Host, peer_ID, HostID)
+ERL_HANDLE_GETTER(host_addrs, Host, Multiaddr_arr, HostAddrs)
 
 /*********************/
 /* Peerstore methods */
@@ -322,10 +322,18 @@ ERL_FUNCTION(iterator_next)
     return enif_make_atom(env, result ? "true" : "false");
 }
 
-ERL_FUNCTION_GETTER(iterator_node, Iterator, Node, IteratorNode)
+ERL_HANDLE_GETTER(iterator_node, Iterator, Node, IteratorNode)
 
-ERL_FUNCTION_GETTER(node_multiaddr, Node, Multiaddr_arr, NodeMultiaddr)
-ERL_FUNCTION_GETTER(node_id, Node, peer_ID, NodeID)
+ERL_FUNCTION(node_tcp)
+{
+    uintptr_t node = get_handle_from_term(env, Node, argv[0]);
+    IF_ERROR(node == 0, "invalid first argument");
+    uint64_t tcp_port = NodeTCP(node);
+    return (tcp_port == 0) ? enif_make_atom(env, "nil") : enif_make_uint64(env, tcp_port);
+}
+
+ERL_HANDLE_GETTER(node_multiaddr, Node, Multiaddr_arr, NodeMultiaddr)
+ERL_HANDLE_GETTER(node_id, Node, peer_ID, NodeID)
 
 static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(listen_addr_strings, 1),
@@ -345,6 +353,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(listener_random_nodes, 1),
     NIF_ENTRY(iterator_next, 1, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks until gets next node
     NIF_ENTRY(iterator_node, 1),
+    NIF_ENTRY(node_tcp, 1),
     NIF_ENTRY(node_multiaddr, 1),
     NIF_ENTRY(node_id, 1),
 };

@@ -317,6 +317,11 @@ func (i C.uintptr_t) IteratorNode() C.uintptr_t {
 	return callGetter(i, enode.Iterator.Node)
 }
 
+//export NodeTCP
+func (n C.uintptr_t) NodeTCP() int {
+	return cgo.Handle(n).Value().(*enode.Node).TCP()
+}
+
 //export NodeMultiaddr
 func (n C.uintptr_t) NodeMultiaddr() C.uintptr_t {
 	node := cgo.Handle(n).Value().(*enode.Node)
