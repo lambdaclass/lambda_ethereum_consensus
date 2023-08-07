@@ -32,3 +32,14 @@ lambda_ethereum_consensus-*.tar
 *.beam
 /config/*.secret.exs
 .elixir_ls/
+
+# Compiled artifacts.
+*.o
+*.a
+*.h
+*.so
+
+# VSCode configuration dir.
+.vscode/
+
+!libp2p/utils.h

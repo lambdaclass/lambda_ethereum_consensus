@@ -13,8 +13,38 @@ permissions:
   contents: read
 
 jobs:
+  compile-native:
+    name: Build native libraries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Elixir
+        # NOTE: this is needed for the NIF header files
+        uses: erlef/setup-beam@v1
+        with:
+          version-type: strict
+          version-file: .tool-versions
+        env:
+          ImageOS: ubuntu20
+      - name: Set up Go
+        # NOTE: this action comes with caching by default
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.20"
+          cache-dependency-path: native/libp2p_nif/go.sum
+      - name: Cache output artifacts
+        id: output-cache
+        uses: actions/cache@v3
+        with:
+          path: priv/native/*.so
+          key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
+      - name: Compile native code
+        if: steps.output-cache.outputs.cache-hit != 'true'
+        run: make compile-native
+
   build:
     name: Build
+    needs: compile-native
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -24,7 +54,14 @@ jobs:
         version-type: strict
         version-file: .tool-versions
       env:
-        ImageOS: ubuntu20 
+        ImageOS: ubuntu20
+    - name: Fetch native libraries
+      id: output-cache
+      uses: actions/cache/restore@v3
+      with:
+        path: priv/native/*.so
+        key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
+        fail-on-cache-miss: true
     - name: Restore dependencies cache
       uses: actions/cache@v3
       with:
@@ -46,8 +83,10 @@ jobs:
         mix dialyzer --plt
     - name: Run dialyzer
       run: mix dialyzer --no-check
+
   test:
     name: Test
+    needs: compile-native
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -58,6 +97,13 @@ jobs:
         version-file: .tool-versions
       env:
         ImageOS: ubuntu20
+    - name: Fetch native libraries
+      id: output-cache
+      uses: actions/cache/restore@v3
+      with:
+        path: priv/native/*.so
+        key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
+        fail-on-cache-miss: true
     - name: Restore dependencies cache
       uses: actions/cache@v3
       with:
