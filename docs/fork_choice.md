@@ -20,7 +20,7 @@ We now have a store of each validator's latest vote, which allows LMD GHOST to w
 
 We first need to calculate each block's weight:
 
-- For leaf blocks, we calculate their weight by checking how much votes they have.
+- For leaf blocks, we calculate their weight by checking how many votes they have.
 - For each branch block we calculate its weight as the sum of the weight of every child, plus its own votes. We repeat this until we reach the root, which will be the last finalized block (there won't be any branches before, so there won't be any more fork-choice to perform).
 
 This way we calculate the weight not only for each block, but for the subtree where that block is the root.
