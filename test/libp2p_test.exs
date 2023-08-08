@@ -20,6 +20,35 @@ defmodule Libp2pTest do
     "enr:-LK4QKWrXTpV9T78hNG6s8AM6IO4XH9kFT91uZtFg1GcsJ6dKovDOr1jtAAFPnS2lvNltkOGA9k29BUN7lFh_sjuc9QBh2F0dG5ldHOIAAAAAAAAAACEZXRoMpC1MD8qAAAAAP__________gmlkgnY0gmlwhANAdd-Jc2VjcDI1NmsxoQLQa6ai7y9PMN5hpLe5HmiJSlYzMuzP7ZhwRiwHvqNXdoN0Y3CCI4yDdWRwgiOM"
   ]
 
+  def assert_snappy_decompress(compressed, uncompressed) do
+    uncompressed = Base.decode16!(uncompressed)
+
+    {:ok, ^uncompressed} =
+      compressed
+      |> Base.decode16!()
+      |> Libp2p.snappy_decompress_stream()
+  end
+
+  test "Test snappy stream decompression" do
+    # Uncompressed chunks
+    msg = "0011FF060000734E6150705901150000F1D17CFF0008000000000000FFFFFFFFFFFFFFFF0F"
+    # status <> length <> ...
+    "00" <> "11" <> compressed_payload = msg
+
+    assert_snappy_decompress(compressed_payload, "0008000000000000FFFFFFFFFFFFFFFF0F")
+
+    msg = "0011FF060000734E6150705901150000CD11E7D53A03000000000000FFFFFFFFFFFFFFFF0F"
+    "00" <> "11" <> compressed_payload = msg
+
+    assert_snappy_decompress(compressed_payload, "3A03000000000000FFFFFFFFFFFFFFFF0F")
+
+    # Uncompressed chunks
+    msg = "0011FF060000734E61507059000A0000B3A056EA1100003E0100"
+    "00" <> "11" <> compressed_payload = msg
+
+    assert_snappy_decompress(compressed_payload, "0000000000000000000000000000000000")
+  end
+
   test "Create and destroy host" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0

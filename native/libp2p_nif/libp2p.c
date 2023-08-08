@@ -155,6 +155,27 @@ ERL_FUNCTION(listen_addr_strings)
     return get_handle_result(env, Option, handle);
 }
 
+ERL_FUNCTION(snappy_decompress_stream)
+{
+    ErlNifBinary bin;
+    IF_ERROR(!enif_inspect_binary(env, argv[0], &bin), "invalid data");
+    GoSlice go_data = {bin.data, bin.size, bin.size};
+
+    // stream is optional
+    uintptr_t stream = get_handle_from_term(env, Stream, argv[1]);
+
+    uint64_t read;
+    void *uncompressed = SnappyDecompressStream(go_data, stream, &read);
+    if (uncompressed == NULL)
+    {
+        return make_error_msg(env, "snappy decompression failed");
+    }
+    ERL_NIF_TERM bin_term;
+    u_char *bin_data = enif_make_new_binary(env, read, &bin_term);
+    memcpy(bin_data, uncompressed, read);
+    return make_ok_tuple2(env, bin_term);
+}
+
 /****************/
 /* Host methods */
 /****************/
@@ -337,6 +358,7 @@ ERL_HANDLE_GETTER(node_id, Node, peer_ID, NodeID)
 
 static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(listen_addr_strings, 1),
+    NIF_ENTRY(snappy_decompress_stream, 2),
     NIF_ENTRY(host_new, 1),
     NIF_ENTRY(host_close, 1),
     NIF_ENTRY(host_set_stream_handler, 2),

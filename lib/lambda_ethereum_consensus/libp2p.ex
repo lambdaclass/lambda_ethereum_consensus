@@ -81,6 +81,13 @@ defmodule Libp2p do
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
+  Decompresses the stream, prepending the given bytes.
+  """
+  @spec snappy_decompress_stream(binary, stream | nil) :: {:ok, binary} | error
+  def snappy_decompress_stream(_read_bytes, _stream \\ nil),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
   Creates a Host, with the given options.
   """
   @spec host_new(list(option)) :: {:ok, host} | error
