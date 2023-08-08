@@ -2,7 +2,7 @@
 
 Let's separate the two parts of the name.
 
-- GHOST: Greediest, heaviest-observed sub-tree. The algorithm recognizes that by voting block $B$, we also vote its parent, block $A$, so the amount of votes of A represents the "weight" of that whole tree.
+- GHOST: **G**reediest, **H**eaviest-**O**bserved **S**ub-**T**ree. The algorithm provides a strategy to choose between two forks/branches. Each branch points to a block, and each block can be thought of the root of a subtree containing all of its child nodes. The weight of the subtree is the sum of the weights af all blocks in it. The weight in each individual block is obtained from the attestations on them.
 - LMD: each validator gives attestations/votes to the block they think is the current head of the chain (Message Driven). "Latest" means that only the last attestation for each validator will be taken into account.
 
 By choosing a fork, each node has a single, linear chain of blocks that it considers canonical. The last child of that chain is called the chain's "head".
@@ -23,7 +23,7 @@ We first need to calculate each block's weight:
 - For leaf blocks, we calculate their weight by checking how much votes they have.
 - For each branch block we calculate its weight as the sum of the weight of every child, plus its own votes. We repeat this until we reach the root, which will be the last finalized block (there won't be any branches before, so there won't be any more fork-choice to perform).
 
-This way we calculate the weight not only for each block, but for the subtree were that block is the root.
+This way we calculate the weight not only for each block, but for the subtree where that block is the root.
 
 Afterwards, when we want to determine which is the head of the chain, we traverse the tree, starting from the root, and greedily (without looking further ahead) we go block by block chosing the sub-tree with the highest weight.
 
@@ -60,14 +60,14 @@ In the previous scheme, there are two rewards:
 - Proposer rewards, given to a proposer when their block is included in the chain. This also adds an incentive for them to try to predict the most-likely branch to be the canonical one.
 - Attester rewards, which are smaller. These are given if the blocks they attest to are included.
 
-These incentives, however, are not enough. To maximize their likelyhood of getting rewards, they may missbehave:
+These incentives, however, are not enough. To maximize their likelyhood of getting rewards, they may misbehave:
 
 - Proposers may propose a block for every current fork.
 - Attesters may attest to every current head in their local chains.
 
-These missbehaviors debilitate the protocol (they give weight to all forks) and no honest node running fork-choice would take part on them. To prevent them, nodes that are detected while doing them are slashed (punished), which means that they are excluded from the validator set and a portion of their stake is burned.
+These misbehaviors debilitate the protocol (they give weight to all forks) and no honest node running fork-choice would take part on them. To prevent them, nodes that are detected while doing them are slashed (punished), which means that they are excluded from the validator set and a portion of their stake is burned.
 
-In turn, nodes that provide proof of offending nodes are given a whistleblower reward. Proofs are:
+Nodes provide proofs of the offenses, and proposers including them in blocks get whistleblower rewards. Proofs are:
 
 - For proposer slashing: two block headers in the same slot signed by the same signature.
 - For attester slashing: two attestations signed in the same slot by the same signature.
