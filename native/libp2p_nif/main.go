@@ -36,6 +36,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -137,10 +138,14 @@ func SnappyDecompressStream(buf []byte, s C.uintptr_t, read *uint64) unsafe.Poin
 
 //export HostNew
 func HostNew(options []C.uintptr_t) C.uintptr_t {
-	optionsSlice := make([]libp2p.Option, len(options))
+	// TODO: move to Elixir side
+	optionsSlice := make([]libp2p.Option, len(options)+2)
 	for i := 0; i < len(options); i++ {
 		optionsSlice[i] = cgo.Handle(options[i]).Value().(libp2p.Option)
 	}
+	// Needed to support mplex
+	optionsSlice[len(options)] = libp2p.DefaultMuxers
+	optionsSlice[len(options)+1] = libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport)
 	h, err := libp2p.New(optionsSlice...)
 	if err != nil {
 		// TODO: handle in better way
@@ -236,6 +241,7 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return -1
 	}
+	stream.CloseWrite()
 	return n
 }
 
