@@ -82,6 +82,7 @@ defmodule Libp2p do
 
   @doc """
   Decompresses the stream, prepending the given bytes.
+  TODO: add length checking, and streaming.
   """
   @spec snappy_decompress_stream(binary, stream | nil) :: {:ok, binary} | error
   def snappy_decompress_stream(_read_bytes, _stream \\ nil),

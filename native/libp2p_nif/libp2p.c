@@ -164,14 +164,14 @@ ERL_FUNCTION(snappy_decompress_stream)
     // stream is optional
     uintptr_t stream = get_handle_from_term(env, Stream, argv[1]);
 
-    uint64_t read;
+    GoUint64 read;
     void *uncompressed = SnappyDecompressStream(go_data, stream, &read);
     if (uncompressed == NULL)
     {
         return make_error_msg(env, "snappy decompression failed");
     }
     ERL_NIF_TERM bin_term;
-    u_char *bin_data = enif_make_new_binary(env, read, &bin_term);
+    u_char *bin_data = enif_make_new_binary(env, (size_t)read, &bin_term);
     memcpy(bin_data, uncompressed, read);
     return make_ok_tuple2(env, bin_term);
 }
