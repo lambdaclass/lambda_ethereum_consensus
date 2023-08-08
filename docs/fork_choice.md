@@ -2,7 +2,7 @@
 
 Let's separate the two parts of the name.
 
-- GHOST: **G**reediest, **H**eaviest-**O**bserved **S**ub-**T**ree. The algorithm provides a strategy to choose between two forks/branches. Each branch points to a block, and each block can be thought of the root of a subtree containing all of its child nodes. The weight of the subtree is the sum of the weights af all blocks in it. The weight in each individual block is obtained from the attestations on them.
+- GHOST: **G**reediest, **H**eaviest-**O**bserved **S**ub-**T**ree. The algorithm provides a strategy to choose between two forks/branches. Each branch points to a block, and each block can be thought of as the root of a subtree containing all of its child nodes. The weight of the subtree is the sum of the weights of all blocks in it. The weight of each individual block is obtained from the attestations on them.
 - LMD: each validator gives attestations/votes to the block they think is the current head of the chain (Message Driven). "Latest" means that only the last attestation for each validator will be taken into account.
 
 By choosing a fork, each node has a single, linear chain of blocks that it considers canonical. The last child of that chain is called the chain's "head".
