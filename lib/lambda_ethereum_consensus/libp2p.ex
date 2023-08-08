@@ -71,6 +71,18 @@ defmodule Libp2p do
   @spec ttl_permanent_addr :: integer
   def ttl_permanent_addr, do: 2 ** 63 - 1
 
+  @doc """
+  Returns an `Option` that can be passed to `host_new`
+  as an argument to configures libp2p to listen on the
+  given (unparsed) addresses.
+  """
+  @spec listen_addr_strings(binary) :: {:ok, option} | error
+  def listen_addr_strings(_addr),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Creates a Host, with the given options.
+  """
   @spec host_new(list(option)) :: {:ok, host} | error
   def host_new(_option_list \\ []),
     do: :erlang.nif_error(:not_implemented)
@@ -87,15 +99,6 @@ defmodule Libp2p do
   """
   @spec host_set_stream_handler(host, binary) :: :ok | error
   def host_set_stream_handler(_host, _protocol_id),
-    do: :erlang.nif_error(:not_implemented)
-
-  @doc """
-  Returns an `Option` that can be passed to `host_new`
-  as an argument to configures libp2p to listen on the
-  given (unparsed) addresses.
-  """
-  @spec listen_addr_strings(binary) :: {:ok, option} | error
-  def listen_addr_strings(_addr),
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
