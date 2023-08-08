@@ -5,9 +5,13 @@ defmodule LambdaEthereumConsensus.MixProject do
     [
       app: :lambda_ethereum_consensus,
       version: "0.1.0",
-      elixir: "~> 1.14",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      dialyzer: dialyzer(),
+      preferred_cli_env: [
+        dialyzer: :test
+      ],
     ]
   end
 
@@ -22,7 +26,14 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      { :rustler, "~> 0.29.1" }
+      { :rustler, "~> 0.29.1" },
+      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+    ]
+  end
+
+  defp dialyzer() do
+    [
+      plt_file: {:no_warn, "priv/plts/project.plt"}
     ]
   end
 end
