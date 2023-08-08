@@ -23,7 +23,7 @@ Blockchains like Ethereum work in a bizantine environment, where anyone can join
 
 ## Forks
 
-In Ethereum, liveness is prioritized over safety, by allowing forks: different versions of history can be live at the same time. Due to networking delays (e.g. block production being faster than propagation) or client differences, a client may receive to different blocks at the same time as the next one.
+In Ethereum, liveness is prioritized over safety, by allowing forks: different versions of history can be live at the same time. Due to networking delays (e.g. block production being faster than propagation) or client differences, a client may receive two different blocks at the same time as the next one.
 
 ```mermaid
 graph LR
