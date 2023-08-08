@@ -60,7 +60,7 @@ In the previous scheme, there are two rewards:
 - Proposer rewards, given to a proposer when their block is included in the chain. This also adds an incentive for them to try to predict the most-likely branch to be the canonical one.
 - Attester rewards, which are smaller. These are given if the blocks they attest to are included.
 
-These incentives, however, are not enough. To maximize their likelyhood of getting rewards, they may misbehave:
+These incentives, however, are not enough. To maximize their likelihood of getting rewards, they may misbehave:
 
 - Proposers may propose a block for every current fork.
 - Attesters may attest to every current head in their local chains.
