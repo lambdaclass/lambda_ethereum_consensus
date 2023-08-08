@@ -21,8 +21,6 @@ defmodule Libp2pTest do
   ]
 
   def assert_snappy_decompress(compressed, uncompressed) do
-    uncompressed = Base.decode16!(uncompressed)
-
     {:ok, ^uncompressed} =
       compressed
       |> Base.decode16!()
@@ -34,19 +32,32 @@ defmodule Libp2pTest do
     msg = "0011FF060000734E6150705901150000F1D17CFF0008000000000000FFFFFFFFFFFFFFFF0F"
     # status <> length <> ...
     "00" <> "11" <> compressed_payload = msg
+    expected = Base.decode16!("0008000000000000FFFFFFFFFFFFFFFF0F")
 
-    assert_snappy_decompress(compressed_payload, "0008000000000000FFFFFFFFFFFFFFFF0F")
+    assert_snappy_decompress(compressed_payload, expected)
 
     msg = "0011FF060000734E6150705901150000CD11E7D53A03000000000000FFFFFFFFFFFFFFFF0F"
     "00" <> "11" <> compressed_payload = msg
+    expected = Base.decode16!("3A03000000000000FFFFFFFFFFFFFFFF0F")
 
-    assert_snappy_decompress(compressed_payload, "3A03000000000000FFFFFFFFFFFFFFFF0F")
+    assert_snappy_decompress(compressed_payload, expected)
 
-    # Uncompressed chunks
+    # Compressed chunks
     msg = "0011FF060000734E61507059000A0000B3A056EA1100003E0100"
     "00" <> "11" <> compressed_payload = msg
+    expected = Base.decode16!("0000000000000000000000000000000000")
 
-    assert_snappy_decompress(compressed_payload, "0000000000000000000000000000000000")
+    assert_snappy_decompress(compressed_payload, expected)
+
+    msg =
+      "011CFF060000734E6150705900220000EF99F84B1C6C4661696C656420746F20756E636F6D7072657373206D657373616765"
+
+    "01" <> "1C" <> compressed_payload = msg
+
+    assert_snappy_decompress(
+      compressed_payload,
+      "Failed to uncompress message"
+    )
   end
 
   test "Create and destroy host" do
@@ -140,7 +151,7 @@ defmodule Libp2pTest do
     :ok = Libp2p.host_close(host)
   end
 
-  def try_read_stream(host, iterator, protocol_id) do
+  def try_read_stream(host, iterator, protocol_id, writing_fun) do
     {:ok, peerstore} = Libp2p.host_peerstore(host)
 
     true = Libp2p.iterator_next(iterator)
@@ -155,8 +166,8 @@ defmodule Libp2pTest do
 
       case Libp2p.host_new_stream(host, id, protocol_id) do
         {:ok, stream} ->
-          case Libp2p.stream_read(stream) do
-            {:ok, msg} -> IO.puts(["\"#{Base.encode16(msg)}\""])
+          case Libp2p.stream_read(writing_fun.(stream)) do
+            {:ok, msg} -> IO.puts(["\n----->\"#{Base.encode16(msg)}\"<-----\n"])
             _ -> :ok
           end
 
@@ -165,7 +176,7 @@ defmodule Libp2pTest do
       end
     end
 
-    try_read_stream(host, iterator, protocol_id)
+    try_read_stream(host, iterator, protocol_id, writing_fun)
   end
 
   @tag :skip
@@ -183,7 +194,41 @@ defmodule Libp2pTest do
 
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
 
-    try_read_stream(host, iterator, protocol_id)
+    try_read_stream(host, iterator, protocol_id, fn s -> s end)
+
+    :ok = Libp2p.host_close(host)
+  end
+
+  @tag :skip
+  @tag timeout: :infinity
+  test "ping peers" do
+    {:ok, host} = Libp2p.host_new()
+
+    # ping peers
+    protocol_id = "/eth2/beacon_chain/req/ping/1/ssz_snappy"
+    # request body
+    msg =
+      Base.decode16!(
+        "08" <> "FF060000734E61507059" <> "01" <> "0C0000" <> "95A782F5" <> "0A00000000000000"
+      )
+
+    :ok = Libp2p.host_set_stream_handler(host, protocol_id)
+
+    {:ok, listener} =
+      Libp2p.listen_v5("0.0.0.0:45122", @bootnodes)
+
+    {:ok, iterator} = Libp2p.listener_random_nodes(listener)
+
+    write_msg = fn stream ->
+      case Libp2p.stream_write(stream, msg) do
+        :ok -> :ok
+        {:error, err} -> IO.puts(err)
+      end
+
+      stream
+    end
+
+    try_read_stream(host, iterator, protocol_id, write_msg)
 
     :ok = Libp2p.host_close(host)
   end
