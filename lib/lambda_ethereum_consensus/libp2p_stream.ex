@@ -22,7 +22,7 @@ defmodule Libp2p.Stream do
     case Libp2p.stream_read(stream) do
       {:ok, <<x, chunk::binary>>} -> {[<<x>>], {stream, chunk}}
       {:ok, ""} -> {:halt, {stream, ""}}
-      _ -> {:halt, {stream, ""}}
+      {:error, message} -> raise(message)
     end
   end
 
