@@ -66,6 +66,13 @@ defmodule Libp2pTest do
     :ok = Libp2p.host_close(host)
   end
 
+  test "Use peerstore in place of host fails" do
+    {:ok, host} = Libp2p.host_new()
+    {:ok, peerstore} = Libp2p.host_peerstore(host)
+    {:error, "invalid Host"} = Libp2p.host_close(peerstore)
+    :ok = Libp2p.host_close(host)
+  end
+
   test "Set stream handler" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0
