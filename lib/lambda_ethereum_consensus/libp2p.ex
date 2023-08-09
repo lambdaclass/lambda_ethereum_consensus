@@ -46,6 +46,21 @@ defmodule Libp2p do
   @opaque option :: handle
 
   @typedoc """
+  A handle to a discv5 listener.
+  """
+  @opaque listener :: handle
+
+  @typedoc """
+  A discv5 node iterator.
+  """
+  @opaque iterator :: handle
+
+  @typedoc """
+  A node using discv5.
+  """
+  @opaque discv5_node :: handle
+
+  @typedoc """
   An error returned by this module.
   """
   @type error :: {:error, binary}
@@ -56,6 +71,18 @@ defmodule Libp2p do
   @spec ttl_permanent_addr :: integer
   def ttl_permanent_addr, do: 2 ** 63 - 1
 
+  @doc """
+  Returns an `Option` that can be passed to `host_new`
+  as an argument to configures libp2p to listen on the
+  given (unparsed) addresses.
+  """
+  @spec listen_addr_strings(binary) :: {:ok, option} | error
+  def listen_addr_strings(_addr),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Creates a Host, with the given options.
+  """
   @spec host_new(list(option)) :: {:ok, host} | error
   def host_new(_option_list \\ []),
     do: :erlang.nif_error(:not_implemented)
@@ -72,15 +99,6 @@ defmodule Libp2p do
   """
   @spec host_set_stream_handler(host, binary) :: :ok | error
   def host_set_stream_handler(_host, _protocol_id),
-    do: :erlang.nif_error(:not_implemented)
-
-  @doc """
-  Returns an `Option` that can be passed to `host_new`
-  as an argument to configures libp2p to listen on the
-  given (unparsed) addresses.
-  """
-  @spec listen_addr_strings(binary) :: {:ok, option} | error
-  def listen_addr_strings(_addr),
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
@@ -140,5 +158,56 @@ defmodule Libp2p do
   """
   @spec stream_close(stream) :: :ok | error
   def stream_close(_stream),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Creates a discv5 listener.
+  """
+  @spec listen_v5(binary, list(binary)) :: {:ok, listener} | error
+  def listen_v5(_addr, _bootnodes),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Creates a discv5 nodes iterator for random nodes.
+  """
+  @spec listener_random_nodes(listener) :: {:ok, iterator} | error
+  def listener_random_nodes(_listener),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Moves the iterator to the next node.
+  Returns false if there are no more nodes.
+  """
+  @spec iterator_next(iterator) :: boolean
+  def iterator_next(_iterator),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Returns the current node.
+  WARN: you need to call iterator_next before calling this function!
+  """
+  @spec iterator_node(iterator) :: {:ok, discv5_node} | error
+  def iterator_node(_iterator),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Returns the published TCP port of the node, or nil.
+  """
+  @spec node_tcp(discv5_node) :: integer | nil
+  def node_tcp(_node),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Returns the multiaddresses of the node.
+  """
+  @spec node_multiaddr(discv5_node) :: {:ok, addrs} | error
+  def node_multiaddr(_node),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Returns the ID of the node.
+  """
+  @spec node_id(discv5_node) :: {:ok, peer_id} | error
+  def node_id(_node),
     do: :erlang.nif_error(:not_implemented)
 end

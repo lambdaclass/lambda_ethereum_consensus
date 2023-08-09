@@ -5,7 +5,7 @@
 
 #define ERL_FUNCTION(FUNCTION_NAME) static ERL_NIF_TERM FUNCTION_NAME(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
-#define ERL_FUNCTION_GETTER(NAME, RECV_TYPE, ATTR_TYPE, GETTER)            \
+#define ERL_HANDLE_GETTER(NAME, RECV_TYPE, ATTR_TYPE, GETTER)              \
     ERL_FUNCTION(NAME)                                                     \
     {                                                                      \
         uintptr_t _handle = get_handle_from_term(env, RECV_TYPE, argv[0]); \
@@ -44,6 +44,9 @@ ErlNifResourceType *Peerstore;
 ErlNifResourceType *peer_ID;
 ErlNifResourceType *Multiaddr_arr;
 ErlNifResourceType *Stream;
+ErlNifResourceType *Listener;
+ErlNifResourceType *Iterator;
+ErlNifResourceType *Node;
 
 // Resource type helpers
 void handle_cleanup(ErlNifEnv *env, void *obj)
@@ -63,6 +66,9 @@ static int open_resource_types(ErlNifEnv *env, ErlNifResourceFlags flags)
     failed |= NULL == OPEN_RESOURCE_TYPE(peer_ID);
     failed |= NULL == OPEN_RESOURCE_TYPE(Multiaddr_arr);
     failed |= NULL == OPEN_RESOURCE_TYPE(Stream);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Listener);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Iterator);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Node);
     return failed;
 }
 
@@ -209,9 +215,9 @@ ERL_FUNCTION(host_new_stream)
     return get_handle_result(env, Stream, result);
 }
 
-ERL_FUNCTION_GETTER(host_peerstore, Host, Peerstore, HostPeerstore)
-ERL_FUNCTION_GETTER(host_id, Host, peer_ID, HostID)
-ERL_FUNCTION_GETTER(host_addrs, Host, Multiaddr_arr, HostAddrs)
+ERL_HANDLE_GETTER(host_peerstore, Host, Peerstore, HostPeerstore)
+ERL_HANDLE_GETTER(host_id, Host, peer_ID, HostID)
+ERL_HANDLE_GETTER(host_addrs, Host, Multiaddr_arr, HostAddrs)
 
 /*********************/
 /* Peerstore methods */
@@ -271,6 +277,64 @@ ERL_FUNCTION(stream_close)
     return enif_make_atom(env, "ok");
 }
 
+/***************/
+/** Discovery **/
+/***************/
+
+ERL_FUNCTION(listen_v5)
+{
+    ErlNifBinary bin;
+    IF_ERROR(!enif_inspect_binary(env, argv[0], &bin), "invalid address");
+    GoString go_addr = {(const char *)bin.data, bin.size};
+
+    IF_ERROR(!enif_is_list(env, argv[1]), "bootnodes is not a list");
+    const int MAX_BOOTNODES = 256;
+    GoString bootnodes[MAX_BOOTNODES];
+    int i = 0;
+
+    ERL_NIF_TERM head, tail = argv[1];
+    while (!enif_is_empty_list(env, tail) && i < MAX_BOOTNODES)
+    {
+        enif_get_list_cell(env, tail, &head, &tail);
+        ErlNifBinary bin;
+        IF_ERROR(!enif_inspect_binary(env, head, &bin), "invalid bootnode");
+        GoString bootnode = {(const char *)bin.data, bin.size};
+        bootnodes[i++] = bootnode;
+    }
+    GoSlice go_bootnodes = {bootnodes, i, MAX_BOOTNODES};
+
+    uintptr_t handle = ListenV5(go_addr, go_bootnodes);
+
+    return get_handle_result(env, Listener, handle);
+}
+
+ERL_FUNCTION(listener_random_nodes)
+{
+    uintptr_t listener = GET_HANDLE(argv[0], Listener);
+    uintptr_t result = ListenerRandomNodes(listener);
+    return get_handle_result(env, Iterator, result);
+}
+
+ERL_FUNCTION(iterator_next)
+{
+    uintptr_t listener = GET_HANDLE(argv[0], Iterator);
+    bool result = IteratorNext(listener);
+    return enif_make_atom(env, result ? "true" : "false");
+}
+
+ERL_HANDLE_GETTER(iterator_node, Iterator, Node, IteratorNode)
+
+ERL_FUNCTION(node_tcp)
+{
+    uintptr_t node = get_handle_from_term(env, Node, argv[0]);
+    IF_ERROR(node == 0, "invalid first argument");
+    uint64_t tcp_port = NodeTCP(node);
+    return (tcp_port == 0) ? enif_make_atom(env, "nil") : enif_make_uint64(env, tcp_port);
+}
+
+ERL_HANDLE_GETTER(node_multiaddr, Node, Multiaddr_arr, NodeMultiaddr)
+ERL_HANDLE_GETTER(node_id, Node, peer_ID, NodeID)
+
 static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(listen_addr_strings, 1),
     NIF_ENTRY(host_new, 1),
@@ -285,6 +349,13 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(stream_read, 1, ERL_NIF_DIRTY_JOB_IO_BOUND),  // blocks until reading
     NIF_ENTRY(stream_write, 2, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks when buffer is full
     NIF_ENTRY(stream_close, 1),
+    NIF_ENTRY(listen_v5, 2),
+    NIF_ENTRY(listener_random_nodes, 1),
+    NIF_ENTRY(iterator_next, 1, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks until gets next node
+    NIF_ENTRY(iterator_node, 1),
+    NIF_ENTRY(node_tcp, 1),
+    NIF_ENTRY(node_multiaddr, 1),
+    NIF_ENTRY(node_id, 1),
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, load, NULL, upgrade, NULL)

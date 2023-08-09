@@ -22,8 +22,9 @@ CFLAGS += -I$(ERLANG_INCLUDES)
 
 $(LIBP2P_DIR)/%.a $(LIBP2P_DIR)/%.h: $(LIBP2P_DIR)/%.go
 	cd $(LIBP2P_DIR); \
+	go get; \
 	go install; \
-	go build -buildmode=c-archive -tags only_go $*.go
+	go build -buildmode=c-archive $*.go
 
 $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c
 	gcc $(CFLAGS) -o $@ \
