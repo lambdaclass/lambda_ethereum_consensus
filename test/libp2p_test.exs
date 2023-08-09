@@ -110,6 +110,7 @@ defmodule Libp2pTest do
 
     # (sender) Write "ping" to stream
     :ok = Libp2p.stream_write(send, "ping")
+    :ok = Libp2p.stream_close_write(send)
 
     # (recver) Receive the stream via the configured stream handler
     {:ok, recv} =
@@ -121,14 +122,15 @@ defmodule Libp2pTest do
 
     # (recver) Read the "ping" message from the stream
     {:ok, "ping"} = Libp2p.stream_read(recv)
+    {:ok, ""} = Libp2p.stream_read(recv)
 
     # (recver) Write "pong" to the stream
     :ok = Libp2p.stream_write(recv, "pong")
+    :ok = Libp2p.stream_close_write(recv)
 
     # (sender) Read the "pong" message from the stream
-    {:ok, "pong"} = Libp2p.stream_read(send)
+    "pong" = Libp2p.Stream.from(send) |> Enum.join("")
 
-    # Close both streams
     :ok = Libp2p.stream_close(send)
     :ok = Libp2p.stream_close(recv)
 

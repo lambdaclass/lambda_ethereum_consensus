@@ -298,6 +298,13 @@ ERL_FUNCTION(stream_close)
     return enif_make_atom(env, "ok");
 }
 
+ERL_FUNCTION(stream_close_write)
+{
+    uintptr_t stream = GET_HANDLE(argv[0], Stream);
+    StreamCloseWrite(stream);
+    return enif_make_atom(env, "ok");
+}
+
 /***************/
 /** Discovery **/
 /***************/
@@ -371,6 +378,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(stream_read, 1, ERL_NIF_DIRTY_JOB_IO_BOUND),  // blocks until reading
     NIF_ENTRY(stream_write, 2, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks when buffer is full
     NIF_ENTRY(stream_close, 1),
+    NIF_ENTRY(stream_close_write, 1),
     NIF_ENTRY(listen_v5, 2),
     NIF_ENTRY(listener_random_nodes, 1),
     NIF_ENTRY(iterator_next, 1, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks until gets next node

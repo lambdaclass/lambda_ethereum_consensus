@@ -224,7 +224,7 @@ func (ps C.uintptr_t) PeerstoreAddAddrs(id, addrs C.uintptr_t, ttl uint64) {
 func (s C.uintptr_t) StreamRead(buffer []byte) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	n, err := stream.Read(buffer)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		// TODO: handle in better way
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return -1
@@ -241,14 +241,21 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return -1
 	}
-	stream.CloseWrite()
 	return n
 }
 
 //export StreamClose
 func (s C.uintptr_t) StreamClose() {
+	// TODO: return error
 	handle := cgo.Handle(s)
 	handle.Value().(network.Stream).Close()
+}
+
+//export StreamCloseWrite
+func (s C.uintptr_t) StreamCloseWrite() {
+	// TODO: return error
+	handle := cgo.Handle(s)
+	handle.Value().(network.Stream).CloseWrite()
 }
 
 /***************/
