@@ -1,4 +1,5 @@
 defmodule Libp2pTest do
+  alias ExUnit.Assertions
   use ExUnit.Case
   doctest Libp2p
 
@@ -27,7 +28,7 @@ defmodule Libp2pTest do
       |> Libp2p.snappy_decompress_stream()
   end
 
-  test "Test snappy stream decompression" do
+  test "Test snappy decompression" do
     # Uncompressed chunks
     msg = "0011FF060000734E6150705901150000F1D17CFF0008000000000000FFFFFFFFFFFFFFFF0F"
     # status <> length <> ...

@@ -27,6 +27,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   defp deps do
     [
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:rustler, "~> 0.29.1"},
     ]
   end
 
