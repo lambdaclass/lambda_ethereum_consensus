@@ -36,8 +36,8 @@ lambda_ethereum_consensus-*.tar
 # Compiled artifacts.
 *.o
 *.a
-*.h
 *.so
+native/libp2p_nif/main.h
 
 # VSCode configuration dir.
 .vscode/

@@ -41,6 +41,11 @@ func callGetter[T any, R any](h C.uintptr_t, g func(T) R) C.uintptr_t {
 /* Utils */
 /*********/
 
+//export DeleteHandle
+func DeleteHandle(h C.uintptr_t) {
+	cgo.Handle(h).Delete()
+}
+
 //export ListenAddrStrings
 func ListenAddrStrings(listenAddr string) C.uintptr_t {
 	// TODO: this function is variadic
@@ -72,25 +77,23 @@ func HostNew(options []C.uintptr_t) C.uintptr_t {
 //export HostClose
 func (h C.uintptr_t) HostClose() {
 	handle := cgo.Handle(h)
-	defer handle.Delete()
 	handle.Value().(host.Host).Close()
 }
 
-//export SetStreamHandler
-func (h C.uintptr_t) SetStreamHandler(protoId string, procId C.erl_pid_t) {
+//export HostSetStreamHandler
+func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId C.erl_pid_t, callback C.send_message_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
 	goProtoId := protocol.ID(strings.Clone(protoId))
 	handler := func(stream network.Stream) {
-		// NOTE: the stream handle should be deleted by calling Stream.Close()
-		C.send_message(procId, C.uintptr_t(cgo.NewHandle(stream)))
+		C.run_callback(callback, procId, C.uintptr_t(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }
 
-//export NewStream
-func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId string) C.uintptr_t {
+//export HostNewStream
+func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t {
 	host := cgo.Handle(h).Value().(host.Host)
 	peerId := cgo.Handle(pid).Value().(peer.ID)
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
@@ -105,18 +108,18 @@ func (h C.uintptr_t) NewStream(pid C.uintptr_t, protoId string) C.uintptr_t {
 	return C.uintptr_t(cgo.NewHandle(stream))
 }
 
-//export Peerstore
-func (h C.uintptr_t) Peerstore() C.uintptr_t {
+//export HostPeerstore
+func (h C.uintptr_t) HostPeerstore() C.uintptr_t {
 	return callGetter(h, host.Host.Peerstore)
 }
 
-//export ID
-func (h C.uintptr_t) ID() C.uintptr_t {
+//export HostID
+func (h C.uintptr_t) HostID() C.uintptr_t {
 	return callGetter(h, host.Host.ID)
 }
 
-//export Addrs
-func (h C.uintptr_t) Addrs() C.uintptr_t {
+//export HostAddrs
+func (h C.uintptr_t) HostAddrs() C.uintptr_t {
 	return callGetter(h, host.Host.Addrs)
 }
 
@@ -124,8 +127,8 @@ func (h C.uintptr_t) Addrs() C.uintptr_t {
 /* Peerstore methods */
 /*********************/
 
-//export AddAddrs
-func (ps C.uintptr_t) AddAddrs(id, addrs C.uintptr_t, ttl uint64) {
+//export PeerstoreAddAddrs
+func (ps C.uintptr_t) PeerstoreAddAddrs(id, addrs C.uintptr_t, ttl uint64) {
 	psv := cgo.Handle(ps).Value().(peerstore.Peerstore)
 	idv := cgo.Handle(id).Value().(peer.ID)
 	addrsv := cgo.Handle(addrs).Value().([]multiaddr.Multiaddr)
@@ -163,7 +166,6 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 //export StreamClose
 func (s C.uintptr_t) StreamClose() {
 	handle := cgo.Handle(s)
-	defer handle.Delete()
 	handle.Value().(network.Stream).Close()
 }
 

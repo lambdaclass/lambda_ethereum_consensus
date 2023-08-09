@@ -13,37 +13,37 @@ defmodule Libp2p do
   @typedoc """
   A handle to a Go resource.
   """
-  @type handle :: integer
+  @opaque handle :: reference
 
   @typedoc """
   A handle to a host.Host.
   """
-  @type host :: handle
+  @opaque host :: handle
 
   @typedoc """
   A handle to a peerstore.Peerstore.
   """
-  @type peerstore :: handle
+  @opaque peerstore :: handle
 
   @typedoc """
   A handle to a peer.ID.
   """
-  @type peer_id :: handle
+  @opaque peer_id :: handle
 
   @typedoc """
   A handle to a []multiaddr.MultiAddr.
   """
-  @type addrs :: handle
+  @opaque addrs :: handle
 
   @typedoc """
   A handle to a stream.
   """
-  @type stream :: handle
+  @opaque stream :: handle
 
   @typedoc """
   A handle to an Option.
   """
-  @type option :: handle
+  @opaque option :: handle
 
   @typedoc """
   An error returned by this module.
