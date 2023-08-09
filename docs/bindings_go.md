@@ -7,6 +7,7 @@ As we couldn't find a way to communicate the two languages directly, we used som
 However, as Go is a garbage-collected language, this brings some issues.
 
 <!-- TODO: add explanation about general bindings usage -->
+<!-- TODO: explain the callback -> message translation -->
 
 ## References and handles
 
