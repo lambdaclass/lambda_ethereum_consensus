@@ -2,28 +2,43 @@ defmodule SnappyTest do
   use ExUnit.Case
   doctest Snappy
 
-  test "decompress stream" do
+  def assert_snappy_decompress(compressed, uncompressed) do
+    {:ok, ^uncompressed} =
+      compressed
+      |> Base.decode16!()
+      |> Snappy.decompress()
+  end
+
+  test "decompress binary" do
+    # Uncompressed chunks
+    msg = "0011FF060000734E6150705901150000F1D17CFF0008000000000000FFFFFFFFFFFFFFFF0F"
+    # status <> length <> ...
+    "00" <> "11" <> compressed_payload = msg
+    expected = Base.decode16!("0008000000000000FFFFFFFFFFFFFFFF0F")
+
+    assert_snappy_decompress(compressed_payload, expected)
+
+    msg = "0011FF060000734E6150705901150000CD11E7D53A03000000000000FFFFFFFFFFFFFFFF0F"
+    "00" <> "11" <> compressed_payload = msg
+    expected = Base.decode16!("3A03000000000000FFFFFFFFFFFFFFFF0F")
+
+    assert_snappy_decompress(compressed_payload, expected)
+
     # Compressed chunks
+    msg = "0011FF060000734E61507059000A0000B3A056EA1100003E0100"
+    "00" <> "11" <> compressed_payload = msg
+    expected = Base.decode16!("0000000000000000000000000000000000")
+
+    assert_snappy_decompress(compressed_payload, expected)
+
     msg =
-      Base.decode16!(
-        "011CFF060000734E6150705900220000EF99F84B1C6C4661696C656420746F20756E636F6D7072657373206D657373616765"
-      )
+      "011CFF060000734E6150705900220000EF99F84B1C6C4661696C656420746F20756E636F6D7072657373206D657373616765"
 
-    <<01, 28, compressed_payload::binary>> = msg
+    "01" <> "1C" <> compressed_payload = msg
 
-    stream =
-      Stream.unfold(compressed_payload, fn
-        "" -> nil
-        <<x, rest::binary>> -> {<<x>>, rest}
-      end)
-
-    expected = "Failed to uncompress message"
-
-    got =
-      stream
-      |> Snappy.decompress!()
-      |> Enum.join()
-
-    assert got == expected
+    assert_snappy_decompress(
+      compressed_payload,
+      "Failed to uncompress message"
+    )
   end
 end
