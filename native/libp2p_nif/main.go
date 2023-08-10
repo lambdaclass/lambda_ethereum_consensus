@@ -8,7 +8,6 @@ package main
 import "C"
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -21,14 +20,12 @@ import (
 	"runtime/cgo"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	gcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/golang/snappy"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -106,30 +103,6 @@ func ListenAddrStrings(listenAddr string) C.uintptr_t {
 	goListenAddr := strings.Clone(listenAddr)
 	addr := libp2p.ListenAddrStrings(goListenAddr)
 	return C.uintptr_t(cgo.NewHandle(addr))
-}
-
-/**********/
-/* Snappy */
-/**********/
-
-//export SnappyDecompressStream
-func SnappyDecompressStream(buf []byte, s C.uintptr_t, read *uint64) unsafe.Pointer {
-	bufReader := bytes.NewBuffer(buf)
-	var reader *snappy.Reader
-	if s == 0 {
-		reader = snappy.NewReader(bufReader)
-	} else {
-		streamReader := cgo.Handle(s).Value().(network.Stream)
-		reader = snappy.NewReader(io.MultiReader(bufReader, streamReader))
-	}
-	res, err := io.ReadAll(reader)
-	if err != nil {
-		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return nil
-	}
-	*read = uint64(len(res))
-	return C.CBytes(res)
 }
 
 /****************/
