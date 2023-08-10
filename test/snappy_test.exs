@@ -4,8 +4,12 @@ defmodule SnappyTest do
 
   test "decompress stream" do
     # Compressed chunks
-    msg = Base.decode16!("0011FF060000734E61507059000A0000B3A056EA1100003E0100")
-    <<0, 17, compressed_payload::binary>> = msg
+    msg =
+      Base.decode16!(
+        "011CFF060000734E6150705900220000EF99F84B1C6C4661696C656420746F20756E636F6D7072657373206D657373616765"
+      )
+
+    <<01, 28, compressed_payload::binary>> = msg
 
     stream =
       Stream.unfold(compressed_payload, fn
@@ -13,12 +17,13 @@ defmodule SnappyTest do
         <<x, rest::binary>> -> {<<x>>, rest}
       end)
 
-    expected = Base.decode16!("0000000000000000000000000000000000")
+    expected = "Failed to uncompress message"
 
     got =
       stream
-      |> Snappy.decompress()
+      |> Snappy.decompress!()
+      |> Enum.join()
 
-    assert got == {:ok, expected}
+    assert got == expected
   end
 end

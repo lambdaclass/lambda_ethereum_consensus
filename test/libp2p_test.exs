@@ -1,5 +1,4 @@
 defmodule Libp2pTest do
-  alias ExUnit.Assertions
   use ExUnit.Case
   doctest Libp2p
 
