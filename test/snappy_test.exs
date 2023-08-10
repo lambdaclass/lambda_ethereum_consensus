@@ -1,5 +1,6 @@
 defmodule SnappyTest do
   use ExUnit.Case
+  use ExUnitProperties
   doctest Snappy
 
   def assert_snappy_decompress(compressed, uncompressed) do
@@ -40,5 +41,22 @@ defmodule SnappyTest do
       compressed_payload,
       "Failed to uncompress message"
     )
+  end
+
+  test "compress binary" do
+    expected = Base.decode16!("FF060000734E61507059000A0000B3A056EA1100003E0100")
+
+    got =
+      Snappy.compress(Base.decode16!("0000000000000000000000000000000000"))
+
+    assert got == {:ok, expected}
+  end
+
+  property "compress(decompress(x)) == x" do
+    check all(bin <- binary()) do
+      assert {:ok, compressed} = Snappy.compress(bin)
+      assert {:ok, decompressed} = Snappy.decompress(compressed)
+      assert decompressed == bin
+    end
   end
 end

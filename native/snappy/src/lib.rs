@@ -11,6 +11,16 @@ fn bytes_to_binary<'env>(env: Env<'env>, bytes: &[u8]) -> Binary<'env> {
 }
 
 #[rustler::nif]
+fn compress<'env>(env: Env<'env>, bin: Binary) -> Result<Binary<'env>, String> {
+    let mut encoder = read::FrameEncoder::new(&bin[..]);
+    let mut buffer = Vec::with_capacity(bin.len());
+    encoder
+        .read_to_end(&mut buffer)
+        .map_err(|e| e.to_string())?;
+    Ok(bytes_to_binary(env, &buffer))
+}
+
+#[rustler::nif]
 fn decompress<'env>(env: Env<'env>, bin: Binary) -> Result<Binary<'env>, String> {
     let mut decoder = read::FrameDecoder::new(&bin[..]);
     let mut buffer = Vec::with_capacity(bin.len());
@@ -20,4 +30,4 @@ fn decompress<'env>(env: Env<'env>, bin: Binary) -> Result<Binary<'env>, String>
     Ok(bytes_to_binary(env, &buffer))
 }
 
-rustler::init!("Elixir.Snappy", [decompress]);
+rustler::init!("Elixir.Snappy", [compress, decompress]);
