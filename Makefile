@@ -1,5 +1,8 @@
 .PHONY: iex deps test clean compile-native
 
+
+##### NATIVE COMPILATION #####
+
 # magic from sym_num https://elixirforum.com/t/where-is-erl-nif-h-header-file-required-for-nif/27142/5
 ERLANG_INCLUDES := $(shell erl -eval 'io:format("~s", \
 		[lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])] \
@@ -29,6 +32,9 @@ $(LIBP2P_DIR)/%.a $(LIBP2P_DIR)/%.h: $(LIBP2P_DIR)/%.go
 $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c
 	gcc $(CFLAGS) -o $@ \
 		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c $(GO_ARCHIVES)
+
+
+##### TARGETS #####
 
 clean:
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*

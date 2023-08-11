@@ -11,7 +11,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       dialyzer: dialyzer(),
       preferred_cli_env: [
         dialyzer: :test
-      ],
+      ]
     ]
   end
 
@@ -27,6 +27,8 @@ defmodule LambdaEthereumConsensus.MixProject do
   defp deps do
     [
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:yaml_elixir, "~> 2.8", only: [:test]},
+      {:snappyer, "~> 1.2", only: [:test]}
     ]
   end
 
