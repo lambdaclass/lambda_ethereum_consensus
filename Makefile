@@ -48,6 +48,6 @@ deps:
 test: compile-native
 	mix test
 
-lint: compile-native
+lint:
 	mix format --check-formatted
 	mix credo --strict
