@@ -47,3 +47,7 @@ deps:
 # Run tests
 test: compile-native
 	mix test
+
+lint: compile-native
+	mix format --check-formatted
+	mix credo --strict
