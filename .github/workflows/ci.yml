@@ -42,8 +42,8 @@ jobs:
         if: steps.output-cache.outputs.cache-hit != 'true'
         run: make compile-native
 
-  dialyzer:
-    name: Dialyzer
+  build:
+    name: Build project
     needs: compile-native
     runs-on: ubuntu-latest
     steps:
@@ -116,7 +116,7 @@ jobs:
       run: mix test
 
   lint:
-    name: Format & Credo
+    name: Lint
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
