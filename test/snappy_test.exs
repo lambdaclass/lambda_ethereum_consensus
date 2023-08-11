@@ -10,7 +10,7 @@ defmodule SnappyTest do
       |> Snappy.decompress()
   end
 
-  test "decompress binary" do
+  test "decompress GetMetadata responses" do
     # Uncompressed chunks
     msg = "0011FF060000734E6150705901150000F1D17CFF0008000000000000FFFFFFFFFFFFFFFF0F"
     # status <> length <> ...
@@ -31,7 +31,22 @@ defmodule SnappyTest do
     expected = Base.decode16!("0000000000000000000000000000000000")
 
     assert_snappy_decompress(compressed_payload, expected)
+  end
 
+  test "decompress Ping responses" do
+    for {msg, expected} <- [
+          {"0008FF060000734E61507059010C0000B18525A04300000000000000", "4300000000000000"},
+          {"0008FF060000734E61507059010C00000175DE410100000000000000", "0100000000000000"},
+          {"0008FF060000734E61507059010C0000EAB2043E0500000000000000", "0500000000000000"},
+          {"0008FF060000734E61507059010C0000290398070000000000000000", "0000000000000000"}
+        ] do
+      "00" <> "08" <> compressed_payload = msg
+      expected = Base.decode16!(expected)
+
+      assert_snappy_decompress(compressed_payload, expected)
+    end
+
+    # Error response
     msg =
       "011CFF060000734E6150705900220000EF99F84B1C6C4661696C656420746F20756E636F6D7072657373206D657373616765"
 

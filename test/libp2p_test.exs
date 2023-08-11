@@ -175,16 +175,15 @@ defmodule Libp2pTest do
 
     # ping peers
     protocol_id = "/eth2/beacon_chain/req/ping/1/ssz_snappy"
-    # request body
-    msg =
-      Base.decode16!(
-        "08" <> "FF060000734E61507059" <> "01" <> "0C0000" <> "95A782F5" <> "0A00000000000000"
-      )
+    # uncompressed payload
+    payload = Base.decode16!("0000000000000000")
+    {:ok, compressed_payload} = Snappy.compress(payload)
+    msg = <<8, compressed_payload::binary>>
 
     :ok = Libp2p.host_set_stream_handler(host, protocol_id)
 
     {:ok, listener} =
-      Libp2p.listen_v5("0.0.0.0:45122", @bootnodes)
+      Libp2p.listen_v5("0.0.0.0:45123", @bootnodes)
 
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
 
