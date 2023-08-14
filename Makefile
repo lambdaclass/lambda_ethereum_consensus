@@ -52,4 +52,4 @@ deps:
 
 # Run tests
 test: compile-native
-	mix test
+	mix test --trace
