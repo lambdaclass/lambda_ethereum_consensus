@@ -2,11 +2,11 @@ defmodule SpecTestUtils do
   use ExUnit.Case
 
   def get_all_cases() do
-    ["test-vectors", "tests"]
+    ["tests"]
     |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
     |> Enum.join("/")
     |> Path.wildcard()
-    |> Stream.map(&Path.relative_to(&1, "test-vectors/tests"))
+    |> Stream.map(&Path.relative_to(&1, "tests"))
     |> Stream.map(&Path.split/1)
   end
 end
@@ -70,7 +70,7 @@ defmodule SpecTest do
         # TODO: tests without runner should fail
       end
     else
-      test_dir = "test-vectors/tests/#{config}/#{fork}/#{runner}/#{handler}/#{suite}/#{cse}"
+      test_dir = "tests/#{config}/#{fork}/#{runner}/#{handler}/#{suite}/#{cse}"
 
       test test_name do
         unquote(test_runner).run_test_case(unquote(test_dir))

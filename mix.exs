@@ -11,7 +11,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       dialyzer: dialyzer(),
       preferred_cli_env: [
         dialyzer: :test
-      ]
+      ],
+      test_paths: ["test", "spec-test"]
     ]
   end
 

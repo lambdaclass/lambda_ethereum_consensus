@@ -70,10 +70,10 @@ deps:
 
 # Run tests
 test: compile-native
-	mix test --trace --exclude spectest
+	mix test --exclude spectest
 
 spec-test: compile-native download-vectors
-	mix test --trace --only spectest
+	mix test --only spectest
 
 lint:
 	mix format --check-formatted
