@@ -28,7 +28,10 @@ defmodule LambdaEthereumConsensus.MixProject do
     [
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:yaml_elixir, "~> 2.8", only: [:test]},
-      {:snappyer, "~> 1.2", only: [:test]}
+      {:snappyer, "~> 1.2", only: [:test]},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:stream_data, "~> 0.6", only: :test},
+      {:rustler, "~> 0.29.1"}
     ]
   end
 

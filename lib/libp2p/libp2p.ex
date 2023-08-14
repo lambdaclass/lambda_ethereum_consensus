@@ -1,6 +1,6 @@
 defmodule Libp2p do
   @moduledoc """
-  Documentation for `Libp2p`.
+  Bindings for P2P network primitives.
   """
 
   @on_load :load_nifs
@@ -158,6 +158,13 @@ defmodule Libp2p do
   """
   @spec stream_close(stream) :: :ok | error
   def stream_close(_stream),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Closes the write side of the stream.
+  """
+  @spec stream_close_write(stream) :: :ok | error
+  def stream_close_write(_stream),
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
