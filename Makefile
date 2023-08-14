@@ -1,4 +1,4 @@
-.PHONY: iex deps test clean compile-native
+.PHONY: iex deps test clean compile-native clean-vectors download-vectors
 
 
 ##### NATIVE COMPILATION #####
@@ -34,6 +34,24 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c $(GO_ARCHIVES)
 
 
+##### SPEC TEST VECTORS #####
+
+VERSION = v1.3.0
+
+%_${VERSION}.tar.gz:
+	curl -L -o "$@" \
+		"https://github.com/ethereum/consensus-spec-tests/releases/download/${VERSION}/$*.tar.gz"
+
+tests/%: %_${VERSION}.tar.gz
+	tar -xzf "$<"
+
+download-vectors: tests/general #tests/minimal tests/mainnet
+
+clean-vectors:
+	-rm -rf tests
+	-rm -rf *.tar.gz
+
+
 ##### TARGETS #####
 
 clean:
@@ -52,7 +70,10 @@ deps:
 
 # Run tests
 test: compile-native
-	mix test --trace
+	mix test --trace --exclude spectest
+
+spec-test: compile-native download-vectors
+	mix test --trace --only spectest
 
 lint:
 	mix format --check-formatted

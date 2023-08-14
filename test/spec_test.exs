@@ -49,19 +49,29 @@ defmodule SpecTest do
   #   mix test --only runner:ssz_generic
   #  (one specific test) ->
   #   mix test --only test:"test c:`config` f:`fork` r:`runner h:`handler` s:suite` -> `case`"
-  for [config, fork, runner, handler, suite, cse] <- SpecTestUtils.get_all_cases() do
+  #
+  for [config, fork, runner, handler, suite, cse] <- SpecTestUtils.get_all_cases(),
+      # Tests are too many to run all at the same time. We should pin a
+      # `config` (and `fork` in the case of `minimal`).
+      # fork == "phase0",
+      config == "general" do
     test_name = "c:#{config} f:#{fork} r:#{runner} h:#{handler} s:#{suite} -> #{cse}"
 
     test_runner = Map.get(@runner_map, runner)
 
-    unless test_runner == nil do
+    @tag :skip
+    @tag :spectest
+    @tag config: config
+    @tag fork: fork
+    @tag runner: runner
+    @tag suite: suite
+    if test_runner == nil do
+      test test_name do
+        # TODO: tests without runner should fail
+      end
+    else
       test_dir = "test-vectors/tests/#{config}/#{fork}/#{runner}/#{handler}/#{suite}/#{cse}"
-      @tag :skip
-      @tag :spectest
-      @tag config: config
-      @tag fork: fork
-      @tag runner: runner
-      @tag suite: suite
+
       test test_name do
         unquote(test_runner).run_test_case(unquote(test_dir))
       end
