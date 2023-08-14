@@ -1,21 +1,20 @@
 defmodule SpecTestUtils do
   use ExUnit.Case
 
-  def get_test_cases() do
-    suites = File.ls!("test-vectors/tests/minimal/phase0/ssz_static/Checkpoint")
-
-    for suite <- suites do
-      cases = File.ls!("test-vectors/tests/minimal/phase0/ssz_static/Checkpoint/#{suite}")
-
-      {suite, cases}
-    end
+  def get_all_cases() do
+    ["test-vectors", "tests"]
+    |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
+    |> Enum.join("/")
+    |> Path.wildcard()
+    |> Stream.map(&Path.relative_to(&1, "test-vectors/tests"))
+    |> Stream.map(&Path.split/1)
   end
 end
 
-defmodule SpecTest do
+defmodule SSZTestRunner do
   use ExUnit.Case
 
-  defp run_test_case(case_dir) do
+  def run_test_case(case_dir) do
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
     assert {:ok, _decompressed} = :snappyer.decompress(compressed)
 
@@ -25,23 +24,32 @@ defmodule SpecTest do
     # assert_ssz(decompressed, expected, expected_root)
   end
 
-  defp assert_ssz(serialized, expected, expected_root) do
+  def assert_ssz(serialized, expected, expected_root) do
     value = SSZ.deserialize(serialized)
     assert value == expected
 
     root = SSZ.hash_tree_root(value)
     assert root == expected_root
   end
+end
 
-  for {suite, cases} <- SpecTestUtils.get_test_cases() do
-    for cse <- cases do
+defmodule SpecTest do
+  use ExUnit.Case
+
+  @runner_map %{
+    "ssz_generic" => SSZTestRunner
+  }
+
+  for [config, fork, runner, handler, suite, cse] <- SpecTestUtils.get_all_cases() do
+    test_name = "#{config} | #{fork} | #{runner} | #{handler} | #{suite} | #{cse}"
+
+    test_runner = Map.get(@runner_map, runner)
+
+    unless test_runner == nil do
+      test_dir = "test-vectors/tests/#{config}/#{fork}/#{runner}/#{handler}/#{suite}/#{cse}"
       @tag :skip
-      test "#{suite} #{cse}" do
-        # unquote is needed to convert vars to literals
-        suite = unquote(suite)
-        cse = unquote(cse)
-        test_dir = "test-vectors/tests/minimal/phase0/ssz_static/Checkpoint/#{suite}/#{cse}"
-        run_test_case(test_dir)
+      test test_name do
+        unquote(test_runner).run_test_case(unquote(test_dir))
       end
     end
   end
