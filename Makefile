@@ -1,5 +1,5 @@
 .PHONY: iex deps test clean compile-native clean-vectors download-vectors
-
+.DELETE_ON_ERROR:
 
 ##### NATIVE COMPILATION #####
 
@@ -45,7 +45,7 @@ VERSION = v1.3.0
 tests/%: %_${VERSION}.tar.gz
 	tar -xzf "$<"
 
-download-vectors: tests/general #tests/minimal tests/mainnet
+download-vectors: tests/general tests/minimal tests/mainnet
 
 clean-vectors:
 	-rm -rf tests
