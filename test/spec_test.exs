@@ -40,6 +40,15 @@ defmodule SpecTest do
     "ssz_generic" => SSZTestRunner
   }
 
+  # To filter tests, use:
+  #  (only spectests) ->
+  #   mix test --only spectest
+  #  (only general) ->
+  #   mix test --only config:general
+  #  (only ssz_generic) ->
+  #   mix test --only runner:ssz_generic
+  #  (one specific test) ->
+  #   mix test --only test:"test c:`config` f:`fork` r:`runner h:`handler` s:suite` -> `case`"
   for [config, fork, runner, handler, suite, cse] <- SpecTestUtils.get_all_cases() do
     test_name = "c:#{config} f:#{fork} r:#{runner} h:#{handler} s:#{suite} -> #{cse}"
 
