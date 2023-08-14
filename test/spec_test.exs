@@ -41,13 +41,18 @@ defmodule SpecTest do
   }
 
   for [config, fork, runner, handler, suite, cse] <- SpecTestUtils.get_all_cases() do
-    test_name = "#{config} | #{fork} | #{runner} | #{handler} | #{suite} | #{cse}"
+    test_name = "c:#{config} f:#{fork} r:#{runner} h:#{handler} s:#{suite} -> #{cse}"
 
     test_runner = Map.get(@runner_map, runner)
 
     unless test_runner == nil do
       test_dir = "test-vectors/tests/#{config}/#{fork}/#{runner}/#{handler}/#{suite}/#{cse}"
       @tag :skip
+      @tag :spectest
+      @tag config: config
+      @tag fork: fork
+      @tag runner: runner
+      @tag suite: suite
       test test_name do
         unquote(test_runner).run_test_case(unquote(test_dir))
       end
