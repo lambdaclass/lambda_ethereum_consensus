@@ -13,6 +13,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"os"
@@ -32,6 +33,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -109,10 +111,14 @@ func ListenAddrStrings(listenAddr string) C.uintptr_t {
 
 //export HostNew
 func HostNew(options []C.uintptr_t) C.uintptr_t {
-	optionsSlice := make([]libp2p.Option, len(options))
+	// TODO: move to Elixir side
+	optionsSlice := make([]libp2p.Option, len(options)+2)
 	for i := 0; i < len(options); i++ {
 		optionsSlice[i] = cgo.Handle(options[i]).Value().(libp2p.Option)
 	}
+	// Needed to support mplex
+	optionsSlice[len(options)] = libp2p.DefaultMuxers
+	optionsSlice[len(options)+1] = libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport)
 	h, err := libp2p.New(optionsSlice...)
 	if err != nil {
 		// TODO: handle in better way
@@ -191,7 +197,7 @@ func (ps C.uintptr_t) PeerstoreAddAddrs(id, addrs C.uintptr_t, ttl uint64) {
 func (s C.uintptr_t) StreamRead(buffer []byte) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	n, err := stream.Read(buffer)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		// TODO: handle in better way
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return -1
@@ -213,8 +219,16 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 
 //export StreamClose
 func (s C.uintptr_t) StreamClose() {
+	// TODO: return error
 	handle := cgo.Handle(s)
 	handle.Value().(network.Stream).Close()
+}
+
+//export StreamCloseWrite
+func (s C.uintptr_t) StreamCloseWrite() {
+	// TODO: return error
+	handle := cgo.Handle(s)
+	handle.Value().(network.Stream).CloseWrite()
 }
 
 /***************/

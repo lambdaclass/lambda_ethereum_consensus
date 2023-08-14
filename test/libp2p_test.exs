@@ -26,6 +26,13 @@ defmodule Libp2pTest do
     :ok = Libp2p.host_close(host)
   end
 
+  test "Use peerstore in place of host fails" do
+    {:ok, host} = Libp2p.host_new()
+    {:ok, peerstore} = Libp2p.host_peerstore(host)
+    {:error, "invalid Host"} = Libp2p.host_close(peerstore)
+    :ok = Libp2p.host_close(host)
+  end
+
   test "Set stream handler" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0
@@ -63,6 +70,7 @@ defmodule Libp2pTest do
 
     # (sender) Write "ping" to stream
     :ok = Libp2p.stream_write(send, "ping")
+    :ok = Libp2p.stream_close_write(send)
 
     # (recver) Receive the stream via the configured stream handler
     {:ok, recv} =
@@ -74,14 +82,15 @@ defmodule Libp2pTest do
 
     # (recver) Read the "ping" message from the stream
     {:ok, "ping"} = Libp2p.stream_read(recv)
+    {:ok, ""} = Libp2p.stream_read(recv)
 
     # (recver) Write "pong" to the stream
     :ok = Libp2p.stream_write(recv, "pong")
+    :ok = Libp2p.stream_close_write(recv)
 
     # (sender) Read the "pong" message from the stream
-    {:ok, "pong"} = Libp2p.stream_read(send)
+    "pong" = Libp2p.Stream.from(send) |> Enum.join("")
 
-    # Close both streams
     :ok = Libp2p.stream_close(send)
     :ok = Libp2p.stream_close(recv)
 
@@ -111,7 +120,7 @@ defmodule Libp2pTest do
     :ok = Libp2p.host_close(host)
   end
 
-  def try_read_stream(host, iterator, protocol_id) do
+  def try_read_stream(host, iterator, protocol_id, writing_fun) do
     {:ok, peerstore} = Libp2p.host_peerstore(host)
 
     true = Libp2p.iterator_next(iterator)
@@ -126,8 +135,8 @@ defmodule Libp2pTest do
 
       case Libp2p.host_new_stream(host, id, protocol_id) do
         {:ok, stream} ->
-          case Libp2p.stream_read(stream) do
-            {:ok, msg} -> IO.puts(["\"#{Base.encode16(msg)}\""])
+          case Libp2p.stream_read(writing_fun.(stream)) do
+            {:ok, msg} -> IO.puts(["\n----->\"#{Base.encode16(msg)}\"<-----\n"])
             _ -> :ok
           end
 
@@ -136,7 +145,7 @@ defmodule Libp2pTest do
       end
     end
 
-    try_read_stream(host, iterator, protocol_id)
+    try_read_stream(host, iterator, protocol_id, writing_fun)
   end
 
   @tag :skip
@@ -154,7 +163,40 @@ defmodule Libp2pTest do
 
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
 
-    try_read_stream(host, iterator, protocol_id)
+    try_read_stream(host, iterator, protocol_id, fn s -> s end)
+
+    :ok = Libp2p.host_close(host)
+  end
+
+  @tag :skip
+  @tag timeout: :infinity
+  test "ping peers" do
+    {:ok, host} = Libp2p.host_new()
+
+    # ping peers
+    protocol_id = "/eth2/beacon_chain/req/ping/1/ssz_snappy"
+    # uncompressed payload
+    payload = Base.decode16!("0000000000000000")
+    {:ok, compressed_payload} = Snappy.compress(payload)
+    msg = <<8, compressed_payload::binary>>
+
+    :ok = Libp2p.host_set_stream_handler(host, protocol_id)
+
+    {:ok, listener} =
+      Libp2p.listen_v5("0.0.0.0:45123", @bootnodes)
+
+    {:ok, iterator} = Libp2p.listener_random_nodes(listener)
+
+    write_msg = fn stream ->
+      case Libp2p.stream_write(stream, msg) do
+        :ok -> :ok
+        {:error, err} -> IO.puts(err)
+      end
+
+      stream
+    end
+
+    try_read_stream(host, iterator, protocol_id, write_msg)
 
     :ok = Libp2p.host_close(host)
   end
