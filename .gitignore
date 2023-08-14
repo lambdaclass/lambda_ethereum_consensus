@@ -44,4 +44,4 @@ native/libp2p_nif/main.h
 
 !libp2p/utils.h
 
-spec-tests/tests
+test-vectors/tests
