@@ -1,7 +1,7 @@
 defmodule SpecTestUtils do
   use ExUnit.Case
 
-  def get_all_cases() do
+  def get_all_cases do
     ["tests"]
     |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
     |> Enum.join("/")
@@ -67,7 +67,7 @@ defmodule SpecTest do
     @tag suite: suite
     if test_runner == nil do
       test test_name do
-        # TODO: tests without runner should fail
+        assert false, "unimplemented"
       end
     else
       test_dir = "tests/#{config}/#{fork}/#{runner}/#{handler}/#{suite}/#{cse}"
