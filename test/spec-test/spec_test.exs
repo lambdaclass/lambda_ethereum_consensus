@@ -36,7 +36,7 @@ end
 defmodule SpecTest do
   use ExUnit.Case
 
-  @runner_map %{
+  runner_map = %{
     "ssz_generic" => SSZTestRunner
   }
 
@@ -57,7 +57,7 @@ defmodule SpecTest do
       config == "general" do
     test_name = "c:#{config} f:#{fork} r:#{runner} h:#{handler} s:#{suite} -> #{cse}"
 
-    test_runner = Map.get(@runner_map, runner)
+    test_runner = Map.get(runner_map, runner)
 
     @tag :skip
     @tag :spectest
