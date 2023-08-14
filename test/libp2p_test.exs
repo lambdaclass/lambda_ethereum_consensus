@@ -120,7 +120,7 @@ defmodule Libp2pTest do
     :ok = Libp2p.host_close(host)
   end
 
-  def try_read_stream(host, iterator, protocol_id, writing_fun) do
+  defp connect_to_peers(host, iterator, protocol_id, writing_fun) do
     {:ok, peerstore} = Libp2p.host_peerstore(host)
 
     true = Libp2p.iterator_next(iterator)
@@ -133,19 +133,22 @@ defmodule Libp2pTest do
 
       :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
 
-      case Libp2p.host_new_stream(host, id, protocol_id) do
-        {:ok, stream} ->
-          case Libp2p.stream_read(writing_fun.(stream)) do
-            {:ok, msg} -> IO.puts(["\n----->\"#{Base.encode16(msg)}\"<-----\n"])
-            _ -> :ok
-          end
-
-        _ ->
-          :ok
-      end
+      Libp2p.host_new_stream(host, id, protocol_id)
+      |> read_stream(writing_fun)
     end
 
-    try_read_stream(host, iterator, protocol_id, writing_fun)
+    connect_to_peers(host, iterator, protocol_id, writing_fun)
+  end
+
+  defp read_stream({:ok, stream}, writing_fun) do
+    case Libp2p.stream_read(writing_fun.(stream)) do
+      {:ok, msg} -> IO.puts(["\"#{Base.encode16(msg)}\""])
+      _ -> :ok
+    end
+  end
+
+  defp read_stream(_) do
+    :ok
   end
 
   @tag :skip
@@ -163,7 +166,7 @@ defmodule Libp2pTest do
 
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
 
-    try_read_stream(host, iterator, protocol_id, fn s -> s end)
+    connect_to_peers(host, iterator, protocol_id, fn s -> s end)
 
     :ok = Libp2p.host_close(host)
   end
@@ -196,7 +199,7 @@ defmodule Libp2pTest do
       stream
     end
 
-    try_read_stream(host, iterator, protocol_id, write_msg)
+    connect_to_peers(host, iterator, protocol_id, write_msg)
 
     :ok = Libp2p.host_close(host)
   end
