@@ -37,7 +37,7 @@ clean:
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
 # Run an interactive terminal with the main supervisor setup.
-iex:
+iex: compile-native
 	iex -S mix
 
 # Install mix dependencies.
@@ -47,3 +47,7 @@ deps:
 # Run tests
 test: compile-native
 	mix test
+
+lint:
+	mix format --check-formatted
+	mix credo --strict

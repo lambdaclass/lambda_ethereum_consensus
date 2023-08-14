@@ -11,7 +11,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       dialyzer: dialyzer(),
       preferred_cli_env: [
         dialyzer: :test
-      ],
+      ]
     ]
   end
 
@@ -27,6 +27,9 @@ defmodule LambdaEthereumConsensus.MixProject do
   defp deps do
     [
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:stream_data, "~> 0.6", only: :test},
+      {:rustler, "~> 0.29.1"}
     ]
   end
 
