@@ -1,4 +1,7 @@
 defmodule Snappy do
+  @moduledoc """
+  Snappy frame compression and decompression.
+  """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "snappy"
 
   @spec decompress(binary) :: {:ok | :error, binary}
