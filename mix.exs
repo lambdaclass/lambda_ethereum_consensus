@@ -39,6 +39,8 @@ defmodule LambdaEthereumConsensus.MixProject do
 
   defp dialyzer do
     [
+      # https://elixirforum.com/t/help-with-dialyzer-output/15202/5
+      plt_add_apps: [:ex_unit],
       plt_file: {:no_warn, "priv/plts/project.plt"}
     ]
   end
