@@ -158,6 +158,9 @@ jobs:
   spectests:
     name: Run spec-tests
     needs: [compile-native, download-spectests]
+    strategy:
+      matrix:
+        config: [ "general", "mainnet", "minimal" ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -188,5 +191,7 @@ jobs:
           restore-keys: ${{ runner.os }}-mix-
       - name: Install dependencies
         run: mix deps.get
+      - name: Uncompress vectors
+        run: make tests/${{ matrix.config }}
       - name: Run tests
         run: mix test --trace --only spectest
