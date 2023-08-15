@@ -151,6 +151,7 @@ jobs:
         with:
           path: ./*.tar.gz
           key: ${{ runner.os }}-spectest-${{ hashFiles('.spectest_version') }}
+          lookup-only: true
       - name: Download spectests
         if: steps.output-cache.outputs.cache-hit != 'true'
         run: make download-vectors
