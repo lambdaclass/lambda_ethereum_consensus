@@ -26,7 +26,6 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      { :rustler, "~> 0.29.1" },
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 0.6", only: :test},

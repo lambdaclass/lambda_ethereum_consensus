@@ -1,25 +1,24 @@
-use ssz_rs::prelude::*;
-use serde::{Serialize, Deserialize};
+use lighthouse_types::Checkpoint;
+use rustler::{Env, NifResult, Binary};
+use ssz::{Encode, Decode};
+use crate::{types::checkpoint::CheckpointNif, utils::bytes_to_binary};
 
-#[derive(PartialEq, Eq, Debug, Default, SimpleSerialize, Serialize, Deserialize)]
-struct SingleFieldTestStruct {
-    a: u8,
+mod types;
+mod utils;
+
+#[rustler::nif]
+fn to_ssz<'env>(env: Env<'env>, value_nif: CheckpointNif) -> NifResult<Binary<'env>> {
+    let value_ssz: Checkpoint = value_nif.clone().into();
+    let serialized = value_ssz.as_ssz_bytes();
+    Ok(bytes_to_binary(env, &serialized))
 }
 
 #[rustler::nif]
-pub fn decode(bytes: Vec<u8>) -> SingleFieldTestStruct {
-    let recovered_value: SingleFieldTestStruct = deserialize(&bytes).expect("can deserialize");
-    return recovered_value;
+fn from_ssz<'env>(env: Env<'env>, bytes: Binary) -> NifResult<CheckpointNif<'env>> {
+    let recovered_value = Checkpoint::from_ssz_bytes(&bytes).expect("can deserialize");
+    let checkpoint = CheckpointNif::from(recovered_value, env);
+
+    return Ok(checkpoint);
 }
 
-#[rustler::nif]
-pub fn encode(value: SingleFieldTestStruct) -> String {
-    let encoding = serialize(&value).expect("can serialize");
-    return enconding;
-}
-
-fn match_config(option: Atom) -> base64::Config {
-    // omitted for brevity
-}
-
-rustler::init!("LambdaEthereumConsensus.Ssz", [add]);
+rustler::init!("Elixir.LambdaEthereumConsensus.Ssz", [to_ssz, from_ssz]);
