@@ -9,7 +9,7 @@ defmodule SSZTests do
           0, 0, 1>>
     }
 
-    {:ok, encoded} = LambdaEthereumConsensus.Ssz.to_ssz(value)
+    {:ok, encoded} = LambdaEthereumConsensus.Ssz.to_ssz(Checkpoint, value)
     {:ok, decoded} = LambdaEthereumConsensus.Ssz.from_ssz(encoded)
 
     assert decoded == value

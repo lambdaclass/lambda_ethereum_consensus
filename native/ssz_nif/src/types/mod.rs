@@ -1,2 +1,2 @@
-
-pub(crate) mod checkpoint;
+mod checkpoint;
+pub(crate) use checkpoint::*;
