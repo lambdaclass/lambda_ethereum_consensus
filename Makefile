@@ -70,7 +70,7 @@ deps:
 
 # Run tests
 test: compile-native
-	mix test --exclude spectest
+	mix test --trace --exclude spectest
 
 spec-test: compile-native download-vectors
 	mix test --only spectest
