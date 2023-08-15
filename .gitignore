@@ -45,3 +45,4 @@ native/libp2p_nif/main.h
 !libp2p/utils.h
 
 tests
+*.tar.gz

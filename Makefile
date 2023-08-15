@@ -1,4 +1,7 @@
-.PHONY: iex deps test clean compile-native clean-vectors download-vectors
+.PHONY: iex deps test clean compile-native \
+		clean-vectors download-vectors uncompress-vectors
+
+# Delete current file when command fails
 .DELETE_ON_ERROR:
 
 ##### NATIVE COMPILATION #####
@@ -36,20 +39,25 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 
 ##### SPEC TEST VECTORS #####
 
-VERSION = v1.3.0
+SPECTEST_VERSION = $(shell cat .spectest_version)
+SPECTEST_CONFIGS = general minimal mainnet
 
-%_${VERSION}.tar.gz:
+SPECTEST_DIRS = $(patsubst %,tests/%,$(SPECTEST_CONFIGS))
+SPECTEST_TARS = $(patsubst %,%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
+
+%_${SPECTEST_VERSION}.tar.gz:
 	curl -L -o "$@" \
-		"https://github.com/ethereum/consensus-spec-tests/releases/download/${VERSION}/$*.tar.gz"
+		"https://github.com/ethereum/consensus-spec-tests/releases/download/${SPECTEST_VERSION}/$*.tar.gz"
 
-tests/%: %_${VERSION}.tar.gz
-	tar -xzf "$<"
+tests/%: %_${SPECTEST_VERSION}.tar.gz
+	-rm -rf $@
+	tar -xzmf  "$<"
 
-download-vectors: tests/general tests/minimal tests/mainnet
+download-vectors: $(SPECTEST_TARS)
 
 clean-vectors:
 	-rm -rf tests
-	-rm -rf *.tar.gz
+	-rm *.tar.gz
 
 
 ##### TARGETS #####
@@ -70,9 +78,9 @@ deps:
 
 # Run tests
 test: compile-native
-	mix test --trace --exclude spectest
+	mix test --exclude spectest
 
-spec-test: compile-native download-vectors
+spec-test: compile-native $(SPECTEST_DIRS)
 	mix test --only spectest
 
 lint:
