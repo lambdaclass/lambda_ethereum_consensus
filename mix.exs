@@ -9,6 +9,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       dialyzer: dialyzer(),
+      elixirc_paths: compiler_paths(Mix.env()),
+      warn_test_pattern: "_remove_warning.exs",
       preferred_cli_env: [
         dialyzer: :test
       ]
@@ -40,4 +42,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       plt_file: {:no_warn, "priv/plts/project.plt"}
     ]
   end
+
+  defp compiler_paths(:test), do: ["test/spec"] ++ compiler_paths(:prod)
+  defp compiler_paths(_), do: ["lib"]
 end
