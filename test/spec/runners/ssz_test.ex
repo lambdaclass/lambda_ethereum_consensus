@@ -5,7 +5,20 @@ defmodule SSZTestRunner do
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
 
-  def run_test_case(case_dir) do
+  @doc """
+  Returns true if the given testcase should be skipped
+  """
+  def skip?(_testcase) do
+    # add SSZ test case skipping here
+    false
+  end
+
+  @doc """
+  Runs the given test case.
+  """
+  def run_test_case(testcase = %SpecTestCase{}) do
+    case_dir = SpecTestCase.dir(testcase)
+
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
     assert {:ok, decompressed} = :snappyer.decompress(compressed)
 
@@ -15,7 +28,7 @@ defmodule SSZTestRunner do
     assert_ssz(decompressed, expected, expected_root)
   end
 
-  def assert_ssz(_serialized, _expected, _expected_root) do
+  defp assert_ssz(_serialized, _expected, _expected_root) do
     # add SSZ comparison here
     assert true
   end

@@ -81,7 +81,7 @@ test: compile-native
 	mix test --exclude spectest
 
 spec-test: compile-native $(SPECTEST_DIRS)
-	mix test --only spectest
+	mix test --only implemented_spectest
 
 lint:
 	mix format --check-formatted
