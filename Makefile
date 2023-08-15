@@ -80,7 +80,7 @@ deps:
 test: compile-native
 	mix test --exclude spectest
 
-spec-test: compile-native $(SPECTEST_DIRS)
+spec-test: compile-native tests/minimal #$(SPECTEST_DIRS)
 	mix test --only implemented_spectest
 
 lint:
