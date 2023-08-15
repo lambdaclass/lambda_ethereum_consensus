@@ -3,7 +3,7 @@ defmodule SSZTests do
 
   test "encode" do
     value = %{
-      epoch: 12345,
+      epoch: 12_345,
       root:
         <<1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 1>>
