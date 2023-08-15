@@ -1,6 +1,10 @@
 defmodule SSZTestRunner do
   use ExUnit.CaseTemplate
 
+  @moduledoc """
+  Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
+  """
+
   def run_test_case(case_dir) do
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
     assert {:ok, decompressed} = :snappyer.decompress(compressed)
