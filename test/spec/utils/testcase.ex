@@ -1,4 +1,7 @@
 defmodule SpecTestCase do
+  @moduledoc """
+  Helper methods for deriving test case metadata.
+  """
   @enforce_keys [:config, :fork, :runner, :handler, :suite, :case]
   defstruct [:config, :fork, :runner, :handler, :suite, :case]
 

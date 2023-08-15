@@ -30,6 +30,6 @@ defmodule SSZTestRunner do
 
   defp assert_ssz(_serialized, _expected, _expected_root) do
     # add SSZ comparison here
-    assert true
+    assert false
   end
 end

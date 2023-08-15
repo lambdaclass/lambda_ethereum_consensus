@@ -1,4 +1,7 @@
 defmodule SpecTestUtils do
+  @moduledoc """
+  Utilities for running the spec tests.
+  """
   @all_cases ["tests"]
              |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
              |> Enum.join("/")
@@ -35,7 +38,7 @@ defmodule SpecTestUtils do
       paths_hash = :erlang.md5(paths)
 
       # Recompile module only if corresponding dir layout changed
-      def __mix_recompile__?() do
+      def __mix_recompile__? do
         Path.wildcard(unquote("tests/#{pinned_config}/#{pinned_fork}/**"))
         |> :erlang.md5()
       end
@@ -58,6 +61,13 @@ defmodule SpecTestUtils do
             @tag :skip
           end
 
+          # Register the test case as ran in the runner
+          runner_file =
+            test_runner.__info__(:compile)
+            |> Keyword.get(:source)
+            |> to_string()
+
+          @file runner_file
           @tag :implemented_spectest
           test test_name do
             unquote(test_runner).run_test_case(unquote(Macro.escape(testcase)))
