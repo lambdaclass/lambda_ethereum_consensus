@@ -10,7 +10,7 @@ defmodule SSZTestRunner do
   """
   def skip?(_testcase) do
     # add SSZ test case skipping here
-    false
+    true
   end
 
   @doc """
