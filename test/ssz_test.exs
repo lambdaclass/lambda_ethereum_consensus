@@ -1,7 +1,7 @@
 defmodule SSZTests do
   use ExUnit.Case
 
-  test "encode" do
+  test "serialize and deserialize checkpoint object" do
     value = %{
       epoch: 12_345,
       root:
@@ -9,8 +9,8 @@ defmodule SSZTests do
           0, 0, 1>>
     }
 
-    encoded = LambdaEthereumConsensus.Ssz.to_ssz(value)
-    decoded = LambdaEthereumConsensus.Ssz.from_ssz(encoded)
+    {:ok, encoded } = LambdaEthereumConsensus.Ssz.to_ssz(value)
+    {:ok, decoded } = LambdaEthereumConsensus.Ssz.from_ssz(encoded)
 
     assert decoded == value
   end
