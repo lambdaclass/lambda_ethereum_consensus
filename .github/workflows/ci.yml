@@ -44,7 +44,6 @@ jobs:
 
   build:
     name: Build project
-    needs: compile-native
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
