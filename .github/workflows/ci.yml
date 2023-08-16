@@ -26,8 +26,6 @@ jobs:
         with:
           version-type: strict
           version-file: .tool-versions
-        env:
-          ImageOS: ubuntu20
       - name: Set up Go
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v4
@@ -54,8 +52,6 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
-      env:
-        ImageOS: ubuntu20
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v3
@@ -101,8 +97,6 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
-      env:
-        ImageOS: ubuntu20
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v3
@@ -137,8 +131,6 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
-      env:
-        ImageOS: ubuntu20
     - name: Restore dependencies cache
       uses: actions/cache@v3
       with:
@@ -182,8 +174,6 @@ jobs:
         with:
           version-type: strict
           version-file: .tool-versions
-        env:
-          ImageOS: ubuntu20
       - name: Fetch native libraries
         uses: actions/cache/restore@v3
         with:
