@@ -8,6 +8,8 @@ on:
 
 env:
   MIX_ENV: test
+  RUST_WORKSPACES: |
+    "native/* -> native/**/target"
     
 permissions:
   contents: read
@@ -69,6 +71,11 @@ jobs:
         restore-keys: ${{ runner.os }}-mix-
     - name: Install dependencies
       run: mix deps.get
+    - name: Set up cargo cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: "rust-cache"
+        workspaces: ${{ env.RUST_WORKSPACES }}
     - name: Retrieve PLT Cache
       uses: actions/cache@v1
       id: plt-cache
@@ -85,7 +92,7 @@ jobs:
 
   test:
     name: Test
-    needs: compile-native
+    needs: [compile-native, build]
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
@@ -109,6 +116,12 @@ jobs:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
+    - name: Set up cargo cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: "rust-cache"
+        workspaces: ${{ env.RUST_WORKSPACES }}
+        save-if: "false"
     - name: Install dependencies
       run: mix deps.get
     - name: Run tests
@@ -157,7 +170,7 @@ jobs:
 
   spectests:
     name: Run spec-tests
-    needs: [compile-native, download-spectests]
+    needs: [compile-native, download-spectests, build]
     strategy:
       matrix:
         config: ["minimal"] #[ "general", "mainnet", "minimal" ]
@@ -189,6 +202,12 @@ jobs:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "rust-cache"
+          workspaces: ${{ env.RUST_WORKSPACES }}
+          save-if: "false"
       - name: Install dependencies
         run: mix deps.get
       - name: Uncompress vectors
