@@ -5,7 +5,9 @@ defmodule LambdaEthereumConsensus.RPC do
   plug(Tesla.Middleware.JSON)
 
   @spec call(binary, binary, binary, map()) :: {:error, any} | {:ok, Tesla.Env.t()}
-  def call(method, endpoint, version, params \\ %{}) when is_binary(method) do
+  def call(method, endpoint, version, params) do
+    validate_params(params)
+
     {:ok, token, _claims} = JWT.generate_token()
 
     client =
@@ -31,6 +33,12 @@ defmodule LambdaEthereumConsensus.RPC do
       {:error, result.body["error"]["message"]}
     else
       {:ok, result.body["result"]}
+    end
+  end
+
+  defp validate_params(params) do
+    if !is_map(params) do
+      {:error, "Invalid params"}
     end
   end
 end
