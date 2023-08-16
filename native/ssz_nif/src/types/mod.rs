@@ -1,2 +1,2 @@
-mod checkpoint;
-pub(crate) use checkpoint::*;
+mod beacon_chain;
+pub(crate) use beacon_chain::*;
