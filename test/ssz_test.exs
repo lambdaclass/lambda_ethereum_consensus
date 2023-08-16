@@ -11,9 +11,7 @@ defmodule SSZTests do
   test "serialize and deserialize checkpoint" do
     value = %{
       epoch: 12_345,
-      root:
-        <<1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 1>>
+      root: Base.decode16!("0100000000000000000000000000000000000000000000000000000000000001")
     }
 
     assert_roundtrip(Checkpoint, value)
@@ -27,5 +25,15 @@ defmodule SSZTests do
     }
 
     assert_roundtrip(Fork, value)
+  end
+
+  test "serialize and deserialize fork data" do
+    value = %{
+      current_version: <<1, 5, 4, 6>>,
+      genesis_validators_root:
+        Base.decode16!("2E04DEB062423388AE42D465C4CC14CDD53AE290A7B4541F3217E26E0F039E83")
+    }
+
+    assert_roundtrip(ForkData, value)
   end
 end

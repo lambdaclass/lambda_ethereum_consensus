@@ -18,3 +18,11 @@ gen_struct!(
         epoch: u64,
     }
 );
+
+gen_struct!(
+    #[derive(NifMap)]
+    pub(crate) struct ForkData {
+        current_version: Binary<'a>,
+        genesis_validators_root: Binary<'a>,
+    }
+);
