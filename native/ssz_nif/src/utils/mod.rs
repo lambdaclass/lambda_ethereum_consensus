@@ -1,15 +1,29 @@
-use std::io::Write;
-
-use rustler::{Binary, Env, NewBinary};
-
 pub(crate) mod from_elx;
 pub(crate) mod from_lh;
+pub(crate) mod helpers;
 
-pub(crate) fn bytes_to_binary<'env>(env: Env<'env>, bytes: &[u8]) -> Binary<'env> {
-    let mut binary = NewBinary::new(env, bytes.len());
-    // This cannot fail because bin size equals bytes len
-    binary.as_mut_slice().write_all(bytes).unwrap();
-    binary.into()
+#[macro_export]
+macro_rules! match_schema_and_encode {
+    (($schema:expr, $map:expr) => { $($t:tt),* $(,)? }) => {
+        match $schema {
+            $(
+                concat!("Elixir.", stringify!($t)) => $crate::utils::helpers::encode_ssz::<types::$t, lh_types::$t>($map),
+            )*
+            _ => unreachable!(),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! match_schema_and_decode {
+    (($schema:expr, $bytes:expr, $env:expr) => { $($t:tt),* $(,)? }) => {
+        match $schema {
+            $(
+                concat!("Elixir.", stringify!($t)) => $crate::utils::helpers::decode_ssz::<types::$t, lh_types::$t>($bytes, $env),
+            )*
+            _ => unreachable!(),
+        }
+    };
 }
 
 #[macro_export]

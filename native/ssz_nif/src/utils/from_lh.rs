@@ -1,8 +1,7 @@
+use crate::utils::helpers::bytes_to_binary;
 use ethereum_types::H256;
 use lighthouse_types::Epoch;
 use rustler::Binary;
-
-use super::bytes_to_binary;
 
 pub(crate) trait FromLH<'a, T> {
     fn from(value: T, env: rustler::Env<'a>) -> Self;

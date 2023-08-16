@@ -1,7 +1,14 @@
 defmodule SSZTests do
   use ExUnit.Case
 
-  test "serialize and deserialize checkpoint object" do
+  def assert_roundtrip(type, value) do
+    {:ok, encoded} = LambdaEthereumConsensus.Ssz.to_ssz(type, value)
+    {:ok, decoded} = LambdaEthereumConsensus.Ssz.from_ssz(type, encoded)
+
+    assert decoded == value
+  end
+
+  test "serialize and deserialize checkpoint" do
     value = %{
       epoch: 12_345,
       root:
@@ -9,9 +16,6 @@ defmodule SSZTests do
           0, 0, 1>>
     }
 
-    {:ok, encoded} = LambdaEthereumConsensus.Ssz.to_ssz(Checkpoint, value)
-    {:ok, decoded} = LambdaEthereumConsensus.Ssz.from_ssz(Checkpoint, encoded)
-
-    assert decoded == value
+    assert_roundtrip(Checkpoint, value)
   end
 end
