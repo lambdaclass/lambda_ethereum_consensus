@@ -52,13 +52,6 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
-    - name: Fetch native libraries
-      id: output-cache
-      uses: actions/cache/restore@v3
-      with:
-        path: priv/native/*.so
-        key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
-        fail-on-cache-miss: true
     - name: Restore dependencies cache
       uses: actions/cache@v3
       with:
