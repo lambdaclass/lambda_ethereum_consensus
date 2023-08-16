@@ -9,7 +9,8 @@ on:
 env:
   MIX_ENV: test
   RUST_WORKSPACES: |
-    native/** -> target
+    native/snappy -> target
+    native/ssz_nif -> target
     
 permissions:
   contents: read
