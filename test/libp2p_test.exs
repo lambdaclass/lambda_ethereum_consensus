@@ -147,7 +147,7 @@ defmodule Libp2pTest do
     end
   end
 
-  defp read_stream(_) do
+  defp read_stream(_, _writing_fun) do
     :ok
   end
 

@@ -43,3 +43,6 @@ native/libp2p_nif/main.h
 .vscode/
 
 !libp2p/utils.h
+
+tests
+*.tar.gz

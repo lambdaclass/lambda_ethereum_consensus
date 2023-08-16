@@ -9,6 +9,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       dialyzer: dialyzer(),
+      elixirc_paths: compiler_paths(Mix.env()),
+      warn_test_pattern: "_remove_warning.exs",
       preferred_cli_env: [
         dialyzer: :test
       ]
@@ -27,15 +29,22 @@ defmodule LambdaEthereumConsensus.MixProject do
   defp deps do
     [
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:yaml_elixir, "~> 2.8", only: [:test]},
+      {:snappyer, "~> 1.2", only: [:test]},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 0.6", only: :test},
       {:rustler, "~> 0.29.1"}
     ]
   end
 
-  defp dialyzer() do
+  defp dialyzer do
     [
+      # https://elixirforum.com/t/help-with-dialyzer-output/15202/5
+      plt_add_apps: [:ex_unit],
       plt_file: {:no_warn, "priv/plts/project.plt"}
     ]
   end
+
+  defp compiler_paths(:test), do: ["test/spec"] ++ compiler_paths(:prod)
+  defp compiler_paths(_), do: ["lib"]
 end
