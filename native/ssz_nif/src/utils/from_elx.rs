@@ -23,3 +23,9 @@ impl<'a> FromElx<Binary<'a>> for H256 {
         H256::from_slice(&value.as_slice())
     }
 }
+
+impl<'a> FromElx<Binary<'a>> for [u8; 4] {
+    fn from(value: Binary) -> Self {
+        value.as_slice().try_into().unwrap()
+    }
+}

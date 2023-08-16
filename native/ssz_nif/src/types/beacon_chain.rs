@@ -9,3 +9,12 @@ gen_struct!(
         root: Binary<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifMap)]
+    pub(crate) struct Fork {
+        previous_version: Binary<'a>,
+        current_version: Binary<'a>,
+        epoch: u64,
+    }
+);

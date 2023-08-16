@@ -19,6 +19,7 @@ fn to_ssz<'env, 'a>(env: Env<'env>, schema: Atom, map: Term) -> NifResult<Term<'
     let serialized = match_schema_and_encode!(
         (schema.as_str(), map) => {
             Checkpoint,
+            Fork,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -30,6 +31,7 @@ fn from_ssz<'env>(env: Env<'env>, schema: Atom, bytes: Binary) -> NifResult<Term
     let deserialized = match_schema_and_decode!(
         (schema.as_str(), &bytes, env) => {
             Checkpoint,
+            Fork,
         }
     );
     Ok((atoms::ok(), deserialized?).encode(env))

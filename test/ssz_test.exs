@@ -18,4 +18,14 @@ defmodule SSZTests do
 
     assert_roundtrip(Checkpoint, value)
   end
+
+  test "serialize and deserialize fork" do
+    value = %{
+      epoch: 5125,
+      previous_version: <<1, 5, 4, 6>>,
+      current_version: <<2, 5, 6, 0>>
+    }
+
+    assert_roundtrip(Fork, value)
+  end
 end
