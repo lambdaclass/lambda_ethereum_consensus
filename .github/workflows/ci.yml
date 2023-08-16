@@ -15,7 +15,7 @@ permissions:
 jobs:
   compile-native:
     name: Build native libraries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Set up Elixir
@@ -25,7 +25,7 @@ jobs:
           version-type: strict
           version-file: .tool-versions
         env:
-          ImageOS: ubuntu20
+          ImageOS: ubuntu22
       - name: Set up Go
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v4
@@ -45,7 +45,7 @@ jobs:
   build:
     name: Build project
     needs: compile-native
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - name: Set up Elixir
@@ -54,7 +54,7 @@ jobs:
         version-type: strict
         version-file: .tool-versions
       env:
-        ImageOS: ubuntu20
+        ImageOS: ubuntu22
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v3
@@ -87,7 +87,7 @@ jobs:
   test:
     name: Test
     needs: compile-native
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - name: Set up Elixir
@@ -96,7 +96,7 @@ jobs:
         version-type: strict
         version-file: .tool-versions
       env:
-        ImageOS: ubuntu20
+        ImageOS: ubuntu22
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v3
@@ -117,7 +117,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - name: Set up Elixir
@@ -126,7 +126,7 @@ jobs:
         version-type: strict
         version-file: .tool-versions
       env:
-        ImageOS: ubuntu20
+        ImageOS: ubuntu22
     - name: Restore dependencies cache
       uses: actions/cache@v3
       with:
@@ -142,7 +142,7 @@ jobs:
 
   download-spectests:
     name: Download spectests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Cache compressed spectests
@@ -162,7 +162,7 @@ jobs:
     strategy:
       matrix:
         config: ["minimal"] #[ "general", "mainnet", "minimal" ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Set up Elixir
@@ -171,7 +171,7 @@ jobs:
           version-type: strict
           version-file: .tool-versions
         env:
-          ImageOS: ubuntu20
+          ImageOS: ubuntu22
       - name: Fetch native libraries
         uses: actions/cache/restore@v3
         with:
