@@ -1,0 +1,17 @@
+[package]
+name = "ssz_nif"
+version = "0.1.0"
+authors = []
+edition = "2021"
+
+[lib]
+name = "ssz_nif"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = "0.29.1"
+ethereum_ssz_derive = "0.5.0"
+ethereum_ssz = "0.5.0"
+ethereum-types = "0.14.1"
+lighthouse_types = { git = "https://github.com/sigp/lighthouse", package = "types" }
