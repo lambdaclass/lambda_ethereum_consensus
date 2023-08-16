@@ -6,8 +6,6 @@ defmodule LambdaEthereumConsensus.RPC do
 
   @spec call(binary, binary, binary, map()) :: {:error, any} | {:ok, Tesla.Env.t()}
   def call(method, endpoint, version, params) do
-    validate_params(params)
-
     {:ok, token, _claims} = JWT.generate_token()
 
     client =
