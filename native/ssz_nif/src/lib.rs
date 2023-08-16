@@ -1,3 +1,10 @@
+//! # SSZ NIF
+//!
+//! To add a new type:
+//!  - Add the type to the [`types`] module, using the gen_struct macro
+//!  - Implement the necessary traits ([`FromElx`] and [`FromLH`]) for its attributes
+//!  - Add the type to [`to_ssz`] and [`from_ssz`] "match" macros
+
 use crate::utils::helpers::bytes_to_binary;
 use lighthouse_types as lh_types;
 use rustler::{Atom, Binary, Encoder, Env, NifResult, Term};
