@@ -35,10 +35,4 @@ defmodule LambdaEthereumConsensus.RPC do
       {:ok, result.body["result"]}
     end
   end
-
-  defp validate_params(params) do
-    if !is_map(params) do
-      {:error, "Invalid params"}
-    end
-  end
 end

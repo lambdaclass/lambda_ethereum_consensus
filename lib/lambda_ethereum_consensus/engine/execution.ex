@@ -7,8 +7,12 @@ defmodule LambdaEthereumConsensus.Engine.Execution do
   # Default Execution Layer RPC version
   @execution_engine_rpc_version "2.0"
 
-  @spec engine_exchange_capabilities(map) :: {:error, any} | {:ok, any}
-  def engine_exchange_capabilities(params) do
+  @spec engine_exchange_capabilities(list) :: {:ok, any} | {:error, any}
+  def engine_exchange_capabilities(capabilities) do
+    params = %{
+      "capabilities" => capabilities
+    }
+
     case RPC.call(
            "engine_exchangeCapabilities",
            @execution_engine_endpoint,
