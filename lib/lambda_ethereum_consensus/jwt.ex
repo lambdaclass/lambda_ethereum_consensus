@@ -16,7 +16,7 @@ defmodule LambdaEthereumConsensus.JWT do
       Joken.Signer.create(
         "HS256",
         Base.decode16!(
-          String.upcase("c4224413b9f85af9a9d1f07962493e646cf7d79f76333bd0a8b901affb558f84")
+          String.upcase(Application.fetch_env!(:lambda_ethereum_consensus, :jwt_secret))
         )
       )
 
