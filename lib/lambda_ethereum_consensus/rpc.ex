@@ -24,8 +24,7 @@ defmodule LambdaEthereumConsensus.RPC do
     post(client, endpoint, request_body)
   end
 
-  @spec validate_response(atom | %{:body => map, optional(any) => any}) ::
-          {:error, any} | {:ok, any}
+  @spec validate_response(any) :: {:ok, any} | {:error, any}
   def validate_response(result) do
     if Map.has_key?(result.body, "error") do
       {:error, result.body["error"]["message"]}
