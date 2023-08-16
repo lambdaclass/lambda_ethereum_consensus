@@ -9,7 +9,7 @@ on:
 env:
   MIX_ENV: test
   RUST_WORKSPACES: |
-    "native/* -> target"
+    native/** -> target
     
 permissions:
   contents: read
