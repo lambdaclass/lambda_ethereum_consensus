@@ -45,6 +45,7 @@ jobs:
 
   build:
     name: Build project
+    needs: compile-native
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
@@ -53,6 +54,13 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
+    - name: Fetch native libraries
+      id: output-cache
+      uses: actions/cache/restore@v3
+      with:
+        path: priv/native/*.so
+        key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
+        fail-on-cache-miss: true
     - name: Restore dependencies cache
       uses: actions/cache@v3
       with:
@@ -64,7 +72,6 @@ jobs:
     - name: Set up cargo cache
       uses: Swatinem/rust-cache@v2
       with:
-        shared-key: "rust-cache"
         workspaces: ${{ env.RUST_WORKSPACES }}
     - name: Retrieve PLT Cache
       uses: actions/cache@v1
@@ -82,7 +89,7 @@ jobs:
 
   test:
     name: Test
-    needs: [compile-native, build]
+    needs: compile-native
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
@@ -107,9 +114,7 @@ jobs:
     - name: Set up cargo cache
       uses: Swatinem/rust-cache@v2
       with:
-        shared-key: "rust-cache"
         workspaces: ${{ env.RUST_WORKSPACES }}
-        save-if: "false"
     - name: Install dependencies
       run: mix deps.get
     - name: Run tests
@@ -156,7 +161,7 @@ jobs:
 
   spectests:
     name: Run spec-tests
-    needs: [compile-native, download-spectests, build]
+    needs: [compile-native, download-spectests]
     strategy:
       matrix:
         config: ["minimal"] #[ "general", "mainnet", "minimal" ]
@@ -189,9 +194,7 @@ jobs:
       - name: Set up cargo cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "rust-cache"
           workspaces: ${{ env.RUST_WORKSPACES }}
-          save-if: "false"
       - name: Install dependencies
         run: mix deps.get
       - name: Uncompress vectors
