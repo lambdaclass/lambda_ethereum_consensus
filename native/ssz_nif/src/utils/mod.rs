@@ -2,7 +2,6 @@ pub(crate) mod from_elx;
 pub(crate) mod from_lh;
 pub(crate) mod helpers;
 
-#[macro_export]
 macro_rules! match_schema_and_encode {
     (($schema:expr, $map:expr) => { $($t:tt),* $(,)? }) => {
         match $schema {
@@ -14,7 +13,6 @@ macro_rules! match_schema_and_encode {
     };
 }
 
-#[macro_export]
 macro_rules! match_schema_and_decode {
     (($schema:expr, $bytes:expr, $env:expr) => { $($t:tt),* $(,)? }) => {
         match $schema {
@@ -26,7 +24,6 @@ macro_rules! match_schema_and_decode {
     };
 }
 
-#[macro_export]
 macro_rules! gen_struct {
     // Named-Struct
     (
@@ -72,3 +69,7 @@ macro_rules! gen_struct {
         }
     }
 }
+
+pub(crate) use gen_struct;
+pub(crate) use match_schema_and_decode;
+pub(crate) use match_schema_and_encode;

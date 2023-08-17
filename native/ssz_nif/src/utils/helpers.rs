@@ -20,13 +20,12 @@ where
     Ok(value_ssz.as_ssz_bytes())
 }
 
-pub(crate) fn decode_ssz<'a, Elx, Lh>(bytes: &[u8], env: Env<'a>) -> NifResult<Term<'a>>
+pub(crate) fn decode_ssz<'a, Elx, Lh>(bytes: &[u8], env: Env<'a>) -> Term<'a>
 where
     Elx: Encoder + FromLH<'a, Lh>,
     Lh: Decode,
 {
     let recovered_value = Lh::from_ssz_bytes(bytes).expect("can deserialize");
     let checkpoint = Elx::from(recovered_value, env);
-    let term = checkpoint.encode(env);
-    Ok(term)
+    checkpoint.encode(env)
 }

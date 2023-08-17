@@ -1,6 +1,5 @@
+use crate::utils::gen_struct;
 use rustler::{Binary, NifMap};
-
-use crate::gen_struct;
 
 gen_struct!(
     #[derive(NifMap)]
