@@ -19,17 +19,22 @@ defmodule SSZStaticTestRunner do
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
+    schema = handler_name_to_type(testcase.handler)
+
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
     assert {:ok, decompressed} = :snappyer.decompress(compressed)
 
     expected =
-      YamlElixir.read_from_file!(case_dir <> "/value.yaml")
-      |> Stream.map(&parse_yaml/1)
-      |> Map.new()
+      schema
+      |> struct(
+        YamlElixir.read_from_file!(case_dir <> "/value.yaml")
+        |> Stream.map(&parse_yaml/1)
+        |> Map.new()
+      )
 
     expected_root = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
 
-    assert_ssz(testcase, decompressed, expected, expected_root)
+    assert_ssz(schema, decompressed, expected, expected_root)
   end
 
   defp parse_yaml({k, "0x" <> hash}) do
@@ -42,11 +47,10 @@ defmodule SSZStaticTestRunner do
 
   defp parse_yaml({k, v}), do: {String.to_atom(k), v}
 
-  defp assert_ssz(testcase, serialized, expected, _expected_root) do
+  defp assert_ssz(schema, serialized, expected, _expected_root) do
     # assert root is expected when we implement SSZ hashing
-    schema = handler_name_to_type(testcase.handler)
 
-    {:ok, deserialized} = Ssz.from_ssz(schema, serialized)
+    {:ok, deserialized} = Ssz.from_ssz(serialized, schema)
     assert deserialized == expected
   end
 

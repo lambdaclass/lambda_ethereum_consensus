@@ -3,9 +3,9 @@ defmodule SSZTests do
 
   def assert_roundtrip(%type{} = value) do
     {:ok, encoded} = Ssz.to_ssz(value)
-    {:ok, decoded} = Ssz.from_ssz(type, encoded)
+    {:ok, decoded} = Ssz.from_ssz(encoded, type)
 
-    assert struct!(type, decoded) == value
+    assert decoded == value
   end
 
   test "serialize and deserialize checkpoint" do
