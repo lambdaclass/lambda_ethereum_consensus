@@ -35,7 +35,6 @@ defmodule SSZStaticTestRunner do
     expected =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> parse_yaml()
-      |> then(&struct!(schema, &1))
 
     expected_root = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
 
@@ -67,7 +66,20 @@ defmodule SSZStaticTestRunner do
     # assert root is expected when we implement SSZ hashing
 
     {:ok, deserialized} = Ssz.from_ssz(serialized, schema)
+    expected = to_struct_checked(deserialized, expected)
+
     assert deserialized == expected
+  end
+
+  defp to_struct_checked(%name{} = actual, %{} = expected) do
+    expected
+    |> Stream.map(fn {k, v} -> {k, to_struct_checked(Map.get(actual, k), v)} end)
+    |> Map.new()
+    |> then(&struct!(name, &1))
+  end
+
+  defp to_struct_checked(_actual, expected) do
+    expected
   end
 
   defp handler_name_to_type(handler) do

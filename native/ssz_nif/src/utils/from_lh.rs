@@ -40,6 +40,6 @@ impl<'a> FromLH<'a, [u8; 4]> for Binary<'a> {
 
 impl<'a> FromLH<'a, PublicKeyBytes> for Binary<'a> {
     fn from(value: PublicKeyBytes, env: rustler::Env<'a>) -> Self {
-        bytes_to_binary(env, &value.as_serialized())
+        bytes_to_binary(env, value.as_serialized())
     }
 }

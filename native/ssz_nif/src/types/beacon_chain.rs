@@ -1,8 +1,9 @@
 use crate::utils::gen_struct;
-use rustler::{Binary, NifMap};
+use rustler::{Binary, NifStruct};
 
 gen_struct!(
-    #[derive(NifMap)]
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Checkpoint"]
     /// Corresponds to [`lighthouse_types::Checkpoint`]
     pub(crate) struct Checkpoint {
         epoch: u64,
@@ -11,7 +12,8 @@ gen_struct!(
 );
 
 gen_struct!(
-    #[derive(NifMap)]
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Fork"]
     /// Corresponds to [`lighthouse_types::Fork`]
     pub(crate) struct Fork {
         previous_version: Binary<'a>,
@@ -21,7 +23,8 @@ gen_struct!(
 );
 
 gen_struct!(
-    #[derive(NifMap)]
+    #[derive(NifStruct)]
+    #[module = "SszTypes.ForkData"]
     /// Corresponds to [`lighthouse_types::ForkData`]
     pub(crate) struct ForkData {
         current_version: Binary<'a>,
@@ -30,7 +33,8 @@ gen_struct!(
 );
 
 gen_struct!(
-    #[derive(NifMap)]
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Validator"]
     /// Corresponds to [`lighthouse_types::Validator`]
     pub(crate) struct Validator {
         pubkey: Binary<'a>,
@@ -44,7 +48,8 @@ gen_struct!(
     }
 );
 gen_struct!(
-    #[derive(NifMap)]
+    #[derive(NifStruct)]
+    #[module = "SszTypes.AttestationData"]
     /// Corresponds to [`lighthouse_types::AttestationData`]
     pub(crate) struct AttestationData {
         slot: u64,

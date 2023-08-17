@@ -61,13 +61,6 @@ defmodule SpecTestUtils do
             @tag :skip
           end
 
-          # Register the test case as ran in the runner
-          runner_file =
-            test_runner.__info__(:compile)
-            |> Keyword.get(:source)
-            |> to_string()
-
-          @file runner_file
           @tag :implemented_spectest
           test test_name do
             unquote(test_runner).run_test_case(unquote(Macro.escape(testcase)))
