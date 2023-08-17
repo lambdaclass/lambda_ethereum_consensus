@@ -31,6 +31,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             Checkpoint,
             Fork,
             ForkData,
+            Validator,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -45,6 +46,7 @@ fn raw_from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<
             Checkpoint,
             Fork,
             ForkData,
+            Validator,
         }
     );
     Ok((atoms::ok(), deserialized).encode(env))

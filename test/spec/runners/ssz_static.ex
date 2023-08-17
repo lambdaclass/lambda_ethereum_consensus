@@ -10,7 +10,7 @@ defmodule SSZStaticTestRunner do
   """
   def skip?(testcase) do
     # add SSZ test case skipping here
-    testcase.handler not in ["Checkpoint", "Fork", "ForkData"]
+    testcase.handler not in ["Checkpoint", "Fork", "ForkData", "Validator"]
   end
 
   @doc """

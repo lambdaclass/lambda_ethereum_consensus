@@ -28,3 +28,18 @@ gen_struct!(
         genesis_validators_root: Binary<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifMap)]
+    /// Corresponds to [`lighthouse_types::Validator`]
+    pub(crate) struct Validator {
+        pubkey: Binary<'a>,
+        withdrawal_credentials: Binary<'a>,
+        effective_balance: u64,
+        slashed: bool,
+        activation_eligibility_epoch: u64,
+        activation_epoch: u64,
+        exit_epoch: u64,
+        withdrawable_epoch: u64,
+    }
+);
