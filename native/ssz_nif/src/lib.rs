@@ -20,11 +20,14 @@ mod atoms {
     }
 }
 
+const PREFIX_SIZE: usize = "Elixir.SszTypes.".len();
+
 #[rustler::nif]
 fn to_ssz<'env>(env: Env<'env>, schema: Atom, map: Term) -> NifResult<Term<'env>> {
     let schema = schema.to_term(env).atom_to_string().unwrap();
+    let schema = &schema[PREFIX_SIZE..];
     let serialized = match_schema_and_encode!(
-        (schema.as_str(), map) => {
+        (schema, map) => {
             Checkpoint,
             Fork,
             ForkData,
@@ -36,8 +39,9 @@ fn to_ssz<'env>(env: Env<'env>, schema: Atom, map: Term) -> NifResult<Term<'env>
 #[rustler::nif]
 fn from_ssz<'env>(env: Env<'env>, schema: Atom, bytes: Binary) -> NifResult<Term<'env>> {
     let schema = schema.to_term(env).atom_to_string().unwrap();
+    let schema = &schema[PREFIX_SIZE..];
     let deserialized = match_schema_and_decode!(
-        (schema.as_str(), &bytes, env) => {
+        (schema, &bytes, env) => {
             Checkpoint,
             Fork,
             ForkData,

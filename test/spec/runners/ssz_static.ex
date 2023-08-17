@@ -44,11 +44,16 @@ defmodule SSZStaticTestRunner do
 
   defp assert_ssz(testcase, serialized, expected, _expected_root) do
     # assert root is expected when we implement SSZ hashing
-    schema =
-      "Elixir.#{testcase.handler}"
-      |> String.to_atom()
+    schema = handler_name_to_type(testcase.handler)
 
     {:ok, deserialized} = Ssz.from_ssz(schema, serialized)
     assert deserialized == expected
+  end
+
+  defp handler_name_to_type(handler) do
+    prefix = to_string(SszTypes)
+
+    (prefix <> "." <> handler)
+    |> String.to_atom()
   end
 end

@@ -14,7 +14,7 @@ defmodule SSZTests do
       root: Base.decode16!("0100000000000000000000000000000000000000000000000000000000000001")
     }
 
-    assert_roundtrip(Checkpoint, value)
+    assert_roundtrip(SszTypes.Checkpoint, value)
   end
 
   test "serialize and deserialize fork" do
@@ -24,7 +24,7 @@ defmodule SSZTests do
       current_version: <<2, 5, 6, 0>>
     }
 
-    assert_roundtrip(Fork, value)
+    assert_roundtrip(SszTypes.Fork, value)
   end
 
   test "serialize and deserialize fork data" do
@@ -34,6 +34,6 @@ defmodule SSZTests do
         Base.decode16!("2E04DEB062423388AE42D465C4CC14CDD53AE290A7B4541F3217E26E0F039E83")
     }
 
-    assert_roundtrip(ForkData, value)
+    assert_roundtrip(SszTypes.ForkData, value)
   end
 end

@@ -6,7 +6,7 @@ macro_rules! match_schema_and_encode {
     (($schema:expr, $map:expr) => { $($t:tt),* $(,)? }) => {
         match $schema {
             $(
-                concat!("Elixir.", stringify!($t)) => $crate::utils::helpers::encode_ssz::<types::$t, lh_types::$t>($map),
+                stringify!($t) => $crate::utils::helpers::encode_ssz::<types::$t, lh_types::$t>($map),
             )*
             _ => unreachable!(),
         }
@@ -17,7 +17,7 @@ macro_rules! match_schema_and_decode {
     (($schema:expr, $bytes:expr, $env:expr) => { $($t:tt),* $(,)? }) => {
         match $schema {
             $(
-                concat!("Elixir.", stringify!($t)) => $crate::utils::helpers::decode_ssz::<types::$t, lh_types::$t>($bytes, $env),
+                stringify!($t) => $crate::utils::helpers::decode_ssz::<types::$t, lh_types::$t>($bytes, $env),
             )*
             _ => unreachable!(),
         }
