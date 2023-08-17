@@ -4,6 +4,9 @@ defmodule Ssz do
   """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "ssz_nif"
 
+  @spec to_ssz(struct) :: {:ok, binary} | {:error, String.t()}
+  def to_ssz(%name{} = map), do: to_ssz(name, map)
+
   @spec to_ssz(atom, map) :: {:ok, binary} | {:error, String.t()}
   def to_ssz(_schema, _map), do: error()
 
