@@ -10,7 +10,7 @@ You can install the necessary components directly from official sources:
 
 ### Alternative (Recommended) Installation
 For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
-- [asdf tool version manager](https://github.com/asdf-vm/asdf)
+- [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
 
 After installing **asdf**, add the required plugins for managing the tools:
 ```shell
