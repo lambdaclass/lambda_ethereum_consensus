@@ -1,5 +1,5 @@
 use ethereum_types::H256;
-use lighthouse_types::{Epoch, PublicKeyBytes};
+use lighthouse_types::{Epoch, PublicKeyBytes, Slot};
 use rustler::Binary;
 
 pub(crate) trait FromElx<T> {
@@ -17,6 +17,7 @@ macro_rules! trivial_impl {
 }
 
 trivial_impl!(u64 => Epoch);
+trivial_impl!(u64 => Slot);
 
 impl<T> FromElx<T> for T {
     fn from(value: Self) -> Self {

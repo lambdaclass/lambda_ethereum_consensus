@@ -1,6 +1,6 @@
 use crate::utils::helpers::bytes_to_binary;
 use ethereum_types::H256;
-use lighthouse_types::{Epoch, PublicKeyBytes};
+use lighthouse_types::{Epoch, PublicKeyBytes, Slot};
 use rustler::Binary;
 
 pub(crate) trait FromLH<'a, T> {
@@ -18,6 +18,7 @@ macro_rules! trivial_impl {
 }
 
 trivial_impl!(Epoch => u64);
+trivial_impl!(Slot => u64);
 
 impl<'a, T> FromLH<'a, T> for T {
     fn from(value: Self, _env: rustler::Env<'a>) -> Self {

@@ -43,3 +43,14 @@ gen_struct!(
         withdrawable_epoch: u64,
     }
 );
+gen_struct!(
+    #[derive(NifMap)]
+    /// Corresponds to [`lighthouse_types::AttestationData`]
+    pub(crate) struct AttestationData {
+        slot: u64,
+        index: u64,
+        beacon_block_root: Binary<'a>,
+        source: Checkpoint<'a>,
+        target: Checkpoint<'a>,
+    }
+);

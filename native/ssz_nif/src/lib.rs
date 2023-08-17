@@ -28,6 +28,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
     let schema = &schema[PREFIX_SIZE..];
     let serialized = match_schema_and_encode!(
         (schema, map) => {
+            AttestationData,
             Checkpoint,
             Fork,
             ForkData,
@@ -43,6 +44,7 @@ fn raw_from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<
     let schema = &schema[PREFIX_SIZE..];
     let deserialized = match_schema_and_decode!(
         (schema, &bytes, env) => {
+            AttestationData,
             Checkpoint,
             Fork,
             ForkData,

@@ -3,6 +3,8 @@ use rustler::{Binary, Decoder, Encoder, Env, NewBinary, NifResult, Term};
 use ssz::{Decode, Encode};
 use std::io::Write;
 
+use super::from_elx::FromElx;
+
 pub(crate) fn bytes_to_binary<'env>(env: Env<'env>, bytes: &[u8]) -> Binary<'env> {
     let mut binary = NewBinary::new(env, bytes.len());
     // This cannot fail because bin size equals bytes len
@@ -12,11 +14,11 @@ pub(crate) fn bytes_to_binary<'env>(env: Env<'env>, bytes: &[u8]) -> Binary<'env
 
 pub(crate) fn encode_ssz<'a, Elx, Lh>(value: Term<'a>) -> NifResult<Vec<u8>>
 where
-    Elx: Decoder<'a> + Into<Lh>,
-    Lh: Encode,
+    Elx: Decoder<'a>,
+    Lh: Encode + FromElx<Elx>,
 {
     let value_nif = <Elx as Decoder>::decode(value)?;
-    let value_ssz: Lh = value_nif.into();
+    let value_ssz = Lh::from(value_nif);
     Ok(value_ssz.as_ssz_bytes())
 }
 

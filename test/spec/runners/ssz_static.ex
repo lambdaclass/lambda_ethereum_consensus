@@ -5,12 +5,20 @@ defmodule SSZStaticTestRunner do
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
 
+  @enabled [
+    "AttestationData",
+    "Checkpoint",
+    "Fork",
+    "ForkData",
+    "Validator"
+  ]
+
   @doc """
   Returns true if the given testcase should be skipped
   """
   def skip?(testcase) do
     # add SSZ test case skipping here
-    testcase.handler not in ["Checkpoint", "Fork", "ForkData", "Validator"]
+    not Enum.member?(@enabled, testcase.handler)
   end
 
   @doc """
@@ -26,13 +34,18 @@ defmodule SSZStaticTestRunner do
 
     expected =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
-      |> Stream.map(&parse_yaml/1)
-      |> Map.new()
-      |> then(&struct(schema, &1))
+      |> parse_yaml()
+      |> then(&struct!(schema, &1))
 
     expected_root = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
 
     assert_ssz(schema, decompressed, expected, expected_root)
+  end
+
+  defp parse_yaml(map) when is_map(map) do
+    map
+    |> Stream.map(&parse_yaml/1)
+    |> Map.new()
   end
 
   defp parse_yaml({k, "0x" <> hash}) do
@@ -40,10 +53,15 @@ defmodule SSZStaticTestRunner do
       hash
       |> Base.decode16!([{:case, :lower}])
 
-    {String.to_atom(k), v}
+    {String.to_existing_atom(k), v}
   end
 
-  defp parse_yaml({k, v}), do: {String.to_atom(k), v}
+  defp parse_yaml({k, map}) when is_map(map) do
+    v = parse_yaml(map)
+    {String.to_existing_atom(k), v}
+  end
+
+  defp parse_yaml({k, v}), do: {String.to_existing_atom(k), v}
 
   defp assert_ssz(schema, serialized, expected, _expected_root) do
     # assert root is expected when we implement SSZ hashing
@@ -56,6 +74,6 @@ defmodule SSZStaticTestRunner do
     prefix = to_string(SszTypes)
 
     (prefix <> "." <> handler)
-    |> String.to_atom()
+    |> String.to_existing_atom()
   end
 end
