@@ -1,11 +1,11 @@
 [package]
-name = "snappy"
+name = "snappy_nif"
 version = "0.1.0"
 authors = []
 edition = "2021"
 
 [lib]
-name = "snappy"
+name = "snappy_nif"
 path = "src/lib.rs"
 crate-type = ["cdylib"]
 
