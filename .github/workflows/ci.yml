@@ -8,6 +8,9 @@ on:
 
 env:
   MIX_ENV: test
+  RUST_WORKSPACES: |
+    native/snappy -> target
+    native/ssz_nif -> target
     
 permissions:
   contents: read
@@ -15,7 +18,7 @@ permissions:
 jobs:
   compile-native:
     name: Build native libraries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Set up Elixir
@@ -24,8 +27,6 @@ jobs:
         with:
           version-type: strict
           version-file: .tool-versions
-        env:
-          ImageOS: ubuntu20
       - name: Set up Go
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v4
@@ -45,7 +46,7 @@ jobs:
   build:
     name: Build project
     needs: compile-native
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - name: Set up Elixir
@@ -53,8 +54,6 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
-      env:
-        ImageOS: ubuntu20
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v3
@@ -70,6 +69,10 @@ jobs:
         restore-keys: ${{ runner.os }}-mix-
     - name: Install dependencies
       run: mix deps.get
+    - name: Set up cargo cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ env.RUST_WORKSPACES }}
     - name: Retrieve PLT Cache
       uses: actions/cache@v1
       id: plt-cache
@@ -87,7 +90,7 @@ jobs:
   test:
     name: Test
     needs: compile-native
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - name: Set up Elixir
@@ -95,8 +98,6 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
-      env:
-        ImageOS: ubuntu20
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v3
@@ -110,6 +111,10 @@ jobs:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
+    - name: Set up cargo cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ env.RUST_WORKSPACES }}
     - name: Install dependencies
       run: mix deps.get
     - name: Run tests
@@ -117,7 +122,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - name: Set up Elixir
@@ -125,8 +130,6 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
-      env:
-        ImageOS: ubuntu20
     - name: Restore dependencies cache
       uses: actions/cache@v3
       with:
@@ -142,7 +145,7 @@ jobs:
 
   download-spectests:
     name: Download spectests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Cache compressed spectests
@@ -162,7 +165,7 @@ jobs:
     strategy:
       matrix:
         config: ["minimal"] #[ "general", "mainnet", "minimal" ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Set up Elixir
@@ -170,8 +173,6 @@ jobs:
         with:
           version-type: strict
           version-file: .tool-versions
-        env:
-          ImageOS: ubuntu20
       - name: Fetch native libraries
         uses: actions/cache/restore@v3
         with:
@@ -190,6 +191,10 @@ jobs:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ env.RUST_WORKSPACES }}
       - name: Install dependencies
         run: mix deps.get
       - name: Uncompress vectors
