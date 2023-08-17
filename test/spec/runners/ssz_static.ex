@@ -25,12 +25,10 @@ defmodule SSZStaticTestRunner do
     assert {:ok, decompressed} = :snappyer.decompress(compressed)
 
     expected =
-      schema
-      |> struct(
-        YamlElixir.read_from_file!(case_dir <> "/value.yaml")
-        |> Stream.map(&parse_yaml/1)
-        |> Map.new()
-      )
+      YamlElixir.read_from_file!(case_dir <> "/value.yaml")
+      |> Stream.map(&parse_yaml/1)
+      |> Map.new()
+      |> then(&struct(schema, &1))
 
     expected_root = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
 
