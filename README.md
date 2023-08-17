@@ -1,28 +1,27 @@
-# lambda_ethereum_consensus
+# Lambda Ethereum Consensus
 
 ## Prerequisites
-### Direct
-Install directly through offocial mirrors
-- [elixir](https://elixir-lang.org/install.html)
-- [erlang](https://www.erlang.org/downloads)
-- [golang](https://go.dev/doc/install)
 
-### Alternative (recommended)
-Use tool version manager **asdf** to follow this repo's exact versions located in `.tool-versions`
-- [tool manager asdf](https://github.com/asdf-vm/asdf)
+### Direct Installation
+You can install the necessary components directly from official sources:
+- [Elixir](https://elixir-lang.org/install.html)
+- [Erlang](https://www.erlang.org/downloads)
+- [Go](https://go.dev/doc/install)
 
-After installing **asdf**, add the necessary plugins to handle the tools.
+### Alternative (Recommended) Installation
+For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
+- [asdf tool version manager](https://github.com/asdf-vm/asdf)
+
+After installing **asdf**, add the required plugins for managing the tools:
 ```shell
 asdf plugin add elixir
 asdf plugin add erlang
 asdf plugin add golang
 ```
-Finally, install the tools' version on `.tool-version`.
+Finally, install the specific versions of these tools as specified in `.tool-versions`:
 ```shell
 asdf install
 ```
-
-
 
 ## Installing and running
 
