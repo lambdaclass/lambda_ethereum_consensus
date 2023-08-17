@@ -16,7 +16,7 @@ defmodule SSZStaticTestRunner do
   @doc """
   Runs the given test case.
   """
-  def run_test_case(testcase = %SpecTestCase{}) do
+  def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
