@@ -2,8 +2,8 @@ defmodule SSZTests do
   use ExUnit.Case
 
   def assert_roundtrip(type, value) do
-    {:ok, encoded} = LambdaEthereumConsensus.Ssz.to_ssz(type, value)
-    {:ok, decoded} = LambdaEthereumConsensus.Ssz.from_ssz(type, encoded)
+    {:ok, encoded} = Ssz.to_ssz(type, value)
+    {:ok, decoded} = Ssz.from_ssz(type, encoded)
 
     assert decoded == value
   end

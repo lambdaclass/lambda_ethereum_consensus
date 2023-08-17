@@ -1,6 +1,5 @@
 defmodule SSZStaticTestRunner do
   use ExUnit.CaseTemplate
-  alias LambdaEthereumConsensus.Ssz
 
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
@@ -44,7 +43,7 @@ defmodule SSZStaticTestRunner do
   defp parse_yaml({k, v}), do: {String.to_atom(k), v}
 
   defp assert_ssz(testcase, serialized, expected, _expected_root) do
-    # TODO: assert root is expected when we implement SSZ hashing
+    # assert root is expected when we implement SSZ hashing
     schema =
       "Elixir.#{testcase.handler}"
       |> String.to_atom()

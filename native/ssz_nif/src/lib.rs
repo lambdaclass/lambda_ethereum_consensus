@@ -46,4 +46,4 @@ fn from_ssz<'env>(env: Env<'env>, schema: Atom, bytes: Binary) -> NifResult<Term
     Ok((atoms::ok(), deserialized).encode(env))
 }
 
-rustler::init!("Elixir.LambdaEthereumConsensus.Ssz", [to_ssz, from_ssz]);
+rustler::init!("Elixir.Ssz", [to_ssz, from_ssz]);

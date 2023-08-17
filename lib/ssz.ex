@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Ssz do
+defmodule Ssz do
   @moduledoc """
   SimpleSerialize (SSZ) serialization and deserialization.
   """
