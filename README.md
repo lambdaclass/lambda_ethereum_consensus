@@ -1,4 +1,4 @@
-# Lambda Ethereum Consensus
+# Lambda_Ethereum_Consensus
 
 ## Prerequisites
 
