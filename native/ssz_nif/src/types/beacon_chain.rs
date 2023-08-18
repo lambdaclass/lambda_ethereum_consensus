@@ -47,6 +47,7 @@ gen_struct!(
         withdrawable_epoch: u64,
     }
 );
+
 gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.AttestationData"]

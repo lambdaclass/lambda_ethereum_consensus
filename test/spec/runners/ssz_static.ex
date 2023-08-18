@@ -17,7 +17,6 @@ defmodule SSZStaticTestRunner do
   Returns true if the given testcase should be skipped
   """
   def skip?(testcase) do
-    # add SSZ test case skipping here
     not Enum.member?(@enabled, testcase.handler)
   end
 
@@ -83,9 +82,7 @@ defmodule SSZStaticTestRunner do
   end
 
   defp handler_name_to_type(handler) do
-    prefix = to_string(SszTypes)
-
-    (prefix <> "." <> handler)
-    |> String.to_existing_atom()
+    Map.get(@type_equivalence, handler, handler)
+    |> then(&Module.concat(SszTypes, &1))
   end
 end

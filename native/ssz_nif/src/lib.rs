@@ -5,11 +5,11 @@
 //!  - Implement the necessary traits ([`FromElx`] and [`FromLH`]) for its attributes
 //!  - Add the type to [`to_ssz`] and [`from_ssz`] "match" macros
 
+pub(crate) mod lh_types;
 pub(crate) mod types;
 pub(crate) mod utils;
 
 use crate::utils::{helpers::bytes_to_binary, match_schema_and_decode, match_schema_and_encode};
-use lighthouse_types as lh_types;
 use rustler::{Atom, Binary, Encoder, Env, NifResult, Term};
 
 mod atoms {
