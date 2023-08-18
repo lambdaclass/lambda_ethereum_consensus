@@ -73,3 +73,14 @@ gen_struct!(
         proposer_index: u64,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Eth1Data"]
+    /// Corresponds to [`lighthouse_types::Eth1Data`]
+    pub(crate) struct Eth1Data<'a> {
+        deposit_root: Binary<'a>,
+        deposit_count: u64,
+        block_hash: Binary<'a>,
+    }
+);

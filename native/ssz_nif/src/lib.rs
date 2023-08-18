@@ -30,6 +30,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
         (schema, map) => {
             AttestationData,
             Checkpoint,
+            Eth1Data,
             Fork,
             ForkData,
             Validator,
@@ -46,6 +47,7 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
         (schema, &bytes, env) => {
             AttestationData,
             Checkpoint,
+            Eth1Data,
             Fork,
             ForkData,
             Validator,
