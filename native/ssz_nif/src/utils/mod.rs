@@ -29,7 +29,7 @@ macro_rules! gen_struct {
     (
         $( #[$meta:meta] )*
     //  ^~~~attributes~~~~^
-        $vis:vis struct $name:ident {
+        $vis:vis struct $name:ident$(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ >)? {
             $(
                 $( #[$field_meta:meta] )*
     //          ^~~~field attributes~~~!^
@@ -40,7 +40,7 @@ macro_rules! gen_struct {
     ) => {
         $( #[$meta] )*
         #[derive(Clone)]
-        $vis struct $name<'a> {
+        $vis struct $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
             $(
                 $( #[$field_meta] )*
                 $field_vis $field_name : $field_ty

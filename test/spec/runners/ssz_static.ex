@@ -5,11 +5,16 @@ defmodule SSZStaticTestRunner do
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
 
+  @type_equivalence %{
+    "PendingAttestation" => "PendingAttestation"
+  }
+
   @enabled [
     "AttestationData",
     "Checkpoint",
     "Fork",
     "ForkData",
+    "PendingAttestation",
     "Validator"
   ]
 

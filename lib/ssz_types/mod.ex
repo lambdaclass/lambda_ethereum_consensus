@@ -13,6 +13,9 @@ defmodule SszTypes do
   @type bytes48 :: <<_::384>>
   @type bytes96 :: <<_::768>>
 
+  # bitlists are stored in SSZ format
+  @type bitlist :: binary()
+
   ## Aliases
   @type slot :: uint64
   @type epoch :: uint64

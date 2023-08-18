@@ -5,7 +5,7 @@ gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.Checkpoint"]
     /// Corresponds to [`lighthouse_types::Checkpoint`]
-    pub(crate) struct Checkpoint {
+    pub(crate) struct Checkpoint<'a> {
         epoch: u64,
         root: Binary<'a>,
     }
@@ -15,7 +15,7 @@ gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.Fork"]
     /// Corresponds to [`lighthouse_types::Fork`]
-    pub(crate) struct Fork {
+    pub(crate) struct Fork<'a> {
         previous_version: Binary<'a>,
         current_version: Binary<'a>,
         epoch: u64,
@@ -26,7 +26,7 @@ gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.ForkData"]
     /// Corresponds to [`lighthouse_types::ForkData`]
-    pub(crate) struct ForkData {
+    pub(crate) struct ForkData<'a> {
         current_version: Binary<'a>,
         genesis_validators_root: Binary<'a>,
     }
@@ -36,7 +36,7 @@ gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.Validator"]
     /// Corresponds to [`lighthouse_types::Validator`]
-    pub(crate) struct Validator {
+    pub(crate) struct Validator<'a> {
         pubkey: Binary<'a>,
         withdrawal_credentials: Binary<'a>,
         effective_balance: u64,
@@ -52,11 +52,24 @@ gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.AttestationData"]
     /// Corresponds to [`lighthouse_types::AttestationData`]
-    pub(crate) struct AttestationData {
+    pub(crate) struct AttestationData<'a> {
         slot: u64,
         index: u64,
         beacon_block_root: Binary<'a>,
         source: Checkpoint<'a>,
         target: Checkpoint<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.PendingAttestationMainnet"]
+    /// Corresponds to [`lighthouse_types::PendingAttestation`]
+    /// with `T` = [`lighthouse_types::MainnetEthSpec`]
+    pub(crate) struct PendingAttestationMainnet<'a> {
+        aggregation_bits: Binary<'a>,
+        data: AttestationData<'a>,
+        inclusion_delay: u64,
+        proposer_index: u64,
     }
 );
