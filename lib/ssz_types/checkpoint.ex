@@ -13,7 +13,7 @@ defmodule SszTypes.Checkpoint do
   defstruct fields
 
   @type t :: %__MODULE__{
-          root: SszTypes.h256(),
-          epoch: SszTypes.u64()
+          epoch: SszTypes.epoch(),
+          root: SszTypes.root()
         }
 end

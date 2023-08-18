@@ -16,9 +16,9 @@ defmodule SszTypes.AttestationData do
   defstruct fields
 
   @type t :: %__MODULE__{
-          slot: SszTypes.u64(),
-          index: SszTypes.u64(),
-          beacon_block_root: SszTypes.h256(),
+          slot: SszTypes.slot(),
+          index: SszTypes.commitee_index(),
+          beacon_block_root: SszTypes.root(),
           source: SszTypes.Checkpoint.t(),
           target: SszTypes.Checkpoint.t()
         }
