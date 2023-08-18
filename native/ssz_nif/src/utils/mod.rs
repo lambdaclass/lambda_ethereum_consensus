@@ -57,7 +57,7 @@ macro_rules! gen_struct {
             }
         }
 
-        impl From<$name<'_>> for ::lighthouse_types::$name {
+        impl $crate::utils::from_elx::FromElx<$name<'_>> for ::lighthouse_types::$name {
             fn from(elx: $name) -> Self {
                 $(
                     let $field_name = $crate::utils::from_elx::FromElx::from(elx.$field_name);

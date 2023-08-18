@@ -8,4 +8,5 @@ defmodule SszTypes do
   # Binary types
   @type h32 :: <<_::32>>
   @type h256 :: <<_::256>>
+  @type h384 :: <<_::384>>
 end
