@@ -29,6 +29,9 @@ defmodule LambdaEthereumConsensus.MixProject do
   defp deps do
     [
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:tesla, "~> 1.4"},
+      {:jason, ">= 1.0.0"},
+      {:joken, "~> 2.6"},
       {:yaml_elixir, "~> 2.8", only: [:test]},
       {:snappyer, "~> 1.2", only: [:test]},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
