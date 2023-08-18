@@ -39,10 +39,10 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
 }
 
 #[rustler::nif]
-fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Term<'env> {
+fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'env>, String> {
     let schema = schema.to_term(env).atom_to_string().unwrap();
     let schema = &schema[PREFIX_SIZE..];
-    let deserialized = match_schema_and_decode!(
+    match_schema_and_decode!(
         (schema, &bytes, env) => {
             AttestationData,
             Checkpoint,
@@ -50,8 +50,7 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Term<'env> {
             ForkData,
             Validator,
         }
-    );
-    (atoms::ok(), deserialized).encode(env)
+    )
 }
 
 rustler::init!("Elixir.Ssz", [to_ssz, from_ssz]);

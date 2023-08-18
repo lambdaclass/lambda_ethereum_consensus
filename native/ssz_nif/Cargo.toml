@@ -14,4 +14,4 @@ rustler = "0.29.1"
 ethereum_ssz_derive = "0.5.0"
 ethereum_ssz = "0.5.0"
 ethereum-types = "0.14.1"
-lighthouse_types = { git = "https://github.com/sigp/lighthouse", package = "types" }
+lighthouse_types = { git = "https://github.com/sigp/lighthouse", package = "types", tag = "v4.3.0" }
