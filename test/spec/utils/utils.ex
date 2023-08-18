@@ -11,7 +11,7 @@ defmodule SpecTestUtils do
              |> Enum.map(&SpecTestCase.new/1)
 
   @runner_map %{
-    "ssz_static" => SSZTestRunner
+    "ssz_static" => SSZStaticTestRunner
   }
 
   def all_cases, do: @all_cases
