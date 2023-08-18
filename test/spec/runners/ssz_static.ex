@@ -61,13 +61,16 @@ defmodule SSZStaticTestRunner do
 
   defp parse_yaml({k, v}), do: {String.to_existing_atom(k), v}
 
-  defp assert_ssz(schema, serialized, expected, _expected_root) do
+  defp assert_ssz(schema, real_serialized, real_deserialized, _expected_root) do
     # assert root is expected when we implement SSZ hashing
 
-    {:ok, deserialized} = Ssz.from_ssz(serialized, schema)
-    expected = to_struct_checked(deserialized, expected)
+    {:ok, deserialized} = Ssz.from_ssz(real_serialized, schema)
+    real_deserialized = to_struct_checked(deserialized, real_deserialized)
 
-    assert deserialized == expected
+    assert deserialized == real_deserialized
+
+    {:ok, serialized} = Ssz.to_ssz(real_deserialized)
+    assert serialized == real_serialized
   end
 
   defp to_struct_checked(%name{} = actual, %{} = expected) do
