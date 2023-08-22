@@ -33,6 +33,9 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             Eth1Data,
             Fork,
             ForkData,
+            HistoricalBatchMainnet,
+            HistoricalBatchMinimal,
+            PendingAttestationMainnet,
             Validator,
         }
     );
@@ -50,6 +53,9 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             Eth1Data,
             Fork,
             ForkData,
+            HistoricalBatchMainnet,
+            HistoricalBatchMinimal,
+            PendingAttestationMainnet,
             Validator,
         }
     )

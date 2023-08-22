@@ -1,6 +1,6 @@
 use crate::utils::helpers::bytes_to_binary;
 use ethereum_types::H256;
-use lighthouse_types::{BitList, Epoch, PublicKeyBytes, Slot, Unsigned};
+use lighthouse_types::{BitList, Epoch, FixedVector, PublicKeyBytes, Slot, Unsigned};
 use rustler::Binary;
 
 pub(crate) trait FromLH<'a, T> {
@@ -47,5 +47,16 @@ impl<'a> FromLH<'a, PublicKeyBytes> for Binary<'a> {
 impl<'a, N: Unsigned> FromLH<'a, BitList<N>> for Binary<'a> {
     fn from(value: BitList<N>, env: rustler::Env<'a>) -> Self {
         bytes_to_binary(env, value.as_slice())
+    }
+}
+
+impl<'a, Elx, Lh, N> FromLH<'a, FixedVector<Lh, N>> for Vec<Elx>
+where
+    Elx: FromLH<'a, Lh> + ToOwned,
+    N: Unsigned,
+{
+    fn from(value: FixedVector<Lh, N>, env: rustler::Env<'a>) -> Self {
+        let v: Vec<_> = value.into();
+        v.into_iter().map(|x| Elx::from(x, env)).collect::<Vec<_>>()
     }
 }

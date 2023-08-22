@@ -84,3 +84,25 @@ gen_struct!(
         block_hash: Binary<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.HistoricalBatchMainnet"]
+    /// Corresponds to [`lighthouse_types::HistoricalBatch`]
+    /// with `T` = [`lighthouse_types::MainnetEthSpec`]
+    pub(crate) struct HistoricalBatchMainnet<'a> {
+        block_roots: Vec<Binary<'a>>,
+        state_roots: Vec<Binary<'a>>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.HistoricalBatchMinimal"]
+    /// Corresponds to [`lighthouse_types::HistoricalBatch`]
+    /// with `T` = [`lighthouse_types::MinimalEthSpec`]
+    pub(crate) struct HistoricalBatchMinimal<'a> {
+        block_roots: Vec<Binary<'a>>,
+        state_roots: Vec<Binary<'a>>,
+    }
+);
