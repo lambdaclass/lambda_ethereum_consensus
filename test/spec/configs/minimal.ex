@@ -8,5 +8,5 @@ defmodule MinimalConfig do
     "PendingAttestation" => "PendingAttestationMainnet"
   }
 
-  def get_handler_mapping(), do: @type_equivalence
+  def get_handler_mapping, do: @type_equivalence
 end
