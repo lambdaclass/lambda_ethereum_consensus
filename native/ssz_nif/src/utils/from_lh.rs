@@ -46,7 +46,7 @@ impl<'a> FromLH<'a, PublicKeyBytes> for Binary<'a> {
 
 impl<'a, N: Unsigned> FromLH<'a, BitList<N>> for Binary<'a> {
     fn from(value: BitList<N>, env: rustler::Env<'a>) -> Self {
-        bytes_to_binary(env, value.as_slice())
+        bytes_to_binary(env, value.into_bytes().as_slice())
     }
 }
 
