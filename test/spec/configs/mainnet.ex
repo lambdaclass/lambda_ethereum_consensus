@@ -5,7 +5,6 @@ defmodule MainnetConfig do
 
   @type_equivalence %{
     "HistoricalBatch" => "HistoricalBatchMainnet",
-    "IndexedAttestation" => "IndexedAttestationMainnet",
     "PendingAttestation" => "PendingAttestationMainnet"
   }
 
