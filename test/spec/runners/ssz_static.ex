@@ -5,10 +5,6 @@ defmodule SSZStaticTestRunner do
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
 
-  @type_equivalence %{
-    "PendingAttestation" => "PendingAttestation"
-  }
-
   @enabled [
     "AttestationData",
     "Checkpoint",
@@ -37,7 +33,7 @@ defmodule SSZStaticTestRunner do
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    schema = handler_name_to_type(testcase)
+    schema = parse_type(testcase)
 
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
     assert {:ok, decompressed} = :snappyer.decompress(compressed)
@@ -85,7 +81,7 @@ defmodule SSZStaticTestRunner do
     expected
   end
 
-  defp handler_name_to_type(%SpecTestCase{config: config, handler: handler}) do
+  defp parse_type(%SpecTestCase{config: config, handler: handler}) do
     config = get_config(config)
 
     Map.get(config.get_handler_mapping(), handler, handler)
