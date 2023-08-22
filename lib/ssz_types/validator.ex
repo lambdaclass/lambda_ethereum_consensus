@@ -19,13 +19,13 @@ defmodule SszTypes.Validator do
   defstruct fields
 
   @type t :: %__MODULE__{
-          pubkey: SszTypes.h384(),
-          withdrawal_credentials: SszTypes.h256(),
-          effective_balance: SszTypes.u64(),
+          pubkey: SszTypes.bls_pubkey(),
+          withdrawal_credentials: SszTypes.bytes32(),
+          effective_balance: SszTypes.gwei(),
           slashed: boolean,
-          activation_eligibility_epoch: SszTypes.u64(),
-          activation_epoch: SszTypes.u64(),
-          exit_epoch: SszTypes.u64(),
-          withdrawable_epoch: SszTypes.u64()
+          activation_eligibility_epoch: SszTypes.epoch(),
+          activation_epoch: SszTypes.epoch(),
+          exit_epoch: SszTypes.epoch(),
+          withdrawable_epoch: SszTypes.epoch()
         }
 end

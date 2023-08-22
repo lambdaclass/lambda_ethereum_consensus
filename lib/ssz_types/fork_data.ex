@@ -13,7 +13,7 @@ defmodule SszTypes.ForkData do
   defstruct fields
 
   @type t :: %__MODULE__{
-          current_version: SszTypes.h32(),
-          genesis_validators_root: SszTypes.h256()
+          current_version: SszTypes.version(),
+          genesis_validators_root: SszTypes.root()
         }
 end

@@ -29,7 +29,7 @@ macro_rules! gen_struct {
     (
         $( #[$meta:meta] )*
     //  ^~~~attributes~~~~^
-        $vis:vis struct $name:ident {
+        $vis:vis struct $name:ident$(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ >)? {
             $(
                 $( #[$field_meta:meta] )*
     //          ^~~~field attributes~~~!^
@@ -40,14 +40,14 @@ macro_rules! gen_struct {
     ) => {
         $( #[$meta] )*
         #[derive(Clone)]
-        $vis struct $name<'a> {
+        $vis struct $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
             $(
                 $( #[$field_meta] )*
                 $field_vis $field_name : $field_ty
             ),*
         }
-        impl<'a> $crate::utils::from_lh::FromLH<'a, ::lighthouse_types::$name> for $name<'a> {
-            fn from(lh: ::lighthouse_types::$name, env: ::rustler::Env<'a>) -> Self {
+        impl<'a> $crate::utils::from_lh::FromLH<'a, $crate::lh_types::$name> for $name<'a> {
+            fn from(lh: $crate::lh_types::$name, env: ::rustler::Env<'a>) -> Self {
                 $(
                     let $field_name = $crate::utils::from_lh::FromLH::from(lh.$field_name, env);
                 )*
@@ -57,7 +57,7 @@ macro_rules! gen_struct {
             }
         }
 
-        impl $crate::utils::from_elx::FromElx<$name<'_>> for ::lighthouse_types::$name {
+        impl $crate::utils::from_elx::FromElx<$name<'_>> for $crate::lh_types::$name {
             fn from(elx: $name) -> Self {
                 $(
                     let $field_name = $crate::utils::from_elx::FromElx::from(elx.$field_name);

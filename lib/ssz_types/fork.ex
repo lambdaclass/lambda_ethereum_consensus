@@ -14,8 +14,8 @@ defmodule SszTypes.Fork do
   defstruct fields
 
   @type t :: %__MODULE__{
-          previous_version: SszTypes.h32(),
-          current_version: SszTypes.h32(),
-          epoch: SszTypes.u64()
+          previous_version: SszTypes.version(),
+          current_version: SszTypes.version(),
+          epoch: SszTypes.epoch()
         }
 end

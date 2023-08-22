@@ -5,11 +5,11 @@
 //!  - Implement the necessary traits ([`FromElx`] and [`FromLH`]) for its attributes
 //!  - Add the type to [`to_ssz`] and [`from_ssz`] "match" macros
 
+pub(crate) mod lh_types;
 pub(crate) mod types;
 pub(crate) mod utils;
 
 use crate::utils::{helpers::bytes_to_binary, match_schema_and_decode, match_schema_and_encode};
-use lighthouse_types as lh_types;
 use rustler::{Atom, Binary, Encoder, Env, NifResult, Term};
 
 mod atoms {
@@ -30,8 +30,12 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
         (schema, map) => {
             AttestationData,
             Checkpoint,
+            Eth1Data,
             Fork,
             ForkData,
+            HistoricalBatchMainnet,
+            HistoricalBatchMinimal,
+            PendingAttestationMainnet,
             Validator,
         }
     );
@@ -39,19 +43,22 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
 }
 
 #[rustler::nif]
-fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Term<'env> {
+fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'env>, String> {
     let schema = schema.to_term(env).atom_to_string().unwrap();
     let schema = &schema[PREFIX_SIZE..];
-    let deserialized = match_schema_and_decode!(
+    match_schema_and_decode!(
         (schema, &bytes, env) => {
             AttestationData,
             Checkpoint,
+            Eth1Data,
             Fork,
             ForkData,
+            HistoricalBatchMainnet,
+            HistoricalBatchMinimal,
+            PendingAttestationMainnet,
             Validator,
         }
-    );
-    (atoms::ok(), deserialized).encode(env)
+    )
 }
 
 rustler::init!("Elixir.Ssz", [to_ssz, from_ssz]);

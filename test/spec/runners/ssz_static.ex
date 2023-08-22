@@ -8,8 +8,11 @@ defmodule SSZStaticTestRunner do
   @enabled [
     "AttestationData",
     "Checkpoint",
+    "Eth1Data",
     "Fork",
     "ForkData",
+    "HistoricalBatch",
+    "PendingAttestation",
     "Validator"
   ]
 
@@ -17,9 +20,12 @@ defmodule SSZStaticTestRunner do
   Returns true if the given testcase should be skipped
   """
   def skip?(testcase) do
-    # add SSZ test case skipping here
     not Enum.member?(@enabled, testcase.handler)
   end
+
+  def get_config("minimal"), do: MinimalConfig
+  def get_config("mainnet"), do: MainnetConfig
+  def get_config(_), do: raise("Unknown config")
 
   @doc """
   Runs the given test case.
@@ -27,7 +33,7 @@ defmodule SSZStaticTestRunner do
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    schema = handler_name_to_type(testcase.handler)
+    schema = parse_type(testcase)
 
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
     assert {:ok, decompressed} = :snappyer.decompress(compressed)
@@ -47,28 +53,21 @@ defmodule SSZStaticTestRunner do
     |> Map.new()
   end
 
-  defp parse_yaml({k, "0x" <> hash}) do
-    v =
-      hash
-      |> Base.decode16!([{:case, :lower}])
+  defp parse_yaml(list) when is_list(list), do: Enum.map(list, &parse_yaml/1)
+  defp parse_yaml({k, v}), do: {String.to_existing_atom(k), parse_yaml(v)}
+  defp parse_yaml("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
+  defp parse_yaml(v), do: v
 
-    {String.to_existing_atom(k), v}
-  end
-
-  defp parse_yaml({k, map}) when is_map(map) do
-    v = parse_yaml(map)
-    {String.to_existing_atom(k), v}
-  end
-
-  defp parse_yaml({k, v}), do: {String.to_existing_atom(k), v}
-
-  defp assert_ssz(schema, serialized, expected, _expected_root) do
+  defp assert_ssz(schema, real_serialized, real_deserialized, _expected_root) do
     # assert root is expected when we implement SSZ hashing
 
-    {:ok, deserialized} = Ssz.from_ssz(serialized, schema)
-    expected = to_struct_checked(deserialized, expected)
+    {:ok, deserialized} = Ssz.from_ssz(real_serialized, schema)
+    real_deserialized = to_struct_checked(deserialized, real_deserialized)
 
-    assert deserialized == expected
+    assert deserialized == real_deserialized
+
+    {:ok, serialized} = Ssz.to_ssz(real_deserialized)
+    assert serialized == real_serialized
   end
 
   defp to_struct_checked(%name{} = actual, %{} = expected) do
@@ -82,10 +81,10 @@ defmodule SSZStaticTestRunner do
     expected
   end
 
-  defp handler_name_to_type(handler) do
-    prefix = to_string(SszTypes)
+  defp parse_type(%SpecTestCase{config: config, handler: handler}) do
+    config = get_config(config)
 
-    (prefix <> "." <> handler)
-    |> String.to_existing_atom()
+    Map.get(config.get_handler_mapping(), handler, handler)
+    |> then(&Module.concat(SszTypes, &1))
   end
 end

@@ -28,15 +28,15 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:tesla, "~> 1.4"},
       {:jason, ">= 1.0.0"},
       {:joken, "~> 2.6"},
+      {:rustler, "~> 0.29.1"},
       {:yaml_elixir, "~> 2.8", only: [:test]},
       {:snappyer, "~> 1.2", only: [:test]},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:stream_data, "~> 0.6", only: :test},
-      {:rustler, "~> 0.29.1"}
+      {:stream_data, "~> 0.6", only: [:test]},
+      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 
