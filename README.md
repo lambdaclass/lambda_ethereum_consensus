@@ -1,5 +1,20 @@
 # Lambda_Ethereum_Consensus
 
+## Why Elixir? 
+
+Elixir is a functional programming language that runs atop the Erlang Virtual Machine (BEAM). It offers enhanced readability, syntactic sugar, and reduced boilerplate, enabling developers to achieve more with fewer lines of code compared to Erlang. Like Erlang, Elixir compiles to bytecode that is interpreted by the VM. As a result, it inherits several notable properties, including:
+
+- Fault tolerance for increased reliability
+- High availability
+- Simplified construction of complex distributed systems
+- Predictable latency
+
+[Erlang](https://www.erlang.org/) and its VM were originally developed in 1986 for telecommunication systems that demanded unparalleled uptime and reliability. We recognize that these attributes could be immensely beneficial for an Ethereum client, particularly in the realm of consensus. This is why our current focus is on building a consensus layer (CL) rather than an execution layer (EL). Elixir may not be tailored for sheer performance, but it excels in delivering predictable latency and creating systems designed for continuous operation—qualities essential for the CL.
+
+Our aim is to infuse these strengths into the Ethereum consensus client ecosystem with our offering.
+
+We also have for objective to bootstart an Ethereum Elixir community, and to make Elixir a first-class citizen in the Ethereum ecosystem.
+
 ## Prerequisites
 
 ### Direct Installation
