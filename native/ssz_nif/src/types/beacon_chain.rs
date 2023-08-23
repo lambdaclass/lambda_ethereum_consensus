@@ -106,3 +106,16 @@ gen_struct!(
         state_roots: Vec<Binary<'a>>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlockHeader"]
+    /// Corresponds to [`lighthouse_types::BeaconBlockHeader`]
+    pub(crate) struct BeaconBlockHeader<'a> {
+        slot: u64,
+        proposer_index: u64,
+        parent_root: Binary<'a>,
+        state_root: Binary<'a>,
+        body_root: Binary<'a>,
+    }
+);

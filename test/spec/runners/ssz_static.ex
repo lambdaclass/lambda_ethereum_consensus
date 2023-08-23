@@ -13,7 +13,8 @@ defmodule SSZStaticTestRunner do
     "ForkData",
     "HistoricalBatch",
     "PendingAttestation",
-    "Validator"
+    "Validator",
+    "BeaconBlockHeader"
   ]
 
   @doc """
