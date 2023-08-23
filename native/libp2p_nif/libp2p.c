@@ -47,6 +47,10 @@ ErlNifResourceType *Stream;
 ErlNifResourceType *Listener;
 ErlNifResourceType *Iterator;
 ErlNifResourceType *Node;
+ErlNifResourceType *PubSub;
+ErlNifResourceType *Topic;
+ErlNifResourceType *Subscription;
+ErlNifResourceType *Message;
 
 // Resource type helpers
 void handle_cleanup(ErlNifEnv *env, void *obj)
@@ -69,6 +73,10 @@ static int open_resource_types(ErlNifEnv *env, ErlNifResourceFlags flags)
     failed |= NULL == OPEN_RESOURCE_TYPE(Listener);
     failed |= NULL == OPEN_RESOURCE_TYPE(Iterator);
     failed |= NULL == OPEN_RESOURCE_TYPE(Node);
+    failed |= NULL == OPEN_RESOURCE_TYPE(PubSub);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Topic);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Subscription);
+    failed |= NULL == OPEN_RESOURCE_TYPE(Message);
     return failed;
 }
 
@@ -215,6 +223,16 @@ ERL_FUNCTION(host_new_stream)
     return get_handle_result(env, Stream, result);
 }
 
+ERL_FUNCTION(host_connect)
+{
+    uintptr_t host = GET_HANDLE(argv[0], Host);
+    uintptr_t id = GET_HANDLE(argv[1], peer_ID);
+
+    uintptr_t result = HostConnect(host, id);
+    IF_ERROR(result != 0, "failed to connect");
+    return enif_make_atom(env, "ok");
+}
+
 ERL_HANDLE_GETTER(host_peerstore, Host, Peerstore, HostPeerstore)
 ERL_HANDLE_GETTER(host_id, Host, peer_ID, HostID)
 ERL_HANDLE_GETTER(host_addrs, Host, Multiaddr_arr, HostAddrs)
@@ -342,6 +360,62 @@ ERL_FUNCTION(node_tcp)
 ERL_HANDLE_GETTER(node_multiaddr, Node, Multiaddr_arr, NodeMultiaddr)
 ERL_HANDLE_GETTER(node_id, Node, peer_ID, NodeID)
 
+/************/
+/** PubSub **/
+/************/
+
+ERL_FUNCTION(new_gossip_sub)
+{
+    uintptr_t host = GET_HANDLE(argv[0], Host);
+    uintptr_t result = NewGossipSub(host);
+    return get_handle_result(env, PubSub, result);
+}
+
+ERL_FUNCTION(pub_sub_join)
+{
+    uintptr_t pubsub = GET_HANDLE(argv[0], PubSub);
+
+    ErlNifBinary bin;
+    IF_ERROR(!enif_inspect_binary(env, argv[1], &bin), "invalid topic");
+    GoString go_topic = {(const char *)bin.data, bin.size};
+
+    uintptr_t result = PubSubJoin(pubsub, go_topic);
+    return get_handle_result(env, Topic, result);
+}
+
+ERL_HANDLE_GETTER(topic_subscribe, Topic, Subscription, TopicSubscribe)
+
+ERL_FUNCTION(topic_publish)
+{
+    uintptr_t topic = GET_HANDLE(argv[0], Topic);
+
+    ErlNifBinary bin;
+    IF_ERROR(!enif_inspect_binary(env, argv[1], &bin), "invalid message");
+    GoSlice go_message = {bin.data, bin.size, bin.size};
+
+    uintptr_t result = TopicPublish(topic, go_message);
+    IF_ERROR(result != 0, "failed to publish message");
+    return enif_make_atom(env, "ok");
+}
+
+ERL_HANDLE_GETTER(subscription_next, Subscription, Message, SubscriptionNext)
+
+ERL_FUNCTION(message_data)
+{
+    uintptr_t msg = GET_HANDLE(argv[0], Message);
+
+    char buffer[BUFFER_SIZE];
+    GoSlice go_buffer = {buffer, BUFFER_SIZE, BUFFER_SIZE};
+
+    uint64_t read = MessageData(msg, go_buffer);
+
+    ERL_NIF_TERM bin_term;
+    u_char *bin_data = enif_make_new_binary(env, read, &bin_term);
+    memcpy(bin_data, buffer, read);
+
+    return bin_term;
+}
+
 static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(listen_addr_strings, 1),
     NIF_ENTRY(host_new, 1),
@@ -349,6 +423,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(host_set_stream_handler, 2),
     // TODO: check if host_new_stream is truly dirty
     NIF_ENTRY(host_new_stream, 3, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks negotiating protocol
+    NIF_ENTRY(host_connect, 2),
     NIF_ENTRY(host_peerstore, 1),
     NIF_ENTRY(host_id, 1),
     NIF_ENTRY(host_addrs, 1),
@@ -364,6 +439,12 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(node_tcp, 1),
     NIF_ENTRY(node_multiaddr, 1),
     NIF_ENTRY(node_id, 1),
+    NIF_ENTRY(new_gossip_sub, 1),
+    NIF_ENTRY(pub_sub_join, 2),
+    NIF_ENTRY(topic_subscribe, 1),
+    NIF_ENTRY(topic_publish, 2),
+    NIF_ENTRY(subscription_next, 1),
+    NIF_ENTRY(message_data, 1),
 };
 
 ERL_NIF_INIT(Elixir.Libp2p, nif_funcs, load, NULL, upgrade, NULL)

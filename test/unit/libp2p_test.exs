@@ -203,4 +203,75 @@ defmodule Libp2pTest do
 
     :ok = Libp2p.host_close(host)
   end
+
+  test "Start two hosts, and gossip about" do
+    # Setup sender
+    {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48787")
+    {:ok, sender} = Libp2p.host_new([addr])
+    # Setup receiver
+    {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48789")
+    {:ok, recver} = Libp2p.host_new([addr])
+
+    # (sender) Add recver address to peerstore
+    {:ok, peerstore} = Libp2p.host_peerstore(sender)
+    {:ok, id} = Libp2p.host_id(recver)
+    {:ok, addrs} = Libp2p.host_addrs(recver)
+
+    :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
+
+    :ok = Libp2p.host_connect(sender, id)
+
+    # (sender) Create stream sender -> recver
+    # {:ok, send} = Libp2p.host_new_stream(sender, id, protocol_id)
+
+    # (sender) Write "ping" to stream
+    # :ok = Libp2p.stream_write(send, "ping")
+    # :ok = Libp2p.stream_close_write(send)
+
+    # (recver) Receive the stream via the configured stream handler
+    # {:ok, recv} =
+    #   receive do
+    #     msg -> msg
+    #   after
+    #     1000 -> :timeout
+    #   end
+
+    # # (recver) Read the "ping" message from the stream
+    # {:ok, "ping"} = Libp2p.stream_read(recv)
+    # {:ok, ""} = Libp2p.stream_read(recv)
+
+    # # (recver) Write "pong" to the stream
+    # :ok = Libp2p.stream_write(recv, "pong")
+    # :ok = Libp2p.stream_close_write(recv)
+
+    # # (sender) Read the "pong" message from the stream
+    # "pong" = Libp2p.Stream.from(send) |> Enum.join("")
+
+    # :ok = Libp2p.stream_close(send)
+    # :ok = Libp2p.stream_close(recv)
+
+    topic = "/test"
+
+    {:ok, gsub_sender} = Libp2p.new_gossip_sub(sender)
+    {:ok, gsub_recver} = Libp2p.new_gossip_sub(recver)
+
+    {:ok, topic_sender} = Libp2p.pub_sub_join(gsub_sender, topic)
+    {:ok, topic_recver} = Libp2p.pub_sub_join(gsub_recver, topic)
+
+    {:ok, sub_recver} = Libp2p.topic_subscribe(topic_recver)
+
+    spawn(fn ->
+      {:ok, message} = Libp2p.subscription_next(sub_recver)
+      data = Libp2p.message_data(message)
+      IO.puts("received: #{data}")
+    end)
+
+    # NOTE: gossip messages are Snappy-compressed with BLOCK format (not frame)
+    :ok = Libp2p.topic_publish(topic_sender, "hello world!")
+    IO.puts("send")
+
+    # Close both hosts
+    :ok = Libp2p.host_close(sender)
+    :ok = Libp2p.host_close(recver)
+  end
 end
