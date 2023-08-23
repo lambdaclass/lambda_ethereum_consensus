@@ -58,7 +58,6 @@ With this foundation you should have a basic understanding of the Elixir languag
 
 **Learning Ethereum**:
 - **Books**:
-  - [Mastering Ethereum](https://github.com/ethereumbook/ethereumbook)
   - [Eth2Book by Ben Edgington](https://eth2book.info)
   - [Inevitable Ethereum](https://inevitableeth.com/site/content)
 - **Papers**:
@@ -109,7 +108,7 @@ Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/
 
 **For general questions**, discussions, and feedback, you can use the [Lambda Consensus Client](https://t.me/lambdaconsensus) telegram group.
 
-### Together, let's shape the future of Ethereum! 🚀
+**Together, let's shape the future of Ethereum! 🚀**
 
 ## Prerequisites
 
