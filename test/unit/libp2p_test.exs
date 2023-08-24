@@ -2,6 +2,7 @@ defmodule Libp2pTest do
   use ExUnit.Case
   doctest Libp2p
 
+  # Mainnet
   @bootnodes [
     "enr:-Le4QPUXJS2BTORXxyx2Ia-9ae4YqA_JWX3ssj4E_J-3z1A-HmFGrU8BpvpqhNabayXeOZ2Nq_sbeDgtzMJpLLnXFgAChGV0aDKQtTA_KgEAAAAAIgEAAAAAAIJpZIJ2NIJpcISsaa0Zg2lwNpAkAIkHAAAAAPA8kv_-awoTiXNlY3AyNTZrMaEDHAD2JKYevx89W0CcFJFiskdcEzkH_Wdv9iW42qLK79ODdWRwgiMohHVkcDaCI4I",
     "enr:-Le4QLHZDSvkLfqgEo8IWGG96h6mxwe_PsggC20CL3neLBjfXLGAQFOPSltZ7oP6ol54OvaNqO02Rnvb8YmDR274uq8ChGV0aDKQtTA_KgEAAAAAIgEAAAAAAIJpZIJ2NIJpcISLosQxg2lwNpAqAX4AAAAAAPA8kv_-ax65iXNlY3AyNTZrMaEDBJj7_dLFACaxBfaI8KZTh_SSJUjhyAyfshimvSqo22WDdWRwgiMohHVkcDaCI4I",
@@ -120,90 +121,6 @@ defmodule Libp2pTest do
     :ok = Libp2p.host_close(host)
   end
 
-  defp connect_to_peers(host, iterator, protocol_id, writing_fun) do
-    {:ok, peerstore} = Libp2p.host_peerstore(host)
-
-    true = Libp2p.iterator_next(iterator)
-
-    {:ok, node} = Libp2p.iterator_node(iterator)
-
-    if Libp2p.node_tcp(node) != nil do
-      {:ok, id} = Libp2p.node_id(node)
-      {:ok, addrs} = Libp2p.node_multiaddr(node)
-
-      :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
-
-      Libp2p.host_new_stream(host, id, protocol_id)
-      |> read_stream(writing_fun)
-    end
-
-    connect_to_peers(host, iterator, protocol_id, writing_fun)
-  end
-
-  defp read_stream({:ok, stream}, writing_fun) do
-    case Libp2p.stream_read(writing_fun.(stream)) do
-      {:ok, msg} -> IO.puts(["\"#{Base.encode16(msg)}\""])
-      _ -> :ok
-    end
-  end
-
-  defp read_stream(_, _writing_fun) do
-    :ok
-  end
-
-  @tag :skip
-  @tag timeout: :infinity
-  test "discover new peers" do
-    {:ok, host} = Libp2p.host_new()
-
-    # ask for metadata
-    protocol_id = "/eth2/beacon_chain/req/metadata/2/ssz_snappy"
-
-    :ok = Libp2p.host_set_stream_handler(host, protocol_id)
-
-    {:ok, listener} =
-      Libp2p.listen_v5("0.0.0.0:45122", @bootnodes)
-
-    {:ok, iterator} = Libp2p.listener_random_nodes(listener)
-
-    connect_to_peers(host, iterator, protocol_id, fn s -> s end)
-
-    :ok = Libp2p.host_close(host)
-  end
-
-  @tag :skip
-  @tag timeout: :infinity
-  test "ping peers" do
-    {:ok, host} = Libp2p.host_new()
-
-    # ping peers
-    protocol_id = "/eth2/beacon_chain/req/ping/1/ssz_snappy"
-    # uncompressed payload
-    payload = Base.decode16!("0000000000000000")
-    {:ok, compressed_payload} = Snappy.compress(payload)
-    msg = <<8, compressed_payload::binary>>
-
-    :ok = Libp2p.host_set_stream_handler(host, protocol_id)
-
-    {:ok, listener} =
-      Libp2p.listen_v5("0.0.0.0:45123", @bootnodes)
-
-    {:ok, iterator} = Libp2p.listener_random_nodes(listener)
-
-    write_msg = fn stream ->
-      case Libp2p.stream_write(stream, msg) do
-        :ok -> :ok
-        {:error, err} -> IO.puts(err)
-      end
-
-      stream
-    end
-
-    connect_to_peers(host, iterator, protocol_id, write_msg)
-
-    :ok = Libp2p.host_close(host)
-  end
-
   test "Start two hosts, and gossip about" do
     # Setup sender
     {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48787")
@@ -257,5 +174,86 @@ defmodule Libp2pTest do
     # Close both hosts
     :ok = Libp2p.host_close(sender)
     :ok = Libp2p.host_close(recver)
+  end
+
+  defp find_peers(host, iterator, fun) do
+    {:ok, peerstore} = Libp2p.host_peerstore(host)
+
+    true = Libp2p.iterator_next(iterator)
+
+    {:ok, node} = Libp2p.iterator_node(iterator)
+
+    if Libp2p.node_tcp(node) != nil do
+      {:ok, id} = Libp2p.node_id(node)
+      {:ok, addrs} = Libp2p.node_multiaddr(node)
+
+      :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
+
+      fun.(id)
+    end
+
+    find_peers(host, iterator, fun)
+  end
+
+  defp receive_response(stream) do
+    case Libp2p.stream_read(stream) do
+      {:ok, msg} -> IO.puts(["\"#{Base.encode16(msg)}\""])
+      _ -> :ok
+    end
+  end
+
+  @tag :skip
+  @tag timeout: :infinity
+  test "discover new peers" do
+    {:ok, host} = Libp2p.host_new()
+
+    # ask for metadata
+    protocol_id = "/eth2/beacon_chain/req/metadata/2/ssz_snappy"
+
+    :ok = Libp2p.host_set_stream_handler(host, protocol_id)
+
+    {:ok, listener} =
+      Libp2p.listen_v5("0.0.0.0:45122", @bootnodes)
+
+    {:ok, iterator} = Libp2p.listener_random_nodes(listener)
+
+    find_peers(host, iterator, fn id ->
+      with {:ok, stream} <- Libp2p.host_new_stream(host, id, protocol_id) do
+        receive_response(stream)
+      end
+    end)
+
+    :ok = Libp2p.host_close(host)
+  end
+
+  # @tag :skip
+  @tag timeout: :infinity
+  test "ping peers" do
+    {:ok, host} = Libp2p.host_new()
+
+    # ping peers
+    protocol_id = "/eth2/beacon_chain/req/ping/1/ssz_snappy"
+    # uncompressed payload
+    payload = Base.decode16!("0000000000000000")
+    {:ok, compressed_payload} = Snappy.compress(payload)
+    msg = <<8, compressed_payload::binary>>
+
+    :ok = Libp2p.host_set_stream_handler(host, protocol_id)
+
+    {:ok, listener} =
+      Libp2p.listen_v5("0.0.0.0:45123", @bootnodes)
+
+    {:ok, iterator} = Libp2p.listener_random_nodes(listener)
+
+    find_peers(host, iterator, fn id ->
+      with {:ok, stream} <- Libp2p.host_new_stream(host, id, protocol_id),
+           :ok <- Libp2p.stream_write(stream, msg) do
+        receive_response(stream)
+      else
+        {:error, err} -> IO.puts(err)
+      end
+    end)
+
+    :ok = Libp2p.host_close(host)
   end
 end
