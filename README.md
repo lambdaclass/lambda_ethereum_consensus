@@ -17,9 +17,9 @@ Our aim is to infuse these strengths into the Ethereum consensus client ecosyste
 
 We also have for objective to bootstart an Ethereum Elixir community, and to make Elixir a first-class citizen in the Ethereum ecosystem.
 
-## Contributor Package 
+## Contributor Package
 
-Dream of becoming an Ethereum core developer? Eager to shape the protocol that will underpin tomorrow's world? Want to collaborate with a passionate team, learn, grow, and be a pivotal part of the Ethereum Elixir community? 
+Dream of becoming an Ethereum core developer? Eager to shape the protocol that will underpin tomorrow's world? Want to collaborate with a passionate team, learn, grow, and be a pivotal part of the Ethereum Elixir community?
 
 **Then you're in the right place! 🚀**
 
@@ -30,6 +30,7 @@ Dream of becoming an Ethereum core developer? Eager to shape the protocol that w
 - **Prerequisites**: Before diving in, ensure you have the necessary tools installed. Check out the [Prerequisites](#prerequisites) section for guidance.
   
 - **Clone the Repository**:
+
   ```shell
   git clone [REPO_URL]
   cd lambda-ethereum-consensus
@@ -42,6 +43,7 @@ Dream of becoming an Ethereum core developer? Eager to shape the protocol that w
 To contribute effectively, you'll need a foundational understanding of both the Ethereum protocol and the Elixir language, including the Erlang VM (BEAM). If you're new to these areas, we've curated a list of resources to get you started:
 
 **Learning Elixir**:
+
 - **Books**:
   - [Elixir in Action](https://www.manning.com/books/elixir-in-action-third-edition)
   - [Learn You Some Erlang](https://learnyousomeerlang.com/)
@@ -59,6 +61,7 @@ To contribute effectively, you'll need a foundational understanding of both the 
 With this foundation you should have a basic understanding of the Elixir language and the Erlang VM. You can then start (or in parallel) learning about the Ethereum protocol.
 
 **Learning Ethereum**:
+
 - **Books**:
   - [Eth2Book by Ben Edgington](https://eth2book.info)
   - [Inevitable Ethereum](https://inevitableeth.com/site/content)
@@ -115,22 +118,29 @@ Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/
 ## Prerequisites
 
 ### Direct Installation
+
 You can install the necessary components directly from official sources:
+
 - [Elixir](https://elixir-lang.org/install.html)
 - [Erlang](https://www.erlang.org/downloads)
 - [Go](https://go.dev/doc/install)
 
 ### Alternative (Recommended) Installation
+
 For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
+
 - [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
 
 After installing **asdf**, add the required plugins for managing the tools:
+
 ```shell
 asdf plugin add elixir
 asdf plugin add erlang
 asdf plugin add golang
 ```
+
 Finally, install the specific versions of these tools as specified in `.tool-versions`:
+
 ```shell
 asdf install
 ```
