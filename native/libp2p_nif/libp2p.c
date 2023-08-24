@@ -443,7 +443,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(pub_sub_join, 2),
     NIF_ENTRY(topic_subscribe, 1),
     NIF_ENTRY(topic_publish, 2),
-    NIF_ENTRY(subscription_next, 1),
+    NIF_ENTRY(subscription_next, 1, ERL_NIF_DIRTY_JOB_IO_BOUND),
     NIF_ENTRY(message_data, 1),
 };
 
