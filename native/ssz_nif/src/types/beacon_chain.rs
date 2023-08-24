@@ -63,6 +63,18 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.Withdrawal"]
+    /// Corresponds to [`lighthouse_types::Withdrawal`]
+    pub(crate) struct Withdrawal<'a> {
+        index: u64,
+        validator_index: u64,
+        address: Binary<'a>,
+        amount: u64,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.PendingAttestationMainnet"]
     /// Corresponds to [`lighthouse_types::PendingAttestation`]
     /// with `T` = [`lighthouse_types::MainnetEthSpec`]
@@ -104,5 +116,101 @@ gen_struct!(
     pub(crate) struct HistoricalBatchMinimal<'a> {
         block_roots: Vec<Binary<'a>>,
         state_roots: Vec<Binary<'a>>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.ExecutionPayloadHeaderCapellaMainnet"]
+    /// Corresponds to [`lighthouse_types::ExecutionPayloadHeader`]
+    /// with `T` = [`lighthouse_types::MainnetEthSpec`]
+    pub(crate) struct ExecutionPayloadHeaderCapellaMainnet<'a> {
+        parent_hash: Binary<'a>,
+        fee_recipient: Binary<'a>,
+        state_root: Binary<'a>,
+        receipts_root: Binary<'a>,
+        logs_bloom: Vec<u8>,
+        prev_randao: Binary<'a>,
+        block_number: u64,
+        gas_limit: u64,
+        gas_used: u64,
+        timestamp: u64,
+        extra_data: Vec<u8>,
+        base_fee_per_gas: Binary<'a>,
+        block_hash: Binary<'a>,
+        transactions_root: Binary<'a>,
+        withdrawals_root: Binary<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.ExecutionPayloadHeaderCapellaMinimal"]
+    /// Corresponds to [`lighthouse_types::ExecutionPayloadHeader`]
+    /// with `T` = [`lighthouse_types::MinimalEthSpec`]
+    pub(crate) struct ExecutionPayloadHeaderCapellaMinimal<'a> {
+        parent_hash: Binary<'a>,
+        fee_recipient: Binary<'a>,
+        state_root: Binary<'a>,
+        receipts_root: Binary<'a>,
+        logs_bloom: Vec<u8>,
+        prev_randao: Binary<'a>,
+        block_number: u64,
+        gas_limit: u64,
+        gas_used: u64,
+        timestamp: u64,
+        extra_data: Vec<u8>,
+        base_fee_per_gas: u64,
+        block_hash: Binary<'a>,
+        transactions_root: Binary<'a>,
+        withdrawals_root: Binary<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.ExecutionPayloadCapellaMainnet"]
+    /// Corresponds to [`lighthouse_types::ExecutionPayload`]
+    /// with `T` = [`lighthouse_types::MainnetEthSpec`]
+    pub(crate) struct ExecutionPayloadCapellaMainnet<'a> {
+        parent_hash: Binary<'a>,
+        fee_recipient: Binary<'a>,
+        state_root: Binary<'a>,
+        receipts_root: Binary<'a>,
+        logs_bloom: Vec<u8>,
+        prev_randao: Binary<'a>,
+        block_number: u64,
+        gas_limit: u64,
+        gas_used: u64,
+        timestamp: u64,
+        extra_data: Vec<u8>,
+        base_fee_per_gas: u64,
+        block_hash: Binary<'a>,
+        transactions: Vec<Vec<u8>>,
+        withdrawals: Vec<Withdrawal<'a>>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.ExecutionPayloadCapellaMinimal"]
+    /// Corresponds to [`lighthouse_types::ExecutionPayload`]
+    /// with `T` = [`lighthouse_types::MinimalEthSpec`]
+    pub(crate) struct ExecutionPayloadCapellaMinimal<'a> {
+        parent_hash: Binary<'a>,
+        fee_recipient: Binary<'a>,
+        state_root: Binary<'a>,
+        receipts_root: Binary<'a>,
+        logs_bloom: Vec<u8>,
+        prev_randao: Binary<'a>,
+        block_number: u64,
+        gas_limit: u64,
+        gas_used: u64,
+        timestamp: u64,
+        extra_data: Vec<u8>,
+        base_fee_per_gas: u64,
+        block_hash: Binary<'a>,
+        transactions: Vec<Vec<u8>>,
+        withdrawals: Vec<Withdrawal<'a>>,
     }
 );

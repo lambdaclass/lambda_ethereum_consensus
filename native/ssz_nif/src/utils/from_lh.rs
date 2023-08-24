@@ -1,6 +1,9 @@
 use crate::utils::helpers::bytes_to_binary;
-use ethereum_types::H256;
-use lighthouse_types::{BitList, Epoch, FixedVector, PublicKeyBytes, Slot, Unsigned};
+use ethereum_types::{H160, H256, U256};
+use lighthouse_types::{
+    BitList, Epoch, EthSpec, ExecutionBlockHash, FixedVector, MainnetEthSpec, PublicKeyBytes, Slot,
+    Unsigned, VariableList,
+};
 use rustler::Binary;
 
 pub(crate) trait FromLH<'a, T> {
@@ -60,3 +63,67 @@ where
         v.into_iter().map(|x| Elx::from(x, env)).collect::<Vec<_>>()
     }
 }
+
+impl<'a> FromLH<'a, ExecutionBlockHash> for Binary<'a> {
+    fn from(value: ExecutionBlockHash, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value.as_ssz_bytes())
+    }
+}
+
+impl<'a> FromLH<'a, H160> for Binary<'a> {
+    fn from(value: H160, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value.as_ssz_bytes())
+    }
+}
+
+impl<'a> FromLH<'a, U256> for Binary<'a> {
+    fn from(value: U256, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value.as_ssz_bytes())
+    }
+}
+
+impl<'a> FromLH<'a, U256> for u64 {
+    fn from(value: U256, _env: rustler::Env<'a>) -> Self {
+        u64::try_from(value).unwrap()
+    }
+}
+
+impl<'a> FromLH<'a, VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes>>
+    for Binary<'a>
+{
+    fn from(
+        value: VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes>,
+        env: rustler::Env<'a>,
+    ) -> Self {
+        bytes_to_binary(env, &value.as_ssz_bytes())
+    }
+}
+
+impl<'a> FromLH<'a, VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes>> for Vec<u8> {
+    fn from(
+        value: VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes>,
+        _env: rustler::Env<'a>,
+    ) -> Self {
+        let v: Vec<u8> = value.into();
+        v
+    }
+}
+
+// impl<'a>
+//     FromLH<
+//         'a,
+//         VariableList<
+//             VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction>,
+//             <MainnetEthSpec as EthSpec>::MaxTransactionsPerPayload,
+//         >,
+//     > for Vec<Vec<u8>>
+// {
+//     fn from(
+//         value: VariableList<
+//             VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction>,
+//             <MainnetEthSpec as EthSpec>::MaxTransactionsPerPayload,
+//         >,
+//         _env: rustler::Env<'a>,
+//     ) -> Self {
+//     }
+// }

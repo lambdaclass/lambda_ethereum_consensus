@@ -1,5 +1,8 @@
-use ethereum_types::H256;
-use lighthouse_types::{BitList, Epoch, FixedVector, PublicKeyBytes, Slot, Unsigned};
+use ethereum_types::{H160, H256, U256};
+use lighthouse_types::{
+    BitList, Epoch, EthSpec, ExecutionBlockHash, FixedVector, MainnetEthSpec, PublicKeyBytes, Slot,
+    Unsigned, VariableList,
+};
 use rustler::Binary;
 use ssz::Decode;
 
@@ -63,3 +66,48 @@ where
         Self::new(value.into_iter().map(FromElx::from).collect()).unwrap()
     }
 }
+
+impl<'a> FromElx<Binary<'a>> for ExecutionBlockHash {
+    fn from(value: Binary<'a>) -> Self {
+        ExecutionBlockHash::from_ssz_bytes(&value).unwrap()
+    }
+}
+
+impl<'a> FromElx<Binary<'a>> for H160 {
+    fn from(value: Binary<'a>) -> Self {
+        H160::from_ssz_bytes(&value).unwrap()
+    }
+}
+
+impl<'a> FromElx<Binary<'a>> for U256 {
+    fn from(value: Binary<'a>) -> Self {
+        U256::from_ssz_bytes(&value).unwrap()
+    }
+}
+
+impl<'a> FromElx<u64> for U256 {
+    fn from(value: u64) -> Self {
+        U256::try_from(value).unwrap()
+    }
+}
+
+impl<'a> FromElx<Binary<'a>> for VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes> {
+    fn from(value: Binary<'a>) -> Self {
+        VariableList::from_ssz_bytes(&value).unwrap()
+    }
+}
+
+impl<'a> FromElx<Vec<u8>> for VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes> {
+    fn from(value: Vec<u8>) -> Self {
+        VariableList::from_ssz_bytes(&value).unwrap()
+    }
+}
+
+// impl<'a> FromElx<Vec<Vec<u8>>>
+//     for VariableList<
+//         VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction>,
+//         <MainnetEthSpec as EthSpec>::MaxTransactionsPerPayload,
+//     >
+// {
+//     fn from(value: Vec<Vec<u8>>) -> Self {}
+// }
