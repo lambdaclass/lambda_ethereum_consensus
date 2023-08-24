@@ -124,6 +124,7 @@ You can install the necessary components directly from official sources:
 - [Elixir](https://elixir-lang.org/install.html)
 - [Erlang](https://www.erlang.org/downloads)
 - [Go](https://go.dev/doc/install)
+- [Rust](https://www.rust-lang.org/tools/install)
 
 ### Alternative (Recommended) Installation
 
@@ -137,6 +138,7 @@ After installing **asdf**, add the required plugins for managing the tools:
 asdf plugin add elixir
 asdf plugin add erlang
 asdf plugin add golang
+asdf plugin add rust
 ```
 
 Finally, install the specific versions of these tools as specified in `.tool-versions`:
