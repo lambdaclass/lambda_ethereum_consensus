@@ -159,9 +159,13 @@ make test # Runs tests
 
 The iex terminal can be closed by pressing ctrl+c two times.
 
-# Elixir ↔ Go bindings
+# Research 
 
-## Introduction
+In this section we will document our research on the different topics related to the development of the Lambda Consensus Client. This will include: Ethereum general research, Ethereum Consensus Layer research, Elixir research, Erlang research, Architecture research and more.
+
+## Elixir ↔ Go bindings
+
+### Introduction
 
 The bindings are used to interact with the *go-libp2p* and *go-ethereum/p2p* libraries, in charge of peer-to-peer communication and discovery.
 As we couldn't find a way to communicate the two languages directly, we used some **C** code to communicate the two sides.
@@ -170,7 +174,7 @@ However, as Go is a garbage-collected language, this brings some issues.
 <!-- TODO: add explanation about general bindings usage -->
 <!-- TODO: explain the callback -> message translation -->
 
-## References and handles
+### References and handles
 
 To manage memory, the Golang runtime tracks references (pointers) to find which objects are no longer used (more on this [here](https://tip.golang.org/doc/gc-guide)).
 When those references are given to functions outside the Golang runtime (i.e. returned as a call result), they stop being valid (explained [here](https://pkg.go.dev/cmd/cgo#hdr-Passing_pointers)).
@@ -260,8 +264,6 @@ Elixir side:
 
 
 ## Ethereum Research
-
-In this section we will document our research on the Ethereum protocol consensus layer.
 
 ### Consensus basics
 
@@ -419,7 +421,7 @@ Nodes provide proofs of the offenses, and proposers including them in blocks get
 - Stability: fork-choice is self-reinforcing and acts as a good predictor of the next block.
 - Manipulation resistence. Not only is it hard to build a secret chain and propose it, but it prevents getting attestations for it, so the current canonical one is always more likely to be heavier. This holds even if the length of the secret chain is higher.
 
-### Finalization: Casper FFG
+## Finalization: Casper FFG
 
 The name stands for Friendly Finality Gadget. It as a "finality gadget" as it always works on top of a block-proposing algorithm.
 
