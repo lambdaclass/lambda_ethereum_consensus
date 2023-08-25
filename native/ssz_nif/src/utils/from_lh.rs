@@ -1,8 +1,7 @@
 use crate::utils::helpers::bytes_to_binary;
 use ethereum_types::{H160, H256, U256};
 use lighthouse_types::{
-    BitList, Epoch, EthSpec, ExecutionBlockHash, FixedVector, MainnetEthSpec, PublicKeyBytes, Slot,
-    Unsigned, VariableList,
+    BitList, Epoch, ExecutionBlockHash, FixedVector, PublicKeyBytes, Slot, Unsigned, VariableList,
 };
 use rustler::Binary;
 use ssz::Encode;
@@ -89,42 +88,21 @@ impl<'a> FromLH<'a, U256> for u64 {
     }
 }
 
-impl<'a> FromLH<'a, VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes>>
-    for Binary<'a>
+impl<'a, Elx, Lh, N> FromLH<'a, VariableList<Lh, N>> for Vec<Elx>
+where
+    Elx: FromLH<'a, Lh>,
+    N: Unsigned,
 {
-    fn from(
-        value: VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes>,
-        env: rustler::Env<'a>,
-    ) -> Self {
-        bytes_to_binary(env, &value.as_ssz_bytes())
+    fn from(value: VariableList<Lh, N>, env: rustler::Env<'a>) -> Self {
+        value.into_iter().map(|lh| FromLH::from(lh, env)).collect()
     }
 }
 
-impl<'a> FromLH<'a, VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes>> for Vec<u8> {
-    fn from(
-        value: VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes>,
-        _env: rustler::Env<'a>,
-    ) -> Self {
-        let v: Vec<u8> = value.into();
-        v
+impl<'a, N> FromLH<'a, VariableList<u8, N>> for Binary<'a>
+where
+    N: Unsigned,
+{
+    fn from(value: VariableList<u8, N>, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value)
     }
 }
-
-// impl<'a>
-//     FromLH<
-//         'a,
-//         VariableList<
-//             VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction>,
-//             <MainnetEthSpec as EthSpec>::MaxTransactionsPerPayload,
-//         >,
-//     > for Vec<Vec<u8>>
-// {
-//     fn from(
-//         value: VariableList<
-//             VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction>,
-//             <MainnetEthSpec as EthSpec>::MaxTransactionsPerPayload,
-//         >,
-//         _env: rustler::Env<'a>,
-//     ) -> Self {
-//     }
-// }

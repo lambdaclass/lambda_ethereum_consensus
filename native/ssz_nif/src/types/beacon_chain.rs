@@ -186,7 +186,7 @@ gen_struct!(
         extra_data: Vec<u8>,
         base_fee_per_gas: Binary<'a>,
         block_hash: Binary<'a>,
-        transactions: Vec<Vec<u8>>,
+        transactions: Vec<Binary<'a>>,
         withdrawals: Vec<Withdrawal<'a>>,
     }
 );
@@ -210,7 +210,7 @@ gen_struct!(
         extra_data: Vec<u8>,
         base_fee_per_gas: Binary<'a>,
         block_hash: Binary<'a>,
-        transactions: Vec<Vec<u8>>,
+        transactions: Vec<Binary<'a>>,
         withdrawals: Vec<Withdrawal<'a>>,
     }
 );

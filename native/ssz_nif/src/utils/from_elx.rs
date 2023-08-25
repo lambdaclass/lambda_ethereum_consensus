@@ -1,7 +1,6 @@
 use ethereum_types::{H160, H256, U256};
 use lighthouse_types::{
-    BitList, Epoch, EthSpec, ExecutionBlockHash, FixedVector, MainnetEthSpec, PublicKeyBytes, Slot,
-    Unsigned, VariableList,
+    BitList, Epoch, ExecutionBlockHash, FixedVector, PublicKeyBytes, Slot, Unsigned, VariableList,
 };
 use rustler::Binary;
 use ssz::Decode;
@@ -91,44 +90,19 @@ impl<'a> FromElx<u64> for U256 {
     }
 }
 
-impl<'a> FromElx<Binary<'a>> for VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes> {
+impl<'a, Elx, Lh, N> FromElx<Vec<Elx>> for VariableList<Lh, N>
+where
+    Lh: FromElx<Elx>,
+    N: Unsigned,
+{
+    fn from(value: Vec<Elx>) -> Self {
+        let v: Vec<_> = value.into_iter().map(FromElx::from).collect();
+        VariableList::new(v).unwrap()
+    }
+}
+
+impl<'a, N: Unsigned> FromElx<Binary<'a>> for VariableList<u8, N> {
     fn from(value: Binary<'a>) -> Self {
-        VariableList::from_ssz_bytes(&value).unwrap()
+        VariableList::new(Binary::as_slice(&value).to_vec()).unwrap()
     }
 }
-
-impl<'a> FromElx<Vec<u8>> for VariableList<u8, <MainnetEthSpec as EthSpec>::MaxExtraDataBytes> {
-    fn from(value: Vec<u8>) -> Self {
-        VariableList::from_ssz_bytes(&value).unwrap()
-    }
-}
-
-// impl<'a> FromElx<Vec<Vec<u8>>>
-//     for VariableList<
-//         VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction>,
-//         <MainnetEthSpec as EthSpec>::MaxTransactionsPerPayload,
-//     >
-// {
-//     fn from(value: Vec<Vec<u8>>) -> Self {}
-// }
-
-// impl<'a> FromElx<Vec<Vec<u8>>>
-//     for VariableList<
-//         VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction>,
-//         <MainnetEthSpec as EthSpec>::MaxTransactionsPerPayload,
-//     >
-// {
-//     fn from(value: Vec<Vec<u8>>) -> Self {
-
-// let inner_lists = value
-//     .into_iter()
-//     .map(|inner_vec| VariableList(inner_vec))
-//     .collect();
-// VariableList(inner_lists)
-
-//         let inner = value
-//             .into_iter()
-//             .map(|vec|  VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction> = VariableList})
-//             .collect();
-//     }
-// }
