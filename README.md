@@ -109,7 +109,7 @@ Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/
 
 ### Code of Conduct:
 
-We believe in fostering an inclusive, welcoming, and respectful community. All contributors are expected to adhere to our [Code of Conduct](https://github.com/lambdaclass/lambda_ethereum_consensus/blob/main/CODE_OF_CONDUCT.md). Please familiarize yourself with its contents before participating.
+We believe in fostering an inclusive, welcoming, and respectful community. All contributors are expected to adhere to our [Code of Conduct](https://github.com/lambdaclass/lambda_ethereum_consensus#code-of-conduct). Please familiarize yourself with its contents before participating.
 
 ### Communication:
 
