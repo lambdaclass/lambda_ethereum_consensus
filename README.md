@@ -107,13 +107,31 @@ Found an issue you're passionate about? Comment with `"I'd like to tackle this!"
 
 Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification when crafting commit messages.
 
+### Code of Conduct:
+
+We believe in fostering an inclusive, welcoming, and respectful community. All contributors are expected to adhere to our [Code of Conduct](https://github.com/lambdaclass/lambda_ethereum_consensus#code-of-conduct). Please familiarize yourself with its contents before participating.
+
 ### Communication:
 
-**For specific questions** related to issues, you can use the chat provided under each issue.
+**Open communication** is key to the success of any project. We encourage all contributors to join our [Telegram chat](https://t.me/lambdaconsensus) for real-time discussions, updates, and collaboration. 
 
-**For general questions**, discussions, and feedback, you can use the [Lambda Consensus Client](https://t.me/lambdaconsensus) telegram group.
+**For more structured discussions or proposals**, consider opening an issue or a discussion on the GitHub repository.
 
-**Together, let's shape the future of Ethereum! 🚀**
+### Recognition:
+
+We value every contribution, no matter how small. All contributors will be recognized in our project's documentation. Additionally, consistent and significant contributors may be offered more formal roles within the project over time.
+
+### Support:
+
+If you encounter any issues or have questions, don't hesitate to reach out. Our team and the community are here to help. You can ask questions in our Telegram chat or open an issue on GitHub for technical challenges.
+
+### Conclusion:
+
+Lambda Ethereum Consensus is more than just a project; it's a community-driven initiative to bring the power and reliability of Elixir to the Ethereum ecosystem. With your help, we can make this vision a reality. Dive in, contribute, learn, and let's shape the future of Ethereum together!
+
+---
+
+**Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
 
 ## Prerequisites
 
