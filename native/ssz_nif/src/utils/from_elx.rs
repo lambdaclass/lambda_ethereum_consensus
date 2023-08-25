@@ -1,5 +1,7 @@
 use ethereum_types::H256;
-use lighthouse_types::{BitList, Epoch, FixedVector, PublicKeyBytes, Slot, Unsigned};
+use lighthouse_types::{
+    BitList, Epoch, FixedVector, PublicKeyBytes, SignatureBytes, Slot, Unsigned,
+};
 use rustler::Binary;
 use ssz::Decode;
 
@@ -43,6 +45,13 @@ impl<'a> FromElx<Binary<'a>> for PublicKeyBytes {
     fn from(value: Binary<'a>) -> Self {
         // length is checked from the Elixir side
         PublicKeyBytes::deserialize(value.as_slice()).unwrap()
+    }
+}
+
+impl<'a> FromElx<Binary<'a>> for SignatureBytes {
+    fn from(value: Binary<'a>) -> Self {
+        // length is checked from the Elixir side
+        SignatureBytes::deserialize(value.as_slice()).unwrap()
     }
 }
 
