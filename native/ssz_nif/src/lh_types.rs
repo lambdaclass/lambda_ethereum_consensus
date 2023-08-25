@@ -3,6 +3,7 @@
 
 pub(crate) use lighthouse_types::*;
 
+pub(crate) type IndexedAttestationMainnet = IndexedAttestation<MainnetEthSpec>;
 pub(crate) type PendingAttestationMainnet = PendingAttestation<MainnetEthSpec>;
 pub(crate) type HistoricalBatchMainnet = HistoricalBatch<MainnetEthSpec>;
 pub(crate) type HistoricalBatchMinimal = HistoricalBatch<MinimalEthSpec>;

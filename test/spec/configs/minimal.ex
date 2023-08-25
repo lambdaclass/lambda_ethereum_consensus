@@ -5,6 +5,7 @@ defmodule MinimalConfig do
 
   @type_equivalence %{
     "HistoricalBatch" => "HistoricalBatchMinimal",
+    "IndexedAttestation" => "IndexedAttestationMainnet",
     "PendingAttestation" => "PendingAttestationMainnet"
   }
 

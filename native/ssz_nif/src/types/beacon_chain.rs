@@ -63,6 +63,18 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.IndexedAttestationMainnet"]
+    /// Corresponds to [`lighthouse_types::IndexedAttestation`]
+    /// with `T` = [`lighthouse_types::MainnetEthSpec`]
+    pub(crate) struct IndexedAttestationMainnet<'a> {
+        attesting_indices: Vec<u64>,
+        data: AttestationData<'a>,
+        signature: Binary<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.PendingAttestationMainnet"]
     /// Corresponds to [`lighthouse_types::PendingAttestation`]
     /// with `T` = [`lighthouse_types::MainnetEthSpec`]

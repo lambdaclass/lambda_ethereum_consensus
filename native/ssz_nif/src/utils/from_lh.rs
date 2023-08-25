@@ -21,6 +21,7 @@ macro_rules! trivial_impl {
 
 trivial_impl!(Epoch => u64);
 trivial_impl!(Slot => u64);
+trivial_impl!(VariableList<u64, <MainnetEthSpec as EthSpec>::MaxValidatorsPerCommittee> => Vec<u64>);
 
 impl<'a, T> FromLH<'a, T> for T {
     fn from(value: Self, _env: rustler::Env<'a>) -> Self {
@@ -52,9 +53,37 @@ impl<'a> FromLH<'a, SignatureBytes> for Binary<'a> {
     }
 }
 
+impl<'a> FromLH<'a, AggregateSignature> for Binary<'a> {
+    fn from(value: AggregateSignature, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value.serialize())
+    }
+}
+
 impl<'a, N: Unsigned> FromLH<'a, BitList<N>> for Binary<'a> {
     fn from(value: BitList<N>, env: rustler::Env<'a>) -> Self {
         bytes_to_binary(env, value.into_bytes().as_slice())
+    }
+}
+
+impl<'a, Elx, Lh, N> FromLH<'a, FixedVector<Lh, N>> for Vec<Elx>
+where
+    Elx: FromLH<'a, Lh> + ToOwned,
+    N: Unsigned,
+{
+    fn from(value: FixedVector<Lh, N>, env: rustler::Env<'a>) -> Self {
+        let v: Vec<_> = value.into();
+        v.into_iter().map(|x| Elx::from(x, env)).collect::<Vec<_>>()
+    }
+}
+
+impl<'a> FromLH<'a, BitList<<MainnetEthSpec as EthSpec>::MaxValidatorsPerCommittee>>
+    for Binary<'a>
+{
+    fn from(
+        value: BitList<<MainnetEthSpec as EthSpec>::MaxValidatorsPerCommittee>,
+        env: rustler::Env<'a>,
+    ) -> Self {
+        bytes_to_binary(env, value.as_slice())
     }
 }
 

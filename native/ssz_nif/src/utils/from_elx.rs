@@ -21,6 +21,7 @@ macro_rules! trivial_impl {
 
 trivial_impl!(u64 => Epoch);
 trivial_impl!(u64 => Slot);
+trivial_impl!(Vec<u64> => VariableList<u64, <MainnetEthSpec as EthSpec>::MaxValidatorsPerCommittee>);
 
 impl<T> FromElx<T> for T {
     fn from(value: Self) -> Self {
@@ -52,6 +53,12 @@ impl<'a> FromElx<Binary<'a>> for SignatureBytes {
     fn from(value: Binary<'a>) -> Self {
         // length is checked from the Elixir side
         SignatureBytes::deserialize(value.as_slice()).unwrap()
+    }
+}
+impl<'a> FromElx<Binary<'a>> for AggregateSignature {
+    fn from(value: Binary<'a>) -> Self {
+        // TODO: remove unwrap?
+        AggregateSignature::deserialize(value.as_slice()).unwrap()
     }
 }
 
