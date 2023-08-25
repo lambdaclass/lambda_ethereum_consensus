@@ -158,3 +158,270 @@ make test # Runs tests
 ```
 
 The iex terminal can be closed by pressing ctrl+c two times.
+
+# Elixir ↔ Go bindings
+
+## Introduction
+
+The bindings are used to interact with the *go-libp2p* and *go-ethereum/p2p* libraries, in charge of peer-to-peer communication and discovery.
+As we couldn't find a way to communicate the two languages directly, we used some **C** code to communicate the two sides.
+However, as Go is a garbage-collected language, this brings some issues.
+
+<!-- TODO: add explanation about general bindings usage -->
+<!-- TODO: explain the callback -> message translation -->
+
+## References and handles
+
+To manage memory, the Golang runtime tracks references (pointers) to find which objects are no longer used (more on this [here](https://tip.golang.org/doc/gc-guide)).
+When those references are given to functions outside the Golang runtime (i.e. returned as a call result), they stop being valid (explained [here](https://pkg.go.dev/cmd/cgo#hdr-Passing_pointers)).
+To bypass this restriction, we use [*handles*](https://pkg.go.dev/runtime/cgo).
+Basically, they allow the reference to "live on" until we manually delete it.
+
+This would allow us to pass references from Go to C and back:
+
+```go
+import "runtime/cgo"
+
+// This comment exports the function
+//export CreateArrayWithNumbers
+func CreateArrayWithNumbers() C.uintptr_t {
+    // This function is called from C
+    var array []int
+    for i := 0; i < 8; i++ {
+        array = append(array, i)
+    }
+    // We create a handle for the array
+    handle := cgo.NewHandle(array)
+    // We turn it into a number before returning it to C
+    return C.uintptr_t(handle)
+}
+
+//export SumAndConsumeArray
+func SumAndConsumeArray(arrayHandle C.uintptr_t) uint {
+    // We transform the number back to a handle
+    handle := cgo.Handle(arrayHandle)
+    // We retrieve the handle's contents
+    array := handle.Value().([]int)
+    // We use the array...
+    var acc int
+    for _, n := range array {
+        acc = acc + n
+    }
+    // As we don't need the array anymore, we delete the handle to it
+    handle.Delete()
+    // After
+    return acc
+}
+```
+
+## Elixir & Architechture Research
+
+### Resources and destructors
+
+What we have until now allows us to create long-living references, but we still need to free them manually (otherwise we leak memory).
+To fix this, we can treat them as native objects with Erlang's [*Resource objects*](https://www.erlang.org/doc/man/erl_nif.html#functionality).
+By treating them as resources with an associated type and destructor, we can let Erlang's garbage-collector manage the reference's lifetime.
+It works as follows:
+
+<!-- TODO: add code examples -->
+
+1. we declare a new resource type with [`enif_open_resource_type`](https://www.erlang.org/doc/man/erl_nif.html#enif_open_resource_type) when the NIF is loaded, passing its associated destructor
+1. we create a new resource of that type with [`enif_alloc_resource`](https://www.erlang.org/doc/man/erl_nif#enif_alloc_resource)
+1. we move that resource into an *environment* (i.e. the Erlang process that called the NIF) with [`enif_make_resource`](https://www.erlang.org/doc/man/erl_nif#enif_make_resource)
+1. we release our local reference to that resource with [`enif_release_resource`](https://www.erlang.org/doc/man/erl_nif#enif_release_resource)
+1. once all Elixir-side variables that reference the resource are out of scope, Erlang's garbage collector calls the destructor associated with the type
+
+Note that we use a different resource type for each Go type. This allows us to differentiate between them, and return an error when an unexpected one is received.
+
+### Simple SerialiZe NIF implementation
+
+#### Adding a new type
+
+In order to add a new SSZ container to the repo, we need to modify the NIF. Here's the how-to:
+
+*Note that you can start from whichever side you are most comfortable with.*
+
+Rust side (`native/ssz_nif`):
+
+1. Look for the struct definition in the *[lighthouse_types](https://github.com/sigp/lighthouse/tree/stable/consensus/types)* crate (it should have the same name as in the [spec](https://github.com/ethereum/consensus-specs/tree/dev)).
+2. Add the struct definition to the corresponding module under `native/ssz_nif/src/types`, surrounding it with `gen_struct` and adding the `#[derive(NifStruct)]` and `#[module …]` attributes (you can look at `beacon_chain.rs` for examples).
+3. If the lighthouse struct uses generics, you’ll have to alias it in `native/ssz_nif/src/lh_types.rs`, and use that same name for your struct.
+4. Translate the types used (`Epoch`, `[u64; 32]`, etc.) to ones that implement *rustler* traits (you can look at [this cheat sheet](https://rustler-web.onrender.com/docs/cheat-sheet), or at the already implemented containers). These types should be equivalent to the ones used in [the official spec](https://github.com/ethereum/consensus-specs/tree/dev).
+5. If it fails because `FromElx` or `FromLH` are not implemented for types X and Y, add those implementations in `utils/from_elx.rs` and `utils/from_lh.rs` respectively.
+6. Add the type name to the list in `to_ssz` and `from_ssz`.
+7. Check that it compiles correctly.
+
+Elixir side:
+
+1. Add a new file and module with the container's name under `lib/ssz_types`. The module should be prefixed with `SszTypes.` (you can use an existing one as a template).
+2. Add the struct definition and `t` type. You should try to mimic types used in the official spec, like those in `lib/ssz_types/mod.ex` (feel free to add any that are missing).
+3. Add the implemented struct's name to the `@enabled` list in the `SSZStaticTestRunner` module (file `test/spec/runners/ssz_static.ex`).
+4. Check that spec-tests pass, running `make spec-test`. For this, you should have all the project dependencies installed (this is explained in the main readme).
+
+
+## Ethereum Research
+
+In this section we will document our research on the Ethereum protocol consensus layer.
+
+### Consensus basics
+
+#### Classic consensus
+
+As a distributed state machine, the EVM takes some elements from classic consensus algorithms, such as [Raft](https://raft.github.io/):
+
+- Users of the network send commands (transactions) to change the state of the EVM.
+- Nodes propagate those transactions.
+- A leader is elected and proposes a transaction to be the next one to be applied.
+- As there's a single leader, each node will receive that transaction and add it to its local copy of the transaction history.
+- Mechanisms are put in place so that nodes make sure that they have the same order of transactions and applying them to their local state machines is safe.
+
+Algorithms like Raft assume a setup where nodes are known, running the same software, well intentioned, and the only problems arise from network/connectivity issues, which are inherent to any distributed system. They prioritize safety and require 50% of the network plus one node to be live in order to be available.
+
+#### Bizantine consensus
+
+Blockchains like Ethereum work in a bizantine environment, where anyone can join the network running a software that may be different, due to bugs or intentionally. This means there are several fundamental differences:
+
+- Cryptographic signatures are introduced to validate authority of transactions.
+- Transactions are batched into blocks, so that the consensus overhead is reduced.
+- Verifying the integrity of blocks needs to be easy. For this reason each block is linked to its parent, each block has a hash of its own contents, and part of each block's content is its parent hash. That means that changing any block in history will cause noticeable changes in the block's hash.
+- Leaders are not elected by a simple majority, but by algorithms such as proof of work or proof of stake, that introduce economic incentives so that participating in consensus is not cost-free and chances of spamming the protocol are reduced. They are only elected for a single block and the algorithm is repeated for the next one.
+
+#### Forks
+
+In Ethereum, liveness is prioritized over safety, by allowing forks: different versions of history can be live at the same time. Due to networking delays (e.g. block production being faster than propagation) or client differences, a client may receive two different blocks at the same time as the next one.
+
+```mermaid
+graph LR
+    Genesis --> A
+    Genesis --> B
+    A --> C
+    A --> D
+```
+
+This means that instead of a block chain we get a block tree, were each branch is called a "fork". Consensus, in this context, means nodes need to chose the same forks as the canonical chain, so that they share the same history. The criteria to chose from a particular fork is called "Fork-choice algorithm".
+
+```mermaid
+graph LR
+    Genesis --> A
+    Genesis --> B
+    A --> C
+    A --> D
+
+    classDef chosen fill: #666666
+    class Genesis chosen
+    class A chosen
+    class D chosen
+```
+
+Genesis will always be chosen as it will be the first block in any chain. Afterwards, if blocks A and D are chose by the algorithm, that means the canonical chain will now be:
+
+```mermaid
+graph LR
+    Genesis --> A --> D
+```
+
+#### Ethereum consensus algorithms
+
+In post-merge Ethereum, consensus is reached by two combined fork-related algorithms:
+
+- LMD GHOST: a fork-choice algorithm based on votes (attestations). If a majority of nodes follow this algorithm, they will tend to converge to the same canonical chain. We expand more on it on [this document](fork_choice.md).
+- Casper FFG: provides some level of safety by defining a finalization criterion. It takes a fork tree and defines a strategy to prune it (make branches inaccessible). Once a block is tagged as "final", blocks that aren't either parents (which are also final) or decendents of it, are not valid blocks. This prevents long reorganizations, which might make users vulnerable to double spends. We expand on it in [this document](finality.md).
+
+#### Attestation messages
+
+A single vote emitted by a validator consists of the following information:
+
+- slot at which the attestation is being emmited.
+- index: index of the validator within the comittee.
+- beacon block root: the actual vote. This identifies a block by the merkle root of its beacon state.
+- source: checkpoint
+- target: checkpoint
+
+This messages are propagated either directly (attestation gossip) or indirectly (contained in blocks).
+
+### Fork-choice: LMD GHOST
+
+Let's separate the two parts of the name.
+
+- GHOST: **G**reediest, **H**eaviest-**O**bserved **S**ub-**T**ree. The algorithm provides a strategy to choose between two forks/branches. Each branch points to a block, and each block can be thought of as the root of a subtree containing all of its child nodes. The weight of the subtree is the sum of the weights of all blocks in it. The weight of each individual block is obtained from the attestations on them.
+- LMD: each validator gives attestations/votes to the block they think is the current head of the chain (Message Driven). "Latest" means that only the last attestation for each validator will be taken into account.
+
+By choosing a fork, each node has a single, linear chain of blocks that it considers canonical. The last child of that chain is called the chain's "head".
+
+#### Reacting to an attestation
+
+When an attestation arrives, the `on_attestation` callback must:
+
+1. Perform the [validity checks](https://eth2book.info/capella/part3/forkchoice/phase0/#validate_on_attestation). tl;dr: the slot and epoch need to be right, the vote must be for a block we have, validate the signature and check it doesn't conflict with a different attestation by the same validator.
+2. [Save the attestation](https://eth2book.info/capella/part3/forkchoice/phase0/#update_latest_messages) as that validator's latest message. If there's one already, update the value.
+
+#### Choosing forks
+
+We now have a store of each validator's latest vote, which allows LMD GHOST to work as a `get_head(store) -> Block` function.
+
+We first need to calculate each block's weight:
+
+- For leaf blocks, we calculate their weight by checking how many votes they have.
+- For each branch block we calculate its weight as the sum of the weight of every child, plus its own votes. We repeat this until we reach the root, which will be the last finalized block (there won't be any branches before, so there won't be any more fork-choice to perform).
+
+This way we calculate the weight not only for each block, but for the subtree where that block is the root.
+
+Afterwards, when we want to determine which is the head of the chain, we traverse the tree, starting from the root, and greedily (without looking further ahead) we go block by block chosing the sub-tree with the highest weight.
+
+Let's look at an example:
+
+```mermaid
+graph LR
+
+    Genesis --> A[A\nb=10\nw=50]
+    Genesis --> B[B\nb=20\nw=20]
+    A --> C[C\nb=15\nw=15]
+    A --> D[D\nb=25\nw=25]
+
+    classDef chosen fill: #666666
+    class Genesis chosen
+    class A chosen
+    class D chosen
+```
+
+Here, individual block weights are represented by "b", while subtree weights are represented by "w". Some observations:
+
+- $W = B$ for all leaf blocks, as leafs are their own whole subtree.
+- $W_A=W_C+W_B +B_A= B_B + B_C + B_A$
+- While the individual weight of $A$ is smaller than $B$, its children make the $A$ subtree heavier than the $B$ subtree, so its chosen by LMD GHOST over $B$.
+
+In general:
+
+$$W_N = B_N + \sum_i^{i \in \text{children}[N]}W_i$$
+
+#### Slashing
+
+In the previous scheme, there are two rewards:
+
+- Proposer rewards, given to a proposer when their block is included in the chain. This also adds an incentive for them to try to predict the most-likely branch to be the canonical one.
+- Attester rewards, which are smaller. These are given if the blocks they attest to are included.
+
+These incentives, however, are not enough. To maximize their likelihood of getting rewards, they may misbehave:
+
+- Proposers may propose a block for every current fork.
+- Attesters may attest to every current head in their local chains.
+
+These misbehaviors debilitate the protocol (they give weight to all forks) and no honest node running fork-choice would take part on them. To prevent them, nodes that are detected while doing them are slashed (punished), which means that they are excluded from the validator set and a portion of their stake is burned.
+
+Nodes provide proofs of the offenses, and proposers including them in blocks get whistleblower rewards. Proofs are:
+
+- For proposer slashing: two block headers in the same slot signed by the same signature.
+- For attester slashing: two attestations signed in the same slot by the same signature.
+
+#### Guarantees
+
+- Majority honest progress: if the network has over 50% nodes running this algorithm honestly, the chain progresses and each older block is exponentially more unlikely to be reverted.
+- Stability: fork-choice is self-reinforcing and acts as a good predictor of the next block.
+- Manipulation resistence. Not only is it hard to build a secret chain and propose it, but it prevents getting attestations for it, so the current canonical one is always more likely to be heavier. This holds even if the length of the secret chain is higher.
+
+### Finalization: Casper FFG
+
+The name stands for Friendly Finality Gadget. It as a "finality gadget" as it always works on top of a block-proposing algorithm.
+
+**This document will be expaned in a different PR**
+
