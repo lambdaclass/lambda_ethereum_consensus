@@ -159,13 +159,15 @@ make test # Runs tests
 
 The iex terminal can be closed by pressing ctrl+c two times.
 
-# Research 
+## Research 
 
 In this section we will document our research on the different topics related to the development of the Lambda Consensus Client. This will include: Ethereum general research, Ethereum Consensus Layer research, Elixir research, Erlang research, Architecture research and more.
 
-## Elixir ↔ Go bindings
+### Elixir & Architechture Research
 
-### Introduction
+#### Elixir ↔ Go bindings
+
+##### Introduction
 
 The bindings are used to interact with the *go-libp2p* and *go-ethereum/p2p* libraries, in charge of peer-to-peer communication and discovery.
 As we couldn't find a way to communicate the two languages directly, we used some **C** code to communicate the two sides.
@@ -174,7 +176,7 @@ However, as Go is a garbage-collected language, this brings some issues.
 <!-- TODO: add explanation about general bindings usage -->
 <!-- TODO: explain the callback -> message translation -->
 
-### References and handles
+##### References and handles
 
 To manage memory, the Golang runtime tracks references (pointers) to find which objects are no longer used (more on this [here](https://tip.golang.org/doc/gc-guide)).
 When those references are given to functions outside the Golang runtime (i.e. returned as a call result), they stop being valid (explained [here](https://pkg.go.dev/cmd/cgo#hdr-Passing_pointers)).
@@ -218,9 +220,8 @@ func SumAndConsumeArray(arrayHandle C.uintptr_t) uint {
 }
 ```
 
-## Elixir & Architechture Research
 
-### Resources and destructors
+#### Resources and destructors
 
 What we have until now allows us to create long-living references, but we still need to free them manually (otherwise we leak memory).
 To fix this, we can treat them as native objects with Erlang's [*Resource objects*](https://www.erlang.org/doc/man/erl_nif.html#functionality).
@@ -237,9 +238,9 @@ It works as follows:
 
 Note that we use a different resource type for each Go type. This allows us to differentiate between them, and return an error when an unexpected one is received.
 
-### Simple SerialiZe NIF implementation
+#### Simple SerialiZe NIF implementation
 
-#### Adding a new type
+##### Adding a new type
 
 In order to add a new SSZ container to the repo, we need to modify the NIF. Here's the how-to:
 
@@ -263,11 +264,11 @@ Elixir side:
 4. Check that spec-tests pass, running `make spec-test`. For this, you should have all the project dependencies installed (this is explained in the main readme).
 
 
-## Ethereum Research
+### Ethereum Research
 
-### Consensus basics
+#### Consensus basics
 
-#### Classic consensus
+##### Classic consensus
 
 As a distributed state machine, the EVM takes some elements from classic consensus algorithms, such as [Raft](https://raft.github.io/):
 
@@ -279,7 +280,7 @@ As a distributed state machine, the EVM takes some elements from classic consens
 
 Algorithms like Raft assume a setup where nodes are known, running the same software, well intentioned, and the only problems arise from network/connectivity issues, which are inherent to any distributed system. They prioritize safety and require 50% of the network plus one node to be live in order to be available.
 
-#### Bizantine consensus
+##### Bizantine consensus
 
 Blockchains like Ethereum work in a bizantine environment, where anyone can join the network running a software that may be different, due to bugs or intentionally. This means there are several fundamental differences:
 
@@ -288,7 +289,7 @@ Blockchains like Ethereum work in a bizantine environment, where anyone can join
 - Verifying the integrity of blocks needs to be easy. For this reason each block is linked to its parent, each block has a hash of its own contents, and part of each block's content is its parent hash. That means that changing any block in history will cause noticeable changes in the block's hash.
 - Leaders are not elected by a simple majority, but by algorithms such as proof of work or proof of stake, that introduce economic incentives so that participating in consensus is not cost-free and chances of spamming the protocol are reduced. They are only elected for a single block and the algorithm is repeated for the next one.
 
-#### Forks
+##### Forks
 
 In Ethereum, liveness is prioritized over safety, by allowing forks: different versions of history can be live at the same time. Due to networking delays (e.g. block production being faster than propagation) or client differences, a client may receive two different blocks at the same time as the next one.
 
@@ -322,14 +323,14 @@ graph LR
     Genesis --> A --> D
 ```
 
-#### Ethereum consensus algorithms
+##### Ethereum consensus algorithms
 
 In post-merge Ethereum, consensus is reached by two combined fork-related algorithms:
 
 - LMD GHOST: a fork-choice algorithm based on votes (attestations). If a majority of nodes follow this algorithm, they will tend to converge to the same canonical chain. We expand more on it on [this document](fork_choice.md).
 - Casper FFG: provides some level of safety by defining a finalization criterion. It takes a fork tree and defines a strategy to prune it (make branches inaccessible). Once a block is tagged as "final", blocks that aren't either parents (which are also final) or decendents of it, are not valid blocks. This prevents long reorganizations, which might make users vulnerable to double spends. We expand on it in [this document](finality.md).
 
-#### Attestation messages
+##### Attestation messages
 
 A single vote emitted by a validator consists of the following information:
 
@@ -341,7 +342,7 @@ A single vote emitted by a validator consists of the following information:
 
 This messages are propagated either directly (attestation gossip) or indirectly (contained in blocks).
 
-### Fork-choice: LMD GHOST
+#### Fork-choice: LMD GHOST
 
 Let's separate the two parts of the name.
 
@@ -350,14 +351,14 @@ Let's separate the two parts of the name.
 
 By choosing a fork, each node has a single, linear chain of blocks that it considers canonical. The last child of that chain is called the chain's "head".
 
-#### Reacting to an attestation
+##### Reacting to an attestation
 
 When an attestation arrives, the `on_attestation` callback must:
 
 1. Perform the [validity checks](https://eth2book.info/capella/part3/forkchoice/phase0/#validate_on_attestation). tl;dr: the slot and epoch need to be right, the vote must be for a block we have, validate the signature and check it doesn't conflict with a different attestation by the same validator.
 2. [Save the attestation](https://eth2book.info/capella/part3/forkchoice/phase0/#update_latest_messages) as that validator's latest message. If there's one already, update the value.
 
-#### Choosing forks
+##### Choosing forks
 
 We now have a store of each validator's latest vote, which allows LMD GHOST to work as a `get_head(store) -> Block` function.
 
@@ -396,7 +397,7 @@ In general:
 
 $$W_N = B_N + \sum_i^{i \in \text{children}[N]}W_i$$
 
-#### Slashing
+##### Slashing
 
 In the previous scheme, there are two rewards:
 
@@ -415,13 +416,13 @@ Nodes provide proofs of the offenses, and proposers including them in blocks get
 - For proposer slashing: two block headers in the same slot signed by the same signature.
 - For attester slashing: two attestations signed in the same slot by the same signature.
 
-#### Guarantees
+##### Guarantees
 
 - Majority honest progress: if the network has over 50% nodes running this algorithm honestly, the chain progresses and each older block is exponentially more unlikely to be reverted.
 - Stability: fork-choice is self-reinforcing and acts as a good predictor of the next block.
 - Manipulation resistence. Not only is it hard to build a secret chain and propose it, but it prevents getting attestations for it, so the current canonical one is always more likely to be heavier. This holds even if the length of the secret chain is higher.
 
-## Finalization: Casper FFG
+#### Finalization: Casper FFG
 
 The name stands for Friendly Finality Gadget. It as a "finality gadget" as it always works on top of a block-proposing algorithm.
 
