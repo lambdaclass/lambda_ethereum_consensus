@@ -109,6 +109,18 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.DepositData"]
+    /// Corresponds to [`lighthouse_types::DepositData`]
+    pub(crate) struct DepositData<'a> {
+        pubkey: Binary<'a>,
+        withdrawal_credentials: Binary<'a>,
+        amount: u64,
+        signature: Binary<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.VoluntaryExit"]
     /// Corresponds to [`lighthouse_types::VoluntaryExit`]
     pub(crate) struct VoluntaryExit {
