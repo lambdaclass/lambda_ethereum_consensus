@@ -118,3 +118,13 @@ gen_struct!(
         signature: Binary<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.VoluntaryExit"]
+    /// Corresponds to [`lighthouse_types::VoluntaryExit`]
+    pub(crate) struct VoluntaryExit {
+        epoch: u64,
+        validator_index: u64,
+    }
+);

@@ -37,7 +37,11 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             HistoricalBatchMinimal,
             PendingAttestationMainnet,
             Validator,
+<<<<<<< HEAD
             DepositData,
+=======
+            VoluntaryExit
+>>>>>>> main
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -58,7 +62,11 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             HistoricalBatchMinimal,
             PendingAttestationMainnet,
             Validator,
+<<<<<<< HEAD
             DepositData,
+=======
+            VoluntaryExit
+>>>>>>> main
         }
     )
 }
