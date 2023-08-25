@@ -21,6 +21,27 @@ defmodule Libp2pTest do
     "enr:-LK4QKWrXTpV9T78hNG6s8AM6IO4XH9kFT91uZtFg1GcsJ6dKovDOr1jtAAFPnS2lvNltkOGA9k29BUN7lFh_sjuc9QBh2F0dG5ldHOIAAAAAAAAAACEZXRoMpC1MD8qAAAAAP__________gmlkgnY0gmlwhANAdd-Jc2VjcDI1NmsxoQLQa6ai7y9PMN5hpLe5HmiJSlYzMuzP7ZhwRiwHvqNXdoN0Y3CCI4yDdWRwgiOM"
   ]
 
+  test "discover peer and add it to peerstore" do
+    {:ok, host} = Libp2p.host_new()
+
+    {:ok, peerstore} = Libp2p.host_peerstore(host)
+
+    {:ok, listener} =
+      Libp2p.listen_v5("0.0.0.0:25000", @bootnodes)
+
+    {:ok, iterator} = Libp2p.listener_random_nodes(listener)
+
+    true = Libp2p.iterator_next(iterator)
+    {:ok, node} = Libp2p.iterator_node(iterator)
+
+    {:ok, id} = Libp2p.node_id(node)
+    {:ok, addrs} = Libp2p.node_multiaddr(node)
+
+    :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
+
+    :ok = Libp2p.host_close(host)
+  end
+
   defp find_peers(host, iterator, fun) do
     {:ok, peerstore} = Libp2p.host_peerstore(host)
 
