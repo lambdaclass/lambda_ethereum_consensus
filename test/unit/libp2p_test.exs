@@ -203,4 +203,59 @@ defmodule Libp2pTest do
 
     :ok = Libp2p.host_close(host)
   end
+
+  test "Start two hosts, and gossip about" do
+    # Setup sender
+    {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48787")
+    {:ok, sender} = Libp2p.host_new([addr])
+    # Setup receiver
+    {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48789")
+    {:ok, recver} = Libp2p.host_new([addr])
+
+    # (sender) Connect to recver
+    {:ok, peerstore} = Libp2p.host_peerstore(sender)
+    {:ok, id} = Libp2p.host_id(recver)
+    {:ok, addrs} = Libp2p.host_addrs(recver)
+
+    :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
+    :ok = Libp2p.host_connect(sender, id)
+
+    # Create GossipSubs
+    {:ok, gsub_sender} = Libp2p.new_gossip_sub(sender)
+    {:ok, gsub_recver} = Libp2p.new_gossip_sub(recver)
+
+    topic = "/test/gossipping"
+
+    # Join the topic
+    {:ok, topic_sender} = Libp2p.pub_sub_join(gsub_sender, topic)
+    {:ok, topic_recver} = Libp2p.pub_sub_join(gsub_recver, topic)
+
+    # (recver) Subscribe to the topic
+    {:ok, sub_recver} = Libp2p.topic_subscribe(topic_recver)
+
+    pid = self()
+    msg = "hello world!"
+
+    spawn(fn ->
+      # (recver) Receive next message from subscribed topic
+      {:ok, message} = Libp2p.subscription_next(sub_recver)
+      # (recver) Get the application data from the message
+      data = Libp2p.message_data(message)
+
+      assert data == msg
+      send(pid, :ok)
+    end)
+
+    # (sender) Give a head start to the other process
+    Process.sleep(1)
+
+    # (sender) Publish a message to the topic
+    :ok = Libp2p.topic_publish(topic_sender, msg)
+
+    assert_receive :ok, 1000
+
+    # Close both hosts
+    :ok = Libp2p.host_close(sender)
+    :ok = Libp2p.host_close(recver)
+  end
 end
