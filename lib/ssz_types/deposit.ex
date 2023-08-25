@@ -14,7 +14,7 @@ defmodule SszTypes.Deposit do
 
   @type t :: %__MODULE__{
           # max size is 33
-          proof: list(SszTypes.bytes32),
-          data: SszTypes.DepositData.t(),
+          proof: list(SszTypes.bytes32()),
+          data: SszTypes.DepositData.t()
         }
 end
