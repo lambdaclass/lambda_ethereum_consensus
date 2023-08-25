@@ -1,0 +1,13 @@
+{
+  "projectName": "Lambda Ethereum Consensus Client",
+  "projectOwner": "LambdaClass",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": ["README.md"],
+  "imageSize": 100,
+  "commit": false,
+  "contributorsPerLine": 7,
+  "linkToUsage": false,
+  "skipCi": false,
+  "contributors": []
+}
