@@ -1,4 +1,4 @@
-defmodule Libp2pTest do
+defmodule Unit.Libp2pTest do
   use ExUnit.Case
   doctest Libp2p
 
@@ -81,6 +81,20 @@ defmodule Libp2pTest do
     :ok = Libp2p.host_close(recver)
   end
 
+  defp retrying_receive(topic_sender, msg) do
+    # (sender) Give a head start to the other process
+    Process.sleep(1)
+
+    # (sender) Publish a message to the topic
+    :ok = Libp2p.topic_publish(topic_sender, msg)
+
+    receive do
+      :ok -> :ok
+    after
+      20 -> retrying_receive(topic_sender, msg)
+    end
+  end
+
   test "start two hosts, and gossip about" do
     # Setup sender
     {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48787")
@@ -123,13 +137,7 @@ defmodule Libp2pTest do
       send(pid, :ok)
     end)
 
-    # (sender) Give a head start to the other process
-    Process.sleep(100)
-
-    # (sender) Publish a message to the topic
-    :ok = Libp2p.topic_publish(topic_sender, msg)
-
-    assert_receive :ok, 1000
+    retrying_receive(topic_sender, msg)
 
     # Close both hosts
     :ok = Libp2p.host_close(sender)

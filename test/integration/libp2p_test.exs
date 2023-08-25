@@ -1,4 +1,4 @@
-defmodule Libp2pTest do
+defmodule Integration.Libp2pTest do
   use ExUnit.Case
   doctest Libp2p
 
