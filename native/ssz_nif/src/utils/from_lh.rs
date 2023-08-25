@@ -5,6 +5,7 @@ use lighthouse_types::{
     Unsigned, VariableList,
 };
 use rustler::Binary;
+use ssz::Encode;
 
 pub(crate) trait FromLH<'a, T> {
     fn from(value: T, env: rustler::Env<'a>) -> Self;

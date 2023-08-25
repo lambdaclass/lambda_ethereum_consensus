@@ -111,3 +111,24 @@ impl<'a> FromElx<Vec<u8>> for VariableList<u8, <MainnetEthSpec as EthSpec>::MaxE
 // {
 //     fn from(value: Vec<Vec<u8>>) -> Self {}
 // }
+
+// impl<'a> FromElx<Vec<Vec<u8>>>
+//     for VariableList<
+//         VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction>,
+//         <MainnetEthSpec as EthSpec>::MaxTransactionsPerPayload,
+//     >
+// {
+//     fn from(value: Vec<Vec<u8>>) -> Self {
+
+// let inner_lists = value
+//     .into_iter()
+//     .map(|inner_vec| VariableList(inner_vec))
+//     .collect();
+// VariableList(inner_lists)
+
+//         let inner = value
+//             .into_iter()
+//             .map(|vec|  VariableList<u8, <MainnetEthSpec as EthSpec>::MaxBytesPerTransaction> = VariableList})
+//             .collect();
+//     }
+// }
