@@ -8,6 +8,7 @@ defmodule SszTypes do
   @type uint64 :: 0..unquote(2 ** 64 - 1)
 
   ## Binary types
+  @type address :: <<_::20>>
   @type bytes4 :: <<_::32>>
   @type bytes32 :: <<_::256>>
   @type bytes48 :: <<_::384>>
@@ -23,11 +24,13 @@ defmodule SszTypes do
   @type validator_index :: uint64
   @type gwei :: uint64
   @type root :: bytes32
-  @type hash32 :: bytes32
+  @type hash256 :: bytes32
   @type version :: bytes4
   @type domain_type :: bytes4
   @type fork_digest :: bytes4
   @type domain :: bytes32
   @type bls_pubkey :: bytes48
   @type bls_signature :: bytes96
+  @type u256 :: bytes32
+  @type block_hash :: bytes32()
 end

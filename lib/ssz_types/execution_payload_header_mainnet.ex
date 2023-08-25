@@ -26,20 +26,20 @@ defmodule SszTypes.ExecutionPayloadHeaderMainnet do
   defstruct fields
 
   @type t :: %__MODULE__{
-          parent_hash: SszTypes.gwei(),
-          fee_recipient: SszTypes.gwei(),
-          state_root: SszTypes.gwei(),
-          receipts_root: SszTypes.gwei(),
+          parent_hash: SszTypes.block_hash(),
+          fee_recipient: SszTypes.address(),
+          state_root: SszTypes.root(),
+          receipts_root: SszTypes.root(),
           logs_bloom: SszTypes.gwei(),
-          prev_randao: SszTypes.gwei(),
-          block_number: SszTypes.gwei(),
-          gas_limit: SszTypes.gwei(),
-          gas_used: SszTypes.gwei(),
-          timestamp: SszTypes.gwei(),
-          extra_data: SszTypes.gwei(),
-          base_fee_per_gas: SszTypes.gwei(),
-          block_hash: SszTypes.gwei(),
-          transactions_root: SszTypes.gwei(),
-          withdrawals_root: SszTypes.gwei()
+          prev_randao: SszTypes.hash256(),
+          block_number: SszTypes.uint64(),
+          gas_limit: SszTypes.uint64(),
+          gas_used: SszTypes.uint64(),
+          timestamp: SszTypes.uint64(),
+          extra_data: SszTypes.(),
+          base_fee_per_gas: SszTypes.u256(),
+          block_hash: SszTypes.block_hash(),
+          transactions_root: SszTypes.root(),
+          withdrawals_root: SszTypes.root()
         }
 end

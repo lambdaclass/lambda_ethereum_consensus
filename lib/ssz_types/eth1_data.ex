@@ -16,6 +16,6 @@ defmodule SszTypes.Eth1Data do
   @type t :: %__MODULE__{
           deposit_root: SszTypes.root(),
           deposit_count: SszTypes.uint64(),
-          block_hash: SszTypes.hash32()
+          block_hash: SszTypes.hash256()
         }
 end
