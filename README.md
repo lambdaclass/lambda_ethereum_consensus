@@ -1,4 +1,4 @@
-# Lambda_Ethereum_Consensus
+# Lambda Ethereum Consensus Client
 
 [![Telegram chat](https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaconsensus%2F&logo=telegram&label=chat&color=neon)](https://t.me/lambdaconsensus)
 
