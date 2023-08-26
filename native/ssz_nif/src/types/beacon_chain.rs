@@ -141,3 +141,13 @@ gen_struct!(
         validator_index: u64,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Deposit"]
+    /// Corresponds to [`lighthouse_types::Deposit`]
+    pub(crate) struct Deposit<'a> {
+        proof: Vec<Binary<'a>>,
+        data: DepositData<'a>
+    }
+);

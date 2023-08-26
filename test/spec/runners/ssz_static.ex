@@ -16,6 +16,7 @@ defmodule SSZStaticTestRunner do
     "Validator",
     "VoluntaryExit",
     "DepositData",
+    "Deposit",
     "BeaconBlockHeader"
   ]
 
