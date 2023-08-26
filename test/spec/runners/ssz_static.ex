@@ -14,9 +14,9 @@ defmodule SSZStaticTestRunner do
     "HistoricalBatch",
     "PendingAttestation",
     "Validator",
-    "BeaconBlockHeader"
     "VoluntaryExit",
-    "DepositData"
+    "DepositData",
+    "BeaconBlockHeader"
   ]
 
   @doc """

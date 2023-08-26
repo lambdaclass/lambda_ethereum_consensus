@@ -117,6 +117,11 @@ gen_struct!(
         parent_root: Binary<'a>,
         state_root: Binary<'a>,
         body_root: Binary<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.DepositData"]
     /// Corresponds to [`lighthouse_types::DepositData`]
     pub(crate) struct DepositData<'a> {

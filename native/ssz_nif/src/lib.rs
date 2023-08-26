@@ -38,7 +38,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             PendingAttestationMainnet,
             Validator,
             DepositData,
-            VoluntaryExit
+            VoluntaryExit,
             BeaconBlockHeader,
         }
     );
@@ -60,6 +60,9 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             HistoricalBatchMinimal,
             PendingAttestationMainnet,
             Validator,
+            DepositData,
+            VoluntaryExit,
+            BeaconBlockHeader,
         }
     )
 }
