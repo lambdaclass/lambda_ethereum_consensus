@@ -15,6 +15,8 @@ defmodule SSZStaticTestRunner do
     "PendingAttestation",
     "Validator",
     "BeaconBlockHeader"
+    "VoluntaryExit",
+    "DepositData"
   ]
 
   @doc """
