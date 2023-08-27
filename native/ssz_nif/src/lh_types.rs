@@ -6,3 +6,5 @@ pub(crate) use lighthouse_types::*;
 pub(crate) type PendingAttestationMainnet = PendingAttestation<MainnetEthSpec>;
 pub(crate) type HistoricalBatchMainnet = HistoricalBatch<MainnetEthSpec>;
 pub(crate) type HistoricalBatchMinimal = HistoricalBatch<MinimalEthSpec>;
+pub(crate) type AttestationMainnet = Attestation<MainnetEthSpec>;
+pub(crate) type AttestationMinimal = Attestation<MinimalEthSpec>;

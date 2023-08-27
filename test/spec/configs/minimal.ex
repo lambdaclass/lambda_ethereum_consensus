@@ -5,7 +5,8 @@ defmodule MinimalConfig do
 
   @type_equivalence %{
     "HistoricalBatch" => "HistoricalBatchMinimal",
-    "PendingAttestation" => "PendingAttestationMainnet"
+    "PendingAttestation" => "PendingAttestationMainnet",
+    "Attestation" => "AttestationMinimal"
   }
 
   def get_handler_mapping, do: @type_equivalence

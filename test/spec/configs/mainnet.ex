@@ -5,7 +5,8 @@ defmodule MainnetConfig do
 
   @type_equivalence %{
     "HistoricalBatch" => "HistoricalBatchMainnet",
-    "PendingAttestation" => "PendingAttestationMainnet"
+    "PendingAttestation" => "PendingAttestationMainnet",
+    "Attestation" => "AttestationMainnet"
   }
 
   def get_handler_mapping, do: @type_equivalence
