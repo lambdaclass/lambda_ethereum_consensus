@@ -38,6 +38,12 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             PendingAttestationMainnet,
             Validator,
             ExecutionPayloadHeaderCapellaMainnet,
+            ExecutionPayloadHeaderCapellaMinimal,
+            ExecutionPayloadCapellaMainnet,
+            ExecutionPayloadCapellaMinimal,
+            DepositData,
+            VoluntaryExit,
+            Deposit
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -59,6 +65,12 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             PendingAttestationMainnet,
             Validator,
             ExecutionPayloadHeaderCapellaMainnet,
+            ExecutionPayloadHeaderCapellaMinimal,
+            ExecutionPayloadCapellaMainnet,
+            ExecutionPayloadCapellaMinimal,
+            DepositData,
+            VoluntaryExit,
+            Deposit
         }
     )
 }

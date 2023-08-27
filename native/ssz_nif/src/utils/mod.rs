@@ -46,7 +46,7 @@ macro_rules! gen_struct {
                 $field_vis $field_name : $field_ty
             ),*
         }
-        impl<'a> $crate::utils::from_lh::FromLH<'a, $crate::lh_types::$name> for $name<'a> {
+        impl<'a> $crate::utils::from_lh::FromLH<'a, $crate::lh_types::$name> for $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
             fn from(lh: $crate::lh_types::$name, env: ::rustler::Env<'a>) -> Self {
                 $(
                     let $field_name = $crate::utils::from_lh::FromLH::from(lh.$field_name, env);
@@ -57,7 +57,7 @@ macro_rules! gen_struct {
             }
         }
 
-        impl $crate::utils::from_elx::FromElx<$name<'_>> for $crate::lh_types::$name {
+        impl$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::utils::from_elx::FromElx<$name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?> for $crate::lh_types::$name {
             fn from(elx: $name) -> Self {
                 $(
                     let $field_name = $crate::utils::from_elx::FromElx::from(elx.$field_name);

@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/libp2p/go-libp2p"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -160,6 +161,20 @@ func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t 
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(stream))
+}
+
+//export HostConnect
+func (h C.uintptr_t) HostConnect(pid C.uintptr_t) int {
+	host := cgo.Handle(h).Value().(host.Host)
+	peerId := cgo.Handle(pid).Value().(peer.ID)
+	addrInfo := host.Peerstore().PeerInfo(peerId)
+	err := host.Connect(context.TODO(), addrInfo)
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
+	}
+	return 0
 }
 
 //export HostPeerstore
@@ -380,4 +395,97 @@ func (n C.uintptr_t) NodeID() C.uintptr_t {
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(nodeID))
+}
+
+/***************/
+/** GossipSub **/
+/***************/
+
+//export NewGossipSub
+func NewGossipSub(h C.uintptr_t) C.uintptr_t {
+	host := cgo.Handle(h).Value().(host.Host)
+	// TODO: receive options by parameter
+	heartbeat := 700 * time.Millisecond
+	params := pubsub.DefaultGossipSubParams()
+	params.D = 8
+	params.Dlo = 6
+	params.HeartbeatInterval = heartbeat
+	params.FanoutTTL = 60 * time.Second
+	params.HistoryLength = 6
+	params.HistoryGossip = 3
+
+	// TODO: add more options, especially WithMessageIdFn
+	options := []pubsub.Option{
+		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
+		pubsub.WithNoAuthor(),
+		pubsub.WithGossipSubParams(params),
+		pubsub.WithSeenMessagesTTL(550 * heartbeat),
+	}
+
+	gsub, err := pubsub.NewGossipSub(context.TODO(), host, options...)
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(gsub))
+}
+
+//export PubSubJoin
+func (ps C.uintptr_t) PubSubJoin(topicStr string) C.uintptr_t {
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	goTopicStr := strings.Clone(topicStr)
+	psub := cgo.Handle(ps).Value().(*pubsub.PubSub)
+	topic, err := psub.Join(goTopicStr)
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(topic))
+}
+
+//export TopicSubscribe
+func (tp C.uintptr_t) TopicSubscribe() C.uintptr_t {
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	topic := cgo.Handle(tp).Value().(*pubsub.Topic)
+	sub, err := topic.Subscribe()
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(sub))
+}
+
+//export TopicPublish
+func (tp C.uintptr_t) TopicPublish(data []byte) int {
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	topic := cgo.Handle(tp).Value().(*pubsub.Topic)
+	err := topic.Publish(context.TODO(), data)
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
+	}
+	return 0
+}
+
+//export SubscriptionNext
+func (sub C.uintptr_t) SubscriptionNext() C.uintptr_t {
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	subscription := cgo.Handle(sub).Value().(*pubsub.Subscription)
+	message, err := subscription.Next(context.TODO())
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(message))
+}
+
+//export MessageData
+func (m C.uintptr_t) MessageData(buffer []byte) int {
+	msg := cgo.Handle(m).Value().(*pubsub.Message)
+	return copy(buffer, msg.Data)
 }

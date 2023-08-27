@@ -1,7 +1,8 @@
 use crate::utils::helpers::bytes_to_binary;
 use ethereum_types::{H160, H256, U256};
 use lighthouse_types::{
-    BitList, Epoch, ExecutionBlockHash, FixedVector, PublicKeyBytes, Slot, Unsigned, VariableList,
+    BitList, Epoch, ExecutionBlockHash, FixedVector, PublicKeyBytes, SignatureBytes, Slot,
+    Unsigned, VariableList,
 };
 use rustler::Binary;
 use ssz::Encode;
@@ -44,6 +45,12 @@ impl<'a> FromLH<'a, [u8; 4]> for Binary<'a> {
 impl<'a> FromLH<'a, PublicKeyBytes> for Binary<'a> {
     fn from(value: PublicKeyBytes, env: rustler::Env<'a>) -> Self {
         bytes_to_binary(env, value.as_serialized())
+    }
+}
+
+impl<'a> FromLH<'a, SignatureBytes> for Binary<'a> {
+    fn from(value: SignatureBytes, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value.serialize())
     }
 }
 
