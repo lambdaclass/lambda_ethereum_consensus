@@ -10,7 +10,7 @@ Rust side (`native/ssz_nif`):
 
 1. Look for the struct definition in the *[lighthouse_types](https://github.com/sigp/lighthouse/tree/stable/consensus/types)* crate (it should have the same name as in the [spec](https://github.com/ethereum/consensus-specs/tree/dev)).
 2. Add the struct definition to the corresponding module under `native/ssz_nif/src/types`, surrounding it with `gen_struct` and adding the `#[derive(NifStruct)]` and `#[module …]` attributes (you can look at `beacon_chain.rs` for examples).
-3. If the lighthouse struct uses generics, you’ll have to alias it in `native/ssz_nif/src/lh_types.rs`, and use that same name for your struct.
+3. If the lighthouse struct uses generics, you’ll have to alias it in `native/ssz_nif/src/lh_types.rs`, and use that same name for your struct (for `EthSpec` generics, also see ["Some things to keep in mind"](#some-things-to-keep-in-mind))
 4. Translate the types used (`Epoch`, `[u64; 32]`, etc.) to ones that implement *rustler* traits (you can look at [this cheat sheet](https://rustler-web.onrender.com/docs/cheat-sheet), or at the already implemented containers). These types should be equivalent to the ones used in [the official spec](https://github.com/ethereum/consensus-specs/tree/dev).
 5. If it fails because `FromElx` or `FromLH` are not implemented for types X and Y, add those implementations in `utils/from_elx.rs` and `utils/from_lh.rs` respectively.
 6. Add the type name to the list in `to_ssz` and `from_ssz`.
