@@ -24,3 +24,9 @@ pub(crate) struct Validator {
     pub(crate) exit_epoch: Epoch,
     pub(crate) withdrawable_epoch: Epoch,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct VoluntaryExit {
+    pub(crate) epoch: Epoch,
+    pub(crate) validator_index: ValidatorIndex,
+}

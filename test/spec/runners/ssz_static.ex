@@ -14,7 +14,7 @@ defmodule SSZStaticTestRunner do
     # "HistoricalBatch",
     # "PendingAttestation",
     "Validator",
-    # "VoluntaryExit",
+    "VoluntaryExit",
     # "DepositData",
     # "Deposit",
     # "DepositMessage"
