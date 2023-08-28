@@ -6,7 +6,7 @@
 //!  - Add the type to [`to_ssz`] and [`from_ssz`] "match" macros
 
 pub(crate) mod elx_types;
-pub(crate) mod rs_types;
+pub(crate) mod ssz_types;
 pub(crate) mod utils;
 
 use crate::utils::{helpers::bytes_to_binary, match_schema_and_decode, match_schema_and_encode};

@@ -6,7 +6,7 @@ macro_rules! match_schema_and_encode {
     (($schema:expr, $map:expr) => { $($t:tt),* $(,)? }) => {
         match $schema {
             $(
-                stringify!($t) => $crate::utils::helpers::encode_ssz::<elx_types::$t, rs_types::$t>($map),
+                stringify!($t) => $crate::utils::helpers::encode_ssz::<elx_types::$t, ssz_types::$t>($map),
             )*
             _ => unreachable!(),
         }
@@ -17,7 +17,7 @@ macro_rules! match_schema_and_decode {
     (($schema:expr, $bytes:expr, $env:expr) => { $($t:tt),* $(,)? }) => {
         match $schema {
             $(
-                stringify!($t) => $crate::utils::helpers::decode_ssz::<elx_types::$t, rs_types::$t>($bytes, $env),
+                stringify!($t) => $crate::utils::helpers::decode_ssz::<elx_types::$t, ssz_types::$t>($bytes, $env),
             )*
             _ => unreachable!(),
         }
@@ -46,8 +46,8 @@ macro_rules! gen_struct {
                 $field_vis $field_name : $field_ty
             ),*
         }
-        impl<'a> $crate::utils::from_lh::FromLH<'a, $crate::rs_types::$name> for $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
-            fn from(lh: $crate::rs_types::$name, env: ::rustler::Env<'a>) -> Self {
+        impl<'a> $crate::utils::from_lh::FromLH<'a, $crate::ssz_types::$name> for $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
+            fn from(lh: $crate::ssz_types::$name, env: ::rustler::Env<'a>) -> Self {
                 $(
                     let $field_name = $crate::utils::from_lh::FromLH::from(lh.$field_name, env);
                 )*
@@ -57,7 +57,7 @@ macro_rules! gen_struct {
             }
         }
 
-        impl$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::utils::from_elx::FromElx<$name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?> for $crate::rs_types::$name {
+        impl$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::utils::from_elx::FromElx<$name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?> for $crate::ssz_types::$name {
             fn from(elx: $name) -> Self {
                 $(
                     let $field_name = $crate::utils::from_elx::FromElx::from(elx.$field_name);
