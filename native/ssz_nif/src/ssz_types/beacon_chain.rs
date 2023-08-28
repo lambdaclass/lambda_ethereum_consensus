@@ -1,7 +1,5 @@
+use super::*;
 use ssz_derive::{Decode, Encode};
-
-type Byte32 = [u8; 32];
-type Root = Byte32;
 
 #[derive(Encode, Decode, Default)]
 pub(crate) struct Checkpoint {
