@@ -6,11 +6,11 @@ defmodule SSZStaticTestRunner do
   """
 
   @enabled [
-    # "AttestationData",
+    "AttestationData",
     "Checkpoint",
     # "Eth1Data",
-    # "Fork",
-    # "ForkData",
+    "Fork",
+    "ForkData",
     # "HistoricalBatch",
     # "PendingAttestation",
     "Validator",

@@ -1,4 +1,4 @@
-use crate::utils::helpers::bytes_to_binary;
+use crate::{ssz_types::Root, utils::helpers::bytes_to_binary};
 use ethereum_types::H256;
 use rustler::Binary;
 
@@ -31,5 +31,20 @@ impl<'a, const N: usize> FromLH<'a, [u8; N]> for Binary<'a> {
 impl<'a> FromLH<'a, H256> for Binary<'a> {
     fn from(value: H256, env: rustler::Env<'a>) -> Self {
         bytes_to_binary(env, value.as_bytes())
+    }
+}
+
+impl<'a> FromLH<'a, [u8; 4]> for Binary<'a> {
+    fn from(value: [u8; 4], env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value)
+    }
+}
+
+impl<'a> FromLH<'a, Vec<Root>> for Vec<Binary<'a>> {
+    fn from(value: Vec<Root>, env: rustler::Env<'a>) -> Self {
+        value
+            .into_iter()
+            .map(|root| bytes_to_binary(env, &root))
+            .collect()
     }
 }

@@ -30,3 +30,38 @@ pub(crate) struct VoluntaryExit {
     pub(crate) epoch: Epoch,
     pub(crate) validator_index: ValidatorIndex,
 }
+
+#[derive(Encode, Decode, Default)]
+pub(crate) struct AttestationData {
+    pub(crate) slot: u64,
+    pub(crate) index: u64,
+    pub(crate) beacon_block_root: Root,
+    pub(crate) source: Checkpoint,
+    pub(crate) target: Checkpoint,
+}
+
+#[derive(Encode, Decode, Default)]
+pub(crate) struct Fork {
+    pub(crate) previous_version: Version,
+    pub(crate) current_version: Version,
+    pub(crate) epoch: u64,
+}
+
+#[derive(Encode, Decode, Default)]
+pub(crate) struct ForkData {
+    pub(crate) current_version: Version,
+    pub(crate) genesis_validators_root: Root,
+}
+
+#[derive(Encode, Decode, Default)]
+pub(crate) struct Eth1Data {
+    pub(crate) deposit_root: Root,
+    pub(crate) deposit_count: u64,
+    pub(crate) block_hash: Hash32,
+}
+
+#[derive(Encode, Decode, Default)]
+pub(crate) struct HistoricalBatch {
+    pub(crate) block_roots: Vec<Root>,
+    pub(crate) state_roots: Vec<Root>,
+}

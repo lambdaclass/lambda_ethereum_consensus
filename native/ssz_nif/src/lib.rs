@@ -29,13 +29,12 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
     let serialized = match_schema_and_encode!(
         (schema, map) => {
             HistoricalSummary,
-            // AttestationData,
+            AttestationData,
             Checkpoint,
-            // Eth1Data,
-            // Fork,
-            // ForkData,
-            // HistoricalBatchMainnet,
-            // HistoricalBatchMinimal,
+            Eth1Data,
+            Fork,
+            ForkData,
+            HistoricalBatch,
             // PendingAttestationMainnet,
             Validator,
             // DepositData,
@@ -54,11 +53,11 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
     match_schema_and_decode!(
         (schema, &bytes, env) => {
             HistoricalSummary,
-            // AttestationData,
+            AttestationData,
             Checkpoint,
             // Eth1Data,
-            // Fork,
-            // ForkData,
+            Fork,
+            ForkData,
             // HistoricalBatchMainnet,
             // HistoricalBatchMinimal,
             // PendingAttestationMainnet,
