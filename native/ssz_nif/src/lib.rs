@@ -27,23 +27,27 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
     let schema = schema.to_term(env).atom_to_string().unwrap();
     let schema = &schema[PREFIX_SIZE..];
     let serialized = match_schema_and_encode!(
-        (schema, map) => {
-            AttestationData,
-            Checkpoint,
-            Eth1Data,
-            Fork,
-            ForkData,
-            HistoricalBatchMainnet,
-            HistoricalBatchMinimal,
-            PendingAttestationMainnet,
-            Validator,
-            DepositData,
-            VoluntaryExit,
-            Deposit,
-            AttestationMainnet,
-            AttestationMinimal,
-        }
-    );
+            (schema, map) => {
+                AttestationData,
+                Checkpoint,
+                Eth1Data,
+                Fork,
+                ForkData,
+                HistoricalBatchMainnet,
+                HistoricalBatchMinimal,
+                PendingAttestationMainnet,
+                Validator,
+                DepositData,
+                VoluntaryExit,
+                Deposit,
+    <<<<<<< HEAD
+                AttestationMainnet,
+                AttestationMinimal,
+    =======
+                DepositMessage
+    >>>>>>> main
+            }
+        );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 
@@ -65,6 +69,7 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             DepositData,
             VoluntaryExit,
             Deposit,
+            DepositMessage,
             AttestationMainnet,
             AttestationMinimal,
         }

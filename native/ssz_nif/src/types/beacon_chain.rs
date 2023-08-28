@@ -141,6 +141,17 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.DepositMessage"]
+    /// Corresponds to [`lighthouse_types::DepositMessage`]
+    pub(crate) struct DepositMessage<'a> {
+        pubkey: Binary<'a>,
+        withdrawal_credentials: Binary<'a>,
+        amount: u64,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.AttestationMainnet"]
     /// Corresponds to [`lighthouse_types::Attestation]
     /// with `T` = [`lighthouse_types::MainnetEthSpec`]
