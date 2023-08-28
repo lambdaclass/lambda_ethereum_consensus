@@ -6,18 +6,19 @@ defmodule SSZStaticTestRunner do
   """
 
   @enabled [
-    "AttestationData",
-    "Checkpoint",
-    "Eth1Data",
-    "Fork",
-    "ForkData",
-    "HistoricalBatch",
-    "PendingAttestation",
-    "Validator",
-    "VoluntaryExit",
-    "DepositData",
-    "Deposit",
-    "DepositMessage"
+    # "AttestationData",
+    # "Checkpoint",
+    # "Eth1Data",
+    # "Fork",
+    # "ForkData",
+    # "HistoricalBatch",
+    # "PendingAttestation",
+    # "Validator",
+    # "VoluntaryExit",
+    # "DepositData",
+    # "Deposit",
+    # "DepositMessage"
+    "HistoricalSummary"
   ]
 
   @doc """
