@@ -1,6 +1,6 @@
 defmodule SszTypes.ExecutionPayloadHeaderMainnet do
   @moduledoc """
-  Struct definition for `ExecutionPayloadHeaderCapellaMainnet`.
+  Struct definition for `ExecutionPayloadHeaderMainnet`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
@@ -26,19 +26,19 @@ defmodule SszTypes.ExecutionPayloadHeaderMainnet do
   defstruct fields
 
   @type t :: %__MODULE__{
-          parent_hash: SszTypes.block_hash(),
-          fee_recipient: SszTypes.address(),
+          parent_hash: SszTypes.hash32(),
+          fee_recipient: SszTypes.execution_address(),
           state_root: SszTypes.root(),
           receipts_root: SszTypes.root(),
-          logs_bloom: SszTypes.gwei(),
-          prev_randao: SszTypes.hash256(),
+          logs_bloom: SszTypes.list(),
+          prev_randao: SszTypes.bytes32(),
           block_number: SszTypes.uint64(),
           gas_limit: SszTypes.uint64(),
           gas_used: SszTypes.uint64(),
           timestamp: SszTypes.uint64(),
-          extra_data: SszTypes.uint64(),
-          base_fee_per_gas: SszTypes.u256(),
-          block_hash: SszTypes.block_hash(),
+          extra_data: SszTypes.list(),
+          base_fee_per_gas: SszTypes.uint256(),
+          block_hash: SszTypes.hash32(),
           transactions_root: SszTypes.root(),
           withdrawals_root: SszTypes.root()
         }

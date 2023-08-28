@@ -1,6 +1,6 @@
 defmodule SszTypes.ExecutionPayloadHeaderMinimal do
   @moduledoc """
-  Struct definition for `ExecutionPayloadHeaderCapellaMinimal`.
+  Struct definition for `ExecutionPayloadHeaderMinimal`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
@@ -26,20 +26,20 @@ defmodule SszTypes.ExecutionPayloadHeaderMinimal do
   defstruct fields
 
   @type t :: %__MODULE__{
-          parent_hash: SszTypes.gwei(),
-          fee_recipient: SszTypes.gwei(),
-          state_root: SszTypes.gwei(),
-          receipts_root: SszTypes.gwei(),
-          logs_bloom: SszTypes.gwei(),
-          prev_randao: SszTypes.gwei(),
-          block_number: SszTypes.gwei(),
-          gas_limit: SszTypes.gwei(),
-          gas_used: SszTypes.gwei(),
-          timestamp: SszTypes.gwei(),
-          extra_data: SszTypes.gwei(),
-          base_fee_per_gas: SszTypes.gwei(),
-          block_hash: SszTypes.gwei(),
-          transactions_root: SszTypes.gwei(),
-          withdrawals_root: SszTypes.gwei()
+          parent_hash: SszTypes.hash32(),
+          fee_recipient: SszTypes.execution_address(),
+          state_root: SszTypes.root(),
+          receipts_root: SszTypes.root(),
+          logs_bloom: SszTypes.list(),
+          prev_randao: SszTypes.bytes32(),
+          block_number: SszTypes.uint64(),
+          gas_limit: SszTypes.uint64(),
+          gas_used: SszTypes.uint64(),
+          timestamp: SszTypes.uint64(),
+          extra_data: SszTypes.list(),
+          base_fee_per_gas: SszTypes.uint256(),
+          block_hash: SszTypes.hash32(),
+          transactions_root: SszTypes.root(),
+          withdrawals_root: SszTypes.root()
         }
 end

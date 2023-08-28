@@ -17,7 +17,9 @@ defmodule SSZStaticTestRunner do
     "VoluntaryExit",
     "DepositData",
     "Deposit",
-    "ExecutionPayloadHeader"
+    "ExecutionPayloadHeader",
+    "ExecutionPayload",
+    "Withdrawal"
   ]
 
   @doc """
