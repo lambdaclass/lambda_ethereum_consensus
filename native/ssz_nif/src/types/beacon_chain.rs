@@ -138,3 +138,14 @@ gen_struct!(
         data: DepositData<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.DepositMessage"]
+    /// Corresponds to [`lighthouse_types::DepositMessage`]
+    pub(crate) struct DepositMessage<'a> {
+        pubkey: Binary<'a>,
+        withdrawal_credentials: Binary<'a>,
+        amount: u64,
+    }
+);
