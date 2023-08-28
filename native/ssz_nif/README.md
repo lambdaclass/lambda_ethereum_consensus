@@ -25,5 +25,5 @@ Elixir side:
 
 ## Some things to keep in mind
 
-- Some SSZ containers depend on the configuration: "mainnet", "minimal". Their names should be suffixed with the configuration name. For example: [`HistoricalBatch`](../../lib/ssz_types/pending_attestation.ex).
+- Some SSZ containers depend on the configuration: "mainnet", "minimal". Their names should be suffixed with the configuration name. For example: [`PendingAttestation`](../../lib/ssz_types/pending_attestation.ex).
 - Since we run spec-tests with the "minimal" configurations and the target configuration is "mainnet", those two should be prioritized. If the constants they depend on are different (you can check this by comparing their values in [the spec](https://github.com/ethereum/consensus-specs/tree/dev/configs)), two containers need to be implemented: one for "mainnet", and another for "minimal". Also, the container names should be mapped in the corresponding spec-test config (e.g: [mainnet](../../test/spec/configs/mainnet.ex), [minimal](../../test/spec/configs/minimal.ex)) An example of this is [`HistoricalBatch`](../../lib/ssz_types/historical_batch.ex).
