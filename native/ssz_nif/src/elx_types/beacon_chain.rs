@@ -1,3 +1,4 @@
+use super::*;
 use crate::utils::gen_struct;
 use rustler::{Binary, NifStruct};
 
@@ -148,9 +149,6 @@ gen_struct!(
 //         amount: u64,
 //     }
 // );
-
-type Byte32<'a> = Binary<'a>;
-type Root<'a> = Byte32<'a>;
 
 gen_struct!(
     #[derive(NifStruct)]
