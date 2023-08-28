@@ -1,15 +1,14 @@
 use crate::utils::gen_struct;
 use rustler::{Binary, NifStruct};
 
-// gen_struct!(
-//     #[derive(NifStruct)]
-//     #[module = "SszTypes.Checkpoint"]
-//     /// Corresponds to [`lighthouse_types::Checkpoint`]
-//     pub(crate) struct Checkpoint<'a> {
-//         epoch: u64,
-//         root: Binary<'a>,
-//     }
-// );
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Checkpoint"]
+    pub(crate) struct Checkpoint<'a> {
+        epoch: u64,
+        root: Binary<'a>,
+    }
+);
 
 // gen_struct!(
 //     #[derive(NifStruct)]

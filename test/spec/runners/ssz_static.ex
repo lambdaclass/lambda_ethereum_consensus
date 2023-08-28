@@ -7,7 +7,7 @@ defmodule SSZStaticTestRunner do
 
   @enabled [
     # "AttestationData",
-    # "Checkpoint",
+    "Checkpoint",
     # "Eth1Data",
     # "Fork",
     # "ForkData",

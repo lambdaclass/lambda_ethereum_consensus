@@ -1,20 +1,19 @@
 use ethereum_types::H256;
 use rustler::Binary;
-use ssz::Decode;
 
 pub(crate) trait FromElx<T> {
     fn from(value: T) -> Self;
 }
 
-macro_rules! trivial_impl {
-    ($t:ty => $u:ty) => {
-        impl FromElx<$t> for $u {
-            fn from(value: $t) -> Self {
-                value.into()
-            }
-        }
-    };
-}
+// macro_rules! trivial_impl {
+//     ($t:ty => $u:ty) => {
+//         impl FromElx<$t> for $u {
+//             fn from(value: $t) -> Self {
+//                 value.into()
+//             }
+//         }
+//     };
+// }
 
 impl<T> FromElx<T> for T {
     fn from(value: Self) -> Self {

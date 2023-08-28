@@ -6,15 +6,15 @@ pub(crate) trait FromLH<'a, T> {
     fn from(value: T, env: rustler::Env<'a>) -> Self;
 }
 
-macro_rules! trivial_impl {
-    ($t:ty => $u:ty) => {
-        impl<'a> FromLH<'a, $t> for $u {
-            fn from(value: $t, _env: rustler::Env<'a>) -> Self {
-                value.into()
-            }
-        }
-    };
-}
+// macro_rules! trivial_impl {
+//     ($t:ty => $u:ty) => {
+//         impl<'a> FromLH<'a, $t> for $u {
+//             fn from(value: $t, _env: rustler::Env<'a>) -> Self {
+//                 value.into()
+//             }
+//         }
+//     };
+// }
 
 impl<'a, T> FromLH<'a, T> for T {
     fn from(value: Self, _env: rustler::Env<'a>) -> Self {
