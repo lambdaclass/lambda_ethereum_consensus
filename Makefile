@@ -1,4 +1,4 @@
-.PHONY: iex deps test clean compile-native \
+.PHONY: iex deps test clean compile-native format \
 		clean-vectors download-vectors uncompress-vectors
 
 # Delete current file when command fails
@@ -86,3 +86,6 @@ spec-test: compile-native tests/minimal #$(SPECTEST_DIRS)
 lint:
 	mix format --check-formatted
 	mix credo --strict
+
+format:
+	mix format
