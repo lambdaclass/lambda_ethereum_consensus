@@ -21,7 +21,7 @@ impl<T> FromElx<T> for T {
     }
 }
 
-impl<'a> FromElx<Binary<'a>> for [u8; 32] {
+impl<'a, const N: usize> FromElx<Binary<'a>> for [u8; N] {
     fn from(value: Binary<'a>) -> Self {
         value.as_slice().try_into().unwrap()
     }
@@ -30,12 +30,5 @@ impl<'a> FromElx<Binary<'a>> for [u8; 32] {
 impl<'a> FromElx<Binary<'a>> for H256 {
     fn from(value: Binary) -> Self {
         H256::from_slice(value.as_slice())
-    }
-}
-
-impl<'a> FromElx<Binary<'a>> for [u8; 4] {
-    fn from(value: Binary) -> Self {
-        // length is checked from the Elixir side
-        value.as_slice().try_into().unwrap()
     }
 }
