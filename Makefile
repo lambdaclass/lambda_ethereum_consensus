@@ -87,7 +87,7 @@ lint:
 	mix format --check-formatted
 	mix credo --strict
 
-format:
+fmt:
 	mix format
 	cd native/libp2p_nif; go fmt
 	cd native/snappy_nif; cargo fmt
