@@ -28,19 +28,20 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
     let schema = &schema[PREFIX_SIZE..];
     let serialized = match_schema_and_encode!(
         (schema, map) => {
-            AttestationData,
-            Checkpoint,
-            Eth1Data,
-            Fork,
-            ForkData,
-            HistoricalBatchMainnet,
-            HistoricalBatchMinimal,
-            PendingAttestationMainnet,
-            Validator,
-            DepositData,
-            VoluntaryExit,
-            Deposit,
-            DepositMessage
+            HistoricalSummary,
+            // AttestationData,
+            // Checkpoint,
+            // Eth1Data,
+            // Fork,
+            // ForkData,
+            // HistoricalBatchMainnet,
+            // HistoricalBatchMinimal,
+            // PendingAttestationMainnet,
+            // Validator,
+            // DepositData,
+            // VoluntaryExit,
+            // Deposit,
+            // DepositMessage
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -52,19 +53,20 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
     let schema = &schema[PREFIX_SIZE..];
     match_schema_and_decode!(
         (schema, &bytes, env) => {
-            AttestationData,
-            Checkpoint,
-            Eth1Data,
-            Fork,
-            ForkData,
-            HistoricalBatchMainnet,
-            HistoricalBatchMinimal,
-            PendingAttestationMainnet,
-            Validator,
-            DepositData,
-            VoluntaryExit,
-            Deposit,
-            DepositMessage
+            HistoricalSummary,
+            // AttestationData,
+            // Checkpoint,
+            // Eth1Data,
+            // Fork,
+            // ForkData,
+            // HistoricalBatchMainnet,
+            // HistoricalBatchMinimal,
+            // PendingAttestationMainnet,
+            // Validator,
+            // DepositData,
+            // VoluntaryExit,
+            // Deposit,
+            // DepositMessage
         }
     )
 }

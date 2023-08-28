@@ -149,3 +149,15 @@ gen_struct!(
         amount: u64,
     }
 );
+
+type Byte32<'a> = Binary<'a>;
+type Root<'a> = Byte32<'a>;
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.HistoricalSummary"]
+    pub(crate) struct HistoricalSummary<'a> {
+        pub(crate) block_summary_root: Root<'a>,
+        pub(crate) state_summary_root: Root<'a>,
+    }
+);

@@ -28,6 +28,12 @@ impl<'a, T> FromLH<'a, T> for T {
     }
 }
 
+impl<'a> FromLH<'a, [u8; 32]> for Binary<'a> {
+    fn from(value: [u8; 32], env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value)
+    }
+}
+
 impl<'a> FromLH<'a, H256> for Binary<'a> {
     fn from(value: H256, env: rustler::Env<'a>) -> Self {
         bytes_to_binary(env, value.as_bytes())
