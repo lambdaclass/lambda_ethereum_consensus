@@ -1,4 +1,4 @@
-.PHONY: iex deps test clean compile-native format \
+.PHONY: iex deps test clean compile-native fmt \
 		clean-vectors download-vectors uncompress-vectors
 
 # Delete current file when command fails
