@@ -135,7 +135,7 @@ gen_struct!(
     /// Corresponds to [`lighthouse_types::Deposit`]
     pub(crate) struct Deposit<'a> {
         proof: Vec<Binary<'a>>,
-        data: DepositData<'a>
+        data: DepositData<'a>,
     }
 );
 
