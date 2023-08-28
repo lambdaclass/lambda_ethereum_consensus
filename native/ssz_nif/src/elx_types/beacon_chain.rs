@@ -89,17 +89,16 @@ gen_struct!(
     }
 );
 
-// gen_struct!(
-//     #[derive(NifStruct)]
-//     #[module = "SszTypes.DepositData"]
-//     /// Corresponds to [`lighthouse_types::DepositData`]
-//     pub(crate) struct DepositData<'a> {
-//         pubkey: Binary<'a>,
-//         withdrawal_credentials: Binary<'a>,
-//         amount: u64,
-//         signature: Binary<'a>,
-//     }
-// );
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.DepositData"]
+    pub(crate) struct DepositData<'a> {
+        pubkey: BLSPubkey<'a>,
+        withdrawal_credentials: Bytes32<'a>,
+        amount: Gwei,
+        signature: BLSSignature<'a>,
+    }
+);
 
 gen_struct!(
     #[derive(NifStruct)]
@@ -110,15 +109,14 @@ gen_struct!(
     }
 );
 
-// gen_struct!(
-//     #[derive(NifStruct)]
-//     #[module = "SszTypes.Deposit"]
-//     /// Corresponds to [`lighthouse_types::Deposit`]
-//     pub(crate) struct Deposit<'a> {
-//         proof: Vec<Binary<'a>>,
-//         data: DepositData<'a>,
-//     }
-// );
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Deposit"]
+    pub(crate) struct Deposit<'a> {
+        proof: Vec<Bytes32<'a>>,
+        data: DepositData<'a>,
+    }
+);
 
 // gen_struct!(
 //     #[derive(NifStruct)]

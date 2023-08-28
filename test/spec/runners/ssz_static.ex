@@ -15,8 +15,8 @@ defmodule SSZStaticTestRunner do
     # "PendingAttestation",
     "Validator",
     "VoluntaryExit",
-    # "DepositData",
-    # "Deposit",
+    "DepositData",
+    "Deposit",
     # "DepositMessage"
     "HistoricalSummary"
   ]

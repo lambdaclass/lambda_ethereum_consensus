@@ -65,3 +65,17 @@ pub(crate) struct HistoricalBatch {
     pub(crate) block_roots: Vec<Root>,
     pub(crate) state_roots: Vec<Root>,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct Deposit {
+    pub(crate) proof: FixedVector<Bytes32, /* DEPOSIT_CONTRACT_TREE_DEPTH + 1 */ typenum::U33>,
+    pub(crate) data: DepositData,
+}
+
+#[derive(Encode, Decode)]
+pub(crate) struct DepositData {
+    pub(crate) pubkey: BLSPubkey,
+    pub(crate) withdrawal_credentials: Bytes32,
+    pub(crate) amount: Gwei,
+    pub(crate) signature: BLSSignature,
+}
