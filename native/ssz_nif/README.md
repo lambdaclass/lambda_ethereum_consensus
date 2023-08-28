@@ -22,3 +22,8 @@ Elixir side:
 2. Add the struct definition and `t` type. You should try to mimic types used in the official spec, like those in `lib/ssz_types/mod.ex` (feel free to add any that are missing).
 3. Add the implemented struct's name to the `@enabled` list in the `SSZStaticTestRunner` module (file `test/spec/runners/ssz_static.ex`).
 4. Check that spec-tests pass, running `make spec-test`. For this, you should have all the project dependencies installed (this is explained in the main readme).
+
+## Some things to keep in mind
+
+- Some SSZ containers depend on the configuration: "mainnet", "minimal". Their names should be suffixed with the configuration name. For example: [`HistoricalBatch`](../../lib/ssz_types/pending_attestation.ex).
+- Since we run spec-tests with the "minimal" configurations and the target configuration is "mainnet", those two should be prioritized. If the constants they depend on are different (you can check this by comparing their values in [the spec](https://github.com/ethereum/consensus-specs/tree/dev/configs)), two containers need to be implemented: one for "mainnet", and another for "minimal". Also, the container names should be mapped in the corresponding spec-test config (e.g: [mainnet](../../test/spec/configs/mainnet.ex), [minimal](../../test/spec/configs/minimal.ex)) An example of this is [`HistoricalBatch`](../../lib/ssz_types/historical_batch.ex).
