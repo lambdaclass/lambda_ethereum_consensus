@@ -34,13 +34,6 @@ impl<'a> FromElx<Binary<'a>> for H256 {
     }
 }
 
-impl<'a> FromElx<Binary<'a>> for [u8; 4] {
-    fn from(value: Binary) -> Self {
-        // length is checked from the Elixir side
-        value.as_slice().try_into().unwrap()
-    }
-}
-
 impl<'a> FromElx<Vec<Binary<'a>>> for Vec<Root> {
     fn from(value: Vec<Binary>) -> Self {
         // for each root, convert to a slice of 32 bytes
