@@ -89,3 +89,6 @@ lint:
 
 format:
 	mix format
+	cd native/libp2p_nif; go fmt
+	cd native/snappy_nif; cargo fmt
+	cd native/ssz_nif; cargo fmt
