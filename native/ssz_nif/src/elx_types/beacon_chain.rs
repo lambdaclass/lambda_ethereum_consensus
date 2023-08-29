@@ -153,3 +153,13 @@ gen_struct!(
         validator_index: ValidatorIndex,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Attestation"]
+    pub(crate) struct Attestation<'a> {
+        aggregation_bits: Binary<'a>,
+        data: AttestationData<'a>,
+        signature: BLSSignature<'a>,
+    }
+);
