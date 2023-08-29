@@ -12,7 +12,7 @@ Rust side (`native/ssz_nif`):
 2. Add the struct definition to the corresponding module under `native/ssz_nif/src/ssz_types` (e.g. `beacon_chain.rs` for containers defined in `beacon-chain.md`) with `#[derive(Encode, Decode)]`.
 3. Do the same under `native/ssz_nif/src/elx_types`, but surrounding it with the `gen_struct` macro, and adding `#[derive(NifStruct)]` and `#[module …]` attributes (you can look at `beacon_chain.rs` for examples).
 4. Translate the types used (`Epoch`, `Slot`, etc.) to ones that implement *rustler* traits (you can look at [this cheat sheet](https://rustler-web.onrender.com/docs/cheat-sheet), or at the already implemented containers).
-5. If it fails because `FromElx` or `FromLH` are not implemented for types X and Y, add those implementations in `utils/from_elx.rs` and `utils/from_lh.rs` respectively.
+5. If it fails because `FromElx` or `FromSsz` are not implemented for types X and Y, add those implementations in `utils/from_elx.rs` and `utils/from_ssz.rs` respectively.
 6. Add the type name to the list in `to_ssz` and `from_ssz`.
 7. Check that it compiles correctly.
 

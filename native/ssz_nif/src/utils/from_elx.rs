@@ -1,4 +1,3 @@
-use ethereum_types::H256;
 use rustler::Binary;
 use ssz::Decode;
 use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector};
@@ -26,12 +25,6 @@ trivial_impl!(u64);
 impl<'a, const N: usize> FromElx<Binary<'a>> for [u8; N] {
     fn from(value: Binary<'a>) -> Self {
         value.as_slice().try_into().unwrap()
-    }
-}
-
-impl<'a> FromElx<Binary<'a>> for H256 {
-    fn from(value: Binary) -> Self {
-        H256::from_slice(value.as_slice())
     }
 }
 

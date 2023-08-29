@@ -1,5 +1,5 @@
 pub(crate) mod from_elx;
-pub(crate) mod from_lh;
+pub(crate) mod from_ssz;
 pub(crate) mod helpers;
 
 macro_rules! match_schema_and_encode {
@@ -46,10 +46,10 @@ macro_rules! gen_struct {
                 $field_vis $field_name : $field_ty
             ),*
         }
-        impl<'a> $crate::utils::from_lh::FromLH<'a, $crate::ssz_types::$name> for $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
-            fn from(lh: $crate::ssz_types::$name, env: ::rustler::Env<'a>) -> Self {
+        impl<'a> $crate::utils::from_ssz::FromSsz<'a, $crate::ssz_types::$name> for $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
+            fn from(ssz: $crate::ssz_types::$name, env: ::rustler::Env<'a>) -> Self {
                 $(
-                    let $field_name = $crate::utils::from_lh::FromLH::from(lh.$field_name, env);
+                    let $field_name = $crate::utils::from_ssz::FromSsz::from(ssz.$field_name, env);
                 )*
                 Self {
                     $($field_name),*

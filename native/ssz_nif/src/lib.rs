@@ -2,7 +2,7 @@
 //!
 //! To add a new type:
 //!  - Add the type to the [`types`] module, using the [`gen_struct`] macro
-//!  - Implement the necessary traits ([`FromElx`] and [`FromLH`]) for its attributes
+//!  - Implement the necessary traits ([`FromElx`] and [`FromSsz`]) for its attributes
 //!  - Add the type to [`to_ssz`] and [`from_ssz`] "match" macros
 
 pub(crate) mod elx_types;
