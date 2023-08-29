@@ -153,13 +153,3 @@ gen_struct!(
         signature: BLSSignature<'a>,
     }
 );
-
-gen_struct!(
-    #[derive(NifStruct)]
-    #[module = "SszTypes.AttestationMinimal"]
-    pub(crate) struct AttestationMinimal<'a> {
-        aggregation_bits: Binary<'a>,
-        data: AttestationData<'a>,
-        signature: BLSSignature<'a>,
-    }
-);

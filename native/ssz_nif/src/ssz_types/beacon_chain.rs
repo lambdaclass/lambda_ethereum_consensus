@@ -101,11 +101,8 @@ pub(crate) struct VoluntaryExit {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct AttestationBase<N: Unsigned> {
-    pub(crate) aggregation_bits: BitList</* MAX_VALIDATORS_PER_COMMITTEE */ N>,
+pub(crate) struct Attestation {
+    pub(crate) aggregation_bits: BitList</* MAX_VALIDATORS_PER_COMMITTEE */ typenum::U2048>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
-
-pub(crate) type Attestation = AttestationBase<typenum::U2048>;
-pub(crate) type AttestationMinimal = AttestationBase<typenum::U2048>;
