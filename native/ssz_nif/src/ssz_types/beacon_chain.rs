@@ -123,3 +123,9 @@ pub(crate) struct BeaconBlockHeader {
     pub(crate) state_root: Root,
     pub(crate) body_root: Root,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct SignedBeaconBlockHeader {
+    pub(crate) message: BeaconBlockHeader,
+    pub(crate) signature: BLSSignature,
+}
