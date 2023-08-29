@@ -178,6 +178,15 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.SignedVoluntaryExit"]
+    pub(crate) struct SignedVoluntaryExit<'a> {
+        message: VoluntaryExit,
+        signature: BLSSignature<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.SignedBeaconBlockHeader"]
     pub(crate) struct SignedBeaconBlockHeader<'a> {
         message: BeaconBlockHeader<'a>,
