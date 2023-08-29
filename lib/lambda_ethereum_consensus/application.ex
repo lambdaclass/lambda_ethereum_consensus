@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.Application do
   def start(_type, _args) do
     children = [
       # Starts a worker by calling: LambdaEthereumConsensus.Worker.start_link(arg)
-      # {LambdaEthereumConsensus.Worker, arg}
+      {LambdaEthereumConsensus.Network, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
