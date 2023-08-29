@@ -20,7 +20,8 @@ defmodule SSZStaticTestRunner do
     "Deposit",
     "DepositMessage",
     "HistoricalSummary",
-    "Attestation"
+    "Attestation",
+    "BeaconBlockHeader"
   ]
 
   @doc """

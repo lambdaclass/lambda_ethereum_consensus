@@ -114,3 +114,12 @@ pub(crate) struct Attestation {
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct BeaconBlockHeader {
+    pub(crate) slot: Slot,
+    pub(crate) proposer_index: ValidatorIndex,
+    pub(crate) parent_root: Root,
+    pub(crate) state_root: Root,
+    pub(crate) body_root: Root,
+}

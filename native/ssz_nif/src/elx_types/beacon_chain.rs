@@ -163,3 +163,15 @@ gen_struct!(
         signature: BLSSignature<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlockHeader"]
+    pub(crate) struct BeaconBlockHeader<'a> {
+        slot: Slot,
+        proposer_index: ValidatorIndex,
+        parent_root: Root<'a>,
+        state_root: Root<'a>,
+        body_root: Root<'a>,
+    }
+);
