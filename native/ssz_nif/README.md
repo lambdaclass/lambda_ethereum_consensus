@@ -27,4 +27,4 @@ After implementing everything, check that spec-tests pass by running `make spec-
 
 ## Containers with constants
 
-Some SSZ containers depend on variable configuration, for example `HistoricalBatch`. In these cases, we should implement the functionality for the "minimal" and "mainnet" presets.
+Some SSZ containers depend on variable configuration, for example `HistoricalBatch`. In these cases, we should implement the functionality for the "minimal" and "mainnet" presets, and map the test handlers with their corresponding structs inside the config modules from [`test/spec/configs`](../../test/spec/configs).
