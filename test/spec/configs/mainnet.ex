@@ -6,8 +6,8 @@ defmodule MainnetConfig do
   @type_equivalence %{
     "HistoricalBatch" => "HistoricalBatchMainnet",
     "PendingAttestation" => "PendingAttestationMainnet",
-    "ExecutionPayloadHeader" => "ExecutionPayloadHeaderMainnet",
-    "ExecutionPayload" => "ExecutionPayloadMainnet"
+    "ExecutionPayloadHeader" => "ExecutionPayloadHeaderCapellaMainnet",
+    "ExecutionPayload" => "ExecutionPayloadCapellaMainnet"
   }
 
   def get_handler_mapping, do: @type_equivalence

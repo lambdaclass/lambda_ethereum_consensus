@@ -1,6 +1,6 @@
-defmodule SszTypes.ExecutionPayloadMinimal do
+defmodule SszTypes.ExecutionPayloadHeaderCapellaMinimal do
   @moduledoc """
-  Struct definition for `ExecutionPayloadCapellaMinimal`.
+  Struct definition for `ExecutionPayloadHeaderMinimal`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
@@ -18,8 +18,8 @@ defmodule SszTypes.ExecutionPayloadMinimal do
     :extra_data,
     :base_fee_per_gas,
     :block_hash,
-    :transactions,
-    :withdrawals
+    :transactions_root,
+    :withdrawals_root
   ]
 
   @enforce_keys fields
@@ -30,16 +30,16 @@ defmodule SszTypes.ExecutionPayloadMinimal do
           fee_recipient: SszTypes.execution_address(),
           state_root: SszTypes.root(),
           receipts_root: SszTypes.root(),
-          logs_bloom: SszTypes.list(),
+          logs_bloom: binary(),
           prev_randao: SszTypes.bytes32(),
           block_number: SszTypes.uint64(),
           gas_limit: SszTypes.uint64(),
           gas_used: SszTypes.uint64(),
           timestamp: SszTypes.uint64(),
-          extra_data: SszTypes.list(),
-          base_fee_per_gas: SszTypes.uint256(),
+          extra_data: binary(),
+          base_fee_per_gas: String,
           block_hash: SszTypes.hash32(),
-          transactions: list(SszTypes.transaction()),
-          withdrawals: list(SszTypes.Withdrawal)
+          transactions_root: SszTypes.root(),
+          withdrawals_root: SszTypes.root()
         }
 end

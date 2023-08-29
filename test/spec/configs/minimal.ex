@@ -6,8 +6,8 @@ defmodule MinimalConfig do
   @type_equivalence %{
     "HistoricalBatch" => "HistoricalBatchMinimal",
     "PendingAttestation" => "PendingAttestationMainnet",
-    "ExecutionPayload" => "ExecutionPayloadMinimal",
-    "ExecutionPayloadHeader" => "ExecutionPayloadHeaderMinimal"
+    "ExecutionPayload" => "ExecutionPayloadCapellaMinimal",
+    "ExecutionPayloadHeader" => "ExecutionPayloadHeaderCapellaMinimal"
   }
 
   def get_handler_mapping, do: @type_equivalence
