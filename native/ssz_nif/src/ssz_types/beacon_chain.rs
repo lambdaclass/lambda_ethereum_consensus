@@ -58,7 +58,7 @@ pub(crate) struct Eth1Data {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct HistoricalBatchMainnet {
+pub(crate) struct HistoricalBatch {
     pub(crate) block_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ typenum::U8192>,
     pub(crate) state_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ typenum::U8192>,
 }

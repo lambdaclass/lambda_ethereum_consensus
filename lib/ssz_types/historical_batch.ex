@@ -1,6 +1,6 @@
-defmodule SszTypes.HistoricalBatchMainnet do
+defmodule SszTypes.HistoricalBatch do
   @moduledoc """
-  Struct definition for `HistoricalBatchMainnet`.
+  Struct definition for `HistoricalBatch`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
 

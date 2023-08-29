@@ -80,8 +80,8 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.HistoricalBatchMainnet"]
-    pub(crate) struct HistoricalBatchMainnet<'a> {
+    #[module = "SszTypes.HistoricalBatch"]
+    pub(crate) struct HistoricalBatch<'a> {
         block_roots: Vec<Root<'a>>,
         state_roots: Vec<Root<'a>>,
     }
