@@ -75,6 +75,8 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             DepositMessage,
             Attestation,
             BeaconBlockHeader,
+            AttesterSlashing,
+            SignedVoluntaryExit,
         }
     )
 }

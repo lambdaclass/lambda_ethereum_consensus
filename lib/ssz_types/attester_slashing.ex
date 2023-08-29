@@ -1,6 +1,6 @@
 defmodule SszTypes.AttesterSlashing do
   @moduledoc """
-  Struct definition for `AttestationMainnet`.
+  Struct definition for `AttesterSlashing`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
