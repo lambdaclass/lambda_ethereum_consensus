@@ -41,7 +41,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             DepositData,
             VoluntaryExit,
             Deposit,
-            DepositMessage,,
+            DepositMessage,
             BeaconBlockHeader,
         }
     );
