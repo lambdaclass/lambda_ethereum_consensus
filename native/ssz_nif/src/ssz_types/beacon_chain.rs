@@ -125,6 +125,12 @@ pub(crate) struct BeaconBlockHeader {
 }
 
 #[derive(Encode, Decode)]
+pub(crate) struct SignedBeaconBlockHeader {
+    pub(crate) message: BeaconBlockHeader,
+    pub(crate) signature: BLSSignature,
+}
+
+#[derive(Encode, Decode)]
 pub(crate) struct AttesterSlashing {
     pub(crate) attestation_1: IndexedAttestation,
     pub(crate) attestation_2: IndexedAttestation,
