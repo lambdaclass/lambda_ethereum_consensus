@@ -147,10 +147,9 @@ gen_struct!(
 gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.BeaconBlockHeader"]
-    /// Corresponds to [`lighthouse_types::BeaconBlockHeader`]
     pub(crate) struct BeaconBlockHeader<'a> {
         slot: Slot,
-        proposer_index: ProposerIndex,
+        proposer_index: ValidatorIndex,
         parent_root: Root<'a>,
         state_root: Root<'a>,
         body_root: Root<'a>,

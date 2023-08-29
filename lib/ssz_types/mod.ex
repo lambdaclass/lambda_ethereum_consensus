@@ -21,7 +21,6 @@ defmodule SszTypes do
   @type epoch :: uint64
   @type commitee_index :: uint64
   @type validator_index :: uint64
-  @type proposer_index :: uint64
   @type gwei :: uint64
   @type root :: bytes32
   @type hash32 :: bytes32
