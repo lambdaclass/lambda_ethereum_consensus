@@ -22,7 +22,8 @@ defmodule SSZStaticTestRunner do
     "HistoricalSummary",
     "Attestation",
     "BeaconBlockHeader",
-    "SignedVoluntaryExit"
+    "SignedVoluntaryExit",
+    "SignedBeaconBlockHeader"
   ]
 
   @doc """

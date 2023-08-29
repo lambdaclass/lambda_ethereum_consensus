@@ -45,6 +45,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             DepositMessage,
             Attestation,
             BeaconBlockHeader,
+            SignedBeaconBlockHeader,
             SignedVoluntaryExit,
         }
     );
@@ -74,6 +75,7 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             DepositMessage,
             Attestation,
             BeaconBlockHeader,
+            SignedBeaconBlockHeader,
             SignedVoluntaryExit,
         }
     )
