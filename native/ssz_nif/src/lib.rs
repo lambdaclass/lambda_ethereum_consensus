@@ -5,8 +5,8 @@
 //!  - Implement the necessary traits ([`FromElx`] and [`FromLH`]) for its attributes
 //!  - Add the type to [`to_ssz`] and [`from_ssz`] "match" macros
 
-pub(crate) mod lh_types;
-pub(crate) mod types;
+pub(crate) mod elx_types;
+pub(crate) mod ssz_types;
 pub(crate) mod utils;
 
 use crate::utils::{helpers::bytes_to_binary, match_schema_and_decode, match_schema_and_encode};
@@ -28,19 +28,20 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
     let schema = &schema[PREFIX_SIZE..];
     let serialized = match_schema_and_encode!(
         (schema, map) => {
+            HistoricalSummary,
             AttestationData,
             Checkpoint,
             Eth1Data,
             Fork,
             ForkData,
-            HistoricalBatchMainnet,
+            HistoricalBatch,
             HistoricalBatchMinimal,
-            PendingAttestationMainnet,
+            PendingAttestation,
             Validator,
             DepositData,
             VoluntaryExit,
             Deposit,
-            DepositMessage
+            DepositMessage,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -52,19 +53,20 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
     let schema = &schema[PREFIX_SIZE..];
     match_schema_and_decode!(
         (schema, &bytes, env) => {
+            HistoricalSummary,
             AttestationData,
             Checkpoint,
             Eth1Data,
             Fork,
             ForkData,
-            HistoricalBatchMainnet,
+            HistoricalBatch,
             HistoricalBatchMinimal,
-            PendingAttestationMainnet,
+            PendingAttestation,
             Validator,
             DepositData,
             VoluntaryExit,
             Deposit,
-            DepositMessage
+            DepositMessage,
         }
     )
 }

@@ -17,7 +17,8 @@ defmodule SSZStaticTestRunner do
     "VoluntaryExit",
     "DepositData",
     "Deposit",
-    "DepositMessage"
+    "DepositMessage",
+    "HistoricalSummary"
   ]
 
   @doc """
