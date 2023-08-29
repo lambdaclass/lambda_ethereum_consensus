@@ -53,11 +53,11 @@ where
     }
 }
 
-impl<'a> FromElx<Binary<'a>> for AggregateSignature {
-    fn from(value: Binary<'a>) -> Self {
-        AggregateSignature::deserialize(value.as_slice()).unwrap()
-    }
-}
+// impl<'a> FromElx<Binary<'a>> for AggregateSignature {
+//     fn from(value: Binary<'a>) -> Self {
+//         AggregateSignature::deserialize(value.as_slice()).unwrap()
+//     }
+// }
 
 impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitList<N> {
     fn from(value: Binary<'a>) -> Self {

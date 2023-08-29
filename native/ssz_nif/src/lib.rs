@@ -42,7 +42,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             VoluntaryExit,
             Deposit,
             DepositMessage,
-            AttestationMainnet,
+            Attestation,
             AttestationMinimal,
         }
     );
@@ -69,7 +69,7 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             VoluntaryExit,
             Deposit,
             DepositMessage,
-            AttestationMainnet,
+            Attestation,
             AttestationMinimal,
         }
     )
