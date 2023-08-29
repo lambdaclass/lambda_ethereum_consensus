@@ -8,16 +8,16 @@ defmodule SSZStaticTestRunner do
   @enabled [
     "AttestationData",
     "Checkpoint",
-    # "Eth1Data",
+    "Eth1Data",
     "Fork",
     "ForkData",
-    # "HistoricalBatch",
-    # "PendingAttestation",
+    "HistoricalBatch",
+    "PendingAttestation",
     "Validator",
     "VoluntaryExit",
     "DepositData",
     "Deposit",
-    # "DepositMessage"
+    "DepositMessage",
     "HistoricalSummary"
   ]
 

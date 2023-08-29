@@ -34,13 +34,14 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             Eth1Data,
             Fork,
             ForkData,
-            HistoricalBatch,
-            // PendingAttestationMainnet,
+            HistoricalBatchMainnet,
+            HistoricalBatchMinimal,
+            PendingAttestation,
             Validator,
             DepositData,
             VoluntaryExit,
             Deposit,
-            // DepositMessage
+            DepositMessage,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -55,17 +56,17 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             HistoricalSummary,
             AttestationData,
             Checkpoint,
-            // Eth1Data,
+            Eth1Data,
             Fork,
             ForkData,
-            // HistoricalBatchMainnet,
-            // HistoricalBatchMinimal,
-            // PendingAttestationMainnet,
+            HistoricalBatchMainnet,
+            HistoricalBatchMinimal,
+            PendingAttestation,
             Validator,
             DepositData,
             VoluntaryExit,
             Deposit,
-            // DepositMessage
+            DepositMessage,
         }
     )
 }

@@ -1,6 +1,7 @@
 use crate::utils::helpers::bytes_to_binary;
 use rustler::Binary;
-use ssz_types::{typenum::Unsigned, FixedVector};
+use ssz::Encode;
+use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector};
 
 pub(crate) trait FromLH<'a, T> {
     fn from(value: T, env: rustler::Env<'a>) -> Self;
@@ -54,5 +55,17 @@ where
 {
     fn from(value: Vec<Ssz>, env: rustler::Env<'a>) -> Self {
         value.into_iter().map(|v| FromLH::from(v, env)).collect()
+    }
+}
+
+impl<'a, N: Unsigned> FromLH<'a, BitVector<N>> for Binary<'a> {
+    fn from(value: BitVector<N>, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value.as_ssz_bytes())
+    }
+}
+
+impl<'a, N: Unsigned> FromLH<'a, BitList<N>> for Binary<'a> {
+    fn from(value: BitList<N>, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value.as_ssz_bytes())
     }
 }

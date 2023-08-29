@@ -1,6 +1,7 @@
 use ethereum_types::H256;
 use rustler::Binary;
-use ssz_types::{typenum::Unsigned, FixedVector};
+use ssz::Decode;
+use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector};
 
 pub(crate) trait FromElx<T> {
     fn from(value: T) -> Self;
@@ -56,5 +57,17 @@ where
 {
     fn from(value: Vec<Elx>) -> Self {
         FixedVector::new(value.into_iter().map(FromElx::from).collect()).unwrap()
+    }
+}
+
+impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitList<N> {
+    fn from(value: Binary<'a>) -> Self {
+        Decode::from_ssz_bytes(&value).unwrap()
+    }
+}
+
+impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitVector<N> {
+    fn from(value: Binary<'a>) -> Self {
+        Decode::from_ssz_bytes(&value).unwrap()
     }
 }

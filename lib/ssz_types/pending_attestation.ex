@@ -1,6 +1,6 @@
-defmodule SszTypes.PendingAttestationMainnet do
+defmodule SszTypes.PendingAttestation do
   @moduledoc """
-  Struct definition for `PendingAttestationMainnet`.
+  Struct definition for `PendingAttestation`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
