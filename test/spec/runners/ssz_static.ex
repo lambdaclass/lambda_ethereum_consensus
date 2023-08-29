@@ -18,7 +18,8 @@ defmodule SSZStaticTestRunner do
     "DepositData",
     "Deposit",
     "DepositMessage",
-    "HistoricalSummary"
+    "HistoricalSummary",
+    "Attestation"
   ]
 
   @doc """

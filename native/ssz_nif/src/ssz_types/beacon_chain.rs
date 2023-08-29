@@ -99,3 +99,10 @@ pub(crate) struct VoluntaryExit {
     pub(crate) epoch: Epoch,
     pub(crate) validator_index: ValidatorIndex,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct Attestation {
+    pub(crate) aggregation_bits: BitList</* MAX_VALIDATORS_PER_COMMITTEE */ typenum::U2048>,
+    pub(crate) data: AttestationData,
+    pub(crate) signature: BLSSignature,
+}
