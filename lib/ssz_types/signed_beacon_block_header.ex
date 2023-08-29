@@ -13,7 +13,7 @@ defmodule SszTypes.SignedBeaconBlockHeader do
   defstruct fields
 
   @type t :: %__MODULE__{
-          message: SszTypes.beacon_block_header(),
+          message: SszTypes.BeaconBlockHeader.t(),
           signature: SszTypes.bls_signature()
         }
 end
