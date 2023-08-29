@@ -129,3 +129,9 @@ pub(crate) struct AttesterSlashing {
     pub(crate) attestation_1: IndexedAttestation,
     pub(crate) attestation_2: IndexedAttestation,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct SignedVoluntaryExit {
+    pub(crate) message: VoluntaryExit,
+    pub(crate) signature: BLSSignature,
+}
