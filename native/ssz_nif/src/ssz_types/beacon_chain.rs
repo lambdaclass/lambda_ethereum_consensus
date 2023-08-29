@@ -1,5 +1,6 @@
 use super::*;
 use ssz_derive::{Decode, Encode};
+use ssz_types::typenum::Unsigned;
 use ssz_types::BitList;
 
 #[derive(Encode, Decode)]
@@ -58,16 +59,13 @@ pub(crate) struct Eth1Data {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct HistoricalBatch {
-    pub(crate) block_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ typenum::U8192>,
-    pub(crate) state_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ typenum::U8192>,
+pub(crate) struct HistoricalBatchBase<N: Unsigned> {
+    pub(crate) block_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ N>,
+    pub(crate) state_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ N>,
 }
 
-#[derive(Encode, Decode)]
-pub(crate) struct HistoricalBatchMinimal {
-    pub(crate) block_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ typenum::U64>,
-    pub(crate) state_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ typenum::U64>,
-}
+pub(crate) type HistoricalBatch = HistoricalBatchBase<typenum::U8192>;
+pub(crate) type HistoricalBatchMinimal = HistoricalBatchBase<typenum::U64>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct DepositMessage {
