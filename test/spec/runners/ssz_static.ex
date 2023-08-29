@@ -12,6 +12,7 @@ defmodule SSZStaticTestRunner do
     "Fork",
     "ForkData",
     "HistoricalBatch",
+    "IndexedAttestation",
     "PendingAttestation",
     "Validator",
     "VoluntaryExit",

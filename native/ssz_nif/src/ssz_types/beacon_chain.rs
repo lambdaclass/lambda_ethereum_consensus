@@ -44,6 +44,14 @@ pub(crate) struct AttestationData {
 }
 
 #[derive(Encode, Decode)]
+pub(crate) struct IndexedAttestation {
+    pub(crate) attesting_indices:
+        VariableList<ValidatorIndex, /* MAX_VALIDATORS_PER_COMMITTEE */ typenum::U2048>,
+    pub(crate) data: AttestationData,
+    pub(crate) signature: BLSSignature,
+}
+
+#[derive(Encode, Decode)]
 pub(crate) struct PendingAttestation {
     pub(crate) aggregation_bits: BitList</* MAX_VALIDATORS_PER_COMMITTEE */ typenum::U2048>,
     pub(crate) data: AttestationData,

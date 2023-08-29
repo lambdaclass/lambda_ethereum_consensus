@@ -1,6 +1,6 @@
 use rustler::Binary;
 use ssz::Decode;
-use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector};
+use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector, VariableList};
 
 pub(crate) trait FromElx<T> {
     fn from(value: T) -> Self;
@@ -28,7 +28,7 @@ impl<'a, const N: usize> FromElx<Binary<'a>> for [u8; N] {
     }
 }
 
-impl<'a, Elx, Ssz> FromElx<Vec<Elx>> for Vec<Ssz>
+impl<Elx, Ssz> FromElx<Vec<Elx>> for Vec<Ssz>
 where
     Ssz: FromElx<Elx>,
 {
@@ -43,13 +43,23 @@ impl<'a, N: Unsigned> FromElx<Binary<'a>> for FixedVector<u8, N> {
     }
 }
 
-impl<'a, Ssz, Elx, N> FromElx<Vec<Elx>> for FixedVector<Ssz, N>
+impl<Ssz, Elx, N> FromElx<Vec<Elx>> for FixedVector<Ssz, N>
 where
     Ssz: FromElx<Elx>,
     N: Unsigned,
 {
     fn from(value: Vec<Elx>) -> Self {
         FixedVector::new(value.into_iter().map(FromElx::from).collect()).unwrap()
+    }
+}
+
+impl<Ssz, Elx, N> FromElx<Vec<Elx>> for VariableList<Ssz, N>
+where
+    Ssz: FromElx<Elx>,
+    N: Unsigned,
+{
+    fn from(value: Vec<Elx>) -> Self {
+        VariableList::new(value.into_iter().map(FromElx::from).collect()).unwrap()
     }
 }
 
