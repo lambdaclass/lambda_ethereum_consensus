@@ -13,7 +13,7 @@ defmodule SszTypes.SignedVoluntaryExit do
   defstruct fields
 
   @type t :: %__MODULE__{
-          message: SszTypes.VoluntaryExit,
+          message: SszTypes.VoluntaryExit.t(),
           signature: SszTypes.bls_signature()
         }
 end
