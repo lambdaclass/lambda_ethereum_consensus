@@ -163,3 +163,12 @@ gen_struct!(
         signature: BLSSignature<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SignedVoluntaryExit"]
+    pub(crate) struct SignedVoluntaryExit<'a> {
+        message: VoluntaryExit,
+        signature: BLSSignature<'a>,
+    }
+);

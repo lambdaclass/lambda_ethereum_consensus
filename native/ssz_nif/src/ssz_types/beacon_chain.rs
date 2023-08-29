@@ -114,3 +114,9 @@ pub(crate) struct Attestation {
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct SignedVoluntaryExit {
+    pub(crate) message: VoluntaryExit,
+    pub(crate) signature: BLSSignature,
+}
