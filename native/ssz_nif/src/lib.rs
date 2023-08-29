@@ -30,6 +30,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
         (schema, map) => {
             HistoricalSummary,
             AttestationData,
+            IndexedAttestation,
             Checkpoint,
             Eth1Data,
             Fork,
@@ -42,6 +43,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             VoluntaryExit,
             Deposit,
             DepositMessage,
+            Attestation,
             BeaconBlockHeader,
         }
     );
@@ -56,6 +58,7 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
         (schema, &bytes, env) => {
             HistoricalSummary,
             AttestationData,
+            IndexedAttestation,
             Checkpoint,
             Eth1Data,
             Fork,
@@ -68,6 +71,7 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             VoluntaryExit,
             Deposit,
             DepositMessage,
+            Attestation,
             BeaconBlockHeader,
         }
     )

@@ -59,6 +59,16 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.IndexedAttestation"]
+    pub(crate) struct IndexedAttestation<'a> {
+        attesting_indices: Vec<ValidatorIndex>, // Max size: MAX_VALIDATORS_PER_COMMITTEE
+        data: AttestationData<'a>,
+        signature: BLSSignature<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.PendingAttestation"]
     pub(crate) struct PendingAttestation<'a> {
         aggregation_bits: Binary<'a>, // Max size: MAX_VALIDATORS_PER_COMMITTEE
@@ -141,6 +151,16 @@ gen_struct!(
     pub(crate) struct VoluntaryExit {
         epoch: Epoch,
         validator_index: ValidatorIndex,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Attestation"]
+    pub(crate) struct Attestation<'a> {
+        aggregation_bits: Binary<'a>,
+        data: AttestationData<'a>,
+        signature: BLSSignature<'a>,
     }
 );
 

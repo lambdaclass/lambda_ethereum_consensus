@@ -12,6 +12,7 @@ defmodule SSZStaticTestRunner do
     "Fork",
     "ForkData",
     "HistoricalBatch",
+    "IndexedAttestation",
     "PendingAttestation",
     "Validator",
     "VoluntaryExit",
@@ -19,6 +20,7 @@ defmodule SSZStaticTestRunner do
     "Deposit",
     "DepositMessage",
     "HistoricalSummary",
+    "Attestation",
     "BeaconBlockHeader"
   ]
 
