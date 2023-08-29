@@ -99,3 +99,12 @@ pub(crate) struct VoluntaryExit {
     pub(crate) epoch: Epoch,
     pub(crate) validator_index: ValidatorIndex,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct BeaconBlockHeader {
+    pub(crate) slot: Slot,
+    pub(crate) proposer_index: ProposerIndex,
+    pub(crate) parent_root: Root,
+    pub(crate) state_root: Root,
+    pub(crate) body_root: Root,
+}

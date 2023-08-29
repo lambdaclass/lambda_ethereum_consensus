@@ -17,7 +17,7 @@ defmodule SszTypes.BeaconBlockHeader do
 
   @type t :: %__MODULE__{
           slot: SszTypes.slot(),
-          proposer_index: SszTypes.validator_index(),
+          proposer_index: SszTypes.proposer_index(),
           parent_root: SszTypes.root(),
           state_root: SszTypes.root(),
           body_root: SszTypes.root()
