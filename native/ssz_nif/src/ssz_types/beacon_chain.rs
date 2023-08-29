@@ -123,3 +123,9 @@ pub(crate) struct BeaconBlockHeader {
     pub(crate) state_root: Root,
     pub(crate) body_root: Root,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct AttesterSlashing {
+    pub(crate) attestation_1: IndexedAttestation,
+    pub(crate) attestation_2: IndexedAttestation,
+}
