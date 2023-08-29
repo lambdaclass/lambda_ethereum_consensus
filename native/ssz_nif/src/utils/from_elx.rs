@@ -1,74 +1,66 @@
-use ethereum_types::H256;
-use lighthouse_types::{
-    BitList, Epoch, FixedVector, PublicKeyBytes, SignatureBytes, Slot, Unsigned,
-};
 use rustler::Binary;
 use ssz::Decode;
+use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector};
 
 pub(crate) trait FromElx<T> {
     fn from(value: T) -> Self;
 }
 
 macro_rules! trivial_impl {
-    ($t:ty => $u:ty) => {
-        impl FromElx<$t> for $u {
+    ($t:ty) => {
+        impl FromElx<$t> for $t {
             fn from(value: $t) -> Self {
-                value.into()
+                value
             }
         }
     };
 }
 
-trivial_impl!(u64 => Epoch);
-trivial_impl!(u64 => Slot);
+trivial_impl!(bool);
+trivial_impl!(u8);
+trivial_impl!(u16);
+trivial_impl!(u32);
+trivial_impl!(u64);
 
-impl<T> FromElx<T> for T {
-    fn from(value: Self) -> Self {
-        value
-    }
-}
-
-impl<'a> FromElx<Binary<'a>> for H256 {
-    fn from(value: Binary) -> Self {
-        H256::from_slice(value.as_slice())
-    }
-}
-
-impl<'a> FromElx<Binary<'a>> for [u8; 4] {
-    fn from(value: Binary) -> Self {
-        // length is checked from the Elixir side
+impl<'a, const N: usize> FromElx<Binary<'a>> for [u8; N] {
+    fn from(value: Binary<'a>) -> Self {
         value.as_slice().try_into().unwrap()
     }
 }
 
-impl<'a> FromElx<Binary<'a>> for PublicKeyBytes {
+impl<'a, Elx, Ssz> FromElx<Vec<Elx>> for Vec<Ssz>
+where
+    Ssz: FromElx<Elx>,
+{
+    fn from(value: Vec<Elx>) -> Self {
+        // for each root, convert to a slice of 32 bytes
+        value.into_iter().map(FromElx::from).collect()
+    }
+}
+impl<'a, N: Unsigned> FromElx<Binary<'a>> for FixedVector<u8, N> {
     fn from(value: Binary<'a>) -> Self {
-        // length is checked from the Elixir side
-        PublicKeyBytes::deserialize(value.as_slice()).unwrap()
+        FixedVector::new(value.as_slice().to_vec()).unwrap()
     }
 }
 
-impl<'a> FromElx<Binary<'a>> for SignatureBytes {
-    fn from(value: Binary<'a>) -> Self {
-        // length is checked from the Elixir side
-        SignatureBytes::deserialize(value.as_slice()).unwrap()
+impl<'a, Ssz, Elx, N> FromElx<Vec<Elx>> for FixedVector<Ssz, N>
+where
+    Ssz: FromElx<Elx>,
+    N: Unsigned,
+{
+    fn from(value: Vec<Elx>) -> Self {
+        FixedVector::new(value.into_iter().map(FromElx::from).collect()).unwrap()
     }
 }
 
 impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitList<N> {
     fn from(value: Binary<'a>) -> Self {
-        // TODO: remove unwrap?
-        Self::from_ssz_bytes(&value).unwrap()
+        Decode::from_ssz_bytes(&value).unwrap()
     }
 }
 
-impl<'a, Elx, Lh, N> FromElx<Vec<Elx>> for FixedVector<Lh, N>
-where
-    Lh: FromElx<Elx>,
-    N: Unsigned,
-{
-    fn from(value: Vec<Elx>) -> Self {
-        // TODO: remove unwrap?
-        Self::new(value.into_iter().map(FromElx::from).collect()).unwrap()
+impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitVector<N> {
+    fn from(value: Binary<'a>) -> Self {
+        Decode::from_ssz_bytes(&value).unwrap()
     }
 }
