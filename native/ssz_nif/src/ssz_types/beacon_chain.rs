@@ -1,4 +1,5 @@
 use super::*;
+use ethereum_types::U256;
 use ssz_derive::{Decode, Encode};
 use ssz_types::typenum::Unsigned;
 use ssz_types::BitList;
@@ -168,9 +169,9 @@ pub(crate) struct ExecutionPayloadHeader {
     pub(crate) gas_limit: u64,
     pub(crate) gas_used: u64,
     pub(crate) timestamp: u64,
-    pub(crate) extra_data: FixedVector<u64, /* MAX_EXTRA_DATA_BYTES */ typenum::U32>,
+    pub(crate) extra_data: VariableList<u64, /* MAX_EXTRA_DATA_BYTES */ typenum::U32>,
     pub(crate) base_fee_per_gas: Bytes32,
-    pub(crate) block_hash: Hash32,
+    pub(crate) block_hash: U256,
     pub(crate) transactions_root: Root,
     pub(crate) withdrawals_root: Root,
 }
@@ -181,15 +182,15 @@ pub(crate) struct ExecutionPayload {
     pub(crate) fee_recipient: ExecutionAddress,
     pub(crate) state_root: Root,
     pub(crate) receipts_root: Root,
-    pub(crate) logs_bloom: FixedVector<u64, /* BYTES_PER_LOGS_BLOOM */ typenum::U256>,
+    pub(crate) logs_bloom: VariableList<u64, /* BYTES_PER_LOGS_BLOOM */ typenum::U256>,
     pub(crate) prev_randao: Bytes32,
     pub(crate) block_number: u64,
     pub(crate) gas_limit: u64,
     pub(crate) gas_used: u64,
     pub(crate) timestamp: u64,
-    pub(crate) extra_data: FixedVector<u64, /* MAX_EXTRA_DATA_BYTES */ typenum::U32>,
+    pub(crate) extra_data: VariableList<u64, /* MAX_EXTRA_DATA_BYTES */ typenum::U32>,
     pub(crate) base_fee_per_gas: Bytes32,
-    pub(crate) block_hash: Hash32,
+    pub(crate) block_hash: U256,
     pub(crate) transactions:
         VariableList<Transaction, /* MAX_TRANSACTIONS_PER_PAYLOAD */ typenum::U1048576>,
     pub(crate) withdrawals:
