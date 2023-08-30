@@ -20,6 +20,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "Arkenan",
+      "name": "Tomás Arjovsky",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6244161?v=4",
+      "profile": "https://github.com/Arkenan",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "commitType": "docs",
