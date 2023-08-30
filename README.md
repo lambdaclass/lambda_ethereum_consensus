@@ -222,6 +222,13 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/MegaRedHand"><img src="https://avatars.githubusercontent.com/u/47506558?v=4?s=100" width="100px;" alt="Tomás"/><br /><sub><b>Tomás</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=MegaRedHand" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
 
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
