@@ -1,13 +1,27 @@
 {
-  "projectName": "Lambda Ethereum Consensus Client",
-  "projectOwner": "LambdaClass",
+  "projectName": "lambda_ethereum_consensus",
+  "projectOwner": "lambdaclass",
   "repoType": "github",
   "repoHost": "https://github.com",
-  "files": ["README.md"],
+  "files": [
+    "README.md"
+  ],
   "imageSize": 100,
   "commit": false,
   "contributorsPerLine": 7,
   "linkToUsage": false,
   "skipCi": false,
-  "contributors": []
+  "contributors": [
+    {
+      "login": "berwingan",
+      "name": "berwin",
+      "avatar_url": "https://avatars.githubusercontent.com/u/45144467?v=4",
+      "profile": "https://github.com/berwingan",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular"
 }
