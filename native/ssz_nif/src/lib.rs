@@ -81,6 +81,8 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             AttesterSlashing,
             SignedBeaconBlockHeader,
             SignedVoluntaryExit,
+            ProposerSlashing,
+            SigningData,
         }
     )
 }
