@@ -226,6 +226,7 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
   <tbody>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/mpaulucci"><img src="https://avatars.githubusercontent.com/u/1040971?v=4?s=100" width="100px;" alt="Martin Paulucci"/><br /><sub><b>Martin Paulucci</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=mpaulucci" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Arkenan"><img src="https://avatars.githubusercontent.com/u/6244161?v=4?s=100" width="100px;" alt="Tomás Arjovsky"/><br /><sub><b>Tomás Arjovsky</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=Arkenan" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
