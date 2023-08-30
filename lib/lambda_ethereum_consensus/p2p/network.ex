@@ -1,33 +1,22 @@
 defmodule LambdaEthereumConsensus.Network do
   @moduledoc """
-  This module consumes events created by ..Discovery.
+  Contains a pair of Host and PubSub handles.
   """
-  use Broadway
+  use Agent
 
   def start_link(_opts) do
-    {:ok, host} = Libp2p.host_new()
-    {:ok, peerstore} = Libp2p.host_peerstore(host)
-
-    Broadway.start_link(__MODULE__,
-      name: __MODULE__,
-      context: {host, peerstore},
-      producer: [
-        module: {LambdaEthereumConsensus.Discovery, []},
-        concurrency: 1
-      ],
-      processors: [
-        default: [concurrency: 10]
-      ]
+    Agent.start_link(
+      &start_network/0,
+      name: __MODULE__
     )
   end
 
-  @impl true
-  def handle_message(_, %Broadway.Message{data: {id, addrs}} = message, {host, peerstore}) do
-    :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
-
-    case Libp2p.host_connect(host, id) do
-      :ok -> message
-      {:error, reason} -> Broadway.Message.failed(message, reason)
-    end
+  def start_network do
+    {:ok, host} = Libp2p.host_new()
+    {:ok, gsub} = Libp2p.new_gossip_sub(host)
+    {host, gsub}
   end
+
+  def get_host, do: Agent.get(__MODULE__, fn {host, _} -> host end)
+  def get_gossipsub, do: Agent.get(__MODULE__, fn {_, gsub} -> gsub end)
 end
