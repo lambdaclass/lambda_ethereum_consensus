@@ -141,3 +141,9 @@ pub(crate) struct SignedVoluntaryExit {
     pub(crate) message: VoluntaryExit,
     pub(crate) signature: BLSSignature,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct ProposerSlashing {
+    pub(crate) signed_header_1: SignedBeaconBlockHeader,
+    pub(crate) signed_header_2: SignedBeaconBlockHeader,
+}

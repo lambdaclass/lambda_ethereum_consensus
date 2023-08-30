@@ -24,7 +24,8 @@ defmodule SSZStaticTestRunner do
     "BeaconBlockHeader",
     "SignedVoluntaryExit",
     "SignedBeaconBlockHeader",
-    "AttestorSlashing"
+    "AttestorSlashing",
+    "ProposerSlashing"
   ]
 
   @doc """
