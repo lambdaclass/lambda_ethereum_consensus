@@ -414,7 +414,9 @@ func NewGossipSub(h C.uintptr_t) C.uintptr_t {
 	params.HistoryLength = 6
 	params.HistoryGossip = 3
 
+	// TODO: add more options, especially WithMessageIdFn
 	options := []pubsub.Option{
+		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
 		pubsub.WithGossipSubParams(params),
 		pubsub.WithSeenMessagesTTL(550 * heartbeat),

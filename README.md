@@ -1,4 +1,4 @@
-# Lambda_Ethereum_Consensus
+# Lambda Ethereum Consensus Client
 
 [![Telegram chat](https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaconsensus%2F&logo=telegram&label=chat&color=neon)](https://t.me/lambdaconsensus)
 
@@ -33,7 +33,7 @@ Dream of becoming an Ethereum core developer? Eager to shape the protocol that w
 
   ```shell
   git clone [REPO_URL]
-  cd lambda-ethereum-consensus
+  cd lambda_ethereum_consensus
   ```
 
 - **Setup**: Once you've cloned the repository, follow the steps in the [Installing and running](#installing-and-running) section to set up your environment.

@@ -12,10 +12,21 @@ defmodule SSZStaticTestRunner do
     "Fork",
     "ForkData",
     "HistoricalBatch",
+    "IndexedAttestation",
     "PendingAttestation",
     "Validator",
     "VoluntaryExit",
-    "DepositData"
+    "DepositData",
+    "Deposit",
+    "DepositMessage",
+    "HistoricalSummary",
+    "Attestation",
+    "BeaconBlockHeader",
+    "SignedVoluntaryExit",
+    "SigningData",
+    "SignedBeaconBlockHeader",
+    "AttestorSlashing",
+    "ProposerSlashing"
   ]
 
   @doc """
