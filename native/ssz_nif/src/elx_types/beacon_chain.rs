@@ -205,6 +205,15 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.ProposerSlashing"]
+    pub(crate) struct ProposerSlashing<'a> {
+        signed_header_1: SignedBeaconBlockHeader<'a>,
+        signed_header_2: SignedBeaconBlockHeader<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.SigningData"]
     pub(crate) struct SigningData<'a> {
         object_root: Root<'a>,
