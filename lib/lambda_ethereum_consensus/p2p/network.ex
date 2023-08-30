@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Network do
+defmodule LambdaEthereumConsensus.NetworkAgent do
   @moduledoc """
   Contains a pair of Host and PubSub handles.
   """

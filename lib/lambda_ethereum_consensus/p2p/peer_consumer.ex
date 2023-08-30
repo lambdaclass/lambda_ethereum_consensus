@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.PeerConsumer do
   use Broadway
 
   def start_link(_opts) do
-    host = LambdaEthereumConsensus.Network.get_host()
+    host = LambdaEthereumConsensus.NetworkAgent.get_host()
     {:ok, peerstore} = Libp2p.host_peerstore(host)
 
     Broadway.start_link(__MODULE__,

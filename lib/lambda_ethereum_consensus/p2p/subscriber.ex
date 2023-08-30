@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Subscriber do
 
   @impl true
   def init(%{topic: topic_name}) do
-    gsub = LambdaEthereumConsensus.Network.get_gossipsub()
+    gsub = LambdaEthereumConsensus.NetworkAgent.get_gossipsub()
     {:ok, topic} = Libp2p.pub_sub_join(gsub, topic_name)
     {:ok, subscription} = Libp2p.topic_subscribe(topic)
     {:producer, subscription}
