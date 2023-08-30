@@ -41,12 +41,16 @@ defmodule LambdaEthereumConsensus.Discovery do
         {:ok, id} = Libp2p.node_id(node)
         {:ok, addrs} = Libp2p.node_multiaddr(node)
 
-        %Broadway.Message{
-          data: {id, addrs},
-          acknowledger: Broadway.NoopAcknowledger.init()
-        }
+        wrap_message({id, addrs})
       end
 
     {:noreply, messages, iterator}
+  end
+
+  defp wrap_message(msg) do
+    %Broadway.Message{
+      data: msg,
+      acknowledger: Broadway.NoopAcknowledger.init()
+    }
   end
 end

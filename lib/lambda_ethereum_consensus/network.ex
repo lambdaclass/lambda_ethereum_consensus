@@ -21,8 +21,10 @@ defmodule LambdaEthereumConsensus.Network do
   @impl true
   def handle_message(_, %Broadway.Message{data: {id, addrs}} = message, {host, peerstore}) do
     :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
-    Libp2p.host_connect(host, id)
 
-    message
+    case Libp2p.host_connect(host, id) do
+      :ok -> message
+      {:error, reason} -> Broadway.Message.failed(message, reason)
+    end
   end
 end
