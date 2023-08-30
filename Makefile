@@ -78,10 +78,10 @@ deps:
 
 # Run tests
 test: compile-native
-	mix test --exclude spectest
+	mix test --no-start --exclude spectest
 
 spec-test: compile-native tests/minimal tests/general #$(SPECTEST_DIRS)
-	mix test --only implemented_spectest
+	mix test --no-start --only implemented_spectest
 
 lint:
 	mix format --check-formatted
