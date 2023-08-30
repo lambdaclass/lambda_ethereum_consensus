@@ -1,13 +1,27 @@
 {
-  "projectName": "Lambda Ethereum Consensus Client",
-  "projectOwner": "LambdaClass",
+  "projectName": "lambda_ethereum_consensus",
+  "projectOwner": "lambdaclass",
   "repoType": "github",
   "repoHost": "https://github.com",
-  "files": ["README.md"],
+  "files": [
+    "README.md"
+  ],
   "imageSize": 100,
   "commit": false,
   "contributorsPerLine": 7,
   "linkToUsage": false,
   "skipCi": false,
-  "contributors": []
+  "contributors": [
+    {
+      "login": "f3r10",
+      "name": "Fernando Ledesma",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4682815?v=4",
+      "profile": "https://f3r10.github.io/#/all-pages",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular"
 }
