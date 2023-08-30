@@ -13,17 +13,27 @@
   "skipCi": false,
   "contributors": [
     {
+      "login": "phklive",
+      "name": "Paul-Henry Kajfasz",
+      "avatar_url": "https://avatars.githubusercontent.com/u/42912740?v=4",
+      "profile": "https://www.linkedin.com/in/paul-henrykajfasz/",
+      "contributions": [
+        "code"
+      ]
+    }
       "login": "MegaRedHand",
       "name": "Tomás",
       "avatar_url": "https://avatars.githubusercontent.com/u/47506558?v=4",
       "profile": "https://github.com/MegaRedHand",
+      "contributions": [
+        "code"
+      ]
     },
     {
       "login": "mpaulucci",
       "name": "Martin Paulucci",
       "avatar_url": "https://avatars.githubusercontent.com/u/1040971?v=4",
       "profile": "https://github.com/mpaulucci",
-    }
       "contributions": [
         "code"
       ]
