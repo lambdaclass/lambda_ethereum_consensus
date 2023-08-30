@@ -1,13 +1,27 @@
 {
-  "projectName": "Lambda Ethereum Consensus Client",
-  "projectOwner": "LambdaClass",
+  "projectName": "lambda_ethereum_consensus",
+  "projectOwner": "lambdaclass",
   "repoType": "github",
   "repoHost": "https://github.com",
-  "files": ["README.md"],
+  "files": [
+    "README.md"
+  ],
   "imageSize": 100,
   "commit": false,
   "contributorsPerLine": 7,
   "linkToUsage": false,
   "skipCi": false,
-  "contributors": []
+  "contributors": [
+    {
+      "login": "phklive",
+      "name": "Paul-Henry Kajfasz",
+      "avatar_url": "https://avatars.githubusercontent.com/u/42912740?v=4",
+      "profile": "https://www.linkedin.com/in/paul-henrykajfasz/",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular"
 }
