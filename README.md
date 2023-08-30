@@ -222,6 +222,13 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://f3r10.github.io/#/all-pages"><img src="https://avatars.githubusercontent.com/u/4682815?v=4?s=100" width="100px;" alt="Fernando Ledesma"/><br /><sub><b>Fernando Ledesma</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=f3r10" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
 
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
