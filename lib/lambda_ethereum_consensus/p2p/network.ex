@@ -1,4 +1,7 @@
 defmodule LambdaEthereumConsensus.Network do
+  @moduledoc """
+  This module consumes events created by ..Discovery.
+  """
   use Broadway
 
   def start_link(_opts) do

@@ -1,4 +1,7 @@
 defmodule LambdaEthereumConsensus.Discovery do
+  @moduledoc """
+  This module discovers new peers, and broadcasts them as events.
+  """
   use GenStage
 
   # Mainnet
