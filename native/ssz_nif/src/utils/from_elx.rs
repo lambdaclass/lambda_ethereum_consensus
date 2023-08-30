@@ -74,3 +74,9 @@ impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitVector<N> {
         Decode::from_ssz_bytes(&value).unwrap()
     }
 }
+
+impl<'a, N: Unsigned> FromElx<Binary<'a>> for VariableList<u8, N> {
+    fn from(value: Binary<'a>) -> Self {
+        VariableList::new(Binary::as_slice(&value).to_vec()).unwrap()
+    }
+}

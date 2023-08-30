@@ -83,3 +83,12 @@ impl<'a, N: Unsigned> FromSsz<'a, BitList<N>> for Binary<'a> {
         bytes_to_binary(env, &value.as_ssz_bytes())
     }
 }
+
+impl<'a, N> FromSsz<'a, VariableList<u8, N>> for Binary<'a>
+where
+    N: Unsigned,
+{
+    fn from(value: VariableList<u8, N>, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value)
+    }
+}
