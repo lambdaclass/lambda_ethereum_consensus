@@ -211,3 +211,12 @@ gen_struct!(
         signed_header_2: SignedBeaconBlockHeader<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SigningData"]
+    pub(crate) struct SigningData<'a> {
+        object_root: Root<'a>,
+        domain: Domain<'a>,
+    }
+);

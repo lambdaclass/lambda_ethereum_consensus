@@ -137,6 +137,12 @@ pub(crate) struct AttesterSlashing {
 }
 
 #[derive(Encode, Decode)]
+pub(crate) struct SigningData {
+    pub(crate) object_root: Root,
+    pub(crate) domain: Domain,
+}
+
+#[derive(Encode, Decode)]
 pub(crate) struct SignedVoluntaryExit {
     pub(crate) message: VoluntaryExit,
     pub(crate) signature: BLSSignature,
