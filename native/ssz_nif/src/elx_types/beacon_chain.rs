@@ -208,6 +208,6 @@ gen_struct!(
     #[module = "SszTypes.SigningData"]
     pub(crate) struct SigningData<'a> {
         object_root: Root<'a>,
-        domain: DomainType<'a>,
+        domain: Domain<'a>,
     }
 );

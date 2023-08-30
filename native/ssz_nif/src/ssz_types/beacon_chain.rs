@@ -139,7 +139,7 @@ pub(crate) struct AttesterSlashing {
 #[derive(Encode, Decode)]
 pub(crate) struct SigningData {
     pub(crate) object_root: Root,
-    pub(crate) domain: DomainType,
+    pub(crate) domain: Domain,
 }
 
 #[derive(Encode, Decode)]
