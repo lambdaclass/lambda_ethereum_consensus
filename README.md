@@ -222,6 +222,13 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/berwingan"><img src="https://avatars.githubusercontent.com/u/45144467?v=4?s=100" width="100px;" alt="berwin"/><br /><sub><b>berwin</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=berwingan" title="Code">💻</a></td>
+    </tr>
+  </tbody>
+</table>
 
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
