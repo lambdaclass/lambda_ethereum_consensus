@@ -24,8 +24,10 @@ const PREFIX_SIZE: usize = "Elixir.SszTypes.".len();
 
 #[rustler::nif]
 fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>> {
-    let schema = schema.to_term(env).atom_to_string().unwrap();
-    let schema = &schema[PREFIX_SIZE..];
+    let schema = schema.to_term(env).atom_to_string()?;
+    let Some(schema) = schema.get(PREFIX_SIZE..) else {
+        return Err(rustler::Error::BadArg);
+    };
     let serialized = match_schema_and_encode!(
         (schema, map) => {
             HistoricalSummary,
@@ -56,9 +58,11 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
 }
 
 #[rustler::nif]
-fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'env>, String> {
-    let schema = schema.to_term(env).atom_to_string().unwrap();
-    let schema = &schema[PREFIX_SIZE..];
+fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<Term<'env>> {
+    let schema = schema.to_term(env).atom_to_string()?;
+    let Some(schema) = schema.get(PREFIX_SIZE..) else {
+        return Err(rustler::Error::BadArg);
+    };
     match_schema_and_decode!(
         (schema, &bytes, env) => {
             HistoricalSummary,
