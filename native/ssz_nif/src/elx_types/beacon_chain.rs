@@ -175,3 +175,48 @@ gen_struct!(
         body_root: Root<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.AttesterSlashing"]
+    pub(crate) struct AttesterSlashing<'a> {
+        attestation_1: IndexedAttestation<'a>,
+        attestation_2: IndexedAttestation<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SignedVoluntaryExit"]
+    pub(crate) struct SignedVoluntaryExit<'a> {
+        message: VoluntaryExit,
+        signature: BLSSignature<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SignedBeaconBlockHeader"]
+    pub(crate) struct SignedBeaconBlockHeader<'a> {
+        message: BeaconBlockHeader<'a>,
+        signature: BLSSignature<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.ProposerSlashing"]
+    pub(crate) struct ProposerSlashing<'a> {
+        signed_header_1: SignedBeaconBlockHeader<'a>,
+        signed_header_2: SignedBeaconBlockHeader<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SigningData"]
+    pub(crate) struct SigningData<'a> {
+        object_root: Root<'a>,
+        domain: Domain<'a>,
+    }
+);

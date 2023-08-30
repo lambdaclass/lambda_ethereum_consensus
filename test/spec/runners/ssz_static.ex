@@ -21,7 +21,12 @@ defmodule SSZStaticTestRunner do
     "DepositMessage",
     "HistoricalSummary",
     "Attestation",
-    "BeaconBlockHeader"
+    "BeaconBlockHeader",
+    "SignedVoluntaryExit",
+    "SigningData",
+    "SignedBeaconBlockHeader",
+    "AttestorSlashing",
+    "ProposerSlashing"
   ]
 
   @doc """

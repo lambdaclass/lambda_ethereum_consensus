@@ -123,3 +123,33 @@ pub(crate) struct BeaconBlockHeader {
     pub(crate) state_root: Root,
     pub(crate) body_root: Root,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct SignedBeaconBlockHeader {
+    pub(crate) message: BeaconBlockHeader,
+    pub(crate) signature: BLSSignature,
+}
+
+#[derive(Encode, Decode)]
+pub(crate) struct AttesterSlashing {
+    pub(crate) attestation_1: IndexedAttestation,
+    pub(crate) attestation_2: IndexedAttestation,
+}
+
+#[derive(Encode, Decode)]
+pub(crate) struct SigningData {
+    pub(crate) object_root: Root,
+    pub(crate) domain: Domain,
+}
+
+#[derive(Encode, Decode)]
+pub(crate) struct SignedVoluntaryExit {
+    pub(crate) message: VoluntaryExit,
+    pub(crate) signature: BLSSignature,
+}
+
+#[derive(Encode, Decode)]
+pub(crate) struct ProposerSlashing {
+    pub(crate) signed_header_1: SignedBeaconBlockHeader,
+    pub(crate) signed_header_2: SignedBeaconBlockHeader,
+}
