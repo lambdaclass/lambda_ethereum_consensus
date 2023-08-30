@@ -3,7 +3,7 @@ defmodule MainnetSpecTest do
   "mainnet" config spec tests
   """
   use ExUnit.Case, async: true
-  require SpecTestUtils
+  require SpecTestGenerator
 
-  SpecTestUtils.generate_tests("mainnet")
+  SpecTestGenerator.generate_tests("mainnet")
 end
