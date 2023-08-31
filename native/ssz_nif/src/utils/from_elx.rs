@@ -1,19 +1,45 @@
-use std::fmt::{Debug, Display};
-
 use ethereum_types::U256;
 use rustler::Binary;
 use ssz::Decode;
 use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector, VariableList};
+use std::fmt::{Debug, Display};
 
-pub(crate) trait FromElx<T> {
-    fn from(value: T) -> Self;
+#[derive(Debug)]
+pub struct FromElxError(String);
+
+impl Display for FromElxError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{e}", e = self.0)
+    }
+}
+
+impl FromElxError {
+    fn from_display<T: Display>(t: T) -> Self {
+        t.to_string().into()
+    }
+    fn from_debug<T: Debug>(t: T) -> Self {
+        format!("{t:?}").into()
+    }
+}
+
+impl From<String> for FromElxError {
+    fn from(t: String) -> Self {
+        Self(t)
+    }
+}
+
+pub(crate) trait FromElx<T>
+where
+    Self: Sized,
+{
+    fn from(value: T) -> Result<Self, FromElxError>;
 }
 
 macro_rules! trivial_impl {
     ($t:ty) => {
         impl FromElx<$t> for $t {
-            fn from(value: $t) -> Self {
-                value
+            fn from(value: $t) -> Result<Self, FromElxError> {
+                Ok(value)
             }
         }
     };
@@ -26,8 +52,9 @@ trivial_impl!(u32);
 trivial_impl!(u64);
 
 impl<'a, const N: usize> FromElx<Binary<'a>> for [u8; N] {
-    fn from(value: Binary<'a>) -> Self {
-        value.as_slice().try_into().unwrap()
+    fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
+        let v: Result<Self, _> = value.as_slice().try_into();
+        v.map_err(FromElxError::from_display)
     }
 }
 
@@ -35,14 +62,14 @@ impl<Elx, Ssz> FromElx<Vec<Elx>> for Vec<Ssz>
 where
     Ssz: FromElx<Elx>,
 {
-    fn from(value: Vec<Elx>) -> Self {
+    fn from(value: Vec<Elx>) -> Result<Self, FromElxError> {
         // for each root, convert to a slice of 32 bytes
         value.into_iter().map(FromElx::from).collect()
     }
 }
 impl<'a, N: Unsigned> FromElx<Binary<'a>> for FixedVector<u8, N> {
-    fn from(value: Binary<'a>) -> Self {
-        FixedVector::new(value.as_slice().to_vec()).unwrap()
+    fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
+        FixedVector::new(value.as_slice().to_vec()).map_err(FromElxError::from_debug)
     }
 }
 
@@ -51,8 +78,9 @@ where
     Ssz: FromElx<Elx>,
     N: Unsigned,
 {
-    fn from(value: Vec<Elx>) -> Self {
-        FixedVector::new(value.into_iter().map(FromElx::from).collect()).unwrap()
+    fn from(value: Vec<Elx>) -> Result<Self, FromElxError> {
+        let v: Result<Vec<_>, _> = value.into_iter().map(FromElx::from).collect();
+        FixedVector::new(v?).map_err(FromElxError::from_debug)
     }
 }
 
@@ -61,14 +89,15 @@ where
     Ssz: FromElx<Elx>,
     N: Unsigned,
 {
-    fn from(value: Vec<Elx>) -> Self {
-        VariableList::new(value.into_iter().map(FromElx::from).collect()).unwrap()
+    fn from(value: Vec<Elx>) -> Result<Self, FromElxError> {
+        let v: Result<Vec<_>, _> = value.into_iter().map(FromElx::from).collect();
+        VariableList::new(v?).map_err(FromElxError::from_debug)
     }
 }
 
 impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitList<N> {
-    fn from(value: Binary<'a>) -> Self {
-        Decode::from_ssz_bytes(&value).unwrap()
+    fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
+        Decode::from_ssz_bytes(&value).map_err(FromElxError::from_debug)
     }
 }
 
@@ -79,37 +108,19 @@ impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitVector<N> {
 }
 
 impl<'a, N: Unsigned> FromElx<Binary<'a>> for VariableList<u8, N> {
-    fn from(value: Binary<'a>) -> Self {
-        VariableList::new(Binary::as_slice(&value).to_vec()).unwrap()
+    fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
+        VariableList::new(Binary::as_slice(&value).to_vec()).map_err(FromElxError::from_debug)
     }
 }
 
 impl<'a> FromElx<Binary<'a>> for U256 {
-    fn from(value: Binary<'a>) -> Self {
-        U256::from_ssz_bytes(Binary::as_slice(&value)).unwrap()
+    fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
+        U256::from_ssz_bytes(Binary::as_slice(&value)).map_err(FromElxError::from_debug)
     }
 }
 
 impl<'a> FromElx<String> for U256 {
-    fn from(value: String) -> Self {
-        U256::from_dec_str(&value).unwrap()
-    }
-}
-
-impl<'a, N: Unsigned> FromElx<Binary<'a>> for VariableList<u8, N> {
-    fn from(value: Binary<'a>) -> Self {
-        VariableList::new(Binary::as_slice(&value).to_vec()).unwrap()
-    }
-}
-
-impl<'a> FromElx<Binary<'a>> for U256 {
-    fn from(value: Binary<'a>) -> Self {
-        U256::from_ssz_bytes(Binary::as_slice(&value)).unwrap()
-    }
-}
-
-impl<'a> FromElx<String> for U256 {
-    fn from(value: String) -> Self {
-        U256::from_dec_str(&value).unwrap()
+    fn from(value: String) -> Result<Self, FromElxError> {
+        U256::from_dec_str(&value).map_err(FromElxError::from_debug)
     }
 }

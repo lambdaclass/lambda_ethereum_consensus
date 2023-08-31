@@ -63,7 +63,7 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
 }
 
 #[rustler::nif]
-fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<Term<'env>> {
+fn from_ssz_raw<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<Term<'env>> {
     let schema = schema.to_term(env).atom_to_string()?;
     let Some(schema) = schema.get(PREFIX_SIZE..) else {
         return Err(rustler::Error::BadArg);
@@ -102,4 +102,4 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<Term
     Ok((atoms::ok(), res).encode(env))
 }
 
-rustler::init!("Elixir.Ssz", [to_ssz, from_ssz]);
+rustler::init!("Elixir.Ssz", [to_ssz, from_ssz_raw]);
