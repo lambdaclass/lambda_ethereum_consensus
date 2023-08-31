@@ -37,7 +37,7 @@ defmodule SszTypes.ExecutionPayloadHeader do
           gas_used: SszTypes.uint64(),
           timestamp: SszTypes.uint64(),
           extra_data: binary(),
-          base_fee_per_gas: SszTypes.uint256(),
+          base_fee_per_gas: binary(),
           block_hash: SszTypes.hash32(),
           transactions_root: SszTypes.root(),
           withdrawals_root: SszTypes.root()
