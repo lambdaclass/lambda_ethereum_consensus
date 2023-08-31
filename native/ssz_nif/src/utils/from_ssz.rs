@@ -99,3 +99,9 @@ impl<'a> FromSsz<'a, U256> for Binary<'a> {
         bytes_to_binary(env, &value.as_ssz_bytes())
     }
 }
+
+impl<'a> FromSsz<'a, U256> for String {
+    fn from(value: U256, _env: rustler::Env<'a>) -> Self {
+        U256::to_string(&value)
+    }
+}

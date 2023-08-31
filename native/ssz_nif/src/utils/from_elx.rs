@@ -87,3 +87,9 @@ impl<'a> FromElx<Binary<'a>> for U256 {
         U256::from_ssz_bytes(Binary::as_slice(&value)).unwrap()
     }
 }
+
+impl<'a> FromElx<String> for U256 {
+    fn from(value: String) -> Self {
+        U256::from_dec_str(&value).unwrap()
+    }
+}
