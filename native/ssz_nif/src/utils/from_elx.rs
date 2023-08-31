@@ -13,9 +13,6 @@ impl Display for FromElxError {
 }
 
 impl FromElxError {
-    fn from_display<T: Display>(t: T) -> Self {
-        t.to_string().into()
-    }
     fn from_debug<T: Debug>(t: T) -> Self {
         format!("{t:?}").into()
     }
@@ -52,8 +49,14 @@ trivial_impl!(u64);
 
 impl<'a, const N: usize> FromElx<Binary<'a>> for [u8; N] {
     fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
-        let v: Result<Self, _> = value.as_slice().try_into();
-        v.map_err(FromElxError::from_display)
+        // To allow for variable sized binaries
+        let mut v = [0; N];
+        if value.len() > 0 {
+            let start = N.saturating_sub(value.len());
+            let end = N.min(value.len());
+            v[start..].copy_from_slice(&value[..end]);
+        }
+        Ok(v)
     }
 }
 
