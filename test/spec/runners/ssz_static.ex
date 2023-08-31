@@ -26,6 +26,7 @@ defmodule SSZStaticTestRunner do
     "SigningData",
     "SignedBeaconBlockHeader",
     "AttestorSlashing",
+    "BLSToExecutionChange",
     "ProposerSlashing"
   ]
 

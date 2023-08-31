@@ -12,7 +12,7 @@ defmodule SszTypes do
   @type bytes32 :: <<_::256>>
   @type bytes48 :: <<_::384>>
   @type bytes96 :: <<_::768>>
-
+  @type bytes20 :: <<_::160>>
   # bitlists are stored in SSZ format
   @type bitlist :: binary()
 
@@ -30,4 +30,5 @@ defmodule SszTypes do
   @type domain :: bytes32
   @type bls_pubkey :: bytes48
   @type bls_signature :: bytes96
+  @type execution_address :: bytes20
 end

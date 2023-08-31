@@ -6,7 +6,8 @@ mod beacon_chain;
 
 type Bytes4 = [u8; 4];
 #[allow(dead_code)]
-type Bytes20 = [u8; 20];
+// type Bytes20 = [u8; 20];
+type Bytes20 = FixedVector<u8, typenum::U20>;
 type Bytes32 = [u8; 32];
 type Bytes48 = [u8; 48];
 type Bytes96 = FixedVector<u8, typenum::U96>;
