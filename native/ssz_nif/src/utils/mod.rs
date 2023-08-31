@@ -8,7 +8,7 @@ macro_rules! match_schema_and_encode {
             $(
                 stringify!($t) => $crate::utils::helpers::encode_ssz::<elx_types::$t, ssz_types::$t>($map),
             )*
-            _ => unreachable!(),
+            _ => Err(rustler::Error::BadArg),
         }
     };
 }
@@ -19,7 +19,7 @@ macro_rules! match_schema_and_decode {
             $(
                 stringify!($t) => $crate::utils::helpers::decode_ssz::<elx_types::$t, ssz_types::$t>($bytes, $env),
             )*
-            _ => unreachable!(),
+            _ => Err(rustler::Error::BadArg),
         }
     };
 }
@@ -58,13 +58,13 @@ macro_rules! gen_struct {
         }
 
         impl$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::utils::from_elx::FromElx<$name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?> for $crate::ssz_types::$name {
-            fn from(elx: $name) -> Self {
+            fn from(elx: $name) -> Result<Self, $crate::utils::from_elx::FromElxError> {
                 $(
-                    let $field_name = $crate::utils::from_elx::FromElx::from(elx.$field_name);
+                    let $field_name = $crate::utils::from_elx::FromElx::from(elx.$field_name)?;
                 )*
-                Self {
+                Ok(Self {
                     $($field_name),*
-                }
+                })
             }
         }
     }

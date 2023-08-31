@@ -3,7 +3,7 @@ defmodule GeneralSpecTest do
   "general" config spec tests
   """
   use ExUnit.Case, async: true
-  require SpecTestUtils
+  require SpecTestGenerator
 
-  SpecTestUtils.generate_tests("general")
+  SpecTestGenerator.generate_tests("general")
 end

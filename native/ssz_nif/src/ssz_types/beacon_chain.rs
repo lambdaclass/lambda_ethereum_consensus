@@ -2,7 +2,7 @@ use super::*;
 use ethereum_types::U256;
 use ssz_derive::{Decode, Encode};
 use ssz_types::typenum::Unsigned;
-use ssz_types::BitList;
+use ssz_types::{BitList, BitVector};
 
 #[derive(Encode, Decode)]
 pub(crate) struct Fork {
@@ -138,6 +138,12 @@ pub(crate) struct AttesterSlashing {
 }
 
 #[derive(Encode, Decode)]
+pub(crate) struct SigningData {
+    pub(crate) object_root: Root,
+    pub(crate) domain: Domain,
+}
+
+#[derive(Encode, Decode)]
 pub(crate) struct SignedVoluntaryExit {
     pub(crate) message: VoluntaryExit,
     pub(crate) signature: BLSSignature,
@@ -148,6 +154,15 @@ pub(crate) struct ProposerSlashing {
     pub(crate) signed_header_1: SignedBeaconBlockHeader,
     pub(crate) signed_header_2: SignedBeaconBlockHeader,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct SyncAggregateBase<N: Unsigned> {
+    pub(crate) sync_committee_bits: BitVector</* SYNC_COMMITTEE_SIZE */ N>,
+    pub(crate) sync_committee_signature: BLSSignature,
+}
+
+pub(crate) type SyncAggregate = SyncAggregateBase<typenum::U512>;
+pub(crate) type SyncAggregateMinimal = SyncAggregateBase<typenum::U32>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct Withdrawal {
