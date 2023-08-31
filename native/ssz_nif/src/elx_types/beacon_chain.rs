@@ -220,3 +220,21 @@ gen_struct!(
         domain: Domain<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SyncAggregate"]
+    pub(crate) struct SyncAggregate<'a> {
+        sync_committee_bits: Binary<'a>,
+        sync_committee_signature: BLSSignature<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SyncAggregateMinimal"]
+    pub(crate) struct SyncAggregateMinimal<'a> {
+        sync_committee_bits: Binary<'a>,
+        sync_committee_signature: BLSSignature<'a>,
+    }
+);

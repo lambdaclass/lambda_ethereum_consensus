@@ -26,7 +26,8 @@ defmodule SSZStaticTestRunner do
     "SigningData",
     "SignedBeaconBlockHeader",
     "AttestorSlashing",
-    "ProposerSlashing"
+    "ProposerSlashing",
+    "SyncAggregate"
   ]
 
   @doc """

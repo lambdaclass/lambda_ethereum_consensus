@@ -15,6 +15,7 @@ defmodule SszTypes do
 
   # bitlists are stored in SSZ format
   @type bitlist :: binary()
+  @type bitvector :: binary()
 
   ## Aliases
   @type slot :: uint64
