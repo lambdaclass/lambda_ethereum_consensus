@@ -5,10 +5,13 @@ defmodule SszTypes do
 
   # Primitive types
   ## Integer types
+  @type uint8 :: 0..unquote(2 ** 8 - 1)
   @type uint64 :: 0..unquote(2 ** 64 - 1)
+  @type uint256 :: 0..unquote(2 ** 256 - 1)
 
   ## Binary types
   @type bytes4 :: <<_::32>>
+  @type bytes20 :: <<_::160>>
   @type bytes32 :: <<_::256>>
   @type bytes48 :: <<_::384>>
   @type bytes96 :: <<_::768>>
@@ -30,4 +33,8 @@ defmodule SszTypes do
   @type domain :: bytes32
   @type bls_pubkey :: bytes48
   @type bls_signature :: bytes96
+  @type participation_flags :: uint8()
+  @type transaction :: list()
+  @type execution_address :: bytes20()
+  @type withdrawal_index :: uint64()
 end
