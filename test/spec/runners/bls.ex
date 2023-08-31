@@ -7,7 +7,7 @@ defmodule BLSTestRunner do
 
   # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [
-    "sign",
+    # "sign",
     "verify",
     "aggregate",
     "fast_aggregate_verify",
@@ -60,8 +60,18 @@ defmodule BLSTestRunner do
     end
   end
 
-  defp assert_sign(_input, _output) do
-    assert false
+  defp assert_sign(input, output) do
+    %{message: message, privkey: private_key} = input
+
+    case output do
+      nil ->
+        {result, _error_msg} = Bls.sign(private_key, message)
+        assert result == :error
+
+      output ->
+        {:ok, signature} = Bls.sign(private_key, message)
+        assert signature == output
+    end
   end
 
   defp assert_aggregate(_input, _output) do
