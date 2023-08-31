@@ -3,7 +3,7 @@ defmodule MinimalCapellaSpecTest do
   "minimal" config spec tests for the "capella" fork
   """
   use ExUnit.Case, async: true
-  require SpecTestUtils
+  require SpecTestGenerator
 
-  SpecTestUtils.generate_tests("minimal", "capella")
+  SpecTestGenerator.generate_tests("minimal", "capella")
 end
