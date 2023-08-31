@@ -53,23 +53,12 @@ defmodule SSZStaticTestRunner do
 
     expected =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
-      |> parse_yaml()
+      |> SpecTestUtils.parse_yaml()
 
     expected_root = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
 
     assert_ssz(schema, decompressed, expected, expected_root)
   end
-
-  defp parse_yaml(map) when is_map(map) do
-    map
-    |> Stream.map(&parse_yaml/1)
-    |> Map.new()
-  end
-
-  defp parse_yaml(list) when is_list(list), do: Enum.map(list, &parse_yaml/1)
-  defp parse_yaml({k, v}), do: {String.to_existing_atom(k), parse_yaml(v)}
-  defp parse_yaml("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
-  defp parse_yaml(v), do: v
 
   defp assert_ssz(schema, real_serialized, real_deserialized, _expected_root) do
     # assert root is expected when we implement SSZ hashing
