@@ -3,6 +3,8 @@ use ssz::Decode;
 use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector, VariableList};
 use std::fmt::{Debug, Display};
 
+use crate::ssz_types::Uint256;
+
 #[derive(Debug)]
 pub struct FromElxError(String);
 
@@ -13,6 +15,10 @@ impl Display for FromElxError {
 }
 
 impl FromElxError {
+    fn from_display<T: Display>(t: T) -> Self {
+        t.to_string().into()
+    }
+
     fn from_debug<T: Debug>(t: T) -> Self {
         format!("{t:?}").into()
     }
@@ -49,14 +55,8 @@ trivial_impl!(u64);
 
 impl<'a, const N: usize> FromElx<Binary<'a>> for [u8; N] {
     fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
-        // To allow for variable sized binaries
-        let mut v = [0; N];
-        if value.len() > 0 {
-            let start = N.saturating_sub(value.len());
-            let end = N.min(value.len());
-            v[start..].copy_from_slice(&value[..end]);
-        }
-        Ok(v)
+        let v: Result<Self, _> = value.as_slice().try_into();
+        v.map_err(FromElxError::from_display)
     }
 }
 
@@ -112,5 +112,18 @@ impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitVector<N> {
 impl<'a, N: Unsigned> FromElx<Binary<'a>> for VariableList<u8, N> {
     fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
         VariableList::new(value.as_slice().to_vec()).map_err(FromElxError::from_debug)
+    }
+}
+
+impl<'a> FromElx<Binary<'a>> for Uint256 {
+    fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
+        // To allow for variable sized binaries
+        const N: usize = 256 / 8;
+        let mut v: [u8; 32] = [0; N];
+        if value.len() > 0 {
+            let len = v.len().min(value.len());
+            v[..len].copy_from_slice(&value[..len]);
+        }
+        Ok(Uint256(v))
     }
 }

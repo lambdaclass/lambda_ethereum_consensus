@@ -38,7 +38,7 @@ defmodule Ssz do
   defp encode_u256(num) do
     num
     |> :binary.encode_unsigned(:little)
-    |> String.pad_leading(32, <<0>>)
+    |> String.pad_trailing(32, <<0>>)
   end
 
   defp decode(%SszTypes.ExecutionPayloadHeader{} = map) do

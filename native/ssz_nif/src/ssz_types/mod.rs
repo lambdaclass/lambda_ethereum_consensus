@@ -5,7 +5,10 @@
 mod beacon_chain;
 
 // This type is a little-endian encoded uint256.
-type Uint256 = [u8; 32];
+// We use this to because of Erlang's NIF limitations.
+#[derive(Clone, Copy, Encode, Decode)]
+#[ssz(struct_behaviour = "transparent")]
+pub(crate) struct Uint256(pub(crate) [u8; 32]);
 
 type Bytes4 = [u8; 4];
 #[allow(dead_code)]
@@ -40,4 +43,5 @@ type ExecutionAddress = Bytes20;
 type WithdrawalIndex = u64;
 
 pub(crate) use beacon_chain::*;
+use ssz_derive::{Decode, Encode};
 use ssz_types::{typenum, FixedVector, VariableList};

@@ -238,6 +238,7 @@ gen_struct!(
         sync_committee_signature: BLSSignature<'a>,
     }
 );
+
 gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.Withdrawal"]
@@ -248,6 +249,7 @@ gen_struct!(
         amount: Gwei,
     }
 );
+
 gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.ExecutionPayloadHeader"]

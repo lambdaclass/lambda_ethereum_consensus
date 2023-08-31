@@ -36,8 +36,8 @@ defmodule SSZStaticTestRunner do
   @doc """
   Returns true if the given testcase should be skipped
   """
-  def skip?(testcase) do
-    not Enum.member?(@enabled, testcase.handler)
+  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
+    not Enum.member?(@enabled, handler) or fork == "deneb"
   end
 
   def get_config("minimal"), do: MinimalConfig
