@@ -76,6 +76,11 @@ defmodule SSZStaticTestRunner do
     assert serialized == real_serialized
   end
 
+  defp to_struct_checked(actual, expected) when is_list(actual) and is_list(expected) do
+    Stream.zip(actual, expected)
+    |> Enum.map(fn {a, e} -> to_struct_checked(a, e) end)
+  end
+
   defp to_struct_checked(%name{} = actual, %{} = expected) do
     expected
     |> Stream.map(fn {k, v} -> {k, to_struct_checked(Map.get(actual, k), v)} end)

@@ -1,5 +1,4 @@
 use crate::utils::helpers::bytes_to_binary;
-use ethereum_types::U256;
 use rustler::Binary;
 use ssz::Encode;
 use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector, VariableList};
@@ -91,17 +90,5 @@ where
 {
     fn from(value: VariableList<u8, N>, env: rustler::Env<'a>) -> Self {
         bytes_to_binary(env, &value)
-    }
-}
-
-impl<'a> FromSsz<'a, U256> for Binary<'a> {
-    fn from(value: U256, env: rustler::Env<'a>) -> Self {
-        bytes_to_binary(env, &value.as_ssz_bytes())
-    }
-}
-
-impl<'a> FromSsz<'a, U256> for String {
-    fn from(value: U256, _env: rustler::Env<'a>) -> Self {
-        U256::to_string(&value)
     }
 }

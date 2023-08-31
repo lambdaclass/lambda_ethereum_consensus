@@ -1,4 +1,3 @@
-use ethereum_types::U256;
 use rustler::Binary;
 use ssz::Decode;
 use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector, VariableList};
@@ -109,18 +108,6 @@ impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitVector<N> {
 
 impl<'a, N: Unsigned> FromElx<Binary<'a>> for VariableList<u8, N> {
     fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
-        VariableList::new(Binary::as_slice(&value).to_vec()).map_err(FromElxError::from_debug)
-    }
-}
-
-impl<'a> FromElx<Binary<'a>> for U256 {
-    fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
-        U256::from_ssz_bytes(Binary::as_slice(&value)).map_err(FromElxError::from_debug)
-    }
-}
-
-impl<'a> FromElx<String> for U256 {
-    fn from(value: String) -> Result<Self, FromElxError> {
-        U256::from_dec_str(&value).map_err(FromElxError::from_debug)
+        VariableList::new(value.as_slice().to_vec()).map_err(FromElxError::from_debug)
     }
 }

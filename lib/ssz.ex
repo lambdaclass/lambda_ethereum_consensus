@@ -4,55 +4,52 @@ defmodule Ssz do
   """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "ssz_nif"
 
-  def to_ssz(%SszTypes.ExecutionPayload{} = map) do
-    base_fee_per_gas =
-      map.base_fee_per_gas
-      |> :binary.encode_unsigned()
-      |> String.pad_leading(32, <<0>>)
-
-    map = Map.replace(map, :base_fee_per_gas, base_fee_per_gas)
-    to_ssz(map, SszTypes.ExecutionPayload)
+  ##### Functional wrappers
+  def to_ssz(%name{} = map) do
+    map
+    |> encode()
+    |> to_ssz_rs(name)
   end
 
-  def to_ssz(%SszTypes.ExecutionPayloadHeader{} = map) do
-    base_fee_per_gas =
-      map.base_fee_per_gas
-      |> :binary.encode_unsigned()
-      |> String.pad_leading(32, <<0>>)
-
-    map = Map.replace(map, :base_fee_per_gas, base_fee_per_gas)
-    to_ssz(map, SszTypes.ExecutionPayloadHeader)
-  end
-
-  def to_ssz(%name{} = map), do: to_ssz(map, name)
-
-  def to_ssz(_map, _schema), do: error()
-
-  def from_ssz_raw(_bin, _schema), do: error()
-
-  def from_ssz(bin, SszTypes.ExecutionPayload) do
-    case from_ssz_raw(bin, SszTypes.ExecutionPayload) do
-      {:ok, result} ->
-        {:ok,
-         Map.replace(result, :base_fee_per_gas, :binary.decode_unsigned(result.base_fee_per_gas))}
-
-      x ->
-        x
+  def from_ssz(bin, schema) do
+    with {:ok, map} <- from_ssz_rs(bin, schema) do
+      {:ok, decode(map)}
     end
   end
 
-  def from_ssz(bin, SszTypes.ExecutionPayloadHeader) do
-    case from_ssz_raw(bin, SszTypes.ExecutionPayloadHeader) do
-      {:ok, result} ->
-        {:ok,
-         Map.replace(result, :base_fee_per_gas, :binary.decode_unsigned(result.base_fee_per_gas))}
+  ##### Rust-side function stubs
+  def to_ssz_rs(_map, _schema), do: error()
 
-      x ->
-        x
-    end
-  end
+  def from_ssz_rs(_bin, _schema), do: error()
 
-  def from_ssz(bin, schema), do: from_ssz_raw(bin, schema)
-
+  ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
+
+  defp encode(%SszTypes.ExecutionPayloadHeader{} = map) do
+    Map.update!(map, :base_fee_per_gas, &encode_u256/1)
+  end
+
+  defp encode(%SszTypes.ExecutionPayload{} = map) do
+    Map.update!(map, :base_fee_per_gas, &encode_u256/1)
+  end
+
+  defp encode(map), do: map
+
+  defp encode_u256(num) do
+    num
+    |> :binary.encode_unsigned(:little)
+    |> String.pad_leading(32, <<0>>)
+  end
+
+  defp decode(%SszTypes.ExecutionPayloadHeader{} = map) do
+    Map.update!(map, :base_fee_per_gas, &decode_u256/1)
+  end
+
+  defp decode(%SszTypes.ExecutionPayload{} = map) do
+    Map.update!(map, :base_fee_per_gas, &decode_u256/1)
+  end
+
+  defp decode(map), do: map
+
+  defp decode_u256(num), do: :binary.decode_unsigned(num, :little)
 end

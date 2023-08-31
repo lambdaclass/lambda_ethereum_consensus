@@ -4,6 +4,9 @@
 
 mod beacon_chain;
 
+// This type is a little-endian encoded uint256.
+type Uint256 = [u8; 32];
+
 type Bytes4 = [u8; 4];
 #[allow(dead_code)]
 type Bytes20 = FixedVector<u8, typenum::U20>;

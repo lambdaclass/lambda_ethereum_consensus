@@ -1,5 +1,4 @@
 use super::*;
-use ethereum_types::U256;
 use ssz_derive::{Decode, Encode};
 use ssz_types::typenum::Unsigned;
 use ssz_types::{BitList, BitVector};
@@ -185,7 +184,7 @@ pub(crate) struct ExecutionPayloadHeader {
     pub(crate) gas_used: u64,
     pub(crate) timestamp: u64,
     pub(crate) extra_data: VariableList<u8, /* MAX_EXTRA_DATA_BYTES */ typenum::U32>,
-    pub(crate) base_fee_per_gas: U256,
+    pub(crate) base_fee_per_gas: Uint256,
     pub(crate) block_hash: Hash32,
     pub(crate) transactions_root: Root,
     pub(crate) withdrawals_root: Root,
@@ -204,7 +203,7 @@ pub(crate) struct ExecutionPayload {
     pub(crate) gas_used: u64,
     pub(crate) timestamp: u64,
     pub(crate) extra_data: VariableList<u8, /* MAX_EXTRA_DATA_BYTES */ typenum::U32>,
-    pub(crate) base_fee_per_gas: U256,
+    pub(crate) base_fee_per_gas: Uint256,
     pub(crate) block_hash: Hash32,
     pub(crate) transactions:
         VariableList<Transaction, /* MAX_TRANSACTIONS_PER_PAYLOAD */ typenum::U1048576>,

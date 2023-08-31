@@ -8,6 +8,9 @@ mod beacon_chain;
 pub(crate) use beacon_chain::*;
 use rustler::Binary;
 
+// This type should be a little-endian encoded uint256.
+type Uint256<'a> = Binary<'a>;
+
 type Bytes4<'a> = Binary<'a>;
 #[allow(dead_code)]
 type Bytes20<'a> = Binary<'a>;
