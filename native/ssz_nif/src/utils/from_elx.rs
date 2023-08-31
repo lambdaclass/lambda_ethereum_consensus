@@ -1,3 +1,4 @@
+use ethereum_types::U256;
 use rustler::Binary;
 use ssz::Decode;
 use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector, VariableList};
@@ -78,5 +79,11 @@ impl<'a, N: Unsigned> FromElx<Binary<'a>> for BitVector<N> {
 impl<'a, N: Unsigned> FromElx<Binary<'a>> for VariableList<u8, N> {
     fn from(value: Binary<'a>) -> Self {
         VariableList::new(Binary::as_slice(&value).to_vec()).unwrap()
+    }
+}
+
+impl<'a> FromElx<Binary<'a>> for U256 {
+    fn from(value: Binary<'a>) -> Self {
+        U256::from_ssz_bytes(Binary::as_slice(&value)).unwrap()
     }
 }
