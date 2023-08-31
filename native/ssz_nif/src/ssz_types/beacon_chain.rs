@@ -1,7 +1,7 @@
 use super::*;
 use ssz_derive::{Decode, Encode};
 use ssz_types::typenum::Unsigned;
-use ssz_types::BitList;
+use ssz_types::{BitList, BitVector};
 
 #[derive(Encode, Decode)]
 pub(crate) struct Fork {
@@ -153,3 +153,12 @@ pub(crate) struct ProposerSlashing {
     pub(crate) signed_header_1: SignedBeaconBlockHeader,
     pub(crate) signed_header_2: SignedBeaconBlockHeader,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct SyncAggregateBase<N: Unsigned> {
+    pub(crate) sync_committee_bits: BitVector</* SYNC_COMMITTEE_SIZE */ N>,
+    pub(crate) sync_committee_signature: BLSSignature,
+}
+
+pub(crate) type SyncAggregate = SyncAggregateBase<typenum::U512>;
+pub(crate) type SyncAggregateMinimal = SyncAggregateBase<typenum::U32>;
