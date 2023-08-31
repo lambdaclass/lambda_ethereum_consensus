@@ -63,7 +63,7 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<Term
     let Some(schema) = schema.get(PREFIX_SIZE..) else {
         return Err(rustler::Error::BadArg);
     };
-    match_schema_and_decode!(
+    let res = match_schema_and_decode!(
         (schema, &bytes, env) => {
             HistoricalSummary,
             AttestationData,
@@ -88,7 +88,8 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<Term
             ProposerSlashing,
             SigningData,
         }
-    )
+    )?;
+    Ok((atoms::ok(), res).encode(env))
 }
 
 rustler::init!("Elixir.Ssz", [to_ssz, from_ssz]);

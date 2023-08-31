@@ -2,8 +2,8 @@ defmodule SSZTests do
   use ExUnit.Case
 
   def assert_roundtrip(%type{} = value) do
-    {:ok, encoded} = Ssz.to_ssz(value)
-    {:ok, decoded} = Ssz.from_ssz(encoded, type)
+    assert {:ok, encoded} = Ssz.to_ssz(value)
+    assert {:ok, decoded} = Ssz.from_ssz(encoded, type)
 
     assert decoded == value
   end
