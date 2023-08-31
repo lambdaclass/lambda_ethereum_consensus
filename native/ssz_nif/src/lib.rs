@@ -50,6 +50,8 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             SignedVoluntaryExit,
             ProposerSlashing,
             SigningData,
+            SyncAggregate,
+            SyncAggregateMinimal,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -83,6 +85,8 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             SignedVoluntaryExit,
             ProposerSlashing,
             SigningData,
+            SyncAggregate,
+            SyncAggregateMinimal,
         }
     )
 }
