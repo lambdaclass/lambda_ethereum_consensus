@@ -13,6 +13,7 @@ defmodule SpecTestUtils do
   def parse_yaml({"extra_data", x}), do: {:extra_data, parse_as_string(x)}
   def parse_yaml({"transactions", list}), do: {:transactions, Enum.map(list, &parse_as_string/1)}
   def parse_yaml({k, v}), do: {String.to_atom(k), parse_yaml(v)}
+  def parse_yaml("0x"), do: <<0>>
   def parse_yaml("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
 
   def parse_yaml(x) when is_binary(x) do
