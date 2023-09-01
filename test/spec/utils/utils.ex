@@ -24,6 +24,7 @@ defmodule SpecTestUtils do
   def parse_yaml(v), do: v
 
   # Some values are wrongly formatted as integers sometimes
+  defp parse_as_string(0), do: ""
   defp parse_as_string(x) when is_integer(x), do: :binary.encode_unsigned(x, :little)
   defp parse_as_string("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
 end
