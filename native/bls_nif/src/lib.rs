@@ -17,7 +17,7 @@ fn sign<'env>(
     private_key: Binary,
     message: Binary,
 ) -> Result<Binary<'env>, String> {
-    let sk = match SecretKey::deserialize(&private_key.as_slice()) {
+    let sk = match SecretKey::deserialize(private_key.as_slice()) {
         Ok(sk) => sk,
         Err(e) => return Err(format!("{:?}", e)),
     };

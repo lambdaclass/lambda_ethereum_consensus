@@ -60,9 +60,7 @@ defmodule BLSTestRunner do
     end
   end
 
-  defp assert_sign(input, output) do
-    %{message: message, privkey: private_key} = input
-
+  defp assert_sign(%{message: message, privkey: private_key}, output) do
     case output do
       nil ->
         assert {result, _error_msg} = Bls.sign(private_key, message)
