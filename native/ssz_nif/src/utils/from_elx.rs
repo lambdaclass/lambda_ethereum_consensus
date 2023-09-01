@@ -117,7 +117,6 @@ impl<'a, N: Unsigned> FromElx<Binary<'a>> for VariableList<u8, N> {
 
 impl<'a> FromElx<Binary<'a>> for Uint256 {
     fn from(value: Binary<'a>) -> Result<Self, FromElxError> {
-        // To allow for variable sized binaries
         const N: usize = 256 / 8;
         let mut v: [u8; 32] = [0; N];
         if value.len() > 0 {
