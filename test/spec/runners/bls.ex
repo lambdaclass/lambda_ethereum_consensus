@@ -65,11 +65,11 @@ defmodule BLSTestRunner do
 
     case output do
       nil ->
-        {result, _error_msg} = Bls.sign(private_key, message)
+        assert {result, _error_msg} = Bls.sign(private_key, message)
         assert result == :error
 
       output ->
-        {:ok, signature} = Bls.sign(private_key, message)
+        assert {:ok, signature} = Bls.sign(private_key, message)
         assert signature == output
     end
   end
