@@ -4,7 +4,7 @@ defmodule Bls do
   """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "bls_nif"
 
-  @spec sign(binary(), binary()) :: SszTypes.bls_signature()
+  @spec sign(binary(), binary()) :: {:ok, SszTypes.bls_signature()} | {:error, any()}
   def sign(_private_key, _message) do
     :erlang.nif_error(:nif_not_loaded)
   end
