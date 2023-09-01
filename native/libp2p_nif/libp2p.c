@@ -132,10 +132,10 @@ static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, ErlNifResourceType *type, 
     return make_ok_tuple2(env, term);
 }
 
-void send_message(erl_pid_t _pid, uintptr_t stream_handle)
+void send_message(void *pid_bytes, uintptr_t stream_handle)
 {
     // Passed as void* to avoid including erl_nif.h in the header.
-    ErlNifPid *pid = (ErlNifPid *)_pid;
+    ErlNifPid *pid = pid_bytes;
     ErlNifEnv *env = enif_alloc_env();
 
     ERL_NIF_TERM message = get_handle_result(env, Stream, stream_handle);
@@ -200,12 +200,13 @@ ERL_FUNCTION(host_set_stream_handler)
     IF_ERROR(!enif_inspect_binary(env, argv[1], &bin), "invalid protocol ID");
     GoString proto_id = {(const char *)bin.data, bin.size};
 
-    // TODO: This is a memory leak.
-    ErlNifPid *pid = malloc(sizeof(ErlNifPid));
+    // To avoid importing Erlang types in Go.
+    const int PID_SIZE = sizeof(ErlNifPid);
+    ErlNifPid pid;
+    IF_ERROR(!enif_self(env, &pid), "failed to get pid");
+    GoSlice go_pid = {(void *)&pid, PID_SIZE, PID_SIZE};
 
-    IF_ERROR(!enif_self(env, pid), "failed to get pid");
-
-    HostSetStreamHandler(host, proto_id, (void *)pid, send_message);
+    HostSetStreamHandler(host, proto_id, go_pid, send_message);
 
     return enif_make_atom(env, "ok");
 }

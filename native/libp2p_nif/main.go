@@ -8,6 +8,7 @@ package main
 import "C"
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -20,6 +21,7 @@ import (
 	"runtime/cgo"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	gcrypto "github.com/ethereum/go-ethereum/crypto"
@@ -136,13 +138,14 @@ func (h C.uintptr_t) HostClose() {
 }
 
 //export HostSetStreamHandler
-func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId C.erl_pid_t, callback C.send_message_t) {
+func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.send_message_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
-	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	// WARN: we clone the string/[]byte because the underlying buffer is owned by Elixir/C
 	goProtoId := protocol.ID(strings.Clone(protoId))
+	goProcId := bytes.Clone(procId)
 	handler := func(stream network.Stream) {
-		C.run_callback(callback, procId, C.uintptr_t(cgo.NewHandle(stream)))
+		C.run_callback(callback, unsafe.Pointer(&goProcId[0]), C.uintptr_t(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }
