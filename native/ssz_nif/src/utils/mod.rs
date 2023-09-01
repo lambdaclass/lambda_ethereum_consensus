@@ -8,7 +8,7 @@ macro_rules! match_schema_and_encode {
             $(
                 stringify!($t) => $crate::utils::helpers::encode_ssz::<elx_types::$t, ssz_types::$t>($map),
             )*
-            _ => unreachable!(),
+            _ => Err(rustler::Error::BadArg),
         }
     };
 }
@@ -19,7 +19,7 @@ macro_rules! match_schema_and_decode {
             $(
                 stringify!($t) => $crate::utils::helpers::decode_ssz::<elx_types::$t, ssz_types::$t>($bytes, $env),
             )*
-            _ => unreachable!(),
+            _ => Err(rustler::Error::BadArg),
         }
     };
 }

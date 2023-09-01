@@ -92,3 +92,4 @@ fmt:
 	cd native/libp2p_nif; gofmt -l -w .
 	cd native/snappy_nif; cargo fmt
 	cd native/ssz_nif; cargo fmt
+	cd native/bls_nif; cargo fmt

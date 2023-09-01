@@ -1,9 +1,9 @@
 //! # SSZ NIF
 //!
 //! To add a new type:
-//!  - Add the type to the [`types`] module, using the [`gen_struct`] macro
-//!  - Implement the necessary traits ([`FromElx`] and [`FromSsz`]) for its attributes
-//!  - Add the type to [`to_ssz`] and [`from_ssz`] "match" macros
+//!  - Add the type to the [`elx_types`] and [`ssz_types`] modules, using the [`gen_struct`](utils::gen_struct) macro
+//!  - Implement the necessary traits ([`FromElx`](utils::from_elx::FromElx) and [`FromSsz`](utils::from_ssz::FromSsz)) for its attributes
+//!  - Add the type to [`to_ssz_rs`] and [`from_ssz_rs`] "match" macros
 
 pub(crate) mod elx_types;
 pub(crate) mod ssz_types;
@@ -23,9 +23,11 @@ mod atoms {
 const PREFIX_SIZE: usize = "Elixir.SszTypes.".len();
 
 #[rustler::nif]
-fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>> {
-    let schema = schema.to_term(env).atom_to_string().unwrap();
-    let schema = &schema[PREFIX_SIZE..];
+fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>> {
+    let schema = schema.to_term(env).atom_to_string()?;
+    let Some(schema) = schema.get(PREFIX_SIZE..) else {
+        return Err(rustler::Error::BadArg);
+    };
     let serialized = match_schema_and_encode!(
         (schema, map) => {
             HistoricalSummary,
@@ -49,17 +51,24 @@ fn to_ssz<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>
             SignedBeaconBlockHeader,
             SignedVoluntaryExit,
             ProposerSlashing,
+            ExecutionPayload,
+            ExecutionPayloadHeader,
+            Withdrawal,
             SigningData,
+            SyncAggregate,
+            SyncAggregateMinimal,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 
 #[rustler::nif]
-fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'env>, String> {
-    let schema = schema.to_term(env).atom_to_string().unwrap();
-    let schema = &schema[PREFIX_SIZE..];
-    match_schema_and_decode!(
+fn from_ssz_rs<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<Term<'env>> {
+    let schema = schema.to_term(env).atom_to_string()?;
+    let Some(schema) = schema.get(PREFIX_SIZE..) else {
+        return Err(rustler::Error::BadArg);
+    };
+    let res = match_schema_and_decode!(
         (schema, &bytes, env) => {
             HistoricalSummary,
             AttestationData,
@@ -82,9 +91,15 @@ fn from_ssz<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> Result<Term<'e
             SignedBeaconBlockHeader,
             SignedVoluntaryExit,
             ProposerSlashing,
+            ExecutionPayload,
+            ExecutionPayloadHeader,
+            Withdrawal,
             SigningData,
+            SyncAggregate,
+            SyncAggregateMinimal,
         }
-    )
+    )?;
+    Ok((atoms::ok(), res).encode(env))
 }
 
-rustler::init!("Elixir.Ssz", [to_ssz, from_ssz]);
+rustler::init!("Elixir.Ssz", [to_ssz_rs, from_ssz_rs]);

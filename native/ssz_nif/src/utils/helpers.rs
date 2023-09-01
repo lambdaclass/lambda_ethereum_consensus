@@ -26,12 +26,16 @@ fn to_nif_result(result: FromElxError) -> rustler::Error {
     rustler::Error::Term(Box::new(result.to_string()))
 }
 
-pub(crate) fn decode_ssz<'a, Elx, Ssz>(bytes: &[u8], env: Env<'a>) -> Result<Term<'a>, String>
+pub(crate) fn decode_ssz<'a, Elx, Ssz>(bytes: &[u8], env: Env<'a>) -> NifResult<Term<'a>>
 where
     Elx: Encoder + FromSsz<'a, Ssz>,
     Ssz: Decode,
 {
-    let recovered_value = Ssz::from_ssz_bytes(bytes).map_err(|e| format!("{e:?}"))?;
+    let recovered_value = Ssz::from_ssz_bytes(bytes).map_err(ssz_error_to_nif)?;
     let checkpoint = Elx::from(recovered_value, env);
     Ok(checkpoint.encode(env))
+}
+
+fn ssz_error_to_nif(error: ssz::DecodeError) -> rustler::Error {
+    rustler::Error::Term(Box::new(format!("{error:?}")))
 }
