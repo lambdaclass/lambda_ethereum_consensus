@@ -475,16 +475,19 @@ func (tp C.uintptr_t) TopicPublish(data []byte) int {
 }
 
 //export SubscriptionNext
-func (sub C.uintptr_t) SubscriptionNext() C.uintptr_t {
+func (sub C.uintptr_t) SubscriptionNext(cErr **C.char) C.uintptr_t {
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
 	subscription := cgo.Handle(sub).Value().(*pubsub.Subscription)
-	message, err := subscription.Next(context.TODO())
-	if err != nil {
-		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 0
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Microsecond)
+	defer cancel()
+	message, err := subscription.Next(ctx)
+
+	if err == nil {
+		return C.uintptr_t(cgo.NewHandle(message))
+	} else if err != context.DeadlineExceeded {
+		*cErr = C.CString(err.Error())
 	}
-	return C.uintptr_t(cgo.NewHandle(message))
+	return 0
 }
 
 //export MessageData
