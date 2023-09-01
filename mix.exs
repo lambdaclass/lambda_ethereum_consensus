@@ -28,6 +28,8 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:phoenix, "~> 1.7.7"},
+      {:plug_cowboy, "~> 2.5"},
       {:tesla, "~> 1.4"},
       {:jason, ">= 1.0.0"},
       {:joken, "~> 2.6"},
