@@ -238,3 +238,58 @@ gen_struct!(
         sync_committee_signature: BLSSignature<'a>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Withdrawal"]
+    pub(crate) struct Withdrawal<'a> {
+        index: WithdrawalIndex,
+        validator_index: ValidatorIndex,
+        address: ExecutionAddress<'a>,
+        amount: Gwei,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.ExecutionPayloadHeader"]
+    pub(crate) struct ExecutionPayloadHeader<'a> {
+        parent_hash: Hash32<'a>,
+        fee_recipient: ExecutionAddress<'a>,
+        state_root: Root<'a>,
+        receipts_root: Root<'a>,
+        logs_bloom: Binary<'a>,
+        prev_randao: Bytes32<'a>,
+        block_number: u64,
+        gas_limit: u64,
+        gas_used: u64,
+        timestamp: u64,
+        extra_data: Binary<'a>,
+        base_fee_per_gas: Uint256<'a>,
+        block_hash: Hash32<'a>,
+        transactions_root: Root<'a>,
+        withdrawals_root: Root<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.ExecutionPayload"]
+    pub(crate) struct ExecutionPayload<'a> {
+        parent_hash: Hash32<'a>,
+        fee_recipient: ExecutionAddress<'a>,
+        state_root: Root<'a>,
+        receipts_root: Root<'a>,
+        logs_bloom: Binary<'a>,
+        prev_randao: Bytes32<'a>,
+        block_number: u64,
+        gas_limit: u64,
+        gas_used: u64,
+        timestamp: u64,
+        extra_data: Binary<'a>,
+        base_fee_per_gas: Uint256<'a>,
+        block_hash: Hash32<'a>,
+        transactions: Vec<Transaction<'a>>,
+        withdrawals: Vec<Withdrawal<'a>>,
+    }
+);
