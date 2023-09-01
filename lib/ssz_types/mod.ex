@@ -17,8 +17,8 @@ defmodule SszTypes do
   @type bytes96 :: <<_::768>>
 
   # bitlists are stored in SSZ format
-  @type bitlist :: binary()
-  @type bitvector :: binary()
+  @type bitlist :: binary
+  @type bitvector :: binary
 
   ## Aliases
   @type slot :: uint64
@@ -34,8 +34,9 @@ defmodule SszTypes do
   @type domain :: bytes32
   @type bls_pubkey :: bytes48
   @type bls_signature :: bytes96
-  @type participation_flags :: uint8()
-  @type transaction :: list()
-  @type execution_address :: bytes20()
-  @type withdrawal_index :: uint64()
+  @type participation_flags :: uint8
+  # Max size: 2**30
+  @type transaction :: binary
+  @type execution_address :: bytes20
+  @type withdrawal_index :: uint64
 end
