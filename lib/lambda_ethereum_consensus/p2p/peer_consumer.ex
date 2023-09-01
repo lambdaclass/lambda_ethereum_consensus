@@ -16,7 +16,7 @@ defmodule LambdaEthereumConsensus.PeerConsumer do
         concurrency: 1
       ],
       processors: [
-        default: [concurrency: 10]
+        default: [concurrency: 4]
       ]
     )
   end

@@ -17,8 +17,8 @@ defmodule LambdaEthereumConsensus.GossipSub do
       "beacon_aggregate_and_proof",
       "beacon_attestation_0",
       "voluntary_exit",
-      # "proposer_slashing",
-      # "attester_slashing",
+      "proposer_slashing",
+      "attester_slashing",
       "sync_committee_contribution_and_proof",
       "sync_committee_0",
       "bls_to_execution_change"
