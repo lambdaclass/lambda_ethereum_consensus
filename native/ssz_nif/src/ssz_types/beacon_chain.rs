@@ -143,6 +143,13 @@ pub(crate) struct SigningData {
 }
 
 #[derive(Encode, Decode)]
+pub(crate) struct BLSToExecutionChange {
+    pub(crate) validator_index: ValidatorIndex,
+    pub(crate) from_bls_pubkey: BLSPubkey,
+    pub(crate) to_execution_address: ExecutionAddress,
+}
+
+#[derive(Encode, Decode)]
 pub(crate) struct SignedVoluntaryExit {
     pub(crate) message: VoluntaryExit,
     pub(crate) signature: BLSSignature,
