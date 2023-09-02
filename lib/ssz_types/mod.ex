@@ -15,7 +15,6 @@ defmodule SszTypes do
   @type bytes32 :: <<_::256>>
   @type bytes48 :: <<_::384>>
   @type bytes96 :: <<_::768>>
-
   # bitlists are stored in SSZ format
   @type bitlist :: binary
   @type bitvector :: binary
