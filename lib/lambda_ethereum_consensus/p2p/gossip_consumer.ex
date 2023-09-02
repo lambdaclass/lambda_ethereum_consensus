@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.GossipConsumer do
     data
     |> Libp2p.message_data()
     |> Base.encode16()
-    |> IO.inspect()
+    |> then(&IO.puts("Received message data: '#{&1}'"))
 
     message
   end
