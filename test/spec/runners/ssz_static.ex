@@ -27,14 +27,19 @@ defmodule SSZStaticTestRunner do
     "SignedBeaconBlockHeader",
     "AttestorSlashing",
     "BLSToExecutionChange",
-    "ProposerSlashing"
+    "ProposerSlashing",
+    "SyncAggregate",
+    "ExecutionPayload",
+    "ExecutionPayloadHeader",
+    "Withdrawal"
   ]
 
   @doc """
   Returns true if the given testcase should be skipped
   """
-  def skip?(testcase) do
-    not Enum.member?(@enabled, testcase.handler)
+  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
+    not Enum.member?(@enabled, handler) or
+      (handler in ["ExecutionPayloadHeader", "ExecutionPayload"] and fork != "capella")
   end
 
   def get_config("minimal"), do: MinimalConfig
@@ -71,6 +76,11 @@ defmodule SSZStaticTestRunner do
 
     {:ok, serialized} = Ssz.to_ssz(real_deserialized)
     assert serialized == real_serialized
+  end
+
+  defp to_struct_checked(actual, expected) when is_list(actual) and is_list(expected) do
+    Stream.zip(actual, expected)
+    |> Enum.map(fn {a, e} -> to_struct_checked(a, e) end)
   end
 
   defp to_struct_checked(%name{} = actual, %{} = expected) do

@@ -1,4 +1,4 @@
-use crate::utils::helpers::bytes_to_binary;
+use crate::{ssz_types::Uint256, utils::helpers::bytes_to_binary};
 use rustler::Binary;
 use ssz::Encode;
 use ssz_types::{typenum::Unsigned, BitList, BitVector, FixedVector, VariableList};
@@ -81,5 +81,20 @@ impl<'a, N: Unsigned> FromSsz<'a, BitVector<N>> for Binary<'a> {
 impl<'a, N: Unsigned> FromSsz<'a, BitList<N>> for Binary<'a> {
     fn from(value: BitList<N>, env: rustler::Env<'a>) -> Self {
         bytes_to_binary(env, &value.as_ssz_bytes())
+    }
+}
+
+impl<'a, N> FromSsz<'a, VariableList<u8, N>> for Binary<'a>
+where
+    N: Unsigned,
+{
+    fn from(value: VariableList<u8, N>, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value)
+    }
+}
+
+impl<'a> FromSsz<'a, Uint256> for Binary<'a> {
+    fn from(value: Uint256, env: rustler::Env<'a>) -> Self {
+        bytes_to_binary(env, &value.0)
     }
 }

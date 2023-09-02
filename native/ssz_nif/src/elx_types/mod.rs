@@ -8,8 +8,10 @@ mod beacon_chain;
 pub(crate) use beacon_chain::*;
 use rustler::Binary;
 
+// This type should be a little-endian encoded uint256.
+type Uint256<'a> = Binary<'a>;
+
 type Bytes4<'a> = Binary<'a>;
-#[allow(dead_code)]
 type Bytes20<'a> = Binary<'a>;
 type Bytes32<'a> = Binary<'a>;
 type Bytes48<'a> = Binary<'a>;
@@ -27,15 +29,11 @@ type Version<'a> = Bytes4<'a>;
 type DomainType<'a> = Bytes4<'a>;
 #[allow(dead_code)]
 type ForkDigest<'a> = Bytes4<'a>;
-#[allow(dead_code)]
 type Domain<'a> = Bytes32<'a>;
 type BLSPubkey<'a> = Bytes48<'a>;
 type BLSSignature<'a> = Bytes96<'a>;
 #[allow(dead_code)]
 type ParticipationFlags = u8;
-#[allow(dead_code)]
 type Transaction<'a> = Binary<'a>; // max size: 1073741824
-#[allow(dead_code)]
 type ExecutionAddress<'a> = Bytes20<'a>;
-#[allow(dead_code)]
 type WithdrawalIndex = u64;
