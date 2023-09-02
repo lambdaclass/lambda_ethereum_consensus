@@ -27,6 +27,7 @@ defmodule SSZStaticTestRunner do
     "SignedBeaconBlockHeader",
     "AttestorSlashing",
     "BLSToExecutionChange",
+    "SignedBLSToExecutionChange",
     "ProposerSlashing",
     "SyncAggregate",
     "ExecutionPayload",
