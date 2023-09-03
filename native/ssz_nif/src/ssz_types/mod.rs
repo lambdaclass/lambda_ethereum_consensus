@@ -17,7 +17,7 @@ pub(crate) struct Uint256(pub(crate) [u8; 32]);
 type Bytes4 = [u8; 4];
 type Bytes20 = FixedVector<u8, typenum::U20>;
 type Bytes32 = [u8; 32];
-type Bytes48 = [u8; 48];
+type Bytes48 = FixedVector<u8, typenum::U48>;
 type Bytes96 = FixedVector<u8, typenum::U96>;
 
 type Slot = u64;

@@ -1,0 +1,16 @@
+[package]
+name = "bls_nif"
+version = "0.1.0"
+authors = []
+edition = "2021"
+
+[lib]
+name = "bls_nif"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = "0.29.1"
+bls = { git = "https://github.com/sigp/lighthouse", package = "bls" }
+types = { git = "https://github.com/sigp/lighthouse", package = "types" }
+hex = "0.4.3"

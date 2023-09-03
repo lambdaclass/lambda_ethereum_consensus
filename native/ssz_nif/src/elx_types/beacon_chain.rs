@@ -205,6 +205,25 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.BLSToExecutionChange"]
+    pub(crate) struct BLSToExecutionChange<'a> {
+        validator_index: ValidatorIndex,
+        from_bls_pubkey: BLSPubkey<'a>,
+        to_execution_address: ExecutionAddress<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SignedBLSToExecutionChange"]
+    pub(crate) struct SignedBLSToExecutionChange<'a> {
+        message: BLSToExecutionChange<'a>,
+        signature: BLSSignature<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.ProposerSlashing"]
     pub(crate) struct ProposerSlashing<'a> {
         signed_header_1: SignedBeaconBlockHeader<'a>,
