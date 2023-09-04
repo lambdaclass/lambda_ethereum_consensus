@@ -10,7 +10,7 @@ defmodule BLSTestRunner do
     # "sign",
     "verify",
     "aggregate",
-    "fast_aggregate_verify",
+    # "fast_aggregate_verify",
     "aggregate_verify",
     "eth_aggregate_pubkeys",
     "eth_fast_aggregate_verify"
@@ -76,8 +76,14 @@ defmodule BLSTestRunner do
     assert false
   end
 
-  defp assert_fast_aggregate_verify(_input, _output) do
-    assert false
+  defp assert_fast_aggregate_verify(
+         %{message: message, pubkeys: pubkeys, signature: signature},
+         output
+       ) do
+    case Bls.fast_aggregate_verify(pubkeys, message, signature) do
+      {:ok, confirmation} -> assert confirmation == output
+      {result, _error_msg} -> assert result == :error
+    end
   end
 
   defp assert_aggregate_verify(_input, _output) do
