@@ -29,31 +29,49 @@ defmodule Ssz do
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
 
-  defp encode(%SszTypes.ExecutionPayloadHeader{} = map) do
-    Map.update!(map, :base_fee_per_gas, &encode_u256/1)
+  @doc """
+    For Ssz types that have special encoding rules defined in their optional encode/1 function,
+    call it recursively.
+  """
+  defp encode(%name{} = struct) do
+    case function_exported?(name, :encode, 1) do
+      true ->
+        name.encode(struct)
+
+      false ->
+        struct
+        |> Map.from_struct()
+        |> Enum.map(fn {k, v} -> {k, encode(v)} end)
+        |> then(&struct!(name, &1))
+    end
   end
 
-  defp encode(%SszTypes.ExecutionPayload{} = map) do
-    Map.update!(map, :base_fee_per_gas, &encode_u256/1)
+  defp encode(non_struct), do: non_struct
+
+  @doc """
+    For Ssz types that have special decoding rules defined in their optional decode/1 function,
+    call it recursively.
+  """
+  defp decode(%name{} = struct) do
+    case function_exported?(name, :decode, 1) do
+      true ->
+        name.decode(struct)
+
+      false ->
+        struct
+        |> Map.from_struct()
+        |> Enum.map(fn {k, v} -> {k, decode(v)} end)
+        |> then(&struct!(name, &1))
+    end
   end
 
-  defp encode(map), do: map
+  defp decode(non_struct), do: non_struct
 
-  defp encode_u256(num) do
+  def encode_u256(num) do
     num
     |> :binary.encode_unsigned(:little)
     |> String.pad_trailing(32, <<0>>)
   end
 
-  defp decode(%SszTypes.ExecutionPayloadHeader{} = map) do
-    Map.update!(map, :base_fee_per_gas, &decode_u256/1)
-  end
-
-  defp decode(%SszTypes.ExecutionPayload{} = map) do
-    Map.update!(map, :base_fee_per_gas, &decode_u256/1)
-  end
-
-  defp decode(map), do: map
-
-  defp decode_u256(num), do: :binary.decode_unsigned(num, :little)
+  def decode_u256(num), do: :binary.decode_unsigned(num, :little)
 end
