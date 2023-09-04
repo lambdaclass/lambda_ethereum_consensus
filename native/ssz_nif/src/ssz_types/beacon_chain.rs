@@ -223,3 +223,24 @@ pub(crate) struct ExecutionPayload {
     pub(crate) withdrawals:
         VariableList<Withdrawal, /* MAX_WITHDRAWALS_PER_PAYLOAD */ typenum::U16>,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct BeaconBlockBodyMinimal {
+    pub(crate) randao_reveal: BLSSignature,
+    pub(crate) eth1_data: Eth1Data,
+    pub(crate) graffiti: Bytes32,
+    pub(crate) proposer_slashings:
+        VariableList<ProposerSlashing, /* MAX_PROPOSER_SLASHINGS */ typenum::U16>,
+    pub(crate) attester_slashings:
+        VariableList<AttesterSlashing, /* MAX_ATTESTER_SLASHINGS */ typenum::U2>,
+    pub(crate) attestations: VariableList<Attestation, /* MAX_ATTESTATIONS */ typenum::U128>,
+    pub(crate) deposits: VariableList<Deposit, /* MAX_DEPOSITS */ typenum::U16>,
+    pub(crate) voluntary_exits:
+        VariableList<SignedVoluntaryExit, /* MAX_VOLUNTARY_EXITS */ typenum::U16>,
+    pub(crate) sync_aggregate: SyncAggregateMinimal,
+    pub(crate) execution_payload: ExecutionPayload,
+    pub(crate) bls_to_execution_changes: VariableList<
+        SignedBLSToExecutionChange,
+        /* MAX_BLS_TO_EXECUTION_CHANGES */ typenum::U16,
+    >,
+}

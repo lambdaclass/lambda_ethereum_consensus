@@ -32,7 +32,8 @@ defmodule SSZStaticTestRunner do
     "SyncAggregate",
     "ExecutionPayload",
     "ExecutionPayloadHeader",
-    "Withdrawal"
+    "Withdrawal",
+    "BeaconBlockBody"
   ]
 
   @doc """

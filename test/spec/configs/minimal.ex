@@ -5,7 +5,8 @@ defmodule MinimalConfig do
 
   @type_equivalence %{
     "HistoricalBatch" => "HistoricalBatchMinimal",
-    "SyncAggregate" => "SyncAggregateMinimal"
+    "SyncAggregate" => "SyncAggregateMinimal",
+    "BeaconBlockBody" => "BeaconBlockBodyMinimal"
   }
 
   def get_handler_mapping, do: @type_equivalence
