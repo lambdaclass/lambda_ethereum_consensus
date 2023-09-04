@@ -7,10 +7,12 @@ defmodule LambdaEthereumConsensus.Application do
 
   @impl true
   def start(_type, _args) do
+    {:ok, host} = Libp2p.host_new()
+    {:ok, gsub} = Libp2p.new_gossip_sub(host)
+
     children = [
-      {LambdaEthereumConsensus.NetworkAgent, []},
-      {LambdaEthereumConsensus.PeerConsumer, []},
-      {LambdaEthereumConsensus.GossipSub, []}
+      {LambdaEthereumConsensus.PeerConsumer, [host]},
+      {LambdaEthereumConsensus.GossipSub, [gsub]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

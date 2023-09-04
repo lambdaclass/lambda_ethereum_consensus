@@ -11,23 +11,23 @@ defmodule LambdaEthereumConsensus.GossipSub do
   end
 
   @impl true
-  def init(_init_arg) do
+  def init(gsub) do
     topics = [
-      "beacon_block",
-      "beacon_aggregate_and_proof",
-      "beacon_attestation_0",
-      "voluntary_exit",
-      "proposer_slashing",
-      "attester_slashing",
-      "sync_committee_contribution_and_proof",
-      "sync_committee_0",
-      "bls_to_execution_change"
+      {"beacon_block", SszTypes.SignedBeaconBlock},
+      {"beacon_aggregate_and_proof", SszTypes.SignedBeaconBlockHeader},
+      {"beacon_attestation_0", SszTypes.Attestation},
+      {"voluntary_exit", SszTypes.SignedVoluntaryExit},
+      {"proposer_slashing", SszTypes.ProposerSlashing},
+      {"attester_slashing", SszTypes.AttesterSlashing},
+      {"sync_committee_contribution_and_proof", SszTypes.SignedBeaconBlockHeader},
+      {"sync_committee_0", SszTypes.SignedBeaconBlockHeader},
+      {"bls_to_execution_change", SszTypes.SignedBeaconBlockHeader}
     ]
 
     children =
-      for topic_msg <- topics do
+      for {topic_msg, payload} <- topics do
         topic = "/eth2/bba4da96/#{topic_msg}/ssz_snappy"
-        {GossipConsumer, %{topic: topic}}
+        {GossipConsumer, %{gsub: gsub, topic: topic, payload: payload}}
       end
 
     Supervisor.init(children, strategy: :one_for_one)

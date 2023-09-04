@@ -4,15 +4,17 @@ defmodule LambdaEthereumConsensus.GossipConsumer do
   """
   use Broadway
 
-  def start_link(%{topic: topic_name}) when is_binary(topic_name) do
+  def start_link(%{gsub: gsub, topic: topic_name, payload: _} = opts)
+      when is_binary(topic_name) do
     Broadway.start_link(__MODULE__,
       name: get_id(topic_name),
+      context: opts,
       producer: [
-        module: {LambdaEthereumConsensus.Subscriber, %{topic: topic_name}},
+        module: {LambdaEthereumConsensus.Subscriber, %{gsub: gsub, topic: topic_name}},
         concurrency: 1
       ],
       processors: [
-        default: [concurrency: 1]
+        default: [concurrency: 1, max_demand: 1]
       ]
     )
   end
@@ -25,11 +27,20 @@ defmodule LambdaEthereumConsensus.GossipConsumer do
   end
 
   @impl true
-  def handle_message(_, %Broadway.Message{data: data} = message, _) do
-    data
-    |> Libp2p.message_data()
-    |> Base.encode16()
-    |> then(&IO.puts("Received message data: '#{&1}'"))
+  def handle_message(_, %Broadway.Message{data: data} = message, %{
+        topic: topic_name,
+        payload: payload
+      }) do
+    data = Libp2p.message_data(data)
+
+    # TODO: add handler modules
+
+    with {:ok, decompressed} <- :snappyer.decompress(data) do
+      case Ssz.from_ssz(decompressed, payload) do
+        {:ok, res} -> IO.puts("[#{topic_name}] decoded: '#{res}'")
+        _ -> data |> Base.encode16() |> then(&IO.puts("[#{topic_name}] raw: '#{&1}'"))
+      end
+    end
 
     message
   end
