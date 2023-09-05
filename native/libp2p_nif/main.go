@@ -174,7 +174,7 @@ func (h C.uintptr_t) HostConnect(pid C.uintptr_t) int {
 	err := host.Connect(context.TODO(), addrInfo)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		// fmt.Fprintf(os.Stderr, "%s\n", err)
 		return 1
 	}
 	return 0
@@ -423,6 +423,7 @@ func NewGossipSub(h C.uintptr_t) C.uintptr_t {
 		pubsub.WithNoAuthor(),
 		pubsub.WithGossipSubParams(params),
 		pubsub.WithSeenMessagesTTL(550 * heartbeat),
+		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
 	}
 
 	gsub, err := pubsub.NewGossipSub(context.TODO(), host, options...)
