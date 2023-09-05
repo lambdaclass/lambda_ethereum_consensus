@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Subscriber do
+defmodule LambdaEthereumConsensus.P2P.Subscriber do
   @moduledoc """
   This module receives messages on a given topic, and broadcasts them as events.
   """

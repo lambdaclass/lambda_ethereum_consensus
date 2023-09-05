@@ -11,8 +11,8 @@ defmodule LambdaEthereumConsensus.Application do
     {:ok, gsub} = Libp2p.new_gossip_sub(host)
 
     children = [
-      {LambdaEthereumConsensus.PeerConsumer, [host]},
-      {LambdaEthereumConsensus.GossipSub, [gsub]}
+      {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
+      {LambdaEthereumConsensus.P2P.GossipSub, [gsub]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

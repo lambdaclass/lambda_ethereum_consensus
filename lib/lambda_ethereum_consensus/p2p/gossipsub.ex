@@ -1,17 +1,18 @@
-defmodule LambdaEthereumConsensus.GossipSub do
+defmodule LambdaEthereumConsensus.P2P.GossipSub do
   @moduledoc """
   Supervises topic subscribers.
   """
   use Supervisor
 
-  alias LambdaEthereumConsensus.GossipConsumer
+  alias LambdaEthereumConsensus.P2P.GossipHandler
+  alias LambdaEthereumConsensus.P2P.GossipConsumer
 
   def start_link(init_arg) do
     Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
 
   @impl true
-  def init(gsub) do
+  def init([gsub]) do
     topics = [
       {"beacon_block", SszTypes.SignedBeaconBlock},
       {"beacon_aggregate_and_proof", SszTypes.SignedBeaconBlockHeader},
@@ -25,9 +26,9 @@ defmodule LambdaEthereumConsensus.GossipSub do
     ]
 
     children =
-      for {topic_msg, payload} <- topics do
+      for {topic_msg, type} <- topics do
         topic = "/eth2/bba4da96/#{topic_msg}/ssz_snappy"
-        {GossipConsumer, %{gsub: gsub, topic: topic, payload: payload}}
+        {GossipConsumer, %{gsub: gsub, topic: topic, type: type, handler: GossipHandler}}
       end
 
     Supervisor.init(children, strategy: :one_for_one)

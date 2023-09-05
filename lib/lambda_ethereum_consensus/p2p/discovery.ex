@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Discovery do
+defmodule LambdaEthereumConsensus.P2P.Discovery do
   @moduledoc """
   This module discovers new peers, and broadcasts them as events.
   """

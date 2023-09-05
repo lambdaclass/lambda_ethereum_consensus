@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.PeerConsumer do
+defmodule LambdaEthereumConsensus.P2P.PeerConsumer do
   @moduledoc """
   This module consumes events created by Discovery.
   """
@@ -11,7 +11,7 @@ defmodule LambdaEthereumConsensus.PeerConsumer do
       name: __MODULE__,
       context: {host, peerstore},
       producer: [
-        module: {LambdaEthereumConsensus.Discovery, []},
+        module: {LambdaEthereumConsensus.P2P.Discovery, []},
         concurrency: 1
       ],
       processors: [
