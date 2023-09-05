@@ -14,7 +14,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   @impl true
   def init([gsub]) do
     topics = [
-      {"beacon_block", SszTypes.SignedBeaconBlock},
+      # use type SignedBeaconBlock
+      {"beacon_block", SszTypes.SignedBeaconBlockHeader},
       # use type SignedAggregateAndProof
       {"beacon_aggregate_and_proof", SszTypes.SignedBeaconBlockHeader},
       {"beacon_attestation_0", SszTypes.Attestation},
