@@ -37,10 +37,6 @@ defmodule Ssz do
     Map.update!(map, :base_fee_per_gas, &encode_u256/1)
   end
 
-  defp encode(%SszTypes.BeaconBlockBodyMinimal{} = map) do
-    Map.update!(map, :execution_payload, &encode/1)
-  end
-
   defp encode(map), do: map
 
   defp encode_u256(num) do
@@ -55,10 +51,6 @@ defmodule Ssz do
 
   defp decode(%SszTypes.ExecutionPayload{} = map) do
     Map.update!(map, :base_fee_per_gas, &decode_u256/1)
-  end
-
-  defp decode(%SszTypes.BeaconBlockBodyMinimal{} = map) do
-    Map.update!(map, :execution_payload, &decode/1)
   end
 
   defp decode(map), do: map
