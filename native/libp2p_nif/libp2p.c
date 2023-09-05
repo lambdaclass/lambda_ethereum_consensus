@@ -138,7 +138,7 @@ void send_message(void *pid_bytes, uintptr_t stream_handle)
     ErlNifPid *pid = pid_bytes;
     ErlNifEnv *env = enif_alloc_env();
 
-    ERL_NIF_TERM message = get_handle_result(env, Stream, stream_handle);
+    ERL_NIF_TERM message = enif_make_tuple2(env, enif_make_atom(env, "req"), get_handle_result(env, Stream, stream_handle));
 
     int result = enif_send(NULL, pid, env, message);
     // On error, the env isn't freed by the function.

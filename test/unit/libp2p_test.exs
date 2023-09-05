@@ -57,7 +57,7 @@ defmodule Unit.Libp2pTest do
     # (recver) Receive the stream via the configured stream handler
     {:ok, recv} =
       receive do
-        msg -> msg
+        {:req, msg} -> msg
       after
         1000 -> :timeout
       end
