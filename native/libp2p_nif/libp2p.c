@@ -200,7 +200,8 @@ ERL_FUNCTION(host_set_stream_handler)
     IF_ERROR(!enif_inspect_binary(env, argv[1], &bin), "invalid protocol ID");
     GoString proto_id = {(const char *)bin.data, bin.size};
 
-    // To avoid importing Erlang types in Go.
+    // To avoid importing Erlang types in Go. Note that the size of
+    // this is sizeof(unsigned long), but it's opaque, hence this.
     const int PID_SIZE = sizeof(ErlNifPid);
     ErlNifPid pid;
     IF_ERROR(!enif_self(env, &pid), "failed to get pid");
