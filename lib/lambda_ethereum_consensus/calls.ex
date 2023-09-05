@@ -1,6 +1,6 @@
-defmodule LambdaEthereumConsensus.RPC do
+defmodule LambdaEthereumConsensus.Calls do
   @moduledoc """
-  RPC wrapper enabling calls to compatible endpoints
+  Calls wrapper enabling HTTP & RPC calls to compatible endpoints
   """
 
   alias LambdaEthereumConsensus.JWT
@@ -9,10 +9,18 @@ defmodule LambdaEthereumConsensus.RPC do
   plug(Tesla.Middleware.JSON)
 
   @doc """
-  Builds and calls provided endpoint
+  Builds a GET request and calls the endpoint
   """
-  @spec call(binary, binary, binary, map()) :: {:error, any} | {:ok, Tesla.Env.t()}
-  def call(method, endpoint, version, params) do
+  @spec get_call(binary, Tesla.Client.t()) :: {:error, any} | {:ok, Tesla.Env.t()}
+  def get_call(endpoint, client) do
+    get(client, endpoint)
+  end
+
+  @doc """
+  Builds a JSON-RPC request and calls the endpoint
+  """
+  @spec rpc_call(binary, binary, binary, map()) :: {:error, any} | {:ok, Tesla.Env.t()}
+  def rpc_call(method, endpoint, version, params) do
     {:ok, token, _claims} = JWT.generate_token()
 
     client =

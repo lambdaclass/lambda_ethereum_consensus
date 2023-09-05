@@ -2,7 +2,7 @@ defmodule LambdaEthereumConsensus.Engine.Execution do
   @moduledoc """
   Execution Layer Engine API methods
   """
-  alias LambdaEthereumConsensus.RPC
+  alias LambdaEthereumConsensus.Calls
 
   # Default Execution Layer endpoint
   @execution_engine_endpoint "http://0.0.0.0:8551"
@@ -21,13 +21,13 @@ defmodule LambdaEthereumConsensus.Engine.Execution do
     }
 
     with {:ok, result} <-
-           RPC.call(
+           Calls.rpc_call(
              "engine_exchangeCapabilities",
              @execution_engine_endpoint,
              @execution_engine_rpc_version,
              params
            ) do
-      RPC.validate_response(result)
+      Calls.validate_response(result)
     end
   end
 end
