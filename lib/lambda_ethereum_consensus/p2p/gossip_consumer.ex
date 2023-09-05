@@ -35,14 +35,15 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
     data = Libp2p.message_data(data)
 
     with {:ok, decompressed} <- :snappyer.decompress(data),
-         {:ok, res} <- Ssz.from_ssz(decompressed, type) do
-      handler.handle_message(topic_name, res)
+         {:ok, res} <- Ssz.from_ssz(decompressed, type),
+         :ok <- handler.handle_message(topic_name, res) do
+      message
     else
       {:error, reason} ->
+        # we should remove this when we can easily debug failed messages
         data |> Base.encode16() |> then(&IO.puts("[#{topic_name}] (err: #{reason}) raw: '#{&1}'"))
+        Broadway.Message.failed(message, reason)
     end
-
-    message
   end
 
   defp get_id(topic_name) do
