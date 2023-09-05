@@ -8,19 +8,28 @@ defmodule LambdaEthereumConsensus.P2P.Subscriber do
   def init(%{topic: topic_name, gsub: gsub}) do
     {:ok, topic} = Libp2p.pub_sub_join(gsub, topic_name)
     {:ok, subscription} = Libp2p.topic_subscribe(topic)
-    {:producer, subscription}
+    # NOTE: this stream isn't pure
+    mut_stream =
+      subscription
+      |> Stream.unfold(&get_next_msg/1)
+      |> Stream.map(&wrap_message/1)
+
+    {:producer, mut_stream}
+  end
+
+  defp get_next_msg(subscription) do
+    {:ok, msg} = Libp2p.subscription_next(subscription)
+
+    {msg, subscription}
   end
 
   @impl true
-  def handle_demand(incoming_demand, subscription) do
+  def handle_demand(incoming_demand, mut_stream) do
     messages =
-      for _ <- 1..incoming_demand do
-        {:ok, msg} = Libp2p.subscription_next(subscription)
+      mut_stream
+      |> Enum.take(incoming_demand)
 
-        wrap_message(msg)
-      end
-
-    {:noreply, messages, subscription}
+    {:noreply, messages, mut_stream}
   end
 
   defp wrap_message(msg) do
