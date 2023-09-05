@@ -34,21 +34,13 @@ fn fast_aggregate_verify<'env>(
     message: Binary,
     signature: Binary,
 ) -> Result<bool, String> {
-    let aggregate_sig = match AggregateSignature::deserialize(signature.as_slice()) {
-        Ok(aggregate_sig) => aggregate_sig,
-        Err(e) => return Err(format!("{:?}", e)),
-    };
+    let aggregate_sig = AggregateSignature::deserialize(signature.as_slice())
+        .map_err(|err| format!("{:?}", err))?;
     let pubkeys_result = public_keys
         .iter()
-        .map(|pkb| match PublicKey::deserialize(pkb.as_slice()) {
-            Ok(pk) => Ok(pk),
-            Err(e) => return Err(format!("{:?}", e)),
-        })
+        .map(|pkb| PublicKey::deserialize(pkb.as_slice()))
         .collect::<Result<Vec<PublicKey>, _>>();
-    let pubkeys = match pubkeys_result {
-        Ok(pubkeys) => pubkeys,
-        Err(e) => return Err(format!("{:?}", e)),
-    };
+    let pubkeys = pubkeys_result.map_err(|err| format!("{:?}", err))?;
 
     let pubkey_refs = pubkeys.iter().collect::<Vec<_>>();
     Ok(aggregate_sig.fast_aggregate_verify(Hash256::from_slice(message.as_slice()), &pubkey_refs))
