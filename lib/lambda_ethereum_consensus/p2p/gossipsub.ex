@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   """
   use Supervisor
 
-  alias LambdaEthereumConsensus.P2P.GossipHandler
   alias LambdaEthereumConsensus.P2P.GossipConsumer
+  alias LambdaEthereumConsensus.P2P.GossipHandler
 
   def start_link(init_arg) do
     Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
