@@ -31,15 +31,13 @@ defmodule Ssz do
 
   # Ssz types can have special decoding rules defined in their optional encode/1 function,
   defp encode(%name{} = struct) do
-    case function_exported?(name, :encode, 1) do
-      true ->
-        name.encode(struct)
-
-      false ->
-        struct
-        |> Map.from_struct()
-        |> Enum.map(fn {k, v} -> {k, encode(v)} end)
-        |> then(&struct!(name, &1))
+    if function_exported?(name, :encode, 1) do
+      name.encode(struct)
+    else
+      struct
+      |> Map.from_struct()
+      |> Enum.map(fn {k, v} -> {k, encode(v)} end)
+      |> then(&struct!(name, &1))
     end
   end
 
@@ -47,15 +45,13 @@ defmodule Ssz do
 
   # Ssz types can have special decoding rules defined in their optional decode/1 function,
   defp decode(%name{} = struct) do
-    case function_exported?(name, :decode, 1) do
-      true ->
-        name.decode(struct)
-
-      false ->
-        struct
-        |> Map.from_struct()
-        |> Enum.map(fn {k, v} -> {k, decode(v)} end)
-        |> then(&struct!(name, &1))
+    if function_exported?(name, :decode, 1) do
+      name.decode(struct)
+    else
+      struct
+      |> Map.from_struct()
+      |> Enum.map(fn {k, v} -> {k, decode(v)} end)
+      |> then(&struct!(name, &1))
     end
   end
 
