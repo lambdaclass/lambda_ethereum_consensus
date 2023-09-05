@@ -29,31 +29,39 @@ defmodule Ssz do
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
 
-  defp encode(%SszTypes.ExecutionPayloadHeader{} = map) do
-    Map.update!(map, :base_fee_per_gas, &encode_u256/1)
+  # Ssz types can have special decoding rules defined in their optional encode/1 function,
+  defp encode(%name{} = struct) do
+    if function_exported?(name, :encode, 1) do
+      name.encode(struct)
+    else
+      struct
+      |> Map.from_struct()
+      |> Enum.map(fn {k, v} -> {k, encode(v)} end)
+      |> then(&struct!(name, &1))
+    end
   end
 
-  defp encode(%SszTypes.ExecutionPayload{} = map) do
-    Map.update!(map, :base_fee_per_gas, &encode_u256/1)
+  defp encode(non_struct), do: non_struct
+
+  # Ssz types can have special decoding rules defined in their optional decode/1 function,
+  defp decode(%name{} = struct) do
+    if function_exported?(name, :decode, 1) do
+      name.decode(struct)
+    else
+      struct
+      |> Map.from_struct()
+      |> Enum.map(fn {k, v} -> {k, decode(v)} end)
+      |> then(&struct!(name, &1))
+    end
   end
 
-  defp encode(map), do: map
+  defp decode(non_struct), do: non_struct
 
-  defp encode_u256(num) do
+  def encode_u256(num) do
     num
     |> :binary.encode_unsigned(:little)
     |> String.pad_trailing(32, <<0>>)
   end
 
-  defp decode(%SszTypes.ExecutionPayloadHeader{} = map) do
-    Map.update!(map, :base_fee_per_gas, &decode_u256/1)
-  end
-
-  defp decode(%SszTypes.ExecutionPayload{} = map) do
-    Map.update!(map, :base_fee_per_gas, &decode_u256/1)
-  end
-
-  defp decode(map), do: map
-
-  defp decode_u256(num), do: :binary.decode_unsigned(num, :little)
+  def decode_u256(num), do: :binary.decode_unsigned(num, :little)
 end

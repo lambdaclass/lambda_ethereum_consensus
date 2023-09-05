@@ -52,8 +52,11 @@ defmodule SpecTestGenerator do
         test_runner = Map.get(SpecTestGenerator.runner_map(), testcase.runner)
 
         @tag :spectest
-        @tag config: testcase.config, fork: testcase.fork
-        @tag runner: testcase.runner, suite: testcase.suite
+        @tag config: testcase.config,
+             fork: testcase.fork,
+             runner: testcase.runner,
+             handler: testcase.handler,
+             suite: testcase.suite
         if test_runner == nil do
           @tag :skip
           test test_name
