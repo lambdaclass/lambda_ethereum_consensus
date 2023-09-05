@@ -29,10 +29,7 @@ defmodule Ssz do
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
 
-  @doc """
-    For Ssz types that have special encoding rules defined in their optional encode/1 function,
-    call it recursively.
-  """
+  # Ssz types can have special decoding rules defined in their optional encode/1 function,
   defp encode(%name{} = struct) do
     case function_exported?(name, :encode, 1) do
       true ->
@@ -48,10 +45,7 @@ defmodule Ssz do
 
   defp encode(non_struct), do: non_struct
 
-  @doc """
-    For Ssz types that have special decoding rules defined in their optional decode/1 function,
-    call it recursively.
-  """
+  # Ssz types can have special decoding rules defined in their optional decode/1 function,
   defp decode(%name{} = struct) do
     case function_exported?(name, :decode, 1) do
       true ->
