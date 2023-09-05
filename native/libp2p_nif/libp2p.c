@@ -421,14 +421,12 @@ ERL_FUNCTION(message_data)
 {
     uintptr_t msg = GET_HANDLE(argv[0], Message);
 
-    char buffer[BUFFER_SIZE];
-    GoSlice go_buffer = {buffer, BUFFER_SIZE, BUFFER_SIZE};
-
-    uint64_t read = MessageData(msg, go_buffer);
-
+    int len = MessageDataLen(msg);
     ERL_NIF_TERM bin_term;
-    u_char *bin_data = enif_make_new_binary(env, read, &bin_term);
-    memcpy(bin_data, buffer, read);
+    u_char *bin = enif_make_new_binary(env, len, &bin_term);
+
+    GoSlice go_buffer = {bin, len, len};
+    MessageData(msg, go_buffer);
 
     return bin_term;
 }

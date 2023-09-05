@@ -496,3 +496,9 @@ func (m C.uintptr_t) MessageData(buffer []byte) int {
 	msg := cgo.Handle(m).Value().(*pubsub.Message)
 	return copy(buffer, msg.Data)
 }
+
+//export MessageDataLen
+func (m C.uintptr_t) MessageDataLen() int {
+	msg := cgo.Handle(m).Value().(*pubsub.Message)
+	return len(msg.Data)
+}
