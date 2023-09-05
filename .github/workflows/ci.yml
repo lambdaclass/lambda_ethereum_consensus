@@ -120,7 +120,7 @@ jobs:
     - name: Install dependencies
       run: mix deps.get
     - name: Run tests
-      run: mix test --trace --exclude spectest
+      run: mix test --no-start --trace --exclude spectest
 
   lint:
     name: Lint
@@ -204,4 +204,4 @@ jobs:
       - name: Uncompress vectors
         run: make tests/${{ matrix.config }}
       - name: Run tests
-        run: mix test --trace --only spectest
+        run: mix test --no-start --trace --only spectest
