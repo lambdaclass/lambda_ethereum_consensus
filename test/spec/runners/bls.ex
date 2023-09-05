@@ -81,8 +81,14 @@ defmodule BLSTestRunner do
          output
        ) do
     case Bls.fast_aggregate_verify(pubkeys, message, signature) do
-      {:ok, confirmation} -> assert confirmation == output
-      {result, error_msg} -> assert result == :error, error_msg
+      {:ok, true} ->
+        assert output
+
+      {:ok, false} ->
+        assert not output
+
+      {:error, reason} ->
+        assert not output, reason
     end
   end
 
