@@ -4,6 +4,9 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
   used in the GossipConsumer module to handle messages.
   """
   def handle_message(topic_name, payload) do
-    IO.puts("[#{topic_name}] decoded: '#{payload}'")
+    payload
+    |> inspect(limit: :infinity)
+    |> then(&"[#{topic_name}] decoded: '#{&1}'")
+    |> IO.puts()
   end
 end
