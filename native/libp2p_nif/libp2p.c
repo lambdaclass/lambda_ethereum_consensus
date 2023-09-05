@@ -408,6 +408,8 @@ ERL_FUNCTION(subscription_next)
     }
     char *err = NULL;
     uintptr_t res = SubscriptionNext(handle, &err);
+    // A null result and error means we reached a timeout.
+    // Hence, we reschedule our NIF to a future time.
     if (res == 0 && err == NULL)
     {
         return enif_schedule_nif(env, "subscription_next", 1, subscription_next, argc, argv);
