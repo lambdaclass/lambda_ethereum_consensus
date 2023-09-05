@@ -88,6 +88,7 @@ With this foundation you should have a basic understanding of the Elixir languag
   - [Ethereum Mauve Paper](https://cdn.hackaday.io/files/10879465447136/Mauve%20Paper%20Vitalik.pdf)
 
 **Learning Ethereum Consensus**:
+
 - **Books**:
   - [Eth2Book by Ben Edgington](https://eth2book.info). This book is indispensable for understanding the Ethereum consensus protocol. If you can read only one thing, read this.
 - **Specifications**:
