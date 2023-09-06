@@ -3,10 +3,20 @@ pub(crate) mod from_ssz;
 pub(crate) mod helpers;
 
 macro_rules! match_schema_and_encode {
-    (($schema:expr, $map:expr) => { $($t:tt),* $(,)? }) => {
+    (($schema:expr, $config:expr, $map:expr) => { $($t:tt),* $(,)? }) => {
         match $schema {
             $(
-                stringify!($t) => $crate::utils::helpers::encode_ssz::<elx_types::$t, ssz_types::$t>($map),
+                stringify!($t) => match $config {
+                    "MainnetConfig" => $crate::utils::helpers::encode_ssz::<
+                        elx_types::$t, ssz_types::$t<
+                            $crate::ssz_types::config::Mainnet
+                        >>($map),
+                    "MinimalConfig" => $crate::utils::helpers::encode_ssz::<
+                    elx_types::$t, ssz_types::$t<
+                        $crate::ssz_types::config::Minimal
+                    >>($map),
+                    _ => Err(rustler::Error::BadArg),
+                }
             )*
             _ => Err(rustler::Error::BadArg),
         }
@@ -14,10 +24,20 @@ macro_rules! match_schema_and_encode {
 }
 
 macro_rules! match_schema_and_decode {
-    (($schema:expr, $bytes:expr, $env:expr) => { $($t:tt),* $(,)? }) => {
+    (($schema:expr, $config:expr, $bytes:expr, $env:expr) => { $($t:tt),* $(,)? }) => {
         match $schema {
             $(
-                stringify!($t) => $crate::utils::helpers::decode_ssz::<elx_types::$t, ssz_types::$t>($bytes, $env),
+                stringify!($t) => match $config {
+                    "MainnetConfig" => $crate::utils::helpers::decode_ssz::<
+                        elx_types::$t, ssz_types::$t<
+                            $crate::ssz_types::config::Mainnet
+                        >>($bytes, $env),
+                    "MinimalConfig" => $crate::utils::helpers::decode_ssz::<
+                    elx_types::$t, ssz_types::$t<
+                        $crate::ssz_types::config::Minimal
+                    >>($bytes, $env),
+                    _ => Err(rustler::Error::BadArg),
+                }
             )*
             _ => Err(rustler::Error::BadArg),
         }
@@ -46,8 +66,8 @@ macro_rules! gen_struct {
                 $field_vis $field_name : $field_ty
             ),*
         }
-        impl<'a> $crate::utils::from_ssz::FromSsz<'a, $crate::ssz_types::$name> for $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
-            fn from(ssz: $crate::ssz_types::$name, env: ::rustler::Env<'a>) -> Self {
+        impl<'a, C: $crate::ssz_types::config::Config> $crate::utils::from_ssz::FromSsz<'a, $crate::ssz_types::$name<C>> for $name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? {
+            fn from(ssz: $crate::ssz_types::$name<C>, env: ::rustler::Env<'a>) -> Self {
                 $(
                     let $field_name = $crate::utils::from_ssz::FromSsz::from(ssz.$field_name, env);
                 )*
@@ -57,7 +77,8 @@ macro_rules! gen_struct {
             }
         }
 
-        impl$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? $crate::utils::from_elx::FromElx<$name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?> for $crate::ssz_types::$name {
+        impl< $($( $lt $( : $clt $(+ $dlt )* )? ),+)?, C: $crate::ssz_types::config::Config>
+        $crate::utils::from_elx::FromElx<$name$(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?> for $crate::ssz_types::$name<C> {
             fn from(elx: $name) -> Result<Self, $crate::utils::from_elx::FromElxError> {
                 $(
                     let $field_name = $crate::utils::from_elx::FromElx::from(elx.$field_name)?;
