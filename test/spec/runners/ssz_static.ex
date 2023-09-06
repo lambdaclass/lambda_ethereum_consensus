@@ -32,7 +32,9 @@ defmodule SSZStaticTestRunner do
     "SyncAggregate",
     "ExecutionPayload",
     "ExecutionPayloadHeader",
-    "Withdrawal"
+    "Withdrawal",
+    "SyncCommittee",
+    "SyncCommitteeMinimal"
   ]
 
   @doc """

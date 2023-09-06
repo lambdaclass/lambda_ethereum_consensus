@@ -59,6 +59,7 @@ fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'e
             SigningData,
             SyncAggregate,
             SyncAggregateMinimal,
+            SyncCommittee
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -101,6 +102,8 @@ fn from_ssz_rs<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<T
             SigningData,
             SyncAggregate,
             SyncAggregateMinimal,
+            SyncCommittee,
+            SyncCommitteeMinimal,
         }
     )?;
     Ok((atoms::ok(), res).encode(env))
