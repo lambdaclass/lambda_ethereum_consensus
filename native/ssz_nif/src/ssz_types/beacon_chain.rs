@@ -1,4 +1,4 @@
-use super::config::{Config, Mainnet, Minimal};
+use super::config::Config;
 use super::*;
 use ssz_derive::{Decode, Encode};
 use ssz_types::{BitList, BitVector};
@@ -44,23 +44,19 @@ pub(crate) struct AttestationData {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct IndexedAttestationBase<C: Config> {
+pub(crate) struct IndexedAttestation<C: Config> {
     pub(crate) attesting_indices: VariableList<ValidatorIndex, C::MaxValidatorsPerCommittee>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
 
-pub(crate) type IndexedAttestation = IndexedAttestationBase<Mainnet>;
-
 #[derive(Encode, Decode)]
-pub(crate) struct PendingAttestationBase<C: Config> {
+pub(crate) struct PendingAttestation<C: Config> {
     pub(crate) aggregation_bits: BitList<C::MaxValidatorsPerCommittee>,
     pub(crate) data: AttestationData,
     pub(crate) inclusion_delay: Slot,
     pub(crate) proposer_index: ValidatorIndex,
 }
-
-pub(crate) type PendingAttestation = PendingAttestationBase<Mainnet>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct Eth1Data {
@@ -70,13 +66,10 @@ pub(crate) struct Eth1Data {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct HistoricalBatchBase<C: Config> {
+pub(crate) struct HistoricalBatch<C: Config> {
     pub(crate) block_roots: FixedVector<Root, C::SlotsPerHistoricalRoot>,
     pub(crate) state_roots: FixedVector<Root, C::SlotsPerHistoricalRoot>,
 }
-
-pub(crate) type HistoricalBatch = HistoricalBatchBase<Mainnet>;
-pub(crate) type HistoricalBatchMinimal = HistoricalBatchBase<Minimal>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct DepositMessage {
@@ -112,13 +105,11 @@ pub(crate) struct VoluntaryExit {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct AttestationBase<C: Config> {
+pub(crate) struct Attestation<C: Config> {
     pub(crate) aggregation_bits: BitList<C::MaxValidatorsPerCommittee>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
-
-pub(crate) type Attestation = AttestationBase<Mainnet>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct BeaconBlockHeader {
@@ -136,12 +127,10 @@ pub(crate) struct SignedBeaconBlockHeader {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct AttesterSlashingBase<C: Config> {
-    pub(crate) attestation_1: IndexedAttestationBase<C>,
-    pub(crate) attestation_2: IndexedAttestationBase<C>,
+pub(crate) struct AttesterSlashing<C: Config> {
+    pub(crate) attestation_1: IndexedAttestation<C>,
+    pub(crate) attestation_2: IndexedAttestation<C>,
 }
-
-pub(crate) type AttesterSlashing = AttesterSlashingBase<Mainnet>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct SigningData {
@@ -175,13 +164,10 @@ pub(crate) struct ProposerSlashing {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct SyncAggregateBase<C: Config> {
+pub(crate) struct SyncAggregate<C: Config> {
     pub(crate) sync_committee_bits: BitVector<C::SyncCommitteeSize>,
     pub(crate) sync_committee_signature: BLSSignature,
 }
-
-pub(crate) type SyncAggregate = SyncAggregateBase<Mainnet>;
-pub(crate) type SyncAggregateMinimal = SyncAggregateBase<Minimal>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct Withdrawal {
@@ -192,7 +178,7 @@ pub(crate) struct Withdrawal {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct ExecutionPayloadHeaderBase<C: Config> {
+pub(crate) struct ExecutionPayloadHeader<C: Config> {
     pub(crate) parent_hash: Hash32,
     pub(crate) fee_recipient: ExecutionAddress,
     pub(crate) state_root: Root,
@@ -210,10 +196,8 @@ pub(crate) struct ExecutionPayloadHeaderBase<C: Config> {
     pub(crate) withdrawals_root: Root,
 }
 
-pub(crate) type ExecutionPayloadHeader = ExecutionPayloadHeaderBase<Mainnet>;
-
 #[derive(Encode, Decode)]
-pub(crate) struct ExecutionPayloadBase<C: Config> {
+pub(crate) struct ExecutionPayload<C: Config> {
     pub(crate) parent_hash: Hash32,
     pub(crate) fee_recipient: ExecutionAddress,
     pub(crate) state_root: Root,
@@ -231,12 +215,8 @@ pub(crate) struct ExecutionPayloadBase<C: Config> {
     pub(crate) withdrawals: VariableList<Withdrawal, C::MaxWithdrawalsPerPayload>,
 }
 
-pub(crate) type ExecutionPayload = ExecutionPayloadBase<Mainnet>;
 #[derive(Encode, Decode)]
-pub(crate) struct SyncCommiteeBase<C: Config> {
+pub(crate) struct SyncCommittee<C: Config> {
     pub(crate) pubkeys: FixedVector<BLSPubkey, C::SyncCommitteeSize>,
     pub(crate) aggregate_pubkey: BLSPubkey,
 }
-
-pub(crate) type SyncCommittee = SyncCommiteeBase<Mainnet>;
-pub(crate) type SyncCommitteeMinimal = SyncCommiteeBase<Minimal>;
