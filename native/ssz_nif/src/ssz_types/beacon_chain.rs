@@ -101,7 +101,7 @@ pub(crate) struct HistoricalSummary {
 
 #[derive(Encode, Decode)]
 pub(crate) struct Deposit {
-    pub(crate) proof: FixedVector<Bytes32, typenum::U33>,
+    pub(crate) proof: FixedVector<Bytes32, /* DEPOSIT_CONTRACT_TREE_DEPTH + 1 */ typenum::U33>,
     pub(crate) data: DepositData,
 }
 
