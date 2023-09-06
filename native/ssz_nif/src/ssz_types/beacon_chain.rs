@@ -100,12 +100,10 @@ pub(crate) struct HistoricalSummary {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct DepositBase<C: Config> {
-    pub(crate) proof: FixedVector<Bytes32, C::DepositContractTreeDepth>,
+pub(crate) struct Deposit {
+    pub(crate) proof: FixedVector<Bytes32, /* DEPOSIT_CONTRACT_TREE_DEPTH + 1 */ typenum::U33>,
     pub(crate) data: DepositData,
 }
-
-pub(crate) type Deposit = DepositBase<Mainnet>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct VoluntaryExit {
