@@ -312,3 +312,15 @@ gen_struct!(
         withdrawals: Vec<Withdrawal<'a>>,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconState"]
+    pub(crate) struct BeaconState<'a> {
+        // Versioning
+        genesis_time: uint64,
+        genesis_validators_root: Root,
+        slot: Slot,
+        fork: Fork,
+    }
+);

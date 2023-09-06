@@ -223,3 +223,63 @@ pub(crate) struct ExecutionPayload {
     pub(crate) withdrawals:
         VariableList<Withdrawal, /* MAX_WITHDRAWALS_PER_PAYLOAD */ typenum::U16>,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct BeaconState {
+    // Versioning
+    pub(crate) genesis_time: u64,
+    pub(crate) genesis_validators_root: Root,
+    pub(crate) slot: Slot,
+    pub(crate) fork: Fork,
+    // History
+    pub(crate) latest_block_header: BeaconBlockHeader,
+    pub(crate) block_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ typenum::U8192>,
+    pub(crate) state_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ typenum::U8192>,
+    pub(crate) historical_roots:
+        VariableList<Root, /* HISTORICAL_ROOTS_LIMIT */ typenum::U16777216>, // Frozen in Capella, replaced by historical_summaries
+    // Eth1
+    pub(crate) eth1_data: Eth1Data,
+    pub(crate) eth1_data_votes: VariableList<
+        Eth1Data,
+        /* EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH */ typenum::U2048,
+    >,
+    pub(crate) eth1_deposit_index: u64,
+    // Registry
+    pub(crate) validators:
+        VariableList<Validator, /* VALIDATOR_REGISTRY_LIMIT */ typenum::U1099511627776>,
+    pub(crate) balances:
+        VariableList<Gwei, /* VALIDATOR_REGISTRY_LIMIT */ typenum::U1099511627776>,
+    // Randomness
+    pub(crate) randao_mixes:
+        FixedVector<Bytes32, /* EPOCHS_PER_HISTORICAL_VECTOR */ typenum::U65536>,
+    // Slashings
+    pub(crate) slashings: FixedVector<Gwei, /* EPOCHS_PER_SLASHINGS_VECTOR */ typenum::U8192>, // Per-epoch sums of slashed effective balances
+    // Participation
+    pub(crate) previous_epoch_participation: VariableList<
+        ParticipationFlags,
+        /* VALIDATOR_REGISTRY_LIMIT */ typenum::U1099511627776,
+    >,
+    pub(crate) current_epoch_participation: VariableList<
+        ParticipationFlags,
+        /* VALIDATOR_REGISTRY_LIMIT */ typenum::U1099511627776,
+    >,
+    // Finality
+    pub(crate) justification_bits: BitVector</*  JUSTIFICATION_BITS_LENGTH */ typenum::U10>, // Bit set for every recent justified epoch
+    pub(crate) previous_justified_checkpoint: Checkpoint,
+    pub(crate) current_justified_checkpoint: Checkpoint,
+    pub(crate) finalized_checkpoint: Checkpoint,
+    // Inactivity
+    pub(crate) inactivity_scores:
+        VariableList<u64, /* VALIDATOR_REGISTRY_LIMIT */ typenum::U1099511627776>,
+    // Sync
+    pub(crate) current_sync_committee: SyncCommittee,
+    pub(crate) next_sync_committee: SyncCommittee,
+    // Execution
+    pub(crate) latest_execution_payload_header: ExecutionPayloadHeader, // [Modified in Capella]
+    // Withdrawals
+    pub(crate) next_withdrawal_index: WithdrawalIndex, // [New in Capella]
+    pub(crate) next_withdrawal_validator_index: ValidatorIndex, // [New in Capella]
+    // Deep history valid from Capella onwards
+    pub(crate) historical_summaries:
+        VariableList<HistoricalSummary, /* HISTORICAL_ROOTS_LIMIT */ typenum::U16777216>, // [New in Capella]
+}
