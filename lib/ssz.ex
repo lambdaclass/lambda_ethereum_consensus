@@ -5,26 +5,26 @@ defmodule Ssz do
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "ssz_nif"
 
   ##### Functional wrappers
-  @spec to_ssz(struct) :: {:ok, binary} | {:error, String.t()}
-  def to_ssz(%name{} = map) do
+  @spec to_ssz(struct, module) :: {:ok, binary} | {:error, String.t()}
+  def to_ssz(%name{} = map, config \\ MainnetConfig) do
     map
     |> encode()
-    |> to_ssz_rs(name)
+    |> to_ssz_rs(name, config)
   end
 
-  @spec from_ssz(binary, module) :: {:ok, struct} | {:error, String.t()}
-  def from_ssz(bin, schema) do
-    with {:ok, map} <- from_ssz_rs(bin, schema) do
+  @spec from_ssz(binary, module, module) :: {:ok, struct} | {:error, String.t()}
+  def from_ssz(bin, schema, config \\ MainnetConfig) do
+    with {:ok, map} <- from_ssz_rs(bin, schema, config) do
       {:ok, decode(map)}
     end
   end
 
   ##### Rust-side function stubs
-  @spec to_ssz_rs(map, module) :: {:ok, binary} | {:error, String.t()}
-  def to_ssz_rs(_map, _schema), do: error()
+  @spec to_ssz_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
+  def to_ssz_rs(_map, _schema, _config), do: error()
 
-  @spec from_ssz_rs(binary, module) :: {:ok, struct} | {:error, String.t()}
-  def from_ssz_rs(_bin, _schema), do: error()
+  @spec from_ssz_rs(binary, module, module) :: {:ok, struct} | {:error, String.t()}
+  def from_ssz_rs(_bin, _schema, _config), do: error()
 
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
