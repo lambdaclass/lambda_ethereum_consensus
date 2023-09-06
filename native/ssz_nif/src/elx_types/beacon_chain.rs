@@ -315,6 +315,24 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.SyncCommittee"]
+    pub(crate) struct SyncCommittee<'a> {
+        pubkeys: Vec<BLSPubkey<'a>>,
+        aggregate_pubkey: BLSPubkey<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SyncCommitteeMinimal"]
+    pub(crate) struct SyncCommitteeMinimal<'a> {
+        pubkeys: Vec<BLSPubkey<'a>>,
+        aggregate_pubkey: BLSPubkey<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.BeaconState"]
     pub(crate) struct BeaconState<'a> {
         // Versioning

@@ -7,9 +7,12 @@ defmodule LambdaEthereumConsensus.Application do
 
   @impl true
   def start(_type, _args) do
+    {:ok, host} = Libp2p.host_new()
+    {:ok, gsub} = Libp2p.new_gossip_sub(host)
+
     children = [
-      # Starts a worker by calling: LambdaEthereumConsensus.Worker.start_link(arg)
-      # {LambdaEthereumConsensus.Worker, arg}
+      {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
+      {LambdaEthereumConsensus.P2P.GossipSub, [gsub]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

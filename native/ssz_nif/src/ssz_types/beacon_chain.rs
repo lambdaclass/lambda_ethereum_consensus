@@ -225,6 +225,15 @@ pub(crate) struct ExecutionPayload {
 }
 
 #[derive(Encode, Decode)]
+pub(crate) struct SyncCommiteeBase<N: Unsigned> {
+    pub(crate) pubkeys: FixedVector<BLSPubkey, /* SYNC_COMMITTEE_SIZE */ N>,
+    pub(crate) aggregate_pubkey: BLSPubkey,
+}
+
+pub(crate) type SyncCommittee = SyncCommiteeBase<typenum::U512>;
+pub(crate) type SyncCommitteeMinimal = SyncCommiteeBase<typenum::U32>;
+
+#[derive(Encode, Decode)]
 pub(crate) struct BeaconState {
     // Versioning
     pub(crate) genesis_time: u64,
