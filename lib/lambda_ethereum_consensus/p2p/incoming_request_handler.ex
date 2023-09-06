@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.P2P.ReqRespHandler do
+defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   use GenServer
 
   @moduledoc """
