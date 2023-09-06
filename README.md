@@ -44,9 +44,6 @@ To contribute effectively, you'll need a foundational understanding of both the 
 
 **Learning Elixir**:
 
-- **Books**:
-  - [Elixir in Action](https://www.manning.com/books/elixir-in-action-third-edition)
-  - [Learn You Some Erlang](https://learnyousomeerlang.com/)
 - **Videos**:
   - [Intro to Elixir](https://youtube.com/playlist?list=PLJbE2Yu2zumA-p21bEQB6nsYABAO-HtF2)
   - [Hitchhiker's tour of the BEAM](https://www.youtube.com/watch?v=_Pwlvy3zz9M)
@@ -57,26 +54,24 @@ To contribute effectively, you'll need a foundational understanding of both the 
   - [Stacking theory for systems design](https://medium.com/@jlouis666/stacking-theory-for-systems-design-2450e6300689)
   - [On Erlang States and Crashes](http://jlouisramblings.blogspot.com/2010/11/on-erlang-state-and-crashes.html)
   - [How Erlang does scheduling](http://jlouisramblings.blogspot.com/2013/01/how-erlang-does-scheduling.html)
+- **Books**:
+  - [Elixir in Action](https://www.manning.com/books/elixir-in-action-third-edition)
+  - [Learn You Some Erlang](https://learnyousomeerlang.com/)
 
 With this foundation you should have a basic understanding of the Elixir language and the Erlang VM. You can then start (or in parallel) learning about the Ethereum protocol.
 
 **Learning Ethereum**:
 
-- **Books**:
-  - [Eth2Book by Ben Edgington](https://eth2book.info)
-  - [Inevitable Ethereum](https://inevitableeth.com/site/content)
-- **Papers**:
-  - [Ethereum Whitepaper](https://ethereum.org/en/whitepaper/)
-  - [Ethereum Yellowpaper](https://ethereum.github.io/yellowpaper/paper.pdf)
-    - [Yellow paper discussion](youtube.com/watch?v=e84v1mxrlys)
-    - [Yellow paper walkthrough](https://www.lucassaldanha.com/ethereum-yellow-paper-walkthrough-1/)
-  - [Ethereum Beige Paper](https://github.com/chronaeon/beigepaper/blob/master/beigepaper.pdf)
-  - [Ethereum Mauve Paper](https://cdn.hackaday.io/files/10879465447136/Mauve%20Paper%20Vitalik.pdf)
 - **Videos**:
   - [Basic technical details of Ethereum](https://youtu.be/gjwr-7PgpN8)
   - [Ethereum in 30 minutes](https://youtu.be/UihMqcj-cqc)
+  - [Foundations of Blockchains](https://www.youtube.com/playlist?list=PLEGCF-WLh2RLOHv_xUGLqRts_9JxrckiA)
   - [Ethereum Foundation youtube channel](https://www.youtube.com/@EthereumFoundation)
   - [Ethereum youtube channel](https://www.youtube.com/@EthereumProtocol)
+- **Posts**
+  - [What happens when you send 1 DAI](https://www.notonlyowner.com/learn/what-happens-when-you-send-one-dai)
+- **Books**:
+  - [Inevitable Ethereum](https://inevitableeth.com/site/content)
 - **Blogs**:
   - [Vitalik Buterin's blog](https://vitalik.ca/)
   - [Ethereum Foundation blog](https://blog.ethereum.org/)
@@ -84,6 +79,18 @@ With this foundation you should have a basic understanding of the Elixir languag
   - [Ethresear.ch forum](https://ethresear.ch/)
   - [EIP's](https://eips.ethereum.org/)
   - [ACD & Related meetings](https://github.com/ethereum/pm)
+- **Papers**:
+  - [Ethereum Whitepaper](https://ethereum.org/en/whitepaper/)
+  - [Ethereum Yellowpaper](https://ethereum.github.io/yellowpaper/paper.pdf)
+    - [Yellow paper discussion](youtube.com/watch?v=e84v1mxrlys)
+    - [Yellow paper walkthrough](https://www.lucassaldanha.com/ethereum-yellow-paper-walkthrough-1/)
+  - [Ethereum Beige Paper](https://github.com/chronaeon/beigepaper/blob/master/beigepaper.pdf)
+  - [Ethereum Mauve Paper](https://cdn.hackaday.io/files/10879465447136/Mauve%20Paper%20Vitalik.pdf)
+
+**Learning Ethereum Consensus**:
+
+- **Books**:
+  - [Eth2Book by Ben Edgington](https://eth2book.info). This book is indispensable for understanding the Ethereum consensus protocol. If you can read only one thing, read this.
 - **Specifications**:
   - [Consensus specs](https://github.com/ethereum/consensus-specs)
   - [Vitalik Buterin's annotated specs](https://github.com/ethereum/annotated-spec)
