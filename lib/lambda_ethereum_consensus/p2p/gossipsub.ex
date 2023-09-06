@@ -30,9 +30,9 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
     ]
 
     children =
-      for {topic_msg, type} <- topics do
+      for {topic_msg, ssz_type} <- topics do
         topic = "/eth2/bba4da96/#{topic_msg}/ssz_snappy"
-        {GossipConsumer, %{gsub: gsub, topic: topic, type: type, handler: GossipHandler}}
+        {GossipConsumer, %{gsub: gsub, topic: topic, ssz_type: ssz_type, handler: GossipHandler}}
       end
 
     Supervisor.init(children, strategy: :one_for_one)

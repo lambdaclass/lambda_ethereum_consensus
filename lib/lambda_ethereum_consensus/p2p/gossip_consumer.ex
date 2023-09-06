@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
   """
   use Broadway
 
-  def start_link(%{gsub: gsub, topic: topic_name, type: _, handler: _} = opts)
+  def start_link(%{gsub: gsub, topic: topic_name, ssz_type: _, handler: _} = opts)
       when is_binary(topic_name) do
     Broadway.start_link(__MODULE__,
       name: get_id(topic_name),
@@ -29,13 +29,13 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
   @impl true
   def handle_message(_, %Broadway.Message{data: data} = message, %{
         topic: topic_name,
-        type: type,
+        ssz_type: ssz_type,
         handler: handler
       }) do
     data = Libp2p.message_data(data)
 
     with {:ok, decompressed} <- :snappyer.decompress(data),
-         {:ok, res} <- Ssz.from_ssz(decompressed, type),
+         {:ok, res} <- Ssz.from_ssz(decompressed, ssz_type),
          :ok <- handler.handle_message(topic_name, res) do
       message
     else
