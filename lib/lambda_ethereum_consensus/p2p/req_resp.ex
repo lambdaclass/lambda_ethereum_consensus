@@ -32,7 +32,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqRespHandler do
 
     case handle_req(protocol, stream) do
       :ok -> :ok
-      x -> IO.puts(inspect(x))
+      x -> IO.puts("[#{protocol}] Request error: #{inspect(x)}")
     end
 
     Libp2p.stream_close(stream)
@@ -45,7 +45,18 @@ defmodule LambdaEthereumConsensus.P2P.ReqRespHandler do
   end
 
   def handle_req(@prefix <> "goodbye/1/ssz_snappy", stream) do
-    try_parse_and_print("Goodbye", stream)
+    with {:ok, <<8, snappy_code_le::binary>>} <- Libp2p.stream_read(stream),
+         {:ok, code_le} <- Snappy.decompress(snappy_code_le),
+         :ok <-
+           code_le
+           |> :binary.decode_unsigned(:little)
+           |> then(&IO.puts("[Goodbye] reason: #{&1}")),
+         {:ok, payload} <-
+           <<0, 0, 0, 0, 0, 0, 0, 0>>
+           |> Snappy.compress(),
+         Libp2p.stream_write(stream, <<0, 8>> <> payload) do
+      Libp2p.stream_close_write(stream)
+    end
   end
 
   def handle_req(@prefix <> "ping/1/ssz_snappy", stream) do
