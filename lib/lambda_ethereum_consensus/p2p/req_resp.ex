@@ -53,8 +53,8 @@ defmodule LambdaEthereumConsensus.P2P.ReqRespHandler do
            |> then(&IO.puts("[Goodbye] reason: #{&1}")),
          {:ok, payload} <-
            <<0, 0, 0, 0, 0, 0, 0, 0>>
-           |> Snappy.compress(),
-         Libp2p.stream_write(stream, <<0, 8>> <> payload) do
+           |> Snappy.compress() do
+      Libp2p.stream_write(stream, <<0, 8>> <> payload)
       Libp2p.stream_close_write(stream)
     end
   end
