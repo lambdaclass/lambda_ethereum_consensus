@@ -51,10 +51,11 @@ defmodule SSZStaticTestRunner do
   @doc """
   Runs the given test case.
   """
-  def run_test_case(%SpecTestCase{} = testcase) do
+  def run_test_case(%SpecTestCase{config: config} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
     schema = parse_type(testcase)
+    config = get_config(config)
 
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
     assert {:ok, decompressed} = :snappyer.decompress(compressed)
@@ -65,18 +66,18 @@ defmodule SSZStaticTestRunner do
 
     expected_root = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
 
-    assert_ssz(schema, decompressed, expected, expected_root)
+    assert_ssz(schema, config, decompressed, expected, expected_root)
   end
 
-  defp assert_ssz(schema, real_serialized, real_deserialized, _expected_root) do
+  defp assert_ssz(schema, config, real_serialized, real_deserialized, _expected_root) do
     # assert root is expected when we implement SSZ hashing
 
-    {:ok, deserialized} = Ssz.from_ssz(real_serialized, schema)
+    {:ok, deserialized} = Ssz.from_ssz(real_serialized, schema, config)
     real_deserialized = to_struct_checked(deserialized, real_deserialized)
 
     assert deserialized == real_deserialized
 
-    {:ok, serialized} = Ssz.to_ssz(real_deserialized)
+    {:ok, serialized} = Ssz.to_ssz(real_deserialized, config)
     assert serialized == real_serialized
   end
 
@@ -96,10 +97,7 @@ defmodule SSZStaticTestRunner do
     expected
   end
 
-  defp parse_type(%SpecTestCase{config: config, handler: handler}) do
-    config = get_config(config)
-
-    Map.get(config.get_handler_mapping(), handler, handler)
-    |> then(&Module.concat(SszTypes, &1))
+  defp parse_type(%SpecTestCase{handler: handler}) do
+    Module.concat(SszTypes, handler)
   end
 end
