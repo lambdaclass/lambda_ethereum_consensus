@@ -249,6 +249,18 @@ func (s C.uintptr_t) StreamCloseWrite() {
 	handle.Value().(network.Stream).CloseWrite()
 }
 
+//export StreamProtocol
+func (s C.uintptr_t) StreamProtocol(buffer []byte) int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	return copy(buffer, stream.Protocol())
+}
+
+//export StreamProtocolLen
+func (s C.uintptr_t) StreamProtocolLen() int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	return len(stream.Protocol())
+}
+
 /***************/
 /** Discovery **/
 /***************/

@@ -32,7 +32,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
         ssz_type: ssz_type,
         handler: handler
       }) do
-    data = Libp2p.message_data(data)
+    {:ok, data} = Libp2p.message_data(data)
 
     with {:ok, decompressed} <- :snappyer.decompress(data),
          {:ok, res} <- Ssz.from_ssz(decompressed, ssz_type),
