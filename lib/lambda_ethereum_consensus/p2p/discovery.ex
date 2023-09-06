@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Discovery do
+defmodule LambdaEthereumConsensus.P2P.Discovery do
   @moduledoc """
   This module discovers new peers, and broadcasts them as events.
   """
@@ -28,26 +28,35 @@ defmodule LambdaEthereumConsensus.Discovery do
     port = 1024 + rem(System.system_time(), 65_535 - 1024)
     {:ok, listener} = Libp2p.listen_v5("0.0.0.0:#{port}", @bootnodes)
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
-    {:producer, iterator}
+    # NOTE: this stream isn't pure
+    mut_stream =
+      iterator
+      |> Stream.unfold(&get_next_node/1)
+      |> Stream.map(&wrap_message/1)
+
+    {:producer, mut_stream}
+  end
+
+  defp get_next_node(iterator) do
+    if !Libp2p.iterator_next(iterator) do
+      raise "no more nodes!"
+    end
+
+    {:ok, node} = Libp2p.iterator_node(iterator)
+    {:ok, id} = Libp2p.node_id(node)
+    {:ok, addrs} = Libp2p.node_multiaddr(node)
+    element = {id, addrs}
+
+    {element, iterator}
   end
 
   @impl true
-  def handle_demand(incoming_demand, iterator) do
+  def handle_demand(incoming_demand, mut_stream) do
     messages =
-      for _ <- 1..incoming_demand do
-        if !Libp2p.iterator_next(iterator) do
-          raise "no more nodes!"
-        end
+      mut_stream
+      |> Enum.take(incoming_demand)
 
-        {:ok, node} = Libp2p.iterator_node(iterator)
-
-        {:ok, id} = Libp2p.node_id(node)
-        {:ok, addrs} = Libp2p.node_multiaddr(node)
-
-        wrap_message({id, addrs})
-      end
-
-    {:noreply, messages, iterator}
+    {:noreply, messages, mut_stream}
   end
 
   defp wrap_message(msg) do

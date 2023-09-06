@@ -8,6 +8,7 @@ package main
 import "C"
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -20,6 +21,7 @@ import (
 	"runtime/cgo"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	gcrypto "github.com/ethereum/go-ethereum/crypto"
@@ -136,13 +138,14 @@ func (h C.uintptr_t) HostClose() {
 }
 
 //export HostSetStreamHandler
-func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId C.erl_pid_t, callback C.send_message_t) {
+func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.send_message_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
-	// WARN: we clone the string because the underlying buffer is owned by Elixir
-	goProtoId := protocol.ID(strings.Clone(protoId))
+	// WARN: we clone the string/[]byte because the underlying buffer is owned by Elixir/C
+	goProtoId := strings.Clone(protoId)
+	goProcId := bytes.Clone(procId)
 	handler := func(stream network.Stream) {
-		C.run_callback(callback, procId, C.uintptr_t(cgo.NewHandle(stream)))
+		C.run_callback(callback, unsafe.Pointer(&goProcId[0]), C.uintptr_t(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }
@@ -171,7 +174,7 @@ func (h C.uintptr_t) HostConnect(pid C.uintptr_t) int {
 	err := host.Connect(context.TODO(), addrInfo)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		// fmt.Fprintf(os.Stderr, "%s\n", err)
 		return 1
 	}
 	return 0
@@ -420,6 +423,7 @@ func NewGossipSub(h C.uintptr_t) C.uintptr_t {
 		pubsub.WithNoAuthor(),
 		pubsub.WithGossipSubParams(params),
 		pubsub.WithSeenMessagesTTL(550 * heartbeat),
+		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
 	}
 
 	gsub, err := pubsub.NewGossipSub(context.TODO(), host, options...)
@@ -472,20 +476,29 @@ func (tp C.uintptr_t) TopicPublish(data []byte) int {
 }
 
 //export SubscriptionNext
-func (sub C.uintptr_t) SubscriptionNext() C.uintptr_t {
+func (sub C.uintptr_t) SubscriptionNext(cErr **C.char) C.uintptr_t {
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
 	subscription := cgo.Handle(sub).Value().(*pubsub.Subscription)
-	message, err := subscription.Next(context.TODO())
-	if err != nil {
-		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 0
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Microsecond)
+	defer cancel()
+	message, err := subscription.Next(ctx)
+
+	if err == nil {
+		return C.uintptr_t(cgo.NewHandle(message))
+	} else if err != context.DeadlineExceeded {
+		*cErr = C.CString(err.Error())
 	}
-	return C.uintptr_t(cgo.NewHandle(message))
+	return 0
 }
 
 //export MessageData
 func (m C.uintptr_t) MessageData(buffer []byte) int {
 	msg := cgo.Handle(m).Value().(*pubsub.Message)
 	return copy(buffer, msg.Data)
+}
+
+//export MessageDataLen
+func (m C.uintptr_t) MessageDataLen() int {
+	msg := cgo.Handle(m).Value().(*pubsub.Message)
+	return len(msg.Data)
 }
