@@ -1,6 +1,8 @@
 defmodule LambdaEthereumConsensus.P2P.ReqRespHandler do
   use GenServer
 
+  @prefix "/eth2/beacon_chain/req/"
+
   def start_link([host]) do
     GenServer.start_link(__MODULE__, host)
   end
@@ -11,10 +13,9 @@ defmodule LambdaEthereumConsensus.P2P.ReqRespHandler do
       "status/1",
       "goodbye/1",
       "ping/1",
-      "metadata/1",
       "metadata/2"
     ]
-    |> Stream.map(&"/eth2/beacon_chain/req/#{&1}/ssz_snappy")
+    |> Stream.map(&Enum.join([@prefix, &1, "/ssz_snappy"]))
     |> Stream.map(&Libp2p.host_set_stream_handler(host, &1))
     |> Enum.each(fn :ok -> nil end)
 
@@ -22,8 +23,63 @@ defmodule LambdaEthereumConsensus.P2P.ReqRespHandler do
   end
 
   @impl true
-  def handle_info({:req, _stream}, state) do
-    IO.inspect("got request!")
+  def handle_info({:req, {:ok, stream}}, state) do
+    {:ok, protocol} = Libp2p.stream_protocol(stream)
+
+    case handle_req(protocol, stream) do
+      :ok -> :ok
+      x -> IO.puts(inspect(x))
+    end
+
+    Libp2p.stream_close(stream)
+
     {:noreply, state}
+  end
+
+  def handle_req(@prefix <> "status/1/ssz_snappy", stream) do
+    try_parse_and_print("Status", stream)
+  end
+
+  def handle_req(@prefix <> "goodbye/1/ssz_snappy", stream) do
+    try_parse_and_print("Goodbye", stream)
+  end
+
+  def handle_req(@prefix <> "ping/1/ssz_snappy", stream) do
+    try_parse_and_print("Ping", stream)
+  end
+
+  def handle_req(@prefix <> "metadata/2/ssz_snappy", stream) do
+    # Values are hardcoded
+    with {:ok, payload} <-
+           <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
+           |> Snappy.compress(),
+         :ok <- Libp2p.stream_write(stream, <<0, 17, payload>>) do
+      Libp2p.stream_close_write(stream)
+    end
+  end
+
+  def handle_req(protocol, _stream) do
+    IO.inspect("Unsupported protocol: #{protocol}")
+  end
+
+  defp parse_request(<<header, encoded_payload::binary>>) do
+    {:ok, {header, encoded_payload}}
+  end
+
+  defp parse_request(bin), do: {:error, bin}
+
+  defp try_parse_and_print(tag, stream) do
+    with {:ok, bin} <-
+           Libp2p.stream_read(stream),
+         {:ok, {size, req}} <- parse_request(bin),
+         {:ok, decompressed} <-
+           Snappy.decompress(req),
+         ^size <-
+           byte_size(decompressed) do
+      decompressed
+      |> Base.encode16()
+      |> then(&"#{tag}: #{&1}")
+      |> IO.puts()
+    end
   end
 end
