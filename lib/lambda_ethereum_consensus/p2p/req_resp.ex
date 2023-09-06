@@ -1,6 +1,10 @@
 defmodule LambdaEthereumConsensus.P2P.ReqRespHandler do
   use GenServer
 
+  @moduledoc """
+  This module handles Req/Resp domain requests.
+  """
+
   @prefix "/eth2/beacon_chain/req/"
 
   def start_link([host]) do
@@ -53,13 +57,13 @@ defmodule LambdaEthereumConsensus.P2P.ReqRespHandler do
     with {:ok, payload} <-
            <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
            |> Snappy.compress(),
-         :ok <- Libp2p.stream_write(stream, <<0, 17, payload>>) do
+         :ok <- Libp2p.stream_write(stream, <<0, 17>> <> payload) do
       Libp2p.stream_close_write(stream)
     end
   end
 
   def handle_req(protocol, _stream) do
-    IO.inspect("Unsupported protocol: #{protocol}")
+    IO.puts("Unsupported protocol: #{protocol}")
   end
 
   defp parse_request(<<header, encoded_payload::binary>>) do
