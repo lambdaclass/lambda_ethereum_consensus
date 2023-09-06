@@ -423,7 +423,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(host_set_stream_handler, 2),
     // TODO: check if host_new_stream is truly dirty
     NIF_ENTRY(host_new_stream, 3, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks negotiating protocol
-    NIF_ENTRY(host_connect, 2),
+    NIF_ENTRY(host_connect, 2, ERL_NIF_DIRTY_JOB_IO_BOUND),
     NIF_ENTRY(host_peerstore, 1),
     NIF_ENTRY(host_id, 1),
     NIF_ENTRY(host_addrs, 1),

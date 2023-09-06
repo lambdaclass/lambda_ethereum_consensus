@@ -32,6 +32,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:jason, ">= 1.0.0"},
       {:joken, "~> 2.6"},
       {:rustler, "~> 0.29.1"},
+      {:broadway, "~> 1.0"},
       {:yaml_elixir, "~> 2.8", only: [:test]},
       {:snappyer, "~> 1.2", only: [:test]},
       {:stream_data, "~> 0.6", only: [:test]},
