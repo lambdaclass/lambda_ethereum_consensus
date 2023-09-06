@@ -1,6 +1,6 @@
+use super::config::{Config, Mainnet, Minimal};
 use super::*;
 use ssz_derive::{Decode, Encode};
-use ssz_types::typenum::Unsigned;
 use ssz_types::{BitList, BitVector};
 
 #[derive(Encode, Decode)]
@@ -44,20 +44,23 @@ pub(crate) struct AttestationData {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct IndexedAttestation {
-    pub(crate) attesting_indices:
-        VariableList<ValidatorIndex, /* MAX_VALIDATORS_PER_COMMITTEE */ typenum::U2048>,
+pub(crate) struct IndexedAttestationBase<C: Config> {
+    pub(crate) attesting_indices: VariableList<ValidatorIndex, C::MaxValidatorsPerCommittee>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
 
+pub(crate) type IndexedAttestation = IndexedAttestationBase<Mainnet>;
+
 #[derive(Encode, Decode)]
-pub(crate) struct PendingAttestation {
-    pub(crate) aggregation_bits: BitList</* MAX_VALIDATORS_PER_COMMITTEE */ typenum::U2048>,
+pub(crate) struct PendingAttestationBase<C: Config> {
+    pub(crate) aggregation_bits: BitList<C::MaxValidatorsPerCommittee>,
     pub(crate) data: AttestationData,
     pub(crate) inclusion_delay: Slot,
     pub(crate) proposer_index: ValidatorIndex,
 }
+
+pub(crate) type PendingAttestation = PendingAttestationBase<Mainnet>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct Eth1Data {
@@ -67,13 +70,13 @@ pub(crate) struct Eth1Data {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct HistoricalBatchBase<N: Unsigned> {
-    pub(crate) block_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ N>,
-    pub(crate) state_roots: FixedVector<Root, /* SLOTS_PER_HISTORICAL_ROOT */ N>,
+pub(crate) struct HistoricalBatchBase<C: Config> {
+    pub(crate) block_roots: FixedVector<Root, C::SlotsPerHistoricalRoot>,
+    pub(crate) state_roots: FixedVector<Root, C::SlotsPerHistoricalRoot>,
 }
 
-pub(crate) type HistoricalBatch = HistoricalBatchBase<typenum::U8192>;
-pub(crate) type HistoricalBatchMinimal = HistoricalBatchBase<typenum::U64>;
+pub(crate) type HistoricalBatch = HistoricalBatchBase<Mainnet>;
+pub(crate) type HistoricalBatchMinimal = HistoricalBatchBase<Minimal>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct DepositMessage {
@@ -97,10 +100,12 @@ pub(crate) struct HistoricalSummary {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct Deposit {
-    pub(crate) proof: FixedVector<Bytes32, /* DEPOSIT_CONTRACT_TREE_DEPTH + 1 */ typenum::U33>,
+pub(crate) struct DepositBase<C: Config> {
+    pub(crate) proof: FixedVector<Bytes32, C::DepositContractTreeDepth>,
     pub(crate) data: DepositData,
 }
+
+pub(crate) type Deposit = DepositBase<Mainnet>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct VoluntaryExit {
@@ -109,11 +114,13 @@ pub(crate) struct VoluntaryExit {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct Attestation {
-    pub(crate) aggregation_bits: BitList</* MAX_VALIDATORS_PER_COMMITTEE */ typenum::U2048>,
+pub(crate) struct AttestationBase<C: Config> {
+    pub(crate) aggregation_bits: BitList<C::MaxValidatorsPerCommittee>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
+
+pub(crate) type Attestation = AttestationBase<Mainnet>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct BeaconBlockHeader {
@@ -131,10 +138,12 @@ pub(crate) struct SignedBeaconBlockHeader {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct AttesterSlashing {
-    pub(crate) attestation_1: IndexedAttestation,
-    pub(crate) attestation_2: IndexedAttestation,
+pub(crate) struct AttesterSlashingBase<C: Config> {
+    pub(crate) attestation_1: IndexedAttestationBase<C>,
+    pub(crate) attestation_2: IndexedAttestationBase<C>,
 }
+
+pub(crate) type AttesterSlashing = AttesterSlashingBase<Mainnet>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct SigningData {
@@ -168,13 +177,13 @@ pub(crate) struct ProposerSlashing {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct SyncAggregateBase<N: Unsigned> {
-    pub(crate) sync_committee_bits: BitVector</* SYNC_COMMITTEE_SIZE */ N>,
+pub(crate) struct SyncAggregateBase<C: Config> {
+    pub(crate) sync_committee_bits: BitVector<C::SyncCommitteeSize>,
     pub(crate) sync_committee_signature: BLSSignature,
 }
 
-pub(crate) type SyncAggregate = SyncAggregateBase<typenum::U512>;
-pub(crate) type SyncAggregateMinimal = SyncAggregateBase<typenum::U32>;
+pub(crate) type SyncAggregate = SyncAggregateBase<Mainnet>;
+pub(crate) type SyncAggregateMinimal = SyncAggregateBase<Minimal>;
 
 #[derive(Encode, Decode)]
 pub(crate) struct Withdrawal {
@@ -185,50 +194,51 @@ pub(crate) struct Withdrawal {
 }
 
 #[derive(Encode, Decode)]
-pub(crate) struct ExecutionPayloadHeader {
+pub(crate) struct ExecutionPayloadHeaderBase<C: Config> {
     pub(crate) parent_hash: Hash32,
     pub(crate) fee_recipient: ExecutionAddress,
     pub(crate) state_root: Root,
     pub(crate) receipts_root: Root,
-    pub(crate) logs_bloom: FixedVector<u8, /* BYTES_PER_LOGS_BLOOM */ typenum::U256>,
+    pub(crate) logs_bloom: FixedVector<u8, C::BytesPerLogsBloom>,
     pub(crate) prev_randao: Bytes32,
     pub(crate) block_number: u64,
     pub(crate) gas_limit: u64,
     pub(crate) gas_used: u64,
     pub(crate) timestamp: u64,
-    pub(crate) extra_data: VariableList<u8, /* MAX_EXTRA_DATA_BYTES */ typenum::U32>,
+    pub(crate) extra_data: VariableList<u8, C::MaxExtraDataBytes>,
     pub(crate) base_fee_per_gas: Uint256,
     pub(crate) block_hash: Hash32,
     pub(crate) transactions_root: Root,
     pub(crate) withdrawals_root: Root,
 }
 
+pub(crate) type ExecutionPayloadHeader = ExecutionPayloadHeaderBase<Mainnet>;
+
 #[derive(Encode, Decode)]
-pub(crate) struct ExecutionPayload {
+pub(crate) struct ExecutionPayloadBase<C: Config> {
     pub(crate) parent_hash: Hash32,
     pub(crate) fee_recipient: ExecutionAddress,
     pub(crate) state_root: Root,
     pub(crate) receipts_root: Root,
-    pub(crate) logs_bloom: FixedVector<u8, /* BYTES_PER_LOGS_BLOOM */ typenum::U256>,
+    pub(crate) logs_bloom: FixedVector<u8, C::BytesPerLogsBloom>,
     pub(crate) prev_randao: Bytes32,
     pub(crate) block_number: u64,
     pub(crate) gas_limit: u64,
     pub(crate) gas_used: u64,
     pub(crate) timestamp: u64,
-    pub(crate) extra_data: VariableList<u8, /* MAX_EXTRA_DATA_BYTES */ typenum::U32>,
+    pub(crate) extra_data: VariableList<u8, C::MaxExtraDataBytes>,
     pub(crate) base_fee_per_gas: Uint256,
     pub(crate) block_hash: Hash32,
-    pub(crate) transactions:
-        VariableList<Transaction, /* MAX_TRANSACTIONS_PER_PAYLOAD */ typenum::U1048576>,
-    pub(crate) withdrawals:
-        VariableList<Withdrawal, /* MAX_WITHDRAWALS_PER_PAYLOAD */ typenum::U16>,
+    pub(crate) transactions: VariableList<Transaction, C::MaxTransactionsPerPayload>,
+    pub(crate) withdrawals: VariableList<Withdrawal, C::MaxWithdrawalsPerPayload>,
 }
 
+pub(crate) type ExecutionPayload = ExecutionPayloadBase<Mainnet>;
 #[derive(Encode, Decode)]
-pub(crate) struct SyncCommiteeBase<N: Unsigned> {
-    pub(crate) pubkeys: FixedVector<BLSPubkey, /* SYNC_COMMITTEE_SIZE */ N>,
+pub(crate) struct SyncCommiteeBase<C: Config> {
+    pub(crate) pubkeys: FixedVector<BLSPubkey, C::SyncCommitteeSize>,
     pub(crate) aggregate_pubkey: BLSPubkey,
 }
 
-pub(crate) type SyncCommittee = SyncCommiteeBase<typenum::U512>;
-pub(crate) type SyncCommitteeMinimal = SyncCommiteeBase<typenum::U32>;
+pub(crate) type SyncCommittee = SyncCommiteeBase<Mainnet>;
+pub(crate) type SyncCommitteeMinimal = SyncCommiteeBase<Minimal>;
