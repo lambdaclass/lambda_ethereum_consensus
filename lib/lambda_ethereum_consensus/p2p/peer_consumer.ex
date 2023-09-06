@@ -1,22 +1,21 @@
-defmodule LambdaEthereumConsensus.Network do
+defmodule LambdaEthereumConsensus.P2P.PeerConsumer do
   @moduledoc """
-  This module consumes events created by ..Discovery.
+  This module consumes events created by Discovery.
   """
   use Broadway
 
-  def start_link(_opts) do
-    {:ok, host} = Libp2p.host_new()
+  def start_link([host]) do
     {:ok, peerstore} = Libp2p.host_peerstore(host)
 
     Broadway.start_link(__MODULE__,
       name: __MODULE__,
       context: {host, peerstore},
       producer: [
-        module: {LambdaEthereumConsensus.Discovery, []},
+        module: {LambdaEthereumConsensus.P2P.Discovery, []},
         concurrency: 1
       ],
       processors: [
-        default: [concurrency: 10]
+        default: [concurrency: 4]
       ]
     )
   end

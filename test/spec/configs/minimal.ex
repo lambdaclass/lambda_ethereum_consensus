@@ -6,6 +6,7 @@ defmodule MinimalConfig do
   @type_equivalence %{
     "HistoricalBatch" => "HistoricalBatchMinimal",
     "SyncAggregate" => "SyncAggregateMinimal",
+    "SyncCommittee" => "SyncCommitteeMinimal",
     "BeaconBlockBody" => "BeaconBlockBodyMinimal"
   }
 

@@ -315,8 +315,44 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
+    #[module = "SszTypes.SyncCommittee"]
+    pub(crate) struct SyncCommittee<'a> {
+        pubkeys: Vec<BLSPubkey<'a>>,
+        aggregate_pubkey: BLSPubkey<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SyncCommitteeMinimal"]
+    pub(crate) struct SyncCommitteeMinimal<'a> {
+        pubkeys: Vec<BLSPubkey<'a>>,
+        aggregate_pubkey: BLSPubkey<'a>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
     #[module = "SszTypes.BeaconBlockBodyMinimal"]
     pub(crate) struct BeaconBlockBodyMinimal<'a> {
+        randao_reveal: BLSSignature<'a>,
+        eth1_data: Eth1Data<'a>,
+        graffiti: Bytes32<'a>,
+        proposer_slashings: Vec<ProposerSlashing<'a>>,
+        attester_slashings: Vec<AttesterSlashing<'a>>,
+        attestations: Vec<Attestation<'a>>,
+        deposits: Vec<Deposit<'a>>,
+        voluntary_exits: Vec<SignedVoluntaryExit<'a>>,
+        sync_aggregate: SyncAggregateMinimal<'a>,
+        execution_payload: ExecutionPayload<'a>,
+        bls_to_execution_changes: Vec<SignedBLSToExecutionChange<'a>>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlockBody"]
+    pub(crate) struct BeaconBlockBody<'a> {
         randao_reveal: BLSSignature<'a>,
         eth1_data: Eth1Data<'a>,
         graffiti: Bytes32<'a>,

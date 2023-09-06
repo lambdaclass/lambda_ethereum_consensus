@@ -3,6 +3,7 @@
 //! Structs that implement [`ssz::Encode`] and [`ssz::Decode`].
 
 mod beacon_chain;
+mod config;
 
 pub(crate) use beacon_chain::*;
 use ssz_derive::{Decode, Encode};
