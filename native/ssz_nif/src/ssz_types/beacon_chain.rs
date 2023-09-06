@@ -234,3 +234,11 @@ pub(crate) struct ExecutionPayloadBase<C: Config> {
 }
 
 pub(crate) type ExecutionPayload = ExecutionPayloadBase<Mainnet>;
+#[derive(Encode, Decode)]
+pub(crate) struct SyncCommiteeBase<C: Config> {
+    pub(crate) pubkeys: FixedVector<BLSPubkey, C::SyncCommitteeSize>,
+    pub(crate) aggregate_pubkey: BLSPubkey,
+}
+
+pub(crate) type SyncCommittee = SyncCommiteeBase<Mainnet>;
+pub(crate) type SyncCommitteeMinimal = SyncCommiteeBase<Minimal>;
