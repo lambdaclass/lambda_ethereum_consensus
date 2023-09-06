@@ -11,7 +11,7 @@ defmodule LambdaEthereumConsensus.Application do
     {:ok, gsub} = Libp2p.new_gossip_sub(host)
 
     children = [
-      {LambdaEthereumConsensus.P2P.ReqRespHandler, [host]},
+      {LambdaEthereumConsensus.P2P.IncomingRequestHandler, [host]},
       {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
       {LambdaEthereumConsensus.P2P.GossipSub, [gsub]}
     ]
