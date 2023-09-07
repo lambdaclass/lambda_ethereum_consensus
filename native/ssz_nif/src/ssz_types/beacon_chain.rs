@@ -112,6 +112,15 @@ pub(crate) struct Attestation<C: Config> {
 }
 
 #[derive(Encode, Decode)]
+pub(crate) struct BeaconBlock<C: Config> {
+    pub(crate) slot: Slot,
+    pub(crate) proposer_index: ValidatorIndex,
+    pub(crate) parent_root: Root,
+    pub(crate) state_root: Root,
+    pub(crate) body: BeaconBlockBody<C>,
+}
+
+#[derive(Encode, Decode)]
 pub(crate) struct BeaconBlockHeader {
     pub(crate) slot: Slot,
     pub(crate) proposer_index: ValidatorIndex,

@@ -155,6 +155,18 @@ gen_struct_with_config!(
     }
 );
 
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlock"]
+    pub(crate) struct BeaconBlock<'a> {
+        slot: Slot,
+        proposer_index: ValidatorIndex,
+        parent_root: Root<'a>,
+        state_root: Root<'a>,
+        body: BeaconBlockBody<'a>,
+    }
+);
+
 gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.BeaconBlockHeader"]
