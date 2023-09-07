@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   @moduledoc """
   This module handles Req/Resp domain requests.
   """
+  require Logger
 
   @prefix "/eth2/beacon_chain/req/"
 
@@ -30,9 +31,12 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   def handle_info({:req, {:ok, stream}}, state) do
     {:ok, protocol} = Libp2p.stream_protocol(stream)
 
+    @prefix <> name = protocol
+    Logger.debug("'#{name}' request received")
+
     case handle_req(protocol, stream) do
       :ok -> :ok
-      x -> IO.puts("[#{protocol}] Request error: #{inspect(x)}")
+      x -> Logger.error("[#{protocol}] Request error: #{inspect(x)}")
     end
 
     Libp2p.stream_close(stream)
@@ -41,7 +45,21 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   end
 
   def handle_req(@prefix <> "status/1/ssz_snappy", stream) do
-    try_parse_and_print("Status", stream)
+    with {:ok, <<84, snappy_status::binary>>} <- Libp2p.stream_read(stream),
+         {:ok, status} <- Snappy.decompress(snappy_status),
+         status
+         |> Base.encode16()
+         |> then(&"[Status] '#{&1}'")
+         |> Logger.debug(),
+         # hardcoded response from random peer
+         {:ok, payload} <-
+           Base.decode16!(
+             "BBA4DA96AFBE2C7E03B51D1A87A9ED593478572AEAE9DCED77549B4DB5CF5BA6C10F099F183C030000000000AFBE2C7E03B51D1A87A9ED593478572AEAE9DCED77549B4DB5CF5BA6C10F099F0083670000000000"
+           )
+           |> Snappy.compress() do
+      Libp2p.stream_write(stream, <<0, 84>> <> payload)
+      Libp2p.stream_close_write(stream)
+    end
   end
 
   def handle_req(@prefix <> "goodbye/1/ssz_snappy", stream) do
@@ -50,7 +68,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
          :ok <-
            code_le
            |> :binary.decode_unsigned(:little)
-           |> then(&IO.puts("[Goodbye] reason: #{&1}")),
+           |> then(&Logger.debug("[Goodbye] reason: #{&1}")),
          {:ok, payload} <-
            <<0, 0, 0, 0, 0, 0, 0, 0>>
            |> Snappy.compress() do
@@ -60,7 +78,21 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   end
 
   def handle_req(@prefix <> "ping/1/ssz_snappy", stream) do
-    try_parse_and_print("Ping", stream)
+    # Values are hardcoded
+    with {:ok, <<8, seq_number_le::binary>>} <-
+           Libp2p.stream_read(stream),
+         {:ok, decompressed} <-
+           Snappy.decompress(seq_number_le),
+         decompressed
+         |> :binary.decode_unsigned(:little)
+         |> then(&"[Ping] seq_number: #{&1}")
+         |> Logger.debug(),
+         {:ok, payload} <-
+           <<0, 0, 0, 0, 0, 0, 0, 0>>
+           |> Snappy.compress(),
+         :ok <- Libp2p.stream_write(stream, <<0, 8>> <> payload) do
+      Libp2p.stream_close_write(stream)
+    end
   end
 
   def handle_req(@prefix <> "metadata/2/ssz_snappy", stream) do
@@ -74,27 +106,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   end
 
   def handle_req(protocol, _stream) do
-    IO.puts("Unsupported protocol: #{protocol}")
-  end
-
-  defp parse_request(<<header, encoded_payload::binary>>) do
-    {:ok, {header, encoded_payload}}
-  end
-
-  defp parse_request(bin), do: {:error, bin}
-
-  defp try_parse_and_print(tag, stream) do
-    with {:ok, bin} <-
-           Libp2p.stream_read(stream),
-         {:ok, {size, req}} <- parse_request(bin),
-         {:ok, decompressed} <-
-           Snappy.decompress(req),
-         ^size <-
-           byte_size(decompressed) do
-      decompressed
-      |> Base.encode16()
-      |> then(&"#{tag}: #{&1}")
-      |> IO.puts()
-    end
+    # This should never happen, since Libp2p only accepts registered protocols
+    Logger.error("Unsupported protocol: #{protocol}")
   end
 end
