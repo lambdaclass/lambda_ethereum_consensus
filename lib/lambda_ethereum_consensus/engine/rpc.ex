@@ -1,6 +1,11 @@
 defmodule LambdaEthereumConsensus.Engine.RPC do
+  @moduledoc """
+  RPC wrapper enabling calls to compatible endpoints
+  """
   use Tesla
   alias LambdaEthereumConsensus.Engine.JWT
+
+  plug(Tesla.Middleware.JSON)
 
   @doc """
   Builds a JSON-RPC request and calls the endpoint
