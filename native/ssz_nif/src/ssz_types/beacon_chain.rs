@@ -130,6 +130,12 @@ pub(crate) struct BeaconBlockHeader {
 }
 
 #[derive(Encode, Decode)]
+pub(crate) struct SignedBeaconBlock<C: Config> {
+    pub(crate) message: BeaconBlock<C>,
+    pub(crate) signature: BLSSignature,
+}
+
+#[derive(Encode, Decode)]
 pub(crate) struct SignedBeaconBlockHeader {
     pub(crate) message: BeaconBlockHeader,
     pub(crate) signature: BLSSignature,
