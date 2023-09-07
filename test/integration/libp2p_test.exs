@@ -76,6 +76,7 @@ defmodule Integration.Libp2pTest do
         # NOTE: gossip messages are Snappy-compressed with BLOCK format (not frame)
         msg
         |> Libp2p.message_data()
+        |> then(fn {:ok, d} -> d end)
         |> Base.encode16()
         |> then(&IO.puts(["\"#{&1}\""]))
 
