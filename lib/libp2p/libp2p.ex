@@ -92,6 +92,18 @@ defmodule Libp2p do
   def ttl_permanent_addr, do: 2 ** 63 - 1
 
   @doc """
+  Gets next subscription message.
+  """
+  @spec next_subscription_message(timeout) :: {:ok, message} | error | :timeout
+  def next_subscription_message(timeout \\ :infinity) do
+    receive do
+      {:sub, result} -> result
+    after
+      timeout -> :timeout
+    end
+  end
+
+  @doc """
   Returns an `Option` that can be passed to `host_new`
   as an argument to configures libp2p to listen on the
   given (unparsed) addresses.
@@ -260,7 +272,8 @@ defmodule Libp2p do
   def pub_sub_join(_pubsub, _topic_str), do: :erlang.nif_error(:not_implemented)
 
   @doc """
-  Subscribes to the given topic.
+  Subscribes to the given topic. After this call, `self()` will start receiving
+  messages from the topic. Those can be received via `get_subscription_message/0`.
   """
   @spec topic_subscribe(topic) :: {:ok, subscription} | error
   def topic_subscribe(_topic), do: :erlang.nif_error(:not_implemented)
@@ -270,12 +283,6 @@ defmodule Libp2p do
   """
   @spec topic_publish(topic, binary) :: :ok | error
   def topic_publish(_topic, _data), do: :erlang.nif_error(:not_implemented)
-
-  @doc """
-  Gets next message of given subscription.
-  """
-  @spec subscription_next(subscription) :: {:ok, message} | error
-  def subscription_next(_subscription), do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Gets the application data from a message.

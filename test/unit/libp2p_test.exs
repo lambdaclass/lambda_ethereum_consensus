@@ -121,15 +121,15 @@ defmodule Unit.Libp2pTest do
     {:ok, topic_sender} = Libp2p.pub_sub_join(gsub_sender, topic)
     {:ok, topic_recver} = Libp2p.pub_sub_join(gsub_recver, topic)
 
-    # (recver) Subscribe to the topic
-    {:ok, sub_recver} = Libp2p.topic_subscribe(topic_recver)
-
     pid = self()
     msg = "hello world!"
 
     spawn_link(fn ->
-      # (recver) Receive next message from subscribed topic
-      {:ok, message} = Libp2p.subscription_next(sub_recver)
+      # (recver) Subscribe to the topic
+      {:ok, sub_recver} = Libp2p.topic_subscribe(topic_recver)
+
+      assert {:ok, message} = Libp2p.next_subscription_message()
+
       # (recver) Get the application data from the message
       {:ok, data} = Libp2p.message_data(message)
 
