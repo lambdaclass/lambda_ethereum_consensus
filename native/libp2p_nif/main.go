@@ -138,14 +138,14 @@ func (h C.uintptr_t) HostClose() {
 }
 
 //export HostSetStreamHandler
-func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.send_message_t) {
+func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.handler_send_message_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
 	// WARN: we clone the string/[]byte because the underlying buffer is owned by Elixir/C
 	goProtoId := strings.Clone(protoId)
 	goProcId := bytes.Clone(procId)
 	handler := func(stream network.Stream) {
-		C.run_callback(callback, unsafe.Pointer(&goProcId[0]), C.uintptr_t(cgo.NewHandle(stream)))
+		C.message_stream_handler(callback, unsafe.Pointer(&goProcId[0]), C.uintptr_t(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }

@@ -132,20 +132,26 @@ static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, ErlNifResourceType *type, 
     return make_ok_tuple2(env, term);
 }
 
-void send_message(void *pid_bytes, uintptr_t stream_handle)
+void send_message(ErlNifPid *pid, ErlNifEnv *env, ERL_NIF_TERM message)
+{
+    // This function consumes the env and message.
+    int result = enif_send(NULL, pid, env, message);
+    // On error, the env isn't freed by the function.
+    // This can only happen if the process from `pid` is dead.
+    if (!result)
+    {
+        enif_free_env(env);
+    }
+}
+
+void handler_send_message(void *pid_bytes, uintptr_t stream_handle)
 {
     // Passed as void* to avoid including erl_nif.h in the header.
     ErlNifPid *pid = pid_bytes;
     ErlNifEnv *env = enif_alloc_env();
 
     ERL_NIF_TERM message = enif_make_tuple2(env, enif_make_atom(env, "req"), get_handle_result(env, Stream, stream_handle));
-
-    int result = enif_send(NULL, pid, env, message);
-    // On error, the env isn't freed by the function.
-    if (!result)
-    {
-        enif_free_env(env);
-    }
+    send_message(pid, env, message);
 }
 
 /*********/
@@ -207,7 +213,7 @@ ERL_FUNCTION(host_set_stream_handler)
     IF_ERROR(!enif_self(env, &pid), "failed to get pid");
     GoSlice go_pid = {(void *)&pid, PID_SIZE, PID_SIZE};
 
-    HostSetStreamHandler(host, proto_id, go_pid, send_message);
+    HostSetStreamHandler(host, proto_id, go_pid, handler_send_message);
 
     return enif_make_atom(env, "ok");
 }
