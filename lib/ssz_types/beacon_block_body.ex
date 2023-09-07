@@ -1,6 +1,6 @@
-defmodule SszTypes.BeaconBlockBodyMinimal do
+defmodule SszTypes.BeaconBlockBody do
   @moduledoc """
-  Struct definition for `BeaconBlockBodyMinimal`.
+  Struct definition for `BeaconBlockBody`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
 

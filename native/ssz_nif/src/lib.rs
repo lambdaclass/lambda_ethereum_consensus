@@ -20,26 +20,31 @@ mod atoms {
     }
 }
 
-const PREFIX_SIZE: usize = "Elixir.SszTypes.".len();
+const SCHEMA_PREFIX_SIZE: usize = "Elixir.SszTypes.".len();
+const ELIXIR_PREFIX_SIZE: usize = "Elixir.".len();
 
 #[rustler::nif]
-fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'env>> {
+fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom, config: Atom) -> NifResult<Term<'env>> {
     let schema = schema.to_term(env).atom_to_string()?;
-    let Some(schema) = schema.get(PREFIX_SIZE..) else {
-        return Err(rustler::Error::BadArg);
-    };
+    let schema = schema
+        .get(SCHEMA_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+    let config = config.to_term(env).atom_to_string()?;
+    let config = config
+        .get(ELIXIR_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+
     let serialized = match_schema_and_encode!(
-        (schema, map) => {
+        (schema, config, map) => {
             HistoricalSummary,
             AttestationData,
-            IndexedAttestation,
+            IndexedAttestation<C>,
             Checkpoint,
             Eth1Data,
             Fork,
             ForkData,
-            HistoricalBatch,
-            HistoricalBatchMinimal,
-            PendingAttestation,
+            HistoricalBatch<C>,
+            PendingAttestation<C>,
             Validator,
             DepositData,
             VoluntaryExit,
@@ -47,45 +52,52 @@ fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom) -> NifResult<Term<'e
             DepositMessage,
             BLSToExecutionChange,
             SignedBLSToExecutionChange,
-            Attestation,
+            Attestation<C>,
             BeaconBlockHeader,
-            AttesterSlashing,
+            AttesterSlashing<C>,
             SignedBeaconBlockHeader,
             SignedVoluntaryExit,
             ProposerSlashing,
-            ExecutionPayload,
-            ExecutionPayloadHeader,
+            ExecutionPayload<C>,
+            ExecutionPayloadHeader<C>,
             Withdrawal,
             SigningData,
-            SyncAggregate,
-            SyncAggregateMinimal,
-            BeaconBlockBody,
-            BeaconBlockBodyMinimal,
-            SyncCommittee,
-            SyncCommitteeMinimal
+            SyncAggregate<C>,
+            SyncCommittee<C>,
+            BeaconState<C>,
+            BeaconBlockBody<C>,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 
 #[rustler::nif]
-fn from_ssz_rs<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<Term<'env>> {
+fn from_ssz_rs<'env>(
+    env: Env<'env>,
+    bytes: Binary,
+    schema: Atom,
+    config: Atom,
+) -> NifResult<Term<'env>> {
     let schema = schema.to_term(env).atom_to_string()?;
-    let Some(schema) = schema.get(PREFIX_SIZE..) else {
-        return Err(rustler::Error::BadArg);
-    };
+    let schema = schema
+        .get(SCHEMA_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+    let config = config.to_term(env).atom_to_string()?;
+    let config = config
+        .get(ELIXIR_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+
     let res = match_schema_and_decode!(
-        (schema, &bytes, env) => {
+        (schema, config, &bytes, env) => {
             HistoricalSummary,
             AttestationData,
-            IndexedAttestation,
+            IndexedAttestation<C>,
             Checkpoint,
             Eth1Data,
             Fork,
             ForkData,
-            HistoricalBatch,
-            HistoricalBatchMinimal,
-            PendingAttestation,
+            HistoricalBatch<C>,
+            PendingAttestation<C>,
             Validator,
             DepositData,
             VoluntaryExit,
@@ -93,22 +105,20 @@ fn from_ssz_rs<'env>(env: Env<'env>, bytes: Binary, schema: Atom) -> NifResult<T
             DepositMessage,
             BLSToExecutionChange,
             SignedBLSToExecutionChange,
-            Attestation,
+            Attestation<C>,
             BeaconBlockHeader,
-            AttesterSlashing,
+            AttesterSlashing<C>,
             SignedBeaconBlockHeader,
             SignedVoluntaryExit,
             ProposerSlashing,
-            ExecutionPayload,
-            ExecutionPayloadHeader,
+            ExecutionPayload<C>,
+            ExecutionPayloadHeader<C>,
             Withdrawal,
             SigningData,
-            SyncAggregate,
-            SyncAggregateMinimal,
-            BeaconBlockBody,
-            BeaconBlockBodyMinimal,
-            SyncCommittee,
-            SyncCommitteeMinimal,
+            SyncAggregate<C>,
+            SyncCommittee<C>,
+            BeaconState<C>,
+            BeaconBlockBody<C>,
         }
     )?;
     Ok((atoms::ok(), res).encode(env))

@@ -1,5 +1,5 @@
 use super::*;
-use crate::utils::gen_struct;
+use crate::utils::{gen_struct, gen_struct_with_config};
 use rustler::{Binary, NifStruct};
 
 gen_struct!(
@@ -57,7 +57,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.IndexedAttestation"]
     pub(crate) struct IndexedAttestation<'a> {
@@ -67,7 +67,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.PendingAttestation"]
     pub(crate) struct PendingAttestation<'a> {
@@ -88,19 +88,10 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.HistoricalBatch"]
     pub(crate) struct HistoricalBatch<'a> {
-        block_roots: Vec<Root<'a>>,
-        state_roots: Vec<Root<'a>>,
-    }
-);
-
-gen_struct!(
-    #[derive(NifStruct)]
-    #[module = "SszTypes.HistoricalBatchMinimal"]
-    pub(crate) struct HistoricalBatchMinimal<'a> {
         block_roots: Vec<Root<'a>>,
         state_roots: Vec<Root<'a>>,
     }
@@ -154,7 +145,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.Attestation"]
     pub(crate) struct Attestation<'a> {
@@ -176,7 +167,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.AttesterSlashing"]
     pub(crate) struct AttesterSlashing<'a> {
@@ -240,19 +231,10 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.SyncAggregate"]
     pub(crate) struct SyncAggregate<'a> {
-        sync_committee_bits: Binary<'a>,
-        sync_committee_signature: BLSSignature<'a>,
-    }
-);
-
-gen_struct!(
-    #[derive(NifStruct)]
-    #[module = "SszTypes.SyncAggregateMinimal"]
-    pub(crate) struct SyncAggregateMinimal<'a> {
         sync_committee_bits: Binary<'a>,
         sync_committee_signature: BLSSignature<'a>,
     }
@@ -269,7 +251,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.ExecutionPayloadHeader"]
     pub(crate) struct ExecutionPayloadHeader<'a> {
@@ -291,7 +273,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.ExecutionPayload"]
     pub(crate) struct ExecutionPayload<'a> {
@@ -313,7 +295,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.SyncCommittee"]
     pub(crate) struct SyncCommittee<'a> {
@@ -322,34 +304,55 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.SyncCommitteeMinimal"]
-    pub(crate) struct SyncCommitteeMinimal<'a> {
-        pubkeys: Vec<BLSPubkey<'a>>,
-        aggregate_pubkey: BLSPubkey<'a>,
-    }
-);
-
-gen_struct!(
-    #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconBlockBodyMinimal"]
-    pub(crate) struct BeaconBlockBodyMinimal<'a> {
-        randao_reveal: BLSSignature<'a>,
+    #[module = "SszTypes.BeaconState"]
+    pub(crate) struct BeaconState<'a> {
+        // Versioning
+        genesis_time: u64,
+        genesis_validators_root: Root<'a>,
+        slot: Slot,
+        fork: Fork<'a>,
+        // History
+        latest_block_header: BeaconBlockHeader<'a>,
+        block_roots: Vec<Root<'a>>,
+        state_roots: Vec<Root<'a>>,
+        historical_roots: Vec<Root<'a>>, // Frozen in Capella, replaced by historical_summaries
+        // Eth1
         eth1_data: Eth1Data<'a>,
-        graffiti: Bytes32<'a>,
-        proposer_slashings: Vec<ProposerSlashing<'a>>,
-        attester_slashings: Vec<AttesterSlashing<'a>>,
-        attestations: Vec<Attestation<'a>>,
-        deposits: Vec<Deposit<'a>>,
-        voluntary_exits: Vec<SignedVoluntaryExit<'a>>,
-        sync_aggregate: SyncAggregateMinimal<'a>,
-        execution_payload: ExecutionPayload<'a>,
-        bls_to_execution_changes: Vec<SignedBLSToExecutionChange<'a>>,
+        eth1_data_votes: Vec<Eth1Data<'a>>,
+        eth1_deposit_index: u64,
+        // Registry
+        validators: Vec<Validator<'a>>,
+        balances: Vec<Gwei>,
+        // Randomness
+        randao_mixes: Vec<Bytes32<'a>>,
+        // Slashings
+        slashings: Vec<Gwei>, // Per-epoch sums of slashed effective balances
+        // Participation
+        previous_epoch_participation: Vec<ParticipationFlags>,
+        current_epoch_participation: Vec<ParticipationFlags>,
+        // Finality
+        justification_bits: Binary<'a>, // Bit set for every recent justified epoch
+        previous_justified_checkpoint: Checkpoint<'a>,
+        current_justified_checkpoint: Checkpoint<'a>,
+        finalized_checkpoint: Checkpoint<'a>,
+        // Inactivity
+        inactivity_scores: Vec<u64>,
+        // Sync
+        current_sync_committee: SyncCommittee<'a>,
+        next_sync_committee: SyncCommittee<'a>,
+        // Execution
+        latest_execution_payload_header: ExecutionPayloadHeader<'a>, // [Modified in Capella]
+        // Withdrawals
+        next_withdrawal_index: WithdrawalIndex, // [New in Capella]
+        next_withdrawal_validator_index: ValidatorIndex, // [New in Capella]
+        // Deep history valid from Capella onwards
+        historical_summaries: Vec<HistoricalSummary<'a>>, // [New in Capella]
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.BeaconBlockBody"]
     pub(crate) struct BeaconBlockBody<'a> {
@@ -361,7 +364,7 @@ gen_struct!(
         attestations: Vec<Attestation<'a>>,
         deposits: Vec<Deposit<'a>>,
         voluntary_exits: Vec<SignedVoluntaryExit<'a>>,
-        sync_aggregate: SyncAggregateMinimal<'a>,
+        sync_aggregate: SyncAggregate<'a>,
         execution_payload: ExecutionPayload<'a>,
         bls_to_execution_changes: Vec<SignedBLSToExecutionChange<'a>>,
     }
