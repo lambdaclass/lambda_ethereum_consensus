@@ -16,7 +16,6 @@ defmodule SSZStaticTestRunner do
     "LightClientUpdate",
     "PowBlock",
     "SignedAggregateAndProof",
-    "SignedBeaconBlock",
     "SignedContributionAndProof",
     "SyncAggregatorSelectionData",
     "SyncCommitteeContribution",

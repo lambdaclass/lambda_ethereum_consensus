@@ -197,6 +197,15 @@ gen_struct!(
     }
 );
 
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SignedBeaconBlock"]
+    pub(crate) struct SignedBeaconBlock<'a> {
+        message: BeaconBlock<'a>,
+        signature: BLSSignature<'a>,
+    }
+);
+
 gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.SignedBeaconBlockHeader"]
