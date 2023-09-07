@@ -303,3 +303,51 @@ gen_struct_with_config!(
         aggregate_pubkey: BLSPubkey<'a>,
     }
 );
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconState"]
+    pub(crate) struct BeaconState<'a> {
+        // Versioning
+        genesis_time: u64,
+        genesis_validators_root: Root<'a>,
+        slot: Slot,
+        fork: Fork<'a>,
+        // History
+        latest_block_header: BeaconBlockHeader<'a>,
+        block_roots: Vec<Root<'a>>,
+        state_roots: Vec<Root<'a>>,
+        historical_roots: Vec<Root<'a>>, // Frozen in Capella, replaced by historical_summaries
+        // Eth1
+        eth1_data: Eth1Data<'a>,
+        eth1_data_votes: Vec<Eth1Data<'a>>,
+        eth1_deposit_index: u64,
+        // Registry
+        validators: Vec<Validator<'a>>,
+        balances: Vec<Gwei>,
+        // Randomness
+        randao_mixes: Vec<Bytes32<'a>>,
+        // Slashings
+        slashings: Vec<Gwei>, // Per-epoch sums of slashed effective balances
+        // Participation
+        previous_epoch_participation: Vec<ParticipationFlags>,
+        current_epoch_participation: Vec<ParticipationFlags>,
+        // Finality
+        justification_bits: Binary<'a>, // Bit set for every recent justified epoch
+        previous_justified_checkpoint: Checkpoint<'a>,
+        current_justified_checkpoint: Checkpoint<'a>,
+        finalized_checkpoint: Checkpoint<'a>,
+        // Inactivity
+        inactivity_scores: Vec<u64>,
+        // Sync
+        current_sync_committee: SyncCommittee<'a>,
+        next_sync_committee: SyncCommittee<'a>,
+        // Execution
+        latest_execution_payload_header: ExecutionPayloadHeader<'a>, // [Modified in Capella]
+        // Withdrawals
+        next_withdrawal_index: WithdrawalIndex, // [New in Capella]
+        next_withdrawal_validator_index: ValidatorIndex, // [New in Capella]
+        // Deep history valid from Capella onwards
+        historical_summaries: Vec<HistoricalSummary<'a>>, // [New in Capella]
+    }
+);

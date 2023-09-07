@@ -33,7 +33,8 @@ defmodule SSZStaticTestRunner do
     "ExecutionPayload",
     "ExecutionPayloadHeader",
     "Withdrawal",
-    "SyncCommittee"
+    "SyncCommittee",
+    "BeaconState"
   ]
 
   @doc """
