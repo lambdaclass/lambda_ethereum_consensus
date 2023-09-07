@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.Utils do
       {:ok, response} ->
         case Ssz.from_ssz(response.body, SszTypes.BeaconState) do
           {:ok, struct} ->
-            IO.inspect(struct)
+            struct
 
           _ ->
             IO.puts("There has been an error syncing from checkpoint.")
