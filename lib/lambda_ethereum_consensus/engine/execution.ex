@@ -27,7 +27,7 @@ defmodule LambdaEthereumConsensus.Engine.Execution do
              @execution_engine_rpc_version,
              params
            ) do
-      Calls.validate_response(result)
+      Calls.validate_rpc_response(result)
     end
   end
 end
