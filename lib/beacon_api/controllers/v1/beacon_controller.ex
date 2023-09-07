@@ -34,7 +34,7 @@ defmodule BeaconApi.V1.BeaconController do
              end
            ) or
              Utils.is_bytes32?(state_id) do
-          conn |> ErrorController.not_found(conn)
+          conn |> ErrorController.not_found(nil)
         else
           conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
         end
