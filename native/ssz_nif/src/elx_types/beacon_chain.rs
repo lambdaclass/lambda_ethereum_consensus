@@ -1,5 +1,5 @@
 use super::*;
-use crate::utils::gen_struct;
+use crate::utils::{gen_struct, gen_struct_with_config};
 use rustler::{Binary, NifStruct};
 
 gen_struct!(
@@ -57,7 +57,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.IndexedAttestation"]
     pub(crate) struct IndexedAttestation<'a> {
@@ -67,7 +67,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.PendingAttestation"]
     pub(crate) struct PendingAttestation<'a> {
@@ -88,19 +88,10 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.HistoricalBatch"]
     pub(crate) struct HistoricalBatch<'a> {
-        block_roots: Vec<Root<'a>>,
-        state_roots: Vec<Root<'a>>,
-    }
-);
-
-gen_struct!(
-    #[derive(NifStruct)]
-    #[module = "SszTypes.HistoricalBatchMinimal"]
-    pub(crate) struct HistoricalBatchMinimal<'a> {
         block_roots: Vec<Root<'a>>,
         state_roots: Vec<Root<'a>>,
     }
@@ -154,7 +145,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.Attestation"]
     pub(crate) struct Attestation<'a> {
@@ -176,7 +167,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.AttesterSlashing"]
     pub(crate) struct AttesterSlashing<'a> {
@@ -240,19 +231,10 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.SyncAggregate"]
     pub(crate) struct SyncAggregate<'a> {
-        sync_committee_bits: Binary<'a>,
-        sync_committee_signature: BLSSignature<'a>,
-    }
-);
-
-gen_struct!(
-    #[derive(NifStruct)]
-    #[module = "SszTypes.SyncAggregateMinimal"]
-    pub(crate) struct SyncAggregateMinimal<'a> {
         sync_committee_bits: Binary<'a>,
         sync_committee_signature: BLSSignature<'a>,
     }
@@ -269,7 +251,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.ExecutionPayloadHeader"]
     pub(crate) struct ExecutionPayloadHeader<'a> {
@@ -291,7 +273,7 @@ gen_struct!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.ExecutionPayload"]
     pub(crate) struct ExecutionPayload<'a> {
@@ -310,5 +292,14 @@ gen_struct!(
         block_hash: Hash32<'a>,
         transactions: Vec<Transaction<'a>>,
         withdrawals: Vec<Withdrawal<'a>>,
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SyncCommittee"]
+    pub(crate) struct SyncCommittee<'a> {
+        pubkeys: Vec<BLSPubkey<'a>>,
+        aggregate_pubkey: BLSPubkey<'a>,
     }
 );

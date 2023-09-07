@@ -42,4 +42,12 @@ defmodule SszTypes.ExecutionPayloadHeader do
           transactions_root: SszTypes.root(),
           withdrawals_root: SszTypes.root()
         }
+
+  def encode(%__MODULE__{} = map) do
+    Map.update!(map, :base_fee_per_gas, &Ssz.encode_u256/1)
+  end
+
+  def decode(%__MODULE__{} = map) do
+    Map.update!(map, :base_fee_per_gas, &Ssz.decode_u256/1)
+  end
 end

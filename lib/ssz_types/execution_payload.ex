@@ -42,4 +42,12 @@ defmodule SszTypes.ExecutionPayload do
           transactions: list(SszTypes.transaction()),
           withdrawals: list(SszTypes.Withdrawal.t())
         }
+
+  def decode(%__MODULE__{} = map) do
+    Map.update!(map, :base_fee_per_gas, &Ssz.decode_u256/1)
+  end
+
+  def encode(%__MODULE__{} = map) do
+    Map.update!(map, :base_fee_per_gas, &Ssz.encode_u256/1)
+  end
 end
