@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.Profile do
     :ok
   end
 
-  defp now_str() do
+  defp now_str do
     DateTime.utc_now()
     |> Formatter.format!("{YYYY}_{0M}_{0D}__{h24}_{m}_{s}_{ss}")
     |> String.replace(".", "")
