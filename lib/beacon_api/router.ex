@@ -14,18 +14,6 @@ defmodule BeaconApi.Router do
     end
   end
 
-  # # Ethereum API Version 2
-  # scope "/eth/v2", BeaconApi.V2 do
-  #   pipe_through(:api)
-  #   scope "/beacon" do
-  #   end
-  # end
-
-  # # Ethereum API Version 3
-  # scope "/eth/v3", BeaconApi.V3 do
-  #   pipe_through(:api)
-  # end
-
   # Catch-all route outside of any scope
   match(:*, "/*path", BeaconApi.ErrorController, :not_found)
 end
