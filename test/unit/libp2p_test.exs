@@ -127,7 +127,7 @@ defmodule Unit.Libp2pTest do
     pid = self()
     msg = "hello world!"
 
-    spawn(fn ->
+    spawn_link(fn ->
       # (recver) Receive next message from subscribed topic
       {:ok, message} = Libp2p.subscription_next(sub_recver)
       # (recver) Get the application data from the message
