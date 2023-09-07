@@ -186,6 +186,8 @@ The iex terminal can be closed by pressing ctrl+c two times.
 
 ## Profiling
 
+### QCachegrind
+
 To build a qcachegrind profile, run, inside iex:
 
 ```elixir
@@ -203,6 +205,16 @@ If you want to group the traces by function instead of process, then you can the
 ```shell
 grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
 ```
+
+### Etop
+
+Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar tu UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
+
+```elixir
+:etop.start
+```
+
+In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got. This can be used to identify infinite loops or busy waits.
 
 ## Code of Conduct
 
