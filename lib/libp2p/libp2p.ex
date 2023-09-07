@@ -195,6 +195,13 @@ defmodule Libp2p do
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
+  Returns the ID of the underlying protocol.
+  """
+  @spec stream_protocol(stream) :: {:ok, binary} | error
+  def stream_protocol(_stream),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
   Creates a discv5 listener.
   """
   @spec listen_v5(binary, list(binary)) :: {:ok, listener} | error
@@ -273,6 +280,6 @@ defmodule Libp2p do
   @doc """
   Gets the application data from a message.
   """
-  @spec message_data(message) :: binary
+  @spec message_data(message) :: {:ok, binary} | error
   def message_data(_message), do: :erlang.nif_error(:not_implemented)
 end

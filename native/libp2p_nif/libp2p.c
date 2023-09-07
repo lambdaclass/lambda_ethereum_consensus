@@ -138,7 +138,7 @@ void send_message(void *pid_bytes, uintptr_t stream_handle)
     ErlNifPid *pid = pid_bytes;
     ErlNifEnv *env = enif_alloc_env();
 
-    ERL_NIF_TERM message = get_handle_result(env, Stream, stream_handle);
+    ERL_NIF_TERM message = enif_make_tuple2(env, enif_make_atom(env, "req"), get_handle_result(env, Stream, stream_handle));
 
     int result = enif_send(NULL, pid, env, message);
     // On error, the env isn't freed by the function.
@@ -304,6 +304,20 @@ ERL_FUNCTION(stream_close_write)
     return enif_make_atom(env, "ok");
 }
 
+ERL_FUNCTION(stream_protocol)
+{
+    uintptr_t stream = GET_HANDLE(argv[0], Stream);
+
+    int len = StreamProtocolLen(stream);
+    ERL_NIF_TERM bin_term;
+    u_char *bin = enif_make_new_binary(env, len, &bin_term);
+
+    GoSlice go_buffer = {bin, len, len};
+    StreamProtocol(stream, go_buffer);
+
+    return make_ok_tuple2(env, bin_term);
+}
+
 /***************/
 /** Discovery **/
 /***************/
@@ -429,7 +443,7 @@ ERL_FUNCTION(message_data)
     GoSlice go_buffer = {bin, len, len};
     MessageData(msg, go_buffer);
 
-    return bin_term;
+    return make_ok_tuple2(env, bin_term);
 }
 
 static ErlNifFunc nif_funcs[] = {
@@ -448,6 +462,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(stream_write, 2, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks when buffer is full
     NIF_ENTRY(stream_close, 1),
     NIF_ENTRY(stream_close_write, 1),
+    NIF_ENTRY(stream_protocol, 1),
     NIF_ENTRY(listen_v5, 2),
     NIF_ENTRY(listener_random_nodes, 1),
     NIF_ENTRY(iterator_next, 1, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks until gets next node

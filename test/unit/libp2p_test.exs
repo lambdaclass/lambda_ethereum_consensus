@@ -57,7 +57,7 @@ defmodule Unit.Libp2pTest do
     # (recver) Receive the stream via the configured stream handler
     {:ok, recv} =
       receive do
-        msg -> msg
+        {:req, msg} -> msg
       after
         1000 -> :timeout
       end
@@ -131,7 +131,7 @@ defmodule Unit.Libp2pTest do
       # (recver) Receive next message from subscribed topic
       {:ok, message} = Libp2p.subscription_next(sub_recver)
       # (recver) Get the application data from the message
-      data = Libp2p.message_data(message)
+      {:ok, data} = Libp2p.message_data(message)
 
       assert data == msg
       send(pid, :ok)

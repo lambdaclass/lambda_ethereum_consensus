@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
   @moduledoc """
   This module consumes events created by Subscriber.
   """
+  require Logger
   use Broadway
 
   def start_link(%{gsub: gsub, topic: topic_name, ssz_type: _, handler: _} = opts)
@@ -32,7 +33,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
         ssz_type: ssz_type,
         handler: handler
       }) do
-    data = Libp2p.message_data(data)
+    {:ok, data} = Libp2p.message_data(data)
 
     with {:ok, decompressed} <- :snappyer.decompress(data),
          {:ok, res} <- Ssz.from_ssz(decompressed, ssz_type),
@@ -40,8 +41,11 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
       message
     else
       {:error, reason} ->
-        # we should remove this when we can easily debug failed messages
-        data |> Base.encode16() |> then(&IO.puts("[#{topic_name}] (err: #{reason}) raw: '#{&1}'"))
+        data
+        |> Base.encode16()
+        |> then(&"[#{topic_name}] (err: #{reason}) raw: '#{&1}'")
+        |> Logger.error()
+
         Broadway.Message.failed(message, reason)
     end
   end
