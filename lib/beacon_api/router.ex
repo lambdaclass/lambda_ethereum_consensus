@@ -26,4 +26,7 @@ defmodule BeaconApi.Router do
   scope "/eth/v3", BeaconApi.V3 do
     pipe_through(:api)
   end
+
+  # Catch-all route outside of any scope
+  match(:*, "/*path", BeaconApi.ErrorController, :not_found)
 end

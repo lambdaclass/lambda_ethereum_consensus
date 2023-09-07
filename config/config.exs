@@ -4,6 +4,8 @@ import Config
 config :lambda_ethereum_consensus,
   jwt_secret: "0000000000000000000000000000000000000000000000000000000000000000"
 
+config :logger, level: :info
+
 # Configures the phoenix endpoint
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
   http: [port: 4000],

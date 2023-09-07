@@ -12,8 +12,7 @@ defmodule LambdaEthereumConsensus.Application do
 
     children = [
       {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
-      {LambdaEthereumConsensus.P2P.GossipSub, [gsub]}
-
+      {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
       # Start the Endpoint (http/https)
       BeaconApi.Endpoint
     ]
