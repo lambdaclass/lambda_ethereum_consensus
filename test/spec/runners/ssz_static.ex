@@ -7,7 +7,6 @@ defmodule SSZStaticTestRunner do
 
   @disabled [
     "AggregateAndProof",
-    "BeaconBlock",
     "ContributionAndProof",
     "Eth1Block",
     "LightClientBootstrap",
