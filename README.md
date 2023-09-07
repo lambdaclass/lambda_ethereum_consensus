@@ -184,6 +184,26 @@ make test # Runs tests
 
 The iex terminal can be closed by pressing ctrl+c two times.
 
+## Profiling
+
+To build a qcachegrind profile, run, inside iex:
+
+```elixir
+LambdaEthereumConsensus.Profile.build()
+```
+
+Options and details are in the `Profile` package. After the profile trace is generated, you open it in qcachegrind with:
+
+```shell
+qcachegrind callgrind.out.<trace_name>
+```
+
+If you want to group the traces by function instead of process, then you can the following before viewing it in qcachegrind:
+
+```shell
+grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
+```
+
 ## Code of Conduct
 
 ### Our Pledge
