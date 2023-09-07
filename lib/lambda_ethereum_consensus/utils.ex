@@ -16,7 +16,7 @@ defmodule LambdaEthereumConsensus.Utils do
       ])
 
     with {:ok, result} <- Calls.get_call(url, client) do
-      IO.inspect(result)
+      result
     end
   end
 end
