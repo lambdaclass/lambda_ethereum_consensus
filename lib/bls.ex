@@ -13,7 +13,8 @@ defmodule Bls do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  @spec fast_aggregate_verify([binary()], binary(), binary()) :: {:ok, boolean} | {:error, binary()}
+  @spec fast_aggregate_verify([binary()], binary(), binary()) ::
+          {:ok, boolean} | {:error, binary()}
   def fast_aggregate_verify(_public_keys, _message, _signature) do
     :erlang.nif_error(:nif_not_loaded)
   end
