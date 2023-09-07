@@ -29,6 +29,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   defp deps do
     [
       {:tesla, "~> 1.4"},
+      {:hackney, "~> 1.18"},
       {:jason, ">= 1.0.0"},
       {:joken, "~> 2.6"},
       {:rustler, "~> 0.29.1"},

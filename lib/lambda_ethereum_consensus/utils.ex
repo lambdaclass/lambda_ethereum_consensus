@@ -17,8 +17,9 @@ defmodule LambdaEthereumConsensus.Utils do
         {Tesla.Middleware.Headers, [{"Accept", "application/octet-stream"}]}
       ])
 
-    with {:ok, result} <- get_call(url, client) do
-      result
+    case get_call(url, client) do
+      {:ok, result} -> IO.inspect(result)
+      _ -> IO.puts("Invalid checkpoint sync url")
     end
   end
 
