@@ -18,7 +18,7 @@ defmodule LambdaEthereumConsensus.Utils do
       ])
 
     case get_call(url, client) do
-      {:ok, result} -> IO.inspect(result)
+      {:ok, response} -> IO.inspect(response)
       _ -> IO.puts("Invalid checkpoint sync url")
     end
   end
