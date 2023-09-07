@@ -304,7 +304,7 @@ gen_struct_with_config!(
     }
 );
 
-gen_struct!(
+gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.BeaconState"]
     pub(crate) struct BeaconState<'a> {
