@@ -188,6 +188,12 @@ The iex terminal can be closed by pressing ctrl+c two times.
 
 ### QCachegrind
 
+To install [QCachegrind](https://github.com/KDE/kcachegrind) via [Homebrew](https://formulae.brew.sh/formula/qcachegrind), run:
+
+```sh
+brew install qcachegrind
+```
+
 To build a qcachegrind profile, run, inside iex:
 
 ```elixir
