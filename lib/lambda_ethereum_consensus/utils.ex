@@ -18,8 +18,17 @@ defmodule LambdaEthereumConsensus.Utils do
       ])
 
     case get_call(url, client) do
-      {:ok, response} -> IO.inspect(response)
-      _ -> IO.puts("Invalid checkpoint sync url")
+      {:ok, response} ->
+        case Ssz.from_ssz(response.body, SszTypes.BeaconState) do
+          {:ok, struct} ->
+            IO.inspect(struct)
+
+          _ ->
+            IO.puts("There has been an error syncing from checkpoint.")
+        end
+
+      _ ->
+        IO.puts("Invalid checkpoint sync url.")
     end
   end
 

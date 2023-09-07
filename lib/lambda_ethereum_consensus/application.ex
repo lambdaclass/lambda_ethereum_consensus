@@ -15,7 +15,7 @@ defmodule LambdaEthereumConsensus.Application do
     # Check for the --checkpoint-sync argument and act accordingly
     case Keyword.get(args, :checkpoint_sync) do
       nil ->
-        nil
+        :ok
 
       value ->
         Utils.sync_from_checkpoint(value)
