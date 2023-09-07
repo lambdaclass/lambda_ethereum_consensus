@@ -1,6 +1,6 @@
 defmodule BeaconApi.V1.BeaconController do
-  alias BeaconApi.Utils
   alias BeaconApi.ErrorController
+  alias BeaconApi.Utils
   use BeaconApi, :controller
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
