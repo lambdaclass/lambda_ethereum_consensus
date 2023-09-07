@@ -220,3 +220,69 @@ pub(crate) struct SyncCommittee<C: Config> {
     pub(crate) pubkeys: FixedVector<BLSPubkey, C::SyncCommitteeSize>,
     pub(crate) aggregate_pubkey: BLSPubkey,
 }
+
+#[derive(Encode, Decode)]
+pub(crate) struct BeaconBlockBody<C: Config> {
+    pub(crate) randao_reveal: BLSSignature,
+    pub(crate) eth1_data: Eth1Data,
+    pub(crate) graffiti: Bytes32,
+    pub(crate) proposer_slashings: VariableList<ProposerSlashing, C::MaxProposerSlashings>,
+    pub(crate) attester_slashings: VariableList<AttesterSlashing<C>, C::MaxAttesterSlashings>,
+    pub(crate) attestations: VariableList<Attestation<C>, C::MaxAttestations>,
+    pub(crate) deposits: VariableList<Deposit, C::MaxDeposits>,
+    pub(crate) voluntary_exits: VariableList<SignedVoluntaryExit, C::MaxVoluntaryExits>,
+    pub(crate) sync_aggregate: SyncAggregate<C>,
+    pub(crate) execution_payload: ExecutionPayload<C>,
+    pub(crate) bls_to_execution_changes:
+        VariableList<SignedBLSToExecutionChange, C::MaxBlsToExecutionChanges>,
+}
+
+#[derive(Encode, Decode)]
+pub(crate) struct BeaconState<C: Config> {
+    // Versioning
+    pub(crate) genesis_time: u64,
+    pub(crate) genesis_validators_root: Root,
+    pub(crate) slot: Slot,
+    pub(crate) fork: Fork,
+    // History
+    pub(crate) latest_block_header: BeaconBlockHeader,
+    pub(crate) block_roots: FixedVector<Root, C::SlotsPerHistoricalRoot>,
+    pub(crate) state_roots: FixedVector<Root, C::SlotsPerHistoricalRoot>,
+    pub(crate) historical_roots: VariableList<Root, C::HistoricalRootsLimit>, // Frozen in Capella, replaced by historical_summaries
+    // Eth1
+    pub(crate) eth1_data: Eth1Data,
+    pub(crate) eth1_data_votes: VariableList<
+        Eth1Data,
+        /* EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH */ typenum::U2048,
+    >,
+    pub(crate) eth1_deposit_index: u64,
+    // Registry
+    pub(crate) validators: VariableList<Validator, C::ValidatorRegistryLimit>,
+    pub(crate) balances: VariableList<Gwei, C::ValidatorRegistryLimit>,
+    // Randomness
+    pub(crate) randao_mixes: FixedVector<Bytes32, C::EpochsPerHistoricalVector>,
+    // Slashings
+    pub(crate) slashings: FixedVector<Gwei, C::EpochsPerSlashingsVector>, // Per-epoch sums of slashed effective balances
+    // Participation
+    pub(crate) previous_epoch_participation:
+        VariableList<ParticipationFlags, C::ValidatorRegistryLimit>,
+    pub(crate) current_epoch_participation:
+        VariableList<ParticipationFlags, C::ValidatorRegistryLimit>,
+    // Finality
+    pub(crate) justification_bits: BitVector<C::JustificationBitsLength>, // Bit set for every recent justified epoch
+    pub(crate) previous_justified_checkpoint: Checkpoint,
+    pub(crate) current_justified_checkpoint: Checkpoint,
+    pub(crate) finalized_checkpoint: Checkpoint,
+    // Inactivity
+    pub(crate) inactivity_scores: VariableList<u64, C::ValidatorRegistryLimit>,
+    // Sync
+    pub(crate) current_sync_committee: SyncCommittee<C>,
+    pub(crate) next_sync_committee: SyncCommittee<C>,
+    // Execution
+    pub(crate) latest_execution_payload_header: ExecutionPayloadHeader<C>, // [Modified in Capella]
+    // Withdrawals
+    pub(crate) next_withdrawal_index: WithdrawalIndex, // [New in Capella]
+    pub(crate) next_withdrawal_validator_index: ValidatorIndex, // [New in Capella]
+    // Deep history valid from Capella onwards
+    pub(crate) historical_summaries: VariableList<HistoricalSummary, C::HistoricalRootsLimit>, // [New in Capella]
+}
