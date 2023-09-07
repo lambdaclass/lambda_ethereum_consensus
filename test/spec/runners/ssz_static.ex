@@ -5,44 +5,30 @@ defmodule SSZStaticTestRunner do
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
 
-  @enabled [
-    "AttestationData",
-    "Checkpoint",
-    "Eth1Data",
-    "Fork",
-    "ForkData",
-    "HistoricalBatch",
-    "IndexedAttestation",
-    "PendingAttestation",
-    "Validator",
-    "VoluntaryExit",
-    "DepositData",
-    "Deposit",
-    "DepositMessage",
-    "HistoricalSummary",
-    "Attestation",
-    "BeaconBlockHeader",
-    "SignedVoluntaryExit",
-    "SigningData",
-    "SignedBeaconBlockHeader",
-    "AttestorSlashing",
-    "BLSToExecutionChange",
-    "SignedBLSToExecutionChange",
-    "ProposerSlashing",
-    "SyncAggregate",
-    "ExecutionPayload",
-    "ExecutionPayloadHeader",
-    "Withdrawal",
-    "SyncCommittee",
-    "BeaconState"
+  @disabled [
+    "AggregateAndProof",
+    "BeaconBlock",
+    "ContributionAndProof",
+    "Eth1Block",
+    "LightClientBootstrap",
+    "LightClientFinalityUpdate",
+    "LightClientHeader",
+    "LightClientOptimisticUpdate",
+    "LightClientUpdate",
+    "PowBlock",
+    "SignedAggregateAndProof",
+    "SignedBeaconBlock",
+    "SignedContributionAndProof",
+    "SyncAggregatorSelectionData",
+    "SyncCommitteeContribution",
+    "SyncCommitteeMessage"
   ]
 
   @doc """
   Returns true if the given testcase should be skipped
   """
-  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
-    not Enum.member?(@enabled, handler) or
-      (handler in ["ExecutionPayloadHeader", "ExecutionPayload"] and fork != "capella")
+  def skip?(%SpecTestCase{handler: handler}) do
+    Enum.member?(@disabled, handler)
   end
 
   def get_config("minimal"), do: MinimalConfig

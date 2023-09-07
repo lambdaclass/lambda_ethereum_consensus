@@ -222,6 +222,22 @@ pub(crate) struct SyncCommittee<C: Config> {
 }
 
 #[derive(Encode, Decode)]
+pub(crate) struct BeaconBlockBody<C: Config> {
+    pub(crate) randao_reveal: BLSSignature,
+    pub(crate) eth1_data: Eth1Data,
+    pub(crate) graffiti: Bytes32,
+    pub(crate) proposer_slashings: VariableList<ProposerSlashing, C::MaxProposerSlashings>,
+    pub(crate) attester_slashings: VariableList<AttesterSlashing<C>, C::MaxAttesterSlashings>,
+    pub(crate) attestations: VariableList<Attestation<C>, C::MaxAttestations>,
+    pub(crate) deposits: VariableList<Deposit, C::MaxDeposits>,
+    pub(crate) voluntary_exits: VariableList<SignedVoluntaryExit, C::MaxVoluntaryExits>,
+    pub(crate) sync_aggregate: SyncAggregate<C>,
+    pub(crate) execution_payload: ExecutionPayload<C>,
+    pub(crate) bls_to_execution_changes:
+        VariableList<SignedBLSToExecutionChange, C::MaxBlsToExecutionChanges>,
+}
+
+#[derive(Encode, Decode)]
 pub(crate) struct BeaconState<C: Config> {
     // Versioning
     pub(crate) genesis_time: u64,
