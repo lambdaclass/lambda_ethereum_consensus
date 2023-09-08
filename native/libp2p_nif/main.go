@@ -489,7 +489,10 @@ func asyncFetchMessages(sub *pubsub.Subscription, procId []byte, callback C.send
 			// This shouldn't happen
 			panic(err)
 		}
-		C.run_callback1(callback, unsafe.Pointer(&procId[0]), C.uintptr_t(cgo.NewHandle(msg)))
+		if !C.run_callback1(callback, unsafe.Pointer(&procId[0]), C.uintptr_t(cgo.NewHandle(msg))) {
+			sub.Cancel()
+			return
+		}
 	}
 }
 
