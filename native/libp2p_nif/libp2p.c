@@ -145,8 +145,9 @@ static bool send_message(ErlNifPid *pid, ErlNifEnv *env, ERL_NIF_TERM message)
     return result;
 }
 
-bool handler_send_message(void *pid_bytes, uintptr_t stream_handle)
+bool handler_send_message(void *pid_bytes, void *arg1)
 {
+    uintptr_t stream_handle = (uintptr_t)arg1;
     // Passed as void* to avoid including erl_nif.h in the header.
     ErlNifPid *pid = pid_bytes;
     ErlNifEnv *env = enif_alloc_env();
@@ -155,8 +156,21 @@ bool handler_send_message(void *pid_bytes, uintptr_t stream_handle)
     return send_message(pid, env, message);
 }
 
-bool subscription_send_message(void *pid_bytes, uintptr_t gossip_msg)
+bool connect_send_message(void *pid_bytes, void *arg1)
 {
+    char *error = arg1;
+    // Passed as void* to avoid including erl_nif.h in the header.
+    ErlNifPid *pid = pid_bytes;
+    ErlNifEnv *env = enif_alloc_env();
+
+    ERL_NIF_TERM term = (error == NULL) ? enif_make_atom(env, "ok") : make_error_msg(env, error);
+    ERL_NIF_TERM message = enif_make_tuple2(env, enif_make_atom(env, "connect"), term);
+    return send_message(pid, env, message);
+}
+
+bool subscription_send_message(void *pid_bytes, void *arg1)
+{
+    uintptr_t gossip_msg = (uintptr_t)arg1;
     // Passed as void* to avoid including erl_nif.h in the header.
     ErlNifPid *pid = pid_bytes;
     ErlNifEnv *env = enif_alloc_env();
@@ -245,13 +259,19 @@ ERL_FUNCTION(host_new_stream)
     return get_handle_result(env, Stream, result);
 }
 
-ERL_FUNCTION(host_connect)
+ERL_FUNCTION(_host_connect)
 {
     uintptr_t host = GET_HANDLE(argv[0], Host);
     uintptr_t id = GET_HANDLE(argv[1], peer_ID);
 
-    uintptr_t result = HostConnect(host, id);
-    IF_ERROR(result != 0, "failed to connect");
+    // To avoid importing Erlang types in Go. Note that the size of
+    // this is sizeof(unsigned long), but it's opaque, hence this.
+    const int PID_SIZE = sizeof(ErlNifPid);
+    ErlNifPid pid;
+    IF_ERROR(!enif_self(env, &pid), "failed to get pid");
+    GoSlice go_pid = {(void *)&pid, PID_SIZE, PID_SIZE};
+
+    HostConnect(host, id, go_pid, connect_send_message);
     return enif_make_atom(env, "ok");
 }
 
@@ -474,7 +494,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(host_set_stream_handler, 2),
     // TODO: check if host_new_stream is truly dirty
     NIF_ENTRY(host_new_stream, 3, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks negotiating protocol
-    NIF_ENTRY(host_connect, 2, ERL_NIF_DIRTY_JOB_IO_BOUND),
+    NIF_ENTRY(_host_connect, 2),
     NIF_ENTRY(host_peerstore, 1),
     NIF_ENTRY(host_id, 1),
     NIF_ENTRY(host_addrs, 1),
