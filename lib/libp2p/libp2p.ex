@@ -154,7 +154,9 @@ defmodule Libp2p do
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
-  Connects to the given peer asynchronously.
+  Asynchronously connects to the given peer. The result is sent
+  to `self()` in the shape of `{connect, :ok | {:error, reason}}`.
+  See `host_connect/2` for a synchronous version.
   """
   @spec _host_connect(host, peer_id) :: :ok
   def _host_connect(_host, _peer_id),
