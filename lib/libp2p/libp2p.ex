@@ -108,7 +108,7 @@ defmodule Libp2p do
   """
   @spec host_connect(host, peer_id) :: :ok | error
   def host_connect(host, peer_id) do
-    :ok = _host_connect(host, peer_id)
+    :ok = host_connect_async(host, peer_id)
 
     receive do
       {:connect, result} -> result
@@ -158,8 +158,8 @@ defmodule Libp2p do
   to `self()` in the shape of `{connect, :ok | {:error, reason}}`.
   See `host_connect/2` for a synchronous version.
   """
-  @spec _host_connect(host, peer_id) :: :ok
-  def _host_connect(_host, _peer_id),
+  @spec host_connect_async(host, peer_id) :: :ok
+  def host_connect_async(_host, _peer_id),
     do: :erlang.nif_error(:not_implemented)
 
   @doc """

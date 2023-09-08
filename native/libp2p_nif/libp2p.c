@@ -259,7 +259,7 @@ ERL_FUNCTION(host_new_stream)
     return get_handle_result(env, Stream, result);
 }
 
-ERL_FUNCTION(_host_connect)
+ERL_FUNCTION(host_connect_async)
 {
     uintptr_t host = GET_HANDLE(argv[0], Host);
     uintptr_t id = GET_HANDLE(argv[1], peer_ID);
@@ -494,7 +494,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(host_set_stream_handler, 2),
     // TODO: check if host_new_stream is truly dirty
     NIF_ENTRY(host_new_stream, 3, ERL_NIF_DIRTY_JOB_IO_BOUND), // blocks negotiating protocol
-    NIF_ENTRY(_host_connect, 2),
+    NIF_ENTRY(host_connect_async, 2),
     NIF_ENTRY(host_peerstore, 1),
     NIF_ENTRY(host_id, 1),
     NIF_ENTRY(host_addrs, 1),
