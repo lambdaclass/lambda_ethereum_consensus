@@ -94,7 +94,7 @@ defmodule Libp2p do
   @doc """
   Gets next subscription message.
   """
-  @spec next_subscription_message(timeout) :: {:ok, message} | error | :timeout
+  @spec next_subscription_message(timeout) :: {:ok, message} | :cancelled | :timeout
   def next_subscription_message(timeout \\ :infinity) do
     receive do
       {:sub, result} -> result
@@ -283,6 +283,12 @@ defmodule Libp2p do
   """
   @spec topic_publish(topic, binary) :: :ok | error
   def topic_publish(_topic, _data), do: :erlang.nif_error(:not_implemented)
+
+  @doc """
+  Cancels a given subscription.
+  """
+  @spec subscription_cancel(subscription) :: :ok
+  def subscription_cancel(_subscription), do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Gets the application data from a message.

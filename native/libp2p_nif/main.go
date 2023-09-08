@@ -481,10 +481,13 @@ func (tp C.uintptr_t) TopicSubscribe(procId []byte, callback C.send_message1_t) 
 func asyncFetchMessages(sub *pubsub.Subscription, procId []byte, callback C.send_message1_t) {
 	for {
 		msg, err := sub.Next(context.Background())
-		if err != nil {
-			// Only fails if the subscription is closed
+		if err == pubsub.ErrSubscriptionCancelled {
+			// Subscription has been cancelled
 			C.run_callback1(callback, unsafe.Pointer(&procId[0]), 0)
 			return
+		} else if err != nil {
+			// This shouldn't happen
+			panic(err)
 		}
 		C.run_callback1(callback, unsafe.Pointer(&procId[0]), C.uintptr_t(cgo.NewHandle(msg)))
 	}
@@ -503,21 +506,12 @@ func (tp C.uintptr_t) TopicPublish(data []byte) int {
 	return 0
 }
 
-//export SubscriptionNext
-// func (sub C.uintptr_t) SubscriptionNext(cErr **C.char) C.uintptr_t {
-// 	// WARN: we clone the string because the underlying buffer is owned by Elixir
-// 	subscription := cgo.Handle(sub).Value().(*pubsub.Subscription)
-// 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Microsecond)
-// 	defer cancel()
-// 	message, err := subscription.Next(ctx)
-
-// 	if err == nil {
-// 		return C.uintptr_t(cgo.NewHandle(message))
-// 	} else if err != context.DeadlineExceeded {
-// 		*cErr = C.CString(err.Error())
-// 	}
-// 	return 0
-// }
+//export SubscriptionCancel
+func (sub C.uintptr_t) SubscriptionCancel() {
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	subscription := cgo.Handle(sub).Value().(*pubsub.Subscription)
+	subscription.Cancel()
+}
 
 //export MessageData
 func (m C.uintptr_t) MessageData(buffer []byte) int {

@@ -161,7 +161,10 @@ bool subscription_send_message(void *pid_bytes, uintptr_t gossip_msg)
     ErlNifPid *pid = pid_bytes;
     ErlNifEnv *env = enif_alloc_env();
 
-    ERL_NIF_TERM message = enif_make_tuple2(env, enif_make_atom(env, "sub"), get_handle_result(env, Message, gossip_msg));
+    ERL_NIF_TERM term = (gossip_msg == 0) ? enif_make_atom(env, "cancelled")
+                                          : get_handle_result(env, Message, gossip_msg);
+
+    ERL_NIF_TERM message = enif_make_tuple2(env, enif_make_atom(env, "sub"), term);
     return send_message(pid, env, message);
 }
 
@@ -443,23 +446,12 @@ ERL_FUNCTION(topic_publish)
     return enif_make_atom(env, "ok");
 }
 
-// ERL_FUNCTION(subscription_next)
-// {
-//     uintptr_t handle = get_handle_from_term(env, Subscription, argv[0]);
-//     if (handle == 0)
-//     {
-//         return make_error_msg(env, ("invalid first argument"));
-//     }
-//     char *err = NULL;
-//     uintptr_t res = SubscriptionNext(handle, &err);
-//     // A null result and error means we reached a timeout.
-//     // Hence, we reschedule our NIF to a future time.
-//     if (res == 0 && err == NULL)
-//     {
-//         return enif_schedule_nif(env, "subscription_next", 1, subscription_next, argc, argv);
-//     }
-//     return get_handle_result(env, Message, res);
-// }
+ERL_FUNCTION(subscription_cancel)
+{
+    uintptr_t subscription = GET_HANDLE(argv[0], Subscription);
+    SubscriptionCancel(subscription);
+    return enif_make_atom(env, "ok");
+}
 
 ERL_FUNCTION(message_data)
 {
@@ -503,7 +495,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(pub_sub_join, 2),
     NIF_ENTRY(topic_subscribe, 1),
     NIF_ENTRY(topic_publish, 2),
-    // NIF_ENTRY(subscription_next, 1),
+    NIF_ENTRY(subscription_cancel, 1),
     NIF_ENTRY(message_data, 1),
 };
 

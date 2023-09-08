@@ -50,8 +50,8 @@ defmodule LambdaEthereumConsensus.P2P.Subscriber do
     pop_events(demand, [], %{state | queue: queue, demand: 0})
   end
 
-  def handle_info({:sub, {:error, reason}}, state) do
-    Logger.error(reason)
-    {:noreply, [], state}
+  def handle_info({:sub, :cancelled}, state) do
+    # This shouldn't happen normally
+    {:stop, :cancelled, state}
   end
 end

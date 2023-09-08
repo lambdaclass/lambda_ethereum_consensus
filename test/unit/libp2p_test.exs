@@ -130,6 +130,11 @@ defmodule Unit.Libp2pTest do
 
       assert {:ok, message} = Libp2p.next_subscription_message()
 
+      Libp2p.subscription_cancel(sub_recver)
+
+      # Subscription returns error before cancelling
+      assert :cancelled = Libp2p.next_subscription_message()
+
       # (recver) Get the application data from the message
       {:ok, data} = Libp2p.message_data(message)
 
