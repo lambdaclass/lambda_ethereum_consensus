@@ -132,20 +132,40 @@ static ERL_NIF_TERM get_handle_result(ErlNifEnv *env, ErlNifResourceType *type, 
     return make_ok_tuple2(env, term);
 }
 
-void send_message(void *pid_bytes, uintptr_t stream_handle)
+static bool send_message(ErlNifPid *pid, ErlNifEnv *env, ERL_NIF_TERM message)
+{
+    // This function consumes the env and message.
+    int result = enif_send(NULL, pid, env, message);
+    // On error, the env isn't freed by the function.
+    // This can only happen if the process from `pid` is dead.
+    if (!result)
+    {
+        enif_free_env(env);
+    }
+    return result;
+}
+
+bool handler_send_message(void *pid_bytes, uintptr_t stream_handle)
 {
     // Passed as void* to avoid including erl_nif.h in the header.
     ErlNifPid *pid = pid_bytes;
     ErlNifEnv *env = enif_alloc_env();
 
     ERL_NIF_TERM message = enif_make_tuple2(env, enif_make_atom(env, "req"), get_handle_result(env, Stream, stream_handle));
+    return send_message(pid, env, message);
+}
 
-    int result = enif_send(NULL, pid, env, message);
-    // On error, the env isn't freed by the function.
-    if (!result)
-    {
-        enif_free_env(env);
-    }
+bool subscription_send_message(void *pid_bytes, uintptr_t gossip_msg)
+{
+    // Passed as void* to avoid including erl_nif.h in the header.
+    ErlNifPid *pid = pid_bytes;
+    ErlNifEnv *env = enif_alloc_env();
+
+    ERL_NIF_TERM term = (gossip_msg == 0) ? enif_make_atom(env, "cancelled")
+                                          : get_handle_result(env, Message, gossip_msg);
+
+    ERL_NIF_TERM message = enif_make_tuple2(env, enif_make_atom(env, "sub"), term);
+    return send_message(pid, env, message);
 }
 
 /*********/
@@ -207,7 +227,7 @@ ERL_FUNCTION(host_set_stream_handler)
     IF_ERROR(!enif_self(env, &pid), "failed to get pid");
     GoSlice go_pid = {(void *)&pid, PID_SIZE, PID_SIZE};
 
-    HostSetStreamHandler(host, proto_id, go_pid, send_message);
+    HostSetStreamHandler(host, proto_id, go_pid, handler_send_message);
 
     return enif_make_atom(env, "ok");
 }
@@ -399,7 +419,19 @@ ERL_FUNCTION(pub_sub_join)
     return get_handle_result(env, Topic, result);
 }
 
-ERL_HANDLE_GETTER(topic_subscribe, Topic, Subscription, TopicSubscribe)
+ERL_FUNCTION(topic_subscribe)
+{
+    uintptr_t handle = GET_HANDLE(argv[0], Topic);
+    // To avoid importing Erlang types in Go. Note that the size of
+    // this is sizeof(unsigned long), but it's opaque, hence this.
+    const int PID_SIZE = sizeof(ErlNifPid);
+    ErlNifPid pid;
+    IF_ERROR(!enif_self(env, &pid), "failed to get pid");
+    GoSlice go_pid = {(void *)&pid, PID_SIZE, PID_SIZE};
+
+    uintptr_t _res = TopicSubscribe(handle, go_pid, subscription_send_message);
+    return get_handle_result(env, Subscription, _res);
+}
 
 ERL_FUNCTION(topic_publish)
 {
@@ -414,22 +446,11 @@ ERL_FUNCTION(topic_publish)
     return enif_make_atom(env, "ok");
 }
 
-ERL_FUNCTION(subscription_next)
+ERL_FUNCTION(subscription_cancel)
 {
-    uintptr_t handle = get_handle_from_term(env, Subscription, argv[0]);
-    if (handle == 0)
-    {
-        return make_error_msg(env, ("invalid first argument"));
-    }
-    char *err = NULL;
-    uintptr_t res = SubscriptionNext(handle, &err);
-    // A null result and error means we reached a timeout.
-    // Hence, we reschedule our NIF to a future time.
-    if (res == 0 && err == NULL)
-    {
-        return enif_schedule_nif(env, "subscription_next", 1, subscription_next, argc, argv);
-    }
-    return get_handle_result(env, Message, res);
+    uintptr_t subscription = GET_HANDLE(argv[0], Subscription);
+    SubscriptionCancel(subscription);
+    return enif_make_atom(env, "ok");
 }
 
 ERL_FUNCTION(message_data)
@@ -474,7 +495,7 @@ static ErlNifFunc nif_funcs[] = {
     NIF_ENTRY(pub_sub_join, 2),
     NIF_ENTRY(topic_subscribe, 1),
     NIF_ENTRY(topic_publish, 2),
-    NIF_ENTRY(subscription_next, 1),
+    NIF_ENTRY(subscription_cancel, 1),
     NIF_ENTRY(message_data, 1),
 };
 

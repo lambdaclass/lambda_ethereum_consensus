@@ -71,8 +71,8 @@ defmodule Integration.Libp2pTest do
   end
 
   defp read_gossip_msg(sub) do
-    case Libp2p.subscription_next(sub) do
-      {:ok, msg} ->
+    receive do
+      {:sub, {:ok, msg}} ->
         # NOTE: gossip messages are Snappy-compressed with BLOCK format (not frame)
         msg
         |> Libp2p.message_data()
@@ -80,7 +80,7 @@ defmodule Integration.Libp2pTest do
         |> Base.encode16()
         |> then(&IO.puts(["\"#{&1}\""]))
 
-      {:error, err} ->
+      {:sub, {:error, err}} ->
         IO.puts(err)
     end
 
