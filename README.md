@@ -50,7 +50,7 @@ To contribute effectively, you'll need a foundational understanding of both the 
 - **Blogs**:
   - [Zen of Erlang](https://ferd.ca/the-zen-of-erlang.html)
   - [Where Erlang Blooms](https://ferd.ca/rtb-where-erlang-blooms.html)
-  - [What can I only do in Erlang](https://hackmd.io/ZpUazPomRvacKoyW2vq54g)
+  - [What can I only do in Erlang](https://erlang.org/pipermail/erlang-questions/2014-November/081570.html)
   - [Stacking theory for systems design](https://medium.com/@jlouis666/stacking-theory-for-systems-design-2450e6300689)
   - [On Erlang States and Crashes](http://jlouisramblings.blogspot.com/2010/11/on-erlang-state-and-crashes.html)
   - [How Erlang does scheduling](http://jlouisramblings.blogspot.com/2013/01/how-erlang-does-scheduling.html)
@@ -82,7 +82,7 @@ With this foundation you should have a basic understanding of the Elixir languag
 - **Papers**:
   - [Ethereum Whitepaper](https://ethereum.org/en/whitepaper/)
   - [Ethereum Yellowpaper](https://ethereum.github.io/yellowpaper/paper.pdf)
-    - [Yellow paper discussion](youtube.com/watch?v=e84v1mxrlys)
+    - [Yellow paper discussion](https://www.youtube.com/watch?v=e84V1MxRlYs&t=2345s)
     - [Yellow paper walkthrough](https://www.lucassaldanha.com/ethereum-yellow-paper-walkthrough-1/)
   - [Ethereum Beige Paper](https://github.com/chronaeon/beigepaper/blob/master/beigepaper.pdf)
   - [Ethereum Mauve Paper](https://cdn.hackaday.io/files/10879465447136/Mauve%20Paper%20Vitalik.pdf)
