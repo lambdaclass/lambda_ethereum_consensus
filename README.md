@@ -82,7 +82,7 @@ With this foundation you should have a basic understanding of the Elixir languag
 - **Papers**:
   - [Ethereum Whitepaper](https://ethereum.org/en/whitepaper/)
   - [Ethereum Yellowpaper](https://ethereum.github.io/yellowpaper/paper.pdf)
-    - [Yellow paper discussion](https://www.youtube.com/watch?v=e84V1MxRlYs&t=2345s)
+    - [Yellow paper discussion](https://www.youtube.com/watch?v=e84V1MxRlYs)
     - [Yellow paper walkthrough](https://www.lucassaldanha.com/ethereum-yellow-paper-walkthrough-1/)
   - [Ethereum Beige Paper](https://github.com/chronaeon/beigepaper/blob/master/beigepaper.pdf)
   - [Ethereum Mauve Paper](https://cdn.hackaday.io/files/10879465447136/Mauve%20Paper%20Vitalik.pdf)
