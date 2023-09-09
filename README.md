@@ -2,6 +2,88 @@
 
 [![Telegram chat](https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaconsensus%2F&logo=telegram&label=chat&color=neon)](https://t.me/lambdaconsensus)
 
+## Prerequisites
+
+### Direct Installation
+
+You can install the necessary components directly from official sources:
+
+- [Elixir](https://elixir-lang.org/install.html)
+- [Erlang](https://www.erlang.org/downloads)
+- [Go](https://go.dev/doc/install)
+- [Rust](https://www.rust-lang.org/tools/install)
+
+### Alternative (Recommended) Installation
+
+For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
+
+- [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
+
+After installing **asdf**, add the required plugins for managing the tools:
+
+```shell
+asdf plugin add elixir
+asdf plugin add erlang
+asdf plugin add golang
+asdf plugin add rust
+```
+
+Finally, install the specific versions of these tools as specified in `.tool-versions`:
+
+```shell
+asdf install
+```
+
+## Installing and running
+
+There are Makefile targets for these tasks.
+
+```shell
+make deps # Installs dependencies
+make iex  # Runs a terminal with the application started
+make test # Runs tests
+```
+
+The iex terminal can be closed by pressing ctrl+c two times.
+
+## Profiling
+
+### QCachegrind
+
+To install [QCachegrind](https://github.com/KDE/kcachegrind) via [Homebrew](https://formulae.brew.sh/formula/qcachegrind), run:
+
+```sh
+brew install qcachegrind
+```
+
+To build a qcachegrind profile, run, inside iex:
+
+```elixir
+LambdaEthereumConsensus.Profile.build()
+```
+
+Options and details are in the `Profile` package. After the profile trace is generated, you open it in qcachegrind with:
+
+```shell
+qcachegrind callgrind.out.<trace_name>
+```
+
+If you want to group the traces by function instead of process, then you can the following before viewing it in qcachegrind:
+
+```shell
+grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
+```
+
+### Etop
+
+Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar tu UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
+
+```elixir
+:etop.start
+```
+
+In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got. This can be used to identify infinite loops or busy waits.
+
 ## Why Elixir?
 
 Elixir is a functional programming language that runs atop the Erlang Virtual Machine (BEAM). It offers enhanced readability, syntactic sugar, and reduced boilerplate, enabling developers to achieve more with fewer lines of code compared to Erlang. Like Erlang, Elixir compiles to bytecode that is interpreted by the VM. As a result, it inherits several notable properties, including:
@@ -139,88 +221,6 @@ Lambda Ethereum Consensus is more than just a project; it's a community-driven i
 ---
 
 **Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
-
-## Prerequisites
-
-### Direct Installation
-
-You can install the necessary components directly from official sources:
-
-- [Elixir](https://elixir-lang.org/install.html)
-- [Erlang](https://www.erlang.org/downloads)
-- [Go](https://go.dev/doc/install)
-- [Rust](https://www.rust-lang.org/tools/install)
-
-### Alternative (Recommended) Installation
-
-For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
-
-- [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
-
-After installing **asdf**, add the required plugins for managing the tools:
-
-```shell
-asdf plugin add elixir
-asdf plugin add erlang
-asdf plugin add golang
-asdf plugin add rust
-```
-
-Finally, install the specific versions of these tools as specified in `.tool-versions`:
-
-```shell
-asdf install
-```
-
-## Installing and running
-
-There are Makefile targets for these tasks.
-
-```shell
-make deps # Installs dependencies
-make iex  # Runs a terminal with the application started
-make test # Runs tests
-```
-
-The iex terminal can be closed by pressing ctrl+c two times.
-
-## Profiling
-
-### QCachegrind
-
-To install [QCachegrind](https://github.com/KDE/kcachegrind) via [Homebrew](https://formulae.brew.sh/formula/qcachegrind), run:
-
-```sh
-brew install qcachegrind
-```
-
-To build a qcachegrind profile, run, inside iex:
-
-```elixir
-LambdaEthereumConsensus.Profile.build()
-```
-
-Options and details are in the `Profile` package. After the profile trace is generated, you open it in qcachegrind with:
-
-```shell
-qcachegrind callgrind.out.<trace_name>
-```
-
-If you want to group the traces by function instead of process, then you can the following before viewing it in qcachegrind:
-
-```shell
-grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
-```
-
-### Etop
-
-Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar tu UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
-
-```elixir
-:etop.start
-```
-
-In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got. This can be used to identify infinite loops or busy waits.
 
 ## Code of Conduct
 
