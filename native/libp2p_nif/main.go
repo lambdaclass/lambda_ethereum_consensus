@@ -145,7 +145,7 @@ func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callbac
 	goProtoId := strings.Clone(protoId)
 	goProcId := bytes.Clone(procId)
 	handler := func(stream network.Stream) {
-		C.run_callback1(callback, unsafe.Pointer(&goProcId[0]), C.uintptr_t(cgo.NewHandle(stream)))
+		C.run_callback1(callback, unsafe.Pointer(&goProcId[0]), unsafe.Pointer(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }
@@ -167,17 +167,19 @@ func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t 
 }
 
 //export HostConnect
-func (h C.uintptr_t) HostConnect(pid C.uintptr_t) int {
+func (h C.uintptr_t) HostConnect(pid C.uintptr_t, procId []byte, callback C.send_message1_t) {
 	host := cgo.Handle(h).Value().(host.Host)
 	peerId := cgo.Handle(pid).Value().(peer.ID)
 	addrInfo := host.Peerstore().PeerInfo(peerId)
-	err := host.Connect(context.TODO(), addrInfo)
-	if err != nil {
-		// TODO: handle in better way
-		// fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 1
-	}
-	return 0
+	goProcId := bytes.Clone(procId)
+	go func() {
+		err := host.Connect(context.Background(), addrInfo)
+		var errorMsg *C.char
+		if err != nil {
+			errorMsg = C.CString(err.Error())
+		}
+		C.run_callback1(callback, unsafe.Pointer(&goProcId[0]), unsafe.Pointer(errorMsg))
+	}()
 }
 
 //export HostPeerstore
@@ -483,13 +485,13 @@ func asyncFetchMessages(sub *pubsub.Subscription, procId []byte, callback C.send
 		msg, err := sub.Next(context.Background())
 		if err == pubsub.ErrSubscriptionCancelled {
 			// Subscription has been cancelled
-			C.run_callback1(callback, unsafe.Pointer(&procId[0]), 0)
+			C.run_callback1(callback, unsafe.Pointer(&procId[0]), nil)
 			return
 		} else if err != nil {
 			// This shouldn't happen
 			panic(err)
 		}
-		if !C.run_callback1(callback, unsafe.Pointer(&procId[0]), C.uintptr_t(cgo.NewHandle(msg))) {
+		if !C.run_callback1(callback, unsafe.Pointer(&procId[0]), unsafe.Pointer(cgo.NewHandle(msg))) {
 			sub.Cancel()
 			return
 		}
