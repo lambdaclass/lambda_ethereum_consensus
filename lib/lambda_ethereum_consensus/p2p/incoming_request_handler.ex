@@ -46,9 +46,10 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
 
   def handle_req(@prefix <> "status/1/ssz_snappy", stream) do
     with {:ok, <<84, snappy_status::binary>>} <- Libp2p.stream_read(stream),
-         {:ok, status} <- Snappy.decompress(snappy_status),
+         {:ok, ssz_status} <- Snappy.decompress(snappy_status),
+         {:ok, status} = Ssz.from_ssz(ssz_status, SszTypes.StatusMessage),
          status
-         |> Base.encode16()
+         |> inspect(limit: :infinity)
          |> then(&"[Status] '#{&1}'")
          |> Logger.debug(),
          # hardcoded response from random peer
