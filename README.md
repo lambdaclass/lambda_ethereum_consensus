@@ -184,6 +184,23 @@ make test # Runs tests
 
 The iex terminal can be closed by pressing ctrl+c two times.
 
+## Consensus spec tests
+
+These can be run with:
+
+```shell
+make spec-test
+```
+
+For more fine-grained filtering of tests, you can use:
+
+- `mix test --only spectest`: only spec-tests, same as `make spec-test`
+- `mix test --only config:general`: only spec-tests with "general" config
+- `mix test --only fork:capella`: only spec-tests of the "capella" fork
+- `mix test --only runner:ssz_generic`: only spec-tests of the "ssz_generic" runner
+- `mix test --only handler:Checkpoint`: only spec-tests using the "Checkpoint" handler
+- `mix test --only test:<name>`: one specific test named `<name>`, for example `mix test --only test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
+
 ## Profiling
 
 ### QCachegrind
