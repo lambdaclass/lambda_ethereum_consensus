@@ -41,7 +41,7 @@ defmodule SpecTestGenerator do
       # Recompile module only if corresponding dir layout changed
       def __mix_recompile__? do
         Path.wildcard(unquote("tests/#{pinned_config}/#{pinned_fork}/**"))
-        |> :erlang.md5()
+        |> :erlang.md5() == unquote(paths_hash)
       end
 
       for testcase <- SpecTestGenerator.all_cases(),
