@@ -6,7 +6,6 @@ defmodule SSZStaticTestRunner do
   """
 
   @disabled [
-    "AggregateAndProof",
     "ContributionAndProof",
     "Eth1Block",
     "LightClientBootstrap",
@@ -15,7 +14,6 @@ defmodule SSZStaticTestRunner do
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
     "PowBlock",
-    "SignedAggregateAndProof",
     "SignedContributionAndProof",
     "SyncAggregatorSelectionData",
     "SyncCommitteeContribution",

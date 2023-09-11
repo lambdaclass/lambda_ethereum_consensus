@@ -6,9 +6,11 @@
 
 mod beacon_chain;
 mod p2p;
+mod validator;
 
 pub(crate) use beacon_chain::*;
 pub(crate) use p2p::*;
+pub(crate) use validator::*;
 
 use rustler::Binary;
 
