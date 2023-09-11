@@ -74,6 +74,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
            |> Snappy.compress() do
       Libp2p.stream_write(stream, <<0, 8>> <> payload)
       Libp2p.stream_close_write(stream)
+    else
+      # Ignore read errors, since some peers eagerly disconnect.
+      {:error, "failed to read"} ->
+        Logger.debug("[Goodbye] failed to read")
+        :ok
     end
   end
 
