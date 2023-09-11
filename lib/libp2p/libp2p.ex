@@ -104,6 +104,18 @@ defmodule Libp2p do
   end
 
   @doc """
+  Synchronously connects to the given peer.
+  """
+  @spec host_connect(host, peer_id) :: :ok | error
+  def host_connect(host, peer_id) do
+    :ok = host_connect_async(host, peer_id)
+
+    receive do
+      {:connect, result} -> result
+    end
+  end
+
+  @doc """
   Returns an `Option` that can be passed to `host_new`
   as an argument to configures libp2p to listen on the
   given (unparsed) addresses.
@@ -142,10 +154,12 @@ defmodule Libp2p do
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
-  Connects to the given peer.
+  Asynchronously connects to the given peer. The result is sent
+  to `self()` in the shape of `{connect, :ok | {:error, reason}}`.
+  See `host_connect/2` for a synchronous version.
   """
-  @spec host_connect(host, peer_id) :: :ok | error
-  def host_connect(_host, _peer_id),
+  @spec host_connect_async(host, peer_id) :: :ok
+  def host_connect_async(_host, _peer_id),
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
