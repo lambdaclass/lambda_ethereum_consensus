@@ -19,9 +19,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
       {"voluntary_exit", SszTypes.SignedVoluntaryExit},
       {"proposer_slashing", SszTypes.ProposerSlashing},
       {"attester_slashing", SszTypes.AttesterSlashing},
-      {"bls_to_execution_change", SszTypes.SignedBLSToExecutionChange}
-      # use type SignedAggregateAndProof
-      # {"beacon_aggregate_and_proof", SszTypes.SignedBeaconBlockHeader},
+      {"bls_to_execution_change", SszTypes.SignedBLSToExecutionChange},
+      {"beacon_aggregate_and_proof", SszTypes.SignedAggregateAndProof}
       # use type SignedContributionAndProof
       # {"sync_committee_contribution_and_proof", SszTypes.SignedBeaconBlockHeader},
       # use type SyncCommitteeMessage
