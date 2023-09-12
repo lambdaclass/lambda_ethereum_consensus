@@ -3,9 +3,13 @@
 //! Structs that implement [`ssz::Encode`] and [`ssz::Decode`].
 
 mod beacon_chain;
-pub(crate) mod config;
+mod p2p;
 
 pub(crate) use beacon_chain::*;
+pub(crate) use p2p::*;
+
+pub(crate) mod config;
+
 use ssz_derive::{Decode, Encode};
 use ssz_types::{typenum, FixedVector, VariableList};
 
