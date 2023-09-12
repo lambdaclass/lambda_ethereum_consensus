@@ -69,6 +69,8 @@ fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom, config: Atom) -> Nif
             BeaconState<C>,
             BeaconBlockBody<C>,
             StatusMessage,
+            AggregateAndProof<C>,
+            SignedAggregateAndProof<C>,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -125,6 +127,8 @@ fn from_ssz_rs<'env>(
             BeaconState<C>,
             BeaconBlockBody<C>,
             StatusMessage,
+            AggregateAndProof<C>,
+            SignedAggregateAndProof<C>,
         }
     )?;
     Ok((atoms::ok(), res).encode(env))
