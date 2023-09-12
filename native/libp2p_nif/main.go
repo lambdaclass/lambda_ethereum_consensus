@@ -138,14 +138,14 @@ func (h C.uintptr_t) HostClose() {
 }
 
 //export HostSetStreamHandler
-func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.send_message_t) {
+func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.send_message1_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
 	// WARN: we clone the string/[]byte because the underlying buffer is owned by Elixir/C
 	goProtoId := strings.Clone(protoId)
 	goProcId := bytes.Clone(procId)
 	handler := func(stream network.Stream) {
-		C.run_callback(callback, unsafe.Pointer(&goProcId[0]), C.uintptr_t(cgo.NewHandle(stream)))
+		C.run_callback1(callback, unsafe.Pointer(&goProcId[0]), unsafe.Pointer(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }
@@ -167,17 +167,19 @@ func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t 
 }
 
 //export HostConnect
-func (h C.uintptr_t) HostConnect(pid C.uintptr_t) int {
+func (h C.uintptr_t) HostConnect(pid C.uintptr_t, procId []byte, callback C.send_message1_t) {
 	host := cgo.Handle(h).Value().(host.Host)
 	peerId := cgo.Handle(pid).Value().(peer.ID)
 	addrInfo := host.Peerstore().PeerInfo(peerId)
-	err := host.Connect(context.TODO(), addrInfo)
-	if err != nil {
-		// TODO: handle in better way
-		// fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 1
-	}
-	return 0
+	goProcId := bytes.Clone(procId)
+	go func() {
+		err := host.Connect(context.Background(), addrInfo)
+		var errorMsg *C.char
+		if err != nil {
+			errorMsg = C.CString(err.Error())
+		}
+		C.run_callback1(callback, unsafe.Pointer(&goProcId[0]), unsafe.Pointer(errorMsg))
+	}()
 }
 
 //export HostPeerstore
@@ -247,6 +249,18 @@ func (s C.uintptr_t) StreamCloseWrite() {
 	// TODO: return error
 	handle := cgo.Handle(s)
 	handle.Value().(network.Stream).CloseWrite()
+}
+
+//export StreamProtocol
+func (s C.uintptr_t) StreamProtocol(buffer []byte) int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	return copy(buffer, stream.Protocol())
+}
+
+//export StreamProtocolLen
+func (s C.uintptr_t) StreamProtocolLen() int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	return len(stream.Protocol())
 }
 
 /***************/
@@ -450,16 +464,38 @@ func (ps C.uintptr_t) PubSubJoin(topicStr string) C.uintptr_t {
 }
 
 //export TopicSubscribe
-func (tp C.uintptr_t) TopicSubscribe() C.uintptr_t {
-	// WARN: we clone the string because the underlying buffer is owned by Elixir
+func (tp C.uintptr_t) TopicSubscribe(procId []byte, callback C.send_message1_t) C.uintptr_t {
+	// WARN: we clone the string/bytes because the underlying buffer is owned by Elixir/C
 	topic := cgo.Handle(tp).Value().(*pubsub.Topic)
+	goProcId := bytes.Clone(procId)
+
 	sub, err := topic.Subscribe()
 	if err != nil {
 		// TODO: handle in better way
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return 0
 	}
+	go asyncFetchMessages(sub, goProcId, callback)
 	return C.uintptr_t(cgo.NewHandle(sub))
+}
+
+// Reads messages from the subscription and sends them to the subscribed process
+func asyncFetchMessages(sub *pubsub.Subscription, procId []byte, callback C.send_message1_t) {
+	for {
+		msg, err := sub.Next(context.Background())
+		if err == pubsub.ErrSubscriptionCancelled {
+			// Subscription has been cancelled
+			C.run_callback1(callback, unsafe.Pointer(&procId[0]), nil)
+			return
+		} else if err != nil {
+			// This shouldn't happen
+			panic(err)
+		}
+		if !C.run_callback1(callback, unsafe.Pointer(&procId[0]), unsafe.Pointer(cgo.NewHandle(msg))) {
+			sub.Cancel()
+			return
+		}
+	}
 }
 
 //export TopicPublish
@@ -475,20 +511,11 @@ func (tp C.uintptr_t) TopicPublish(data []byte) int {
 	return 0
 }
 
-//export SubscriptionNext
-func (sub C.uintptr_t) SubscriptionNext(cErr **C.char) C.uintptr_t {
+//export SubscriptionCancel
+func (sub C.uintptr_t) SubscriptionCancel() {
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
 	subscription := cgo.Handle(sub).Value().(*pubsub.Subscription)
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Microsecond)
-	defer cancel()
-	message, err := subscription.Next(ctx)
-
-	if err == nil {
-		return C.uintptr_t(cgo.NewHandle(message))
-	} else if err != context.DeadlineExceeded {
-		*cErr = C.CString(err.Error())
-	}
-	return 0
+	subscription.Cancel()
 }
 
 //export MessageData

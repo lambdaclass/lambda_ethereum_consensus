@@ -8,12 +8,12 @@ defmodule BLSTestRunner do
   # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [
     # "sign",
-    "verify",
+    # "verify",
     "aggregate",
     # "fast_aggregate_verify",
     "aggregate_verify",
-    "eth_aggregate_pubkeys",
-    "eth_fast_aggregate_verify"
+    "eth_aggregate_pubkeys"
+    # "eth_fast_aggregate_verify"
   ]
 
   @doc """
@@ -96,15 +96,39 @@ defmodule BLSTestRunner do
     assert false
   end
 
-  defp assert_verify(_input, _output) do
-    assert false
+  defp assert_verify(
+         %{message: message, pubkey: pubkey, signature: signature},
+         output
+       ) do
+    case Bls.verify(pubkey, message, signature) do
+      {:ok, true} ->
+        assert output
+
+      {:ok, false} ->
+        assert not output
+
+      {:error, reason} ->
+        assert not output, reason
+    end
   end
 
   def assert_eth_aggregate_pubkeys(_input, _output) do
     assert false
   end
 
-  def assert_eth_fast_aggregate_verify(_input, _output) do
-    assert false
+  def assert_eth_fast_aggregate_verify(
+        %{message: message, pubkeys: pubkeys, signature: signature},
+        output
+      ) do
+    case Bls.eth_fast_aggregate_verify(pubkeys, message, signature) do
+      {:ok, true} ->
+        assert output
+
+      {:ok, false} ->
+        assert not output
+
+      {:error, reason} ->
+        assert not output, reason
+    end
   end
 end

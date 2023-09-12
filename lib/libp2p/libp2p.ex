@@ -92,6 +92,30 @@ defmodule Libp2p do
   def ttl_permanent_addr, do: 2 ** 63 - 1
 
   @doc """
+  Gets next subscription message.
+  """
+  @spec next_subscription_message(timeout) :: {:ok, message} | :cancelled | :timeout
+  def next_subscription_message(timeout \\ :infinity) do
+    receive do
+      {:sub, result} -> result
+    after
+      timeout -> :timeout
+    end
+  end
+
+  @doc """
+  Synchronously connects to the given peer.
+  """
+  @spec host_connect(host, peer_id) :: :ok | error
+  def host_connect(host, peer_id) do
+    :ok = host_connect_async(host, peer_id)
+
+    receive do
+      {:connect, result} -> result
+    end
+  end
+
+  @doc """
   Returns an `Option` that can be passed to `host_new`
   as an argument to configures libp2p to listen on the
   given (unparsed) addresses.
@@ -130,10 +154,12 @@ defmodule Libp2p do
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
-  Connects to the given peer.
+  Asynchronously connects to the given peer. The result is sent
+  to `self()` in the shape of `{connect, :ok | {:error, reason}}`.
+  See `host_connect/2` for a synchronous version.
   """
-  @spec host_connect(host, peer_id) :: :ok | error
-  def host_connect(_host, _peer_id),
+  @spec host_connect_async(host, peer_id) :: :ok
+  def host_connect_async(_host, _peer_id),
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
@@ -195,6 +221,13 @@ defmodule Libp2p do
     do: :erlang.nif_error(:not_implemented)
 
   @doc """
+  Returns the ID of the underlying protocol.
+  """
+  @spec stream_protocol(stream) :: {:ok, binary} | error
+  def stream_protocol(_stream),
+    do: :erlang.nif_error(:not_implemented)
+
+  @doc """
   Creates a discv5 listener.
   """
   @spec listen_v5(binary, list(binary)) :: {:ok, listener} | error
@@ -253,7 +286,8 @@ defmodule Libp2p do
   def pub_sub_join(_pubsub, _topic_str), do: :erlang.nif_error(:not_implemented)
 
   @doc """
-  Subscribes to the given topic.
+  Subscribes to the given topic. After this call, `self()` will start receiving
+  messages from the topic. Those can be received via `get_subscription_message/0`.
   """
   @spec topic_subscribe(topic) :: {:ok, subscription} | error
   def topic_subscribe(_topic), do: :erlang.nif_error(:not_implemented)
@@ -265,14 +299,14 @@ defmodule Libp2p do
   def topic_publish(_topic, _data), do: :erlang.nif_error(:not_implemented)
 
   @doc """
-  Gets next message of given subscription.
+  Cancels a given subscription.
   """
-  @spec subscription_next(subscription) :: {:ok, message} | error
-  def subscription_next(_subscription), do: :erlang.nif_error(:not_implemented)
+  @spec subscription_cancel(subscription) :: :ok
+  def subscription_cancel(_subscription), do: :erlang.nif_error(:not_implemented)
 
   @doc """
   Gets the application data from a message.
   """
-  @spec message_data(message) :: binary
+  @spec message_data(message) :: {:ok, binary} | error
   def message_data(_message), do: :erlang.nif_error(:not_implemented)
 end

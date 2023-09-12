@@ -39,7 +39,10 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:yaml_elixir, "~> 2.8", only: [:test]},
       {:stream_data, "~> 0.6", only: [:test]},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:timex, "~> 3.7"},
+      {:rexbug, "~> 1.0.5"},
+      {:eep, git: "https://github.com/virtan/eep", branch: "master"}
     ]
   end
 

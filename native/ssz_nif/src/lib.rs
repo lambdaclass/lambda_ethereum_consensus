@@ -53,8 +53,10 @@ fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom, config: Atom) -> Nif
             BLSToExecutionChange,
             SignedBLSToExecutionChange,
             Attestation<C>,
+            BeaconBlock<C>,
             BeaconBlockHeader,
             AttesterSlashing<C>,
+            SignedBeaconBlock<C>,
             SignedBeaconBlockHeader,
             SignedVoluntaryExit,
             ProposerSlashing,
@@ -64,6 +66,8 @@ fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom, config: Atom) -> Nif
             SigningData,
             SyncAggregate<C>,
             SyncCommittee<C>,
+            BeaconState<C>,
+            BeaconBlockBody<C>,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -104,8 +108,10 @@ fn from_ssz_rs<'env>(
             BLSToExecutionChange,
             SignedBLSToExecutionChange,
             Attestation<C>,
+            BeaconBlock<C>,
             BeaconBlockHeader,
             AttesterSlashing<C>,
+            SignedBeaconBlock<C>,
             SignedBeaconBlockHeader,
             SignedVoluntaryExit,
             ProposerSlashing,
@@ -115,6 +121,8 @@ fn from_ssz_rs<'env>(
             SigningData,
             SyncAggregate<C>,
             SyncCommittee<C>,
+            BeaconState<C>,
+            BeaconBlockBody<C>,
         }
     )?;
     Ok((atoms::ok(), res).encode(env))
