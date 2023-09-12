@@ -8,18 +8,21 @@ package main
 import "C"
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net"
 	"os"
 	"runtime/cgo"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	gcrypto "github.com/ethereum/go-ethereum/crypto"
@@ -27,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/libp2p/go-libp2p"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -34,6 +38,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
+	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -112,13 +118,19 @@ func ListenAddrStrings(listenAddr string) C.uintptr_t {
 //export HostNew
 func HostNew(options []C.uintptr_t) C.uintptr_t {
 	// TODO: move to Elixir side
-	optionsSlice := make([]libp2p.Option, len(options)+2)
-	for i := 0; i < len(options); i++ {
-		optionsSlice[i] = cgo.Handle(options[i]).Value().(libp2p.Option)
+	optionsSlice := []libp2p.Option{
+		libp2p.DefaultMuxers,
+		libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
+		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.Security(noise.ID, noise.New),
+		libp2p.DisableRelay(),
+		libp2p.NATPortMap(), // Allow to use UPnP
+		libp2p.Ping(false),
 	}
-	// Needed to support mplex
-	optionsSlice[len(options)] = libp2p.DefaultMuxers
-	optionsSlice[len(options)+1] = libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport)
+	for i := 0; i < len(options); i++ {
+		optionsSlice = append(optionsSlice, cgo.Handle(options[i]).Value().(libp2p.Option))
+	}
+
 	h, err := libp2p.New(optionsSlice...)
 	if err != nil {
 		// TODO: handle in better way
@@ -135,13 +147,14 @@ func (h C.uintptr_t) HostClose() {
 }
 
 //export HostSetStreamHandler
-func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId C.erl_pid_t, callback C.send_message_t) {
+func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.send_message1_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
-	// WARN: we clone the string because the underlying buffer is owned by Elixir
-	goProtoId := protocol.ID(strings.Clone(protoId))
+	// WARN: we clone the string/[]byte because the underlying buffer is owned by Elixir/C
+	goProtoId := strings.Clone(protoId)
+	goProcId := bytes.Clone(procId)
 	handler := func(stream network.Stream) {
-		C.run_callback(callback, procId, C.uintptr_t(cgo.NewHandle(stream)))
+		C.run_callback1(callback, unsafe.Pointer(&goProcId[0]), unsafe.Pointer(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }
@@ -160,6 +173,22 @@ func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t 
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(stream))
+}
+
+//export HostConnect
+func (h C.uintptr_t) HostConnect(pid C.uintptr_t, procId []byte, callback C.send_message1_t) {
+	host := cgo.Handle(h).Value().(host.Host)
+	peerId := cgo.Handle(pid).Value().(peer.ID)
+	addrInfo := host.Peerstore().PeerInfo(peerId)
+	goProcId := bytes.Clone(procId)
+	go func() {
+		err := host.Connect(context.Background(), addrInfo)
+		var errorMsg *C.char
+		if err != nil {
+			errorMsg = C.CString(err.Error())
+		}
+		C.run_callback1(callback, unsafe.Pointer(&goProcId[0]), unsafe.Pointer(errorMsg))
+	}()
 }
 
 //export HostPeerstore
@@ -229,6 +258,18 @@ func (s C.uintptr_t) StreamCloseWrite() {
 	// TODO: return error
 	handle := cgo.Handle(s)
 	handle.Value().(network.Stream).CloseWrite()
+}
+
+//export StreamProtocol
+func (s C.uintptr_t) StreamProtocol(buffer []byte) int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	return copy(buffer, stream.Protocol())
+}
+
+//export StreamProtocolLen
+func (s C.uintptr_t) StreamProtocolLen() int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	return len(stream.Protocol())
 }
 
 /***************/
@@ -380,4 +421,146 @@ func (n C.uintptr_t) NodeID() C.uintptr_t {
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(nodeID))
+}
+
+/***************/
+/** GossipSub **/
+/***************/
+
+//export NewGossipSub
+func NewGossipSub(h C.uintptr_t) C.uintptr_t {
+	host := cgo.Handle(h).Value().(host.Host)
+	// TODO: receive options by parameter
+	heartbeat := 700 * time.Millisecond
+	gsubParams := pubsub.DefaultGossipSubParams()
+	gsubParams.D = 8
+	gsubParams.Dlo = 6
+	gsubParams.HeartbeatInterval = heartbeat
+	gsubParams.FanoutTTL = 60 * time.Second
+	gsubParams.HistoryLength = 6
+	gsubParams.HistoryGossip = 3
+
+	thresholds := &pubsub.PeerScoreThresholds{
+		GossipThreshold:             -4000,
+		PublishThreshold:            -8000,
+		GraylistThreshold:           -16000,
+		AcceptPXThreshold:           100,
+		OpportunisticGraftThreshold: 5,
+	}
+	scoreParams := &pubsub.PeerScoreParams{
+		Topics:        make(map[string]*pubsub.TopicScoreParams),
+		TopicScoreCap: 32.72,
+		AppSpecificScore: func(p peer.ID) float64 {
+			return 0
+		},
+		AppSpecificWeight:           1,
+		IPColocationFactorWeight:    -35.11,
+		IPColocationFactorThreshold: 10,
+		IPColocationFactorWhitelist: nil,
+		BehaviourPenaltyWeight:      -15.92,
+		BehaviourPenaltyThreshold:   6,
+		BehaviourPenaltyDecay:       math.Pow(0.01, 1/float64(10*32)),
+		DecayInterval:               12 * time.Second,
+		DecayToZero:                 0.01,
+		RetainScore:                 100 * 32 * 12 * time.Second,
+	}
+
+	// TODO: add more options, especially WithMessageIdFn
+	options := []pubsub.Option{
+		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
+		pubsub.WithNoAuthor(),
+		pubsub.WithPeerScore(scoreParams, thresholds),
+		pubsub.WithGossipSubParams(gsubParams),
+		pubsub.WithSeenMessagesTTL(550 * heartbeat),
+		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
+	}
+
+	gsub, err := pubsub.NewGossipSub(context.TODO(), host, options...)
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(gsub))
+}
+
+//export PubSubJoin
+func (ps C.uintptr_t) PubSubJoin(topicStr string) C.uintptr_t {
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	goTopicStr := strings.Clone(topicStr)
+	psub := cgo.Handle(ps).Value().(*pubsub.PubSub)
+	topic, err := psub.Join(goTopicStr)
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 0
+	}
+	return C.uintptr_t(cgo.NewHandle(topic))
+}
+
+//export TopicSubscribe
+func (tp C.uintptr_t) TopicSubscribe(procId []byte, callback C.send_message1_t) C.uintptr_t {
+	// WARN: we clone the string/bytes because the underlying buffer is owned by Elixir/C
+	topic := cgo.Handle(tp).Value().(*pubsub.Topic)
+	goProcId := bytes.Clone(procId)
+
+	sub, err := topic.Subscribe()
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 0
+	}
+	go asyncFetchMessages(sub, goProcId, callback)
+	return C.uintptr_t(cgo.NewHandle(sub))
+}
+
+// Reads messages from the subscription and sends them to the subscribed process
+func asyncFetchMessages(sub *pubsub.Subscription, procId []byte, callback C.send_message1_t) {
+	for {
+		msg, err := sub.Next(context.Background())
+		if err == pubsub.ErrSubscriptionCancelled {
+			// Subscription has been cancelled
+			C.run_callback1(callback, unsafe.Pointer(&procId[0]), nil)
+			return
+		} else if err != nil {
+			// This shouldn't happen
+			panic(err)
+		}
+		if !C.run_callback1(callback, unsafe.Pointer(&procId[0]), unsafe.Pointer(cgo.NewHandle(msg))) {
+			sub.Cancel()
+			return
+		}
+	}
+}
+
+//export TopicPublish
+func (tp C.uintptr_t) TopicPublish(data []byte) int {
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	topic := cgo.Handle(tp).Value().(*pubsub.Topic)
+	err := topic.Publish(context.TODO(), data)
+	if err != nil {
+		// TODO: handle in better way
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
+	}
+	return 0
+}
+
+//export SubscriptionCancel
+func (sub C.uintptr_t) SubscriptionCancel() {
+	// WARN: we clone the string because the underlying buffer is owned by Elixir
+	subscription := cgo.Handle(sub).Value().(*pubsub.Subscription)
+	subscription.Cancel()
+}
+
+//export MessageData
+func (m C.uintptr_t) MessageData(buffer []byte) int {
+	msg := cgo.Handle(m).Value().(*pubsub.Message)
+	return copy(buffer, msg.Data)
+}
+
+//export MessageDataLen
+func (m C.uintptr_t) MessageDataLen() int {
+	msg := cgo.Handle(m).Value().(*pubsub.Message)
+	return len(msg.Data)
 }

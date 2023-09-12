@@ -6,7 +6,7 @@ defmodule SpecTestCase do
   defstruct [:config, :fork, :runner, :handler, :suite, :case]
 
   def new([config, fork, runner, handler, suite, cse]) do
-    %SpecTestCase{
+    %__MODULE__{
       config: config,
       fork: fork,
       runner: runner,
@@ -16,7 +16,7 @@ defmodule SpecTestCase do
     }
   end
 
-  def name(%SpecTestCase{
+  def name(%__MODULE__{
         config: config,
         fork: fork,
         runner: runner,
@@ -27,7 +27,7 @@ defmodule SpecTestCase do
     "c:#{config} f:#{fork} r:#{runner} h:#{handler} s:#{suite} -> #{cse}"
   end
 
-  def dir(%SpecTestCase{
+  def dir(%__MODULE__{
         config: config,
         fork: fork,
         runner: runner,

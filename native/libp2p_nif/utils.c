@@ -1,6 +1,6 @@
 #include "utils.h"
 
-void run_callback(send_message_t send_message, erl_pid_t pid, uintptr_t stream)
+bool run_callback1(send_message1_t send_message, void *pid_bytes, void *arg1)
 {
-    send_message(pid, stream);
+    return send_message(pid_bytes, arg1);
 }

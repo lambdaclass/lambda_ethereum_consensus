@@ -1,24 +1,131 @@
-use lighthouse_types::Checkpoint;
-use rustler::{Env, Binary};
-use ssz::{Encode, Decode};
-use crate::{types::checkpoint::CheckpointNif, utils::bytes_to_binary};
+//! # SSZ NIF
+//!
+//! To add a new type:
+//!  - Add the type to the [`elx_types`] and [`ssz_types`] modules, using the [`gen_struct`](utils::gen_struct) macro
+//!  - Implement the necessary traits ([`FromElx`](utils::from_elx::FromElx) and [`FromSsz`](utils::from_ssz::FromSsz)) for its attributes
+//!  - Add the type to [`to_ssz_rs`] and [`from_ssz_rs`] "match" macros
 
-mod types;
-mod utils;
+pub(crate) mod elx_types;
+pub(crate) mod ssz_types;
+pub(crate) mod utils;
+
+use crate::utils::{helpers::bytes_to_binary, match_schema_and_decode, match_schema_and_encode};
+use rustler::{Atom, Binary, Encoder, Env, NifResult, Term};
+
+mod atoms {
+    use rustler::atoms;
+
+    atoms! {
+        ok,
+    }
+}
+
+const SCHEMA_PREFIX_SIZE: usize = "Elixir.SszTypes.".len();
+const ELIXIR_PREFIX_SIZE: usize = "Elixir.".len();
 
 #[rustler::nif]
-fn to_ssz<'env>(env: Env<'env>, value_nif: CheckpointNif) -> Result<Binary<'env>, String> {
-    let value_ssz: Checkpoint = value_nif.clone().into();
-    let serialized = value_ssz.as_ssz_bytes();
-    Ok(bytes_to_binary(env, &serialized))
+fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom, config: Atom) -> NifResult<Term<'env>> {
+    let schema = schema.to_term(env).atom_to_string()?;
+    let schema = schema
+        .get(SCHEMA_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+    let config = config.to_term(env).atom_to_string()?;
+    let config = config
+        .get(ELIXIR_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+
+    let serialized = match_schema_and_encode!(
+        (schema, config, map) => {
+            HistoricalSummary,
+            AttestationData,
+            IndexedAttestation<C>,
+            Checkpoint,
+            Eth1Data,
+            Fork,
+            ForkData,
+            HistoricalBatch<C>,
+            PendingAttestation<C>,
+            Validator,
+            DepositData,
+            VoluntaryExit,
+            Deposit,
+            DepositMessage,
+            BLSToExecutionChange,
+            SignedBLSToExecutionChange,
+            Attestation<C>,
+            BeaconBlock<C>,
+            BeaconBlockHeader,
+            AttesterSlashing<C>,
+            SignedBeaconBlock<C>,
+            SignedBeaconBlockHeader,
+            SignedVoluntaryExit,
+            ProposerSlashing,
+            ExecutionPayload<C>,
+            ExecutionPayloadHeader<C>,
+            Withdrawal,
+            SigningData,
+            SyncAggregate<C>,
+            SyncCommittee<C>,
+            BeaconState<C>,
+            BeaconBlockBody<C>,
+        }
+    );
+    Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 
 #[rustler::nif]
-fn from_ssz<'env>(env: Env<'env>, bytes: Binary) -> Result<CheckpointNif<'env>, String> {
-    let recovered_value = Checkpoint::from_ssz_bytes(&bytes).expect("can deserialize");
-    let checkpoint = CheckpointNif::from(recovered_value, env);
+fn from_ssz_rs<'env>(
+    env: Env<'env>,
+    bytes: Binary,
+    schema: Atom,
+    config: Atom,
+) -> NifResult<Term<'env>> {
+    let schema = schema.to_term(env).atom_to_string()?;
+    let schema = schema
+        .get(SCHEMA_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+    let config = config.to_term(env).atom_to_string()?;
+    let config = config
+        .get(ELIXIR_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
 
-    return Ok(checkpoint);
+    let res = match_schema_and_decode!(
+        (schema, config, &bytes, env) => {
+            HistoricalSummary,
+            AttestationData,
+            IndexedAttestation<C>,
+            Checkpoint,
+            Eth1Data,
+            Fork,
+            ForkData,
+            HistoricalBatch<C>,
+            PendingAttestation<C>,
+            Validator,
+            DepositData,
+            VoluntaryExit,
+            Deposit,
+            DepositMessage,
+            BLSToExecutionChange,
+            SignedBLSToExecutionChange,
+            Attestation<C>,
+            BeaconBlock<C>,
+            BeaconBlockHeader,
+            AttesterSlashing<C>,
+            SignedBeaconBlock<C>,
+            SignedBeaconBlockHeader,
+            SignedVoluntaryExit,
+            ProposerSlashing,
+            ExecutionPayload<C>,
+            ExecutionPayloadHeader<C>,
+            Withdrawal,
+            SigningData,
+            SyncAggregate<C>,
+            SyncCommittee<C>,
+            BeaconState<C>,
+            BeaconBlockBody<C>,
+        }
+    )?;
+    Ok((atoms::ok(), res).encode(env))
 }
 
-rustler::init!("Elixir.LambdaEthereumConsensus.Ssz", [to_ssz, from_ssz]);
+rustler::init!("Elixir.Ssz", [to_ssz_rs, from_ssz_rs]);

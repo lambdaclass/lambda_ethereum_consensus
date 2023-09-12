@@ -1,4 +1,4 @@
-.PHONY: iex deps test clean compile-native \
+.PHONY: iex deps test clean compile-native fmt \
 		clean-vectors download-vectors uncompress-vectors
 
 # Delete current file when command fails
@@ -78,11 +78,18 @@ deps:
 
 # Run tests
 test: compile-native
-	mix test --exclude spectest
+	mix test --no-start --exclude spectest
 
-spec-test: compile-native tests/minimal #$(SPECTEST_DIRS)
-	mix test --only implemented_spectest
+spec-test: compile-native tests/minimal tests/general #$(SPECTEST_DIRS)
+	mix test --no-start --only implemented_spectest
 
 lint:
 	mix format --check-formatted
 	mix credo --strict
+
+fmt:
+	mix format
+	cd native/libp2p_nif; gofmt -l -w .
+	cd native/snappy_nif; cargo fmt
+	cd native/ssz_nif; cargo fmt
+	cd native/bls_nif; cargo fmt

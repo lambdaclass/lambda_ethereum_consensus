@@ -1,0 +1,108 @@
+{
+  "projectName": "lambda_ethereum_consensus",
+  "projectOwner": "lambdaclass",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributorsPerLine": 7,
+  "linkToUsage": false,
+  "skipCi": false,
+  "contributors": [
+    {
+      "login": "phklive",
+      "name": "Paul-Henry Kajfasz",
+      "avatar_url": "https://avatars.githubusercontent.com/u/42912740?v=4",
+      "profile": "https://www.linkedin.com/in/paul-henrykajfasz/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "MegaRedHand",
+      "name": "Tomás",
+      "avatar_url": "https://avatars.githubusercontent.com/u/47506558?v=4",
+      "profile": "https://github.com/MegaRedHand",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "mpaulucci",
+      "name": "Martin Paulucci",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1040971?v=4",
+      "profile": "https://github.com/mpaulucci",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Arkenan",
+      "name": "Tomás Arjovsky",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6244161?v=4",
+      "profile": "https://github.com/Arkenan",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "h3lio5",
+      "name": "Akash S M",
+      "avatar_url": "https://avatars.githubusercontent.com/u/47632450?v=4",
+      "profile": "https://github.com/h3lio5",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "berwingan",
+      "name": "berwin",
+      "avatar_url": "https://avatars.githubusercontent.com/u/45144467?v=4",
+      "profile": "https://github.com/berwingan",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "f3r10",
+      "name": "Fernando Ledesma",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4682815?v=4",
+      "profile": "https://f3r10.github.io/#/all-pages",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "karasakalmt",
+      "name": "Mete Karasakal",
+      "avatar_url": "https://avatars.githubusercontent.com/u/32202283?v=4",
+      "profile": "https://github.com/karasakalmt",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "unbalancedparentheses",
+      "name": "Federico Carrone",
+      "avatar_url": "https://avatars.githubusercontent.com/u/569014?v=4",
+      "profile": "https://federicocarrone.com/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Godspower-Eze",
+      "name": "Godspower Eze",
+      "avatar_url": "https://avatars.githubusercontent.com/u/61994334?v=4",
+      "profile": "http://godspowereze.com",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular"
+}
