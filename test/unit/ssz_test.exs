@@ -69,4 +69,24 @@ defmodule SSZTests do
 
     assert_roundtrip(value)
   end
+
+  test "serialize and deserialize status message" do
+    serialized =
+      Base.decode16!(
+        "BBA4DA967715794499C07D9954DD223EC2C6B846D3BAB27956D093000FADC1B8219F74D4487B030000000000D62A74AE0F933224133C5E6E1827A2835A1E705F0CDFEE3AD25808DDEA5572DB4A696F0000000000"
+      )
+
+    deserialized = %SszTypes.StatusMessage{
+      fork_digest: Base.decode16!("BBA4DA96"),
+      finalized_root:
+        Base.decode16!("7715794499C07D9954DD223EC2C6B846D3BAB27956D093000FADC1B8219F74D4"),
+      finalized_epoch: 228_168,
+      head_root:
+        Base.decode16!("D62A74AE0F933224133C5E6E1827A2835A1E705F0CDFEE3AD25808DDEA5572DB"),
+      head_slot: 7_301_450
+    }
+
+    assert {:ok, ^deserialized} = Ssz.from_ssz(serialized, SszTypes.StatusMessage)
+    assert {:ok, ^serialized} = Ssz.to_ssz(deserialized)
+  end
 end
