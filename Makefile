@@ -66,6 +66,11 @@ clean:
 # Compile C and Go artifacts.
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
+
+# Run an interactive terminal with the main supervisor setup.
+start: compile-native
+	iex -S mix phx.server
+
 # Run an interactive terminal with the main supervisor setup.
 iex: compile-native
 	iex -S mix
