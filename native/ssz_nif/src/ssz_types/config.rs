@@ -1,10 +1,12 @@
+// Taken from lighthouse
+
 use ssz_types::typenum::*;
 
 pub type U5000 = UInt<UInt<UInt<U625, B0>, B0>, B0>; // 625 * 8 = 5000
 
-/// Macro to inherit some type values from another EthSpec.
+/// Macro to inherit some type values from another `Config`.
 #[macro_export]
-macro_rules! params_from_eth_spec {
+macro_rules! params_from_config {
     ($spec_ty:ty { $($ty_name:ident),+ }) => {
         $(type $ty_name = <$spec_ty as Config>::$ty_name;)+
     }
@@ -90,7 +92,7 @@ impl Config for Minimal {
     type SlotsPerEth1VotingPeriod = U32; // 4 epochs * 8 slots per epoch
     type MaxWithdrawalsPerPayload = U4;
 
-    params_from_eth_spec!(Mainnet {
+    params_from_config!(Mainnet {
         JustificationBitsLength,
         SubnetBitfieldLength,
         SyncCommitteeSubnetCount,
