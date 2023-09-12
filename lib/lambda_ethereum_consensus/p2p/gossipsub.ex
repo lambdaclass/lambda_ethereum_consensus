@@ -21,10 +21,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
       {"attester_slashing", SszTypes.AttesterSlashing},
       {"bls_to_execution_change", SszTypes.SignedBLSToExecutionChange},
       {"beacon_aggregate_and_proof", SszTypes.SignedAggregateAndProof}
-      # use type SignedContributionAndProof
-      # {"sync_committee_contribution_and_proof", SszTypes.SignedBeaconBlockHeader},
-      # use type SyncCommitteeMessage
-      # {"sync_committee_0", SszTypes.SignedBeaconBlockHeader}
+      # {"sync_committee_contribution_and_proof", SszTypes.SignedContributionAndProof},
+      # {"sync_committee_0", SszTypes.SyncCommitteeMessage}
     ]
 
     children =
