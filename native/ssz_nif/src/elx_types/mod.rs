@@ -5,7 +5,11 @@
 //! [`FromSsz`] implementations to convert between the types.
 
 mod beacon_chain;
+mod p2p;
+
 pub(crate) use beacon_chain::*;
+pub(crate) use p2p::*;
+
 use rustler::Binary;
 
 // This type should be a little-endian encoded uint256.

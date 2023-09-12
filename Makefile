@@ -1,4 +1,4 @@
-.PHONY: iex deps test clean compile-native fmt \
+.PHONY: iex deps test spec-test lint clean compile-native fmt \
 		clean-vectors download-vectors uncompress-vectors
 
 # Delete current file when command fails
@@ -18,7 +18,7 @@ OUTPUT_DIR = priv/native
 DIRS=$(OUTPUT_DIR)
 $(info $(shell mkdir -p $(DIRS)))
 
-GO_SOURCES = $(LIBP2P_DIR)/main.go
+GO_SOURCES = $(LIBP2P_DIR)/go_src/main.go
 GO_ARCHIVES := $(patsubst %.go,%.a,$(GO_SOURCES))
 GO_HEADERS := $(patsubst %.go,%.h,$(GO_SOURCES))
 
@@ -26,15 +26,13 @@ CFLAGS = -Wall -Werror
 CFLAGS += -Wl,-undefined -Wl,dynamic_lookup -fPIC -shared
 CFLAGS += -I$(ERLANG_INCLUDES)
 
-$(LIBP2P_DIR)/%.a $(LIBP2P_DIR)/%.h: $(LIBP2P_DIR)/%.go
-	cd $(LIBP2P_DIR); \
-	go get; \
-	go install; \
+$(LIBP2P_DIR)/go_src/%.a $(LIBP2P_DIR)/go_src/%.h: $(LIBP2P_DIR)/go_src/%.go
+	cd $(LIBP2P_DIR)/go_src; \
 	go build -buildmode=c-archive $*.go
 
-$(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c
-	gcc $(CFLAGS) -o $@ \
-		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c $(GO_ARCHIVES)
+$(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/go_src/utils.c
+	gcc $(CFLAGS) -I $(LIBP2P_DIR)/go_src -o $@ \
+		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/go_src/utils.c $(GO_ARCHIVES)
 
 
 ##### SPEC TEST VECTORS #####
@@ -74,6 +72,8 @@ iex: compile-native
 
 # Install mix dependencies.
 deps:
+	cd $(LIBP2P_DIR)/go_src; \
+	go get && go install
 	mix deps.get
 
 # Run tests
