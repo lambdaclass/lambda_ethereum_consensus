@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net"
 	"os"
@@ -37,6 +38,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
+	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -115,13 +118,19 @@ func ListenAddrStrings(listenAddr string) C.uintptr_t {
 //export HostNew
 func HostNew(options []C.uintptr_t) C.uintptr_t {
 	// TODO: move to Elixir side
-	optionsSlice := make([]libp2p.Option, len(options)+2)
-	for i := 0; i < len(options); i++ {
-		optionsSlice[i] = cgo.Handle(options[i]).Value().(libp2p.Option)
+	optionsSlice := []libp2p.Option{
+		libp2p.DefaultMuxers,
+		libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
+		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.Security(noise.ID, noise.New),
+		libp2p.DisableRelay(),
+		libp2p.NATPortMap(), // Allow to use UPnP
+		libp2p.Ping(false),
 	}
-	// Needed to support mplex
-	optionsSlice[len(options)] = libp2p.DefaultMuxers
-	optionsSlice[len(options)+1] = libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport)
+	for i := 0; i < len(options); i++ {
+		optionsSlice = append(optionsSlice, cgo.Handle(options[i]).Value().(libp2p.Option))
+	}
+
 	h, err := libp2p.New(optionsSlice...)
 	if err != nil {
 		// TODO: handle in better way
@@ -423,19 +432,45 @@ func NewGossipSub(h C.uintptr_t) C.uintptr_t {
 	host := cgo.Handle(h).Value().(host.Host)
 	// TODO: receive options by parameter
 	heartbeat := 700 * time.Millisecond
-	params := pubsub.DefaultGossipSubParams()
-	params.D = 8
-	params.Dlo = 6
-	params.HeartbeatInterval = heartbeat
-	params.FanoutTTL = 60 * time.Second
-	params.HistoryLength = 6
-	params.HistoryGossip = 3
+	gsubParams := pubsub.DefaultGossipSubParams()
+	gsubParams.D = 8
+	gsubParams.Dlo = 6
+	gsubParams.HeartbeatInterval = heartbeat
+	gsubParams.FanoutTTL = 60 * time.Second
+	gsubParams.HistoryLength = 6
+	gsubParams.HistoryGossip = 3
+
+	thresholds := &pubsub.PeerScoreThresholds{
+		GossipThreshold:             -4000,
+		PublishThreshold:            -8000,
+		GraylistThreshold:           -16000,
+		AcceptPXThreshold:           100,
+		OpportunisticGraftThreshold: 5,
+	}
+	scoreParams := &pubsub.PeerScoreParams{
+		Topics:        make(map[string]*pubsub.TopicScoreParams),
+		TopicScoreCap: 32.72,
+		AppSpecificScore: func(p peer.ID) float64 {
+			return 0
+		},
+		AppSpecificWeight:           1,
+		IPColocationFactorWeight:    -35.11,
+		IPColocationFactorThreshold: 10,
+		IPColocationFactorWhitelist: nil,
+		BehaviourPenaltyWeight:      -15.92,
+		BehaviourPenaltyThreshold:   6,
+		BehaviourPenaltyDecay:       math.Pow(0.01, 1/float64(10*32)),
+		DecayInterval:               12 * time.Second,
+		DecayToZero:                 0.01,
+		RetainScore:                 100 * 32 * 12 * time.Second,
+	}
 
 	// TODO: add more options, especially WithMessageIdFn
 	options := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
-		pubsub.WithGossipSubParams(params),
+		pubsub.WithPeerScore(scoreParams, thresholds),
+		pubsub.WithGossipSubParams(gsubParams),
 		pubsub.WithSeenMessagesTTL(550 * heartbeat),
 		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
 	}
