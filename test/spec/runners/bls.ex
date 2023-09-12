@@ -93,8 +93,9 @@ defmodule BLSTestRunner do
   end
 
   defp assert_aggregate_verify(
-        %{messages: messages, pubkeys: pubkeys, signature: signature},
-         output) do
+         %{messages: messages, pubkeys: pubkeys, signature: signature},
+         output
+       ) do
     case Bls.aggregate_verify(pubkeys, messages, signature) do
       {:ok, true} ->
         assert output
