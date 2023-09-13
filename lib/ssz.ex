@@ -19,12 +19,22 @@ defmodule Ssz do
     end
   end
 
+  @spec hash_tree_root(struct, module) :: {:ok, binary} | {:error, String.t()}
+  def hash_tree_root(%name{} = map, config \\ MainnetConfig) do
+    map
+    |> encode()
+    |> hash_tree_root_rs(name, config)
+  end
+
   ##### Rust-side function stubs
   @spec to_ssz_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
   def to_ssz_rs(_map, _schema, _config), do: error()
 
   @spec from_ssz_rs(binary, module, module) :: {:ok, struct} | {:error, String.t()}
   def from_ssz_rs(_bin, _schema, _config), do: error()
+
+  @spec hash_tree_root_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
+  def hash_tree_root_rs(_map, _schema, _config), do: error()
 
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
