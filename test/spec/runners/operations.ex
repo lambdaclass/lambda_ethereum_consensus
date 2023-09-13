@@ -20,6 +20,24 @@ defmodule OperationsTestRunner do
     "deposit_receipt"
   ]
 
+  # Define the handler map as a module attribute for reuse
+  @handler_map %{
+    "attestation" => "Attestation",
+    "attester_slashing" => "AttesterSlashing",
+    "block_header" => "BeaconBlock",
+    "deposit" => "Deposit",
+    "proposer_slashing" => "ProposerSlashing",
+    "voluntary_exit" => "SignedVoluntaryExit",
+    "sync_aggregate" => "SyncAggregate",
+    "execution_payload" => "ExecutionPayload",
+    "withdrawals" => "ExecutionPayload",
+    "bls_to_execution_change" => "SignedBLSToExecutionChange",
+    "deposit_receipt" => "DepositReceipt"
+  }
+
+  # Local test config
+  @config MinimalConfig
+
   @doc """
   Returns true if the given testcase should be skipped
   """
@@ -33,9 +51,15 @@ defmodule OperationsTestRunner do
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    pre = decompress(case_dir, "pre") |> deserialize(testcase.handler)
-    operation = decompress(case_dir, testcase.handler) |> deserialize(testcase.handler)
-    post = decompress(case_dir, "post") |> deserialize(testcase.handler)
+    pre = build_file_path(case_dir, "pre") |> decompress() |> deserialize(testcase.handler, "pre")
+
+    operation =
+      build_file_path(case_dir, testcase.handler)
+      |> decompress()
+      |> deserialize(testcase.handler, "operation")
+
+    post =
+      build_file_path(case_dir, "post") |> decompress() |> deserialize(testcase.handler, "post")
 
     case testcase.handler do
       "attestation" ->
@@ -109,10 +133,10 @@ defmodule OperationsTestRunner do
   end
 
   def process_execution_payload(state, body, execution_valid, post) do
-    IO.puts(state)
-    IO.puts(body)
-    IO.puts(execution_valid)
-    IO.puts(post)
+    # if post == {:error, "no post"} do
+    #   assert true
+    # end
+
     assert true
   end
 
@@ -128,44 +152,34 @@ defmodule OperationsTestRunner do
     assert(false)
   end
 
-  defp decompress(case_dir, name) do
-    compressed = File.read!(case_dir <> "/#{name}.ssz_snappy")
-    {:ok, decompressed} = :snappyer.decompress(compressed)
-    decompressed
+  defp decompress(file_path) do
+    if File.exists?(file_path) do
+      compressed = File.read!(file_path)
+      {:ok, decompressed} = :snappyer.decompress(compressed)
+      {:ok, decompressed}
+    else
+      {:error, "no post"}
+    end
   end
 
-  defp deserialize(serialized, handler) do
-    IO.puts("serialized:")
-    IO.inspect(serialized)
-    IO.puts("handler:")
-    IO.inspect(handler)
+  defp build_file_path(case_dir, name),
+    do: "#{case_dir}/#{name}.ssz_snappy"
 
-    {:ok, deserialized} =
-      Ssz.from_ssz(
-        serialized,
-        Module.concat(
-          SszTypes,
-          case handler do
-            "attestation" -> "Attestation"
-            "attester_slashing" -> "AttesterSlashing"
-            "block_header" -> "BeaconBlock"
-            "deposit" -> "Deposit"
-            "proposer_slashing" -> "ProposerSlashing"
-            "voluntary_exit" -> "SignedVoluntaryExit"
-            "sync_aggregate" -> "SyncAggregate"
-            "execution_payload" -> "BeaconBlockBody"
-            "withdrawals" -> "ExecutionPayload"
-            "bls_to_execution_change" -> "SignedBLSToExecutionChange"
-            "deposit_receipt" -> "DepositReceipt"
-            _ -> raise "Unknown case #{handler}"
-          end
-        ),
-        MinimalConfig
-      )
+  defp deserialize({:error, _}, _, _), do: {:error, "no post"}
 
-    deserialized
-  end
+  defp deserialize({:ok, serialized}, _handler, "pre"),
+    do: Ssz.from_ssz(serialized, SszTypes.BeaconState, @config)
 
-  defp assert_operation() do
+  defp deserialize({:ok, serialized}, _handler, "post"),
+    do: Ssz.from_ssz(serialized, SszTypes.BeaconState, @config)
+
+  defp deserialize({:ok, serialized}, handler, _),
+    do: Ssz.from_ssz(serialized, resolve_type_from_handler(handler), @config)
+
+  defp resolve_type_from_handler(handler) do
+    case Map.get(@handler_map, handler) do
+      nil -> raise "Unknown case #{handler}"
+      type -> Module.concat(SszTypes, type)
+    end
   end
 end
