@@ -44,3 +44,6 @@ native/libp2p_nif/go_src/main.h
 
 tests
 *.tar.gz
+
+# local db
+level_db

@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.P2P.GossipHandler do
+defmodule LambdaEthereumConsensus.Handlers.GenericHandler do
   @moduledoc """
   Module that implements the handle_message callback,
   used in the GossipConsumer module to handle messages.
