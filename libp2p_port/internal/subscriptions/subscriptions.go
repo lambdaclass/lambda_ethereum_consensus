@@ -10,6 +10,10 @@ type Subscriber struct {
 	subscriptions map[string]chan struct{}
 }
 
+func NewSubscriber() Subscriber {
+	return Subscriber{subscriptions: make(map[string]chan struct{})}
+}
+
 func (s *Subscriber) Subscribe(topic_name string) {
 	_, is_subscribed := s.subscriptions[topic_name]
 	if !is_subscribed {
@@ -32,7 +36,7 @@ func SubscribeToTopic(name string, stop chan struct{}) {
 		default:
 			notification := proto_helpers.GossipNotification(name, "Mock notification")
 			port.SendNotification(&notification)
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 	}
 }

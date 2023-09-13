@@ -1,11 +1,10 @@
 defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
-  @port_name "libp2p_port/libp2p_port"
-
   alias Libp2pProto.{SubscribeToTopic, UnsubscribeFromTopic, Command, Notification}
-
   require Logger
+
+  @port_name "libp2p_port/libp2p_port"
 
   ######################
   ### API
@@ -16,12 +15,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   def subscribe_to_topic(topic_name) do
-    data = Command.encode(%Command{id: "id", c: %{subscribe: %SubscribeToTopic{name: topic_name}}})
+    data = Command.encode(%Command{id: UUID.uuid4(), c: {:subscribe, %SubscribeToTopic{name: topic_name}}})
     GenServer.cast(__MODULE__, {:send, data})
   end
 
   def unsubscribe_from_topic(topic_name) do
-    data = Command.encode(%Command{id: "id", c: %{unsubscribe: %UnsubscribeFromTopic{name: topic_name}}})
+    data = Command.encode(%Command{id: UUID.uuid4(), c: {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}}})
     GenServer.cast(__MODULE__, {:send, data})
   end
 
@@ -42,14 +41,28 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_info({port, {:data, data}}, port) do
-    decoded = Notification.decode(data)
-    Logger.debug("This is the decoded data: #{inspect(decoded)}")
+    Notification.decode(data)
+    |> handle_notification()
+    {:noreply, port}
+  end
+
+  def handle_info(other, port) do
+    Logger.error(inspect(other))
     {:noreply, port}
   end
 
   ######################
   ### PRIVATE FUNCTIONS
   ######################
+
+  defp handle_notification(%Libp2pProto.Notification{n: {:gossip, %Libp2pProto.GossipSub{topic: topic, message: message}}}) do
+    Logger.info("[Topic] #{topic}: #{message}")
+  end
+
+  defp handle_notification(%Libp2pProto.Notification{n: {:response, %Libp2pProto.Response{id: id, success: success, message: message}}}) do
+    success_txt = if success, do: "success", else: "failed"
+    Logger.info("[Response] id #{id}: #{success_txt}. #{message}")
+  end
 
   defp send_delimited(port, data) do
     size = String.length(data)

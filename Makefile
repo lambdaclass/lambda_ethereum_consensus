@@ -68,11 +68,11 @@ compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
 
 # Run an interactive terminal with the main supervisor setup.
-start: compile-native
+start: compile-native compile_port
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
-iex: compile-native
+iex: compile-native compile_port
 	iex -S mix
 
 # Install mix dependencies.

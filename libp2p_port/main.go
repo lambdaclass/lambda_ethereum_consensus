@@ -15,17 +15,17 @@ func HandleCommand(command *libp2p.Command, subscriber *gossipsub.Subscriber) li
 	switch c := command.C.(type) {
 	case *libp2p.Command_Subscribe:
 		subscriber.Subscribe(c.Subscribe.Name)
-		return proto_helpers.ResponseNotification(true, "")
+		return proto_helpers.ResponseNotification(command.Id, true, "")
 	case *libp2p.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
-		return proto_helpers.ResponseNotification(true, "")
+		return proto_helpers.ResponseNotification(command.Id, true, "")
 	default:
-		return proto_helpers.ResponseNotification(false, "Invalid command.")
+		return proto_helpers.ResponseNotification(command.Id, false, "Invalid command.")
 	}
 }
 
 func CommandServer() {
-	subscriber := gossipsub.Subscriber{}
+	subscriber := gossipsub.NewSubscriber()
 	port_reader := bufio.NewReader(os.Stdin)
 	command := libp2p.Command{}
 	for {
