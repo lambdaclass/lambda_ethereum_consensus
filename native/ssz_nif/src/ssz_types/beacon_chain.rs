@@ -267,10 +267,7 @@ pub(crate) struct BeaconState<C: Config> {
     pub(crate) historical_roots: VariableList<Root, C::HistoricalRootsLimit>, // Frozen in Capella, replaced by historical_summaries
     // Eth1
     pub(crate) eth1_data: Eth1Data,
-    pub(crate) eth1_data_votes: VariableList<
-        Eth1Data,
-        /* EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH */ typenum::U2048,
-    >,
+    pub(crate) eth1_data_votes: VariableList<Eth1Data, C::SlotsPerEth1VotingPeriod>,
     pub(crate) eth1_deposit_index: u64,
     // Registry
     pub(crate) validators: VariableList<Validator, C::ValidatorRegistryLimit>,
