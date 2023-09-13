@@ -2,8 +2,9 @@ use super::config::Config;
 use super::*;
 use ssz_derive::{Decode, Encode};
 use ssz_types::{BitList, BitVector};
+use tree_hash_derive::TreeHash;
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, TreeHash)]
 pub(crate) struct Fork {
     pub(crate) previous_version: Version,
     pub(crate) current_version: Version,

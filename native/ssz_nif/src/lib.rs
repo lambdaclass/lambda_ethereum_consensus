@@ -9,7 +9,10 @@ pub(crate) mod elx_types;
 pub(crate) mod ssz_types;
 pub(crate) mod utils;
 
-use crate::utils::{helpers::bytes_to_binary, match_schema_and_decode, match_schema_and_encode};
+use crate::utils::{
+    helpers::bytes_to_binary, match_schema_and_decode, match_schema_and_encode,
+    match_schema_and_hash,
+};
 use rustler::{Atom, Binary, Encoder, Env, NifResult, Term};
 
 mod atoms {
@@ -134,4 +137,28 @@ fn from_ssz_rs<'env>(
     Ok((atoms::ok(), res).encode(env))
 }
 
-rustler::init!("Elixir.Ssz", [to_ssz_rs, from_ssz_rs]);
+#[rustler::nif]
+fn hash_tree_root_rs<'env>(
+    env: Env<'env>,
+    map: Term,
+    schema: Atom,
+    config: Atom,
+) -> NifResult<Term<'env>> {
+    let schema = schema.to_term(env).atom_to_string()?;
+    let schema = schema
+        .get(SCHEMA_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+    let config = config.to_term(env).atom_to_string()?;
+    let config = config
+        .get(ELIXIR_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+
+    let serialized = match_schema_and_hash!(
+        (schema, config, map) => {
+            Fork,
+        }
+    );
+    Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
+}
+
+rustler::init!("Elixir.Ssz", [to_ssz_rs, from_ssz_rs, hash_tree_root_rs]);

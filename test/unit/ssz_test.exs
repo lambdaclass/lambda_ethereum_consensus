@@ -27,6 +27,18 @@ defmodule SSZTests do
     assert_roundtrip(value)
   end
 
+  test "hash fork" do
+    value = %SszTypes.Fork{
+      epoch: 5125,
+      previous_version: <<1, 5, 4, 6>>,
+      current_version: <<2, 5, 6, 0>>
+    }
+
+    expected = Base.decode16!("02706479366CF66D8103DFBE45193F8B5A0511A18B235E9742621B0148D26D14")
+
+    assert {:ok, expected} == Ssz.hash_tree_root(value)
+  end
+
   test "serialize and deserialize fork data" do
     value = %SszTypes.ForkData{
       current_version: <<1, 5, 4, 6>>,
