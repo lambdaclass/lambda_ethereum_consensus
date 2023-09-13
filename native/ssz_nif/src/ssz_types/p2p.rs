@@ -1,7 +1,8 @@
 use super::*;
 use ssz_derive::{Decode, Encode};
+use tree_hash_derive::TreeHash;
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, TreeHash)]
 pub(crate) struct StatusMessage {
     pub(crate) fork_digest: ForkDigest,
     pub(crate) finalized_root: Root,

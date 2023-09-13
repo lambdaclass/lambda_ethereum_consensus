@@ -9,7 +9,7 @@ In order to add a new SSZ container to the repo, we need to modify the NIF. Here
 Rust side (`native/ssz_nif`):
 
 1. Look for the container definition in the [official consensus specs](https://github.com/ethereum/consensus-specs/tree/dev).
-2. Add the struct definition to the corresponding module under `native/ssz_nif/src/ssz_types` (e.g. `beacon_chain.rs` for containers defined in `beacon-chain.md`) with `#[derive(Encode, Decode)]`.
+2. Add the struct definition to the corresponding module under `native/ssz_nif/src/ssz_types` (e.g. `beacon_chain.rs` for containers defined in `beacon-chain.md`) with `#[derive(Encode, Decode, TreeHash)]`.
 3. Do the same under `native/ssz_nif/src/elx_types`, but surrounding it with the `gen_struct` macro, and adding `#[derive(NifStruct)]` and `#[module …]` attributes (you can look at `beacon_chain.rs` for examples).
 4. Translate the types used (`Epoch`, `Slot`, etc.) to ones that implement *rustler* traits (you can look at [this cheat sheet](https://rustler-web.onrender.com/docs/cheat-sheet), or at the already implemented containers).
 5. If it fails because `FromElx` or `FromSsz` are not implemented for types X and Y, add those implementations in `utils/from_elx.rs` and `utils/from_ssz.rs` respectively.
