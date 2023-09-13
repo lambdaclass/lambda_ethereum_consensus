@@ -14,6 +14,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.P2P.IncomingRequestHandler, [host]},
       {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
       {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
+      {LambdaEthereumConsensus.Libp2pPort, []},
       # Start the Endpoint (http/https)
       BeaconApi.Endpoint
     ]

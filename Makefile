@@ -1,5 +1,5 @@
 .PHONY: iex deps test spec-test lint clean compile-native fmt \
-		clean-vectors download-vectors uncompress-vectors
+		clean-vectors download-vectors uncompress-vectors proto compile_port
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -79,6 +79,9 @@ iex: compile-native
 deps:
 	cd $(LIBP2P_DIR)/go_src; \
 	go get && go install
+	cd libp2p_port; \
+	go get && go install
+	mix escript.install hex protobuf
 	mix deps.get
 
 # Run tests
@@ -98,3 +101,11 @@ fmt:
 	cd native/snappy_nif; cargo fmt
 	cd native/ssz_nif; cargo fmt
 	cd native/bls_nif; cargo fmt
+
+# Generate protobof code
+proto:
+	protoc --go_out=./libp2p_port proto/libp2p.proto
+	protoc --elixir_out=./lib proto/libp2p.proto
+
+compile_port:
+	cd libp2p_port; go build

@@ -9,6 +9,6 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
     payload
     |> inspect(limit: :infinity)
     |> then(&"[#{topic_name}] decoded: '#{&1}'")
-    |> Logger.notice()
+    |> Logger.debug()
   end
 end

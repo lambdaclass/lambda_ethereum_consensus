@@ -1,0 +1,43 @@
+syntax = "proto3";
+option go_package = "./internal/proto;libp2p";
+
+package libp2p_proto;
+
+message SubscribeToTopic {
+    // Name of the topic to subscribe to.
+    string name = 1;
+}
+
+message UnsubscribeFromTopic {
+    // Name of the topic to subscribe to.
+    string name = 1;
+}
+
+message Command {
+    string id = 1;
+    oneof c {
+        SubscribeToTopic subscribe = 2;
+        UnsubscribeFromTopic unsubscribe = 3;
+    }
+}
+
+message GossipSub {
+    // Name of the topic from which the notification arrived.
+    string topic = 1;
+    // Compressed and ssz encoded message.
+    string message = 2;
+}
+
+// A response from a command.
+message Response {
+    string id = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+message Notification {
+    oneof n {
+        GossipSub gossip = 1;
+        Response response = 2;
+    }
+}
