@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.Store.BlockStore do
   @moduledoc """
-  Storing and retrieval of blocks.
+  Storage and retrieval of blocks.
   """
 
   @prefix "block"

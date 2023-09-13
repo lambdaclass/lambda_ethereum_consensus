@@ -9,6 +9,6 @@ defmodule LambdaEthereumConsensus.Handlers.GenericHandler do
     payload
     |> inspect(limit: :infinity)
     |> then(&"[#{topic_name}] decoded: '#{&1}'")
-    |> Logger.notice()
+    |> Logger.debug()
   end
 end
