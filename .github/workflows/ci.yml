@@ -69,7 +69,7 @@ jobs:
         restore-keys: ${{ runner.os }}-mix-
     - name: Install dependencies
       run: |
-        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+        apt-get install -y protobuf-compiler
         mix escript.install --force hex protobuf
         protoc --elixir_out=./lib proto/libp2p.proto
         mix deps.get
@@ -121,7 +121,7 @@ jobs:
         workspaces: ${{ env.RUST_WORKSPACES }}
     - name: Install dependencies
       run: |
-        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+        apt-get install -y protobuf-compiler
         mix escript.install --force hex protobuf
         protoc --elixir_out=./lib proto/libp2p.proto
         mix deps.get
@@ -207,7 +207,7 @@ jobs:
           workspaces: ${{ env.RUST_WORKSPACES }}
       - name: Install dependencies
         run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          apt-get install -y protobuf-compiler
           mix escript.install --force hex protobuf
           protoc --elixir_out=./lib proto/libp2p.proto
           mix deps.get
