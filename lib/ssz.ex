@@ -67,11 +67,13 @@ defmodule Ssz do
 
   defp decode(non_struct), do: non_struct
 
+  @spec encode_u256(non_neg_integer) :: binary
   def encode_u256(num) do
     num
     |> :binary.encode_unsigned(:little)
     |> String.pad_trailing(32, <<0>>)
   end
 
+  @spec decode_u256(binary) :: non_neg_integer
   def decode_u256(num), do: :binary.decode_unsigned(num, :little)
 end
