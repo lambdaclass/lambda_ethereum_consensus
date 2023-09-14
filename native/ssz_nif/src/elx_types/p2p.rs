@@ -15,3 +15,13 @@ gen_struct!(
         head_slot: Slot,
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlocksByRangeRequest"]
+    pub(crate) struct BeaconBlocksByRangeRequest {
+        start_slot: Slot,
+        count: u64,
+        step: u64,
+    }
+);

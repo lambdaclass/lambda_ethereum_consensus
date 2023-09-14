@@ -74,6 +74,7 @@ fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom, config: Atom) -> Nif
             StatusMessage,
             AggregateAndProof<C>,
             SignedAggregateAndProof<C>,
+            BeaconBlocksByRangeRequest,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
@@ -132,6 +133,7 @@ fn from_ssz_rs<'env>(
             StatusMessage,
             AggregateAndProof<C>,
             SignedAggregateAndProof<C>,
+            BeaconBlocksByRangeRequest,
         }
     )?;
     Ok((atoms::ok(), res).encode(env))
@@ -190,6 +192,7 @@ fn hash_tree_root_rs<'env>(
             StatusMessage,
             AggregateAndProof<C>,
             SignedAggregateAndProof<C>,
+            BeaconBlocksByRangeRequest,
         }
     );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))

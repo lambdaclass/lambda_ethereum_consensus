@@ -10,3 +10,10 @@ pub(crate) struct StatusMessage {
     pub(crate) head_root: Root,
     pub(crate) head_slot: Slot,
 }
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct BeaconBlocksByRangeRequest {
+    pub(crate) start_slot: Slot,
+    pub(crate) count: u64,
+    pub(crate) step: u64,
+}
