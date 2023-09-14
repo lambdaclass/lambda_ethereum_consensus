@@ -8,19 +8,27 @@ import (
 	libp2p "libp2p_port/internal/proto"
 	"libp2p_port/internal/utils"
 	"os"
-	"sync"
 
 	"google.golang.org/protobuf/proto"
 )
 
 type Port struct {
-	reader *bufio.Reader
-	mu     sync.Mutex
+	reader        *bufio.Reader
+	write_channel chan []byte
 }
 
 func NewPort() *Port {
-	port := &Port{reader: bufio.NewReader(os.Stdin)}
+	port := &Port{reader: bufio.NewReader(os.Stdin), write_channel: make(chan []byte, 100)}
+	go WriteBytes(port.write_channel)
 	return port
+}
+
+func WriteBytes(write_channel chan []byte) {
+	for {
+		bytes_to_write := <-write_channel
+		os.Stdout.Write(bytes_to_write)
+		os.Stdout.Sync()
+	}
 }
 
 func (p *Port) ReadCommand(command *libp2p.Command) error {
@@ -39,15 +47,11 @@ func (p *Port) SendNotification(notification *libp2p.Notification) {
 	data, err := proto.Marshal(notification)
 	utils.PanicIfError(err)
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	var buf bytes.Buffer
 	binary.Write(&buf, binary.BigEndian, uint32(len(data)))
 	buf.Write(data)
-	os.Stdout.Write(buf.Bytes())
 
-	os.Stdout.Sync()
+	p.write_channel <- buf.Bytes()
 }
 
 func ReadDelimitedMessage(r io.Reader) ([]byte, error) {

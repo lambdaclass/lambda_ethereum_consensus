@@ -19,14 +19,17 @@ func NewSubscriber(p *port.Port) Subscriber {
 func (s *Subscriber) Subscribe(topic_name string) {
 	_, is_subscribed := s.subscriptions[topic_name]
 	if !is_subscribed {
-		s.subscriptions[topic_name] = make(chan struct{})
+		s.subscriptions[topic_name] = make(chan struct{}, 1)
 		go SubscribeToTopic(topic_name, s.subscriptions[topic_name], s.port)
 	}
 }
 
 func (s *Subscriber) Unsubscribe(topic_name string) {
-	s.subscriptions[topic_name] <- struct{}{}
-	delete(s.subscriptions, topic_name)
+	_, is_subscribed := s.subscriptions[topic_name]
+	if is_subscribed {
+		s.subscriptions[topic_name] <- struct{}{}
+		delete(s.subscriptions, topic_name)
+	}
 }
 
 func SubscribeToTopic(name string, stop chan struct{}, p *port.Port) {
