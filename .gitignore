@@ -45,6 +45,12 @@ native/libp2p_nif/go_src/main.h
 tests
 *.tar.gz
 
+
 libp2p_port/libp2p_port
+
+# Proto generated code.
 lib/proto
 libp2p_port/internal/proto
+
+# local db.
+level_db

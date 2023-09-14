@@ -19,12 +19,22 @@ defmodule Ssz do
     end
   end
 
+  @spec hash_tree_root(struct, module) :: {:ok, binary} | {:error, String.t()}
+  def hash_tree_root(%name{} = map, config \\ MainnetConfig) do
+    map
+    |> encode()
+    |> hash_tree_root_rs(name, config)
+  end
+
   ##### Rust-side function stubs
   @spec to_ssz_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
   def to_ssz_rs(_map, _schema, _config), do: error()
 
   @spec from_ssz_rs(binary, module, module) :: {:ok, struct} | {:error, String.t()}
   def from_ssz_rs(_bin, _schema, _config), do: error()
+
+  @spec hash_tree_root_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
+  def hash_tree_root_rs(_map, _schema, _config), do: error()
 
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
@@ -57,11 +67,13 @@ defmodule Ssz do
 
   defp decode(non_struct), do: non_struct
 
+  @spec encode_u256(non_neg_integer) :: binary
   def encode_u256(num) do
     num
     |> :binary.encode_unsigned(:little)
     |> String.pad_trailing(32, <<0>>)
   end
 
+  @spec decode_u256(binary) :: non_neg_integer
   def decode_u256(num), do: :binary.decode_unsigned(num, :little)
 end
