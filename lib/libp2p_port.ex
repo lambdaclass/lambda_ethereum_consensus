@@ -24,9 +24,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   def subscribe_to_topic(topic_name) do
+    id = UUID.uuid4()
     data =
       Command.encode(%Command{
-        id: UUID.uuid4(),
+        id: id,
         c: {:subscribe, %SubscribeToTopic{name: topic_name}}
       })
 
@@ -35,9 +36,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   def unsubscribe_from_topic(topic_name) do
+    id = UUID.uuid4()
     data =
       Command.encode(%Command{
-        id: UUID.uuid4(),
+        id: id,
         c: {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}}
       })
 
