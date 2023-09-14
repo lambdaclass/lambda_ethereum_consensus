@@ -82,6 +82,8 @@ deps:
 	cd libp2p_port; \
 	go get && go install
 	mix escript.install hex protobuf
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	asdf reshim
 	mix deps.get
 
 # Run tests

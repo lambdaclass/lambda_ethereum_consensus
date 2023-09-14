@@ -260,7 +260,7 @@ func (s C.uintptr_t) StreamRead(buffer []byte) int {
 	n, err := stream.Read(buffer)
 	if err != nil && err != io.EOF {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "stream.Read err: %s\n", err)
+		//fmt.Fprintf(os.Stderr, "stream.Read err: %s\n", err)
 		return -1
 	}
 	return n
@@ -272,7 +272,7 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 	n, err := stream.Write(data)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "stream.Write err: %s\n", err)
+		//fmt.Fprintf(os.Stderr, "stream.Write err: %s\n", err)
 		return -1
 	}
 	return n
