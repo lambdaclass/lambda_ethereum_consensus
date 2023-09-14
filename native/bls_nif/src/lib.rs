@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use bls::{AggregateSignature, PublicKey, SecretKey, Signature};
+use bls::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
 use rustler::{Binary, Env, NewBinary};
 use types::Hash256;
 
@@ -24,6 +24,26 @@ fn sign<'env>(
 
     let signature = sk.sign(Hash256::from_slice(message.as_slice()));
     let bytes = signature.serialize();
+
+    Ok(bytes_to_binary(env, &bytes))
+}
+
+#[rustler::nif]
+fn aggregate<'env>(env: Env<'env>, public_keys: Vec<Binary>) -> Result<Binary<'env>, String> {
+    let pubkeys_result = public_keys
+        .iter()
+        .map(|pkb| PublicKey::deserialize(pkb.as_slice()))
+        .collect::<Result<Vec<PublicKey>, _>>();
+    let pubkeys = pubkeys_result.map_err(|err| format!("{:?}", err))?;
+
+    let pubkey_refs = pubkeys.into_iter().collect::<Vec<_>>();
+
+    let aggregate_public_key = match AggregatePublicKey::aggregate(&pubkey_refs) {
+        Ok(agg) => agg,
+        Err(e) => return Err(format!("{:?}", e)),
+    };
+    let public_key = aggregate_public_key.to_public_key();
+    let bytes = public_key.serialize();
 
     Ok(bytes_to_binary(env, &bytes))
 }
@@ -99,6 +119,7 @@ rustler::init!(
     "Elixir.Bls",
     [
         sign,
+        aggregate,
         aggregate_verify,
         fast_aggregate_verify,
         eth_fast_aggregate_verify,

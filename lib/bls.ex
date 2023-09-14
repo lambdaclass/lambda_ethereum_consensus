@@ -9,6 +9,11 @@ defmodule Bls do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  @spec aggregate([binary()]) :: {:ok, SszTypes.bls_pubkey()} | {:error, any()}
+  def aggregate(_public_keys) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   @spec verify(binary(), binary(), binary()) :: {:ok, boolean} | {:error, binary()}
   def verify(_public_key, _message, _signature) do
     :erlang.nif_error(:nif_not_loaded)
