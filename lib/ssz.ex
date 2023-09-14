@@ -19,7 +19,7 @@ defmodule Ssz do
     end
   end
 
-  @spec hash_tree_root(struct, module) :: {:ok, binary} | {:error, String.t()}
+  @spec hash_tree_root(struct, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root(%name{} = map, config \\ MainnetConfig) do
     map
     |> encode()
@@ -33,7 +33,7 @@ defmodule Ssz do
   @spec from_ssz_rs(binary, module, module) :: {:ok, struct} | {:error, String.t()}
   def from_ssz_rs(_bin, _schema, _config), do: error()
 
-  @spec hash_tree_root_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
+  @spec hash_tree_root_rs(map, module, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root_rs(_map, _schema, _config), do: error()
 
   ##### Utils

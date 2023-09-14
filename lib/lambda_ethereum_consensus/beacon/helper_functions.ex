@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.Beacon.HelperFunctions do
   This is used primarily in signature domains to avoid collisions across forks/chains.
   """
   @spec compute_fork_data_root(SszTypes.version(), SszTypes.root()) :: SszTypes.root()
-  def compute_fork_data_root(<<current_version::4>>, <<genesis_validators_root::32>>) do
+  def compute_fork_data_root(current_version, genesis_validators_root) do
     # Should never fail
     {:ok, root} =
       Ssz.hash_tree_root(%SszTypes.ForkData{
@@ -25,7 +25,7 @@ defmodule LambdaEthereumConsensus.Beacon.HelperFunctions do
   4-bytes suffices for practical separation of forks/chains.
   """
   @spec compute_fork_digest(SszTypes.version(), SszTypes.root()) :: SszTypes.fork_digest()
-  def compute_fork_digest(<<current_version::4>>, <<genesis_validators_root::32>>) do
+  def compute_fork_digest(current_version, genesis_validators_root) do
     compute_fork_data_root(current_version, genesis_validators_root)
     |> binary_part(0, 4)
   end
