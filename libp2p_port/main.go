@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"io"
-	"os"
 
 	"libp2p_port/internal/port"
 	libp2p "libp2p_port/internal/proto"
@@ -25,11 +23,11 @@ func HandleCommand(command *libp2p.Command, subscriber *gossipsub.Subscriber) li
 }
 
 func CommandServer() {
-	subscriber := gossipsub.NewSubscriber()
-	port_reader := bufio.NewReader(os.Stdin)
+	port := port.NewPort()
+	subscriber := gossipsub.NewSubscriber(port)
 	command := libp2p.Command{}
 	for {
-		err := port.ReadCommand(port_reader, &command)
+		err := port.ReadCommand(&command)
 		if err == io.EOF {
 			break
 		}

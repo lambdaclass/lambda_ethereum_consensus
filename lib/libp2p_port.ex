@@ -15,12 +15,22 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   def subscribe_to_topic(topic_name) do
-    data = Command.encode(%Command{id: UUID.uuid4(), c: {:subscribe, %SubscribeToTopic{name: topic_name}}})
+    data =
+      Command.encode(%Command{
+        id: UUID.uuid4(),
+        c: {:subscribe, %SubscribeToTopic{name: topic_name}}
+      })
+
     GenServer.cast(__MODULE__, {:send, data})
   end
 
   def unsubscribe_from_topic(topic_name) do
-    data = Command.encode(%Command{id: UUID.uuid4(), c: {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}}})
+    data =
+      Command.encode(%Command{
+        id: UUID.uuid4(),
+        c: {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}}
+      })
+
     GenServer.cast(__MODULE__, {:send, data})
   end
 
@@ -30,42 +40,82 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def init([]) do
-    {:ok, Port.open({:spawn, @port_name}, [:binary])}
+    {:ok,
+     %{
+       port: Port.open({:spawn, @port_name}, [:binary]),
+       buffer: <<>>,
+       waiting_for: :size
+     }}
   end
 
   @impl GenServer
-  def handle_cast({:send, data}, port) do
+  def handle_cast({:send, data}, %{port: port} = state) do
     send_delimited(port, data)
-    {:noreply, port}
+    {:noreply, state}
   end
 
   @impl GenServer
-  def handle_info({port, {:data, data}}, port) do
-    Notification.decode(data)
-    |> handle_notification()
-    {:noreply, port}
+  def handle_info({_port, {:data, data}}, %{buffer: buffer, waiting_for: size} = state) do
+    new_state = handle_buffer(buffer <> data, size)
+    {:noreply, state |> Map.merge(new_state)}
   end
 
-  def handle_info(other, port) do
+  def handle_info(other, state) do
     Logger.error(inspect(other))
-    {:noreply, port}
+    {:noreply, state}
   end
 
   ######################
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%Libp2pProto.Notification{n: {:gossip, %Libp2pProto.GossipSub{topic: topic, message: message}}}) do
+  # Recursively reads a binary buffer, according to its expected size. It returns the
+  # unused parts of the buffer and the amount of bytes that we will need next.
+  #
+  # Arguments:
+  # - buffer: binary buffer that arrived through the port.
+  # - size: might be the :size atom if we're waiting for the size of the next message.
+  #   if that's the case, we read 4 bytes of the buffer and continue parsing the rest
+  #   of the available buffer. If it's an arbitrary number, we decode that amount of
+  #   bytes and then keep parsing the rest of the buffer.
+  #
+  # Eventually, we will be waiting for a number of bytes and the buffer won't have enough
+  # for us to parse that. When that point is reached, we return the new number of expected
+  # bytes (4 or the next message size) and the bytes that weren't parsed for them to be joined
+  # with the next bytes that arrive through the network.
+  defp handle_buffer(buffer, :size) when byte_size(buffer) >= 4 do
+    <<size::32, rest::binary>> = buffer
+    handle_buffer(rest, size)
+  end
+
+  defp handle_buffer(buffer, size) when byte_size(buffer) >= size do
+    <<message::binary-size(size), rest::binary>> = buffer
+
+    # Note: this handling could be handled by a separate parser in a different async task.
+    Notification.decode(message)
+    |> handle_notification()
+
+    handle_buffer(rest, :size)
+  end
+
+  # The clause that's executed when we don't have enough bytes.
+  defp handle_buffer(buffer, size), do: %{buffer: buffer, waiting_for: size}
+
+  defp handle_notification(%Libp2pProto.Notification{
+         n: {:gossip, %Libp2pProto.GossipSub{topic: topic, message: message}}
+       }) do
     Logger.info("[Topic] #{topic}: #{message}")
   end
 
-  defp handle_notification(%Libp2pProto.Notification{n: {:response, %Libp2pProto.Response{id: id, success: success, message: message}}}) do
+  defp handle_notification(%Libp2pProto.Notification{
+         n: {:response, %Libp2pProto.Response{id: id, success: success, message: message}}
+       }) do
     success_txt = if success, do: "success", else: "failed"
     Logger.info("[Response] id #{id}: #{success_txt}. #{message}")
   end
 
   defp send_delimited(port, data) do
-    size = String.length(data)
+    size = byte_size(data)
     send_port(port, <<size::32-unsigned>>)
     send_port(port, data)
   end
