@@ -1,6 +1,6 @@
 use rustler::NifStruct;
 
-use crate::utils::gen_struct;
+use crate::utils::{gen_struct, gen_struct_with_config};
 
 use super::*;
 
@@ -23,5 +23,13 @@ gen_struct!(
         start_slot: Slot,
         count: u64,
         step: u64,
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlocksByRangeRequest"]
+    pub(crate) struct BeaconBlocksByRangeResponse<'a> {
+        body: Vec<SignedBeaconBlock<'a>>,
     }
 );
