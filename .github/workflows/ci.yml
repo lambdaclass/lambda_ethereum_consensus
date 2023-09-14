@@ -69,7 +69,8 @@ jobs:
         restore-keys: ${{ runner.os }}-mix-
     - name: Install dependencies
       run: |
-        mix escript.install hex protobuf
+        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+        mix escript.install --force hex protobuf
         protoc --elixir_out=./lib proto/libp2p.proto
         mix deps.get
     - name: Set up cargo cache
@@ -120,7 +121,8 @@ jobs:
         workspaces: ${{ env.RUST_WORKSPACES }}
     - name: Install dependencies
       run: |
-        mix escript.install hex protobuf
+        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+        mix escript.install --force hex protobuf
         protoc --elixir_out=./lib proto/libp2p.proto
         mix deps.get
     - name: Run tests
@@ -205,7 +207,8 @@ jobs:
           workspaces: ${{ env.RUST_WORKSPACES }}
       - name: Install dependencies
         run: |
-          mix escript.install hex protobuf
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          mix escript.install --force hex protobuf
           protoc --elixir_out=./lib proto/libp2p.proto
           mix deps.get
       - name: Uncompress vectors
