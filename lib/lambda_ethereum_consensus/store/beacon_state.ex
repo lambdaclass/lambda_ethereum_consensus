@@ -5,8 +5,9 @@ defmodule LambdaEthereumConsensus.Store.BeaconState do
   alias SszTypes.BeaconState
   use Agent
 
-  def start_link(_opts) do
-    Agent.start_link(fn -> nil end, name: __MODULE__)
+  def start_link(opts) do
+    initial_state = Keyword.get(opts, :initial_state, nil)
+    Agent.start_link(fn -> initial_state end, name: __MODULE__)
   end
 
   @spec get_state() :: BeaconState.t() | nil
