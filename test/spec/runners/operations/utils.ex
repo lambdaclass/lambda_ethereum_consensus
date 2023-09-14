@@ -15,6 +15,7 @@ defmodule OperationsTestUtils do
     "execution_payload" => "ExecutionPayload",
     "withdrawals" => "ExecutionPayload",
     "bls_to_execution_change" => "SignedBLSToExecutionChange"
+    # "deposit_receipt" => "DepositReceipt" Not yet implemented
   }
 
   # Map the operation-name to the associated input name
@@ -28,8 +29,8 @@ defmodule OperationsTestUtils do
     "sync_aggregate" => "sync_aggregate",
     "execution_payload" => "execution_payload",
     "withdrawals" => "execution_payload",
-    "bls_to_execution_change" => "address_change",
-    "deposit_receipt" => "deposit_receipt"
+    "bls_to_execution_change" => "address_change"
+    # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
 
   # Local test config
