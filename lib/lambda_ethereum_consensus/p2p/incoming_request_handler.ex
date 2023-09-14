@@ -45,19 +45,26 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   end
 
   def handle_req(@prefix <> "status/1/ssz_snappy", stream) do
+    # hardcoded response from random peer
+    current_status = %SszTypes.StatusMessage{
+      fork_digest: Base.decode16!("BBA4DA96"),
+      finalized_root:
+        Base.decode16!("7715794499C07D9954DD223EC2C6B846D3BAB27956D093000FADC1B8219F74D4"),
+      finalized_epoch: 228_168,
+      head_root:
+        Base.decode16!("D62A74AE0F933224133C5E6E1827A2835A1E705F0CDFEE3AD25808DDEA5572DB"),
+      head_slot: 7_301_450
+    }
+
     with {:ok, <<84, snappy_status::binary>>} <- Libp2p.stream_read(stream),
          {:ok, ssz_status} <- Snappy.decompress(snappy_status),
-         {:ok, status} = Ssz.from_ssz(ssz_status, SszTypes.StatusMessage),
+         {:ok, status} <- Ssz.from_ssz(ssz_status, SszTypes.StatusMessage),
          status
          |> inspect(limit: :infinity)
          |> then(&"[Status] '#{&1}'")
          |> Logger.debug(),
-         # hardcoded response from random peer
-         {:ok, payload} <-
-           Base.decode16!(
-             "BBA4DA96AFBE2C7E03B51D1A87A9ED593478572AEAE9DCED77549B4DB5CF5BA6C10F099F183C030000000000AFBE2C7E03B51D1A87A9ED593478572AEAE9DCED77549B4DB5CF5BA6C10F099F0083670000000000"
-           )
-           |> Snappy.compress() do
+         {:ok, payload} <- Ssz.to_ssz(current_status),
+         {:ok, payload} <- Snappy.compress(payload) do
       Libp2p.stream_write(stream, <<0, 84>> <> payload)
       Libp2p.stream_close_write(stream)
     end

@@ -12,6 +12,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -29,8 +31,10 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/golang/snappy"
 	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -93,6 +97,34 @@ func convertToInterfacePubkey(pubkey *ecdsa.PublicKey) (crypto.PubKey, error) {
 	return newKey, nil
 }
 
+// Only valid for post-Altair topics
+func msgID(msg *pb.Message) string {
+	if msg == nil || msg.Data == nil || msg.Topic == nil {
+		// Should never happen
+		msg := make([]byte, 20)
+		copy(msg, "invalid")
+		return string(msg)
+	}
+	h := sha256.New()
+	data, err := snappy.Decode(nil, msg.Data)
+	if err != nil {
+		// MESSAGE_DOMAIN_INVALID_SNAPPY
+		h.Write([]byte{0, 0, 0, 0})
+		data = msg.Data
+	} else {
+		// MESSAGE_DOMAIN_VALID_SNAPPY
+		h.Write([]byte{1, 0, 0, 0})
+	}
+	var topicLen [8]byte
+	binary.LittleEndian.PutUint64(topicLen[:], uint64(len(*msg.Topic)))
+	h.Write(topicLen[:])
+	h.Write([]byte(*msg.Topic))
+	h.Write(data)
+	var digest []byte
+	digest = h.Sum(digest)
+	return string(digest[:20])
+}
+
 /*********/
 /* Utils */
 /*********/
@@ -134,7 +166,7 @@ func HostNew(options []C.uintptr_t) C.uintptr_t {
 	h, err := libp2p.New(optionsSlice...)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "libp2p.New err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(h))
@@ -169,7 +201,7 @@ func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t 
 	stream, err := host.NewStream(context.TODO(), peerId, goProtoId)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "host.NewStream err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(stream))
@@ -228,7 +260,8 @@ func (s C.uintptr_t) StreamRead(buffer []byte) int {
 	n, err := stream.Read(buffer)
 	if err != nil && err != io.EOF {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		// Commenting because it's too spammy
+		// fmt.Fprintf(os.Stderr, "stream.Read err: %s\n", err)
 		return -1
 	}
 	return n
@@ -240,7 +273,8 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 	n, err := stream.Write(data)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		// Commenting because it's too spammy
+		// fmt.Fprintf(os.Stderr, "stream.Write err: %s\n", err)
 		return -1
 	}
 	return n
@@ -281,25 +315,25 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 	udpAddr, err := net.ResolveUDPAddr("udp", strAddr)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "net.ResolveUDPAddr err: %s\n", err)
 		return 0
 	}
 	conn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "net.ListenUDP err: %s\n", err)
 		return 0
 	}
 	intPrivKey, _, err := crypto.GenerateSecp256k1Key(rand.Reader)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "crypto.GenerateSecp256k1Key err: %s\n", err)
 		return 0
 	}
 	privKey, err := convertFromInterfacePrivKey(intPrivKey)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "convertFromInterfacePrivKey err: %s\n", err)
 		return 0
 	}
 
@@ -310,7 +344,7 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 		bootnodes = append(bootnodes, bootnode)
 		if err != nil {
 			// TODO: handle in better way
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			fmt.Fprintf(os.Stderr, "enode.Parse err: %s\n", err)
 			return 0
 		}
 	}
@@ -335,7 +369,7 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 	db, err := enode.OpenDB("")
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "enode.OpenDB err: %s\n", err)
 		return 0
 	}
 	localNode := enode.NewLocalNode(db, privKey)
@@ -348,7 +382,7 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 	listener, err := discover.ListenV5(conn, localNode, cfg)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "discover.ListenV5 err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(listener))
@@ -386,7 +420,7 @@ func (n C.uintptr_t) NodeMultiaddr() C.uintptr_t {
 		addr, err := multiaddr.NewMultiaddr(str)
 		if err != nil {
 			// TODO: handle in better way
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			fmt.Fprintf(os.Stderr, "multiaddr.NewMultiaddr err: %s\n", err)
 			return 0
 		}
 		addrArr = append(addrArr, addr)
@@ -395,7 +429,7 @@ func (n C.uintptr_t) NodeMultiaddr() C.uintptr_t {
 		addr, err := multiaddr.NewMultiaddr(str)
 		if err != nil {
 			// TODO: handle in better way
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			fmt.Fprintf(os.Stderr, "multiaddr.NewMultiaddr err: %s\n", err)
 			return 0
 		}
 		addrArr = append(addrArr, addr)
@@ -411,13 +445,13 @@ func (n C.uintptr_t) NodeID() C.uintptr_t {
 	key, err := convertToInterfacePubkey(node.Pubkey())
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "convertToInterfacePubkey err: %s\n", err)
 		return 0
 	}
 	nodeID, err := peer.IDFromPublicKey(key)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "peer.IDFromPublicKey err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(nodeID))
@@ -469,6 +503,7 @@ func NewGossipSub(h C.uintptr_t) C.uintptr_t {
 	options := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
+		pubsub.WithMessageIdFn(msgID),
 		pubsub.WithPeerScore(scoreParams, thresholds),
 		pubsub.WithGossipSubParams(gsubParams),
 		pubsub.WithSeenMessagesTTL(550 * heartbeat),
@@ -478,7 +513,7 @@ func NewGossipSub(h C.uintptr_t) C.uintptr_t {
 	gsub, err := pubsub.NewGossipSub(context.TODO(), host, options...)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "pubsub.NewGossipSub err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(gsub))
@@ -492,7 +527,7 @@ func (ps C.uintptr_t) PubSubJoin(topicStr string) C.uintptr_t {
 	topic, err := psub.Join(goTopicStr)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "psub.Join err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(topic))
@@ -507,7 +542,7 @@ func (tp C.uintptr_t) TopicSubscribe(procId []byte, callback C.send_message1_t) 
 	sub, err := topic.Subscribe()
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "topic.Subscribe err: %s\n", err)
 		return 0
 	}
 	go asyncFetchMessages(sub, goProcId, callback)
@@ -540,7 +575,7 @@ func (tp C.uintptr_t) TopicPublish(data []byte) int {
 	err := topic.Publish(context.TODO(), data)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "topic.Publish err: %s\n", err)
 		return 1
 	}
 	return 0

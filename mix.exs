@@ -31,6 +31,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:phoenix, "~> 1.7.7"},
       {:plug_cowboy, "~> 2.5"},
       {:tesla, "~> 1.4"},
+      {:exleveldb, "~> 0.14"},
       {:jason, ">= 1.0.0"},
       {:joken, "~> 2.6"},
       {:rustler, "~> 0.29.1"},

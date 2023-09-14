@@ -2,6 +2,7 @@ use crate::utils::from_ssz::FromSsz;
 use rustler::{Binary, Decoder, Encoder, Env, NewBinary, NifResult, Term};
 use ssz::{Decode, Encode};
 use std::io::Write;
+use tree_hash::TreeHash;
 
 use super::from_elx::{FromElx, FromElxError};
 
@@ -38,4 +39,15 @@ where
 
 fn ssz_error_to_nif(error: ssz::DecodeError) -> rustler::Error {
     rustler::Error::Term(Box::new(format!("{error:?}")))
+}
+
+pub(crate) fn hash_tree_root<'a, Elx, Ssz>(value: Term<'a>) -> NifResult<[u8; 32]>
+where
+    Elx: Decoder<'a>,
+    Ssz: TreeHash + FromElx<Elx>,
+{
+    let value_nif = <Elx as Decoder>::decode(value)?;
+    let value_ssz = Ssz::from(value_nif).map_err(to_nif_result)?;
+    let hash = value_ssz.tree_hash_root();
+    Ok(hash.0)
 }
