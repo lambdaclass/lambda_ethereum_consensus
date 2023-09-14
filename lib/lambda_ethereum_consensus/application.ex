@@ -10,9 +10,8 @@ defmodule LambdaEthereumConsensus.Application do
     {:ok, host} = Libp2p.host_new()
     {:ok, gsub} = Libp2p.new_gossip_sub(host)
 
-    Logger.configure(level: :info)
-
     children = [
+      {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.IncomingRequestHandler, [host]},
       {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
       {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
