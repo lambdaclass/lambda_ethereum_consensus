@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.Application do
     :ok
   end
 
-  defp get_initial_state() do
+  defp get_initial_state do
     # Just for testing purposes
     %SszTypes.BeaconState{
       # https://github.com/eth-clients/eth2-networks/tree/master/shared/mainnet
