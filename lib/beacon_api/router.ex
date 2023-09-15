@@ -14,6 +14,15 @@ defmodule BeaconApi.Router do
     end
   end
 
+  # Ethereum API Version 2
+  scope "/eth/v2", BeaconApi.V2 do
+    pipe_through(:api)
+
+    scope "/beacon" do
+      get("/blocks/:block_id", BeaconController, :get_block)
+    end
+  end
+
   # Catch-all route outside of any scope
   match(:*, "/*path", BeaconApi.ErrorController, :not_found)
 end
