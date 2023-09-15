@@ -1,4 +1,5 @@
 defmodule BeaconApi.V1.BeaconController do
+  alias LambdaEthereumConsensus.Store.BlockStore
   alias BeaconApi.ErrorController
   alias BeaconApi.Utils
   use BeaconApi, :controller
@@ -24,23 +25,13 @@ defmodule BeaconApi.V1.BeaconController do
     conn |> block_not_found()
   end
 
-  def get_block(conn, %{
-        "block_id" => "0xbe41d3394dc8c461ab7049dbedba8944613ada8bd1743e091948f4d7b5ca8af36"
-      }) do
-    conn
-    |> json(%{
-      version: "capella",
-      execution_optimistic: true,
-      finalized: false,
-      data: %{
-        root: "0xbe41d3394dc8c461ab7049dbedba8944613ada8bd1743e091948f4d7b5ca8af36"
-      }
-    })
-  end
-
   def get_block(conn, %{"block_id" => "0x" <> block_id}) do
-    # TODO
-    conn |> block_not_found()
+    block_root = Base.decode16(block_id, case: :mixed)
+
+    case BlockStore.get_block(block_root) do
+      {:ok, block} -> conn |> block_response(block)
+      :not_found -> conn |> block_not_found()
+    end
   end
 
   def get_block(conn, %{"block_id" => block_id}) do
@@ -52,6 +43,18 @@ defmodule BeaconApi.V1.BeaconController do
       _ ->
         conn |> ErrorController.bad_request("Invalid block ID: #{block_id}")
     end
+  end
+
+  defp block_response(conn, block) do
+    conn
+    |> json(%{
+      version: "capella",
+      execution_optimistic: true,
+      finalized: false,
+      data: %{
+        message: Map.from_struct(block)
+      }
+    })
   end
 
   defp block_not_found(conn) do
