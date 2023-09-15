@@ -1,5 +1,5 @@
 .PHONY: iex deps test spec-test lint clean compile-native fmt \
-		clean-vectors download-vectors uncompress-vectors
+		clean-vectors download-vectors uncompress-vectors proto compile_port
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -68,16 +68,24 @@ compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
 
 # Run an interactive terminal with the main supervisor setup.
-start: compile-native
+start: compile-native compile_port
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
-iex: compile-native
+iex: compile-native compile_port
 	iex -S mix
 
 # Install mix dependencies.
 deps:
+	mix escript.install hex protobuf
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	asdf reshim
+	protoc --go_out=./libp2p_port proto/libp2p.proto
+	protoc --elixir_out=./lib proto/libp2p.proto
+
 	cd $(LIBP2P_DIR)/go_src; \
+	go get && go install
+	cd libp2p_port; \
 	go get && go install
 	mix deps.get
 
@@ -98,3 +106,11 @@ fmt:
 	cd native/snappy_nif; cargo fmt
 	cd native/ssz_nif; cargo fmt
 	cd native/bls_nif; cargo fmt
+
+# Generate protobof code
+proto:
+	protoc --go_out=./libp2p_port proto/libp2p.proto
+	protoc --elixir_out=./lib proto/libp2p.proto
+
+compile_port:
+	cd libp2p_port; go build
