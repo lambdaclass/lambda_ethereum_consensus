@@ -1,5 +1,6 @@
 .PHONY: iex deps test spec-test lint clean compile-native fmt \
-		clean-vectors download-vectors uncompress-vectors proto compile_port
+		clean-vectors download-vectors uncompress-vectors proto compile_port \
+		spec-test-%
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -95,6 +96,9 @@ test: compile-native
 
 spec-test: compile-native $(SPECTEST_DIRS)
 	mix test --no-start --only implemented_spectest
+
+spec-test-%: compile-native $(SPECTEST_DIRS)
+	mix test --no-start --only runner:$*
 
 lint:
 	mix format --check-formatted
