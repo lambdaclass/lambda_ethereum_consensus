@@ -1,7 +1,6 @@
-defmodule BeaconApi.V1.BeaconController do
+defmodule BeaconApi.V2.BeaconController do
   alias LambdaEthereumConsensus.Store.BlockStore
   alias BeaconApi.ErrorController
-  alias BeaconApi.Utils
   use BeaconApi, :controller
 
   @spec get_block(Plug.Conn.t(), any) :: Plug.Conn.t()
@@ -25,19 +24,22 @@ defmodule BeaconApi.V1.BeaconController do
     conn |> block_not_found()
   end
 
-  def get_block(conn, %{"block_id" => "0x" <> block_id}) do
-    block_root = Base.decode16(block_id, case: :mixed)
-
-    case BlockStore.get_block(block_root) do
-      {:ok, block} -> conn |> block_response(block)
+  def get_block(conn, %{"block_id" => "0x" <> hex_block_id}) do
+    with {:ok, block_root} <- Base.decode16(hex_block_id, case: :mixed),
+         {:ok, block} <- BlockStore.get_block(block_root) do
+      conn |> block_response(block)
+    else
       :not_found -> conn |> block_not_found()
+      _ -> conn |> ErrorController.bad_request("Invalid block ID: 0x#{hex_block_id}")
     end
   end
 
   def get_block(conn, %{"block_id" => block_id}) do
-    case Integer.parse(block_id) do
-      {_slot, ""} ->
-        # TODO
+    with {slot, ""} when slot >= 0 <- Integer.parse(block_id),
+         {:ok, block} <- BlockStore.get_block_by_slot(slot) do
+      conn |> block_response(block)
+    else
+      :not_found ->
         conn |> block_not_found()
 
       _ ->
@@ -52,7 +54,7 @@ defmodule BeaconApi.V1.BeaconController do
       execution_optimistic: true,
       finalized: false,
       data: %{
-        message: Map.from_struct(block)
+        message: inspect(block)
       }
     })
   end

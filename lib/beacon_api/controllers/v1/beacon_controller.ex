@@ -1,6 +1,5 @@
 defmodule BeaconApi.V1.BeaconController do
   alias BeaconApi.ErrorController
-  alias BeaconApi.Utils
   use BeaconApi, :controller
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
@@ -43,7 +42,7 @@ defmodule BeaconApi.V1.BeaconController do
     })
   end
 
-  def get_state_root(conn, %{"state_id" => "0x" <> state_id}) do
+  def get_state_root(conn, %{"state_id" => "0x" <> _state_id}) do
     # TODO
     conn |> ErrorController.not_found(nil)
   end
