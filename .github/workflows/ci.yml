@@ -166,7 +166,7 @@ jobs:
     needs: [compile-native, download-spectests]
     strategy:
       matrix:
-        config: ["minimal"] #[ "general", "mainnet", "minimal" ]
+        config: ["minimal", "general"]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
