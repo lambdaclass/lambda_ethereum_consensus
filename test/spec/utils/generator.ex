@@ -2,21 +2,22 @@ defmodule SpecTestGenerator do
   @moduledoc """
   Generator for running the spec tests.
   """
-  @all_cases ["tests"]
-             |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
-             |> Enum.join("/")
-             |> Path.wildcard()
-             |> Stream.map(&Path.relative_to(&1, "tests"))
-             |> Stream.map(&Path.split/1)
-             |> Enum.map(&SpecTestCase.new/1)
-
   @runner_map %{
     "ssz_static" => SSZStaticTestRunner,
     "bls" => BLSTestRunner,
     "operations" => OperationsTestRunner
   }
 
-  def all_cases, do: @all_cases
+  def all_cases do
+    ["tests"]
+    |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
+    |> Enum.join("/")
+    |> Path.wildcard()
+    |> Stream.map(&Path.relative_to(&1, "tests"))
+    |> Stream.map(&Path.split/1)
+    |> Enum.map(&SpecTestCase.new/1)
+  end
+
   def runner_map, do: @runner_map
 
   # To filter tests, use:
