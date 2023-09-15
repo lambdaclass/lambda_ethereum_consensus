@@ -12,12 +12,12 @@ defmodule BeaconApi.ErrorController do
   end
 
   @spec not_found(Plug.Conn.t(), any) :: Plug.Conn.t()
-  def not_found(conn, _params) do
+  def not_found(conn, message \\ "Resource not found") do
     conn
     |> put_status(404)
     |> json(%{
       code: 404,
-      message: "Resource not found"
+      message: "#{message}"
     })
   end
 
