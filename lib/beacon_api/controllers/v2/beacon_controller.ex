@@ -61,6 +61,11 @@ defmodule BeaconApi.V2.BeaconController do
   end
 
   defp block_not_found(conn) do
-    conn |> ErrorController.not_found("Block not found")
+    conn
+    |> put_status(404)
+    |> json(%{
+      code: 404,
+      message: "Block not found"
+    })
   end
 end
