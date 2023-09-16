@@ -41,6 +41,8 @@ defmodule Ssz do
 
   # Ssz types can have special decoding rules defined in their optional encode/1 function,
   defp encode(%name{} = struct) do
+    Code.ensure_loaded!(name)
+
     if function_exported?(name, :encode, 1) do
       name.encode(struct)
     else
@@ -55,6 +57,8 @@ defmodule Ssz do
 
   # Ssz types can have special decoding rules defined in their optional decode/1 function,
   defp decode(%name{} = struct) do
+    Code.ensure_loaded!(name)
+
     if function_exported?(name, :decode, 1) do
       name.decode(struct)
     else
