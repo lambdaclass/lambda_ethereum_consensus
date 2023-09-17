@@ -1,6 +1,6 @@
 defmodule BeaconApi.V2.BeaconController do
-  alias LambdaEthereumConsensus.Store.BlockStore
   alias BeaconApi.ErrorController
+  alias LambdaEthereumConsensus.Store.BlockStore
   use BeaconApi, :controller
 
   @spec get_block(Plug.Conn.t(), any) :: Plug.Conn.t()
