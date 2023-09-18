@@ -57,7 +57,7 @@ defmodule Ssz do
 
   ##### Rust-side function stubs
   @spec to_ssz_rs(map | list, module, module) :: {:ok, binary} | {:error, String.t()}
-  def to_ssz_rs(_map, _schema, _config), do: error()
+  def to_ssz_rs(_term, _schema, _config), do: error()
 
   @spec from_ssz_rs(binary, module, module) :: {:ok, struct} | {:error, String.t()}
   def from_ssz_rs(_bin, _schema, _config), do: error()
@@ -67,7 +67,7 @@ defmodule Ssz do
 
   @spec hash_tree_root_list_rs(list, integer, module, module) ::
           {:ok, binary} | {:error, String.t()}
-  def hash_tree_root_list_rs(_map, _max_size, _schema, _config), do: error()
+  def hash_tree_root_list_rs(_list, _max_size, _schema, _config), do: error()
 
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
