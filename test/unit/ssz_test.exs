@@ -106,11 +106,11 @@ defmodule SSZTests do
     deserialized = [
       %SszTypes.VoluntaryExit{
         epoch: 556,
-        validator_index: 67247
+        validator_index: 67_247
       },
       %SszTypes.VoluntaryExit{
         epoch: 6167,
-        validator_index: 73838
+        validator_index: 73_838
       },
       %SszTypes.VoluntaryExit{
         epoch: 738,
