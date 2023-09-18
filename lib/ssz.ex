@@ -32,7 +32,7 @@ defmodule Ssz do
     end
   end
 
-  @spec hash_tree_root(struct | list(struct), module) :: {:ok, binary} | {:error, String.t()}
+  @spec hash_tree_root(struct, module) :: {:ok, binary} | {:error, String.t()}
   def hash_tree_root(map, config \\ MainnetConfig)
 
   def hash_tree_root(%name{} = map, config) do
@@ -41,15 +41,18 @@ defmodule Ssz do
     |> hash_tree_root_rs(name, config)
   end
 
-  def hash_tree_root([], config) do
+  @spec hash_list_tree_root(list(struct), integer, module) :: {:ok, binary} | {:error, String.t()}
+  def hash_list_tree_root(map, max_size, config \\ MainnetConfig)
+
+  def hash_list_tree_root([], max_size, config) do
     # Type isn't used in this case
-    hash_tree_root_rs([], SszTypes.ForkData, config)
+    hash_tree_root_list_rs([], max_size, SszTypes.ForkData, config)
   end
 
-  def hash_tree_root([%name{} | _tail] = list, config) do
+  def hash_list_tree_root([%name{} | _tail] = list, max_size, config) do
     list
     |> encode()
-    |> hash_tree_root_rs(name, config)
+    |> hash_tree_root_list_rs(max_size, name, config)
   end
 
   ##### Rust-side function stubs
@@ -61,6 +64,10 @@ defmodule Ssz do
 
   @spec hash_tree_root_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
   def hash_tree_root_rs(_map, _schema, _config), do: error()
+
+  @spec hash_tree_root_list_rs(map, integer, module, module) ::
+          {:ok, binary} | {:error, String.t()}
+  def hash_tree_root_list_rs(_map, _max_size, _schema, _config), do: error()
 
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)

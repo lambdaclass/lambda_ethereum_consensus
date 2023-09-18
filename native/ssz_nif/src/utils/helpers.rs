@@ -1,9 +1,8 @@
 use crate::utils::from_ssz::FromSsz;
 use rustler::{Binary, Decoder, Encoder, Env, NewBinary, NifResult, Term};
 use ssz::{Decode, Encode};
-use ssz_types::{typenum, VariableList};
 use std::{fmt::Debug, io::Write};
-use tree_hash::TreeHash;
+use tree_hash::{MerkleHasher, TreeHash};
 
 use super::from_elx::{FromElx, FromElxError};
 
@@ -56,20 +55,35 @@ where
     Elx: Decoder<'a>,
     Ssz: TreeHash + FromElx<Elx>,
 {
-    if value.is_list() {
-        let value_nif = Vec::<Elx>::decode(value)?;
-        let value_ssz = value_nif
-            .into_iter()
-            .map(Ssz::from)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(to_nif_result)?;
-        // We assume the list is of the allowed size
-        let vlist: VariableList<Ssz, typenum::U10000000000000000000> =
-            VariableList::new(value_ssz).map_err(debug_error_to_nif)?;
-        return Ok(vlist.tree_hash_root().0);
-    }
     let value_nif = <Elx as Decoder>::decode(value)?;
     let value_ssz = Ssz::from(value_nif).map_err(to_nif_result)?;
     let hash = value_ssz.tree_hash_root();
     Ok(hash.0)
+}
+
+pub(crate) fn hash_list_tree_root<'a, Elx, Ssz>(
+    list: Vec<Term<'a>>,
+    max_size: usize,
+) -> NifResult<[u8; 32]>
+where
+    Elx: Decoder<'a>,
+    Ssz: TreeHash + FromElx<Elx>,
+{
+    let len = list.len();
+    let mut hasher = MerkleHasher::with_leaves(max_size);
+
+    for item in list.into_iter().map(Elx::decode) {
+        let item = item?;
+        let v: Ssz = FromElx::from(item).map_err(to_nif_result)?;
+        hasher
+            .write(v.tree_hash_root().as_bytes())
+            .map_err(|_| rustler::Error::Term(Box::new("max_size exceeded")))?;
+    }
+
+    let root = hasher
+        .finish()
+        .map_err(|_| rustler::Error::Term(Box::new("max_size exceeded")))?;
+
+    let bytes = tree_hash::mix_in_length(&root, len).0;
+    Ok(bytes)
 }

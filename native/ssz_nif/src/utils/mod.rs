@@ -35,6 +35,17 @@ macro_rules! match_schema_and_hash {
     };
 }
 
+macro_rules! match_schema_and_hash_list {
+    (($schema:expr, $config:expr, $list:expr, $max_size:expr) => { $($t:ident $(<$_c:ident>)?),* $(,)? }) => {
+        match $schema {
+            $(
+                stringify!($t) => $crate::utils::hash_list_config_match!($config, $list, $max_size, $t $(<$_c>)?),
+            )*
+            _ => Err(rustler::Error::BadArg),
+        }
+    };
+}
+
 macro_rules! encode_config_match {
     ($config:expr, $map:expr, $t:ident<C>) => {
         match $config {
@@ -102,6 +113,31 @@ macro_rules! hash_config_match {
             "MainnetConfig" | "MinimalConfig" => {
                 $crate::utils::helpers::hash_tree_root::<elx_types::$t, ssz_types::$t>($map)
             }
+            _ => Err(rustler::Error::BadArg),
+        }
+    };
+}
+
+macro_rules! hash_list_config_match {
+    ($config:expr, $list:expr, $max_size:expr, $t:ident<C>) => {
+        match $config {
+            "MainnetConfig" => $crate::utils::helpers::hash_list_tree_root::<
+                elx_types::$t,
+                ssz_types::$t<$crate::ssz_types::config::Mainnet>,
+            >($list, $max_size),
+            "MinimalConfig" => $crate::utils::helpers::hash_list_tree_root::<
+                elx_types::$t,
+                ssz_types::$t<$crate::ssz_types::config::Minimal>,
+            >($list, $max_size),
+            _ => Err(rustler::Error::BadArg),
+        }
+    };
+    ($config:expr, $list:expr, $max_size:expr, $t:ident) => {
+        match $config {
+            "MainnetConfig" | "MinimalConfig" => $crate::utils::helpers::hash_list_tree_root::<
+                elx_types::$t,
+                ssz_types::$t,
+            >($list, $max_size),
             _ => Err(rustler::Error::BadArg),
         }
     };
@@ -207,6 +243,8 @@ pub(crate) use gen_struct_with_config;
 pub(crate) use decode_config_match;
 pub(crate) use encode_config_match;
 pub(crate) use hash_config_match;
+pub(crate) use hash_list_config_match;
 pub(crate) use match_schema_and_decode;
 pub(crate) use match_schema_and_encode;
 pub(crate) use match_schema_and_hash;
+pub(crate) use match_schema_and_hash_list;
