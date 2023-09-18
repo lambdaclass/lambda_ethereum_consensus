@@ -5,9 +5,22 @@ defmodule Ssz do
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "ssz_nif"
 
   ##### Functional wrappers
-  @spec to_ssz(struct, module) :: {:ok, binary} | {:error, String.t()}
-  def to_ssz(%name{} = map, config \\ MainnetConfig) do
+  @spec to_ssz(struct | list(struct), module) :: {:ok, binary} | {:error, String.t()}
+  def to_ssz(map, config \\ MainnetConfig)
+
+  def to_ssz(%name{} = map, config) do
     map
+    |> encode()
+    |> to_ssz_rs(name, config)
+  end
+
+  def to_ssz([], config) do
+    # Type isn't used in this case
+    to_ssz_rs([], SszTypes.ForkData, config)
+  end
+
+  def to_ssz([%name{} | _tail] = list, config) do
+    list
     |> encode()
     |> to_ssz_rs(name, config)
   end
@@ -19,9 +32,22 @@ defmodule Ssz do
     end
   end
 
-  @spec hash_tree_root(struct, module) :: {:ok, binary} | {:error, String.t()}
-  def hash_tree_root(%name{} = map, config \\ MainnetConfig) do
+  @spec hash_tree_root(struct | list(struct), module) :: {:ok, binary} | {:error, String.t()}
+  def hash_tree_root(map, config \\ MainnetConfig)
+
+  def hash_tree_root(%name{} = map, config) do
     map
+    |> encode()
+    |> hash_tree_root_rs(name, config)
+  end
+
+  def hash_tree_root([], config) do
+    # Type isn't used in this case
+    hash_tree_root_rs([], SszTypes.ForkData, config)
+  end
+
+  def hash_tree_root([%name{} | _tail] = list, config) do
+    list
     |> encode()
     |> hash_tree_root_rs(name, config)
   end
@@ -49,6 +75,10 @@ defmodule Ssz do
       |> Enum.map(fn {k, v} -> {k, encode(v)} end)
       |> then(&struct!(name, &1))
     end
+  end
+
+  defp encode(list) when is_list(list) do
+    Enum.map(list, &encode/1)
   end
 
   defp encode(non_struct), do: non_struct
