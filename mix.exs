@@ -43,7 +43,9 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:timex, "~> 3.7"},
       {:rexbug, "~> 1.0.5"},
-      {:eep, git: "https://github.com/virtan/eep", branch: "master"}
+      {:eep, git: "https://github.com/virtan/eep", branch: "master"},
+      {:protobuf, "~> 0.10.0"},
+      {:uuid, "~> 1.1"}
     ]
   end
 

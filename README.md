@@ -150,6 +150,7 @@ You can install the necessary components directly from official sources:
 - [Erlang](https://www.erlang.org/downloads)
 - [Go](https://go.dev/doc/install)
 - [Rust](https://www.rust-lang.org/tools/install)
+- [Protoc](https://grpc.io/docs/protoc-installation/)
 
 ### Alternative (Recommended) Installation
 
