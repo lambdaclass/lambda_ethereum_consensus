@@ -1,7 +1,8 @@
 use crate::utils::from_ssz::FromSsz;
 use rustler::{Binary, Decoder, Encoder, Env, NewBinary, NifResult, Term};
 use ssz::{Decode, Encode};
-use std::io::Write;
+use ssz_types::{typenum, VariableList};
+use std::{fmt::Debug, io::Write};
 use tree_hash::TreeHash;
 
 use super::from_elx::{FromElx, FromElxError};
@@ -18,6 +19,15 @@ where
     Elx: Decoder<'a>,
     Ssz: Encode + FromElx<Elx>,
 {
+    if value.is_list() {
+        let value_nif = Vec::<Elx>::decode(value)?;
+        let value_ssz = value_nif
+            .into_iter()
+            .map(Ssz::from)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(to_nif_result)?;
+        return Ok(value_ssz.as_ssz_bytes());
+    }
     let value_nif = <Elx as Decoder>::decode(value)?;
     let value_ssz = Ssz::from(value_nif).map_err(to_nif_result)?;
     Ok(value_ssz.as_ssz_bytes())
@@ -32,12 +42,12 @@ where
     Elx: Encoder + FromSsz<'a, Ssz>,
     Ssz: Decode,
 {
-    let recovered_value = Ssz::from_ssz_bytes(bytes).map_err(ssz_error_to_nif)?;
+    let recovered_value = Ssz::from_ssz_bytes(bytes).map_err(debug_error_to_nif)?;
     let checkpoint = Elx::from(recovered_value, env);
     Ok(checkpoint.encode(env))
 }
 
-fn ssz_error_to_nif(error: ssz::DecodeError) -> rustler::Error {
+fn debug_error_to_nif(error: impl Debug) -> rustler::Error {
     rustler::Error::Term(Box::new(format!("{error:?}")))
 }
 
@@ -46,6 +56,18 @@ where
     Elx: Decoder<'a>,
     Ssz: TreeHash + FromElx<Elx>,
 {
+    if value.is_list() {
+        let value_nif = Vec::<Elx>::decode(value)?;
+        let value_ssz = value_nif
+            .into_iter()
+            .map(Ssz::from)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(to_nif_result)?;
+        // We assume the list is of the allowed size
+        let vlist: VariableList<Ssz, typenum::U10000000000000000000> =
+            VariableList::new(value_ssz).map_err(debug_error_to_nif)?;
+        return Ok(vlist.tree_hash_root().0);
+    }
     let value_nif = <Elx as Decoder>::decode(value)?;
     let value_ssz = Ssz::from(value_nif).map_err(to_nif_result)?;
     let hash = value_ssz.tree_hash_root();
