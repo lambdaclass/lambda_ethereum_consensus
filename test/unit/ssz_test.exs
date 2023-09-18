@@ -1,5 +1,6 @@
 defmodule SSZTests do
   use ExUnit.Case
+  use ExUnitProperties
 
   def assert_roundtrip(%type{} = value) do
     assert {:ok, encoded} = Ssz.to_ssz(value)
@@ -15,6 +16,29 @@ defmodule SSZTests do
     }
 
     assert_roundtrip(value)
+  end
+
+  test "encode poc" do
+    value = [
+      %SszTypes.Checkpoint{
+        epoch: 12_345,
+        root: Base.decode16!("0100000000000000000000000000000000000000000000000000000000000001")
+      },
+      %SszTypes.Checkpoint{
+        epoch: 12_345,
+        root: Base.decode16!("0100000000000000000000000000000000000000000000000000000000000001")
+      }
+    ]
+
+    schema =
+      {:list,
+       {:container,
+        [
+          {:epoch, {:uint, 64}},
+          {:root, {:bytes, 32}}
+        ]}}
+
+    assert :ok = Ssz.encode_poc(value, schema)
   end
 
   test "serialize and deserialize fork" do
@@ -100,5 +124,31 @@ defmodule SSZTests do
 
     assert {:ok, ^deserialized} = Ssz.from_ssz(serialized, SszTypes.StatusMessage)
     assert {:ok, ^serialized} = Ssz.to_ssz(deserialized)
+  end
+
+  ##### PoC
+  test "serialize uintN" do
+    for n <- [8, 16, 32, 64, 256] do
+      value = :rand.uniform(2 ** n - 1)
+      assert {:ok, encoded} = Ssz.encode(value, {:uint, n})
+      assert {:ok, ^value} = Ssz.decode(value, {:uint, n})
+    end
+  end
+
+  test "serialize true" do
+    value = true
+    assert {:ok, encoded} = Ssz.encode(value, :boolean)
+    assert {:ok, ^value} = Ssz.decode(value, :boolean)
+  end
+
+  test "serialize false" do
+    value = false
+    assert {:ok, encoded} = Ssz.encode(value, :boolean)
+    assert {:ok, ^value} = Ssz.decode(value, :boolean)
+  end
+
+  test "serialize uint64 list" do
+    value = [3553, 15778, 671_363]
+    assert {:ok, _encoded} = Ssz.encode(value, {:list, :uint64, 8})
   end
 end

@@ -36,6 +36,8 @@ defmodule Ssz do
   @spec hash_tree_root_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
   def hash_tree_root_rs(_map, _schema, _config), do: error()
 
+  def encode_poc(_map, _schema, _config \\ MainnetConfig), do: error()
+
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
 
@@ -76,4 +78,105 @@ defmodule Ssz do
 
   @spec decode_u256(binary) :: non_neg_integer
   def decode_u256(num), do: :binary.decode_unsigned(num, :little)
+
+  ##### PoC: basic type de/serializing
+  def encode(value, schema)
+
+  def encode(value, :uint8) when is_integer(value), do: encode(value, {:uint, 8})
+  def encode(value, :uint16) when is_integer(value), do: encode(value, {:uint, 16})
+  def encode(value, :uint32) when is_integer(value), do: encode(value, {:uint, 32})
+  def encode(value, :uint64) when is_integer(value), do: encode(value, {:uint, 64})
+  def encode(value, :uint128) when is_integer(value), do: encode(value, {:uint, 128})
+  def encode(value, :uint256) when is_integer(value), do: encode(value, {:uint, 256})
+
+  def encode(value, {:uint, size}) when is_integer(value) and is_integer(size) do
+    <<encoded::binary-size(size / 8)>> =
+      value
+      |> :binary.encode_unsigned(:little)
+      |> String.pad_trailing(size / 8, <<0>>)
+
+    {:ok, encoded}
+  end
+
+  def encode(value, :boolean) when is_boolean(value) do
+    {:ok, if(value, do: "\x01", else: "\x00")}
+  end
+
+  def encode(%name{} = map, {:container, name}) when is_atom(name) do
+    to_ssz(map)
+  end
+
+  def encode(value, {:list, sub_schema, max_size}) when is_list(value) do
+    if length(value) > max_size do
+      {:error, "max size exceeded"}
+    else
+      encode_list(value, sub_schema)
+    end
+  end
+
+  def encode(value, {:vector, sub_schema, size}) when is_list(value) do
+    if length(value) != size do
+      {:error, "vector size mismatch"}
+    else
+      encode_list(value, sub_schema)
+    end
+  end
+
+  def encode(_value, schema), do: {:error, "Unknown schema: #{inspect(schema)}"}
+
+  defp encode_list(value, sub_schema) do
+    value
+    |> Stream.map(&encode(&1, sub_schema))
+    |> Enum.reduce_while({:ok, []}, fn
+      {:error, reason}, _ ->
+        {:halt, {:error, reason}}
+
+      {:ok, encoded}, {:ok, acc} ->
+        {:cont, {:ok, {[acc, encoded]}}}
+    end)
+  end
+
+  def decode(encoded, schema)
+
+  def decode(encoded, :uint8), do: decode(encoded, {:uint, 8})
+  def decode(encoded, :uint16), do: decode(encoded, {:uint, 16})
+  def decode(encoded, :uint32), do: decode(encoded, {:uint, 32})
+  def decode(encoded, :uint64), do: decode(encoded, {:uint, 64})
+  def decode(encoded, :uint128), do: decode(encoded, {:uint, 128})
+  def decode(encoded, :uint256), do: decode(encoded, {:uint, 256})
+
+  def decode(encoded, {:uint, size}) when is_integer(size) do
+    <<encoded::binary-size(size / 8)>> = encoded
+    value = :binary.decode_unsigned(encoded, :little)
+    {:ok, value}
+  end
+
+  def decode(encoded, :boolean) do
+    case encoded do
+      "\x01" -> {:ok, true}
+      "\x00" -> {:ok, false}
+    end
+  end
+
+  def encode(%name{} = map, {:container, name}) when is_atom(name) do
+    from_ssz(map, name)
+  end
+
+  def decode(value, {:list, sub_schema, max_size}) when is_list(value) do
+    if length(value) > max_size do
+      {:error, "max size exceeded"}
+    else
+      encode_list(value, sub_schema)
+    end
+  end
+
+  def decode(value, {:vector, sub_schema, size}) when is_list(value) do
+    if length(value) != size do
+      {:error, "vector size mismatch"}
+    else
+      encode_list(value, sub_schema)
+    end
+  end
+
+  def decode(_encoded, schema), do: {:error, "Unknown schema: #{inspect(schema)}"}
 end

@@ -13,7 +13,7 @@ use crate::utils::{
     helpers::bytes_to_binary, match_schema_and_decode, match_schema_and_encode,
     match_schema_and_hash,
 };
-use rustler::{Atom, Binary, Encoder, Env, NifResult, Term};
+use rustler::{Atom, Binary, Encoder, Env, NifResult, NifTaggedEnum, Term};
 
 mod atoms {
     use rustler::atoms;
@@ -21,6 +21,39 @@ mod atoms {
     atoms! {
         ok,
     }
+}
+
+#[derive(Debug, NifTaggedEnum)]
+enum Schema<'a> {
+    Container(Vec<Term<'a>>),
+    Vector(Term<'a>),
+    List(Term<'a>),
+    BitVector(usize),
+    BitList(usize),
+    Union(Vec<Term<'a>>),
+}
+
+#[rustler::nif]
+fn encode_poc<'env>(
+    env: Env<'env>,
+    map: Term,
+    schema: Schema,
+    _config: Atom,
+) -> NifResult<Term<'env>> {
+    match schema {
+        Schema::List(types) => {
+            let _v: Vec<Term> = map.decode()?;
+            let ts: Schema = types.decode()?;
+            match ts {
+                Schema::Container(fields) => {
+                    println!("fields: {:?}", fields);
+                }
+                _ => unreachable!(),
+            }
+        }
+        _ => unreachable!(),
+    }
+    Ok(atoms::ok().encode(env))
 }
 
 const SCHEMA_PREFIX_SIZE: usize = "Elixir.SszTypes.".len();
@@ -195,4 +228,7 @@ fn hash_tree_root_rs<'env>(
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 
-rustler::init!("Elixir.Ssz", [to_ssz_rs, from_ssz_rs, hash_tree_root_rs]);
+rustler::init!(
+    "Elixir.Ssz",
+    [to_ssz_rs, from_ssz_rs, hash_tree_root_rs, encode_poc]
+);
