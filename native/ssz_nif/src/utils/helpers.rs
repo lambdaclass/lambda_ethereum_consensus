@@ -1,6 +1,7 @@
 use crate::utils::from_ssz::FromSsz;
 use rustler::{Binary, Decoder, Encoder, Env, NewBinary, NifResult, Term};
 use ssz::{Decode, Encode};
+
 use std::{fmt::Debug, io::Write};
 use tree_hash::{MerkleHasher, TreeHash};
 
@@ -44,6 +45,15 @@ where
     let recovered_value = Ssz::from_ssz_bytes(bytes).map_err(debug_error_to_nif)?;
     let checkpoint = Elx::from(recovered_value, env);
     Ok(checkpoint.encode(env))
+}
+
+// TODO: this doesn't take into account the list's max size
+pub(crate) fn list_decode_ssz<'a, Elx, Ssz>(args: (&[u8], Env<'a>)) -> NifResult<Term<'a>>
+where
+    Vec<Elx>: Encoder + FromSsz<'a, Vec<Ssz>>,
+    Vec<Ssz>: Decode,
+{
+    decode_ssz::<Vec<Elx>, Vec<Ssz>>(args)
 }
 
 fn debug_error_to_nif(error: impl Debug) -> rustler::Error {

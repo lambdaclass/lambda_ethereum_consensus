@@ -32,6 +32,13 @@ defmodule Ssz do
     end
   end
 
+  @spec from_ssz(binary, module, module) :: {:ok, struct} | {:error, String.t()}
+  def list_from_ssz(bin, schema, config \\ MainnetConfig) do
+    with {:ok, list} <- list_from_ssz_rs(bin, schema, config) do
+      {:ok, decode(list)}
+    end
+  end
+
   @spec hash_tree_root(struct, module) :: {:ok, binary} | {:error, String.t()}
   def hash_tree_root(map, config \\ MainnetConfig)
 
@@ -62,6 +69,9 @@ defmodule Ssz do
   @spec from_ssz_rs(binary, module, module) :: {:ok, struct} | {:error, String.t()}
   def from_ssz_rs(_bin, _schema, _config), do: error()
 
+  @spec list_from_ssz_rs(binary, module, module) :: {:ok, list(struct)} | {:error, String.t()}
+  def list_from_ssz_rs(_bin, _schema, _config), do: error()
+
   @spec hash_tree_root_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
   def hash_tree_root_rs(_map, _schema, _config), do: error()
 
@@ -88,6 +98,7 @@ defmodule Ssz do
     Enum.map(list, &encode/1)
   end
 
+  defp encode(list) when is_list(list), do: list |> Enum.map(&encode/1)
   defp encode(non_struct), do: non_struct
 
   # Ssz types can have special decoding rules defined in their optional decode/1 function,
@@ -102,6 +113,7 @@ defmodule Ssz do
     end
   end
 
+  defp decode(list) when is_list(list), do: list |> Enum.map(&decode/1)
   defp decode(non_struct), do: non_struct
 
   @spec encode_u256(non_neg_integer) :: binary

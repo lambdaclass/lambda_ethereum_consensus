@@ -59,6 +59,26 @@ fn from_ssz_rs<'env>(
 }
 
 #[rustler::nif]
+fn list_from_ssz_rs<'env>(
+    env: Env<'env>,
+    bytes: Binary,
+    schema: Atom,
+    config: Atom,
+) -> NifResult<Term<'env>> {
+    let schema = schema.to_term(env).atom_to_string()?;
+    let schema = schema
+        .get(SCHEMA_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+    let config = config.to_term(env).atom_to_string()?;
+    let config = config
+        .get(ELIXIR_PREFIX_SIZE..)
+        .ok_or(rustler::Error::BadArg)?;
+
+    let res = schema_match!(schema, config, list_decode_ssz, (&bytes, env))?;
+    Ok((atoms::ok(), res).encode(env))
+}
+
+#[rustler::nif]
 fn hash_tree_root_rs<'env>(
     env: Env<'env>,
     map: Term,
@@ -104,6 +124,7 @@ rustler::init!(
     [
         to_ssz_rs,
         from_ssz_rs,
+        list_from_ssz_rs,
         hash_tree_root_rs,
         hash_tree_root_list_rs
     ]
