@@ -12,6 +12,6 @@ defmodule SszTypes.BeaconBlocksByRangeResponse do
   defstruct fields
 
   @type t :: %__MODULE__{
-          body: list(SszTypes.SignedBeaconBlockBody.t())
+          body: list(SszTypes.SignedBeaconBlock.t())
         }
 end
