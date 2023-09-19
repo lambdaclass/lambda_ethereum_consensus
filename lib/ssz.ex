@@ -49,7 +49,7 @@ defmodule Ssz do
   end
 
   @spec hash_list_tree_root(list(struct), integer, module) :: {:ok, binary} | {:error, String.t()}
-  def hash_list_tree_root(map, max_size, config \\ MainnetConfig)
+  def hash_list_tree_root(list, max_size, config \\ MainnetConfig)
 
   def hash_list_tree_root([], max_size, config) do
     # Type isn't used in this case
