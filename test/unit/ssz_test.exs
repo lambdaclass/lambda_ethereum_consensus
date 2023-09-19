@@ -131,4 +131,29 @@ defmodule SSZTests do
     assert {:ok, ^deserialized} = Ssz.list_from_ssz(serialized, SszTypes.VoluntaryExit)
     assert {:ok, _hash} = Ssz.hash_list_tree_root(deserialized, 4)
   end
+
+  test "serialize and hash list of transactions" do
+    # These would be bytes
+    t1 = "asfasfas"
+    t2 = "18418280192"
+    t3 = "zd9g8as0f70a0sf"
+
+    deserialized = [t1, t2, t3]
+
+    initial_offset = length(deserialized) * 4
+
+    serialized =
+      Enum.join([
+        <<initial_offset::32-little>>,
+        <<initial_offset + byte_size(t1)::32-little>>,
+        <<initial_offset + byte_size(t1) + byte_size(t2)::32-little>>,
+        Enum.join(deserialized)
+      ])
+
+    assert {:ok, ^serialized} = Ssz.to_ssz_typed(deserialized, SszTypes.Transaction)
+    assert {:ok, ^deserialized} = Ssz.list_from_ssz(serialized, SszTypes.Transaction)
+
+    assert {:ok, _hash} =
+             Ssz.hash_list_tree_root_typed(deserialized, 1_048_576, SszTypes.Transaction)
+  end
 end
