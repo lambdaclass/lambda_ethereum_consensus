@@ -32,7 +32,7 @@ defmodule Ssz do
     end
   end
 
-  @spec from_ssz(binary, module, module) :: {:ok, struct} | {:error, String.t()}
+  @spec list_from_ssz(binary, module, module) :: {:ok, struct} | {:error, String.t()}
   def list_from_ssz(bin, schema, config \\ MainnetConfig) do
     with {:ok, list} <- list_from_ssz_rs(bin, schema, config) do
       {:ok, decode(list)}
