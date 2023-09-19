@@ -29,6 +29,28 @@ fn sign<'env>(
 }
 
 #[rustler::nif]
+fn aggregate<'env>(env: Env<'env>, signatures: Vec<Binary>) -> Result<Binary<'env>, String> {
+    match signatures.len() {
+        0 => return Err(format!("Empty signature vector")),
+        _ => {
+            let sigs_result = signatures
+                .iter()
+                .map(|sig| Signature::deserialize(sig.as_slice()))
+                .collect::<Result<Vec<Signature>, _>>();
+            let sigs = sigs_result.map_err(|err| format!("{:?}", err))?;
+            let aggr_sig = sigs
+                .iter()
+                .fold(AggregateSignature::infinity(), |mut a, b| {
+                    a.add_assign(&b);
+                    a
+                });
+            let bytes = aggr_sig.serialize();
+            Ok(bytes_to_binary(env, &bytes))
+        }
+    }
+}
+
+#[rustler::nif]
 fn verify<'env>(public_key: Binary, message: Binary, signature: Binary) -> Result<bool, String> {
     let sig = Signature::deserialize(signature.as_slice()).map_err(|err| format!("{:?}", err))?;
     let pubkey =
@@ -95,10 +117,12 @@ fn eth_fast_aggregate_verify<'env>(
     Ok(aggregate_sig
         .eth_fast_aggregate_verify(Hash256::from_slice(message.as_slice()), &pubkey_refs))
 }
+
 rustler::init!(
     "Elixir.Bls",
     [
         sign,
+        aggregate,
         aggregate_verify,
         fast_aggregate_verify,
         eth_fast_aggregate_verify,

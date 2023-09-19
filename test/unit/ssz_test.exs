@@ -101,4 +101,34 @@ defmodule SSZTests do
     assert {:ok, ^deserialized} = Ssz.from_ssz(serialized, SszTypes.StatusMessage)
     assert {:ok, ^serialized} = Ssz.to_ssz(deserialized)
   end
+
+  test "serialize and hash list of VoluntaryExit" do
+    deserialized = [
+      %SszTypes.VoluntaryExit{
+        epoch: 556,
+        validator_index: 67_247
+      },
+      %SszTypes.VoluntaryExit{
+        epoch: 6167,
+        validator_index: 73_838
+      },
+      %SszTypes.VoluntaryExit{
+        epoch: 738,
+        validator_index: 838_883
+      }
+    ]
+
+    # Because VoluntaryExits are fixed size
+    serialized =
+      deserialized
+      |> Stream.map(fn v ->
+        assert {:ok, v} = Ssz.to_ssz(v)
+        v
+      end)
+      |> Enum.join()
+
+    assert {:ok, ^serialized} = Ssz.to_ssz(deserialized)
+    assert {:ok, ^deserialized} = Ssz.list_from_ssz(serialized, SszTypes.VoluntaryExit)
+    assert {:ok, _hash} = Ssz.hash_list_tree_root(deserialized, 4)
+  end
 end
