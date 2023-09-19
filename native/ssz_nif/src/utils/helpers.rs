@@ -36,7 +36,7 @@ fn to_nif_result(result: FromElxError) -> rustler::Error {
     rustler::Error::Term(Box::new(result.to_string()))
 }
 
-pub(crate) fn decode_ssz<'a, Elx, Ssz>(bytes: &[u8], env: Env<'a>) -> NifResult<Term<'a>>
+pub(crate) fn decode_ssz<'a, Elx, Ssz>((bytes, env): (&[u8], Env<'a>)) -> NifResult<Term<'a>>
 where
     Elx: Encoder + FromSsz<'a, Ssz>,
     Ssz: Decode,
@@ -62,8 +62,7 @@ where
 }
 
 pub(crate) fn hash_list_tree_root<'a, Elx, Ssz>(
-    list: Vec<Term<'a>>,
-    max_size: usize,
+    (list, max_size): (Vec<Term<'a>>, usize),
 ) -> NifResult<[u8; 32]>
 where
     Elx: Decoder<'a>,

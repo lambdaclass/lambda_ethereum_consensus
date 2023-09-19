@@ -2,142 +2,82 @@ pub(crate) mod from_elx;
 pub(crate) mod from_ssz;
 pub(crate) mod helpers;
 
-macro_rules! match_schema_and_encode {
-    (($schema:expr, $config:expr, $map:expr) => { $($t:ident $(<$_c:ident>)?),* $(,)? }) => {
+/// New containers should be added to this macro
+macro_rules! schema_match {
+    ($schema:expr, $config:expr, $fun:ident, $args:tt) => {
+        $crate::utils::schema_match_impl!(
+            ($schema, $config, $fun, $args) => {
+                HistoricalSummary,
+                AttestationData,
+                IndexedAttestation<C>,
+                Checkpoint,
+                Eth1Data,
+                Fork,
+                ForkData,
+                HistoricalBatch<C>,
+                PendingAttestation<C>,
+                Validator,
+                DepositData,
+                VoluntaryExit,
+                Deposit,
+                DepositMessage,
+                BLSToExecutionChange,
+                SignedBLSToExecutionChange,
+                Attestation<C>,
+                BeaconBlock<C>,
+                BeaconBlockHeader,
+                AttesterSlashing<C>,
+                SignedBeaconBlock<C>,
+                SignedBeaconBlockHeader,
+                SignedVoluntaryExit,
+                ProposerSlashing,
+                ExecutionPayload<C>,
+                ExecutionPayloadHeader<C>,
+                Withdrawal,
+                SigningData,
+                SyncAggregate<C>,
+                SyncCommittee<C>,
+                BeaconState<C>,
+                BeaconBlockBody<C>,
+                StatusMessage,
+                AggregateAndProof<C>,
+                SignedAggregateAndProof<C>,
+            }
+        )
+    };
+}
+
+macro_rules! schema_match_impl {
+    (($schema:expr, $config:expr, $fun:ident, $args:tt) => { $($t:ident $(<$_c:ident>)?),* $(,)? }) => {
         match $schema {
             $(
-                stringify!($t) => $crate::utils::encode_config_match!($config, $map, $t $(<$_c>)?),
+                stringify!($t) => $crate::utils::config_match!($config, $fun, $args, $t $(<$_c>)?),
             )*
             _ => Err(rustler::Error::BadArg),
         }
     };
 }
 
-macro_rules! match_schema_and_decode {
-    (($schema:expr, $config:expr, $bytes:expr, $env:expr) => { $($t:ident $(<$_c:ident>)?),* $(,)? }) => {
-        match $schema {
-            $(
-                stringify!($t) => $crate::utils::decode_config_match!($config, $bytes, $env, $t $(<$_c>)?),
-            )*
-            _ => Err(rustler::Error::BadArg),
-        }
-    };
-}
-
-macro_rules! match_schema_and_hash {
-    (($schema:expr, $config:expr, $map:expr) => { $($t:ident $(<$_c:ident>)?),* $(,)? }) => {
-        match $schema {
-            $(
-                stringify!($t) => $crate::utils::hash_config_match!($config, $map, $t $(<$_c>)?),
-            )*
-            _ => Err(rustler::Error::BadArg),
-        }
-    };
-}
-
-macro_rules! match_schema_and_hash_list {
-    (($schema:expr, $config:expr, $list:expr, $max_size:expr) => { $($t:ident $(<$_c:ident>)?),* $(,)? }) => {
-        match $schema {
-            $(
-                stringify!($t) => $crate::utils::hash_list_config_match!($config, $list, $max_size, $t $(<$_c>)?),
-            )*
-            _ => Err(rustler::Error::BadArg),
-        }
-    };
-}
-
-macro_rules! encode_config_match {
-    ($config:expr, $map:expr, $t:ident<C>) => {
+/// New configs should be added to this macro
+macro_rules! config_match {
+    ($config:expr, $fun:ident, $args:tt, $t:ident<C>) => {
         match $config {
-            "MainnetConfig" => $crate::utils::helpers::encode_ssz::<
+            "MainnetConfig" => $crate::utils::helpers::$fun::<
                 elx_types::$t,
                 ssz_types::$t<$crate::ssz_types::config::Mainnet>,
-            >($map),
-            "MinimalConfig" => $crate::utils::helpers::encode_ssz::<
+            >($args),
+            "MinimalConfig" => $crate::utils::helpers::$fun::<
                 elx_types::$t,
                 ssz_types::$t<$crate::ssz_types::config::Minimal>,
-            >($map),
+            >($args),
             _ => Err(rustler::Error::BadArg),
         }
     };
-    ($config:expr, $map:expr, $t:ident) => {
+    ($config:expr, $fun:ident, $args:tt, $t:ident) => {
         match $config {
             "MainnetConfig" | "MinimalConfig" => {
-                $crate::utils::helpers::encode_ssz::<elx_types::$t, ssz_types::$t>($map)
+                $crate::utils::helpers::$fun::<elx_types::$t, ssz_types::$t>($args)
             }
-            _ => Err(rustler::Error::BadArg),
-        }
-    };
-}
-
-macro_rules! decode_config_match {
-    ($config:expr, $bytes:expr, $env:expr, $t:ident<C>) => {
-        match $config {
-            "MainnetConfig" => $crate::utils::helpers::decode_ssz::<
-                elx_types::$t,
-                ssz_types::$t<$crate::ssz_types::config::Mainnet>,
-            >($bytes, $env),
-            "MinimalConfig" => $crate::utils::helpers::decode_ssz::<
-                elx_types::$t,
-                ssz_types::$t<$crate::ssz_types::config::Minimal>,
-            >($bytes, $env),
-            _ => Err(rustler::Error::BadArg),
-        }
-    };
-    ($config:expr, $bytes:expr, $env:expr, $t:ident) => {
-        match $config {
-            "MainnetConfig" | "MinimalConfig" => {
-                $crate::utils::helpers::decode_ssz::<elx_types::$t, ssz_types::$t>($bytes, $env)
-            }
-            _ => Err(rustler::Error::BadArg),
-        }
-    };
-}
-
-macro_rules! hash_config_match {
-    ($config:expr, $map:expr, $t:ident<C>) => {
-        match $config {
-            "MainnetConfig" => $crate::utils::helpers::hash_tree_root::<
-                elx_types::$t,
-                ssz_types::$t<$crate::ssz_types::config::Mainnet>,
-            >($map),
-            "MinimalConfig" => $crate::utils::helpers::hash_tree_root::<
-                elx_types::$t,
-                ssz_types::$t<$crate::ssz_types::config::Minimal>,
-            >($map),
-            _ => Err(rustler::Error::BadArg),
-        }
-    };
-    ($config:expr, $map:expr, $t:ident) => {
-        match $config {
-            "MainnetConfig" | "MinimalConfig" => {
-                $crate::utils::helpers::hash_tree_root::<elx_types::$t, ssz_types::$t>($map)
-            }
-            _ => Err(rustler::Error::BadArg),
-        }
-    };
-}
-
-macro_rules! hash_list_config_match {
-    ($config:expr, $list:expr, $max_size:expr, $t:ident<C>) => {
-        match $config {
-            "MainnetConfig" => $crate::utils::helpers::hash_list_tree_root::<
-                elx_types::$t,
-                ssz_types::$t<$crate::ssz_types::config::Mainnet>,
-            >($list, $max_size),
-            "MinimalConfig" => $crate::utils::helpers::hash_list_tree_root::<
-                elx_types::$t,
-                ssz_types::$t<$crate::ssz_types::config::Minimal>,
-            >($list, $max_size),
-            _ => Err(rustler::Error::BadArg),
-        }
-    };
-    ($config:expr, $list:expr, $max_size:expr, $t:ident) => {
-        match $config {
-            "MainnetConfig" | "MinimalConfig" => $crate::utils::helpers::hash_list_tree_root::<
-                elx_types::$t,
-                ssz_types::$t,
-            >($list, $max_size),
             _ => Err(rustler::Error::BadArg),
         }
     };
@@ -237,14 +177,9 @@ macro_rules! gen_struct {
     }
 }
 
+pub(crate) use config_match;
+pub(crate) use schema_match;
+pub(crate) use schema_match_impl;
+
 pub(crate) use gen_struct;
 pub(crate) use gen_struct_with_config;
-
-pub(crate) use decode_config_match;
-pub(crate) use encode_config_match;
-pub(crate) use hash_config_match;
-pub(crate) use hash_list_config_match;
-pub(crate) use match_schema_and_decode;
-pub(crate) use match_schema_and_encode;
-pub(crate) use match_schema_and_hash;
-pub(crate) use match_schema_and_hash_list;
