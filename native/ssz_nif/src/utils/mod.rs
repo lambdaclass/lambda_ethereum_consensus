@@ -42,6 +42,7 @@ macro_rules! schema_match {
                 StatusMessage,
                 AggregateAndProof<C>,
                 SignedAggregateAndProof<C>,
+                Transaction,
             }
         )
     };
