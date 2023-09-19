@@ -76,7 +76,8 @@ defmodule BLSTestRunner do
     case output do
       nil ->
         assert {result, _error_msg} = Bls.aggregate(signatures)
-        # assert result == :error
+
+      # assert result == :error
 
       output ->
         assert {:ok, signature} = Bls.aggregate(signatures)

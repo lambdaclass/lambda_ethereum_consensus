@@ -38,10 +38,12 @@ fn aggregate<'env>(env: Env<'env>, signatures: Vec<Binary>) -> Result<Binary<'en
                 .map(|sig| Signature::deserialize(sig.as_slice()))
                 .collect::<Result<Vec<Signature>, _>>();
             let sigs = sigs_result.map_err(|err| format!("{:?}", err))?;
-            let aggr_sig = sigs.iter().fold(AggregateSignature::infinity(), |mut a, b| {
-                a.add_assign(&b);
-                a
-            });
+            let aggr_sig = sigs
+                .iter()
+                .fold(AggregateSignature::infinity(), |mut a, b| {
+                    a.add_assign(&b);
+                    a
+                });
             let bytes = aggr_sig.serialize();
             Ok(bytes_to_binary(env, &bytes))
         }
