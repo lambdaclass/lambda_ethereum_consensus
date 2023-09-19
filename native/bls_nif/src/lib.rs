@@ -33,14 +33,17 @@ fn aggregate<'env>(env: Env<'env>, signatures: Vec<Binary>) -> Result<Binary<'en
     match signatures.len() {
         0 => return Err(format!("Empty signature vector")),
         _ => {
-                let sigs_result = signatures.iter().map(|sig| Signature::deserialize(sig.as_slice())).collect::<Result<Vec<Signature>, _>>();
-                let sigs = sigs_result.map_err(|err| format!("{:?}", err))?;
-                let aggr_sig = sigs.iter().fold(AggregateSignature::empty(), |mut a, b| {
-                    a.add_assign(&b);
-                    a
-                });
-                let bytes = aggr_sig.serialize();
-                Ok(bytes_to_binary(env, &bytes))
+            let sigs_result = signatures
+                .iter()
+                .map(|sig| Signature::deserialize(sig.as_slice()))
+                .collect::<Result<Vec<Signature>, _>>();
+            let sigs = sigs_result.map_err(|err| format!("{:?}", err))?;
+            let aggr_sig = sigs.iter().fold(AggregateSignature::empty(), |mut a, b| {
+                a.add_assign(&b);
+                a
+            });
+            let bytes = aggr_sig.serialize();
+            Ok(bytes_to_binary(env, &bytes))
         }
     }
 }
