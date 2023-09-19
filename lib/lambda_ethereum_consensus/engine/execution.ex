@@ -15,7 +15,7 @@ defmodule LambdaEthereumConsensus.Engine.Execution do
   """
   @spec notify_new_payload(SszTypes.ExecutionPayload.t()) :: boolean()
   def notify_new_payload(execution_payload) do
-    params = %{"ExecutionPayloadV2" => execution_payload}
+    params = %{"ExecutionPayload" => execution_payload}
 
     with {:ok, result} <-
            RPC.call(
@@ -28,6 +28,8 @@ defmodule LambdaEthereumConsensus.Engine.Execution do
         {:ok, _result} -> true
         _ -> false
       end
+    else
+      error -> IO.inspect(error)
     end
   end
 

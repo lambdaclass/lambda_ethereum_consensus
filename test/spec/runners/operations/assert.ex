@@ -3,6 +3,8 @@ defmodule OperationsTestAssert do
   Assertions for the Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
   """
 
+  use ExUnit.Case
+
   def assert_process_attestation(_pre, _operation, _post, _data \\ "none") do
     # TODO
   end
@@ -31,8 +33,17 @@ defmodule OperationsTestAssert do
     # TODO
   end
 
-  def assert_process_execution_payload(_pre, _operation, _post, _data \\ "none") do
-    # TODO
+  def assert_process_execution_payload(pre, operation, post, _data \\ "none") do
+    # IO.puts("pre:")
+    # IO.inspect(pre)
+    # IO.puts("operation:")
+    # IO.inspect(operation)
+    # IO.puts("post:")
+    # IO.inspect(post)
+    BeaconChain.StateTransition.process_execution_payload(pre, operation)
+    # assert BeaconChain.StateTransition.process_execution_payload(pre, operation)
+    #        |> Ssz.to_ssz(MinimalConfig)
+    #        |> :snappyer.compress() == post
   end
 
   def assert_process_withdrawal(_pre, _operation, _post, _data \\ "none") do
