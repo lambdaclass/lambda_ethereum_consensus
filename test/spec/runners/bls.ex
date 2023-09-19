@@ -72,14 +72,14 @@ defmodule BLSTestRunner do
     end
   end
 
-  defp assert_aggregate(%{pubkeys: pubkeys}, output) do
+  defp assert_aggregate(%{signatures: signatures}, output) do
     case output do
       nil ->
-        assert {result, _error_msg} = Bls.aggregate(pubkeys)
+        assert {result, _error_msg} = Bls.aggregate(signatures)
         assert result == :error
 
       output ->
-        assert {:ok, signature} = Bls.aggregate(pubkeys)
+        assert {:ok, signature} = Bls.aggregate(signatures)
         assert signature == output
     end
   end
