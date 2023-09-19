@@ -14,24 +14,25 @@ defmodule Bls do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  @spec verify(binary(), binary(), binary()) :: {:ok, boolean} | {:error, binary()}
+  @spec verify(SszTypes.bls_pubkey(), binary(), SszTypes.bls_signature()) ::
+          {:ok, boolean} | {:error, binary()}
   def verify(_public_key, _message, _signature) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  @spec fast_aggregate_verify([binary()], binary(), binary()) ::
+  @spec fast_aggregate_verify([SszTypes.bls_pubkey()], binary(), SszTypes.bls_signature()) ::
           {:ok, boolean} | {:error, binary()}
   def fast_aggregate_verify(_public_keys, _message, _signature) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  @spec eth_fast_aggregate_verify([binary()], binary(), binary()) ::
+  @spec eth_fast_aggregate_verify([SszTypes.bls_pubkey()], binary(), SszTypes.bls_signature()) ::
           {:ok, boolean} | {:error, binary()}
   def eth_fast_aggregate_verify(_public_keys, _message, _signature) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  @spec aggregate_verify([binary()], [binary()], binary()) ::
+  @spec aggregate_verify([SszTypes.bls_pubkey()], [binary()], SszTypes.bls_signature()) ::
           {:ok, boolean} | {:error, binary()}
   def aggregate_verify(_public_keys, _messages, _signature) do
     :erlang.nif_error(:nif_not_loaded)
