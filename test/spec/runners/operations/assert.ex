@@ -33,13 +33,7 @@ defmodule OperationsTestAssert do
     # TODO
   end
 
-  def assert_process_execution_payload(pre, operation, post, _data \\ "none") do
-    # IO.puts("pre:")
-    # IO.inspect(pre)
-    # IO.puts("operation:")
-    # IO.inspect(operation)
-    # IO.puts("post:")
-    # IO.inspect(post)
+  def assert_process_execution_payload(pre, operation, _post, _data \\ "none") do
     BeaconChain.StateTransition.process_execution_payload(pre, operation)
     # assert BeaconChain.StateTransition.process_execution_payload(pre, operation)
     #        |> Ssz.to_ssz(MinimalConfig)
