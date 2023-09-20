@@ -84,7 +84,7 @@ defmodule Ssz do
 
   # Ssz types can have special decoding rules defined in their optional encode/1 function,
   defp encode(%name{} = struct) do
-    if function_exported?(name, :encode, 1) do
+    if exported?(name, :encode, 1) do
       name.encode(struct)
     else
       struct
@@ -103,7 +103,7 @@ defmodule Ssz do
 
   # Ssz types can have special decoding rules defined in their optional decode/1 function,
   defp decode(%name{} = struct) do
-    if function_exported?(name, :decode, 1) do
+    if exported?(name, :decode, 1) do
       name.decode(struct)
     else
       struct
@@ -115,6 +115,11 @@ defmodule Ssz do
 
   defp decode(list) when is_list(list), do: list |> Enum.map(&decode/1)
   defp decode(non_struct), do: non_struct
+
+  defp exported?(module, function, arity) do
+    Code.ensure_loaded!(module)
+    function_exported?(module, function, arity)
+  end
 
   @spec encode_u256(non_neg_integer) :: binary
   def encode_u256(num) do
