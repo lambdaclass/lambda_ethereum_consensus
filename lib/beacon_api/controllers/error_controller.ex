@@ -2,12 +2,12 @@ defmodule BeaconApi.ErrorController do
   use BeaconApi, :controller
 
   @spec bad_request(Plug.Conn.t(), binary()) :: Plug.Conn.t()
-  def bad_request(conn, params) do
+  def bad_request(conn, message) do
     conn
     |> put_status(400)
     |> json(%{
       code: 400,
-      message: "#{params}"
+      message: "#{message}"
     })
   end
 
