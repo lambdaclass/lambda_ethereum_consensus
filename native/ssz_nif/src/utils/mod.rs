@@ -42,6 +42,8 @@ macro_rules! schema_match {
                 StatusMessage,
                 AggregateAndProof<C>,
                 SignedAggregateAndProof<C>,
+                BeaconBlocksByRangeRequest,
+                BeaconBlocksByRangeResponse<C>,
                 Transaction,
             }
         )

@@ -42,7 +42,7 @@ defmodule Ssz do
     end
   end
 
-  @spec hash_tree_root(struct, module) :: {:ok, binary} | {:error, String.t()}
+  @spec hash_tree_root(struct, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root(map, config \\ MainnetConfig)
 
   def hash_tree_root(%name{} = map, config) do
@@ -51,7 +51,8 @@ defmodule Ssz do
     |> hash_tree_root_rs(name, config)
   end
 
-  @spec hash_list_tree_root(list(struct), integer, module) :: {:ok, binary} | {:error, String.t()}
+  @spec hash_list_tree_root(list(struct), integer, module) ::
+          {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_list_tree_root(list, max_size, config \\ MainnetConfig)
 
   def hash_list_tree_root([], max_size, config) do
@@ -81,11 +82,11 @@ defmodule Ssz do
   @spec list_from_ssz_rs(binary, module, module) :: {:ok, list(struct)} | {:error, String.t()}
   def list_from_ssz_rs(_bin, _schema, _config), do: error()
 
-  @spec hash_tree_root_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
+  @spec hash_tree_root_rs(map, module, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root_rs(_map, _schema, _config), do: error()
 
   @spec hash_tree_root_list_rs(list, integer, module, module) ::
-          {:ok, binary} | {:error, String.t()}
+          {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root_list_rs(_list, _max_size, _schema, _config), do: error()
 
   ##### Utils
@@ -93,7 +94,7 @@ defmodule Ssz do
 
   # Ssz types can have special decoding rules defined in their optional encode/1 function,
   defp encode(%name{} = struct) do
-    if function_exported?(name, :encode, 1) do
+    if exported?(name, :encode, 1) do
       name.encode(struct)
     else
       struct
@@ -112,7 +113,7 @@ defmodule Ssz do
 
   # Ssz types can have special decoding rules defined in their optional decode/1 function,
   defp decode(%name{} = struct) do
-    if function_exported?(name, :decode, 1) do
+    if exported?(name, :decode, 1) do
       name.decode(struct)
     else
       struct
@@ -124,6 +125,11 @@ defmodule Ssz do
 
   defp decode(list) when is_list(list), do: list |> Enum.map(&decode/1)
   defp decode(non_struct), do: non_struct
+
+  defp exported?(module, function, arity) do
+    Code.ensure_loaded!(module)
+    function_exported?(module, function, arity)
+  end
 
   @spec encode_u256(non_neg_integer) :: binary
   def encode_u256(num) do
