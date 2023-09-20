@@ -39,7 +39,7 @@ defmodule Ssz do
     end
   end
 
-  @spec hash_tree_root(struct, module) :: {:ok, binary} | {:error, String.t()}
+  @spec hash_tree_root(struct, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root(map, config \\ MainnetConfig)
 
   def hash_tree_root(%name{} = map, config) do
@@ -48,7 +48,8 @@ defmodule Ssz do
     |> hash_tree_root_rs(name, config)
   end
 
-  @spec hash_list_tree_root(list(struct), integer, module) :: {:ok, binary} | {:error, String.t()}
+  @spec hash_list_tree_root(list(struct), integer, module) ::
+          {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_list_tree_root(map, max_size, config \\ MainnetConfig)
 
   def hash_list_tree_root([], max_size, config) do
@@ -72,11 +73,11 @@ defmodule Ssz do
   @spec list_from_ssz_rs(binary, module, module) :: {:ok, list(struct)} | {:error, String.t()}
   def list_from_ssz_rs(_bin, _schema, _config), do: error()
 
-  @spec hash_tree_root_rs(map, module, module) :: {:ok, binary} | {:error, String.t()}
+  @spec hash_tree_root_rs(map, module, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root_rs(_map, _schema, _config), do: error()
 
   @spec hash_tree_root_list_rs(list, integer, module, module) ::
-          {:ok, binary} | {:error, String.t()}
+          {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root_list_rs(_list, _max_size, _schema, _config), do: error()
 
   ##### Utils
