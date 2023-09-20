@@ -9,9 +9,7 @@ defmodule Ssz do
   def to_ssz(map, config \\ MainnetConfig)
 
   def to_ssz(%name{} = map, config) do
-    map
-    |> encode()
-    |> to_ssz_rs(name, config)
+    to_ssz_typed(map, name, config)
   end
 
   def to_ssz([], config) do
@@ -20,9 +18,14 @@ defmodule Ssz do
   end
 
   def to_ssz([%name{} | _tail] = list, config) do
-    list
+    to_ssz_typed(list, name, config)
+  end
+
+  @spec to_ssz_typed(term, module, module) :: {:ok, binary} | {:error, String.t()}
+  def to_ssz_typed(term, schema, config \\ MainnetConfig) do
+    term
     |> encode()
-    |> to_ssz_rs(name, config)
+    |> to_ssz_rs(schema, config)
   end
 
   @spec from_ssz(binary, module, module) :: {:ok, struct} | {:error, String.t()}
@@ -50,7 +53,7 @@ defmodule Ssz do
 
   @spec hash_list_tree_root(list(struct), integer, module) ::
           {:ok, SszTypes.root()} | {:error, String.t()}
-  def hash_list_tree_root(map, max_size, config \\ MainnetConfig)
+  def hash_list_tree_root(list, max_size, config \\ MainnetConfig)
 
   def hash_list_tree_root([], max_size, config) do
     # Type isn't used in this case
@@ -58,9 +61,15 @@ defmodule Ssz do
   end
 
   def hash_list_tree_root([%name{} | _tail] = list, max_size, config) do
+    hash_list_tree_root_typed(list, max_size, name, config)
+  end
+
+  @spec hash_list_tree_root_typed(list(struct), integer, module, module) ::
+          {:ok, binary} | {:error, String.t()}
+  def hash_list_tree_root_typed(list, max_size, schema, config \\ MainnetConfig) do
     list
     |> encode()
-    |> hash_tree_root_list_rs(max_size, name, config)
+    |> hash_tree_root_list_rs(max_size, schema, config)
   end
 
   ##### Rust-side function stubs
