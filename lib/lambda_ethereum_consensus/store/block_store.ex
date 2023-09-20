@@ -13,6 +13,9 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
 
     key = block_key(block_root)
     LambdaEthereumConsensus.Store.Db.put(key, encoded_block)
+
+    # WARN: this overrides any previous mapping for the same slot
+    # TODO: this should apply fork-choice if not applied elsewhere
     slothash_key = root_by_slot_key(block.slot)
     LambdaEthereumConsensus.Store.Db.put(slothash_key, block_root)
   end
@@ -36,6 +39,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   @spec get_block_by_slot(SszTypes.slot()) ::
           {:ok, SszTypes.BeaconBlock.t()} | {:error, String.t()} | :not_found
   def get_block_by_slot(slot) do
+    # WARN: this will return the latest block received for the given slot
     with {:ok, root} <- get_block_root_by_slot(slot) do
       get_block(root)
     end
