@@ -38,7 +38,8 @@ type BLSPubkey = Bytes48;
 type BLSSignature = Bytes96;
 #[allow(dead_code)]
 type ParticipationFlags = u8;
-type Transaction = VariableList<u8, /* `MAX_BYTES_PER_TRANSACTION` */ typenum::U1073741824>;
+pub(crate) type Transaction =
+    VariableList<u8, /* `MAX_BYTES_PER_TRANSACTION` */ typenum::U1073741824>;
 type ExecutionAddress = Bytes20;
 type WithdrawalIndex = u64;
 
