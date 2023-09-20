@@ -18,15 +18,17 @@ defmodule Libp2p.Stream do
     )
   end
 
+  defp stream_next({stream, :error}), do: {:halt, {stream, :error}}
+
   defp stream_next({stream, ""}) do
     case Libp2p.stream_read(stream) do
-      {:ok, <<x, chunk::binary>>} -> {[<<x>>], {stream, chunk}}
       {:ok, ""} -> {:halt, {stream, ""}}
-      {:error, message} -> raise(message)
+      {:ok, chunk} -> stream_next({stream, chunk})
+      {:error, message} -> {[{:error, message}], {stream, :error}}
     end
   end
 
   defp stream_next({stream, <<x, rest::binary>>}) do
-    {[<<x>>], {stream, rest}}
+    {[{:ok, <<x>>}], {stream, rest}}
   end
 end

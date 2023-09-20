@@ -12,9 +12,11 @@ defmodule LambdaEthereumConsensus.Application do
 
     children = [
       {LambdaEthereumConsensus.Store.Db, []},
+      {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequestHandler, [host]},
       {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
       {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
+      {LambdaEthereumConsensus.P2P.BlockConsumer, [host]},
       {LambdaEthereumConsensus.Libp2pPort, []},
       # Start the Endpoint (http/https)
       BeaconApi.Endpoint
