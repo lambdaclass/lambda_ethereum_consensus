@@ -117,8 +117,8 @@ defmodule Ssz do
   defp decode(non_struct), do: non_struct
 
   defp exported?(module, function, arity) do
-    Code.ensure_loaded!(name)
-    function_exported?(name, function, arity)
+    Code.ensure_loaded!(module)
+    function_exported?(module, function, arity)
   end
 
   @spec encode_u256(non_neg_integer) :: binary
