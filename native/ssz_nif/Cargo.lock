@@ -686,6 +686,8 @@ dependencies = [
  "ethereum_ssz_derive",
  "rustler",
  "ssz_types",
+ "tree_hash",
+ "tree_hash_derive",
 ]
 
 [[package]]
@@ -780,6 +782,17 @@ dependencies = [
  "ethereum-types",
  "ethereum_hashing",
  "smallvec",
+]
+
+[[package]]
+name = "tree_hash_derive"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84303a9c7cda5f085a3ed9cd241d1e95e04d88aab1d679b02f212e653537ba86"
+dependencies = [
+ "darling",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]

@@ -9,9 +9,9 @@ defmodule BLSTestRunner do
   @disabled_handlers [
     # "sign",
     # "verify",
-    "aggregate",
+    # "aggregate",
     # "fast_aggregate_verify",
-    "aggregate_verify",
+    # "aggregate_verify",
     "eth_aggregate_pubkeys"
     # "eth_fast_aggregate_verify"
   ]
@@ -72,8 +72,16 @@ defmodule BLSTestRunner do
     end
   end
 
-  defp assert_aggregate(_input, _output) do
-    assert false
+  defp assert_aggregate(signatures, output) do
+    case output do
+      nil ->
+        assert {result, _error_msg} = Bls.aggregate(signatures)
+        assert result == :error
+
+      output ->
+        assert {:ok, signature} = Bls.aggregate(signatures)
+        assert signature == output
+    end
   end
 
   defp assert_fast_aggregate_verify(
@@ -92,8 +100,20 @@ defmodule BLSTestRunner do
     end
   end
 
-  defp assert_aggregate_verify(_input, _output) do
-    assert false
+  defp assert_aggregate_verify(
+         %{messages: messages, pubkeys: pubkeys, signature: signature},
+         output
+       ) do
+    case Bls.aggregate_verify(pubkeys, messages, signature) do
+      {:ok, true} ->
+        assert output
+
+      {:ok, false} ->
+        assert not output
+
+      {:error, reason} ->
+        assert not output, reason
+    end
   end
 
   defp assert_verify(
