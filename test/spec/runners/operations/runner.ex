@@ -1,5 +1,6 @@
 defmodule OperationsTestRunner do
   use ExUnit.CaseTemplate
+  use TestRunner
 
   @moduledoc """
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
@@ -20,16 +21,12 @@ defmodule OperationsTestRunner do
     "bls_to_execution_change"
   ]
 
-  @doc """
-  Returns true if the given testcase should be skipped
-  """
+  @impl TestRunner
   def skip?(%SpecTestCase{} = testcase) do
     Enum.member?(@disabled_handlers, testcase.handler)
   end
 
-  @doc """
-  Runs the given test case.
-  """
+  @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
     handler = testcase.handler
