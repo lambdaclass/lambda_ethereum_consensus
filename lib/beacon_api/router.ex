@@ -11,6 +11,16 @@ defmodule BeaconApi.Router do
 
     scope "/beacon" do
       get("/states/:state_id/root", BeaconController, :get_state_root)
+      get("/blocks/:block_id/root", BeaconController, :get_block_root)
+    end
+  end
+
+  # Ethereum API Version 2
+  scope "/eth/v2", BeaconApi.V2 do
+    pipe_through(:api)
+
+    scope "/beacon" do
+      get("/blocks/:block_id", BeaconController, :get_block)
     end
   end
 
