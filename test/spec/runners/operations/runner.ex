@@ -20,6 +20,10 @@ defmodule OperationsTestRunner do
     "bls_to_execution_change"
   ]
 
+  def get_config("mainnet"), do: MainnetConfig
+  def get_config("minimal"), do: MinimalConfig
+  def get_config(_), do: raise("Unknown config")
+
   @doc """
   Returns true if the given testcase should be skipped
   """
@@ -30,20 +34,23 @@ defmodule OperationsTestRunner do
   @doc """
   Runs the given test case.
   """
-  def run_test_case(%SpecTestCase{} = testcase) do
+  def run_test_case(%SpecTestCase{config: config} = testcase) do
+    config = get_config(config)
+    IO.puts(config)
     case_dir = SpecTestCase.dir(testcase)
     handler = testcase.handler
 
-    {:ok, pre} = OperationsTestUtils.prepare_test(case_dir, handler, "pre")
+    {:ok, pre} = OperationsTestUtils.prepare_test(case_dir, handler, "pre", config)
 
     {:ok, operation} =
       OperationsTestUtils.prepare_test(
         case_dir,
         handler,
-        OperationsTestUtils.resolve_name_from_handler(handler)
+        OperationsTestUtils.resolve_name_from_handler(handler),
+        config
       )
 
-    {:ok, post} = OperationsTestUtils.prepare_test(case_dir, handler, "post")
+    {:ok, post} = OperationsTestUtils.prepare_test(case_dir, handler, "post", config)
 
     handle_case(testcase.handler, pre, operation, post, case_dir)
   end

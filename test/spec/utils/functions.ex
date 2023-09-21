@@ -10,7 +10,7 @@ defmodule SpectTestFunctions do
     assert execution_valid
 
     # Cache execution payload header
-    Map.get_and_update(
+    Map.put(
       state,
       :latest_execution_payload_header,
       %SszTypes.ExecutionPayloadHeader{
@@ -27,8 +27,19 @@ defmodule SpectTestFunctions do
         extra_data: payload.extra_data,
         base_fee_per_gas: payload.base_fee_per_gas,
         block_hash: payload.block_hash,
-        transactions_root: payload.transactions,
-        withdrawals_root: payload.withdrawals
+        transactions_root:
+          Ssz.hash_list_tree_root_typed(
+            payload.transactions,
+            1_048_576,
+            SszTypes.Transaction,
+            MinimalConfig
+          ),
+        withdrawals_root:
+          Ssz.hash_list_tree_root(
+            payload.withdrawals,
+            16,
+            MinimalConfig
+          )
       }
     )
   end
