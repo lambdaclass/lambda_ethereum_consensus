@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   Beacon node state storage.
   """
   alias LambdaEthereumConsensus.Store.Db
+  alias LambdaEthereumConsensus.Store.Utils
   alias SszTypes.BeaconState
 
   @state_prefix "beacon_state"
