@@ -14,14 +14,15 @@ defmodule LambdaEthereumConsensus.P2P.BlockConsumer do
         concurrency: 1
       ],
       processors: [
-        default: [concurrency: 1]
+        # TODO: demand should map 1-to-1 the amount of blocks?
+        default: [concurrency: 1, max_demand: 1]
       ]
     )
   end
 
   @impl true
   def handle_message(_, %Broadway.Message{data: %SignedBeaconBlock{message: block}} = message, _) do
-    Logger.notice("Block requested from peer: #{block.slot}")
+    Logger.notice("Block requested: #{block.slot}")
     message
   end
 end

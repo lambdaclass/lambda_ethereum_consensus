@@ -2,7 +2,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @moduledoc """
   This module requests blocks from peers.
   """
-  alias LambdaEthereumConsensus.P2P.Peerbook
+  alias LambdaEthereumConsensus.P2P
   use GenStage
 
   @protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
@@ -14,8 +14,17 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
   @impl true
   def handle_demand(incoming_demand, host) do
+    blocks =
+      for _ <- 0..incoming_demand do
+        request_block(host) |> wrap_message()
+      end
+
+    {:noreply, blocks, host}
+  end
+
+  defp request_block(host) do
     # TODO: get missing slots from DB
-    start_slot = 7_374_077
+    start_slot = 7_270_097 + :rand.uniform(100_000)
 
     # TODO: handle no-peers asynchronously?
     peer_id = get_some_peer()
@@ -31,8 +40,10 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     # This should never fail
     {:ok, encoded_payload} = payload |> Ssz.to_ssz()
 
-    # This would be a protobuf varint
-    size_header = <<byte_size(encoded_payload)>>
+    size_header =
+      encoded_payload
+      |> byte_size()
+      |> P2P.Utils.encode_varint()
 
     # This should never fail
     {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
@@ -42,9 +53,10 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
          :ok <- Libp2p.stream_close_write(stream),
          {:ok, chunk} <- read_response(stream),
          {:ok, block} <- decode_response(chunk) do
-      {:noreply, [wrap_message(block)], host}
+      block
     else
-      {:error, _reason} -> handle_demand(incoming_demand, host)
+      # we just ignore the error and continue
+      {:error, _reason} -> request_block(host)
     end
   end
 
@@ -67,7 +79,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         {:ok, chunk}
 
       {:ok, <<0, wrong_context::binary-size(4)>> <> _} ->
-        {:error, "wrong context: #{wrong_context}"}
+        {:error, "wrong context: #{Base.encode16(wrong_context)}"}
 
       {:ok, <<code>> <> message} ->
         error_response(code, message)
@@ -80,26 +92,23 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   defp error_response(error_code, ""), do: {:error, "error code: #{error_code}"}
 
   defp error_response(error_code, error_message) do
-    if String.valid?(error_message) do
-      {:error, "error code: #{error_code}, with message: #{error_message}"}
-    else
-      <<_size, rest::binary>> = error_message
+    {_size, rest} = P2P.Utils.decode_varint(error_message)
 
-      case rest |> Snappy.decompress() do
-        {:ok, message} ->
-          {:error, "error code: #{error_code}, with compressed message: #{message}"}
+    case rest |> Snappy.decompress() do
+      {:ok, message} ->
+        {:error, "error code: #{error_code}, with message: #{message}"}
 
-        {:error, _reason} ->
-          message = error_message |> Base.encode16()
-          {:error, "error code: #{error_code}, with raw message: '#{message}'"}
-      end
+      {:error, _reason} ->
+        message = error_message |> Base.encode16()
+        {:error, "error code: #{error_code}, with raw message: '#{message}'"}
     end
   end
 
   defp decode_response(response) do
-    with {:ok, chunk} <- Snappy.decompress(response) do
-      chunk
-      |> Ssz.from_ssz(SszTypes.SignedBeaconBlock)
+    {_size, rest} = P2P.Utils.decode_varint(response)
+
+    with {:ok, chunk} <- Snappy.decompress(rest) do
+      chunk |> Ssz.from_ssz(SszTypes.SignedBeaconBlock)
     end
   end
 
@@ -111,7 +120,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   end
 
   defp get_some_peer do
-    case Peerbook.get_some_peer() do
+    case P2P.Peerbook.get_some_peer() do
       nil ->
         Process.sleep(1000)
         get_some_peer()
