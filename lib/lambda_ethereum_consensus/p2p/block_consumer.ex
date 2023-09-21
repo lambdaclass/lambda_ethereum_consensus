@@ -22,7 +22,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockConsumer do
 
   @impl true
   def handle_message(_, %Broadway.Message{data: %SignedBeaconBlock{message: block}} = message, _) do
-    Logger.notice("Block requested: #{block.slot}")
+    Logger.notice("Block requested: '#{block.slot}'")
+    BlockStore.store_block(block)
     message
   end
 end
