@@ -4,23 +4,18 @@ defmodule LambdaEthereumConsensus.P2P.Utils do
   """
   import Bitwise
 
+  @spec encode_varint(integer()) :: binary()
   def encode_varint(int) do
-    int
-    |> Stream.unfold(&encode_varint_helper/1)
-    |> Enum.join()
+    # PERF: use IO lists
+    Protobuf.Wire.Varint.encode(int)
+    |> IO.iodata_to_binary()
   end
 
-  defp encode_varint_helper(nil), do: nil
-
-  defp encode_varint_helper(x) when x >= 128 do
-    {<<1::1, x::7>>, x >>> 7}
-  end
-
-  defp encode_varint_helper(x) when x < 128 do
-    {<<0::1, x::7>>, nil}
-  end
-
+  @spec decode_varint(binary()) :: {non_neg_integer(), binary()}
+  # PERF: use `Protobuf.Wire.Varint.defdecoderp` macro for this
   def decode_varint(bin), do: decode_varint(bin, 0, 0)
+
+  defp decode_varint("", acc, _), do: {acc, ""}
 
   defp decode_varint(<<0::1, int::7, rest::binary>>, acc, shift) do
     {acc + (int <<< shift), rest}

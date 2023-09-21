@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockConsumer do
   This module consumes events created by Discovery.
   """
   require Logger
+  alias LambdaEthereumConsensus.Store.BlockStore
   alias SszTypes.SignedBeaconBlock
   use Broadway
 
