@@ -12,7 +12,7 @@ defmodule Libp2p.Stream do
   @spec from(Libp2p.stream()) :: Enumerable.t()
   def from(stream) do
     Stream.resource(
-      fn -> {stream, ""} end,
+      fn -> {stream, :ok} end,
       &stream_next/1,
       fn {st, _} -> Libp2p.stream_close(st) end
     )
@@ -20,15 +20,10 @@ defmodule Libp2p.Stream do
 
   defp stream_next({stream, :error}), do: {:halt, {stream, :error}}
 
-  defp stream_next({stream, ""}) do
+  defp stream_next({stream, :ok}) do
     case Libp2p.stream_read(stream) do
-      {:ok, ""} -> {:halt, {stream, ""}}
-      {:ok, chunk} -> stream_next({stream, chunk})
-      {:error, message} -> {[{:error, message}], {stream, :error}}
+      {:ok, ""} -> {:halt, {stream, :ok}}
+      {res, chunk} -> {[{res, chunk}], {stream, res}}
     end
-  end
-
-  defp stream_next({stream, <<x, rest::binary>>}) do
-    {[{:ok, <<x>>}], {stream, rest}}
   end
 end

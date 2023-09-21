@@ -14,19 +14,19 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
   @impl true
   def handle_demand(incoming_demand, host) do
-    # Capella fork slot
     # TODO: get missing slots from DB
-    start_slot = 6_209_536
+    start_slot = 7_374_077
 
     # TODO: handle no-peers asynchronously?
     peer_id = get_some_peer()
 
-    payload = %SszTypes.BeaconBlocksByRangeRequest{
-      start_slot: start_slot,
-      # TODO: we need to refactor the Snappy library to return
-      # the remaining buffer when decompressing
-      count: 1
-    }
+    payload =
+      %SszTypes.BeaconBlocksByRangeRequest{
+        start_slot: start_slot,
+        # TODO: we need to refactor the Snappy library to return
+        # the remaining buffer when decompressing
+        count: 1
+      }
 
     # This should never fail
     {:ok, encoded_payload} = payload |> Ssz.to_ssz()
@@ -37,16 +37,14 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     # This should never fail
     {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
 
-    with {:ok, stream} <-
-           Libp2p.host_new_stream(host, peer_id, @protocol_id),
+    with {:ok, stream} <- Libp2p.host_new_stream(host, peer_id, @protocol_id),
          :ok <- Libp2p.stream_write(stream, size_header <> compressed_payload),
          :ok <- Libp2p.stream_close_write(stream),
          {:ok, chunk} <- read_response(stream),
          {:ok, block} <- decode_response(chunk) do
       {:noreply, [wrap_message(block)], host}
     else
-      {:error, _reason} ->
-        handle_demand(incoming_demand, host)
+      {:error, reason} -> handle_demand(incoming_demand, host)
     end
   end
 
@@ -59,18 +57,44 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         {:error, reason}, _ -> {:error, reason}
       end)
 
+    fork_context = "BBA4DA96" |> Base.decode16!()
+
     case result do
-      {:ok, ""} -> {:error, "unexpected EOF"}
-      {:ok, <<0, chunk::binary>>} -> {:ok, chunk}
-      {:ok, <<code, message::binary>>} -> error_response(code, message)
-      err -> err
+      {:ok, ""} ->
+        {:error, "unexpected EOF"}
+
+      {:ok, <<0, ^fork_context, chunk::binary>>} ->
+        {:ok, chunk}
+
+      {:ok, <<0, wrong_context::binary-size(4), _::binary>>} ->
+        {:error, "wrong context: #{wrong_context}"}
+
+      {:ok, <<code, message::binary>>} ->
+        error_response(code, message)
+
+      err ->
+        err
     end
   end
 
   defp error_response(error_code, ""), do: {:error, "error code: #{error_code}"}
 
-  defp error_response(error_code, error_message),
-    do: {:error, "error code: #{error_code}, with message: #{error_message}"}
+  defp error_response(error_code, error_message) do
+    if String.valid?(error_message) do
+      {:error, "error code: #{error_code}, with message: #{error_message}"}
+    else
+      <<_size, rest::binary>> = error_message
+
+      case rest |> Snappy.decompress() do
+        {:ok, message} ->
+          {:error, "error code: #{error_code}, with compressed message: #{message}"}
+
+        {:error, _reason} ->
+          message = error_message |> Base.encode16()
+          {:error, "error code: #{error_code}, with raw message: '#{message}'"}
+      end
+    end
+  end
 
   defp decode_response(response) do
     with {:ok, chunk} <- Snappy.decompress(response) do
@@ -86,7 +110,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     }
   end
 
-  defp get_some_peer() do
+  defp get_some_peer do
     case Peerbook.get_some_peer() do
       nil ->
         Process.sleep(1000)
