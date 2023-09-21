@@ -44,7 +44,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
          {:ok, block} <- decode_response(chunk) do
       {:noreply, [wrap_message(block)], host}
     else
-      {:error, reason} -> handle_demand(incoming_demand, host)
+      {:error, _reason} -> handle_demand(incoming_demand, host)
     end
   end
 
@@ -63,13 +63,13 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       {:ok, ""} ->
         {:error, "unexpected EOF"}
 
-      {:ok, <<0, ^fork_context, chunk::binary>>} ->
+      {:ok, <<0, ^fork_context::binary-size(4)>> <> chunk} ->
         {:ok, chunk}
 
-      {:ok, <<0, wrong_context::binary-size(4), _::binary>>} ->
+      {:ok, <<0, wrong_context::binary-size(4)>> <> _} ->
         {:error, "wrong context: #{wrong_context}"}
 
-      {:ok, <<code, message::binary>>} ->
+      {:ok, <<code>> <> message} ->
         error_response(code, message)
 
       err ->

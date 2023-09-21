@@ -34,10 +34,16 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     {:noreply, {updated_peerbook, pb_size + 1}}
   end
 
+  @doc """
+  Add a peer to the peerbook.
+  """
   def add_peer(peer_id) do
     GenServer.cast(__MODULE__, {:new_peer, peer_id})
   end
 
+  @doc """
+  Get some peer from the peerbook.
+  """
   def get_some_peer do
     GenServer.call(__MODULE__, :get_some_peer)
   end

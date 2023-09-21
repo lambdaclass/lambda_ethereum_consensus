@@ -119,11 +119,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     end
   end
 
-  def handle_req(@prefix <> "beacon_blocks_by_range/2/ssz_snappy", stream) do
-    with Libp2p.stream_read(stream) |> then(&IO.inspect({"beacon_blocks_by_request", &1})) do
-      Libp2p.stream_close(stream)
-    end
-  end
+  def handle_req(@prefix <> "beacon_blocks_by_range/2/ssz_snappy", _stream), do: nil
 
   def handle_req(protocol, _stream) do
     # This should never happen, since Libp2p only accepts registered protocols
