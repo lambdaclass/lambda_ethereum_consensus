@@ -33,11 +33,10 @@ defmodule OperationsTestAssert do
     # TODO
   end
 
-  def assert_process_execution_payload(pre, operation, _post, _data \\ "none") do
-    BeaconChain.StateTransition.process_execution_payload(pre, operation)
-    # assert BeaconChain.StateTransition.process_execution_payload(pre, operation)
-    #        |> Ssz.to_ssz(MinimalConfig)
-    #        |> :snappyer.compress() == post
+  def assert_process_execution_payload(pre, operation, post, data) do
+    assert SpectTestFunctions.test_process_execution_payload(pre, operation, data)
+           |> Ssz.to_ssz(MinimalConfig)
+           |> :snappyer.compress() == post
   end
 
   def assert_process_withdrawal(_pre, _operation, _post, _data \\ "none") do
