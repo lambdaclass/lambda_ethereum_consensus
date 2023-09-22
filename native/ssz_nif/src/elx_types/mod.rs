@@ -37,7 +37,7 @@ type BLSPubkey<'a> = Bytes48<'a>;
 type BLSSignature<'a> = Bytes96<'a>;
 #[allow(dead_code)]
 type ParticipationFlags = u8;
-type Transaction<'a> = Binary<'a>; // max size: 1073741824
+pub(crate) type Transaction<'a> = Binary<'a>; // max size: 1073741824
 type ExecutionAddress<'a> = Bytes20<'a>;
 type WithdrawalIndex = u64;
 
