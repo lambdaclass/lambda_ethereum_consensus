@@ -48,6 +48,24 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     end
   end
 
+  def stream_missing_blocks_desc do
+    Stream.resource(&init_cursor/0, &prev_slot/1, &close_cursor/1)
+  end
+
+  defp init_cursor do
+    max_key = Utils.get_key(@block_prefix, 0xFFFFFFFFFFFFFFFF)
+    {:ok, it} = Db.iterate_keys()
+    {:ok, _} = Exleveldb.iterator_move(it, max_key)
+    it
+  end
+
+  defp prev_slot(it) do
+    {:ok, prev_key} = Exleveldb.iterator_move(it, :prev)
+    {[prev_key], it}
+  end
+
+  defp close_cursor(it), do: :ok = Exleveldb.iterator_close(it)
+
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
   defp block_root_by_slot_key(slot), do: Utils.get_key(@block_prefix <> @slot_prefix, slot)
 end

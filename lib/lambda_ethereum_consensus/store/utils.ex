@@ -4,7 +4,8 @@ defmodule LambdaEthereumConsensus.Store.Utils do
   """
   @spec get_key(binary, non_neg_integer | binary) :: binary
   def get_key(prefix, suffix) when is_integer(suffix) do
-    prefix <> :binary.encode_unsigned(suffix)
+    # NOTE: this uses the last 64 bits of the suffix only
+    prefix <> <<suffix::64>>
   end
 
   def get_key(prefix, suffix) when is_binary(suffix) do

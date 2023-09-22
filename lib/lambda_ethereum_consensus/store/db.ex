@@ -2,7 +2,7 @@ defmodule LambdaEthereumConsensus.Store.Db do
   @moduledoc """
   Module that handles the key-value store.
   """
-
+  # TODO: replace GenServer with :ets
   use GenServer
 
   @registered_name __MODULE__
@@ -24,6 +24,19 @@ defmodule LambdaEthereumConsensus.Store.Db do
     Exleveldb.get(ref, key)
   end
 
+  @spec get(binary) :: {:ok, binary} | :not_found
+  def get(key) do
+    ref = GenServer.call(@registered_name, :get_ref)
+    Exleveldb.get(ref, key)
+  end
+
+  @spec get_keys_cursor() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
+  def iterate_keys do
+    ref = GenServer.call(@registered_name, :get_ref)
+    # TODO: wrap cursor to make it DB-agnostic
+    Exleveldb.iterator(ref, [], :keys_only)
+  end
+
   @impl true
   def init(db_location) do
     {:ok, ref} = Exleveldb.open(db_location, create_if_missing: true)
@@ -35,6 +48,7 @@ defmodule LambdaEthereumConsensus.Store.Db do
     :ok = Exleveldb.close(ref)
   end
 
+  # NOTE: LevelDB database ref usage is thread-safe
   @impl true
   def handle_call(:get_ref, _from, %{ref: ref} = state), do: {:reply, ref, state}
 end
