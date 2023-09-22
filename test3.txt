@@ -1,0 +1,151 @@
+
+mix test --no-start --only runner:operations
+Compiling 4 files (.ex)
+Excluding tags: [:test]
+Including tags: [runner: "operations"]
+
+****************************************************************************************************************************************************************************************************************************************Elixir.MainnetConfig
+*************************************************************************************************************************************************************************************************.*Elixir.MainnetConfig
+*******Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+Elixir.MinimalConfig
+
+
+  1) test c:minimal f:capella r:operations h:execution_payload s:pyspec_tests -> invalid_bad_execution_regular_payload (MinimalCapellaSpecTest)
+     test/spec/minimal_cappela.ex:9
+     Expected truthy, got false
+     code: assert execution_valid
+     stacktrace:
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/functions.ex:10: OperationsTestFunctions.test_process_execution_payload/4
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/assert.ex:39: OperationsTestAssert.assert_process_execution_payload/5
+       test/spec/minimal_cappela.ex:9: (test)
+
+.Elixir.MinimalConfig
+.Elixir.MainnetConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+Elixir.MinimalConfig
+
+
+  2) test c:minimal f:capella r:operations h:execution_payload s:pyspec_tests -> invalid_randomized_non_validated_execution_fields_first_payload__execution_invalid (MinimalCapellaSpecTest)
+     test/spec/minimal_cappela.ex:9
+     Expected truthy, got false
+     code: assert execution_valid
+     stacktrace:
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/functions.ex:10: OperationsTestFunctions.test_process_execution_payload/4
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/assert.ex:39: OperationsTestAssert.assert_process_execution_payload/5
+       test/spec/minimal_cappela.ex:9: (test)
+
+.Elixir.MinimalConfig
+Elixir.MinimalConfig
+..Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+Elixir.MinimalConfig
+
+
+  3) test c:minimal f:capella r:operations h:execution_payload s:pyspec_tests -> invalid_randomized_non_validated_execution_fields_regular_payload__execution_invalid (MinimalCapellaSpecTest)
+     test/spec/minimal_cappela.ex:9
+     Expected truthy, got false
+     code: assert execution_valid
+     stacktrace:
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/functions.ex:10: OperationsTestFunctions.test_process_execution_payload/4
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/assert.ex:39: OperationsTestAssert.assert_process_execution_payload/5
+       test/spec/minimal_cappela.ex:9: (test)
+
+Elixir.MinimalConfig
+
+
+  4) test c:minimal f:capella r:operations h:execution_payload s:pyspec_tests -> invalid_bad_execution_first_payload (MinimalCapellaSpecTest)
+     test/spec/minimal_cappela.ex:9
+     Expected truthy, got false
+     code: assert execution_valid
+     stacktrace:
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/functions.ex:10: OperationsTestFunctions.test_process_execution_payload/4
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/assert.ex:39: OperationsTestAssert.assert_process_execution_payload/5
+       test/spec/minimal_cappela.ex:9: (test)
+
+.Elixir.MinimalConfig
+Elixir.MinimalConfig
+..Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MinimalConfig
+.Elixir.MainnetConfig
+..Elixir.MainnetConfig
+Elixir.MainnetConfig
+
+
+  5) test c:mainnet f:capella r:operations h:execution_payload s:pyspec_tests -> invalid_randomized_non_validated_execution_fields_first_payload__execution_invalid (MainnetSpecTest)
+     test/spec/mainnet.ex:9
+     Expected truthy, got false
+     code: assert execution_valid
+     stacktrace:
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/functions.ex:10: OperationsTestFunctions.test_process_execution_payload/4
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/assert.ex:39: OperationsTestAssert.assert_process_execution_payload/5
+       test/spec/mainnet.ex:9: (test)
+
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+Elixir.MainnetConfig
+
+
+  6) test c:mainnet f:capella r:operations h:execution_payload s:pyspec_tests -> invalid_bad_execution_first_payload (MainnetSpecTest)
+     test/spec/mainnet.ex:9
+     Expected truthy, got false
+     code: assert execution_valid
+     stacktrace:
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/functions.ex:10: OperationsTestFunctions.test_process_execution_payload/4
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/assert.ex:39: OperationsTestAssert.assert_process_execution_payload/5
+       test/spec/mainnet.ex:9: (test)
+
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+Elixir.MainnetConfig
+
+
+  7) test c:mainnet f:capella r:operations h:execution_payload s:pyspec_tests -> invalid_bad_execution_regular_payload (MainnetSpecTest)
+     test/spec/mainnet.ex:9
+     Expected truthy, got false
+     code: assert execution_valid
+     stacktrace:
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/functions.ex:10: OperationsTestFunctions.test_process_execution_payload/4
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/assert.ex:39: OperationsTestAssert.assert_process_execution_payload/5
+       test/spec/mainnet.ex:9: (test)
+
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+Elixir.MainnetConfig
+
+
+  8) test c:mainnet f:capella r:operations h:execution_payload s:pyspec_tests -> invalid_randomized_non_validated_execution_fields_regular_payload__execution_invalid (MainnetSpecTest)
+     test/spec/mainnet.ex:9
+     Expected truthy, got false
+     code: assert execution_valid
+     stacktrace:
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/functions.ex:10: OperationsTestFunctions.test_process_execution_payload/4
+       (lambda_ethereum_consensus 0.1.0) test/spec/runners/operations/assert.ex:39: OperationsTestAssert.assert_process_execution_payload/5
+       test/spec/mainnet.ex:9: (test)
+
+.Elixir.MainnetConfig
+.Elixir.MainnetConfig
+.
+Finished in 0.4 seconds (0.4s async, 0.00s sync)
+1 property, 9233 tests, 8 failures, 8749 excluded, 433 skipped
+
+Randomized with seed 717415

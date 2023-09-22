@@ -1,7 +1,7 @@
 defmodule OperationsTestFunctions do
   use ExUnit.Case
 
-  def test_process_execution_payload(state, payload, execution_valid) do
+  def test_process_execution_payload(state, payload, execution_valid, config) do
     # Verify prev_randao
     # Verify timestamp
 
@@ -28,18 +28,24 @@ defmodule OperationsTestFunctions do
         base_fee_per_gas: payload.base_fee_per_gas,
         block_hash: payload.block_hash,
         transactions_root:
-          Ssz.hash_list_tree_root_typed(
-            payload.transactions,
-            1_048_576,
-            SszTypes.Transaction,
-            MinimalConfig
-          ),
+          with {:ok, root} <-
+                 Ssz.hash_list_tree_root_typed(
+                   payload.transactions,
+                   1_048_576,
+                   SszTypes.Transaction,
+                   config
+                 ) do
+            root
+          end,
         withdrawals_root:
-          Ssz.hash_list_tree_root(
-            payload.withdrawals,
-            16,
-            MinimalConfig
-          )
+          with {:ok, root} <-
+                 Ssz.hash_list_tree_root(
+                   payload.withdrawals,
+                   16,
+                   config
+                 ) do
+            root
+          end
       }
     )
   end
