@@ -14,13 +14,14 @@ defmodule LambdaEthereumConsensus.Store.Db do
 
   @spec put(binary, binary) :: :ok
   def put(key, value) do
-    GenServer.call(@registered_name, {:put, {key, value}})
-    :ok
+    ref = GenServer.call(@registered_name, :get_ref)
+    Exleveldb.put(ref, key, value)
   end
 
-  @spec get(binary) :: :not_found | {:error, binary} | {:ok, binary}
+  @spec get(binary) :: {:ok, binary} | :not_found
   def get(key) do
-    GenServer.call(@registered_name, {:get, key})
+    ref = GenServer.call(@registered_name, :get_ref)
+    Exleveldb.get(ref, key)
   end
 
   @impl true
@@ -35,19 +36,5 @@ defmodule LambdaEthereumConsensus.Store.Db do
   end
 
   @impl true
-  def handle_call({:put, {key, value}}, _from, %{ref: ref} = state) do
-    :ok = Exleveldb.put(ref, key, value)
-    {:reply, :ok, state}
-  end
-
-  @impl true
-  def handle_call({:get, key}, _from, %{ref: ref} = state) do
-    case Exleveldb.get(ref, key) do
-      {:ok, value} ->
-        {:reply, {:ok, value}, state}
-
-      :not_found ->
-        {:reply, :not_found, state}
-    end
-  end
+  def handle_call(:get_ref, _from, %{ref: ref} = state), do: {:reply, ref, state}
 end
