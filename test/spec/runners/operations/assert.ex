@@ -32,12 +32,16 @@ defmodule OperationsTestAssert do
     # TODO
   end
 
-  def assert_process_execution_payload(pre, operation, _post, data, config) do
-    with {:ok, processed_payload} <-
-           OperationsTestFunctions.test_process_execution_payload(pre, operation, data, config),
-         {:ok, ssz_state} <- Ssz.to_ssz_typed(processed_payload, SszTypes.BeaconState, config) do
-      :snappyer.compress(ssz_state)
-    end
+  def assert_process_execution_payload(pre, operation, post, data, config) do
+    new_state =
+      OperationsTestFunctions.test_process_execution_payload(
+        pre,
+        operation,
+        data,
+        config
+      )
+
+    assert new_state == post
   end
 
   def assert_process_withdrawal(_pre, _operation, _post, _data \\ "none") do

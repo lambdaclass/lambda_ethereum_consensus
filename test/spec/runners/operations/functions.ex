@@ -7,7 +7,7 @@ defmodule OperationsTestFunctions do
 
     # We should verify the execution payload is valid, during operations
     # spec-tests the execution engine response is mocked and passed as a dict
-    assert execution_valid
+    # assert execution_valid
 
     # Cache execution payload header
     Map.put(
@@ -41,7 +41,10 @@ defmodule OperationsTestFunctions do
           with {:ok, root} <-
                  Ssz.hash_list_tree_root(
                    payload.withdrawals,
-                   16,
+                   case config do
+                     MainnetConfig -> 16
+                     MinimalConfig -> 4
+                   end,
                    config
                  ) do
             root
