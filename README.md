@@ -173,6 +173,12 @@ Finally, install the specific versions of these tools as specified in `.tool-ver
 asdf install
 ```
 
+### Alternative (easier) Installation using Nix 
+To create a sandbox environment with all the required tool chains, use Nix. Steps to get Nix working are as follows -
+* Download Nix from the official website: https://nixos.org/download.
+* Alternatively, for a smoother experience you can use the following script that takes care of setting up everything for you: https://zero-to-nix.com/start/install.
+* Check if Nix has been successfully installed: `nix --version`.
+* To launch the environment: `nix develop`.
 ## Installing and running
 
 There are Makefile targets for these tasks.
