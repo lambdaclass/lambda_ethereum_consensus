@@ -33,9 +33,9 @@ defmodule OperationsTestAssert do
     # TODO
   end
 
-  def assert_process_execution_payload(pre, operation, post, data) do
-    assert SpectTestFunctions.test_process_execution_payload(pre, operation, data)
-           |> Ssz.to_ssz(MinimalConfig)
+  def assert_process_execution_payload(pre, operation, post, data, config) do
+    assert OperationsTestFunctions.test_process_execution_payload(pre, operation, data)
+           |> Ssz.to_ssz(config)
            |> :snappyer.compress() == post
   end
 

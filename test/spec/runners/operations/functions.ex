@@ -1,4 +1,4 @@
-defmodule SpectTestFunctions do
+defmodule OperationsTestFunctions do
   use ExUnit.Case
 
   def test_process_execution_payload(state, payload, execution_valid) do
