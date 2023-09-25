@@ -1,5 +1,6 @@
 use super::{config::Config, *};
 use ssz_derive::{Decode, Encode};
+use ssz_types::{BitVector};
 use tree_hash_derive::TreeHash;
 
 // MAX_REQUEST_BLOCKS
@@ -24,4 +25,11 @@ pub(crate) struct BeaconBlocksByRangeRequest {
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct BeaconBlocksByRangeResponse<C: Config> {
     pub(crate) body: VariableList<SignedBeaconBlock<C>, MaxRequestBlocks>,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct Metadata<C: Config> {
+    pub(crate) seq_number: u64,
+    pub(crate) attnets: BitVector<C::AttestationSubnetCount>,
+    pub(crate) syncnets: BitVector<C::SyncCommitteeSubnetCount>,
 }

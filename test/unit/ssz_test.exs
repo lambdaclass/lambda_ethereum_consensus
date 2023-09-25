@@ -112,6 +112,20 @@ defmodule SSZTests do
     )
   end
 
+  test "serialize and deserialize Metadata" do
+    assert_roundtrip(
+      "E1ED6200000000009989AFAE2372EC4C07",
+      %SszTypes.Metadata{
+        seq_number: 6_483_425,
+        attnets:
+          Base.decode16!("9989AFAE2372EC4C"),
+        syncnets:
+          Base.decode16!("07")
+
+      }
+    )
+  end
+
   test "serialize and hash list of VoluntaryExit" do
     deserialized = [
       %SszTypes.VoluntaryExit{
@@ -166,4 +180,5 @@ defmodule SSZTests do
     assert {:ok, _hash} =
              Ssz.hash_list_tree_root_typed(deserialized, 1_048_576, SszTypes.Transaction)
   end
+
 end
