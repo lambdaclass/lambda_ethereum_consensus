@@ -1,7 +1,7 @@
 defmodule OperationsTestFunctions do
   use ExUnit.Case
 
-  def test_process_execution_payload(state, payload, execution_valid, config) do
+  def test_process_execution_payload(state, payload, _execution_valid, config) do
     # Verify prev_randao
     # Verify timestamp
 
