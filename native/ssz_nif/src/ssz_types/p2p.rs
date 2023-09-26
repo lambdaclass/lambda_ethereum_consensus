@@ -1,6 +1,6 @@
 use super::{config::Config, *};
 use ssz_derive::{Decode, Encode};
-use ssz_types::{BitVector};
+use ssz_types::BitVector;
 use tree_hash_derive::TreeHash;
 
 // MAX_REQUEST_BLOCKS
