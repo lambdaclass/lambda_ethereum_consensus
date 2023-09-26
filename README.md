@@ -187,11 +187,23 @@ The iex terminal can be closed by pressing ctrl+c two times.
 
 ## Consensus spec tests
 
-These can be run with:
+You can run all of them with:
 
 ```shell
 make spec-test
 ```
+
+Or only run those of a specific test runner with:
+
+```shell
+make spec-test-`runner`
+# some examples
+make spec-test-ssz_static
+make spec-test-bls
+make spec-test-operations
+```
+
+The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
 
 For more fine-grained filtering of tests, you can use mix test tag filters:
 
