@@ -5,6 +5,15 @@ defmodule SpecTestCase do
   @enforce_keys [:config, :fork, :runner, :handler, :suite, :case]
   defstruct [:config, :fork, :runner, :handler, :suite, :case]
 
+  @type t :: %__MODULE__{
+          config: binary,
+          fork: binary,
+          runner: binary,
+          handler: binary,
+          suite: binary,
+          case: binary
+        }
+
   def new([config, fork, runner, handler, suite, cse]) do
     %__MODULE__{
       config: config,
