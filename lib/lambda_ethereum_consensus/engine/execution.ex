@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.Engine.Execution do
         _ -> false
       end
     else
-      error -> IO.inspect(error)
+      error -> {:error, error}
     end
   end
 

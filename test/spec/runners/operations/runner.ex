@@ -36,7 +36,6 @@ defmodule OperationsTestRunner do
   """
   def run_test_case(%SpecTestCase{config: config} = testcase) do
     config = get_config(config)
-    IO.puts(config)
     case_dir = SpecTestCase.dir(testcase)
     handler = testcase.handler
 
@@ -55,44 +54,68 @@ defmodule OperationsTestRunner do
     handle_case(testcase.handler, pre, operation, post, case_dir, config)
   end
 
-  def handle_case("attestation", pre, operation, post, _case_dir, _config),
-    do: OperationsTestAssert.assert_process_attestation(pre, operation, post)
+  def handle_case("attestation", _pre, _operation, _post, _case_dir, _config) do
+    # TODO
+    assert false
+  end
 
-  def handle_case("attester_slashing", pre, operation, post, _case_dir, _config),
-    do: OperationsTestAssert.assert_process_attester_slashing(pre, operation, post)
+  def handle_case("attester_slashing", _pre, _operation, _post, _case_dir, _config) do
+    # TODO
+    assert false
+  end
 
-  def handle_case("block_header", pre, operation, post, _case_dir, _config),
-    do: OperationsTestAssert.assert_process_block_header(pre, operation, post)
+  def handle_case("block_header", _pre, _operation, _post, _case_dir, _config) do
+    # TODO
+    assert false
+  end
 
-  def handle_case("deposit", pre, operation, post, _case_dir, _config),
-    do: OperationsTestAssert.assert_process_deposit(pre, operation, post)
+  def handle_case("deposit", _pre, _operation, _post, _case_dir, _config) do
+    # TODO
+    assert false
+  end
 
-  def handle_case("proposer_slashing", pre, operation, post, _case_dir, _config),
-    do: OperationsTestAssert.assert_process_proposer_slashing(pre, operation, post)
+  def handle_case("proposer_slashing", _pre, _operation, _post, _case_dir, _config) do
+    # TODO
+    assert false
+  end
 
-  def handle_case("voluntary_exit", pre, operation, post, _case_dir, _config),
-    do: OperationsTestAssert.assert_process_voluntary_exit(pre, operation, post)
+  def handle_case("voluntary_exit", _pre, _operation, _post, _case_dir, _config) do
+    # TODO
+    assert false
+  end
 
-  def handle_case("sync_aggregate", pre, operation, post, _case_dir, _config),
-    do: OperationsTestAssert.assert_process_sync_aggregate(pre, operation, post)
+  def handle_case("sync_aggregate", _pre, _operation, _post, _case_dir, _config) do
+    # TODO
+    assert false
+  end
 
   def handle_case("execution_payload", pre, operation, post, case_dir, config) do
     %{execution_valid: execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.parse_yaml()
 
-    OperationsTestAssert.assert_process_execution_payload(
-      pre,
-      operation,
-      post,
-      execution_valid,
-      config
-    )
+    if post == "no post" do
+      {:ok, "no post"}
+    else
+      new_state =
+        OperationsTestFunctions.test_process_execution_payload(
+          pre,
+          operation,
+          execution_valid,
+          config
+        )
+
+      assert new_state == post
+    end
   end
 
-  def handle_case("withdrawals", pre, operation, post, _case_dir, _config),
-    do: OperationsTestAssert.assert_process_withdrawal(pre, operation, post)
+  def handle_case("withdrawals", _pre, _operation, _post, _case_dir, _config) do
+    # TODO
+    assert false
+  end
 
-  def handle_case("bls_to_execution_change", pre, operation, post, _case_dir, _config),
-    do: OperationsTestAssert.assert_process_bls_to_execution_change(pre, operation, post)
+  def handle_case("bls_to_execution_change", _pre, _operation, _post, _case_dir, _config) do
+    # TODO
+    assert false
+  end
 end

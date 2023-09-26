@@ -22,28 +22,28 @@ defmodule BeaconChain.StateTransition do
       extra_data: payload.extra_data,
       base_fee_per_gas: payload.base_fee_per_gas,
       block_hash: payload.block_hash,
-transactions_root:
-          with {:ok, root} <-
-                 Ssz.hash_list_tree_root_typed(
-                   payload.transactions,
-                   1_048_576,
-                   SszTypes.Transaction,
-                   config
-                 ) do
-            root
-          end,
-        withdrawals_root:
-          with {:ok, root} <-
-                 Ssz.hash_list_tree_root(
-                   payload.withdrawals,
-                   case config do
-                     MainnetConfig -> 16
-                     MinimalConfig -> 4
-                   end,
-                   config
-                 ) do
-            root
-          end
+      transactions_root:
+        with {:ok, root} <-
+               Ssz.hash_list_tree_root_typed(
+                 payload.transactions,
+                 1_048_576,
+                 SszTypes.Transaction,
+                 config
+               ) do
+          root
+        end,
+      withdrawals_root:
+        with {:ok, root} <-
+               Ssz.hash_list_tree_root(
+                 payload.withdrawals,
+                 case config do
+                   MainnetConfig -> 16
+                   MinimalConfig -> 4
+                 end,
+                 config
+               ) do
+          root
+        end
     })
   end
 end
