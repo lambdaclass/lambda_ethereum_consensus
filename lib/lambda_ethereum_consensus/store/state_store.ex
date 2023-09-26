@@ -11,15 +11,16 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
 
   @spec store_state(BeaconState.t()) :: :ok
   def store_state(%BeaconState{} = state) do
-    {:ok, state_root} = Ssz.hash_tree_root(state)
+    # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
+    {:ok, block_root} = Ssz.hash_tree_root(state.latest_block_header)
     {:ok, encoded_state} = Ssz.to_ssz(state)
 
-    key = state_key(state_root)
+    key = state_key(block_root)
     Db.put(key, encoded_state)
 
     # WARN: this overrides any previous mapping for the same slot
-    slothash_key = state_root_by_slot_key(state.slot)
-    Db.put(slothash_key, state_root)
+    slothash_key = root_by_slot_key(state.slot)
+    Db.put(slothash_key, block_root)
   end
 
   @spec get_state(SszTypes.root()) ::
@@ -33,7 +34,7 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   @spec get_state_root_by_slot(SszTypes.slot()) ::
           {:ok, SszTypes.root()} | {:error, String.t()} | :not_found
   def get_state_root_by_slot(slot),
-    do: slot |> state_root_by_slot_key() |> Db.get()
+    do: slot |> root_by_slot_key() |> Db.get()
 
   @spec get_state_by_slot(SszTypes.slot()) ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
@@ -45,5 +46,5 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   end
 
   defp state_key(root), do: Utils.get_key(@state_prefix, root)
-  defp state_root_by_slot_key(slot), do: Utils.get_key(@state_prefix <> @slot_prefix, slot)
+  defp root_by_slot_key(slot), do: Utils.get_key(@state_prefix <> @slot_prefix, slot)
 end
