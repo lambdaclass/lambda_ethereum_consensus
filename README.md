@@ -165,6 +165,7 @@ asdf plugin add elixir
 asdf plugin add erlang
 asdf plugin add golang
 asdf plugin add rust
+asdf plugin add protoc
 ```
 
 Finally, install the specific versions of these tools as specified in `.tool-versions`:
