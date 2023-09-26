@@ -13,25 +13,23 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   @impl true
   def init(_opts) do
     peerbook = %{}
-    pb_size = 0
-    {:ok, {peerbook, pb_size}}
+    {:ok, peerbook}
   end
 
   @impl true
-  def handle_call(:get_some_peer, _, {%{}, 0}), do: {:reply, nil, {%{}, 0}}
+  def handle_call(:get_some_peer, _, %{}), do: {:reply, nil, %{}}
 
   @impl true
-  def handle_call(:get_some_peer, _, {peerbook, pb_size}) do
+  def handle_call(:get_some_peer, _, peerbook) do
     # TODO: use some algorithm to pick a good peer, for now it's random
-    n = :rand.uniform(pb_size) - 1
-    {peer_id, _score} = peerbook |> Enum.at(n)
-    {:reply, peer_id, {peerbook, pb_size}}
+    {peer_id, _score} = Enum.random(peerbook)
+    {:reply, peer_id, peerbook}
   end
 
   @impl true
-  def handle_cast({:new_peer, peer_id}, {peerbook, pb_size}) do
+  def handle_cast({:new_peer, peer_id}, peerbook) do
     updated_peerbook = Map.put(peerbook, peer_id, @initial_score)
-    {:noreply, {updated_peerbook, pb_size + 1}}
+    {:noreply, updated_peerbook}
   end
 
   @doc """
