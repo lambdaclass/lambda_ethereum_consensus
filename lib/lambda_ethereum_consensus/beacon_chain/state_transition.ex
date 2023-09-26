@@ -1,14 +1,14 @@
 defmodule BeaconChain.StateTransition do
   alias LambdaEthereumConsensus.Engine.Execution
 
-  def process_execution_payload(state, payload) do
+  def process_execution_payload(state, payload, config) do
     # Verify prev_randao
     # Verify timestamp
     # Verify the execution payload is valid
     Execution.notify_new_payload(payload)
 
     # Cache execution payload header
-    Map.get_and_update(state, :latest_execution_payload_header, %SszTypes.ExecutionPayloadHeader{
+    Map.put(state, :latest_execution_payload_header, %SszTypes.ExecutionPayloadHeader{
       parent_hash: payload.parent_hash,
       fee_recipient: payload.fee_recipient,
       state_root: payload.state_root,
@@ -22,9 +22,28 @@ defmodule BeaconChain.StateTransition do
       extra_data: payload.extra_data,
       base_fee_per_gas: payload.base_fee_per_gas,
       block_hash: payload.block_hash,
-      # TODO: implement the serialization and deserialization of lists
-      transactions_root: payload.transactions_root,
-      withdrawals_root: payload.withdrawals_root
+transactions_root:
+          with {:ok, root} <-
+                 Ssz.hash_list_tree_root_typed(
+                   payload.transactions,
+                   1_048_576,
+                   SszTypes.Transaction,
+                   config
+                 ) do
+            root
+          end,
+        withdrawals_root:
+          with {:ok, root} <-
+                 Ssz.hash_list_tree_root(
+                   payload.withdrawals,
+                   case config do
+                     MainnetConfig -> 16
+                     MinimalConfig -> 4
+                   end,
+                   config
+                 ) do
+            root
+          end
     })
   end
 end
