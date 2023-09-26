@@ -1,4 +1,8 @@
 defmodule OperationsTestFunctions do
+  @moduledoc """
+  Mocked functions of the internal core functionality of the client
+  """
+
   def test_process_execution_payload(state, payload, _execution_valid, config) do
     # Verify prev_randao
     # Verify timestamp
