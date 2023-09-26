@@ -31,6 +31,7 @@ pub(crate) trait Config {
     type MaxVoluntaryExits: Unsigned;
     type SyncCommitteeSize: Unsigned;
     type SyncCommitteeSubnetCount: Unsigned;
+    type AttestationSubnetCount: Unsigned;
     type MaxBytesPerTransaction: Unsigned;
     type MaxTransactionsPerPayload: Unsigned;
     type BytesPerLogsBloom: Unsigned;
@@ -67,6 +68,7 @@ impl Config for Mainnet {
     type MaxVoluntaryExits = U16;
     type SyncCommitteeSize = U512;
     type SyncCommitteeSubnetCount = U4;
+    type AttestationSubnetCount = U64;
     type MaxBytesPerTransaction = U1073741824; // 1,073,741,824
     type MaxTransactionsPerPayload = U1048576; // 1,048,576
     type BytesPerLogsBloom = U256;
@@ -106,6 +108,7 @@ impl Config for Minimal {
         JustificationBitsLength,
         SubnetBitfieldLength,
         SyncCommitteeSubnetCount,
+        AttestationSubnetCount,
         MaxValidatorsPerCommittee,
         GenesisEpoch,
         HistoricalRootsLimit,
