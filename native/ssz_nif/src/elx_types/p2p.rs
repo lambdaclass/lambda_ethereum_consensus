@@ -34,6 +34,22 @@ gen_struct_with_config!(
     }
 );
 
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlocksByRootRequest"]
+    pub(crate) struct BeaconBlocksByRootRequest<'a> {
+        block_roots: Vec<Root<'a>>,
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlocksByRootResponse"]
+    pub(crate) struct BeaconBlocksByRootResponse<'a> {
+        blocks: Vec<SignedBeaconBlock<'a>>,
+    }
+);
+
 gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "SszTypes.Metadata"]
