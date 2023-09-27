@@ -24,7 +24,6 @@ defmodule OperationsTestRunner do
     "bls_to_execution_change"
   ]
 
-<<<<<<< HEAD
   def get_config("mainnet"), do: MainnetConfig
   def get_config("minimal"), do: MinimalConfig
   def get_config(_), do: raise("Unknown config")
