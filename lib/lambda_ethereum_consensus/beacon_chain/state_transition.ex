@@ -1,4 +1,11 @@
 defmodule BeaconChain.StateTransition do
+  @moduledoc """
+  Core state_transition functions
+  """
+
+  @doc """
+  State_transition function managing the processing / validation of the `ExecutionPayload`
+  """
   def process_execution_payload(state, payload, config) do
     # TODO
     # Config value should come from configuration file enabling correct ssz / de-ssz
