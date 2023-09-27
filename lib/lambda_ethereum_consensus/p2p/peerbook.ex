@@ -10,6 +10,20 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @doc """
+  Add a peer to the peerbook.
+  """
+  def add_peer(peer_id) do
+    GenServer.cast(__MODULE__, {:new_peer, peer_id})
+  end
+
+  @doc """
+  Get some peer from the peerbook.
+  """
+  def get_some_peer do
+    GenServer.call(__MODULE__, :get_some_peer)
+  end
+
   @impl true
   def init(_opts) do
     peerbook = %{}
@@ -30,19 +44,5 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   def handle_cast({:new_peer, peer_id}, peerbook) do
     updated_peerbook = Map.put(peerbook, peer_id, @initial_score)
     {:noreply, updated_peerbook}
-  end
-
-  @doc """
-  Add a peer to the peerbook.
-  """
-  def add_peer(peer_id) do
-    GenServer.cast(__MODULE__, {:new_peer, peer_id})
-  end
-
-  @doc """
-  Get some peer from the peerbook.
-  """
-  def get_some_peer do
-    GenServer.call(__MODULE__, :get_some_peer)
   end
 end
