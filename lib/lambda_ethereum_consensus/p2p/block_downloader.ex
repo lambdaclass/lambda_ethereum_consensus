@@ -7,6 +7,9 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   use Logger
 
   @protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
+  # This is the `ForkDigest` for mainnet in the capella fork
+  # TODO: compute this at runtime
+  @fork_context "BBA4DA96" |> Base.decode16!()
 
   @impl true
   def init([host]) do
@@ -72,7 +75,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         {:error, reason}, _ -> {:error, reason}
       end)
 
-    fork_context = "BBA4DA96" |> Base.decode16!()
+    fork_context = @fork_context
 
     case result do
       {:ok, ""} ->
