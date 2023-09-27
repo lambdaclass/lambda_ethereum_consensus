@@ -165,6 +165,7 @@ asdf plugin add elixir
 asdf plugin add erlang
 asdf plugin add golang
 asdf plugin add rust
+asdf plugin add protoc
 ```
 
 Finally, install the specific versions of these tools as specified in `.tool-versions`:
@@ -187,11 +188,23 @@ The iex terminal can be closed by pressing ctrl+c two times.
 
 ## Consensus spec tests
 
-These can be run with:
+You can run all of them with:
 
 ```shell
 make spec-test
 ```
+
+Or only run those of a specific test runner with:
+
+```shell
+make spec-test-`runner`
+# some examples
+make spec-test-ssz_static
+make spec-test-bls
+make spec-test-operations
+```
+
+The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
 
 For more fine-grained filtering of tests, you can use mix test tag filters:
 
@@ -309,6 +322,7 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/karasakalmt"><img src="https://avatars.githubusercontent.com/u/32202283?v=4?s=100" width="100px;" alt="Mete Karasakal"/><br /><sub><b>Mete Karasakal</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=karasakalmt" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://federicocarrone.com/"><img src="https://avatars.githubusercontent.com/u/569014?v=4?s=100" width="100px;" alt="Federico Carrone"/><br /><sub><b>Federico Carrone</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=unbalancedparentheses" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="http://godspowereze.com"><img src="https://avatars.githubusercontent.com/u/61994334?v=4?s=100" width="100px;" alt="Godspower Eze"/><br /><sub><b>Godspower Eze</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=Godspower-Eze" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/namn-grg"><img src="https://avatars.githubusercontent.com/u/97289118?v=4?s=100" width="100px;" alt="Naman Garg"/><br /><sub><b>Naman Garg</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=namn-grg" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
