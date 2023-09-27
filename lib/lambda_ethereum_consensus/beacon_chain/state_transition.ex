@@ -1,11 +1,11 @@
 defmodule BeaconChain.StateTransition do
-  alias LambdaEthereumConsensus.Engine.Execution
-
   def process_execution_payload(state, payload, config) do
+    # TODO
+    # Config value should come from configuration file enabling correct ssz / de-ssz
+
     # Verify prev_randao
     # Verify timestamp
     # Verify the execution payload is valid
-    Execution.notify_new_payload(payload)
 
     # Cache execution payload header
     Map.put(state, :latest_execution_payload_header, %SszTypes.ExecutionPayloadHeader{

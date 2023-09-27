@@ -6,7 +6,6 @@ defmodule OperationsTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-
   use ExUnit.CaseTemplate
 
   # Remove handler from here once you implement the corresponding functions
