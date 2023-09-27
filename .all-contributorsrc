@@ -101,6 +101,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "namn-grg",
+      "name": "Naman Garg",
+      "avatar_url": "https://avatars.githubusercontent.com/u/97289118?v=4",
+      "profile": "https://github.com/namn-grg",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "commitType": "docs",
