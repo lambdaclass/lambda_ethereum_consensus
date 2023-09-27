@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
+  alias LambdaEthereumConsensus.Store.StateStore
   alias LambdaEthereumConsensus.Utils
 
   use Application
@@ -18,7 +19,10 @@ defmodule LambdaEthereumConsensus.Application do
         :ok
 
       value ->
-        Utils.sync_from_checkpoint(value)
+        case Utils.sync_from_checkpoint(value) do
+          :error -> :ok
+          state -> StateStore.store_state(state)
+        end
     end
 
     {:ok, host} = Libp2p.host_new()

@@ -24,10 +24,12 @@ defmodule LambdaEthereumConsensus.Utils do
 
           _ ->
             IO.puts("There has been an error syncing from checkpoint.")
+            :error
         end
 
       _ ->
         IO.puts("Invalid checkpoint sync url.")
+        :error
     end
   end
 end
