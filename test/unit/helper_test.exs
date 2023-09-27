@@ -1,7 +1,6 @@
 defmodule Unit.HelperTest do
   alias LambdaEthereumConsensus.Beacon.HelperFunctions
   use ExUnit.Case
-  doctest Libp2p
 
   test "compute fork digest" do
     current_version = "A62EF32B" |> Base.decode16!()
