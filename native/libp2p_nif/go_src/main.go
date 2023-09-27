@@ -12,9 +12,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net"
 	"os"
@@ -28,8 +31,10 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/golang/snappy"
 	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -37,6 +42,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
+	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -90,6 +97,34 @@ func convertToInterfacePubkey(pubkey *ecdsa.PublicKey) (crypto.PubKey, error) {
 	return newKey, nil
 }
 
+// Only valid for post-Altair topics
+func msgID(msg *pb.Message) string {
+	if msg == nil || msg.Data == nil || msg.Topic == nil {
+		// Should never happen
+		msg := make([]byte, 20)
+		copy(msg, "invalid")
+		return string(msg)
+	}
+	h := sha256.New()
+	data, err := snappy.Decode(nil, msg.Data)
+	if err != nil {
+		// MESSAGE_DOMAIN_INVALID_SNAPPY
+		h.Write([]byte{0, 0, 0, 0})
+		data = msg.Data
+	} else {
+		// MESSAGE_DOMAIN_VALID_SNAPPY
+		h.Write([]byte{1, 0, 0, 0})
+	}
+	var topicLen [8]byte
+	binary.LittleEndian.PutUint64(topicLen[:], uint64(len(*msg.Topic)))
+	h.Write(topicLen[:])
+	h.Write([]byte(*msg.Topic))
+	h.Write(data)
+	var digest []byte
+	digest = h.Sum(digest)
+	return string(digest[:20])
+}
+
 /*********/
 /* Utils */
 /*********/
@@ -115,17 +150,23 @@ func ListenAddrStrings(listenAddr string) C.uintptr_t {
 //export HostNew
 func HostNew(options []C.uintptr_t) C.uintptr_t {
 	// TODO: move to Elixir side
-	optionsSlice := make([]libp2p.Option, len(options)+2)
-	for i := 0; i < len(options); i++ {
-		optionsSlice[i] = cgo.Handle(options[i]).Value().(libp2p.Option)
+	optionsSlice := []libp2p.Option{
+		libp2p.DefaultMuxers,
+		libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport),
+		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.Security(noise.ID, noise.New),
+		libp2p.DisableRelay(),
+		libp2p.NATPortMap(), // Allow to use UPnP
+		libp2p.Ping(false),
 	}
-	// Needed to support mplex
-	optionsSlice[len(options)] = libp2p.DefaultMuxers
-	optionsSlice[len(options)+1] = libp2p.Muxer("/mplex/6.7.0", mplex.DefaultTransport)
+	for i := 0; i < len(options); i++ {
+		optionsSlice = append(optionsSlice, cgo.Handle(options[i]).Value().(libp2p.Option))
+	}
+
 	h, err := libp2p.New(optionsSlice...)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "libp2p.New err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(h))
@@ -138,14 +179,14 @@ func (h C.uintptr_t) HostClose() {
 }
 
 //export HostSetStreamHandler
-func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.send_message_t) {
+func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.send_message1_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
 	// WARN: we clone the string/[]byte because the underlying buffer is owned by Elixir/C
 	goProtoId := strings.Clone(protoId)
 	goProcId := bytes.Clone(procId)
 	handler := func(stream network.Stream) {
-		C.run_callback(callback, unsafe.Pointer(&goProcId[0]), C.uintptr_t(cgo.NewHandle(stream)))
+		C.run_callback1(callback, unsafe.Pointer(&goProcId[0]), unsafe.Pointer(cgo.NewHandle(stream)))
 	}
 	host.SetStreamHandler(protocol.ID(goProtoId), handler)
 }
@@ -160,24 +201,26 @@ func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t 
 	stream, err := host.NewStream(context.TODO(), peerId, goProtoId)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "host.NewStream err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(stream))
 }
 
 //export HostConnect
-func (h C.uintptr_t) HostConnect(pid C.uintptr_t) int {
+func (h C.uintptr_t) HostConnect(pid C.uintptr_t, procId []byte, callback C.send_message1_t) {
 	host := cgo.Handle(h).Value().(host.Host)
 	peerId := cgo.Handle(pid).Value().(peer.ID)
 	addrInfo := host.Peerstore().PeerInfo(peerId)
-	err := host.Connect(context.TODO(), addrInfo)
-	if err != nil {
-		// TODO: handle in better way
-		// fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 1
-	}
-	return 0
+	goProcId := bytes.Clone(procId)
+	go func() {
+		err := host.Connect(context.Background(), addrInfo)
+		var errorMsg *C.char
+		if err != nil {
+			errorMsg = C.CString(err.Error())
+		}
+		C.run_callback1(callback, unsafe.Pointer(&goProcId[0]), unsafe.Pointer(errorMsg))
+	}()
 }
 
 //export HostPeerstore
@@ -217,7 +260,8 @@ func (s C.uintptr_t) StreamRead(buffer []byte) int {
 	n, err := stream.Read(buffer)
 	if err != nil && err != io.EOF {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		// Commenting because it's too spammy
+		// fmt.Fprintf(os.Stderr, "stream.Read err: %s\n", err)
 		return -1
 	}
 	return n
@@ -229,7 +273,8 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 	n, err := stream.Write(data)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		// Commenting because it's too spammy
+		// fmt.Fprintf(os.Stderr, "stream.Write err: %s\n", err)
 		return -1
 	}
 	return n
@@ -249,6 +294,18 @@ func (s C.uintptr_t) StreamCloseWrite() {
 	handle.Value().(network.Stream).CloseWrite()
 }
 
+//export StreamProtocol
+func (s C.uintptr_t) StreamProtocol(buffer []byte) int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	return copy(buffer, stream.Protocol())
+}
+
+//export StreamProtocolLen
+func (s C.uintptr_t) StreamProtocolLen() int {
+	stream := cgo.Handle(s).Value().(network.Stream)
+	return len(stream.Protocol())
+}
+
 /***************/
 /** Discovery **/
 /***************/
@@ -258,25 +315,25 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 	udpAddr, err := net.ResolveUDPAddr("udp", strAddr)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "net.ResolveUDPAddr err: %s\n", err)
 		return 0
 	}
 	conn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "net.ListenUDP err: %s\n", err)
 		return 0
 	}
 	intPrivKey, _, err := crypto.GenerateSecp256k1Key(rand.Reader)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "crypto.GenerateSecp256k1Key err: %s\n", err)
 		return 0
 	}
 	privKey, err := convertFromInterfacePrivKey(intPrivKey)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "convertFromInterfacePrivKey err: %s\n", err)
 		return 0
 	}
 
@@ -287,7 +344,7 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 		bootnodes = append(bootnodes, bootnode)
 		if err != nil {
 			// TODO: handle in better way
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			fmt.Fprintf(os.Stderr, "enode.Parse err: %s\n", err)
 			return 0
 		}
 	}
@@ -312,7 +369,7 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 	db, err := enode.OpenDB("")
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "enode.OpenDB err: %s\n", err)
 		return 0
 	}
 	localNode := enode.NewLocalNode(db, privKey)
@@ -325,7 +382,7 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 	listener, err := discover.ListenV5(conn, localNode, cfg)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "discover.ListenV5 err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(listener))
@@ -363,7 +420,7 @@ func (n C.uintptr_t) NodeMultiaddr() C.uintptr_t {
 		addr, err := multiaddr.NewMultiaddr(str)
 		if err != nil {
 			// TODO: handle in better way
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			fmt.Fprintf(os.Stderr, "multiaddr.NewMultiaddr err: %s\n", err)
 			return 0
 		}
 		addrArr = append(addrArr, addr)
@@ -372,7 +429,7 @@ func (n C.uintptr_t) NodeMultiaddr() C.uintptr_t {
 		addr, err := multiaddr.NewMultiaddr(str)
 		if err != nil {
 			// TODO: handle in better way
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			fmt.Fprintf(os.Stderr, "multiaddr.NewMultiaddr err: %s\n", err)
 			return 0
 		}
 		addrArr = append(addrArr, addr)
@@ -388,13 +445,13 @@ func (n C.uintptr_t) NodeID() C.uintptr_t {
 	key, err := convertToInterfacePubkey(node.Pubkey())
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "convertToInterfacePubkey err: %s\n", err)
 		return 0
 	}
 	nodeID, err := peer.IDFromPublicKey(key)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "peer.IDFromPublicKey err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(nodeID))
@@ -409,19 +466,46 @@ func NewGossipSub(h C.uintptr_t) C.uintptr_t {
 	host := cgo.Handle(h).Value().(host.Host)
 	// TODO: receive options by parameter
 	heartbeat := 700 * time.Millisecond
-	params := pubsub.DefaultGossipSubParams()
-	params.D = 8
-	params.Dlo = 6
-	params.HeartbeatInterval = heartbeat
-	params.FanoutTTL = 60 * time.Second
-	params.HistoryLength = 6
-	params.HistoryGossip = 3
+	gsubParams := pubsub.DefaultGossipSubParams()
+	gsubParams.D = 8
+	gsubParams.Dlo = 6
+	gsubParams.HeartbeatInterval = heartbeat
+	gsubParams.FanoutTTL = 60 * time.Second
+	gsubParams.HistoryLength = 6
+	gsubParams.HistoryGossip = 3
+
+	thresholds := &pubsub.PeerScoreThresholds{
+		GossipThreshold:             -4000,
+		PublishThreshold:            -8000,
+		GraylistThreshold:           -16000,
+		AcceptPXThreshold:           100,
+		OpportunisticGraftThreshold: 5,
+	}
+	scoreParams := &pubsub.PeerScoreParams{
+		Topics:        make(map[string]*pubsub.TopicScoreParams),
+		TopicScoreCap: 32.72,
+		AppSpecificScore: func(p peer.ID) float64 {
+			return 0
+		},
+		AppSpecificWeight:           1,
+		IPColocationFactorWeight:    -35.11,
+		IPColocationFactorThreshold: 10,
+		IPColocationFactorWhitelist: nil,
+		BehaviourPenaltyWeight:      -15.92,
+		BehaviourPenaltyThreshold:   6,
+		BehaviourPenaltyDecay:       math.Pow(0.01, 1/float64(10*32)),
+		DecayInterval:               12 * time.Second,
+		DecayToZero:                 0.01,
+		RetainScore:                 100 * 32 * 12 * time.Second,
+	}
 
 	// TODO: add more options, especially WithMessageIdFn
 	options := []pubsub.Option{
 		pubsub.WithMessageSignaturePolicy(pubsub.StrictNoSign),
 		pubsub.WithNoAuthor(),
-		pubsub.WithGossipSubParams(params),
+		pubsub.WithMessageIdFn(msgID),
+		pubsub.WithPeerScore(scoreParams, thresholds),
+		pubsub.WithGossipSubParams(gsubParams),
 		pubsub.WithSeenMessagesTTL(550 * heartbeat),
 		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
 	}
@@ -429,7 +513,7 @@ func NewGossipSub(h C.uintptr_t) C.uintptr_t {
 	gsub, err := pubsub.NewGossipSub(context.TODO(), host, options...)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "pubsub.NewGossipSub err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(gsub))
@@ -443,23 +527,45 @@ func (ps C.uintptr_t) PubSubJoin(topicStr string) C.uintptr_t {
 	topic, err := psub.Join(goTopicStr)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "psub.Join err: %s\n", err)
 		return 0
 	}
 	return C.uintptr_t(cgo.NewHandle(topic))
 }
 
 //export TopicSubscribe
-func (tp C.uintptr_t) TopicSubscribe() C.uintptr_t {
-	// WARN: we clone the string because the underlying buffer is owned by Elixir
+func (tp C.uintptr_t) TopicSubscribe(procId []byte, callback C.send_message1_t) C.uintptr_t {
+	// WARN: we clone the string/bytes because the underlying buffer is owned by Elixir/C
 	topic := cgo.Handle(tp).Value().(*pubsub.Topic)
+	goProcId := bytes.Clone(procId)
+
 	sub, err := topic.Subscribe()
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "topic.Subscribe err: %s\n", err)
 		return 0
 	}
+	go asyncFetchMessages(sub, goProcId, callback)
 	return C.uintptr_t(cgo.NewHandle(sub))
+}
+
+// Reads messages from the subscription and sends them to the subscribed process
+func asyncFetchMessages(sub *pubsub.Subscription, procId []byte, callback C.send_message1_t) {
+	for {
+		msg, err := sub.Next(context.Background())
+		if err == pubsub.ErrSubscriptionCancelled {
+			// Subscription has been cancelled
+			C.run_callback1(callback, unsafe.Pointer(&procId[0]), nil)
+			return
+		} else if err != nil {
+			// This shouldn't happen
+			panic(err)
+		}
+		if !C.run_callback1(callback, unsafe.Pointer(&procId[0]), unsafe.Pointer(cgo.NewHandle(msg))) {
+			sub.Cancel()
+			return
+		}
+	}
 }
 
 //export TopicPublish
@@ -469,26 +575,17 @@ func (tp C.uintptr_t) TopicPublish(data []byte) int {
 	err := topic.Publish(context.TODO(), data)
 	if err != nil {
 		// TODO: handle in better way
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "topic.Publish err: %s\n", err)
 		return 1
 	}
 	return 0
 }
 
-//export SubscriptionNext
-func (sub C.uintptr_t) SubscriptionNext(cErr **C.char) C.uintptr_t {
+//export SubscriptionCancel
+func (sub C.uintptr_t) SubscriptionCancel() {
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
 	subscription := cgo.Handle(sub).Value().(*pubsub.Subscription)
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Microsecond)
-	defer cancel()
-	message, err := subscription.Next(ctx)
-
-	if err == nil {
-		return C.uintptr_t(cgo.NewHandle(message))
-	} else if err != context.DeadlineExceeded {
-		*cErr = C.CString(err.Error())
-	}
-	return 0
+	subscription.Cancel()
 }
 
 //export MessageData

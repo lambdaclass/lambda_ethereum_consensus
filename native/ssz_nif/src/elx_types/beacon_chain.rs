@@ -155,6 +155,18 @@ gen_struct_with_config!(
     }
 );
 
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlock"]
+    pub(crate) struct BeaconBlock<'a> {
+        slot: Slot,
+        proposer_index: ValidatorIndex,
+        parent_root: Root<'a>,
+        state_root: Root<'a>,
+        body: BeaconBlockBody<'a>,
+    }
+);
+
 gen_struct!(
     #[derive(NifStruct)]
     #[module = "SszTypes.BeaconBlockHeader"]
@@ -181,6 +193,15 @@ gen_struct!(
     #[module = "SszTypes.SignedVoluntaryExit"]
     pub(crate) struct SignedVoluntaryExit<'a> {
         message: VoluntaryExit,
+        signature: BLSSignature<'a>,
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.SignedBeaconBlock"]
+    pub(crate) struct SignedBeaconBlock<'a> {
+        message: BeaconBlock<'a>,
         signature: BLSSignature<'a>,
     }
 );
@@ -349,5 +370,23 @@ gen_struct_with_config!(
         next_withdrawal_validator_index: ValidatorIndex, // [New in Capella]
         // Deep history valid from Capella onwards
         historical_summaries: Vec<HistoricalSummary<'a>>, // [New in Capella]
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlockBody"]
+    pub(crate) struct BeaconBlockBody<'a> {
+        randao_reveal: BLSSignature<'a>,
+        eth1_data: Eth1Data<'a>,
+        graffiti: Bytes32<'a>,
+        proposer_slashings: Vec<ProposerSlashing<'a>>,
+        attester_slashings: Vec<AttesterSlashing<'a>>,
+        attestations: Vec<Attestation<'a>>,
+        deposits: Vec<Deposit<'a>>,
+        voluntary_exits: Vec<SignedVoluntaryExit<'a>>,
+        sync_aggregate: SyncAggregate<'a>,
+        execution_payload: ExecutionPayload<'a>,
+        bls_to_execution_changes: Vec<SignedBLSToExecutionChange<'a>>,
     }
 );

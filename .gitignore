@@ -37,12 +37,20 @@ lambda_ethereum_consensus-*.tar
 *.o
 *.a
 *.so
-native/libp2p_nif/main.h
+native/libp2p_nif/go_src/main.h
 
 # VSCode configuration dir.
 .vscode/
 
-!libp2p/utils.h
-
 tests
 *.tar.gz
+
+
+libp2p_port/libp2p_port
+
+# Proto generated code.
+lib/proto
+libp2p_port/internal/proto
+
+# local db.
+level_db

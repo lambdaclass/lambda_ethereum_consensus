@@ -3,17 +3,17 @@
 //! Structs that implement [`ssz::Encode`] and [`ssz::Decode`].
 
 mod beacon_chain;
-pub(crate) mod config;
+mod p2p;
+mod validator;
 
 pub(crate) use beacon_chain::*;
+pub(crate) use p2p::*;
+pub(crate) use validator::*;
+
+pub(crate) mod config;
+
 use ssz_derive::{Decode, Encode};
 use ssz_types::{typenum, FixedVector, VariableList};
-
-// This type is a little-endian encoded uint256.
-// We use this to because of Erlang's NIF limitations.
-#[derive(Clone, Copy, Encode, Decode)]
-#[ssz(struct_behaviour = "transparent")]
-pub(crate) struct Uint256(pub(crate) [u8; 32]);
 
 type Bytes4 = [u8; 4];
 type Bytes20 = FixedVector<u8, typenum::U20>;
@@ -38,6 +38,31 @@ type BLSPubkey = Bytes48;
 type BLSSignature = Bytes96;
 #[allow(dead_code)]
 type ParticipationFlags = u8;
-type Transaction = VariableList<u8, /* `MAX_BYTES_PER_TRANSACTION` */ typenum::U1073741824>;
+pub(crate) type Transaction =
+    VariableList<u8, /* `MAX_BYTES_PER_TRANSACTION` */ typenum::U1073741824>;
 type ExecutionAddress = Bytes20;
 type WithdrawalIndex = u64;
+
+// This type is a little-endian encoded uint256.
+// We use this to because of Erlang's NIF limitations.
+#[derive(Clone, Copy, Encode, Decode)]
+#[ssz(struct_behaviour = "transparent")]
+pub(crate) struct Uint256(pub(crate) [u8; 32]);
+
+impl tree_hash::TreeHash for Uint256 {
+    fn tree_hash_type() -> tree_hash::TreeHashType {
+        <[u8; 32]>::tree_hash_type()
+    }
+
+    fn tree_hash_packed_encoding(&self) -> tree_hash::PackedEncoding {
+        self.0.tree_hash_packed_encoding()
+    }
+
+    fn tree_hash_packing_factor() -> usize {
+        <[u8; 32]>::tree_hash_packing_factor()
+    }
+
+    fn tree_hash_root(&self) -> tree_hash::Hash256 {
+        self.0.tree_hash_root()
+    }
+}

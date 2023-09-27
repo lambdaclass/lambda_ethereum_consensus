@@ -5,11 +5,14 @@
 //! [`FromSsz`] implementations to convert between the types.
 
 mod beacon_chain;
-pub(crate) use beacon_chain::*;
-use rustler::Binary;
+mod p2p;
+mod validator;
 
-// This type should be a little-endian encoded uint256.
-type Uint256<'a> = Binary<'a>;
+pub(crate) use beacon_chain::*;
+pub(crate) use p2p::*;
+pub(crate) use validator::*;
+
+use rustler::Binary;
 
 type Bytes4<'a> = Binary<'a>;
 type Bytes20<'a> = Binary<'a>;
@@ -34,6 +37,9 @@ type BLSPubkey<'a> = Bytes48<'a>;
 type BLSSignature<'a> = Bytes96<'a>;
 #[allow(dead_code)]
 type ParticipationFlags = u8;
-type Transaction<'a> = Binary<'a>; // max size: 1073741824
+pub(crate) type Transaction<'a> = Binary<'a>; // max size: 1073741824
 type ExecutionAddress<'a> = Bytes20<'a>;
 type WithdrawalIndex = u64;
+
+// This type should be a little-endian encoded uint256.
+type Uint256<'a> = Binary<'a>;

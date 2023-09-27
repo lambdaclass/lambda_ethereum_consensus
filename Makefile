@@ -1,5 +1,6 @@
-.PHONY: iex deps test clean compile-native fmt \
-		clean-vectors download-vectors uncompress-vectors
+.PHONY: iex deps test spec-test lint clean compile-native fmt \
+		clean-vectors download-vectors uncompress-vectors proto compile_port \
+		spec-test-%
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -18,7 +19,7 @@ OUTPUT_DIR = priv/native
 DIRS=$(OUTPUT_DIR)
 $(info $(shell mkdir -p $(DIRS)))
 
-GO_SOURCES = $(LIBP2P_DIR)/main.go
+GO_SOURCES = $(LIBP2P_DIR)/go_src/main.go
 GO_ARCHIVES := $(patsubst %.go,%.a,$(GO_SOURCES))
 GO_HEADERS := $(patsubst %.go,%.h,$(GO_SOURCES))
 
@@ -26,15 +27,13 @@ CFLAGS = -Wall -Werror
 CFLAGS += -Wl,-undefined -Wl,dynamic_lookup -fPIC -shared
 CFLAGS += -I$(ERLANG_INCLUDES)
 
-$(LIBP2P_DIR)/%.a $(LIBP2P_DIR)/%.h: $(LIBP2P_DIR)/%.go
-	cd $(LIBP2P_DIR); \
-	go get; \
-	go install; \
+$(LIBP2P_DIR)/go_src/%.a $(LIBP2P_DIR)/go_src/%.h: $(LIBP2P_DIR)/go_src/%.go
+	cd $(LIBP2P_DIR)/go_src; \
 	go build -buildmode=c-archive $*.go
 
-$(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c
-	gcc $(CFLAGS) -o $@ \
-		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/utils.c $(GO_ARCHIVES)
+$(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/go_src/utils.c
+	gcc $(CFLAGS) -I $(LIBP2P_DIR)/go_src -o $@ \
+		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/go_src/utils.c $(GO_ARCHIVES)
 
 
 ##### SPEC TEST VECTORS #####
@@ -68,20 +67,38 @@ clean:
 # Compile C and Go artifacts.
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
+
 # Run an interactive terminal with the main supervisor setup.
-iex: compile-native
+start: compile-native compile_port
+	iex -S mix phx.server
+
+# Run an interactive terminal with the main supervisor setup.
+iex: compile-native compile_port
 	iex -S mix
 
 # Install mix dependencies.
 deps:
+	mix escript.install hex protobuf
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	asdf reshim
+	protoc --go_out=./libp2p_port proto/libp2p.proto
+	protoc --elixir_out=./lib proto/libp2p.proto
+
+	cd $(LIBP2P_DIR)/go_src; \
+	go get && go install
+	cd libp2p_port; \
+	go get && go install
 	mix deps.get
 
 # Run tests
 test: compile-native
 	mix test --no-start --exclude spectest
 
-spec-test: compile-native tests/minimal tests/general #$(SPECTEST_DIRS)
+spec-test: compile-native $(SPECTEST_DIRS)
 	mix test --no-start --only implemented_spectest
+
+spec-test-%: compile-native $(SPECTEST_DIRS)
+	mix test --no-start --only runner:$*
 
 lint:
 	mix format --check-formatted
@@ -93,3 +110,11 @@ fmt:
 	cd native/snappy_nif; cargo fmt
 	cd native/ssz_nif; cargo fmt
 	cd native/bls_nif; cargo fmt
+
+# Generate protobof code
+proto:
+	protoc --go_out=./libp2p_port proto/libp2p.proto
+	protoc --elixir_out=./lib proto/libp2p.proto
+
+compile_port:
+	cd libp2p_port; go build

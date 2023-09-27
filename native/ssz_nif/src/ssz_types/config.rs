@@ -1,10 +1,12 @@
-use ssz_types::typenum::*;
+// Taken from lighthouse
+
+use ssz_types::typenum::{self, *};
 
 pub type U5000 = UInt<UInt<UInt<U625, B0>, B0>, B0>; // 625 * 8 = 5000
 
-/// Macro to inherit some type values from another EthSpec.
+/// Macro to inherit some type values from another `Config`.
 #[macro_export]
-macro_rules! params_from_eth_spec {
+macro_rules! inherit_from {
     ($spec_ty:ty { $($ty_name:ident),+ }) => {
         $(type $ty_name = <$spec_ty as Config>::$ty_name;)+
     }
@@ -29,17 +31,20 @@ pub(crate) trait Config {
     type MaxVoluntaryExits: Unsigned;
     type SyncCommitteeSize: Unsigned;
     type SyncCommitteeSubnetCount: Unsigned;
+    type AttestationSubnetCount: Unsigned;
     type MaxBytesPerTransaction: Unsigned;
     type MaxTransactionsPerPayload: Unsigned;
     type BytesPerLogsBloom: Unsigned;
     type GasLimitDenominator: Unsigned;
     type MinGasLimit: Unsigned;
     type MaxExtraDataBytes: Unsigned;
-    type SyncSubcommitteeSize: Unsigned;
-    type MaxPendingAttestations: Unsigned;
-    type SlotsPerEth1VotingPeriod: Unsigned;
     type MaxBlsToExecutionChanges: Unsigned;
     type MaxWithdrawalsPerPayload: Unsigned;
+
+    // Derived constants. Ideally, this would be trait defaults.
+    type SyncSubcommitteeSize: Unsigned; // SYNC_COMMITTEE_SIZE / SYNC_COMMITTEE_SUBNET_COUNT
+    type MaxPendingAttestations: Unsigned; // MAX_ATTESTATIONS * SLOTS_PER_EPOCH
+    type SlotsPerEth1VotingPeriod: Unsigned; // EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
 }
 
 pub(crate) struct Mainnet;
@@ -63,17 +68,22 @@ impl Config for Mainnet {
     type MaxVoluntaryExits = U16;
     type SyncCommitteeSize = U512;
     type SyncCommitteeSubnetCount = U4;
+    type AttestationSubnetCount = U64;
     type MaxBytesPerTransaction = U1073741824; // 1,073,741,824
     type MaxTransactionsPerPayload = U1048576; // 1,048,576
     type BytesPerLogsBloom = U256;
     type GasLimitDenominator = U1024;
     type MinGasLimit = U5000;
     type MaxExtraDataBytes = U32;
-    type SyncSubcommitteeSize = U128; // 512 committee size / 4 sync committee subnet count
-    type MaxPendingAttestations = U4096; // 128 max attestations * 32 slots per epoch
-    type SlotsPerEth1VotingPeriod = U2048; // 64 epochs * 32 slots per epoch
     type MaxBlsToExecutionChanges = U16;
     type MaxWithdrawalsPerPayload = U16;
+
+    // Derived constants. Ideally, this would be trait defaults.
+    type SyncSubcommitteeSize =
+        typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 512 committee size / 4 sync committee subnet count
+    type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 32 slots per epoch
+    type SlotsPerEth1VotingPeriod =
+        typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 64 epochs * 32 slots per epoch
 }
 
 pub(crate) struct Minimal;
@@ -85,15 +95,20 @@ impl Config for Minimal {
     type EpochsPerHistoricalVector = U64;
     type EpochsPerSlashingsVector = U64;
     type SyncCommitteeSize = U32;
-    type SyncSubcommitteeSize = U8; // 32 committee size / 4 sync committee subnet count
-    type MaxPendingAttestations = U1024; // 128 max attestations * 8 slots per epoch
-    type SlotsPerEth1VotingPeriod = U32; // 4 epochs * 8 slots per epoch
     type MaxWithdrawalsPerPayload = U4;
 
-    params_from_eth_spec!(Mainnet {
+    // Derived constants. Ideally, this would be trait defaults.
+    type SyncSubcommitteeSize =
+        typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 32 committee size / 4 sync committee subnet count
+    type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 8 slots per epoch
+    type SlotsPerEth1VotingPeriod =
+        typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 4 epochs * 8 slots per epoch
+
+    inherit_from!(Mainnet {
         JustificationBitsLength,
         SubnetBitfieldLength,
         SyncCommitteeSubnetCount,
+        AttestationSubnetCount,
         MaxValidatorsPerCommittee,
         GenesisEpoch,
         HistoricalRootsLimit,

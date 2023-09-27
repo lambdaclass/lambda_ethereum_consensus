@@ -14,19 +14,15 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   @impl true
   def init([gsub]) do
     topics = [
-      # use type SignedBeaconBlock
-      {"beacon_block", SszTypes.SignedBeaconBlockHeader},
-      # use type SignedAggregateAndProof
-      {"beacon_aggregate_and_proof", SszTypes.SignedBeaconBlockHeader},
-      {"beacon_attestation_0", SszTypes.Attestation},
-      {"voluntary_exit", SszTypes.SignedVoluntaryExit},
-      {"proposer_slashing", SszTypes.ProposerSlashing},
-      {"attester_slashing", SszTypes.AttesterSlashing},
-      # use type SignedContributionAndProof
-      {"sync_committee_contribution_and_proof", SszTypes.SignedBeaconBlockHeader},
-      # use type SyncCommitteeMessage
-      {"sync_committee_0", SszTypes.SignedBeaconBlockHeader},
-      {"bls_to_execution_change", SszTypes.SignedBLSToExecutionChange}
+      {"beacon_block", SszTypes.SignedBeaconBlock}
+      # {"beacon_attestation_0", SszTypes.Attestation},
+      # {"voluntary_exit", SszTypes.SignedVoluntaryExit},
+      # {"proposer_slashing", SszTypes.ProposerSlashing},
+      # {"attester_slashing", SszTypes.AttesterSlashing},
+      # {"bls_to_execution_change", SszTypes.SignedBLSToExecutionChange},
+      # {"beacon_aggregate_and_proof", SszTypes.SignedAggregateAndProof}
+      # {"sync_committee_contribution_and_proof", SszTypes.SignedContributionAndProof},
+      # {"sync_committee_0", SszTypes.SyncCommitteeMessage}
     ]
 
     children =

@@ -68,7 +68,11 @@ jobs:
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
     - name: Install dependencies
-      run: mix deps.get
+      run: |
+        sudo apt-get install -y protobuf-compiler
+        mix escript.install --force hex protobuf
+        protoc --elixir_out=./lib proto/libp2p.proto
+        mix deps.get
     - name: Set up cargo cache
       uses: Swatinem/rust-cache@v2
       with:
@@ -116,7 +120,11 @@ jobs:
       with:
         workspaces: ${{ env.RUST_WORKSPACES }}
     - name: Install dependencies
-      run: mix deps.get
+      run: |
+        sudo apt-get install -y protobuf-compiler
+        mix escript.install --force hex protobuf
+        protoc --elixir_out=./lib proto/libp2p.proto
+        mix deps.get
     - name: Run tests
       run: mix test --no-start --trace --exclude spectest
 
@@ -166,7 +174,7 @@ jobs:
     needs: [compile-native, download-spectests]
     strategy:
       matrix:
-        config: ["minimal"] #[ "general", "mainnet", "minimal" ]
+        config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
@@ -198,7 +206,11 @@ jobs:
         with:
           workspaces: ${{ env.RUST_WORKSPACES }}
       - name: Install dependencies
-        run: mix deps.get
+        run: |
+          sudo apt-get install -y protobuf-compiler
+          mix escript.install --force hex protobuf
+          protoc --elixir_out=./lib proto/libp2p.proto
+          mix deps.get
       - name: Uncompress vectors
         run: make tests/${{ matrix.config }}
       - name: Run tests
