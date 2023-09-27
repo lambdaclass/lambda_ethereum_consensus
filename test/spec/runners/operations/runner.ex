@@ -109,8 +109,6 @@ defmodule OperationsTestRunner do
           config
         )
 
-      if new_state == post, do: IO.puts("✅ new_state == post it matches baby!")
-
       assert new_state == post
     end
   end
