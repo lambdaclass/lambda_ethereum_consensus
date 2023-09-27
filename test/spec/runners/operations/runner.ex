@@ -98,7 +98,7 @@ defmodule OperationsTestRunner do
       {:ok, "no post"}
     else
       new_state =
-        OperationsTestFunctions.test_process_execution_payload(
+        BeaconChain.StateTransition.process_execution_payload(
           pre,
           operation,
           execution_valid,
