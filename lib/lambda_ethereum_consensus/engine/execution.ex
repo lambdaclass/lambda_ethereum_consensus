@@ -18,11 +18,11 @@ defmodule LambdaEthereumConsensus.Engine.Execution do
     params = %{"ExecutionPayload" => execution_payload}
 
     case RPC.call(
-             "engine_newPayloadV2",
-             @execution_engine_endpoint,
-             @execution_engine_rpc_version,
-             params
-           ) do
+           "engine_newPayloadV2",
+           @execution_engine_endpoint,
+           @execution_engine_rpc_version,
+           params
+         ) do
       {:ok, result} -> {:ok, result}
       error -> {:error, error}
     end
