@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   """
   alias LambdaEthereumConsensus.P2P
   use GenStage
-  use Logger
+  require Logger
 
   @protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
   # This is the `ForkDigest` for mainnet in the capella fork
