@@ -1,4 +1,4 @@
-defmodule SnappyTest do
+defmodule Unit.SnappyTest do
   use ExUnit.Case
   use ExUnitProperties
   doctest Snappy

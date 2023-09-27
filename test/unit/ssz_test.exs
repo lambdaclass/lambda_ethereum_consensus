@@ -1,4 +1,4 @@
-defmodule SSZTests do
+defmodule Unit.SSZTests do
   use ExUnit.Case
 
   def assert_roundtrip(hex_serialized, %type{} = deserialized) do
@@ -108,6 +108,17 @@ defmodule SSZTests do
         start_slot: 723_101,
         count: 100,
         step: 1
+      }
+    )
+  end
+
+  test "serialize and deserialize Metadata" do
+    assert_roundtrip(
+      "E1ED6200000000009989AFAE2372EC4C07",
+      %SszTypes.Metadata{
+        seq_number: 6_483_425,
+        attnets: Base.decode16!("9989AFAE2372EC4C"),
+        syncnets: Base.decode16!("07")
       }
     )
   end
