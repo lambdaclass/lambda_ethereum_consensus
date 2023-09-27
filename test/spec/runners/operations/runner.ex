@@ -95,7 +95,7 @@ defmodule OperationsTestRunner do
   end
 
   def handle_case("execution_payload", pre, operation, post, case_dir, config) do
-    %{execution_valid: execution_valid} =
+    %{execution_valid: _execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.parse_yaml()
 
@@ -106,9 +106,10 @@ defmodule OperationsTestRunner do
         BeaconChain.StateTransition.process_execution_payload(
           pre,
           operation,
-          execution_valid,
           config
         )
+
+      if new_state == post, do: IO.puts("✅ new_state == post it matches baby!")
 
       assert new_state == post
     end
