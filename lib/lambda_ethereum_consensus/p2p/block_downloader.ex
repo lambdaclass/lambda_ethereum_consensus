@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   """
   alias LambdaEthereumConsensus.P2P
   use GenStage
+  use Logger
 
   @protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
 
@@ -56,7 +57,9 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       block
     else
       # we just ignore the error and continue
-      {:error, _reason} -> request_block(host)
+      {:error, reason} ->
+        Logger.debug("error requesting block: #{reason}")
+        request_block(host)
     end
   end
 
