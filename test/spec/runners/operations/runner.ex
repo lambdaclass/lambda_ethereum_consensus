@@ -4,6 +4,10 @@ defmodule OperationsTestRunner do
   """
 
   use ExUnit.CaseTemplate
+  use TestRunner
+
+
+  use ExUnit.CaseTemplate
 
   # Remove handler from here once you implement the corresponding functions
   # "deposit_receipt" handler is not yet implemented
@@ -20,6 +24,7 @@ defmodule OperationsTestRunner do
     "bls_to_execution_change"
   ]
 
+<<<<<<< HEAD
   def get_config("mainnet"), do: MainnetConfig
   def get_config("minimal"), do: MinimalConfig
   def get_config(_), do: raise("Unknown config")
@@ -27,6 +32,7 @@ defmodule OperationsTestRunner do
   @doc """
   Returns true if the given testcase should be skipped
   """
+  @impl TestRunner
   def skip?(%SpecTestCase{} = testcase) do
     Enum.member?(@disabled_handlers, testcase.handler)
   end
@@ -34,6 +40,7 @@ defmodule OperationsTestRunner do
   @doc """
   Runs the given test case.
   """
+  @impl TestRunner
   def run_test_case(%SpecTestCase{config: config} = testcase) do
     config = get_config(config)
     case_dir = SpecTestCase.dir(testcase)

@@ -1,5 +1,6 @@
 defmodule SSZStaticTestRunner do
   use ExUnit.CaseTemplate
+  use TestRunner
 
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
@@ -20,9 +21,7 @@ defmodule SSZStaticTestRunner do
     "SyncCommitteeMessage"
   ]
 
-  @doc """
-  Returns true if the given testcase should be skipped
-  """
+  @impl TestRunner
   def skip?(%SpecTestCase{handler: handler}) do
     Enum.member?(@disabled, handler)
   end
@@ -31,9 +30,7 @@ defmodule SSZStaticTestRunner do
   def get_config("mainnet"), do: MainnetConfig
   def get_config(_), do: raise("Unknown config")
 
-  @doc """
-  Runs the given test case.
-  """
+  @impl TestRunner
   def run_test_case(%SpecTestCase{config: config} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 

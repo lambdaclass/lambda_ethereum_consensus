@@ -33,3 +33,13 @@ gen_struct_with_config!(
         body: Vec<SignedBeaconBlock<'a>>,
     }
 );
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.Metadata"]
+    pub(crate) struct Metadata<'a> {
+        seq_number: u64,
+        attnets: Binary<'a>,
+        syncnets: Binary<'a>,
+    }
+);
