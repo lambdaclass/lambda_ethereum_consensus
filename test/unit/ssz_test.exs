@@ -177,4 +177,22 @@ defmodule SSZTests do
     assert {:ok, _hash} =
              Ssz.hash_list_tree_root_typed(deserialized, 1_048_576, SszTypes.Transaction)
   end
+
+  test "serialize and deserialize BeaconBlocksByRootRequest" do
+    root = Base.decode16!("2E04DEB062423388AE42D465C4CC14CDD53AE290A7B4541F3217E26E0F039E83")
+    root2 = Base.decode16!("D62A74AE0F933224133C5E6E1827A2835A1E705F0CDFEE3AD25808DDEA5572DB")
+    deserialized = %SszTypes.BeaconBlocksByRootRequest{
+      block_roots: [root, root2]
+    }
+
+    # Test serialization
+    {:ok, serialized} = Ssz.to_ssz(deserialized)
+    # add 4 bytes for the length prefix
+    expected_serialized = <<4::32-little, root::binary, root2::binary>>
+    assert serialized == expected_serialized
+
+    # Test deserialization
+    {:ok, deserialized_back} = Ssz.from_ssz(serialized, SszTypes.BeaconBlocksByRootRequest)
+    assert deserialized_back == deserialized
+  end
 end
