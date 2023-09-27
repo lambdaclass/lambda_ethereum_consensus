@@ -1,4 +1,4 @@
-defmodule SSZTests do
+defmodule Unit.SSZTests do
   use ExUnit.Case
 
   def assert_roundtrip(hex_serialized, %type{} = deserialized) do

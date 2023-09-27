@@ -26,26 +26,22 @@ defmodule LambdaEthereumConsensus.Store.Db do
   @impl true
   def init(db_location) do
     {:ok, ref} = Exleveldb.open(db_location, create_if_missing: true)
-    {:ok, [ref: ref]}
+    {:ok, %{ref: ref}}
   end
 
   @impl true
-  def terminate(_reason, state) do
-    [ref: ref] = state
+  def terminate(_reason, %{ref: ref}) do
     :ok = Exleveldb.close(ref)
   end
 
   @impl true
-  def handle_call({:put, {key, value}}, _from, state) do
-    [ref: ref] = state
+  def handle_call({:put, {key, value}}, _from, %{ref: ref} = state) do
     :ok = Exleveldb.put(ref, key, value)
     {:reply, :ok, state}
   end
 
   @impl true
-  def handle_call({:get, key}, _from, state) do
-    [ref: ref] = state
-
+  def handle_call({:get, key}, _from, %{ref: ref} = state) do
     case Exleveldb.get(ref, key) do
       {:ok, value} ->
         {:reply, {:ok, value}, state}
