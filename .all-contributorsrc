@@ -101,6 +101,24 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "namn-grg",
+      "name": "Naman Garg",
+      "avatar_url": "https://avatars.githubusercontent.com/u/97289118?v=4",
+      "profile": "https://github.com/namn-grg",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "ayushm2003",
+      "name": "Ayush",
+      "avatar_url": "https://avatars.githubusercontent.com/u/62571011?v=4",
+      "profile": "https://github.com/ayushm2003",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "commitType": "docs",
