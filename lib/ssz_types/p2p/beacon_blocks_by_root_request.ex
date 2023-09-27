@@ -14,5 +14,4 @@ defmodule SszTypes.BeaconBlocksByRootRequest do
   @type t :: %__MODULE__{
           block_roots: list(SszTypes.root())
         }
-
 end

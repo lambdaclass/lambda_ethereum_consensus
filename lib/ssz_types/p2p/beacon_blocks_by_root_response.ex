@@ -14,5 +14,4 @@ defmodule SszTypes.BeaconBlocksByRootResponse do
   @type t :: %__MODULE__{
           blocks: list(SszTypes.SignedBeaconBlock.t())
         }
-
 end
