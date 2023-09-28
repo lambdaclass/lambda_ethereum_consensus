@@ -5,7 +5,8 @@ defmodule SpecTestGenerator do
   @runner_map %{
     "ssz_static" => SSZStaticTestRunner,
     "bls" => BLSTestRunner,
-    "operations" => OperationsTestRunner
+    "operations" => OperationsTestRunner,
+    "epoch_processing" => EpochProcessingRunner
   }
 
   def all_cases do
