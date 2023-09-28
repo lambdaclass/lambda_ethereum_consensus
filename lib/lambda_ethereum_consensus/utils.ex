@@ -17,7 +17,13 @@ defmodule LambdaEthereumConsensus.Utils do
         {Tesla.Middleware.Headers, [{"Accept", "application/octet-stream"}]}
       ])
 
-    case get(client, url) do
+    full_url =
+      url
+      |> URI.parse()
+      |> URI.append_path("/eth/v2/debug/beacon/states/finalized")
+      |> URI.to_string()
+
+    case get(client, full_url) do
       {:ok, response} ->
         case Ssz.from_ssz(response.body, SszTypes.BeaconState) do
           {:ok, struct} ->
