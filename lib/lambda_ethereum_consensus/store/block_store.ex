@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   alias LambdaEthereumConsensus.Store.Utils
 
   @block_prefix "block"
-  @slot_prefix "slot"
+  @blockslot_prefix @block_prefix <> "slot"
 
   @spec store_block(SszTypes.BeaconBlock.t()) :: :ok
   def store_block(%SszTypes.BeaconBlock{} = block) do
@@ -48,6 +48,64 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     end
   end
 
+  def stream_missing_blocks_desc do
+    Stream.resource(
+      fn -> init_cursor(0xFFFFFFFFFFFFFFFF) end,
+      &next_slot(&1, :prev),
+      &close_cursor/1
+    )
+    # TODO: we should remove this when we have a genesis block
+    |> Stream.concat([-1])
+    |> Stream.transform(nil, &get_missing_desc/2)
+  end
+
+  def stream_missing_blocks_asc(starting_slot) do
+    [starting_slot - 1]
+    |> Stream.concat(
+      Stream.resource(
+        fn -> init_cursor(starting_slot) end,
+        &next_slot(&1, :next),
+        &close_cursor/1
+      )
+    )
+    |> Stream.transform(nil, &get_missing_asc/2)
+  end
+
+  defp init_cursor(starting_slot) do
+    initial_key = block_root_by_slot_key(starting_slot)
+
+    with {:ok, it} <- Db.iterate_keys(),
+         {:ok, key} <- Exleveldb.iterator_move(it, initial_key),
+         {:ok, _} <-
+           if(key == initial_key, do: Exleveldb.iterator_move(it, :prev)) do
+      it
+    else
+      # DB is empty
+      {:error, :invalid_iterator} -> nil
+    end
+  end
+
+  defp next_slot(nil, _movement), do: {:halt, nil}
+
+  defp next_slot(it, movement) do
+    case Exleveldb.iterator_move(it, movement) do
+      {:ok, @blockslot_prefix <> <<key::64>>} ->
+        {[key], it}
+
+      _ ->
+        {:halt, it}
+    end
+  end
+
+  defp close_cursor(nil), do: :ok
+  defp close_cursor(it), do: :ok = Exleveldb.iterator_close(it)
+
+  def get_missing_desc(slot, nil), do: {[], slot}
+  def get_missing_desc(slot, prev), do: {(prev - 1)..(slot + 1)//-1, slot}
+
+  def get_missing_asc(slot, nil), do: {[], slot}
+  def get_missing_asc(slot, prev), do: {(prev + 1)..(slot - 1)//1, slot}
+
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
-  defp block_root_by_slot_key(slot), do: Utils.get_key(@block_prefix <> @slot_prefix, slot)
+  defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)
 end
