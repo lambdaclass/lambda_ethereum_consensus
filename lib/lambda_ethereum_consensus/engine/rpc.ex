@@ -1,18 +1,17 @@
-defmodule LambdaEthereumConsensus.RPC do
+defmodule LambdaEthereumConsensus.Engine.RPC do
   @moduledoc """
   RPC wrapper enabling calls to compatible endpoints
   """
-
-  alias LambdaEthereumConsensus.JWT
   use Tesla
+  alias LambdaEthereumConsensus.Engine.JWT
 
   plug(Tesla.Middleware.JSON)
 
   @doc """
-  Builds and calls provided endpoint
+  Builds a JSON-RPC request and calls the endpoint
   """
-  @spec call(binary, binary, binary, map()) :: {:error, any} | {:ok, Tesla.Env.t()}
-  def call(method, endpoint, version, params) do
+  @spec rpc_call(binary, binary, binary, map()) :: {:error, any} | {:ok, Tesla.Env.t()}
+  def rpc_call(method, endpoint, version, params) do
     {:ok, token, _claims} = JWT.generate_token()
 
     client =
@@ -34,8 +33,8 @@ defmodule LambdaEthereumConsensus.RPC do
   @doc """
   Validates content of the endpoints response
   """
-  @spec validate_response(any) :: {:ok, any} | {:error, any}
-  def validate_response(result) do
+  @spec validate_rpc_response(any) :: {:ok, any} | {:error, any}
+  def validate_rpc_response(result) do
     if Map.has_key?(result.body, "error") do
       {:error, result.body["error"]["message"]}
     else

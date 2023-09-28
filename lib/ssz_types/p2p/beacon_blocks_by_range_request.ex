@@ -4,14 +4,12 @@ defmodule SszTypes.BeaconBlocksByRangeRequest do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
-  fields = [
+  @enforce_keys [:start_slot, :count]
+  defstruct [
     :start_slot,
     :count,
-    :step
+    step: 1
   ]
-
-  @enforce_keys fields
-  defstruct fields
 
   @type t :: %__MODULE__{
           start_slot: SszTypes.slot(),
