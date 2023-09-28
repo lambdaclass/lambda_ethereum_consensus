@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   end
 
   @impl true
-  def handle_call(:get_some_peer, _, %{}), do: {:reply, nil, %{}}
+  def handle_call(:get_some_peer, _, map) when map == %{}, do: {:reply, nil, %{}}
 
   @impl true
   def handle_call(:get_some_peer, _, peerbook) do
