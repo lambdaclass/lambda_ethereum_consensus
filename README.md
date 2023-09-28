@@ -68,6 +68,17 @@ make test # Runs tests
 
 The iex terminal can be closed by pressing ctrl+c two times.
 
+### Checkpoint Sync
+
+You can also sync from a checkpoint given by a trusted third-party.
+For that, get the URL that serves the checkpoint, and execute the following command:
+
+```shell
+iex -S mix run -- --checkpoint-sync <your_url_here>
+```
+
+Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/)
+
 ## Consensus spec tests
 
 You can run all of them with:
