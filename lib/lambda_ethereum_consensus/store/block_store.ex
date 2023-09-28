@@ -88,14 +88,12 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   defp next_slot(nil, _movement), do: {:halt, nil}
 
   defp next_slot(it, movement) do
-    with {:ok, next_key} <- Exleveldb.iterator_move(it, movement) do
-      case next_key do
-        @blockslot_prefix <> <<key::64>> -> {[key], it}
-        _ -> {:halt, it}
-      end
-    else
-      # DB is not empty, but the "blockslot" table is
-      {:error, :invalid_iterator} -> {:halt, it}
+    case Exleveldb.iterator_move(it, movement) do
+      {:ok, @blockslot_prefix <> <<key::64>>} ->
+        {[key], it}
+
+      _ ->
+        {:halt, it}
     end
   end
 

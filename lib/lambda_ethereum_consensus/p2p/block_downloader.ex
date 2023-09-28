@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   This module requests blocks from peers.
   """
   alias LambdaEthereumConsensus.P2P
-  alias LambdaEthereumConsensus.Store.{StateStore, BlockStore}
+  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   use GenStage
   require Logger
 
