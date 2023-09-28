@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
 
   @spec handle_message(String.t(), SszTypes.SignedBeaconBlock.t()) :: :ok
   def handle_message("/eth2/bba4da96/beacon_block/ssz_snappy", %SignedBeaconBlock{message: block}) do
-    Logger.notice("Block decoded: '#{inspect(block.slot)}'")
+    Logger.notice("Block decoded: '#{block.slot}'")
     BlockStore.store_block(block)
   end
 

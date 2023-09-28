@@ -2,6 +2,90 @@
 
 [![Telegram chat](https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaconsensus%2F&logo=telegram&label=chat&color=neon)](https://t.me/lambdaconsensus)
 
+## Prerequisites
+
+### Direct Installation
+
+You can install the necessary components directly from official sources:
+
+- [Elixir](https://elixir-lang.org/install.html)
+- [Erlang](https://www.erlang.org/downloads)
+- [Go](https://go.dev/doc/install)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Protoc](https://grpc.io/docs/protoc-installation/)
+
+### Alternative (Recommended) Installation
+
+For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
+
+- [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
+
+After installing **asdf**, add the required plugins for managing the tools:
+
+```shell
+asdf plugin add elixir
+asdf plugin add erlang
+asdf plugin add golang
+asdf plugin add rust
+asdf plugin add protoc
+```
+
+Finally, install the specific versions of these tools as specified in `.tool-versions`:
+
+```shell
+asdf install
+```
+
+## Installing and running
+
+There are Makefile targets for these tasks.
+
+```shell
+make deps # Installs dependencies
+make iex  # Runs a terminal with the application started
+make test # Runs tests
+```
+
+The iex terminal can be closed by pressing ctrl+c two times.
+
+## Consensus spec tests
+
+You can run all of them with:
+
+```shell
+make spec-test
+```
+
+Or only run those of a specific test runner with:
+
+```shell
+make spec-test-`runner`
+# some examples
+make spec-test-ssz_static
+make spec-test-bls
+make spec-test-operations
+```
+
+The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
+
+For more fine-grained filtering of tests, you can use mix test tag filters:
+
+```bash
+mix test --no-start --only <tag_name>[:<tag_value>]
+```
+
+> [!NOTE]
+> We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
+
+Some useful tag filters:
+
+- `spectest`: only run spec-tests, same as `make spec-test`
+- `config:general`: only run spec-tests with "general" config
+- `fork:capella`: only run spec-tests of the "capella" fork
+- `runner:ssz_generic`: only run spec-tests of the "ssz_generic" runner
+- `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
+- `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
+
 ## Why Elixir?
 
 Elixir is a functional programming language that runs atop the Erlang Virtual Machine (BEAM). It offers enhanced readability, syntactic sugar, and reduced boilerplate, enabling developers to achieve more with fewer lines of code compared to Erlang. Like Erlang, Elixir compiles to bytecode that is interpreted by the VM. As a result, it inherits several notable properties, including:
@@ -140,90 +224,6 @@ Lambda Ethereum Consensus is more than just a project; it's a community-driven i
 
 **Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
 
-## Prerequisites
-
-### Direct Installation
-
-You can install the necessary components directly from official sources:
-
-- [Elixir](https://elixir-lang.org/install.html)
-- [Erlang](https://www.erlang.org/downloads)
-- [Go](https://go.dev/doc/install)
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Protoc](https://grpc.io/docs/protoc-installation/)
-
-### Alternative (Recommended) Installation
-
-For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
-
-- [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
-
-After installing **asdf**, add the required plugins for managing the tools:
-
-```shell
-asdf plugin add elixir
-asdf plugin add erlang
-asdf plugin add golang
-asdf plugin add rust
-asdf plugin add protoc
-```
-
-Finally, install the specific versions of these tools as specified in `.tool-versions`:
-
-```shell
-asdf install
-```
-
-## Installing and running
-
-There are Makefile targets for these tasks.
-
-```shell
-make deps # Installs dependencies
-make iex  # Runs a terminal with the application started
-make test # Runs tests
-```
-
-The iex terminal can be closed by pressing ctrl+c two times.
-
-## Consensus spec tests
-
-You can run all of them with:
-
-```shell
-make spec-test
-```
-
-Or only run those of a specific test runner with:
-
-```shell
-make spec-test-`runner`
-# some examples
-make spec-test-ssz_static
-make spec-test-bls
-make spec-test-operations
-```
-
-The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
-
-For more fine-grained filtering of tests, you can use mix test tag filters:
-
-```bash
-mix test --no-start --only <tag_name>[:<tag_value>]
-```
-
-> [!NOTE]
-> We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
-
-Some useful tag filters:
-
-- `spectest`: only run spec-tests, same as `make spec-test`
-- `config:general`: only run spec-tests with "general" config
-- `fork:capella`: only run spec-tests of the "capella" fork
-- `runner:ssz_generic`: only run spec-tests of the "ssz_generic" runner
-- `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
-- `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
-
 ## Profiling
 
 ### QCachegrind
@@ -310,7 +310,7 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://www.linkedin.com/in/paul-henrykajfasz/"><img src="https://avatars.githubusercontent.com/u/42912740?v=4?s=100" width="100px;" alt="Paul-Henry Kajfasz"/><br /><sub><b>Paul-Henry Kajfasz</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=phklive" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://www.linkedin.com/in/paul-henrykajfasz/"><img src="https://avatars.githubusercontent.com/u/42912740?v=4?s=100" width="100px;" alt="Paul-Henry Kajfasz"/><br /><sub><b>Paul-Henry Kajfasz</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=phklive" title="Code">💻</a> <a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=phklive" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/MegaRedHand"><img src="https://avatars.githubusercontent.com/u/47506558?v=4?s=100" width="100px;" alt="Tomás"/><br /><sub><b>Tomás</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=MegaRedHand" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/mpaulucci"><img src="https://avatars.githubusercontent.com/u/1040971?v=4?s=100" width="100px;" alt="Martin Paulucci"/><br /><sub><b>Martin Paulucci</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=mpaulucci" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Arkenan"><img src="https://avatars.githubusercontent.com/u/6244161?v=4?s=100" width="100px;" alt="Tomás Arjovsky"/><br /><sub><b>Tomás Arjovsky</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=Arkenan" title="Code">💻</a></td>
