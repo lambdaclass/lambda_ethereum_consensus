@@ -39,8 +39,15 @@ asdf install
 ### Alternative (easier) Installation using Nix 
 To create a sandbox environment with all the required tool chains, use Nix. Steps to get Nix working are as follows:
 
-- Install Nix from the official website: https://nixos.org/download.
-- Alternatively, for a smoother experience you can use the following script from [Determinate Systems](https://zero-to-nix.com/start/install) that takes care of setting up everything for you: 
+1. Install Nix from the official website: https://nixos.org/download.
+2. To allow experimental features (nix develop and nix-command) you might need to do the following:
+
+```shell
+mkdir ~/.config/nix
+echo "experimental-features = nix-command flakes " > ~/.config/nix/nix.conf
+```
+
+Alternatively, for a smoother experience you can use the following script from [Determinate Systems](https://zero-to-nix.com/start/install) that takes care of setting up everything for you:
 
 ```shell 
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
