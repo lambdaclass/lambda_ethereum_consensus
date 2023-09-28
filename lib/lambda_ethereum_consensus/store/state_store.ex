@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   alias SszTypes.BeaconState
 
   @state_prefix "beacon_state"
-  @slot_prefix "slot"
+  @stateslot_prefix @state_prefix <> "slot"
 
   @spec store_state(BeaconState.t()) :: :ok
   def store_state(%BeaconState{} = state) do
@@ -31,6 +31,21 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
     end
   end
 
+  @spec get_latest_state() ::
+          {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
+  def get_latest_state do
+    last_key = root_by_slot_key(0xFFFFFFFFFFFFFFFF)
+
+    with {:ok, it} <- Db.iterate(),
+         {:ok, _} <- Exleveldb.iterator_move(it, last_key),
+         {:ok, {@stateslot_prefix <> _slot, root}} <- Exleveldb.iterator_move(it, :prev),
+         :ok <- Exleveldb.iterator_close(it) do
+      get_state(root)
+    else
+      {:ok, {_key, _value}} -> :not_found
+    end
+  end
+
   @spec get_state_root_by_slot(SszTypes.slot()) ::
           {:ok, SszTypes.root()} | {:error, String.t()} | :not_found
   def get_state_root_by_slot(slot),
@@ -46,5 +61,5 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   end
 
   defp state_key(root), do: Utils.get_key(@state_prefix, root)
-  defp root_by_slot_key(slot), do: Utils.get_key(@state_prefix <> @slot_prefix, slot)
+  defp root_by_slot_key(slot), do: Utils.get_key(@stateslot_prefix, slot)
 end

@@ -24,6 +24,13 @@ defmodule LambdaEthereumConsensus.Store.Db do
     Exleveldb.get(ref, key)
   end
 
+  @spec iterate() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
+  def iterate do
+    ref = GenServer.call(@registered_name, :get_ref)
+    # TODO: wrap cursor to make it DB-agnostic
+    Exleveldb.iterator(ref, [])
+  end
+
   @spec iterate_keys() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
   def iterate_keys do
     ref = GenServer.call(@registered_name, :get_ref)
