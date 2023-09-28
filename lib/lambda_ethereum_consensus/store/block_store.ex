@@ -49,17 +49,33 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   end
 
   def stream_missing_blocks_desc do
-    Stream.resource(&init_cursor/0, &prev_slot/1, &close_cursor/1)
+    Stream.resource(
+      fn -> init_cursor(0xFFFFFFFFFFFFFFFF) end,
+      &next_slot(&1, :prev),
+      &close_cursor/1
+    )
     # TODO: we should remove this when we have a genesis block
     |> Stream.concat([-1])
-    |> Stream.transform(nil, &get_missing/2)
+    |> Stream.transform(nil, &get_missing_desc/2)
   end
 
-  defp init_cursor do
-    max_key = block_root_by_slot_key(0xFFFFFFFFFFFFFFFF)
+  def stream_missing_blocks_asc(starting_slot) do
+    [starting_slot - 1]
+    |> Stream.concat(
+      Stream.resource(
+        fn -> init_cursor(starting_slot - 1) end,
+        &next_slot(&1, :next),
+        &close_cursor/1
+      )
+    )
+    |> Stream.transform(nil, &get_missing_asc/2)
+  end
+
+  defp init_cursor(starting_slot) do
+    initial_key = block_root_by_slot_key(starting_slot)
 
     with {:ok, it} <- Db.iterate_keys(),
-         {:ok, _} <- Exleveldb.iterator_move(it, max_key) do
+         {:ok, _} <- Exleveldb.iterator_move(it, initial_key) do
       it
     else
       # DB is empty
@@ -67,11 +83,11 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     end
   end
 
-  defp prev_slot(nil), do: {:halt, nil}
+  defp next_slot(nil, _movement), do: {:halt, nil}
 
-  defp prev_slot(it) do
-    with {:ok, prev_key} <- Exleveldb.iterator_move(it, :prev) do
-      case prev_key do
+  defp next_slot(it, movement) do
+    with {:ok, next_key} <- Exleveldb.iterator_move(it, movement) do
+      case next_key do
         @blockslot_prefix <> <<key::64>> -> {[key], it}
         _ -> {:halt, it}
       end
@@ -84,8 +100,11 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   defp close_cursor(nil), do: :ok
   defp close_cursor(it), do: :ok = Exleveldb.iterator_close(it)
 
-  def get_missing(slot, nil), do: {[], slot}
-  def get_missing(slot, prev), do: {(prev - 1)..(slot + 1)//-1, slot}
+  def get_missing_desc(slot, nil), do: {[], slot}
+  def get_missing_desc(slot, prev), do: {(prev - 1)..(slot + 1)//-1, slot}
+
+  def get_missing_asc(slot, nil), do: {[], slot}
+  def get_missing_asc(slot, prev), do: {(prev + 1)..(slot - 1)//1, slot}
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
   defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)

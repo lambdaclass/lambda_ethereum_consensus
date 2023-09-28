@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   This module requests blocks from peers.
   """
   alias LambdaEthereumConsensus.P2P
-  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.{StateStore, BlockStore}
   use GenStage
   require Logger
 
@@ -40,7 +40,15 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   def handle_info(:retry, {host, demand}), do: handle_demand(0, {host, demand})
 
   defp request_blocks(host, demand) do
-    BlockStore.stream_missing_blocks_desc()
+    case StateStore.get_latest_state() do
+      {:ok, state} ->
+        Logger.info("Syncing from latest state (slot ##{state.slot})")
+        BlockStore.stream_missing_blocks_asc(state.slot)
+
+      _ ->
+        Logger.info("Syncing from latest block")
+        BlockStore.stream_missing_blocks_desc()
+    end
     |> Stream.take(demand)
     |> Stream.map(&request_block(host, &1))
     |> Stream.map(&wrap_message/1)

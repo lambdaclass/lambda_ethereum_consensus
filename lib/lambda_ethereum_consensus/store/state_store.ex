@@ -37,12 +37,13 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
     last_key = root_by_slot_key(0xFFFFFFFFFFFFFFFF)
 
     with {:ok, it} <- Db.iterate(),
-         {:ok, _} <- Exleveldb.iterator_move(it, last_key),
-         {:ok, {@stateslot_prefix <> _slot, root}} <- Exleveldb.iterator_move(it, :prev),
+         {:ok, _key, _value} <- Exleveldb.iterator_move(it, last_key),
+         {:ok, @stateslot_prefix <> _slot, root} <- Exleveldb.iterator_move(it, :prev),
          :ok <- Exleveldb.iterator_close(it) do
       get_state(root)
     else
-      {:ok, {_key, _value}} -> :not_found
+      {:ok, _key, _value} -> :not_found
+      {:error, :invalid_iterator} -> :not_found
     end
   end
 

@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Utils do
   @moduledoc """
   Set of utility functions used throughout the project
   """
+  require Logger
 
   use Tesla
   plug(Tesla.Middleware.JSON)
@@ -22,13 +23,13 @@ defmodule LambdaEthereumConsensus.Utils do
           {:ok, struct} ->
             struct
 
-          _ ->
-            IO.puts("There has been an error syncing from checkpoint.")
+          {:error, _} ->
+            Logger.error("There has been an error syncing from checkpoint.")
             :error
         end
 
       _ ->
-        IO.puts("Invalid checkpoint sync url.")
+        Logger.error("Invalid checkpoint sync url.")
         :error
     end
   end
