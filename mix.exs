@@ -29,6 +29,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   defp deps do
     [
       {:phoenix, "~> 1.7.7"},
+      {:patch, "~> 0.12.0", only: [:test]},
       {:plug_cowboy, "~> 2.5"},
       {:tesla, "~> 1.4"},
       {:exleveldb, "~> 0.14"},

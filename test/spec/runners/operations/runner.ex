@@ -5,8 +5,7 @@ defmodule OperationsTestRunner do
 
   use ExUnit.CaseTemplate
   use TestRunner
-
-  use ExUnit.CaseTemplate
+  use Patch
 
   # Remove handler from here once you implement the corresponding functions
   # "deposit_receipt" handler is not yet implemented
@@ -99,18 +98,18 @@ defmodule OperationsTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.parse_yaml()
 
-    if post == "no post" do
-      {:ok, "no post"}
-    else
-      new_state =
-        BeaconChain.StateTransition.process_execution_payload(
-          pre,
-          operation,
-          config
-        )
+    # patch(BeaconChain.StateTransition, :process_execution_payload, )
 
-      assert new_state == post
-    end
+    assert(post != "no post")
+
+    new_state =
+      BeaconChain.StateTransition.process_execution_payload(
+        pre,
+        operation,
+        config
+      )
+
+    assert new_state == post
   end
 
   def handle_case("withdrawals", _pre, _operation, _post, _case_dir, _config) do
