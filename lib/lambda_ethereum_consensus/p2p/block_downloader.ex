@@ -23,6 +23,9 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     blocks = request_blocks(host, demand)
     remaining = demand - length(blocks)
 
+    # Since request_blocks always returns the demanded amount,
+    # this can only happen if database is empty, or we don't
+    # have any blocks to request
     if remaining > 0 do
       Process.send_after(self(), :retry, 1000)
     end
