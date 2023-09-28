@@ -19,9 +19,7 @@
           };
 
           rustToolchain = pkgs.rust-bin.stable."1.71.1".default;
-
-          elixir = pkgs.beam.packages.erlang_25.elixir_1_15;
-
+          otp = pkgs.beam.packages.erlang_25;
         in 
         {
           devShells.default = pkgs.mkShell {
@@ -30,15 +28,21 @@
               rustToolchain
               pkgs.go_1_20
               pkgs.gotools
-              elixir
+              otp.erlang
+              otp.elixir
               pkgs.elixir_ls
               pkgs.glibcLocales
+              pkgs.protobuf3_24
             ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libiconv ])
               ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
               CoreFoundation
               CoreServices
               Security
              ]);
+
+            shellHook = ''
+              export PATH="$HOME/go/bin:$HOME/.mix/escripts:$PATH"
+            '';
           };
         }
     );
