@@ -1,13 +1,13 @@
 package proto_helpers
 
-import libp2p "libp2p_port/internal/proto"
+import proto_defs "libp2p_port/internal/proto"
 
-func GossipNotification(topic string, message string) libp2p.Notification {
-	gossip_sub_notification := &libp2p.GossipSub{Topic: topic, Message: message}
-	return libp2p.Notification{N: &libp2p.Notification_Gossip{Gossip: gossip_sub_notification}}
+func GossipNotification(topic string, message string) proto_defs.Notification {
+	gossip_sub_notification := &proto_defs.GossipSub{Topic: topic, Message: message}
+	return proto_defs.Notification{N: &proto_defs.Notification_Gossip{Gossip: gossip_sub_notification}}
 }
 
-func ResponseNotification(id string, success bool, message string) libp2p.Notification {
-	response_notification := &libp2p.Response{Id: id, Success: success, Message: message}
-	return libp2p.Notification{N: &libp2p.Notification_Response{Response: response_notification}}
+func ResponseNotification(id string, success bool, message string) proto_defs.Notification {
+	response_notification := &proto_defs.Response{Id: id, Success: success, Message: message}
+	return proto_defs.Notification{N: &proto_defs.Notification_Response{Response: response_notification}}
 }
