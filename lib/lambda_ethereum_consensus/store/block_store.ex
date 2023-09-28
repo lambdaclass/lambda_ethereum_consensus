@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     [starting_slot - 1]
     |> Stream.concat(
       Stream.resource(
-        fn -> init_cursor(starting_slot - 1) end,
+        fn -> init_cursor(starting_slot) end,
         &next_slot(&1, :next),
         &close_cursor/1
       )
@@ -75,7 +75,9 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     initial_key = block_root_by_slot_key(starting_slot)
 
     with {:ok, it} <- Db.iterate_keys(),
-         {:ok, _} <- Exleveldb.iterator_move(it, initial_key) do
+         {:ok, key} <- Exleveldb.iterator_move(it, initial_key),
+         {:ok, _} <-
+           if(key == initial_key, do: Exleveldb.iterator_move(it, :prev)) do
       it
     else
       # DB is empty
