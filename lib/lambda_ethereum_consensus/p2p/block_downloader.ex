@@ -41,13 +41,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
   defp request_blocks(host, demand) do
     case StateStore.get_latest_state() do
-      {:ok, state} ->
-        Logger.info("Syncing from latest state (slot ##{state.slot})")
-        BlockStore.stream_missing_blocks_asc(state.slot)
-
-      _ ->
-        Logger.info("Syncing from latest block")
-        BlockStore.stream_missing_blocks_desc()
+      {:ok, state} -> BlockStore.stream_missing_blocks_asc(state.slot)
+      _ -> BlockStore.stream_missing_blocks_desc()
     end
     |> Stream.take(demand)
     |> Stream.map(&request_block(host, &1))
