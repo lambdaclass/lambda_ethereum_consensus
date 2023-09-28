@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   This module requests blocks from peers.
   """
   alias LambdaEthereumConsensus.P2P
+  alias LambdaEthereumConsensus.Store.BlockStore
   use GenStage
   require Logger
 
@@ -13,29 +14,46 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
   @impl true
   def init([host]) do
-    {:producer, host}
+    {:producer, {host, 0}}
   end
 
   @impl true
-  def handle_demand(incoming_demand, host) do
-    blocks =
-      for _ <- 0..incoming_demand do
-        request_block(host) |> wrap_message()
-      end
+  def handle_demand(incoming_demand, {host, remaining_demand}) do
+    demand = incoming_demand + remaining_demand
+    blocks = request_blocks(host, demand)
+    remaining = demand - length(blocks)
 
-    {:noreply, blocks, host}
+    # Since request_blocks always returns the demanded amount,
+    # this can only happen if database is empty, or we don't
+    # have any blocks to request
+    if remaining > 0 do
+      Process.send_after(self(), :retry, 1000)
+    end
+
+    {:noreply, blocks, {host, remaining}}
   end
 
-  defp request_block(host) do
-    # TODO: get missing slots from DB
-    start_slot = 7_270_097 + :rand.uniform(100_000)
+  @impl true
+  def handle_info(:retry, {host, 0}), do: {:noreply, [], {host, 0}}
 
+  @impl true
+  def handle_info(:retry, {host, demand}), do: handle_demand(0, {host, demand})
+
+  defp request_blocks(host, demand) do
+    BlockStore.stream_missing_blocks_desc()
+    |> Stream.take(demand)
+    |> Stream.map(&request_block(host, &1))
+    |> Stream.map(&wrap_message/1)
+    |> Enum.to_list()
+  end
+
+  defp request_block(host, slot) do
     # TODO: handle no-peers asynchronously?
     peer_id = get_some_peer()
 
     payload =
       %SszTypes.BeaconBlocksByRangeRequest{
-        start_slot: start_slot,
+        start_slot: slot,
         # TODO: we need to refactor the Snappy library to return
         # the remaining buffer when decompressing
         count: 1
@@ -62,7 +80,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       # we just ignore the error and continue
       {:error, reason} ->
         Logger.debug("error requesting block: #{reason}")
-        request_block(host)
+        request_block(host, slot)
     end
   end
 
