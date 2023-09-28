@@ -77,12 +77,10 @@ iex: compile-native compile_port
 	iex -S mix
 
 # Install mix dependencies.
+
 deps:
-	mix escript.install hex protobuf
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	asdf reshim
-	protoc --go_out=./libp2p_port proto/libp2p.proto
-	protoc --elixir_out=./lib proto/libp2p.proto
+	sh scripts/install_protos.sh
+	sh scripts/make_protos.sh
 
 	cd $(LIBP2P_DIR)/go_src; \
 	go get && go install
@@ -113,8 +111,10 @@ fmt:
 
 # Generate protobof code
 proto:
-	protoc --go_out=./libp2p_port proto/libp2p.proto
-	protoc --elixir_out=./lib proto/libp2p.proto
+	sh scripts/make_protos.sh
 
 compile_port:
 	cd libp2p_port; go build
+
+nix:
+	nix develop -c zsh
