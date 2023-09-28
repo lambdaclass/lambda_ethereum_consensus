@@ -71,7 +71,7 @@ defmodule Unit.Libp2pTest do
     :ok = Libp2p.stream_close_write(recv)
 
     # (sender) Read the "pong" message from the stream
-    "pong" = Libp2p.Stream.from(send) |> Enum.join("")
+    {:ok, "pong"} = Libp2p.stream_read(send)
 
     :ok = Libp2p.stream_close(send)
     :ok = Libp2p.stream_close(recv)

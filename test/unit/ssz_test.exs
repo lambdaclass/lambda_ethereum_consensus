@@ -1,4 +1,4 @@
-defmodule SSZTests do
+defmodule Unit.SSZTests do
   use ExUnit.Case
 
   def assert_roundtrip(hex_serialized, %type{} = deserialized) do
@@ -112,6 +112,17 @@ defmodule SSZTests do
     )
   end
 
+  test "serialize and deserialize Metadata" do
+    assert_roundtrip(
+      "E1ED6200000000009989AFAE2372EC4C07",
+      %SszTypes.Metadata{
+        seq_number: 6_483_425,
+        attnets: Base.decode16!("9989AFAE2372EC4C"),
+        syncnets: Base.decode16!("07")
+      }
+    )
+  end
+
   test "serialize and hash list of VoluntaryExit" do
     deserialized = [
       %SszTypes.VoluntaryExit{
@@ -140,5 +151,30 @@ defmodule SSZTests do
     assert {:ok, ^serialized} = Ssz.to_ssz(deserialized)
     assert {:ok, ^deserialized} = Ssz.list_from_ssz(serialized, SszTypes.VoluntaryExit)
     assert {:ok, _hash} = Ssz.hash_list_tree_root(deserialized, 4)
+  end
+
+  test "serialize and hash list of transactions" do
+    # These would be bytes
+    t1 = "asfasfas"
+    t2 = "18418280192"
+    t3 = "zd9g8as0f70a0sf"
+
+    deserialized = [t1, t2, t3]
+
+    initial_offset = length(deserialized) * 4
+
+    serialized =
+      Enum.join([
+        <<initial_offset::32-little>>,
+        <<initial_offset + byte_size(t1)::32-little>>,
+        <<initial_offset + byte_size(t1) + byte_size(t2)::32-little>>,
+        Enum.join(deserialized)
+      ])
+
+    assert {:ok, ^serialized} = Ssz.to_ssz_typed(deserialized, SszTypes.Transaction)
+    assert {:ok, ^deserialized} = Ssz.list_from_ssz(serialized, SszTypes.Transaction)
+
+    assert {:ok, _hash} =
+             Ssz.hash_list_tree_root_typed(deserialized, 1_048_576, SszTypes.Transaction)
   end
 end
