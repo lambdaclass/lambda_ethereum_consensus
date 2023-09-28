@@ -117,4 +117,7 @@ compile_port:
 	cd libp2p_port; go build
 
 nix:
+	nix develop
+
+nix-zsh:
 	nix develop -c zsh

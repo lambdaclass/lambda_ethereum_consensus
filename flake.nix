@@ -19,7 +19,7 @@
           };
 
           rustToolchain = pkgs.rust-bin.stable."1.71.1".default;
-          otp = pkgs.beam.packages.erlang_25;
+          otp = pkgs.beam.packages.erlang_26;
 
         in 
         {
@@ -30,7 +30,7 @@
               pkgs.go_1_20
               pkgs.gotools
               otp.erlang
-              otp.elixir
+              otp.elixir_1_15
               pkgs.elixir_ls
               pkgs.glibcLocales
               pkgs.protobuf3_24
