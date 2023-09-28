@@ -18,6 +18,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
       "status/1",
       "goodbye/1",
       "ping/1",
+      "beacon_blocks_by_range/2",
       "metadata/2"
     ]
     |> Stream.map(&Enum.join([@prefix, &1, "/ssz_snappy"]))
@@ -117,6 +118,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
       Libp2p.stream_close_write(stream)
     end
   end
+
+  def handle_req(@prefix <> "beacon_blocks_by_range/2/ssz_snappy", _stream), do: nil
 
   def handle_req(protocol, _stream) do
     # This should never happen, since Libp2p only accepts registered protocols
