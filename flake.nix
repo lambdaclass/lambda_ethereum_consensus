@@ -20,6 +20,7 @@
 
           rustToolchain = pkgs.rust-bin.stable."1.71.1".default;
           otp = pkgs.beam.packages.erlang_25;
+          elixir = pkgs.beam.packages.erlang_25.elixir_1_15;
         in 
         {
           devShells.default = pkgs.mkShell {
@@ -39,7 +40,6 @@
               CoreServices
               Security
              ]);
-
             shellHook = ''
               export PATH="$HOME/go/bin:$HOME/.mix/escripts:$PATH"
             '';
