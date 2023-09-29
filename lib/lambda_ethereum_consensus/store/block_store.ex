@@ -77,7 +77,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     with {:ok, it} <- Db.iterate_keys(),
          {:ok, key} <- Exleveldb.iterator_move(it, initial_key),
          {:ok, _} <-
-           if(key == initial_key, do: Exleveldb.iterator_move(it, :prev)) do
+           if(key == initial_key, do: Exleveldb.iterator_move(it, :prev), else: {:ok, nil}) do
       it
     else
       # DB is empty
