@@ -31,6 +31,7 @@ defmodule SpecTestUtils do
   def get_config("minimal"), do: MinimalConfig
   def get_config("mainnet"), do: MainnetConfig
 
+  @spec read_ssz_from_file(binary, module, module) :: {:ok, any}
   def read_ssz_from_file(file_path, ssz_type, config) do
     if File.exists?(file_path) do
       compressed = File.read!(file_path)
