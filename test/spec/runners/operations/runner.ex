@@ -34,23 +34,22 @@ defmodule OperationsTestRunner do
 
     {:ok, pre} =
       SpecTestUtils.read_ssz_from_file(
-        case_dir <> "/pre.ssz",
+        case_dir <> "/pre.ssz_snappy",
         SszTypes.BeaconState,
         config
       )
 
-    # OperationsTestUtils.prepare_test(case_dir, handler, "pre")
-
-    {:ok, operation} =
-      SpecTestUtils.read_ssz_from_file(
-        OperationsTestUtils.resolve_name_from_handler(handler),
+    operation =
+      SpecTestUtils.read_ssz_from_file!(
+        case_dir <>
+          "/" <> OperationsTestUtils.resolve_name_from_handler(handler) <> ".ssz_snappy",
         OperationsTestUtils.resolve_type_from_handler(handler),
         config
       )
 
     {:ok, post} =
       SpecTestUtils.read_ssz_from_file(
-        case_dir <> "/post.ssz",
+        case_dir <> "/post.ssz_snappy",
         SszTypes.BeaconState,
         config
       )

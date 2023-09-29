@@ -42,4 +42,12 @@ defmodule SpecTestUtils do
       {:ok, nil}
     end
   end
+
+  @spec read_ssz_from_file!(binary, module, module) :: any
+  def read_ssz_from_file!(file_path, ssz_type, config) do
+    case read_ssz_from_file(file_path, ssz_type, config) do
+      {:ok, nil} -> raise "File not found: #{file_path}"
+      {:ok, ssz_object} -> ssz_object
+    end
+  end
 end
