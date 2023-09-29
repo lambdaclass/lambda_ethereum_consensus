@@ -3,6 +3,10 @@ option go_package = "./internal/proto;libp2p";
 
 package libp2p_proto;
 
+message InitArgs {
+    repeated string listen_address = 1;
+}
+
 message SubscribeToTopic {
     // Name of the topic to subscribe to.
     string name = 1;

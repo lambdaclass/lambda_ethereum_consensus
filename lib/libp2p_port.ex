@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
-  alias Libp2pProto.{Command, Notification, SubscribeToTopic, UnsubscribeFromTopic}
+  alias Libp2pProto.{Command, InitArgs, Notification, SubscribeToTopic, UnsubscribeFromTopic}
   require Logger
 
   @port_name "libp2p_port/libp2p_port"
@@ -19,33 +19,30 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### API
   ######################
 
-  def start_link([]) do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  def start_link(init_args) do
+    opts = Keyword.get(init_args, :opts, name: __MODULE__)
+    GenServer.start_link(__MODULE__, init_args, opts)
   end
 
   def subscribe_to_topic(topic_name) do
     id = UUID.uuid4()
 
-    data =
-      Command.encode(%Command{
-        id: id,
-        c: {:subscribe, %SubscribeToTopic{name: topic_name}}
-      })
+    send_protobuf(%Command{
+      id: id,
+      c: {:subscribe, %SubscribeToTopic{name: topic_name}}
+    })
 
-    GenServer.cast(__MODULE__, {:send, data})
     {:ok, id}
   end
 
   def unsubscribe_from_topic(topic_name) do
     id = UUID.uuid4()
 
-    data =
-      Command.encode(%Command{
-        id: id,
-        c: {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}}
-      })
+    send_protobuf(%Command{
+      id: id,
+      c: {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}}
+    })
 
-    GenServer.cast(__MODULE__, {:send, data})
     {:ok, id}
   end
 
@@ -54,11 +51,20 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ########################
 
   @impl GenServer
-  def init([]), do: {:ok, Port.open({:spawn, @port_name}, [:binary, {:packet, 4}])}
+  def init(args) do
+    port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}])
+
+    args
+    |> parse_args()
+    |> InitArgs.encode()
+    |> then(&send_data(port, &1))
+
+    {:ok, port}
+  end
 
   @impl GenServer
   def handle_cast({:send, data}, port) do
-    send_port(port, data)
+    send_data(port, data)
     {:noreply, port}
   end
 
@@ -94,5 +100,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Logger.info("[Response] id #{id}: #{success_txt}. #{message}")
   end
 
-  defp send_port(port, data), do: send(port, {self(), {:command, data}})
+  defp parse_args(args) do
+    listen_address = Keyword.get_values(args, :listen_address)
+    %InitArgs{listen_address: listen_address}
+  end
+
+  defp send_data(port, data), do: send(port, {self(), {:command, data}})
+
+  defp send_protobuf(%mod{} = protobuf) do
+    data = mod.encode(protobuf)
+    GenServer.cast(__MODULE__, {:send, data})
+  end
 end
