@@ -3,13 +3,14 @@ package main
 import (
 	"io"
 
+	"libp2p_port/internal/p2p"
 	"libp2p_port/internal/port"
 	proto_defs "libp2p_port/internal/proto"
 	"libp2p_port/internal/proto_helpers"
 	gossipsub "libp2p_port/internal/subscriptions"
 )
 
-func HandleCommand(command *proto_defs.Command, subscriber *gossipsub.Subscriber) proto_defs.Notification {
+func handleCommand(command *proto_defs.Command, listener *p2p.Listener, subscriber *gossipsub.Subscriber) proto_defs.Notification {
 	switch c := command.C.(type) {
 	case *proto_defs.Command_Subscribe:
 		subscriber.Subscribe(c.Subscribe.Name)
@@ -22,20 +23,28 @@ func HandleCommand(command *proto_defs.Command, subscriber *gossipsub.Subscriber
 	}
 }
 
-func CommandServer() {
-	port := port.NewPort()
-	subscriber := gossipsub.NewSubscriber(port)
+func commandServer() {
+	portInst := port.NewPort()
+	initArgs := proto_defs.InitArgs{}
+	err := portInst.ReadInitArgs(&initArgs)
+	if err == io.EOF {
+		return
+	}
+	config := proto_helpers.ConfigFromInitArgs(&initArgs)
+
+	listener := p2p.NewListener(&config)
+	subscriber := gossipsub.NewSubscriber(portInst, &config)
 	command := proto_defs.Command{}
 	for {
-		err := port.ReadCommand(&command)
+		err := portInst.ReadCommand(&command)
 		if err == io.EOF {
 			break
 		}
-		reply := HandleCommand(&command, &subscriber)
-		port.SendNotification(&reply)
+		reply := handleCommand(&command, &listener, &subscriber)
+		portInst.SendNotification(&reply)
 	}
 }
 
 func main() {
-	CommandServer()
+	commandServer()
 }

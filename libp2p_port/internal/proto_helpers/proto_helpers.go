@@ -1,6 +1,15 @@
 package proto_helpers
 
-import proto_defs "libp2p_port/internal/proto"
+import (
+	proto_defs "libp2p_port/internal/proto"
+	"libp2p_port/internal/utils"
+)
+
+func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) utils.Config {
+	config := utils.Config{}
+	config.ListenAddress = initArgs.ListenAddress
+	return config
+}
 
 func GossipNotification(topic string, message string) proto_defs.Notification {
 	gossip_sub_notification := &proto_defs.GossipSub{Topic: topic, Message: message}

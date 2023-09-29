@@ -31,16 +31,24 @@ func WriteBytes(write_channel chan []byte) {
 	}
 }
 
-func (p *Port) ReadCommand(command *proto_defs.Command) error {
+func (p *Port) readMessage(protoMsg proto.Message) error {
 	msg, err := ReadDelimitedMessage(p.reader)
 	if err == io.EOF {
 		return err
 	}
 	utils.PanicIfError(err)
 
-	err = proto.Unmarshal(msg, command)
+	err = proto.Unmarshal(msg, protoMsg)
 	utils.PanicIfError(err)
 	return err
+}
+
+func (p *Port) ReadInitArgs(initArgs *proto_defs.InitArgs) error {
+	return p.readMessage(initArgs)
+}
+
+func (p *Port) ReadCommand(command *proto_defs.Command) error {
+	return p.readMessage(command)
 }
 
 func (p *Port) SendNotification(notification *proto_defs.Notification) {
