@@ -6,7 +6,7 @@ defmodule SpecTestGenerator do
     "ssz_static" => SSZStaticTestRunner,
     "bls" => BLSTestRunner,
     "operations" => OperationsTestRunner,
-    "epoch_processing" => EpochProcessingRunner
+    "epoch_processing" => EpochProcessingTestRunner
   }
 
   def all_cases do

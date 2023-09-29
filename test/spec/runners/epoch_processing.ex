@@ -1,4 +1,4 @@
-defmodule EpochProcessingRunner do
+defmodule EpochProcessingTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
