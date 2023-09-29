@@ -32,10 +32,13 @@ defmodule SpecTestUtils do
   def get_config("mainnet"), do: MainnetConfig
 
   def read_ssz_from_file(file_path, ssz_type, config) do
-    with {:ok, compressed} <- File.read(file_path),
-         {:ok, decompressed} <- :snappyer.decompress(compressed),
-         {:ok, ssz_object} <- Ssz.from_ssz(decompressed, ssz_type, config) do
+    if File.exists?(file_path) do
+      compressed = File.read!(file_path)
+      {:ok, decompressed} = :snappyer.decompress(compressed)
+      {:ok, ssz_object} = Ssz.from_ssz(decompressed, ssz_type, config)
       {:ok, ssz_object}
+    else
+      {:ok, nil}
     end
   end
 end
