@@ -24,10 +24,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.start_link(__MODULE__, init_args, opts)
   end
 
-  def subscribe_to_topic(topic_name) do
+  def subscribe_to_topic(topic_name), do: subscribe_to_topic(__MODULE__, topic_name)
+
+  def subscribe_to_topic(pid, topic_name) do
     id = UUID.uuid4()
 
-    send_protobuf(%Command{
+    send_protobuf(pid, %Command{
       id: id,
       c: {:subscribe, %SubscribeToTopic{name: topic_name}}
     })
@@ -35,10 +37,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {:ok, id}
   end
 
-  def unsubscribe_from_topic(topic_name) do
+  def unsubscribe_from_topic(topic_name), do: unsubscribe_from_topic(__MODULE__, topic_name)
+
+  def unsubscribe_from_topic(pid, topic_name) do
+    # TODO: allow passing the pid
     id = UUID.uuid4()
 
-    send_protobuf(%Command{
+    send_protobuf(pid, %Command{
       id: id,
       c: {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}}
     })
@@ -101,14 +106,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp parse_args(args) do
-    listen_address = Keyword.get_values(args, :listen_address)
-    %InitArgs{listen_address: listen_address}
+    listen_addr = Keyword.get(args, :listen_addr)
+    %InitArgs{listen_addr: listen_addr}
   end
 
   defp send_data(port, data), do: send(port, {self(), {:command, data}})
 
-  defp send_protobuf(%mod{} = protobuf) do
+  defp send_protobuf(pid, %mod{} = protobuf) do
     data = mod.encode(protobuf)
-    GenServer.cast(__MODULE__, {:send, data})
+    GenServer.cast(pid, {:send, data})
   end
 end

@@ -4,7 +4,7 @@ option go_package = "./internal/proto;libp2p";
 package libp2p_proto;
 
 message InitArgs {
-    repeated string listen_address = 1;
+    repeated string listen_addr = 1;
 }
 
 message SubscribeToTopic {
