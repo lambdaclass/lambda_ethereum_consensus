@@ -89,7 +89,7 @@ deps:
 	mix deps.get
 
 # Run tests
-test: compile-native
+test: compile-native compile_port
 	mix test --no-start --exclude spectest
 
 spec-test: compile-native $(SPECTEST_DIRS)

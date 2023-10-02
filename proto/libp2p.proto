@@ -7,6 +7,13 @@ message InitArgs {
     repeated string listen_addr = 1;
 }
 
+message SetHandler {
+    // Protocol ID to set the handler for.
+    string protocol_id = 1;
+    // Handler for requests of the given protocol.
+    bytes handler = 2;
+}
+
 message SubscribeToTopic {
     // Name of the topic to subscribe to.
     string name = 1;
@@ -20,8 +27,9 @@ message UnsubscribeFromTopic {
 message Command {
     string id = 1;
     oneof c {
-        SubscribeToTopic subscribe = 2;
-        UnsubscribeFromTopic unsubscribe = 3;
+        SetHandler set_handler = 2;
+        SubscribeToTopic subscribe = 3;
+        UnsubscribeFromTopic unsubscribe = 4;
     }
 }
 
@@ -32,8 +40,15 @@ message GossipSub {
     string message = 2;
 }
 
-// A response from a command.
-message Response {
+// A request from a peer.
+message Request {
+    string protocol_id = 1;
+    bytes handler = 2;
+    uint64 stream = 3;
+}
+
+// A result from a command.
+message Result {
     string id = 1;
     bool success = 2;
     string message = 3;
@@ -42,6 +57,7 @@ message Response {
 message Notification {
     oneof n {
         GossipSub gossip = 1;
-        Response response = 2;
+        Request request = 2;
+        Result result = 3;
     }
 }

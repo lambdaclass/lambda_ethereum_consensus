@@ -1,7 +1,7 @@
 package utils
 
 type Config struct {
-	ListenAddress []string
+	ListenAddr []string
 }
 
 func PanicIfError(err error) {

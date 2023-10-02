@@ -6,9 +6,9 @@ import (
 )
 
 func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) utils.Config {
-	config := utils.Config{}
-	config.ListenAddress = initArgs.ListenAddress
-	return config
+	return utils.Config{
+		ListenAddr: initArgs.ListenAddr,
+	}
 }
 
 func GossipNotification(topic string, message string) proto_defs.Notification {

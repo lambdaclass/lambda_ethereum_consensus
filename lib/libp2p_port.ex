@@ -10,7 +10,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
-  alias Libp2pProto.{Command, InitArgs, Notification, SubscribeToTopic, UnsubscribeFromTopic}
+  alias Libp2pProto.{
+    Command,
+    InitArgs,
+    Notification,
+    SetHandler,
+    SubscribeToTopic,
+    UnsubscribeFromTopic
+  }
+
   require Logger
 
   @port_name "libp2p_port/libp2p_port"
@@ -22,6 +30,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def start_link(init_args) do
     opts = Keyword.get(init_args, :opts, name: __MODULE__)
     GenServer.start_link(__MODULE__, init_args, opts)
+  end
+
+  def set_handler(protocol_id), do: set_handler(__MODULE__, protocol_id)
+
+  def set_handler(pid, protocol_id) do
+    id = UUID.uuid4()
+    command = %SetHandler{protocol_id: protocol_id, handler: :erlang.term_to_binary(self())}
+
+    send_protobuf(pid, %Command{id: id, c: {:set_handler, command}})
+
+    {:ok, id}
   end
 
   def subscribe_to_topic(topic_name), do: subscribe_to_topic(__MODULE__, topic_name)
@@ -57,7 +76,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def init(args) do
-    port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}])
+    port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
     args
     |> parse_args()
@@ -81,6 +100,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     {:noreply, port}
   end
+
+  @impl GenServer
+  def handle_info({port, {:exit_status, status}}, port),
+    do: Process.exit(self(), status)
 
   @impl GenServer
   def handle_info(other, port) do

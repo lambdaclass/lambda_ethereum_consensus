@@ -4,8 +4,9 @@ defmodule Unit.Libp2pPortTest do
 
   doctest Libp2pPort
 
-  defp start_port(name, init_args \\ []) do
+  defp start_port(name \\ Libp2pPort, init_args \\ []) do
     {:ok, pid} = Libp2pPort.start_link([opts: [name: name]] ++ [init_args])
+    assert Process.alive?(pid)
     # Kill process on exit
     on_exit(fn ->
       Process.unlink(pid)
@@ -18,16 +19,13 @@ defmodule Unit.Libp2pPortTest do
     start_port(:host1)
   end
 
-  @tag :skip
-  test "Set stream handler" do
-    {:ok, host} = Libp2p.host_new()
-    assert host != 0
-    :ok = Libp2p.host_set_stream_handler(host, "/my-app/amazing-protocol/1.0.1")
-    :ok = Libp2p.host_close(host)
+  test "set stream handler" do
+    start_port()
+    Libp2pPort.set_handler("/my-app/amazing-protocol/1.0.1")
   end
 
   @tag :skip
-  test "Start two hosts, and play one round of ping-pong" do
+  test "start two hosts, and play one round of ping-pong" do
     # Setup sender
     start_port(:sender, listen_addr: ["/ip4/127.0.0.1/tcp/48787"])
 
@@ -40,7 +38,7 @@ defmodule Unit.Libp2pPortTest do
     protocol_id = "/pong"
 
     # (recver) Set stream handler
-    :ok = Libp2p.host_set_stream_handler(recver, protocol_id)
+    Libp2pPort.set_handler(:recver, protocol_id)
 
     # (sender) Add recver address to peerstore
     {:ok, peerstore} = Libp2p.host_peerstore(sender)

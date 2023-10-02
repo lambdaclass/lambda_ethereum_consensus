@@ -12,6 +12,9 @@ import (
 
 func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber) proto_defs.Notification {
 	switch c := command.C.(type) {
+	case *proto_defs.Command_SetHandler:
+		listener.SetHandler(c.SetHandler.ProtocolId, c.SetHandler.Handler)
+		return proto_helpers.ResponseNotification(command.Id, true, "")
 	case *proto_defs.Command_Subscribe:
 		subscriber.Subscribe(c.Subscribe.Name)
 		return proto_helpers.ResponseNotification(command.Id, true, "")
