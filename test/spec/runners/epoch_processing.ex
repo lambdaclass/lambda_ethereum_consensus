@@ -38,8 +38,8 @@ defmodule EpochProcessingTestRunner do
 
     config = SpecTestUtils.get_config(testcase.config)
 
-    {:ok, _pre} =
-      SpecTestUtils.read_ssz_from_file(
+    _pre =
+      SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
         SszTypes.BeaconState,
         config

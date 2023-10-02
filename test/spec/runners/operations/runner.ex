@@ -32,8 +32,8 @@ defmodule OperationsTestRunner do
     handler = testcase.handler
     config = SpecTestUtils.get_config(testcase.config)
 
-    {:ok, pre} =
-      SpecTestUtils.read_ssz_from_file(
+    pre =
+      SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
         SszTypes.BeaconState,
         config
