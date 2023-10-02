@@ -3,14 +3,14 @@ package main
 import (
 	"io"
 
-	"libp2p_port/internal/p2p"
 	"libp2p_port/internal/port"
 	proto_defs "libp2p_port/internal/proto"
 	"libp2p_port/internal/proto_helpers"
+	"libp2p_port/internal/reqresp"
 	gossipsub "libp2p_port/internal/subscriptions"
 )
 
-func handleCommand(command *proto_defs.Command, listener *p2p.Listener, subscriber *gossipsub.Subscriber) proto_defs.Notification {
+func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber) proto_defs.Notification {
 	switch c := command.C.(type) {
 	case *proto_defs.Command_Subscribe:
 		subscriber.Subscribe(c.Subscribe.Name)
@@ -32,7 +32,7 @@ func commandServer() {
 	}
 	config := proto_helpers.ConfigFromInitArgs(&initArgs)
 
-	listener := p2p.NewListener(&config)
+	listener := reqresp.NewListener(&config)
 	subscriber := gossipsub.NewSubscriber(portInst, &config)
 	command := proto_defs.Command{}
 	for {

@@ -4,9 +4,18 @@ defmodule Unit.Libp2pPortTest do
 
   doctest Libp2pPort
 
-  test "Start port" do
-    assert {:ok, pid} = Libp2pPort.start_link(name: :host1)
-    assert Process.alive?(pid)
+  defp start_port(name, init_args \\ []) do
+    {:ok, pid} = Libp2pPort.start_link([opts: [name: name]] ++ [init_args])
+    # Kill process on exit
+    on_exit(fn ->
+      Process.unlink(pid)
+      Process.exit(pid, :shutdown)
+      refute Process.alive?(pid)
+    end)
+  end
+
+  test "start port" do
+    start_port(:host1)
   end
 
   @tag :skip
@@ -20,12 +29,13 @@ defmodule Unit.Libp2pPortTest do
   @tag :skip
   test "Start two hosts, and play one round of ping-pong" do
     # Setup sender
-    {:ok, sender} =
-      Libp2pPort.start_link(listen_addr: ["/ip4/127.0.0.1/tcp/48787"], name: :sender)
+    start_port(:sender, listen_addr: ["/ip4/127.0.0.1/tcp/48787"])
 
     # Setup receiver
-    {:ok, recver} =
-      Libp2pPort.start_link(listen_addr: ["/ip4/127.0.0.1/tcp/48789"], name: :recver)
+    start_port(:recver, listen_addr: ["/ip4/127.0.0.1/tcp/48789"])
+
+    # TODO: implement this test
+    sender = recver = nil
 
     protocol_id = "/pong"
 
