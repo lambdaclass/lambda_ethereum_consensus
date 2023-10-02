@@ -25,7 +25,7 @@ message UnsubscribeFromTopic {
 }
 
 message Command {
-    string id = 1;
+    bytes from = 1;
     oneof c {
         SetHandler set_handler = 2;
         SubscribeToTopic subscribe = 3;
@@ -49,7 +49,7 @@ message Request {
 
 // A result from a command.
 message Result {
-    string id = 1;
+    optional bytes from = 1;
     bool success = 2;
     string message = 3;
 }

@@ -21,7 +21,7 @@ defmodule Unit.Libp2pPortTest do
 
   test "set stream handler" do
     start_port()
-    Libp2pPort.set_handler("/my-app/amazing-protocol/1.0.1")
+    :ok = Libp2pPort.set_handler("/my-app/amazing-protocol/1.0.1")
   end
 
   @tag :skip

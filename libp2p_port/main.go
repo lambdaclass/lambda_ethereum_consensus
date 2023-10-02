@@ -14,15 +14,15 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	switch c := command.C.(type) {
 	case *proto_defs.Command_SetHandler:
 		listener.SetHandler(c.SetHandler.ProtocolId, c.SetHandler.Handler)
-		return proto_helpers.ResponseNotification(command.Id, true, "")
+		return proto_helpers.ResponseNotification(command.From, true, "")
 	case *proto_defs.Command_Subscribe:
 		subscriber.Subscribe(c.Subscribe.Name)
-		return proto_helpers.ResponseNotification(command.Id, true, "")
+		return proto_helpers.ResponseNotification(command.From, true, "")
 	case *proto_defs.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
-		return proto_helpers.ResponseNotification(command.Id, true, "")
+		return proto_helpers.ResponseNotification(command.From, true, "")
 	default:
-		return proto_helpers.ResponseNotification(command.Id, false, "Invalid command.")
+		return proto_helpers.ResponseNotification(command.From, false, "Invalid command.")
 	}
 }
 

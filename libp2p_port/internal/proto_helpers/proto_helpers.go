@@ -16,7 +16,7 @@ func GossipNotification(topic string, message string) proto_defs.Notification {
 	return proto_defs.Notification{N: &proto_defs.Notification_Gossip{Gossip: gossip_sub_notification}}
 }
 
-func ResponseNotification(id string, success bool, message string) proto_defs.Notification {
-	response_notification := &proto_defs.Response{Id: id, Success: success, Message: message}
-	return proto_defs.Notification{N: &proto_defs.Notification_Response{Response: response_notification}}
+func ResponseNotification(from []byte, success bool, message string) proto_defs.Notification {
+	response_notification := &proto_defs.Result{From: from, Success: success, Message: message}
+	return proto_defs.Notification{N: &proto_defs.Notification_Result{Result: response_notification}}
 }

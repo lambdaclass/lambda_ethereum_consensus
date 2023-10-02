@@ -44,7 +44,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:timex, "~> 3.7"},
       {:rexbug, "~> 1.0.5"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
-      {:protobuf, "~> 0.10.0"},
+      {:protobuf, "~> 0.12.0"},
       {:uuid, "~> 1.1"}
     ]
   end

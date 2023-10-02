@@ -12,6 +12,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   alias Libp2pProto.{
     Command,
+    GossipSub,
+    Result,
     InitArgs,
     Notification,
     SetHandler,
@@ -35,39 +37,25 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def set_handler(protocol_id), do: set_handler(__MODULE__, protocol_id)
 
   def set_handler(pid, protocol_id) do
-    id = UUID.uuid4()
-    command = %SetHandler{protocol_id: protocol_id, handler: :erlang.term_to_binary(self())}
-
-    send_protobuf(pid, %Command{id: id, c: {:set_handler, command}})
-
-    {:ok, id}
+    self_serialized = :erlang.term_to_binary(self())
+    c = %SetHandler{protocol_id: protocol_id, handler: self_serialized}
+    call_command(pid, %Command{from: self_serialized, c: {:set_handler, c}})
   end
 
   def subscribe_to_topic(topic_name), do: subscribe_to_topic(__MODULE__, topic_name)
 
   def subscribe_to_topic(pid, topic_name) do
-    id = UUID.uuid4()
-
-    send_protobuf(pid, %Command{
-      id: id,
+    cast_command(pid, %Command{
       c: {:subscribe, %SubscribeToTopic{name: topic_name}}
     })
-
-    {:ok, id}
   end
 
   def unsubscribe_from_topic(topic_name), do: unsubscribe_from_topic(__MODULE__, topic_name)
 
   def unsubscribe_from_topic(pid, topic_name) do
-    # TODO: allow passing the pid
-    id = UUID.uuid4()
-
-    send_protobuf(pid, %Command{
-      id: id,
+    cast_command(pid, %Command{
       c: {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}}
     })
-
-    {:ok, id}
   end
 
   ########################
@@ -93,7 +81,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_info({_port, {:data, data}}, port) do
+  def handle_info({port, {:data, data}}, port) do
     data
     |> Notification.decode()
     |> handle_notification()
@@ -115,17 +103,24 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%Libp2pProto.Notification{
-         n: {:gossip, %Libp2pProto.GossipSub{topic: topic, message: message}}
+  defp handle_notification(%Notification{
+         n: {:gossip, %GossipSub{topic: topic, message: message}}
        }) do
     Logger.info("[Topic] #{topic}: #{message}")
   end
 
-  defp handle_notification(%Libp2pProto.Notification{
-         n: {:response, %Libp2pProto.Response{id: id, success: success, message: message}}
+  defp handle_notification(%Notification{
+         n: {:result, %Result{from: from, success: success, message: message}}
        }) do
-    success_txt = if success, do: "success", else: "failed"
-    Logger.info("[Response] id #{id}: #{success_txt}. #{message}")
+    case from do
+      nil ->
+        success_txt = if success, do: "success", else: "failed"
+        Logger.info("[Result] #{success_txt}: #{message}")
+
+      from ->
+        pid = :erlang.binary_to_term(from)
+        send(pid, {:response, {success, message}})
+    end
   end
 
   defp parse_args(args) do
@@ -133,10 +128,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     %InitArgs{listen_addr: listen_addr}
   end
 
-  defp send_data(port, data), do: send(port, {self(), {:command, data}})
+  defp send_data(port, data), do: Port.command(port, data)
 
-  defp send_protobuf(pid, %mod{} = protobuf) do
+  defp cast_command(pid, %mod{} = protobuf) do
     data = mod.encode(protobuf)
     GenServer.cast(pid, {:send, data})
+  end
+
+  defp call_command(pid, protobuf) do
+    cast_command(pid, protobuf)
+    receive_response()
+  end
+
+  defp receive_response() do
+    receive do
+      {:response, {true, ""}} -> :ok
+      {:response, {true, message}} -> {:ok, message}
+      {:response, {false, message}} -> {:error, message}
+    end
   end
 end
