@@ -28,7 +28,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   require Logger
 
-  @port_name "libp2p_port/libp2p_port"
+  @port_name "priv/native/libp2p_port"
 
   ######################
   ### API
