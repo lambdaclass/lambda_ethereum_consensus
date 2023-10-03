@@ -2,10 +2,10 @@ package reqresp
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"libp2p_port/internal/port"
+	"libp2p_port/internal/proto_helpers"
 	"libp2p_port/internal/utils"
-	"os"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -20,10 +20,12 @@ import (
 )
 
 type Listener struct {
-	hostHandle host.Host
+	hostHandle      host.Host
+	port            *port.Port
+	pendingMessages map[string]chan []byte
 }
 
-func NewListener(config *utils.Config) Listener {
+func NewListener(p *port.Port, config *utils.Config) Listener {
 	// as per the spec
 	optionsSlice := []libp2p.Option{
 		libp2p.DefaultMuxers,
@@ -38,7 +40,7 @@ func NewListener(config *utils.Config) Listener {
 
 	h, err := libp2p.New(optionsSlice...)
 	utils.PanicIfError(err)
-	return Listener{hostHandle: h}
+	return Listener{hostHandle: h, port: p}
 }
 
 func (l *Listener) AddPeer(id string, addrs []string, ttl int64) {
@@ -67,6 +69,24 @@ func (l *Listener) SendRequest(peerId string, protocolId string, message []byte)
 
 func (l *Listener) SetHandler(protocolId string, handler []byte) {
 	l.hostHandle.SetStreamHandler(protocol.ID(protocolId), func(stream network.Stream) {
-		fmt.Fprintf(os.Stderr, "got stream\n")
+		defer stream.Close()
+		id := string(stream.Protocol())
+		request, err := io.ReadAll(stream)
+		if err != nil {
+			// TODO: we just ignore read errors for now
+			return
+		}
+		messageId := stream.ID()
+		var responseChan chan []byte
+		// TODO: this isn't thread-safe
+		l.pendingMessages[messageId] = responseChan
+		notification := proto_helpers.RequestNotification(id, handler, messageId, request)
+		l.port.SendNotification(&notification)
+		response := <-responseChan
+		_, err = stream.Write(response)
+		if err != nil {
+			// TODO: we just ignore read errors for now
+			return
+		}
 	})
 }

@@ -39,7 +39,7 @@ defmodule Unit.Libp2pPortTest do
       :ok = Libp2pPort.set_handler(:recver, protocol_id)
 
       # (recver) Read the "ping" message
-      assert {:ok, "ping", id} = Libp2pPort.handle_request(:recver)
+      assert {:ok, "ping", id} = Libp2pPort.handle_request()
       :ok = Libp2pPort.send_response(:recver, id, "pong")
     end)
 

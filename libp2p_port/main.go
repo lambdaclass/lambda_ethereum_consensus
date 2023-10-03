@@ -17,7 +17,7 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 		listener.AddPeer(c.AddPeer.Id, c.AddPeer.Addrs, c.AddPeer.Ttl)
 	case *proto_defs.Command_SendRequest:
 		response, err := listener.SendRequest(c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
-		return proto_helpers.ResponseNotification(command.From, response, err)
+		return proto_helpers.ResultNotification(command.From, response, err)
 	case *proto_defs.Command_SetHandler:
 		listener.SetHandler(c.SetHandler.ProtocolId, c.SetHandler.Handler)
 	case *proto_defs.Command_Subscribe:
@@ -25,10 +25,10 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	case *proto_defs.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
 	default:
-		return proto_helpers.ResponseNotification(command.From, []byte{}, errors.New("Invalid command."))
+		return proto_helpers.ResultNotification(command.From, []byte{}, errors.New("Invalid command."))
 	}
 	// Default, empty response
-	return proto_helpers.ResponseNotification(command.From, []byte{}, nil)
+	return proto_helpers.ResultNotification(command.From, []byte{}, nil)
 }
 
 func commandServer() {
@@ -40,7 +40,7 @@ func commandServer() {
 	}
 	config := proto_helpers.ConfigFromInitArgs(&initArgs)
 
-	listener := reqresp.NewListener(&config)
+	listener := reqresp.NewListener(portInst, &config)
 	subscriber := gossipsub.NewSubscriber(portInst, &config)
 	command := proto_defs.Command{}
 	for {

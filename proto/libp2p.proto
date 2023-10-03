@@ -58,7 +58,8 @@ message GossipSub {
 message Request {
     string protocol_id = 1;
     bytes handler = 2;
-    uint64 stream = 3;
+    string message_id = 3;
+    bytes message = 4;
 }
 
 // A result from a command.

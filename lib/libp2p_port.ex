@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Result,
     InitArgs,
     Notification,
+    Request,
     SetHandler,
     SendRequest,
     SubscribeToTopic,
@@ -61,8 +62,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     call_command(pid, %Command{from: self_serialized, c: {:send_request, c}})
   end
 
-  def handle_request(), do: handle_request(__MODULE__)
-  def handle_request(_pid), do: raise("Not implemented")
+  def handle_request() do
+    receive do
+      {:request, request} -> request
+    end
+  end
 
   def send_response(message_id, response), do: send_response(__MODULE__, message_id, response)
   def send_response(_pid, _message_id, _response), do: raise("Not implemented")
@@ -132,6 +136,20 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
          n: {:gossip, %GossipSub{topic: topic, message: message}}
        }) do
     Logger.info("[Topic] #{topic}: #{message}")
+  end
+
+  defp handle_notification(%Notification{
+         n:
+           {:gossip,
+            %Request{
+              protocol_id: protocol_id,
+              handler: handler,
+              message_id: message_id,
+              message: message
+            }}
+       }) do
+    handler_pid = :erlang.binary_to_term(handler)
+    send(handler_pid, {:request, {protocol_id, message_id, message}})
   end
 
   defp handle_notification(%Notification{
