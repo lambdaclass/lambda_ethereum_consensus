@@ -26,6 +26,6 @@ func ResultNotification(from []byte, result []byte, err error) proto_defs.Notifi
 	if err != nil {
 		message = []byte(err.Error())
 	}
-	responseNotification := &proto_defs.Result{From: from, Success: err != nil, Message: message}
+	responseNotification := &proto_defs.Result{From: from, Success: err == nil, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
 }

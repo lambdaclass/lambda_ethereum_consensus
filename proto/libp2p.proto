@@ -36,6 +36,11 @@ message SendRequest {
     bytes message = 3;
 }
 
+message SendResponse {
+    string message_id = 1;
+    bytes message = 2;
+}
+
 message Command {
     bytes from = 1;
     oneof c {
@@ -44,6 +49,7 @@ message Command {
         UnsubscribeFromTopic unsubscribe = 4;
         AddPeer add_peer = 5;
         SendRequest send_request = 6;
+        SendResponse send_response = 7;
     }
 }
 

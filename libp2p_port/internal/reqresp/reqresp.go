@@ -67,6 +67,10 @@ func (l *Listener) SendRequest(peerId string, protocolId string, message []byte)
 	return io.ReadAll(stream)
 }
 
+func (l *Listener) SendResponse(messageId string, message []byte) {
+	l.pendingMessages[messageId] <- message
+}
+
 func (l *Listener) SetHandler(protocolId string, handler []byte) {
 	l.hostHandle.SetStreamHandler(protocol.ID(protocolId), func(stream network.Stream) {
 		defer stream.Close()
@@ -83,6 +87,7 @@ func (l *Listener) SetHandler(protocolId string, handler []byte) {
 		notification := proto_helpers.RequestNotification(id, handler, messageId, request)
 		l.port.SendNotification(&notification)
 		response := <-responseChan
+		delete(l.pendingMessages, messageId)
 		_, err = stream.Write(response)
 		if err != nil {
 			// TODO: we just ignore read errors for now

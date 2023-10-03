@@ -19,6 +19,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Notification,
     Request,
     SetHandler,
+    SendResponse,
     SendRequest,
     SubscribeToTopic,
     UnsubscribeFromTopic
@@ -69,7 +70,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   def send_response(message_id, response), do: send_response(__MODULE__, message_id, response)
-  def send_response(_pid, _message_id, _response), do: raise("Not implemented")
+
+  def send_response(pid, message_id, response) do
+    self_serialized = :erlang.term_to_binary(self())
+    c = %SendResponse{message_id: message_id, message: response}
+    call_command(pid, %Command{from: self_serialized, c: {:send_response, c}})
+  end
 
   def subscribe_to_topic(topic_name), do: subscribe_to_topic(__MODULE__, topic_name)
 

@@ -18,6 +18,8 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	case *proto_defs.Command_SendRequest:
 		response, err := listener.SendRequest(c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
 		return proto_helpers.ResultNotification(command.From, response, err)
+	case *proto_defs.Command_SendResponse:
+		listener.SendResponse(c.SendResponse.MessageId, c.SendResponse.Message)
 	case *proto_defs.Command_SetHandler:
 		listener.SetHandler(c.SetHandler.ProtocolId, c.SetHandler.Handler)
 	case *proto_defs.Command_Subscribe:
@@ -27,7 +29,7 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	default:
 		return proto_helpers.ResultNotification(command.From, []byte{}, errors.New("Invalid command."))
 	}
-	// Default, empty response
+	// Default, OK empty response
 	return proto_helpers.ResultNotification(command.From, []byte{}, nil)
 }
 
