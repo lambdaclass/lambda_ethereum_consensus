@@ -182,7 +182,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp parse_args(args) do
-    listen_addr = Keyword.get(args, :listen_addr)
+    listen_addr = Keyword.get(args, :listen_addr, [])
     %InitArgs{listen_addr: listen_addr}
   end
 

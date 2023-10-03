@@ -15,8 +15,13 @@ defmodule Unit.Libp2pPortTest do
     end)
   end
 
-  test "start port" do
+  test "start port", do: start_port()
+
+  test "start multiple ports" do
+    start_port()
     start_port(:host1)
+    start_port(:host2)
+    start_port(:host3)
   end
 
   test "set stream handler" do

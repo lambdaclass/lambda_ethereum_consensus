@@ -73,7 +73,7 @@ message Request {
 
 // A result from a command.
 message Result {
-    optional bytes from = 1;
+    bytes from = 1;
     bool success = 2;
     bytes message = 3;
 }

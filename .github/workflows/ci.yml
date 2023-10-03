@@ -70,6 +70,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get install -y protobuf-compiler
+        echo $(protoc --version)
         mix escript.install --force hex protobuf
         protoc --elixir_out=./lib proto/libp2p.proto
         mix deps.get
