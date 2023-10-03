@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 
 	"libp2p_port/internal/port"
@@ -12,18 +13,22 @@ import (
 
 func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber) proto_defs.Notification {
 	switch c := command.C.(type) {
+	case *proto_defs.Command_AddPeer:
+		listener.AddPeer(c.AddPeer.Id, c.AddPeer.Addrs, c.AddPeer.Ttl)
+	case *proto_defs.Command_SendRequest:
+		response, err := listener.SendRequest(c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
+		return proto_helpers.ResponseNotification(command.From, response, err)
 	case *proto_defs.Command_SetHandler:
 		listener.SetHandler(c.SetHandler.ProtocolId, c.SetHandler.Handler)
-		return proto_helpers.ResponseNotification(command.From, true, "")
 	case *proto_defs.Command_Subscribe:
 		subscriber.Subscribe(c.Subscribe.Name)
-		return proto_helpers.ResponseNotification(command.From, true, "")
 	case *proto_defs.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
-		return proto_helpers.ResponseNotification(command.From, true, "")
 	default:
-		return proto_helpers.ResponseNotification(command.From, false, "Invalid command.")
+		return proto_helpers.ResponseNotification(command.From, []byte{}, errors.New("Invalid command."))
 	}
+	// Default, empty response
+	return proto_helpers.ResponseNotification(command.From, []byte{}, nil)
 }
 
 func commandServer() {

@@ -11,12 +11,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias Libp2pProto.{
+    AddPeer,
     Command,
     GossipSub,
     Result,
     InitArgs,
     Notification,
     SetHandler,
+    SendRequest,
     SubscribeToTopic,
     UnsubscribeFromTopic
   }
@@ -41,6 +43,29 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     c = %SetHandler{protocol_id: protocol_id, handler: self_serialized}
     call_command(pid, %Command{from: self_serialized, c: {:set_handler, c}})
   end
+
+  def add_peer(id, addrs, ttl), do: add_peer(__MODULE__, id, addrs, ttl)
+
+  def add_peer(pid, id, addrs, ttl) do
+    self_serialized = :erlang.term_to_binary(self())
+    c = %AddPeer{id: id, addrs: addrs, ttl: ttl}
+    call_command(pid, %Command{from: self_serialized, c: {:add_peer, c}})
+  end
+
+  def send_request(id, protocol_id, message),
+    do: send_request(__MODULE__, id, protocol_id, message)
+
+  def send_request(pid, id, protocol_id, message) do
+    self_serialized = :erlang.term_to_binary(self())
+    c = %SendRequest{id: id, protocol_id: protocol_id, message: message}
+    call_command(pid, %Command{from: self_serialized, c: {:send_request, c}})
+  end
+
+  def handle_request(), do: handle_request(__MODULE__)
+  def handle_request(_pid), do: raise("Not implemented")
+
+  def send_response(message_id, response), do: send_response(__MODULE__, message_id, response)
+  def send_response(_pid, _message_id, _response), do: raise("Not implemented")
 
   def subscribe_to_topic(topic_name), do: subscribe_to_topic(__MODULE__, topic_name)
 

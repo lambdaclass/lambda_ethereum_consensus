@@ -24,12 +24,26 @@ message UnsubscribeFromTopic {
     string name = 1;
 }
 
+message AddPeer {
+    string id = 1;
+    repeated string addrs = 2;
+    int64 ttl = 3;
+}
+
+message SendRequest {
+    string id = 1;
+    string protocol_id = 2;
+    bytes message = 3;
+}
+
 message Command {
     bytes from = 1;
     oneof c {
         SetHandler set_handler = 2;
         SubscribeToTopic subscribe = 3;
         UnsubscribeFromTopic unsubscribe = 4;
+        AddPeer add_peer = 5;
+        SendRequest send_request = 6;
     }
 }
 
@@ -37,7 +51,7 @@ message GossipSub {
     // Name of the topic from which the notification arrived.
     string topic = 1;
     // Compressed and ssz encoded message.
-    string message = 2;
+    bytes message = 2;
 }
 
 // A request from a peer.
@@ -51,7 +65,7 @@ message Request {
 message Result {
     optional bytes from = 1;
     bool success = 2;
-    string message = 3;
+    bytes message = 3;
 }
 
 message Notification {

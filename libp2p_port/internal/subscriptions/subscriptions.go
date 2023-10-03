@@ -41,7 +41,7 @@ func SubscribeToTopic(name string, stop chan struct{}, p *port.Port) {
 		case <-stop:
 			return
 		default:
-			notification := proto_helpers.GossipNotification(name, fmt.Sprintf("Mock notification %d", i))
+			notification := proto_helpers.GossipNotification(name, []byte(fmt.Sprintf("Mock notification %d", i)))
 			p.SendNotification(&notification)
 			i += 1
 			time.Sleep(1 * time.Second)

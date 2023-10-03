@@ -24,61 +24,31 @@ defmodule Unit.Libp2pPortTest do
     :ok = Libp2pPort.set_handler("/my-app/amazing-protocol/1.0.1")
   end
 
-  @tag :skip
   test "start two hosts, and play one round of ping-pong" do
     # Setup sender
     start_port(:sender, listen_addr: ["/ip4/127.0.0.1/tcp/48787"])
 
     # Setup receiver
-    start_port(:recver, listen_addr: ["/ip4/127.0.0.1/tcp/48789"])
-
-    # TODO: implement this test
-    sender = recver = nil
+    recver_addr = ["/ip4/127.0.0.1/tcp/48789"]
+    start_port(:recver, listen_addr: recver_addr)
 
     protocol_id = "/pong"
 
-    # (recver) Set stream handler
-    Libp2pPort.set_handler(:recver, protocol_id)
+    spawn_link(fn ->
+      # (recver) Set stream handler
+      :ok = Libp2pPort.set_handler(:recver, protocol_id)
 
-    # (sender) Add recver address to peerstore
-    {:ok, peerstore} = Libp2p.host_peerstore(sender)
-    {:ok, id} = Libp2p.host_id(recver)
-    {:ok, addrs} = Libp2p.host_addrs(recver)
+      # (recver) Read the "ping" message
+      assert {:ok, "ping", id} = Libp2pPort.handle_request(:recver)
+      :ok = Libp2pPort.send_response(:recver, id, "pong")
+    end)
 
-    :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
+    # (sender) Add recver peer
+    id = "some_id"
+    :ok = Libp2pPort.add_peer(:sender, id, recver_addr, 999_999)
 
-    # (sender) Create stream sender -> recver
-    {:ok, send} = Libp2p.host_new_stream(sender, id, protocol_id)
-
-    # (sender) Write "ping" to stream
-    :ok = Libp2p.stream_write(send, "ping")
-    :ok = Libp2p.stream_close_write(send)
-
-    # (recver) Receive the stream via the configured stream handler
-    {:ok, recv} =
-      receive do
-        {:req, msg} -> msg
-      after
-        1000 -> :timeout
-      end
-
-    # (recver) Read the "ping" message from the stream
-    {:ok, "ping"} = Libp2p.stream_read(recv)
-    {:ok, ""} = Libp2p.stream_read(recv)
-
-    # (recver) Write "pong" to the stream
-    :ok = Libp2p.stream_write(recv, "pong")
-    :ok = Libp2p.stream_close_write(recv)
-
-    # (sender) Read the "pong" message from the stream
-    {:ok, "pong"} = Libp2p.stream_read(send)
-
-    :ok = Libp2p.stream_close(send)
-    :ok = Libp2p.stream_close(recv)
-
-    # Close both hosts
-    :ok = Libp2p.host_close(sender)
-    :ok = Libp2p.host_close(recver)
+    # (sender) Send "ping" to recver and receive "pong"
+    assert {:ok, "pong"} = Libp2pPort.send_request(:sender, id, protocol_id, "ping")
   end
 
   defp retrying_receive(topic_sender, msg) do
