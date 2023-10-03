@@ -1,0 +1,101 @@
+defmodule LambdaEthereumConsensus.ForkChoice.Tree do
+  @doc """
+  Fork tree. Nodes are represented as tuples.
+  """
+
+  use GenServer
+  require Logger
+
+  defmodule Node do
+    defstruct [:parent_id, :id, :children_ids, :self_weight, :subtree_weight]
+    @type id :: String.t()
+    @type t :: %Node{
+            parent_id: id | :root,
+            id: id,
+            children_ids: [id],
+            self_weight: integer(),
+            subtree_weight: integer()
+          }
+  end
+
+  # Note: we might want to stop supporting nil roots and have it as an init arg.
+  @type status :: %{root: Node.id() | nil, tree: %{Node.id() => Node.t()}, head: Node.t() | nil}
+
+  ##########################
+  ### Public API
+  ##########################
+
+  def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
+
+  @doc """
+  Adds a block to the fork-choice tree. Assumes that the parent is already present
+  (unless it's the root of the tree).
+
+  Passing a root restarts the tree structure completely.
+  """
+  def add_block(%Node{} = node), do: GenServer.cast(__MODULE__, {:add_block, node})
+
+  def get_head(), do: GenServer.call(__MODULE__, :get_head)
+
+  ##########################
+  ### GenServer Callbacks
+  ##########################
+
+  @impl GenServer
+  @spec init(any) :: {:ok, status()}
+  def init(_), do: {:ok, %{root: nil, tree: %{}, head: nil}}
+
+  @impl GenServer
+  def handle_cast({:add_block, node}, status) do
+    new_tree = add_node_to_tree(status.tree, node)
+    new_root = if node.parent_id == :root, do: node, else: status.root
+    head = get_head(new_tree, new_root)
+    {:noreply, status |> Map.merge(%{tree: new_tree, head: head, root: new_root})}
+  end
+
+  # TODO: We might want to cache the head (or the whole tree) in an ETS entry
+  # for concurrent access.
+  @impl GenServer
+  def handle_call(:get_head, _from, %{head: head} = state) do
+    {:reply, head, state}
+  end
+
+  ##########################
+  ### Private Functions
+  ##########################
+
+  defp add_node_to_tree(tree, %Node{} = node) do
+    tree
+    |> Map.put(node.id, node)
+    |> update_parent(node)
+    |> add_weight(node.parent_id, node.self_weight)
+  end
+
+  defp update_parent(tree, %Node{parent_id: :root}), do: tree
+
+  defp update_parent(tree, node) do
+    Map.update!(tree, node.parent_id, fn parent -> add_child_to_node(parent, node) end)
+  end
+
+  defp add_weight(tree, :root, _weight), do: tree
+
+  defp add_weight(tree, node_id, weight) do
+    node = tree[node_id]
+    new_weight = weight + node.weight
+    new_node = Map.put(node, :subtree_weight, new_weight)
+    new_tree = Map.put(tree, node_id, new_node)
+    add_weight(new_tree, new_node.parent_id, new_weight)
+  end
+
+  defp get_head(_tree, nil), do: nil
+  defp get_head(_tree, %Node{children_ids: []} = node), do: node
+
+  defp get_head(tree, node) do
+    next_id = node.children_ids |> Enum.max_by(fn id -> tree[id].subtree_weight end)
+    get_head(tree, tree[next_id])
+  end
+
+  defp add_child_to_node(node, child) do
+    Map.update(node, :children_ids, [child.id], fn ids -> [child.id | ids] end)
+  end
+end
