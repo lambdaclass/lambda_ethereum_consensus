@@ -40,10 +40,14 @@ func NewListener(p *port.Port, config *utils.Config) Listener {
 
 	h, err := libp2p.New(optionsSlice...)
 	utils.PanicIfError(err)
-	return Listener{hostHandle: h, port: p}
+	return Listener{hostHandle: h, port: p, pendingMessages: make(map[string]chan []byte)}
 }
 
-func (l *Listener) AddPeer(id string, addrs []string, ttl int64) {
+func (l *Listener) HostId() []byte {
+	return []byte(l.hostHandle.ID())
+}
+
+func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
 	for _, addr := range addrs {
 		maddr, err := multiaddr.NewMultiaddr(addr)
 		// TODO: return error to caller
@@ -52,7 +56,7 @@ func (l *Listener) AddPeer(id string, addrs []string, ttl int64) {
 	}
 }
 
-func (l *Listener) SendRequest(peerId string, protocolId string, message []byte) ([]byte, error) {
+func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte) ([]byte, error) {
 	ctx := context.TODO()
 	stream, err := l.hostHandle.NewStream(ctx, peer.ID(peerId), protocol.ID(protocolId))
 	if err != nil {
@@ -81,7 +85,7 @@ func (l *Listener) SetHandler(protocolId string, handler []byte) {
 			return
 		}
 		messageId := stream.ID()
-		var responseChan chan []byte
+		responseChan := make(chan []byte)
 		// TODO: this isn't thread-safe
 		l.pendingMessages[messageId] = responseChan
 		notification := proto_helpers.RequestNotification(id, handler, messageId, request)

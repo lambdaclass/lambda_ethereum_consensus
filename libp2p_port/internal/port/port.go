@@ -51,8 +51,8 @@ func (p *Port) ReadCommand(command *proto_defs.Command) error {
 	return p.readMessage(command)
 }
 
-func (p *Port) SendNotification(notification *proto_defs.Notification) {
-	data, err := proto.Marshal(notification)
+func (p *Port) sendMessage(protoMsg proto.Message) {
+	data, err := proto.Marshal(protoMsg)
 	utils.PanicIfError(err)
 
 	var buf bytes.Buffer
@@ -60,6 +60,10 @@ func (p *Port) SendNotification(notification *proto_defs.Notification) {
 	buf.Write(data)
 
 	p.write_channel <- buf.Bytes()
+}
+
+func (p *Port) SendNotification(notification *proto_defs.Notification) {
+	p.sendMessage(notification)
 }
 
 func ReadDelimitedMessage(r io.Reader) ([]byte, error) {

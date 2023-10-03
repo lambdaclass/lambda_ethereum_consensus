@@ -13,6 +13,8 @@ import (
 
 func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber) proto_defs.Notification {
 	switch c := command.C.(type) {
+	case *proto_defs.Command_GetId:
+		return proto_helpers.ResultNotification(command.From, []byte(listener.HostId()), nil)
 	case *proto_defs.Command_AddPeer:
 		listener.AddPeer(c.AddPeer.Id, c.AddPeer.Addrs, c.AddPeer.Ttl)
 	case *proto_defs.Command_SendRequest:

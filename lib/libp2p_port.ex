@@ -15,6 +15,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Command,
     GossipSub,
     Result,
+    GetId,
     InitArgs,
     Notification,
     Request,
@@ -36,6 +37,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def start_link(init_args) do
     opts = Keyword.get(init_args, :opts, name: __MODULE__)
     GenServer.start_link(__MODULE__, init_args, opts)
+  end
+
+  def get_id(), do: get_id(__MODULE__)
+
+  def get_id(pid) do
+    self_serialized = :erlang.term_to_binary(self())
+    {:ok, id} = call_command(pid, %Command{from: self_serialized, c: {:get_id, %GetId{}}})
+    id
   end
 
   def set_handler(protocol_id), do: set_handler(__MODULE__, protocol_id)
@@ -65,7 +74,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   def handle_request() do
     receive do
-      {:request, request} -> request
+      {:request, {_protocol_id, _message_id, _message} = request} -> request
     end
   end
 
@@ -146,7 +155,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp handle_notification(%Notification{
          n:
-           {:gossip,
+           {:request,
             %Request{
               protocol_id: protocol_id,
               handler: handler,

@@ -5,7 +5,7 @@ defmodule Unit.Libp2pPortTest do
   doctest Libp2pPort
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
-    {:ok, pid} = Libp2pPort.start_link([opts: [name: name]] ++ [init_args])
+    {:ok, pid} = Libp2pPort.start_link([opts: [name: name]] ++ init_args)
     assert Process.alive?(pid)
     # Kill process on exit
     on_exit(fn ->
@@ -32,23 +32,32 @@ defmodule Unit.Libp2pPortTest do
     recver_addr = ["/ip4/127.0.0.1/tcp/48789"]
     start_port(:recver, listen_addr: recver_addr)
 
+    id = Libp2pPort.get_id(:recver)
     protocol_id = "/pong"
+    pid = self()
 
     spawn_link(fn ->
       # (recver) Set stream handler
       :ok = Libp2pPort.set_handler(:recver, protocol_id)
 
+      send(pid, :handler_set)
+
       # (recver) Read the "ping" message
-      assert {:ok, "ping", id} = Libp2pPort.handle_request()
+      assert {^protocol_id, id, "ping"} = Libp2pPort.handle_request()
       :ok = Libp2pPort.send_response(:recver, id, "pong")
+
+      send(pid, :message_received)
     end)
 
+    # (sender) Wait for handler to be set
+    assert_receive :handler_set, 1000
+
     # (sender) Add recver peer
-    id = "some_id"
-    :ok = Libp2pPort.add_peer(:sender, id, recver_addr, 999_999)
+    :ok = Libp2pPort.add_peer(:sender, id, recver_addr, 999_999_999_999)
 
     # (sender) Send "ping" to recver and receive "pong"
     assert {:ok, "pong"} = Libp2pPort.send_request(:sender, id, protocol_id, "ping")
+    assert_receive :message_received, 1000
   end
 
   defp retrying_receive(topic_sender, msg) do
