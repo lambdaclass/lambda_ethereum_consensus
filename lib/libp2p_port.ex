@@ -13,15 +13,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias Libp2pProto.{
     AddPeer,
     Command,
-    GossipSub,
-    Result,
     GetId,
+    GossipSub,
     InitArgs,
     Notification,
     Request,
-    SetHandler,
-    SendResponse,
+    Result,
     SendRequest,
+    SendResponse,
+    SetHandler,
     SubscribeToTopic,
     UnsubscribeFromTopic
   }
@@ -39,7 +39,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.start_link(__MODULE__, init_args, opts)
   end
 
-  def get_id(), do: get_id(__MODULE__)
+  def get_id, do: get_id(__MODULE__)
 
   def get_id(pid) do
     self_serialized = :erlang.term_to_binary(self())
@@ -72,7 +72,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     call_command(pid, %Command{from: self_serialized, c: {:send_request, c}})
   end
 
-  def handle_request() do
+  def handle_request do
     receive do
       {:request, {_protocol_id, _message_id, _message} = request} -> request
     end
@@ -198,7 +198,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     receive_response()
   end
 
-  defp receive_response() do
+  defp receive_response do
     receive do
       {:response, {true, ""}} -> :ok
       {:response, {true, message}} -> {:ok, message}
