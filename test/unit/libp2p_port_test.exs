@@ -5,14 +5,7 @@ defmodule Unit.Libp2pPortTest do
   doctest Libp2pPort
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
-    {:ok, pid} = Libp2pPort.start_link([opts: [name: name]] ++ init_args)
-    assert Process.alive?(pid)
-    # Kill process on exit
-    on_exit(fn ->
-      Process.unlink(pid)
-      Process.exit(pid, :shutdown)
-      refute Process.alive?(pid)
-    end)
+    start_link_supervised!({Libp2pPort, [opts: [name: name]] ++ init_args}, id: name)
   end
 
   test "start port", do: start_port()
