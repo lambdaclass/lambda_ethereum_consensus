@@ -7,6 +7,8 @@ config :lambda_ethereum_consensus,
 # Configure logging
 config :logger, level: :info
 
+config :lambda_ethereum_consensus, Constants, preset: MainnetConfig
+
 # Configures the phoenix endpoint
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
   http: [port: 4000],
