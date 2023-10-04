@@ -47,7 +47,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     {:noreply, state}
   end
 
-
   @spec handle_req(String.t(), Libp2p.stream()) :: :ok | :not_implemented | {:error, any()}
   def handle_req(@prefix <> "status/1/ssz_snappy", stream) do
     # hardcoded response from random peer
