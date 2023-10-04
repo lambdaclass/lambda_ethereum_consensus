@@ -6,7 +6,7 @@ defmodule MinimalCapellaSpecTest do
   require SpecTestGenerator
 
   setup_all do
-    Application.put_env(Constants, :config, MinimalConfig)
+    Application.put_env(ChainSpec, :config, MinimalConfig)
   end
 
   # NOTE: we only support capella for now

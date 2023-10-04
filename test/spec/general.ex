@@ -6,7 +6,7 @@ defmodule GeneralSpecTest do
   require SpecTestGenerator
 
   setup_all do
-    Application.put_env(Constants, :config, MainnetConfig)
+    Application.put_env(ChainSpec, :config, MainnetConfig)
   end
 
   SpecTestGenerator.generate_tests("general")
