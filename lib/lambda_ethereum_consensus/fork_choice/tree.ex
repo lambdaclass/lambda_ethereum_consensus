@@ -48,9 +48,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   @impl GenServer
   def handle_cast({:add_block, node}, status) do
     new_tree = add_node_to_tree(status.tree, node)
-    new_root = if node.parent_id == :root, do: node, else: status.root
-    head = get_head(new_tree, new_root)
-    {:noreply, status |> Map.merge(%{tree: new_tree, head: head, root: new_root})}
+    new_root = if node.parent_id == :root, do: node.id, else: status.root
+    head = get_head(new_tree, new_tree[new_root])
+
+    {:noreply, Map.merge(status, %{tree: new_tree, head: head, root: new_root})}
   end
 
   # TODO: We might want to cache the head (or the whole tree) in an ETS entry
@@ -65,6 +66,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   ##########################
 
   defp add_node_to_tree(tree, %Node{} = node) do
+    # The subtree weight of a node is its own weight.
+    node = node |> Map.put(:subtree_weight, node.self_weight)
+
     tree
     |> Map.put(node.id, node)
     |> update_parent(node)
@@ -81,7 +85,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
 
   defp add_weight(tree, node_id, weight) do
     node = tree[node_id]
-    new_weight = weight + node.weight
+    new_weight = weight + node.subtree_weight
     new_node = Map.put(node, :subtree_weight, new_weight)
     new_tree = Map.put(tree, node_id, new_node)
     add_weight(new_tree, new_node.parent_id, new_weight)
