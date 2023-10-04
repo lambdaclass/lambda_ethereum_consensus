@@ -23,7 +23,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockConsumer do
 
   @impl true
   def handle_message(_, %Broadway.Message{data: %SignedBeaconBlock{message: block}} = message, _) do
-    Logger.notice(
+    Logger.debug(
       "[Checkpoint sync] Block decoded for slot #{block.slot}. Root: #{Base.encode16(block.state_root)}"
     )
 

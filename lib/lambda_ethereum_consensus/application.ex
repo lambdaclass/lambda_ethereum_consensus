@@ -46,7 +46,7 @@ defmodule LambdaEthereumConsensus.Application do
               :ok
 
             state ->
-              Logger.notice(
+              Logger.debug(
                 "[Checkpoint sync] Received beacon state at slot #{state.slot}. Downloading blocks..."
               )
 
