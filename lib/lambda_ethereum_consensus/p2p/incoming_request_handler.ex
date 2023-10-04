@@ -39,7 +39,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
       :ok -> :ok
       :not_implemented -> :ok
       {:error, error} -> Logger.error("[#{protocol}] Request error: #{inspect(error)}")
-      x -> Logger.error("[#{protocol}] Unexpected error: #{inspect(x)}")
     end
 
     Libp2p.stream_close(stream)
@@ -47,7 +46,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     {:noreply, state}
   end
 
-  @spec handle_req(String.t(), Libp2p.stream()) :: :ok | :not_implemented | {:error, any()}
+  @spec handle_req(String.t(), Libp2p.stream()) :: :ok | :not_implemented | {:error, binary()}
   def handle_req(@prefix <> "status/1/ssz_snappy", stream) do
     # hardcoded response from random peer
     current_status = %SszTypes.StatusMessage{
