@@ -1,6 +1,6 @@
-defmodule Constants do
+defmodule ChainSpec do
   @moduledoc """
-  Single entrypoint for fetching eth-spec constants.
+  Single entrypoint for fetching chain-specific constants.
   """
 
   # NOTE: this only works for Capella
