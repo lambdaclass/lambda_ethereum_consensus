@@ -47,4 +47,18 @@ defmodule Unit.TreeTest do
     Tree.add_block(heavy_node)
     assert Tree.get_head() == heavy_node
   end
+
+  test "If there's a parent is light but the subtree is heavy, it's still chosen" do
+    heavy_node = @node |> Map.merge(%{self_weight: 2, id: "node 2", subtree_weight: 2})
+
+    head_node =
+      @node
+      |> Map.merge(%{self_weight: 10, subtree_weight: 10, id: "node 3", parent_id: @node.id})
+
+    Tree.add_block(@root)
+    Tree.add_block(@node)
+    Tree.add_block(heavy_node)
+    Tree.add_block(head_node)
+    assert Tree.get_head() == head_node
+  end
 end
