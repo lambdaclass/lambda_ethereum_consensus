@@ -14,7 +14,6 @@ defmodule EpochProcessingTestRunner do
     "registry_updates",
     "slashings",
     "eth1_data_reset",
-    "effective_balance_updates",
     "slashings_reset",
     "randao_mixes_reset",
     "historical_summaries_update",
