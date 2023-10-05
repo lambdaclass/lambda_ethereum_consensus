@@ -1,12 +1,30 @@
 defmodule LambdaEthereumConsensus.ForkChoice.Tree do
-  @doc """
-  Fork tree. Nodes are represented as tuples.
+  @moduledoc """
+  Fork tree. Nodes are represented as tuples. Usage:
+
+  Tree.add_block(node)
+  head = Tree.get_head()
+
+  A node containing :root as a parent_id is considered a the root. When adding a block,
+  the subtree_weight of all of its parents up until the root will be updated. At the same
+  time, the head wil be recalculated using the greedy heaviest subtree strategy.
+
+  When requesting the head, a cached value will be returned instantly, according to the last
+  calculated one.
   """
 
   use GenServer
   require Logger
 
   defmodule Node do
+    @moduledoc """
+    A struct representing a tree node, with its id, the id from its parent and the ids from its
+    children. Ids are state roots, which are 32 byte strings.
+
+    It also contains its own self_weight due to attestations and proposer boost, and a
+    subtree_weight, which is the sum of all of the weights of its successors. This value is calculated
+    by the tree so manually assignment is not necessary.
+    """
     defstruct [:parent_id, :id, :children_ids, :self_weight, :subtree_weight]
     @type id :: String.t()
     @type t :: %Node{
@@ -25,16 +43,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   ### Public API
   ##########################
 
+  @spec start_link(any) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
 
   @doc """
   Adds a block to the fork-choice tree. Assumes that the parent is already present
   (unless it's the root of the tree).
 
-  Passing a root restarts the tree structure completely.
+  Passing a root restarts the tree structure completely. This operation is between O(logn)
+  for trees that are balanced, and O(n) when there are no forks, being n the amount of blocks
+  between the root and the added node.
   """
+  @spec add_block(Node.t()) :: :ok
   def add_block(%Node{} = node), do: GenServer.cast(__MODULE__, {:add_block, node})
 
+  @doc """
+  Gets the head node according to LMD GHOST. The values are pre-calculated when adding nodes,
+  so this operation is O(1).
+  """
+  @spec get_head :: Node.t()
   def get_head(), do: GenServer.call(__MODULE__, :get_head)
 
   ##########################
