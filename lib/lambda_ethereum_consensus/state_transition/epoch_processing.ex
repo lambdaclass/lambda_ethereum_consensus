@@ -2,10 +2,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   @moduledoc """
   Update effective balances with hysteresis
   """
-
+  
+  alias ChainSpec
   alias SszTypes.BeaconState
   alias SszTypes.Validator
-  alias ChainSpec
 
   @spec process_effective_balance_updates(BeaconState.t()) :: :ok
   def process_effective_balance_updates(
