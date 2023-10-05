@@ -25,6 +25,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
       {LambdaEthereumConsensus.P2P.BlockConsumer, [host]},
       {LambdaEthereumConsensus.Libp2pPort, []},
+      {LambdaEthereumConsensus.ForkChoice.Tree, []},
       # Start the Endpoint (http/https)
       BeaconApi.Endpoint
     ]
