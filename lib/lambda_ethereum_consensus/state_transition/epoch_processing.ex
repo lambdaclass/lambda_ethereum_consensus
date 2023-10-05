@@ -8,7 +8,9 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias ChainSpec
 
   @spec process_effective_balance_updates(BeaconState.t()) :: :ok
-  def process_effective_balance_updates(%BeaconState{validators: validators, balances: balances} = state) do
+  def process_effective_balance_updates(
+        %BeaconState{validators: validators, balances: balances} = state
+      ) do
     effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
     hysteresis_quotient = ChainSpec.get("HYSTERESIS_QUOTIENT")
     hysteresis_downward_multiplier = ChainSpec.get("HYSTERESIS_DOWNWARD_MULTIPLIER")
@@ -27,7 +29,9 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
         if balance + downward_threshold < effective_balance or
              effective_balance + upward_threshold < balance do
-          new_effective_balance = min(balance - rem(balance, effective_balance_increment), max_effective_balance)
+          new_effective_balance =
+            min(balance - rem(balance, effective_balance_increment), max_effective_balance)
+
           %{validator | effective_balance: new_effective_balance}
         else
           validator
