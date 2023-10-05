@@ -62,7 +62,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   so this operation is O(1).
   """
   @spec get_head :: Node.t()
-  def get_head(), do: GenServer.call(__MODULE__, :get_head)
+  def get_head, do: GenServer.call(__MODULE__, :get_head)
 
   ##########################
   ### GenServer Callbacks
