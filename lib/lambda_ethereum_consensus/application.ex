@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.Application do
   alias LambdaEthereumConsensus.Utils
 
   use Application
+  require Logger
 
   @impl true
   def start(_type, _args) do
@@ -42,8 +43,15 @@ defmodule LambdaEthereumConsensus.Application do
 
         value ->
           case Utils.sync_from_checkpoint(value) do
-            :error -> :ok
-            state -> StateStore.store_state(state)
+            :error ->
+              :ok
+
+            state ->
+              Logger.debug(
+                "[Checkpoint sync] Received beacon state at slot #{state.slot}. Downloading blocks..."
+              )
+
+              StateStore.store_state(state)
           end
       end
 
