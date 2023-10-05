@@ -1,5 +1,6 @@
 defmodule OperationsTestRunner do
   use ExUnit.CaseTemplate
+  use TestRunner
 
   @moduledoc """
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
@@ -20,30 +21,38 @@ defmodule OperationsTestRunner do
     "bls_to_execution_change"
   ]
 
-  @doc """
-  Returns true if the given testcase should be skipped
-  """
+  @impl TestRunner
   def skip?(%SpecTestCase{} = testcase) do
     Enum.member?(@disabled_handlers, testcase.handler)
   end
 
-  @doc """
-  Runs the given test case.
-  """
+  @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
     handler = testcase.handler
+    config = SpecTestUtils.get_config(testcase.config)
 
-    {:ok, pre} = OperationsTestUtils.prepare_test(case_dir, handler, "pre")
-
-    {:ok, operation} =
-      OperationsTestUtils.prepare_test(
-        case_dir,
-        handler,
-        OperationsTestUtils.resolve_name_from_handler(handler)
+    pre =
+      SpecTestUtils.read_ssz_from_file!(
+        case_dir <> "/pre.ssz_snappy",
+        SszTypes.BeaconState,
+        config
       )
 
-    {:ok, post} = OperationsTestUtils.prepare_test(case_dir, handler, "post")
+    operation =
+      SpecTestUtils.read_ssz_from_file!(
+        case_dir <>
+          "/" <> OperationsTestUtils.resolve_name_from_handler(handler) <> ".ssz_snappy",
+        OperationsTestUtils.resolve_type_from_handler(handler),
+        config
+      )
+
+    {:ok, post} =
+      SpecTestUtils.read_ssz_from_file(
+        case_dir <> "/post.ssz_snappy",
+        SszTypes.BeaconState,
+        config
+      )
 
     handle_case(testcase.handler, pre, operation, post, case_dir)
   end

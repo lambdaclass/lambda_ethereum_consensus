@@ -18,7 +18,8 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/42912740?v=4",
       "profile": "https://www.linkedin.com/in/paul-henrykajfasz/",
       "contributions": [
-        "code"
+        "code",
+        "doc"
       ]
     },
     {
@@ -63,7 +64,8 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/45144467?v=4",
       "profile": "https://github.com/berwingan",
       "contributions": [
-        "code"
+        "code",
+        "doc"
       ]
     },
     {
@@ -100,6 +102,24 @@
       "profile": "http://godspowereze.com",
       "contributions": [
         "code"
+      ]
+    },
+    {
+      "login": "namn-grg",
+      "name": "Naman Garg",
+      "avatar_url": "https://avatars.githubusercontent.com/u/97289118?v=4",
+      "profile": "https://github.com/namn-grg",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "ayushm2003",
+      "name": "Ayush",
+      "avatar_url": "https://avatars.githubusercontent.com/u/62571011?v=4",
+      "profile": "https://github.com/ayushm2003",
+      "contributions": [
+        "doc"
       ]
     }
   ],

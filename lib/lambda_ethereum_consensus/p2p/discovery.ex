@@ -7,9 +7,11 @@ defmodule LambdaEthereumConsensus.P2P.Discovery do
   @impl true
   def init(_opts) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__)
+    port = Keyword.get(config, :port, 9000)
+    bootnodes = Keyword.get(config, :bootnodes, [])
 
     {:ok, listener} =
-      Libp2p.listen_v5("0.0.0.0:#{config[:port]}", config[:bootnodes])
+      Libp2p.listen_v5("0.0.0.0:#{port}", bootnodes)
 
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
     # NOTE: this stream isn't pure

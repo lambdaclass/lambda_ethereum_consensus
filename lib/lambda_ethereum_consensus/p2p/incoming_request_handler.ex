@@ -18,6 +18,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
       "status/1",
       "goodbye/1",
       "ping/1",
+      "beacon_blocks_by_range/2",
       "metadata/2"
     ]
     |> Stream.map(&Enum.join([@prefix, &1, "/ssz_snappy"]))
@@ -36,7 +37,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
 
     case handle_req(protocol, stream) do
       :ok -> :ok
-      x -> Logger.error("[#{protocol}] Request error: #{inspect(x)}")
+      :not_implemented -> :ok
+      {:error, error} -> Logger.error("[#{protocol}] Request error: #{inspect(error)}")
     end
 
     Libp2p.stream_close(stream)
@@ -44,6 +46,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     {:noreply, state}
   end
 
+  @spec handle_req(String.t(), Libp2p.stream()) :: :ok | :not_implemented | {:error, binary()}
   def handle_req(@prefix <> "status/1/ssz_snappy", stream) do
     # hardcoded response from random peer
     current_status = %SszTypes.StatusMessage{
@@ -118,8 +121,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     end
   end
 
+  def handle_req(@prefix <> "beacon_blocks_by_range/2/ssz_snappy", _stream), do: :not_implemented
+
   def handle_req(protocol, _stream) do
     # This should never happen, since Libp2p only accepts registered protocols
     Logger.error("Unsupported protocol: #{protocol}")
+    :ok
   end
 end

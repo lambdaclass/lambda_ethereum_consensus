@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.JWT do
+defmodule LambdaEthereumConsensus.Engine.JWT do
   @moduledoc """
   JWT generator module for authenticated Engine API communication
   """

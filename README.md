@@ -2,6 +2,121 @@
 
 [![Telegram chat](https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaconsensus%2F&logo=telegram&label=chat&color=neon)](https://t.me/lambdaconsensus)
 
+## Prerequisites
+
+### Direct Installation
+
+You can install the necessary components directly from official sources:
+
+- [Elixir](https://elixir-lang.org/install.html)
+- [Erlang](https://www.erlang.org/downloads)
+- [Go](https://go.dev/doc/install)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Protoc](https://grpc.io/docs/protoc-installation/)
+
+### Alternative (Recommended) Installation
+
+For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
+
+- [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
+
+After installing **asdf**, add the required plugins for managing the tools:
+
+```shell
+asdf plugin add elixir
+asdf plugin add erlang
+asdf plugin add golang
+asdf plugin add rust
+asdf plugin add protoc
+```
+
+Finally, install the specific versions of these tools as specified in `.tool-versions`:
+
+```shell
+asdf install
+```
+
+### Alternative (easier) Installation using Nix 
+To create a sandbox environment with all the required tool chains, use Nix. Steps to get Nix working are as follows:
+
+1. Install Nix from the official website: https://nixos.org/download.
+2. To allow experimental features (nix develop and nix-command) you might need to do the following:
+
+```shell
+mkdir ~/.config/nix
+echo "experimental-features = nix-command flakes " > ~/.config/nix/nix.conf
+```
+
+Alternatively, for a smoother experience you can use the following script from [Determinate Systems](https://zero-to-nix.com/start/install) that takes care of setting up everything for you:
+
+```shell 
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+```
+
+- Check if Nix has been successfully installed: `nix --version`.
+- To launch the environment: `nix develop`.
+
+## Installing and running
+
+There are Makefile targets for these tasks.
+
+```shell
+make deps # Installs dependencies
+make iex  # Runs a terminal with the application started
+make test # Runs tests
+```
+
+The iex terminal can be closed by pressing ctrl+c two times.
+
+### Checkpoint Sync
+
+You can also sync from a checkpoint given by a trusted third-party.
+For that, get the URL that serves the checkpoint, and execute the following command:
+
+```shell
+iex -S mix run -- --checkpoint-sync <your_url_here>
+```
+
+Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/)
+
+## Consensus spec tests
+
+You can run all of them with:
+
+```shell
+make spec-test
+```
+
+Or only run those of a specific test runner with:
+
+```shell
+make spec-test-`runner`
+# some examples
+make spec-test-ssz_static
+make spec-test-bls
+make spec-test-operations
+```
+
+The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
+
+For more fine-grained filtering of tests, you can use mix test tag filters:
+
+```bash
+mix test --no-start --only <tag_name>[:<tag_value>]
+```
+
+> [!NOTE]
+> We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
+
+Some useful tag filters:
+
+- `spectest`: only run spec-tests, same as `make spec-test`
+- `config:general`: only run spec-tests with "general" config
+- `fork:capella`: only run spec-tests of the "capella" fork
+- `runner:ssz_generic`: only run spec-tests of the "ssz_generic" runner
+- `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
+- `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
+
 ## Why Elixir?
 
 Elixir is a functional programming language that runs atop the Erlang Virtual Machine (BEAM). It offers enhanced readability, syntactic sugar, and reduced boilerplate, enabling developers to achieve more with fewer lines of code compared to Erlang. Like Erlang, Elixir compiles to bytecode that is interpreted by the VM. As a result, it inherits several notable properties, including:
@@ -16,6 +131,66 @@ Elixir is a functional programming language that runs atop the Erlang Virtual Ma
 Our aim is to infuse these strengths into the Ethereum consensus client ecosystem with our offering.
 
 We also have for objective to bootstart an Ethereum Elixir community, and to make Elixir a first-class citizen in the Ethereum ecosystem.
+
+## Roadmap
+
+**1. Block Subscription - Mid September**
+   - Libp2p discovery and block retrieval
+   - SSZ + snappy
+   - `on_block` callback: Save the latest block in fork-choice store, conduct basic checks. GetHead returns the last obtained block.
+   - Beacon API: Return block root (`GET /beacon/states/{state_id}/root`)
+
+**2. Checkpoint Sync - October**
+   - Libp2p primitives for sync
+   - Support checkpoint Sync from a known provider
+   - Sync from the latest finalized block
+   - BeaconAPI: Return headers for head block
+   - EngineAPI: Validate incoming blocks
+
+**3. Attestations - Mid October**
+   - Libp2p attestation retrieval
+   - Basic beacon state representation
+   - Store attestations (last message sent by each validator)
+   - `on_attestation` callback for attestations sent via Gossip
+   - Process attestations from blocks
+   - Beacon API: Return head block root (`GET /beacon/states/head/root`)
+
+**4. Deposits - November**
+   - BLS signature checks
+   - Update consensus state view of deposit contract (`process_eth1_data`)
+   - Process deposit operation to update validator list (`process_deposit`)
+   - Verify block signatures (`verify_block_signature`)
+
+**5. Slots and Fork-choice - Mid November**
+   - `on_tick`/`process_slot` in state transition; a GenServer that calls this periodically
+   - `on_block`: Add slot-related checks and epoch calculations (excluding finalization)
+   - Get-head uses the messages
+   - Block header validation
+   - EngineAPI: Process execution payload
+   - BeaconAPI: Ensure getting head values point to the heaviest
+
+**6. Finality and Slashing - Mid November**
+   - Epoch processing
+   - `on_block`: Prune fork-choice store; reject blocks before finalization
+   - Add RANDAO mix to the beacon state
+   - BeaconAPI: Retrieve finality checkpoints, randao mixes
+   - Process attester slashings and proposer slashings
+   - EngineAPI: fork-choice updates
+
+**7. Rewards, Shuffling - December**
+   - Process rewards `on_epoch` for a checkpoint
+   - Handle Deposits and Withdrawals
+   - Implement RANDAO
+   - Calculate committee for a given state
+   - Conduct shuffling
+   - Integrate with Grafana
+   - BeaconAPI: Retrieve randao mix for a given block 
+
+**8. Validator Features - Mid December/January 2024**
+   - Create attestations
+   - Monitor for slashings
+   - Create slashing proofs
+   - BeaconAPI: Post blocks, slashings, voluntary exits, and withdrawals
 
 ## Contributor Package
 
@@ -140,77 +315,6 @@ Lambda Ethereum Consensus is more than just a project; it's a community-driven i
 
 **Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
 
-## Prerequisites
-
-### Direct Installation
-
-You can install the necessary components directly from official sources:
-
-- [Elixir](https://elixir-lang.org/install.html)
-- [Erlang](https://www.erlang.org/downloads)
-- [Go](https://go.dev/doc/install)
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Protoc](https://grpc.io/docs/protoc-installation/)
-
-### Alternative (Recommended) Installation
-
-For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
-
-- [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
-
-After installing **asdf**, add the required plugins for managing the tools:
-
-```shell
-asdf plugin add elixir
-asdf plugin add erlang
-asdf plugin add golang
-asdf plugin add rust
-```
-
-Finally, install the specific versions of these tools as specified in `.tool-versions`:
-
-```shell
-asdf install
-```
-
-## Installing and running
-
-There are Makefile targets for these tasks.
-
-```shell
-make deps # Installs dependencies
-make iex  # Runs a terminal with the application started
-make test # Runs tests
-```
-
-The iex terminal can be closed by pressing ctrl+c two times.
-
-## Consensus spec tests
-
-These can be run with:
-
-```shell
-make spec-test
-```
-
-For more fine-grained filtering of tests, you can use mix test tag filters:
-
-```bash
-mix test --no-start --only <tag_name>[:<tag_value>]
-```
-
-> [!NOTE]
-> We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
-
-Some useful tag filters:
-
-- `spectest`: only run spec-tests, same as `make spec-test`
-- `config:general`: only run spec-tests with "general" config
-- `fork:capella`: only run spec-tests of the "capella" fork
-- `runner:ssz_generic`: only run spec-tests of the "ssz_generic" runner
-- `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
-- `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
-
 ## Profiling
 
 ### QCachegrind
@@ -297,18 +401,20 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://www.linkedin.com/in/paul-henrykajfasz/"><img src="https://avatars.githubusercontent.com/u/42912740?v=4?s=100" width="100px;" alt="Paul-Henry Kajfasz"/><br /><sub><b>Paul-Henry Kajfasz</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=phklive" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://www.linkedin.com/in/paul-henrykajfasz/"><img src="https://avatars.githubusercontent.com/u/42912740?v=4?s=100" width="100px;" alt="Paul-Henry Kajfasz"/><br /><sub><b>Paul-Henry Kajfasz</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=phklive" title="Code">💻</a> <a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=phklive" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/MegaRedHand"><img src="https://avatars.githubusercontent.com/u/47506558?v=4?s=100" width="100px;" alt="Tomás"/><br /><sub><b>Tomás</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=MegaRedHand" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/mpaulucci"><img src="https://avatars.githubusercontent.com/u/1040971?v=4?s=100" width="100px;" alt="Martin Paulucci"/><br /><sub><b>Martin Paulucci</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=mpaulucci" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Arkenan"><img src="https://avatars.githubusercontent.com/u/6244161?v=4?s=100" width="100px;" alt="Tomás Arjovsky"/><br /><sub><b>Tomás Arjovsky</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=Arkenan" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/h3lio5"><img src="https://avatars.githubusercontent.com/u/47632450?v=4?s=100" width="100px;" alt="Akash S M"/><br /><sub><b>Akash S M</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=h3lio5" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/berwingan"><img src="https://avatars.githubusercontent.com/u/45144467?v=4?s=100" width="100px;" alt="berwin"/><br /><sub><b>berwin</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=berwingan" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/berwingan"><img src="https://avatars.githubusercontent.com/u/45144467?v=4?s=100" width="100px;" alt="berwin"/><br /><sub><b>berwin</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=berwingan" title="Code">💻</a> <a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=berwingan" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://f3r10.github.io/#/all-pages"><img src="https://avatars.githubusercontent.com/u/4682815?v=4?s=100" width="100px;" alt="Fernando Ledesma"/><br /><sub><b>Fernando Ledesma</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=f3r10" title="Code">💻</a></td>
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/karasakalmt"><img src="https://avatars.githubusercontent.com/u/32202283?v=4?s=100" width="100px;" alt="Mete Karasakal"/><br /><sub><b>Mete Karasakal</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=karasakalmt" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://federicocarrone.com/"><img src="https://avatars.githubusercontent.com/u/569014?v=4?s=100" width="100px;" alt="Federico Carrone"/><br /><sub><b>Federico Carrone</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=unbalancedparentheses" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="http://godspowereze.com"><img src="https://avatars.githubusercontent.com/u/61994334?v=4?s=100" width="100px;" alt="Godspower Eze"/><br /><sub><b>Godspower Eze</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=Godspower-Eze" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/namn-grg"><img src="https://avatars.githubusercontent.com/u/97289118?v=4?s=100" width="100px;" alt="Naman Garg"/><br /><sub><b>Naman Garg</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=namn-grg" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ayushm2003"><img src="https://avatars.githubusercontent.com/u/62571011?v=4?s=100" width="100px;" alt="Ayush"/><br /><sub><b>Ayush</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=ayushm2003" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>

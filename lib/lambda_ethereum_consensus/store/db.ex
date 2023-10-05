@@ -2,7 +2,7 @@ defmodule LambdaEthereumConsensus.Store.Db do
   @moduledoc """
   Module that handles the key-value store.
   """
-
+  # TODO: replace GenServer with :ets
   use GenServer
 
   @registered_name __MODULE__
@@ -14,44 +14,42 @@ defmodule LambdaEthereumConsensus.Store.Db do
 
   @spec put(binary, binary) :: :ok
   def put(key, value) do
-    GenServer.call(@registered_name, {:put, {key, value}})
-    :ok
+    ref = GenServer.call(@registered_name, :get_ref)
+    Exleveldb.put(ref, key, value)
   end
 
-  @spec get(binary) :: :not_found | {:error, binary} | {:ok, binary}
+  @spec get(binary) :: {:ok, binary} | :not_found
   def get(key) do
-    GenServer.call(@registered_name, {:get, key})
+    ref = GenServer.call(@registered_name, :get_ref)
+    Exleveldb.get(ref, key)
+  end
+
+  @spec iterate() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
+  def iterate do
+    ref = GenServer.call(@registered_name, :get_ref)
+    # TODO: wrap cursor to make it DB-agnostic
+    Exleveldb.iterator(ref, [])
+  end
+
+  @spec iterate_keys() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
+  def iterate_keys do
+    ref = GenServer.call(@registered_name, :get_ref)
+    # TODO: wrap cursor to make it DB-agnostic
+    Exleveldb.iterator(ref, [], :keys_only)
   end
 
   @impl true
   def init(db_location) do
     {:ok, ref} = Exleveldb.open(db_location, create_if_missing: true)
-    {:ok, [ref: ref]}
+    {:ok, %{ref: ref}}
   end
 
   @impl true
-  def terminate(_reason, state) do
-    [ref: ref] = state
+  def terminate(_reason, %{ref: ref}) do
     :ok = Exleveldb.close(ref)
   end
 
+  # NOTE: LevelDB database ref usage is thread-safe
   @impl true
-  def handle_call({:put, {key, value}}, _from, state) do
-    [ref: ref] = state
-    :ok = Exleveldb.put(ref, key, value)
-    {:reply, :ok, state}
-  end
-
-  @impl true
-  def handle_call({:get, key}, _from, state) do
-    [ref: ref] = state
-
-    case Exleveldb.get(ref, key) do
-      {:ok, value} ->
-        {:reply, {:ok, value}, state}
-
-      :not_found ->
-        {:reply, :not_found, state}
-    end
-  end
+  def handle_call(:get_ref, _from, %{ref: ref} = state), do: {:reply, ref, state}
 end

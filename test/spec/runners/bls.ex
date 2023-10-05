@@ -1,5 +1,6 @@
 defmodule BLSTestRunner do
   use ExUnit.CaseTemplate
+  use TestRunner
 
   @moduledoc """
   Runner for BLS test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/bls
@@ -16,16 +17,12 @@ defmodule BLSTestRunner do
     # "eth_fast_aggregate_verify"
   ]
 
-  @doc """
-  Returns true if the given testcase should be skipped
-  """
+  @impl TestRunner
   def skip?(%SpecTestCase{} = testcase) do
     Enum.member?(@disabled_handlers, testcase.handler)
   end
 
-  @doc """
-  Runs the given test case.
-  """
+  @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 

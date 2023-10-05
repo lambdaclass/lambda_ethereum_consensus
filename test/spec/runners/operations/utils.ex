@@ -33,50 +33,6 @@ defmodule OperationsTestUtils do
     # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
 
-  # Local test config
-  @config MinimalConfig
-
-  @doc """
-  Prepares the data for the tests: build_path() |> decompress() |> deserialize()
-  """
-  def prepare_test(case_dir, handler, name) do
-    build_file_path(case_dir, name) |> decompress() |> deserialize(handler, name)
-  end
-
-  @doc """
-  Snappy decompression of the files
-  """
-  def decompress(file_path) do
-    if File.exists?(file_path) do
-      compressed = File.read!(file_path)
-      {:ok, decompressed} = :snappyer.decompress(compressed)
-      {:ok, decompressed}
-    else
-      {:ok, "no post"}
-    end
-  end
-
-  @doc """
-  Deserialization of the files
-  """
-  def deserialize({:ok, "no post"}, _, _), do: {:ok, "no post"}
-
-  def deserialize({:ok, serialized}, _handler, "pre") do
-    Ssz.from_ssz(serialized, SszTypes.BeaconState, @config)
-  end
-
-  def deserialize({:ok, serialized}, _handler, "post") do
-    Ssz.from_ssz(serialized, SszTypes.BeaconState, @config)
-  end
-
-  def deserialize({:ok, serialized}, handler, _) do
-    Ssz.from_ssz(serialized, resolve_type_from_handler(handler), @config)
-  end
-
-  def build_file_path(case_dir, name) do
-    "#{case_dir}/#{name}.ssz_snappy"
-  end
-
   @doc """
   Each handler has associated types, hence we resolve each type that has to be used from each handler
   """

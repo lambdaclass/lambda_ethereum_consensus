@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.P2P.PeerConsumer do
   @moduledoc """
   This module consumes events created by Discovery.
   """
+  alias LambdaEthereumConsensus.P2P.Peerbook
   use Broadway
 
   def start_link([host]) do
@@ -25,8 +26,12 @@ defmodule LambdaEthereumConsensus.P2P.PeerConsumer do
     :ok = Libp2p.peerstore_add_addrs(peerstore, id, addrs, Libp2p.ttl_permanent_addr())
 
     case Libp2p.host_connect(host, id) do
-      :ok -> message
-      {:error, reason} -> Broadway.Message.failed(message, reason)
+      :ok ->
+        Peerbook.add_peer(id)
+        message
+
+      {:error, reason} ->
+        Broadway.Message.failed(message, reason)
     end
   end
 end
