@@ -38,6 +38,12 @@ defmodule Bls do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  @spec eth_aggregate_pubkeys([SszTypes.bls_pubkey()]) ::
+          {:ok, SszTypes.bls_pubkey()} | {:error, any()}
+  def eth_aggregate_pubkeys(_public_keys) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   def key_validate(_public_key) do
     :erlang.nif_error(:nif_not_loaded)
   end
