@@ -217,13 +217,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Logger.info("[Topic] #{topic}: #{message}")
   end
 
-  defp handle_notification(
-            %Request{
-              protocol_id: protocol_id,
-              handler: handler,
-              message_id: message_id,
-              message: message
-            }) do
+  defp handle_notification(%Request{
+         protocol_id: protocol_id,
+         handler: handler,
+         message_id: message_id,
+         message: message
+       }) do
     handler_pid = :erlang.binary_to_term(handler)
     send(handler_pid, {:request, {protocol_id, message_id, message}})
   end
