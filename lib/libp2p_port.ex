@@ -82,8 +82,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Associates the given addresses to the given ID. After TTL nanoseconds,
-  the addresses are removed.
+  Adds a LibP2P peer with the given ID and registers the given addresses.
+  After TTL nanoseconds, the addresses are removed.
   """
   @spec add_peer(binary(), [String.t()], integer()) ::
           :ok | {:error, String.t()}
