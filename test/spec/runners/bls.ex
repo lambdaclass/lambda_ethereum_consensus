@@ -141,14 +141,10 @@ defmodule BLSTestRunner do
     end
   end
 
-  def assert_eth_aggregate_pubkeys(_input, _output) do
-    assert false
-  end
-
-  def assert_eth_fast_aggregate_verify(
-        %{message: message, pubkeys: pubkeys, signature: signature},
-        output
-      ) do
+  defp assert_eth_fast_aggregate_verify(
+         %{message: message, pubkeys: pubkeys, signature: signature},
+         output
+       ) do
     case Bls.eth_fast_aggregate_verify(pubkeys, message, signature) do
       {:ok, true} ->
         assert output

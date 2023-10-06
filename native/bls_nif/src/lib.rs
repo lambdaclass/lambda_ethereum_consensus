@@ -119,19 +119,29 @@ fn eth_fast_aggregate_verify<'env>(
 }
 
 #[rustler::nif]
-fn eth_aggregate_pubkeys<'env>(env: Env<'env>, public_keys: Vec<Binary>) -> Result<Binary<'env>, String> {
-    let pubkeys_result = public_keys
-        .iter()
-        .map(|pkb| PublicKey::deserialize(pkb.as_slice()))
-        .collect::<Result<Vec<PublicKey>, _>>();
+fn eth_aggregate_pubkeys<'env>(
+    env: Env<'env>,
+    public_keys: Vec<Binary>,
+) -> Result<Binary<'env>, String> {
+    match public_keys.len() {
+        0 => return Err(format!("Empty public key vector")),
+        _ => {
+            let pubkeys_result = public_keys
+                .iter()
+                .map(|pkb| PublicKey::deserialize(pkb.as_slice()))
+                .collect::<Result<Vec<PublicKey>, _>>();
 
-    let pubkeys = pubkeys_result.map_err(|err| format!("{:?}", err))?;
-    let pubkey_refs = pubkeys.iter().collect::Vec<_>>();
+            let pubkeys = pubkeys_result.map_err(|err| format!("{:?}", err))?;
+            let pubkey_refs = pubkeys.into_iter().collect::<Vec<_>>();
 
-    let agg_pubkey_bytes = AggregatePublicKey::aggregate(pubkey_refs).serialize();
+            let agg_pubkey_bytes = AggregatePublicKey::aggregate(pubkey_refs.as_slice())
+                .expect("error in aggregate")
+                .to_public_key()
+                .serialize();
 
-    Ok(bytes_to_binary(env, &agg_pubkey_bytes))
-
+            Ok(bytes_to_binary(env, &agg_pubkey_bytes))
+        }
+    }
 }
 
 rustler::init!(
