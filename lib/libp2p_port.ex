@@ -53,7 +53,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Gets the ID of the LibP2P node.
+  Gets the unique ID of the LibP2P node. This ID is used by peers to
+  identify and connect to it.
   """
   @spec get_id(GenServer.server()) :: binary()
   def get_id(pid \\ __MODULE__) do
