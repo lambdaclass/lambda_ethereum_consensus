@@ -65,7 +65,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @doc """
   Sets a Req/Resp handler for the given protocol ID. After this call,
-  messages are received in the current process' mailbox. To handle them,
+  peer requests are sent to the current process' mailbox. To handle them,
   use `handle_request/0`.
   """
   @spec set_handler(String.t()) :: :ok | {:error, String.t()}
