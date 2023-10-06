@@ -68,4 +68,4 @@ In post-merge Ethereum, consensus is reached by two combined fork-related algori
 - LMD GHOST: a fork-choice algorithm based on votes (attestations). If a majority of nodes follow this algorithm, they will tend to converge to the same canonical chain. We expand more on it on [this document](fork_choice.md).
 - Casper FFG: provides some level of safety by defining a finalization criterion. It takes a fork tree and defines a strategy to prune it (make branches inaccessible). Once a block is tagged as "final", blocks that aren't either parents (which are also final) or decendents of it, are not valid blocks. This prevents long reorganizations, which might make users vulnerable to double spends. We expand on it in [this document](finality.md).
 
-The recommended next read is the [Architecture document](architecture.md), which explains, in high level, how this works.
+The recommended next read is the [clients document](clients.md), which explains, in high level, how ethereum nodes interact with each other.
