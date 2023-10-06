@@ -193,9 +193,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_info({port, {:data, data}}, port) do
-    data
-    |> Notification.decode()
-    |> handle_notification()
+    %Notification{n: {_, payload}} = Notification.decode(data)
+    handle_notification(payload)
 
     {:noreply, port}
   end
@@ -214,29 +213,22 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%Notification{
-         n: {:gossip, %GossipSub{topic: topic, message: message}}
-       }) do
+  defp handle_notification(%GossipSub{topic: topic, message: message}) do
     Logger.info("[Topic] #{topic}: #{message}")
   end
 
-  defp handle_notification(%Notification{
-         n:
-           {:request,
+  defp handle_notification(
             %Request{
               protocol_id: protocol_id,
               handler: handler,
               message_id: message_id,
               message: message
-            }}
-       }) do
+            }) do
     handler_pid = :erlang.binary_to_term(handler)
     send(handler_pid, {:request, {protocol_id, message_id, message}})
   end
 
-  defp handle_notification(%Notification{
-         n: {:result, %Result{from: from, success: success, message: message}}
-       }) do
+  defp handle_notification(%Result{from: from, success: success, message: message}) do
     case from do
       nil ->
         success_txt = if success, do: "success", else: "failed"
