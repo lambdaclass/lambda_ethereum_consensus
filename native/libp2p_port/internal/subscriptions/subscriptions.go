@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"libp2p_port/internal/port"
 	"libp2p_port/internal/proto_helpers"
-	"libp2p_port/internal/utils"
 	"time"
 )
 
@@ -13,7 +12,7 @@ type Subscriber struct {
 	port          *port.Port
 }
 
-func NewSubscriber(p *port.Port, _config *utils.Config) Subscriber {
+func NewSubscriber(p *port.Port) Subscriber {
 	return Subscriber{subscriptions: make(map[string]chan struct{}), port: p}
 }
 

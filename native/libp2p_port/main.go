@@ -45,7 +45,7 @@ func commandServer() {
 	config := proto_helpers.ConfigFromInitArgs(&initArgs)
 
 	listener := reqresp.NewListener(portInst, &config)
-	subscriber := gossipsub.NewSubscriber(portInst, &config)
+	subscriber := gossipsub.NewSubscriber(portInst)
 	command := proto_defs.Command{}
 	for {
 		err := portInst.ReadCommand(&command)
