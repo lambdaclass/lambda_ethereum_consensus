@@ -36,12 +36,25 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### API
   ######################
 
+  @doc """
+  Starts the Port with the given options.
+
+  ## Options
+
+    * `:opts` - a Keyword list of options to pass onto the GenServer.
+      Defaults to `[name: __MODULE__]`.
+
+    * `:listen_addr` - the address to listen on. Defaults to `[]`.
+  """
   @spec start_link([{:opts, GenServer.options()} | init_arg()]) :: GenServer.on_start()
   def start_link(init_args) do
     opts = Keyword.get(init_args, :opts, name: __MODULE__)
     GenServer.start_link(__MODULE__, init_args, opts)
   end
 
+  @doc """
+  Gets the ID of the LibP2P node.
+  """
   @spec get_id(GenServer.server()) :: binary()
   def get_id(pid \\ __MODULE__) do
     self_serialized = :erlang.term_to_binary(self())
@@ -49,9 +62,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     id
   end
 
+  @doc """
+  Sets a Req/Resp handler for the given protocol ID. After this call,
+  messages are received in the current process' mailbox. To handle them,
+  use `handle_request/0`.
+  """
   @spec set_handler(String.t()) :: :ok | {:error, String.t()}
   def set_handler(protocol_id), do: set_handler(__MODULE__, protocol_id)
 
+  @doc """
+  Same as `set_handler/1`, but allows to specify the server's PID or name.
+  """
   @spec set_handler(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
   def set_handler(pid, protocol_id) do
     self_serialized = :erlang.term_to_binary(self())
@@ -59,10 +80,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     call_command(pid, %Command{from: self_serialized, c: {:set_handler, c}})
   end
 
+  @doc """
+  Associates the given addresses to the given ID. After TTL nanoseconds,
+  the addresses are removed.
+  """
   @spec add_peer(binary(), [String.t()], integer()) ::
           :ok | {:error, String.t()}
   def add_peer(id, addrs, ttl), do: add_peer(__MODULE__, id, addrs, ttl)
 
+  @doc """
+  Same as `add_peer/3`, but allows to specify the server's PID or name.
+  """
   @spec add_peer(GenServer.server(), binary(), [String.t()], integer()) ::
           :ok | {:error, String.t()}
   def add_peer(pid, id, addrs, ttl) do
@@ -71,19 +99,30 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     call_command(pid, %Command{from: self_serialized, c: {:add_peer, c}})
   end
 
+  @doc """
+  Sends a request and receives a response. The request is sent
+  to the given peer and protocol.
+  """
   @spec send_request(binary(), String.t(), binary()) ::
           {:ok, binary()} | {:error, String.t()}
-  def send_request(id, protocol_id, message),
-    do: send_request(__MODULE__, id, protocol_id, message)
+  def send_request(peer_id, protocol_id, message),
+    do: send_request(__MODULE__, peer_id, protocol_id, message)
 
+  @doc """
+  Same as `send_request/3`, but allows to specify the server's PID or name.
+  """
   @spec send_request(GenServer.server(), binary(), String.t(), binary()) ::
           {:ok, binary()} | {:error, String.t()}
-  def send_request(pid, id, protocol_id, message) do
+  def send_request(pid, peer_id, protocol_id, message) do
     self_serialized = :erlang.term_to_binary(self())
-    c = %SendRequest{id: id, protocol_id: protocol_id, message: message}
+    c = %SendRequest{id: peer_id, protocol_id: protocol_id, message: message}
     call_command(pid, %Command{from: self_serialized, c: {:send_request, c}})
   end
 
+  @doc """
+  Returns the next request received by the server for registered handlers
+  on the current process. If there are no requests, it waits for one.
+  """
   @spec handle_request() :: {String.t(), String.t(), binary()}
   def handle_request do
     receive do
@@ -91,10 +130,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     end
   end
 
+  @doc """
+  Sends a response for the request with the given message ID.
+  """
   @spec send_response(String.t(), binary()) ::
           :ok | {:error, String.t()}
   def send_response(message_id, response), do: send_response(__MODULE__, message_id, response)
 
+  @doc """
+  Same as `send_response/2`, but allows to specify the server's PID or name.
+  """
   @spec send_response(GenServer.server(), String.t(), binary()) ::
           :ok | {:error, String.t()}
   def send_response(pid, message_id, response) do
