@@ -7,7 +7,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias SszTypes.BeaconState
   alias SszTypes.Validator
 
-  @spec process_effective_balance_updates(BeaconState.t()) :: {:ok, BeaconState.t()}  |  {:error, binary() }
+  @spec process_effective_balance_updates(BeaconState.t()) ::
+          {:ok, BeaconState.t()} | {:error, binary()}
   def process_effective_balance_updates(
         %BeaconState{validators: validators, balances: balances} = state
       ) do
@@ -22,7 +23,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     new_validators =
       validators_with_index
       |> Enum.map(fn {%Validator{effective_balance: effective_balance} = validator, index} ->
-        balance = balances[index]
+        balance = Enum.at(balances, index)
         hysteresis_increment = div(effective_balance_increment, hysteresis_quotient)
         downward_threshold = hysteresis_increment * hysteresis_downward_multiplier
         upward_threshold = hysteresis_increment * hysteresis_upward_multiplier
