@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias SszTypes.BeaconState
   alias SszTypes.Validator
 
-  @spec process_effective_balance_updates(BeaconState.t()) :: :ok
+  @spec process_effective_balance_updates(BeaconState.t()) :: {:ok, BeaconState.t()}  |  {:error, binary() }
   def process_effective_balance_updates(
         %BeaconState{validators: validators, balances: balances} = state
       ) do
@@ -38,7 +38,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         end
       end)
 
-    new_state = %BeaconState{state | validators: new_validators}
-    LambdaEthereumConsensus.Store.StateStore.store_state(new_state)
+    %BeaconState{state | validators: new_validators}
   end
 end
