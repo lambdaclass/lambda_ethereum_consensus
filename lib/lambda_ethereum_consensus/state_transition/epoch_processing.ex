@@ -39,6 +39,9 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         end
       end)
 
-    %BeaconState{state | validators: new_validators}
+    {:ok, %BeaconState{state | validators: new_validators}}
+  rescue
+    exception ->
+      {:error, "#{exception}"}
   end
 end

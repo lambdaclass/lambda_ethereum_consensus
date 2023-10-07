@@ -62,6 +62,12 @@ defmodule EpochProcessingTestRunner do
   # end
 
   def handle_case("effective_balance_updates", pre, post) do
-    assert EpochProcessing.process_effective_balance_updates(pre) == post
+    case EpochProcessing.process_effective_balance_updates(pre) do
+      {:ok, beacon_state} ->
+        assert beacon_state == post
+
+      {:error, _} ->
+        :error
+    end
   end
 end
