@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
-  alias SszTypes.BeaconState
   alias ChainSpec
+  alias SszTypes.BeaconState
 
   @spec process_eth1_data_reset(BeaconState.t()) :: BeaconState.t()
   def process_eth1_data_reset(state) do
