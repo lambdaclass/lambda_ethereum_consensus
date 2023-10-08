@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Utils do
   @moduledoc """
   Set of utility functions used throughout the project
   """
+  require Logger
 
   use Tesla
   plug(Tesla.Middleware.JSON)
@@ -16,18 +17,26 @@ defmodule LambdaEthereumConsensus.Utils do
         {Tesla.Middleware.Headers, [{"Accept", "application/octet-stream"}]}
       ])
 
-    case get(client, url) do
+    full_url =
+      url
+      |> URI.parse()
+      |> URI.append_path("/eth/v2/debug/beacon/states/finalized")
+      |> URI.to_string()
+
+    case get(client, full_url) do
       {:ok, response} ->
         case Ssz.from_ssz(response.body, SszTypes.BeaconState) do
           {:ok, struct} ->
             struct
 
-          _ ->
-            IO.puts("There has been an error syncing from checkpoint.")
+          {:error, _} ->
+            Logger.error("There has been an error syncing from checkpoint.")
+            :error
         end
 
       _ ->
-        IO.puts("Invalid checkpoint sync url.")
+        Logger.error("Invalid checkpoint sync url.")
+        :error
     end
   end
 end

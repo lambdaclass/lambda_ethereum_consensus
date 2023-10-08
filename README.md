@@ -36,6 +36,26 @@ Finally, install the specific versions of these tools as specified in `.tool-ver
 asdf install
 ```
 
+### Alternative (easier) Installation using Nix 
+To create a sandbox environment with all the required tool chains, use Nix. Steps to get Nix working are as follows:
+
+1. Install Nix from the official website: https://nixos.org/download.
+2. To allow experimental features (nix develop and nix-command) you might need to do the following:
+
+```shell
+mkdir ~/.config/nix
+echo "experimental-features = nix-command flakes " > ~/.config/nix/nix.conf
+```
+
+Alternatively, for a smoother experience you can use the following script from [Determinate Systems](https://zero-to-nix.com/start/install) that takes care of setting up everything for you:
+
+```shell 
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+```
+
+- Check if Nix has been successfully installed: `nix --version`.
+- To launch the environment: `nix develop`.
+
 ## Installing and running
 
 There are Makefile targets for these tasks.
@@ -47,6 +67,17 @@ make test # Runs tests
 ```
 
 The iex terminal can be closed by pressing ctrl+c two times.
+
+### Checkpoint Sync
+
+You can also sync from a checkpoint given by a trusted third-party.
+For that, get the URL that serves the checkpoint, and execute the following command:
+
+```shell
+iex -S mix run -- --checkpoint-sync <your_url_here>
+```
+
+Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/)
 
 ## Consensus spec tests
 
@@ -100,6 +131,66 @@ Elixir is a functional programming language that runs atop the Erlang Virtual Ma
 Our aim is to infuse these strengths into the Ethereum consensus client ecosystem with our offering.
 
 We also have for objective to bootstart an Ethereum Elixir community, and to make Elixir a first-class citizen in the Ethereum ecosystem.
+
+## Roadmap
+
+**1. Block Subscription - Mid September**
+   - Libp2p discovery and block retrieval
+   - SSZ + snappy
+   - `on_block` callback: Save the latest block in fork-choice store, conduct basic checks. GetHead returns the last obtained block.
+   - Beacon API: Return block root (`GET /beacon/states/{state_id}/root`)
+
+**2. Checkpoint Sync - October**
+   - Libp2p primitives for sync
+   - Support checkpoint Sync from a known provider
+   - Sync from the latest finalized block
+   - BeaconAPI: Return headers for head block
+   - EngineAPI: Validate incoming blocks
+
+**3. Attestations - Mid October**
+   - Libp2p attestation retrieval
+   - Basic beacon state representation
+   - Store attestations (last message sent by each validator)
+   - `on_attestation` callback for attestations sent via Gossip
+   - Process attestations from blocks
+   - Beacon API: Return head block root (`GET /beacon/states/head/root`)
+
+**4. Deposits - November**
+   - BLS signature checks
+   - Update consensus state view of deposit contract (`process_eth1_data`)
+   - Process deposit operation to update validator list (`process_deposit`)
+   - Verify block signatures (`verify_block_signature`)
+
+**5. Slots and Fork-choice - Mid November**
+   - `on_tick`/`process_slot` in state transition; a GenServer that calls this periodically
+   - `on_block`: Add slot-related checks and epoch calculations (excluding finalization)
+   - Get-head uses the messages
+   - Block header validation
+   - EngineAPI: Process execution payload
+   - BeaconAPI: Ensure getting head values point to the heaviest
+
+**6. Finality and Slashing - Mid November**
+   - Epoch processing
+   - `on_block`: Prune fork-choice store; reject blocks before finalization
+   - Add RANDAO mix to the beacon state
+   - BeaconAPI: Retrieve finality checkpoints, randao mixes
+   - Process attester slashings and proposer slashings
+   - EngineAPI: fork-choice updates
+
+**7. Rewards, Shuffling - December**
+   - Process rewards `on_epoch` for a checkpoint
+   - Handle Deposits and Withdrawals
+   - Implement RANDAO
+   - Calculate committee for a given state
+   - Conduct shuffling
+   - Integrate with Grafana
+   - BeaconAPI: Retrieve randao mix for a given block 
+
+**8. Validator Features - Mid December/January 2024**
+   - Create attestations
+   - Monitor for slashings
+   - Create slashing proofs
+   - BeaconAPI: Post blocks, slashings, voluntary exits, and withdrawals
 
 ## Contributor Package
 
@@ -315,7 +406,7 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/mpaulucci"><img src="https://avatars.githubusercontent.com/u/1040971?v=4?s=100" width="100px;" alt="Martin Paulucci"/><br /><sub><b>Martin Paulucci</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=mpaulucci" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Arkenan"><img src="https://avatars.githubusercontent.com/u/6244161?v=4?s=100" width="100px;" alt="Tomás Arjovsky"/><br /><sub><b>Tomás Arjovsky</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=Arkenan" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/h3lio5"><img src="https://avatars.githubusercontent.com/u/47632450?v=4?s=100" width="100px;" alt="Akash S M"/><br /><sub><b>Akash S M</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=h3lio5" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/berwingan"><img src="https://avatars.githubusercontent.com/u/45144467?v=4?s=100" width="100px;" alt="berwin"/><br /><sub><b>berwin</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=berwingan" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/berwingan"><img src="https://avatars.githubusercontent.com/u/45144467?v=4?s=100" width="100px;" alt="berwin"/><br /><sub><b>berwin</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=berwingan" title="Code">💻</a> <a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=berwingan" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://f3r10.github.io/#/all-pages"><img src="https://avatars.githubusercontent.com/u/4682815?v=4?s=100" width="100px;" alt="Fernando Ledesma"/><br /><sub><b>Fernando Ledesma</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=f3r10" title="Code">💻</a></td>
     </tr>
     <tr>
