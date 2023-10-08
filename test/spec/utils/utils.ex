@@ -50,4 +50,20 @@ defmodule SpecTestUtils do
       {:ok, ssz_object} -> ssz_object
     end
   end
+
+  @spec resolve_name_from_handler(term(), map()) :: atom()
+  def resolve_type_from_handler(handler, map) do
+    case Map.get(map, handler) do
+      nil -> raise "Unknown case #{handler}"
+      type -> Module.concat(SszTypes, type)
+    end
+  end
+
+  @spec resolve_name_from_handler(term(), map()) :: term()
+  def resolve_name_from_handler(handler, map) do
+    case Map.get(map, handler) do
+      nil -> raise "Unknown case #{handler}"
+      name -> name
+    end
+  end
 end
