@@ -1,4 +1,6 @@
 defmodule EpochProcessingTestRunner do
+  alias LambdaEthereumConsensus.StateTransition.EpochProcessing
+
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -13,7 +15,7 @@ defmodule EpochProcessingTestRunner do
     "rewards_and_penalties",
     "registry_updates",
     "slashings",
-    "eth1_data_reset",
+    # "eth1_data_reset",
     "effective_balance_updates",
     "slashings_reset",
     "randao_mixes_reset",
@@ -55,7 +57,10 @@ defmodule EpochProcessingTestRunner do
     # handle_case(testcase.handler, pre, post)
   end
 
-  # def handle_case("eth1_data_reset", pre, post) do
-  #   assert process_eth1_data_reset(process_eth1pre.eth1_data) == post.eth1_data
-  # end
+  def handle_case("eth1_data_reset", pre, post) do
+    case EpochProcessing.process_eth1_data_reset(pre) do
+      beacon_state ->
+        assert beacon_state == post
+    end
+  end
 end
