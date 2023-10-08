@@ -3,15 +3,17 @@ defmodule LambdaEthereumConsensus.StateTransition.BlockProcessing do
   Core block processing functions
   """
 
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
-  alias LambdaEthereumConsensus.StateTransition.Accessors
 
+  # TODO: Add spec
   @doc """
   State_transition function managing the processing & validation of the `ExecutionPayload`
   """
   def process_execution_payload(state, payload) do
     # Verify consistency of the parent hash with respect to the previous execution payload header
+    # TODO: Verify that the impl is correct
     if Predicates.is_merge_transition_complete(state) do
       if payload.parent_hash == state.latest_execution_payload_header.block_hash,
         do: raise("Inconsistency in parent hash")
@@ -29,6 +31,6 @@ defmodule LambdaEthereumConsensus.StateTransition.BlockProcessing do
     # TODO: Implement notify_new_payload()
 
     # Cache execution payload header
-    # TODO: Update the state and return if
+    # TODO: Update the state and return it
   end
 end
