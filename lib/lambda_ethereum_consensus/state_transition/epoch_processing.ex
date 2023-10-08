@@ -1,7 +1,6 @@
 defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
-  @moduledoc
-  """
+  @moduledoc"""
   This module contains utility functions for handling epoch processing
   """
 
