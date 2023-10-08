@@ -1,4 +1,10 @@
 defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
+
+  @moduledoc
+  """
+  This module contains utility functions for handling epoch processing
+  """
+
   alias ChainSpec
   alias SszTypes.BeaconState
 
