@@ -1,10 +1,13 @@
 defmodule OperationsTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
+  use Patch
 
   @moduledoc """
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
   """
+  alias LambdaEthereumConsensus.Engine.Execution
+  alias LambdaEthereumConsensus.StateTransition.BlockProcessing
 
   # Map the operation-name to the associated operation-type
   @type_map %{
@@ -62,6 +65,12 @@ defmodule OperationsTestRunner do
     handler = testcase.handler
     config = SpecTestUtils.get_config(testcase.config)
 
+    if config == MainnetConfig do
+      Application.put_env(ChainSpec, :config, MainnetConfig)
+    else
+      Application.put_env(ChainSpec, :config, MinimalConfig)
+    end
+
     pre =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
@@ -87,9 +96,26 @@ defmodule OperationsTestRunner do
     handle_case(testcase.handler, pre, operation, post, case_dir)
   end
 
-  def handle_case("execution_payload", _pre, _operation, _post, case_dir) do
-    %{execution_valid: _execution_valid} =
+  def handle_case("execution_payload", pre, operation, _post, case_dir) do
+    %{execution_valid: execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.parse_yaml()
+
+    patch(Execution, :verify_and_notify_new_payload, fn _ ->
+      {:ok, execution_valid}
+    end)
+
+    new_state = BlockProcessing.process_execution_payload(pre, operation)
+
+    restore(Execution)
+
+    # case post do
+    #   nil ->
+    #     assert match?({:error, _message}, new_state)
+    #   _ ->
+    #     assert new_state == {:ok, post}
+    # end
+
+    IO.inspect(new_state)
   end
 end
