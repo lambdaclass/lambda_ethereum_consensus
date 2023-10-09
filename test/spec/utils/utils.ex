@@ -34,21 +34,21 @@ defmodule SpecTestUtils do
   def get_config("mainnet"), do: MainnetConfig
   def get_config("general"), do: MainnetConfig
 
-  @spec read_ssz_from_file(binary, module, module) :: {:ok, any}
-  def read_ssz_from_file(file_path, ssz_type, config) do
+  @spec read_ssz_from_file(binary, module) :: {:ok, any}
+  def read_ssz_from_file(file_path, ssz_type) do
     if File.exists?(file_path) do
       compressed = File.read!(file_path)
       {:ok, decompressed} = :snappyer.decompress(compressed)
-      {:ok, ssz_object} = Ssz.from_ssz(decompressed, ssz_type, config)
+      {:ok, ssz_object} = Ssz.from_ssz(decompressed, ssz_type)
       {:ok, ssz_object}
     else
       {:ok, nil}
     end
   end
 
-  @spec read_ssz_from_file!(binary, module, module) :: any
-  def read_ssz_from_file!(file_path, ssz_type, config) do
-    case read_ssz_from_file(file_path, ssz_type, config) do
+  @spec read_ssz_from_file!(binary, module) :: any
+  def read_ssz_from_file!(file_path, ssz_type) do
+    case read_ssz_from_file(file_path, ssz_type) do
       {:ok, nil} -> raise "File not found: #{file_path}"
       {:ok, ssz_object} -> ssz_object
     end

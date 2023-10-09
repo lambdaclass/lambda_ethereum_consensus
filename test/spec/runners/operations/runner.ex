@@ -30,28 +30,24 @@ defmodule OperationsTestRunner do
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
     handler = testcase.handler
-    config = SpecTestUtils.get_config(testcase.config)
 
     pre =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
-        SszTypes.BeaconState,
-        config
+        SszTypes.BeaconState
       )
 
     operation =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <>
           "/" <> OperationsTestUtils.resolve_name_from_handler(handler) <> ".ssz_snappy",
-        OperationsTestUtils.resolve_type_from_handler(handler),
-        config
+        OperationsTestUtils.resolve_type_from_handler(handler)
       )
 
     {:ok, post} =
       SpecTestUtils.read_ssz_from_file(
         case_dir <> "/post.ssz_snappy",
-        SszTypes.BeaconState,
-        config
+        SszTypes.BeaconState
       )
 
     handle_case(testcase.handler, pre, operation, post, case_dir)

@@ -41,6 +41,9 @@ defmodule SpecTestGenerator do
             pinned_config: pinned_config,
             pinned_fork: pinned_fork
           ] do
+      # spec-tests can't be run in parallel since they depend on global config
+      use ExUnit.Case, async: false
+
       paths = Path.wildcard("#{vectors_dir}/#{pinned_config}/#{pinned_fork}/**")
       paths_hash = :erlang.md5(paths)
 
