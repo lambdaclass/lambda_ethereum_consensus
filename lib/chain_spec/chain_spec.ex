@@ -3,9 +3,8 @@ defmodule ChainSpec do
   Single entrypoint for fetching chain-specific constants.
   """
 
-  # NOTE: this only works for Capella
-  def get(name) do
-    config = Application.get_env(__MODULE__, :config, MainnetConfig)
-    config.get(name)
-  end
+  def get_config, do: Application.get_env(__MODULE__, :config, MainnetConfig)
+
+  # NOTE: this only works correctly for Capella
+  def get(name), do: get_config().get(name)
 end
