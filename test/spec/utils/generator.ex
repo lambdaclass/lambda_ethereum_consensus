@@ -51,6 +51,12 @@ defmodule SpecTestGenerator do
         |> :erlang.md5() != unquote(paths_hash)
       end
 
+      config = SpecTestUtils.get_config(pinned_config)
+
+      setup_all do
+        Application.put_env(ChainSpec, :config, unquote(config))
+      end
+
       for testcase <- SpecTestGenerator.all_cases(),
           pinned_fork in [testcase.fork, ""],
           testcase.config == pinned_config do

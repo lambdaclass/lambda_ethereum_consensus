@@ -30,6 +30,7 @@ defmodule SpecTestUtils do
 
   def get_config("minimal"), do: MinimalConfig
   def get_config("mainnet"), do: MainnetConfig
+  def get_config("general"), do: MainnetConfig
 
   @spec read_ssz_from_file(binary, module, module) :: {:ok, any}
   def read_ssz_from_file(file_path, ssz_type, config) do
