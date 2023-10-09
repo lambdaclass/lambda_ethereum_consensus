@@ -3,6 +3,8 @@ defmodule SpecTestUtils do
   Utilities for spec tests.
   """
 
+  def get_vectors_dir, do: "test/spec/vectors/tests"
+
   def parse_yaml(map) when is_map(map) do
     map
     |> Stream.map(&parse_yaml/1)
