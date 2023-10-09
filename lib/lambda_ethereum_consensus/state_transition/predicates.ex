@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @doc """
   Checks if state is pre or post merge
   """
-  @spec is_merge_transition_complete(SszTypes.BeaconState) :: boolean()
+  @spec is_merge_transition_complete(SszTypes.BeaconState.t()) :: boolean()
   def is_merge_transition_complete(state) do
     state.latest_execution_payload_header != SszTypes.ExecutionPayloadHeader
   end
