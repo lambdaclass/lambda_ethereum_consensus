@@ -13,7 +13,7 @@ defmodule BLSTestRunner do
     # "aggregate",
     # "fast_aggregate_verify",
     # "aggregate_verify",
-    "eth_aggregate_pubkeys"
+    # "eth_aggregate_pubkeys"
     # "eth_fast_aggregate_verify"
   ]
 
@@ -81,6 +81,18 @@ defmodule BLSTestRunner do
     end
   end
 
+  defp assert_eth_aggregate_pubkeys(pubkeys, output) do
+    case output do
+      nil ->
+        assert {result, _error_msg} = Bls.eth_aggregate_pubkeys(pubkeys)
+        assert result == :error
+
+      output ->
+        assert {:ok, agg_pubkey} = Bls.eth_aggregate_pubkeys(pubkeys)
+        assert agg_pubkey == output
+    end
+  end
+
   defp assert_fast_aggregate_verify(
          %{message: message, pubkeys: pubkeys, signature: signature},
          output
@@ -129,14 +141,10 @@ defmodule BLSTestRunner do
     end
   end
 
-  def assert_eth_aggregate_pubkeys(_input, _output) do
-    assert false
-  end
-
-  def assert_eth_fast_aggregate_verify(
-        %{message: message, pubkeys: pubkeys, signature: signature},
-        output
-      ) do
+  defp assert_eth_fast_aggregate_verify(
+         %{message: message, pubkeys: pubkeys, signature: signature},
+         output
+       ) do
     case Bls.eth_fast_aggregate_verify(pubkeys, message, signature) do
       {:ok, true} ->
         assert output
