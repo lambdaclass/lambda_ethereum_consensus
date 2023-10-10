@@ -41,22 +41,26 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 SPECTEST_VERSION = $(shell cat .spectest_version)
 SPECTEST_CONFIGS = general minimal mainnet
 
-SPECTEST_DIRS = $(patsubst %,tests/%,$(SPECTEST_CONFIGS))
-SPECTEST_TARS = $(patsubst %,%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
+SPECTEST_ROOTDIR = test/spec/vectors
+# create directory if it doesn't exist
+$(info $(shell mkdir -p $(SPECTEST_ROOTDIR)))
 
-%_${SPECTEST_VERSION}.tar.gz:
+SPECTEST_DIRS = $(patsubst %,$(SPECTEST_ROOTDIR)/tests/%,$(SPECTEST_CONFIGS))
+SPECTEST_TARS = $(patsubst %,$(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
+
+$(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz:
 	curl -L -o "$@" \
 		"https://github.com/ethereum/consensus-spec-tests/releases/download/${SPECTEST_VERSION}/$*.tar.gz"
 
-tests/%: %_${SPECTEST_VERSION}.tar.gz
+$(SPECTEST_ROOTDIR)/tests/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
 	-rm -rf $@
-	tar -xzmf  "$<"
+	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
 
 download-vectors: $(SPECTEST_TARS)
 
 clean-vectors:
-	-rm -rf tests
-	-rm *.tar.gz
+	-rm -rf $(SPECTEST_ROOTDIR)/tests
+	-rm $(SPECTEST_ROOTDIR)/*.tar.gz
 
 
 ##### TARGETS #####

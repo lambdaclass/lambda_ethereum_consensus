@@ -43,9 +43,8 @@ priv
 # VSCode configuration dir.
 .vscode/
 
-tests
-*.tar.gz
-
+# spec-test vectors
+test/spec/vectors
 
 native/libp2p_port/libp2p_port
 
