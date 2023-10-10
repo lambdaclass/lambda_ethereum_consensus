@@ -2,7 +2,7 @@ defmodule Unit.MinimalConfigSmokeTest do
   use ExUnit.Case
 
   setup_all do
-    Application.put_env(ChainSpec, :config, MinimalConfig)
+    Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: MinimalConfig)
   end
 
   test "in minimal, SLOTS_PER_EPOCH == 8" do
