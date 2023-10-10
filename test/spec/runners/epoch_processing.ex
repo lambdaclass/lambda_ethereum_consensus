@@ -58,12 +58,11 @@ defmodule EpochProcessingTestRunner do
   end
 
   def handle_case("eth1_data_reset", pre, post) do
-    case EpochProcessing.process_eth1_data_reset(pre) do
-      {:ok, beacon_state} ->
-        assert beacon_state == post
+    result = EpochProcessing.process_eth1_data_reset(pre)
 
-      {:error, _} ->
-        assert nil == post
+    case post do
+      nil -> elem(result, 0) == :error
+      post -> assert {:ok, post} == result
     end
   end
 end
