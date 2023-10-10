@@ -38,6 +38,7 @@ lambda_ethereum_consensus-*.tar
 *.a
 *.so
 native/libp2p_nif/go_src/main.h
+priv
 
 # VSCode configuration dir.
 .vscode/
