@@ -2,7 +2,6 @@ defmodule MainnetSpecTest do
   @moduledoc """
   "mainnet" config spec tests
   """
-  use ExUnit.Case, async: true
   require SpecTestGenerator
 
   # NOTE: we only support capella for now
