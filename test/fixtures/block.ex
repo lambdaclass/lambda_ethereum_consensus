@@ -1,19 +1,27 @@
 defmodule Fixtures.Block do
-  def beacon_block() do
+  @moduledoc """
+  Fixtures for blocks.
+  """
+
+  alias Fixtures.Random
+
+  @spec beacon_block :: SszTypes.BeaconBlock.t()
+  def beacon_block do
     %SszTypes.BeaconBlock{
-      parent_root: RandomBinary.root(),
+      parent_root: Random.root(),
       slot: 1,
       proposer_index: 1,
-      state_root: RandomBinary.root(),
+      state_root: Random.root(),
       body: beacon_block_body()
     }
   end
 
-  def beacon_block_body() do
+  @spec beacon_block_body :: SszTypes.BeaconBlockBody.t()
+  def beacon_block_body do
     %SszTypes.BeaconBlockBody{
-      randao_reveal: RandomBinary.bls_signature(),
+      randao_reveal: Random.bls_signature(),
       eth1_data: eth1_data(),
-      graffiti: RandomBinary.hash(),
+      graffiti: Random.hash(),
       proposer_slashings: [],
       attester_slashings: [],
       attestations: [],
@@ -25,70 +33,41 @@ defmodule Fixtures.Block do
     }
   end
 
-  def eth1_data() do
+  @spec eth1_data :: SszTypes.Eth1Data.t()
+  def eth1_data do
     %SszTypes.Eth1Data{
-      deposit_root: RandomBinary.root(),
+      deposit_root: Random.root(),
       deposit_count: 1,
-      block_hash: RandomBinary.hash()
+      block_hash: Random.hash()
     }
   end
 
   @spec sync_aggregate :: SszTypes.SyncAggregate.t()
-  def sync_aggregate() do
+  def sync_aggregate do
     %SszTypes.SyncAggregate{
-      sync_committee_bits: RandomBinary.sync_committee_bits(),
-      sync_committee_signature: RandomBinary.bls_signature()
+      sync_committee_bits: Random.sync_committee_bits(),
+      sync_committee_signature: Random.bls_signature()
     }
   end
 
   @spec execution_payload :: SszTypes.ExecutionPayload.t()
-  def execution_payload() do
+  def execution_payload do
     %SszTypes.ExecutionPayload{
-      parent_hash: RandomBinary.hash(),
-      fee_recipient: RandomBinary.execution_address(),
-      state_root: RandomBinary.root(),
-      receipts_root: RandomBinary.root(),
-      logs_bloom: RandomBinary.generate(256),
-      prev_randao: RandomBinary.hash(),
+      parent_hash: Random.hash(),
+      fee_recipient: Random.execution_address(),
+      state_root: Random.root(),
+      receipts_root: Random.root(),
+      logs_bloom: Random.generate(256),
+      prev_randao: Random.hash(),
       block_number: 256,
       gas_limit: 256,
       gas_used: 256,
       timestamp: 256,
-      extra_data: RandomBinary.generate(30),
+      extra_data: Random.generate(30),
       base_fee_per_gas: 256,
-      block_hash: RandomBinary.generate(32),
+      block_hash: Random.generate(32),
       transactions: [],
       withdrawals: []
     }
-  end
-end
-
-defmodule RandomBinary do
-  @doc """
-  Generate a random binary of n bytes.
-  """
-  @spec generate(integer()) :: binary()
-  def generate(n) when is_integer(n) and n > 0 do
-    :crypto.strong_rand_bytes(n)
-  end
-
-  def hash() do
-    generate(32)
-  end
-
-  def root() do
-    generate(32)
-  end
-
-  def bls_signature() do
-    generate(96)
-  end
-
-  def sync_committee_bits() do
-    generate(64)
-  end
-
-  def execution_address() do
-    generate(20)
   end
 end
