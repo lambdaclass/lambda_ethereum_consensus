@@ -61,7 +61,7 @@ defmodule EpochProcessingTestRunner do
     result = EpochProcessing.process_eth1_data_reset(pre)
 
     case post do
-      nil -> elem(result, 0) == :error
+      nil -> assert elem(result, 0) == :error
       post -> assert {:ok, post} == result
     end
   end
