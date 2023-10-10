@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias SszTypes.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
 
   @spec handle_message(String.t(), struct) :: :ok
@@ -16,7 +16,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
       "[Gossip] Block decoded for slot #{block.slot}. Root: #{Base.encode16(block.state_root)}"
     )
 
-    BlockStore.store_block(block)
+    PendingBlocks.add_block(block)
+    :ok
   end
 
   def handle_message(

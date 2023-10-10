@@ -59,28 +59,24 @@ defmodule OperationsTestRunner do
   @impl TestRunner
   def run_test_case(%SpecTestCase{handler: handler} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
-    config = SpecTestUtils.get_config(testcase.config)
 
     pre =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
-        SszTypes.BeaconState,
-        config
+        SszTypes.BeaconState
       )
 
     operation =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <>
           "/" <> SpecTestUtils.resolve_name_from_handler(handler, @name_map) <> ".ssz_snappy",
-        SpecTestUtils.resolve_type_from_handler(handler, @type_map),
-        config
+        SpecTestUtils.resolve_type_from_handler(handler, @type_map)
       )
 
     post =
       SpecTestUtils.read_ssz_from_file(
         case_dir <> "/post.ssz_snappy",
-        SszTypes.BeaconState,
-        config
+        SszTypes.BeaconState
       )
 
     handle_case(testcase.handler, pre, operation, post, case_dir)
