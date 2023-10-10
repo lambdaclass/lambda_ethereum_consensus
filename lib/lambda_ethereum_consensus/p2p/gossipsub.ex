@@ -14,13 +14,13 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   @impl true
   def init([gsub]) do
     topics = [
-      {"beacon_block", SszTypes.SignedBeaconBlock}
+      {"beacon_block", SszTypes.SignedBeaconBlock},
+      {"beacon_aggregate_and_proof", SszTypes.SignedAggregateAndProof}
       # {"beacon_attestation_0", SszTypes.Attestation},
       # {"voluntary_exit", SszTypes.SignedVoluntaryExit},
       # {"proposer_slashing", SszTypes.ProposerSlashing},
       # {"attester_slashing", SszTypes.AttesterSlashing},
       # {"bls_to_execution_change", SszTypes.SignedBLSToExecutionChange},
-      # {"beacon_aggregate_and_proof", SszTypes.SignedAggregateAndProof}
       # {"sync_committee_contribution_and_proof", SszTypes.SignedContributionAndProof},
       # {"sync_committee_0", SszTypes.SyncCommitteeMessage}
     ]
