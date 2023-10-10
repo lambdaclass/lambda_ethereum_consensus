@@ -51,7 +51,7 @@ defmodule SpecTestUtils do
     end
   end
 
-  @spec resolve_name_from_handler(term(), map()) :: atom()
+  @spec resolve_name_from_handler(String.t(), map()) :: module()
   def resolve_type_from_handler(handler, map) do
     case Map.get(map, handler) do
       nil -> raise "Unknown case #{handler}"
@@ -59,7 +59,7 @@ defmodule SpecTestUtils do
     end
   end
 
-  @spec resolve_name_from_handler(term(), map()) :: term()
+  @spec resolve_name_from_handler(String.t(), map()) :: String.t()
   def resolve_name_from_handler(handler, map) do
     case Map.get(map, handler) do
       nil -> raise "Unknown case #{handler}"

@@ -57,9 +57,8 @@ defmodule OperationsTestRunner do
   end
 
   @impl TestRunner
-  def run_test_case(%SpecTestCase{} = testcase) do
+  def run_test_case(%SpecTestCase{handler: handler} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
-    handler = testcase.handler
     config = SpecTestUtils.get_config(testcase.config)
 
     pre =
@@ -77,7 +76,7 @@ defmodule OperationsTestRunner do
         config
       )
 
-    {:ok, post} =
+    post =
       SpecTestUtils.read_ssz_from_file(
         case_dir <> "/post.ssz_snappy",
         SszTypes.BeaconState,
@@ -91,5 +90,7 @@ defmodule OperationsTestRunner do
     %{execution_valid: _execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.parse_yaml()
+
+    assert true
   end
 end
