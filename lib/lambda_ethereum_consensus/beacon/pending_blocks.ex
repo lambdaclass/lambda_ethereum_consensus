@@ -107,10 +107,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @spec in_fork_choice?(SszTypes.root()) :: boolean()
-  defp in_fork_choice?(_block_hash) do
+  defp in_fork_choice?(block_hash) do
     # TODO
     # add to fork choice
-    false
+    # adding this to make dialyzer happy
+    block_hash == <<>>
   end
 
   @spec add_to_fork_choice(SszTypes.BeaconBlock.t()) :: :ok
