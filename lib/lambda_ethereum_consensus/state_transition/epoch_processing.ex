@@ -17,8 +17,5 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     end
 
     {:ok, state}
-  rescue
-    exception ->
-      {:error, "#{exception}"}
   end
 end
