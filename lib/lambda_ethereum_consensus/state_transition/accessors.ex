@@ -2,8 +2,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @moduledoc """
   Functions accessing the current beacon state
   """
-
-  alias ChainSpec
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias SszTypes.BeaconState
 

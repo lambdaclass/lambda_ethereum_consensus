@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   This module contains utility functions for handling epoch processing
   """
 
-  alias ChainSpec
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias SszTypes.BeaconState
 
