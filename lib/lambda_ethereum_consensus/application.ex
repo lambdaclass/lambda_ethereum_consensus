@@ -21,9 +21,9 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequestHandler, [host]},
+      {LambdaEthereumConsensus.Beacon.PendingBlocks, [host]},
       {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
       {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
-      {LambdaEthereumConsensus.P2P.BlockConsumer, [host]},
       {LambdaEthereumConsensus.Libp2pPort, []},
       {LambdaEthereumConsensus.ForkChoice.Tree, []},
       # Start the Endpoint (http/https)

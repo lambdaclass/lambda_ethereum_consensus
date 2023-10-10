@@ -5,16 +5,17 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias SszTypes.SignedBeaconBlock
 
   @spec handle_message(String.t(), SszTypes.SignedBeaconBlock.t()) :: :ok
   def handle_message("/eth2/bba4da96/beacon_block/ssz_snappy", %SignedBeaconBlock{message: block}) do
     Logger.debug(
-      "[Gossip] Block decoded for slot #{block.slot}. Root: #{Base.encode16(block.state_root)}"
+      "[Checkpoint sync] Block decoded for slot #{block.slot}. Root: #{Base.encode16(block.state_root)}"
     )
 
-    BlockStore.store_block(block)
+    PendingBlocks.add_block(block)
+    :ok
   end
 
   def handle_message(topic_name, payload) do
