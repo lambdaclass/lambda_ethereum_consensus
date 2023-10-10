@@ -1,4 +1,6 @@
 defmodule EpochProcessingTestRunner do
+  alias LambdaEthereumConsensus.StateTransition.EpochProcessing
+
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -13,7 +15,7 @@ defmodule EpochProcessingTestRunner do
     "rewards_and_penalties",
     "registry_updates",
     "slashings",
-    "eth1_data_reset",
+    # "eth1_data_reset",
     "effective_balance_updates",
     "slashings_reset",
     "randao_mixes_reset",
@@ -36,26 +38,23 @@ defmodule EpochProcessingTestRunner do
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    config = SpecTestUtils.get_config(testcase.config)
-
     _pre =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
-        SszTypes.BeaconState,
-        config
+        SszTypes.BeaconState
       )
 
     {:ok, _post} =
       SpecTestUtils.read_ssz_from_file(
         case_dir <> "/post.ssz_snappy",
-        SszTypes.BeaconState,
-        config
+        SszTypes.BeaconState
       )
 
     # handle_case(testcase.handler, pre, post)
   end
 
-  # def handle_case("eth1_data_reset", pre, post) do
-  #   assert process_eth1_data_reset(process_eth1pre.eth1_data) == post.eth1_data
-  # end
+  def handle_case("eth1_data_reset", pre_state, post_state) do
+    result = EpochProcessing.process_eth1_data_reset(pre_state)
+    assert {:ok, post_state} == result
+  end
 end

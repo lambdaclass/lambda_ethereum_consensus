@@ -9,12 +9,14 @@ defmodule SpecTestGenerator do
     "epoch_processing" => EpochProcessingTestRunner
   }
 
+  @vectors_dir SpecTestUtils.get_vectors_dir()
+
   def all_cases do
-    ["tests"]
+    [@vectors_dir]
     |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
     |> Enum.join("/")
     |> Path.wildcard()
-    |> Stream.map(&Path.relative_to(&1, "tests"))
+    |> Stream.map(&Path.relative_to(&1, @vectors_dir))
     |> Stream.map(&Path.split/1)
     |> Enum.map(&SpecTestCase.new/1)
   end
@@ -35,10 +37,14 @@ defmodule SpecTestGenerator do
   # `config` (and `fork` in the case of `minimal`).
   defmacro generate_tests(pinned_config, pinned_fork \\ "") do
     quote bind_quoted: [
+            vectors_dir: @vectors_dir,
             pinned_config: pinned_config,
             pinned_fork: pinned_fork
           ] do
-      paths = Path.wildcard("tests/#{pinned_config}/#{pinned_fork}/**")
+      # spec-tests can't be run in parallel since they depend on global config
+      use ExUnit.Case, async: false
+
+      paths = Path.wildcard("#{vectors_dir}/#{pinned_config}/#{pinned_fork}/**")
       paths_hash = :erlang.md5(paths)
 
       for path <- paths do
@@ -47,8 +53,14 @@ defmodule SpecTestGenerator do
 
       # Recompile module only if corresponding dir layout changed
       def __mix_recompile__? do
-        Path.wildcard(unquote("tests/#{pinned_config}/#{pinned_fork}/**"))
+        Path.wildcard(unquote("#{vectors_dir}/#{pinned_config}/#{pinned_fork}/**"))
         |> :erlang.md5() != unquote(paths_hash)
+      end
+
+      config = SpecTestUtils.get_config(pinned_config)
+
+      setup_all do
+        Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: unquote(config))
       end
 
       for testcase <- SpecTestGenerator.all_cases(),
