@@ -7,7 +7,7 @@ config :lambda_ethereum_consensus,
 # Configure logging
 config :logger, level: :info
 
-config :lambda_ethereum_consensus, ChainSpec, preset: MainnetConfig
+config :lambda_ethereum_consensus, ChainSpec, config: MainnetConfig
 
 # Configures the phoenix endpoint
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
