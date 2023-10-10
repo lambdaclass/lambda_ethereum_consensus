@@ -59,10 +59,16 @@ defmodule Unit.Libp2pPortTest do
   end
 
   test "start discovery service" do
-    bootnodes = Application.get_env(
-      :lambda_ethereum_consensus,
-      LambdaEthereumConsensus.P2P.Discovery
-    )[:bootnodes]
-    start_port(:discoverer, discovery_addr: "0.0.0.0:25101", bootnodes: bootnodes)
+    bootnodes =
+      Application.get_env(
+        :lambda_ethereum_consensus,
+        LambdaEthereumConsensus.P2P.Discovery
+      )[:bootnodes]
+
+    start_port(:discoverer,
+      use_discv5: true,
+      discovery_addr: "0.0.0.0:25101",
+      bootnodes: bootnodes
+    )
   end
 end

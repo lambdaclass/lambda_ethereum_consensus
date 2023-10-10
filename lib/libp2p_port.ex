@@ -37,10 +37,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     bootnodes: []
   ]
 
-  @type init_arg :: {:listen_addr, String.t()}
-                  | {:use_discv5, boolean()}
-                  | {:discovery_addr, String.t()}
-                  | {:bootnodes, [String.t()]}
+  @type init_arg ::
+          {:listen_addr, String.t()}
+          | {:use_discv5, boolean()}
+          | {:discovery_addr, String.t()}
+          | {:bootnodes, [String.t()]}
 
   ######################
   ### API

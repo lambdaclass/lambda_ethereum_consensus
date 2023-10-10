@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 
+	"libp2p_port/internal/discovery"
 	"libp2p_port/internal/port"
 	proto_defs "libp2p_port/internal/proto"
 	"libp2p_port/internal/proto_helpers"
@@ -45,6 +46,7 @@ func commandServer() {
 	config := proto_helpers.ConfigFromInitArgs(&initArgs)
 
 	listener := reqresp.NewListener(portInst, &config)
+	discovery.NewDiscoverer(portInst, &listener, &config)
 	subscriber := gossipsub.NewSubscriber(portInst)
 	command := proto_defs.Command{}
 	for {
