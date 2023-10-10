@@ -9,8 +9,8 @@ defmodule Fixtures.Block do
   def beacon_block do
     %SszTypes.BeaconBlock{
       parent_root: Random.root(),
-      slot: 1,
-      proposer_index: 1,
+      slot: Random.uint64(),
+      proposer_index: Random.uint64(),
       state_root: Random.root(),
       body: beacon_block_body()
     }
@@ -21,7 +21,7 @@ defmodule Fixtures.Block do
     %SszTypes.BeaconBlockBody{
       randao_reveal: Random.bls_signature(),
       eth1_data: eth1_data(),
-      graffiti: Random.hash(),
+      graffiti: Random.hash32(),
       proposer_slashings: [],
       attester_slashings: [],
       attestations: [],
@@ -37,8 +37,8 @@ defmodule Fixtures.Block do
   def eth1_data do
     %SszTypes.Eth1Data{
       deposit_root: Random.root(),
-      deposit_count: 1,
-      block_hash: Random.hash()
+      deposit_count: Random.uint64(),
+      block_hash: Random.hash32()
     }
   end
 
@@ -53,19 +53,19 @@ defmodule Fixtures.Block do
   @spec execution_payload :: SszTypes.ExecutionPayload.t()
   def execution_payload do
     %SszTypes.ExecutionPayload{
-      parent_hash: Random.hash(),
+      parent_hash: Random.hash32(),
       fee_recipient: Random.execution_address(),
       state_root: Random.root(),
       receipts_root: Random.root(),
-      logs_bloom: Random.generate(256),
-      prev_randao: Random.hash(),
-      block_number: 256,
-      gas_limit: 256,
-      gas_used: 256,
-      timestamp: 256,
-      extra_data: Random.generate(30),
-      base_fee_per_gas: 256,
-      block_hash: Random.generate(32),
+      logs_bloom: Random.binary(256),
+      prev_randao: Random.hash32(),
+      block_number: Random.uint64(),
+      gas_limit: Random.uint64(),
+      gas_used: Random.uint64(),
+      timestamp: Random.uint64(),
+      extra_data: Random.binary(30),
+      base_fee_per_gas: Random.uint64(),
+      block_hash: Random.binary(32),
       transactions: [],
       withdrawals: []
     }
