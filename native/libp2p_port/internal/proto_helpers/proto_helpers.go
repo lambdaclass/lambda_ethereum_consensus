@@ -2,12 +2,21 @@ package proto_helpers
 
 import (
 	proto_defs "libp2p_port/internal/proto"
-	"libp2p_port/internal/utils"
 )
 
-func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) utils.Config {
-	return utils.Config{
-		ListenAddr: initArgs.ListenAddr,
+type Config struct {
+	ListenAddr    []string
+	UseDiscv5     bool
+	DiscoveryAddr string
+	Bootnodes     []string
+}
+
+func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
+	return Config{
+		ListenAddr:    initArgs.ListenAddr,
+		UseDiscv5:     initArgs.UseDiscv5,
+		DiscoveryAddr: initArgs.DiscoveryAddr,
+		Bootnodes:     initArgs.Bootnodes,
 	}
 }
 

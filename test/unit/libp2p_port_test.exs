@@ -57,4 +57,12 @@ defmodule Unit.Libp2pPortTest do
     assert {:ok, "pong"} = Libp2pPort.send_request(:sender, id, protocol_id, "ping")
     assert_receive :message_received, 1000
   end
+
+  test "start discovery service" do
+    bootnodes = Application.get_env(
+      :lambda_ethereum_consensus,
+      LambdaEthereumConsensus.P2P.Discovery
+    )[:bootnodes]
+    start_port(:discoverer, discovery_addr: "0.0.0.0:25101", bootnodes: bootnodes)
+  end
 end
