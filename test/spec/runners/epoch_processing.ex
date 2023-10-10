@@ -57,12 +57,8 @@ defmodule EpochProcessingTestRunner do
     # handle_case(testcase.handler, pre, post)
   end
 
-  def handle_case("eth1_data_reset", pre, post) do
-    result = EpochProcessing.process_eth1_data_reset(pre)
-
-    case post do
-      nil -> assert elem(result, 0) == :error
-      post -> assert {:ok, post} == result
-    end
+  def handle_case("eth1_data_reset", pre_state, post_state) do
+    beacon_state = EpochProcessing.process_eth1_data_reset(pre_state)
+    assert post_state == beacon_state
   end
 end
