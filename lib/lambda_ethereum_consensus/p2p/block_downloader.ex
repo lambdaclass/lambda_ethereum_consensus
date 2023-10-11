@@ -3,54 +3,25 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   This module requests blocks from peers.
   """
   alias LambdaEthereumConsensus.P2P
-  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
-  use GenStage
   require Logger
 
-  @protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
+  @blocks_by_range_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
+  @blocks_by_root_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_root/2/ssz_snappy"
+
   # This is the `ForkDigest` for mainnet in the capella fork
   # TODO: compute this at runtime
   @fork_context "BBA4DA96" |> Base.decode16!()
 
-  @impl true
-  def init([host]) do
-    {:producer, {host, 0}}
-  end
+  # Requests to peers might fail for various reasons,
+  # for example they might not support the protocol or might not reply
+  # so we want to try again with a different peer
+  @default_retries 3
 
-  @impl true
-  def handle_demand(incoming_demand, {host, remaining_demand}) do
-    demand = incoming_demand + remaining_demand
-    blocks = request_blocks(host, demand)
-    remaining = demand - length(blocks)
+  @spec request_block_by_slot(SszTypes.slot(), Libp2p.host(), integer()) ::
+          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, binary()}
+  def request_block_by_slot(slot, host, retries \\ @default_retries) do
+    Logger.debug("requesting block for slot #{slot}")
 
-    # Since request_blocks always returns the demanded amount,
-    # this can only happen if database is empty, or we don't
-    # have any blocks to request
-    if remaining > 0 do
-      Process.send_after(self(), :retry, 1000)
-    end
-
-    {:noreply, blocks, {host, remaining}}
-  end
-
-  @impl true
-  def handle_info(:retry, {host, 0}), do: {:noreply, [], {host, 0}}
-
-  @impl true
-  def handle_info(:retry, {host, demand}), do: handle_demand(0, {host, demand})
-
-  defp request_blocks(host, demand) do
-    case StateStore.get_latest_state() do
-      {:ok, state} -> BlockStore.stream_missing_blocks_asc(state.slot)
-      _ -> BlockStore.stream_missing_blocks_desc()
-    end
-    |> Stream.take(demand)
-    |> Stream.map(&request_block(host, &1))
-    |> Stream.map(&wrap_message/1)
-    |> Enum.to_list()
-  end
-
-  defp request_block(host, slot) do
     # TODO: handle no-peers asynchronously?
     peer_id = get_some_peer()
 
@@ -73,17 +44,55 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     # This should never fail
     {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
 
-    with {:ok, stream} <- Libp2p.host_new_stream(host, peer_id, @protocol_id),
+    with {:ok, stream} <- Libp2p.host_new_stream(host, peer_id, @blocks_by_range_protocol_id),
          :ok <- Libp2p.stream_write(stream, size_header <> compressed_payload),
          :ok <- Libp2p.stream_close_write(stream),
          {:ok, chunk} <- read_response(stream),
          {:ok, block} <- decode_response(chunk) do
-      block
+      {:ok, block}
     else
-      # we just ignore the error and continue
       {:error, reason} ->
-        Logger.debug("error requesting block: #{reason}")
-        request_block(host, slot)
+        if retries > 0 do
+          Logger.debug("Retrying request for block with slot #{slot}")
+          request_block_by_slot(slot, host, retries - 1)
+        else
+          {:error, reason}
+        end
+    end
+  end
+
+  @spec request_block_by_root(SszTypes.root(), Libp2p.host(), integer()) ::
+          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, binary()}
+  def request_block_by_root(root, host, retries \\ @default_retries) do
+    Logger.debug("requesting block for root #{Base.encode16(root)}")
+
+    peer_id = get_some_peer()
+
+    # TODO ssz encode array of roots
+    # {:ok, encoded_payload} = payload |> Ssz.to_ssz()
+    encoded_payload = root
+
+    size_header =
+      encoded_payload
+      |> byte_size()
+      |> P2P.Utils.encode_varint()
+
+    {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
+
+    with {:ok, stream} <- Libp2p.host_new_stream(host, peer_id, @blocks_by_root_protocol_id),
+         :ok <- Libp2p.stream_write(stream, size_header <> compressed_payload),
+         :ok <- Libp2p.stream_close_write(stream),
+         {:ok, chunk} <- read_response(stream),
+         {:ok, block} <- decode_response(chunk) do
+      {:ok, block}
+    else
+      {:error, reason} ->
+        if retries > 0 do
+          Logger.debug("Retrying request for block with root #{Base.encode16(root)}")
+          request_block_by_root(root, host, retries - 1)
+        else
+          {:error, reason}
+        end
     end
   end
 
@@ -137,13 +146,6 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     with {:ok, chunk} <- Snappy.decompress(rest) do
       chunk |> Ssz.from_ssz(SszTypes.SignedBeaconBlock)
     end
-  end
-
-  defp wrap_message(msg) do
-    %Broadway.Message{
-      data: msg,
-      acknowledger: Broadway.NoopAcknowledger.init()
-    }
   end
 
   defp get_some_peer do
