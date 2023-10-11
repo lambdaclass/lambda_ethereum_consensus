@@ -22,21 +22,14 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   @doc """
   Process total slashing balances updates during epoch processing
   """
-  @spec process_slashings_reset(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
-  def process_slashings_reset(
-        %BeaconState{ slashings: slashings } = state
-      ) do
+  @spec process_slashings_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_slashings_reset(state) do
     next_epoch = Accessors.get_current_epoch(state) + 1
     slashed_exit_length = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
     slashed_epoch = rem(next_epoch, slashed_exit_length)
 
-    if length(slashings) != slashed_exit_length do
-      {:error, "state slashing length #{length(slashings)} different than EpochsPerHistoricalVector #{slashed_exit_length}"}
-    else
-      new_slashings = List.replace_at(state.slashings, slashed_epoch, 0)
-      new_state = %{state | slashings: new_slashings}
-      {:ok, new_state}
-    end
+    new_slashings = List.replace_at(state.slashings, slashed_epoch, 0)
+    new_state = %{state | slashings: new_slashings}
+    {:ok, new_state}
   end
-
 end
