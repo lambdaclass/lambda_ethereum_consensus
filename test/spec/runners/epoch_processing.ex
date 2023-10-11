@@ -18,7 +18,7 @@ defmodule EpochProcessingTestRunner do
     # "effective_balance_updates",
     # "eth1_data_reset",
     "slashings_reset",
-    "randao_mixes_reset",
+    # "randao_mixes_reset",
     "historical_summaries_update",
     "participation_record_updates",
     "participation_flag_updates",
@@ -63,6 +63,11 @@ defmodule EpochProcessingTestRunner do
 
   def handle_case("eth1_data_reset", pre_state, post_state) do
     result = EpochProcessing.process_eth1_data_reset(pre_state)
+    assert {:ok, post_state} == result
+  end
+
+  def handle_case("randao_mixes_reset", pre_state, post_state) do
+    result = EpochProcessing.process_randao_mixes_reset(pre_state)
     assert {:ok, post_state} == result
   end
 end
