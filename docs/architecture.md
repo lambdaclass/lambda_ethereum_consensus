@@ -33,10 +33,10 @@ VALIDATOR --> BAPI
 
 The main entry for new events is the gossip protocol, which is the way in which our consensus node communicates with other consensus nodes. This includes:
 
-1. Discovery: our node has a series of known `bootnodes` hardcoded. We request them a list of the nodes the know about and we add them to our list. We save them locally and now can use those too to request new nodes.
-2. Message propagation. When a proposer sends a new block, or validators attest for a new block, they sent those to other known nodes. Those, in turn propagate the messages sent to other nodes. This process is repeated until, ideally, the whole network receives the messages.
+1. Discovery: our node has a series of known `bootnodes` hardcoded. We request a list of the nodes they know about and add them to our list. We save them locally and now can use those too to request new nodes.
+2. Message propagation. When a proposer sends a new block, or validators attest for a new block, they send those to other known nodes. Those, in turn, propagate the messages sent to other nodes. This process is repeated until, ideally, the whole network receives the messages.
 
-We use a library called `libp2p`, implemented in `go`, for the networking primitives.
+We use the `go-libp2p` library for the networking primitives, which is an implementation of the `libp2p`networking stack.
 
 We use ports to communicate with a go application and broadway to process notifications.
 
@@ -107,7 +107,7 @@ Receiving a block is more complex:
 - A new node needs to be added to the block tree aside from updating weights.
 - on_attestation needs to be called for each attestation.
 
-Also, there's a more complex case: we can only include a block in the fork tree if we know of its parents and their connection with our current finalized checkpoint. If we receive a disconnected node, we'll need to use the request-response libp2p pattern to ask peers for the missing blocks.
+Also, there's a more complex case: we can only include a block in the fork tree if we know of its parents and their connection with our current finalized checkpoint. If we receive a disconnected node, we'll need to use Request-Response to ask peers for the missing blocks.
 
 ## Request-Response
 
