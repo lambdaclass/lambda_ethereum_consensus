@@ -45,7 +45,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:rexbug, "~> 1.0.5"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.10.0"},
-      {:uuid, "~> 1.1"}
+      {:uuid, "~> 1.1"},
+      {:patch, "~> 0.12.0", only: [:test]}
     ]
   end
 
@@ -57,6 +58,6 @@ defmodule LambdaEthereumConsensus.MixProject do
     ]
   end
 
-  defp compiler_paths(:test), do: ["test/spec"] ++ compiler_paths(:prod)
+  defp compiler_paths(:test), do: ["test/spec", "test/fixtures"] ++ compiler_paths(:prod)
   defp compiler_paths(_), do: ["lib"]
 end
