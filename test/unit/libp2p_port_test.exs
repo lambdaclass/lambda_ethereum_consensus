@@ -71,4 +71,9 @@ defmodule Unit.Libp2pPortTest do
       bootnodes: bootnodes
     )
   end
+
+  test "start two hosts, and gossip about" do
+    start_port(:publisher)
+    start_port(:recver)
+  end
 end

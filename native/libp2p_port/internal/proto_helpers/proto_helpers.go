@@ -20,8 +20,8 @@ func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 	}
 }
 
-func GossipNotification(topic string, message []byte) proto_defs.Notification {
-	gossipSubNotification := &proto_defs.GossipSub{Topic: topic, Message: message}
+func GossipNotification(topic string, handler []byte, message []byte) proto_defs.Notification {
+	gossipSubNotification := &proto_defs.GossipSub{Topic: topic, Handler: handler, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Gossip{Gossip: gossipSubNotification}}
 }
 

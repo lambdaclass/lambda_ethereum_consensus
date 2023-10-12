@@ -74,8 +74,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec get_id(GenServer.server()) :: binary()
   def get_id(pid \\ __MODULE__) do
-    self_serialized = :erlang.term_to_binary(self())
-    {:ok, id} = call_command(pid, %Command{from: self_serialized, c: {:get_id, %GetId{}}})
+    {:ok, id} = call_command(pid, {:get_id, %GetId{}})
     id
   end
 
@@ -93,7 +92,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec set_handler(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
   def set_handler(pid, protocol_id) do
     self_serialized = :erlang.term_to_binary(self())
-    c = %SetHandler{protocol_id: protocol_id, handler: self_serialized}
+    c = %SetHandler{protocol_id: protocol_id}
     call_command(pid, %Command{from: self_serialized, c: {:set_handler, c}})
   end
 
@@ -111,9 +110,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec add_peer(GenServer.server(), binary(), [String.t()], integer()) ::
           :ok | {:error, String.t()}
   def add_peer(pid, id, addrs, ttl) do
-    self_serialized = :erlang.term_to_binary(self())
     c = %AddPeer{id: id, addrs: addrs, ttl: ttl}
-    call_command(pid, %Command{from: self_serialized, c: {:add_peer, c}})
+    call_command(pid, c: {:add_peer, c})
   end
 
   @doc """
@@ -131,9 +129,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec send_request(GenServer.server(), binary(), String.t(), binary()) ::
           {:ok, binary()} | {:error, String.t()}
   def send_request(pid, peer_id, protocol_id, message) do
-    self_serialized = :erlang.term_to_binary(self())
     c = %SendRequest{id: peer_id, protocol_id: protocol_id, message: message}
-    call_command(pid, %Command{from: self_serialized, c: {:send_request, c}})
+    call_command(pid, c: {:send_request, c})
   end
 
   @doc """
@@ -160,29 +157,48 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec send_response(GenServer.server(), String.t(), binary()) ::
           :ok | {:error, String.t()}
   def send_response(pid, message_id, response) do
-    self_serialized = :erlang.term_to_binary(self())
     c = %SendResponse{message_id: message_id, message: response}
-    call_command(pid, %Command{from: self_serialized, c: {:send_response, c}})
+    call_command(pid, {:send_response, c})
   end
 
-  @spec subscribe_to_topic(String.t()) :: :ok
+  @doc """
+  Subscribes to the given topic. After this, messages published to the topic
+  will be received by `self()`.
+  """
+  @spec subscribe_to_topic(String.t()) :: :ok | {:error, String.t()}
   def subscribe_to_topic(topic_name), do: subscribe_to_topic(__MODULE__, topic_name)
 
-  @spec subscribe_to_topic(GenServer.server(), String.t()) :: :ok
+  @doc """
+  Same as `subscribe_to_topic/1`, but allows to specify the server's PID or name.
+  """
+  @spec subscribe_to_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
   def subscribe_to_topic(pid, topic_name) do
-    cast_command(pid, %Command{
-      c: {:subscribe, %SubscribeToTopic{name: topic_name}}
-    })
+    call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
 
+  @doc """
+  Returns the next gossipsub message received by the server for subscribed topics
+  on the current process. If there are none, it waits for one.
+  """
+  @spec receive_gossip() :: {String.t(), binary()}
+  def receive_gossip do
+    receive do
+      {:gossipsub, {_topic_name, _message} = m} -> m
+    end
+  end
+
+  @doc """
+  Unsubscribes from the given topic.
+  """
   @spec unsubscribe_from_topic(String.t()) :: :ok
   def unsubscribe_from_topic(topic_name), do: unsubscribe_from_topic(__MODULE__, topic_name)
 
+  @doc """
+  Same as `unsubscribe_from_topic/1`, but allows to specify the server's PID or name.
+  """
   @spec unsubscribe_from_topic(GenServer.server(), String.t()) :: :ok
   def unsubscribe_from_topic(pid, topic_name) do
-    cast_command(pid, %Command{
-      c: {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}}
-    })
+    cast_command(pid, {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}})
   end
 
   ########################
@@ -229,8 +245,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%GossipSub{topic: topic, message: message}) do
-    Logger.info("[Topic] #{topic}: #{message}")
+  defp handle_notification(%GossipSub{topic: topic, handler: handler, message: message}) do
+    handler_pid = :erlang.binary_to_term(handler)
+    send(handler_pid, {:gossipsub, {topic, message}})
   end
 
   defp handle_notification(%Request{
@@ -263,13 +280,18 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp send_data(port, data), do: Port.command(port, data)
 
-  defp cast_command(pid, %mod{} = protobuf) do
+  defp send_protobuf(pid, %mod{} = protobuf) do
     data = mod.encode(protobuf)
     GenServer.cast(pid, {:send, data})
   end
 
-  defp call_command(pid, protobuf) do
-    cast_command(pid, protobuf)
+  defp cast_command(pid, c) do
+    send_protobuf(pid, %Command{c: c})
+  end
+
+  defp call_command(pid, c) do
+    self_serialized = :erlang.term_to_binary(self())
+    send_protobuf(pid, %Command{from: self_serialized, c: c})
     receive_response()
   end
 

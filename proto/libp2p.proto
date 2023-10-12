@@ -15,8 +15,6 @@ message InitArgs {
 message SetHandler {
     // Protocol ID to set the handler for.
     string protocol_id = 1;
-    // Handler for requests of the given protocol.
-    bytes handler = 2;
 }
 
 message SubscribeToTopic {
@@ -64,8 +62,10 @@ message Command {
 message GossipSub {
     // Name of the topic from which the notification arrived.
     string topic = 1;
+    // PID of the subscribed process.
+    bytes handler = 2;
     // Compressed and ssz encoded message.
-    bytes message = 2;
+    bytes message = 3;
 }
 
 // A request from a peer.

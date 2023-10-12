@@ -24,13 +24,14 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	case *proto_defs.Command_SendResponse:
 		listener.SendResponse(c.SendResponse.MessageId, c.SendResponse.Message)
 	case *proto_defs.Command_SetHandler:
-		listener.SetHandler(c.SetHandler.ProtocolId, c.SetHandler.Handler)
+		listener.SetHandler(c.SetHandler.ProtocolId, command.From)
 	case *proto_defs.Command_Subscribe:
-		subscriber.Subscribe(c.Subscribe.Name)
+		err := subscriber.Subscribe(c.Subscribe.Name, command.From)
+		return proto_helpers.ResultNotification(command.From, []byte{}, err)
 	case *proto_defs.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
 	default:
-		return proto_helpers.ResultNotification(command.From, []byte{}, errors.New("Invalid command."))
+		return proto_helpers.ResultNotification(command.From, []byte{}, errors.New("invalid command"))
 	}
 	// Default, OK empty response
 	return proto_helpers.ResultNotification(command.From, []byte{}, nil)

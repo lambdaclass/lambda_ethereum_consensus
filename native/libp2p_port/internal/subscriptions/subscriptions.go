@@ -2,6 +2,7 @@ package gossipsub
 
 import (
 	"context"
+	"errors"
 	"math"
 	"time"
 
@@ -78,18 +79,20 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 	}
 }
 
-func (s *Subscriber) Subscribe(topicName string) {
+func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	_, isSubscribed := s.subscriptions[topicName]
 	if isSubscribed {
-		return
+		return errors.New("already subscribed")
 	}
 	topic, err := s.gsub.Join(topicName)
 	utils.PanicIfError(err)
 	s.topics[topicName] = topic
 	sub, err := topic.Subscribe()
 	utils.PanicIfError(err)
-	s.subscriptions[topicName] = make(chan struct{}, 1)
-	go SubscribeToTopic(sub, s.subscriptions[topicName], s.port)
+	ch := make(chan struct{}, 1)
+	s.subscriptions[topicName] = ch
+	go subscribeToTopic(sub, ch, handler, s.port)
+	return nil
 }
 
 func (s *Subscriber) Unsubscribe(topicName string) {
@@ -103,7 +106,7 @@ func (s *Subscriber) Unsubscribe(topicName string) {
 	delete(s.topics, topicName)
 }
 
-func SubscribeToTopic(sub *pubsub.Subscription, stop chan struct{}, p *port.Port) {
+func subscribeToTopic(sub *pubsub.Subscription, stop chan struct{}, handler []byte, p *port.Port) {
 	topic := sub.Topic()
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -116,7 +119,7 @@ func SubscribeToTopic(sub *pubsub.Subscription, stop chan struct{}, p *port.Port
 			return
 		}
 		utils.PanicIfError(err)
-		notification := proto_helpers.GossipNotification(topic, msg.Data)
+		notification := proto_helpers.GossipNotification(topic, handler, msg.Data)
 		p.SendNotification(&notification)
 	}
 }
