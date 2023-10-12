@@ -54,28 +54,30 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       state_is_in_inactivity_leak = is_in_inactivity_leak(state)
 
       updated_eligible_validator_indices =
-        get_eligible_validator_indices(state)
-        |> Enum.map(fn index ->
-          inactivity_score = Enum.at(state.inactivity_scores, index)
+        with {:ok, eligible_validator_indices} <- get_eligible_validator_indices(state) do
+          eligible_validator_indices
+          |> Enum.map(fn index ->
+            inactivity_score = Enum.at(state.inactivity_scores, index)
 
-          new_inactivity_score =
-            increase_inactivity_score(
-              inactivity_score,
-              index,
-              unslashed_participating_indices,
-              inactivity_score_bias
-            )
+            new_inactivity_score =
+              increase_inactivity_score(
+                inactivity_score,
+                index,
+                unslashed_participating_indices,
+                inactivity_score_bias
+              )
 
-          new_inactivity_score =
-            decrease_inactivity_score(
-              new_inactivity_score,
-              state_is_in_inactivity_leak,
-              inactivity_score_recovery_rate
-            )
+            new_inactivity_score =
+              decrease_inactivity_score(
+                new_inactivity_score,
+                state_is_in_inactivity_leak,
+                inactivity_score_recovery_rate
+              )
 
-          {index, new_inactivity_score}
-        end)
-        |> Enum.into(%{})
+            {index, new_inactivity_score}
+          end)
+          |> Enum.into(%{})
+        end
 
       updated_inactive_scores =
         state.inactivity_scores
@@ -144,13 +146,16 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   def get_eligible_validator_indices(%BeaconState{validators: validators} = state) do
     previous_epoch = Accessors.get_previous_epoch(state)
 
-    validators
-    |> Stream.with_index()
-    |> Stream.filter(fn {validator, index} ->
-      Predicates.is_active_validator(validator, previous_epoch) ||
-        (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
-    end)
-    |> Stream.map(fn {_validator, index} -> index end)
-    |> Enum.to_list()
+    validator_indices =
+      validators
+      |> Stream.with_index()
+      |> Stream.filter(fn {validator, _index} ->
+        Predicates.is_active_validator(validator, previous_epoch) ||
+          (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
+      end)
+      |> Stream.map(fn {_validator, index} -> index end)
+      |> Enum.to_list()
+
+    {:ok, validator_indices}
   end
 end
