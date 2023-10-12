@@ -11,15 +11,15 @@ defmodule SpecTestGenerator do
 
   @vectors_dir SpecTestCompileUtils.get_vectors_dir()
 
-  def all_cases do
-    [@vectors_dir]
-    |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
-    |> Enum.join("/")
-    |> Path.wildcard()
-    |> Stream.map(&Path.relative_to(&1, @vectors_dir))
-    |> Stream.map(&Path.split/1)
-    |> Enum.map(&SpecTestCase.new/1)
-  end
+  @all_cases [@vectors_dir]
+             |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
+             |> Enum.join("/")
+             |> Path.wildcard()
+             |> Stream.map(&Path.relative_to(&1, @vectors_dir))
+             |> Stream.map(&Path.split/1)
+             |> Enum.map(&SpecTestCase.new/1)
+
+  def all_cases, do: @all_cases
 
   def runner_map, do: @runner_map
 
