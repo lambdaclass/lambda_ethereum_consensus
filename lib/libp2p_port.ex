@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GossipSub,
     InitArgs,
     Notification,
+    Publish,
     Request,
     Result,
     SendRequest,
@@ -149,6 +150,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     receive do
       {:gossipsub, {_topic_name, _message} = m} -> m
     end
+  end
+
+  @doc """
+  Publishes a message in the given topic.
+  """
+  @spec publish(GenServer.server(), String.t(), binary()) :: :ok | {:error, String.t()}
+  def publish(pid \\ __MODULE__, topic_name, message) do
+    call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
   end
 
   @doc """

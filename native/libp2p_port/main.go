@@ -30,6 +30,8 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 		return proto_helpers.ResultNotification(command.From, []byte{}, err)
 	case *proto_defs.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
+	case *proto_defs.Command_Publish:
+		subscriber.Publish(c.Publish.Topic, c.Publish.Message)
 	default:
 		return proto_helpers.ResultNotification(command.From, []byte{}, errors.New("invalid command"))
 	}

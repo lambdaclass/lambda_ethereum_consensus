@@ -84,26 +84,18 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	if isSubscribed {
 		return errors.New("already subscribed")
 	}
-	topic, err := s.gsub.Join(topicName)
-	utils.PanicIfError(err)
-	s.topics[topicName] = topic
+	topic, joined := s.topics[topicName]
+	if !joined {
+		topic, err := s.gsub.Join(topicName)
+		utils.PanicIfError(err)
+		s.topics[topicName] = topic
+	}
 	sub, err := topic.Subscribe()
 	utils.PanicIfError(err)
 	ch := make(chan struct{}, 1)
 	s.subscriptions[topicName] = ch
 	go subscribeToTopic(sub, ch, handler, s.port)
 	return nil
-}
-
-func (s *Subscriber) Unsubscribe(topicName string) {
-	_, isSubscribed := s.subscriptions[topicName]
-	if !isSubscribed {
-		return
-	}
-	s.subscriptions[topicName] <- struct{}{}
-	delete(s.subscriptions, topicName)
-	s.topics[topicName].Close()
-	delete(s.topics, topicName)
 }
 
 func subscribeToTopic(sub *pubsub.Subscription, stop chan struct{}, handler []byte, p *port.Port) {
@@ -122,4 +114,24 @@ func subscribeToTopic(sub *pubsub.Subscription, stop chan struct{}, handler []by
 		notification := proto_helpers.GossipNotification(topic, handler, msg.Data)
 		p.SendNotification(&notification)
 	}
+}
+
+func (s *Subscriber) Unsubscribe(topicName string) {
+	_, isSubscribed := s.subscriptions[topicName]
+	if !isSubscribed {
+		return
+	}
+	s.subscriptions[topicName] <- struct{}{}
+	delete(s.subscriptions, topicName)
+}
+
+func (s *Subscriber) Publish(topicName string, message []byte) {
+	topic, joined := s.topics[topicName]
+	if !joined {
+		topic, err := s.gsub.Join(topicName)
+		utils.PanicIfError(err)
+		s.topics[topicName] = topic
+	}
+	err := topic.Publish(context.Background(), message)
+	utils.PanicIfError(err)
 }

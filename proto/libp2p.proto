@@ -46,6 +46,11 @@ message SendResponse {
 
 message GetId {}
 
+message Publish {
+    string topic = 1;
+    bytes message = 2;
+}
+
 message Command {
     bytes from = 1;
     oneof c {
@@ -56,6 +61,7 @@ message Command {
         SendRequest send_request = 6;
         SendResponse send_response = 7;
         GetId get_id = 8;
+        Publish publish = 9;
     }
 }
 
