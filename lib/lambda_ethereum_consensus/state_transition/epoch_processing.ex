@@ -18,7 +18,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     {:ok, state}
   end
 
-
   @doc """
   Process total slashing balances updates during epoch processing
   """
