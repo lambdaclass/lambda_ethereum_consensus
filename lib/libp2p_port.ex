@@ -83,54 +83,31 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   peer requests are sent to the current process' mailbox. To handle them,
   use `handle_request/0`.
   """
-  @spec set_handler(String.t()) :: :ok | {:error, String.t()}
-  def set_handler(protocol_id), do: set_handler(__MODULE__, protocol_id)
-
-  @doc """
-  Same as `set_handler/1`, but allows to specify the server's PID or name.
-  """
   @spec set_handler(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
-  def set_handler(pid, protocol_id) do
-    self_serialized = :erlang.term_to_binary(self())
-    c = %SetHandler{protocol_id: protocol_id}
-    call_command(pid, %Command{from: self_serialized, c: {:set_handler, c}})
+  def set_handler(pid \\ __MODULE__, protocol_id) do
+    call_command(pid, {:set_handler, %SetHandler{protocol_id: protocol_id}})
   end
 
   @doc """
   Adds a LibP2P peer with the given ID and registers the given addresses.
   After TTL nanoseconds, the addresses are removed.
   """
-  @spec add_peer(binary(), [String.t()], integer()) ::
-          :ok | {:error, String.t()}
-  def add_peer(id, addrs, ttl), do: add_peer(__MODULE__, id, addrs, ttl)
-
-  @doc """
-  Same as `add_peer/3`, but allows to specify the server's PID or name.
-  """
   @spec add_peer(GenServer.server(), binary(), [String.t()], integer()) ::
           :ok | {:error, String.t()}
-  def add_peer(pid, id, addrs, ttl) do
+  def add_peer(pid \\ __MODULE__, id, addrs, ttl) do
     c = %AddPeer{id: id, addrs: addrs, ttl: ttl}
-    call_command(pid, c: {:add_peer, c})
+    call_command(pid, {:add_peer, c})
   end
 
   @doc """
   Sends a request and receives a response. The request is sent
   to the given peer and protocol.
   """
-  @spec send_request(binary(), String.t(), binary()) ::
-          {:ok, binary()} | {:error, String.t()}
-  def send_request(peer_id, protocol_id, message),
-    do: send_request(__MODULE__, peer_id, protocol_id, message)
-
-  @doc """
-  Same as `send_request/3`, but allows to specify the server's PID or name.
-  """
   @spec send_request(GenServer.server(), binary(), String.t(), binary()) ::
           {:ok, binary()} | {:error, String.t()}
-  def send_request(pid, peer_id, protocol_id, message) do
+  def send_request(pid \\ __MODULE__, peer_id, protocol_id, message) do
     c = %SendRequest{id: peer_id, protocol_id: protocol_id, message: message}
-    call_command(pid, c: {:send_request, c})
+    call_command(pid, {:send_request, c})
   end
 
   @doc """
@@ -147,16 +124,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @doc """
   Sends a response for the request with the given message ID.
   """
-  @spec send_response(String.t(), binary()) ::
-          :ok | {:error, String.t()}
-  def send_response(message_id, response), do: send_response(__MODULE__, message_id, response)
-
-  @doc """
-  Same as `send_response/2`, but allows to specify the server's PID or name.
-  """
   @spec send_response(GenServer.server(), String.t(), binary()) ::
           :ok | {:error, String.t()}
-  def send_response(pid, message_id, response) do
+  def send_response(pid \\ __MODULE__, message_id, response) do
     c = %SendResponse{message_id: message_id, message: response}
     call_command(pid, {:send_response, c})
   end
@@ -165,14 +135,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Subscribes to the given topic. After this, messages published to the topic
   will be received by `self()`.
   """
-  @spec subscribe_to_topic(String.t()) :: :ok | {:error, String.t()}
-  def subscribe_to_topic(topic_name), do: subscribe_to_topic(__MODULE__, topic_name)
-
-  @doc """
-  Same as `subscribe_to_topic/1`, but allows to specify the server's PID or name.
-  """
   @spec subscribe_to_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
-  def subscribe_to_topic(pid, topic_name) do
+  def subscribe_to_topic(pid \\ __MODULE__, topic_name) do
     call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
 
@@ -190,14 +154,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @doc """
   Unsubscribes from the given topic.
   """
-  @spec unsubscribe_from_topic(String.t()) :: :ok
-  def unsubscribe_from_topic(topic_name), do: unsubscribe_from_topic(__MODULE__, topic_name)
-
-  @doc """
-  Same as `unsubscribe_from_topic/1`, but allows to specify the server's PID or name.
-  """
   @spec unsubscribe_from_topic(GenServer.server(), String.t()) :: :ok
-  def unsubscribe_from_topic(pid, topic_name) do
+  def unsubscribe_from_topic(pid \\ __MODULE__, topic_name) do
     cast_command(pid, {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}})
   end
 
