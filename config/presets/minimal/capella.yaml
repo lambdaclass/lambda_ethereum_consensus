@@ -15,3 +15,8 @@ MAX_WITHDRAWALS_PER_PAYLOAD: 4
 # ---------------------------------------------------------------
 # [customized] 2**4 (= 16) validators
 MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP: 16
+
+# Time parameters
+# ---------------------------------------------------------------
+# 2**5 (= 32) slots 6.4 minutes
+SLOTS_PER_EPOCH: 32
