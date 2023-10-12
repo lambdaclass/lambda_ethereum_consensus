@@ -9,7 +9,7 @@ defmodule SpecTestGenerator do
     "epoch_processing" => EpochProcessingTestRunner
   }
 
-  @vectors_dir SpecTestUtils.get_vectors_dir()
+  @vectors_dir SpecTestCompileUtils.get_vectors_dir()
 
   def all_cases do
     [@vectors_dir]
@@ -57,7 +57,7 @@ defmodule SpecTestGenerator do
         |> :erlang.md5() != unquote(paths_hash)
       end
 
-      config = SpecTestUtils.get_config(pinned_config)
+      config = SpecTestCompileUtils.get_config(pinned_config)
 
       setup_all do
         Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: unquote(config))
