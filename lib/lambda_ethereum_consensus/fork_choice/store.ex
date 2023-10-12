@@ -9,6 +9,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   alias SszTypes.BeaconState
 
   defmodule Store do
+    @moduledoc """
+      The Store struct is used to track information required for the fork choice algorithm.
+    """
     defstruct [
       :time,
       :genesis_time,
@@ -52,19 +55,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @spec get_finalized_checkpoint() :: {:ok, SszTypes.Checkpoint.t()}
-  def get_finalized_checkpoint() do
+  def get_finalized_checkpoint do
     checkpoint = GenServer.call(__MODULE__, :get_finalized_checkpoint)
     {:ok, checkpoint}
   end
 
   @spec get_slots_since_genesis() :: integer()
-  def get_slots_since_genesis() do
+  def get_slots_since_genesis do
     store = get_state()
     div(store.time - store.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
   @spec get_current_slot() :: integer()
-  def get_current_slot() do
+  def get_current_slot do
     genesis_slot = 0
     genesis_slot + get_slots_since_genesis()
   end
@@ -113,7 +116,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ##########################
 
   @spec get_state() :: Store.t()
-  defp get_state() do
+  defp get_state do
     GenServer.call(__MODULE__, {:get_state})
   end
 end

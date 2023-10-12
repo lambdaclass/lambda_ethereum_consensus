@@ -5,8 +5,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.ForkChoice.Store
   alias SszTypes.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
 
   @spec handle_message(String.t(), struct) :: :ok

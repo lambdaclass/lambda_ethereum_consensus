@@ -1,4 +1,6 @@
 defmodule LambdaEthereumConsensus.ForkChoice do
+  @moduledoc false
+
   use Supervisor
   require Logger
   alias LambdaEthereumConsensus.Utils
