@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   This module contains utility functions for handling epoch processing
   """
 
-  alias ChainSpec
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias SszTypes.BeaconState
 
@@ -19,6 +18,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     {:ok, state}
   end
 
+
   @doc """
   Process total slashing balances updates during epoch processing
   """
@@ -30,6 +30,16 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     new_slashings = List.replace_at(state.slashings, slashed_epoch, 0)
     new_state = %{state | slashings: new_slashings}
+
+  @spec process_randao_mixes_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_randao_mixes_reset(%BeaconState{randao_mixes: randao_mixes} = state) do
+    current_epoch = Accessors.get_current_epoch(state)
+    next_epoch = current_epoch + 1
+    epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
+    random_mix = Accessors.get_randao_mix(state, current_epoch)
+    index = rem(next_epoch, epochs_per_historical_vector)
+    new_randao_mixes = List.replace_at(randao_mixes, index, random_mix)
+    new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
     {:ok, new_state}
   end
 end

@@ -19,6 +19,8 @@ defmodule EpochProcessingTestRunner do
     "effective_balance_updates",
     # "slashings_reset",
     "randao_mixes_reset",
+    "slashings_reset",
+    # "randao_mixes_reset",
     "historical_summaries_update",
     "participation_record_updates",
     "participation_flag_updates",
@@ -60,6 +62,9 @@ defmodule EpochProcessingTestRunner do
 
   def handle_case("slashings_reset", pre_state, post_state) do
     result = EpochProcessing.process_slashings_reset(pre_state)
+
+  def handle_case("randao_mixes_reset", pre_state, post_state) do
+    result = EpochProcessing.process_randao_mixes_reset(pre_state)
     assert {:ok, post_state} == result
   end
 end
