@@ -153,14 +153,15 @@ def compute_timestamp_at_slot(state: BeaconState, slot: Slot) -> uint64:
 
 For a holistic view of the relationships and dependencies among all the state transition functions, refer to the provided visual representation:
 
-> [!INFO]
+> [!IMPORTANT]
 > The Visual Function Tree is a crucial resource. Make sure to refer to it.
 
+
 SVG version:
-![SVG version]()
+![State Transition Tree SVG](../../assets/State_Transition_Function_Tree.svg)
 
 PNG version:
-![State Transition Tree PNG](assets/State_Transition_Function_Tree.png)
+![State Transition Tree PNG](../../assets/State_Transition_Function_Tree.png)
 
 To explore the tree:
 - Download the data Embedded SVG and open it with [Excalidraw](https://excalidraw.com/) for an interactive experience.
@@ -169,7 +170,8 @@ To explore the tree:
 
 Furthermore the tree is accompanied by a legend enabling the correct understanding of the tree structure.
 
-![[SCR-20231012-kclq.png]]
+![State Transition Tree Legend](../../assets/stf_tree_legend.png)
+
 ## Testing
 
 Most high-level state transition functions are accompanied by EF test vectors. Before submitting your implementation, ensure you pass these tests. 
