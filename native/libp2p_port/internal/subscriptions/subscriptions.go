@@ -86,7 +86,8 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	}
 	topic, joined := s.topics[topicName]
 	if !joined {
-		topic, err := s.gsub.Join(topicName)
+		var err error
+		topic, err = s.gsub.Join(topicName)
 		utils.PanicIfError(err)
 		s.topics[topicName] = topic
 	}
@@ -128,7 +129,8 @@ func (s *Subscriber) Unsubscribe(topicName string) {
 func (s *Subscriber) Publish(topicName string, message []byte) {
 	topic, joined := s.topics[topicName]
 	if !joined {
-		topic, err := s.gsub.Join(topicName)
+		var err error
+		topic, err = s.gsub.Join(topicName)
 		utils.PanicIfError(err)
 		s.topics[topicName] = topic
 	}
