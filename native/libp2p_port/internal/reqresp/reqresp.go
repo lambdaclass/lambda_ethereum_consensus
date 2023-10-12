@@ -43,6 +43,10 @@ func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
 	return Listener{hostHandle: h, port: p, pendingMessages: make(map[string]chan []byte)}
 }
 
+func (l *Listener) Host() host.Host {
+	return l.hostHandle
+}
+
 func (l *Listener) HostId() []byte {
 	return []byte(l.hostHandle.ID())
 }

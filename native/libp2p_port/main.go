@@ -49,7 +49,7 @@ func commandServer() {
 	if config.EnableDiscovery {
 		discovery.NewDiscoverer(portInst, &listener, &config)
 	}
-	subscriber := gossipsub.NewSubscriber(portInst)
+	subscriber := gossipsub.NewSubscriber(portInst, listener.Host())
 	command := proto_defs.Command{}
 	for {
 		err := portInst.ReadCommand(&command)
