@@ -1,5 +1,5 @@
 .PHONY: iex deps test spec-test lint clean compile-native fmt \
-		clean-vectors download-vectors uncompress-vectors proto compile_port \
+		clean-vectors download-vectors uncompress-vectors proto compile-port \
 		spec-test-%
 
 # Delete current file when command fails
@@ -73,11 +73,11 @@ compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
 
 # Run an interactive terminal with the main supervisor setup.
-start: compile-native compile_port
+start: compile-native compile-port
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
-iex: compile-native compile_port
+iex: compile-native compile-port
 	iex -S mix run -- --checkpoint-sync https://beaconstate-mainnet.chainsafe.io
 
 # Install mix dependencies.
@@ -88,12 +88,12 @@ deps:
 
 	cd $(LIBP2P_DIR)/go_src; \
 	go get && go install
-	cd libp2p_port; \
+	cd native/libp2p_port; \
 	go get && go install
 	mix deps.get
 
 # Run tests
-test: compile-native
+test: compile-native compile-port
 	mix test --no-start --exclude spectest
 
 spec-test: compile-native $(SPECTEST_DIRS)
@@ -117,8 +117,8 @@ fmt:
 proto:
 	sh scripts/make_protos.sh
 
-compile_port:
-	cd libp2p_port; go build
+compile-port:
+	cd native/libp2p_port; go build -o ../../priv/native/libp2p_port
 
 nix:
 	nix develop
