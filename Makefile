@@ -78,7 +78,7 @@ start: compile-native compile_port
 
 # Run an interactive terminal with the main supervisor setup.
 iex: compile-native compile_port
-	iex -S mix
+	iex -S mix run -- --checkpoint-sync https://beaconstate-mainnet.chainsafe.io
 
 # Install mix dependencies.
 

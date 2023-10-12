@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
   """
   require Logger
 
+  alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias SszTypes.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
 
@@ -12,11 +13,16 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
   def handle_message(topic_name, payload)
 
   def handle_message("/eth2/bba4da96/beacon_block/ssz_snappy", %SignedBeaconBlock{message: block}) do
-    Logger.debug(
-      "[Gossip] Block decoded for slot #{block.slot}. Root: #{Base.encode16(block.state_root)}"
-    )
+    current_slot = Store.get_current_slot()
 
-    PendingBlocks.add_block(block)
+    if block.slot > current_slot - ChainSpec.get("SLOTS_PER_EPOCH") do
+      Logger.notice(
+        "[Gossip] Block decoded for slot #{block.slot}. Root: #{Base.encode16(block.state_root)}"
+      )
+
+      PendingBlocks.add_block(block)
+    end
+
     :ok
   end
 
