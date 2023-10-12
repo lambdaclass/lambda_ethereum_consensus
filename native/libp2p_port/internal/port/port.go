@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	libp2p "libp2p_port/internal/proto"
+	proto_defs "libp2p_port/internal/proto"
 	"libp2p_port/internal/utils"
 	"os"
 
@@ -31,20 +31,28 @@ func WriteBytes(write_channel chan []byte) {
 	}
 }
 
-func (p *Port) ReadCommand(command *libp2p.Command) error {
+func (p *Port) readMessage(protoMsg proto.Message) error {
 	msg, err := ReadDelimitedMessage(p.reader)
 	if err == io.EOF {
 		return err
 	}
 	utils.PanicIfError(err)
 
-	err = proto.Unmarshal(msg, command)
+	err = proto.Unmarshal(msg, protoMsg)
 	utils.PanicIfError(err)
 	return err
 }
 
-func (p *Port) SendNotification(notification *libp2p.Notification) {
-	data, err := proto.Marshal(notification)
+func (p *Port) ReadInitArgs(initArgs *proto_defs.InitArgs) error {
+	return p.readMessage(initArgs)
+}
+
+func (p *Port) ReadCommand(command *proto_defs.Command) error {
+	return p.readMessage(command)
+}
+
+func (p *Port) sendMessage(protoMsg proto.Message) {
+	data, err := proto.Marshal(protoMsg)
 	utils.PanicIfError(err)
 
 	var buf bytes.Buffer
@@ -52,6 +60,10 @@ func (p *Port) SendNotification(notification *libp2p.Notification) {
 	buf.Write(data)
 
 	p.write_channel <- buf.Bytes()
+}
+
+func (p *Port) SendNotification(notification *proto_defs.Notification) {
+	p.sendMessage(notification)
 }
 
 func ReadDelimitedMessage(r io.Reader) ([]byte, error) {

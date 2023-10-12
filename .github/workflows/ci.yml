@@ -32,16 +32,24 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "1.20"
-          cache-dependency-path: native/libp2p_nif/go.sum
+          cache-dependency-path: |
+            native/libp2p_nif/go.sum
+            native/libp2p_port/go.sum
       - name: Cache output artifacts
         id: output-cache
         uses: actions/cache@v3
         with:
-          path: priv/native/*.so
+          path: priv/native/*
           key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
+      - name: Install dependencies
+        if: steps.output-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y protobuf-compiler
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          protoc --go_out=./native/libp2p_port proto/libp2p.proto
       - name: Compile native code
         if: steps.output-cache.outputs.cache-hit != 'true'
-        run: make compile-native
+        run: make compile-native compile-port
 
   build:
     name: Build project
@@ -58,7 +66,7 @@ jobs:
       id: output-cache
       uses: actions/cache/restore@v3
       with:
-        path: priv/native/*.so
+        path: priv/native/*
         key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
         fail-on-cache-miss: true
     - name: Restore dependencies cache
@@ -70,6 +78,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get install -y protobuf-compiler
+        echo $(protoc --version)
         mix escript.install --force hex protobuf
         protoc --elixir_out=./lib proto/libp2p.proto
         mix deps.get
@@ -106,7 +115,7 @@ jobs:
       id: output-cache
       uses: actions/cache/restore@v3
       with:
-        path: priv/native/*.so
+        path: priv/native/*
         key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
         fail-on-cache-miss: true
     - name: Restore dependencies cache
@@ -186,7 +195,7 @@ jobs:
       - name: Fetch native libraries
         uses: actions/cache/restore@v3
         with:
-          path: priv/native/*.so
+          path: priv/native/*
           key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
           fail-on-cache-miss: true
       - name: Fetch spectest vectors
