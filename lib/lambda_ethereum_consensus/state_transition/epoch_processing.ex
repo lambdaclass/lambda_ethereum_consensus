@@ -12,7 +12,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     epochs_per_eth1_voting_period = ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD")
 
     if rem(next_epoch, epochs_per_eth1_voting_period) == 0 do
-      ^state = %BeaconState{state | eth1_data_votes: []}
+      new_state = %BeaconState{state | eth1_data_votes: []}
+      {:ok, new_state}
     end
 
     {:ok, state}
