@@ -67,10 +67,15 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
 	}
 
-	gsub, err := pubsub.NewGossipSub(context.TODO(), h, options...)
+	gsub, err := pubsub.NewGossipSub(context.Background(), h, options...)
 	utils.PanicIfError(err)
 
-	return Subscriber{subscriptions: make(map[string]chan struct{}), gsub: gsub, port: p}
+	return Subscriber{
+		subscriptions: make(map[string]chan struct{}),
+		topics:        make(map[string]*pubsub.Topic),
+		gsub:          gsub,
+		port:          p,
+	}
 }
 
 func (s *Subscriber) Subscribe(topicName string) {
