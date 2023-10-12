@@ -60,16 +60,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     {:ok, checkpoint}
   end
 
-  @spec get_slots_since_genesis() :: integer()
-  def get_slots_since_genesis do
-    store = get_state()
-    div(store.time - store.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
-  end
-
   @spec get_current_slot() :: integer()
   def get_current_slot do
-    genesis_slot = 0
-    genesis_slot + get_slots_since_genesis()
+    store = get_state()
+    div(store.time - store.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
   ##########################
