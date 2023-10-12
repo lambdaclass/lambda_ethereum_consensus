@@ -51,7 +51,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_unslashed_participating_indices(BeaconState.t(), integer, SszTypes.epoch()) ::
           {:ok, MapSet.t()} | {:error, binary()}
   def get_unslashed_participating_indices(%BeaconState{} = state, flag_index, epoch) do
-    if Enum.member?([get_previous_epoch(state), get_current_epoch(state)], epoch) do
+    if epoch in [get_previous_epoch(state), get_current_epoch(state)] do
       epoch_participation =
         if epoch == get_current_epoch(state) do
           state.current_epoch_participation
