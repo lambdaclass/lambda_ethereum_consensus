@@ -48,11 +48,14 @@ func (l *Listener) HostId() []byte {
 }
 
 func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
+	peerID := peer.ID(id)
 	for _, addr := range addrs {
 		maddr, err := multiaddr.NewMultiaddr(addr)
 		// TODO: return error to caller
 		utils.PanicIfError(err)
-		l.hostHandle.Peerstore().AddAddr(peer.ID(id), maddr, time.Duration(ttl))
+		peerstore := l.hostHandle.Peerstore()
+		peerstore.AddAddr(peerID, maddr, time.Duration(ttl))
+		l.hostHandle.Connect(context.TODO(), peerstore.PeerInfo(peerID))
 	}
 }
 
