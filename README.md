@@ -63,7 +63,6 @@ There are Makefile targets for these tasks.
 ```shell
 make deps # Installs dependencies
 make iex  # Runs a terminal with the application started
-make test # Runs tests
 ```
 
 The iex terminal can be closed by pressing ctrl+c two times.
@@ -78,6 +77,21 @@ iex -S mix run -- --checkpoint-sync <your_url_here>
 ```
 
 Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/)
+
+### Tests, linting and formatting
+
+Our CI runs tests, linters, and also checks formatting and typing.
+To run these checks locally:
+
+```shell
+make test      # Runs tests
+make spec-test # Runs all spec-tests
+make lint      # Runs linter and format-checker
+mix dialyzer   # Runs type-checker
+```
+
+Source code can be formatted using `make fmt`.
+This formats not only the Elixir code, but also the code under [`native/`](./native/).
 
 ## Consensus spec tests
 
