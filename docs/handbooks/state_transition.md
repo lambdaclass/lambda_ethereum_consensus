@@ -166,11 +166,14 @@ PNG version:
 To explore the tree:
 - Download the data Embedded SVG and open it with [Excalidraw](https://excalidraw.com/) for an interactive experience.
 - Alternatively, download the PNG and zoom in for a detailed view.
-- Alternatively, raw SVG usage enables text-search for quick discovery
+- Alternatively, raw SVG usage enables text-search for quick discovery.
 
 Furthermore the tree is accompanied by a legend enabling the correct understanding of the tree structure.
 
-![State Transition Tree Legend](../../assets/stf_tree_legend.png)
+<div align="center">
+    <img src="../../assets/stf_tree_legend.png" alt="State Transition Tree Legend" width="400"/>
+</div>
+
 
 ## Testing
 
