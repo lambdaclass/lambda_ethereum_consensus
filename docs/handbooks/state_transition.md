@@ -97,7 +97,7 @@ def state_transition(state: BeaconState, signed_block: SignedBeaconBlock, valida
   ```
 ### Additional information
 
-- The third core piece of the consensus layer state transition function is contained in the `process_slots` function. It's the `process_epochs` function. [See declaration](https://eth2book.info/capella/annotated-spec/#def_process_slots)
+- The third core piece of the consensus layer state transition function is contained in the `process_slots` function. It's the `process_epoch` function. [See declaration](https://eth2book.info/capella/annotated-spec/#def_process_slots)
 
 - The `SignedBeaconBlock` is a secure wrapper around the `BeaconBlock` container it is one of the two fundamental container of a consensus client with `BeaconState`. `BeaconBlock` is the  container used by the leader to communicate network updates to all other validators. `BeaconState` are the states of the chain kept internally by the clients, updated through the application of new `BeaconBlock`s. 
 
