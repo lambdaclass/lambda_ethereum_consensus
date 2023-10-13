@@ -142,7 +142,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   @spec get_eligible_validator_indices(BeaconState.t()) ::
-          {:ok, list(SszType.validator_index())} | {:error, binary()}
+          {:ok, list(SszTypes.validator_index())} | {:error, binary()}
   def get_eligible_validator_indices(%BeaconState{validators: validators} = state) do
     previous_epoch = Accessors.get_previous_epoch(state)
 
