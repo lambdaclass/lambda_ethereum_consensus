@@ -17,7 +17,7 @@ defmodule EpochProcessingTestRunner do
     "slashings",
     # "eth1_data_reset",
     "effective_balance_updates",
-    "slashings_reset",
+    # "slashings_reset",
     # "randao_mixes_reset",
     "historical_summaries_update",
     "participation_record_updates",
@@ -38,23 +38,28 @@ defmodule EpochProcessingTestRunner do
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    _pre =
+    pre =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
         SszTypes.BeaconState
       )
 
-    {:ok, _post} =
+    {:ok, post} =
       SpecTestUtils.read_ssz_from_file(
         case_dir <> "/post.ssz_snappy",
         SszTypes.BeaconState
       )
 
-    # handle_case(testcase.handler, pre, post)
+    handle_case(testcase.handler, pre, post)
   end
 
   def handle_case("eth1_data_reset", pre_state, post_state) do
     result = EpochProcessing.process_eth1_data_reset(pre_state)
+    assert {:ok, post_state} == result
+  end
+
+  def handle_case("slashings_reset", pre_state, post_state) do
+    result = EpochProcessing.process_slashings_reset(pre_state)
     assert {:ok, post_state} == result
   end
 

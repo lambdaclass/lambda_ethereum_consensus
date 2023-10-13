@@ -21,6 +21,20 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     {:ok, new_state}
   end
 
+  @doc """
+  Process total slashing balances updates during epoch processing
+  """
+  @spec process_slashings_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_slashings_reset(state) do
+    next_epoch = Accessors.get_current_epoch(state) + 1
+    slashed_exit_length = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
+    slashed_epoch = rem(next_epoch, slashed_exit_length)
+
+    new_slashings = List.replace_at(state.slashings, slashed_epoch, 0)
+    new_state = %{state | slashings: new_slashings}
+    {:ok, new_state}
+  end
+
   @spec process_randao_mixes_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_randao_mixes_reset(%BeaconState{randao_mixes: randao_mixes} = state) do
     current_epoch = Accessors.get_current_epoch(state)
