@@ -8,6 +8,15 @@ defmodule LambdaEthereumConsensus.Application do
 
   @impl true
   def start(_type, _args) do
+    # Parse command line arguments
+    {args, _remaining_args, _errors} =
+      OptionParser.parse(System.argv(), switches: [checkpoint_sync: :string])
+
+    if not Keyword.has_key?(args, :checkpoint_sync) do
+      Logger.error("No checkpoint sync url provided.")
+      :init.stop(0)
+    end
+
     {:ok, host} = Libp2p.host_new()
     {:ok, gsub} = Libp2p.new_gossip_sub(host)
 
@@ -18,7 +27,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
       {LambdaEthereumConsensus.Libp2pPort, []},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, [host]},
-      {LambdaEthereumConsensus.ForkChoice, []},
+      {LambdaEthereumConsensus.ForkChoice, [Keyword.fetch!(args, :checkpoint_sync)]},
       {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
       # Start the Endpoint (http/https)
       BeaconApi.Endpoint

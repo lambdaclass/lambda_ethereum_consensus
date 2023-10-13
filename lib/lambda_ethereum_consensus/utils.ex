@@ -34,9 +34,9 @@ defmodule LambdaEthereumConsensus.Utils do
             {:error, error}
         end
 
-      _ ->
+      error ->
         Logger.error("Invalid checkpoint sync url.")
-        :error
+        {:error, error}
     end
   end
 end

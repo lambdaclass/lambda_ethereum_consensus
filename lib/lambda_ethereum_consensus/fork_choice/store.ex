@@ -36,7 +36,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
             unrealized_justified_checkpoint: SszTypes.Checkpoint.t() | nil,
             unrealized_finalized_checkpoint: SszTypes.Checkpoint.t() | nil,
             proposer_boost_root: SszTypes.root() | nil,
-            equivocating_indices: [SszTypes.validator_index()],
+            equivocating_indices: MapSet.t(SszTypes.validator_index()),
             blocks: %{SszTypes.root() => SszTypes.BeaconBlock.t()},
             block_states: %{SszTypes.root() => SszTypes.BeaconState.t()},
             checkpoint_states: %{SszTypes.Checkpoint.t() => SszTypes.BeaconState.t()},
@@ -73,24 +73,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   @impl GenServer
   @spec init([BeaconState.t()]) :: {:ok, Store.t()}
   def init([initial_state = %SszTypes.BeaconState{}]) do
-    %BeaconState{
-      genesis_time: genesis_time,
-      current_justified_checkpoint: current_justified_checkpoint,
-      finalized_checkpoint: finalized_checkpoint
-    } = initial_state
+    {:ok, initial_block_root} = Ssz.hash_tree_root(initial_state.latest_block_header)
 
     store = %Store{
       time: DateTime.to_unix(DateTime.utc_now()),
-      genesis_time: genesis_time,
-      justified_checkpoint: current_justified_checkpoint,
-      finalized_checkpoint: finalized_checkpoint,
+      genesis_time: initial_state.genesis_time,
+      justified_checkpoint: initial_state.current_justified_checkpoint,
+      finalized_checkpoint: initial_state.finalized_checkpoint,
       unrealized_justified_checkpoint: nil,
       unrealized_finalized_checkpoint: nil,
       proposer_boost_root: nil,
-      equivocating_indices: [],
+      equivocating_indices: MapSet.new(),
       blocks: %{},
       block_states: %{
-        Ssz.hash_tree_root(initial_state) => initial_state
+        initial_block_root => initial_state
       },
       checkpoint_states: %{},
       latest_messages: %{},

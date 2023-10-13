@@ -10,25 +10,20 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @impl true
-  def init(_opts) do
-    # Parse command line arguments
-    {args, _remaining_args, _errors} =
-      OptionParser.parse(System.argv(), switches: [checkpoint_sync: :string])
+  def init([checkpoint_url]) do
+    case Utils.sync_from_checkpoint(checkpoint_url) do
+      {:ok, %SszTypes.BeaconState{} = initial_state} ->
+        Logger.info("[Checkpoint sync] Received beacon state at slot #{initial_state.slot}.")
 
-    Logger.notice("Syncing from checkpoint...")
+        children = [
+          {LambdaEthereumConsensus.ForkChoice.Store, [initial_state]},
+          {LambdaEthereumConsensus.ForkChoice.Tree, []}
+        ]
 
-    # Check for the --checkpoint-sync argument and act accordingly
-    # TODO: this could be done in an async task
-    {:ok, %SszTypes.BeaconState{} = initial_state} =
-      Keyword.fetch!(args, :checkpoint_sync) |> Utils.sync_from_checkpoint()
+        Supervisor.init(children, strategy: :one_for_all)
 
-    Logger.notice("[Checkpoint sync] Received beacon state at slot #{initial_state.slot}.")
-
-    children = [
-      {LambdaEthereumConsensus.ForkChoice.Store, [initial_state]},
-      {LambdaEthereumConsensus.ForkChoice.Tree, []}
-    ]
-
-    Supervisor.init(children, strategy: :one_for_one)
+      {:error, _} ->
+        :ignore
+    end
   end
 end
