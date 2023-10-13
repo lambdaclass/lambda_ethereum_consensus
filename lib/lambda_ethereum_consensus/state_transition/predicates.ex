@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @doc """
   Check if ``validator`` is active.
   """
-  @spec is_active_validator(Validator.t(), SszTypes.epoch()) :: Bool
+  @spec is_active_validator(Validator.t(), SszTypes.epoch()) :: boolean
   def is_active_validator(
         %Validator{activation_epoch: activation_epoch, exit_epoch: exit_epoch},
         epoch
