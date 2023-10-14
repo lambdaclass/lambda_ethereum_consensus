@@ -18,16 +18,14 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     hysteresis_upward_multiplier = ChainSpec.get("HYSTERESIS_UPWARD_MULTIPLIER")
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
-    validators_with_index = validators |> Enum.with_index()
+    hysteresis_increment = div(effective_balance_increment, hysteresis_quotient)
+    downward_threshold = hysteresis_increment * hysteresis_downward_multiplier
+    upward_threshold = hysteresis_increment * hysteresis_upward_multiplier
 
     new_validators =
-      validators_with_index
-      |> Enum.map(fn {%Validator{effective_balance: effective_balance} = validator, index} ->
-        balance = Enum.at(balances, index)
-        hysteresis_increment = div(effective_balance_increment, hysteresis_quotient)
-        downward_threshold = hysteresis_increment * hysteresis_downward_multiplier
-        upward_threshold = hysteresis_increment * hysteresis_upward_multiplier
-
+      validators
+      |> Stream.zip(balances)
+      |> Enum.map(fn {%Validator{effective_balance: effective_balance} = validator, balance} ->
         if balance + downward_threshold < effective_balance or
              effective_balance + upward_threshold < balance do
           new_effective_balance =
