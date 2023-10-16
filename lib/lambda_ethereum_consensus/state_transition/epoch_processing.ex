@@ -5,6 +5,40 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias SszTypes.BeaconState
+  alias SszTypes.Validator
+
+  @spec process_effective_balance_updates(BeaconState.t()) ::
+          {:ok, BeaconState.t()}
+  def process_effective_balance_updates(
+        %BeaconState{validators: validators, balances: balances} = state
+      ) do
+    effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+    hysteresis_quotient = ChainSpec.get("HYSTERESIS_QUOTIENT")
+    hysteresis_downward_multiplier = ChainSpec.get("HYSTERESIS_DOWNWARD_MULTIPLIER")
+    hysteresis_upward_multiplier = ChainSpec.get("HYSTERESIS_UPWARD_MULTIPLIER")
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+
+    hysteresis_increment = div(effective_balance_increment, hysteresis_quotient)
+    downward_threshold = hysteresis_increment * hysteresis_downward_multiplier
+    upward_threshold = hysteresis_increment * hysteresis_upward_multiplier
+
+    new_validators =
+      validators
+      |> Stream.zip(balances)
+      |> Enum.map(fn {%Validator{effective_balance: effective_balance} = validator, balance} ->
+        if balance + downward_threshold < effective_balance or
+             effective_balance + upward_threshold < balance do
+          new_effective_balance =
+            min(balance - rem(balance, effective_balance_increment), max_effective_balance)
+
+          %{validator | effective_balance: new_effective_balance}
+        else
+          validator
+        end
+      end)
+
+    {:ok, %BeaconState{state | validators: new_validators}}
+  end
 
   @spec process_eth1_data_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_eth1_data_reset(state) do
@@ -18,6 +52,20 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         state
       end
 
+    {:ok, new_state}
+  end
+
+  @doc """
+  Process total slashing balances updates during epoch processing
+  """
+  @spec process_slashings_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_slashings_reset(state) do
+    next_epoch = Accessors.get_current_epoch(state) + 1
+    slashed_exit_length = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
+    slashed_epoch = rem(next_epoch, slashed_exit_length)
+
+    new_slashings = List.replace_at(state.slashings, slashed_epoch, 0)
+    new_state = %{state | slashings: new_slashings}
     {:ok, new_state}
   end
 
