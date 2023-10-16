@@ -36,7 +36,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_previous_epoch(BeaconState.t()) :: SszTypes.epoch()
   def get_previous_epoch(%BeaconState{} = state) do
     current_epoch = get_current_epoch(state)
-    genesis_epoch = ChainSpec.get("GENESIS_EPOCH")
+    genesis_epoch = Constants.genesis_epoch()
 
     if current_epoch == genesis_epoch do
       genesis_epoch
