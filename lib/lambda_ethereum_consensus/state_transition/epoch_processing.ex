@@ -84,8 +84,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_inactivity_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def process_inactivity_updates(%BeaconState{} = state) do
-    genesis_epoch = ChainSpec.get("GENESIS_EPOCH")
-    timely_target_index = ChainSpec.get("TIMELY_TARGET_FLAG_INDEX")
+    genesis_epoch = Constants.genesis_epoch()
+    timely_target_index = Constants.timely_target_flag_index()
     inactivity_score_bias = ChainSpec.get("INACTIVITY_SCORE_BIAS")
     inactivity_score_recovery_rate = ChainSpec.get("INACTIVITY_SCORE_RECOVERY_RATE")
 
