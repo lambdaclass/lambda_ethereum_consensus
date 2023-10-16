@@ -38,7 +38,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       end)
 
     {:ok, %BeaconState{state | validators: new_validators}}
-   end
+  end
 
   @spec process_eth1_data_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_eth1_data_reset(state) do
