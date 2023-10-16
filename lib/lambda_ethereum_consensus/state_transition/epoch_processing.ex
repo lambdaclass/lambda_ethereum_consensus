@@ -64,7 +64,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     validators_indices = Enum.with_index(validators)
 
     new_state = Enum.reduce(validators_indices, state, fn {validator, index}, acc ->
-      if validator.slashed and div(epoch + epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
+      if validator.slashed and epoch + div(epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
         penalty_numerator = div(validator.effective_balance, increment) * adjusted_total_slashing_balance
         penalty = div(penalty_numerator, total_balance) * increment
 
@@ -74,6 +74,5 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       end
     end)
     {:ok, new_state}
-    # {:ok, %BeaconState{state | validators: new_validators}}
   end
 end

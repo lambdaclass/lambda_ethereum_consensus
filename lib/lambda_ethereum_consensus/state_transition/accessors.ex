@@ -2,6 +2,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @moduledoc """
   Functions accessing the current beacon state
   """
+
+  alias ChainSpec
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
@@ -37,13 +39,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @spec get_total_balance(BeaconState.t(), list[integer]) :: SszTypes.gwei()
-  def get_total_balance(%BeaconState{balances: balances}, indices) do
-    sum =
-      Enum.reduce(indices, 0, fn index, acc ->
-        acc + Enum.at(balances, index)
-      end)
+  def get_total_balance(%BeaconState{validators: validators}, indices) do
+    effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+    sum = Enum.reduce(indices, 0, fn index, acc ->
+      acc + Enum.at(validators, index).effective_balance
+    end)
 
-    sum
+    max(effective_balance_increment, sum)
   end
 
   @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
