@@ -1,4 +1,4 @@
-# State Transition LECC Handbook
+# State Transition Handbook
 
 Before delving into the LECC state transition functions implementation, ensure you've covered the following:
 
@@ -9,6 +9,7 @@ Before delving into the LECC state transition functions implementation, ensure y
 - **Seek Clarifications**: If in doubt, don't hesitate to ask questions in the [Telegram group](https://t.me/lambdaconsensus).
 - **Testing**: Ensure your implementation passes the relevant tests.
 - **Optimization**: Strive for efficiency in your code.
+
 ## Introduction
 
 The State Transition function lies at the heart of blockchains, driving their evolution. It transitions an initial state \( S0 \) into a subsequent state \( S1 \), as defined by:
@@ -31,9 +32,11 @@ The Beacon Chain state transition function is composed of 3 core pieces:
 > In actual client implementations, state updates will usually be time-based, triggered by moving to the next slot if a block has not been received. However, the fast-forward functionality will be used when exploring different forks in the block tree.
 
 The state transition part of a consensus client can be considered as black box, no other parts of the client need to be understood (thoroughly) to be able to make an implementation, furthermore it can be used as a standalone component.
+
 ## Decomposition
 
 The goal through decomposition is to enable the thorough understanding of the inner workings of the function. Going through each argument and line one by one. To not get too much into the weeds we will only go 1 layer deep into the function.
+
 ### Declaration
 
 The `state_transition` function is declared as follows:
@@ -95,6 +98,7 @@ def state_transition(state: BeaconState, signed_block: SignedBeaconBlock, valida
   ```python
   assert block.state_root == hash_tree_root(state)
   ```
+
 ### Additional information
 
 - The third core piece of the consensus layer state transition function is contained in the `process_slots` function. It's the `process_epoch` function. [See declaration](https://eth2book.info/capella/annotated-spec/#def_process_slots)
@@ -118,6 +122,7 @@ def is_active_validator(validator: Validator, epoch: Epoch) -> bool:
     """
     return validator.activation_epoch <= epoch < validator.exit_epoch
 ```
+
 ### Accessors
 
 Functions that access and compute data regarding the passed state. They do not perform any mutation. For instance, `get_current_epoch(state)` returns the current epoch.
@@ -129,6 +134,7 @@ def get_current_epoch(state: BeaconState) -> Epoch:
     """
     return compute_epoch_at_slot(state.slot)
 ```
+
 ### Mutators
 
 Functions that modify the passed state. An example is `increase_balance(state, index, delta)`, which augments the balance of a specific validator.
@@ -140,6 +146,7 @@ def increase_balance(state: BeaconState, index: ValidatorIndex, delta: Gwei) -> 
     """
     state.balances[index] += delta
 ```
+
 ### Miscellaneous
 
 Other important functions assisting data computations, such as `compute_timestamp_at_slot(state, slot)`, which calculates the timestamp for a given slot.
@@ -149,13 +156,13 @@ def compute_timestamp_at_slot(state: BeaconState, slot: Slot) -> uint64:
     slots_since_genesis = slot - GENESIS_SLOT
     return uint64(state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT)
 ```
+
 ## Visual Function Tree
 
 For a holistic view of the relationships and dependencies among all the state transition functions, refer to the provided visual representation:
 
 > [!IMPORTANT]
 > The Visual Function Tree is a crucial resource. Make sure to refer to it.
-
 
 SVG version:
 ![State Transition Tree SVG](../../assets/State_Transition_Function_Tree.svg)
@@ -174,7 +181,6 @@ Furthermore the tree is accompanied by a legend enabling the correct understandi
     <img src="../../assets/stf_tree_legend.png" alt="State Transition Tree Legend" width="400"/>
 </div>
 
-
 ## Testing
 
 Most high-level state transition functions are accompanied by EF test vectors. Before submitting your implementation, ensure you pass these tests. 
@@ -182,6 +188,7 @@ Most high-level state transition functions are accompanied by EF test vectors. B
 The Visual Function Tree highlights which functions are testable. 
 
 For a comprehensive understanding of testing your implementation, explore the [consensus tests documentation](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
+
 ## References
 
 Standing on the shoulders of giants is a prerequisite to innovation. Thank you to all the brilliant minds that contributed to this domain. This work draws inspiration and builds upon:
