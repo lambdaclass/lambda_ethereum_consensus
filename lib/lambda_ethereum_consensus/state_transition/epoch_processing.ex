@@ -80,10 +80,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
                 unslashed_participating_indices,
                 inactivity_score_bias
               )
-
-            new_inactivity_score =
-              decrease_inactivity_score(
-                new_inactivity_score,
+              |> decrease_inactivity_score(
                 state_is_in_inactivity_leak,
                 inactivity_score_recovery_rate
               )
