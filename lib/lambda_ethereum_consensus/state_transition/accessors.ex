@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @spec get_active_validator_indices(BeaconState.t(), SszTypes.epoch()) :: list[integer]
-  def get_active_validator_indices(%SszTypes.BeaconState{validators: validators}, epoch) do
+  def get_active_validator_indices(%BeaconState{validators: validators}, epoch) do
     validators_indices = Enum.with_index(validators)
 
     active_indices =

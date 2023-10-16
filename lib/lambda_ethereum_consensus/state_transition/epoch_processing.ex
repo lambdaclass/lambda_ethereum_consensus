@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Mutators
   alias SszTypes.BeaconState
 
   @spec process_eth1_data_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
@@ -45,5 +46,34 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     new_randao_mixes = List.replace_at(randao_mixes, index, random_mix)
     new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
     {:ok, new_state}
+  end
+
+  @spec process_slashings(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_slashings(%BeaconState{validators: validators, slashings: slashings} = state) do
+    epoch = Accessors.get_current_epoch(state)
+    total_balance = Accessors.get_total_active_balance(state)
+    slashed_sum = Enum.reduce(slashings, 0, &+/2)
+
+    proportional_slashing_multiplier = ChainSpec.get("PROPORTIONAL_SLASHING_MULTIPLIER")
+    epochs_per_slashings_vector = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
+    effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+
+    adjusted_total_slashing_balance = min(slashed_sum * proportional_slashing_multiplier, total_balance)
+    increment = effective_balance_increment
+
+    validators_indices = Enum.with_index(validators)
+
+    new_state = Enum.reduce(validators_indices, state, fn {validator, index}, acc ->
+      if validator.slashed and div(epoch + epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
+        penalty_numerator = div(validator.effective_balance, increment) * adjusted_total_slashing_balance
+        penalty = div(penalty_numerator, total_balance) * increment
+
+        Mutators.decrease_balance(acc, index, penalty)
+      else
+        acc
+      end
+    end)
+    {:ok, new_state}
+    # {:ok, %BeaconState{state | validators: new_validators}}
   end
 end
