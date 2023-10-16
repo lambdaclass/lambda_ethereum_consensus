@@ -15,8 +15,8 @@ defmodule EpochProcessingTestRunner do
     "rewards_and_penalties",
     "registry_updates",
     "slashings",
+    # "effective_balance_updates",
     # "eth1_data_reset",
-    "effective_balance_updates",
     # "slashings_reset",
     # "randao_mixes_reset",
     "historical_summaries_update",
@@ -51,6 +51,12 @@ defmodule EpochProcessingTestRunner do
       )
 
     handle_case(testcase.handler, pre, post)
+  end
+
+  def handle_case("effective_balance_updates", pre, post) do
+    result = EpochProcessing.process_effective_balance_updates(pre)
+
+    assert result == {:ok, post}
   end
 
   def handle_case("eth1_data_reset", pre_state, post_state) do
