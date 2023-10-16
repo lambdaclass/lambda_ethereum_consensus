@@ -9,17 +9,17 @@ defmodule SpecTestGenerator do
     "epoch_processing" => EpochProcessingTestRunner
   }
 
-  @vectors_dir SpecTestUtils.get_vectors_dir()
+  @vectors_dir SpecTestCompileUtils.get_vectors_dir()
 
-  def all_cases do
-    [@vectors_dir]
-    |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
-    |> Enum.join("/")
-    |> Path.wildcard()
-    |> Stream.map(&Path.relative_to(&1, @vectors_dir))
-    |> Stream.map(&Path.split/1)
-    |> Enum.map(&SpecTestCase.new/1)
-  end
+  @all_cases [@vectors_dir]
+             |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
+             |> Enum.join("/")
+             |> Path.wildcard()
+             |> Stream.map(&Path.relative_to(&1, @vectors_dir))
+             |> Stream.map(&Path.split/1)
+             |> Enum.map(&SpecTestCase.new/1)
+
+  def all_cases, do: @all_cases
 
   def runner_map, do: @runner_map
 
@@ -57,7 +57,7 @@ defmodule SpecTestGenerator do
         |> :erlang.md5() != unquote(paths_hash)
       end
 
-      config = SpecTestUtils.get_config(pinned_config)
+      config = SpecTestCompileUtils.get_config(pinned_config)
 
       setup_all do
         Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: unquote(config))

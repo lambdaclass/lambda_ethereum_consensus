@@ -74,7 +74,7 @@ defmodule OperationsTestRunner do
       )
 
     post =
-      SpecTestUtils.read_ssz_from_file(
+      SpecTestUtils.read_ssz_from_optional_file!(
         case_dir <> "/post.ssz_snappy",
         SszTypes.BeaconState
       )
@@ -82,7 +82,7 @@ defmodule OperationsTestRunner do
     handle_case(testcase.handler, pre, operation, post, case_dir)
   end
 
-  def handle_case("execution_payload", _pre, _operation, _post, case_dir) do
+  defp handle_case("execution_payload", _pre, _operation, _post, case_dir) do
     %{execution_valid: _execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.parse_yaml()
