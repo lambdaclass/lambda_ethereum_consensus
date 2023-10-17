@@ -119,7 +119,17 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/62571011?v=4",
       "profile": "https://github.com/ayushm2003",
       "contributions": [
-        "doc"
+        "doc",
+        "code"
+      ]
+    },
+    {
+      "login": "sm-stack",
+      "name": "Seungmin Jeon",
+      "avatar_url": "https://avatars.githubusercontent.com/u/94497407?v=4",
+      "profile": "https://github.com/sm-stack",
+      "contributions": [
+        "code"
       ]
     }
   ],
