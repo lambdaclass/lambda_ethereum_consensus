@@ -16,6 +16,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GetId,
     GossipSub,
     InitArgs,
+    NewPeer,
     Notification,
     Publish,
     Request,
@@ -174,6 +175,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def init(args) do
+    {new_peer_handler, args} = Keyword.pop(args, :new_peer_handler, nil)
+
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
     args
@@ -181,53 +184,62 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
 
-    {:ok, port}
+    {:ok, %{port: port, new_peer_handler: new_peer_handler}}
   end
 
   @impl GenServer
-  def handle_cast({:send, data}, port) do
+  def handle_cast({:send, data}, %{port: port} = state) do
     send_data(port, data)
-    {:noreply, port}
+    {:noreply, state}
   end
 
   @impl GenServer
-  def handle_info({port, {:data, data}}, port) do
+  def handle_info({_port, {:data, data}}, state) do
     %Notification{n: {_, payload}} = Notification.decode(data)
-    handle_notification(payload)
+    handle_notification(payload, state)
 
-    {:noreply, port}
+    {:noreply, state}
   end
 
   @impl GenServer
-  def handle_info({port, {:exit_status, status}}, port),
+  def handle_info({_port, {:exit_status, status}}, _state),
     do: Process.exit(self(), status)
 
   @impl GenServer
-  def handle_info(other, port) do
+  def handle_info(other, state) do
     Logger.error(inspect(other))
-    {:noreply, port}
+    {:noreply, state}
   end
 
   ######################
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%GossipSub{topic: topic, handler: handler, message: message}) do
+  defp handle_notification(%GossipSub{topic: topic, handler: handler, message: message}, _state) do
     handler_pid = :erlang.binary_to_term(handler)
     send(handler_pid, {:gossipsub, {topic, message}})
   end
 
-  defp handle_notification(%Request{
-         protocol_id: protocol_id,
-         handler: handler,
-         message_id: message_id,
-         message: message
-       }) do
+  defp handle_notification(
+         %Request{
+           protocol_id: protocol_id,
+           handler: handler,
+           message_id: message_id,
+           message: message
+         },
+         _state
+       ) do
     handler_pid = :erlang.binary_to_term(handler)
     send(handler_pid, {:request, {protocol_id, message_id, message}})
   end
 
-  defp handle_notification(%Result{from: from, success: success, message: message}) do
+  defp handle_notification(%NewPeer{peer_id: _peer_id}, %{new_peer_handler: nil}), do: :ok
+
+  defp handle_notification(%NewPeer{peer_id: peer_id}, %{new_peer_handler: handler}) do
+    send(handler, {:new_peer, peer_id})
+  end
+
+  defp handle_notification(%Result{from: from, success: success, message: message}, _state) do
     case from do
       nil ->
         success_txt = if success, do: "success", else: "failed"

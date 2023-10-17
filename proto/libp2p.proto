@@ -82,6 +82,11 @@ message Request {
     bytes message = 4;
 }
 
+// A new peer was added.
+message NewPeer {
+    bytes peer_id = 1;
+}
+
 // A result from a command.
 message Result {
     bytes from = 1;
@@ -93,6 +98,7 @@ message Notification {
     oneof n {
         GossipSub gossip = 1;
         Request request = 2;
-        Result result = 3;
+        NewPeer new_peer = 3;
+        Result result = 4;
     }
 }
