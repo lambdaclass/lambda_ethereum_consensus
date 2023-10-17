@@ -63,7 +63,6 @@ There are Makefile targets for these tasks.
 ```shell
 make deps # Installs dependencies
 make iex  # Runs a terminal with the application started
-make test # Runs tests
 ```
 
 The iex terminal can be closed by pressing ctrl+c two times.
@@ -78,6 +77,21 @@ iex -S mix run -- --checkpoint-sync <your_url_here>
 ```
 
 Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/)
+
+### Tests, linting and formatting
+
+Our CI runs tests, linters, and also checks formatting and typing.
+To run these checks locally:
+
+```shell
+make test      # Runs tests
+make spec-test # Runs all spec-tests
+make lint      # Runs linter and format-checker
+mix dialyzer   # Runs type-checker
+```
+
+Source code can be formatted using `make fmt`.
+This formats not only the Elixir code, but also the code under [`native/`](./native/).
 
 ## Consensus spec tests
 
@@ -198,9 +212,9 @@ Dream of becoming an Ethereum core developer? Eager to shape the protocol that w
 
 **Then you're in the right place! 🚀**
 
-### Getting Started:
+### Getting Started
 
-#### 1. **Installation**:
+#### 1. **Installation**
 
 - **Prerequisites**: Before diving in, ensure you have the necessary tools installed. Check out the [Prerequisites](#prerequisites) section for guidance.
   
@@ -213,7 +227,7 @@ Dream of becoming an Ethereum core developer? Eager to shape the protocol that w
 
 - **Setup**: Once you've cloned the repository, follow the steps in the [Installing and running](#installing-and-running) section to set up your environment.
 
-#### 2. **Prerequisite Knowledge**:
+#### 2. **Prerequisite Knowledge**
 
 To contribute effectively, you'll need a foundational understanding of both the Ethereum protocol and the Elixir language, including the Erlang VM (BEAM). If you're new to these areas, we've curated a list of resources to get you started:
 
@@ -277,37 +291,36 @@ Truly mastering the Ethereum protocol is a complex endeavor. The list provided h
 
 If you come across any resource that you find invaluable and believe should be added to this list, please don't hesitate to suggest its inclusion.
 
-#### 3. **Dive In**:
+#### 3. **Dive In**
 
 With your newfound knowledge, explore the various areas of our project. Whether you're interested in the core consensus layer, networking, CLI, documentation, testing, or tooling, there's a place for you.
 
 Start by browsing our [issues](https://github.com/lambdaclass/lambda_ethereum_consensus/issues), especially those tagged as `good first issue`. These are beginner-friendly and a great way to familiarize yourself with our codebase.
 
-### Contributing:
+### How to contribute
 
 Found an issue you're passionate about? Comment with `"I'd like to tackle this!"` to claim it. Once assigned, you can begin your work. After completing your contribution, submit a pull request for review. Our team and other contributors will be able to provide feedback, and once approved, your contribution will be merged.
 
-Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification when crafting commit messages.
+Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification when crafting PR titles. Also, run `make fmt` to format source code according to the configured style guide. The repo enforces these automatically via GitHub Actions.
 
-### Code of Conduct:
+> [!IMPORTANT]  
+> We believe in fostering an inclusive, welcoming, and respectful community. All contributors are expected to adhere to our [Code of Conduct](#code-of-conduct). Please familiarize yourself with its contents before participating.
 
-We believe in fostering an inclusive, welcoming, and respectful community. All contributors are expected to adhere to our [Code of Conduct](https://github.com/lambdaclass/lambda_ethereum_consensus#code-of-conduct). Please familiarize yourself with its contents before participating.
+### Communication
 
-### Communication:
-
-**Open communication** is key to the success of any project. We encourage all contributors to join our [Telegram chat](https://t.me/lambdaconsensus) for real-time discussions, updates, and collaboration. 
+**Open communication** is key to the success of any project. We encourage all contributors to join our [Telegram chat](https://t.me/lambdaconsensus) for real-time discussions, updates, and collaboration.
 
 **For more structured discussions or proposals**, consider opening an issue or a discussion on the GitHub repository.
 
-### Recognition:
+### Recognition
 
 We value every contribution, no matter how small. All contributors will be recognized in our project's documentation. Additionally, consistent and significant contributors may be offered more formal roles within the project over time.
 
-### Support:
+### Support
 
 If you encounter any issues or have questions, don't hesitate to reach out. Our team and the community are here to help. You can ask questions in our Telegram chat or open an issue on GitHub for technical challenges.
 
-### Conclusion:
+### Conclusion
 
 Lambda Ethereum Consensus is more than just a project; it's a community-driven initiative to bring the power and reliability of Elixir to the Ethereum ecosystem. With your help, we can make this vision a reality. Dive in, contribute, learn, and let's shape the future of Ethereum together!
 
