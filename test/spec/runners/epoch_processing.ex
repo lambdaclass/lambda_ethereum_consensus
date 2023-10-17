@@ -11,7 +11,7 @@ defmodule EpochProcessingTestRunner do
   # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [
     "justification_and_finalization",
-    "inactivity_updates",
+    # "inactivity_updates",
     "rewards_and_penalties",
     "registry_updates",
     "slashings",
@@ -60,6 +60,11 @@ defmodule EpochProcessingTestRunner do
 
   defp handle_case("eth1_data_reset", pre, post) do
     result = EpochProcessing.process_eth1_data_reset(pre)
+    assert result == {:ok, post}
+  end
+
+  defp handle_case("inactivity_updates", pre, post) do
+    result = EpochProcessing.process_inactivity_updates(pre)
     assert result == {:ok, post}
   end
 
