@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias SszTypes.BeaconState
   alias SszTypes.HistoricalSummary
   alias SszTypes.Validator
+  alias SszTypes.participation_flags
 
   @spec process_effective_balance_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()}
@@ -330,5 +331,12 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   def process_justification_and_finalization(state) do
     # TODO: implement this
     state
+  end
+
+  @spec process_slashings_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_participation_flag_updates(state) do
+    %BeaconState{current_epoch_participation:current_epoch_participation , validators: validators} = state
+    new_state = %BeaconState{state | previous_epoch_participation:current_epoch_participation, current_epoch_participation: for _ <- validators, do: 0}
+    {:ok, new_state}
   end
 end
