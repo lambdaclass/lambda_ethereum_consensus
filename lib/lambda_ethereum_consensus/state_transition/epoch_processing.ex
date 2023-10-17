@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias SszTypes.HistoricalSummary
   alias SszTypes.BeaconState
   alias SszTypes.Validator
 
@@ -78,6 +79,31 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     index = rem(next_epoch, epochs_per_historical_vector)
     new_randao_mixes = List.replace_at(randao_mixes, index, random_mix)
     new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
+    {:ok, new_state}
+  end
+
+  @spec process_historical_summaries_update(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_historical_summaries_update(state) do
+    next_epoch = Accessors.get_current_epoch(state) + 1
+
+    new_state = if rem(
+         next_epoch,
+         div(ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"), ChainSpec.get("SLOTS_PER_EPOCH"))
+       ) == 0 do
+      historical_summaries = %HistoricalSummary{
+        block_summary_root:
+          Ssz.hash_list_tree_root(state.block_roots, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")),
+        state_summary_root:
+          Ssz.hash_list_tree_root(state.state_roots, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"))
+      }
+       %BeaconState{
+         state
+         | historical_summaries: state.historical_summaries ++ historical_summaries
+       }
+    else
+      state
+    end
+
     {:ok, new_state}
   end
 end

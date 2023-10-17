@@ -19,7 +19,7 @@ defmodule EpochProcessingTestRunner do
     # "eth1_data_reset",
     # "slashings_reset",
     # "randao_mixes_reset",
-    "historical_summaries_update",
+    # "historical_summaries_update",
     "participation_record_updates",
     "participation_flag_updates",
     "sync_committee_updates"
@@ -70,6 +70,11 @@ defmodule EpochProcessingTestRunner do
 
   defp handle_case("randao_mixes_reset", pre, post) do
     result = EpochProcessing.process_randao_mixes_reset(pre)
+    assert result == {:ok, post}
+  end
+
+  defp handle_case("historical_summaries_update", pre, post) do
+    result = EpochProcessing.process_historical_summaries_update(pre)
     assert result == {:ok, post}
   end
 end
