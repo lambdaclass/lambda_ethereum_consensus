@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias SszTypes.HistoricalSummary
   alias SszTypes.BeaconState
+  alias SszTypes.HistoricalSummary
   alias SszTypes.Validator
 
   @spec process_effective_balance_updates(BeaconState.t()) ::
