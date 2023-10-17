@@ -25,7 +25,7 @@ type Epoch = u64;
 type CommitteeIndex = u64;
 type ValidatorIndex = u64;
 type Gwei = u64;
-type Root<'a> = Bytes32<'a>;
+pub(crate) type Root<'a> = Bytes32<'a>;
 type Hash32<'a> = Bytes32<'a>;
 type Version<'a> = Bytes4<'a>;
 #[allow(dead_code)]

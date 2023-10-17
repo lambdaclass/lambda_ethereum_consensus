@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias LambdaEthereumConsensus.StateTransition.Mutators
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
+  alias SszTypes.HistoricalSummary
   alias SszTypes.Validator
 
   @spec process_effective_balance_updates(BeaconState.t()) ::
@@ -251,5 +252,46 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
       {:ok, %{state | inactivity_scores: updated_inactive_scores}}
     end
+  end
+
+  @spec process_historical_summaries_update(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_historical_summaries_update(state) do
+    next_epoch = Accessors.get_current_epoch(state) + 1
+
+    new_state =
+      if rem(
+           next_epoch,
+           div(ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"), ChainSpec.get("SLOTS_PER_EPOCH"))
+         ) == 0 do
+        historical_summary = %HistoricalSummary{
+          block_summary_root:
+            case Ssz.hash_list_tree_root_typed(
+                   state.block_roots,
+                   ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"),
+                   SszTypes.Root
+                 ) do
+              {:ok, hash} -> hash
+              err -> {:error, err}
+            end,
+          state_summary_root:
+            case Ssz.hash_list_tree_root_typed(
+                   state.state_roots,
+                   ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"),
+                   SszTypes.Root
+                 ) do
+              {:ok, hash} -> hash
+              err -> {:error, err}
+            end
+        }
+
+        %BeaconState{
+          state
+          | historical_summaries: state.historical_summaries ++ [historical_summary]
+        }
+      else
+        state
+      end
+
+    {:ok, new_state}
   end
 end

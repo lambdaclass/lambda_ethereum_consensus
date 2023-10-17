@@ -46,6 +46,7 @@ macro_rules! schema_match {
                 BeaconBlocksByRangeResponse<C>,
                 Transaction,
                 Metadata<C>,
+                Root,
             }
         )
     };
