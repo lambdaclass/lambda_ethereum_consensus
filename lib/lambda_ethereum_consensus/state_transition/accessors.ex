@@ -51,6 +51,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
   def get_total_active_balance(state) do
     active_validator_indices = get_active_validator_indices(state, get_current_epoch(state))
-    get_total_balance(state, active_validator_indices)
+    get_total_balance(state, Enum.uniq(active_validator_indices))
   end
 end
