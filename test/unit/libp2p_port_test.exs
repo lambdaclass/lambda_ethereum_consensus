@@ -2,6 +2,11 @@ defmodule Unit.Libp2pPortTest do
   use ExUnit.Case
   alias LambdaEthereumConsensus.Libp2pPort
 
+  @bootnodes Application.compile_env(
+               :lambda_ethereum_consensus,
+               LambdaEthereumConsensus.P2P.Discovery
+             )[:bootnodes]
+
   doctest Libp2pPort
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
@@ -58,18 +63,15 @@ defmodule Unit.Libp2pPortTest do
     assert_receive :message_received, 1000
   end
 
-  test "start discovery service" do
-    bootnodes =
-      Application.get_env(
-        :lambda_ethereum_consensus,
-        LambdaEthereumConsensus.P2P.Discovery
-      )[:bootnodes]
-
+  test "start discovery service and discover one peer" do
     start_port(:discoverer,
       enable_discovery: true,
       discovery_addr: "0.0.0.0:25101",
-      bootnodes: bootnodes
+      bootnodes: @bootnodes,
+      new_peer_handler: self()
     )
+
+    assert_receive({:new_peer, _peer_id}, 10_000)
   end
 
   defp retrying_publish(pid, topic, message) do
