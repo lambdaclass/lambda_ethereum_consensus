@@ -10,7 +10,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias SszTypes.BeaconState
   alias SszTypes.HistoricalSummary
   alias SszTypes.Validator
-  alias SszTypes.participation_flags
 
   @spec process_effective_balance_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()}
@@ -117,6 +116,21 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           acc
         end
       end)
+    {:ok, new_state}
+  end
+
+  @spec process_participation_flag_updates(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_participation_flag_updates(state) do
+    %BeaconState{current_epoch_participation: current_epoch_participation, validators: validators} =
+      state
+
+    new_current_epoch_participation = for _ <- validators, do: 0
+
+    new_state = %BeaconState{
+      state
+      | previous_epoch_participation: current_epoch_participation,
+        current_epoch_participation: new_current_epoch_participation
+    }
 
     {:ok, new_state}
   end
