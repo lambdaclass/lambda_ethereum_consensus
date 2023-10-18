@@ -12,7 +12,7 @@ Before delving into the LECC state transition functions implementation, ensure y
 
 ## Introduction
 
-The State Transition function lies at the heart of blockchains, driving their evolution. It transitions an initial state \( S0 \) into a subsequent state \( S1 \), as defined by:
+The State Transition function lies at the heart of blockchains, driving their evolution. It transitions an initial state $S_0$ into a subsequent state $S_1$, as defined by:
 
 $$S' = f(S, B)$$
 
