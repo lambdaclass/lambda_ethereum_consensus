@@ -11,7 +11,7 @@ defmodule EpochProcessingTestRunner do
   # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [
     "justification_and_finalization",
-    "inactivity_updates",
+    # "inactivity_updates",
     "rewards_and_penalties",
     "registry_updates",
     "slashings",
@@ -21,7 +21,7 @@ defmodule EpochProcessingTestRunner do
     # "randao_mixes_reset",
     # "historical_summaries_update",
     "participation_record_updates",
-    "participation_flag_updates",
+    # "participation_flag_updates",
     "sync_committee_updates"
   ]
 
@@ -63,6 +63,11 @@ defmodule EpochProcessingTestRunner do
     assert result == {:ok, post}
   end
 
+  defp handle_case("inactivity_updates", pre, post) do
+    result = EpochProcessing.process_inactivity_updates(pre)
+    assert result == {:ok, post}
+  end
+
   defp handle_case("slashings_reset", pre, post) do
     result = EpochProcessing.process_slashings_reset(pre)
     assert result == {:ok, post}
@@ -75,6 +80,11 @@ defmodule EpochProcessingTestRunner do
 
   defp handle_case("historical_summaries_update", pre, post) do
     result = EpochProcessing.process_historical_summaries_update(pre)
+    assert result == {:ok, post}
+  end 
+  
+  defp handle_case("participation_flag_updates", pre, post) do
+    result = EpochProcessing.process_participation_flag_updates(pre)
     assert result == {:ok, post}
   end
 end
