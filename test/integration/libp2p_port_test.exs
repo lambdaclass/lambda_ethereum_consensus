@@ -22,7 +22,7 @@ defmodule Integration.Libp2pPortTest do
 
     Stream.iterate(0, fn _ ->
       receive do
-        {:new_peer, peer_id} -> peer_id |> Base.encode16() |> IO.inspect()
+        {:new_peer, peer_id} -> peer_id |> Base.encode16() |> IO.puts()
       end
     end)
     |> Stream.run()
