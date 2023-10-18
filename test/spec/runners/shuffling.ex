@@ -28,7 +28,7 @@ defmodule ShufflingTestRunner do
     handle(testcase.handler, seed, count, mapping)
   end
 
-  defp handle("compute_shuffled_index", seed, count, mapping) do
+  defp handle("core", seed, count, mapping) do
     for i <- 0..(count - 1) do
       {:ok, value} = Misc.compute_shuffled_index(i, count, seed)
       assert value == Enum.fetch!(mapping, i)
