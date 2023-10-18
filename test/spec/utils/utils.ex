@@ -3,8 +3,6 @@ defmodule SpecTestUtils do
   Utilities for spec tests.
   """
 
-  def get_vectors_dir, do: "test/spec/vectors/tests"
-
   def parse_yaml(map) when is_map(map) do
     map
     |> Stream.map(&parse_yaml/1)
@@ -30,27 +28,23 @@ defmodule SpecTestUtils do
   defp parse_as_string(x) when is_integer(x), do: :binary.encode_unsigned(x, :little)
   defp parse_as_string("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
 
-  def get_config("minimal"), do: MinimalConfig
-  def get_config("mainnet"), do: MainnetConfig
-  def get_config("general"), do: MainnetConfig
-
-  @spec read_ssz_from_file(binary, module) :: {:ok, any}
-  def read_ssz_from_file(file_path, ssz_type) do
+  @spec read_ssz_from_optional_file!(binary, module) :: any() | nil
+  def read_ssz_from_optional_file!(file_path, ssz_type) do
     if File.exists?(file_path) do
       compressed = File.read!(file_path)
       {:ok, decompressed} = :snappyer.decompress(compressed)
       {:ok, ssz_object} = Ssz.from_ssz(decompressed, ssz_type)
-      {:ok, ssz_object}
+      ssz_object
     else
-      {:ok, nil}
+      nil
     end
   end
 
-  @spec read_ssz_from_file!(binary, module) :: any
+  @spec read_ssz_from_file!(binary, module) :: any()
   def read_ssz_from_file!(file_path, ssz_type) do
-    case read_ssz_from_file(file_path, ssz_type) do
-      {:ok, nil} -> raise "File not found: #{file_path}"
-      {:ok, ssz_object} -> ssz_object
+    case read_ssz_from_optional_file!(file_path, ssz_type) do
+      nil -> raise "File not found: #{file_path}"
+      ssz_object -> ssz_object
     end
   end
 
