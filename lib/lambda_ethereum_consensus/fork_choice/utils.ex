@@ -40,7 +40,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Utils do
          equivocating_indices: MapSet.new(),
          blocks: %{anchor_block_root => anchor_block},
          block_states: %{anchor_block_root => anchor_state},
-         checkpoint_states: %{justified_checkpoint: anchor_state},
+         checkpoint_states: %{justified_checkpoint => anchor_state},
          latest_messages: %{},
          unrealized_justifications: %{anchor_block_root => justified_checkpoint}
        }}
