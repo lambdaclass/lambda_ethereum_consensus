@@ -2,8 +2,8 @@ defmodule Unit.PendingBlocks do
   use ExUnit.Case, async: true
   use Patch
 
-  alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.ForkChoice.Store
 
   setup do
     # Lets trigger the process_blocks manually
