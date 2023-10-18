@@ -6,7 +6,8 @@ defmodule SpecTestGenerator do
     "ssz_static" => SSZStaticTestRunner,
     "bls" => BLSTestRunner,
     "operations" => OperationsTestRunner,
-    "epoch_processing" => EpochProcessingTestRunner
+    "epoch_processing" => EpochProcessingTestRunner,
+    "shuffling" => ShufflingTestRunner
   }
 
   @vectors_dir SpecTestUtils.get_vectors_dir()

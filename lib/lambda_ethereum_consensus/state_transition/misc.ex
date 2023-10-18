@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Misc functions
   """
   import Bitwise
-  alias ExUnit.Assertions
 
   @doc """
   Returns the epoch number at slot.
@@ -18,37 +17,36 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
      Return the shuffled index corresponding to ``seed`` (and ``index_count``).
   """
   @spec compute_shuffled_index(SszTypes.uint64(), SszTypes.uint64(), SszTypes.bytes32()) ::
-          SszTypes.uint64()
+          {:ok, SszTypes.uint64()} | {:error, String.t()}
   def compute_shuffled_index(index, index_count, seed) do
-    Assertions.assert(index > index_count)
+    unless index < index_count do
+      {:error, "index not less than index count"}
+    end
 
     shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
 
     new_index =
-      Enum.reduce(0..(shuffle_round_count - 1), index, fn current_round, current_index ->
-        current_round =
-          <<current_round::8>> |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
+      Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
+        round_as_bytes =
+          <<round::8>> |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
 
-        seed = seed |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
-        hash_of_seed_and_current_round = :crypto.hash(:sha256, seed <> current_round)
+        seed_as_bytes = seed |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
+        hash_of_seed_round = :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes)
 
-        pivot =
-          :binary.decode_unsigned(
-            hash_of_seed_and_current_round
-            |> :binary.bin_to_list({0, 8})
-            |> :binary.list_to_bin(),
-            :little
-          )
+        first_8_bytes_of_hash_of_seed_round =
+          hash_of_seed_round |> :binary.bin_to_list({0, 8}) |> :binary.list_to_bin()
+
+        pivot = :binary.decode_unsigned(first_8_bytes_of_hash_of_seed_round, :little)
 
         flip = rem(pivot + index_count - current_index, index_count)
         position = max(current_index, flip)
 
-        x =
+        position_div_256 =
           <<div(position, 256)::32>>
           |> :binary.decode_unsigned()
           |> :binary.encode_unsigned(:little)
 
-        source = :crypto.hash(:sha256, seed <> current_round <> x)
+        source = :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes <> position_div_256)
         byte_index = div(rem(position, 256), 8)
         byte = source |> :binary.bin_to_list() |> Enum.fetch!(byte_index)
         right_shift = byte >>> rem(position, 8)
@@ -61,7 +59,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
             current_index
           end
 
-        index
+        {:ok, index}
       end)
 
     new_index

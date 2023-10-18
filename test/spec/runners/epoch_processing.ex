@@ -55,7 +55,6 @@ defmodule EpochProcessingTestRunner do
 
   def handle_case("effective_balance_updates", pre, post) do
     result = EpochProcessing.process_effective_balance_updates(pre)
-
     assert result == {:ok, post}
   end
 
