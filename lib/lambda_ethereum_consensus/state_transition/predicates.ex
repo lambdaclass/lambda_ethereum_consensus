@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias SszTypes.Validator
   alias SszTypes.BeaconState
+  alias SszTypes.Validator
   import Bitwise
 
   @doc """
