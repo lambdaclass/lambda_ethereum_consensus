@@ -21,7 +21,7 @@ defmodule EpochProcessingTestRunner do
     # "randao_mixes_reset",
     "historical_summaries_update",
     "participation_record_updates",
-    "participation_flag_updates",
+    # "participation_flag_updates",
     "sync_committee_updates"
   ]
 
@@ -75,6 +75,11 @@ defmodule EpochProcessingTestRunner do
 
   defp handle_case("randao_mixes_reset", pre, post) do
     result = EpochProcessing.process_randao_mixes_reset(pre)
+    assert result == {:ok, post}
+  end
+
+  defp handle_case("participation_flag_updates", pre, post) do
+    result = EpochProcessing.process_participation_flag_updates(pre)
     assert result == {:ok, post}
   end
 end
