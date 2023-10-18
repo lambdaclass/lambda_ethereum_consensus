@@ -63,8 +63,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       end)
 
     new_index
+  end
 
-@spec increase_inactivity_score(SszTypes.uint64(), integer, MapSet.t(), SszTypes.uint64()) ::
+  @spec increase_inactivity_score(SszTypes.uint64(), integer, MapSet.t(), SszTypes.uint64()) ::
           SszTypes.uint64()
   def increase_inactivity_score(
         inactivity_score,
