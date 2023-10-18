@@ -2,6 +2,7 @@ defmodule Unit.PendingBlocks do
   use ExUnit.Case, async: true
   use Patch
 
+  alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
 
   setup do
@@ -12,12 +13,11 @@ defmodule Unit.PendingBlocks do
     :ok
   end
 
-  @tag :pending_blocks
   test "Adds a pending block to fork choice if the parent is there" do
     block = Fixtures.Block.beacon_block()
     {:ok, block_root} = Ssz.hash_tree_root(block)
 
-    patch(PendingBlocks, :in_fork_choice?, fn root -> root == block.parent_root end)
+    patch(Store, :has_block?, fn root -> root == block.parent_root end)
 
     PendingBlocks.add_block(block)
 

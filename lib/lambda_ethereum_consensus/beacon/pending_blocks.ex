@@ -10,7 +10,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   require Logger
   alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.P2P.BlockDownloader
-  alias LambdaEthereumConsensus.StateTransition.Misc
 
   @type state :: %{host: Libp2p.host(), pending_blocks: %{}}
 
