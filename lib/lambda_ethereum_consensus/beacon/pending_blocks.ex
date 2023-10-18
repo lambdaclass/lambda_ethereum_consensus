@@ -87,7 +87,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
                 add_block(block)
 
               {:error, reason} ->
-                Logger.error("Block download failed: '#{reason}'")
+                Logger.debug("Block download failed: '#{reason}'")
             end
 
             nil
