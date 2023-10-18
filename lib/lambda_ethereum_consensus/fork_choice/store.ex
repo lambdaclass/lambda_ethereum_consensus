@@ -6,6 +6,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.P2P.BlockDownloader
+  alias LambdaEthereumConsensus.Store.BlockStore
   alias SszTypes.BeaconState
 
   defmodule Store do
@@ -50,14 +52,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ##########################
 
   @spec start_link([BeaconState.t()]) :: :ignore | {:error, any} | {:ok, pid}
-  def start_link([initial_state]) do
-    GenServer.start_link(__MODULE__, [initial_state], name: __MODULE__)
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @spec get_finalized_checkpoint() :: {:ok, SszTypes.Checkpoint.t()}
   def get_finalized_checkpoint do
-    checkpoint = GenServer.call(__MODULE__, :get_finalized_checkpoint)
-    {:ok, checkpoint}
+    store = get_state()
+    {:ok, store.finalized_checkpoint}
   end
 
   @spec get_current_slot() :: integer()
@@ -66,15 +68,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     div(store.time - store.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
+  @spec has_block?(SszTypes.root()) :: boolean()
+  def has_block?(block_root) do
+    state = get_state()
+    Map.has_key?(state.blocks, block_root)
+  end
+
+  @spec on_block(SszTypes.BeaconBlock.t()) :: :ok
+  def on_block(block) do
+    {:ok, block_root} = Ssz.hash_tree_root(block)
+    GenServer.cast(__MODULE__, {:on_block, block_root, block})
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################
 
   @impl GenServer
-  @spec init([BeaconState.t()]) :: {:ok, Store.t()}
-  def init([initial_state = %SszTypes.BeaconState{}]) do
-    {:ok, initial_block_root} = Ssz.hash_tree_root(initial_state.latest_block_header)
-
+  @spec init({BeaconState.t(), Libp2p.host()}) :: {:ok, Store.t()}
+  def init({initial_state = %SszTypes.BeaconState{}, host}) do
     store = %Store{
       time: DateTime.to_unix(DateTime.utc_now()),
       genesis_time: initial_state.genesis_time,
@@ -85,13 +97,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
       proposer_boost_root: nil,
       equivocating_indices: MapSet.new(),
       blocks: %{},
-      block_states: %{
-        initial_block_root => initial_state
-      },
+      block_states: %{},
       checkpoint_states: %{},
       latest_messages: %{},
       unrealized_justifications: %{}
     }
+
+    Process.send_after(self(), {:fetch_initial_block, initial_state, host}, 0)
 
     {:ok, store}
   end
@@ -99,6 +111,37 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   @impl GenServer
   def handle_call({:get_state}, _from, state) do
     {:reply, state, state}
+  end
+
+  @impl GenServer
+  def handle_cast({:on_block, block_root, block}, state) do
+    Logger.info("[Fork choice] Adding block #{block_root} to the store.")
+    :ok = BlockStore.store_block(block)
+    {:noreply, Map.put(state, :blocks, Map.put(state.blocks, block_root, block))}
+  end
+
+  @impl GenServer
+  def handle_info({:fetch_initial_block, initial_state, host}, state) do
+    {:ok, state_root} = Ssz.hash_tree_root(initial_state)
+
+    {:ok, block_root} =
+      Ssz.hash_tree_root(Map.put(initial_state.latest_block_header, :state_root, state_root))
+
+    case BlockDownloader.request_block_by_root(block_root, host) do
+      {:ok, signed_block} ->
+        Logger.info("[Checkpoint sync] Initial block fetched.")
+        block = signed_block.message
+
+        block_states = Map.put(state.block_states, block_root, initial_state)
+        blocks = Map.put(state.blocks, block_root, block)
+
+        {:noreply, state |> Map.put(:block_states, block_states) |> Map.put(:blocks, blocks)}
+
+      {:error, message} ->
+        Logger.error("[Checkpoint sync] Failed to fetch initial block: #{message}")
+        Process.send_after(self(), {:fetch_initial_block, initial_state}, 200)
+        {:noreply, state}
+    end
   end
 
   ##########################
