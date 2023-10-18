@@ -4,6 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
   alias SszTypes.Validator
 
@@ -79,5 +81,77 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     new_randao_mixes = List.replace_at(randao_mixes, index, random_mix)
     new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
     {:ok, new_state}
+  end
+
+  @spec process_participation_flag_updates(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_participation_flag_updates(state) do
+    %BeaconState{current_epoch_participation: current_epoch_participation, validators: validators} =
+      state
+
+    new_current_epoch_participation = for _ <- validators, do: 0
+
+    new_state = %BeaconState{
+      state
+      | previous_epoch_participation: current_epoch_participation,
+        current_epoch_participation: new_current_epoch_participation
+    }
+
+    {:ok, new_state}
+  end
+
+  @spec process_inactivity_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
+  def process_inactivity_updates(%BeaconState{} = state) do
+    genesis_epoch = Constants.genesis_epoch()
+    timely_target_index = Constants.timely_target_flag_index()
+    inactivity_score_bias = ChainSpec.get("INACTIVITY_SCORE_BIAS")
+    inactivity_score_recovery_rate = ChainSpec.get("INACTIVITY_SCORE_RECOVERY_RATE")
+
+    if Accessors.get_current_epoch(state) == genesis_epoch do
+      {:ok, state}
+    else
+      {:ok, unslashed_participating_indices} =
+        Accessors.get_unslashed_participating_indices(
+          state,
+          timely_target_index,
+          Accessors.get_previous_epoch(state)
+        )
+
+      state_is_in_inactivity_leak = Predicates.is_in_inactivity_leak(state)
+
+      updated_eligible_validator_indices =
+        Accessors.get_eligible_validator_indices(state)
+        |> Enum.map(fn index ->
+          inactivity_score = Enum.at(state.inactivity_scores, index)
+
+          new_inactivity_score =
+            Misc.increase_inactivity_score(
+              inactivity_score,
+              index,
+              unslashed_participating_indices,
+              inactivity_score_bias
+            )
+            |> Misc.decrease_inactivity_score(
+              state_is_in_inactivity_leak,
+              inactivity_score_recovery_rate
+            )
+
+          {index, new_inactivity_score}
+        end)
+        |> Enum.into(%{})
+
+      updated_inactive_scores =
+        state.inactivity_scores
+        |> Stream.with_index()
+        |> Stream.map(fn {inactivity_score, index} ->
+          Misc.update_inactivity_score(
+            updated_eligible_validator_indices,
+            index,
+            inactivity_score
+          )
+        end)
+        |> Enum.to_list()
+
+      {:ok, %{state | inactivity_scores: updated_inactive_scores}}
+    end
   end
 end
