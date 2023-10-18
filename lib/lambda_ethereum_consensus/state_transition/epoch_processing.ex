@@ -87,7 +87,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   def process_historical_summaries_update(state) do
     next_epoch = Accessors.get_current_epoch(state) + 1
 
-    new_state = if rem(next_epoch, div(ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"), ChainSpec.get("SLOTS_PER_EPOCH"))) == 0 do
+    new_state =
+      if rem(
+           next_epoch,
+           div(ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"), ChainSpec.get("SLOTS_PER_EPOCH"))
+         ) == 0 do
+        IO.puts("INSIDE!")
+
         historical_summary = %HistoricalSummary{
           block_summary_root:
             case Ssz.hash_list_tree_root_typed(
@@ -109,7 +115,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
             end
         }
 
-        %{ state | historical_summaries: state.historical_summaries ++ [historical_summary] }
+        %BeaconState{
+          state
+          | historical_summaries: state.historical_summaries ++ [historical_summary]
+        }
       else
         state
       end
