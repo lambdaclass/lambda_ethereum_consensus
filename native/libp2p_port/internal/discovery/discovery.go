@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 )
 
 type Discoverer struct {
@@ -86,6 +87,7 @@ func lookForPeers(iter enode.Iterator, listener *reqresp.Listener) {
 		if err != nil {
 			continue
 		}
-		listener.AddPeer([]byte(nodeID), addrArr, 60e9)
+
+		listener.AddPeer([]byte(nodeID), addrArr, peerstore.PermanentAddrTTL)
 	}
 }
