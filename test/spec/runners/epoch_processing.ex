@@ -81,8 +81,8 @@ defmodule EpochProcessingTestRunner do
   defp handle_case("historical_summaries_update", pre, post) do
     result = EpochProcessing.process_historical_summaries_update(pre)
     assert result == {:ok, post}
-  end 
-  
+  end
+
   defp handle_case("participation_flag_updates", pre, post) do
     result = EpochProcessing.process_participation_flag_updates(pre)
     assert result == {:ok, post}

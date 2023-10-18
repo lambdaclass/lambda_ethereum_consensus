@@ -92,8 +92,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
            next_epoch,
            div(ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"), ChainSpec.get("SLOTS_PER_EPOCH"))
          ) == 0 do
-        IO.puts("INSIDE!")
-
         historical_summary = %HistoricalSummary{
           block_summary_root:
             case Ssz.hash_list_tree_root_typed(
