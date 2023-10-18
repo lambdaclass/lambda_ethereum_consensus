@@ -25,7 +25,7 @@ defmodule ShufflingTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/mapping.yaml")
       |> SpecTestUtils.parse_yaml()
 
-    for i <- 0..count do
+    for i <- 0..(count - 1) do
       {:ok, value} = Misc.compute_shuffled_index(i, count, seed)
       assert value == Enum.fetch!(mapping, i)
     end
