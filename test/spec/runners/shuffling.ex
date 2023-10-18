@@ -1,5 +1,4 @@
 defmodule ShufflingTestRunner do
-
   alias LambdaEthereumConsensus.StateTransition.Misc
   use ExUnit.CaseTemplate
   use TestRunner
