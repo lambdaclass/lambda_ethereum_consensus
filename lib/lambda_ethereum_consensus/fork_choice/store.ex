@@ -124,6 +124,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   def handle_info({:fetch_initial_block, initial_state, host}, state) do
     {:ok, state_root} = Ssz.hash_tree_root(initial_state)
 
+    # The latest_block_header.state_root was zeroed out to avoid circular dependencies
     {:ok, block_root} =
       Ssz.hash_tree_root(Map.put(initial_state.latest_block_header, :state_root, state_root))
 
