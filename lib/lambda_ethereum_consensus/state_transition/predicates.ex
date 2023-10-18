@@ -3,7 +3,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Predicates functions
   """
 
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias SszTypes.Validator
+  alias SszTypes.BeaconState
+  import Bitwise
 
   @doc """
   Check if ``validator`` is active.
@@ -14,5 +17,24 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         epoch
       ) do
     activation_epoch <= epoch && epoch < exit_epoch
+  end
+
+  @doc """
+  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs 
+  (that is, four epochs), then the chain enters the inactivity leak.
+  """
+  @spec is_in_inactivity_leak(BeaconState.t()) :: boolean
+  def is_in_inactivity_leak(%BeaconState{} = state) do
+    min_epochs_to_inactivity_penalty = ChainSpec.get("MIN_EPOCHS_TO_INACTIVITY_PENALTY")
+    Accessors.get_finality_delay(state) > min_epochs_to_inactivity_penalty
+  end
+
+  @doc """
+  Return whether ``flags`` has ``flag_index`` set.
+  """
+  @spec has_flag(SszTypes.participation_flags(), integer) :: boolean
+  def has_flag(participation_flags, flag_index) do
+    flag = 2 ** flag_index
+    (participation_flags &&& flag) === flag
   end
 end

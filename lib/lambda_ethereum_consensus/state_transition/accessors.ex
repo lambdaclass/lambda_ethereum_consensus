@@ -5,7 +5,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
-  import Bitwise
 
   @doc """
   Return the sequence of active validator indices at ``epoch``.
@@ -65,7 +64,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         active_validator_indices
         |> Stream.filter(fn index ->
           current_epoch_participation = Enum.at(epoch_participation, index)
-          has_flag(current_epoch_participation, flag_index)
+          Predicates.has_flag(current_epoch_participation, flag_index)
         end)
         |> Stream.filter(fn index ->
           validator = Enum.at(state.validators, index)
@@ -79,20 +78,36 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
-  Return whether ``flags`` has ``flag_index`` set.
-  """
-  @spec has_flag(SszTypes.participation_flags(), integer) :: boolean
-  def has_flag(participation_flags, flag_index) do
-    flag = 2 ** flag_index
-    (participation_flags &&& flag) === flag
-  end
-
-  @doc """
   Return the randao mix at a recent ``epoch``.
   """
   @spec get_randao_mix(BeaconState.t(), SszTypes.epoch()) :: SszTypes.bytes32()
   def get_randao_mix(%BeaconState{randao_mixes: randao_mixes}, epoch) do
     epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
     Enum.fetch!(randao_mixes, rem(epoch, epochs_per_historical_vector))
+  end
+
+  @doc """
+  Returns the number of epochs since the last finalised checkpoint (minus one).
+  """
+  @spec get_finality_delay(BeaconState.t()) :: SszTypes.uint64()
+  def get_finality_delay(%BeaconState{} = state) do
+    get_previous_epoch(state) - state.finalized_checkpoint.epoch
+  end
+
+  @doc """
+  These are the validators that were subject to rewards and penalties in the previous epoch.
+  """
+  @spec get_eligible_validator_indices(BeaconState.t()) :: list(SszTypes.validator_index())
+  def get_eligible_validator_indices(%BeaconState{validators: validators} = state) do
+    previous_epoch = get_previous_epoch(state)
+
+    validators
+    |> Stream.with_index()
+    |> Stream.filter(fn {validator, _index} ->
+      Predicates.is_active_validator(validator, previous_epoch) ||
+        (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
+    end)
+    |> Stream.map(fn {_validator, index} -> index end)
+    |> Enum.to_list()
   end
 end
