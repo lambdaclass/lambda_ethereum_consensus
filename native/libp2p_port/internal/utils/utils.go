@@ -16,7 +16,7 @@ func PanicIfError(err error) {
 	}
 }
 
-// Taken from Prysm
+// Taken from Prysm: https://github.com/prysmaticlabs/prysm/blob/bcc23d2ded2548b6bce95680f49899325aedd960/crypto/ecdsa/utils.go
 func ConvertFromInterfacePrivKey(privkey crypto.PrivKey) (*ecdsa.PrivateKey, error) {
 	secpKey, ok := privkey.(*crypto.Secp256k1PrivateKey)
 	if !ok {
@@ -34,7 +34,7 @@ func ConvertFromInterfacePrivKey(privkey crypto.PrivKey) (*ecdsa.PrivateKey, err
 	return privKey, nil
 }
 
-// Taken from Prysm
+// Taken from Prysm: https://github.com/prysmaticlabs/prysm/blob/bcc23d2ded2548b6bce95680f49899325aedd960/crypto/ecdsa/utils.go
 func ConvertToInterfacePubkey(pubkey *ecdsa.PublicKey) (crypto.PubKey, error) {
 	xVal, yVal := new(btcec.FieldVal), new(btcec.FieldVal)
 	if xVal.SetByteSlice(pubkey.X.Bytes()) {
