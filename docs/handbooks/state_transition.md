@@ -1,6 +1,6 @@
 # State Transition Handbook
 
-Before delving into the LECC state transition functions implementation, ensure you've covered the following:
+Before delving into the state transition function implementation, ensure you've covered the following:
 
 - **Complete Reading**: Go through this entire document.
 - **Relevant Documentation**: Familiarize yourself with related documentation. Relevant links are provided in the "References" section.
@@ -8,7 +8,6 @@ Before delving into the LECC state transition functions implementation, ensure y
 - **Context**: Grasp why the implementation is necessary and its significance to the project.
 - **Seek Clarifications**: If in doubt, don't hesitate to ask questions in the [Telegram group](https://t.me/lambdaconsensus).
 - **Testing**: Ensure your implementation passes the relevant tests.
-- **Optimization**: Strive for efficiency in your code.
 
 ## Introduction
 
@@ -63,7 +62,7 @@ def state_transition(state: BeaconState, signed_block: SignedBeaconBlock, valida
 | `state`         | `BeaconState`        | Describes the current state of the client.  |
 | `signed_block`  | `SignedBeaconBlock`  | Represents the newly received block.        |
 | `validate_result` | `boolean`          | If validation is required; default is true.     |
-| Return Value    | `None`               | As it's a pure function, no value is returned. |
+| Return Value    | `None`               | No value is returned. |
 
 >[!IMPORTANT]
 >In this example the return value is `None` because of the use of Python being an OOP language. Elixir being a functional language makes:
