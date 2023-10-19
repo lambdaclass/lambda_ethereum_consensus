@@ -56,7 +56,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
       head_slot: 7_301_450
     }
 
-    with {:ok, <<84, snappy_status::binary>>} <- message,
+    with <<84, snappy_status::binary>> <- message,
          {:ok, ssz_status} <- Snappy.decompress(snappy_status),
          {:ok, status} <- Ssz.from_ssz(ssz_status, SszTypes.StatusMessage),
          status
@@ -70,7 +70,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   end
 
   def handle_req("goodbye/1/ssz_snappy", message_id, message) do
-    with {:ok, <<8, snappy_code_le::binary>>} <- message,
+    with <<8, snappy_code_le::binary>> <- message,
          {:ok, code_le} <- Snappy.decompress(snappy_code_le),
          :ok <-
            code_le
@@ -90,7 +90,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
 
   def handle_req("ping/1/ssz_snappy", message_id, message) do
     # Values are hardcoded
-    with {:ok, <<8, seq_number_le::binary>>} <- message,
+    with <<8, seq_number_le::binary>> <- message,
          {:ok, decompressed} <-
            Snappy.decompress(seq_number_le),
          decompressed
@@ -99,8 +99,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
          |> Logger.debug(),
          {:ok, payload} <-
            <<0, 0, 0, 0, 0, 0, 0, 0>>
-           |> Snappy.compress(),
-         :ok <- Libp2pPort.send_response(message_id, <<0, 8>> <> payload) do
+           |> Snappy.compress() do
+      Libp2pPort.send_response(message_id, <<0, 8>> <> payload)
     end
   end
 

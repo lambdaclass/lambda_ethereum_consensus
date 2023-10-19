@@ -33,7 +33,6 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequestHandler, []},
-      {LambdaEthereumConsensus.P2P.PeerConsumer, []},
       {LambdaEthereumConsensus.ForkChoice, [Keyword.fetch!(args, :checkpoint_sync)]},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
