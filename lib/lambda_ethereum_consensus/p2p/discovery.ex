@@ -3,46 +3,33 @@ defmodule LambdaEthereumConsensus.P2P.Discovery do
   This module discovers new peers, and broadcasts them as events.
   """
   use GenStage
+  alias LambdaEthereumConsensus.Libp2pPort
 
   @impl true
   def init(_opts) do
-    config = Application.get_env(:lambda_ethereum_consensus, __MODULE__)
-    port = Keyword.get(config, :port, 9000)
-    bootnodes = Keyword.get(config, :bootnodes, [])
-
-    {:ok, listener} =
-      Libp2p.listen_v5("0.0.0.0:#{port}", bootnodes)
-
-    {:ok, iterator} = Libp2p.listener_random_nodes(listener)
-    # NOTE: this stream isn't pure
-    mut_stream =
-      iterator
-      |> Stream.unfold(&get_next_node/1)
-      |> Stream.map(&wrap_message/1)
-
-    {:producer, mut_stream}
-  end
-
-  defp get_next_node(iterator) do
-    if !Libp2p.iterator_next(iterator) do
-      raise "no more nodes!"
-    end
-
-    {:ok, node} = Libp2p.iterator_node(iterator)
-    {:ok, id} = Libp2p.node_id(node)
-    {:ok, addrs} = Libp2p.node_multiaddr(node)
-    element = {id, addrs}
-
-    {element, iterator}
+    Libp2pPort.set_new_peer_handler(self())
+    {:producer, {0, []}}
   end
 
   @impl true
-  def handle_demand(incoming_demand, mut_stream) do
-    messages =
-      mut_stream
-      |> Enum.take(incoming_demand)
+  def handle_demand(incoming_demand, {demand, found_peers}) do
+    {messages, new_state} = balance_demand({demand + incoming_demand, found_peers})
+    {:noreply, messages, new_state}
+  end
 
-    {:noreply, messages, mut_stream}
+  @impl true
+  def handle_info({:new_peer, peer_id}, {demand, found_peers}) do
+    {messages, new_state} = balance_demand({demand, [peer_id | found_peers]})
+    {:noreply, messages, new_state}
+  end
+
+  defp balance_demand({0, _} = state), do: state
+  defp balance_demand({_, []} = state), do: state
+
+  defp balance_demand({demand, [peer | peers]}) do
+    message = wrap_message(peer)
+    {messages, new_state} = balance_demand({demand - 1, peers})
+    {[message | messages], new_state}
   end
 
   defp wrap_message(msg) do

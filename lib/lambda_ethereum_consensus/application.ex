@@ -17,18 +17,26 @@ defmodule LambdaEthereumConsensus.Application do
       :init.stop(1)
     end
 
-    {:ok, host} = Libp2p.host_new()
-    {:ok, gsub} = Libp2p.new_gossip_sub(host)
+    config = Application.get_env(:lambda_ethereum_consensus, :discovery)
+    port = Keyword.get(config, :port, 9000)
+    bootnodes = Keyword.get(config, :bootnodes, [])
+
+    libp2p_opts = [
+      listen_addr: [],
+      enable_discovery: true,
+      discovery_addr: "0.0.0.0:#{port}",
+      bootnodes: bootnodes
+    ]
 
     children = [
+      {LambdaEthereumConsensus.Libp2pPort, libp2p_opts},
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
-      {LambdaEthereumConsensus.P2P.IncomingRequestHandler, [host]},
-      {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
-      {LambdaEthereumConsensus.Libp2pPort, []},
-      {LambdaEthereumConsensus.ForkChoice, {Keyword.fetch!(args, :checkpoint_sync), host}},
-      {LambdaEthereumConsensus.Beacon.PendingBlocks, [host]},
-      {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
+      {LambdaEthereumConsensus.P2P.IncomingRequestHandler, []},
+      {LambdaEthereumConsensus.P2P.PeerConsumer, []},
+      {LambdaEthereumConsensus.ForkChoice, [Keyword.fetch!(args, :checkpoint_sync)]},
+      {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
+      {LambdaEthereumConsensus.P2P.GossipSub, []},
       # Start the Endpoint (http/https)
       BeaconApi.Endpoint
     ]

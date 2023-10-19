@@ -3,7 +3,7 @@ defmodule Integration.Libp2pTest do
 
   @bootnodes Application.compile_env(
                :lambda_ethereum_consensus,
-               LambdaEthereumConsensus.P2P.Discovery
+               :discovery
              )[:bootnodes]
 
   test "discover peer and add it to peerstore" do
