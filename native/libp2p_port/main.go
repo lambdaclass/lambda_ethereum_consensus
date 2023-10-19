@@ -46,7 +46,9 @@ func commandServer() {
 	config := proto_helpers.ConfigFromInitArgs(&initArgs)
 
 	listener := reqresp.NewListener(portInst, &config)
-	discovery.NewDiscoverer(portInst, &listener, &config)
+	if config.EnableDiscovery {
+		discovery.NewDiscoverer(portInst, &listener, &config)
+	}
 	subscriber := gossipsub.NewSubscriber(portInst)
 	command := proto_defs.Command{}
 	for {

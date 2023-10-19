@@ -23,9 +23,6 @@ type Discoverer struct {
 }
 
 func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpers.Config) Discoverer {
-	if !config.UseDiscv5 {
-		return Discoverer{}
-	}
 	udpAddr, err := net.ResolveUDPAddr("udp", config.DiscoveryAddr)
 	utils.PanicIfError(err)
 	conn, err := net.ListenUDP("udp", udpAddr)

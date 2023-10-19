@@ -66,7 +66,7 @@ defmodule Unit.Libp2pPortTest do
       )[:bootnodes]
 
     start_port(:discoverer,
-      use_discv5: true,
+      enable_discovery: true,
       discovery_addr: "0.0.0.0:25101",
       bootnodes: bootnodes
     )

@@ -32,14 +32,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @default_args [
     listen_addr: [],
-    use_discv5: false,
+    enable_discovery: false,
     discovery_addr: "",
     bootnodes: []
   ]
 
   @type init_arg ::
           {:listen_addr, String.t()}
-          | {:use_discv5, boolean()}
+          | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
 
@@ -57,8 +57,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       Defaults to `[name: __MODULE__]`.
 
     * `:listen_addr` - the address to listen on.
-    * `:use_discv5` - boolean that specifies if the discv5 service should
-      started.
+    * `:enable_discovery` - boolean that specifies if the discovery service
+      should be started.
     * `:discovery_addr` - the address used by the discovery service.
     * `:bootnodes` - a list of bootnodes to use for discovery.
   """

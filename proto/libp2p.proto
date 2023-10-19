@@ -7,7 +7,7 @@ package libp2p_proto;
 // Documented in `lib/libp2p_port.ex`
 message InitArgs {
     repeated string listen_addr = 1;
-    bool use_discv5 = 2;
+    bool enable_discovery = 2;
     string discovery_addr = 3;
     repeated string bootnodes = 4;
 }

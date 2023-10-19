@@ -11,7 +11,7 @@ defmodule Integration.Libp2pPortTest do
   @tag :skip
   @tag timeout: :infinity
   test "discover peers indefinitely" do
-    init_args = [use_discv5: true, discovery_addr: "0.0.0.0:25100", bootnodes: @bootnodes]
+    init_args = [enable_discovery: true, discovery_addr: "0.0.0.0:25100", bootnodes: @bootnodes]
     start_link_supervised!({Libp2pPort, init_args})
     # We should never receive messages
     # TODO: we should implement notifications for every discovered peer
