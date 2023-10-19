@@ -14,4 +14,7 @@ defmodule Constants do
 
   @spec churn_limit_quotient() :: integer
   def churn_limit_quotient, do: 65536
+
+  @spec max_seed_lookahead() :: integer
+  def max_seed_lookahead, do: 4
 end

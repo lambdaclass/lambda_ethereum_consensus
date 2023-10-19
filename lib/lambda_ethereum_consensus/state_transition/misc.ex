@@ -49,4 +49,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       :error -> inactivity_score
     end
   end
+
+  @doc """
+  Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
+  """
+  @spec compute_activation_exit_epoch(SszTypes.epoch()) :: SszTypes.epoch()
+  def compute_activation_exit_epoch(epoch) do
+    epoch + 1 + Constants.max_seed_lookahead()
+  end
 end

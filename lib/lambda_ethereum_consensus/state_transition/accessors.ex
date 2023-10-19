@@ -122,13 +122,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         Constants.churn_limit_quotient()
       )
 
-    limit =
-      if active_validator_indices > Constants.min_per_epoch_churn_limit() do
-        active_validator_indices
-      else
-        Constants.min_per_epoch_churn_limit()
-      end
-
-    limit
+    if active_validator_indices > Constants.min_per_epoch_churn_limit() do
+      active_validator_indices
+    else
+      Constants.min_per_epoch_churn_limit()
+    end
   end
 end
