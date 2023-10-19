@@ -44,6 +44,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
+          | {:new_peer_handler, pid()}
 
   ######################
   ### API
@@ -169,6 +170,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}})
   end
 
+  @doc """
+  Sets the receiver of new peer notifications.
+  If `nil`, notifications are disabled.
+  """
+  @spec set_new_peer_handler(GenServer.server(), pid() | nil) :: :ok
+  def set_new_peer_handler(pid \\ __MODULE__, handler) do
+    GenServer.cast(pid, {:set_new_peer_handler, handler})
+  end
+
   ########################
   ### GenServer Callbacks
   ########################
@@ -191,6 +201,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def handle_cast({:send, data}, %{port: port} = state) do
     send_data(port, data)
     {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_cast({:set_new_peer_handler, new_peer_handler}, state) do
+    {:noreply, %{state | new_peer_handler: new_peer_handler}}
   end
 
   @impl GenServer
