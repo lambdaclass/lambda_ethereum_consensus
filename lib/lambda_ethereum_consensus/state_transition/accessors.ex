@@ -110,4 +110,25 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     |> Stream.map(fn {_validator, index} -> index end)
     |> Enum.to_list()
   end
+
+  @doc """
+  Return the validator churn limit for the current epoch.
+  """
+  @spec get_validator_churn_limit(BeaconState.t()) :: SszTypes.uint64()
+  def get_validator_churn_limit(%BeaconState{} = state) do
+    active_validator_indices =
+      div(
+        length(get_active_validator_indices(state, get_current_epoch(state))),
+        Constants.churn_limit_quotient()
+      )
+
+    limit =
+      if active_validator_indices > Constants.min_per_epoch_churn_limit() do
+        active_validator_indices
+      else
+        Constants.min_per_epoch_churn_limit()
+      end
+
+    limit
+  end
 end
