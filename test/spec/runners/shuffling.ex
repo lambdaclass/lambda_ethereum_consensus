@@ -21,17 +21,26 @@ defmodule ShufflingTestRunner do
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    %{seed: seed, count: count, mapping: mapping} =
+    %{seed: seed, count: index_count, mapping: indices} =
       YamlElixir.read_from_file!(case_dir <> "/mapping.yaml")
       |> SpecTestUtils.parse_yaml()
 
-    handle(testcase.handler, seed, count, mapping)
+
+    IO.puts(seed)
+
+    handle(testcase.handler, seed, index_count, indices)
   end
 
-  defp handle("core", seed, count, mapping) do
-    for i <- 0..(count - 1) do
-      {:ok, value} = Misc.compute_shuffled_index(i, count, seed)
-      assert value == Enum.fetch!(mapping, i)
+  defp handle("core", seed, index_count, indices) do
+    for index <- 0..(index_count - 1) do
+      result = Misc.compute_shuffled_index(index, index_count, seed)
+      case result do
+        {:ok, value} ->
+          assert Enum.fetch!(indices, value) == Enum.fetch!(indices, index)
+
+        {:error, _} ->
+          assert index >= index_count or index_count == 0
+      end
     end
   end
 end

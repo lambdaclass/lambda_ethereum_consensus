@@ -30,8 +30,8 @@ defmodule EpochProcessingTestRunner do
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{} = testcase) do
-    Enum.member?(@disabled_handlers ++ @deprecated_handlers, testcase.handler)
+  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
+    fork != "capella" or Enum.member?(@disabled_handlers ++ @deprecated_handlers, handler)
   end
 
   @impl TestRunner

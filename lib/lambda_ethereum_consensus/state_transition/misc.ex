@@ -19,50 +19,52 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @spec compute_shuffled_index(SszTypes.uint64(), SszTypes.uint64(), SszTypes.bytes32()) ::
           {:ok, SszTypes.uint64()} | {:error, String.t()}
   def compute_shuffled_index(index, index_count, seed) do
-    unless index < index_count do
-      {:error, "index not less than index count"}
-    end
+    result =
+      unless index < index_count and index_count > 0 do
+        {:error, "index not less than index count"}
+      else
+        shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
+        new_index =
+          Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
+            round_as_bytes =
+              <<round>> |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
 
-    shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
+            seed_as_bytes = seed |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
+            hash_of_seed_round = :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes) |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
 
-    new_index =
-      Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
-        round_as_bytes =
-          <<round::8>> |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
+            first_8_bytes_of_hash_of_seed_round =
+              hash_of_seed_round |> :binary.bin_to_list({0, 8}) |> :binary.list_to_bin()
 
-        seed_as_bytes = seed |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
-        hash_of_seed_round = :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes)
+            pivot = :binary.decode_unsigned(first_8_bytes_of_hash_of_seed_round, :little)
 
-        first_8_bytes_of_hash_of_seed_round =
-          hash_of_seed_round |> :binary.bin_to_list({0, 8}) |> :binary.list_to_bin()
+            flip = rem(pivot + index_count - current_index, index_count)
+            position = max(current_index, flip)
 
-        pivot = :binary.decode_unsigned(first_8_bytes_of_hash_of_seed_round, :little)
+            position_div_256 =
+              <<div(position, 256)::32>>
+              |> :binary.decode_unsigned()
+              |> :binary.encode_unsigned(:little)
 
-        flip = rem(pivot + index_count - current_index, index_count)
-        position = max(current_index, flip)
+            source = :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes <> position_div_256) |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
+            byte_index = div(rem(position, 256), 8)
+            byte = source |> :binary.bin_to_list() |> Enum.fetch!(byte_index)
+            right_shift = byte >>> rem(position, 8)
+            bit = rem(right_shift, 2)
 
-        position_div_256 =
-          <<div(position, 256)::32>>
-          |> :binary.decode_unsigned()
-          |> :binary.encode_unsigned(:little)
+            current_index =
+              if bit == 1 do
+                flip
+              else
+                current_index
+              end
 
-        source = :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes <> position_div_256)
-        byte_index = div(rem(position, 256), 8)
-        byte = source |> :binary.bin_to_list() |> Enum.fetch!(byte_index)
-        right_shift = byte >>> rem(position, 8)
-        bit = rem(right_shift, 2)
-
-        index =
-          if bit !== 0 do
-            flip
-          else
             current_index
-          end
+          end)
 
-        {:ok, index}
-      end)
+        {:ok, new_index}
+      end
 
-    new_index
+    result
   end
 
   @spec increase_inactivity_score(SszTypes.uint64(), integer, MapSet.t(), SszTypes.uint64()) ::
