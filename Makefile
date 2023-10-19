@@ -19,7 +19,7 @@ OUTPUT_DIR = priv/native
 DIRS=$(OUTPUT_DIR)
 $(info $(shell mkdir -p $(DIRS)))
 
-GO_SOURCES = $(LIBP2P_DIR)/go_src/main.go
+GO_SOURCES := $(LIBP2P_DIR)/go_src/main.go
 GO_ARCHIVES := $(patsubst %.go,%.a,$(GO_SOURCES))
 GO_HEADERS := $(patsubst %.go,%.h,$(GO_SOURCES))
 
@@ -38,15 +38,15 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 
 ##### SPEC TEST VECTORS #####
 
-SPECTEST_VERSION = $(shell cat .spectest_version)
+SPECTEST_VERSION := $(shell cat .spectest_version)
 SPECTEST_CONFIGS = general minimal mainnet
 
 SPECTEST_ROOTDIR = test/spec/vectors
 # create directory if it doesn't exist
 $(info $(shell mkdir -p $(SPECTEST_ROOTDIR)))
 
-SPECTEST_DIRS = $(patsubst %,$(SPECTEST_ROOTDIR)/tests/%,$(SPECTEST_CONFIGS))
-SPECTEST_TARS = $(patsubst %,$(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
+SPECTEST_DIRS := $(patsubst %,$(SPECTEST_ROOTDIR)/tests/%,$(SPECTEST_CONFIGS))
+SPECTEST_TARS := $(patsubst %,$(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
 
 $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz:
 	curl -L -o "$@" \
@@ -71,6 +71,13 @@ clean:
 # Compile C and Go artifacts.
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
+
+PORT_SOURCES := $(shell find native/libp2p_port -type f)
+
+$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
+	cd native/libp2p_port; go build -o ../../$(OUTPUT_DIR)/libp2p_port
+
+compile-port: $(OUTPUT_DIR)/libp2p_port
 
 # Run an interactive terminal with the main supervisor setup.
 start: compile-native compile-port
@@ -117,9 +124,6 @@ fmt:
 # Generate protobof code
 proto:
 	sh scripts/make_protos.sh
-
-compile-port:
-	cd native/libp2p_port; go build -o ../../priv/native/libp2p_port
 
 nix:
 	nix develop
