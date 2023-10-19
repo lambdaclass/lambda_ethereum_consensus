@@ -5,5 +5,5 @@ defmodule MainnetSpecTest do
   require SpecTestGenerator
 
   # NOTE: we only support capella for now
-  SpecTestGenerator.generate_tests("mainnet", "capella")
+  SpecTestGenerator.generate_tests("mainnet")
 end

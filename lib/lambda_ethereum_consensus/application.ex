@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.Application do
 
     if not Keyword.has_key?(args, :checkpoint_sync) do
       Logger.error("No checkpoint sync url provided.")
-      :init.stop(0)
+      :init.stop(1)
     end
 
     {:ok, host} = Libp2p.host_new()
@@ -26,8 +26,8 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.P2P.IncomingRequestHandler, [host]},
       {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
       {LambdaEthereumConsensus.Libp2pPort, []},
+      {LambdaEthereumConsensus.ForkChoice, {Keyword.fetch!(args, :checkpoint_sync), host}},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, [host]},
-      {LambdaEthereumConsensus.ForkChoice, [Keyword.fetch!(args, :checkpoint_sync)]},
       {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
       # Start the Endpoint (http/https)
       BeaconApi.Endpoint
