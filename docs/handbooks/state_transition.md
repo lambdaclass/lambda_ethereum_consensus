@@ -15,7 +15,7 @@ The State Transition function lies at the heart of blockchains, driving their ev
 
 $$S' = f(S, B)$$
 
-Here, \( S' \) denotes the state after applying the State Transition function \( f \) to a State \( S \)  applying a Signed Beacon Block \( B \).
+Here, $S'$ denotes the state after applying the State Transition function $f$ to a State $S$ applying a Signed Beacon Block $B$.
 
 The Ethereum POS Beacon Chain has evolved its state transition function compared to its predecessor in Ethereum POW. Ethereum POW was **block-driven**, while the Beacon Chain is now **slot-driven**. This signifies that a state transition occurs every slot (currently every 12 seconds), irrespective of whether a block is received.
 
