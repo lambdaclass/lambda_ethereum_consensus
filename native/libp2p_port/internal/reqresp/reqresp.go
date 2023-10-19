@@ -6,7 +6,6 @@ import (
 	"libp2p_port/internal/port"
 	"libp2p_port/internal/proto_helpers"
 	"libp2p_port/internal/utils"
-	"time"
 
 	"github.com/libp2p/go-libp2p"
 	mplex "github.com/libp2p/go-libp2p-mplex"
@@ -52,15 +51,14 @@ func (l *Listener) HostId() []byte {
 }
 
 func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
-	peerID := peer.ID(id)
-	peerstore := l.hostHandle.Peerstore()
+	addrInfo := peer.AddrInfo{ID: peer.ID(id)}
 	for _, addr := range addrs {
 		maddr, err := multiaddr.NewMultiaddr(addr)
 		// TODO: return error to caller
 		utils.PanicIfError(err)
-		peerstore.AddAddr(peerID, maddr, time.Duration(ttl))
+		addrInfo.Addrs = append(addrInfo.Addrs, maddr)
 	}
-	l.hostHandle.Connect(context.TODO(), peerstore.PeerInfo(peerID))
+	l.hostHandle.Connect(context.TODO(), addrInfo)
 }
 
 func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte) ([]byte, error) {
