@@ -103,6 +103,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   ##########################
 
   defp schedule_blocks_processing do
-    Process.send_after(self(), :process_blocks, 100)
+    Process.send_after(self(), :process_blocks, 1000)
   end
 end
