@@ -112,6 +112,8 @@ defmodule Unit.Libp2pPortTest do
       send(pid, :ok)
     end)
 
+    :ok = Libp2pPort.subscribe_to_topic(:publisher, topic)
+
     retrying_publish(:publisher, topic, message)
   end
 end

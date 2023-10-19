@@ -15,9 +15,13 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
+type subscription struct {
+	Topic *pubsub.Topic
+	CloseChannel chan struct{}
+}
+
 type Subscriber struct {
-	subscriptions map[string]chan struct{}
-	topics        map[string]*pubsub.Topic
+	subscriptions map[string]subscription
 	gsub          *pubsub.PubSub
 	port          *port.Port
 }
@@ -72,8 +76,7 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 	utils.PanicIfError(err)
 
 	return Subscriber{
-		subscriptions: make(map[string]chan struct{}),
-		topics:        make(map[string]*pubsub.Topic),
+		subscriptions: make(map[string]subscription),
 		gsub:          gsub,
 		port:          p,
 	}
@@ -84,17 +87,15 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	if isSubscribed {
 		return errors.New("already subscribed")
 	}
-	topic, joined := s.topics[topicName]
-	if !joined {
-		var err error
-		topic, err = s.gsub.Join(topicName)
-		utils.PanicIfError(err)
-		s.topics[topicName] = topic
+	topic, err := s.gsub.Join(topicName)
+	utils.PanicIfError(err)
+	ch := make(chan struct{}, 1)
+	s.subscriptions[topicName] = subscription{
+		Topic: topic,
+		CloseChannel: ch,
 	}
 	sub, err := topic.Subscribe()
 	utils.PanicIfError(err)
-	ch := make(chan struct{}, 1)
-	s.subscriptions[topicName] = ch
 	go subscribeToTopic(sub, ch, handler, s.port)
 	return nil
 }
@@ -118,22 +119,20 @@ func subscribeToTopic(sub *pubsub.Subscription, stop chan struct{}, handler []by
 }
 
 func (s *Subscriber) Unsubscribe(topicName string) {
-	_, isSubscribed := s.subscriptions[topicName]
+	sub, isSubscribed := s.subscriptions[topicName]
 	if !isSubscribed {
 		return
 	}
-	s.subscriptions[topicName] <- struct{}{}
 	delete(s.subscriptions, topicName)
+	sub.CloseChannel <- struct{}{}
+	sub.Topic.Close()
 }
 
 func (s *Subscriber) Publish(topicName string, message []byte) {
-	topic, joined := s.topics[topicName]
-	if !joined {
-		var err error
-		topic, err = s.gsub.Join(topicName)
-		utils.PanicIfError(err)
-		s.topics[topicName] = topic
+	sub, isSubscribed := s.subscriptions[topicName]
+	if !isSubscribed {
+		panic("not subscribed to topic")
 	}
-	err := topic.Publish(context.Background(), message)
+	err := sub.Topic.Publish(context.Background(), message)
 	utils.PanicIfError(err)
 }
