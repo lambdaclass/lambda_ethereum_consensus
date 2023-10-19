@@ -5,16 +5,16 @@ import (
 )
 
 type Config struct {
-	ListenAddr    []string
-	UseDiscv5     bool
-	DiscoveryAddr string
-	Bootnodes     []string
+	ListenAddr   		[]string
+	EnableDiscovery     bool
+	DiscoveryAddr 		string
+	Bootnodes     		[]string
 }
 
 func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 	return Config{
 		ListenAddr:    initArgs.ListenAddr,
-		UseDiscv5:     initArgs.UseDiscv5,
+		EnableDiscovery:     initArgs.EnableDiscovery,
 		DiscoveryAddr: initArgs.DiscoveryAddr,
 		Bootnodes:     initArgs.Bootnodes,
 	}
