@@ -24,13 +24,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
         {:error, "index not less than index count"}
       else
         shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
+
         new_index =
           Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
             round_as_bytes =
               <<round>> |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
 
             seed_as_bytes = seed |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
-            hash_of_seed_round = :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes) |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
+
+            hash_of_seed_round =
+              :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes)
+              |> :binary.decode_unsigned()
+              |> :binary.encode_unsigned(:little)
 
             first_8_bytes_of_hash_of_seed_round =
               hash_of_seed_round |> :binary.bin_to_list({0, 8}) |> :binary.list_to_bin()
@@ -45,7 +50,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
               |> :binary.decode_unsigned()
               |> :binary.encode_unsigned(:little)
 
-            source = :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes <> position_div_256) |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
+            source =
+              :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes <> position_div_256)
+              |> :binary.decode_unsigned()
+              |> :binary.encode_unsigned(:little)
+
             byte_index = div(rem(position, 256), 8)
             byte = source |> :binary.bin_to_list() |> Enum.fetch!(byte_index)
             right_shift = byte >>> rem(position, 8)
