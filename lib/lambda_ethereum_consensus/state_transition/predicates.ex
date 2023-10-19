@@ -4,8 +4,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias Bls
   alias SszTypes.BeaconState
   alias SszTypes.Validator
+  alias SszTypes.IndexedAttestation
   import Bitwise
 
   @doc """
@@ -36,5 +39,25 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   def has_flag(participation_flags, flag_index) do
     flag = 2 ** flag_index
     (participation_flags &&& flag) === flag
+  end
+
+  @doc """
+  Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
+  """
+  @spec is_valid_indexed_attestation(BeaconState.t(), IndexedAttestation.t()) :: boolean
+  def is_valid_indexed_attestation(state, indexed_attestation) do
+    # Verify indices are sorted and unique
+    indices = indexed_attestation.attesting_indices
+    sorted_indices = indices 
+      |> Enum.uniq() 
+      |> Enum.sort()
+    if length(indices) == 0 || indices != sorted_indices do
+      false 
+    end
+    # Verify aggregate signature
+    pubkeys = for i <- indices, do: state.validators[i].pubkey
+    domain = Accessors.get_domain(state, Constants.domain_beacon_attester(), indexed_attestation.data.target.epoch)
+    signing_root = Misc.compute_signing_root(indexed_attestation.data, domain)
+    Bls.fast_aggregate_verify(pubkeys, signing_root, indexed_attestation.signature)
   end
 end

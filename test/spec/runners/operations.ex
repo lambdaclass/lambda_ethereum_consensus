@@ -1,4 +1,6 @@
 defmodule OperationsTestRunner do
+  alias LambdaEthereumConsensus.StateTransition.Operations
+
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -88,5 +90,10 @@ defmodule OperationsTestRunner do
       |> SpecTestUtils.parse_yaml()
 
     assert true
+  end
+
+  defp handle_case("attestation", pre, operation, post) do
+    result = Operations.process_attestation(pre, operation)
+    assert result == {:ok, post}
   end
 end
