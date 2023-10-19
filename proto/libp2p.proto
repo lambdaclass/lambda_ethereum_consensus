@@ -3,8 +3,13 @@ option go_package = "./internal/proto;libp2p";
 
 package libp2p_proto;
 
+// Initial options passed to the libp2p node.
+// Documented in `lib/libp2p_port.ex`
 message InitArgs {
     repeated string listen_addr = 1;
+    bool enable_discovery = 2;
+    string discovery_addr = 3;
+    repeated string bootnodes = 4;
 }
 
 message SetHandler {
