@@ -16,8 +16,8 @@ import (
 )
 
 type subscription struct {
-	Topic *pubsub.Topic
-	CloseChannel chan struct{}
+	Topic  *pubsub.Topic
+	Cancel context.CancelFunc
 }
 
 type Subscriber struct {
@@ -83,30 +83,21 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 }
 
 func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
-	_, isSubscribed := s.subscriptions[topicName]
-	if isSubscribed {
+	sub := s.getSubscription(topicName)
+	if sub.Cancel != nil {
 		return errors.New("already subscribed")
 	}
-	topic, err := s.gsub.Join(topicName)
+	ctx, cancel := context.WithCancel(context.Background())
+	sub.Cancel = cancel
+	topicSub, err := sub.Topic.Subscribe()
 	utils.PanicIfError(err)
-	ch := make(chan struct{}, 1)
-	s.subscriptions[topicName] = subscription{
-		Topic: topic,
-		CloseChannel: ch,
-	}
-	sub, err := topic.Subscribe()
-	utils.PanicIfError(err)
-	go subscribeToTopic(sub, ch, handler, s.port)
+	go subscribeToTopic(topicSub, ctx, handler, s.port)
+	s.subscriptions[topicName] = sub
 	return nil
 }
 
-func subscribeToTopic(sub *pubsub.Subscription, stop chan struct{}, handler []byte, p *port.Port) {
+func subscribeToTopic(sub *pubsub.Subscription, ctx context.Context, handler []byte, p *port.Port) {
 	topic := sub.Topic()
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-stop
-		cancel()
-	}()
 	for {
 		msg, err := sub.Next(ctx)
 		if err == context.Canceled {
@@ -118,21 +109,31 @@ func subscribeToTopic(sub *pubsub.Subscription, stop chan struct{}, handler []by
 	}
 }
 
+func (s *Subscriber) getSubscription(topicName string) subscription {
+	sub, isSubscribed := s.subscriptions[topicName]
+	if !isSubscribed {
+		topic, err := s.gsub.Join(topicName)
+		utils.PanicIfError(err)
+		sub = subscription{
+			Topic:  topic,
+		}
+		s.subscriptions[topicName] = sub
+	}
+	return sub
+}
+
 func (s *Subscriber) Unsubscribe(topicName string) {
 	sub, isSubscribed := s.subscriptions[topicName]
 	if !isSubscribed {
 		return
 	}
 	delete(s.subscriptions, topicName)
-	sub.CloseChannel <- struct{}{}
+	sub.Cancel()
 	sub.Topic.Close()
 }
 
 func (s *Subscriber) Publish(topicName string, message []byte) {
-	sub, isSubscribed := s.subscriptions[topicName]
-	if !isSubscribed {
-		panic("not subscribed to topic")
-	}
+	sub := s.getSubscription(topicName)
 	err := sub.Topic.Publish(context.Background(), message)
 	utils.PanicIfError(err)
 }
