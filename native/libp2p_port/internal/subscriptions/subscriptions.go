@@ -115,7 +115,7 @@ func (s *Subscriber) getSubscription(topicName string) subscription {
 		topic, err := s.gsub.Join(topicName)
 		utils.PanicIfError(err)
 		sub = subscription{
-			Topic:  topic,
+			Topic: topic,
 		}
 		s.subscriptions[topicName] = sub
 	}

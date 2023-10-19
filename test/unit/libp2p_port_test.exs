@@ -74,17 +74,13 @@ defmodule Unit.Libp2pPortTest do
 
   defp retrying_publish(pid, topic, message) do
     # Give a head start to the other process
-    Process.sleep(1)
+    assert_receive :subscribed, 1000
 
     # Publish message
     :ok = Libp2pPort.publish(pid, topic, message)
 
-    # Receive acknowledgement or retry publish
-    receive do
-      :ok -> :ok
-    after
-      1 -> retrying_publish(pid, topic, message)
-    end
+    # Receive acknowledgement
+    assert_receive :received, 1000
   end
 
   test "start two hosts, and gossip about" do
@@ -104,12 +100,13 @@ defmodule Unit.Libp2pPortTest do
     spawn(fn ->
       # Subscribe to the topic
       :ok = Libp2pPort.subscribe_to_topic(:gossiper, topic)
+      send(pid, :subscribed)
 
       # Receive the message
       assert {^topic, ^message} = Libp2pPort.receive_gossip()
 
       # Send acknowledgement
-      send(pid, :ok)
+      send(pid, :received)
     end)
 
     retrying_publish(:publisher, topic, message)
