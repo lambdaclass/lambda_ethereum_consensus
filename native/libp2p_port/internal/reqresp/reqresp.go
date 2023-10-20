@@ -25,7 +25,7 @@ type Listener struct {
 	pendingMessages map[string]chan []byte
 }
 
-func NewListener(p *port.Port, config *utils.Config) Listener {
+func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
 	// as per the spec
 	optionsSlice := []libp2p.Option{
 		libp2p.DefaultMuxers,
