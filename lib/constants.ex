@@ -6,6 +6,9 @@ defmodule Constants do
   @spec genesis_epoch() :: integer
   def genesis_epoch, do: 0
 
+  @spec genesis_slot() :: integer
+  def genesis_slot, do: 0
+
   @spec timely_target_flag_index() :: integer
   def timely_target_flag_index, do: 1
 end
