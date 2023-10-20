@@ -3,6 +3,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   State transition Operations related functions
   """
 
+  alias SszTypes.ExecutionPayload
+  alias SszTypes.BeaconState
   alias LambdaEthereumConsensus.Engine
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -11,9 +13,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @doc """
   State transition function managing the processing & validation of the `ExecutionPayload`
   """
-  @spec process_execution_payload(SszTypes.BeaconState.t(), SszTypes.ExecutionPayload.t()) ::
-          {:ok, SszTypes.BeaconState.t()} | {:error, String.t()}
-  def process_execution_payload(state, payload) do
+  @spec process_execution_payload(BeaconState.t(), ExecutionPayload.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_execution_payload(state, payload, execution_valid \\ nil) do
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
       Predicates.is_merge_transition_complete(state) and
@@ -28,14 +30,19 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->
         {:error, "Timestamp verification failed"}
 
-      # Verify the execution payload is valid
-      Engine.Execution.verify_and_notify_new_payload(payload) != {:ok, true} ->
+      # Verify the execution payload is valid if not mocked
+      execution_valid == nil and
+          Engine.Execution.verify_and_notify_new_payload(payload) != {:ok, true} ->
+        {:error, "Invalid execution payload"}
+
+      # If execution_valid is set to false
+      execution_valid == false ->
         {:error, "Invalid execution payload"}
 
       # Cache execution payload header
       true ->
         {:ok,
-         %SszTypes.BeaconState{
+         %BeaconState{
            state
            | latest_execution_payload_header: %SszTypes.ExecutionPayloadHeader{
                parent_hash: payload.parent_hash,
@@ -52,23 +59,21 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                base_fee_per_gas: payload.base_fee_per_gas,
                block_hash: payload.block_hash,
                transactions_root:
-                 with {:ok, root} <-
-                        Ssz.hash_list_tree_root_typed(
-                          payload.transactions,
-                          ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD"),
-                          SszTypes.Transaction,
-                          ChainSpec.get_config()
-                        ) do
-                   root
+                 case Ssz.hash_list_tree_root_typed(
+                        payload.transactions,
+                        ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD"),
+                        SszTypes.Transaction
+                      ) do
+                   {:ok, hash} -> hash
+                   {:error, message} -> {:error, message}
                  end,
                withdrawals_root:
-                 with {:ok, root} <-
-                        Ssz.hash_list_tree_root(
-                          payload.withdrawals,
-                          ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD"),
-                          ChainSpec.get_config()
-                        ) do
-                   root
+                 case Ssz.hash_list_tree_root(
+                        payload.withdrawals,
+                        ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
+                      ) do
+                   {:ok, hash} -> hash
+                   {:error, message} -> {:error, message}
                  end
              }
          }}

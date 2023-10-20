@@ -3,10 +3,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Misc functions
   """
 
+  alias SszTypes.BeaconState
+
   @doc """
   Returns the Unix timestamp at the start of the given slot
   """
-  @spec compute_timestamp_at_slot(SszTypes.BeaconState, integer()) :: integer()
+  @spec compute_timestamp_at_slot(BeaconState.t(), SszTypes.uint64()) :: SszTypes.uint64()
   def compute_timestamp_at_slot(state, slot) do
     slots_since_genesis = slot - ChainSpec.get("GENESIS-SLOT")
     state.genesis_time + slots_since_genesis * ChainSpec.get("SECONDS_PER_SLOT")

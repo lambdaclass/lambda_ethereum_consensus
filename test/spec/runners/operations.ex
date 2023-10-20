@@ -5,6 +5,7 @@ defmodule OperationsTestRunner do
   @moduledoc """
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
   """
+  alias LambdaEthereumConsensus.StateTransition.Operations
 
   # Map the operation-name to the associated operation-type
   @type_map %{
@@ -82,11 +83,19 @@ defmodule OperationsTestRunner do
     handle_case(testcase.handler, pre, operation, post, case_dir)
   end
 
-  defp handle_case("execution_payload", _pre, _operation, _post, case_dir) do
-    %{execution_valid: _execution_valid} =
+  defp handle_case("execution_payload", pre, operation, post, case_dir) do
+    %{execution_valid: execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.parse_yaml()
 
-    assert true
+    new_state = Operations.process_execution_payload(pre, operation, execution_valid)
+
+    case post do
+      nil ->
+        assert match?({:error, _message}, new_state)
+
+      _ ->
+        assert new_state == {:ok, post}
+    end
   end
 end
