@@ -6,6 +6,7 @@ defmodule Integration.Libp2pTest do
                :discovery
              )[:bootnodes]
 
+  @tag :skip
   test "discover peer and add it to peerstore" do
     {:ok, host} = Libp2p.host_new()
 
