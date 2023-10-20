@@ -4,6 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Mutators
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
   alias SszTypes.Validator
@@ -80,6 +82,108 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     new_randao_mixes = List.replace_at(randao_mixes, index, random_mix)
     new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
     {:ok, new_state}
+  end
+
+  @spec process_registry_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
+  def process_registry_updates(%BeaconState{validators: validators} = state) do
+    ejection_balance = ChainSpec.get("EJECTION_BALANCE")
+    churn_limit = Accessors.get_validator_churn_limit(state)
+    churn_limit_range = 0..(churn_limit - 1)
+
+    validators_keyword =
+      0..length(validators)
+      |> Stream.zip(validators)
+      |> Keyword.new(fn {index, v} -> {:"#{index}", v} end)
+
+    case activation_eligibility_and_ejections(validators_keyword, state, ejection_balance) do
+      {:ok, {new_state, updated_validators_keyword}} ->
+        {state_with_activated_validators, _} =
+          updated_validators_keyword
+          |> Stream.filter(fn {_index, validator} ->
+            Predicates.is_eligible_for_activation(state, validator)
+          end)
+          |> Enum.sort_by(fn {index, validator} ->
+            {validator.activation_eligibility_epoch, String.to_integer(Atom.to_string(index))}
+          end)
+          |> Enum.slice(churn_limit_range)
+          |> Enum.reduce({new_state, updated_validators_keyword}, fn {index, validator},
+                                                                     {state_acc,
+                                                                      updated_validators_keyword_acc} ->
+            updated_validator = %{
+              validator
+              | activation_epoch:
+                  Misc.compute_activation_exit_epoch(Accessors.get_current_epoch(state_acc))
+            }
+
+            updated_validators_keyword =
+              Keyword.replace(updated_validators_keyword_acc, index, updated_validator)
+
+            new_values = Keyword.values(updated_validators_keyword)
+            {%{state_acc | validators: new_values}, updated_validators_keyword}
+          end)
+
+        {:ok, state_with_activated_validators}
+
+      {:error, error} ->
+        {:error, Atom.to_string(error)}
+    end
+  end
+
+  @spec activation_eligibility_and_ejections(Keyword.t(), BeaconState.t(), SszTypes.gwei()) ::
+          {:ok, {BeaconState.t(), Keyword.t()}} | {:error, atom()}
+  defp activation_eligibility_and_ejections(validators_keyword, state, ejection_balance) do
+    validators_keyword
+    |> Enum.reduce_while({:ok, {state, validators_keyword}}, fn {index, validator},
+                                                                {:ok,
+                                                                 {state_acc,
+                                                                  validators_keyword_acc}} ->
+      updated_validator =
+        if Predicates.is_eligible_for_activation_queue(validator) do
+          %{
+            validator
+            | activation_eligibility_epoch: Accessors.get_current_epoch(state_acc) + 1
+          }
+        else
+          validator
+        end
+
+      if Predicates.is_active_validator(
+           updated_validator,
+           Accessors.get_current_epoch(state_acc)
+         ) &&
+           validator.effective_balance <= ejection_balance do
+        initiate_validator_exit(state_acc, index, validators_keyword_acc, updated_validator)
+      else
+        updated_validators_keyword =
+          Keyword.replace(validators_keyword_acc, index, updated_validator)
+
+        new_values = Keyword.values(updated_validators_keyword)
+        {:cont, {:ok, {%{state_acc | validators: new_values}, updated_validators_keyword}}}
+      end
+    end)
+  end
+
+  @spec initiate_validator_exit(BeaconState.t(), atom(), Keyword.t(), Validator.t()) ::
+          {:cont, {:ok, {BeaconState.t(), Keyword.t()}}} | {:halt, {:error, atom()}}
+  defp initiate_validator_exit(state_acc, index, validators_keyword_acc, updated_validator) do
+    case Mutators.initiate_validator_exit(
+           state_acc,
+           String.to_integer(Atom.to_string(index))
+         ) do
+      {:ok, validator_exit} ->
+        updated_validators_keyword =
+          Keyword.replace(
+            validators_keyword_acc,
+            index,
+            Map.merge(updated_validator, validator_exit)
+          )
+
+        new_values = Keyword.values(updated_validators_keyword)
+        {:cont, {:ok, {%{state_acc | validators: new_values}, updated_validators_keyword}}}
+
+      {:error, reason} ->
+        {:halt, {:error, reason}}
+    end
   end
 
   @spec process_inactivity_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, binary()}

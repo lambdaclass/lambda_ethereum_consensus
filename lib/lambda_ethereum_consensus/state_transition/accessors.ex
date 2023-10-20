@@ -95,4 +95,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
     Enum.fetch!(randao_mixes, rem(epoch, epochs_per_historical_vector))
   end
+
+  @doc """
+  Return the validator churn limit for the current epoch.
+  """
+  @spec get_validator_churn_limit(BeaconState.t()) :: SszTypes.uint64()
+  def get_validator_churn_limit(%BeaconState{} = state) do
+    active_validator_indices = get_active_validator_indices(state, get_current_epoch(state))
+    min_per_epoch_churn_limit = ChainSpec.get("MIN_PER_EPOCH_CHURN_LIMIT")
+    churn_limit_quotient = ChainSpec.get("CHURN_LIMIT_QUOTIENT")
+    max(min_per_epoch_churn_limit, div(length(active_validator_indices), churn_limit_quotient))
+  end
 end

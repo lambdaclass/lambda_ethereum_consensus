@@ -13,7 +13,7 @@ defmodule EpochProcessingTestRunner do
     "justification_and_finalization",
     # "inactivity_updates",
     "rewards_and_penalties",
-    "registry_updates",
+    # "registry_updates",
     "slashings",
     # "effective_balance_updates",
     # "eth1_data_reset",
@@ -68,13 +68,26 @@ defmodule EpochProcessingTestRunner do
     assert result == {:ok, post}
   end
 
-  defp handle_case("slashings_reset", pre, post) do
-    result = EpochProcessing.process_slashings_reset(pre)
+  defp handle_case("randao_mixes_reset", pre, post) do
+    result = EpochProcessing.process_randao_mixes_reset(pre)
     assert result == {:ok, post}
   end
 
-  defp handle_case("randao_mixes_reset", pre, post) do
-    result = EpochProcessing.process_randao_mixes_reset(pre)
+  defp handle_case("registry_updates", pre, post) do
+    result = EpochProcessing.process_registry_updates(pre)
+
+    case post do
+      nil ->
+        assert {output, _error_msg} = result
+        assert output == :error
+
+      post ->
+        assert result == {:ok, post}
+    end
+  end
+
+  defp handle_case("slashings_reset", pre, post) do
+    result = EpochProcessing.process_slashings_reset(pre)
     assert result == {:ok, post}
   end
 end
