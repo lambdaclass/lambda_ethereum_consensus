@@ -21,7 +21,7 @@ defmodule EpochProcessingTestRunner do
     # "randao_mixes_reset",
     "historical_summaries_update",
     "participation_record_updates",
-    "participation_flag_updates",
+    # "participation_flag_updates",
     "sync_committee_updates"
   ]
 
@@ -30,8 +30,8 @@ defmodule EpochProcessingTestRunner do
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{} = testcase) do
-    Enum.member?(@disabled_handlers ++ @deprecated_handlers, testcase.handler)
+  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
+    fork != "capella" or Enum.member?(@disabled_handlers ++ @deprecated_handlers, handler)
   end
 
   @impl TestRunner
@@ -84,6 +84,11 @@ defmodule EpochProcessingTestRunner do
       post ->
         assert result == {:ok, post}
     end
+  end
+
+  defp handle_case("participation_flag_updates", pre, post) do
+    result = EpochProcessing.process_participation_flag_updates(pre)
+    assert result == {:ok, post}
   end
 
   defp handle_case("slashings_reset", pre, post) do

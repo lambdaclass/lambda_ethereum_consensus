@@ -30,26 +30,42 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @port_name "priv/native/libp2p_port"
 
-  @type init_arg :: {:listen_addr, String.t()}
+  @default_args [
+    listen_addr: [],
+    enable_discovery: false,
+    discovery_addr: "",
+    bootnodes: []
+  ]
+
+  @type init_arg ::
+          {:listen_addr, String.t()}
+          | {:enable_discovery, boolean()}
+          | {:discovery_addr, String.t()}
+          | {:bootnodes, [String.t()]}
 
   ######################
   ### API
   ######################
 
   @doc """
-  Starts the Port with the given options.
+  Starts the Port with the given options. `@default_args` specifies default
+  values for each of the options.
 
   ## Options
 
     * `:opts` - a Keyword list of options to pass onto the GenServer.
       Defaults to `[name: __MODULE__]`.
 
-    * `:listen_addr` - the address to listen on. Defaults to `[]`.
+    * `:listen_addr` - the address to listen on.
+    * `:enable_discovery` - boolean that specifies if the discovery service
+      should be started.
+    * `:discovery_addr` - the address used by the discovery service.
+    * `:bootnodes` - a list of bootnodes to use for discovery.
   """
   @spec start_link([{:opts, GenServer.options()} | init_arg()]) :: GenServer.on_start()
   def start_link(init_args) do
-    opts = Keyword.get(init_args, :opts, name: __MODULE__)
-    GenServer.start_link(__MODULE__, init_args, opts)
+    {opts, args} = Keyword.pop(init_args, :opts, name: __MODULE__)
+    GenServer.start_link(__MODULE__, args, opts)
   end
 
   @doc """
@@ -240,8 +256,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp parse_args(args) do
-    listen_addr = Keyword.get(args, :listen_addr, [])
-    %InitArgs{listen_addr: listen_addr}
+    args
+    |> Keyword.validate!(@default_args)
+    |> then(&struct!(InitArgs, &1))
   end
 
   defp send_data(port, data), do: Port.command(port, data)
