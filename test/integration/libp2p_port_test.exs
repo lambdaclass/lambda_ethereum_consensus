@@ -12,7 +12,7 @@ defmodule Integration.Libp2pPortTest do
   @tag timeout: :infinity
   test "discover peers indefinitely" do
     init_args = [
-      use_discv5: true,
+      enable_discovery: true,
       discovery_addr: "0.0.0.0:25100",
       bootnodes: @bootnodes,
       new_peer_handler: self()
