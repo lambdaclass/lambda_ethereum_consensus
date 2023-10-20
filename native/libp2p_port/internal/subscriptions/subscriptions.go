@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sync"
 	"time"
 
 	"libp2p_port/internal/port"
@@ -21,9 +22,12 @@ type subscription struct {
 }
 
 type Subscriber struct {
-	subscriptions map[string]subscription
-	gsub          *pubsub.PubSub
-	port          *port.Port
+	// NOTE: since subscriptions is accessed only for topic un/subscription
+	// and message publishing, this lock doesn't have much contention
+	subscriptionsMutex *sync.Mutex
+	subscriptions      map[string]subscription
+	gsub               *pubsub.PubSub
+	port               *port.Port
 }
 
 func NewSubscriber(p *port.Port, h host.Host) Subscriber {
@@ -76,9 +80,10 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 	utils.PanicIfError(err)
 
 	return Subscriber{
-		subscriptions: make(map[string]subscription),
-		gsub:          gsub,
-		port:          p,
+		subscriptionsMutex: &sync.Mutex{},
+		subscriptions:      make(map[string]subscription),
+		gsub:               gsub,
+		port:               p,
 	}
 }
 
@@ -96,6 +101,24 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	return nil
 }
 
+func (s *Subscriber) Unsubscribe(topicName string) {
+	s.subscriptionsMutex.Lock()
+	defer s.subscriptionsMutex.Unlock()
+	sub, isSubscribed := s.subscriptions[topicName]
+	if !isSubscribed {
+		return
+	}
+	delete(s.subscriptions, topicName)
+	sub.Cancel()
+	sub.Topic.Close()
+}
+
+func (s *Subscriber) Publish(topicName string, message []byte) {
+	sub := s.getSubscription(topicName)
+	err := sub.Topic.Publish(context.Background(), message)
+	utils.PanicIfError(err)
+}
+
 func subscribeToTopic(sub *pubsub.Subscription, ctx context.Context, handler []byte, p *port.Port) {
 	topic := sub.Topic()
 	for {
@@ -110,6 +133,8 @@ func subscribeToTopic(sub *pubsub.Subscription, ctx context.Context, handler []b
 }
 
 func (s *Subscriber) getSubscription(topicName string) subscription {
+	s.subscriptionsMutex.Lock()
+	defer s.subscriptionsMutex.Unlock()
 	sub, isSubscribed := s.subscriptions[topicName]
 	if !isSubscribed {
 		topic, err := s.gsub.Join(topicName)
@@ -120,20 +145,4 @@ func (s *Subscriber) getSubscription(topicName string) subscription {
 		s.subscriptions[topicName] = sub
 	}
 	return sub
-}
-
-func (s *Subscriber) Unsubscribe(topicName string) {
-	sub, isSubscribed := s.subscriptions[topicName]
-	if !isSubscribed {
-		return
-	}
-	delete(s.subscriptions, topicName)
-	sub.Cancel()
-	sub.Topic.Close()
-}
-
-func (s *Subscriber) Publish(topicName string, message []byte) {
-	sub := s.getSubscription(topicName)
-	err := sub.Topic.Publish(context.Background(), message)
-	utils.PanicIfError(err)
 }
