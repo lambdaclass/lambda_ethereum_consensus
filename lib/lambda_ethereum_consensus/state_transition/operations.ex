@@ -3,12 +3,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   State transition Operations related functions
   """
 
-  alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias SszTypes.BeaconState
   alias LambdaEthereumConsensus.Engine
-  alias SszTypes.ExecutionPayload
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
+  alias SszTypes.BeaconState
+  alias SszTypes.ExecutionPayload
 
   @doc """
   State transition function managing the processing & validation of the `ExecutionPayload`
