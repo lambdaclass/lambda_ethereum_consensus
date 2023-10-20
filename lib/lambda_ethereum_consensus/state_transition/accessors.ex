@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @moduledoc """
-  Functions accessing the current BeaconState
+  Functions accessing the current `BeaconState`
   """
 
   alias LambdaEthereumConsensus.StateTransition.Misc
