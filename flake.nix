@@ -27,7 +27,7 @@
 
             buildInputs =  [
               rustToolchain
-              pkgs.go_1_20
+              pkgs.go_1_21
               pkgs.gotools
               otp.erlang
               otp.elixir_1_15
