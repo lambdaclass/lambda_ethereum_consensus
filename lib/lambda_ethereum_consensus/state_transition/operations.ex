@@ -1,6 +1,6 @@
-defmodule LambdaEthereumConsensus.StateTransition.BlockProcessing do
+defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @moduledoc """
-  Core block processing functions
+  State transition Operations related functions
   """
 
   alias LambdaEthereumConsensus.Engine
@@ -9,15 +9,11 @@ defmodule LambdaEthereumConsensus.StateTransition.BlockProcessing do
   alias LambdaEthereumConsensus.StateTransition.Predicates
 
   @doc """
-  State_transition function managing the processing & validation of the `ExecutionPayload`
+  State transition function managing the processing & validation of the `ExecutionPayload`
   """
   @spec process_execution_payload(SszTypes.BeaconState.t(), SszTypes.ExecutionPayload.t()) ::
           {:ok, SszTypes.BeaconState.t()} | {:error, String.t()}
   def process_execution_payload(state, payload) do
-    IO.puts("Running config:")
-    IO.inspect(ChainSpec.get_config())
-    IO.puts("In core func")
-
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
       Predicates.is_merge_transition_complete(state) and
