@@ -22,20 +22,15 @@ defmodule SSZStaticTestRunner do
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{handler: handler}) do
-    Enum.member?(@disabled, handler)
+  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
+    fork != "capella" or Enum.member?(@disabled, handler)
   end
 
-  def get_config("minimal"), do: MinimalConfig
-  def get_config("mainnet"), do: MainnetConfig
-  def get_config(_), do: raise("Unknown config")
-
   @impl TestRunner
-  def run_test_case(%SpecTestCase{config: config} = testcase) do
+  def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
     schema = parse_type(testcase)
-    config = get_config(config)
 
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
     assert {:ok, decompressed} = :snappyer.decompress(compressed)
@@ -47,19 +42,19 @@ defmodule SSZStaticTestRunner do
     %{"root" => expected_root} = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
     expected_root = expected_root |> SpecTestUtils.parse_yaml()
 
-    assert_ssz(schema, config, decompressed, expected, expected_root)
+    assert_ssz(schema, decompressed, expected, expected_root)
   end
 
-  defp assert_ssz(schema, config, real_serialized, real_deserialized, expected_root) do
-    {:ok, deserialized} = Ssz.from_ssz(real_serialized, schema, config)
+  defp assert_ssz(schema, real_serialized, real_deserialized, expected_root) do
+    {:ok, deserialized} = Ssz.from_ssz(real_serialized, schema)
     real_deserialized = to_struct_checked(deserialized, real_deserialized)
 
     assert deserialized == real_deserialized
 
-    {:ok, serialized} = Ssz.to_ssz(real_deserialized, config)
+    {:ok, serialized} = Ssz.to_ssz(real_deserialized)
     assert serialized == real_serialized
 
-    {:ok, root} = Ssz.hash_tree_root(real_deserialized, config)
+    {:ok, root} = Ssz.hash_tree_root(real_deserialized)
     assert root == expected_root
   end
 

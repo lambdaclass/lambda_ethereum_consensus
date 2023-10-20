@@ -3,17 +3,8 @@ defmodule ChainSpec do
   Single entrypoint for fetching chain-specific constants.
   """
 
-  # NOTE: this only works for Capella
-  @doc """
-  Get value for a specific config / spec
-  """
-  def get(name) do
-    config = Application.get_env(__MODULE__, :config, MainnetConfig)
-    config.get(name)
-  end
+  def get_config, do: Application.get_env(:lambda_ethereum_consensus, __MODULE__)[:config]
 
-  @doc """
-  Get current config being used
-  """
-  def get_config(), do: Application.get_env(__MODULE__, :config, MainnetConfig)
+  # NOTE: this only works correctly for Capella
+  def get(name), do: get_config().get(name)
 end

@@ -28,26 +28,39 @@ defmodule SpecTestUtils do
   defp parse_as_string(x) when is_integer(x), do: :binary.encode_unsigned(x, :little)
   defp parse_as_string("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
 
-  def get_config("minimal"), do: MinimalConfig
-  def get_config("mainnet"), do: MainnetConfig
-
-  @spec read_ssz_from_file(binary, module, module) :: {:ok, any}
-  def read_ssz_from_file(file_path, ssz_type, config) do
+  @spec read_ssz_from_optional_file!(binary, module) :: any() | nil
+  def read_ssz_from_optional_file!(file_path, ssz_type) do
     if File.exists?(file_path) do
       compressed = File.read!(file_path)
       {:ok, decompressed} = :snappyer.decompress(compressed)
-      {:ok, ssz_object} = Ssz.from_ssz(decompressed, ssz_type, config)
-      {:ok, ssz_object}
+      {:ok, ssz_object} = Ssz.from_ssz(decompressed, ssz_type)
+      ssz_object
     else
-      {:ok, nil}
+      nil
     end
   end
 
-  @spec read_ssz_from_file!(binary, module, module) :: any
-  def read_ssz_from_file!(file_path, ssz_type, config) do
-    case read_ssz_from_file(file_path, ssz_type, config) do
-      {:ok, nil} -> raise "File not found: #{file_path}"
-      {:ok, ssz_object} -> ssz_object
+  @spec read_ssz_from_file!(binary, module) :: any()
+  def read_ssz_from_file!(file_path, ssz_type) do
+    case read_ssz_from_optional_file!(file_path, ssz_type) do
+      nil -> raise "File not found: #{file_path}"
+      ssz_object -> ssz_object
+    end
+  end
+
+  @spec resolve_type_from_handler(String.t(), map()) :: module()
+  def resolve_type_from_handler(handler, map) do
+    case Map.get(map, handler) do
+      nil -> raise "Unknown case #{handler}"
+      type -> Module.concat(SszTypes, type)
+    end
+  end
+
+  @spec resolve_name_from_handler(String.t(), map()) :: String.t()
+  def resolve_name_from_handler(handler, map) do
+    case Map.get(map, handler) do
+      nil -> raise "Unknown case #{handler}"
+      name -> name
     end
   end
 

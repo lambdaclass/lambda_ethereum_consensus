@@ -1,5 +1,5 @@
 .PHONY: iex deps test spec-test lint clean compile-native fmt \
-		clean-vectors download-vectors uncompress-vectors proto compile_port \
+		clean-vectors download-vectors uncompress-vectors proto compile-port \
 		spec-test-%
 
 # Delete current file when command fails
@@ -41,22 +41,26 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 SPECTEST_VERSION = $(shell cat .spectest_version)
 SPECTEST_CONFIGS = general minimal mainnet
 
-SPECTEST_DIRS = $(patsubst %,tests/%,$(SPECTEST_CONFIGS))
-SPECTEST_TARS = $(patsubst %,%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
+SPECTEST_ROOTDIR = test/spec/vectors
+# create directory if it doesn't exist
+$(info $(shell mkdir -p $(SPECTEST_ROOTDIR)))
 
-%_${SPECTEST_VERSION}.tar.gz:
+SPECTEST_DIRS = $(patsubst %,$(SPECTEST_ROOTDIR)/tests/%,$(SPECTEST_CONFIGS))
+SPECTEST_TARS = $(patsubst %,$(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
+
+$(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz:
 	curl -L -o "$@" \
 		"https://github.com/ethereum/consensus-spec-tests/releases/download/${SPECTEST_VERSION}/$*.tar.gz"
 
-tests/%: %_${SPECTEST_VERSION}.tar.gz
+$(SPECTEST_ROOTDIR)/tests/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
 	-rm -rf $@
-	tar -xzmf  "$<"
+	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
 
 download-vectors: $(SPECTEST_TARS)
 
 clean-vectors:
-	-rm -rf tests
-	-rm *.tar.gz
+	-rm -rf $(SPECTEST_ROOTDIR)/tests
+	-rm $(SPECTEST_ROOTDIR)/*.tar.gz
 
 
 ##### TARGETS #####
@@ -69,12 +73,12 @@ compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
 
 # Run an interactive terminal with the main supervisor setup.
-start: compile-native compile_port
+start: compile-native compile-port
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
-iex: compile-native compile_port
-	iex -S mix
+iex: compile-native compile-port
+	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
 # Install mix dependencies.
 
@@ -84,12 +88,12 @@ deps:
 
 	cd $(LIBP2P_DIR)/go_src; \
 	go get && go install
-	cd libp2p_port; \
+	cd native/libp2p_port; \
 	go get && go install
 	mix deps.get
 
 # Run tests
-test: compile-native
+test: compile-native compile-port
 	mix test --no-start --exclude spectest
 
 spec-test: compile-native $(SPECTEST_DIRS)
@@ -113,8 +117,8 @@ fmt:
 proto:
 	sh scripts/make_protos.sh
 
-compile_port:
-	cd libp2p_port; go build
+compile-port:
+	cd native/libp2p_port; go build -o ../../priv/native/libp2p_port
 
 nix:
 	nix develop

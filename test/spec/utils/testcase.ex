@@ -44,6 +44,7 @@ defmodule SpecTestCase do
         suite: suite,
         case: cse
       }) do
-    "tests/#{config}/#{fork}/#{runner}/#{handler}/#{suite}/#{cse}"
+    root = SpecTestCompileUtils.get_vectors_dir()
+    "#{root}/#{config}/#{fork}/#{runner}/#{handler}/#{suite}/#{cse}"
   end
 end

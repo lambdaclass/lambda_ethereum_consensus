@@ -3,6 +3,22 @@ option go_package = "./internal/proto;libp2p";
 
 package libp2p_proto;
 
+// Initial options passed to the libp2p node.
+// Documented in `lib/libp2p_port.ex`
+message InitArgs {
+    repeated string listen_addr = 1;
+    bool enable_discovery = 2;
+    string discovery_addr = 3;
+    repeated string bootnodes = 4;
+}
+
+message SetHandler {
+    // Protocol ID to set the handler for.
+    string protocol_id = 1;
+    // Handler for requests of the given protocol.
+    bytes handler = 2;
+}
+
 message SubscribeToTopic {
     // Name of the topic to subscribe to.
     string name = 1;
@@ -13,11 +29,35 @@ message UnsubscribeFromTopic {
     string name = 1;
 }
 
+message AddPeer {
+    bytes id = 1;
+    repeated string addrs = 2;
+    int64 ttl = 3;
+}
+
+message SendRequest {
+    bytes id = 1;
+    string protocol_id = 2;
+    bytes message = 3;
+}
+
+message SendResponse {
+    string message_id = 1;
+    bytes message = 2;
+}
+
+message GetId {}
+
 message Command {
-    string id = 1;
+    bytes from = 1;
     oneof c {
-        SubscribeToTopic subscribe = 2;
-        UnsubscribeFromTopic unsubscribe = 3;
+        SetHandler set_handler = 2;
+        SubscribeToTopic subscribe = 3;
+        UnsubscribeFromTopic unsubscribe = 4;
+        AddPeer add_peer = 5;
+        SendRequest send_request = 6;
+        SendResponse send_response = 7;
+        GetId get_id = 8;
     }
 }
 
@@ -25,19 +65,28 @@ message GossipSub {
     // Name of the topic from which the notification arrived.
     string topic = 1;
     // Compressed and ssz encoded message.
-    string message = 2;
+    bytes message = 2;
 }
 
-// A response from a command.
-message Response {
-    string id = 1;
+// A request from a peer.
+message Request {
+    string protocol_id = 1;
+    bytes handler = 2;
+    string message_id = 3;
+    bytes message = 4;
+}
+
+// A result from a command.
+message Result {
+    bytes from = 1;
     bool success = 2;
-    string message = 3;
+    bytes message = 3;
 }
 
 message Notification {
     oneof n {
         GossipSub gossip = 1;
-        Response response = 2;
+        Request request = 2;
+        Result result = 3;
     }
 }

@@ -5,89 +5,88 @@ defmodule Ssz do
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "ssz_nif"
 
   ##### Functional wrappers
-  @spec to_ssz(struct | list(struct), module) :: {:ok, binary} | {:error, String.t()}
-  def to_ssz(map, config \\ MainnetConfig)
+  @spec to_ssz(struct | list(struct)) :: {:ok, binary} | {:error, String.t()}
+  def to_ssz(map)
 
-  def to_ssz(%name{} = map, config) do
-    to_ssz_typed(map, name, config)
-  end
+  def to_ssz(%name{} = map), do: to_ssz_typed(map, name)
 
-  def to_ssz([], config) do
+  def to_ssz([]) do
     # Type isn't used in this case
-    to_ssz_rs([], SszTypes.ForkData, config)
+    to_ssz_rs([], SszTypes.ForkData)
   end
 
-  def to_ssz([%name{} | _tail] = list, config) do
-    to_ssz_typed(list, name, config)
+  def to_ssz([%name{} | _tail] = list) do
+    to_ssz_typed(list, name)
   end
 
-  @spec to_ssz_typed(term, module, module) :: {:ok, binary} | {:error, String.t()}
-  def to_ssz_typed(term, schema, config \\ MainnetConfig) do
+  @spec to_ssz_typed(term, module) :: {:ok, binary} | {:error, String.t()}
+  def to_ssz_typed(term, schema) do
     term
     |> encode()
-    |> to_ssz_rs(schema, config)
+    |> to_ssz_rs(schema)
   end
 
-  @spec from_ssz(binary, module, module) :: {:ok, struct} | {:error, String.t()}
-  def from_ssz(bin, schema, config \\ MainnetConfig) do
-    with {:ok, map} <- from_ssz_rs(bin, schema, config) do
+  @spec from_ssz(binary, module) :: {:ok, struct} | {:error, String.t()}
+  def from_ssz(bin, schema) do
+    with {:ok, map} <- from_ssz_rs(bin, schema) do
       {:ok, decode(map)}
     end
   end
 
-  @spec list_from_ssz(binary, module, module) :: {:ok, struct} | {:error, String.t()}
-  def list_from_ssz(bin, schema, config \\ MainnetConfig) do
-    with {:ok, list} <- list_from_ssz_rs(bin, schema, config) do
+  @spec list_from_ssz(binary, module) :: {:ok, struct} | {:error, String.t()}
+  def list_from_ssz(bin, schema) do
+    with {:ok, list} <- list_from_ssz_rs(bin, schema) do
       {:ok, decode(list)}
     end
   end
 
-  @spec hash_tree_root(struct, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
-  def hash_tree_root(map, config \\ MainnetConfig)
+  @spec hash_tree_root(struct) :: {:ok, SszTypes.root()} | {:error, String.t()}
+  def hash_tree_root(map)
 
-  def hash_tree_root(%name{} = map, config) do
+  def hash_tree_root(%name{} = map) do
     map
     |> encode()
-    |> hash_tree_root_rs(name, config)
+    |> hash_tree_root_rs(name)
   end
 
-  @spec hash_list_tree_root(list(struct), integer, module) ::
+  @spec hash_list_tree_root(list(struct), integer) ::
           {:ok, SszTypes.root()} | {:error, String.t()}
-  def hash_list_tree_root(list, max_size, config \\ MainnetConfig)
+  def hash_list_tree_root(list, max_size)
 
-  def hash_list_tree_root([], max_size, config) do
+  def hash_list_tree_root([], max_size) do
     # Type isn't used in this case
-    hash_tree_root_list_rs([], max_size, SszTypes.ForkData, config)
+    hash_tree_root_list_rs([], max_size, SszTypes.ForkData)
   end
 
-  def hash_list_tree_root([%name{} | _tail] = list, max_size, config) do
-    hash_list_tree_root_typed(list, max_size, name, config)
+  def hash_list_tree_root([%name{} | _tail] = list, max_size) do
+    hash_list_tree_root_typed(list, max_size, name)
   end
 
-  @spec hash_list_tree_root_typed(list(struct), integer, module, module) ::
+  @spec hash_list_tree_root_typed(list(struct), integer, module) ::
           {:ok, binary} | {:error, String.t()}
-  def hash_list_tree_root_typed(list, max_size, schema, config \\ MainnetConfig) do
+  def hash_list_tree_root_typed(list, max_size, schema) do
     list
     |> encode()
-    |> hash_tree_root_list_rs(max_size, schema, config)
+    |> hash_tree_root_list_rs(max_size, schema)
   end
 
   ##### Rust-side function stubs
   @spec to_ssz_rs(map | list, module, module) :: {:ok, binary} | {:error, String.t()}
-  def to_ssz_rs(_term, _schema, _config), do: error()
+  def to_ssz_rs(_term, _schema, _config \\ ChainSpec.get_config()), do: error()
 
   @spec from_ssz_rs(binary, module, module) :: {:ok, struct} | {:error, String.t()}
-  def from_ssz_rs(_bin, _schema, _config), do: error()
+  def from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_config()), do: error()
 
   @spec list_from_ssz_rs(binary, module, module) :: {:ok, list(struct)} | {:error, String.t()}
-  def list_from_ssz_rs(_bin, _schema, _config), do: error()
+  def list_from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_config()), do: error()
 
   @spec hash_tree_root_rs(map, module, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
-  def hash_tree_root_rs(_map, _schema, _config), do: error()
+  def hash_tree_root_rs(_map, _schema, _config \\ ChainSpec.get_config()), do: error()
 
   @spec hash_tree_root_list_rs(list, integer, module, module) ::
           {:ok, SszTypes.root()} | {:error, String.t()}
-  def hash_tree_root_list_rs(_list, _max_size, _schema, _config), do: error()
+  def hash_tree_root_list_rs(_list, _max_size, _schema, _config \\ ChainSpec.get_config()),
+    do: error()
 
   ##### Utils
   defp error, do: :erlang.nif_error(:nif_not_loaded)
