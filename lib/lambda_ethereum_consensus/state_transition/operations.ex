@@ -3,10 +3,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   State transition Operations related functions
   """
 
-  alias SszTypes.BeaconState
-  alias SszTypes.ExecutionPayload
-  alias LambdaEthereumConsensus.Engine
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias SszTypes.BeaconState
+  alias LambdaEthereumConsensus.Engine
+  alias SszTypes.ExecutionPayload
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
 
