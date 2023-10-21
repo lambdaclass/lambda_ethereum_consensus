@@ -34,7 +34,7 @@ defmodule ShufflingTestRunner do
 
       case result do
         {:ok, value} ->
-          assert Enum.fetch!(indices, value) == Enum.fetch!(indices, index)
+          assert value == Enum.fetch!(indices, index)
 
         {:error, _} ->
           assert index >= index_count or index_count == 0

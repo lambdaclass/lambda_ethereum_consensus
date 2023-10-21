@@ -20,40 +20,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
           {:ok, SszTypes.uint64()} | {:error, String.t()}
   def compute_shuffled_index(index, index_count, seed) do
     result =
-      unless index < index_count and index_count > 0 do
+      if index >= index_count or index_count == 0 do
         {:error, "index not less than index count"}
       else
         shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
 
         new_index =
           Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
-            round_as_bytes =
-              <<round>> |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
+            round_as_bytes = <<round>>
 
-            seed_as_bytes = seed |> :binary.decode_unsigned() |> :binary.encode_unsigned(:little)
+            hash_of_seed_round = :crypto.hash(:sha256, seed <> round_as_bytes)
 
-            hash_of_seed_round =
-              :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes)
-              |> :binary.decode_unsigned()
-              |> :binary.encode_unsigned(:little)
-
-            first_8_bytes_of_hash_of_seed_round =
-              hash_of_seed_round |> :binary.bin_to_list({0, 8}) |> :binary.list_to_bin()
-
-            pivot = :binary.decode_unsigned(first_8_bytes_of_hash_of_seed_round, :little)
+            pivot = rem(bytes_to_uint64(hash_of_seed_round), index_count)
 
             flip = rem(pivot + index_count - current_index, index_count)
             position = max(current_index, flip)
 
-            position_div_256 =
-              <<div(position, 256)::32>>
-              |> :binary.decode_unsigned()
-              |> :binary.encode_unsigned(:little)
+            position_div_256 = uint_to_bytes4(div(position, 256))
 
             source =
-              :crypto.hash(:sha256, seed_as_bytes <> round_as_bytes <> position_div_256)
-              |> :binary.decode_unsigned()
-              |> :binary.encode_unsigned(:little)
+              :crypto.hash(:sha256, seed <> round_as_bytes <> position_div_256)
 
             byte_index = div(rem(position, 256), 8)
             byte = source |> :binary.bin_to_list() |> Enum.fetch!(byte_index)
@@ -112,5 +98,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       {:ok, new_eligible_validator_index} -> new_eligible_validator_index
       :error -> inactivity_score
     end
+  end
+
+  @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
+  defp bytes_to_uint64(value) do
+    # Converts a binary value to a 64-bit unsigned integer
+    <<first_8_bytes::binary-size(8), _::binary>> = value
+    first_8_bytes |> :binary.decode_unsigned(:little)
+  end
+
+  @spec uint_to_bytes4(integer()) :: SszTypes.bytes4()
+  defp uint_to_bytes4(value) do
+    # Converts an unsigned integer value to a bytes 4 value
+    <<value::32>> |> :binary.bin_to_list() |> Enum.reverse() |> :binary.list_to_bin()
   end
 end
