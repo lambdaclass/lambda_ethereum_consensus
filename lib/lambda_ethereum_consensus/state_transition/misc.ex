@@ -17,49 +17,49 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
      Return the shuffled index corresponding to ``seed`` (and ``index_count``).
   """
   @spec compute_shuffled_index(SszTypes.uint64(), SszTypes.uint64(), SszTypes.bytes32()) ::
-          {:ok, SszTypes.uint64()} | {:error, String.t()}
+          {:error, String.t()}
+  def compute_shuffled_index(index, index_count, _seed)
+      when index >= index_count or index_count == 0 do
+    {:error, "invalid index_count"}
+  end
+
+  @spec compute_shuffled_index(SszTypes.uint64(), SszTypes.uint64(), SszTypes.bytes32()) ::
+          {:ok, SszTypes.uint64()}
   def compute_shuffled_index(index, index_count, seed) do
-    result =
-      if index >= index_count or index_count == 0 do
-        {:error, "index not less than index count"}
-      else
-        shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
+    shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
 
-        new_index =
-          Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
-            round_as_bytes = <<round>>
+    new_index =
+      Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
+        round_as_bytes = <<round>>
 
-            hash_of_seed_round = :crypto.hash(:sha256, seed <> round_as_bytes)
+        hash_of_seed_round = :crypto.hash(:sha256, seed <> round_as_bytes)
 
-            pivot = rem(bytes_to_uint64(hash_of_seed_round), index_count)
+        pivot = rem(bytes_to_uint64(hash_of_seed_round), index_count)
 
-            flip = rem(pivot + index_count - current_index, index_count)
-            position = max(current_index, flip)
+        flip = rem(pivot + index_count - current_index, index_count)
+        position = max(current_index, flip)
 
-            position_div_256 = uint_to_bytes4(div(position, 256))
+        position_div_256 = uint_to_bytes4(div(position, 256))
 
-            source =
-              :crypto.hash(:sha256, seed <> round_as_bytes <> position_div_256)
+        source =
+          :crypto.hash(:sha256, seed <> round_as_bytes <> position_div_256)
 
-            byte_index = div(rem(position, 256), 8)
-            byte = source |> :binary.bin_to_list() |> Enum.fetch!(byte_index)
-            right_shift = byte >>> rem(position, 8)
-            bit = rem(right_shift, 2)
+        byte_index = div(rem(position, 256), 8)
+        byte = source |> :binary.bin_to_list() |> Enum.fetch!(byte_index)
+        right_shift = byte >>> rem(position, 8)
+        bit = rem(right_shift, 2)
 
-            current_index =
-              if bit == 1 do
-                flip
-              else
-                current_index
-              end
-
+        current_index =
+          if bit == 1 do
+            flip
+          else
             current_index
-          end)
+          end
 
-        {:ok, new_index}
-      end
+        current_index
+      end)
 
-    result
+    {:ok, new_index}
   end
 
   @spec increase_inactivity_score(SszTypes.uint64(), integer, MapSet.t(), SszTypes.uint64()) ::
