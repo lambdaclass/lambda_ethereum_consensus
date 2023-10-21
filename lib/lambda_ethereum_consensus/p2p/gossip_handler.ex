@@ -16,9 +16,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
     current_slot = Store.get_current_slot()
 
     if block.slot > current_slot - ChainSpec.get("SLOTS_PER_EPOCH") do
-      Logger.info(
-        "[Gossip] Block decoded for slot #{block.slot}. Root: #{Base.encode16(block.state_root)}"
-      )
+      Logger.info("[Gossip] Block decoded for slot #{block.slot}")
 
       PendingBlocks.add_block(block)
     end

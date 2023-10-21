@@ -100,6 +100,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     end
   end
 
+  @doc """
+  Return the start slot of ``epoch``.
+  """
+  @spec compute_start_slot_at_epoch(SszTypes.epoch()) :: SszTypes.slot()
+  def compute_start_slot_at_epoch(epoch) do
+    slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
+    epoch * slots_per_epoch
+  end
+
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
   defp bytes_to_uint64(value) do
     # Converts a binary value to a 64-bit unsigned integer
