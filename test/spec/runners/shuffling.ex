@@ -40,5 +40,17 @@ defmodule ShufflingTestRunner do
           assert index >= index_count or index_count == 0
       end
     end
+
+    for index <- (index_count - 1)..0 do
+      result = Misc.compute_shuffled_index(index, index_count, seed)
+
+      case result do
+        {:ok, value} ->
+          assert value == Enum.fetch!(indices, index)
+
+        {:error, _} ->
+          assert index >= index_count or index_count == 0
+      end
+    end
   end
 end
