@@ -9,6 +9,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   alias SszTypes.Validator
 
   @doc """
+    Increase the validator balance at index ``index`` by ``delta``.
+  """
+  @spec increase_balance(BeaconState.t(), SszTypes.validator_index(), SszTypes.gwei()) ::
+          BeaconState.t()
+  def increase_balance(%BeaconState{balances: balances} = state, index, delta) do
+    new_balance = Enum.at(balances, index) + delta
+    new_balances = List.replace_at(balances, index, new_balance)
+    %BeaconState{state | balances: new_balances}
+  end
+
+  @doc """
+      Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
+  """
+  @spec decrease_balance(BeaconState.t(), SszTypes.validator_index(), SszTypes.gwei()) ::
+          BeaconState.t()
+  def decrease_balance(%BeaconState{balances: balances} = state, index, delta) do
+    current_balance = Enum.at(balances, index)
+    new_balance = if delta > current_balance, do: 0, else: current_balance - delta
+    new_balances = List.replace_at(balances, index, new_balance)
+    %BeaconState{state | balances: new_balances}
+  end
+
+  @doc """
     Initiate the exit of the validator with index ``index``.
   """
   @spec initiate_validator_exit(BeaconState.t(), SszTypes.validator_index()) :: BeaconState.t()
