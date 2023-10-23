@@ -48,15 +48,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   def is_valid_indexed_attestation(state, indexed_attestation) do
     # Verify indices are sorted and unique
     indices = indexed_attestation.attesting_indices
-    sorted_indices = indices 
-      |> Enum.uniq() 
+
+    sorted_indices =
+      indices
+      |> Enum.uniq()
       |> Enum.sort()
-    if length(indices) == 0 || indices != sorted_indices do
-      false 
+
+    if Enum.empty?(indices) || indices != sorted_indices do
+      false
     end
+
     # Verify aggregate signature
     pubkeys = for i <- indices, do: state.validators[i].pubkey
-    domain = Accessors.get_domain(state, Constants.domain_beacon_attester(), indexed_attestation.data.target.epoch)
+
+    domain =
+      Accessors.get_domain(
+        state,
+        Constants.domain_beacon_attester(),
+        indexed_attestation.data.target.epoch
+      )
+
     signing_root = Misc.compute_signing_root(indexed_attestation.data, domain)
     Bls.fast_aggregate_verify(pubkeys, signing_root, indexed_attestation.signature)
   end

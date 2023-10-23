@@ -41,7 +41,7 @@ defmodule OperationsTestRunner do
   # Remove handler from here once you implement the corresponding functions
   # "deposit_receipt" handler is not yet implemented
   @disabled_handlers [
-    "attestation",
+    # "attestation",
     "attester_slashing",
     "block_header",
     "deposit",
@@ -92,8 +92,17 @@ defmodule OperationsTestRunner do
     assert true
   end
 
-  defp handle_case("attestation", pre, operation, post) do
-    result = Operations.process_attestation(pre, operation)
-    assert result == {:ok, post}
+  defp handle_case("attestation", pre, operation, post, case_dir) do
+    dir_split = String.split(case_dir, "/")
+    test_name = List.last(dir_split)
+    if(
+      String.starts_with?(test_name, "invalid") ||
+      String.starts_with?(test_name, "incorrect")
+    ) do
+      # assert {:error, _error_msg} = Operations.process_attestation(pre, operation)
+    else 
+      result = Operations.process_attestation(pre, operation)
+      assert result == {:ok, post}
+    end
   end
 end

@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @moduledoc """
   Functions accessing the current beacon state
   """
+  alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
@@ -119,9 +120,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_committee_count_per_slot(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
   def get_committee_count_per_slot(state, epoch) do
     active_validators_count = length(get_active_validator_indices(state, epoch))
-    committee_size = trunc(
-      active_validators_count / ChainSpec.get("SLOTS_PER_EPOCH") / ChainSpec.get("TARGET_COMMITTEE_SIZE")
-    )
+
+    committee_size = 
+      active_validators_count
+        |> Kernel.div(ChainSpec.get("SLOTS_PER_EPOCH"))
+        |> Kernel.div(ChainSpec.get("TARGET_COMMITTEE_SIZE"))
 
     [ChainSpec.get("MAX_COMMITTEES_PER_SLOT"), committee_size]
     |> Enum.min()
@@ -131,14 +134,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the beacon committee at ``slot`` for ``index``.
   """
-  @spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.committee_index()) :: list(SszTypes.validator_index())
+  @spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.committee_index()) ::
+          list(SszTypes.validator_index())
   def get_beacon_committee(state, slot, index) do
     epoch = Misc.compute_epoch_at_slot(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch)
+
     Misc.compute_committee(
-      get_active_validator_indices(state, epoch), 
+      get_active_validator_indices(state, epoch),
       get_seed(state, epoch, Constants.domain_beacon_attester()),
-      (rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot) + index,
+      rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index,
       committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
     )
   end
@@ -146,10 +151,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_base_reward_per_increment(BeaconState.t()) :: SszTypes.gwei()
   def get_base_reward_per_increment(state) do
     numerator = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT") * Constants.base_reward_factor()
-    denominator = state
-      |> get_total_active_balance()
-      |> :math.sqrt()
-      |> trunc()
+    denominator = Math.integer_squareroot(get_total_active_balance(state))
+    IO.inspect(numerator)
+    IO.inspect(denominator)
     div(numerator, denominator)
   end
 
@@ -158,15 +162,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_base_reward(BeaconState.t(), SszTypes.validator_index()) :: SszTypes.gwei()
   def get_base_reward(state, index) do
-    increments = div(state[:validators][index][:effective_balance], ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
+    validator = Enum.at(state.validators, index)
+    effective_balance = validator.effective_balance
+    increments =
+      div(
+        effective_balance,
+        ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+      )
+
     increments * get_base_reward_per_increment(state)
   end
 
   @doc """
   Return the flag indices that are satisfied by an attestation.
   """
-  @spec get_attestation_participation_flag_indices(BeaconState.t(), SszTypes.AttestationData.t(), SszTypes.uint64()) 
-          :: {:ok, list(SszTypes.uint64())} | {:error, binary()}
+  @spec get_attestation_participation_flag_indices(
+          BeaconState.t(),
+          SszTypes.AttestationData.t(),
+          SszTypes.uint64()
+        ) ::
+          {:ok, list(SszTypes.uint64())} | {:error, binary()}
   def get_attestation_participation_flag_indices(state, data, inclusion_delay) do
     justified_checkpoint =
       if data.target.epoch == get_current_epoch(state) do
@@ -175,29 +190,38 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         state.previous_justified_checkpoint
       end
 
+    block_root = get_block_root(state, data.target.epoch)
+    {:ok, block_root_at_slot} = get_block_root_at_slot(state, data.slot)
+
     # Matching roots
     is_matching_source = data.source == justified_checkpoint
-    is_matching_target = is_matching_source && data.target.root == get_block_root(state, data.target.epoch)
-    is_matching_head = is_matching_target && data.beacon_block_root == get_block_root_at_slot(state, data.slot)
-    if not is_matching_source do 
+
+    is_matching_target =
+      is_matching_source && data.target.root == block_root
+
+    is_matching_head =
+      is_matching_target && data.beacon_block_root == block_root_at_slot
+
+    if not is_matching_source do
       {:error, "Attestation source does not match justified checkpoint"}
     end
 
-    source_indices = 
-      if is_matching_source && inclusion_delay <= round(:math.sqrt(ChainSpec.get("SLOTS_PER_EPOCH"))) do
+    source_indices =
+      if is_matching_source &&
+           inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
         [Constants.timely_source_flag_index()]
       else
         []
       end
 
-    target_indices = 
+    target_indices =
       if is_matching_target && inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
         [Constants.timely_target_flag_index()]
       else
         []
       end
 
-    head_indices = 
+    head_indices =
       if is_matching_head && inclusion_delay == ChainSpec.get(MIN_ATTESTATION_INCLUSION_DELAY) do
         [Constants.timely_head_flag_index()]
       else
@@ -210,14 +234,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the block root at a recent ``slot``.
   """
-  @spec get_block_root_at_slot(BeaconState.t(), SszTypes.slot()) 
-          :: {:ok, SszTypes.root()} | {:error, binary()}
+  @spec get_block_root_at_slot(BeaconState.t(), SszTypes.slot()) ::
+          {:ok, SszTypes.root()} | {:error, binary()}
   def get_block_root_at_slot(state, slot) do
     if slot < state.slot && state.slot <= slot + ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT") do
-      {:error, "Block root not available"}
-    else 
       root = Enum.fetch!(state.block_roots, rem(slot, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")))
       {:ok, root}
+    else
+      {:error, "Block root not available"}
     end
   end
 
@@ -226,7 +250,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_block_root(BeaconState.t(), SszTypes.epoch()) :: SszTypes.root()
   def get_block_root(state, epoch) do
-    {_, block_root} = get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch))
+    {:ok, block_root} = get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch))
     block_root
   end
 
@@ -235,8 +259,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_seed(BeaconState.t(), SszTypes.epoch(), SszTypes.domain_type()) :: SszTypes.bytes32()
   def get_seed(state, epoch, domain_type) do
-    mix = get_randao_mix(state, epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") - ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1)
-    :crypto.hash(:sha256, domain_type <> Helper.uint_to_bytes(epoch) <> mix)
+    mix =
+      get_randao_mix(
+        state,
+        epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
+          ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
+      )
+
+    :crypto.hash(:sha256, domain_type <> Math.uint_to_bytes(epoch) <> mix)
   end
 
   @doc """
@@ -245,12 +275,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch()) :: SszTypes.domain()
   def get_domain(state, domain_type, epoch) do
     epoch = if epoch == nil, do: get_current_epoch(state), else: epoch
-    fork_version = 
+
+    fork_version =
       if epoch < state.fork.epoch do
         state.fork.previous_version
       else
         state.fork.current_version
       end
+
     Misc.compute_domain(domain_type, fork_version, state.genesis_validators_root)
   end
 
@@ -259,25 +291,31 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_indexed_attestation(BeaconState.t(), Attestation.t()) :: IndexedAttestation.t()
   def get_indexed_attestation(state, attestation) do
-    attesting_indices = get_attesting_indices(state, attestation.data, attestation.aggregation_bits)
+    attesting_indices =
+      get_attesting_indices(state, attestation.data, attestation.aggregation_bits)
+
     sorted_attesting_indices = Enum.sort(attesting_indices)
     {sorted_attesting_indices, attestation, attestation.signature}
-    # IndexedAttestation.t(sorted_attesting_indices, attestation.data, attestation.signature)
   end
 
   @doc """
   Return the set of attesting indices corresponding to ``data`` and ``bits``.
   """
-  @spec get_attesting_indices(BeaconState.t(), SszTypes.AttestationData.t(), SszTypes.bitlist) :: MapSet.t()
+  @spec get_attesting_indices(BeaconState.t(), SszTypes.AttestationData.t(), SszTypes.bitlist()) ::
+          MapSet.t()
   def get_attesting_indices(state, data, bits) do
     committee = get_beacon_committee(state, data.slot, data.index)
-    
+    bit_list = bitstring_to_list(bits)
+
     committee
     |> Enum.with_index()
-    |> Enum.filter(fn {_index, i} -> Enum.at(bits, i) end)
+    |> Enum.filter(fn {_index, i} -> Enum.at(bit_list, i) end)
     |> Enum.map(fn {_, index} -> index end)
     |> MapSet.new()
   end
+
+  defp bitstring_to_list(<<bit::1, rest::bitstring>>), do: [bit | bitstring_to_list(rest)]
+  defp bitstring_to_list(<<>>), do: []
 
   @doc """
   Return the beacon proposer index at the current slot.
@@ -285,7 +323,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_beacon_proposer_index(BeaconState.t()) :: SszTypes.validator_index()
   def get_beacon_proposer_index(state) do
     epoch = get_current_epoch(state)
-    seed = :crypto.hash(:sha256, get_seed(state, epoch, Constants.domain_beacon_proposer()) + Helper.uint_to_bytes(state.slot))
+
+    seed =
+      :crypto.hash(
+        :sha256,
+        get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
+          Math.uint_to_bytes(state.slot)
+      )
+
     indices = get_active_validator_indices(state, epoch)
     Misc.compute_proposer_index(state, indices, seed)
   end
@@ -297,11 +342,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_total_balance(BeaconState.t(), list(SszTypes.validator_index())) :: SszTypes.gwei()
   def get_total_balance(state, indices) do
-    total_balance = 
+    total_balance =
       indices
-      |> Enum.map(fn index -> Map.get(state.validators[index], :effective_balance) end)
+      |> Enum.map(fn index -> Map.get(Enum.at(state.validators, index), :effective_balance, 0) end)
       |> Enum.sum()
-
+    IO.inspect(total_balance)
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
   end
 
@@ -311,10 +356,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
   def get_total_active_balance(state) do
-    state
-    |> get_current_epoch()
-    |> get_active_validator_indices(state)
-    |> MapSet.new()
-    |> get_total_balance(state)
+    current_epoch = get_current_epoch(state)
+    validator_indices = get_active_validator_indices(state, current_epoch)
+    get_total_balance(state, validator_indices)
   end
 end
