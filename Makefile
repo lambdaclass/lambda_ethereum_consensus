@@ -1,4 +1,4 @@
-.PHONY: iex deps test spec-test lint clean compile-native fmt \
+.PHONY: iex deps test spec-test lint clean compile-native compile-port fmt \
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-%
 
@@ -79,15 +79,17 @@ clean:
 
 
 # Compile C and Go artifacts.
-compile-native: $(OUTPUT_DIR)/libp2p_port
+compile-native: $(OUTPUT_DIR)/libp2p_nif.so
+
+compile-port: $(OUTPUT_DIR)/libp2p_port
 
 
 # Run an interactive terminal with the main supervisor setup.
-start: compile-native
+start: compile-native compile-port
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
-iex: compile-native
+iex: compile-native compile-port
 	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
 # Install mix dependencies.
@@ -101,13 +103,13 @@ deps:
 	mix deps.get
 
 # Run tests
-test: compile-native
+test: compile-native compile-port
 	mix test --no-start --exclude spectest
 
-spec-test: compile-native $(SPECTEST_DIRS)
+spec-test: compile-port $(SPECTEST_DIRS)
 	mix test --no-start --only implemented_spectest
 
-spec-test-%: compile-native $(SPECTEST_DIRS)
+spec-test-%: compile-port $(SPECTEST_DIRS)
 	mix test --no-start --only runner:$*
 
 lint:
