@@ -69,6 +69,8 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 		pubsub.WithPeerScore(scoreParams, thresholds),
 		pubsub.WithGossipSubParams(gsubParams),
 		pubsub.WithSeenMessagesTTL(550 * heartbeat),
+		pubsub.WithPeerOutboundQueueSize(600),
+		pubsub.WithValidateQueueSize(600),
 		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
 	}
 
@@ -87,11 +89,18 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	if sub.Cancel != nil {
 		return errors.New("already subscribed")
 	}
+	port := s.port
+	validator := func(ctx context.Context, p peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+		notification := proto_helpers.GossipNotification(topicName, handler, msg.Data)
+		port.SendNotification(&notification)
+		return pubsub.ValidationAccept
+	}
+	s.gsub.RegisterTopicValidator(topicName, validator)
 	ctx, cancel := context.WithCancel(context.Background())
 	sub.Cancel = cancel
 	topicSub, err := sub.Topic.Subscribe()
 	utils.PanicIfError(err)
-	go subscribeToTopic(topicSub, ctx, handler, s.port)
+	go subscribeToTopic(topicSub, ctx, s.gsub)
 	s.subscriptions[topicName] = sub
 	return nil
 }
@@ -112,17 +121,17 @@ func (s *Subscriber) Publish(topicName string, message []byte) {
 	utils.PanicIfError(err)
 }
 
-func subscribeToTopic(sub *pubsub.Subscription, ctx context.Context, handler []byte, p *port.Port) {
+// NOTE: we send the message to the port in the validator.
+// Here we just flush received messages and handle unsubscription.
+func subscribeToTopic(sub *pubsub.Subscription, ctx context.Context, gsub *pubsub.PubSub) {
 	topic := sub.Topic()
 	for {
-		msg, err := sub.Next(ctx)
+		_, err := sub.Next(ctx)
 		if err == context.Canceled {
-			return
+			break
 		}
-		utils.PanicIfError(err)
-		notification := proto_helpers.GossipNotification(topic, handler, msg.Data)
-		p.SendNotification(&notification)
 	}
+	gsub.UnregisterTopicValidator(topic)
 }
 
 func (s *Subscriber) getSubscription(topicName string) subscription {
