@@ -29,6 +29,7 @@ defmodule ShufflingTestRunner do
   end
 
   defp handle("core", seed, index_count, indices) do
+    # Testing permute-index by running it for every index in 0..(index_count - 1) and check against expected mapping[index]
     for index <- 0..(index_count - 1) do
       result = Misc.compute_shuffled_index(index, index_count, seed)
 
@@ -41,6 +42,8 @@ defmodule ShufflingTestRunner do
       end
     end
 
+    # Testing the reverse lookup; implemented by running the shuffling rounds in reverse, from (index_count - 1) to 0
+    # NOTE: this is the same as before, but the test-format specs suggest including this check
     for index <- (index_count - 1)..0 do
       result = Misc.compute_shuffled_index(index, index_count, seed)
 
