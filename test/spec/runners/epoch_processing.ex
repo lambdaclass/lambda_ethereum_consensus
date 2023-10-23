@@ -78,8 +78,7 @@ defmodule EpochProcessingTestRunner do
 
     case post do
       nil ->
-        assert {output, _error_msg} = result
-        assert output == :error
+        assert {:error, _error_msg} = result
 
       post ->
         assert result == {:ok, post}
