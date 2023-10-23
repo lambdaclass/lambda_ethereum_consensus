@@ -51,6 +51,17 @@ message Publish {
     bytes message = 2;
 }
 
+enum ValidationResult {
+    VALIDATION_ACCEPT = 0;
+    VALIDATION_REJECT = 1;
+    VALIDATION_IGNORE = 2;
+}
+
+message ValidateMessage {
+    string msg_id = 1;
+    ValidationResult result = 2;
+}
+
 message Command {
     bytes from = 1;
     oneof c {
@@ -62,6 +73,7 @@ message Command {
         SendResponse send_response = 7;
         GetId get_id = 8;
         Publish publish = 9;
+        ValidateMessage validate_message = 10;
     }
 }
 
@@ -70,8 +82,10 @@ message GossipSub {
     string topic = 1;
     // PID of the subscribed process.
     bytes handler = 2;
+    // Message's unique ID.
+    string msg_id = 3;
     // Compressed and ssz encoded message.
-    bytes message = 3;
+    bytes message = 4;
 }
 
 // A request from a peer.

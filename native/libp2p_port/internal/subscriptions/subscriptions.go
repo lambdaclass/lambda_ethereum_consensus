@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sync"
 	"time"
 
 	"libp2p_port/internal/port"
@@ -21,9 +22,10 @@ type subscription struct {
 }
 
 type Subscriber struct {
-	subscriptions map[string]subscription
-	gsub          *pubsub.PubSub
-	port          *port.Port
+	subscriptions   map[string]subscription
+	pendingMessages sync.Map
+	gsub            *pubsub.PubSub
+	port            *port.Port
 }
 
 func NewSubscriber(p *port.Port, h host.Host) Subscriber {
@@ -91,9 +93,11 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	}
 	port := s.port
 	validator := func(ctx context.Context, p peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
-		notification := proto_helpers.GossipNotification(topicName, handler, msg.Data)
+		notification := proto_helpers.GossipNotification(topicName, handler, msg.ID, msg.Data)
 		port.SendNotification(&notification)
-		return pubsub.ValidationAccept
+		ch := make(chan pubsub.ValidationResult)
+		s.pendingMessages.Store(msg.ID, ch)
+		return <-ch
 	}
 	s.gsub.RegisterTopicValidator(topicName, validator)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -113,6 +117,18 @@ func (s *Subscriber) Unsubscribe(topicName string) {
 	delete(s.subscriptions, topicName)
 	sub.Cancel()
 	sub.Topic.Close()
+}
+
+func (s *Subscriber) Validate(msgId string, intResult int) {
+	result := pubsub.ValidationResult(intResult)
+	ch, loaded := s.pendingMessages.LoadAndDelete(msgId)
+	if !loaded {
+		return
+	}
+	if result != pubsub.ValidationAccept && result != pubsub.ValidationReject && result != pubsub.ValidationIgnore {
+		panic("invalid validation result")
+	}
+	ch.(chan pubsub.ValidationResult) <- result
 }
 
 func (s *Subscriber) Publish(topicName string, message []byte) {

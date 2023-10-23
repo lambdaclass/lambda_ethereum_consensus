@@ -26,7 +26,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     SendResponse,
     SetHandler,
     SubscribeToTopic,
-    UnsubscribeFromTopic
+    UnsubscribeFromTopic,
+    ValidateMessage
   }
 
   require Logger
@@ -151,7 +152,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec receive_gossip() :: {String.t(), binary()}
   def receive_gossip do
     receive do
-      {:gossipsub, {_topic_name, _message} = m} -> m
+      {:gossipsub, {_topic_name, _msg_id, _message} = m} -> m
     end
   end
 
@@ -178,6 +179,22 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec set_new_peer_handler(GenServer.server(), pid() | nil) :: :ok
   def set_new_peer_handler(pid \\ __MODULE__, handler) do
     GenServer.cast(pid, {:set_new_peer_handler, handler})
+  end
+
+  @doc """
+  Sets the receiver of new peer notifications.
+  If `nil`, notifications are disabled.
+  """
+  @spec validate_message(GenServer.server(), String.t(), :accept | :reject | :ignore) :: :ok
+  def validate_message(pid \\ __MODULE__, msg_id, validation_result) do
+    result =
+      case validation_result do
+        :accept -> :VALIDATION_ACCEPT
+        :reject -> :VALIDATION_REJECT
+        :ignore -> :VALIDATION_IGNORE
+      end
+
+    cast_command(pid, {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
   end
 
   ########################
@@ -231,9 +248,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%GossipSub{topic: topic, handler: handler, message: message}, _state) do
-    handler_pid = :erlang.binary_to_term(handler)
-    send(handler_pid, {:gossipsub, {topic, message}})
+  defp handle_notification(%GossipSub{} = gs, _state) do
+    handler_pid = :erlang.binary_to_term(gs.handler)
+    send(handler_pid, {:gossipsub, {gs.topic, gs.msg_id, gs.message}})
   end
 
   defp handle_notification(
