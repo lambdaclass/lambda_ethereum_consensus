@@ -29,7 +29,7 @@ defmodule ShufflingTestRunner do
   end
 
   defp handle("core", seed, index_count, indices) do
-    # Testing permute-index by running it for every index in 0..(index_count - 1) and check against expected mapping[index]
+    # Testing permute-index by running it for every index in 0..(index_count - 1) and check against expected mapping[i]
     for index <- 0..(index_count - 1) do
       result = Misc.compute_shuffled_index(index, index_count, seed)
 
