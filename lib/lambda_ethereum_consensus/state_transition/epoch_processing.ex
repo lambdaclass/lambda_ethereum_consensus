@@ -90,36 +90,33 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     churn_limit = Accessors.get_validator_churn_limit(state)
     churn_limit_range = 0..(churn_limit - 1)
 
-    validators_keyword =
-      0..length(validators)
-      |> Stream.zip(validators)
-      |> Keyword.new(fn {index, v} -> {:"#{index}", v} end)
+    validators_list = validators |> Stream.with_index() |> Enum.to_list()
 
-    case activation_eligibility_and_ejections(validators_keyword, state, ejection_balance) do
-      {:ok, {new_state, updated_validators_keyword}} ->
+    case activation_eligibility_and_ejections(validators_list, state, ejection_balance) do
+      {:ok, {new_state, updated_validators_list}} ->
         {state_with_activated_validators, _} =
-          updated_validators_keyword
-          |> Stream.filter(fn {_index, validator} ->
+          updated_validators_list
+          |> Stream.with_index()
+          |> Stream.filter(fn {validator, _index} ->
             Predicates.is_eligible_for_activation(state, validator)
           end)
-          |> Enum.sort_by(fn {index, validator} ->
-            {validator.activation_eligibility_epoch, String.to_integer(Atom.to_string(index))}
+          |> Enum.sort_by(fn {validator, index} ->
+            {validator.activation_eligibility_epoch, index}
           end)
           |> Enum.slice(churn_limit_range)
-          |> Enum.reduce({new_state, updated_validators_keyword}, fn {index, validator},
-                                                                     {state_acc,
-                                                                      updated_validators_keyword_acc} ->
+          |> Enum.reduce({new_state, updated_validators_list}, fn {validator, index},
+                                                                  {state_acc,
+                                                                   updated_validators_list_acc} ->
             updated_validator = %{
               validator
               | activation_epoch:
                   Misc.compute_activation_exit_epoch(Accessors.get_current_epoch(state_acc))
             }
 
-            updated_validators_keyword =
-              Keyword.replace(updated_validators_keyword_acc, index, updated_validator)
+            updated_validators_list =
+              List.replace_at(updated_validators_list_acc, index, updated_validator)
 
-            new_values = Keyword.values(updated_validators_keyword)
-            {%{state_acc | validators: new_values}, updated_validators_keyword}
+            {%{state_acc | validators: updated_validators_list}, updated_validators_list}
           end)
 
         {:ok, state_with_activated_validators}
@@ -129,14 +126,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     end
   end
 
-  @spec activation_eligibility_and_ejections(Keyword.t(), BeaconState.t(), SszTypes.gwei()) ::
-          {:ok, {BeaconState.t(), Keyword.t()}} | {:error, atom()}
-  defp activation_eligibility_and_ejections(validators_keyword, state, ejection_balance) do
-    validators_keyword
-    |> Enum.reduce_while({:ok, {state, validators_keyword}}, fn {index, validator},
-                                                                {:ok,
-                                                                 {state_acc,
-                                                                  validators_keyword_acc}} ->
+  @spec activation_eligibility_and_ejections(Enum.t(), BeaconState.t(), SszTypes.gwei()) ::
+          {:ok, {BeaconState.t(), Enum.t()}} | {:error, atom()}
+  defp activation_eligibility_and_ejections(validators_list_with_index, state, ejection_balance) do
+    validators_list_with_index
+    |> Enum.reduce_while({:ok, {state, state.validators}}, fn {validator, index},
+                                                              {:ok,
+                                                               {state_acc, validators_list_acc}} ->
       updated_validator =
         if Predicates.is_eligible_for_activation_queue(validator) do
           %{
@@ -152,34 +148,33 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
            Accessors.get_current_epoch(state_acc)
          ) &&
            validator.effective_balance <= ejection_balance do
-        initiate_validator_exit(state_acc, index, validators_keyword_acc, updated_validator)
+        initiate_validator_exit(state_acc, index, validators_list_acc, updated_validator)
       else
-        updated_validators_keyword =
-          Keyword.replace(validators_keyword_acc, index, updated_validator)
+        updated_validators_list = List.replace_at(validators_list_acc, index, updated_validator)
 
-        new_values = Keyword.values(updated_validators_keyword)
-        {:cont, {:ok, {%{state_acc | validators: new_values}, updated_validators_keyword}}}
+        {:cont,
+         {:ok, {%{state_acc | validators: updated_validators_list}, updated_validators_list}}}
       end
     end)
   end
 
-  @spec initiate_validator_exit(BeaconState.t(), atom(), Keyword.t(), Validator.t()) ::
-          {:cont, {:ok, {BeaconState.t(), Keyword.t()}}} | {:halt, {:error, atom()}}
-  defp initiate_validator_exit(state_acc, index, validators_keyword_acc, updated_validator) do
+  @spec initiate_validator_exit(BeaconState.t(), integer, Enum.t(), Validator.t()) ::
+          {:cont, {:ok, {BeaconState.t(), Enum.t()}}} | {:halt, {:error, atom()}}
+  defp initiate_validator_exit(state_acc, index, validators_list_acc, updated_validator) do
     case Mutators.initiate_validator_exit(
            state_acc,
-           String.to_integer(Atom.to_string(index))
+           index
          ) do
       {:ok, validator_exit} ->
-        updated_validators_keyword =
-          Keyword.replace(
-            validators_keyword_acc,
+        updated_validators_list =
+          List.replace_at(
+            validators_list_acc,
             index,
             Map.merge(updated_validator, validator_exit)
           )
 
-        new_values = Keyword.values(updated_validators_keyword)
-        {:cont, {:ok, {%{state_acc | validators: new_values}, updated_validators_keyword}}}
+        {:cont,
+         {:ok, {%{state_acc | validators: updated_validators_list}, updated_validators_list}}}
 
       {:error, reason} ->
         {:halt, {:error, reason}}
