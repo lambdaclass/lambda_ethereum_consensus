@@ -59,6 +59,8 @@ func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
 		addrInfo.Addrs = append(addrInfo.Addrs, maddr)
 	}
 	l.hostHandle.Connect(context.TODO(), addrInfo)
+	notification := proto_helpers.NewPeerNotification(id)
+	l.port.SendNotification(&notification)
 }
 
 func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte) ([]byte, error) {

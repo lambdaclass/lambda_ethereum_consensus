@@ -84,7 +84,8 @@ func lookForPeers(iter enode.Iterator, listener *reqresp.Listener) {
 		if err != nil {
 			continue
 		}
-
-		listener.AddPeer([]byte(nodeID), addrArr, peerstore.PermanentAddrTTL)
+		go func() {
+			listener.AddPeer([]byte(nodeID), addrArr, peerstore.PermanentAddrTTL)
+		}()
 	}
 }
