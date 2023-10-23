@@ -11,7 +11,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   Initiate the exit of the validator with index ``index``.
   """
   @spec initiate_validator_exit(BeaconState.t(), integer) ::
-          {:ok, Validator.t()} | {:error, atom()}
+          {:ok, Validator.t()} | {:error, binary()}
   def initiate_validator_exit(%BeaconState{validators: validators} = state, index) do
     validator = Enum.at(validators, index)
     far_future_epoch = Constants.far_future_epoch()
@@ -51,7 +51,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       next_withdrawable_epoch = exit_queue_epoch + min_validator_withdrawability_delay
 
       if next_withdrawable_epoch > 2 ** 64 - 1 do
-        {:error, :withdrawable_epoch_too_large}
+        {:error, "withdrawable_epoch_too_large"}
       else
         {:ok,
          %{

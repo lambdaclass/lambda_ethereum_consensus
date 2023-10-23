@@ -122,12 +122,12 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         {:ok, state_with_activated_validators}
 
       {:error, error} ->
-        {:error, Atom.to_string(error)}
+        {:error, error}
     end
   end
 
   @spec activation_eligibility_and_ejections(Enum.t(), BeaconState.t(), SszTypes.gwei()) ::
-          {:ok, {BeaconState.t(), Enum.t()}} | {:error, atom()}
+          {:ok, {BeaconState.t(), Enum.t()}} | {:error, binary()}
   defp activation_eligibility_and_ejections(validators_list_with_index, state, ejection_balance) do
     validators_list_with_index
     |> Enum.reduce_while({:ok, {state, state.validators}}, fn {validator, index},
@@ -159,7 +159,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   @spec initiate_validator_exit(BeaconState.t(), integer, Enum.t(), Validator.t()) ::
-          {:cont, {:ok, {BeaconState.t(), Enum.t()}}} | {:halt, {:error, atom()}}
+          {:cont, {:ok, {BeaconState.t(), Enum.t()}}} | {:halt, {:error, binary()}}
   defp initiate_validator_exit(state_acc, index, validators_list_acc, updated_validator) do
     case Mutators.initiate_validator_exit(
            state_acc,
