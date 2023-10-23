@@ -17,4 +17,10 @@ defmodule Constants do
 
   @spec max_seed_lookahead() :: integer
   def max_seed_lookahead, do: 4
+
+  @spec far_future_epoch() :: integer
+  def far_future_epoch, do: 2 ** 64 - 1
+
+  @spec min_validator_withdrawability_delay() :: integer
+  def min_validator_withdrawability_delay, do: 265
 end
