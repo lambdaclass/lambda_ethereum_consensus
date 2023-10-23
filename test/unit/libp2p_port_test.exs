@@ -71,4 +71,44 @@ defmodule Unit.Libp2pPortTest do
       bootnodes: bootnodes
     )
   end
+
+  defp retrying_publish(pid, topic, message) do
+    # Give a head start to the other process
+    assert_receive :subscribed, 1000
+
+    # Publish message
+    :ok = Libp2pPort.publish(pid, topic, message)
+
+    # Receive acknowledgement
+    assert_receive :received, 1000
+  end
+
+  test "start two hosts, and gossip about" do
+    gossiper_addr = ["/ip4/127.0.0.1/tcp/48766"]
+    start_port(:publisher)
+    start_port(:gossiper, listen_addr: gossiper_addr)
+
+    topic = "/test/gossipping"
+    message = "hello world!"
+
+    # Connect the two peers
+    id = Libp2pPort.get_id(:gossiper)
+    :ok = Libp2pPort.add_peer(:publisher, id, gossiper_addr, 999_999_999_999)
+
+    pid = self()
+
+    spawn(fn ->
+      # Subscribe to the topic
+      :ok = Libp2pPort.subscribe_to_topic(:gossiper, topic)
+      send(pid, :subscribed)
+
+      # Receive the message
+      assert {^topic, ^message} = Libp2pPort.receive_gossip()
+
+      # Send acknowledgement
+      send(pid, :received)
+    end)
+
+    retrying_publish(:publisher, topic, message)
+  end
 end

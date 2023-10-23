@@ -2,11 +2,15 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"math/big"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	gcrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/golang/snappy"
+	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
@@ -48,4 +52,32 @@ func ConvertToInterfacePubkey(pubkey *ecdsa.PublicKey) (crypto.PubKey, error) {
 	xVal.Zero()
 	yVal.Zero()
 	return newKey, nil
+}
+
+// Only valid for post-Altair topics
+func MsgID(msg *pb.Message) string {
+	if msg == nil || msg.Data == nil || msg.Topic == nil {
+		// Should never happen
+		msg := make([]byte, 20)
+		copy(msg, "invalid")
+		return string(msg)
+	}
+	h := sha256.New()
+	data, err := snappy.Decode(nil, msg.Data)
+	if err != nil {
+		// MESSAGE_DOMAIN_INVALID_SNAPPY
+		h.Write([]byte{0, 0, 0, 0})
+		data = msg.Data
+	} else {
+		// MESSAGE_DOMAIN_VALID_SNAPPY
+		h.Write([]byte{1, 0, 0, 0})
+	}
+	var topicLen [8]byte
+	binary.LittleEndian.PutUint64(topicLen[:], uint64(len(*msg.Topic)))
+	h.Write(topicLen[:])
+	h.Write([]byte(*msg.Topic))
+	h.Write(data)
+	var digest []byte
+	digest = h.Sum(digest)
+	return string(digest[:20])
 }

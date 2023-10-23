@@ -5,23 +5,23 @@ import (
 )
 
 type Config struct {
-	ListenAddr   		[]string
-	EnableDiscovery     bool
-	DiscoveryAddr 		string
-	Bootnodes     		[]string
+	ListenAddr      []string
+	EnableDiscovery bool
+	DiscoveryAddr   string
+	Bootnodes       []string
 }
 
 func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 	return Config{
-		ListenAddr:    initArgs.ListenAddr,
-		EnableDiscovery:     initArgs.EnableDiscovery,
-		DiscoveryAddr: initArgs.DiscoveryAddr,
-		Bootnodes:     initArgs.Bootnodes,
+		ListenAddr:      initArgs.ListenAddr,
+		EnableDiscovery: initArgs.EnableDiscovery,
+		DiscoveryAddr:   initArgs.DiscoveryAddr,
+		Bootnodes:       initArgs.Bootnodes,
 	}
 }
 
-func GossipNotification(topic string, message []byte) proto_defs.Notification {
-	gossipSubNotification := &proto_defs.GossipSub{Topic: topic, Message: message}
+func GossipNotification(topic string, handler []byte, message []byte) proto_defs.Notification {
+	gossipSubNotification := &proto_defs.GossipSub{Topic: topic, Handler: handler, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Gossip{Gossip: gossipSubNotification}}
 }
 
