@@ -85,6 +85,10 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
       {:error, "failed to read"} ->
         Logger.debug("[Goodbye] failed to read")
         :ok
+
+      "" ->
+        Logger.debug("[Goodbye] empty message")
+        :ok
     end
   end
 
