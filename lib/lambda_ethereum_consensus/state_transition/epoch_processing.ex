@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Mutators
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
   alias SszTypes.Validator
@@ -81,6 +82,103 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     new_randao_mixes = List.replace_at(randao_mixes, index, random_mix)
     new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
     {:ok, new_state}
+  end
+
+  @spec process_registry_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
+  def process_registry_updates(%BeaconState{validators: validators} = state) do
+    ejection_balance = ChainSpec.get("EJECTION_BALANCE")
+    churn_limit = Accessors.get_validator_churn_limit(state)
+    churn_limit_range = 0..(churn_limit - 1)
+
+    validators_list = validators |> Stream.with_index() |> Enum.to_list()
+
+    case activation_eligibility_and_ejections(validators_list, state, ejection_balance) do
+      {:ok, {new_state, updated_validators_list}} ->
+        {state_with_activated_validators, _} =
+          updated_validators_list
+          |> Stream.with_index()
+          |> Stream.filter(fn {validator, _index} ->
+            Predicates.is_eligible_for_activation(state, validator)
+          end)
+          |> Enum.sort_by(fn {validator, index} ->
+            {validator.activation_eligibility_epoch, index}
+          end)
+          |> Enum.slice(churn_limit_range)
+          |> Enum.reduce({new_state, updated_validators_list}, fn {validator, index},
+                                                                  {state_acc,
+                                                                   updated_validators_list_acc} ->
+            updated_validator = %{
+              validator
+              | activation_epoch:
+                  Misc.compute_activation_exit_epoch(Accessors.get_current_epoch(state_acc))
+            }
+
+            updated_validators_list =
+              List.replace_at(updated_validators_list_acc, index, updated_validator)
+
+            {%{state_acc | validators: updated_validators_list}, updated_validators_list}
+          end)
+
+        {:ok, state_with_activated_validators}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  @spec activation_eligibility_and_ejections(Enum.t(), BeaconState.t(), SszTypes.gwei()) ::
+          {:ok, {BeaconState.t(), Enum.t()}} | {:error, binary()}
+  defp activation_eligibility_and_ejections(validators_list_with_index, state, ejection_balance) do
+    validators_list_with_index
+    |> Enum.reduce_while({:ok, {state, state.validators}}, fn {validator, index},
+                                                              {:ok,
+                                                               {state_acc, validators_list_acc}} ->
+      updated_validator =
+        if Predicates.is_eligible_for_activation_queue(validator) do
+          %{
+            validator
+            | activation_eligibility_epoch: Accessors.get_current_epoch(state_acc) + 1
+          }
+        else
+          validator
+        end
+
+      if Predicates.is_active_validator(
+           updated_validator,
+           Accessors.get_current_epoch(state_acc)
+         ) &&
+           validator.effective_balance <= ejection_balance do
+        initiate_validator_exit(state_acc, index, validators_list_acc, updated_validator)
+      else
+        updated_validators_list = List.replace_at(validators_list_acc, index, updated_validator)
+
+        {:cont,
+         {:ok, {%{state_acc | validators: updated_validators_list}, updated_validators_list}}}
+      end
+    end)
+  end
+
+  @spec initiate_validator_exit(BeaconState.t(), integer, Enum.t(), Validator.t()) ::
+          {:cont, {:ok, {BeaconState.t(), Enum.t()}}} | {:halt, {:error, binary()}}
+  defp initiate_validator_exit(state_acc, index, validators_list_acc, updated_validator) do
+    case Mutators.initiate_validator_exit(
+           state_acc,
+           index
+         ) do
+      {:ok, validator_exit} ->
+        updated_validators_list =
+          List.replace_at(
+            validators_list_acc,
+            index,
+            Map.merge(updated_validator, validator_exit)
+          )
+
+        {:cont,
+         {:ok, {%{state_acc | validators: updated_validators_list}, updated_validators_list}}}
+
+      {:error, reason} ->
+        {:halt, {:error, reason}}
+    end
   end
 
   @spec process_participation_flag_updates(BeaconState.t()) :: {:ok, BeaconState.t()}

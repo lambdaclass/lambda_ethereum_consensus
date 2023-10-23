@@ -8,4 +8,7 @@ defmodule Constants do
 
   @spec timely_target_flag_index() :: integer
   def timely_target_flag_index, do: 1
+
+  @spec far_future_epoch() :: integer
+  def far_future_epoch, do: 2 ** 64 - 1
 end
