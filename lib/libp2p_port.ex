@@ -131,8 +131,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec send_response(GenServer.server(), String.t(), binary()) ::
           :ok | {:error, String.t()}
-  def send_response(pid \\ __MODULE__, message_id, response) do
-    c = %SendResponse{message_id: message_id, message: response}
+  def send_response(pid \\ __MODULE__, request_id, response) do
+    c = %SendResponse{request_id: request_id, message: response}
     call_command(pid, {:send_response, c})
   end
 
@@ -185,7 +185,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Sets the receiver of new peer notifications.
   If `nil`, notifications are disabled.
   """
-  @spec validate_message(GenServer.server(), String.t(), :accept | :reject | :ignore) :: :ok
+  @spec validate_message(GenServer.server(), binary(), :accept | :reject | :ignore) :: :ok
   def validate_message(pid \\ __MODULE__, msg_id, validation_result) do
     result =
       case validation_result do
@@ -257,13 +257,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
          %Request{
            protocol_id: protocol_id,
            handler: handler,
-           message_id: message_id,
+           request_id: request_id,
            message: message
          },
          _state
        ) do
     handler_pid = :erlang.binary_to_term(handler)
-    send(handler_pid, {:request, {protocol_id, message_id, message}})
+    send(handler_pid, {:request, {protocol_id, request_id, message}})
   end
 
   defp handle_notification(%NewPeer{peer_id: _peer_id}, %{new_peer_handler: nil}), do: :ok

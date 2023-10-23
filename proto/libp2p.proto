@@ -40,7 +40,7 @@ message SendRequest {
 }
 
 message SendResponse {
-    string message_id = 1;
+    string request_id = 1;
     bytes message = 2;
 }
 
@@ -58,7 +58,7 @@ enum ValidationResult {
 }
 
 message ValidateMessage {
-    string msg_id = 1;
+    bytes msg_id = 1;
     ValidationResult result = 2;
 }
 
@@ -83,7 +83,7 @@ message GossipSub {
     // PID of the subscribed process.
     bytes handler = 2;
     // Message's unique ID.
-    string msg_id = 3;
+    bytes msg_id = 3;
     // Compressed and ssz encoded message.
     bytes message = 4;
 }
@@ -92,7 +92,7 @@ message GossipSub {
 message Request {
     string protocol_id = 1;
     bytes handler = 2;
-    string message_id = 3;
+    string request_id = 3;
     bytes message = 4;
 }
 

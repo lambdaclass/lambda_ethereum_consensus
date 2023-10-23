@@ -93,10 +93,11 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	}
 	port := s.port
 	validator := func(ctx context.Context, p peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
-		notification := proto_helpers.GossipNotification(topicName, handler, msg.ID, msg.Data)
+		id := []byte(msg.ID)
+		notification := proto_helpers.GossipNotification(topicName, handler, id, msg.Data)
 		port.SendNotification(&notification)
 		ch := make(chan pubsub.ValidationResult)
-		s.pendingMessages.Store(msg.ID, ch)
+		s.pendingMessages.Store(id, ch)
 		return <-ch
 	}
 	s.gsub.RegisterTopicValidator(topicName, validator)
@@ -119,7 +120,7 @@ func (s *Subscriber) Unsubscribe(topicName string) {
 	sub.Topic.Close()
 }
 
-func (s *Subscriber) Validate(msgId string, intResult int) {
+func (s *Subscriber) Validate(msgId []byte, intResult int) {
 	result := pubsub.ValidationResult(intResult)
 	ch, loaded := s.pendingMessages.LoadAndDelete(msgId)
 	if !loaded {

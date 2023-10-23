@@ -20,7 +20,7 @@ func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 	}
 }
 
-func GossipNotification(topic string, handler []byte, msgId string, message []byte) proto_defs.Notification {
+func GossipNotification(topic string, handler, msgId, message []byte) proto_defs.Notification {
 	gossipSubNotification := &proto_defs.GossipSub{Topic: topic, Handler: handler, MsgId: msgId, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Gossip{Gossip: gossipSubNotification}}
 }
@@ -31,7 +31,7 @@ func NewPeerNotification(id []byte) proto_defs.Notification {
 }
 
 func RequestNotification(protocolId string, handler []byte, messageId string, message []byte) proto_defs.Notification {
-	requestNotification := &proto_defs.Request{ProtocolId: protocolId, Handler: handler, MessageId: messageId, Message: message}
+	requestNotification := &proto_defs.Request{ProtocolId: protocolId, Handler: handler, RequestId: messageId, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Request{Request: requestNotification}}
 }
 
