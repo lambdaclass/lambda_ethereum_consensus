@@ -12,11 +12,6 @@ defmodule LambdaEthereumConsensus.Application do
     {args, _remaining_args, _errors} =
       OptionParser.parse(System.argv(), switches: [checkpoint_sync: :string])
 
-    if not Keyword.has_key?(args, :checkpoint_sync) do
-      Logger.error("No checkpoint sync url provided.")
-      :init.stop(1)
-    end
-
     config = Application.get_env(:lambda_ethereum_consensus, :discovery)
     port = Keyword.get(config, :port, 9000)
     bootnodes = Keyword.get(config, :bootnodes, [])
@@ -33,7 +28,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequestHandler, []},
-      {LambdaEthereumConsensus.ForkChoice, [Keyword.fetch!(args, :checkpoint_sync)]},
+      {LambdaEthereumConsensus.ForkChoice, [Keyword.get(args, :checkpoint_sync)]},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
       # Start the Endpoint (http/https)
