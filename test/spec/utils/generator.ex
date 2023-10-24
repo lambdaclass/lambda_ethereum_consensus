@@ -2,26 +2,15 @@ defmodule SpecTestGenerator do
   @moduledoc """
   Generator for running the spec tests.
   """
-  @runner_map %{
-    "ssz_static" => SSZStaticTestRunner,
-    "bls" => BLSTestRunner,
-    "operations" => OperationsTestRunner,
-    "epoch_processing" => EpochProcessingTestRunner
-  }
 
-  @vectors_dir SpecTestUtils.get_vectors_dir()
+  @vectors_dir SpecTestUtils.vectors_dir()
 
-  def all_cases do
-    [@vectors_dir]
-    |> Stream.concat(["*"] |> Stream.cycle() |> Stream.take(6))
-    |> Enum.join("/")
-    |> Path.wildcard()
+  def to_cases(case_files) do
+    case_files
     |> Stream.map(&Path.relative_to(&1, @vectors_dir))
     |> Stream.map(&Path.split/1)
     |> Enum.map(&SpecTestCase.new/1)
   end
-
-  def runner_map, do: @runner_map
 
   # To filter tests, use:
   #  (only spectests) ->
@@ -35,40 +24,10 @@ defmodule SpecTestGenerator do
   #
   # Tests are too many to run all at the same time. We should pin a
   # `config` (and `fork` in the case of `minimal`).
-  defmacro generate_tests(pinned_config, pinned_fork \\ "") do
-    quote bind_quoted: [
-            vectors_dir: @vectors_dir,
-            pinned_config: pinned_config,
-            pinned_fork: pinned_fork
-          ] do
-      # spec-tests can't be run in parallel since they depend on global config
-      use ExUnit.Case, async: false
-
-      paths = Path.wildcard("#{vectors_dir}/#{pinned_config}/#{pinned_fork}/**")
-      paths_hash = :erlang.md5(paths)
-
-      for path <- paths do
-        @external_resource path
-      end
-
-      # Recompile module only if corresponding dir layout changed
-      def __mix_recompile__? do
-        Path.wildcard(unquote("#{vectors_dir}/#{pinned_config}/#{pinned_fork}/**"))
-        |> :erlang.md5() != unquote(paths_hash)
-      end
-
-      config = SpecTestUtils.get_config(pinned_config)
-
-      setup_all do
-        Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: unquote(config))
-      end
-
-      for testcase <- SpecTestGenerator.all_cases(),
-          pinned_fork in [testcase.fork, ""],
-          testcase.config == pinned_config do
+  defmacro generate_tests(paths, runner_module) do
+    quote do
+      for testcase <- paths |> to_cases() do
         test_name = SpecTestCase.name(testcase)
-
-        test_runner = Map.get(SpecTestGenerator.runner_map(), testcase.runner)
 
         @tag :spectest
         @tag config: testcase.config,
@@ -76,18 +35,14 @@ defmodule SpecTestGenerator do
              runner: testcase.runner,
              handler: testcase.handler,
              suite: testcase.suite
-        if test_runner == nil do
+        if test_runner.skip?(testcase) do
           @tag :skip
-          test test_name
-        else
-          if test_runner.skip?(testcase) do
-            @tag :skip
-          end
+        end
 
-          @tag :implemented_spectest
-          test test_name do
-            unquote(test_runner).run_test_case(unquote(Macro.escape(testcase)))
-          end
+        @tag :implemented_spectest
+        test test_name do
+          Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: testcase.config)
+          unquote(runner_module).run_test_case(unquote(Macro.escape(testcase)))
         end
       end
     end

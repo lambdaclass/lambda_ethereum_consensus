@@ -3,7 +3,10 @@ defmodule SpecTestUtils do
   Utilities for spec tests.
   """
 
-  def get_vectors_dir, do: "test/spec/vectors/tests"
+  @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
+  @pinned_fork "capella"
+
+  def vectors_dir, do: @vectors_dir
 
   def parse_yaml(map) when is_map(map) do
     map

@@ -1,7 +1,7 @@
 defmodule EpochProcessingTestRunner do
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
 
-  use ExUnit.CaseTemplate
+  use ExUnit.Case
   use TestRunner
 
   @moduledoc """
