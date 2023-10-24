@@ -18,20 +18,23 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         Logger.info("[Checkpoint sync] Received beacon state at slot #{anchor_state.slot}.")
 
         {:ok, anchor_block} = fetch_anchor_block(anchor_state, host)
-
-        children = [
-          {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block}},
-          {LambdaEthereumConsensus.ForkChoice.Tree, []}
-        ]
-
-        Supervisor.init(children, strategy: :one_for_all)
+        init_children(anchor_state, anchor_block)
 
       {:error, _} ->
         :ignore
     end
   end
 
-  def fetch_anchor_block(%SszTypes.BeaconState{} = anchor_state, host) do
+  defp init_children(anchor_state, anchor_block) do
+    children = [
+      {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block}},
+      {LambdaEthereumConsensus.ForkChoice.Tree, []}
+    ]
+
+    Supervisor.init(children, strategy: :one_for_all)
+  end
+
+  defp fetch_anchor_block(%SszTypes.BeaconState{} = anchor_state, host) do
     {:ok, state_root} = Ssz.hash_tree_root(anchor_state)
 
     # The latest_block_header.state_root was zeroed out to avoid circular dependencies
