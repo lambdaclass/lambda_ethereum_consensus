@@ -22,6 +22,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
   @doc """
   If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
+  Check if ``validator`` is eligible to be placed into the activation queue.
+  """
+  @spec is_eligible_for_activation_queue(Validator.t()) :: boolean
+  def is_eligible_for_activation_queue(%Validator{} = validator) do
+    far_future_epoch = Constants.far_future_epoch()
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+
+    validator.activation_eligibility_epoch == far_future_epoch &&
+      validator.effective_balance == max_effective_balance
+  end
+
+  @doc """
+  Check if ``validator`` is eligible for activation.
+  """
+  @spec is_eligible_for_activation(BeaconState.t(), Validator.t()) :: boolean
+  def is_eligible_for_activation(%BeaconState{} = state, %Validator{} = validator) do
+    far_future_epoch = Constants.far_future_epoch()
+
+    validator.activation_eligibility_epoch <= state.finalized_checkpoint.epoch &&
+      validator.activation_epoch == far_future_epoch
+  end
+
+  @doc """
+  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs 
   (that is, four epochs), then the chain enters the inactivity leak.
   """
   @spec is_in_inactivity_leak(BeaconState.t()) :: boolean

@@ -11,4 +11,8 @@ defmodule Constants do
 
   @spec eth1_address_withdrawal_prefix() :: binary
   def eth1_address_withdrawal_prefix, do: <<0x01>>
+
+  @spec far_future_epoch() :: integer
+  def far_future_epoch, do: 2 ** 64 - 1
+
 end

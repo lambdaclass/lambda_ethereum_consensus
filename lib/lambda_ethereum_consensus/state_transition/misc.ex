@@ -14,6 +14,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   @doc """
+  Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
+  """
+  @spec compute_activation_exit_epoch(SszTypes.epoch()) :: SszTypes.epoch()
+  def compute_activation_exit_epoch(epoch) do
+    max_seed_lookahead = ChainSpec.get("MAX_SEED_LOOKAHEAD")
+    epoch + 1 + max_seed_lookahead
+  end
+
+  @doc """
      Return the shuffled index corresponding to ``seed`` (and ``index_count``).
   """
   @spec compute_shuffled_index(SszTypes.uint64(), SszTypes.uint64(), SszTypes.bytes32()) ::
