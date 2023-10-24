@@ -105,7 +105,9 @@ defmodule Unit.Libp2pPortTest do
       send(pid, :subscribed)
 
       # Receive the message
-      assert {^topic, ^message} = Libp2pPort.receive_gossip()
+      assert {^topic, message_id, ^message} = Libp2pPort.receive_gossip()
+
+      Libp2pPort.validate_message(message_id, :accept)
 
       # Send acknowledgement
       send(pid, :received)
