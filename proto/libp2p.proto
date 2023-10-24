@@ -52,9 +52,9 @@ message Publish {
 }
 
 enum ValidationResult {
-    VALIDATION_ACCEPT = 0;
-    VALIDATION_REJECT = 1;
-    VALIDATION_IGNORE = 2;
+    accept = 0;
+    reject = 1;
+    ignore = 2;
 }
 
 message ValidateMessage {

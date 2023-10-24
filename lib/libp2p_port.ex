@@ -186,14 +186,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   If `nil`, notifications are disabled.
   """
   @spec validate_message(GenServer.server(), binary(), :accept | :reject | :ignore) :: :ok
-  def validate_message(pid \\ __MODULE__, msg_id, validation_result) do
-    result =
-      case validation_result do
-        :accept -> :VALIDATION_ACCEPT
-        :reject -> :VALIDATION_REJECT
-        :ignore -> :VALIDATION_IGNORE
-      end
-
+  def validate_message(pid \\ __MODULE__, msg_id, result) do
     cast_command(pid, {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
   end
 
