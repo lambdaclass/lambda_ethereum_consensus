@@ -8,4 +8,7 @@ defmodule Constants do
 
   @spec timely_target_flag_index() :: integer
   def timely_target_flag_index, do: 1
+
+  @spec eth1_address_withdrawal_prefix() :: binary
+  def eth1_address_withdrawal_prefix, do: <<0x01>>
 end

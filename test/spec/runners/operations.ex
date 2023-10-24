@@ -47,7 +47,7 @@ defmodule OperationsTestRunner do
     "voluntary_exit",
     "sync_aggregate",
     # "execution_payload",
-    "withdrawals",
+    # "withdrawals",
     "bls_to_execution_change"
   ]
 
@@ -88,5 +88,12 @@ defmodule OperationsTestRunner do
       |> SpecTestUtils.parse_yaml()
 
     assert true
+  end
+
+  defp handle_case("withdrawals", pre, operation, post, case_dir) do
+    %{execution_valid: _execution_valid} =
+      YamlElixir.read_from_file!(case_dir <> "/withdrawals.yaml")
+      |> SpecTestUtils.parse_yaml()
+      assert true
   end
 end

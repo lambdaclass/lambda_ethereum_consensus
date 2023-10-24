@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias SszTypes.BeaconState
   alias SszTypes.Validator
+
   import Bitwise
 
   @doc """
@@ -20,7 +21,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
-  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs 
+  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
   (that is, four epochs), then the chain enters the inactivity leak.
   """
   @spec is_in_inactivity_leak(BeaconState.t()) :: boolean
@@ -36,5 +37,42 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   def has_flag(participation_flags, flag_index) do
     flag = 2 ** flag_index
     (participation_flags &&& flag) === flag
+  end
+
+  @doc """
+    Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
+  """
+  @spec has_eth1_withdrawal_credential(Validator.t()) :: boolean
+  def has_eth1_withdrawal_credential(%Validator{withdrawal_credentials: withdrawal_credentials}) do
+    eth1_address_withdrawal_prefix = Constants.eth1_address_withdrawal_prefix()
+    <<first_byte_of_withdrawal_credentials::binary-size(1), _::binary>> = withdrawal_credentials
+    first_byte_of_withdrawal_credentials == eth1_address_withdrawal_prefix
+  end
+
+  @doc """
+    Check if ``validator`` is fully withdrawable.
+  """
+  @spec is_fully_withdrawable_validator(Validator.t(), SszTypes.gwei(), SszTypes.epoch()) ::
+          boolean
+  def is_fully_withdrawable_validator(
+        %Validator{withdrawable_epoch: withdrawable_epoch} = validator,
+        balance,
+        epoch
+      ) do
+    has_eth1_withdrawal_credential(validator) and withdrawable_epoch <= epoch and balance > 0
+  end
+
+  @doc """
+    Check if ``validator`` is partially withdrawable.
+  """
+  @spec is_partially_withdrawable_validator(Validator.t(), SszTypes.gwei()) :: boolean
+  def is_partially_withdrawable_validator(
+        %Validator{effective_balance: effective_balance} = validator,
+        balance
+      ) do
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+    has_max_effective_balance = effective_balance == max_effective_balance
+    has_excess_balance = balance > max_effective_balance
+    has_eth1_withdrawal_credential(validator) and has_max_effective_balance and has_excess_balance
   end
 end
