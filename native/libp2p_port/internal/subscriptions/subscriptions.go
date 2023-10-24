@@ -97,7 +97,8 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 		notification := proto_helpers.GossipNotification(topicName, handler, id, msg.Data)
 		port.SendNotification(&notification)
 		ch := make(chan pubsub.ValidationResult)
-		s.pendingMessages.Store(id, ch)
+		// NOTE: we use strings because []byte is mutable
+		s.pendingMessages.Store(string(id), ch)
 		return <-ch
 	}
 	s.gsub.RegisterTopicValidator(topicName, validator)
@@ -122,7 +123,8 @@ func (s *Subscriber) Unsubscribe(topicName string) {
 
 func (s *Subscriber) Validate(msgId []byte, intResult int) {
 	result := pubsub.ValidationResult(intResult)
-	ch, loaded := s.pendingMessages.LoadAndDelete(msgId)
+	// NOTE: we use strings because []byte is mutable
+	ch, loaded := s.pendingMessages.LoadAndDelete(string(msgId))
 	if !loaded {
 		return
 	}

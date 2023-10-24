@@ -149,7 +149,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Returns the next gossipsub message received by the server for subscribed topics
   on the current process. If there are none, it waits for one.
   """
-  @spec receive_gossip() :: {String.t(), binary()}
+  @spec receive_gossip() :: {String.t(), binary(), binary()}
   def receive_gossip do
     receive do
       {:gossipsub, {_topic_name, _msg_id, _message} = m} -> m
@@ -272,16 +272,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     send(handler, {:new_peer, peer_id})
   end
 
-  defp handle_notification(%Result{from: from, result: result}, _state) do
-    case from do
-      nil ->
-        success_txt = if match?({:ok, _}, result), do: "success", else: "failed"
-        Logger.info("[Result] #{success_txt}")
+  defp handle_notification(%Result{from: "", result: result}, _state) do
+    # TODO: amount of failures would be a useful metric
+    _success_txt = if match?({:ok, _}, result), do: "success", else: "failed"
+  end
 
-      from ->
-        pid = :erlang.binary_to_term(from)
-        send(pid, {:response, result})
-    end
+  defp handle_notification(%Result{from: from, result: result}, _state) do
+    pid = :erlang.binary_to_term(from)
+    send(pid, {:response, result})
   end
 
   defp parse_args(args) do

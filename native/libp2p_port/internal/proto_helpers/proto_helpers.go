@@ -30,8 +30,8 @@ func NewPeerNotification(id []byte) proto_defs.Notification {
 	return proto_defs.Notification{N: &proto_defs.Notification_NewPeer{NewPeer: newPeerNotification}}
 }
 
-func RequestNotification(protocolId string, handler []byte, messageId string, message []byte) proto_defs.Notification {
-	requestNotification := &proto_defs.Request{ProtocolId: protocolId, Handler: handler, RequestId: messageId, Message: message}
+func RequestNotification(protocolId string, handler []byte, requestId string, message []byte) proto_defs.Notification {
+	requestNotification := &proto_defs.Request{ProtocolId: protocolId, Handler: handler, RequestId: requestId, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Request{Request: requestNotification}}
 }
 
