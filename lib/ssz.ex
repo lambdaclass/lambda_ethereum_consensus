@@ -142,10 +142,8 @@ defmodule Ssz do
   def decode(encoded, :uint128), do: decode(encoded, {:uint, 128})
   def decode(encoded, :uint256), do: decode(encoded, {:uint, 256})
 
-  def decode(encoded, {:uint, size}) when is_integer(size) do
-    <<encoded::binary-size(size / 8)>> = encoded
-    value = :binary.decode_unsigned(encoded, :little)
-    {:ok, value}
+  def decode(<<num::little-unsigned-integer-size(size)>>, {:uint, size}) when is_integer(size) do
+    {:ok, num}
   end
 
   def decode(encoded, :boolean) do
