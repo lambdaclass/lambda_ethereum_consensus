@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Misc functions
   """
   import Bitwise
+  alias SszTypes.BeaconState
 
   @doc """
   Returns the epoch number at slot.
@@ -116,6 +117,34 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   def compute_start_slot_at_epoch(epoch) do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
     epoch * slots_per_epoch
+  end
+
+  @doc """
+  Return from ``indices`` a random index sampled by effective balance.
+  """
+  @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
+          SszTypes.validator_index()
+  def compute_proposer_index(state, indices, seed)
+      when is_list(indices) and length(indices) > 0 do
+    compute_proposer_index(state, indices, seed, 0)
+  end
+
+  defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
+    max_random_byte = ChainSpec.get("MAX_RANDOM_BYTE")
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+
+    total = length(indices)
+    candidate_index = Enum.at(indices, compute_shuffled_index(rem(i, total), total, seed))
+    random_byte = :crypto.hash(:sha256, seed <> uint_to_bytes4(div(i, 32)))
+    random_byte = <<_::binary-size(rem(i, 32)), byte, _::binary>>
+
+    effective_balance = Enum.at(state.validators, candidate_index).effective_balance
+
+    if effective_balance * max_random_byte >= max_effective_balance * random_byte do
+      candidate_index
+    else
+      compute_proposer_index(state, indices, seed, i + 1)
+    end
   end
 
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
