@@ -2,7 +2,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @moduledoc """
   Misc functions
   """
-  import Bitwise
 
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.Beacon.HelperFunctions
