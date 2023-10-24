@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @moduledoc """
   Misc functions
   """
+  import Bitwise
 
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.Beacon.HelperFunctions
@@ -14,6 +15,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   def compute_epoch_at_slot(slot) do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
     div(slot, slots_per_epoch)
+  end
+
+  @doc """
+  Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
+  """
+  @spec compute_activation_exit_epoch(SszTypes.epoch()) :: SszTypes.epoch()
+  def compute_activation_exit_epoch(epoch) do
+    max_seed_lookahead = ChainSpec.get("MAX_SEED_LOOKAHEAD")
+    epoch + 1 + max_seed_lookahead
   end
 
   @doc """
@@ -48,7 +58,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
           :crypto.hash(:sha256, seed <> round_as_bytes <> position_div_256)
 
         byte_index = div(rem(position, 256), 8)
-        byte = source |> :binary.bin_to_list() |> Enum.fetch!(byte_index)
+        <<_::binary-size(byte_index), byte, _::binary>> = source
         right_shift = byte >>> rem(position, 8)
         bit = rem(right_shift, 2)
 
@@ -115,14 +125,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
   defp bytes_to_uint64(value) do
     # Converts a binary value to a 64-bit unsigned integer
-    <<first_8_bytes::binary-size(8), _::binary>> = value
-    first_8_bytes |> :binary.decode_unsigned(:little)
+    <<first_8_bytes::unsigned-integer-little-size(64), _::binary>> = value
+    first_8_bytes
   end
 
   @spec uint_to_bytes4(integer()) :: SszTypes.bytes4()
   defp uint_to_bytes4(value) do
     # Converts an unsigned integer value to a bytes 4 value
-    <<value::32>> |> :binary.bin_to_list() |> Enum.reverse() |> :binary.list_to_bin()
+    <<value::unsigned-integer-little-size(32)>>
   end
 
   @doc """

@@ -42,4 +42,7 @@ defmodule Constants do
 
   @spec timely_head_weight() :: integer
   def timely_head_weight, do: 14
+
+  @spec far_future_epoch() :: integer
+  def far_future_epoch, do: 2 ** 64 - 1
 end
