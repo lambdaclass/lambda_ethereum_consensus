@@ -90,10 +90,7 @@ defmodule Ssz do
   def encode(value, :uint256) when is_integer(value), do: encode(value, {:uint, 256})
 
   def encode(value, {:uint, size}) when is_integer(value) and is_integer(size) do
-    <<encoded::binary-size(size / 8)>> =
-      value
-      |> :binary.encode_unsigned(:little)
-      |> String.pad_trailing(size / 8, <<0>>)
+    <<encoded::little-unsigned-integer-size(size)>> = value
 
     {:ok, encoded}
   end
