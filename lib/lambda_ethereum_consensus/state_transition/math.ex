@@ -6,7 +6,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Math do
   @spec uint_to_bytes(SszTypes.uint64()) :: binary
   def uint_to_bytes(value) when is_integer(value) do
     byte_size = calculate_byte_size(value)
-    big_endian_bytes = <<value::size(byte_size*8)>>
+    big_endian_bytes = <<value::size(byte_size * 8)>>
+
     big_endian_bytes
     |> :binary.bin_to_list()
     |> Enum.reverse()
@@ -14,11 +15,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Math do
   end
 
   defp calculate_byte_size(0), do: 1
+
   defp calculate_byte_size(n) when n > 0 do
     calculate_byte_size(n, 0)
   end
 
   defp calculate_byte_size(0, size), do: size
+  
   defp calculate_byte_size(n, size) do
     calculate_byte_size(div(n, 256), size + 1)
   end

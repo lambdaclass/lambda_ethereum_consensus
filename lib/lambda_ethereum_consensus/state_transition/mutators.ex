@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   """
   @spec increase_balance(BeaconState.t(), SszTypes.validator_index(), SszTypes.gwei()) ::
           {:ok, BeaconState.t()}
-  def increase_balance(%BeaconState{ balances: balances } = state, index, delta) do
+  def increase_balance(%BeaconState{balances: balances} = state, index, delta) do
     new_balance = Enum.at(balances, index) + delta
     updated_balances = List.replace_at(balances, index, new_balance)
 

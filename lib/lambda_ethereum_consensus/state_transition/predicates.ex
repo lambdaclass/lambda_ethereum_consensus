@@ -45,7 +45,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
   """
   @spec is_valid_indexed_attestation(BeaconState.t(), IndexedAttestation.t()) :: boolean
-  def is_valid_indexed_attestation(state, indexed_attestation) do
+  def is_valid_indexed_attestation(
+        %BeaconState{validators: validators} = state,
+        indexed_attestation
+      ) do
     # Verify indices are sorted and unique
     indices = indexed_attestation.attesting_indices
 
@@ -59,7 +62,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
     end
 
     # Verify aggregate signature
-    pubkeys = for i <- indices, do: state.validators[i].pubkey
+    pubkeys =
+      Enum.map(indices, fn index ->
+        v = Enum.at(validators, index)
+        v.pubkey
+      end)
 
     domain =
       Accessors.get_domain(

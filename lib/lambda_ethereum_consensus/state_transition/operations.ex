@@ -18,6 +18,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_attestation(state, attestation) do
     data = attestation.data
     beacon_committee = Accessors.get_beacon_committee(state, data.slot, data.index)
+    IO.inspect(beacon_committee)
 
     with :ok <-
            if(
@@ -32,8 +33,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
              else: :ok
            ),
          :ok <-
-           if(data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") > state.slot ||
-                state.slot > data.slot + ChainSpec.get("SLOTS_PER_EPOCH"),
+           if(
+             data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") > state.slot ||
+               state.slot > data.slot + ChainSpec.get("SLOTS_PER_EPOCH"),
              do: {:error, "Inclusion delay not met"},
              else: :ok
            ),
@@ -41,20 +43,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
            if(data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch),
              do: {:error, "Index exceeds committee count"},
              else: :ok
+           ),
+         :ok <-
+           if(
+             byte_size(attestation.aggregation_bits) * 8 !=
+               length(beacon_committee),
+             do: {:error, "Mismatched aggregation bits length"},
+             else: :ok
            ) do
-        #  :ok <-
-        #    if(
-        #      byte_size(attestation.aggregation_bits) !=
-        #        length(beacon_committee),
-        #      do: {:error, "Mismatched aggregation bits length"},
-        #      else: :ok
-        #    ) do
       # Participation flag indices 
       {:ok, participation_flag_indices} =
         Accessors.get_attestation_participation_flag_indices(state, data, state.slot - data.slot)
 
-      IO.inspect(state.slot - data.slot)
-      IO.inspect(participation_flag_indices)
       # Verify signature
       state
       |> Accessors.get_indexed_attestation(attestation)
@@ -70,9 +70,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:error, "Unable to get indexed attestation"}
       end
 
-      # Update epoch participation flags 
+      # Update epoch participation flags
+      is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       initial_epoch_participation =
-        if data.target.epoch == Accessors.get_current_epoch(state) do
+        if is_current_epoch do
           state.current_epoch_participation
         else
           state.previous_epoch_participation
@@ -81,7 +82,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       attesting_indices =
         Accessors.get_attesting_indices(state, data, attestation.aggregation_bits)
 
-      {proposer_reward_numerator, _updated_epoch_participation} =
+      {proposer_reward_numerator, updated_epoch_participation} =
         Enum.reduce(attesting_indices, {0, initial_epoch_participation}, fn index, {acc, ep} ->
           {new_acc, new_ep} =
             Enum.reduce_while(
@@ -91,12 +92,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                 weight = Enum.at(Constants.participation_flag_weights(), flag_index)
 
                 if flag_index in participation_flag_indices &&
-                     not Predicates.has_flag(Enum.at(inner_ep, index), flag_index) do
-                  updated_ep = 
-                    List.replace_at(inner_ep, index, Misc.add_flag(Enum.at(inner_ep, index), flag_index))
+                    not Predicates.has_flag(Enum.at(inner_ep, index), flag_index) do
+                  updated_ep =
+                    List.replace_at(
+                      inner_ep,
+                      index,
+                      Misc.add_flag(Enum.at(inner_ep, index), flag_index)
+                    )
                   acc_delta = Accessors.get_base_reward(state, index) * weight
-                  {:cont,
-                   {inner_acc + acc_delta, updated_ep}}
+                  {:cont, {inner_acc + acc_delta, updated_ep}}
                 else
                   {:cont, {inner_acc, inner_ep}}
                 end
@@ -105,7 +109,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
           {new_acc, new_ep}
         end)
-      IO.inspect(proposer_reward_numerator)
 
       # Reward proposer
       proposer_reward_denominator =
@@ -114,13 +117,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         |> div(Constants.proposer_weight())
 
       proposer_reward = proposer_reward_numerator |> div(proposer_reward_denominator)
-      IO.inspect(proposer_reward)
-      {:ok, updated_state} =
+
+      {:ok, bal_updated_state} =
         Mutators.increase_balance(
           state,
           Accessors.get_beacon_proposer_index(state),
           proposer_reward
         )
+
+      updated_state =
+        if is_current_epoch do
+          %{bal_updated_state | current_epoch_participation: updated_epoch_participation}
+        else
+          %{bal_updated_state | previous_epoch_participation: updated_epoch_participation}
+        end
 
       {:ok, updated_state}
     else

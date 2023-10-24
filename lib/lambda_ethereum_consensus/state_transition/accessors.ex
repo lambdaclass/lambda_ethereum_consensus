@@ -121,10 +121,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   def get_committee_count_per_slot(state, epoch) do
     active_validators_count = length(get_active_validator_indices(state, epoch))
 
-    committee_size = 
+    committee_size =
       active_validators_count
-        |> Kernel.div(ChainSpec.get("SLOTS_PER_EPOCH"))
-        |> Kernel.div(ChainSpec.get("TARGET_COMMITTEE_SIZE"))
+      |> Kernel.div(ChainSpec.get("SLOTS_PER_EPOCH"))
+      |> Kernel.div(ChainSpec.get("TARGET_COMMITTEE_SIZE"))
 
     [ChainSpec.get("MAX_COMMITTEES_PER_SLOT"), committee_size]
     |> Enum.min()
@@ -152,8 +152,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   def get_base_reward_per_increment(state) do
     numerator = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT") * Constants.base_reward_factor()
     denominator = Math.integer_squareroot(get_total_active_balance(state))
-    IO.inspect(numerator)
-    IO.inspect(denominator)
     div(numerator, denominator)
   end
 
@@ -164,6 +162,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   def get_base_reward(state, index) do
     validator = Enum.at(state.validators, index)
     effective_balance = validator.effective_balance
+
     increments =
       div(
         effective_balance,
@@ -308,9 +307,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     bit_list = bitstring_to_list(bits)
 
     committee
-    |> Enum.with_index()
-    |> Enum.filter(fn {_index, i} -> Enum.at(bit_list, i) end)
-    |> Enum.map(fn {_, index} -> index end)
+    |> Stream.with_index()
+    |> Stream.filter(fn {_, i} -> Enum.at(bit_list, i) end)
+    |> Stream.map(fn {index, _i} -> index end)
     |> MapSet.new()
   end
 
@@ -346,7 +345,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       indices
       |> Enum.map(fn index -> Map.get(Enum.at(state.validators, index), :effective_balance, 0) end)
       |> Enum.sum()
-    IO.inspect(total_balance)
+
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
   end
 

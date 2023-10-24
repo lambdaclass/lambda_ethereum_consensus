@@ -28,7 +28,8 @@ defmodule Constants do
   def weight_denominator, do: 64
 
   @spec participation_flag_weights() :: list(integer)
-  def participation_flag_weights, do: [timely_source_weight(), timely_target_weight(), timely_head_weight()]
+  def participation_flag_weights,
+    do: [timely_source_weight(), timely_target_weight(), timely_head_weight()]
 
   @spec base_reward_factor() :: integer
   def base_reward_factor, do: 64

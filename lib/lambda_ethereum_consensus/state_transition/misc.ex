@@ -137,7 +137,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
           list(SszTypes.validator_index())
   def compute_committee(indices, seed, index, count) do
     start_ = div(length(indices) * index, count)
-    # Subtract 1 since ranges are inclusive
+    # Subtract 1 to ensure exclusion of the last index
     end_ = div(length(indices) * (index + 1), count) - 1
 
     Enum.map(start_..end_, fn i ->
