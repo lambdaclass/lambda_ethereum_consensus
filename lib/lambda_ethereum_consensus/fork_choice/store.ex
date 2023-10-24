@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice.Utils
-  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias SszTypes.BeaconBlock
   alias SszTypes.BeaconState
   alias SszTypes.Store
@@ -52,6 +52,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   @impl GenServer
   @spec init({BeaconState.t(), BeaconBlock.t()}) :: {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, anchor_block = %BeaconBlock{}}) do
+    # TODO: this should be done after validation
+    :ok = StateStore.store_state(anchor_state)
+    :ok = BlockStore.store_block(anchor_block)
+
     case Utils.get_forkchoice_store(anchor_state, anchor_block) do
       {:ok, store = %Store{}} ->
         Logger.info("[Fork choice] Initialized store.")
