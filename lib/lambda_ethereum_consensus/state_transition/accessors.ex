@@ -139,4 +139,37 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       Constants.min_per_epoch_churn_limit()
     end
   end
+
+  @doc """
+  Return the seed at ``epoch``.
+  """
+  @spec get_seed(BeaconState.t(), SszTypes.epoch(), SszTypes.domain_type()) :: SszTypes.bytes32()
+  def get_seed(state, epoch, domain_type) do
+    mix =
+      get_randao_mix(
+        state,
+        epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
+          ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
+      )
+
+    :crypto.hash(:sha256, domain_type <> Misc.uint_to_bytes4(epoch) <> mix)
+  end
+
+  @doc """
+  Return the beacon proposer index at the current slot.
+  """
+  @spec get_beacon_proposer_index(BeaconState.t()) :: SszTypes.validator_index()
+  def get_beacon_proposer_index(state) do
+    epoch = get_current_epoch(state)
+
+    seed =
+      :crypto.hash(
+        :sha256,
+        get_seed(state, epoch, ChainSpec.get("DOMAIN_BEACON_PROPOSER")) <>
+          Misc.uint_to_bytes4(state.slot)
+      )
+
+    indices = get_active_validator_indices(state, epoch)
+    Misc.compute_proposer_index(state, indices, seed)
+  end
 end
