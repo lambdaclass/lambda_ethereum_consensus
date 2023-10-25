@@ -12,6 +12,9 @@ defmodule SpecTestUtils do
     |> then(&[@vectors_dir | &1])
     |> Path.join()
     |> Path.wildcard()
+    |> Stream.map(&Path.relative_to(&1, SpecTestUtils.vectors_dir()))
+    |> Stream.map(&Path.split/1)
+    |> Enum.map(&SpecTestCase.new/1)
   end
 
   def parse_yaml(map) when is_map(map) do
