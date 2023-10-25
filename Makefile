@@ -77,7 +77,7 @@ PORT_SOURCES := $(shell find native/libp2p_port -type f)
 $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
 	cd native/libp2p_port; go build -o ../../$(OUTPUT_DIR)/libp2p_port
 
-compile-port: $(OUTPUT_DIR)/libp2p_port
+compile-port: $(OUTPUT_DIR)/libp2p_port proto
 
 # Start application with Beacon API.
 start: compile-native compile-port
@@ -125,8 +125,8 @@ fmt:
 	cd native/ssz_nif; cargo fmt
 	cd native/bls_nif; cargo fmt
 
-# Generate protobof code
-proto:
+# Generate protobuf code
+proto: proto/libp2p.proto
 	sh scripts/make_protos.sh
 
 nix:
