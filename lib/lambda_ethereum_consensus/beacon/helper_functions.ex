@@ -29,4 +29,18 @@ defmodule LambdaEthereumConsensus.Beacon.HelperFunctions do
     compute_fork_data_root(current_version, genesis_validators_root)
     |> binary_part(0, 4)
   end
+
+  @doc """
+  Return the signing root for the corresponding signing data.
+  """
+  @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
+  def compute_signing_root(ssz_object, domain) do
+    {:ok, root} =
+      Ssz.hash_tree_root(%SszTypes.SigningData{
+        object_root: hash_tree_root(ssz_object),
+        domain: domain
+      })
+
+    root
+  end
 end
