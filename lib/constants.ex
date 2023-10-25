@@ -26,4 +26,10 @@ defmodule Constants do
 
   @spec domain_beacon_proposer() :: BitString
   def domain_beacon_proposer, do: <<0, 0, 0, 0>>
+
+  @spec proposer_weight() :: integer
+  def proposer_weight, do: 8
+
+  @spec weight_denominator() :: integer
+  def weight_denominator, do: 64
 end
