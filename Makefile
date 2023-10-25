@@ -41,7 +41,7 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 
 PORT_SOURCES := $(shell find native/libp2p_port -type f)
 
-$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) proto
+$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
 	cd native/libp2p_port; go build -o ../../$@
 
 
@@ -81,7 +81,7 @@ clean:
 # Compile C and Go artifacts.
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
-compile-port: $(OUTPUT_DIR)/libp2p_port
+compile-port: $(OUTPUT_DIR)/libp2p_port proto
 
 
 # Start application with Beacon API.
