@@ -41,8 +41,8 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 
 PORT_SOURCES := $(shell find native/libp2p_port -type f)
 
-$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
-	cd native/libp2p_port; go build -o ../../$(OUTPUT_DIR)/libp2p_port
+$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) proto
+	cd native/libp2p_port; go build -o ../../$@
 
 
 ##### SPEC TEST VECTORS #####
@@ -128,8 +128,8 @@ fmt:
 	cd native/ssz_nif; cargo fmt
 	cd native/bls_nif; cargo fmt
 
-# Generate protobof code
-proto:
+# Generate protobuf code
+proto: proto/libp2p.proto
 	sh scripts/make_protos.sh
 
 nix:
