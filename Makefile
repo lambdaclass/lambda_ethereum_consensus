@@ -36,6 +36,23 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/go_src/utils.c $(GO_ARCHIVES)
 
 
+## PORT
+
+PROTOBUF_EX_FILES := lib/proto/libp2p.pb.ex
+PROTOBUF_GO_FILES := native/libp2p_port/internal/proto/libp2p.pb.go
+
+$(PROTOBUF_GO_FILES): proto/libp2p.proto
+	protoc --go_out=./native/libp2p_port $<
+
+$(PROTOBUF_EX_FILES): proto/libp2p.proto
+	protoc --elixir_out=./lib $<
+
+PORT_SOURCES := $(shell find native/libp2p_port -type f)
+
+$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) $(PROTOBUF_GO_FILES)
+	cd native/libp2p_port; go build -o ../../$(OUTPUT_DIR)/libp2p_port
+
+
 ##### SPEC TEST VECTORS #####
 
 SPECTEST_VERSION := $(shell cat .spectest_version)
@@ -71,24 +88,18 @@ clean:
 # Compile C and Go artifacts.
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
-
-PORT_SOURCES := $(shell find native/libp2p_port -type f)
-
-$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
-	cd native/libp2p_port; go build -o ../../$(OUTPUT_DIR)/libp2p_port
-
-compile-port: $(OUTPUT_DIR)/libp2p_port proto
+compile-port: $(OUTPUT_DIR)/libp2p_port
 
 # Start application with Beacon API.
-start: compile-native compile-port
+start: $(PROTOBUF_EX_FILES) compile-native compile-port
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
-iex: compile-native compile-port
+iex: $(PROTOBUF_EX_FILES) compile-native compile-port
 	iex -S mix
 
 # Run an interactive terminal using checkpoint sync.
-checkpoint-sync: compile-native compile-port
+checkpoint-sync: $(PROTOBUF_EX_FILES) compile-native compile-port
 	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
 # Install mix dependencies.
@@ -104,13 +115,13 @@ deps:
 	mix deps.get
 
 # Run tests
-test: compile-native compile-port
+test: compile-native compile-port $(PROTOBUF_EX_FILES)
 	mix test --no-start --exclude spectest
 
-spec-test: compile-native $(SPECTEST_DIRS)
+spec-test: compile-native $(PROTOBUF_EX_FILES) $(SPECTEST_DIRS)
 	mix test --no-start --only implemented_spectest
 
-spec-test-%: compile-native $(SPECTEST_DIRS)
+spec-test-%: compile-native $(PROTOBUF_EX_FILES) $(SPECTEST_DIRS)
 	mix test --no-start --only runner:$*
 
 lint:
@@ -126,9 +137,7 @@ fmt:
 	cd native/bls_nif; cargo fmt
 
 # Generate protobuf code
-proto: proto/libp2p.proto
-	protoc --go_out=./native/libp2p_port proto/libp2p.proto
-	protoc --elixir_out=./lib proto/libp2p.proto
+proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 
 nix:
 	nix develop
