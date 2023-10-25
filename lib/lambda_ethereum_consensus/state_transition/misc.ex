@@ -147,6 +147,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     end
   end
 
+  @doc """
+  Return the domain for the ``domain_type`` and ``fork_version``.
+  """
+  @spec compute_domain(SszTypes.domain_type(), SszTypes.version(), SszTypes.root()) ::
+          SszTypes.domain()
+  def compute_domain(domain_type, fork_version \\ nil, genesis_validators_root \\ nil) do
+    fork_version =
+      if fork_version == nil, do: ChainSpec.get("GENESIS_FORK_VERSION"), else: fork_version
+
+    genesis_validators_root =
+      if genesis_validators_root == nil,
+        do: <<0::8, 0::8, 0::8, 0::8>>,
+        else: genesis_validators_root
+
+    fork_data_root =
+      LambdaEthereumConsensus.Beacon.HelperFunctions.compute_fork_data_root(
+        fork_version,
+        genesis_validators_root
+      )
+
+    <<_::32, remainder::bitstring>> = fork_data_root
+    domain_type <> remainder
+  end
+
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
   defp bytes_to_uint64(value) do
     # Converts a binary value to a 64-bit unsigned integer
