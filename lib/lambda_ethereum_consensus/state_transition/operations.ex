@@ -9,6 +9,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
   alias SszTypes.Attestation
+  alias SszTypes
+  alias Ssz
+  import Bitwise
 
   @doc """
   Process total slashing balances updates during epoch processing
@@ -19,6 +22,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     data = attestation.data
     beacon_committee = Accessors.get_beacon_committee(state, data.slot, data.index)
     IO.inspect(beacon_committee)
+    IO.inspect(attestation.aggregation_bits)
 
     with :ok <-
            if(
@@ -46,7 +50,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
            ),
          :ok <-
            if(
-             byte_size(attestation.aggregation_bits) * 8 !=
+             bit_size(attestation.aggregation_bits) !=
                length(beacon_committee),
              do: {:error, "Mismatched aggregation bits length"},
              else: :ok

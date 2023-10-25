@@ -276,7 +276,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
       )
 
-    :crypto.hash(:sha256, domain_type <> Math.uint_to_bytes(epoch) <> mix)
+    :crypto.hash(:sha256, domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
   end
 
   @doc """
@@ -338,7 +338,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       :crypto.hash(
         :sha256,
         get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
-          Math.uint_to_bytes(state.slot)
+          Misc.uint64_to_bytes(state.slot)
       )
 
     indices = get_active_validator_indices(state, epoch)

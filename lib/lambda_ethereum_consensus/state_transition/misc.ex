@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Misc functions
   """
 
-  alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.Beacon.HelperFunctions
   import Bitwise
 
@@ -134,6 +133,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     <<value::unsigned-integer-little-size(32)>>
   end
 
+  @spec uint64_to_bytes(SszTypes.uint64()) :: <<_::64>>
+  def uint64_to_bytes(value) when is_integer(value) and value >= 0 do
+    <<value::unsigned-big-64>>
+  end
+
   @doc """
   Return the committee corresponding to ``indices``, ``seed``, ``index``, and committee ``count``.
   """
@@ -146,8 +150,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
           list(SszTypes.validator_index())
   def compute_committee(indices, seed, index, count) do
     start_ = div(length(indices) * index, count)
-    # Subtract 1 to ensure exclusion of the last index
-    end_ = div(length(indices) * (index + 1), count) - 1
+    end_ = div(length(indices) * (index + 1), count)
 
     Enum.map(start_..end_, fn i ->
       {:ok, shuffled_index} = compute_shuffled_index(i, length(indices), seed)
@@ -216,7 +219,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     candidate_index = Enum.at(indices, shuffled_index)
 
     random_byte =
-      :crypto.hash(:sha256, seed <> Math.uint_to_bytes(div(i, 32)))
+      :crypto.hash(:sha256, seed <> uint64_to_bytes(div(i, 32)))
       |> :binary.part(rem(i, 32), 1)
       |> :binary.decode_unsigned()
 
