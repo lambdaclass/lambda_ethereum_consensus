@@ -53,13 +53,13 @@ defmodule LambdaEthereumConsensus.Telemetry do
       # ),
 
       # Peer metrics
-      counter("peers.connection.success.id"),
+      counter("peers.connection.success.count"),
 
       # VM Metrics
-      summary("vm.memory.total", unit: {:byte, :kilobyte}),
-      summary("vm.total_run_queue_lengths.total"),
-      summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io")
+      last_value("vm.memory.total"),
+      last_value("vm.total_run_queue_lengths.total"),
+      last_value("vm.total_run_queue_lengths.cpu"),
+      last_value("vm.total_run_queue_lengths.io")
     ]
   end
 
