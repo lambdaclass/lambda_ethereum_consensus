@@ -38,15 +38,18 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:broadway, "~> 1.0"},
       {:snappyer, "~> 1.2"},
       {:yaml_elixir, "~> 2.8"},
-      {:stream_data, "~> 0.6", only: [:test]},
-      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:timex, "~> 3.7"},
       {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.12.0"},
       {:uuid, "~> 1.1"},
-      {:patch, "~> 0.12.0", only: [:test]}
+      {:telemetry, "~> 1.0"},
+      {:telemetry_poller, "~> 1.0"},
+      {:telemetry_metrics, "~> 0.6"},
+      {:patch, "~> 0.12.0", only: [:test]},
+      {:stream_data, "~> 0.6", only: [:test]},
+      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 

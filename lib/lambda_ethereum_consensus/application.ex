@@ -32,7 +32,8 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
       # Start the Endpoint (http/https)
-      BeaconApi.Endpoint
+      {BeaconApi.Endpoint, []},
+      {LambdaEthereumConsensus.Telemetry, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
