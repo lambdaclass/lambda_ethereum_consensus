@@ -43,7 +43,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
-  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs 
+  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
   (that is, four epochs), then the chain enters the inactivity leak.
   """
   @spec is_in_inactivity_leak(BeaconState.t()) :: boolean
@@ -59,5 +59,24 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   def has_flag(participation_flags, flag_index) do
     flag = 2 ** flag_index
     (participation_flags &&& flag) === flag
+  end
+
+  @doc """
+  Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG rules.
+  """
+  @spec is_slashable_attestation_data(SszTypes.AttestationData.t(), SszTypes.AttestationData.t()) ::
+          boolean
+  def is_slashable_attestation_data(data_1, data_2) do
+    (data_1 != data_2 and data_1.target.epoch == data_2.target.epoch) or
+      (data_1.source.epoch < data_2.source.epoch and data_2.target.epoch < data_1.target.epoch)
+  end
+
+  @doc """
+  Check if ``validator`` is slashable.
+  """
+  @spec is_slashable_validator(Validator.t(), SszTypes.epoch()) :: boolean
+  def is_slashable_validator(validator, epoch) do
+    not validator.slashed and
+      (validator.activation_epoch <= epoch and epoch < validator.withdrawable_epoch)
   end
 end
