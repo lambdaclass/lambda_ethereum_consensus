@@ -4,30 +4,39 @@ defmodule Mix.Tasks.GenerateSpecTests do
 
   @runners ["bls", "epoch_processing", "operations", "shuffling", "ssz_static"]
   @configs ["mainnet", "minimal"]
+  @forks ["altair", "deneb", "phase0"]
 
   @shortdoc "Generates tests for spec test files"
   def run(_args) do
-    for config <- @configs,
-        runner <- @runners do
-          # Create the parent dir if not present.
-          dirname = Path.join(["test", "generated", config])
-          File.mkdir_p!(dirname)
+    for config <- @configs, runner <- @runners do
+          generate_test(config, "capella", runner)
+    end
 
-          cases = SpecTestUtils.cases_for(fork: "capella", config: config, runner: runner)
-
-          if cases != [] do
-            Logger.info("Generating tests for #{config}-#{runner}.")
-            content = generate_tests(cases, config, runner)
-            File.write!(Path.join(dirname, "#{runner}.exs"), content)
-          end
+    for fork <- @forks, runner <- @runners do
+      generate_test("general", fork, runner)
     end
   end
 
-  defp generate_tests(cases, config, runner) do
+  defp generate_test(config, fork, runner) do
+    # Create the parent dir if not present.
+    dirname = Path.join(["test", "generated", config, fork])
+    File.mkdir_p!(dirname)
+
+    cases = SpecTestUtils.cases_for(fork: fork, config: config, runner: runner)
+
+    if cases != [] do
+      Logger.info("Generating tests for #{config}-#{fork}-#{runner}.")
+      content = test_module(cases, config, fork, runner)
+      File.write!(Path.join(dirname, "#{runner}.exs"), content)
+    end
+  end
+
+  defp test_module(cases, config, fork, runner) do
     r = Macro.camelize(runner)
     c = Macro.camelize(config)
+    f = Macro.camelize(fork)
 
-    module_name = "Elixir.#{c}.#{r}Test" |> String.to_atom()
+    module_name = "Elixir.#{c}.#{f}.#{r}Test" |> String.to_atom()
     runner_module = "Elixir.#{r}TestRunner" |> String.to_atom()
 
     header = """

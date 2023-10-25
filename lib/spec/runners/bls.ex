@@ -1,4 +1,4 @@
-defmodule BLSTestRunner do
+defmodule BlsTestRunner do
   @moduledoc """
   Runner for BLS test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/bls
   """
