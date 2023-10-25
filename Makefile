@@ -95,7 +95,7 @@ checkpoint-sync: compile-native compile-port
 
 deps:
 	sh scripts/install_protos.sh
-	sh scripts/make_protos.sh
+	$(MAKE) proto
 
 	cd $(LIBP2P_DIR)/go_src; \
 	go get && go install
@@ -127,7 +127,8 @@ fmt:
 
 # Generate protobuf code
 proto: proto/libp2p.proto
-	sh scripts/make_protos.sh
+	protoc --go_out=./native/libp2p_port proto/libp2p.proto
+	protoc --elixir_out=./lib proto/libp2p.proto
 
 nix:
 	nix develop
