@@ -8,8 +8,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
   alias SszTypes.ExecutionPayload
-  alias SszTypes.Withdrawal
   alias SszTypes.Validator
+  alias SszTypes.Withdrawal
 
   @doc """
   Apply withdrawals to the state.
