@@ -165,7 +165,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     seed =
       :crypto.hash(
         :sha256,
-        get_seed(state, epoch, ChainSpec.get("DOMAIN_BEACON_PROPOSER")) <>
+        get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
           Misc.uint_to_bytes4(state.slot)
       )
 

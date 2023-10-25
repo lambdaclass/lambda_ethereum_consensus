@@ -23,4 +23,7 @@ defmodule Constants do
 
   @spec min_validator_withdrawability_delay() :: integer
   def min_validator_withdrawability_delay, do: 265
+
+  @spec domain_beacon_proposer() :: BitString
+  def domain_beacon_proposer, do: <<0, 0, 0, 0>>
 end

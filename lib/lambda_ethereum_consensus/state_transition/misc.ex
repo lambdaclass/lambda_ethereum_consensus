@@ -130,7 +130,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
-    max_random_byte = ChainSpec.get("MAX_RANDOM_BYTE")
+    max_random_byte = 2 ** 8 - 1
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
     total = length(indices)
