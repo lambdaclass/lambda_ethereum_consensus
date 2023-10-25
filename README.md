@@ -336,6 +336,10 @@ Lambda Ethereum Consensus is more than just a project; it's a community-driven i
 
 **Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
 
+## Metrics
+
+When running the node, metrics are available at [`http://localhost:9568/metrics`](http://localhost:9568/metrics) in Prometheus format.
+
 ## Profiling
 
 ### QCachegrind
