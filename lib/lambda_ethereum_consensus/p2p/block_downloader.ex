@@ -44,11 +44,24 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     # This should never fail
     {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
 
-    protocol = @blocks_by_range_protocol_id
-    message = size_header <> compressed_payload
-    error_msg = "Retrying request for block with slot #{slot}"
-
-    retrying_request(peer_id, protocol, message, error_msg, retries)
+    with {:ok, response_chunk} <-
+           Libp2pPort.send_request(
+             peer_id,
+             @blocks_by_range_protocol_id,
+             size_header <> compressed_payload
+           ),
+         {:ok, payload} <- parse_chunk(response_chunk),
+         {:ok, block} <- decode_response(payload) do
+      {:ok, block}
+    else
+      {:error, reason} ->
+        if retries > 0 do
+          Logger.debug("Retrying request for block with slot #{slot}")
+          request_block_by_slot(slot, retries - 1)
+        else
+          {:error, reason}
+        end
+    end
   end
 
   @spec request_block_by_root(SszTypes.root(), integer()) ::
@@ -69,23 +82,20 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
     {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
 
-    protocol = @blocks_by_root_protocol_id
-    message = size_header <> compressed_payload
-    error_msg = "Retrying request for block with root #{Base.encode16(root)}"
-
-    retrying_request(peer_id, protocol, message, error_msg, retries)
-  end
-
-  defp retrying_request(peer_id, protocol, message, error_msg, retries) do
-    with {:ok, response_chunk} <- Libp2pPort.send_request(peer_id, protocol, message),
+    with {:ok, response_chunk} <-
+           Libp2pPort.send_request(
+             peer_id,
+             @blocks_by_root_protocol_id,
+             size_header <> compressed_payload
+           ),
          {:ok, payload} <- parse_chunk(response_chunk),
-         {:ok, block} <- decode_block(payload) do
+         {:ok, block} <- decode_response(payload) do
       {:ok, block}
     else
       {:error, reason} ->
         if retries > 0 do
-          Logger.debug(error_msg)
-          retrying_request(peer_id, protocol, message, error_msg, retries - 1)
+          Logger.debug("Retrying request for block with root #{Base.encode16(root)}")
+          request_block_by_root(root, retries - 1)
         else
           {:error, reason}
         end
@@ -125,7 +135,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     end
   end
 
-  defp decode_block(response) do
+  defp decode_response(response) do
     {_size, rest} = P2P.Utils.decode_varint(response)
 
     with {:ok, chunk} <- Snappy.decompress(rest) do
