@@ -46,6 +46,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:telemetry, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_metrics_prometheus, "~> 1.1.0"},
       {:patch, "~> 0.12.0", only: [:test]},
       {:stream_data, "~> 0.6", only: [:test]},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
