@@ -51,6 +51,9 @@ defmodule LambdaEthereumConsensus.Telemetry do
       #   unit: {:native, :millisecond}
       # ),
 
+      # Peer metrics
+      counter("peers.connection.success.id"),
+
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
