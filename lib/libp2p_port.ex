@@ -182,8 +182,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Sets the receiver of new peer notifications.
-  If `nil`, notifications are disabled.
+  Marks the message with a validation result. The result can be `:accept`, `:reject` or `:ignore`:
+    * `:accept` - the message is valid and should be propagated.
+    * `:reject` - the message is invalid, mustn't be propagated, and its sender should be penalized.
+    * `:ignore` - the message is invalid, mustn't be propagated, but its sender shouldn't be penalized.
   """
   @spec validate_message(GenServer.server(), binary(), :accept | :reject | :ignore) :: :ok
   def validate_message(pid \\ __MODULE__, msg_id, result) do
