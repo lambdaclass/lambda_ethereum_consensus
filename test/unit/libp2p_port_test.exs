@@ -111,15 +111,13 @@ defmodule Unit.Libp2pPortTest do
   end
 
   defp retry_test(f, retries) do
-    try do
-      f.()
-    rescue
-      ExUnit.AssertionError ->
-        assert retries > 0, "Retry limit exceeded"
-        stop_supervised(:publisher)
-        stop_supervised(:gossiper)
-        retry_test(f, retries - 1)
-    end
+    f.()
+  rescue
+    ExUnit.AssertionError ->
+      assert retries > 0, "Retry limit exceeded"
+      stop_supervised(:publisher)
+      stop_supervised(:gossiper)
+      retry_test(f, retries - 1)
   end
 
   test "start two hosts, and gossip about" do
