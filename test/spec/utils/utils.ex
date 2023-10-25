@@ -4,9 +4,15 @@ defmodule SpecTestUtils do
   """
 
   @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
-  @pinned_fork "capella"
 
   def vectors_dir, do: @vectors_dir
+  def cases_for(filter) do
+    [:config, :fork, :runner, :handler, :suite, :case]
+    |> Enum.map(fn key -> filter[key] || "*" end)
+    |> then(&[@vectors_dir | &1])
+    |> Path.join()
+    |> Path.wildcard()
+  end
 
   def parse_yaml(map) when is_map(map) do
     map

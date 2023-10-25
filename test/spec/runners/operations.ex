@@ -1,6 +1,22 @@
 defmodule OperationsTestRunner do
   use ExUnit.CaseTemplate
-  use TestRunner
+
+  # Remove handler from here once you implement the corresponding functions
+  # "deposit_receipt" handler is not yet implemented
+  @disabled_handlers [
+    "attestation",
+    "attester_slashing",
+    "block_header",
+    "deposit",
+    "proposer_slashing",
+    "voluntary_exit",
+    "sync_aggregate",
+    # "execution_payload",
+    "withdrawals",
+    "bls_to_execution_change"
+  ]
+
+  # use TestRunner, runner: "operations", disabled_handlers: @disabled_handlers
 
   @moduledoc """
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
@@ -35,26 +51,6 @@ defmodule OperationsTestRunner do
     "bls_to_execution_change" => "address_change"
     # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
-
-  # Remove handler from here once you implement the corresponding functions
-  # "deposit_receipt" handler is not yet implemented
-  @disabled_handlers [
-    "attestation",
-    "attester_slashing",
-    "block_header",
-    "deposit",
-    "proposer_slashing",
-    "voluntary_exit",
-    "sync_aggregate",
-    # "execution_payload",
-    "withdrawals",
-    "bls_to_execution_change"
-  ]
-
-  @impl TestRunner
-  def skip?(%SpecTestCase{} = testcase) do
-    Enum.member?(@disabled_handlers, testcase.handler)
-  end
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{handler: handler} = testcase) do

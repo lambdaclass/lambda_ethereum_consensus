@@ -1,14 +1,6 @@
 defmodule EpochProcessingTestRunner do
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
 
-  use ExUnit.Case
-  use TestRunner
-
-  @moduledoc """
-  Runner for Epoch Processing test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/epoch_processing
-  """
-
-  # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [
     "justification_and_finalization",
     "inactivity_updates",
@@ -29,10 +21,16 @@ defmodule EpochProcessingTestRunner do
     "historical_roots_update"
   ]
 
-  @impl TestRunner
-  def skip?(%SpecTestCase{} = testcase) do
-    Enum.member?(@disabled_handlers ++ @deprecated_handlers, testcase.handler)
-  end
+  @skipped_handlers @disabled_handlers ++ @deprecated_handlers
+
+  use ExUnit.Case
+  (use TestRunner, runner: "epoch_processing", skipped_handlers: @skipped_handlers)
+
+  @moduledoc """
+  Runner for Epoch Processing test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/epoch_processing
+  """
+
+  # Remove handler from here once you implement the corresponding functions
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do

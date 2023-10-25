@@ -1,10 +1,9 @@
 defmodule SSZStaticTestRunner do
-  use ExUnit.CaseTemplate
-  use TestRunner
-
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
+
+  use ExUnit.CaseTemplate
 
   @disabled [
     "ContributionAndProof",
@@ -21,10 +20,7 @@ defmodule SSZStaticTestRunner do
     "SyncCommitteeMessage"
   ]
 
-  @impl TestRunner
-  def skip?(%SpecTestCase{handler: handler}) do
-    Enum.member?(@disabled, handler)
-  end
+  # use TestRunner, runner: "ssz_static", disabled_handlers: @disabled
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
