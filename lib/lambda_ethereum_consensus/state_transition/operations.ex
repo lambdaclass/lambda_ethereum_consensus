@@ -112,7 +112,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     result
   end
 
-  @spec get_expected_withdrawals(BeaconState.t()) :: list[Withdrawal.t()]
+  @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())
   defp get_expected_withdrawals(
          %BeaconState{
            next_withdrawal_index: next_withdrawal_index,
