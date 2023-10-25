@@ -81,7 +81,7 @@ clean:
 # Compile C and Go artifacts.
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
-compile-port: $(OUTPUT_DIR)/libp2p_port proto
+compile-port: $(OUTPUT_DIR)/libp2p_port
 
 
 # Start application with Beacon API.
