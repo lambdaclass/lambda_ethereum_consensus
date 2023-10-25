@@ -147,6 +147,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     end
   end
 
+  @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
+  def compute_signing_root(ssz_object, domain) do
+    {:ok, root} =
+      Ssz.hash_tree_root(%SszTypes.SigningData{
+        object_root: hash_tree_root(ssz_object),
+        domain: domain
+      })
+  end
+
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
   defp bytes_to_uint64(value) do
     # Converts a binary value to a 64-bit unsigned integer
