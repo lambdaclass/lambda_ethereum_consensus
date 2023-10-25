@@ -78,7 +78,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
     # TODO ssz encode array of roots
     # {:ok, encoded_payload} = payload |> Ssz.to_ssz()
-    encoded_payload = Enum.reduce(roots, <<>>, fn root, acc -> acc <> root end)
+    encoded_payload = Enum.join(roots)
 
     size_header =
       encoded_payload
@@ -123,6 +123,9 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
     stream
     |> Libp2p.Stream.from()
+    # Takes a list of N arbitrary binary chunks and returns a list of M <chunk>s
+    # For example:
+    # [<<0, fork_context, 1>>, <<2, 3>>, <<0, fork_context>>, <<4>>, <<5>>] -> [<<1, 2, 3>>, <<4, 5>>]
     |> Enum.reduce({:ok, []}, fn
       {:ok, <<0, ^fork_context::binary-size(4)>> <> chunk}, {:ok, acc} ->
         {:ok, [chunk | acc]}
