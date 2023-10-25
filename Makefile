@@ -79,12 +79,16 @@ $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
 
 compile-port: $(OUTPUT_DIR)/libp2p_port
 
-# Run an interactive terminal with the main supervisor setup.
+# Start application with Beacon API.
 start: compile-native compile-port
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
 iex: compile-native compile-port
+	iex -S mix
+
+# Run an interactive terminal using checkpoint sync.
+checkpoint-sync: compile-native compile-port
 	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
 # Install mix dependencies.
