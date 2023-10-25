@@ -1,4 +1,6 @@
 defmodule OperationsTestRunner do
+  alias LambdaEthereumConsensus.StateTransition.Operations
+
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -90,10 +92,15 @@ defmodule OperationsTestRunner do
     assert true
   end
 
-  defp handle_case("withdrawals", pre, operation, post, case_dir) do
-    %{execution_valid: _execution_valid} =
-      YamlElixir.read_from_file!(case_dir <> "/withdrawals.yaml")
-      |> SpecTestUtils.parse_yaml()
-      assert true
+  defp handle_case("withdrawals", pre, operation, post, _case_dir) do
+    result = Operations.process_withdrawals(pre, operation)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
   end
 end

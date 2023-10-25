@@ -45,7 +45,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
-  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs 
+  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
   (that is, four epochs), then the chain enters the inactivity leak.
   """
   @spec is_in_inactivity_leak(BeaconState.t()) :: boolean
@@ -83,7 +83,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         balance,
         epoch
       ) do
-    has_eth1_withdrawal_credential(validator) and withdrawable_epoch <= epoch and balance > 0
+    has_eth1_withdrawal_credential(validator) && withdrawable_epoch <= epoch && balance > 0
   end
 
   @doc """
@@ -97,6 +97,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
     has_max_effective_balance = effective_balance == max_effective_balance
     has_excess_balance = balance > max_effective_balance
-    has_eth1_withdrawal_credential(validator) and has_max_effective_balance and has_excess_balance
+    has_eth1_withdrawal_credential(validator) && has_max_effective_balance && has_excess_balance
   end
 end

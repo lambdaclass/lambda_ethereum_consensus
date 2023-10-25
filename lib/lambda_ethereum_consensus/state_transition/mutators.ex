@@ -1,6 +1,11 @@
 defmodule LambdaEthereumConsensus.StateTransition.Mutators do
-
+  @moduledoc """
+  Functions mutating the current beacon state
+  """
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias SszTypes.BeaconState
+  alias SszTypes.Validator
 
   @doc """
     Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
@@ -19,14 +24,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       end
 
     new_state
-
-  @moduledoc """
-  Functions mutating the current beacon state
-  """
-  alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Misc
-  alias SszTypes.BeaconState
-  alias SszTypes.Validator
+  end
 
   @doc """
   Initiate the exit of the validator with index ``index``.
@@ -82,6 +80,5 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
          }}
       end
     end
-
   end
 end

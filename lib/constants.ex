@@ -14,5 +14,4 @@ defmodule Constants do
 
   @spec far_future_epoch() :: integer
   def far_future_epoch, do: 2 ** 64 - 1
-
 end

@@ -11,24 +11,93 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias SszTypes.Withdrawal
   alias SszTypes.Validator
 
-  @spec process_withdrawals(BeaconState.t(), ExecutionPayload.t()) ::
-          {:error, String.t()}
-  def process_withdrawals(state, %ExecutionPayload{withdrawals: withdrawals}) do
-    if length(withdrawals) !== length(get_expected_withdrawals(state)) do
-      {:error, "length of withdrawals is not equal to expected withdrawals"}
-    end
-  end
-
+  @doc """
+  Apply withdrawals to the state.
+  """
   @spec process_withdrawals(BeaconState.t(), ExecutionPayload.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_withdrawals(state, %ExecutionPayload{withdrawals: withdrawals} = payload) do
+  def process_withdrawals(
+        %BeaconState{
+          validators: validators,
+          next_withdrawal_validator_index: next_withdrawal_validator_index
+        } = state,
+        %ExecutionPayload{withdrawals: withdrawals}
+      ) do
     expected_withdrawals = get_expected_withdrawals(state)
+    result = decrease_balances(state, withdrawals, expected_withdrawals)
 
+    response =
+      case result do
+        {:ok, state} ->
+          # Update the next withdrawal index if this block contained withdrawals
+          new_state =
+            if length(expected_withdrawals) != 0 do
+              latest_withdrawal = List.last(expected_withdrawals)
+              %Withdrawal{index: index} = latest_withdrawal
+              %BeaconState{state | next_withdrawal_index: index + 1}
+            else
+              state
+            end
+
+          max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
+
+          # Update the next validator index to start the next withdrawal sweep
+          response =
+            if length(expected_withdrawals) == max_withdrawals_per_payload do
+              # Next sweep starts after the latest withdrawal's validator index
+              latest_withdrawal = List.last(expected_withdrawals)
+              %Withdrawal{validator_index: validator_index} = latest_withdrawal
+              next_validator_index = rem(validator_index + 1, length(validators))
+
+              newer_state = %BeaconState{
+                new_state
+                | next_withdrawal_validator_index: next_validator_index
+              }
+
+              {:ok, newer_state}
+            else
+              # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
+              max_validators_per_withdrawals_sweep =
+                ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
+
+              next_index = next_withdrawal_validator_index + max_validators_per_withdrawals_sweep
+              next_validator_index = rem(next_index, length(validators))
+
+              newer_state = %BeaconState{
+                new_state
+                | next_withdrawal_validator_index: next_validator_index
+              }
+
+              {:ok, newer_state}
+            end
+
+          response
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+
+    response
+  end
+
+  @spec decrease_balances(BeaconState.t(), list(Withdrawal.t()), list(Withdrawal.t())) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  defp decrease_balances(_state, withdrawals, expected_withdrawals)
+       when length(withdrawals) !== length(expected_withdrawals) do
+    {:error, "length of withdrawals is not equal to expected withdrawals"}
+  end
+
+  defp decrease_balances(
+         state,
+         withdrawals,
+         expected_withdrawals
+       ) do
     result =
       Enum.reduce_while(Enum.zip(expected_withdrawals, withdrawals), {:ok, state}, fn element,
                                                                                       {_, state} ->
-        expected_withdrawal = Enum.fetch!(element, 0)
-        withdrawal = Enum.fetch!(element, 1)
+        element_as_list = element |> Tuple.to_list()
+        expected_withdrawal = Enum.fetch!(element_as_list, 0)
+        withdrawal = Enum.fetch!(element_as_list, 1)
 
         %Withdrawal{validator_index: validator_index, amount: amount} = withdrawal
 
@@ -40,59 +109,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         end
       end)
 
-    response =
-      case result do
-        {:ok, state} ->
-          # Update the next withdrawal index if this block contained withdrawals
-          new_state =
-            if length(expected_withdrawals) !== 0 do
-              latest_withdrawal = List.last(expected_withdrawals)
-              %Withdrawal{index: index} = latest_withdrawal
-              new_state = %BeaconState{state | next_withdrawal_index: index + 1}
-              new_state
-            end
-
-          max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
-          %BeaconState{validators: validators} = new_state
-
-          # Update the next validator index to start the next withdrawal sweep
-          new_state =
-            if length(expected_withdrawals) == max_withdrawals_per_payload do
-              # Next sweep starts after the latest withdrawal's validator index
-              latest_withdrawal = List.last(expected_withdrawals)
-              %Withdrawal{validator_index: validator_index} = latest_withdrawal
-              next_validator_index = rem(validator_index + 1, length(validators))
-
-              new_state = %BeaconState{
-                new_state
-                | next_withdrawal_validator_index: next_validator_index
-              }
-
-              new_state
-            else
-              # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
-              max_validators_per_withdrawals_sweep =
-                ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
-
-              %BeaconState{next_withdrawal_validator_index: next_withdrawal_validator_index} =
-                new_state
-
-              next_index = next_withdrawal_validator_index + max_validators_per_withdrawals_sweep
-              next_validator_index = rem(next_index, length(validators))
-
-              new_state = %BeaconState{
-                new_state
-                | next_withdrawal_validator_index: next_validator_index
-              }
-
-              new_state
-            end
-
-        {:error, reason} ->
-          {:error, reason}
-      end
-
-    response
+    result
   end
 
   @spec get_expected_withdrawals(BeaconState.t()) :: list[Withdrawal.t()]
@@ -104,6 +121,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
            balances: balances
          } = state
        ) do
+    # Compute the next batch of withdrawals which should be included in a block.
     epoch = Accessors.get_current_epoch(state)
     withdrawal_index = next_withdrawal_index
     validator_index = next_withdrawal_validator_index
@@ -116,7 +134,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                                                                                      validator_index,
                                                                                      withdrawal_index} ->
         validator = Enum.fetch!(validators, validator_index)
-        balance = Enum.fetch!(balances, withdrawal_index)
+        balance = Enum.fetch!(balances, validator_index)
         %Validator{withdrawal_credentials: withdrawal_credentials} = validator
 
         {withdrawals, withdrawal_index} =
@@ -131,7 +149,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                 amount: balance
               }
 
-              withdrawals = List.insert_at(withdrawals, 0, withdrawal)
+              withdrawals = [withdrawal | withdrawals]
               withdrawal_index = withdrawal_index + 1
 
               {withdrawals, withdrawal_index}
@@ -147,9 +165,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                 amount: balance - max_effective_balance
               }
 
-              withdrawals = List.insert_at(withdrawals, 0, withdrawal)
+              withdrawals = [withdrawal | withdrawals]
               withdrawal_index = withdrawal_index + 1
 
+              {withdrawals, withdrawal_index}
+
+            true ->
               {withdrawals, withdrawal_index}
           end
 
