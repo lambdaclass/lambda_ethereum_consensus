@@ -12,9 +12,9 @@ defmodule LambdaEthereumConsensus.Application do
     {args, _remaining_args, _errors} =
       OptionParser.parse(System.argv(), switches: [checkpoint_sync: :string])
 
-    config = Application.get_env(:lambda_ethereum_consensus, :discovery)
-    port = Keyword.get(config, :port, 9000)
-    bootnodes = Keyword.get(config, :bootnodes, [])
+    config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
+    port = Keyword.fetch!(config, :port)
+    bootnodes = Keyword.fetch!(config, :bootnodes)
 
     libp2p_opts = [
       listen_addr: [],
