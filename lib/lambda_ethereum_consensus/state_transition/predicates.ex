@@ -8,6 +8,24 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   alias SszTypes.Validator
   import Bitwise
 
+  # @default_execution_payload_header %ExecutionPayloadHeader{
+  #   parent_hash: SszTypes.hash32(),
+  #   fee_recipient: SszTypes.execution_address(),
+  #   state_root: SszTypes.root(),
+  #   receipts_root: SszTypes.root(),
+  #   logs_bloom: binary(),
+  #   prev_randao: SszTypes.bytes32(),
+  #   block_number: 0,
+  #   gas_limit: 0,
+  #   gas_used: 0,
+  #   timestamp: 0,
+  #   extra_data: binary(),
+  #   base_fee_per_gas: 0,
+  #   block_hash: SszTypes.hash32(),
+  #   transactions_root: SszTypes.root(),
+  #   withdrawals_root: SszTypes.root()
+  # }
+
   @doc """
   Checks if state is pre or post merge
   """
