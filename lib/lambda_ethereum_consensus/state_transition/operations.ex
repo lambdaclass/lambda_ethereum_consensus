@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.StateTransition.Mutators
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
   alias SszTypes.ExecutionPayload
   alias SszTypes.Withdrawal
