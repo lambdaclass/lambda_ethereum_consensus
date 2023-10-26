@@ -79,4 +79,40 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
     not validator.slashed and
       (validator.activation_epoch <= epoch and epoch < validator.withdrawable_epoch)
   end
+
+  @doc """
+  Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
+  """
+  @spec is_valid_indexed_attestation(BeaconState.t(), SszTypes.IndexedAttestation.t()) :: bool
+  def is_valid_indexed_attestation(state, indexed_attestation) do
+    indices = indexed_attestation.attesting_indices
+
+    res =
+      if length(indices) != 0 or not indices == Enum.uniq(Enum.sort(indices)) do
+        false
+      else
+        pubkeys =
+          state.validators
+          |> Enum.with_index()
+          |> Enum.filter(fn {val, i} -> Enum.member(indices, i) end)
+          |> Enum.map(fn {%{pubkey: p}, _} -> p end)
+
+        domain =
+          Accessors.get_domain(
+            state,
+            Constants.domain_beacon_attester(),
+            indexed_attestation.data.target.epoch
+          )
+
+        signing_root =
+          LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
+            indexed_attestation.data,
+            domain
+          )
+
+        Bls.eth_fast_aggregate_verify(pubkeys, signing_root, indexed_attestation.signature)
+      end
+
+    res
+  end
 end
