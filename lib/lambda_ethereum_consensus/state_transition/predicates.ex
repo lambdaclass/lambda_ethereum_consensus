@@ -62,41 +62,4 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
     flag = 2 ** flag_index
     (participation_flags &&& flag) === flag
   end
-
-  @doc """
-    Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
-  """
-  @spec has_eth1_withdrawal_credential(Validator.t()) :: boolean
-  def has_eth1_withdrawal_credential(%Validator{withdrawal_credentials: withdrawal_credentials}) do
-    eth1_address_withdrawal_prefix = Constants.eth1_address_withdrawal_prefix()
-    <<first_byte_of_withdrawal_credentials::binary-size(1), _::binary>> = withdrawal_credentials
-    first_byte_of_withdrawal_credentials == eth1_address_withdrawal_prefix
-  end
-
-  @doc """
-    Check if ``validator`` is fully withdrawable.
-  """
-  @spec is_fully_withdrawable_validator(Validator.t(), SszTypes.gwei(), SszTypes.epoch()) ::
-          boolean
-  def is_fully_withdrawable_validator(
-        %Validator{withdrawable_epoch: withdrawable_epoch} = validator,
-        balance,
-        epoch
-      ) do
-    has_eth1_withdrawal_credential(validator) && withdrawable_epoch <= epoch && balance > 0
-  end
-
-  @doc """
-    Check if ``validator`` is partially withdrawable.
-  """
-  @spec is_partially_withdrawable_validator(Validator.t(), SszTypes.gwei()) :: boolean
-  def is_partially_withdrawable_validator(
-        %Validator{effective_balance: effective_balance} = validator,
-        balance
-      ) do
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
-    has_max_effective_balance = effective_balance == max_effective_balance
-    has_excess_balance = balance > max_effective_balance
-    has_eth1_withdrawal_credential(validator) && has_max_effective_balance && has_excess_balance
-  end
 end

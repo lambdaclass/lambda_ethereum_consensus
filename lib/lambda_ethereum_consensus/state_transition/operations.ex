@@ -4,8 +4,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Mutators
-  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
   alias SszTypes.ExecutionPayload
   alias SszTypes.Validator
@@ -91,7 +89,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   defp decrease_or_halt({_, withdrawal}, {:ok, state}) do
     {:cont,
-     {:ok, Mutators.decrease_balance(state, withdrawal.validator_index, withdrawal.amount)}}
+     {:ok, BeaconState.decrease_balance(state, withdrawal.validator_index, withdrawal.amount)}}
   end
 
   @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())
@@ -121,7 +119,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
         {withdrawals, withdrawal_index} =
           cond do
-            Predicates.is_fully_withdrawable_validator(validator, balance, epoch) ->
+            Validator.is_fully_withdrawable_validator(validator, balance, epoch) ->
               <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
 
               withdrawal = %Withdrawal{
@@ -136,7 +134,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
               {withdrawals, withdrawal_index}
 
-            Predicates.is_partially_withdrawable_validator(validator, balance) ->
+            Validator.is_partially_withdrawable_validator(validator, balance) ->
               <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
               max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
