@@ -24,92 +24,74 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         %ExecutionPayload{withdrawals: withdrawals}
       ) do
     expected_withdrawals = get_expected_withdrawals(state)
-    result = decrease_balances(state, withdrawals, expected_withdrawals)
 
-    response =
-      case result do
-        {:ok, state} ->
-          # Update the next withdrawal index if this block contained withdrawals
-          new_state =
-            if length(expected_withdrawals) != 0 do
-              latest_withdrawal = List.last(expected_withdrawals)
-              %Withdrawal{index: index} = latest_withdrawal
-              %BeaconState{state | next_withdrawal_index: index + 1}
-            else
-              state
-            end
+    length_of_expected_withdrawals = length(expected_withdrawals)
 
-          max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
+    with {:ok, state} <- decrease_balances(state, withdrawals, expected_withdrawals) do
+      # Update the next withdrawal index if this block contained withdrawals
+      new_state =
+        case length_of_expected_withdrawals != 0 do
+          true ->
+            latest_withdrawal = List.last(expected_withdrawals)
+            state |> update_next_withdrawal_index(latest_withdrawal.index + 1)
 
-          # Update the next validator index to start the next withdrawal sweep
-          response =
-            if length(expected_withdrawals) == max_withdrawals_per_payload do
-              # Next sweep starts after the latest withdrawal's validator index
-              latest_withdrawal = List.last(expected_withdrawals)
-              %Withdrawal{validator_index: validator_index} = latest_withdrawal
-              next_validator_index = rem(validator_index + 1, length(validators))
+          false ->
+            state
+        end
 
-              newer_state = %BeaconState{
-                new_state
-                | next_withdrawal_validator_index: next_validator_index
-              }
+      case length_of_expected_withdrawals == ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD") do
+        # Update the next validator index to start the next withdrawal sweep
+        true ->
+          latest_withdrawal = List.last(expected_withdrawals)
+          next_validator_index = rem(latest_withdrawal.validator_index + 1, length(validators))
+          newer_state = new_state |> update_next_withdrawal_validator_index(next_validator_index)
+          {:ok, newer_state}
 
-              {:ok, newer_state}
-            else
-              # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
-              max_validators_per_withdrawals_sweep =
-                ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
+        # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
+        false ->
+          next_index =
+            next_withdrawal_validator_index +
+              ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
 
-              next_index = next_withdrawal_validator_index + max_validators_per_withdrawals_sweep
-              next_validator_index = rem(next_index, length(validators))
-
-              newer_state = %BeaconState{
-                new_state
-                | next_withdrawal_validator_index: next_validator_index
-              }
-
-              {:ok, newer_state}
-            end
-
-          response
-
-        {:error, reason} ->
-          {:error, reason}
+          next_validator_index = rem(next_index, length(validators))
+          newer_state = new_state |> update_next_withdrawal_validator_index(next_validator_index)
+          {:ok, newer_state}
       end
+    end
+  end
 
-    response
+  @spec update_next_withdrawal_index(BeaconState.t(), integer) :: BeaconState.t()
+  defp update_next_withdrawal_index(state, new_index) do
+    %BeaconState{state | next_withdrawal_index: new_index}
+  end
+
+  @spec update_next_withdrawal_validator_index(BeaconState.t(), integer) :: BeaconState.t()
+  defp update_next_withdrawal_validator_index(state, new_index) do
+    %BeaconState{state | next_withdrawal_validator_index: new_index}
   end
 
   @spec decrease_balances(BeaconState.t(), list(Withdrawal.t()), list(Withdrawal.t())) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   defp decrease_balances(_state, withdrawals, expected_withdrawals)
        when length(withdrawals) !== length(expected_withdrawals) do
-    {:error, "length of withdrawals is not equal to expected withdrawals"}
+    {:error, "expected withdrawals don't match the state withdrawals in length"}
   end
 
-  defp decrease_balances(
-         state,
-         withdrawals,
-         expected_withdrawals
-       ) do
-    result =
-      Enum.reduce_while(Enum.zip(expected_withdrawals, withdrawals), {:ok, state}, fn element,
-                                                                                      {_, state} ->
-        element_as_list = element |> Tuple.to_list()
-        expected_withdrawal = Enum.fetch!(element_as_list, 0)
-        withdrawal = Enum.fetch!(element_as_list, 1)
+  @spec decrease_balances(BeaconState.t(), list(Withdrawal.t()), list(Withdrawal.t())) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  defp decrease_balances(state, withdrawals, expected_withdrawals) do
+    Enum.zip(expected_withdrawals, withdrawals)
+    |> Enum.reduce_while({:ok, state}, &decrease_or_halt/2)
+  end
 
-        %Withdrawal{validator_index: validator_index, amount: amount} = withdrawal
+  defp decrease_or_halt({expected_withdrawal, withdrawal}, _)
+       when expected_withdrawal !== withdrawal do
+    {:halt, {:error, "withdrawal != expected_withdrawal"}}
+  end
 
-        if withdrawal !== expected_withdrawal do
-          {:halt, {:error, "withdrawal != expected_withdrawal"}}
-        else
-          new_state = Mutators.decrease_balance(state, validator_index, amount)
-          {:cont, {:ok, new_state}}
-        end
-      end)
-
-    result
+  defp decrease_or_halt({_, withdrawal}, {:ok, state}) do
+    {:cont,
+     {:ok, Mutators.decrease_balance(state, withdrawal.validator_index, withdrawal.amount)}}
   end
 
   @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())

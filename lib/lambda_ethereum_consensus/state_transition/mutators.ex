@@ -13,17 +13,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   @spec decrease_balance(BeaconState.t(), SszTypes.validator_index(), SszTypes.gwei()) ::
           BeaconState.t()
   def decrease_balance(%BeaconState{balances: balances} = state, index, delta) do
-    new_state =
-      if delta > Enum.fetch!(balances, index) do
-        %BeaconState{state | balances: List.replace_at(balances, index, 0)}
-      else
-        %BeaconState{
-          state
-          | balances: List.replace_at(balances, index, Enum.fetch!(balances, index) - delta)
-        }
-      end
+    current_balance = Enum.fetch!(balances, index)
 
-    new_state
+    %BeaconState{
+      state
+      | balances: List.replace_at(balances, index, max(current_balance - delta, 0))
+    }
   end
 
   @doc """
