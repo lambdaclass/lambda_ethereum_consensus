@@ -22,7 +22,7 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 		response, err := listener.SendRequest(c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
 		return proto_helpers.ResultNotification(command.From, response, err)
 	case *proto_defs.Command_SendResponse:
-		listener.SendResponse(c.SendResponse.MessageId, c.SendResponse.Message)
+		listener.SendResponse(c.SendResponse.RequestId, c.SendResponse.Message)
 	case *proto_defs.Command_SetHandler:
 		listener.SetHandler(c.SetHandler.ProtocolId, command.From)
 	case *proto_defs.Command_Subscribe:
@@ -30,6 +30,8 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 		return proto_helpers.ResultNotification(command.From, nil, err)
 	case *proto_defs.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
+	case *proto_defs.Command_ValidateMessage:
+		subscriber.Validate(c.ValidateMessage.MsgId, int(c.ValidateMessage.Result))
 	case *proto_defs.Command_Publish:
 		subscriber.Publish(c.Publish.Topic, c.Publish.Message)
 	default:
