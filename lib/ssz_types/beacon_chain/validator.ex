@@ -43,7 +43,7 @@ defmodule SszTypes.Validator do
   @doc """
     Check if ``validator`` is fully withdrawable.
   """
-  @spec is_fully_withdrawable_validator(Validator.t(), SszTypes.gwei(), SszTypes.epoch()) ::
+  @spec is_fully_withdrawable_validator(t(), SszTypes.gwei(), SszTypes.epoch()) ::
           boolean
   def is_fully_withdrawable_validator(
         %{withdrawable_epoch: withdrawable_epoch} = validator,
@@ -56,7 +56,7 @@ defmodule SszTypes.Validator do
   @doc """
     Check if ``validator`` is partially withdrawable.
   """
-  @spec is_partially_withdrawable_validator(Validator.t(), SszTypes.gwei()) :: boolean
+  @spec is_partially_withdrawable_validator(t(), SszTypes.gwei()) :: boolean
   def is_partially_withdrawable_validator(
         %{effective_balance: effective_balance} = validator,
         balance

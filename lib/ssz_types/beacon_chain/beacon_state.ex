@@ -92,8 +92,7 @@ defmodule SszTypes.BeaconState do
   @doc """
     Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
   """
-  @spec decrease_balance(BeaconState.t(), SszTypes.validator_index(), SszTypes.gwei()) ::
-          BeaconState.t()
+  @spec decrease_balance(t(), SszTypes.validator_index(), SszTypes.gwei()) :: t()
   def decrease_balance(%{balances: balances} = state, index, delta) do
     current_balance = Enum.fetch!(balances, index)
 
