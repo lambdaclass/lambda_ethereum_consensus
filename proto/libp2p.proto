@@ -87,11 +87,17 @@ message NewPeer {
     bytes peer_id = 1;
 }
 
+message ResultMessage {
+    repeated bytes message = 3;
+}
+
 // A result from a command.
 message Result {
     bytes from = 1;
-    bool success = 2;
-    bytes message = 3;
+    oneof result {
+        ResultMessage ok = 2;
+        ResultMessage error = 3;
+    }
 }
 
 message Notification {

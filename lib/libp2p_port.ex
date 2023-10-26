@@ -21,6 +21,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Publish,
     Request,
     Result,
+    ResultMessage,
     SendRequest,
     SendResponse,
     SetHandler,
@@ -254,15 +255,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     send(handler, {:new_peer, peer_id})
   end
 
-  defp handle_notification(%Result{from: from, success: success, message: message}, _state) do
+  defp handle_notification(%Result{from: from, result: result}, _state) do
     case from do
       nil ->
-        success_txt = if success, do: "success", else: "failed"
-        Logger.info("[Result] #{success_txt}: #{message}")
+        success_txt = if match?({:ok, _}, result), do: "success", else: "failed"
+        Logger.info("[Result] #{success_txt}")
 
       from ->
         pid = :erlang.binary_to_term(from)
-        send(pid, {:response, {success, message}})
+        send(pid, {:response, result})
     end
   end
 
@@ -291,9 +292,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp receive_response do
     receive do
-      {:response, {true, ""}} -> :ok
-      {:response, {true, message}} -> {:ok, message}
-      {:response, {false, message}} -> {:error, message}
+      {:response, {res, %ResultMessage{message: []}}} -> res
+      {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()
     end
   end
 end

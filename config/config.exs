@@ -19,7 +19,7 @@ config :lambda_ethereum_consensus, BeaconApi.Endpoint,
   ]
 
 # Configures peer discovery
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.P2P.Discovery,
+config :lambda_ethereum_consensus, :discovery,
   port: 9000,
   # Mainnet
   bootnodes: [

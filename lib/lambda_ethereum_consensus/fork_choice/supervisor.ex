@@ -13,10 +13,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @impl true
-  def init({nil, host}) do
+  def init([nil]) do
     case StateStore.get_latest_state() do
       {:ok, anchor_state} ->
-        {:ok, anchor_block} = fetch_anchor_block(anchor_state, host)
+        {:ok, anchor_block} = fetch_anchor_block(anchor_state)
         init_children(anchor_state, anchor_block)
 
       :not_found ->
@@ -28,14 +28,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end
   end
 
-  def init({checkpoint_url, host}) do
+  def init([checkpoint_url]) do
     Logger.info("[Sync] Initiating checkpoint sync.")
 
     case Utils.sync_from_checkpoint(checkpoint_url) do
       {:ok, %SszTypes.BeaconState{} = anchor_state} ->
         Logger.info("[Checkpoint sync] Received beacon state at slot #{anchor_state.slot}.")
 
-        {:ok, anchor_block} = fetch_anchor_block(anchor_state, host)
+        {:ok, anchor_block} = fetch_anchor_block(anchor_state)
         init_children(anchor_state, anchor_block)
 
       {:error, _} ->
@@ -61,7 +61,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end
   end
 
-  defp fetch_anchor_block(%SszTypes.BeaconState{} = anchor_state, host) do
+  defp fetch_anchor_block(%SszTypes.BeaconState{} = anchor_state) do
     {:ok, block_root} = get_latest_block_hash(anchor_state)
 
     case BlockStore.get_block(block_root) do
@@ -70,12 +70,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
       :not_found ->
         Logger.info("[Sync] Current block not found. Fetching from peers...")
-        request_block_to_peers(block_root, host)
+        request_block_to_peers(block_root)
     end
   end
 
-  defp request_block_to_peers(block_root, host) do
-    case BlockDownloader.request_block_by_root(block_root, host) do
+  defp request_block_to_peers(block_root) do
+    case BlockDownloader.request_block_by_root(block_root) do
       {:ok, signed_block} ->
         Logger.info("[Sync] Initial block fetched.")
         block = signed_block.message
@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
       {:error, message} ->
         Logger.warning("[Sync] Failed to fetch initial block: #{message}.\nRetrying...")
-        request_block_to_peers(block_root, host)
+        request_block_to_peers(block_root)
     end
   end
 end

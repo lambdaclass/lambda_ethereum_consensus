@@ -5,13 +5,13 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
   require Logger
   use Broadway
 
-  def start_link(%{gsub: gsub, topic: topic_name, ssz_type: _, handler: _} = opts)
+  def start_link(%{topic: topic_name, ssz_type: _, handler: _} = opts)
       when is_binary(topic_name) do
     Broadway.start_link(__MODULE__,
       name: get_id(topic_name),
       context: opts,
       producer: [
-        module: {LambdaEthereumConsensus.P2P.Subscriber, %{gsub: gsub, topic: topic_name}},
+        module: {LambdaEthereumConsensus.P2P.Subscriber, %{topic: topic_name}},
         concurrency: 1
       ],
       processors: [
@@ -29,21 +29,19 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
 
   @impl true
   def handle_message(_, %Broadway.Message{data: data} = message, %{
-        topic: topic_name,
+        topic: topic,
         ssz_type: ssz_type,
         handler: handler
       }) do
-    {:ok, data} = Libp2p.message_data(data)
-
     with {:ok, decompressed} <- :snappyer.decompress(data),
          {:ok, res} <- Ssz.from_ssz(decompressed, ssz_type),
-         :ok <- handler.handle_message(topic_name, res) do
+         :ok <- handler.handle_message(topic, res) do
       message
     else
       {:error, reason} ->
         data
         |> Base.encode16()
-        |> then(&"[#{topic_name}] (err: #{reason}) raw: '#{&1}'")
+        |> then(&"[#{topic}] (err: #{reason}) raw: '#{&1}'")
         |> Logger.error()
 
         Broadway.Message.failed(message, reason)
