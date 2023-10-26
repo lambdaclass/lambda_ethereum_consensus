@@ -96,6 +96,22 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	return nil
 }
 
+func (s *Subscriber) Unsubscribe(topicName string) {
+	sub, isSubscribed := s.subscriptions[topicName]
+	if !isSubscribed {
+		return
+	}
+	delete(s.subscriptions, topicName)
+	sub.Cancel()
+	sub.Topic.Close()
+}
+
+func (s *Subscriber) Publish(topicName string, message []byte) {
+	sub := s.getSubscription(topicName)
+	err := sub.Topic.Publish(context.Background(), message)
+	utils.PanicIfError(err)
+}
+
 func subscribeToTopic(sub *pubsub.Subscription, ctx context.Context, handler []byte, p *port.Port) {
 	topic := sub.Topic()
 	for {
@@ -120,20 +136,4 @@ func (s *Subscriber) getSubscription(topicName string) subscription {
 		s.subscriptions[topicName] = sub
 	}
 	return sub
-}
-
-func (s *Subscriber) Unsubscribe(topicName string) {
-	sub, isSubscribed := s.subscriptions[topicName]
-	if !isSubscribed {
-		return
-	}
-	delete(s.subscriptions, topicName)
-	sub.Cancel()
-	sub.Topic.Close()
-}
-
-func (s *Subscriber) Publish(topicName string, message []byte) {
-	sub := s.getSubscription(topicName)
-	err := sub.Topic.Publish(context.Background(), message)
-	utils.PanicIfError(err)
 }

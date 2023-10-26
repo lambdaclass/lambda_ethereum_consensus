@@ -6,6 +6,7 @@ import (
 	"libp2p_port/internal/port"
 	"libp2p_port/internal/proto_helpers"
 	"libp2p_port/internal/utils"
+	"sync"
 
 	"github.com/libp2p/go-libp2p"
 	mplex "github.com/libp2p/go-libp2p-mplex"
@@ -18,10 +19,12 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
+type responseChannel = chan []byte
+
 type Listener struct {
 	hostHandle      host.Host
 	port            *port.Port
-	pendingMessages map[string]chan []byte
+	pendingMessages sync.Map
 }
 
 func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
@@ -39,7 +42,7 @@ func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
 
 	h, err := libp2p.New(optionsSlice...)
 	utils.PanicIfError(err)
-	return Listener{hostHandle: h, port: p, pendingMessages: make(map[string]chan []byte)}
+	return Listener{hostHandle: h, port: p}
 }
 
 func (l *Listener) Host() host.Host {
@@ -79,7 +82,12 @@ func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte)
 }
 
 func (l *Listener) SendResponse(messageId string, message []byte) {
-	l.pendingMessages[messageId] <- message
+	value, found := l.pendingMessages.LoadAndDelete(messageId)
+	if !found {
+		// TODO: return error
+		panic("message not found")
+	}
+	value.(responseChannel) <- message
 }
 
 func (l *Listener) SetHandler(protocolId string, handler []byte) {
@@ -93,15 +101,13 @@ func (l *Listener) SetHandler(protocolId string, handler []byte) {
 		}
 		messageId := stream.ID()
 		responseChan := make(chan []byte)
-		// TODO: this isn't thread-safe
-		l.pendingMessages[messageId] = responseChan
+		l.pendingMessages.Store(messageId, responseChan)
 		notification := proto_helpers.RequestNotification(id, handler, messageId, request)
 		l.port.SendNotification(&notification)
 		response := <-responseChan
-		delete(l.pendingMessages, messageId)
 		_, err = stream.Write(response)
 		if err != nil {
-			// TODO: we just ignore read errors for now
+			// TODO: we just ignore write errors for now
 			return
 		}
 	})

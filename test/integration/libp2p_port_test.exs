@@ -5,7 +5,7 @@ defmodule Integration.Libp2pPortTest do
 
   @bootnodes Application.compile_env(
                :lambda_ethereum_consensus,
-               LambdaEthereumConsensus.P2P.Discovery
+               :discovery
              )[:bootnodes]
 
   @tag :skip
