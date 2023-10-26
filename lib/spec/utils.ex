@@ -6,6 +6,7 @@ defmodule SpecTestUtils do
   @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
 
   def vectors_dir, do: @vectors_dir
+
   def cases_for(filter) do
     [:config, :fork, :runner, :handler, :suite, :case]
     |> Enum.map(fn key -> filter[key] || "*" end)

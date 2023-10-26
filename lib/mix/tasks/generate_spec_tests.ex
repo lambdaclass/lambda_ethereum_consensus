@@ -1,4 +1,12 @@
 defmodule Mix.Tasks.GenerateSpecTests do
+  @moduledoc """
+  Generates ExUnit test cases that will call the runners with the appropriate
+  yaml files as input.
+
+  Generated tests are in test/generated/<config>/<fork>/<runner>. Each runner
+  has its own folder.
+  """
+
   use Mix.Task
   require Logger
 
@@ -9,7 +17,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
   @shortdoc "Generates tests for spec test files"
   def run(_args) do
     for config <- @configs, runner <- @runners do
-          generate_test(config, "capella", runner)
+      generate_test(config, "capella", runner)
     end
 
     for fork <- @forks, runner <- @runners do
@@ -18,14 +26,14 @@ defmodule Mix.Tasks.GenerateSpecTests do
   end
 
   defp generate_test(config, fork, runner) do
-    # Create the parent dir if not present.
-    dirname = Path.join(["test", "generated", config, fork])
-    File.mkdir_p!(dirname)
-
     cases = SpecTestUtils.cases_for(fork: fork, config: config, runner: runner)
 
     if cases != [] do
       Logger.info("Generating tests for #{config}-#{fork}-#{runner}.")
+
+      # Create the parent dir if not present.
+      dirname = Path.join(["test", "generated", config, fork])
+      File.mkdir_p!(dirname)
       content = test_module(cases, config, fork, runner)
       File.write!(Path.join(dirname, "#{runner}.exs"), content)
     end
@@ -47,10 +55,13 @@ defmodule Mix.Tasks.GenerateSpecTests do
         Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: #{chain_spec_config(config)})
       end
     """
+
     footer = """
     end
     """
-    cases_txt = Enum.map(cases, fn testcase -> generate_case(runner_module, testcase) end) |> Enum.join()
+
+    cases_txt = Enum.map_join(cases, fn testcase -> generate_case(runner_module, testcase) end)
+
     header <> cases_txt <> footer
   end
 
