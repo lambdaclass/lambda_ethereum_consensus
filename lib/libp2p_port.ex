@@ -21,11 +21,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Publish,
     Request,
     Result,
+    ResultMessage,
     SendRequest,
     SendResponse,
     SetHandler,
     SubscribeToTopic,
-    UnsubscribeFromTopic
+    UnsubscribeFromTopic,
+    ValidateMessage
   }
 
   require Logger
@@ -129,8 +131,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec send_response(GenServer.server(), String.t(), binary()) ::
           :ok | {:error, String.t()}
-  def send_response(pid \\ __MODULE__, message_id, response) do
-    c = %SendResponse{message_id: message_id, message: response}
+  def send_response(pid \\ __MODULE__, request_id, response) do
+    c = %SendResponse{request_id: request_id, message: response}
     call_command(pid, {:send_response, c})
   end
 
@@ -147,10 +149,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Returns the next gossipsub message received by the server for subscribed topics
   on the current process. If there are none, it waits for one.
   """
-  @spec receive_gossip() :: {String.t(), binary()}
+  @spec receive_gossip() :: {String.t(), binary(), binary()}
   def receive_gossip do
     receive do
-      {:gossipsub, {_topic_name, _message} = m} -> m
+      {:gossipsub, {_topic_name, _msg_id, _message} = m} -> m
     end
   end
 
@@ -177,6 +179,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec set_new_peer_handler(GenServer.server(), pid() | nil) :: :ok
   def set_new_peer_handler(pid \\ __MODULE__, handler) do
     GenServer.cast(pid, {:set_new_peer_handler, handler})
+  end
+
+  @doc """
+  Marks the message with a validation result. The result can be `:accept`, `:reject` or `:ignore`:
+    * `:accept` - the message is valid and should be propagated.
+    * `:reject` - the message is invalid, mustn't be propagated, and its sender should be penalized.
+    * `:ignore` - the message is invalid, mustn't be propagated, but its sender shouldn't be penalized.
+  """
+  @spec validate_message(GenServer.server(), binary(), :accept | :reject | :ignore) :: :ok
+  def validate_message(pid \\ __MODULE__, msg_id, result) do
+    cast_command(pid, {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
   end
 
   ########################
@@ -230,22 +243,22 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%GossipSub{topic: topic, handler: handler, message: message}, _state) do
-    handler_pid = :erlang.binary_to_term(handler)
-    send(handler_pid, {:gossipsub, {topic, message}})
+  defp handle_notification(%GossipSub{} = gs, _state) do
+    handler_pid = :erlang.binary_to_term(gs.handler)
+    send(handler_pid, {:gossipsub, {gs.topic, gs.msg_id, gs.message}})
   end
 
   defp handle_notification(
          %Request{
            protocol_id: protocol_id,
            handler: handler,
-           message_id: message_id,
+           request_id: request_id,
            message: message
          },
          _state
        ) do
     handler_pid = :erlang.binary_to_term(handler)
-    send(handler_pid, {:request, {protocol_id, message_id, message}})
+    send(handler_pid, {:request, {protocol_id, request_id, message}})
   end
 
   defp handle_notification(%NewPeer{peer_id: _peer_id}, %{new_peer_handler: nil}), do: :ok
@@ -254,16 +267,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     send(handler, {:new_peer, peer_id})
   end
 
-  defp handle_notification(%Result{from: from, success: success, message: message}, _state) do
-    case from do
-      nil ->
-        success_txt = if success, do: "success", else: "failed"
-        Logger.info("[Result] #{success_txt}: #{message}")
+  defp handle_notification(%Result{from: "", result: result}, _state) do
+    # TODO: amount of failures would be a useful metric
+    _success_txt = if match?({:ok, _}, result), do: "success", else: "failed"
+  end
 
-      from ->
-        pid = :erlang.binary_to_term(from)
-        send(pid, {:response, {success, message}})
-    end
+  defp handle_notification(%Result{from: from, result: result}, _state) do
+    pid = :erlang.binary_to_term(from)
+    send(pid, {:response, result})
   end
 
   defp parse_args(args) do
@@ -291,9 +302,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp receive_response do
     receive do
-      {:response, {true, ""}} -> :ok
-      {:response, {true, message}} -> {:ok, message}
-      {:response, {false, message}} -> {:error, message}
+      {:response, {res, %ResultMessage{message: []}}} -> res
+      {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()
     end
   end
 end
