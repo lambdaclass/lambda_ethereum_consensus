@@ -4,7 +4,7 @@ defmodule Unit.Libp2pPortTest do
 
   @bootnodes Application.compile_env(
                :lambda_ethereum_consensus,
-               LambdaEthereumConsensus.P2P.Discovery
+               :discovery
              )[:bootnodes]
 
   doctest Libp2pPort
@@ -71,7 +71,7 @@ defmodule Unit.Libp2pPortTest do
       new_peer_handler: self()
     )
 
-    assert_receive({:new_peer, _peer_id}, 10_000)
+    assert_receive {:new_peer, _peer_id}, 10_000
   end
 
   defp retrying_publish(pid, topic, message) do

@@ -11,15 +11,14 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.P2P.BlockDownloader
 
-  @type state :: %{host: Libp2p.host(), pending_blocks: %{}}
+  @type state :: %{pending_blocks: %{}}
 
   ##########################
   ### Public API
   ##########################
 
   def start_link(opts) do
-    [host] = opts
-    GenServer.start_link(__MODULE__, host, name: __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @spec add_block(SszTypes.BeaconBlock.t()) :: :ok
@@ -38,10 +37,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @impl true
   @spec init(any) :: {:ok, state()}
-  def init(host) do
+  def init(_opts) do
     schedule_blocks_processing()
 
-    {:ok, %{host: host, pending_blocks: %{}}}
+    {:ok, %{pending_blocks: %{}}}
   end
 
   @impl true
@@ -80,7 +79,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             nil
 
           true ->
-            case BlockDownloader.request_block_by_root(block.parent_root, state.host) do
+            case BlockDownloader.request_block_by_root(block.parent_root) do
               {:ok, signed_block} ->
                 Logger.info("Block downloaded: #{signed_block.message.slot}")
                 block = signed_block.message
