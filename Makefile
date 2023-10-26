@@ -1,4 +1,4 @@
-.PHONY: iex deps test spec-test lint clean compile-native compile-port fmt \
+.PHONY: iex deps test spec-test lint clean compile-native compile-port compile fmt \
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-%
 
@@ -92,17 +92,19 @@ compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
 compile-port: $(OUTPUT_DIR)/libp2p_port
 
+compile: compile-native compile-port $(PROTOBUF_EX_FILES)
+
 
 # Start application with Beacon API.
-start: $(PROTOBUF_EX_FILES) compile-native compile-port
+start: compile
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
-iex: $(PROTOBUF_EX_FILES) compile-native compile-port
+iex: compile
 	iex -S mix
 
 # Run an interactive terminal using checkpoint sync.
-checkpoint-sync: $(PROTOBUF_EX_FILES) compile-native compile-port
+checkpoint-sync: compile
 	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
 # Install mix dependencies.
@@ -116,7 +118,7 @@ deps:
 	mix deps.get
 
 # Run tests
-test: compile-native compile-port $(PROTOBUF_EX_FILES)
+test: compile
 	mix test --no-start --exclude spectest
 
 spec-test: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_DIRS)
