@@ -51,19 +51,25 @@ SPECTEST_VERSION := $(shell cat .spectest_version)
 SPECTEST_CONFIGS = general minimal mainnet
 
 SPECTEST_ROOTDIR = test/spec/vectors
+SPECTEST_GENERATED_ROOTDIR = test/generated
+VECTORS_DIR = $(SPECTEST_ROOTDIR)/tests
 # create directory if it doesn't exist
 $(info $(shell mkdir -p $(SPECTEST_ROOTDIR)))
 
 SPECTEST_DIRS := $(patsubst %,$(SPECTEST_ROOTDIR)/tests/%,$(SPECTEST_CONFIGS))
+SPECTEST_GENERATED := $(patsubst %,$(SPECTEST_GENERATED_ROOTDIR)/%,$(SPECTEST_CONFIGS))
 SPECTEST_TARS := $(patsubst %,$(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
 
 $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz:
 	curl -L -o "$@" \
 		"https://github.com/ethereum/consensus-spec-tests/releases/download/${SPECTEST_VERSION}/$*.tar.gz"
 
-$(SPECTEST_ROOTDIR)/tests/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
+$(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
 	-rm -rf $@
 	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
+
+$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)
+	mix generate_spec_tests
 
 download-vectors: $(SPECTEST_TARS)
 
@@ -71,12 +77,16 @@ clean-vectors:
 	-rm -rf $(SPECTEST_ROOTDIR)/tests
 	-rm $(SPECTEST_ROOTDIR)/*.tar.gz
 
+clean-tests:
+	-rm -r test/generated
+
+gen-spec:
+	mix generate_spec_tests
 
 ##### TARGETS #####
 
 clean:
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
-
 
 # Compile C and Go artifacts.
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so
@@ -110,11 +120,29 @@ deps:
 test: compile-native compile-port
 	mix test --no-start --exclude spectest
 
-spec-test: compile-port $(SPECTEST_DIRS)
-	mix test --no-start --only implemented_spectest
+# Run all spec tests
+spec-test: compile-port $(SPECTEST_GENERATED)
+	mix test --no-start test/generated/*/*/*
 
-spec-test-%: compile-port $(SPECTEST_DIRS)
-	mix test --no-start --only runner:$*
+# Run all spec tests for a specific config (e.g. mainnet)
+spec-test-config-%: compile-port $(SPECTEST_GENERATED)
+	mix test --no-start test/generated/$*/*/*
+
+# Run all spec tests for a specific runner (e.g. epoch_processing)
+spec-test-runner-%: compile-port $(SPECTEST_GENERATED)
+	mix test --no-start test/generated/*/*/$*.exs
+
+# Run spec tests for mainnet config, for the specified runner.
+spec-test-mainnet-%: compile-port $(SPECTEST_GENERATED)
+	mix test --no-start test/generated/mainnet/*/$*.exs
+
+# Run spec tests for minimal config, for the specified runner.
+spec-test-minimal-%: compile-port $(SPECTEST_GENERATED)
+	mix test --no-start test/generated/mainnet/*/$*.exs
+
+# Run spec tests for general config, for the specified runner.
+spec-test-general-%: compile-port $(SPECTEST_GENERATED)
+	mix test --no-start test/generated/mainnet/*/$*.exs
 
 lint:
 	mix format --check-formatted
