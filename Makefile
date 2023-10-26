@@ -121,27 +121,27 @@ test: compile-native compile-port
 	mix test --no-start --exclude spectest
 
 # Run all spec tests
-spec-test: compile-port $(SPECTEST_GENERATED)
+spec-test: compile-port $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/*
 
 # Run all spec tests for a specific config (e.g. mainnet)
-spec-test-config-%: compile-port $(SPECTEST_GENERATED)
+spec-test-config-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/$*/*/*
 
 # Run all spec tests for a specific runner (e.g. epoch_processing)
-spec-test-runner-%: compile-port $(SPECTEST_GENERATED)
+spec-test-runner-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/$*.exs
 
 # Run spec tests for mainnet config, for the specified runner.
-spec-test-mainnet-%: compile-port $(SPECTEST_GENERATED)
+spec-test-mainnet-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 # Run spec tests for minimal config, for the specified runner.
-spec-test-minimal-%: compile-port $(SPECTEST_GENERATED)
+spec-test-minimal-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 # Run spec tests for general config, for the specified runner.
-spec-test-general-%: compile-port $(SPECTEST_GENERATED)
+spec-test-general-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 lint:
