@@ -77,14 +77,18 @@ PORT_SOURCES := $(shell find native/libp2p_port -type f)
 $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
 	cd native/libp2p_port; go build -o ../../$(OUTPUT_DIR)/libp2p_port
 
-compile-port: $(OUTPUT_DIR)/libp2p_port
+compile-port: $(OUTPUT_DIR)/libp2p_port proto
 
-# Run an interactive terminal with the main supervisor setup.
+# Start application with Beacon API.
 start: compile-native compile-port
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
 iex: compile-native compile-port
+	iex -S mix
+
+# Run an interactive terminal using checkpoint sync.
+checkpoint-sync: compile-native compile-port
 	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
 # Install mix dependencies.
@@ -121,8 +125,8 @@ fmt:
 	cd native/ssz_nif; cargo fmt
 	cd native/bls_nif; cargo fmt
 
-# Generate protobof code
-proto:
+# Generate protobuf code
+proto: proto/libp2p.proto
 	sh scripts/make_protos.sh
 
 nix:
