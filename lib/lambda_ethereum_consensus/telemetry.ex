@@ -59,10 +59,24 @@ defmodule LambdaEthereumConsensus.Telemetry do
       counter("peers.connection.success.count"),
 
       # VM Metrics
+      ## Memory
       last_value("vm.memory.total"),
+      last_value("vm.memory.processes"),
+      last_value("vm.memory.processes_used"),
+      last_value("vm.memory.system"),
+      last_value("vm.memory.atom"),
+      last_value("vm.memory.atom_used"),
+      last_value("vm.memory.binary"),
+      last_value("vm.memory.code"),
+      last_value("vm.memory.ets"),
+      ## Scheduler run queue lengths
       last_value("vm.total_run_queue_lengths.total"),
       last_value("vm.total_run_queue_lengths.cpu"),
-      last_value("vm.total_run_queue_lengths.io")
+      last_value("vm.total_run_queue_lengths.io"),
+      ## System counts
+      last_value("vm.system_counts.process_count"),
+      last_value("vm.system_counts.atom_count"),
+      last_value("vm.system_counts.port_count")
     ]
   end
 
