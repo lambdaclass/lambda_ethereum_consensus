@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :observer],
       mod: {LambdaEthereumConsensus.Application, []}
     ]
   end
@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:timex, "~> 3.7"},
-      {:rexbug, "~> 1.0.5"},
+      {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.12.0"},
       {:uuid, "~> 1.1"},

@@ -39,9 +39,18 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 
 ### PORT
 
+PROTOBUF_EX_FILES := lib/proto/libp2p.pb.ex
+PROTOBUF_GO_FILES := native/libp2p_port/internal/proto/libp2p.pb.go
+
+$(PROTOBUF_GO_FILES): proto/libp2p.proto
+	protoc --go_out=./native/libp2p_port $<
+
+$(PROTOBUF_EX_FILES): proto/libp2p.proto
+	protoc --elixir_out=./lib $<
+
 PORT_SOURCES := $(shell find native/libp2p_port -type f)
 
-$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
+$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) $(PROTOBUF_GO_FILES)
 	cd native/libp2p_port; go build -o ../../$@
 
 
@@ -95,53 +104,53 @@ compile-port: $(OUTPUT_DIR)/libp2p_port
 
 
 # Start application with Beacon API.
-start: compile-native compile-port
+start: $(PROTOBUF_EX_FILES) compile-native compile-port
 	iex -S mix phx.server
 
 # Run an interactive terminal with the main supervisor setup.
-iex: compile-native compile-port
+iex: $(PROTOBUF_EX_FILES) compile-native compile-port
 	iex -S mix
 
 # Run an interactive terminal using checkpoint sync.
-checkpoint-sync: compile-native compile-port
+checkpoint-sync: $(PROTOBUF_EX_FILES) compile-native compile-port
 	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
 # Install mix dependencies.
 
 deps:
 	sh scripts/install_protos.sh
-	sh scripts/make_protos.sh
+	$(MAKE) proto
 
 	cd native/libp2p_port; \
 	go get && go install
 	mix deps.get
 
 # Run tests
-test: compile-native compile-port
+test: compile-native compile-port $(PROTOBUF_EX_FILES)
 	mix test --no-start --exclude spectest
 
 # Run all spec tests
-spec-test: compile-port $(SPECTEST_GENERATED_ROOTDIR)
+spec-test: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/*
 
 # Run all spec tests for a specific config (e.g. mainnet)
-spec-test-config-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-config-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/$*/*/*
 
 # Run all spec tests for a specific runner (e.g. epoch_processing)
-spec-test-runner-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-runner-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/$*.exs
 
 # Run spec tests for mainnet config, for the specified runner.
-spec-test-mainnet-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-mainnet-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 # Run spec tests for minimal config, for the specified runner.
-spec-test-minimal-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-minimal-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 # Run spec tests for general config, for the specified runner.
-spec-test-general-%: compile-port $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-general-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 lint:
@@ -157,8 +166,7 @@ fmt:
 	cd native/bls_nif; cargo fmt
 
 # Generate protobuf code
-proto: proto/libp2p.proto
-	sh scripts/make_protos.sh
+proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 
 nix:
 	nix develop

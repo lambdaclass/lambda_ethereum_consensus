@@ -40,9 +40,11 @@ defmodule LambdaEthereumConsensus.P2P.Subscriber do
 
   @impl true
   def handle_info(
-        {:gossipsub, {topic, message}},
+        {:gossipsub, {topic, msg_id, message}},
         %{topic: topic, queue: queue, demand: demand} = state
       ) do
+    # TODO: validate
+    Libp2pPort.validate_message(msg_id, :accept)
     queue = :queue.in(message, queue)
     pop_events(demand, [], %{state | queue: queue, demand: 0})
   end
