@@ -8,6 +8,8 @@ defmodule Ssz do
   @spec to_ssz(struct | list(struct)) :: {:ok, binary} | {:error, String.t()}
   def to_ssz(map)
 
+  def to_ssz(%SszTypes.Checkpoint{} = container), do: serialize(container)
+
   def to_ssz(%name{} = map), do: to_ssz_typed(map, name)
 
   def to_ssz([]) do
@@ -139,4 +141,101 @@ defmodule Ssz do
 
   @spec decode_u256(binary) :: non_neg_integer
   def decode_u256(num), do: :binary.decode_unsigned(num, :little)
+
+  ##### elixir native ssz
+  @bytes_per_length_offset 4
+  @bytes_per_chunk 32
+  @bits_per_byte 8
+
+  defp is_variable_size(element) when is_list(element), do: true
+  defp is_variable_size(element) when is_struct(element), do: true
+  defp is_variable_size(element) when is_integer(element), do: false
+  defp is_variable_size(element) when is_boolean(element), do: false
+
+  # TODO bitlist is variable-length but bitvector is fixed-length
+  defp is_variable_size(element) when is_bitstring(element), do: false
+  defp is_variable_size(element) when is_binary(element), do: false
+
+  defmacro is_uint8(value) do
+    quote do: unquote(value) in 0..unquote(2 ** 8 - 1)
+  end
+
+  defmacro is_uint64(value) do
+    quote do: unquote(value) in unquote(2 ** 8)..unquote(2 ** 64 - 1)
+  end
+
+  defmacro is_uint256(value) do
+    quote do: unquote(value) in unquote(2 ** 64)..unquote(2 ** 256 - 1)
+  end
+
+  def serialize(struct) when is_struct(struct) do
+    values =
+      struct
+      |> Map.from_struct()
+      |> Map.values()
+      |> Enum.reverse()
+
+    serialize(values)
+  end
+
+  def serialize(value) when is_list(value) do
+    fixed_parts =
+      value
+      |> Enum.map(fn v -> if is_variable_size(v), do: nil, else: serialize(v) end)
+
+    variable_parts =
+      value
+      |> Enum.map(fn v -> if is_variable_size(v), do: serialize(v), else: <<>> end)
+
+    fixed_lengths =
+      fixed_parts
+      |> Enum.map(fn part ->
+        if part != nil, do: byte_size(part), else: @bytes_per_length_offset
+      end)
+
+    variable_lengths =
+      variable_parts
+      |> Enum.map(fn part -> byte_size(part) end)
+
+    variable_offsets =
+      0..(length(value) - 1)
+      |> Enum.map(fn i ->
+        slice_variable_lengths = Enum.take(variable_lengths, i)
+        sum = Enum.sum(fixed_lengths ++ slice_variable_lengths)
+        serialize_uint(sum, 32)
+      end)
+
+    fixed_parts =
+      fixed_parts
+      |> Enum.with_index()
+      |> Enum.map(fn {part, i} -> if part != nil, do: part, else: Enum.at(variable_offsets, i) end)
+
+    final_ssz =
+      (Enum.reverse(variable_parts) ++ Enum.reverse(fixed_parts))
+      |> Enum.reduce(&<>/2)
+
+    {:ok, final_ssz}
+  end
+
+  def serialize(value) when is_integer(value) and is_uint8(value), do: serialize_uint(value, 8)
+  def serialize(value) when is_integer(value) and is_uint64(value), do: serialize_uint(value, 64)
+
+  def serialize(value) when is_integer(value) and is_uint256(value),
+    do: serialize_uint(value, 256)
+
+  def serialize(value) when is_binary(value) do
+    IO.puts("is binary #{inspect(value <> <<>>)}")
+    value
+  end
+
+  def serialize(value), do: {:error, "Unknown schema: #{inspect(value)}"}
+
+  defp serialize_uint(value, size) do
+    <<encoded::binary-size(div(size, 8))>> =
+      value
+      |> :binary.encode_unsigned(:little)
+      |> String.pad_trailing(div(size, 8), <<0>>)
+
+    encoded
+  end
 end
