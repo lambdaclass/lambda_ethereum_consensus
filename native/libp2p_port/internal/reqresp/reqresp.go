@@ -81,8 +81,8 @@ func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte)
 	return io.ReadAll(stream)
 }
 
-func (l *Listener) SendResponse(messageId string, message []byte) {
-	value, found := l.pendingMessages.LoadAndDelete(messageId)
+func (l *Listener) SendResponse(requestId string, message []byte) {
+	value, found := l.pendingMessages.LoadAndDelete(requestId)
 	if !found {
 		// TODO: return error
 		panic("message not found")
@@ -99,10 +99,10 @@ func (l *Listener) SetHandler(protocolId string, handler []byte) {
 			// TODO: we just ignore read errors for now
 			return
 		}
-		messageId := stream.ID()
+		requestId := stream.ID()
 		responseChan := make(chan []byte)
-		l.pendingMessages.Store(messageId, responseChan)
-		notification := proto_helpers.RequestNotification(id, handler, messageId, request)
+		l.pendingMessages.Store(requestId, responseChan)
+		notification := proto_helpers.RequestNotification(id, handler, requestId, request)
 		l.port.SendNotification(&notification)
 		response := <-responseChan
 		_, err = stream.Write(response)
