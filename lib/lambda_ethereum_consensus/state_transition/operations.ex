@@ -6,7 +6,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Engine
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
   alias SszTypes.ExecutionPayload
 
@@ -23,7 +22,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_execution_payload(state, payload, _execution_valid) do
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
-      Predicates.is_merge_transition_complete(state) and
+      SszTypes.BeaconState.is_merge_transition_complete(state) and
           payload.parent_hash != state.latest_execution_payload_header.block_hash ->
         {:error, "Inconsistency in parent hash"}
 

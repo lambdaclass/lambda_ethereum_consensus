@@ -4,6 +4,24 @@ defmodule SszTypes.BeaconState do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
+  @default_execution_payload_header %SszTypes.ExecutionPayloadHeader{
+    parent_hash: <<0::256>>,
+    fee_recipient: <<0::160>>,
+    state_root: <<0::256>>,
+    receipts_root: <<0::256>>,
+    logs_bloom: <<0::2048>>,
+    prev_randao: <<0::256>>,
+    block_number: 0,
+    gas_limit: 0,
+    gas_used: 0,
+    timestamp: 0,
+    extra_data: "",
+    base_fee_per_gas: 0,
+    block_hash: <<0::256>>,
+    transactions_root: <<0::256>>,
+    withdrawals_root: <<0::256>>
+  }
+
   fields = [
     :genesis_time,
     :genesis_validators_root,
@@ -88,4 +106,12 @@ defmodule SszTypes.BeaconState do
           # [New in Capella]
           historical_summaries: list(SszTypes.HistoricalSummary.t())
         }
+
+  @doc """
+  Checks if state is pre or post merge
+  """
+  @spec is_merge_transition_complete(SszTypes.BeaconState.t()) :: boolean()
+  def is_merge_transition_complete(state) do
+    state.latest_execution_payload_header != @default_execution_payload_header
+  end
 end
