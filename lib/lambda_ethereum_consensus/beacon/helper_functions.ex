@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.Beacon.HelperFunctions do
   def compute_signing_root(ssz_object, domain) do
     {:ok, root} =
       Ssz.hash_tree_root(%SszTypes.SigningData{
-        object_root: hash_tree_root(ssz_object),
+        object_root: Ssz.hash_tree_root(ssz_object),
         domain: domain
       })
 

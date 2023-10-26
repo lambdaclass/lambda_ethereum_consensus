@@ -123,24 +123,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
-  Return the validator churn limit for the current epoch.
-  """
-  @spec get_validator_churn_limit(BeaconState.t()) :: SszTypes.uint64()
-  def get_validator_churn_limit(%BeaconState{} = state) do
-    active_validator_indices =
-      div(
-        length(get_active_validator_indices(state, get_current_epoch(state))),
-        Constants.churn_limit_quotient()
-      )
-
-    if active_validator_indices > Constants.min_per_epoch_churn_limit() do
-      active_validator_indices
-    else
-      Constants.min_per_epoch_churn_limit()
-    end
-  end
-
-  @doc """
   Return the seed at ``epoch``.
   """
   @spec get_seed(BeaconState.t(), SszTypes.epoch(), SszTypes.domain_type()) :: SszTypes.bytes32()
@@ -177,7 +159,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the signature domain (fork version concatenated with domain type) of a message.
   """
   @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch()) :: SszTypes.domain()
-  get_domain(state, domain_type, epoch \\ nil) do
+  def get_domain(state, domain_type, epoch \\ nil) do
     epoch = if epoch == nil, do: get_current_epoch(state), else: epoch
 
     fork_version =

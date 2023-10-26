@@ -136,11 +136,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     total = length(indices)
     candidate_index = Enum.at(indices, compute_shuffled_index(rem(i, total), total, seed))
     random_byte = :crypto.hash(:sha256, seed <> uint_to_bytes4(div(i, 32)))
-    random_byte = <<_::binary-size(rem(i, 32)), byte, _::binary>>
+    <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
 
     effective_balance = Enum.at(state.validators, candidate_index).effective_balance
 
-    if effective_balance * max_random_byte >= max_effective_balance * random_byte do
+    if effective_balance * max_random_byte >= max_effective_balance * byte do
       candidate_index
     else
       compute_proposer_index(state, indices, seed, i + 1)

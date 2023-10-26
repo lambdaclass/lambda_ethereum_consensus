@@ -25,21 +25,21 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     slashed_any = false
 
-    indices =
-      Enum.uniq(attestation_1.attesting_indices)
-      |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
-      |> Enum.sort()
-      |> Enum.each(fn i ->
-        if(
-          Predicates.is_slashable_validator(
-            Enum.at(state.validators, i),
-            Accessors.get_current_epoch(state)
-          )
-        )
 
+    Enum.uniq(attestation_1.attesting_indices)
+    |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
+    |> Enum.sort()
+    |> Enum.each(fn i ->
+      if(
+        Predicates.is_slashable_validator(
+          Enum.at(state.validators, i),
+          Accessors.get_current_epoch(state)
+        )
+      ) do
         Mutators.slash_validator(state, i)
         slashed_any = true
-      end)
+      end
+    end)
 
     if not slashed_any, do: {:error, "Didn't slash any."}
     {:ok}
