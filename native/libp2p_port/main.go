@@ -27,16 +27,16 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 		listener.SetHandler(c.SetHandler.ProtocolId, command.From)
 	case *proto_defs.Command_Subscribe:
 		err := subscriber.Subscribe(c.Subscribe.Name, command.From)
-		return proto_helpers.ResultNotification(command.From, []byte{}, err)
+		return proto_helpers.ResultNotification(command.From, nil, err)
 	case *proto_defs.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
 	case *proto_defs.Command_Publish:
 		subscriber.Publish(c.Publish.Topic, c.Publish.Message)
 	default:
-		return proto_helpers.ResultNotification(command.From, []byte{}, errors.New("invalid command"))
+		return proto_helpers.ResultNotification(command.From, nil, errors.New("invalid command"))
 	}
 	// Default, OK empty response
-	return proto_helpers.ResultNotification(command.From, []byte{}, nil)
+	return proto_helpers.ResultNotification(command.From, nil, nil)
 }
 
 func commandServer() {

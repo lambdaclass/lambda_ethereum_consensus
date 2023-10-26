@@ -31,7 +31,7 @@ jobs:
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v4
         with:
-          go-version: "1.20"
+          go-version: "1.21"
           cache-dependency-path: |
             native/libp2p_nif/go.sum
             native/libp2p_port/go.sum
@@ -49,7 +49,7 @@ jobs:
           protoc --go_out=./native/libp2p_port proto/libp2p.proto
       - name: Compile native code
         if: steps.output-cache.outputs.cache-hit != 'true'
-        run: make compile-native compile-port
+        run: make compile-port compile-native
 
   build:
     name: Build project
