@@ -19,7 +19,7 @@ defmodule ForkChoiceTestRunner do
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler, case: testcase}) do
+  def skip?(%SpecTestCase{fork: fork, handler: handler, case: _testcase}) do
     fork != "capella" or Enum.member?(@disabled_handlers, handler)
   end
 
@@ -52,14 +52,11 @@ defmodule ForkChoiceTestRunner do
 
       {:error, error} ->
         assert false, error
-
-      _ ->
-        assert false, "result is not a store: #{inspect(result)}"
     end
   end
 
-  @spec apply_steps(ForkChoiceStore.t(), list()) ::
-          ForkChoiceStore.t() | {:error, binary()}
+  @spec apply_steps(Store.t(), list()) ::
+          Store.t() | {:error, binary()}
   defp apply_steps(store, steps) do
     Enum.reduce_while(steps, store, fn step, %Store{} = store ->
       should_be_valid = Map.get(step, "valid", true)
@@ -80,8 +77,8 @@ defmodule ForkChoiceTestRunner do
     end)
   end
 
-  @spec apply_step(ForkChoiceStore.t(), map()) ::
-          {:ok, ForkChoiceStore.t()} | {:error, binary()}
+  @spec apply_step(Store.t(), map()) ::
+          {:ok, Store.t()} | {:error, binary()}
   defp apply_step(store, step)
 
   defp apply_step(store, %{tick: time}) do
@@ -118,5 +115,9 @@ defmodule ForkChoiceTestRunner do
 
   defp apply_step(store, %{block: block}) do
     Handlers.on_block(store, block)
+  end
+
+  defp apply_step(_, _) do
+    {:error, "unknown step"}
   end
 end
