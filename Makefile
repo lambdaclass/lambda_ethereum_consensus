@@ -39,14 +39,6 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 
 ### PORT
 
-PORT_SOURCES := $(shell find native/libp2p_port -type f)
-
-$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
-	cd native/libp2p_port; go build -o ../../$@
-
-
-## PORT
-
 PROTOBUF_EX_FILES := lib/proto/libp2p.pb.ex
 PROTOBUF_GO_FILES := native/libp2p_port/internal/proto/libp2p.pb.go
 
@@ -59,7 +51,7 @@ $(PROTOBUF_EX_FILES): proto/libp2p.proto
 PORT_SOURCES := $(shell find native/libp2p_port -type f)
 
 $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) $(PROTOBUF_GO_FILES)
-	cd native/libp2p_port; go build -o ../../$(OUTPUT_DIR)/libp2p_port
+	cd native/libp2p_port; go build -o ../../$@
 
 
 ##### SPEC TEST VECTORS #####
