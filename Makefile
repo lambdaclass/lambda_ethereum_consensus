@@ -1,11 +1,13 @@
-.PHONY: iex deps test spec-test lint clean compile-native fmt \
-		clean-vectors download-vectors uncompress-vectors proto compile-port \
+.PHONY: iex deps test spec-test lint clean compile-native compile-port fmt \
+		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-%
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
 
 ##### NATIVE COMPILATION #####
+
+### NIF
 
 # magic from sym_num https://elixirforum.com/t/where-is-erl-nif-h-header-file-required-for-nif/27142/5
 ERLANG_INCLUDES := $(shell erl -eval 'io:format("~s", \
@@ -34,6 +36,13 @@ $(LIBP2P_DIR)/go_src/%.a $(LIBP2P_DIR)/go_src/%.h: $(LIBP2P_DIR)/go_src/%.go
 $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/go_src/utils.c
 	gcc $(CFLAGS) -I $(LIBP2P_DIR)/go_src -o $@ \
 		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/go_src/utils.c $(GO_ARCHIVES)
+
+### PORT
+
+PORT_SOURCES := $(shell find native/libp2p_port -type f)
+
+$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
+	cd native/libp2p_port; go build -o ../../$@
 
 
 ##### SPEC TEST VECTORS #####
@@ -68,16 +77,12 @@ clean-vectors:
 clean:
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
 
+
 # Compile C and Go artifacts.
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so
 
+compile-port: $(OUTPUT_DIR)/libp2p_port
 
-PORT_SOURCES := $(shell find native/libp2p_port -type f)
-
-$(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES)
-	cd native/libp2p_port; go build -o ../../$(OUTPUT_DIR)/libp2p_port
-
-compile-port: $(OUTPUT_DIR)/libp2p_port proto
 
 # Start application with Beacon API.
 start: compile-native compile-port
@@ -97,8 +102,6 @@ deps:
 	sh scripts/install_protos.sh
 	sh scripts/make_protos.sh
 
-	cd $(LIBP2P_DIR)/go_src; \
-	go get && go install
 	cd native/libp2p_port; \
 	go get && go install
 	mix deps.get
@@ -107,10 +110,10 @@ deps:
 test: compile-native compile-port
 	mix test --no-start --exclude spectest
 
-spec-test: compile-native $(SPECTEST_DIRS)
+spec-test: compile-port $(SPECTEST_DIRS)
 	mix test --no-start --only implemented_spectest
 
-spec-test-%: compile-native $(SPECTEST_DIRS)
+spec-test-%: compile-port $(SPECTEST_DIRS)
 	mix test --no-start --only runner:$*
 
 lint:

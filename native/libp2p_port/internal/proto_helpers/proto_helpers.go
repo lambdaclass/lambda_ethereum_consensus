@@ -20,8 +20,8 @@ func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 	}
 }
 
-func GossipNotification(topic string, handler []byte, message []byte) proto_defs.Notification {
-	gossipSubNotification := &proto_defs.GossipSub{Topic: topic, Handler: handler, Message: message}
+func GossipNotification(topic string, handler, msgId, message []byte) proto_defs.Notification {
+	gossipSubNotification := &proto_defs.GossipSub{Topic: topic, Handler: handler, MsgId: msgId, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Gossip{Gossip: gossipSubNotification}}
 }
 
@@ -30,16 +30,23 @@ func NewPeerNotification(id []byte) proto_defs.Notification {
 	return proto_defs.Notification{N: &proto_defs.Notification_NewPeer{NewPeer: newPeerNotification}}
 }
 
-func RequestNotification(protocolId string, handler []byte, messageId string, message []byte) proto_defs.Notification {
-	requestNotification := &proto_defs.Request{ProtocolId: protocolId, Handler: handler, MessageId: messageId, Message: message}
+func RequestNotification(protocolId string, handler []byte, requestId string, message []byte) proto_defs.Notification {
+	requestNotification := &proto_defs.Request{ProtocolId: protocolId, Handler: handler, RequestId: requestId, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Request{Request: requestNotification}}
 }
 
 func ResultNotification(from []byte, result []byte, err error) proto_defs.Notification {
-	message := result
+	var responseNotification *proto_defs.Result
 	if err != nil {
-		message = []byte(err.Error())
+		resultError := &proto_defs.Result_Error{Error: &proto_defs.ResultMessage{Message: [][]byte{[]byte(err.Error())}}}
+		responseNotification = &proto_defs.Result{From: from, Result: resultError}
+	} else {
+		message := [][]byte{}
+		if result != nil {
+			message = [][]byte{result}
+		}
+		resultOk := &proto_defs.Result_Ok{Ok: &proto_defs.ResultMessage{Message: message}}
+		responseNotification = &proto_defs.Result{From: from, Result: resultOk}
 	}
-	responseNotification := &proto_defs.Result{From: from, Success: err == nil, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
 }

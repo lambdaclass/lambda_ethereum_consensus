@@ -4,7 +4,7 @@ defmodule Unit.Libp2pPortTest do
 
   @bootnodes Application.compile_env(
                :lambda_ethereum_consensus,
-               LambdaEthereumConsensus.P2P.Discovery
+               :discovery
              )[:bootnodes]
 
   doctest Libp2pPort
@@ -71,7 +71,7 @@ defmodule Unit.Libp2pPortTest do
       new_peer_handler: self()
     )
 
-    assert_receive({:new_peer, _peer_id}, 10_000)
+    assert_receive {:new_peer, _peer_id}, 10_000
   end
 
   defp two_hosts_gossip do
@@ -94,7 +94,9 @@ defmodule Unit.Libp2pPortTest do
       send(pid, :subscribed)
 
       # Receive the message
-      assert {^topic, ^message} = Libp2pPort.receive_gossip()
+      assert {^topic, message_id, ^message} = Libp2pPort.receive_gossip()
+
+      Libp2pPort.validate_message(message_id, :accept)
 
       # Send acknowledgement
       send(pid, :received)

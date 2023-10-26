@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sync"
 	"time"
 
 	"libp2p_port/internal/port"
@@ -21,9 +22,10 @@ type subscription struct {
 }
 
 type Subscriber struct {
-	subscriptions map[string]subscription
-	gsub          *pubsub.PubSub
-	port          *port.Port
+	subscriptions   map[string]subscription
+	pendingMessages sync.Map
+	gsub            *pubsub.PubSub
+	port            *port.Port
 }
 
 func NewSubscriber(p *port.Port, h host.Host) Subscriber {
@@ -69,6 +71,8 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 		pubsub.WithPeerScore(scoreParams, thresholds),
 		pubsub.WithGossipSubParams(gsubParams),
 		pubsub.WithSeenMessagesTTL(550 * heartbeat),
+		pubsub.WithPeerOutboundQueueSize(600),
+		pubsub.WithValidateQueueSize(600),
 		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
 	}
 
@@ -87,26 +91,66 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	if sub.Cancel != nil {
 		return errors.New("already subscribed")
 	}
+	port := s.port
+	validator := func(ctx context.Context, p peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
+		id := []byte(msg.ID)
+		notification := proto_helpers.GossipNotification(topicName, handler, id, msg.Data)
+		port.SendNotification(&notification)
+		ch := make(chan pubsub.ValidationResult)
+		// NOTE: we use strings because []byte is mutable
+		s.pendingMessages.Store(string(id), ch)
+		return <-ch
+	}
+	s.gsub.RegisterTopicValidator(topicName, validator)
 	ctx, cancel := context.WithCancel(context.Background())
 	sub.Cancel = cancel
 	topicSub, err := sub.Topic.Subscribe()
 	utils.PanicIfError(err)
-	go subscribeToTopic(topicSub, ctx, handler, s.port)
+	go subscribeToTopic(topicSub, ctx, s.gsub)
 	s.subscriptions[topicName] = sub
 	return nil
 }
 
-func subscribeToTopic(sub *pubsub.Subscription, ctx context.Context, handler []byte, p *port.Port) {
+func (s *Subscriber) Unsubscribe(topicName string) {
+	sub, isSubscribed := s.subscriptions[topicName]
+	if !isSubscribed {
+		return
+	}
+	delete(s.subscriptions, topicName)
+	sub.Cancel()
+	sub.Topic.Close()
+}
+
+func (s *Subscriber) Validate(msgId []byte, intResult int) {
+	result := pubsub.ValidationResult(intResult)
+	// NOTE: we use strings because []byte is mutable
+	ch, loaded := s.pendingMessages.LoadAndDelete(string(msgId))
+	if !loaded {
+		return
+	}
+	if result != pubsub.ValidationAccept && result != pubsub.ValidationReject && result != pubsub.ValidationIgnore {
+		panic("invalid validation result")
+	}
+	ch.(chan pubsub.ValidationResult) <- result
+}
+
+func (s *Subscriber) Publish(topicName string, message []byte) {
+	sub := s.getSubscription(topicName)
+	err := sub.Topic.Publish(context.Background(), message)
+	utils.PanicIfError(err)
+}
+
+// NOTE: we send the message to the port in the validator.
+// Here we just flush received messages and handle unsubscription.
+func subscribeToTopic(sub *pubsub.Subscription, ctx context.Context, gsub *pubsub.PubSub) {
 	topic := sub.Topic()
 	for {
-		msg, err := sub.Next(ctx)
+		_, err := sub.Next(ctx)
 		if err == context.Canceled {
-			return
+			break
 		}
-		utils.PanicIfError(err)
-		notification := proto_helpers.GossipNotification(topic, handler, msg.Data)
-		p.SendNotification(&notification)
 	}
+	gsub.UnregisterTopicValidator(topic)
 }
 
 func (s *Subscriber) getSubscription(topicName string) subscription {
@@ -120,20 +164,4 @@ func (s *Subscriber) getSubscription(topicName string) subscription {
 		s.subscriptions[topicName] = sub
 	}
 	return sub
-}
-
-func (s *Subscriber) Unsubscribe(topicName string) {
-	sub, isSubscribed := s.subscriptions[topicName]
-	if !isSubscribed {
-		return
-	}
-	delete(s.subscriptions, topicName)
-	sub.Cancel()
-	sub.Topic.Close()
-}
-
-func (s *Subscriber) Publish(topicName string, message []byte) {
-	sub := s.getSubscription(topicName)
-	err := sub.Topic.Publish(context.Background(), message)
-	utils.PanicIfError(err)
 }
