@@ -225,4 +225,4 @@ jobs:
       - name: Generate tests
         run: make gen-spec
       - name: Run tests
-        run: make spec-test-config-${{ matrix.config }}
+        run: mix test --no-start test/generated/${{ matrix.config }}/*/*
