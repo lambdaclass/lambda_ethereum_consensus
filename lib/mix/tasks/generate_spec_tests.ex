@@ -15,6 +15,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
   @forks ["altair", "deneb", "phase0"]
 
   @shortdoc "Generates tests for spec test files"
+  @impl Mix.Task
   def run(_args) do
     for config <- @configs, runner <- @runners do
       generate_test(config, "capella", runner)
