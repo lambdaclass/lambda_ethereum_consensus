@@ -155,17 +155,17 @@ defmodule Ssz do
   @bytes_per_chunk 32
   @bits_per_byte 8
 
-  defp is_variable_schema(%{} = map) when is_map(map) and map == %{}, do: true
+  defp is_variable_schema(map) when is_list(map) and map == [], do: true
 
-  defp is_variable_schema(%{} = map) when is_map(map) do
+  defp is_variable_schema(map) when is_list(map) do
     map
     |> Enum.map(fn {k, v} -> is_variable_size({v, k}) end)
     |> Enum.all?()
   end
 
-  defp ssz_fixed_len(%{} = map) when is_map(map) do
+  defp ssz_fixed_len(map) when is_list(map) do
     map
-    |> Enum.map(fn {k, v} -> byte_size_from_type(v) end)
+    |> Enum.map(fn {_k, v} -> byte_size_from_type(v) end)
     |> Enum.sum()
   end
 
@@ -206,33 +206,37 @@ defmodule Ssz do
     schema = struct.schema()
 
     values =
-      map
-      |> Map.from_struct()
-      |> Enum.map(fn {k, v} ->
-        {schema[k], v}
+      schema
+      |> Enum.map(fn {k, t} ->
+        {t, Map.get(map, k)}
       end)
-
-    # |> Enum.reverse()
 
     serialize(values)
   end
 
   def serialize(value) when is_list(value) do
+
     fixed_parts =
       value
-      |> Enum.map(fn v -> if is_variable_size(v), do: nil, else: serialize(v) end)
+      |> Enum.map(fn v ->
+        if is_variable_size(v), do: nil, else: serialize(v)
+      end)
       |> Enum.map(fn
         {:ok, ser} -> ser
         nil -> nil
       end)
 
+
     variable_parts =
       value
-      |> Enum.map(fn v -> if is_variable_size(v), do: serialize(v), else: <<>> end)
+      |> Enum.map(fn v ->
+        if is_variable_size(v), do: serialize(v), else: <<>>
+      end)
       |> Enum.map(fn
         {:ok, ser} -> ser
         <<>> -> <<>>
       end)
+
 
     fixed_lengths =
       fixed_parts
@@ -240,9 +244,11 @@ defmodule Ssz do
         if part != nil, do: byte_size(part), else: @bytes_per_length_offset
       end)
 
+
     variable_lengths =
       variable_parts
       |> Enum.map(fn part -> byte_size(part) end)
+
 
     variable_offsets =
       0..(length(value) - 1)
@@ -253,14 +259,17 @@ defmodule Ssz do
       end)
       |> Enum.map(fn {:ok, ser} -> ser end)
 
+
     fixed_parts =
       fixed_parts
       |> Enum.with_index()
       |> Enum.map(fn {part, i} -> if part != nil, do: part, else: Enum.at(variable_offsets, i) end)
 
+
     final_ssz =
-      (Enum.reverse(variable_parts) ++ Enum.reverse(fixed_parts))
-      |> Enum.reduce(&<>/2)
+      (fixed_parts ++ variable_parts)
+      |> :binary.list_to_bin()
+
 
     {:ok, final_ssz}
   end
@@ -280,7 +289,7 @@ defmodule Ssz do
   def serialize(value), do: {:error, "Unknown schema: #{inspect(value)}"}
 
   defp serialize_uint(value, size) do
-    <<encoded::binary-size(div(size, 8))>> =
+    <<encoded::binary-size(div(size, 8)), _rest::binary>> =
       value
       |> :binary.encode_unsigned(:little)
       |> String.pad_trailing(div(size, 8), <<0>>)
