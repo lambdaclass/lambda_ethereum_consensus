@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   @impl true
   def handle_info({:new_peer, peer_id}, peerbook) do
-    :telemetry.execute([:peers, :connection, :success], %{id: peer_id})
+    :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})
     updated_peerbook = Map.put(peerbook, peer_id, @initial_score)
     {:noreply, updated_peerbook}
   end

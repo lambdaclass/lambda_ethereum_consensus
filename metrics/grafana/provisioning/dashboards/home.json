@@ -234,7 +234,7 @@
             "targets": [
                 {
                     "exemplar": true,
-                    "expr": "peers_connection_success_count{instance=\"host.docker.internal:9568\"}",
+                    "expr": "rate(peers_connection_count{result=\"success\",instance=\"host.docker.internal:9568\"}[$__rate_interval])",
                     "interval": "",
                     "legendFormat": "success",
                     "refId": "Success"
