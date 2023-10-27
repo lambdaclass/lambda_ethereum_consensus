@@ -17,6 +17,10 @@ defmodule Ssz do
     to_ssz_rs([], SszTypes.ForkData)
   end
 
+  # def to_ssz([%SszTypes.VoluntaryExit{} | _tail] = list) do
+  #   serialize(list)
+  # end
+
   def to_ssz([%name{} | _tail] = list) do
     to_ssz_typed(list, name)
   end
@@ -26,6 +30,10 @@ defmodule Ssz do
     term
     |> encode()
     |> to_ssz_rs(schema)
+  end
+
+  def from_ssz(bin, SszTypes.Checkpoint = schema) do
+    {:ok, decode_elixir(bin, schema)}
   end
 
   @spec from_ssz(binary, module) :: {:ok, struct} | {:error, String.t()}
@@ -148,13 +156,21 @@ defmodule Ssz do
   @bits_per_byte 8
 
   defp is_variable_size(element) when is_list(element), do: true
-  defp is_variable_size(element) when is_struct(element), do: true
+  defp is_variable_size(element) when is_struct(element) do
+    element
+    |> Map.from_struct()
+    |> Enum.map(fn {_k, v} -> is_variable_size(v) end)
+    |> Enum.all?()
+    
+  end
   defp is_variable_size(element) when is_integer(element), do: false
   defp is_variable_size(element) when is_boolean(element), do: false
+  defp is_variable_size({:uint64, _value}), do: false
+  defp is_variable_size({:bytes32, _value}), do: false
 
   # TODO bitlist is variable-length but bitvector is fixed-length
-  defp is_variable_size(element) when is_bitstring(element), do: false
-  defp is_variable_size(element) when is_binary(element), do: false
+  defp is_variable_size(element) when is_bitstring(element), do: true
+  defp is_variable_size(element) when is_binary(element), do: true
 
   defmacro is_uint8(value) do
     quote do: unquote(value) in 0..unquote(2 ** 8 - 1)
@@ -168,11 +184,15 @@ defmodule Ssz do
     quote do: unquote(value) in unquote(2 ** 64)..unquote(2 ** 256 - 1)
   end
 
-  def serialize(struct) when is_struct(struct) do
+  def serialize(%struct{} = map) do
+    schema = struct.schema()
+
     values =
-      struct
+      map
       |> Map.from_struct()
-      |> Map.values()
+      |> Enum.map(fn {k, v} ->
+        {schema[k], v}
+      end)
       |> Enum.reverse()
 
     serialize(values)
@@ -182,10 +202,18 @@ defmodule Ssz do
     fixed_parts =
       value
       |> Enum.map(fn v -> if is_variable_size(v), do: nil, else: serialize(v) end)
+      |> Enum.map(fn
+        {:ok, ser} -> ser
+        nil -> nil
+      end)
 
     variable_parts =
       value
       |> Enum.map(fn v -> if is_variable_size(v), do: serialize(v), else: <<>> end)
+      |> Enum.map(fn
+        {:ok, ser} -> ser
+        <<>> -> <<>>
+      end)
 
     fixed_lengths =
       fixed_parts
@@ -204,6 +232,7 @@ defmodule Ssz do
         sum = Enum.sum(fixed_lengths ++ slice_variable_lengths)
         serialize_uint(sum, 32)
       end)
+      |> Enum.map(fn {:ok, ser} -> ser end)
 
     fixed_parts =
       fixed_parts
@@ -223,10 +252,11 @@ defmodule Ssz do
   def serialize(value) when is_integer(value) and is_uint256(value),
     do: serialize_uint(value, 256)
 
-  def serialize(value) when is_binary(value) do
-    IO.puts("is binary #{inspect(value <> <<>>)}")
-    value
-  end
+  def serialize(value) when is_binary(value), do: {:ok, value}
+
+  def serialize({:uint64, value}), do: serialize_uint(value, 64)
+
+  def serialize({:bytes32, value}), do: {:ok, value}
 
   def serialize(value), do: {:error, "Unknown schema: #{inspect(value)}"}
 
@@ -236,6 +266,83 @@ defmodule Ssz do
       |> :binary.encode_unsigned(:little)
       |> String.pad_trailing(div(size, 8), <<0>>)
 
-    encoded
+    {:ok, encoded}
+  end
+
+  # based on sigp/ethereum_ssz::decode_list_of_variable_length_items
+  @spec list_from_ssz_elixir(binary, module) :: {:ok, struct} | {:error, String.t()}
+  def list_from_ssz_elixir(bin, schema) do
+    if byte_size(bin) == 0 do
+      {:error, "Error trying to collect empty list"}
+    else
+      <<first_offset::integer-32-little, rest::bitstring>> = bin
+      num_items = div(first_offset, @bytes_per_length_offset)
+
+      if Integer.mod(first_offset, @bytes_per_length_offset) != 0 ||
+           first_offset < @bytes_per_length_offset do
+        {:error, "InvalidListFixedBytesLen"}
+      else
+        with {:ok, first_offset} <-
+               sanitize_offset(first_offset, nil, byte_size(bin), first_offset) do
+          {:ok, {decoded_list, _, _}} =
+            1..num_items
+            |> Enum.reduce_while({:ok, {[], first_offset, rest}}, fn i,
+                                                                     {:ok,
+                                                                      {acc, offset, acc_rest}} ->
+              if i == num_items do
+                part = :binary.part(bin, offset, byte_size(bin) - offset)
+                {:cont, {:ok, {[decode_elixir(part, schema) | acc], offset, rest}}}
+              else
+                <<next_offset::integer-32-little, rest::bitstring>> = acc_rest
+
+                case sanitize_offset(next_offset, offset, byte_size(bin), first_offset) do
+                  {:ok, next_offset} ->
+                    part = :binary.part(bin, offset, next_offset - offset)
+                    {:cont, {:ok, {[decode_elixir(part, schema) | acc], next_offset, rest}}}
+
+                  {:error, error} ->
+                    {:halt, {:error, error}}
+                end
+              end
+            end)
+
+          {:ok, decoded_list |> Enum.reverse()}
+        end
+      end
+    end
+  end
+
+  def decode_elixir(bin, SszTypes.Transaction), do: bin
+
+  def decode_elixir(bin, SszTypes.Checkpoint) do
+    <<epoch::integer-64-little, root::binary-size(32)>> = bin
+    struct!(SszTypes.Checkpoint, %{epoch: epoch, root: root})
+  end
+
+  def decode_elixir(bin, SszTypes.VoluntaryExit) do
+    <<epoch::integer-64-little, validator_index::integer-64-little>> = bin
+    struct!(SszTypes.VoluntaryExit, %{epoch: epoch, validator_index: validator_index})
+  end
+
+  def decode_elixir(_value, schema), do: {:error, "Unknown schema: #{inspect(schema)}"}
+
+  # https://notes.ethereum.org/ruKvDXl6QOW3gnqVYb8ezA?view
+  defp sanitize_offset(offset, previous_offset, num_bytes, num_fixed_bytes) do
+    cond do
+      offset < num_fixed_bytes ->
+        {:error, "OffsetIntoFixedPortion"}
+
+      previous_offset == nil && offset != num_fixed_bytes ->
+        {:error, "OffsetSkipsVariableBytes"}
+
+      offset > num_bytes ->
+        {:error, "OffsetOutOfBounds"}
+
+      previous_offset != nil && previous_offset > offset ->
+        {:error, "OffsetsAreDecreasing"}
+
+      true ->
+        {:ok, offset}
+    end
   end
 end

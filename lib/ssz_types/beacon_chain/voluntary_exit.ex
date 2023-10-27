@@ -9,6 +9,7 @@ defmodule SszTypes.VoluntaryExit do
     :validator_index
   ]
 
+  @schema %{epoch: :uint64, validator_index: :uint64}
   @enforce_keys fields
   defstruct fields
 
@@ -16,4 +17,5 @@ defmodule SszTypes.VoluntaryExit do
           epoch: SszTypes.epoch(),
           validator_index: SszTypes.validator_index()
         }
+  def schema, do: @schema
 end

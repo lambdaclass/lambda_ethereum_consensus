@@ -9,6 +9,12 @@ defmodule SszTypes.Checkpoint do
     :epoch
   ]
 
+  @schema %{epoch: :uint64, root: :bytes32}
+  # [
+  #   {:root, :bytes32},
+  #   {:epoch, :uint64}
+  # ]
+
   @enforce_keys fields
   defstruct fields
 
@@ -16,4 +22,6 @@ defmodule SszTypes.Checkpoint do
           epoch: SszTypes.epoch(),
           root: SszTypes.root()
         }
+
+  def schema, do: @schema
 end
