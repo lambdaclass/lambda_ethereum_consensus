@@ -52,9 +52,12 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
            ),
          {:ok, payload} <- parse_chunk(response_chunk),
          {:ok, block} <- decode_response(payload) do
+      P2P.Peerbook.reward_peer(peer_id)
       {:ok, block}
     else
       {:error, reason} ->
+        P2P.Peerbook.penalize_peer(peer_id)
+
         if retries > 0 do
           Logger.debug("Retrying request for block with slot #{slot}")
           request_block_by_slot(slot, retries - 1)
@@ -90,9 +93,12 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
            ),
          {:ok, payload} <- parse_chunk(response_chunk),
          {:ok, block} <- decode_response(payload) do
+      P2P.Peerbook.reward_peer(peer_id)
       {:ok, block}
     else
       {:error, reason} ->
+        P2P.Peerbook.penalize_peer(peer_id)
+
         if retries > 0 do
           Logger.debug("Retrying request for block with root #{Base.encode16(root)}")
           request_block_by_root(root, retries - 1)
