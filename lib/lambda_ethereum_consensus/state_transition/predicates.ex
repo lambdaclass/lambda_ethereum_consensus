@@ -88,14 +88,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
     indices = indexed_attestation.attesting_indices
 
     res =
-      if length(indices) != 0 or not indices == Enum.uniq(Enum.sort(indices)) do
+      if length(indices) != 0 or not (indices == Enum.uniq(Enum.sort(indices))) do
         false
       else
         pubkeys =
           state.validators
-          |> Enum.with_index()
-          |> Enum.filter(fn {val, i} -> Enum.member(indices, i) end)
-          |> Enum.map(fn {%{pubkey: p}, _} -> p end)
+          |> Stream.with_index()
+          |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
+          |> Stream.map(fn {%{pubkey: p}, _} -> p end)
+          |> Enum.to_list()
 
         domain =
           Accessors.get_domain(

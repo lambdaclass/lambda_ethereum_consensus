@@ -89,10 +89,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   @doc """
   Slash the validator with index ``slashed_index``.
   """
-  @spec slash_validator(BeaconState.t(), SszTypes.validator_index(), SszTypes.validator_index()) ::
+  @spec slash_validator(
+          BeaconState.t(),
+          SszTypes.validator_index(),
+          SszTypes.validator_index() | None
+        ) ::
           {:ok, BeaconState.t()}
-  def slash_validator(state, slashed_index, whistleblower_index \\ nil) do
-    epoch = Accessors.get_current_epoch()
+  def slash_validator(state, slashed_index, whistleblower_index \\ None) do
+    epoch = Accessors.get_current_epoch(state)
     initiate_validator_exit(state, slashed_index)
 
     validator = Enum.at(state.validators, slashed_index)
@@ -122,7 +126,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     proposer_index = Accessors.get_beacon_proposer_index(state)
 
     whistleblower_index =
-      if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
+      if whistleblower_index == None, do: proposer_index, else: whistleblower_index
 
     whistleblower_reward =
       div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
@@ -131,8 +135,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       div(whistleblower_reward * Constants.proposer_weight(), Constants.weight_denominator())
 
     # Decrease slashers balance, apply proposer and whistleblower rewards
-    decrease_balance(state, slashed_index, slashing_penalty)
-    |> increase_balance(proposer_index, proposer_reward)
-    |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)
+    {:ok,
+     decrease_balance(state, slashed_index, slashing_penalty)
+     |> increase_balance(proposer_index, proposer_reward)
+     |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
   end
 end

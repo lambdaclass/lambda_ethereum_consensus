@@ -134,7 +134,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
     total = length(indices)
-    candidate_index = Enum.at(indices, compute_shuffled_index(rem(i, total), total, seed))
+    {:ok, i} = compute_shuffled_index(rem(i, total), total, seed)
+    candidate_index = Enum.at(indices, i)
     random_byte = :crypto.hash(:sha256, seed <> uint_to_bytes4(div(i, 32)))
     <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
 
@@ -150,14 +151,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return the domain for the ``domain_type`` and ``fork_version``.
   """
-  @spec compute_domain(SszTypes.domain_type(), SszTypes.version(), SszTypes.root()) ::
+  @spec compute_domain(SszTypes.domain_type(), SszTypes.version() | None, SszTypes.root() | None) ::
           SszTypes.domain()
-  def compute_domain(domain_type, fork_version \\ nil, genesis_validators_root \\ nil) do
+  def compute_domain(domain_type, fork_version \\ None, genesis_validators_root \\ None) do
     fork_version =
-      if fork_version == nil, do: ChainSpec.get("GENESIS_FORK_VERSION"), else: fork_version
+      if fork_version == None, do: ChainSpec.get("GENESIS_FORK_VERSION"), else: fork_version
 
     genesis_validators_root =
-      if genesis_validators_root == nil,
+      if genesis_validators_root == None,
         do: <<0::8, 0::8, 0::8, 0::8>>,
         else: genesis_validators_root
 
@@ -172,14 +173,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
-  defp bytes_to_uint64(value) do
+  def bytes_to_uint64(value) do
     # Converts a binary value to a 64-bit unsigned integer
     <<first_8_bytes::unsigned-integer-little-size(64), _::binary>> = value
     first_8_bytes
   end
 
   @spec uint_to_bytes4(integer()) :: SszTypes.bytes4()
-  defp uint_to_bytes4(value) do
+  def uint_to_bytes4(value) do
     # Converts an unsigned integer value to a bytes 4 value
     <<value::unsigned-integer-little-size(32)>>
   end

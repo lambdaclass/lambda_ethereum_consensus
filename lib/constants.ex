@@ -24,10 +24,10 @@ defmodule Constants do
   @spec min_validator_withdrawability_delay() :: integer
   def min_validator_withdrawability_delay, do: 265
 
-  @spec domain_beacon_proposer() :: BitString
+  @spec domain_beacon_proposer() :: <<_::32>>
   def domain_beacon_proposer, do: <<0, 0, 0, 0>>
 
-  @spec domain_beacon_attester() :: BitString
+  @spec domain_beacon_attester() :: <<_::32>>
   def domain_beacon_attester, do: <<0::4, 1::4, 0::4, 0::4, 0::4, 0::4, 0::4, 0::4>>
 
   @spec proposer_weight() :: integer

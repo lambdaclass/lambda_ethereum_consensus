@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias SszTypes.BeaconState
 
   @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::
-          {:ok} | {:error, any()}
+          {:ok, BeaconState.t()} | {:error, any()}
   def process_attester_slashing(state, attester_slashing) do
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
@@ -25,23 +25,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     slashed_any = false
 
-
-    Enum.uniq(attestation_1.attesting_indices)
+    {slashed_any, state} = Enum.uniq(attestation_1.attesting_indices)
     |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
     |> Enum.sort()
-    |> Enum.each(fn i ->
+    |> Enum.reduce({slashed_any, state} , fn i, {slashed_any, state} ->
       if(
         Predicates.is_slashable_validator(
           Enum.at(state.validators, i),
           Accessors.get_current_epoch(state)
         )
       ) do
-        Mutators.slash_validator(state, i)
+        {:ok, state} = Mutators.slash_validator(state, i)
         slashed_any = true
+        {slashed_any, state}
       end
     end)
 
     if not slashed_any, do: {:error, "Didn't slash any."}
-    {:ok}
+    {:ok, state}
   end
 end
