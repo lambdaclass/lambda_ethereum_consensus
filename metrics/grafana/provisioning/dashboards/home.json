@@ -1,363 +1,363 @@
 {
     "annotations": {
-        "list": [
-            {
-                "builtIn": 1,
-                "datasource": "-- Grafana --",
-                "enable": true,
-                "hide": true,
-                "iconColor": "rgba(0, 211, 255, 1)",
-                "name": "Annotations & Alerts",
-                "target": {
-                    "limit": 100,
-                    "matchAny": false,
-                    "tags": [],
-                    "type": "dashboard"
-                },
-                "type": "dashboard"
-            }
-        ]
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "target": {
+            "limit": 100,
+            "matchAny": false,
+            "tags": [],
+            "type": "dashboard"
+          },
+          "type": "dashboard"
+        }
+      ]
     },
     "editable": true,
     "fiscalYearStartMonth": 0,
     "gnetId": null,
     "graphTooltip": 0,
-    "id": 3,
+    "id": 1,
     "links": [],
     "liveNow": false,
     "panels": [
-        {
-            "datasource": "Prometheus",
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "custom": {
-                        "axisLabel": "",
-                        "axisPlacement": "auto",
-                        "axisWidth": 1,
-                        "barAlignment": 0,
-                        "drawStyle": "line",
-                        "fillOpacity": 0,
-                        "gradientMode": "none",
-                        "hideFrom": {
-                            "legend": false,
-                            "tooltip": false,
-                            "viz": false
-                        },
-                        "lineInterpolation": "linear",
-                        "lineWidth": 1,
-                        "pointSize": 5,
-                        "scaleDistribution": {
-                            "type": "linear"
-                        },
-                        "showPoints": "auto",
-                        "spanNulls": false,
-                        "stacking": {
-                            "group": "A",
-                            "mode": "none"
-                        },
-                        "thresholdsStyle": {
-                            "mode": "off"
-                        }
-                    },
-                    "mappings": [],
-                    "min": -3,
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            },
-                            {
-                                "color": "red",
-                                "value": 80
-                            }
-                        ]
-                    },
-                    "unit": "decbytes"
-                },
-                "overrides": []
+      {
+        "datasource": "Prometheus",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
             },
-            "gridPos": {
-                "h": 9,
-                "w": 12,
-                "x": 0,
-                "y": 0
+            "custom": {
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "axisWidth": 1,
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 0,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "auto",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
             },
-            "id": 2,
-            "interval": null,
-            "options": {
-                "legend": {
-                    "calcs": [],
-                    "displayMode": "list",
-                    "placement": "bottom"
+            "mappings": [],
+            "min": -3,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
                 },
-                "tooltip": {
-                    "mode": "single"
+                {
+                  "color": "red",
+                  "value": 80
                 }
+              ]
             },
-            "targets": [
-                {
-                    "exemplar": true,
-                    "expr": "vm_memory_total{instance=\"host.docker.internal:9568\"}",
-                    "interval": "",
-                    "legendFormat": "total",
-                    "refId": "Total"
-                },
-                {
-                    "exemplar": true,
-                    "expr": "vm_memory_atom{instance=\"host.docker.internal:9568\"}",
-                    "hide": false,
-                    "interval": "",
-                    "legendFormat": "atom",
-                    "refId": "Atom"
-                },
-                {
-                    "exemplar": true,
-                    "expr": "vm_memory_binary{instance=\"host.docker.internal:9568\"}",
-                    "hide": false,
-                    "interval": "",
-                    "legendFormat": "binary",
-                    "refId": "Binary"
-                },
-                {
-                    "exemplar": true,
-                    "expr": "vm_memory_code{instance=\"host.docker.internal:9568\"}",
-                    "hide": false,
-                    "interval": "",
-                    "legendFormat": "code",
-                    "refId": "Code"
-                },
-                {
-                    "exemplar": true,
-                    "expr": "vm_memory_ets{instance=\"host.docker.internal:9568\"}",
-                    "hide": false,
-                    "interval": "",
-                    "legendFormat": "ETS",
-                    "refId": "ETS"
-                },
-                {
-                    "exemplar": true,
-                    "expr": "vm_memory_processes{instance=\"host.docker.internal:9568\"}",
-                    "hide": false,
-                    "instant": false,
-                    "interval": "",
-                    "legendFormat": "processes",
-                    "refId": "Processes"
-                },
-                {
-                    "exemplar": true,
-                    "expr": "vm_memory_system{instance=\"host.docker.internal:9568\"}",
-                    "hide": false,
-                    "interval": "",
-                    "legendFormat": "system",
-                    "refId": "System"
-                }
-            ],
-            "timeFrom": null,
-            "timeShift": null,
-            "title": "VM Memory",
-            "type": "timeseries"
+            "unit": "decbytes"
+          },
+          "overrides": []
         },
-        {
-            "id": 4,
-            "gridPos": {
-                "x": 0,
-                "y": 0,
-                "w": 12,
-                "h": 8
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "id": 2,
+        "interval": null,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single"
+          }
+        },
+        "targets": [
+          {
+            "exemplar": true,
+            "expr": "vm_memory_total{instance=\"host.docker.internal:9568\"}",
+            "interval": "",
+            "legendFormat": "total",
+            "refId": "Total"
+          },
+          {
+            "exemplar": true,
+            "expr": "vm_memory_atom{instance=\"host.docker.internal:9568\"}",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "atom",
+            "refId": "Atom"
+          },
+          {
+            "exemplar": true,
+            "expr": "vm_memory_binary{instance=\"host.docker.internal:9568\"}",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "binary",
+            "refId": "Binary"
+          },
+          {
+            "exemplar": true,
+            "expr": "vm_memory_code{instance=\"host.docker.internal:9568\"}",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "code",
+            "refId": "Code"
+          },
+          {
+            "exemplar": true,
+            "expr": "vm_memory_ets{instance=\"host.docker.internal:9568\"}",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "ETS",
+            "refId": "ETS"
+          },
+          {
+            "exemplar": true,
+            "expr": "vm_memory_processes{instance=\"host.docker.internal:9568\"}",
+            "hide": false,
+            "instant": false,
+            "interval": "",
+            "legendFormat": "processes",
+            "refId": "Processes"
+          },
+          {
+            "exemplar": true,
+            "expr": "vm_memory_system{instance=\"host.docker.internal:9568\"}",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "system",
+            "refId": "System"
+          }
+        ],
+        "timeFrom": null,
+        "timeShift": null,
+        "title": "VM Memory",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "Prometheus",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
             },
-            "type": "timeseries",
-            "title": "P2P Requests",
-            "datasource": "Prometheus",
-            "targets": [
-                {
-                    "expr": "rate(network_request_count{result=\"success\",type=\"by_root\"}[$__rate_interval])",
-                    "legendFormat": "success",
-                    "interval": "",
-                    "exemplar": true,
-                    "refId": "Success",
-                    "hide": false
-                },
-                {
-                    "expr": "rate(network_request_count{result=\"error\",type=\"by_root\"}[$__rate_interval])",
-                    "legendFormat": "error",
-                    "interval": "",
-                    "exemplar": true,
-                    "refId": "Error",
-                    "hide": false,
-                    "instant": false
-                },
-                {
-                    "expr": "rate(network_request_count{result=\"retry\",type=\"by_root\"}[$__rate_interval])",
-                    "legendFormat": "retry",
-                    "interval": "",
-                    "exemplar": true,
-                    "refId": "Retries",
-                    "hide": false,
-                    "instant": false
-                }
-            ],
-            "options": {
-                "tooltip": {
-                    "mode": "single"
-                },
-                "legend": {
-                    "displayMode": "list",
-                    "placement": "bottom",
-                    "calcs": []
-                }
+            "custom": {
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 0,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "auto",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
             },
-            "fieldConfig": {
-                "defaults": {
-                    "custom": {
-                        "drawStyle": "line",
-                        "lineInterpolation": "linear",
-                        "barAlignment": 0,
-                        "lineWidth": 1,
-                        "fillOpacity": 0,
-                        "gradientMode": "none",
-                        "spanNulls": false,
-                        "showPoints": "auto",
-                        "pointSize": 5,
-                        "stacking": {
-                            "mode": "none",
-                            "group": "A"
-                        },
-                        "axisPlacement": "auto",
-                        "axisLabel": "",
-                        "scaleDistribution": {
-                            "type": "linear"
-                        },
-                        "hideFrom": {
-                            "tooltip": false,
-                            "viz": false,
-                            "legend": false
-                        },
-                        "thresholdsStyle": {
-                            "mode": "off"
-                        }
-                    },
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "value": null,
-                                "color": "green"
-                            },
-                            {
-                                "value": 80,
-                                "color": "red"
-                            }
-                        ]
-                    },
-                    "mappings": []
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
                 },
-                "overrides": []
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
             }
+          },
+          "overrides": []
         },
-        {
-            "datasource": "Prometheus",
-            "fieldConfig": {
-                "defaults": {
-                    "color": {
-                        "mode": "palette-classic"
-                    },
-                    "custom": {
-                        "axisLabel": "",
-                        "axisPlacement": "auto",
-                        "barAlignment": 0,
-                        "drawStyle": "line",
-                        "fillOpacity": 0,
-                        "gradientMode": "none",
-                        "hideFrom": {
-                            "legend": false,
-                            "tooltip": false,
-                            "viz": false
-                        },
-                        "lineInterpolation": "linear",
-                        "lineWidth": 1,
-                        "pointSize": 5,
-                        "scaleDistribution": {
-                            "type": "linear"
-                        },
-                        "showPoints": "auto",
-                        "spanNulls": false,
-                        "stacking": {
-                            "group": "A",
-                            "mode": "none"
-                        },
-                        "thresholdsStyle": {
-                            "mode": "off"
-                        }
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                        "mode": "absolute",
-                        "steps": [
-                            {
-                                "color": "green",
-                                "value": null
-                            },
-                            {
-                                "color": "red",
-                                "value": 80
-                            }
-                        ]
-                    }
-                },
-                "overrides": []
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "id": 4,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single"
+          }
+        },
+        "targets": [
+          {
+            "exemplar": true,
+            "expr": "rate(network_request_count{result=\"success\",type=\"by_root\"}[$__rate_interval])",
+            "hide": false,
+            "interval": "",
+            "legendFormat": "success",
+            "refId": "Success"
+          },
+          {
+            "exemplar": true,
+            "expr": "rate(network_request_count{result=\"error\",type=\"by_root\"}[$__rate_interval])",
+            "hide": false,
+            "instant": false,
+            "interval": "",
+            "legendFormat": "error",
+            "refId": "Error"
+          },
+          {
+            "exemplar": true,
+            "expr": "rate(network_request_count{result=\"retry\",type=\"by_root\"}[$__rate_interval])",
+            "hide": false,
+            "instant": false,
+            "interval": "",
+            "legendFormat": "retry",
+            "refId": "Retries"
+          }
+        ],
+        "title": "P2P Requests",
+        "type": "timeseries"
+      },
+      {
+        "datasource": "Prometheus",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
             },
-            "gridPos": {
-                "h": 9,
-                "w": 12,
-                "x": 0,
-                "y": 0
+            "custom": {
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "barAlignment": 0,
+              "drawStyle": "line",
+              "fillOpacity": 0,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "pointSize": 5,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "showPoints": "auto",
+              "spanNulls": false,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
             },
-            "id": 3,
-            "options": {
-                "legend": {
-                    "calcs": [],
-                    "displayMode": "list",
-                    "placement": "bottom"
-                },
-                "tooltip": {
-                    "mode": "single"
-                }
-            },
-            "targets": [
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
                 {
-                    "exemplar": true,
-                    "expr": "rate(peers_connection_count{result=\"success\",instance=\"host.docker.internal:9568\"}[$__rate_interval])",
-                    "interval": "",
-                    "legendFormat": "success",
-                    "refId": "Success"
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
                 }
-            ],
-            "title": "New peer connections",
-            "type": "timeseries"
-        }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 12,
+          "x": 0,
+          "y": 9
+        },
+        "id": 3,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom"
+          },
+          "tooltip": {
+            "mode": "single"
+          }
+        },
+        "targets": [
+          {
+            "exemplar": true,
+            "expr": "rate(peers_connection_count{result=\"success\",instance=\"host.docker.internal:9568\"}[$__rate_interval])",
+            "interval": "",
+            "legendFormat": "success",
+            "refId": "Success"
+          }
+        ],
+        "title": "New peer connections",
+        "type": "timeseries"
+      }
     ],
     "refresh": "",
     "schemaVersion": 32,
     "style": "dark",
     "tags": [],
     "templating": {
-        "list": []
+      "list": []
     },
     "time": {
-        "from": "now-6h",
-        "to": "now"
+      "from": "now-6h",
+      "to": "now"
     },
     "timepicker": {},
     "timezone": "",
     "title": "Node",
     "uid": "90EXFQnIk",
     "version": 1
-}
+  }
