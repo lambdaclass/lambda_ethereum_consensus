@@ -199,46 +199,47 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       else
         state.previous_justified_checkpoint
       end
+    with {:ok, block_root} <- get_block_root(state, data.target.epoch),
+      {:ok, block_root_at_slot} <- get_block_root_at_slot(state, data.slot) do
+        # Matching roots
+        is_matching_source = data.source == justified_checkpoint
 
-    block_root = get_block_root(state, data.target.epoch)
-    {:ok, block_root_at_slot} = get_block_root_at_slot(state, data.slot)
+        is_matching_target =
+          is_matching_source && data.target.root == block_root
 
-    # Matching roots
-    is_matching_source = data.source == justified_checkpoint
+        is_matching_head =
+          is_matching_target && data.beacon_block_root == block_root_at_slot
 
-    is_matching_target =
-      is_matching_source && data.target.root == block_root
+        if not is_matching_source do
+          {:error, "Attestation source does not match justified checkpoint"}
+        end
 
-    is_matching_head =
-      is_matching_target && data.beacon_block_root == block_root_at_slot
+        source_indices =
+          if is_matching_source &&
+              inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
+            [Constants.timely_source_flag_index()]
+          else
+            []
+          end
 
-    if not is_matching_source do
-      {:error, "Attestation source does not match justified checkpoint"}
-    end
+        target_indices =
+          if is_matching_target && inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
+            [Constants.timely_target_flag_index()]
+          else
+            []
+          end
 
-    source_indices =
-      if is_matching_source &&
-           inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
-        [Constants.timely_source_flag_index()]
+        head_indices =
+          if is_matching_head && inclusion_delay == ChainSpec.get(MIN_ATTESTATION_INCLUSION_DELAY) do
+            [Constants.timely_head_flag_index()]
+          else
+            []
+          end
+
+        {:ok, source_indices ++ target_indices ++ head_indices}
       else
-        []
+        error -> error
       end
-
-    target_indices =
-      if is_matching_target && inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
-        [Constants.timely_target_flag_index()]
-      else
-        []
-      end
-
-    head_indices =
-      if is_matching_head && inclusion_delay == ChainSpec.get(MIN_ATTESTATION_INCLUSION_DELAY) do
-        [Constants.timely_head_flag_index()]
-      else
-        []
-      end
-
-    {:ok, source_indices ++ target_indices ++ head_indices}
   end
 
   @doc """
@@ -248,7 +249,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           {:ok, SszTypes.root()} | {:error, binary()}
   def get_block_root_at_slot(state, slot) do
     if slot < state.slot && state.slot <= slot + ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT") do
-      root = Enum.fetch!(state.block_roots, rem(slot, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")))
+      root = Enum.at(state.block_roots, rem(slot, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")))
       {:ok, root}
     else
       {:error, "Block root not available"}
@@ -258,10 +259,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the block root at the start of a recent ``epoch``.
   """
-  @spec get_block_root(BeaconState.t(), SszTypes.epoch()) :: SszTypes.root()
+  @spec get_block_root(BeaconState.t(), SszTypes.epoch()) ::
+          {:ok, SszTypes.root()} | {:error, binary()}
   def get_block_root(state, epoch) do
-    {:ok, block_root} = get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch))
-    block_root
+    case get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch)) do
+      {:ok, block_root} -> {:ok, block_root}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """
@@ -305,7 +309,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       get_attesting_indices(state, attestation.data, attestation.aggregation_bits)
 
     sorted_attesting_indices = Enum.sort(attesting_indices)
-    {sorted_attesting_indices, attestation, attestation.signature}
+    %IndexedAttestation{
+      attesting_indices: sorted_attesting_indices,
+      data: attestation.data,
+      signature: attestation.signature
+    }
   end
 
   @doc """
@@ -319,13 +327,21 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     committee
     |> Stream.with_index()
-    |> Stream.filter(fn {_, i} -> Enum.at(bit_list, i) end)
-    |> Stream.map(fn {index, _i} -> index end)
+    |> Stream.filter(fn {_value, index} -> Enum.at(bit_list, index) == "1" end)
+    |> Stream.map(fn {value, _index} -> value end)
     |> MapSet.new()
   end
 
-  defp bitstring_to_list(<<bit::1, rest::bitstring>>), do: [bit | bitstring_to_list(rest)]
-  defp bitstring_to_list(<<>>), do: []
+  def bitstring_to_list(binary) when is_binary(binary) do
+    binary
+    |> :binary.bin_to_list()
+    |> Enum.reduce("", fn byte, acc ->
+      acc <> Integer.to_string(byte, 2)
+    end)
+    # Exclude last bit
+    |> String.slice(0..-2)
+    |> String.graphemes()
+  end
 
   @doc """
   Return the beacon proposer index at the current slot.

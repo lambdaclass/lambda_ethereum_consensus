@@ -135,7 +135,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
 
   @spec uint64_to_bytes(SszTypes.uint64()) :: <<_::64>>
   def uint64_to_bytes(value) when is_integer(value) and value >= 0 do
-    <<value::unsigned-big-64>>
+    <<value::unsigned-integer-little-size(64)>>
   end
 
   @doc """
@@ -150,7 +150,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
           list(SszTypes.validator_index())
   def compute_committee(indices, seed, index, count) do
     start_ = div(length(indices) * index, count)
-    end_ = div(length(indices) * (index + 1), count)
+    end_ = div(length(indices) * (index + 1), count) - 1
 
     Enum.map(start_..end_, fn i ->
       {:ok, shuffled_index} = compute_shuffled_index(i, length(indices), seed)
@@ -193,8 +193,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Return the signing root for the corresponding signing data.
   """
   @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
-  def compute_signing_root(ssz_object, domain) do
-    Ssz.hash_tree_root({Ssz.hash_tree_root(ssz_object), domain})
+  def compute_signing_root(%SszTypes.AttestationData{} = data, domain) do
+    {:ok, data_root} = Ssz.hash_tree_root(data)
+    {:ok, root} = Ssz.hash_tree_root(%SszTypes.SigningData{
+      object_root: data_root,
+      domain: domain
+    })
+    root
   end
 
   @doc """

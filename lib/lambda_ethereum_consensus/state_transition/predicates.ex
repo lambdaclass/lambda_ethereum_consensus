@@ -46,7 +46,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
-  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs 
+  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
   (that is, four epochs), then the chain enters the inactivity leak.
   """
   @spec is_in_inactivity_leak(BeaconState.t()) :: boolean
