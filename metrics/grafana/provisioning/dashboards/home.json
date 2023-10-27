@@ -163,6 +163,106 @@
             "type": "timeseries"
         },
         {
+            "id": 4,
+            "gridPos": {
+                "x": 0,
+                "y": 0,
+                "w": 12,
+                "h": 8
+            },
+            "type": "timeseries",
+            "title": "P2P Requests",
+            "datasource": "Prometheus",
+            "targets": [
+                {
+                    "expr": "rate(network_request_count{result=\"success\",type=\"by_root\"}[$__rate_interval])",
+                    "legendFormat": "success",
+                    "interval": "",
+                    "exemplar": true,
+                    "refId": "Success",
+                    "hide": false
+                },
+                {
+                    "expr": "rate(network_request_count{result=\"error\",type=\"by_root\"}[$__rate_interval])",
+                    "legendFormat": "error",
+                    "interval": "",
+                    "exemplar": true,
+                    "refId": "Error",
+                    "hide": false,
+                    "instant": false
+                },
+                {
+                    "expr": "rate(network_request_count{result=\"retry\",type=\"by_root\"}[$__rate_interval])",
+                    "legendFormat": "retry",
+                    "interval": "",
+                    "exemplar": true,
+                    "refId": "Retries",
+                    "hide": false,
+                    "instant": false
+                }
+            ],
+            "options": {
+                "tooltip": {
+                    "mode": "single"
+                },
+                "legend": {
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "calcs": []
+                }
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "custom": {
+                        "drawStyle": "line",
+                        "lineInterpolation": "linear",
+                        "barAlignment": 0,
+                        "lineWidth": 1,
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "spanNulls": false,
+                        "showPoints": "auto",
+                        "pointSize": 5,
+                        "stacking": {
+                            "mode": "none",
+                            "group": "A"
+                        },
+                        "axisPlacement": "auto",
+                        "axisLabel": "",
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "hideFrom": {
+                            "tooltip": false,
+                            "viz": false,
+                            "legend": false
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "value": null,
+                                "color": "green"
+                            },
+                            {
+                                "value": 80,
+                                "color": "red"
+                            }
+                        ]
+                    },
+                    "mappings": []
+                },
+                "overrides": []
+            }
+        },
+        {
             "datasource": "Prometheus",
             "fieldConfig": {
                 "defaults": {

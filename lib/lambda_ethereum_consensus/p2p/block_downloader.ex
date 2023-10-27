@@ -52,13 +52,16 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
            ),
          {:ok, payload} <- parse_chunk(response_chunk),
          {:ok, block} <- decode_response(payload) do
+      :telemetry.execute([:network, :request], %{}, %{result: "success", type: "by_slot"})
       {:ok, block}
     else
       {:error, reason} ->
         if retries > 0 do
+          :telemetry.execute([:network, :request], %{}, %{result: "retry", type: "by_slot"})
           Logger.debug("Retrying request for block with slot #{slot}")
           request_block_by_slot(slot, retries - 1)
         else
+          :telemetry.execute([:network, :request], %{}, %{result: "error", type: "by_slot"})
           {:error, reason}
         end
     end
@@ -90,13 +93,16 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
            ),
          {:ok, payload} <- parse_chunk(response_chunk),
          {:ok, block} <- decode_response(payload) do
+      :telemetry.execute([:network, :request], %{}, %{result: "success", type: "by_root"})
       {:ok, block}
     else
       {:error, reason} ->
         if retries > 0 do
+          :telemetry.execute([:network, :request], %{}, %{result: "retry", type: "by_root"})
           Logger.debug("Retrying request for block with root #{Base.encode16(root)}")
           request_block_by_root(root, retries - 1)
         else
+          :telemetry.execute([:network, :request], %{}, %{result: "error", type: "by_root"})
           {:error, reason}
         end
     end
