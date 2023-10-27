@@ -149,8 +149,8 @@ defmodule Unit.SSZTests do
       |> Enum.join()
 
     assert {:ok, ^serialized} = Ssz.to_ssz(deserialized)
-    # assert {:ok, ^deserialized} = Ssz.list_from_ssz(serialized, SszTypes.VoluntaryExit)
-    # assert {:ok, ^deserialized} = Ssz.list_from_ssz_elixir(serialized, SszTypes.VoluntaryExit)
+    assert {:ok, ^deserialized} = Ssz.list_from_ssz(serialized, SszTypes.VoluntaryExit)
+    assert {:ok, ^deserialized} = Ssz.list_from_ssz_elixir(serialized, SszTypes.VoluntaryExit)
     assert {:ok, _hash} = Ssz.hash_list_tree_root(deserialized, 4)
   end
 

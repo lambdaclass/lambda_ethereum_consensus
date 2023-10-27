@@ -17,9 +17,9 @@ defmodule Ssz do
     to_ssz_rs([], SszTypes.ForkData)
   end
 
-  # def to_ssz([%SszTypes.VoluntaryExit{} | _tail] = list) do
-  #   serialize(list)
-  # end
+  def to_ssz([%SszTypes.VoluntaryExit{} | _tail] = list) do
+    serialize(list)
+  end
 
   def to_ssz([%name{} | _tail] = list) do
     to_ssz_typed(list, name)
@@ -155,14 +155,32 @@ defmodule Ssz do
   @bytes_per_chunk 32
   @bits_per_byte 8
 
+  defp is_variable_schema(%{} = map) when is_map(map) and map == %{}, do: true
+
+  defp is_variable_schema(%{} = map) when is_map(map) do
+    map
+    |> Enum.map(fn {k, v} -> is_variable_size({v, k}) end)
+    |> Enum.all?()
+  end
+
+  defp ssz_fixed_len(%{} = map) when is_map(map) do
+    map
+    |> Enum.map(fn {k, v} -> byte_size_from_type(v) end)
+    |> Enum.sum()
+  end
+
+  defp byte_size_from_type(:uint64), do: 8
+  defp byte_size_from_type(:bytes32), do: 32
+
   defp is_variable_size(element) when is_list(element), do: true
+
   defp is_variable_size(element) when is_struct(element) do
     element
     |> Map.from_struct()
     |> Enum.map(fn {_k, v} -> is_variable_size(v) end)
     |> Enum.all?()
-    
   end
+
   defp is_variable_size(element) when is_integer(element), do: false
   defp is_variable_size(element) when is_boolean(element), do: false
   defp is_variable_size({:uint64, _value}), do: false
@@ -193,7 +211,8 @@ defmodule Ssz do
       |> Enum.map(fn {k, v} ->
         {schema[k], v}
       end)
-      |> Enum.reverse()
+
+    # |> Enum.reverse()
 
     serialize(values)
   end
@@ -269,9 +288,27 @@ defmodule Ssz do
     {:ok, encoded}
   end
 
-  # based on sigp/ethereum_ssz::decode_list_of_variable_length_items
   @spec list_from_ssz_elixir(binary, module) :: {:ok, struct} | {:error, String.t()}
   def list_from_ssz_elixir(bin, schema) do
+    if is_variable_schema(schema.schema) do
+      decode_list_of_variable_length_items(bin, schema)
+    else
+      ssz_fixed_len = ssz_fixed_len(schema.schema)
+
+      decoded_list =
+        :binary.bin_to_list(bin)
+        |> Enum.chunk_every(ssz_fixed_len)
+        |> Enum.map(fn c -> :binary.list_to_bin(c) end)
+        |> Enum.map(fn b -> decode_elixir(b, schema) end)
+
+      {:ok, decoded_list}
+    end
+  end
+
+  # based on sigp/ethereum_ssz::decode_list_of_variable_length_items
+  @spec decode_list_of_variable_length_items(binary, module) ::
+          {:ok, struct} | {:error, String.t()}
+  def decode_list_of_variable_length_items(bin, schema) do
     if byte_size(bin) == 0 do
       {:error, "Error trying to collect empty list"}
     else
