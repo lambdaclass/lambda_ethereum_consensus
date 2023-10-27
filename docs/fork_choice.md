@@ -76,4 +76,4 @@ Nodes provide proofs of the offenses, and proposers including them in blocks get
 
 - Majority honest progress: if the network has over 50% nodes running this algorithm honestly, the chain progresses and each older block is exponentially more unlikely to be reverted.
 - Stability: fork-choice is self-reinforcing and acts as a good predictor of the next block.
-- Manipulation resistence. Not only is it hard to build a secret chain and propose it, but it prevents getting attestations for it, so the current canonical one is always more likely to be heavier. This holds even if the length of the secret chain is higher.
+- Manipulation resistance. Not only is it hard to build a secret chain and propose it, but it prevents getting attestations for it, so the current canonical one is always more likely to be heavier. This holds even if the length of the secret chain is higher.

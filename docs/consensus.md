@@ -16,9 +16,9 @@ A classical approach to representing a distributed state is to store all changes
 
 Storing the log is useful because each state change is immutable, and agreeing on them is easier than agreeing on the current state, which is always changing.
 
-Agreeing on the log is agreeing on the current state. How do we do that? We need two things: sybil resistence and consensus algorithms.
+Agreeing on the log is agreeing on the current state. How do we do that? We need two things: sybil resistance and consensus algorithms.
 
-## Sybil resistence
+## Sybil resistance
 
 In a byzantine, trustless environment, we need to take several measures to make the network safe:
 
