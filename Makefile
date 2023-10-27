@@ -97,6 +97,15 @@ compile-port: $(OUTPUT_DIR)/libp2p_port
 start: $(PROTOBUF_EX_FILES) compile-native compile-port
 	iex -S mix phx.server
 
+grafana-up:
+	cd metrics/ && docker-compose up -d
+
+grafana-down:
+	cd metrics/ && docker-compose down
+
+grafana-clean:
+	cd metrics/ && docker-compose down -v
+
 # Run an interactive terminal with the main supervisor setup.
 iex: $(PROTOBUF_EX_FILES) compile-native compile-port
 	iex -S mix
