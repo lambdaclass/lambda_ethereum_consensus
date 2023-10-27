@@ -1,4 +1,5 @@
 defmodule OperationsTestRunner do
+  alias LambdaEthereumConsensus.StateTransition.Operations
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -40,7 +41,7 @@ defmodule OperationsTestRunner do
   # "deposit_receipt" handler is not yet implemented
   @disabled_handlers [
     "attestation",
-    "attester_slashing",
+    # "attester_slashing",
     "block_header",
     "deposit",
     "proposer_slashing",
@@ -88,5 +89,10 @@ defmodule OperationsTestRunner do
       |> SpecTestUtils.parse_yaml()
 
     assert true
+  end
+
+  defp handle_case("attester_slashing", pre, attester_slashing, post, case_dir) do
+    result = Operations.process_attester_slashing(pre, attester_slashing)
+    assert result == {:ok, post}
   end
 end

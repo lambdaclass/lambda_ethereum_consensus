@@ -15,16 +15,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     attestation_2 = attester_slashing.attestation_2
 
     res = cond do
-      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) -> {:error, "Attestation data is not slashable."}
-      not Predicates.is_valid_indexed_attestation(state, attestation_1) -> {:error, "Indexed attestation is not valid for attestation1."}
-      not Predicates.is_valid_indexed_attestation(state, attestation_2) -> {:error, "Indexed attestation is not valid for attestation2."}
+      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) -> {:ok, nil}
+      not Predicates.is_valid_indexed_attestation(state, attestation_1) -> {:ok, nil}
+      not Predicates.is_valid_indexed_attestation(state, attestation_2) -> {:ok, nil}
       true ->
         slashed_any = false
 
         {slashed_any, state} = Enum.uniq(attestation_1.attesting_indices)
         |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
         |> Enum.sort()
-        |> Enum.reduce({slashed_any, state} , fn i, {slashed_any, state} ->
+        |> Enum.reduce({slashed_any, state} , fn i, {_slashed_any, state} ->
         if(
           Predicates.is_slashable_validator(
             Enum.at(state.validators, i),
