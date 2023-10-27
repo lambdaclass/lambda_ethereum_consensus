@@ -7,12 +7,12 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   alias LambdaEthereumConsensus.P2P.GossipConsumer
   alias LambdaEthereumConsensus.P2P.GossipHandler
 
-  def start_link(init_arg) do
-    Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)
+  def start_link(opts) do
+    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @impl true
-  def init([gsub]) do
+  def init(_opts) do
     topics = [
       {"beacon_block", SszTypes.SignedBeaconBlock},
       {"beacon_aggregate_and_proof", SszTypes.SignedAggregateAndProof}
@@ -28,7 +28,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
     children =
       for {topic_msg, ssz_type} <- topics do
         topic = "/eth2/bba4da96/#{topic_msg}/ssz_snappy"
-        {GossipConsumer, %{gsub: gsub, topic: topic, ssz_type: ssz_type, handler: GossipHandler}}
+        {GossipConsumer, %{topic: topic, ssz_type: ssz_type, handler: GossipHandler}}
       end
 
     Supervisor.init(children, strategy: :one_for_one)
