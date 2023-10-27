@@ -67,16 +67,24 @@ make iex  # Runs a terminal with the application started
 
 The iex terminal can be closed by pressing ctrl+c two times.
 
+> [!WARNING]
+> The node isn't capable of syncing from genesis yet, and so requires using checkpoint-sync to start (see [Checkpoint Sync](#checkpoint-sync)).
+> In case checkpoint-sync is needed, `make iex` will end immediately with an error.
+
 ### Checkpoint Sync
 
 You can also sync from a checkpoint given by a trusted third-party.
-For that, get the URL that serves the checkpoint, and execute the following command:
+For that, get the URL that serves the checkpoint, and pass it to the node with the "--checkpoint-sync" flag:
 
 ```shell
 iex -S mix run -- --checkpoint-sync <your_url_here>
 ```
 
-Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/)
+Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/).
+
+> [!IMPORTANT]
+> The data retrieved from the URL is stored in the DB once the node is initiated (i.e. the iex prompt shows).
+> Once this happens, following runs of `make iex` will start the node using that data.
 
 ### Tests, linting and formatting
 
@@ -350,18 +358,18 @@ Options and details are in the `Profile` package. After the profile trace is gen
 qcachegrind callgrind.out.<trace_name>
 ```
 
-If you want to group the traces by function instead of process, then you can the following before viewing it in qcachegrind:
+If you want to group the traces by function instead of process, you can use the following before viewing it in qcachegrind:
 
 ```shell
 grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
 ```
 
-### Etop
+### etop
 
-Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar tu UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
+Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar to UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
 
 ```elixir
-:etop.start
+:etop.start()
 ```
 
 In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got. This can be used to identify infinite loops or busy waits.
