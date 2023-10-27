@@ -14,34 +14,33 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
 
-    if not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data),
-      do: {:error, "Attestation data is not slashable."}
+    res = cond do
+      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) -> {:error, "Attestation data is not slashable."}
+      not Predicates.is_valid_indexed_attestation(state, attestation_1) -> {:error, "Indexed attestation is not valid for attestation1."}
+      not Predicates.is_valid_indexed_attestation(state, attestation_2) -> {:error, "Indexed attestation is not valid for attestation2."}
+      true ->
+        slashed_any = false
 
-    if not Predicates.is_valid_indexed_attestation(state, attestation_1),
-      do: {:error, "Indexed attestation is not valid for attestation1."}
-
-    if not Predicates.is_valid_indexed_attestation(state, attestation_2),
-      do: {:error, "Indexed attestation is not valid for attestation2."}
-
-    slashed_any = false
-
-    {slashed_any, state} = Enum.uniq(attestation_1.attesting_indices)
-    |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
-    |> Enum.sort()
-    |> Enum.reduce({slashed_any, state} , fn i, {slashed_any, state} ->
-      if(
-        Predicates.is_slashable_validator(
-          Enum.at(state.validators, i),
-          Accessors.get_current_epoch(state)
-        )
-      ) do
-        {:ok, state} = Mutators.slash_validator(state, i)
-        slashed_any = true
-        {slashed_any, state}
-      end
-    end)
-
-    if not slashed_any, do: {:error, "Didn't slash any."}
-    {:ok, state}
+        {slashed_any, state} = Enum.uniq(attestation_1.attesting_indices)
+        |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
+        |> Enum.sort()
+        |> Enum.reduce({slashed_any, state} , fn i, {slashed_any, state} ->
+        if(
+          Predicates.is_slashable_validator(
+            Enum.at(state.validators, i),
+            Accessors.get_current_epoch(state)
+          )
+        ) do
+          {:ok, state} = Mutators.slash_validator(state, i)
+          {true, state}
+        end
+        end)
+        res = cond do
+          not slashed_any -> {:error, "Didn't slash any."}
+          true -> {:ok, state}
+        end
+        res
+    end
+    res
   end
 end
