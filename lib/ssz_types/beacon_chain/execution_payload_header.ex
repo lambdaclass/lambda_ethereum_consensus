@@ -4,6 +4,24 @@ defmodule SszTypes.ExecutionPayloadHeader do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
+  @default_execution_payload_header %{
+    parent_hash: <<0::256>>,
+    fee_recipient: <<0::160>>,
+    state_root: <<0::256>>,
+    receipts_root: <<0::256>>,
+    logs_bloom: <<0::2048>>,
+    prev_randao: <<0::256>>,
+    block_number: 0,
+    gas_limit: 0,
+    gas_used: 0,
+    timestamp: 0,
+    extra_data: "",
+    base_fee_per_gas: 0,
+    block_hash: <<0::256>>,
+    transactions_root: <<0::256>>,
+    withdrawals_root: <<0::256>>
+  }
+
   fields = [
     :parent_hash,
     :fee_recipient,
@@ -49,5 +67,9 @@ defmodule SszTypes.ExecutionPayloadHeader do
 
   def decode(%__MODULE__{} = map) do
     Map.update!(map, :base_fee_per_gas, &Ssz.decode_u256/1)
+  end
+
+  def default() do
+    @default_execution_payload_header
   end
 end
