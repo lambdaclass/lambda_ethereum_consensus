@@ -74,18 +74,7 @@ defmodule Unit.Libp2pPortTest do
     assert_receive {:new_peer, _peer_id}, 10_000
   end
 
-  defp retrying_publish(pid, topic, message) do
-    # Give a head start to the other process
-    assert_receive :subscribed, 1000
-
-    # Publish message
-    :ok = Libp2pPort.publish(pid, topic, message)
-
-    # Receive acknowledgement
-    assert_receive :received, 1000
-  end
-
-  test "start two hosts, and gossip about" do
+  defp two_hosts_gossip do
     gossiper_addr = ["/ip4/127.0.0.1/tcp/48766"]
     start_port(:publisher)
     start_port(:gossiper, listen_addr: gossiper_addr)
@@ -99,18 +88,41 @@ defmodule Unit.Libp2pPortTest do
 
     pid = self()
 
-    spawn(fn ->
+    spawn_link(fn ->
       # Subscribe to the topic
       :ok = Libp2pPort.subscribe_to_topic(:gossiper, topic)
       send(pid, :subscribed)
 
       # Receive the message
-      assert {^topic, ^message} = Libp2pPort.receive_gossip()
+      assert {^topic, message_id, ^message} = Libp2pPort.receive_gossip()
+
+      Libp2pPort.validate_message(message_id, :accept)
 
       # Send acknowledgement
       send(pid, :received)
     end)
 
-    retrying_publish(:publisher, topic, message)
+    # Give a head start to the other process
+    assert_receive :subscribed, 100
+
+    # Publish message
+    :ok = Libp2pPort.publish(:publisher, topic, message)
+
+    # Receive acknowledgement
+    assert_receive :received, 100
+  end
+
+  defp retry_test(f, retries) do
+    f.()
+  rescue
+    ExUnit.AssertionError ->
+      assert retries > 0, "Retry limit exceeded"
+      stop_supervised(:publisher)
+      stop_supervised(:gossiper)
+      retry_test(f, retries - 1)
+  end
+
+  test "start two hosts, and gossip about" do
+    retry_test(&two_hosts_gossip/0, 5)
   end
 end

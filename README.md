@@ -358,18 +358,18 @@ Options and details are in the `Profile` package. After the profile trace is gen
 qcachegrind callgrind.out.<trace_name>
 ```
 
-If you want to group the traces by function instead of process, then you can the following before viewing it in qcachegrind:
+If you want to group the traces by function instead of process, you can use the following before viewing it in qcachegrind:
 
 ```shell
 grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
 ```
 
-### Etop
+### etop
 
-Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar tu UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
+Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar to UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
 
 ```elixir
-:etop.start
+:etop.start()
 ```
 
 In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got. This can be used to identify infinite loops or busy waits.
