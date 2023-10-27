@@ -69,10 +69,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_call(:get_store, _from, state) do
-    {:reply, state, state}
-  end
-
   def handle_call({:get_store_attrs, attrs}, _from, state) do
     values = Enum.map(attrs, &Map.fetch!(state, &1))
     {:reply, values, state}
