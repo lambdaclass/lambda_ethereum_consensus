@@ -122,3 +122,99 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     |> Enum.to_list()
   end
 end
+
+@doc """
+Return the combined effective balance of the active validators.
+Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
+"""
+@spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
+def get_total_active_balance(state) do
+  get_total_balance(state, get_active_validator_indices(state, get_current_epoch(state)))
+end
+
+@doc """
+Return the combined effective balance of the ``indices``.
+``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
+Math safe up to ~10B ETH, after which this overflows uint64.
+"""
+@spec get_total_balance(BeaconState.t(), (SszTypes.validator_index())) :: SszTypes.gwei()
+def get_total_balance(state, indices) do
+  max(
+    ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"),
+    Enum.sum(Enum.map(indices, fn index -> state.validators[index].effective_balance end))
+  )
+end
+
+
+@doc """
+"""
+@spec get_unslashed_attesting_indices(BeaconState.t(), set(list(PendingAttestation.t()))) :: list(SszTypes.validator_index())
+def get_unslashed_attesting_indices(state, attestations) do
+    output = set()
+
+    Enum.map(attestations, fn a -> get_attesting_indices(state, a.data, a.aggregation_bits))
+
+
+    for a in attestations:
+        output = output.union(get_attesting_indices(state, a.data, a.aggregation_bits))
+    return set(filter(lambda index: not state.validators[index].slashed, output))
+end
+
+  @doc """
+  Return the set of attesting indices corresponding to ``data`` and ``bits``.
+  """
+@spec get_attesting_indices(BeaconState.t(), SszTypes.AttestationData.t(), SszTypes.bitlist()) :: SszTypes.list(SszTypes.validator_index())
+def get_attesting_indices(state, data, bits) do
+    committee = get_beacon_committee(state, data.slot, data.index)
+    committee
+    |> Stream.with_index()
+    |> Stream.filter(fn {i, index} -> bits[i] end)
+    |> Stream.map(fn {_validator, index} -> index)
+    # |> Stream.uniq()
+    |> Enum.to_list()
+end
+
+
+@doc """
+Return the beacon committee at ``slot`` for ``index``.
+"""
+@spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.commitee_index()) :: list(SszTypes.validator_index())
+def get_beacon_committee(state, slot, index) do
+    epoch = Misc.compute_epoch_at_slot(slot)
+    committees_per_slot = get_committee_count_per_slot(state, epoch)
+    return Misc.compute_committee(
+        indices=get_active_validator_indices(state, epoch),
+        seed=get_seed(state, epoch, DOMAIN_BEACON_ATTESTER),
+        index=(slot % SLOTS_PER_EPOCH) * committees_per_slot + index,
+        count=committees_per_slot * SLOTS_PER_EPOCH,
+    )
+end
+
+@doc """
+Return the number of committees in each slot for the given ``epoch``.
+"""
+@spec get_committee_count_per_slot(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
+def get_committee_count_per_slot(state, epoch) do
+  active_validator_indices = get_active_validator_indices(state, epoch)
+  committee_count = div(length(active_validator_indices), SLOTS_PER_EPOCH * TARGET_COMMITTEE_SIZE)
+  committee_count = max(1, min(committee_count, MAX_COMMITTEES_PER_SLOT))
+  committee_count
+end
+
+@doc """
+Return the seed at ``epoch``.
+"""
+@spec get_seed(BeaconState.t(), SszTypes.epoch(), SszTypes.domain_type()) :: SszTypes.bytes32()
+def get_seed(state, epoch, domain_type) do
+    mix = get_randao_mix(state, epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") - ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1)  # Avoid underflow
+    seed = :crypto.hash(:sha256, domain_type + <<epoch::256-little-unsigned>> + mix)
+    seed
+end
+
+@doc """
+Return the randao mix at a recent ``epoch``.
+"""
+@spec get_randao_mix(BeaconState.t(), SszTypes.epoch()) -> SszTypes.bytes32()
+def get_randao_mix(state, epoch) do
+    state.randao_mixes[rem(epoch, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR"))]
+end

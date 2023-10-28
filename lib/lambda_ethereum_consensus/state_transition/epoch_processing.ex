@@ -252,4 +252,118 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       {:ok, %{state | inactivity_scores: updated_inactive_scores}}
     end
   end
+
+  @spec process_justification_and_finalization(BeaconState.t()) :: BeaconState.t()
+  def process_justification_and_finalization(state) do
+    # Initial FFG checkpoint values have a `0x00` stub for `root`.
+    # Skip FFG updates in the first two epochs to avoid corner cases that might result in modifying this stub.
+    new_state =
+      if Accessors.get_current_epoch(state) <= ChainSpec.get("GENESIS_EPOCH") + 1 do
+        state
+      else
+        previous_attestations =
+          get_matching_target_attestations(state, Accessors.get_previous_epoch(state))
+
+        current_attestations =
+          get_matching_target_attestations(state, Accessors.get_current_epoch(state))
+
+        total_active_balance = get_total_active_balance(state)
+        previous_target_balance = get_attestating_balance(state, previous_attestations)
+        current_target_balance = get_attesting_balance(state, current_attestations)
+
+        state =
+          weigh_justification_and_finalization(
+            state,
+            total_active_balance,
+            previous_target_balance,
+            current_target_balance
+          )
+
+        state
+      end
+
+    {:ok, new_state}
+  end
+
+  @spec get_matching_source_attestations(BeaconState.t(), SszTypes.epoch()) ::
+          {:ok, list(SszTypes.PendingAttestation.t())} | {:error, String.t()}
+  def get_matching_source_attestations(state, epoch) do
+    {previous_epoch, current_epoch} = {Accessors.get_previous_epoch(state), Accessors.get_current_epoch(state)}
+
+    if epoch in [previous_epoch, current_epoch] do
+      if epoch == current_epoch do
+        {:ok, state.current_epoch_attestations}
+      else
+        {:ok, state.previous_epoch_attestations}
+      end
+    else
+      {:error, "Epoch out of range"}
+    end
+  end
+
+  @spec get_matching_target_attestations(BeaconState.t(), SszTypes.epoch()) ::
+          {:ok, list(SszTypes.PendingAttestation.t())} | {:error, String.t()}
+  def get_matching_target_attestations(state, epoch) do
+    with {:ok, source_attestations} <-
+           get_matching_source_attestations(state, epoch) do
+      block_root = get_block_root(state, epoch)
+
+      Enum.filter(source_attestations, fn a ->
+        a.data.target.root == block_root
+      end)
+    end
+  end
+
+  @doc """
+    Return the combined effective balance of the set of unslashed validators participating in ``attestations``.
+    Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
+  """
+  @spec get_attesting_balance(BeaconState.t(), list(SszTypes.PendingAttestation.t())) :: {:ok}
+  def get_attesting_balance(state, attestations) do
+    Accessors.get_total_balance(
+      state,
+      Accessors.get_unslashed_attesting_indices(state, attestations)
+    )
+  end
+
+  @doc """
+
+  """
+  @spec weight_justification_and_finalization(BeaconState.t(), SszTypes.gwei(), SszTypes.gwei(), SszTypes.gwei()) :: {:ok, BeaconState.t()}
+  def weigh_justification_and_finalization(state, total_active_balance, previous_epoch_target_balance, current_epoch_target_balance) do
+
+    previous_epoch = Accessors.get_previous_epoch(state)
+    current_epoch = Accessors.get_current_epoch(state)
+    old_previous_justified_checkpoint = state.previous_justified_checkpoint
+    old_current_justified_checkpoint = state.current_justified_checkpoint
+
+    # Process justifications
+    state.previous_justified_checkpoint = state.current_justified_checkpoint
+    state.justification_bits[1:] = state.justification_bits[:JUSTIFICATION_BITS_LENGTH - 1]
+    state.justification_bits[0] = 0b0
+    if previous_epoch_target_balance * 3 >= total_active_balance * 2:
+        state.current_justified_checkpoint = Checkpoint(epoch=previous_epoch,
+                                                        root=get_block_root(state, previous_epoch))
+        state.justification_bits[1] = 0b1
+    if current_epoch_target_balance * 3 >= total_active_balance * 2:
+        state.current_justified_checkpoint = Checkpoint(epoch=current_epoch,
+                                                        root=get_block_root(state, current_epoch))
+        state.justification_bits[0] = 0b1
+
+    # Process finalizations
+    bits = state.justification_bits
+    # The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th as source
+    if all(bits[1:4]) and old_previous_justified_checkpoint.epoch + 3 == current_epoch:
+        state.finalized_checkpoint = old_previous_justified_checkpoint
+    # The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as source
+    if all(bits[1:3]) and old_previous_justified_checkpoint.epoch + 2 == current_epoch:
+        state.finalized_checkpoint = old_previous_justified_checkpoint
+    # The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as source
+    if all(bits[0:3]) and old_current_justified_checkpoint.epoch + 2 == current_epoch:
+        state.finalized_checkpoint = old_current_justified_checkpoint
+    # The 1st/2nd most recent epochs are justified, the 1st using the 2nd as source
+    if all(bits[0:2]) and old_current_justified_checkpoint.epoch + 1 == current_epoch:
+        state.finalized_checkpoint = old_current_justified_checkpoint
+  end
+
 end
