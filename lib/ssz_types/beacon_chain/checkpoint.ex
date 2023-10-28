@@ -11,7 +11,7 @@ defmodule SszTypes.Checkpoint do
 
   @schema [
     {:epoch, :uint64},
-    {:root, :bytes32},
+    {:root, :bytes32}
   ]
 
   @enforce_keys fields

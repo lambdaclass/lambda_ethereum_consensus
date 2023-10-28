@@ -215,7 +215,6 @@ defmodule Ssz do
   end
 
   def serialize(value) when is_list(value) do
-
     fixed_parts =
       value
       |> Enum.map(fn v ->
@@ -225,7 +224,6 @@ defmodule Ssz do
         {:ok, ser} -> ser
         nil -> nil
       end)
-
 
     variable_parts =
       value
@@ -237,18 +235,15 @@ defmodule Ssz do
         <<>> -> <<>>
       end)
 
-
     fixed_lengths =
       fixed_parts
       |> Enum.map(fn part ->
         if part != nil, do: byte_size(part), else: @bytes_per_length_offset
       end)
 
-
     variable_lengths =
       variable_parts
       |> Enum.map(fn part -> byte_size(part) end)
-
 
     variable_offsets =
       0..(length(value) - 1)
@@ -259,17 +254,14 @@ defmodule Ssz do
       end)
       |> Enum.map(fn {:ok, ser} -> ser end)
 
-
     fixed_parts =
       fixed_parts
       |> Enum.with_index()
       |> Enum.map(fn {part, i} -> if part != nil, do: part, else: Enum.at(variable_offsets, i) end)
 
-
     final_ssz =
       (fixed_parts ++ variable_parts)
       |> :binary.list_to_bin()
-
 
     {:ok, final_ssz}
   end
