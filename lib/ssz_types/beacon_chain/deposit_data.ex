@@ -11,6 +11,13 @@ defmodule SszTypes.DepositData do
     :signature
   ]
 
+  @schema [
+    %{pubkey: %{type: :bytes, size: 48}},
+    %{withdrawal_credentials: %{type: :bytes, size: 32}},
+    %{amount: %{type: :uint, size: 64}},
+    %{signature: %{type: :bytes, size: 96}}
+  ]
+
   @enforce_keys fields
   defstruct fields
 
@@ -20,4 +27,5 @@ defmodule SszTypes.DepositData do
           amount: SszTypes.gwei(),
           signature: SszTypes.bls_signature()
         }
+  def schema, do: @schema
 end

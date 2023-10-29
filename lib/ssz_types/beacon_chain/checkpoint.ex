@@ -10,8 +10,8 @@ defmodule SszTypes.Checkpoint do
   ]
 
   @schema [
-    {:epoch, :uint64},
-    {:root, :bytes32}
+    %{epoch: %{type: :uint, size: 64}},
+    %{root: %{type: :bytes, size: 32}}
   ]
 
   @enforce_keys fields

@@ -9,6 +9,11 @@ defmodule SszTypes.Deposit do
     :data
   ]
 
+  @schema [
+    %{proof: %{type: :list, schema: %{type: :bytes, size: 32}, max_size: 33, is_variable: false}},
+    %{data: %{type: :struct, schema: SszTypes.DepositData.schema, schema_struct: SszTypes.DepositData}}
+  ]
+
   @enforce_keys fields
   defstruct fields
 
@@ -17,4 +22,5 @@ defmodule SszTypes.Deposit do
           proof: list(SszTypes.bytes32()),
           data: SszTypes.DepositData.t()
         }
+  def schema, do: @schema
 end
