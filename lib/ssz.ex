@@ -9,6 +9,7 @@ defmodule Ssz do
   def to_ssz(map)
 
   def to_ssz(%SszTypes.Checkpoint{} = container), do: serialize(container)
+  def to_ssz(%SszTypes.Deposit{} = container), do: serialize(container)
 
   def to_ssz(%name{} = map), do: to_ssz_typed(map, name)
 
@@ -33,6 +34,10 @@ defmodule Ssz do
   end
 
   def from_ssz(bin, SszTypes.Checkpoint = schema) do
+    {:ok, decode_elixir(bin, schema)}
+  end
+
+  def from_ssz(bin, SszTypes.Deposit = schema) do
     {:ok, decode_elixir(bin, schema)}
   end
 
@@ -155,68 +160,50 @@ defmodule Ssz do
   @bytes_per_chunk 32
   @bits_per_byte 8
 
-  defp is_variable_schema(map) when is_list(map) and map == [], do: true
-
-  defp is_variable_schema(map) when is_list(map) do
-    map
-    |> Enum.map(fn {k, v} -> is_variable_size({v, k}) end)
-    |> Enum.all?()
-  end
-
-  defp ssz_fixed_len(map) when is_list(map) do
-    map
-    |> Enum.map(fn {_k, v} -> byte_size_from_type(v) end)
-    |> Enum.sum()
-  end
-
-  defp byte_size_from_type(:uint64), do: 8
-  defp byte_size_from_type(:bytes32), do: 32
-
-  defp is_variable_size(element) when is_list(element), do: true
-
-  defp is_variable_size(element) when is_struct(element) do
-    element
-    |> Map.from_struct()
-    |> Enum.map(fn {_k, v} -> is_variable_size(v) end)
-    |> Enum.all?()
-  end
-
-  defp is_variable_size(element) when is_integer(element), do: false
-  defp is_variable_size(element) when is_boolean(element), do: false
-  defp is_variable_size({:uint64, _value}), do: false
-  defp is_variable_size({:bytes32, _value}), do: false
-
-  # TODO bitlist is variable-length but bitvector is fixed-length
-  defp is_variable_size(element) when is_bitstring(element), do: true
-  defp is_variable_size(element) when is_binary(element), do: true
-
-  defmacro is_uint8(value) do
-    quote do: unquote(value) in 0..unquote(2 ** 8 - 1)
-  end
-
-  defmacro is_uint64(value) do
-    quote do: unquote(value) in unquote(2 ** 8)..unquote(2 ** 64 - 1)
-  end
-
-  defmacro is_uint256(value) do
-    quote do: unquote(value) in unquote(2 ** 64)..unquote(2 ** 256 - 1)
-  end
-
-  def serialize(%struct{} = map) do
+  ### ENCODE ######
+  def serialize(%struct{} = map) when is_struct(map) do
     schema = struct.schema()
 
     values =
       schema
-      |> Enum.map(fn {k, t} ->
-        {t, Map.get(map, k)}
+      |> Enum.map(fn schema ->
+        key = Enum.at(Map.keys(schema), 0)
+        metadata = Map.get(schema, key)
+        value = Map.get(map, key)
+        Map.merge(metadata, %{value: value})
       end)
 
     serialize(values)
   end
 
-  def serialize(value) when is_list(value) do
+  def serialize(%{type: :struct, value: map, schema: schema}) do
+    serialize(map)
+  end
+
+  def serialize(%{type: :list, value: elements, schema: schema, max_size: max_size}) do
+    elements =
+      elements
+      |> Stream.map(fn value ->
+        Map.merge(schema, %{value: value})
+      end)
+      |> Enum.to_list()
+
+    serialize_list(elements)
+  end
+
+  def serialize(value) when is_list(value), do: serialize_list(value)
+
+  def serialize(%{type: :uint, size: size, value: value}) when is_integer(value),
+    do: serialize_uint(value, size)
+
+  def serialize(value) when is_binary(value), do: {:ok, value}
+
+  def serialize(%{type: :bytes, size: size, value: value}), do: {:ok, value}
+  def serialize(%{} = schema), do: {:error, "Unknown schema: #{inspect(schema)}"}
+
+  def serialize_list(elements) when is_list(elements) do
     fixed_parts =
-      value
+      elements
       |> Enum.map(fn v ->
         if is_variable_size(v), do: nil, else: serialize(v)
       end)
@@ -226,7 +213,7 @@ defmodule Ssz do
       end)
 
     variable_parts =
-      value
+      elements
       |> Enum.map(fn v ->
         if is_variable_size(v), do: serialize(v), else: <<>>
       end)
@@ -246,7 +233,7 @@ defmodule Ssz do
       |> Enum.map(fn part -> byte_size(part) end)
 
     variable_offsets =
-      0..(length(value) - 1)
+      0..(length(elements) - 1)
       |> Enum.map(fn i ->
         slice_variable_lengths = Enum.take(variable_lengths, i)
         sum = Enum.sum(fixed_lengths ++ slice_variable_lengths)
@@ -266,20 +253,6 @@ defmodule Ssz do
     {:ok, final_ssz}
   end
 
-  def serialize(value) when is_integer(value) and is_uint8(value), do: serialize_uint(value, 8)
-  def serialize(value) when is_integer(value) and is_uint64(value), do: serialize_uint(value, 64)
-
-  def serialize(value) when is_integer(value) and is_uint256(value),
-    do: serialize_uint(value, 256)
-
-  def serialize(value) when is_binary(value), do: {:ok, value}
-
-  def serialize({:uint64, value}), do: serialize_uint(value, 64)
-
-  def serialize({:bytes32, value}), do: {:ok, value}
-
-  def serialize(value), do: {:error, "Unknown schema: #{inspect(value)}"}
-
   defp serialize_uint(value, size) do
     <<encoded::binary-size(div(size, 8)), _rest::binary>> =
       value
@@ -289,6 +262,7 @@ defmodule Ssz do
     {:ok, encoded}
   end
 
+  ### DECODE ######
   @spec list_from_ssz_elixir(binary, module) :: {:ok, struct} | {:error, String.t()}
   def list_from_ssz_elixir(bin, schema) do
     if is_variable_schema(schema.schema) do
@@ -362,7 +336,105 @@ defmodule Ssz do
     struct!(SszTypes.VoluntaryExit, %{epoch: epoch, validator_index: validator_index})
   end
 
-  def decode_elixir(_value, schema), do: {:error, "Unknown schema: #{inspect(schema)}"}
+  def decode_elixir(bin, SszTypes.DepositData) do
+    <<pubkey::binary-size(48), withdrawal_credentials::binary-size(32), amount::integer-64-little,
+      signature::binary-size(96)>> = bin
+
+    struct!(
+      SszTypes.DepositData,
+      %{
+        pubkey: pubkey,
+        withdrawal_credentials: withdrawal_credentials,
+        amount: amount,
+        signature: signature
+      }
+    )
+  end
+
+  def decode_elixir(bin, schema) do
+    schema_def = schema.schema()
+
+    {_rest, items, _, _} =
+      schema_def
+      |> Enum.reduce({bin, %{}, [], 0}, fn s, {rest_bytes, items, offsets, index} ->
+        key = Enum.at(Map.keys(s), 0)
+        metadata = Map.get(s, key)
+
+        case metadata do
+          %{type: :list, schema: elements_schema, is_variable: false, max_size: max_size} ->
+            %{size: element_size} = elements_schema
+            <<elements::binary-size(max_size * element_size), rest::bitstring>> = rest_bytes
+
+            decoded_list =
+              :binary.bin_to_list(elements)
+              |> Enum.chunk_every(element_size)
+              |> Enum.map(fn c -> :binary.list_to_bin(c) end)
+
+            {rest, Map.merge(items, %{key => decoded_list}), offsets, max_size * element_size}
+
+          %{type: :struct, schema_struct: schema_struct} ->
+            {rest_bytes, Map.merge(items, %{key => decode_elixir(rest_bytes, schema_struct)}),
+             offsets, index}
+
+            # unknown_schema -> {:error, "Unknown schema: #{inspect(schema)}"}
+        end
+      end)
+
+    struct!(schema, items)
+  end
+
+  ##### HELPERS ##########
+  defp is_variable_schema(map) when is_list(map) and map == [], do: true
+
+  defp is_variable_schema(map) when is_list(map) do
+    map
+    |> Enum.map(fn schema ->
+      key = Enum.at(Map.keys(schema), 0)
+      metadata = Map.get(schema, key)
+      is_variable_size(metadata)
+    end)
+    |> Enum.all?()
+  end
+
+  defp ssz_fixed_len(map) when is_list(map) do
+    map
+    |> Enum.map(fn schema ->
+      key = Enum.at(Map.keys(schema), 0)
+      metadata = Map.get(schema, key)
+      byte_size_from_type(metadata)
+    end)
+    |> Enum.sum()
+  end
+
+  defp byte_size_from_type(%{type: :uint, size: size}), do: div(size, @bits_per_byte)
+  defp byte_size_from_type(%{type: :bytes, size: size}), do: size
+
+  defp is_variable_size(%struct{} = map) when is_struct(map) do
+    schema = struct.schema()
+
+    schema
+    |> Enum.map(fn schema ->
+      key = Enum.at(Map.keys(schema), 0)
+      metadata = Map.get(schema, key)
+      is_variable_size(metadata)
+    end)
+    |> Enum.all?()
+  end
+
+  defp is_variable_size(%{type: :struct, schema: schema}) do
+    schema
+    |> Enum.map(fn schema ->
+      key = Enum.at(Map.keys(schema), 0)
+      metadata = Map.get(schema, key)
+      is_variable_size(metadata)
+    end)
+    |> Enum.all?()
+  end
+
+  defp is_variable_size(%{type: :list, is_variable: is_variable}), do: is_variable
+  defp is_variable_size(%{type: :bytes}), do: false
+  defp is_variable_size(%{type: :uint}), do: false
+  defp is_variable_size(value) when is_binary(value), do: true
 
   # https://notes.ethereum.org/ruKvDXl6QOW3gnqVYb8ezA?view
   defp sanitize_offset(offset, previous_offset, num_bytes, num_fixed_bytes) do
