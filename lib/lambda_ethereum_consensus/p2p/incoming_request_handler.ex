@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   """
   require Logger
   alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.Store.BlockStore
 
   @prefix "/eth2/beacon_chain/req/"
 
@@ -117,8 +118,19 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     end
   end
 
-  def handle_req("beacon_blocks_by_range/2/ssz_snappy", _message_id, _message),
-    do: :not_implemented
+  def handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
+    with <<24, snappy_blocks_by_range_request::binary>> <- message,
+         {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
+         {:ok, blocks_by_range_request} <- Ssz.from_ssz(ssz_blocks_by_range_request, SszTypes.BeaconBlocksByRangeRequest),
+         blocks_by_range_request |> inspect(limit: :infinity) |> then(&"[Received BlocksByRange Request] '#{&1}'") |> Logger.debug()
+    do
+      # blocks_by_range_response = %SszTypes.BeaconBlocksByRangeResponse{body: }
+      # ssz_blocks_by_range_response = %Ssz.to_ssz()
+      # Libp2pPort.send_response(message_id, <<0, 24>> <> payload)
+      # Steps:
+        #1. Check that slot is not below
+    end
+  end
 
   def handle_req(protocol, _message_id, _message) do
     # This should never happen, since Libp2p only accepts registered protocols
