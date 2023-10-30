@@ -2,7 +2,7 @@
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
-		clean-tests gen-spec
+		clean-tests gen-spec compile-all
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -99,21 +99,31 @@ clean:
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
 
 # Compile C and Go artifacts.
-compile-native: $(OUTPUT_DIR)/libp2p_nif.so
+compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
-compile-port: $(OUTPUT_DIR)/libp2p_port
+compile-all: compile-native $(PROTOBUF_EX_FILES)
+	mix compile
 
 
 # Start application with Beacon API.
-start: $(PROTOBUF_EX_FILES) compile-native compile-port
+start: compile-all
 	iex -S mix phx.server
 
+grafana-up:
+	cd metrics/ && docker-compose up -d
+
+grafana-down:
+	cd metrics/ && docker-compose down
+
+grafana-clean:
+	cd metrics/ && docker-compose down -v
+
 # Run an interactive terminal with the main supervisor setup.
-iex: $(PROTOBUF_EX_FILES) compile-native compile-port
+iex: compile-all
 	iex -S mix
 
 # Run an interactive terminal using checkpoint sync.
-checkpoint-sync: $(PROTOBUF_EX_FILES) compile-native compile-port
+checkpoint-sync: compile-all
 	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
 # Install mix dependencies.
@@ -127,31 +137,31 @@ deps:
 	mix deps.get
 
 # Run tests
-test: compile-native compile-port $(PROTOBUF_EX_FILES)
+test: compile-all
 	mix test --no-start --exclude spectest
 
 # Run all spec tests
-spec-test: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/*
 
 # Run all spec tests for a specific config (e.g. mainnet)
-spec-test-config-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-config-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/$*/*/*
 
 # Run all spec tests for a specific runner (e.g. epoch_processing)
-spec-test-runner-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-runner-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/$*.exs
 
 # Run spec tests for mainnet config, for the specified runner.
-spec-test-mainnet-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-mainnet-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 # Run spec tests for minimal config, for the specified runner.
-spec-test-minimal-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-minimal-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/minimal/*/$*.exs
 
 # Run spec tests for general config, for the specified runner.
-spec-test-general-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-general-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/general/*/$*.exs
 
 lint:

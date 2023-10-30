@@ -28,7 +28,7 @@ defmodule BlsTestRunner do
 
     %{input: input, output: output} =
       YamlElixir.read_from_file!(case_dir <> "/data.yaml")
-      |> SpecTestUtils.parse_yaml()
+      |> SpecTestUtils.sanitize_yaml()
 
     case testcase.handler do
       "sign" ->
