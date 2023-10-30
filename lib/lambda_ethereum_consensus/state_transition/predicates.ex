@@ -3,12 +3,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Predicates functions
   """
 
+  alias Bls
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias Bls
   alias SszTypes.BeaconState
-  alias SszTypes.Validator
   alias SszTypes.IndexedAttestation
+  alias SszTypes.Validator
   import Bitwise
 
   @doc """

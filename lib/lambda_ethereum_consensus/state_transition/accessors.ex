@@ -5,8 +5,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
-  alias SszTypes.BeaconState
   alias SszTypes.Attestation
+  alias SszTypes.BeaconState
   alias SszTypes.IndexedAttestation
 
   @doc """
