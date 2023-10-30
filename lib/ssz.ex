@@ -10,6 +10,8 @@ defmodule Ssz do
 
   def to_ssz(%SszTypes.Checkpoint{} = container), do: serialize(container)
   def to_ssz(%SszTypes.Deposit{} = container), do: serialize(container)
+  def to_ssz(%SszTypes.DepositData{} = container), do: serialize(container)
+  def to_ssz(%SszTypes.DepositMessage{} = container), do: serialize(container)
 
   def to_ssz(%name{} = map), do: to_ssz_typed(map, name)
 
@@ -34,11 +36,19 @@ defmodule Ssz do
   end
 
   def from_ssz(bin, SszTypes.Checkpoint = schema) do
-    {:ok, decode_elixir(bin, schema)}
+    decode_elixir(bin, schema)
   end
 
   def from_ssz(bin, SszTypes.Deposit = schema) do
-    {:ok, decode_elixir(bin, schema)}
+    decode_elixir(bin, schema)
+  end
+
+  def from_ssz(bin, SszTypes.DepositData = schema) do
+    decode_elixir(bin, schema)
+  end
+
+  def from_ssz(bin, SszTypes.DepositMessage = schema) do
+    decode_elixir(bin, schema)
   end
 
   @spec from_ssz(binary, module) :: {:ok, struct} | {:error, String.t()}
@@ -303,14 +313,20 @@ defmodule Ssz do
                                                                       {acc, offset, acc_rest}} ->
               if i == num_items do
                 part = :binary.part(bin, offset, byte_size(bin) - offset)
-                {:cont, {:ok, {[decode_elixir(part, schema) | acc], offset, rest}}}
+
+                with {:ok, decoded} <- decode_elixir(part, schema) do
+                  {:cont, {:ok, {[decoded | acc], offset, rest}}}
+                end
               else
                 <<next_offset::integer-32-little, rest::bitstring>> = acc_rest
 
                 case sanitize_offset(next_offset, offset, byte_size(bin), first_offset) do
                   {:ok, next_offset} ->
                     part = :binary.part(bin, offset, next_offset - offset)
-                    {:cont, {:ok, {[decode_elixir(part, schema) | acc], next_offset, rest}}}
+
+                    with {:ok, decoded} <- decode_elixir(part, schema) do
+                      {:cont, {:ok, {[decoded | acc], next_offset, rest}}}
+                    end
 
                   {:error, error} ->
                     {:halt, {:error, error}}
@@ -324,39 +340,56 @@ defmodule Ssz do
     end
   end
 
-  def decode_elixir(bin, SszTypes.Transaction), do: bin
+  def decode_elixir(bin, SszTypes.Transaction), do: {:ok, bin}
 
   def decode_elixir(bin, SszTypes.Checkpoint) do
     <<epoch::integer-64-little, root::binary-size(32)>> = bin
-    struct!(SszTypes.Checkpoint, %{epoch: epoch, root: root})
+    {:ok, struct!(SszTypes.Checkpoint, %{epoch: epoch, root: root})}
   end
 
   def decode_elixir(bin, SszTypes.VoluntaryExit) do
     <<epoch::integer-64-little, validator_index::integer-64-little>> = bin
-    struct!(SszTypes.VoluntaryExit, %{epoch: epoch, validator_index: validator_index})
+    {:ok, struct!(SszTypes.VoluntaryExit, %{epoch: epoch, validator_index: validator_index})}
   end
 
   def decode_elixir(bin, SszTypes.DepositData) do
     <<pubkey::binary-size(48), withdrawal_credentials::binary-size(32), amount::integer-64-little,
       signature::binary-size(96)>> = bin
 
-    struct!(
-      SszTypes.DepositData,
-      %{
-        pubkey: pubkey,
-        withdrawal_credentials: withdrawal_credentials,
-        amount: amount,
-        signature: signature
-      }
-    )
+    {:ok,
+     struct!(
+       SszTypes.DepositData,
+       %{
+         pubkey: pubkey,
+         withdrawal_credentials: withdrawal_credentials,
+         amount: amount,
+         signature: signature
+       }
+     )}
+  end
+
+  def decode_elixir(bin, SszTypes.DepositMessage) do
+    <<pubkey::binary-size(48), withdrawal_credentials::binary-size(32),
+      amount::integer-64-little>> = bin
+
+    {:ok,
+     struct!(
+       SszTypes.DepositMessage,
+       %{
+         pubkey: pubkey,
+         withdrawal_credentials: withdrawal_credentials,
+         amount: amount
+       }
+     )}
   end
 
   def decode_elixir(bin, schema) do
     schema_def = schema.schema()
 
-    {_rest, items, _, _} =
+    {:ok, {_rest, items, _, _}} =
       schema_def
-      |> Enum.reduce({bin, %{}, [], 0}, fn s, {rest_bytes, items, offsets, index} ->
+      |> Enum.reduce_while({:ok, {bin, %{}, [], 0}}, fn s,
+                                                        {:ok, {rest_bytes, items, offsets, index}} ->
         key = Enum.at(Map.keys(s), 0)
         metadata = Map.get(s, key)
 
@@ -370,17 +403,21 @@ defmodule Ssz do
               |> Enum.chunk_every(element_size)
               |> Enum.map(fn c -> :binary.list_to_bin(c) end)
 
-            {rest, Map.merge(items, %{key => decoded_list}), offsets, max_size * element_size}
+            {:cont,
+             {:ok,
+              {rest, Map.merge(items, %{key => decoded_list}), offsets, max_size * element_size}}}
 
           %{type: :struct, schema_struct: schema_struct} ->
-            {rest_bytes, Map.merge(items, %{key => decode_elixir(rest_bytes, schema_struct)}),
-             offsets, index}
+            with {:ok, decoded} <- decode_elixir(rest_bytes, schema_struct) do
+              {:cont, {:ok, {rest_bytes, Map.merge(items, %{key => decoded}), offsets, index}}}
+            end
 
-            # unknown_schema -> {:error, "Unknown schema: #{inspect(schema)}"}
+          unknown_schema ->
+            {:halt, {:error, "Unknown schema: #{inspect(unknown_schema)}"}}
         end
       end)
 
-    struct!(schema, items)
+    {:ok, struct!(schema, items)}
   end
 
   ##### HELPERS ##########
