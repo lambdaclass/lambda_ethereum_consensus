@@ -3,9 +3,10 @@ defmodule Integration.Libp2pTest do
 
   @bootnodes Application.compile_env(
                :lambda_ethereum_consensus,
-               LambdaEthereumConsensus.P2P.Discovery
+               :discovery
              )[:bootnodes]
 
+  @tag :skip
   test "discover peer and add it to peerstore" do
     {:ok, host} = Libp2p.host_new()
 

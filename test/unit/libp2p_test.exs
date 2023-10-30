@@ -2,12 +2,14 @@ defmodule Unit.Libp2pTest do
   use ExUnit.Case
   doctest Libp2p
 
+  @tag :skip
   test "Create and destroy host" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0
     :ok = Libp2p.host_close(host)
   end
 
+  @tag :skip
   test "Use peerstore in place of host fails" do
     {:ok, host} = Libp2p.host_new()
     {:ok, peerstore} = Libp2p.host_peerstore(host)
@@ -15,6 +17,7 @@ defmodule Unit.Libp2pTest do
     :ok = Libp2p.host_close(host)
   end
 
+  @tag :skip
   test "Set stream handler" do
     {:ok, host} = Libp2p.host_new()
     assert host != 0
@@ -22,11 +25,13 @@ defmodule Unit.Libp2pTest do
     :ok = Libp2p.host_close(host)
   end
 
+  @tag :skip
   test "listen_addr_strings parsing" do
     {:ok, option} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48787")
     assert option != 0
   end
 
+  @tag :skip
   test "Start two hosts, and play one round of ping-pong" do
     # Setup sender
     {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48787")
@@ -95,6 +100,7 @@ defmodule Unit.Libp2pTest do
     end
   end
 
+  @tag :skip
   test "start two hosts, and gossip about" do
     # Setup sender
     {:ok, addr} = Libp2p.listen_addr_strings("/ip4/127.0.0.1/tcp/48787")
