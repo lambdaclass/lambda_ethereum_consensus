@@ -11,7 +11,13 @@ defmodule SszTypes.Deposit do
 
   @schema [
     %{proof: %{type: :list, schema: %{type: :bytes, size: 32}, max_size: 33, is_variable: false}},
-    %{data: %{type: :struct, schema: SszTypes.DepositData.schema, schema_struct: SszTypes.DepositData}}
+    %{
+      data: %{
+        type: :struct,
+        schema: SszTypes.DepositData.schema(),
+        schema_struct: SszTypes.DepositData
+      }
+    }
   ]
 
   @enforce_keys fields

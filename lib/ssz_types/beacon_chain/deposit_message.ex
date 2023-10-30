@@ -13,7 +13,7 @@ defmodule SszTypes.DepositMessage do
   @schema [
     %{pubkey: %{type: :bytes, size: 48}},
     %{withdrawal_credentials: %{type: :bytes, size: 32}},
-    %{amount: %{type: :uint, size: 64}},
+    %{amount: %{type: :uint, size: 64}}
   ]
 
   @enforce_keys fields
