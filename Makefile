@@ -1,5 +1,5 @@
-.PHONY: iex deps test spec-test lint clean compile-native compile-port compile fmt \
-		clean-vectors download-vectors uncompress-vectors proto \
+.PHONY: iex deps test spec-test lint clean compile-native compile-port fmt \
+		compile-all clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-%
 
 # Delete current file when command fails
@@ -91,6 +91,7 @@ clean:
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
 compile-all: compile-native $(PROTOBUF_EX_FILES)
+	mix compile
 
 
 # Start application with Beacon API.
