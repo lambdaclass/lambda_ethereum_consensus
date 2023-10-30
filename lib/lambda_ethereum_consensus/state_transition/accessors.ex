@@ -146,17 +146,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the beacon committee at ``slot`` for ``index``.
   """
   @spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.committee_index()) ::
-          list(SszTypes.validator_index())
+          {:ok, list(SszTypes.validator_index())} | {:error, binary()}
   def get_beacon_committee(state, slot, index) do
     epoch = Misc.compute_epoch_at_slot(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch)
 
-    Misc.compute_committee(
+    case Misc.compute_committee(
       get_active_validator_indices(state, epoch),
       get_seed(state, epoch, Constants.domain_beacon_attester()),
       rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index,
       committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
-    )
+    ) do
+      {:ok, committee} -> {:ok, committee}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @spec get_base_reward_per_increment(BeaconState.t()) :: SszTypes.gwei()
@@ -199,47 +202,39 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       else
         state.previous_justified_checkpoint
       end
-    with {:ok, block_root} <- get_block_root(state, data.target.epoch),
-      {:ok, block_root_at_slot} <- get_block_root_at_slot(state, data.slot) do
-        # Matching roots
+    case {get_block_root(state, data.target.epoch), get_block_root_at_slot(state, data.slot)} do
+      {{:ok, block_root}, {:ok, block_root_at_slot}} ->
         is_matching_source = data.source == justified_checkpoint
-
-        is_matching_target =
-          is_matching_source && data.target.root == block_root
-
-        is_matching_head =
-          is_matching_target && data.beacon_block_root == block_root_at_slot
-
+        is_matching_target = is_matching_source && data.target.root == block_root
+        is_matching_head = is_matching_target && data.beacon_block_root == block_root_at_slot
         if not is_matching_source do
           {:error, "Attestation source does not match justified checkpoint"}
+        else
+          source_indices =
+            if is_matching_source && inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
+              [Constants.timely_source_flag_index()]
+            else
+              []
+            end
+
+          target_indices =
+            if is_matching_target && inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
+              [Constants.timely_target_flag_index()]
+            else
+              []
+            end
+
+          head_indices =
+            if is_matching_head && inclusion_delay == ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") do
+              [Constants.timely_head_flag_index()]
+            else
+              []
+            end
+
+          {:ok, source_indices ++ target_indices ++ head_indices}
         end
-
-        source_indices =
-          if is_matching_source &&
-              inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
-            [Constants.timely_source_flag_index()]
-          else
-            []
-          end
-
-        target_indices =
-          if is_matching_target && inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
-            [Constants.timely_target_flag_index()]
-          else
-            []
-          end
-
-        head_indices =
-          if is_matching_head && inclusion_delay == ChainSpec.get(MIN_ATTESTATION_INCLUSION_DELAY) do
-            [Constants.timely_head_flag_index()]
-          else
-            []
-          end
-
-        {:ok, source_indices ++ target_indices ++ head_indices}
-      else
-        error -> error
-      end
+      _ -> {:error, "Failed to get block roots"}
+    end
   end
 
   @doc """
@@ -303,33 +298,41 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the indexed attestation corresponding to ``attestation``.
   """
-  @spec get_indexed_attestation(BeaconState.t(), Attestation.t()) :: IndexedAttestation.t()
+  @spec get_indexed_attestation(BeaconState.t(), Attestation.t()) ::
+          {:ok, IndexedAttestation.t()} | {:error, binary()}
   def get_indexed_attestation(state, attestation) do
-    attesting_indices =
-      get_attesting_indices(state, attestation.data, attestation.aggregation_bits)
-
-    sorted_attesting_indices = Enum.sort(attesting_indices)
-    %IndexedAttestation{
-      attesting_indices: sorted_attesting_indices,
-      data: attestation.data,
-      signature: attestation.signature
-    }
+    case get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
+      {:ok, indices} ->
+        attesting_indices = indices
+        sorted_attesting_indices = Enum.sort(attesting_indices)
+        res = %IndexedAttestation{
+          attesting_indices: sorted_attesting_indices,
+          data: attestation.data,
+          signature: attestation.signature
+        }
+        {:ok, res}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """
   Return the set of attesting indices corresponding to ``data`` and ``bits``.
   """
   @spec get_attesting_indices(BeaconState.t(), SszTypes.AttestationData.t(), SszTypes.bitlist()) ::
-          MapSet.t()
+          {:ok, MapSet.t()} | {:error, binary()}
   def get_attesting_indices(state, data, bits) do
-    committee = get_beacon_committee(state, data.slot, data.index)
-    bit_list = bitstring_to_list(bits)
-
-    committee
-    |> Stream.with_index()
-    |> Stream.filter(fn {_value, index} -> Enum.at(bit_list, index) == "1" end)
-    |> Stream.map(fn {value, _index} -> value end)
-    |> MapSet.new()
+    case get_beacon_committee(state, data.slot, data.index) do
+      {:ok, committee} ->
+        bit_list = bitstring_to_list(bits)
+        res =
+          committee
+          |> Stream.with_index()
+          |> Stream.filter(fn {_value, index} -> Enum.at(bit_list, index) == "1" end)
+          |> Stream.map(fn {value, _index} -> value end)
+          |> MapSet.new()
+        {:ok, res}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   def bitstring_to_list(binary) when is_binary(binary) do

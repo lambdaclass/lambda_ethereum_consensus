@@ -17,11 +17,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, binary()}
   def process_attestation(state, attestation) do
-    data = attestation.data
-    aggregation_bits = attestation.aggregation_bits
-
     case verify_attestation_for_process(state, attestation) do
-      {:ok, _} -> process_attestation(state, data, aggregation_bits)
+      {:ok, _} ->
+        data = attestation.data
+        aggregation_bits = attestation.aggregation_bits
+        case process_attestation(state, data, aggregation_bits) do
+          {:ok, updated_state} -> {:ok, updated_state}
+          {:error, reason} -> {:error, reason}
+        end
       {:error, reason} -> {:error, reason}
     end
   end
@@ -31,9 +34,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     with {:ok, participation_flag_indices} <- Accessors.get_attestation_participation_flag_indices(
         state,
         data,
-        state.slot - data.slot)
+        state.slot - data.slot),
+        {:ok, attesting_indices} <- Accessors.get_attesting_indices(state, data, aggregation_bits)
        do
-      IO.inspect(participation_flag_indices)
 
       # Update epoch participation flags
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
@@ -44,8 +47,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           state.previous_epoch_participation
         end
 
-      attesting_indices =
-        Accessors.get_attesting_indices(state, data, aggregation_bits)
+      # attesting_indices =
+      #   Accessors.get_attesting_indices(state, data, aggregation_bits)
 
       {proposer_reward_numerator, updated_epoch_participation} =
         Enum.reduce(attesting_indices, {0, initial_epoch_participation}, fn index, {acc, ep} ->
@@ -99,41 +102,48 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       {:ok, updated_state}
     else
-      error -> error
+      {:error, reason} -> {:error, reason}
     end
   end
 
-  defp verify_attestation_for_process(state, attestation) do
+  def verify_attestation_for_process(state, attestation) do
     data = attestation.data
-    beacon_committee = Accessors.get_beacon_committee(state, data.slot, data.index)
+    beacon_committee =
+      case Accessors.get_beacon_committee(state, data.slot, data.index) do
+        {:ok, committee} -> committee
+        {:error, _reason} -> nil
+      end
+    indexed_attestation =
+      case Accessors.get_indexed_attestation(state, attestation) do
+        {:ok, indexed_attestation} -> indexed_attestation
+        {:error, _reason} -> nil
+      end
 
-    if data.target.epoch < Accessors.get_previous_epoch(state) ||
-      data.target.epoch > Accessors.get_current_epoch(state) do
-      {:error, "Incorrect target epoch"}
-    end
-    if data.target.epoch != Misc.compute_epoch_at_slot(data.slot) do
-      {:error, "Epoch mismatch"}
-    end
-    if state.slot < data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") ||
-      data.slot + ChainSpec.get("SLOTS_PER_EPOCH") < state.slot do
-      {:error, "Inclusion delay not met"}
-    end
-    if data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch) do
-      {:error, "Index exceeds committee count"}
-    end
-    # SSZ formatted bitlist has extra 1 bit at the end
-    if length_of_bitstring(attestation.aggregation_bits) - 1 !=
-      length(beacon_committee) do
-      {:error, "Mismatched aggregation bits length"}
-    end
-
-    # Verify signature
-    indexed_attestation = Accessors.get_indexed_attestation(state, attestation)
-    if Predicates.is_valid_indexed_attestation(state, indexed_attestation) do
-      {:ok, :valid}
-    else
-      {:error, "Invalid indexed attestation"}
-    end
+    result =
+      cond do
+        data.target.epoch < Accessors.get_previous_epoch(state) ||
+        data.target.epoch > Accessors.get_current_epoch(state) ->
+          {:error, "Incorrect target epoch"}
+        data.target.epoch != Misc.compute_epoch_at_slot(data.slot) ->
+          {:error, "Epoch mismatch"}
+        state.slot < data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") ||
+        state.slot > data.slot + ChainSpec.get("SLOTS_PER_EPOCH") ->
+          {:error, "Inclusion delay not met"}
+        data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch) ->
+          {:error, "Index exceeds committee count"}
+        !beacon_committee || !indexed_attestation ->
+          {:error, "Indexing error at beacon committee"}
+        # SSZ formatted bitlist has extra 1 bit at the end
+        length_of_bitstring(attestation.aggregation_bits) - 1 !=
+        length(beacon_committee) ->
+          {:error, "Mismatched aggregation bits length"}
+        # Verify signature
+        Predicates.is_valid_indexed_attestation(state, indexed_attestation) != {:ok, true} ->
+          {:error, "Invalid signature"}
+        true ->
+          {:ok, "Valid"}
+      end
+    result
   end
 
   defp length_of_bitstring(binary) when is_binary(binary) do

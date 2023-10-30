@@ -147,15 +147,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
           SszTypes.uint64(),
           SszTypes.uint64()
         ) ::
-          list(SszTypes.validator_index())
+          {:ok, list(SszTypes.validator_index())} | {:error, binary()}
   def compute_committee(indices, seed, index, count) do
     start_ = div(length(indices) * index, count)
     end_ = div(length(indices) * (index + 1), count) - 1
 
-    Enum.map(start_..end_, fn i ->
-      {:ok, shuffled_index} = compute_shuffled_index(i, length(indices), seed)
-      Enum.at(indices, shuffled_index)
+    Enum.reduce(start_..end_, {:ok, []}, fn i, acc ->
+      case acc do
+        {:ok, acc_list} ->
+          case compute_shuffled_index(i, length(indices), seed) do
+            {:ok, shuffled_index} ->
+              {:ok, [Enum.at(indices, shuffled_index) | acc_list]}
+
+            {:error, _} = error ->
+              error
+          end
+
+        {:error, _} = error ->
+          error
+      end
     end)
+    |> case do
+      {:ok, result} -> {:ok, Enum.reverse(result)}
+      _ -> {:error, "invalid index_count"}
+    end
   end
 
   @doc """
