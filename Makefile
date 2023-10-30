@@ -1,6 +1,8 @@
 .PHONY: iex deps test spec-test lint clean compile-native compile-port fmt \
 		clean-vectors download-vectors uncompress-vectors proto \
-		spec-test-%
+		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
+		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
+		clean-tests gen-spec
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -77,7 +79,7 @@ $(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
 	-rm -rf $@
 	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
 
-$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)
+$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general
 	mix generate_spec_tests
 
 download-vectors: $(SPECTEST_TARS)
@@ -89,7 +91,7 @@ clean-vectors:
 clean-tests:
 	-rm -r test/generated
 
-gen-spec:
+gen-spec: $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general
 	mix generate_spec_tests
 
 ##### TARGETS #####
@@ -147,11 +149,11 @@ spec-test-mainnet-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOT
 
 # Run spec tests for minimal config, for the specified runner.
 spec-test-minimal-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
-	mix test --no-start test/generated/mainnet/*/$*.exs
+	mix test --no-start test/generated/minimal/*/$*.exs
 
 # Run spec tests for general config, for the specified runner.
 spec-test-general-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
-	mix test --no-start test/generated/mainnet/*/$*.exs
+	mix test --no-start test/generated/general/*/$*.exs
 
 lint:
 	mix format --check-formatted
