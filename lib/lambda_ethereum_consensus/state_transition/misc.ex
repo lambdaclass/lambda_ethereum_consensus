@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
 
   alias LambdaEthereumConsensus.Beacon.HelperFunctions
+  alias SszTypes.BeaconState
   import Bitwise
 
   @doc """
