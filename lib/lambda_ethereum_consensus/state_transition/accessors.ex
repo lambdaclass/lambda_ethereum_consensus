@@ -146,7 +146,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the beacon committee at ``slot`` for ``index``.
   """
-  @spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.committee_index()) ::
+  @spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.commitee_index()) ::
           {:ok, list(SszTypes.validator_index())} | {:error, binary()}
   def get_beacon_committee(state, slot, index) do
     epoch = Misc.compute_epoch_at_slot(slot)
