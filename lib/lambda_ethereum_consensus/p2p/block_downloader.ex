@@ -50,7 +50,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
              @blocks_by_range_protocol_id,
              size_header <> compressed_payload
            ),
-         {:ok, chunks} <- read_response(response_chunk),
+         {:ok, chunks} <- parse_response(response_chunk, count),
          {:ok, blocks} <- decode_chunks(chunks) do
       {:ok, blocks}
     else
@@ -96,9 +96,13 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
              @blocks_by_root_protocol_id,
              size_header <> compressed_payload
            ),
-         {:ok, chunks} <- read_response(response_chunk),
+         {:ok, chunks} <- parse_response(response_chunk, length(roots)),
          {:ok, blocks} <- decode_chunks(chunks) do
-      {:ok, blocks}
+      if length(blocks) != length(roots) do
+        {:error, "expected #{length(roots)} blocks, got #{length(blocks)}"}
+      else
+        {:ok, blocks}
+      end
     else
       {:error, reason} ->
         if retries > 0 do
@@ -113,53 +117,28 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     end
   end
 
-  @doc """
-  Reads the response from a stream and returns a list of chunks.
-
-  The stream should consist of the following format
-    response  ::= <response_chunk>*
-    response_chunk  ::= <result> | <context-bytes> | <chunk>
-    result    ::= “0” | “1” | “2” | [“128” ... ”255”]
-
-  We need to ensure that the context bytes correspond to the current fork digest
-  """
-  @spec read_response(Libp2p.stream()) :: {:ok, [binary()]} | {:error, binary()}
-  def read_response(stream) do
+  @spec parse_response(binary, integer) ::
+          {:ok, [binary()]} | {:error, binary()}
+  def parse_response(response_chunk, count) do
     fork_context = @fork_context
 
-    stream
-    # Takes a list of N arbitrary binary chunks and returns a list of M <chunk>s
-    # For example:
-    # [<<0, fork_context, 1>>, <<2, 3>>, <<0, fork_context>>, <<4>>, <<5>>] -> [<<1, 2, 3>>, <<4, 5>>]
-    |> Enum.reduce({:ok, []}, fn
-      {:ok, <<0, ^fork_context::binary-size(4)>> <> chunk}, {:ok, acc} ->
-        {:ok, [chunk | acc]}
-
-      {:ok, <<>>}, {:ok, []} ->
+    case response_chunk do
+      <<>> ->
         {:error, "unexpected EOF"}
 
-      {:ok, <<0, wrong_context::binary-size(4)>> <> _}, {:ok, []} ->
+      <<0, ^fork_context::binary-size(4)>> <> rest ->
+        result = rest |> :binary.split(<<0, fork_context::binary-size(4)>>)
+
+        case result do
+          chunks when length(chunks) == count -> {:ok, chunks}
+          _ -> {:error, "expected #{count} chunks, got #{length(result)}"}
+        end
+
+      <<0, wrong_context::binary-size(4)>> <> _ ->
         {:error, "wrong context: #{Base.encode16(wrong_context)}"}
 
-      {:ok, <<code>> <> message} ->
+      <<code>> <> message ->
         error_response(code, message)
-
-      {:ok, chunk}, {:ok, [h | t]} ->
-        {:ok, [h <> chunk | t]}
-
-      {:error, reason}, {:ok, _acc} ->
-        {:error, reason}
-
-      _, {:error, reason} ->
-        {:error, reason}
-
-      _, _ ->
-        {:error, "error dividing response into chunks"}
-    end)
-    |> case do
-      {:ok, []} -> {:error, "no chunks"}
-      {:ok, list} -> {:ok, Enum.reverse(list)}
-      {:error, reason} -> {:error, reason}
     end
   end
 
