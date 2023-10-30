@@ -150,28 +150,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     start_ = div(length(indices) * index, count)
     end_ = div(length(indices) * (index + 1), count) - 1
 
-    result =
-      Enum.reduce_while(start_..end_, {:ok, []}, fn i, acc ->
-        compute_committee_index(i, acc, indices, seed)
-      end)
-
-    case result do
+    case compute_committee_indices(start_, end_, indices, seed) do
       {:ok, result_list} -> {:ok, Enum.reverse(result_list)}
       _ -> {:error, "invalid index_count"}
     end
   end
 
-  defp compute_committee_index(i, {:ok, acc_list}, indices, seed) do
-    case compute_shuffled_index(i, length(indices), seed) do
-      {:ok, shuffled_index} ->
-        {:cont, {:ok, [Enum.at(indices, shuffled_index) | acc_list]}}
+  defp compute_committee_indices(start_, end_, indices, seed) do
+    Enum.reduce_while(start_..end_, {:ok, []}, fn i, {:ok, acc_list} ->
+      case compute_shuffled_index(i, length(indices), seed) do
+        {:ok, shuffled_index} ->
+          {:cont, {:ok, [Enum.at(indices, shuffled_index) | acc_list]}}
 
-      {:error, _} = error ->
-        {:halt, error}
-    end
+        {:error, _} = error ->
+          {:halt, error}
+      end
+    end)
   end
-
-  defp compute_committee_index(_, {:error, _} = error, _, _), do: {:halt, error}
 
   @doc """
   Return the domain for the ``domain_type`` and ``fork_version``.

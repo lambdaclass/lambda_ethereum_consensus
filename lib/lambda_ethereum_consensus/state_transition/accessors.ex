@@ -204,59 +204,54 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         state.previous_justified_checkpoint
       end
 
+    is_matching_source = data.source == justified_checkpoint
+
     case {get_block_root(state, data.target.epoch), get_block_root_at_slot(state, data.slot)} do
       {{:ok, block_root}, {:ok, block_root_at_slot}} ->
-        determine_flag_indices(
-          data,
-          justified_checkpoint,
-          block_root,
-          block_root_at_slot,
-          inclusion_delay
-        )
+        if is_matching_source do
+          is_matching_target = is_matching_source && data.target.root == block_root
+          source_indices = compute_source_indices(data, justified_checkpoint, inclusion_delay)
+
+          target_indices =
+            compute_target_indices(data, block_root, inclusion_delay, is_matching_source)
+
+          head_indices =
+            compute_head_indices(data, block_root_at_slot, inclusion_delay, is_matching_target)
+
+          {:ok, source_indices ++ target_indices ++ head_indices}
+        else
+          {:error, "Attestation source does not match justified checkpoint"}
+        end
 
       _ ->
         {:error, "Failed to get block roots"}
     end
   end
 
-  defp determine_flag_indices(
-         data,
-         justified_checkpoint,
-         block_root,
-         block_root_at_slot,
-         inclusion_delay
-       ) do
-    is_matching_source = data.source == justified_checkpoint
-    is_matching_target = is_matching_source && data.target.root == block_root
-    is_matching_head = is_matching_target && data.beacon_block_root == block_root_at_slot
-
-    if is_matching_source do
-      source_indices =
-        if inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
-          [Constants.timely_source_flag_index()]
-        else
-          []
-        end
-
-      target_indices =
-        if is_matching_target &&
-             inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
-          [Constants.timely_target_flag_index()]
-        else
-          []
-        end
-
-      head_indices =
-        if is_matching_head &&
-             inclusion_delay == ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") do
-          [Constants.timely_head_flag_index()]
-        else
-          []
-        end
-
-      {:ok, source_indices ++ target_indices ++ head_indices}
+  defp compute_source_indices(data, justified_checkpoint, inclusion_delay) do
+    if data.source == justified_checkpoint &&
+         inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
+      [Constants.timely_source_flag_index()]
     else
-      {:error, "Attestation source does not match justified checkpoint"}
+      []
+    end
+  end
+
+  defp compute_target_indices(data, block_root, inclusion_delay, is_matching_source) do
+    if is_matching_source && data.target.root == block_root &&
+         inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
+      [Constants.timely_target_flag_index()]
+    else
+      []
+    end
+  end
+
+  defp compute_head_indices(data, block_root_at_slot, inclusion_delay, is_matching_target) do
+    if is_matching_target && data.beacon_block_root == block_root_at_slot &&
+         inclusion_delay == ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") do
+      [Constants.timely_head_flag_index()]
+    else
+      []
     end
   end
 
