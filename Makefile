@@ -79,7 +79,7 @@ $(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
 	-rm -rf $@
 	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
 
-$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general
+$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general lib/mix/tasks/generate_spec_tests.ex
 	mix generate_spec_tests
 
 download-vectors: $(SPECTEST_TARS)
@@ -91,8 +91,7 @@ clean-vectors:
 clean-tests:
 	-rm -r test/generated
 
-gen-spec: $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general
-	mix generate_spec_tests
+gen-spec: $(SPECTEST_GENERATED_ROOTDIR)
 
 ##### TARGETS #####
 

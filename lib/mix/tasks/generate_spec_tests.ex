@@ -24,6 +24,8 @@ defmodule Mix.Tasks.GenerateSpecTests do
     for fork <- @forks, runner <- @runners do
       generate_test("general", fork, runner)
     end
+
+    File.touch(Path.join(["test", "generated"]))
   end
 
   defp generate_test(config, fork, runner) do
