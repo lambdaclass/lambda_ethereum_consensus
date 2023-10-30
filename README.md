@@ -340,6 +340,19 @@ Lambda Ethereum Consensus is more than just a project; it's a community-driven i
 
 When running the node, metrics are available at [`http://localhost:9568/metrics`](http://localhost:9568/metrics) in Prometheus format.
 
+### Grafana
+
+A docker-compose is available at [`metrics/`](./metrics) with a Grafana-Prometheus setup preloaded with dashboards that disponibilize the data.
+To run it, install [Docker Compose](https://docs.docker.com/compose/) and execute:
+
+```shell
+cd metrics
+docker-compose up
+```
+
+After that, open [`http://localhost:3000/`](http://localhost:3000/) in a browser.
+The default username and password are both `admin`.
+
 ## Profiling
 
 ### QCachegrind
