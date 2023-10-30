@@ -35,12 +35,23 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Receiver do
   def handle_info({:request, {@prefix <> name, message_id, message}}, state) do
     Logger.debug("'#{name}' request received")
 
-    case Handler.handle_req(name, message_id, message) do
-      :ok -> :ok
-      :not_implemented -> :ok
-      {:error, error} -> Logger.error("[#{name}] Request error: #{inspect(error)}")
-    end
+    args = [name, message_id, message]
+    Task.Supervisor.async_nolink(Handler, Handler, :handle, args)
 
+    {:noreply, state}
+  end
+
+  # The task completed successfully
+  def handle_info({ref, :ok}, state) do
+    # ignore result
+    # demonitor and remove :DOWN message
+    Process.demonitor(ref, [:flush])
+    {:noreply, state}
+  end
+
+  # The task failed
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, state) do
+    # ignore error
     {:noreply, state}
   end
 end

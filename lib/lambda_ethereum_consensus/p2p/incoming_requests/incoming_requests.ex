@@ -1,5 +1,7 @@
-defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Supervisor do
+defmodule LambdaEthereumConsensus.P2P.IncomingRequests do
   use Supervisor
+
+  alias __MODULE__
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -8,7 +10,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Supervisor do
   @impl true
   def init(_opts) do
     children = [
-      {LambdaEthereumConsensus.P2P.IncomingRequests.Receiver, []}
+      {Task.Supervisor, name: IncomingRequests.Handler},
+      {IncomingRequests.Receiver, []}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
