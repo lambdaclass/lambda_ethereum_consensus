@@ -88,7 +88,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
     indices = indexed_attestation.attesting_indices
 
     res =
-      if length(indices) != 0 or not (indices == Enum.uniq(Enum.sort(indices))) do
+      if length(indices) == 0 or not (indices == Enum.sort(Enum.uniq(indices))) do
         false
       else
         pubkeys =
