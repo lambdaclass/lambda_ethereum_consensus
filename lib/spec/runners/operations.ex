@@ -3,6 +3,8 @@ defmodule OperationsTestRunner do
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
   """
 
+  alias LambdaEthereumConsensus.StateTransition.Operations
+
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -51,6 +53,21 @@ defmodule OperationsTestRunner do
     # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
 
+  # Remove handler from here once you implement the corresponding functions
+  # "deposit_receipt" handler is not yet implemented
+  @disabled_handlers [
+    "attestation",
+    "attester_slashing",
+    "block_header",
+    "deposit",
+    "proposer_slashing",
+    "voluntary_exit",
+    "sync_aggregate",
+    # "execution_payload",
+    # "withdrawals",
+    "bls_to_execution_change"
+  ]
+
   @impl TestRunner
   def skip?(%SpecTestCase{fork: fork, handler: handler}) do
     fork != "capella" or Enum.member?(@disabled_handlers, handler)
@@ -88,5 +105,17 @@ defmodule OperationsTestRunner do
       |> SpecTestUtils.sanitize_yaml()
 
     assert true
+  end
+
+  defp handle_case("withdrawals", pre, operation, post, _case_dir) do
+    result = Operations.process_withdrawals(pre, operation)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
   end
 end
