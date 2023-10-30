@@ -91,7 +91,7 @@ defmodule OperationsTestRunner do
     assert true
   end
 
-  defp handle_case("attester_slashing", pre, attester_slashing, post, case_dir) do
+  defp handle_case("attester_slashing", pre, attester_slashing, post, _case_dir) do
     result = Operations.process_attester_slashing(pre, attester_slashing)
     assert result == {:ok, post}
   end

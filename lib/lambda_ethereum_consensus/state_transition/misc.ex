@@ -141,11 +141,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
 
     effective_balance = Enum.at(state.validators, candidate_index).effective_balance
 
-    if effective_balance * max_random_byte >= max_effective_balance * byte do
+    res = if effective_balance * max_random_byte >= max_effective_balance * byte do
       candidate_index
     else
       compute_proposer_index(state, indices, seed, i + 1)
     end
+    res
   end
 
   @doc """

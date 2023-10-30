@@ -24,8 +24,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         {slashed_any, state} = Enum.uniq(attestation_1.attesting_indices)
         |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
         |> Enum.sort()
-        |> Enum.reduce({slashed_any, state} , fn i, {_slashed_any, state} ->
-        if(
+        |> Enum.reduce({slashed_any, state} , fn i, {slashed_any, state} ->
+        res = if(
           Predicates.is_slashable_validator(
             Enum.at(state.validators, i),
             Accessors.get_current_epoch(state)
@@ -33,10 +33,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         ) do
           {:ok, state} = Mutators.slash_validator(state, i)
           {true, state}
+        else
+          {slashed_any, state}
         end
+
+        res
         end)
         res = cond do
-          not slashed_any -> {:error, "Didn't slash any."}
+          not slashed_any -> {:ok, nil}
           true -> {:ok, state}
         end
         res

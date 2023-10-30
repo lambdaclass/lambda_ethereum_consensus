@@ -97,7 +97,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
           {:ok, BeaconState.t()}
   def slash_validator(state, slashed_index, whistleblower_index \\ None) do
     epoch = Accessors.get_current_epoch(state)
-    initiate_validator_exit(state, slashed_index)
+    List.replace_at(state.validators, initiate_validator_exit(state, slashed_index), slashed_index)
 
     validator = Enum.at(state.validators, slashed_index)
 
@@ -136,8 +136,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
 
     # Decrease slashers balance, apply proposer and whistleblower rewards
     {:ok,
-     decrease_balance(state, slashed_index, slashing_penalty)
-     |> increase_balance(proposer_index, proposer_reward)
-     |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
+      state
+      |> decrease_balance(slashed_index, slashing_penalty)
+      |> increase_balance(proposer_index, proposer_reward)
+      |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
   end
 end
