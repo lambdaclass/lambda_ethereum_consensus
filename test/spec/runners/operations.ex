@@ -87,7 +87,7 @@ defmodule OperationsTestRunner do
   defp handle_case("execution_payload", _pre, _operation, _post, case_dir) do
     %{execution_valid: _execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
-      |> SpecTestUtils.parse_yaml()
+      |> SpecTestUtils.sanitize_yaml()
 
     assert true
   end
