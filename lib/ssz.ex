@@ -171,7 +171,7 @@ defmodule Ssz do
   @bits_per_byte 8
 
   ### ENCODE ######
-  def serialize(%struct{} = map) when is_struct(map) do
+  def serialize(%struct{} = map) do
     schema = struct.schema()
 
     values =
@@ -208,7 +208,7 @@ defmodule Ssz do
 
   def serialize(value) when is_binary(value), do: {:ok, value}
 
-  def serialize(%{type: :bytes, size: size, value: value}), do: {:ok, value}
+  def serialize(%{type: :bytes, size: _size, value: value}), do: {:ok, value}
   def serialize(%{} = schema), do: {:error, "Unknown schema: #{inspect(schema)}"}
 
   def serialize_list(elements) when is_list(elements) do
@@ -273,18 +273,79 @@ defmodule Ssz do
   end
 
   ### DECODE ######
+  def decode_elixir(bin, schema) do
+    schema_def = schema.schema()
+
+    if Enum.empty?(schema_def) do
+      {:ok, bin}
+    else
+      {:ok, {_rest, items, _, _}} =
+        schema_def
+        |> Enum.reduce_while({:ok, {bin, %{}, [], 0}}, fn s,
+                                                          {:ok,
+                                                           {rest_bytes, items, offsets, index}} ->
+          key = Enum.at(Map.keys(s), 0)
+          metadata = Map.get(s, key)
+
+          case metadata do
+            %{type: :list, schema: elements_schema, is_variable: false, max_size: max_size} ->
+              %{size: element_size} = elements_schema
+              <<elements::binary-size(max_size * element_size), rest::bitstring>> = rest_bytes
+
+              decoded_list =
+                :binary.bin_to_list(elements)
+                |> Enum.chunk_every(element_size)
+                |> Enum.map(fn c -> :binary.list_to_bin(c) end)
+
+              {:cont,
+               {:ok,
+                {rest, Map.merge(items, %{key => decoded_list}), offsets, max_size * element_size}}}
+
+            %{type: :struct, schema_struct: schema_struct} ->
+              with {:ok, decoded} <- decode_elixir(rest_bytes, schema_struct) do
+                {:cont, {:ok, {rest_bytes, Map.merge(items, %{key => decoded}), offsets, index}}}
+              end
+
+            %{type: :bytes, size: size} ->
+              <<element::binary-size(size), rest::bitstring>> = rest_bytes
+              {:cont, {:ok, {rest, Map.merge(items, %{key => element}), offsets, index}}}
+
+            %{type: :uint, size: size} ->
+              <<element::integer-size(size)-little, rest::bitstring>> = rest_bytes
+              {:cont, {:ok, {rest, Map.merge(items, %{key => element}), offsets, index}}}
+
+            unknown_schema ->
+              {:halt, {:error, "Unknown schema: #{inspect(unknown_schema)}"}}
+          end
+        end)
+
+      {:ok, struct!(schema, items)}
+    end
+  end
+
   @spec list_from_ssz_elixir(binary, module) :: {:ok, struct} | {:error, String.t()}
   def list_from_ssz_elixir(bin, schema) do
     if is_variable_schema(schema.schema) do
       decode_list_of_variable_length_items(bin, schema)
     else
-      ssz_fixed_len = ssz_fixed_len(schema.schema)
+      ssz_fixed_len =
+        schema.schema
+        |> Enum.map(fn schema ->
+          key = Enum.at(Map.keys(schema), 0)
+          metadata = Map.get(schema, key)
+          byte_size_from_type(metadata)
+        end)
+        |> Enum.sum()
 
       decoded_list =
         :binary.bin_to_list(bin)
         |> Enum.chunk_every(ssz_fixed_len)
         |> Enum.map(fn c -> :binary.list_to_bin(c) end)
-        |> Enum.map(fn b -> decode_elixir(b, schema) end)
+        |> Enum.map(fn b ->
+          with {:ok, decoded} <- decode_elixir(b, schema) do
+            decoded
+          end
+        end)
 
       {:ok, decoded_list}
     end
@@ -340,86 +401,6 @@ defmodule Ssz do
     end
   end
 
-  def decode_elixir(bin, SszTypes.Transaction), do: {:ok, bin}
-
-  def decode_elixir(bin, SszTypes.Checkpoint) do
-    <<epoch::integer-64-little, root::binary-size(32)>> = bin
-    {:ok, struct!(SszTypes.Checkpoint, %{epoch: epoch, root: root})}
-  end
-
-  def decode_elixir(bin, SszTypes.VoluntaryExit) do
-    <<epoch::integer-64-little, validator_index::integer-64-little>> = bin
-    {:ok, struct!(SszTypes.VoluntaryExit, %{epoch: epoch, validator_index: validator_index})}
-  end
-
-  def decode_elixir(bin, SszTypes.DepositData) do
-    <<pubkey::binary-size(48), withdrawal_credentials::binary-size(32), amount::integer-64-little,
-      signature::binary-size(96)>> = bin
-
-    {:ok,
-     struct!(
-       SszTypes.DepositData,
-       %{
-         pubkey: pubkey,
-         withdrawal_credentials: withdrawal_credentials,
-         amount: amount,
-         signature: signature
-       }
-     )}
-  end
-
-  def decode_elixir(bin, SszTypes.DepositMessage) do
-    <<pubkey::binary-size(48), withdrawal_credentials::binary-size(32),
-      amount::integer-64-little>> = bin
-
-    {:ok,
-     struct!(
-       SszTypes.DepositMessage,
-       %{
-         pubkey: pubkey,
-         withdrawal_credentials: withdrawal_credentials,
-         amount: amount
-       }
-     )}
-  end
-
-  def decode_elixir(bin, schema) do
-    schema_def = schema.schema()
-
-    {:ok, {_rest, items, _, _}} =
-      schema_def
-      |> Enum.reduce_while({:ok, {bin, %{}, [], 0}}, fn s,
-                                                        {:ok, {rest_bytes, items, offsets, index}} ->
-        key = Enum.at(Map.keys(s), 0)
-        metadata = Map.get(s, key)
-
-        case metadata do
-          %{type: :list, schema: elements_schema, is_variable: false, max_size: max_size} ->
-            %{size: element_size} = elements_schema
-            <<elements::binary-size(max_size * element_size), rest::bitstring>> = rest_bytes
-
-            decoded_list =
-              :binary.bin_to_list(elements)
-              |> Enum.chunk_every(element_size)
-              |> Enum.map(fn c -> :binary.list_to_bin(c) end)
-
-            {:cont,
-             {:ok,
-              {rest, Map.merge(items, %{key => decoded_list}), offsets, max_size * element_size}}}
-
-          %{type: :struct, schema_struct: schema_struct} ->
-            with {:ok, decoded} <- decode_elixir(rest_bytes, schema_struct) do
-              {:cont, {:ok, {rest_bytes, Map.merge(items, %{key => decoded}), offsets, index}}}
-            end
-
-          unknown_schema ->
-            {:halt, {:error, "Unknown schema: #{inspect(unknown_schema)}"}}
-        end
-      end)
-
-    {:ok, struct!(schema, items)}
-  end
-
   ##### HELPERS ##########
   defp is_variable_schema(map) when is_list(map) and map == [], do: true
 
@@ -431,16 +412,6 @@ defmodule Ssz do
       is_variable_size(metadata)
     end)
     |> Enum.all?()
-  end
-
-  defp ssz_fixed_len(map) when is_list(map) do
-    map
-    |> Enum.map(fn schema ->
-      key = Enum.at(Map.keys(schema), 0)
-      metadata = Map.get(schema, key)
-      byte_size_from_type(metadata)
-    end)
-    |> Enum.sum()
   end
 
   defp byte_size_from_type(%{type: :uint, size: size}), do: div(size, @bits_per_byte)
