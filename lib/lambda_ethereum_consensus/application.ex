@@ -28,7 +28,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Libp2pPort, libp2p_opts},
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
-      {LambdaEthereumConsensus.P2P.IncomingRequestHandler, []},
+      {LambdaEthereumConsensus.P2P.IncomingRequests.Supervisor, []},
       {LambdaEthereumConsensus.ForkChoice, [Keyword.get(args, :checkpoint_sync)]},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
