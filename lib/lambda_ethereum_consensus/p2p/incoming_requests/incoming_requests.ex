@@ -1,4 +1,7 @@
 defmodule LambdaEthereumConsensus.P2P.IncomingRequests do
+  @moduledoc """
+  This module is a ``Supervisor`` over ``Receiver`` and ``Handler``.
+  """
   use Supervisor
 
   alias __MODULE__
