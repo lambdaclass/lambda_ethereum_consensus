@@ -1,4 +1,8 @@
 defmodule OperationsTestRunner do
+  @moduledoc """
+  Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
+  """
+
   alias LambdaEthereumConsensus.StateTransition.Operations
 
   use ExUnit.CaseTemplate
@@ -7,6 +11,24 @@ defmodule OperationsTestRunner do
   @moduledoc """
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
   """
+
+  use ExUnit.CaseTemplate
+  use TestRunner
+
+  # Remove handler from here once you implement the corresponding functions
+  # "deposit_receipt" handler is not yet implemented
+  @disabled_handlers [
+    "attestation",
+    "attester_slashing",
+    "block_header",
+    "deposit",
+    "proposer_slashing",
+    "voluntary_exit",
+    "sync_aggregate",
+    # "execution_payload",
+    "withdrawals",
+    "bls_to_execution_change"
+  ]
 
   # Map the operation-name to the associated operation-type
   @type_map %{
@@ -87,7 +109,7 @@ defmodule OperationsTestRunner do
   defp handle_case("execution_payload", _pre, _operation, _post, case_dir) do
     %{execution_valid: _execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
-      |> SpecTestUtils.parse_yaml()
+      |> SpecTestUtils.sanitize_yaml()
 
     assert true
   end
