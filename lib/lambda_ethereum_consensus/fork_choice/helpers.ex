@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.ForkChoice.Utils do
+defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @moduledoc """
     Utility functions for the fork choice.
   """
@@ -47,5 +47,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Utils do
     else
       {:error, "Anchor block state root does not match anchor state root"}
     end
+  end
+
+  @spec get_head(Store.t()) :: {:ok, SszTypes.root()} | {:error, any}
+  def get_head(store) do
+    {:ok, store.justified_checkpoint.root}
   end
 end

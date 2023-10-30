@@ -99,6 +99,15 @@ compile: compile-native compile-port $(PROTOBUF_EX_FILES)
 start: compile
 	iex -S mix phx.server
 
+grafana-up:
+	cd metrics/ && docker-compose up -d
+
+grafana-down:
+	cd metrics/ && docker-compose down
+
+grafana-clean:
+	cd metrics/ && docker-compose down -v
+
 # Run an interactive terminal with the main supervisor setup.
 iex: compile
 	iex -S mix

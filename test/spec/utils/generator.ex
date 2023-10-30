@@ -7,7 +7,8 @@ defmodule SpecTestGenerator do
     "bls" => BLSTestRunner,
     "operations" => OperationsTestRunner,
     "epoch_processing" => EpochProcessingTestRunner,
-    "shuffling" => ShufflingTestRunner
+    "shuffling" => ShufflingTestRunner,
+    "fork_choice" => ForkChoiceTestRunner
   }
 
   @vectors_dir SpecTestCompileUtils.get_vectors_dir()

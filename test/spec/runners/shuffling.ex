@@ -23,7 +23,7 @@ defmodule ShufflingTestRunner do
 
     %{seed: seed, count: index_count, mapping: indices} =
       YamlElixir.read_from_file!(case_dir <> "/mapping.yaml")
-      |> SpecTestUtils.parse_yaml()
+      |> SpecTestUtils.sanitize_yaml()
 
     handle(testcase.handler, seed, index_count, indices)
   end
