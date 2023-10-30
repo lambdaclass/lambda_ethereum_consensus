@@ -99,8 +99,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
         signing_root = Misc.compute_signing_root(indexed_attestation.data, domain)
         Bls.fast_aggregate_verify(pubkeys, signing_root, indexed_attestation.signature)
-    else
-      false -> {:error, "Invalid"}
+
+      false ->
+        {:error, "Invalid"}
     end
   end
 end

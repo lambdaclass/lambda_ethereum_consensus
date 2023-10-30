@@ -33,7 +33,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp process_attestation(state, data, aggregation_bits) do
-    # Participation flag indices
     with {:ok, participation_flag_indices} <-
            Accessors.get_attestation_participation_flag_indices(
              state,
@@ -42,53 +41,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
            ),
          {:ok, attesting_indices} <-
            Accessors.get_attesting_indices(state, data, aggregation_bits) do
-      # Update epoch participation flags
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
-
-      initial_epoch_participation =
-        if is_current_epoch do
-          state.current_epoch_participation
-        else
-          state.previous_epoch_participation
-        end
+      initial_epoch_participation = get_initial_epoch_participation(state, is_current_epoch)
 
       {proposer_reward_numerator, updated_epoch_participation} =
-        Enum.reduce(attesting_indices, {0, initial_epoch_participation}, fn index, {acc, ep} ->
-          {new_acc, new_ep} =
-            Enum.reduce_while(
-              0..(length(Constants.participation_flag_weights()) - 1),
-              {acc, ep},
-              fn flag_index, {inner_acc, inner_ep} ->
-                if flag_index in participation_flag_indices &&
-                     not Predicates.has_flag(Enum.at(inner_ep, index), flag_index) do
-                  updated_ep =
-                    List.replace_at(
-                      inner_ep,
-                      index,
-                      Misc.add_flag(Enum.at(inner_ep, index), flag_index)
-                    )
+        update_epoch_participation(
+          state,
+          attesting_indices,
+          initial_epoch_participation,
+          participation_flag_indices
+        )
 
-                  acc_delta =
-                    Accessors.get_base_reward(state, index) *
-                      Enum.at(Constants.participation_flag_weights(), flag_index)
-
-                  {:cont, {inner_acc + acc_delta, updated_ep}}
-                else
-                  {:cont, {inner_acc, inner_ep}}
-                end
-              end
-            )
-
-          {new_acc, new_ep}
-        end)
-
-      # Reward proposer
-      proposer_reward_denominator =
-        ((Constants.weight_denominator() - Constants.proposer_weight()) *
-           Constants.weight_denominator())
-        |> div(Constants.proposer_weight())
-
-      proposer_reward = div(proposer_reward_numerator, proposer_reward_denominator)
+      proposer_reward = compute_proposer_reward(proposer_reward_numerator)
 
       {:ok, bal_updated_state} =
         Mutators.increase_balance(
@@ -98,11 +62,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         )
 
       updated_state =
-        if is_current_epoch do
-          %{bal_updated_state | current_epoch_participation: updated_epoch_participation}
-        else
-          %{bal_updated_state | previous_epoch_participation: updated_epoch_participation}
-        end
+        update_state(bal_updated_state, is_current_epoch, updated_epoch_participation)
 
       {:ok, updated_state}
     else
@@ -110,54 +70,143 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
+  defp get_initial_epoch_participation(state, true), do: state.current_epoch_participation
+  defp get_initial_epoch_participation(state, false), do: state.previous_epoch_participation
+
+  defp update_epoch_participation(
+         state,
+         attesting_indices,
+         initial_epoch_participation,
+         participation_flag_indices
+       ) do
+    Enum.reduce(attesting_indices, {0, initial_epoch_participation}, fn index, {acc, ep} ->
+      update_participation_for_index(state, index, acc, ep, participation_flag_indices)
+    end)
+  end
+
+  defp update_participation_for_index(state, index, acc, ep, participation_flag_indices) do
+    Enum.reduce_while(
+      0..(length(Constants.participation_flag_weights()) - 1),
+      {acc, ep},
+      fn flag_index, {inner_acc, inner_ep} ->
+        if flag_index in participation_flag_indices &&
+             not Predicates.has_flag(Enum.at(inner_ep, index), flag_index) do
+          updated_ep =
+            List.replace_at(inner_ep, index, Misc.add_flag(Enum.at(inner_ep, index), flag_index))
+
+          acc_delta =
+            Accessors.get_base_reward(state, index) *
+              Enum.at(Constants.participation_flag_weights(), flag_index)
+
+          {:cont, {inner_acc + acc_delta, updated_ep}}
+        else
+          {:cont, {inner_acc, inner_ep}}
+        end
+      end
+    )
+  end
+
+  defp compute_proposer_reward(proposer_reward_numerator) do
+    proposer_reward_denominator =
+      ((Constants.weight_denominator() - Constants.proposer_weight()) *
+         Constants.weight_denominator())
+      |> div(Constants.proposer_weight())
+
+    div(proposer_reward_numerator, proposer_reward_denominator)
+  end
+
+  defp update_state(state, true, updated_epoch_participation),
+    do: %{state | current_epoch_participation: updated_epoch_participation}
+
+  defp update_state(state, false, updated_epoch_participation),
+    do: %{state | previous_epoch_participation: updated_epoch_participation}
+
   def verify_attestation_for_process(state, attestation) do
     data = attestation.data
 
-    beacon_committee =
-      case Accessors.get_beacon_committee(state, data.slot, data.index) do
-        {:ok, committee} -> committee
-        {:error, _reason} -> nil
-      end
+    beacon_committee = fetch_beacon_committee(state, data)
+    indexed_attestation = fetch_indexed_attestation(state, attestation)
 
-    indexed_attestation =
-      case Accessors.get_indexed_attestation(state, attestation) do
-        {:ok, indexed_attestation} -> indexed_attestation
-        {:error, _reason} -> nil
-      end
+    if has_invalid_conditions?(data, state, beacon_committee, indexed_attestation, attestation) do
+      {:error, get_error_message(data, state, beacon_committee, indexed_attestation, attestation)}
+    else
+      {:ok, "Valid"}
+    end
+  end
 
-    result =
-      cond do
-        data.target.epoch < Accessors.get_previous_epoch(state) ||
-            data.target.epoch > Accessors.get_current_epoch(state) ->
-          {:error, "Incorrect target epoch"}
+  defp has_invalid_conditions?(data, state, beacon_committee, indexed_attestation, attestation) do
+    invalid_target_epoch?(data, state) ||
+      epoch_mismatch?(data) ||
+      invalid_slot_range?(data, state) ||
+      exceeds_committee_count?(data, state) ||
+      !beacon_committee || !indexed_attestation ||
+      mismatched_aggregation_bits_length?(attestation, beacon_committee) ||
+      invalid_signature?(state, indexed_attestation)
+  end
 
-        data.target.epoch != Misc.compute_epoch_at_slot(data.slot) ->
-          {:error, "Epoch mismatch"}
+  defp get_error_message(data, state, beacon_committee, indexed_attestation, attestation) do
+    cond do
+      invalid_target_epoch?(data, state) ->
+        "Invalid target epoch"
 
-        state.slot < data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") ||
-            state.slot > data.slot + ChainSpec.get("SLOTS_PER_EPOCH") ->
-          {:error, "Inclusion delay not met"}
+      epoch_mismatch?(data) ->
+        "Epoch mismatch"
 
-        data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch) ->
-          {:error, "Index exceeds committee count"}
+      invalid_slot_range?(data, state) ->
+        "Invalid slot range"
 
-        !beacon_committee || !indexed_attestation ->
-          {:error, "Indexing error at beacon committee"}
+      exceeds_committee_count?(data, state) ->
+        "Index exceeds committee count"
 
-        # SSZ formatted bitlist has extra 1 bit at the end
-        length_of_bitstring(attestation.aggregation_bits) - 1 !=
-            length(beacon_committee) ->
-          {:error, "Mismatched aggregation bits length"}
+      !beacon_committee || !indexed_attestation ->
+        "Indexing error at beacon committee"
 
-        # Verify signature
-        Predicates.is_valid_indexed_attestation(state, indexed_attestation) != {:ok, true} ->
-          {:error, "Invalid signature"}
+      mismatched_aggregation_bits_length?(attestation, beacon_committee) ->
+        "Mismatched aggregation bits length"
 
-        true ->
-          {:ok, "Valid"}
-      end
+      invalid_signature?(state, indexed_attestation) ->
+        "Invalid signature"
+    end
+  end
 
-    result
+  defp fetch_beacon_committee(state, data) do
+    case Accessors.get_beacon_committee(state, data.slot, data.index) do
+      {:ok, committee} -> committee
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp fetch_indexed_attestation(state, attestation) do
+    case Accessors.get_indexed_attestation(state, attestation) do
+      {:ok, indexed_attestation} -> indexed_attestation
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp invalid_target_epoch?(data, state) do
+    data.target.epoch < Accessors.get_previous_epoch(state) ||
+      data.target.epoch > Accessors.get_current_epoch(state)
+  end
+
+  defp epoch_mismatch?(data) do
+    data.target.epoch != Misc.compute_epoch_at_slot(data.slot)
+  end
+
+  defp invalid_slot_range?(data, state) do
+    state.slot < data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") ||
+      state.slot > data.slot + ChainSpec.get("SLOTS_PER_EPOCH")
+  end
+
+  defp exceeds_committee_count?(data, state) do
+    data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch)
+  end
+
+  defp mismatched_aggregation_bits_length?(attestation, beacon_committee) do
+    length_of_bitstring(attestation.aggregation_bits) - 1 != length(beacon_committee)
+  end
+
+  defp invalid_signature?(state, indexed_attestation) do
+    Predicates.is_valid_indexed_attestation(state, indexed_attestation) != {:ok, true}
   end
 
   defp length_of_bitstring(binary) when is_binary(binary) do
