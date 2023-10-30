@@ -152,11 +152,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     committees_per_slot = get_committee_count_per_slot(state, epoch)
 
     case Misc.compute_committee(
-      get_active_validator_indices(state, epoch),
-      get_seed(state, epoch, Constants.domain_beacon_attester()),
-      rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index,
-      committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
-    ) do
+           get_active_validator_indices(state, epoch),
+           get_seed(state, epoch, Constants.domain_beacon_attester()),
+           rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index,
+           committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
+         ) do
       {:ok, committee} -> {:ok, committee}
       {:error, reason} -> {:error, reason}
     end
@@ -202,38 +202,45 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       else
         state.previous_justified_checkpoint
       end
+
     case {get_block_root(state, data.target.epoch), get_block_root_at_slot(state, data.slot)} do
       {{:ok, block_root}, {:ok, block_root_at_slot}} ->
         is_matching_source = data.source == justified_checkpoint
         is_matching_target = is_matching_source && data.target.root == block_root
         is_matching_head = is_matching_target && data.beacon_block_root == block_root_at_slot
-        if not is_matching_source do
-          {:error, "Attestation source does not match justified checkpoint"}
-        else
+
+        if is_matching_source do
           source_indices =
-            if is_matching_source && inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
+            if is_matching_source &&
+                 inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
               [Constants.timely_source_flag_index()]
             else
               []
             end
 
           target_indices =
-            if is_matching_target && inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
+            if is_matching_target &&
+                 inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
               [Constants.timely_target_flag_index()]
             else
               []
             end
 
           head_indices =
-            if is_matching_head && inclusion_delay == ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") do
+            if is_matching_head &&
+                 inclusion_delay == ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") do
               [Constants.timely_head_flag_index()]
             else
               []
             end
 
           {:ok, source_indices ++ target_indices ++ head_indices}
+        else
+          {:error, "Attestation source does not match justified checkpoint"}
         end
-      _ -> {:error, "Failed to get block roots"}
+
+      _ ->
+        {:error, "Failed to get block roots"}
     end
   end
 
@@ -305,13 +312,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       {:ok, indices} ->
         attesting_indices = indices
         sorted_attesting_indices = Enum.sort(attesting_indices)
+
         res = %IndexedAttestation{
           attesting_indices: sorted_attesting_indices,
           data: attestation.data,
           signature: attestation.signature
         }
+
         {:ok, res}
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -324,14 +335,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     case get_beacon_committee(state, data.slot, data.index) do
       {:ok, committee} ->
         bit_list = bitstring_to_list(bits)
+
         res =
           committee
           |> Stream.with_index()
           |> Stream.filter(fn {_value, index} -> Enum.at(bit_list, index) == "1" end)
           |> Stream.map(fn {value, _index} -> value end)
           |> MapSet.new()
+
         {:ok, res}
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

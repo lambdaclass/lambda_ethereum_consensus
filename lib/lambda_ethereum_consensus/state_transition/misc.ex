@@ -210,10 +210,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
   def compute_signing_root(%SszTypes.AttestationData{} = data, domain) do
     {:ok, data_root} = Ssz.hash_tree_root(data)
-    {:ok, root} = Ssz.hash_tree_root(%SszTypes.SigningData{
-      object_root: data_root,
-      domain: domain
-    })
+
+    {:ok, root} =
+      Ssz.hash_tree_root(%SszTypes.SigningData{
+        object_root: data_root,
+        domain: domain
+      })
+
     root
   end
 

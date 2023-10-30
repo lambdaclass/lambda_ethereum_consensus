@@ -82,22 +82,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
       |> Enum.sort()
 
     # Verify aggregate signature
-    with true <- length(indices) != 0 && indices == sorted_indices do
-      pubkeys =
-        Enum.map(indices, fn index ->
-          v = Enum.at(validators, index)
-          v.pubkey
-        end)
+    case length(indices) != 0 && indices == sorted_indices do
+      true ->
+        pubkeys =
+          Enum.map(indices, fn index ->
+            v = Enum.at(validators, index)
+            v.pubkey
+          end)
 
-      domain =
-        Accessors.get_domain(
-          state,
-          Constants.domain_beacon_attester(),
-          indexed_attestation.data.target.epoch
-        )
+        domain =
+          Accessors.get_domain(
+            state,
+            Constants.domain_beacon_attester(),
+            indexed_attestation.data.target.epoch
+          )
 
-      signing_root = Misc.compute_signing_root(indexed_attestation.data, domain)
-      Bls.fast_aggregate_verify(pubkeys, signing_root, indexed_attestation.signature)
+        signing_root = Misc.compute_signing_root(indexed_attestation.data, domain)
+        Bls.fast_aggregate_verify(pubkeys, signing_root, indexed_attestation.signature)
     else
       false -> {:error, "Invalid"}
     end

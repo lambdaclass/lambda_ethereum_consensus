@@ -62,7 +62,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       end
     end
   end
-  
+
   @doc """
   Increase the validator balance at index ``index`` by ``delta``.
   """

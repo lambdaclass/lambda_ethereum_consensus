@@ -96,7 +96,7 @@ defmodule OperationsTestRunner do
     dir_split = String.split(case_dir, "/")
     test_name = List.last(dir_split)
 
-    if(String.starts_with?(test_name, "invalid")) do
+    if String.starts_with?(test_name, "invalid") do
       assert {:error, _error_msg} = Operations.process_attestation(pre, operation)
     else
       result = Operations.process_attestation(pre, operation)
