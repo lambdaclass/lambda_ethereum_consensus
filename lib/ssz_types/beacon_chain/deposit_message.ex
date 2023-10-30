@@ -10,6 +10,12 @@ defmodule SszTypes.DepositMessage do
     :amount
   ]
 
+  @schema [
+    %{pubkey: %{type: :bytes, size: 48}},
+    %{withdrawal_credentials: %{type: :bytes, size: 32}},
+    %{amount: %{type: :uint, size: 64}},
+  ]
+
   @enforce_keys fields
   defstruct fields
 
@@ -18,4 +24,5 @@ defmodule SszTypes.DepositMessage do
           withdrawal_credentials: SszTypes.bytes32(),
           amount: SszTypes.gwei()
         }
+  def schema, do: @schema
 end
