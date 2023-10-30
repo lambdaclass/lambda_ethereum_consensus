@@ -1,10 +1,10 @@
-defmodule BLSTestRunner do
-  use ExUnit.CaseTemplate
-  use TestRunner
-
+defmodule BlsTestRunner do
   @moduledoc """
   Runner for BLS test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/bls
   """
+
+  use ExUnit.CaseTemplate
+  use TestRunner
 
   # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [
@@ -28,7 +28,7 @@ defmodule BLSTestRunner do
 
     %{input: input, output: output} =
       YamlElixir.read_from_file!(case_dir <> "/data.yaml")
-      |> SpecTestUtils.parse_yaml()
+      |> SpecTestUtils.sanitize_yaml()
 
     case testcase.handler do
       "sign" ->

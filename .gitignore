@@ -54,3 +54,6 @@ native/libp2p_port/internal/proto
 
 # local db.
 level_db
+
+# Generated tests
+test/generated
