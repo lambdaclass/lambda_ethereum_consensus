@@ -16,56 +16,58 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_withdrawals(
         %BeaconState{
-          validators: validators,
-          next_withdrawal_validator_index: next_withdrawal_validator_index
+          validators: validators
         } = state,
         %ExecutionPayload{withdrawals: withdrawals}
       ) do
     expected_withdrawals = get_expected_withdrawals(state)
 
-    length_of_expected_withdrawals = length(expected_withdrawals)
+    length_of_validators = length(validators)
 
     with {:ok, state} <- decrease_balances(state, withdrawals, expected_withdrawals) do
-      # Update the next withdrawal index if this block contained withdrawals
-      new_state =
-        case length_of_expected_withdrawals != 0 do
-          true ->
-            latest_withdrawal = List.last(expected_withdrawals)
-            state |> update_next_withdrawal_index(latest_withdrawal.index + 1)
-
-          false ->
-            state
-        end
-
-      case length_of_expected_withdrawals == ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD") do
-        # Update the next validator index to start the next withdrawal sweep
-        true ->
-          latest_withdrawal = List.last(expected_withdrawals)
-          next_validator_index = rem(latest_withdrawal.validator_index + 1, length(validators))
-          newer_state = new_state |> update_next_withdrawal_validator_index(next_validator_index)
-          {:ok, newer_state}
-
-        # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
-        false ->
-          next_index =
-            next_withdrawal_validator_index +
-              ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
-
-          next_validator_index = rem(next_index, length(validators))
-          newer_state = new_state |> update_next_withdrawal_validator_index(next_validator_index)
-          {:ok, newer_state}
-      end
+      {:ok,
+       state
+       |> update_next_withdrawal_index(expected_withdrawals)
+       |> update_next_withdrawal_validator_index(expected_withdrawals, length_of_validators)}
     end
   end
 
-  @spec update_next_withdrawal_index(BeaconState.t(), integer) :: BeaconState.t()
-  defp update_next_withdrawal_index(state, new_index) do
-    %BeaconState{state | next_withdrawal_index: new_index}
+  @spec update_next_withdrawal_index(BeaconState.t(), list(Withdrawal.t())) :: BeaconState.t()
+  defp update_next_withdrawal_index(state, expected_withdrawals) do
+    # Update the next withdrawal index if this block contained withdrawals
+    length_of_expected_withdrawals = length(expected_withdrawals)
+
+    case length_of_expected_withdrawals != 0 do
+      true ->
+        latest_withdrawal = List.last(expected_withdrawals)
+        %BeaconState{state | next_withdrawal_index: latest_withdrawal.index + 1}
+
+      false ->
+        state
+    end
   end
 
-  @spec update_next_withdrawal_validator_index(BeaconState.t(), integer) :: BeaconState.t()
-  defp update_next_withdrawal_validator_index(state, new_index) do
-    %BeaconState{state | next_withdrawal_validator_index: new_index}
+  @spec update_next_withdrawal_validator_index(BeaconState.t(), list(Withdrawal.t()), integer) ::
+          BeaconState.t()
+  defp update_next_withdrawal_validator_index(state, expected_withdrawals, length_of_validators) do
+    length_of_expected_withdrawals = length(expected_withdrawals)
+
+    case length_of_expected_withdrawals == ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD") do
+      # Update the next validator index to start the next withdrawal sweep
+      true ->
+        latest_withdrawal = List.last(expected_withdrawals)
+        next_validator_index = rem(latest_withdrawal.validator_index + 1, length_of_validators)
+        %BeaconState{state | next_withdrawal_validator_index: next_validator_index}
+
+      # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
+      false ->
+        next_index =
+          state.next_withdrawal_validator_index +
+            ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
+
+        next_validator_index = rem(next_index, length_of_validators)
+        %BeaconState{state | next_withdrawal_validator_index: next_validator_index}
+    end
   end
 
   @spec decrease_balances(BeaconState.t(), list(Withdrawal.t()), list(Withdrawal.t())) ::

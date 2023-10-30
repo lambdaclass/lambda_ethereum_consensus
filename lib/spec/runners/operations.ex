@@ -8,13 +8,6 @@ defmodule OperationsTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-  @moduledoc """
-  Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
-  """
-
-  use ExUnit.CaseTemplate
-  use TestRunner
-
   # Remove handler from here once you implement the corresponding functions
   # "deposit_receipt" handler is not yet implemented
   @disabled_handlers [
