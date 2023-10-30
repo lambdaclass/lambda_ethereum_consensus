@@ -88,15 +88,13 @@ clean:
 
 
 # Compile C and Go artifacts.
-compile-native: $(OUTPUT_DIR)/libp2p_nif.so
+compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
-compile-port: $(OUTPUT_DIR)/libp2p_port
-
-compile: compile-native compile-port $(PROTOBUF_EX_FILES)
+compile-all: compile-native $(PROTOBUF_EX_FILES)
 
 
 # Start application with Beacon API.
-start: compile
+start: compile-all
 	iex -S mix phx.server
 
 grafana-up:
@@ -109,11 +107,11 @@ grafana-clean:
 	cd metrics/ && docker-compose down -v
 
 # Run an interactive terminal with the main supervisor setup.
-iex: compile
+iex: compile-all
 	iex -S mix
 
 # Run an interactive terminal using checkpoint sync.
-checkpoint-sync: compile
+checkpoint-sync: compile-all
 	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
 # Install mix dependencies.
@@ -127,13 +125,13 @@ deps:
 	mix deps.get
 
 # Run tests
-test: compile
+test: compile-all
 	mix test --no-start --exclude spectest
 
-spec-test: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_DIRS)
+spec-test: compile-all $(SPECTEST_DIRS)
 	mix test --no-start --only implemented_spectest
 
-spec-test-%: compile-port $(PROTOBUF_EX_FILES) $(SPECTEST_DIRS)
+spec-test-%: compile-all $(SPECTEST_DIRS)
 	mix test --no-start --only runner:$*
 
 lint:
