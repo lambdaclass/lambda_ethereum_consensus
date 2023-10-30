@@ -79,8 +79,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             nil
 
           true ->
-            case BlockDownloader.request_blocks_by_root([block.parent_root]) do
-              {:ok, [signed_block]} ->
+            case BlockDownloader.request_block_by_root(block.parent_root) do
+              {:ok, signed_block} ->
                 Logger.info("Block downloaded: #{signed_block.message.slot}")
                 block = signed_block.message
                 add_block(block)
