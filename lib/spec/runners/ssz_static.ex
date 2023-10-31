@@ -1,10 +1,10 @@
-defmodule SSZStaticTestRunner do
-  use ExUnit.CaseTemplate
-  use TestRunner
-
+defmodule SszStaticTestRunner do
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
+
+  use ExUnit.CaseTemplate
+  use TestRunner
 
   @disabled [
     "ContributionAndProof",
@@ -37,10 +37,10 @@ defmodule SSZStaticTestRunner do
 
     expected =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
-      |> SpecTestUtils.parse_yaml()
+      |> SpecTestUtils.sanitize_yaml()
 
     %{"root" => expected_root} = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
-    expected_root = expected_root |> SpecTestUtils.parse_yaml()
+    expected_root = expected_root |> SpecTestUtils.sanitize_yaml()
 
     assert_ssz(schema, decompressed, expected, expected_root)
   end

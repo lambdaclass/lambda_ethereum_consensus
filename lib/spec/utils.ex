@@ -3,25 +3,46 @@ defmodule SpecTestUtils do
   Utilities for spec tests.
   """
 
-  def parse_yaml(map) when is_map(map) do
+  @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
+
+  def vectors_dir, do: @vectors_dir
+
+  def cases_for(filter) do
+    [:config, :fork, :runner, :handler, :suite, :case]
+    |> Enum.map(fn key -> filter[key] || "*" end)
+    |> then(&[@vectors_dir | &1])
+    |> Path.join()
+    |> Path.wildcard()
+    |> Stream.map(&Path.relative_to(&1, SpecTestUtils.vectors_dir()))
+    |> Stream.map(&Path.split/1)
+    |> Enum.map(&SpecTestCase.new/1)
+  end
+
+  @spec sanitize_yaml(any()) :: any()
+  def sanitize_yaml(map) when is_map(map) do
     map
-    |> Stream.map(&parse_yaml/1)
+    |> Stream.map(&sanitize_yaml/1)
     |> Map.new()
   end
 
-  def parse_yaml(list) when is_list(list), do: Enum.map(list, &parse_yaml/1)
-  def parse_yaml({"extra_data", x}), do: {:extra_data, parse_as_string(x)}
-  def parse_yaml({"transactions", list}), do: {:transactions, Enum.map(list, &parse_as_string/1)}
-  def parse_yaml({k, v}), do: {String.to_atom(k), parse_yaml(v)}
-  def parse_yaml("0x"), do: <<0>>
-  def parse_yaml("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
+  def sanitize_yaml(list) when is_list(list), do: Enum.map(list, &sanitize_yaml/1)
+  def sanitize_yaml({"extra_data", x}), do: {:extra_data, parse_as_string(x)}
 
-  def parse_yaml(x) when is_binary(x) do
-    {num, ""} = Integer.parse(x)
-    num
+  def sanitize_yaml({"transactions", list}),
+    do: {:transactions, Enum.map(list, &parse_as_string/1)}
+
+  def sanitize_yaml({k, v}), do: {String.to_atom(k), sanitize_yaml(v)}
+  def sanitize_yaml("0x"), do: <<0>>
+  def sanitize_yaml("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
+
+  def sanitize_yaml(x) when is_binary(x) do
+    case Integer.parse(x) do
+      {num, ""} -> num
+      _ -> x
+    end
   end
 
-  def parse_yaml(v), do: v
+  def sanitize_yaml(v), do: v
 
   # Some values are wrongly formatted as integers sometimes
   defp parse_as_string(0), do: ""
