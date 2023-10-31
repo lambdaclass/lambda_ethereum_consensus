@@ -8,9 +8,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
-  alias SszTypes.BeaconBlock
   alias SszTypes.BeaconState
   alias SszTypes.Store
+  alias SszTypes.SignedBeaconBlock
 
   ##########################
   ### Public API
@@ -50,10 +50,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ##########################
 
   @impl GenServer
-  @spec init({BeaconState.t(), BeaconBlock.t()}) :: {:ok, Store.t()} | {:stop, any}
-  def init({anchor_state = %BeaconState{}, anchor_block = %BeaconBlock{}}) do
+  @spec init({BeaconState.t(), SignedBeaconBlock.t()}) :: {:ok, Store.t()} | {:stop, any}
+  def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}}) do
     result =
-      case Helpers.get_forkchoice_store(anchor_state, anchor_block) do
+      case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
         {:ok, store = %Store{}} ->
           Logger.info("[Fork choice] Initialized store.")
           {:ok, store}
@@ -64,7 +64,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
     # TODO: this should be done after validation
     :ok = StateStore.store_state(anchor_state)
-    :ok = BlockStore.store_block(anchor_block)
+    :ok = BlockStore.store_block(signed_anchor_block)
     result
   end
 
