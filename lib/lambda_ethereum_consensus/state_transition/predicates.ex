@@ -103,7 +103,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         Bls.fast_aggregate_verify(pubkeys, signing_root, indexed_attestation.signature)
 
       false ->
-        {:error, "Invalid"}
+        {:error, "Attesting Indices are empty or not sorted"}
     end
   end
 end

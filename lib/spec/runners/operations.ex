@@ -107,15 +107,17 @@ defmodule OperationsTestRunner do
     assert true
   end
 
-  defp handle_case("attestation", pre, operation, post, case_dir) do
-    dir_split = String.split(case_dir, "/")
-    test_name = List.last(dir_split)
+  defp handle_case("attestation", pre, operation, post, _case_dir) do
+    result = Operations.process_attestation(pre, operation)
 
-    if String.starts_with?(test_name, "invalid") do
-      assert {:error, _error_msg} = Operations.process_attestation(pre, operation)
-    else
-      result = Operations.process_attestation(pre, operation)
-      assert result == {:ok, post}
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
+  end
 
   defp handle_case("withdrawals", pre, operation, post, _case_dir) do
     result = Operations.process_withdrawals(pre, operation)
