@@ -107,7 +107,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       {:error, reason} ->
         if retries > 0 do
           Logger.debug(
-            "Retrying request for block with roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}"
+            "Retrying request for blocks with roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}"
           )
 
           request_blocks_by_root(roots, retries - 1)
