@@ -54,5 +54,13 @@ defmodule DiffTest do
       assert Diff.diff(%{a: [1, 2]}, %{a: [1, 2]}) == :unchanged
       assert Diff.diff(%{a: %{a: 1, b: 2}}, %{a: %{a: 1, b: 2}}) == :unchanged
     end
+
+    test "shows added_left if the left map has more keys" do
+      assert Diff.diff(%{a: 1, b: 2}, %{a: 1}) == %{added_left: [b: 2]}
+    end
+
+    test "shows added_right if the right map has more keys" do
+      assert Diff.diff(%{a: 1}, %{a: 1, b: 2}) == %{added_right: [b: 2]}
+    end
   end
 end
