@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   require Logger
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.StateStore
 
   @prefix "/eth2/beacon_chain/req/"
 
@@ -121,14 +122,40 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   def handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
     with <<24, snappy_blocks_by_range_request::binary>> <- message,
          {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
-         {:ok, blocks_by_range_request} <- Ssz.from_ssz(ssz_blocks_by_range_request, SszTypes.BeaconBlocksByRangeRequest),
-         blocks_by_range_request |> inspect(limit: :infinity) |> then(&"[Received BlocksByRange Request] '#{&1}'") |> Logger.debug()
-    do
-      # blocks_by_range_response = %SszTypes.BeaconBlocksByRangeResponse{body: }
-      # ssz_blocks_by_range_response = %Ssz.to_ssz()
-      # Libp2pPort.send_response(message_id, <<0, 24>> <> payload)
-      # Steps:
-        #1. Check that slot is not below
+         {:ok, blocks_by_range_request} <-
+           Ssz.from_ssz(ssz_blocks_by_range_request, SszTypes.BeaconBlocksByRangeRequest),
+         blocks_by_range_request
+         |> inspect(limit: :infinity)
+         |> then(&"[Received BlocksByRange Request] '#{&1}'")
+         |> Logger.debug() do
+      ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
+      slot_coverage = blocks_by_range_request.slot + blocks_by_range_request.count
+
+      blocks =
+        blocks_by_range_request.slot..slot_coverage
+        |> Enum.reduce([], fn slot, current_blocks ->
+          with {:ok, state} <- StateStore.get_state_by_slot(slot) do
+            state.block_roots
+            |> Enum.reduce([], fn root, blocks ->
+              case BlockStore.get_block(root) do
+                {:ok, block} -> blocks ++ [block]
+                {:error, _} -> blocks
+                :not_found -> blocks
+              end
+            end)
+          else
+            {:error, _} -> current_blocks
+            :not_found -> current_blocks
+          end
+        end)
+
+      blocks_by_range_response = %SszTypes.BeaconBlocksByRangeResponse{body: blocks}
+
+      with {:ok, payload} <- Ssz.to_ssz(blocks_by_range_response),
+           {:ok, payload} <- Snappy.compress(payload) do
+        ## TODO: Change length (Length is hardcoded for now)
+        Libp2pPort.send_response(message_id, <<0, 8>> <> payload)
+      end
     end
   end
 
