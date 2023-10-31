@@ -58,21 +58,30 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
 
     slashed_sum = Enum.reduce(slashings, 0, &+/2)
-    adjusted_total_slashing_balance = min(slashed_sum * proportional_slashing_multiplier, total_balance)
+
+    adjusted_total_slashing_balance =
+      min(slashed_sum * proportional_slashing_multiplier, total_balance)
+
     increment = effective_balance_increment
 
     validators_indices = Enum.with_index(validators)
 
-    new_state = Enum.reduce(validators_indices, state, fn {validator, index}, acc ->
-      if validator.slashed and (epoch + div(epochs_per_slashings_vector, 2)) == validator.withdrawable_epoch do
-        penalty_numerator = div(validator.effective_balance, increment) * adjusted_total_slashing_balance  # increment factored out from penalty numerator to avoid uint64 overflow
-        penalty = div(penalty_numerator, total_balance) * increment
+    new_state =
+      Enum.reduce(validators_indices, state, fn {validator, index}, acc ->
+        if validator.slashed and
+             epoch + div(epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
+          # increment factored out from penalty numerator to avoid uint64 overflow
+          penalty_numerator =
+            div(validator.effective_balance, increment) * adjusted_total_slashing_balance
 
-        Mutators.decrease_balance(acc, index, penalty)
-      else
-        acc
-      end
-    end)
+          penalty = div(penalty_numerator, total_balance) * increment
+
+          Mutators.decrease_balance(acc, index, penalty)
+        else
+          acc
+        end
+      end)
+
     {:ok, new_state}
   end
 end
