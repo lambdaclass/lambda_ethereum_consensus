@@ -10,6 +10,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias SszTypes
   alias SszTypes.Attestation
   alias SszTypes.BeaconState
+  alias SszTypes.ExecutionPayload
+  alias SszTypes.Validator
+  alias SszTypes.Withdrawal
 
   @doc """
   Apply withdrawals to the state.
@@ -172,7 +175,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @doc """
-  Process total slashing balances updates during epoch processing
+  Process attestations during state transition.
   """
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, binary()}

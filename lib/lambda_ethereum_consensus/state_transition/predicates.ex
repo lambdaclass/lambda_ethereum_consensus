@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   alias SszTypes.BeaconState
   alias SszTypes.IndexedAttestation
   alias SszTypes.Validator
+
   import Bitwise
 
   @doc """
@@ -23,6 +24,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
+  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
   Check if ``validator`` is eligible to be placed into the activation queue.
   """
   @spec is_eligible_for_activation_queue(Validator.t()) :: boolean

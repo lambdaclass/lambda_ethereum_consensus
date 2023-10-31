@@ -25,7 +25,7 @@
           "lib/",
           "test/"
         ],
-        excluded: [~r"/_build/", ~r"/deps/", ~r"/node_modules/", ~r"/lib/proto/"]
+        excluded: [~r"/_build/", ~r"/deps/", ~r"/node_modules/", ~r"/lib/proto/", ~r"/test/generated/"]
       },
       #
       # Load and configure plugins here:
@@ -125,7 +125,6 @@
           {Credo.Check.Refactor.FilterCount, []},
           {Credo.Check.Refactor.FilterFilter, []},
           {Credo.Check.Refactor.RejectReject, []},
-          {Credo.Check.Refactor.RedundantWithClauseResult, []},
 
           #
           ## Warnings

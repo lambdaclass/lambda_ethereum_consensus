@@ -1,12 +1,27 @@
 defmodule OperationsTestRunner do
+  @moduledoc """
+  Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
+  """
   alias LambdaEthereumConsensus.StateTransition.Operations
 
   use ExUnit.CaseTemplate
   use TestRunner
 
-  @moduledoc """
-  Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
-  """
+
+  # Remove handler from here once you implement the corresponding functions
+  # "deposit_receipt" handler is not yet implemented
+  @disabled_handlers [
+    "attestation",
+    "attester_slashing",
+    "block_header",
+    "deposit",
+    "proposer_slashing",
+    "voluntary_exit",
+    "sync_aggregate",
+    # "execution_payload",
+    "withdrawals",
+    "bls_to_execution_change"
+  ]
 
   # Map the operation-name to the associated operation-type
   @type_map %{
@@ -49,7 +64,7 @@ defmodule OperationsTestRunner do
     "voluntary_exit",
     "sync_aggregate",
     # "execution_payload",
-    "withdrawals",
+    # "withdrawals",
     "bls_to_execution_change"
   ]
 
@@ -101,6 +116,16 @@ defmodule OperationsTestRunner do
     else
       result = Operations.process_attestation(pre, operation)
       assert result == {:ok, post}
+
+  defp handle_case("withdrawals", pre, operation, post, _case_dir) do
+    result = Operations.process_withdrawals(pre, operation)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
     end
   end
 end

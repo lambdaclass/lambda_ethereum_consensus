@@ -1,12 +1,11 @@
 defmodule EpochProcessingTestRunner do
+  @moduledoc """
+  Runner for Epoch Processing test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/epoch_processing
+  """
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
 
   use ExUnit.CaseTemplate
   use TestRunner
-
-  @moduledoc """
-  Runner for Epoch Processing test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/epoch_processing
-  """
 
   # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [

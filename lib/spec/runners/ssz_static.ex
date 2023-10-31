@@ -1,10 +1,10 @@
-defmodule SSZStaticTestRunner do
-  use ExUnit.CaseTemplate
-  use TestRunner
-
+defmodule SszStaticTestRunner do
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
+
+  use ExUnit.CaseTemplate
+  use TestRunner
 
   @disabled [
     "ContributionAndProof",
