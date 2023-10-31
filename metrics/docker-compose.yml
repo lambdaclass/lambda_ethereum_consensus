@@ -3,7 +3,7 @@ name: 'lambda-ethereum-consensus-grafana'
 
 services:
   prometheus:
-    image: public.ecr.aws/bitnami/prometheus:latest
+    image: prom/prometheus
     container_name: prometheus
     hostname: prometheus
     ports:
@@ -18,7 +18,7 @@ services:
           - prometheus
 
   grafana:
-    image: public.ecr.aws/ubuntu/grafana:latest
+    image: grafana/grafana
     container_name: grafana
     ports:
       - "3000:3000"
