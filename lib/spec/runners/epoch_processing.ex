@@ -13,7 +13,7 @@ defmodule EpochProcessingTestRunner do
     # "inactivity_updates",
     "rewards_and_penalties",
     # "registry_updates",
-    "slashings",
+    # "slashings",
     # "effective_balance_updates",
     # "eth1_data_reset",
     # "slashings_reset",
@@ -92,5 +92,10 @@ defmodule EpochProcessingTestRunner do
   defp handle_case("slashings_reset", pre, post) do
     result = EpochProcessing.process_slashings_reset(pre)
     assert result == {:ok, post}
+  end
+
+  def handle_case("slashings", pre_state, post_state) do
+    result = EpochProcessing.process_slashings(pre_state)
+    assert {:ok, post_state} == result
   end
 end
