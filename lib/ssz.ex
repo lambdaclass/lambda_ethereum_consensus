@@ -174,48 +174,56 @@ defmodule Ssz do
   def serialize(%struct{} = map) do
     schema = struct.schema()
 
-    values =
+    serialized =
       schema
       |> Enum.map(fn schema ->
         key = Enum.at(Map.keys(schema), 0)
         metadata = Map.get(schema, key)
         value = Map.get(map, key)
-        Map.merge(metadata, %{value: value})
+        {:ok, serialized} = serialize(value, metadata)
+        serialized
       end)
+      |> :binary.list_to_bin()
 
-    serialize(values)
+    {:ok, serialized}
   end
 
-  def serialize(%{type: :struct, value: map, schema: schema}) do
-    serialize(map)
-  end
-
-  def serialize(%{type: :list, value: elements, schema: schema, max_size: max_size}) do
-    elements =
+  def serialize(elements) when is_list(elements) do
+    serialized =
       elements
-      |> Stream.map(fn value ->
-        Map.merge(schema, %{value: value})
+      |> Enum.map(fn element ->
+        {:ok, serialized} = serialize(element)
+        serialized
       end)
-      |> Enum.to_list()
+      |> :binary.list_to_bin()
 
-    serialize_list(elements)
+    {:ok, serialized}
   end
-
-  def serialize(value) when is_list(value), do: serialize_list(value)
-
-  def serialize(%{type: :uint, size: size, value: value}) when is_integer(value),
-    do: serialize_uint(value, size)
 
   def serialize(value) when is_binary(value), do: {:ok, value}
 
-  def serialize(%{type: :bytes, size: _size, value: value}), do: {:ok, value}
-  def serialize(%{} = schema), do: {:error, "Unknown schema: #{inspect(schema)}"}
+  def serialize(value, []) when is_binary(value), do: {:ok, value}
 
-  def serialize_list(elements) when is_list(elements) do
+  def serialize(value, %{type: :struct}) do
+    serialize(value)
+  end
+
+  #TODO control max_size
+  def serialize(elements, %{type: :list, schema: schema, max_size: _max_size}) do
+    serialize_list(elements, schema)
+  end
+
+  def serialize(value, %{type: :uint, size: size}) when is_integer(value),
+    do: serialize_uint(value, size)
+
+  def serialize(value, %{type: :bytes, size: _size}), do: {:ok, value}
+  def serialize(value, %{} = schema), do: {:error, "Unknown schema: #{inspect(schema)} for value #{inspect(value)}"}
+
+  def serialize_list(elements, schema) when is_list(elements) do
     fixed_parts =
       elements
       |> Enum.map(fn v ->
-        if is_variable_size(v), do: nil, else: serialize(v)
+        if is_variable_size(schema), do: nil, else: serialize(v, schema)
       end)
       |> Enum.map(fn
         {:ok, ser} -> ser
@@ -225,7 +233,7 @@ defmodule Ssz do
     variable_parts =
       elements
       |> Enum.map(fn v ->
-        if is_variable_size(v), do: serialize(v), else: <<>>
+        if is_variable_size(schema), do: serialize(v, schema), else: <<>>
       end)
       |> Enum.map(fn
         {:ok, ser} -> ser
@@ -442,7 +450,7 @@ defmodule Ssz do
   defp is_variable_size(%{type: :list, is_variable: is_variable}), do: is_variable
   defp is_variable_size(%{type: :bytes}), do: false
   defp is_variable_size(%{type: :uint}), do: false
-  defp is_variable_size(value) when is_binary(value), do: true
+  defp is_variable_size([]), do: true
 
   # https://notes.ethereum.org/ruKvDXl6QOW3gnqVYb8ezA?view
   defp sanitize_offset(offset, previous_offset, num_bytes, num_fixed_bytes) do
