@@ -140,7 +140,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the beacon proposer index at the current slot.
   """
-  @spec get_beacon_proposer_index(BeaconState.t()) :: SszTypes.validator_index()
+  @spec get_beacon_proposer_index(BeaconState.t()) :: SszTypes.validator_index() | {:error, binary()}
   def get_beacon_proposer_index(state) do
     epoch = get_current_epoch(state)
 
@@ -152,7 +152,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       )
 
     indices = get_active_validator_indices(state, epoch)
-    Misc.compute_proposer_index(state, indices, seed)
+    case Misc.compute_proposer_index(state, indices, seed) do
+      {:error, msg} -> {:error, msg}
+      i -> i
+    end
   end
 
   @doc """

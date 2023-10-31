@@ -124,9 +124,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
   @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
           SszTypes.validator_index() | {:error, binary()}
-  def compute_proposer_index(state, indices, seed)
-      when is_list(indices) and length(indices) > 0 do
-    compute_proposer_index(state, indices, seed, 0)
+  def compute_proposer_index(state, indices, seed) do
+    if not (length(indices) > 0) do
+      {:error, "Empty indices"}
+    else
+      compute_proposer_index(state, indices, seed, 0)
+    end
   end
 
   defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
@@ -151,14 +154,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return the domain for the ``domain_type`` and ``fork_version``.
   """
-  @spec compute_domain(SszTypes.domain_type(), SszTypes.version() | None, SszTypes.root() | None) ::
+  @spec compute_domain(SszTypes.domain_type(), SszTypes.version() | nil, SszTypes.root() | nil) ::
           SszTypes.domain()
-  def compute_domain(domain_type, fork_version \\ None, genesis_validators_root \\ None) do
+  def compute_domain(domain_type, fork_version \\ nil, genesis_validators_root \\ nil) do
     fork_version =
-      if fork_version == None, do: ChainSpec.get("GENESIS_FORK_VERSION"), else: fork_version
+      if fork_version == nil, do: ChainSpec.get("GENESIS_FORK_VERSION"), else: fork_version
 
     genesis_validators_root =
-      if genesis_validators_root == None,
+      if genesis_validators_root == nil,
         do: <<0::8, 0::8, 0::8, 0::8>>,
         else: genesis_validators_root
 

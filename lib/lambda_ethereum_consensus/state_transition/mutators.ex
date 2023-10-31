@@ -97,15 +97,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         {:ok, BeaconState.t()}
 def slash_validator(state, slashed_index, whistleblower_index \\ nil) do
   epoch = Accessors.get_current_epoch(state)
-  res =
-    case initiate_validator_exit(state, slashed_index) do
+  case initiate_validator_exit(state, slashed_index) do
     {:error, msg} -> {:error, msg}
     {:ok, validator} ->
       List.replace_at(state.validators, slashed_index, validator)
 
       validator = Enum.at(state.validators, slashed_index)
 
-      validator = %{
+      validator = %Validator{
         validator
         | slashed: true,
           withdrawable_epoch:
@@ -129,23 +128,25 @@ def slash_validator(state, slashed_index, whistleblower_index \\ nil) do
 
       proposer_index = Accessors.get_beacon_proposer_index(state)
 
-      whistleblower_index =
-        if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
+      case proposer_index do
+        {:error, msg} -> {:error, msg}
+        _ ->
+          whistleblower_index =
+            if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
 
-      whistleblower_reward =
-        div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
+          whistleblower_reward =
+            div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
 
-      proposer_reward =
-        div(whistleblower_reward * Constants.proposer_weight(), Constants.weight_denominator())
+          proposer_reward =
+            div(whistleblower_reward * Constants.proposer_weight(), Constants.weight_denominator())
 
-      # Decrease slashers balance, apply proposer and whistleblower rewards
-      {:ok,
-        state
-        |> decrease_balance(slashed_index, slashing_penalty)
-        |> increase_balance(proposer_index, proposer_reward)
-        |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
+          # Decrease slashers balance, apply proposer and whistleblower rewards
+          {:ok,
+            state
+            |> decrease_balance(slashed_index, slashing_penalty)
+            |> increase_balance(proposer_index, proposer_reward)
+            |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
+        end
       end
-
-    res
   end
 end
