@@ -152,15 +152,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     epoch = Misc.compute_epoch_at_slot(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch)
 
-    case Misc.compute_committee(
-           get_active_validator_indices(state, epoch),
-           get_seed(state, epoch, Constants.domain_beacon_attester()),
-           rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index,
-           committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
-         ) do
-      {:ok, committee} -> {:ok, committee}
-      {:error, reason} -> {:error, reason}
-    end
+    Misc.compute_committee(
+      get_active_validator_indices(state, epoch),
+      get_seed(state, epoch, Constants.domain_beacon_attester()),
+      rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index,
+      committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
+    )
   end
 
   @spec get_base_reward_per_increment(BeaconState.t()) :: SszTypes.gwei()
@@ -275,10 +272,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_block_root(BeaconState.t(), SszTypes.epoch()) ::
           {:ok, SszTypes.root()} | {:error, binary()}
   def get_block_root(state, epoch) do
-    case get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch)) do
-      {:ok, block_root} -> {:ok, block_root}
-      {:error, reason} -> {:error, reason}
-    end
+    get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch))
   end
 
   @doc """

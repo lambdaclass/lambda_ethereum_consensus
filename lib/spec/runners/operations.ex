@@ -7,7 +7,6 @@ defmodule OperationsTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-
   # Remove handler from here once you implement the corresponding functions
   # "deposit_receipt" handler is not yet implemented
   @disabled_handlers [
