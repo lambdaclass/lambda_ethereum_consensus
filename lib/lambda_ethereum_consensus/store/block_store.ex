@@ -18,7 +18,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
 
     # WARN: this overrides any previous mapping for the same slot
     # TODO: this should apply fork-choice if not applied elsewhere
-    slothash_key = block_root_by_slot_key(block.slot)
+    slothash_key = block_root_by_slot_key(block.message.slot)
     Db.put(slothash_key, block_root)
   end
 

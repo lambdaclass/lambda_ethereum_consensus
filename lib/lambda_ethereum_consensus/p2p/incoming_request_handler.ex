@@ -129,10 +129,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
          |> then(&"[Received BlocksByRange Request] '#{&1}'")
          |> Logger.debug() do
       ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
-      slot_coverage = blocks_by_range_request.slot + blocks_by_range_request.count
+      %BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} = blocks_by_range_request
+      slot_coverage = start_slot + count
 
       blocks =
-        blocks_by_range_request.slot..slot_coverage
+        start_slot..slot_coverage
         |> Enum.reduce([], fn slot, current_blocks ->
           with {:ok, state} <- StateStore.get_state_by_slot(slot) do
             state.block_roots
