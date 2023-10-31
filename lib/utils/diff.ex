@@ -3,17 +3,13 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
   A module to compare between different structures and get their differences. Useful for debugging.
   """
   def diff(a, b) when is_map(a) and is_map(b) do
-    d = %{}
-
-    d
+    %{}
     |> maybe_added(a, b)
     |> unchanged_if_empty()
   end
 
   def diff(a, b) when is_list(a) and is_list(b) do
-    d = %{}
-
-    d
+    %{}
     |> maybe_added(a, b, :added_left)
     |> maybe_added(b, a, :added_right)
     |> changes(a, b)
