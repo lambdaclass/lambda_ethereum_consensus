@@ -309,8 +309,8 @@ defmodule Ssz do
                {:ok,
                 {rest, Map.merge(items, %{key => decoded_list}), offsets, max_size * element_size}}}
 
-            %{type: :struct, schema_struct: schema_struct} ->
-              with {:ok, decoded} <- decode_elixir(rest_bytes, schema_struct) do
+            %{type: :struct, schema: schema} ->
+              with {:ok, decoded} <- decode_elixir(rest_bytes, schema) do
                 {:cont, {:ok, {rest_bytes, Map.merge(items, %{key => decoded}), offsets, index}}}
               end
 

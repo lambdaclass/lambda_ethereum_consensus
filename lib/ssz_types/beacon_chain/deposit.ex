@@ -14,8 +14,7 @@ defmodule SszTypes.Deposit do
     %{
       data: %{
         type: :struct,
-        schema: SszTypes.DepositData.schema(),
-        schema_struct: SszTypes.DepositData
+        schema: SszTypes.DepositData,
       }
     }
   ]
