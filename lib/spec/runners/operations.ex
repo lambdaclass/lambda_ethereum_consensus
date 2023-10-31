@@ -7,21 +7,6 @@ defmodule OperationsTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-  # Remove handler from here once you implement the corresponding functions
-  # "deposit_receipt" handler is not yet implemented
-  @disabled_handlers [
-    "attestation",
-    "attester_slashing",
-    "block_header",
-    "deposit",
-    "proposer_slashing",
-    "voluntary_exit",
-    "sync_aggregate",
-    # "execution_payload",
-    "withdrawals",
-    "bls_to_execution_change"
-  ]
-
   # Map the operation-name to the associated operation-type
   @type_map %{
     "attestation" => "Attestation",
