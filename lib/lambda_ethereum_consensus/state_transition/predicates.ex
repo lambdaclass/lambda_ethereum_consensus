@@ -17,7 +17,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         %Validator{activation_epoch: activation_epoch, exit_epoch: exit_epoch},
         epoch
       ) do
-
     activation_epoch <= epoch && epoch < exit_epoch
   end
 

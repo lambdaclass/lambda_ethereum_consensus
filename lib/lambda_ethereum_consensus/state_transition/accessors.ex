@@ -118,6 +118,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     active_validator_indices = get_active_validator_indices(state, get_current_epoch(state))
     get_total_balance(state, Enum.uniq(active_validator_indices))
   end
+
   @doc """
   Return the validator churn limit for the current epoch.
   """
