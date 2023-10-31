@@ -52,6 +52,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
            ),
          {:ok, chunks} <- parse_response(response_chunk, count),
          {:ok, blocks} <- decode_chunks(chunks) do
+      Logger.error("DOWNLOADED!!!")
       :telemetry.execute([:network, :request], %{}, %{result: "success", type: "by_slot"})
       {:ok, blocks}
     else
@@ -103,7 +104,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
            ),
          {:ok, chunks} <- parse_response(response_chunk, length(roots)),
          {:ok, blocks} <- decode_chunks(chunks) do
-      :telemetry.execute([:network, :request], %{}, %{result: "success", type: "by_root"})
+      tags = %{result: "success", type: "by_root", reason: "success"}
+      :telemetry.execute([:network, :request], %{}, tags)
       {:ok, blocks}
     else
       {:error, reason} ->
