@@ -15,11 +15,11 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   # Requests to peers might fail for various reasons,
   # for example they might not support the protocol or might not reply
   # so we want to try again with a different peer
-  @default_retries 3
+  @default_retries 5
 
-  @spec request_block_by_slot(SszTypes.slot(), integer()) ::
+  @spec request_blocks_by_slot(SszTypes.slot(), integer(), integer()) ::
           {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, binary()}
-  def request_block_by_slot(slot, retries \\ @default_retries) do
+  def request_blocks_by_slot(slot, count, retries \\ @default_retries) do
     Logger.debug("requesting block for slot #{slot}")
 
     # TODO: handle no-peers asynchronously?
@@ -30,7 +30,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         start_slot: slot,
         # TODO: we need to refactor the Snappy library to return
         # the remaining buffer when decompressing
-        count: 1
+        count: count
       }
 
     # This should never fail
@@ -50,10 +50,10 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
              @blocks_by_range_protocol_id,
              size_header <> compressed_payload
            ),
-         {:ok, payload} <- parse_chunk(response_chunk),
-         {:ok, block} <- decode_response(payload) do
+         {:ok, chunks} <- parse_response(response_chunk, count),
+         {:ok, blocks} <- decode_chunks(chunks) do
       :telemetry.execute([:network, :request], %{}, %{result: "success", type: "by_slot"})
-      {:ok, block}
+      {:ok, blocks}
     else
       {:error, reason} ->
         tags = %{type: "by_slot", reason: parse_reason(reason)}
@@ -61,7 +61,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         if retries > 0 do
           :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "retry"))
           Logger.debug("Retrying request for block with slot #{slot}")
-          request_block_by_slot(slot, retries - 1)
+          request_blocks_by_slot(slot, count, retries - 1)
         else
           :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "error"))
           {:error, reason}
@@ -72,13 +72,21 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @spec request_block_by_root(SszTypes.root(), integer()) ::
           {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, binary()}
   def request_block_by_root(root, retries \\ @default_retries) do
-    Logger.debug("requesting block for root #{Base.encode16(root)}")
+    with {:ok, [block]} <- request_blocks_by_root([root], retries) do
+      {:ok, block}
+    end
+  end
+
+  @spec request_blocks_by_root([SszTypes.root()], integer()) ::
+          {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, binary()}
+  def request_blocks_by_root(roots, retries \\ @default_retries) do
+    Logger.debug("requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
 
     peer_id = get_some_peer()
 
     # TODO ssz encode array of roots
     # {:ok, encoded_payload} = payload |> Ssz.to_ssz()
-    encoded_payload = root
+    encoded_payload = Enum.join(roots)
 
     size_header =
       encoded_payload
@@ -93,18 +101,22 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
              @blocks_by_root_protocol_id,
              size_header <> compressed_payload
            ),
-         {:ok, payload} <- parse_chunk(response_chunk),
-         {:ok, block} <- decode_response(payload) do
+         {:ok, chunks} <- parse_response(response_chunk, length(roots)),
+         {:ok, blocks} <- decode_chunks(chunks) do
       :telemetry.execute([:network, :request], %{}, %{result: "success", type: "by_root"})
-      {:ok, block}
+      {:ok, blocks}
     else
       {:error, reason} ->
         tags = %{type: "by_root", reason: parse_reason(reason)}
 
         if retries > 0 do
           :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "retry"))
-          Logger.debug("Retrying request for block with root #{Base.encode16(root)}")
-          request_block_by_root(root, retries - 1)
+
+          Logger.debug(
+            "Retrying request for blocks with roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}"
+          )
+
+          request_blocks_by_root(roots, retries - 1)
         else
           :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "error"))
           {:error, reason}
@@ -112,15 +124,22 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     end
   end
 
-  defp parse_chunk(response_chunk) do
+  @spec parse_response(binary, integer) ::
+          {:ok, [binary()]} | {:error, binary()}
+  def parse_response(response_chunk, count) do
     fork_context = @fork_context
 
     case response_chunk do
-      "" ->
+      <<>> ->
         {:error, "unexpected EOF"}
 
-      <<0, ^fork_context::binary-size(4)>> <> chunk ->
-        {:ok, chunk}
+      <<0, ^fork_context::binary-size(4)>> <> rest ->
+        result = rest |> :binary.split(<<0, fork_context::binary-size(4)>>, [:global])
+
+        case result do
+          chunks when length(chunks) == count -> {:ok, chunks}
+          _ -> {:error, "expected #{count} chunks, got #{length(result)}"}
+        end
 
       <<0, wrong_context::binary-size(4)>> <> _ ->
         {:error, "wrong context: #{Base.encode16(wrong_context)}"}
@@ -145,18 +164,38 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     end
   end
 
-  defp decode_response(response) do
-    {_size, rest} = P2P.Utils.decode_varint(response)
+  @spec decode_chunks([binary()]) :: {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, binary()}
+  defp decode_chunks(chunks) do
+    results =
+      chunks
+      |> Enum.map(&decode_chunk/1)
 
-    with {:ok, chunk} <- Snappy.decompress(rest) do
-      chunk |> Ssz.from_ssz(SszTypes.SignedBeaconBlock)
+    if Enum.all?(results, fn
+         {:ok, _} -> true
+         _ -> false
+       end) do
+      {:ok, results |> Enum.map(fn {:ok, block} -> block end)}
+    else
+      {:error, "some decoding of chunks failed"}
+    end
+  end
+
+  @spec decode_chunk(binary()) :: {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, binary()}
+  defp decode_chunk(chunk) do
+    {_size, rest} = P2P.Utils.decode_varint(chunk)
+
+    with {:ok, decompressed} <- Snappy.decompress(rest),
+         {:ok, signed_block} <-
+           decompressed
+           |> Ssz.from_ssz(SszTypes.SignedBeaconBlock) do
+      {:ok, signed_block}
     end
   end
 
   defp get_some_peer do
     case P2P.Peerbook.get_some_peer() do
       nil ->
-        Process.sleep(1000)
+        Process.sleep(100)
         get_some_peer()
 
       peer_id ->

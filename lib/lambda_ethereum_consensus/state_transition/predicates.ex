@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias SszTypes.BeaconState
   alias SszTypes.Validator
+
   import Bitwise
 
   @doc """
@@ -20,6 +21,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
+  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
   Check if ``validator`` is eligible to be placed into the activation queue.
   """
   @spec is_eligible_for_activation_queue(Validator.t()) :: boolean
@@ -43,7 +45,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
-  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs 
+  If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
   (that is, four epochs), then the chain enters the inactivity leak.
   """
   @spec is_in_inactivity_leak(BeaconState.t()) :: boolean
