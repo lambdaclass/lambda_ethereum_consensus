@@ -88,19 +88,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     Enum.fetch!(randao_mixes, rem(epoch, epochs_per_historical_vector))
   end
 
-  @spec get_active_validator_indices(BeaconState.t(), SszTypes.epoch()) :: list[integer]
-  def get_active_validator_indices(%BeaconState{validators: validators}, epoch) do
-    validators_indices = Enum.with_index(validators)
-
-    active_indices =
-      for {validator, index} <- validators_indices,
-          Predicates.is_active_validator(validator, epoch) do
-        index
-      end
-
-    active_indices
-  end
-
   @spec get_total_balance(BeaconState.t(), list[integer]) :: SszTypes.gwei()
   def get_total_balance(%BeaconState{validators: validators}, indices) do
     effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
