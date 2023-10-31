@@ -46,4 +46,13 @@ defmodule DiffTest do
              }
     end
   end
+
+  describe "Maps comparison" do
+    test "shows :unchanged if they are the same" do
+      assert Diff.diff(%{}, %{}) == :unchanged
+      assert Diff.diff(%{a: 1, b: 2}, %{a: 1, b: 2}) == :unchanged
+      assert Diff.diff(%{a: [1, 2]}, %{a: [1, 2]}) == :unchanged
+      assert Diff.diff(%{a: %{a: 1, b: 2}}, %{a: %{a: 1, b: 2}}) == :unchanged
+    end
+  end
 end
