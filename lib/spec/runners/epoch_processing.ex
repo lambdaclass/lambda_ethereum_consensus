@@ -94,7 +94,7 @@ defmodule EpochProcessingTestRunner do
     assert result == {:ok, post}
   end
 
-  def handle_case("slashings", pre_state, post_state) do
+  defp handle_case("slashings", pre_state, post_state) do
     result = EpochProcessing.process_slashings(pre_state)
     assert {:ok, post_state} == result
   end
