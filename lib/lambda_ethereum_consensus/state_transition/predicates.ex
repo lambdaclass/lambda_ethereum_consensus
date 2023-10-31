@@ -86,34 +86,28 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @spec is_valid_indexed_attestation(BeaconState.t(), SszTypes.IndexedAttestation.t()) :: boolean
   def is_valid_indexed_attestation(state, indexed_attestation) do
     indices = indexed_attestation.attesting_indices
+    if length(indices) == 0 or not (indices == Enum.sort(Enum.uniq(indices))) do
+      false
+    else
+      domain =
+        Accessors.get_domain(
+          state,
+          Constants.domain_beacon_attester(),
+          indexed_attestation.data.target.epoch
+        )
 
-    res =
-      if length(indices) == 0 or not (indices == Enum.sort(Enum.uniq(indices))) do
-        false
-      else
-        pubkeys =
-          state.validators
-          |> Stream.with_index()
-          |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
-          |> Stream.map(fn {%{pubkey: p}, _} -> p end)
-          |> Enum.to_list()
+      signing_root =
+        LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
+          indexed_attestation.data,
+          domain
+        )
 
-        domain =
-          Accessors.get_domain(
-            state,
-            Constants.domain_beacon_attester(),
-            indexed_attestation.data.target.epoch
-          )
-
-        signing_root =
-          LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
-            indexed_attestation.data,
-            domain
-          )
-
-        Bls.eth_fast_aggregate_verify(pubkeys, signing_root, indexed_attestation.signature)
-      end
-
-    res
+      state.validators
+      |> Stream.with_index()
+      |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
+      |> Stream.map(fn {%{pubkey: p}, _} -> p end)
+      |> Enum.to_list()
+      |> Bls.eth_fast_aggregate_verify(signing_root, indexed_attestation.signature)
+    end
   end
 end

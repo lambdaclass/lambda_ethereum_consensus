@@ -41,7 +41,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     min_validator_withdrawability_delay = ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
 
     if validator.exit_epoch != far_future_epoch do
-      validator
+      {:error, "Already initiated exit"}
     else
       exit_epochs =
         validators
@@ -89,56 +89,63 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   @doc """
   Slash the validator with index ``slashed_index``.
   """
-  @spec slash_validator(
-          BeaconState.t(),
-          SszTypes.validator_index(),
-          SszTypes.validator_index() | None
-        ) ::
-          {:ok, BeaconState.t()}
-  def slash_validator(state, slashed_index, whistleblower_index \\ None) do
-    epoch = Accessors.get_current_epoch(state)
-    List.replace_at(state.validators, initiate_validator_exit(state, slashed_index), slashed_index)
+@spec slash_validator(
+        BeaconState.t(),
+        SszTypes.validator_index(),
+        SszTypes.validator_index() | nil
+      ) ::
+        {:ok, BeaconState.t()}
+def slash_validator(state, slashed_index, whistleblower_index \\ nil) do
+  epoch = Accessors.get_current_epoch(state)
+  res =
+    case initiate_validator_exit(state, slashed_index) do
+    {:error, msg} -> {:error, msg}
+    {:ok, validator} ->
+      List.replace_at(state.validators, slashed_index, validator)
 
-    validator = Enum.at(state.validators, slashed_index)
+      validator = Enum.at(state.validators, slashed_index)
 
-    validator = %{
-      validator
-      | slashed: true,
-        withdrawable_epoch:
-          max(validator.withdrawable_epoch, epoch + ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR"))
-    }
+      validator = %{
+        validator
+        | slashed: true,
+          withdrawable_epoch:
+            max(validator.withdrawable_epoch, epoch + ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR"))
+      }
 
-    state = %BeaconState{
-      state
-      | validators: List.replace_at(state.validators, slashed_index, validator),
-        slashings:
-          List.replace_at(
-            state.slashings,
-            rem(epoch, ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")),
-            Enum.at(state.slashings, rem(epoch, ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR"))) +
-              validator.effective_balance
-          )
-    }
+      state = %BeaconState{
+        state
+        | validators: List.replace_at(state.validators, slashed_index, validator),
+          slashings:
+            List.replace_at(
+              state.slashings,
+              rem(epoch, ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")),
+              Enum.at(state.slashings, rem(epoch, ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR"))) +
+                validator.effective_balance
+            )
+      }
 
-    slashing_penalty =
-      div(validator.effective_balance, ChainSpec.get("MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX"))
+      slashing_penalty =
+        div(validator.effective_balance, ChainSpec.get("MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX"))
 
-    proposer_index = Accessors.get_beacon_proposer_index(state)
+      proposer_index = Accessors.get_beacon_proposer_index(state)
 
-    whistleblower_index =
-      if whistleblower_index == None, do: proposer_index, else: whistleblower_index
+      whistleblower_index =
+        if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
 
-    whistleblower_reward =
-      div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
+      whistleblower_reward =
+        div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
 
-    proposer_reward =
-      div(whistleblower_reward * Constants.proposer_weight(), Constants.weight_denominator())
+      proposer_reward =
+        div(whistleblower_reward * Constants.proposer_weight(), Constants.weight_denominator())
 
-    # Decrease slashers balance, apply proposer and whistleblower rewards
-    {:ok,
-      state
-      |> decrease_balance(slashed_index, slashing_penalty)
-      |> increase_balance(proposer_index, proposer_reward)
-      |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
+      # Decrease slashers balance, apply proposer and whistleblower rewards
+      {:ok,
+        state
+        |> decrease_balance(slashed_index, slashing_penalty)
+        |> increase_balance(proposer_index, proposer_reward)
+        |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
+      end
+
+    res
   end
 end

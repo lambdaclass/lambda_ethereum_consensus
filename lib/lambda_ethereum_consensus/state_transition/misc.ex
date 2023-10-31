@@ -123,7 +123,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Return from ``indices`` a random index sampled by effective balance.
   """
   @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
-          SszTypes.validator_index()
+          SszTypes.validator_index() | {:error, binary()}
   def compute_proposer_index(state, indices, seed)
       when is_list(indices) and length(indices) > 0 do
     compute_proposer_index(state, indices, seed, 0)
@@ -141,12 +141,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
 
     effective_balance = Enum.at(state.validators, candidate_index).effective_balance
 
-    res = if effective_balance * max_random_byte >= max_effective_balance * byte do
+    if effective_balance * max_random_byte >= max_effective_balance * byte do
       candidate_index
     else
       compute_proposer_index(state, indices, seed, i + 1)
     end
-    res
   end
 
   @doc """

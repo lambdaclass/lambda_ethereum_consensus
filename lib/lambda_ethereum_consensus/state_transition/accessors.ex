@@ -152,16 +152,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       )
 
     indices = get_active_validator_indices(state, epoch)
-    proposer_index = Misc.compute_proposer_index(state, indices, seed)
-    proposer_index
+    Misc.compute_proposer_index(state, indices, seed)
   end
 
   @doc """
   Return the signature domain (fork version concatenated with domain type) of a message.
   """
-  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch() | None) :: SszTypes.domain()
-  def get_domain(state, domain_type, epoch \\ None) do
-    epoch = if epoch == None, do: get_current_epoch(state), else: epoch
+  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch() | nil) :: SszTypes.domain()
+  def get_domain(state, domain_type, epoch \\ nil) do
+    epoch = if epoch == nil, do: get_current_epoch(state), else: epoch
 
     fork_version =
       if epoch < state.fork.epoch,

@@ -14,34 +14,32 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
 
-    res = cond do
-      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) -> {:ok, nil}
-      not Predicates.is_valid_indexed_attestation(state, attestation_1) -> {:ok, nil}
-      not Predicates.is_valid_indexed_attestation(state, attestation_2) -> {:ok, nil}
+    cond do
+      Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) == false -> {:ok, nil}
+      Predicates.is_valid_indexed_attestation(state, attestation_1) == false -> {:ok, nil}
+      Predicates.is_valid_indexed_attestation(state, attestation_2) == false -> {:ok, nil}
       true ->
-        slashed_any = false
-
-        {slashed_any, state} = Enum.uniq(attestation_1.attesting_indices)
+        {slashed_any, state} =
+        Enum.uniq(attestation_1.attesting_indices)
         |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
         |> Enum.sort()
-        |> Enum.reduce({slashed_any, state} , fn i, {slashed_any, state} ->
-          res = cond do
-              Predicates.is_slashable_validator(
-              Enum.at(state.validators, i),
-              Accessors.get_current_epoch(state)
-            ) ->
-              {:ok, state} = Mutators.slash_validator(state, i)
-              {true, state}
-            true -> {slashed_any, state}
+        |> Enum.reduce_while({false, state} , fn i, {slashed_any, state} ->
+          cond do
+            Predicates.is_slashable_validator(
+            Enum.at(state.validators, i),
+            Accessors.get_current_epoch(state)
+          ) ->
+            case Mutators.slash_validator(state, i) do
+              {:ok, state} -> {:cont, {true, state}}
+              {:error, _msg} -> {:halt, {false, nil}}
             end
-          res
+          true -> {:cont, {slashed_any, state}}
+          end
         end)
-        res = cond do
-          not slashed_any -> {:ok, nil}
+        case slashed_any do
+          false -> {:ok, nil}
           true -> {:ok, state}
         end
-        res
     end
-    res
   end
 end
