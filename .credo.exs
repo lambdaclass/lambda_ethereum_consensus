@@ -125,7 +125,6 @@
           {Credo.Check.Refactor.FilterCount, []},
           {Credo.Check.Refactor.FilterFilter, []},
           {Credo.Check.Refactor.RejectReject, []},
-          {Credo.Check.Refactor.RedundantWithClauseResult, []},
 
           #
           ## Warnings
