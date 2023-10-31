@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   alias LambdaEthereumConsensus.Libp2pPort
 
   @initial_score 100
-  @prune_interval 5000
+  @prune_interval 2000
   @max_prune_size 8
   @prune_percentage 0.15
 
