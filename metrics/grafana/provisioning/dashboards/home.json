@@ -462,7 +462,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "network_request_count{result=\"error\",type=\"by_root\"}",
+          "expr": "sum by(reason) (network_request_count{result=~\"error|retry\",type=\"by_root\"})",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -480,13 +480,13 @@
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Node",
   "uid": "90EXFQnIk",
-  "version": 9,
+  "version": 2,
   "weekStart": ""
 }
