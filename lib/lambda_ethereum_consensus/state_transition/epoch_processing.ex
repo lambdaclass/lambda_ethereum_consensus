@@ -53,7 +53,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     epoch = Accessors.get_current_epoch(state)
     total_balance = Accessors.get_total_active_balance(state)
 
-    proportional_slashing_multiplier = ChainSpec.get("PROPORTIONAL_SLASHING_MULTIPLIER")
+    proportional_slashing_multiplier = ChainSpec.get("PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX")
     epochs_per_slashings_vector = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
     effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
 
@@ -65,7 +65,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     new_state = Enum.reduce(validators_indices, state, fn {validator, index}, acc ->
       if validator.slashed and (epoch + div(epochs_per_slashings_vector, 2)) == validator.withdrawable_epoch do
-        penalty_numerator = div(validator.effective_balance, increment) * adjusted_total_slashing_balance
+        penalty_numerator = div(validator.effective_balance, increment) * adjusted_total_slashing_balance  # increment factored out from penalty numerator to avoid uint64 overflow
         penalty = div(penalty_numerator, total_balance) * increment
 
         Mutators.decrease_balance(acc, index, penalty)
