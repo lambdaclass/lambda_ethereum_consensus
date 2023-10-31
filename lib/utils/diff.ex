@@ -1,4 +1,8 @@
 defmodule LambdaEthereumConsensus.Utils.Diff do
+  @moduledoc """
+  A module to compare between different structures and get their differences. Useful for debugging.
+  """
+
   def diff(a, b) when is_list(a) and is_list(b) do
     d = %{}
 
@@ -18,14 +22,15 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
   end
 
   defp changes(d, a, b) when is_list(a) and is_list(b) do
-    changes = Enum.zip(a, b)
-    |> Enum.with_index()
-    |> Enum.map(&compare/1)
-    |> Enum.reject(&(&1 == :unchanged))
+    changes =
+      Enum.zip(a, b)
+      |> Enum.with_index()
+      |> Enum.map(&compare/1)
+      |> Enum.reject(&(&1 == :unchanged))
 
     if changes == [], do: d, else: Map.put(d, :changed, changes)
   end
 
   defp compare({{a, a}, _}), do: :unchanged
-  defp compare({{a, b}, idx}), do: %{at: idx, left: a, right: b}
+  defp compare({{a, b}, idx}), do: {idx, diff(a, b)}
 end

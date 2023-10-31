@@ -23,12 +23,12 @@ defmodule DiffTest do
 
     test "shows changes for equally large lists" do
       assert Diff.diff([1, 2, 3, 4], [1, 7, 3, 10]) == %{
-               changed: [%{at: 1, left: 2, right: 7}, %{at: 3, left: 4, right: 10}]
+               changed: [{1, %{left: 2, right: 7}}, {3, %{left: 4, right: 10}}]
              }
     end
 
     test "shows changes and added_right if both are present" do
-      assert Diff.diff([1], [3, 4]) == %{changed: [%{at: 0, left: 1, right: 3}], added_right: [4]}
+      assert Diff.diff([1], [3, 4]) == %{changed: [{0, %{left: 1, right: 3}}], added_right: [4]}
     end
 
     test "is :unchanged if the lists are equal" do
@@ -37,6 +37,13 @@ defmodule DiffTest do
 
     test "is :unchanged when both lists are empty" do
       assert Diff.diff([], []) == :unchanged
+    end
+
+    test "shows the diff for lists in lists" do
+      assert Diff.diff([:a, [1, 2], :b], [:a, [1, 4, 3]]) == %{
+               added_left: [:b],
+               changed: [{1, %{added_right: [3], changed: [{1, %{left: 2, right: 4}}]}}]
+             }
     end
   end
 end
