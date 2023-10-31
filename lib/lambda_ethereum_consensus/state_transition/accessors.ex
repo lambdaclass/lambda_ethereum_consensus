@@ -140,7 +140,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   def get_total_balance(state, indices) do
     max(
       ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"),
-      Enum.sum(Enum.map(indices, fn index -> Enum.at(state.validators, index).effective_balance end))
+      Enum.sum(
+        Enum.map(indices, fn index -> Enum.at(state.validators, index).effective_balance end)
+      )
     )
   end
 
@@ -169,7 +171,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end
   end
 end
-
 
 # <!-- @doc """
 # """
@@ -245,7 +246,5 @@ end
 #   seed = :crypto.hash(:sha256, domain_type + <<epoch::256-little-unsigned>> + mix)
 #   seed
 # end
-
-
 
 # end

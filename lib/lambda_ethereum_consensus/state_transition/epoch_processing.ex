@@ -263,23 +263,21 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     if Accessors.get_current_epoch(state) <= genesis_epoch + 1 do
       {:ok, state}
     else
-      {:ok, previous_indices} =
-        Accessors.get_unslashed_participating_indices(
-          state,
-          timely_target_index,
-          Accessors.get_previous_epoch(state)
-        )
-
-      {:ok, current_indices} =
-        Accessors.get_unslashed_participating_indices(
-          state,
-          timely_target_index,
-          Accessors.get_current_epoch(state)
-        )
-
-      total_active_balance = Accessors.get_total_active_balance(state)
-      previous_target_balance = Accessors.get_total_balance(state, previous_indices)
-      current_target_balance = Accessors.get_total_balance(state, current_indices)
+      with {:ok, previous_indices} <-
+             Accessors.get_unslashed_participating_indices(
+               state,
+               timely_target_index,
+               Accessors.get_previous_epoch(state)
+             ),
+           {:ok, current_indices} <-
+             Accessors.get_unslashed_participating_indices(
+               state,
+               timely_target_index,
+               Accessors.get_current_epoch(state)
+             ) do
+        total_active_balance = Accessors.get_total_active_balance(state)
+        previous_target_balance = Accessors.get_total_balance(state, previous_indices)
+        current_target_balance = Accessors.get_total_balance(state, current_indices)
 
         weigh_justification_and_finalization(
           state,
@@ -287,6 +285,9 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           previous_target_balance,
           current_target_balance
         )
+      else
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
@@ -306,92 +307,113 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     current_epoch = Accessors.get_current_epoch(state)
     old_previous_justified_checkpoint = state.previous_justified_checkpoint
     old_current_justified_checkpoint = state.current_justified_checkpoint
-    {:ok, previous_block_root} = Accessors.get_block_root(state, previous_epoch)
-    {:ok, current_block_root} = Accessors.get_block_root(state, current_epoch)
 
-    # unpack the bits
-    # <<first_bit, second_bit, third_bit, fourth_bit>> = state.justification_bits
-    [first_bit, second_bit, third_bit, fourth_bit] = get_bits_from_binary(state.justification_bits)
-
-    # Process justifications
-    state = %BeaconState{
-      state
-      | previous_justified_checkpoint: state.current_justified_checkpoint,
-        # justification_bits: List.insert_at(List.delete_at(state.justification_bits, 0), 0, 0)
-        justification_bits: <<0::4, 0::1, second_bit, third_bit, fourth_bit>>
-    }
-
-    if previous_epoch_target_balance * 3 >= total_active_balance * 2 do
-      new_checkpoint = %SszTypes.Checkpoint{
-        epoch: previous_epoch,
-        root: previous_block_root
-      }
-
-      # <<just_bits_binary::binary>> = state.justification_bits
-      # <<first_bit, second_bit, third_bit, fourth_bit>> = just_bits_binary
-      [first_bit, second_bit, third_bit, fourth_bit] = get_bits_from_binary(state.justification_bits)
-      new_bits = <<0::4, first_bit, 1::1, third_bit, fourth_bit>>
-
-      state = %BeaconState{
-        state
-        | current_justified_checkpoint: new_checkpoint,
-          justification_bits: new_bits
-      }
-    end
-
-    if current_epoch_target_balance * 3 >= total_active_balance * 2 do
-      new_checkpoint = %SszTypes.Checkpoint{
-        epoch: current_epoch,
-        root: current_block_root
-      }
-
+    with {:ok, previous_block_root} <- Accessors.get_block_root(state, previous_epoch),
+         {:ok, current_block_root} <- Accessors.get_block_root(state, current_epoch) do
+      # unpack the bits
       # <<first_bit, second_bit, third_bit, fourth_bit>> = state.justification_bits
-      [first_bit, second_bit, third_bit, fourth_bit] = get_bits_from_binary(state.justification_bits)
-      new_bits = <<0::4, 1::1, second_bit, third_bit, fourth_bit>>
+      [first_bit, second_bit, third_bit, fourth_bit] =
+        get_bits_from_binary(state.justification_bits)
 
+      # Process justifications
       state = %BeaconState{
         state
-        | current_justified_checkpoint: new_checkpoint,
-          justification_bits: new_bits
+        | previous_justified_checkpoint: state.current_justified_checkpoint,
+          # justification_bits: List.insert_at(List.delete_at(state.justification_bits, 0), 0, 0)
+          justification_bits: <<0::4, 0::1, second_bit, third_bit, fourth_bit>>
       }
+
+      state =
+        if previous_epoch_target_balance * 3 >= total_active_balance * 2 do
+          new_checkpoint = %SszTypes.Checkpoint{
+            epoch: previous_epoch,
+            root: previous_block_root
+          }
+
+          # <<just_bits_binary::binary>> = state.justification_bits
+          # <<first_bit, second_bit, third_bit, fourth_bit>> = just_bits_binary
+          [first_bit, second_bit, third_bit, fourth_bit] =
+            get_bits_from_binary(state.justification_bits)
+
+          new_bits = <<0::4, first_bit, 1::1, third_bit, fourth_bit>>
+
+          state = %BeaconState{
+            state
+            | current_justified_checkpoint: new_checkpoint,
+              justification_bits: new_bits
+          }
+
+          state
+        end
+
+      state =
+        if current_epoch_target_balance * 3 >= total_active_balance * 2 do
+          new_checkpoint = %SszTypes.Checkpoint{
+            epoch: current_epoch,
+            root: current_block_root
+          }
+
+          # <<first_bit, second_bit, third_bit, fourth_bit>> = state.justification_bits
+          [first_bit, second_bit, third_bit, fourth_bit] =
+            get_bits_from_binary(state.justification_bits)
+
+          new_bits = <<0::4, 1::1, second_bit, third_bit, fourth_bit>>
+
+          state = %BeaconState{
+            state
+            | current_justified_checkpoint: new_checkpoint,
+              justification_bits: new_bits
+          }
+
+          state
+        end
+
+      # Process finalizations
+      # <<first_bit, second_bit, third_bit, fourth_bit>> = state.justification_bits
+      # [first_bit, second_bit, third_bit, fourth_bit] = get_bits_from_binary(state.justification_bits)
+      bits = state.justification_bits
+
+      # The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th as source
+      # if Enum.all?([second_bit, third_bit, fourth_bit], &(&1 == 1)) &&
+      state =
+        if <<0::1, 1::1, 1::1, 1::1>> == bits &&
+             old_previous_justified_checkpoint.epoch + 3 == current_epoch do
+          state = %BeaconState{state | finalized_checkpoint: old_previous_justified_checkpoint}
+          state
+        end
+
+      # The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as source
+      # if Enum.all?([second_bit, third_bit], &(&1 == 1)) &&
+      state =
+        if <<0::1, 1::1, 1::1, 0::1>> == bits &&
+             old_previous_justified_checkpoint.epoch + 2 == current_epoch do
+          state = %BeaconState{state | finalized_checkpoint: old_previous_justified_checkpoint}
+          state
+        end
+
+      # The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as source
+      # if Enum.all?([first_bit, second_bit, third_bit], &(&1 == 1)) &&
+      state =
+        if <<1::1, 1::1, 1::1, 0::1>> == bits &&
+             old_current_justified_checkpoint.epoch + 2 == current_epoch do
+          state = %BeaconState{state | finalized_checkpoint: old_current_justified_checkpoint}
+          state
+        end
+
+      # The 1st/2nd most recent epochs are justified, the 1st using the 2nd as source
+      # if Enum.all?([first_bit, second_bit], &(&1 == 1)) &&
+      state =
+        if <<1::1, 1::1, 0::1, 0::1>> == bits &&
+             old_current_justified_checkpoint.epoch + 1 == current_epoch do
+          state = %BeaconState{state | finalized_checkpoint: old_current_justified_checkpoint}
+          state
+        end
+
+      {:ok, state}
+    else
+      {:error, reason} -> {:error, reason}
     end
-
-    # Process finalizations
-    # <<first_bit, second_bit, third_bit, fourth_bit>> = state.justification_bits
-    # [first_bit, second_bit, third_bit, fourth_bit] = get_bits_from_binary(state.justification_bits)
-    bits = state.justification_bits
-
-    # The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th as source
-    if <<0::1, 1::1, 1::1, 1::1>> == bits &&
-    # if Enum.all?([second_bit, third_bit, fourth_bit], &(&1 == 1)) &&
-         old_previous_justified_checkpoint.epoch + 3 == current_epoch do
-      state = %BeaconState{state | finalized_checkpoint: old_previous_justified_checkpoint}
-    end
-
-    # The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as source
-    if <<0::1, 1::1, 1::1, 0::1>> == bits &&
-    # if Enum.all?([second_bit, third_bit], &(&1 == 1)) &&
-         old_previous_justified_checkpoint.epoch + 2 == current_epoch do
-      state = %BeaconState{state | finalized_checkpoint: old_previous_justified_checkpoint}
-    end
-
-    # The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as source
-    if <<1::1, 1::1, 1::1, 0::1>> == bits &&
-    # if Enum.all?([first_bit, second_bit, third_bit], &(&1 == 1)) &&
-         old_current_justified_checkpoint.epoch + 2 == current_epoch do
-      state = %BeaconState{state | finalized_checkpoint: old_current_justified_checkpoint}
-    end
-
-    # The 1st/2nd most recent epochs are justified, the 1st using the 2nd as source
-    if <<1::1, 1::1, 0::1, 0::1>> == bits &&
-    # if Enum.all?([first_bit, second_bit], &(&1 == 1)) &&
-         old_current_justified_checkpoint.epoch + 1 == current_epoch do
-      state = %BeaconState{state | finalized_checkpoint: old_current_justified_checkpoint}
-    end
-
-    {:ok, state}
   end
-
 
   def get_bits_from_binary(bin) do
     <<_::4, b::size(4)-bitstring>> = bin
