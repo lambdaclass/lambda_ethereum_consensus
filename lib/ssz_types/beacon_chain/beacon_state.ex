@@ -88,4 +88,17 @@ defmodule SszTypes.BeaconState do
           # [New in Capella]
           historical_summaries: list(SszTypes.HistoricalSummary.t())
         }
+
+  @doc """
+    Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
+  """
+  @spec decrease_balance(t(), SszTypes.validator_index(), SszTypes.gwei()) :: t()
+  def decrease_balance(%{balances: balances} = state, index, delta) do
+    current_balance = Enum.fetch!(balances, index)
+
+    %{
+      state
+      | balances: List.replace_at(balances, index, max(current_balance - delta, 0))
+    }
+  end
 end

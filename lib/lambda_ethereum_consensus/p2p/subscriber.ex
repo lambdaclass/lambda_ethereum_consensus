@@ -4,13 +4,12 @@ defmodule LambdaEthereumConsensus.P2P.Subscriber do
   """
   use GenStage
   require Logger
+  alias LambdaEthereumConsensus.Libp2pPort
 
   @impl true
-  def init(%{topic: topic_name, gsub: gsub}) do
-    {:ok, topic} = Libp2p.pub_sub_join(gsub, topic_name)
-    {:ok, subscription} = Libp2p.topic_subscribe(topic)
-
-    {:producer, %{sub: subscription, queue: :queue.new(), demand: 0}}
+  def init(%{topic: topic_name}) do
+    :ok = Libp2pPort.subscribe_to_topic(topic_name)
+    {:producer, %{topic: topic_name, queue: :queue.new(), demand: 0}}
   end
 
   @impl true
@@ -40,18 +39,13 @@ defmodule LambdaEthereumConsensus.P2P.Subscriber do
   end
 
   @impl true
-  def handle_info({:sub, {:ok, message}}, %{queue: queue, demand: 0} = state) do
-    queue = :queue.in(message, queue)
-    {:noreply, [], %{state | queue: queue}}
-  end
-
-  def handle_info({:sub, {:ok, message}}, %{queue: queue, demand: demand} = state) do
+  def handle_info(
+        {:gossipsub, {topic, msg_id, message}},
+        %{topic: topic, queue: queue, demand: demand} = state
+      ) do
+    # TODO: validate
+    Libp2pPort.validate_message(msg_id, :accept)
     queue = :queue.in(message, queue)
     pop_events(demand, [], %{state | queue: queue, demand: 0})
-  end
-
-  def handle_info({:sub, :cancelled}, state) do
-    # This shouldn't happen normally
-    {:stop, :cancelled, state}
   end
 end

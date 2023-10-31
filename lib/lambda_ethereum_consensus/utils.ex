@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.Utils do
   @doc """
   Syncs the node using an inputed checkpoint
   """
-  @spec sync_from_checkpoint(binary) :: any
+  @spec sync_from_checkpoint(binary) :: {:ok, SszTypes.BeaconState.t()} | {:error, any}
   def sync_from_checkpoint(url) do
     client =
       Tesla.client([
@@ -27,16 +27,16 @@ defmodule LambdaEthereumConsensus.Utils do
       {:ok, response} ->
         case Ssz.from_ssz(response.body, SszTypes.BeaconState) do
           {:ok, struct} ->
-            struct
+            {:ok, struct}
 
-          {:error, _} ->
+          {:error, error} ->
             Logger.error("There has been an error syncing from checkpoint.")
-            :error
+            {:error, error}
         end
 
-      _ ->
+      error ->
         Logger.error("Invalid checkpoint sync url.")
-        :error
+        {:error, error}
     end
   end
 end

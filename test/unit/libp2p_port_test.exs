@@ -2,6 +2,11 @@ defmodule Unit.Libp2pPortTest do
   use ExUnit.Case
   alias LambdaEthereumConsensus.Libp2pPort
 
+  @bootnodes Application.compile_env(
+               :lambda_ethereum_consensus,
+               :discovery
+             )[:bootnodes]
+
   doctest Libp2pPort
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
@@ -56,5 +61,68 @@ defmodule Unit.Libp2pPortTest do
     # (sender) Send "ping" to recver and receive "pong"
     assert {:ok, "pong"} = Libp2pPort.send_request(:sender, id, protocol_id, "ping")
     assert_receive :message_received, 1000
+  end
+
+  test "start discovery service and discover one peer" do
+    start_port(:discoverer,
+      enable_discovery: true,
+      discovery_addr: "0.0.0.0:25101",
+      bootnodes: @bootnodes,
+      new_peer_handler: self()
+    )
+
+    assert_receive {:new_peer, _peer_id}, 10_000
+  end
+
+  defp two_hosts_gossip do
+    gossiper_addr = ["/ip4/127.0.0.1/tcp/48766"]
+    start_port(:publisher)
+    start_port(:gossiper, listen_addr: gossiper_addr)
+
+    topic = "/test/gossipping"
+    message = "hello world!"
+
+    # Connect the two peers
+    id = Libp2pPort.get_id(:gossiper)
+    :ok = Libp2pPort.add_peer(:publisher, id, gossiper_addr, 999_999_999_999)
+
+    pid = self()
+
+    spawn_link(fn ->
+      # Subscribe to the topic
+      :ok = Libp2pPort.subscribe_to_topic(:gossiper, topic)
+      send(pid, :subscribed)
+
+      # Receive the message
+      assert {^topic, message_id, ^message} = Libp2pPort.receive_gossip()
+
+      Libp2pPort.validate_message(message_id, :accept)
+
+      # Send acknowledgement
+      send(pid, :received)
+    end)
+
+    # Give a head start to the other process
+    assert_receive :subscribed, 100
+
+    # Publish message
+    :ok = Libp2pPort.publish(:publisher, topic, message)
+
+    # Receive acknowledgement
+    assert_receive :received, 100
+  end
+
+  defp retry_test(f, retries) do
+    f.()
+  rescue
+    ExUnit.AssertionError ->
+      assert retries > 0, "Retry limit exceeded"
+      stop_supervised(:publisher)
+      stop_supervised(:gossiper)
+      retry_test(f, retries - 1)
+  end
+
+  test "start two hosts, and gossip about" do
+    retry_test(&two_hosts_gossip/0, 5)
   end
 end

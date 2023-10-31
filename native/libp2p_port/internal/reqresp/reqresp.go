@@ -6,7 +6,7 @@ import (
 	"libp2p_port/internal/port"
 	"libp2p_port/internal/proto_helpers"
 	"libp2p_port/internal/utils"
-	"time"
+	"sync"
 
 	"github.com/libp2p/go-libp2p"
 	mplex "github.com/libp2p/go-libp2p-mplex"
@@ -19,13 +19,15 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
+type responseChannel = chan []byte
+
 type Listener struct {
 	hostHandle      host.Host
 	port            *port.Port
-	pendingMessages map[string]chan []byte
+	pendingMessages sync.Map
 }
 
-func NewListener(p *port.Port, config *utils.Config) Listener {
+func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
 	// as per the spec
 	optionsSlice := []libp2p.Option{
 		libp2p.DefaultMuxers,
@@ -40,7 +42,11 @@ func NewListener(p *port.Port, config *utils.Config) Listener {
 
 	h, err := libp2p.New(optionsSlice...)
 	utils.PanicIfError(err)
-	return Listener{hostHandle: h, port: p, pendingMessages: make(map[string]chan []byte)}
+	return Listener{hostHandle: h, port: p}
+}
+
+func (l *Listener) Host() host.Host {
+	return l.hostHandle
 }
 
 func (l *Listener) HostId() []byte {
@@ -48,12 +54,16 @@ func (l *Listener) HostId() []byte {
 }
 
 func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
+	addrInfo := peer.AddrInfo{ID: peer.ID(id)}
 	for _, addr := range addrs {
 		maddr, err := multiaddr.NewMultiaddr(addr)
 		// TODO: return error to caller
 		utils.PanicIfError(err)
-		l.hostHandle.Peerstore().AddAddr(peer.ID(id), maddr, time.Duration(ttl))
+		addrInfo.Addrs = append(addrInfo.Addrs, maddr)
 	}
+	l.hostHandle.Connect(context.TODO(), addrInfo)
+	notification := proto_helpers.NewPeerNotification(id)
+	l.port.SendNotification(&notification)
 }
 
 func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte) ([]byte, error) {
@@ -71,8 +81,13 @@ func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte)
 	return io.ReadAll(stream)
 }
 
-func (l *Listener) SendResponse(messageId string, message []byte) {
-	l.pendingMessages[messageId] <- message
+func (l *Listener) SendResponse(requestId string, message []byte) {
+	value, found := l.pendingMessages.LoadAndDelete(requestId)
+	if !found {
+		// TODO: return error
+		panic("message not found")
+	}
+	value.(responseChannel) <- message
 }
 
 func (l *Listener) SetHandler(protocolId string, handler []byte) {
@@ -84,17 +99,15 @@ func (l *Listener) SetHandler(protocolId string, handler []byte) {
 			// TODO: we just ignore read errors for now
 			return
 		}
-		messageId := stream.ID()
+		requestId := stream.ID()
 		responseChan := make(chan []byte)
-		// TODO: this isn't thread-safe
-		l.pendingMessages[messageId] = responseChan
-		notification := proto_helpers.RequestNotification(id, handler, messageId, request)
+		l.pendingMessages.Store(requestId, responseChan)
+		notification := proto_helpers.RequestNotification(id, handler, requestId, request)
 		l.port.SendNotification(&notification)
 		response := <-responseChan
-		delete(l.pendingMessages, messageId)
 		_, err = stream.Write(response)
 		if err != nil {
-			// TODO: we just ignore read errors for now
+			// TODO: we just ignore write errors for now
 			return
 		}
 	})

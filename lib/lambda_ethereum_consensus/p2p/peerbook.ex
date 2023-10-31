@@ -3,18 +3,12 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   General peer bookkeeping.
   """
   use GenServer
+  alias LambdaEthereumConsensus.Libp2pPort
 
   @initial_score 100
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
-  @doc """
-  Add a peer to the peerbook.
-  """
-  def add_peer(peer_id) do
-    GenServer.cast(__MODULE__, {:new_peer, peer_id})
   end
 
   @doc """
@@ -26,6 +20,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   @impl true
   def init(_opts) do
+    Libp2pPort.set_new_peer_handler(self())
     peerbook = %{}
     {:ok, peerbook}
   end
@@ -41,7 +36,8 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   end
 
   @impl true
-  def handle_cast({:new_peer, peer_id}, peerbook) do
+  def handle_info({:new_peer, peer_id}, peerbook) do
+    :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})
     updated_peerbook = Map.put(peerbook, peer_id, @initial_score)
     {:noreply, updated_peerbook}
   end

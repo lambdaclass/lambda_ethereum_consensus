@@ -172,13 +172,13 @@ func HostNew(options []C.uintptr_t) C.uintptr_t {
 }
 
 //export HostClose
-func (h C.uintptr_t) HostClose() {
+func HostClose(h C.uintptr_t) {
 	handle := cgo.Handle(h)
 	handle.Value().(host.Host).Close()
 }
 
 //export HostSetStreamHandler
-func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callback C.send_message1_t) {
+func HostSetStreamHandler(h C.uintptr_t, protoId string, procId []byte, callback C.send_message1_t) {
 	handle := cgo.Handle(h)
 	host := handle.Value().(host.Host)
 	// WARN: we clone the string/[]byte because the underlying buffer is owned by Elixir/C
@@ -191,7 +191,7 @@ func (h C.uintptr_t) HostSetStreamHandler(protoId string, procId []byte, callbac
 }
 
 //export HostNewStream
-func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t {
+func HostNewStream(h, pid C.uintptr_t, protoId string) C.uintptr_t {
 	host := cgo.Handle(h).Value().(host.Host)
 	peerId := cgo.Handle(pid).Value().(peer.ID)
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
@@ -207,7 +207,7 @@ func (h C.uintptr_t) HostNewStream(pid C.uintptr_t, protoId string) C.uintptr_t 
 }
 
 //export HostConnect
-func (h C.uintptr_t) HostConnect(pid C.uintptr_t, procId []byte, callback C.send_message1_t) {
+func HostConnect(h, pid C.uintptr_t, procId []byte, callback C.send_message1_t) {
 	host := cgo.Handle(h).Value().(host.Host)
 	peerId := cgo.Handle(pid).Value().(peer.ID)
 	addrInfo := host.Peerstore().PeerInfo(peerId)
@@ -223,17 +223,17 @@ func (h C.uintptr_t) HostConnect(pid C.uintptr_t, procId []byte, callback C.send
 }
 
 //export HostPeerstore
-func (h C.uintptr_t) HostPeerstore() C.uintptr_t {
+func HostPeerstore(h C.uintptr_t) C.uintptr_t {
 	return callGetter(h, host.Host.Peerstore)
 }
 
 //export HostID
-func (h C.uintptr_t) HostID() C.uintptr_t {
+func HostID(h C.uintptr_t) C.uintptr_t {
 	return callGetter(h, host.Host.ID)
 }
 
 //export HostAddrs
-func (h C.uintptr_t) HostAddrs() C.uintptr_t {
+func HostAddrs(h C.uintptr_t) C.uintptr_t {
 	return callGetter(h, host.Host.Addrs)
 }
 
@@ -242,7 +242,7 @@ func (h C.uintptr_t) HostAddrs() C.uintptr_t {
 /*********************/
 
 //export PeerstoreAddAddrs
-func (ps C.uintptr_t) PeerstoreAddAddrs(id, addrs C.uintptr_t, ttl uint64) {
+func PeerstoreAddAddrs(ps, id, addrs C.uintptr_t, ttl uint64) {
 	psv := cgo.Handle(ps).Value().(peerstore.Peerstore)
 	idv := cgo.Handle(id).Value().(peer.ID)
 	addrsv := cgo.Handle(addrs).Value().([]multiaddr.Multiaddr)
@@ -254,7 +254,7 @@ func (ps C.uintptr_t) PeerstoreAddAddrs(id, addrs C.uintptr_t, ttl uint64) {
 /******************/
 
 //export StreamRead
-func (s C.uintptr_t) StreamRead(buffer []byte) int {
+func StreamRead(s C.uintptr_t, buffer []byte) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	n, err := stream.Read(buffer)
 	if err != nil && err != io.EOF {
@@ -267,7 +267,7 @@ func (s C.uintptr_t) StreamRead(buffer []byte) int {
 }
 
 //export StreamWrite
-func (s C.uintptr_t) StreamWrite(data []byte) int {
+func StreamWrite(s C.uintptr_t, data []byte) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	n, err := stream.Write(data)
 	if err != nil {
@@ -280,27 +280,27 @@ func (s C.uintptr_t) StreamWrite(data []byte) int {
 }
 
 //export StreamClose
-func (s C.uintptr_t) StreamClose() {
+func StreamClose(s C.uintptr_t) {
 	// TODO: return error
 	handle := cgo.Handle(s)
 	handle.Value().(network.Stream).Close()
 }
 
 //export StreamCloseWrite
-func (s C.uintptr_t) StreamCloseWrite() {
+func StreamCloseWrite(s C.uintptr_t) {
 	// TODO: return error
 	handle := cgo.Handle(s)
 	handle.Value().(network.Stream).CloseWrite()
 }
 
 //export StreamProtocol
-func (s C.uintptr_t) StreamProtocol(buffer []byte) int {
+func StreamProtocol(s C.uintptr_t, buffer []byte) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	return copy(buffer, stream.Protocol())
 }
 
 //export StreamProtocolLen
-func (s C.uintptr_t) StreamProtocolLen() int {
+func StreamProtocolLen(s C.uintptr_t) int {
 	stream := cgo.Handle(s).Value().(network.Stream)
 	return len(stream.Protocol())
 }
@@ -388,30 +388,30 @@ func ListenV5(strAddr string, strBootnodes []string) C.uintptr_t {
 }
 
 //export ListenerRandomNodes
-func (l C.uintptr_t) ListenerRandomNodes() C.uintptr_t {
+func ListenerRandomNodes(l C.uintptr_t) C.uintptr_t {
 	listener := cgo.Handle(l).Value().(*discover.UDPv5)
 	iter := listener.RandomNodes()
 	return C.uintptr_t(cgo.NewHandle(iter))
 }
 
 //export IteratorNext
-func (i C.uintptr_t) IteratorNext() bool {
+func IteratorNext(i C.uintptr_t) bool {
 	iterator := cgo.Handle(i).Value().(enode.Iterator)
 	return iterator.Next()
 }
 
 //export IteratorNode
-func (i C.uintptr_t) IteratorNode() C.uintptr_t {
+func IteratorNode(i C.uintptr_t) C.uintptr_t {
 	return callGetter(i, enode.Iterator.Node)
 }
 
 //export NodeTCP
-func (n C.uintptr_t) NodeTCP() int {
+func NodeTCP(n C.uintptr_t) int {
 	return cgo.Handle(n).Value().(*enode.Node).TCP()
 }
 
 //export NodeMultiaddr
-func (n C.uintptr_t) NodeMultiaddr() C.uintptr_t {
+func NodeMultiaddr(n C.uintptr_t) C.uintptr_t {
 	node := cgo.Handle(n).Value().(*enode.Node)
 	var addrArr []multiaddr.Multiaddr
 	if node.TCP() != 0 {
@@ -439,7 +439,7 @@ func (n C.uintptr_t) NodeMultiaddr() C.uintptr_t {
 }
 
 //export NodeID
-func (n C.uintptr_t) NodeID() C.uintptr_t {
+func NodeID(n C.uintptr_t) C.uintptr_t {
 	node := cgo.Handle(n).Value().(*enode.Node)
 	key, err := convertToInterfacePubkey(node.Pubkey())
 	if err != nil {
@@ -519,7 +519,7 @@ func NewGossipSub(h C.uintptr_t) C.uintptr_t {
 }
 
 //export PubSubJoin
-func (ps C.uintptr_t) PubSubJoin(topicStr string) C.uintptr_t {
+func PubSubJoin(ps C.uintptr_t, topicStr string) C.uintptr_t {
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
 	goTopicStr := strings.Clone(topicStr)
 	psub := cgo.Handle(ps).Value().(*pubsub.PubSub)
@@ -533,7 +533,7 @@ func (ps C.uintptr_t) PubSubJoin(topicStr string) C.uintptr_t {
 }
 
 //export TopicSubscribe
-func (tp C.uintptr_t) TopicSubscribe(procId []byte, callback C.send_message1_t) C.uintptr_t {
+func TopicSubscribe(tp C.uintptr_t, procId []byte, callback C.send_message1_t) C.uintptr_t {
 	// WARN: we clone the string/bytes because the underlying buffer is owned by Elixir/C
 	topic := cgo.Handle(tp).Value().(*pubsub.Topic)
 	goProcId := bytes.Clone(procId)
@@ -568,7 +568,7 @@ func asyncFetchMessages(sub *pubsub.Subscription, procId []byte, callback C.send
 }
 
 //export TopicPublish
-func (tp C.uintptr_t) TopicPublish(data []byte) int {
+func TopicPublish(tp C.uintptr_t, data []byte) int {
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
 	topic := cgo.Handle(tp).Value().(*pubsub.Topic)
 	err := topic.Publish(context.TODO(), data)
@@ -581,20 +581,20 @@ func (tp C.uintptr_t) TopicPublish(data []byte) int {
 }
 
 //export SubscriptionCancel
-func (sub C.uintptr_t) SubscriptionCancel() {
+func SubscriptionCancel(sub C.uintptr_t) {
 	// WARN: we clone the string because the underlying buffer is owned by Elixir
 	subscription := cgo.Handle(sub).Value().(*pubsub.Subscription)
 	subscription.Cancel()
 }
 
 //export MessageData
-func (m C.uintptr_t) MessageData(buffer []byte) int {
+func MessageData(m C.uintptr_t, buffer []byte) int {
 	msg := cgo.Handle(m).Value().(*pubsub.Message)
 	return copy(buffer, msg.Data)
 }
 
 //export MessageDataLen
-func (m C.uintptr_t) MessageDataLen() int {
+func MessageDataLen(m C.uintptr_t) int {
 	msg := cgo.Handle(m).Value().(*pubsub.Message)
 	return len(msg.Data)
 }

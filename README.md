@@ -63,21 +63,43 @@ There are Makefile targets for these tasks.
 ```shell
 make deps # Installs dependencies
 make iex  # Runs a terminal with the application started
-make test # Runs tests
 ```
 
 The iex terminal can be closed by pressing ctrl+c two times.
 
+> [!WARNING]
+> The node isn't capable of syncing from genesis yet, and so requires using checkpoint-sync to start (see [Checkpoint Sync](#checkpoint-sync)).
+> In case checkpoint-sync is needed, `make iex` will end immediately with an error.
+
 ### Checkpoint Sync
 
 You can also sync from a checkpoint given by a trusted third-party.
-For that, get the URL that serves the checkpoint, and execute the following command:
+For that, get the URL that serves the checkpoint, and pass it to the node with the "--checkpoint-sync" flag:
 
 ```shell
 iex -S mix run -- --checkpoint-sync <your_url_here>
 ```
 
-Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/)
+Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/).
+
+> [!IMPORTANT]
+> The data retrieved from the URL is stored in the DB once the node is initiated (i.e. the iex prompt shows).
+> Once this happens, following runs of `make iex` will start the node using that data.
+
+### Tests, linting and formatting
+
+Our CI runs tests, linters, and also checks formatting and typing.
+To run these checks locally:
+
+```shell
+make test      # Runs tests
+make spec-test # Runs all spec-tests
+make lint      # Runs linter and format-checker
+mix dialyzer   # Runs type-checker
+```
+
+Source code can be formatted using `make fmt`.
+This formats not only the Elixir code, but also the code under [`native/`](./native/).
 
 ## Consensus spec tests
 
@@ -87,35 +109,47 @@ You can run all of them with:
 make spec-test
 ```
 
-Or only run those of a specific test runner with:
+Or only run those of a specific config with:
 
 ```shell
-make spec-test-`runner`
-# some examples
-make spec-test-ssz_static
-make spec-test-bls
-make spec-test-operations
+make spec-test-config-`config`
+
+# Some examples
+make spec-test-config-mainnet
+make spec-test-config-minimal
+make spec-test-config-general
+```
+
+Or by a single runner in all configs, with:
+
+```shell
+make spec-test-runner-`runner`
+
+# Some examples
+make spec-test-config-ssz_static
+make spec-test-config-bls
+make spec-test-config-operations
 ```
 
 The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
 
-For more fine-grained filtering of tests, you can use mix test tag filters:
+If you want to specify both a config and a runner:
 
-```bash
-mix test --no-start --only <tag_name>[:<tag_value>]
+```shell
+make spec-test-mainnet-operations
+make spec-test-minimal-epoch_processing
+make spec-test-general-bls
 ```
+
+More advanced filtering (e.g. by fork or handler) will be re-added again, but if you want to only run a specific test, you can always do that manually with:
+
+```shell
+mix --no-start test/generated/<config>/<fork>/<runner>.exs:<line_of_your_testcase>
+```
+You can put a "*" in any directory (e.g. config) you don't want to filter by, although that won't work if adding the line of the testcase.
 
 > [!NOTE]
 > We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
-
-Some useful tag filters:
-
-- `spectest`: only run spec-tests, same as `make spec-test`
-- `config:general`: only run spec-tests with "general" config
-- `fork:capella`: only run spec-tests of the "capella" fork
-- `runner:ssz_generic`: only run spec-tests of the "ssz_generic" runner
-- `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
-- `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
 
 ## Why Elixir?
 
@@ -198,9 +232,9 @@ Dream of becoming an Ethereum core developer? Eager to shape the protocol that w
 
 **Then you're in the right place! 🚀**
 
-### Getting Started:
+### Getting Started
 
-#### 1. **Installation**:
+#### 1. **Installation**
 
 - **Prerequisites**: Before diving in, ensure you have the necessary tools installed. Check out the [Prerequisites](#prerequisites) section for guidance.
   
@@ -213,7 +247,7 @@ Dream of becoming an Ethereum core developer? Eager to shape the protocol that w
 
 - **Setup**: Once you've cloned the repository, follow the steps in the [Installing and running](#installing-and-running) section to set up your environment.
 
-#### 2. **Prerequisite Knowledge**:
+#### 2. **Prerequisite Knowledge**
 
 To contribute effectively, you'll need a foundational understanding of both the Ethereum protocol and the Elixir language, including the Erlang VM (BEAM). If you're new to these areas, we've curated a list of resources to get you started:
 
@@ -277,43 +311,59 @@ Truly mastering the Ethereum protocol is a complex endeavor. The list provided h
 
 If you come across any resource that you find invaluable and believe should be added to this list, please don't hesitate to suggest its inclusion.
 
-#### 3. **Dive In**:
+#### 3. **Dive In**
 
 With your newfound knowledge, explore the various areas of our project. Whether you're interested in the core consensus layer, networking, CLI, documentation, testing, or tooling, there's a place for you.
 
 Start by browsing our [issues](https://github.com/lambdaclass/lambda_ethereum_consensus/issues), especially those tagged as `good first issue`. These are beginner-friendly and a great way to familiarize yourself with our codebase.
 
-### Contributing:
+### How to contribute
 
 Found an issue you're passionate about? Comment with `"I'd like to tackle this!"` to claim it. Once assigned, you can begin your work. After completing your contribution, submit a pull request for review. Our team and other contributors will be able to provide feedback, and once approved, your contribution will be merged.
 
-Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification when crafting commit messages.
+Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification when crafting PR titles. Also, run `make fmt` to format source code according to the configured style guide. The repo enforces these automatically via GitHub Actions.
 
-### Code of Conduct:
+> [!IMPORTANT]  
+> We believe in fostering an inclusive, welcoming, and respectful community. All contributors are expected to adhere to our [Code of Conduct](#code-of-conduct). Please familiarize yourself with its contents before participating.
 
-We believe in fostering an inclusive, welcoming, and respectful community. All contributors are expected to adhere to our [Code of Conduct](https://github.com/lambdaclass/lambda_ethereum_consensus#code-of-conduct). Please familiarize yourself with its contents before participating.
+### Communication
 
-### Communication:
-
-**Open communication** is key to the success of any project. We encourage all contributors to join our [Telegram chat](https://t.me/lambdaconsensus) for real-time discussions, updates, and collaboration. 
+**Open communication** is key to the success of any project. We encourage all contributors to join our [Telegram chat](https://t.me/lambdaconsensus) for real-time discussions, updates, and collaboration.
 
 **For more structured discussions or proposals**, consider opening an issue or a discussion on the GitHub repository.
 
-### Recognition:
+### Recognition
 
 We value every contribution, no matter how small. All contributors will be recognized in our project's documentation. Additionally, consistent and significant contributors may be offered more formal roles within the project over time.
 
-### Support:
+### Support
 
 If you encounter any issues or have questions, don't hesitate to reach out. Our team and the community are here to help. You can ask questions in our Telegram chat or open an issue on GitHub for technical challenges.
 
-### Conclusion:
+### Conclusion
 
 Lambda Ethereum Consensus is more than just a project; it's a community-driven initiative to bring the power and reliability of Elixir to the Ethereum ecosystem. With your help, we can make this vision a reality. Dive in, contribute, learn, and let's shape the future of Ethereum together!
 
 ---
 
 **Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
+
+## Metrics
+
+When running the node, metrics are available at [`http://localhost:9568/metrics`](http://localhost:9568/metrics) in Prometheus format.
+
+### Grafana
+
+A docker-compose is available at [`metrics/`](./metrics) with a Grafana-Prometheus setup preloaded with dashboards that disponibilize the data.
+To run it, install [Docker Compose](https://docs.docker.com/compose/) and execute:
+
+```shell
+cd metrics
+docker-compose up
+```
+
+After that, open [`http://localhost:3000/`](http://localhost:3000/) in a browser.
+The default username and password are both `admin`.
 
 ## Profiling
 
@@ -337,18 +387,18 @@ Options and details are in the `Profile` package. After the profile trace is gen
 qcachegrind callgrind.out.<trace_name>
 ```
 
-If you want to group the traces by function instead of process, then you can the following before viewing it in qcachegrind:
+If you want to group the traces by function instead of process, you can use the following before viewing it in qcachegrind:
 
 ```shell
 grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
 ```
 
-### Etop
+### etop
 
-Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar tu UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
+Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar to UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
 
 ```elixir
-:etop.start
+:etop.start()
 ```
 
 In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got. This can be used to identify infinite loops or busy waits.
@@ -414,7 +464,7 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
       <td align="center" valign="top" width="14.28%"><a href="https://federicocarrone.com/"><img src="https://avatars.githubusercontent.com/u/569014?v=4?s=100" width="100px;" alt="Federico Carrone"/><br /><sub><b>Federico Carrone</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=unbalancedparentheses" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="http://godspowereze.com"><img src="https://avatars.githubusercontent.com/u/61994334?v=4?s=100" width="100px;" alt="Godspower Eze"/><br /><sub><b>Godspower Eze</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=Godspower-Eze" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/namn-grg"><img src="https://avatars.githubusercontent.com/u/97289118?v=4?s=100" width="100px;" alt="Naman Garg"/><br /><sub><b>Naman Garg</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=namn-grg" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ayushm2003"><img src="https://avatars.githubusercontent.com/u/62571011?v=4?s=100" width="100px;" alt="Ayush"/><br /><sub><b>Ayush</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=ayushm2003" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ayushm2003"><img src="https://avatars.githubusercontent.com/u/62571011?v=4?s=100" width="100px;" alt="Ayush"/><br /><sub><b>Ayush</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=ayushm2003" title="Documentation">📖</a> <a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=ayushm2003" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/sm-stack"><img src="https://avatars.githubusercontent.com/u/94497407?v=4?s=100" width="100px;" alt="Seungmin Jeon"/><br /><sub><b>Seungmin Jeon</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=sm-stack" title="Code">💻</a></td>
     </tr>
   </tbody>
