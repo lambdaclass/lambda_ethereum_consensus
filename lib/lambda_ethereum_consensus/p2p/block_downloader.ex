@@ -56,12 +56,14 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       {:ok, block}
     else
       {:error, reason} ->
+        tags = %{type: "by_slot", reason: parse_reason(reason)}
+
         if retries > 0 do
-          :telemetry.execute([:network, :request], %{}, %{result: "retry", type: "by_slot"})
+          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "retry"))
           Logger.debug("Retrying request for block with slot #{slot}")
           request_block_by_slot(slot, retries - 1)
         else
-          :telemetry.execute([:network, :request], %{}, %{result: "error", type: "by_slot"})
+          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "error"))
           {:error, reason}
         end
     end
@@ -97,12 +99,14 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       {:ok, block}
     else
       {:error, reason} ->
+        tags = %{type: "by_root", reason: parse_reason(reason)}
+
         if retries > 0 do
-          :telemetry.execute([:network, :request], %{}, %{result: "retry", type: "by_root"})
+          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "retry"))
           Logger.debug("Retrying request for block with root #{Base.encode16(root)}")
           request_block_by_root(root, retries - 1)
         else
-          :telemetry.execute([:network, :request], %{}, %{result: "error", type: "by_root"})
+          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "error"))
           {:error, reason}
         end
     end
@@ -157,6 +161,13 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
       peer_id ->
         peer_id
+    end
+  end
+
+  defp parse_reason(reason) do
+    case reason do
+      "failed to dial" <> _ -> "failed to dial"
+      res -> res
     end
   end
 end
