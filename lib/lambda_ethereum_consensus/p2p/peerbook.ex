@@ -6,7 +6,8 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   alias LambdaEthereumConsensus.Libp2pPort
 
   @initial_score 100
-  @prune_interval 1000
+  @prune_interval 5000
+  @max_prune_size 8
   @prune_percentage 0.15
 
   @metadata_protocol_id "/eth2/beacon_chain/req/metadata/2/ssz_snappy"
@@ -26,7 +27,8 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   def init(_opts) do
     Libp2pPort.set_new_peer_handler(self())
     peerbook = %{}
-    Process.send_after(self(), :prune, @prune_interval)
+    # Wait some time before we start pruning
+    schedule_pruning(@prune_interval * 10)
     {:ok, peerbook}
   end
 
@@ -56,14 +58,14 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   @impl true
   def handle_info(:prune, peerbook) do
-    prune_size = (map_size(peerbook) * @prune_percentage) |> round()
+    prune_size = (map_size(peerbook) * @prune_percentage) |> round() |> min(@max_prune_size)
 
     peerbook
     |> Map.keys()
     |> Enum.take_random(prune_size)
     |> Enum.each(fn peer_id -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
 
-    Process.send_after(self(), :prune, @prune_interval)
+    schedule_pruning()
     {:noreply, peerbook}
   end
 
@@ -72,5 +74,9 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
       {:ok, <<0, 17>> <> _payload} -> nil
       _ -> GenServer.cast(__MODULE__, {:remove_peer, peer_id})
     end
+  end
+
+  defp schedule_pruning(interval \\ @prune_interval) do
+    Process.send_after(self(), :prune, interval)
   end
 end
