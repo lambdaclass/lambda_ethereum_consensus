@@ -1,0 +1,39 @@
+version: '0.1'
+name: 'lambda-ethereum-consensus-grafana'
+
+services:
+  prometheus:
+    image: public.ecr.aws/bitnami/prometheus:latest
+    container_name: prometheus
+    hostname: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command: --web.enable-lifecycle  --config.file=/etc/prometheus/prometheus.yml
+    networks:
+      open:
+        aliases:
+          - prometheus
+
+  grafana:
+    image: public.ecr.aws/ubuntu/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    networks:
+      open:
+        aliases:
+          - grafana
+
+networks:
+  open:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
