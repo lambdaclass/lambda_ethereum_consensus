@@ -255,43 +255,39 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   @spec process_historical_summaries_update(BeaconState.t()) :: {:ok, BeaconState.t()}
-  def process_historical_summaries_update(state) do
+  def process_historical_summaries_update(%BeaconState{} = state) do
     next_epoch = Accessors.get_current_epoch(state) + 1
 
-    new_state =
-      if rem(
-           next_epoch,
-           div(ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"), ChainSpec.get("SLOTS_PER_EPOCH"))
-         ) == 0 do
+    slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
+
+    epochs_per_historical_root =
+      div(slots_per_historical_root, ChainSpec.get("SLOTS_PER_EPOCH"))
+
+    if rem(next_epoch, epochs_per_historical_root) == 0 do
+      with {:ok, block_summary_root} <-
+             Ssz.hash_list_tree_root_typed(
+               state.block_roots,
+               slots_per_historical_root,
+               SszTypes.Root
+             ),
+           {:ok, state_summary_root} <-
+             Ssz.hash_list_tree_root_typed(
+               state.state_roots,
+               slots_per_historical_root,
+               SszTypes.Root
+             ) do
         historical_summary = %HistoricalSummary{
-          block_summary_root:
-            case Ssz.hash_list_tree_root_typed(
-                   state.block_roots,
-                   ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"),
-                   SszTypes.Root
-                 ) do
-              {:ok, hash} -> hash
-              err -> {:error, err}
-            end,
-          state_summary_root:
-            case Ssz.hash_list_tree_root_typed(
-                   state.state_roots,
-                   ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT"),
-                   SszTypes.Root
-                 ) do
-              {:ok, hash} -> hash
-              err -> {:error, err}
-            end
+          block_summary_root: block_summary_root,
+          state_summary_root: state_summary_root
         }
 
-        %BeaconState{
-          state
-          | historical_summaries: state.historical_summaries ++ [historical_summary]
-        }
-      else
-        state
+        new_state =
+          Map.update!(state, :historical_summaries, &(&1 ++ [historical_summary]))
+
+        {:ok, new_state}
       end
-
-    {:ok, new_state}
+    else
+      {:ok, state}
+    end
   end
 end
