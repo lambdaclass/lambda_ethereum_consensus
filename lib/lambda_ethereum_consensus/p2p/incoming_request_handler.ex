@@ -137,9 +137,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
       blocks =
         start_slot..slot_coverage
         |> Enum.reduce([], fn slot, current_blocks ->
-          with {:ok, state} <- StateStore.get_state_by_slot(slot) do
-            BlockStore.get_blocks(state.block_roots)
-          else
+          case StateStore.get_state_by_slot(slot) do
+            {:ok, state} -> current_blocks ++ BlockStore.get_blocks(state.block_roots)
             {:error, _} -> current_blocks
             :not_found -> current_blocks
           end
