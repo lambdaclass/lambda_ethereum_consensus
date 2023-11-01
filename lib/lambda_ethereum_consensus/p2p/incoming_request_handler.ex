@@ -123,11 +123,12 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     with <<24, snappy_blocks_by_range_request::binary>> <- message,
          {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
          {:ok, blocks_by_range_request} <-
-           Ssz.from_ssz(ssz_blocks_by_range_request, SszTypes.BeaconBlocksByRangeRequest),
-         blocks_by_range_request
-         |> inspect(limit: :infinity)
-         |> then(&"[Received BlocksByRange Request] '#{&1}'")
-         |> Logger.debug() do
+           Ssz.from_ssz(ssz_blocks_by_range_request, SszTypes.BeaconBlocksByRangeRequest) do
+      blocks_by_range_request
+      |> inspect(limit: :infinity)
+      |> then(&"[Received BlocksByRange Request] '#{&1}'")
+      |> Logger.debug()
+
       ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
       %SszTypes.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
         blocks_by_range_request
