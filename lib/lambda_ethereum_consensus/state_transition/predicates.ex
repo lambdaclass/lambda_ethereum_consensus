@@ -104,12 +104,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
           domain
         )
 
-      state.validators
+      {:ok, res} = state.validators
       |> Stream.with_index()
       |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
       |> Stream.map(fn {%{pubkey: p}, _} -> p end)
       |> Enum.to_list()
       |> Bls.eth_fast_aggregate_verify(signing_root, indexed_attestation.signature)
+      |> dbg()
+      res
     end
   end
 end

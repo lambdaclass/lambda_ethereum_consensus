@@ -170,6 +170,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         do: state.fork.previous_version,
         else: state.fork.current_version
 
-    Misc.compute_domain(domain_type, fork_version, state.genesis_validators_root)
+    Misc.compute_domain(domain_type, fork_version: fork_version, genesis_validators_root: state.genesis_validators_root)
   end
 end

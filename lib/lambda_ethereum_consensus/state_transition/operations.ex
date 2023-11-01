@@ -207,7 +207,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                 {:cont, {slashed_any, state}}
             end
           end)
-
         case slashed_any do
           false -> {:ok, nil}
           true -> {:ok, state}
