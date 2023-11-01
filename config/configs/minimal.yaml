@@ -18,8 +18,6 @@ TERMINAL_TOTAL_DIFFICULTY: 11579208923731619542357098500868790785326998466564056
 TERMINAL_BLOCK_HASH: 0x0000000000000000000000000000000000000000000000000000000000000000
 TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: 18446744073709551615
 
-
-
 # Genesis
 # ---------------------------------------------------------------
 # [customized]
@@ -30,7 +28,6 @@ MIN_GENESIS_TIME: 1578009600
 GENESIS_FORK_VERSION: 0x00000001
 # [customized] Faster to spin up testnets, but does not give validator reasonable warning time for genesis
 GENESIS_DELAY: 300
-
 
 # Forking
 # ---------------------------------------------------------------
@@ -50,7 +47,6 @@ CAPELLA_FORK_EPOCH: 18446744073709551615
 DENEB_FORK_VERSION: 0x04000001
 DENEB_FORK_EPOCH: 18446744073709551615
 
-
 # Time parameters
 # ---------------------------------------------------------------
 # [customized] Faster for testing purposes
@@ -63,7 +59,6 @@ MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256
 SHARD_COMMITTEE_PERIOD: 64
 # [customized] process deposits more quickly, but insecure
 ETH1_FOLLOW_DISTANCE: 16
-
 
 # Validator cycle
 # ---------------------------------------------------------------
@@ -78,12 +73,10 @@ MIN_PER_EPOCH_CHURN_LIMIT: 4
 # [customized] scale queue churn at much lower validator counts for testing
 CHURN_LIMIT_QUOTIENT: 32
 
-
 # Fork choice
 # ---------------------------------------------------------------
 # 40%
 PROPOSER_SCORE_BOOST: 40
-
 
 # Deposit contract
 # ---------------------------------------------------------------
@@ -92,3 +85,8 @@ DEPOSIT_CHAIN_ID: 5
 DEPOSIT_NETWORK_ID: 5
 # Configured on a per testnet basis
 DEPOSIT_CONTRACT_ADDRESS: 0x1234567890123456789012345678901234567890
+
+# Networking
+# ---------------------------------------------------------------
+# `2**10` (= 1024)
+MAX_REQUEST_BLOCKS: 1024
