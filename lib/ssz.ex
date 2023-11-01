@@ -172,10 +172,10 @@ defmodule Ssz do
 
   ### ENCODE ######
   def serialize(%struct{} = map) do
-    schema = struct.schema()
+    schemas = struct.schema()
 
     serialized =
-      schema
+      schemas
       |> Enum.map(fn schema ->
         key = Enum.at(Map.keys(schema), 0)
         metadata = Map.get(schema, key)
@@ -208,22 +208,28 @@ defmodule Ssz do
     serialize(value)
   end
 
-  #TODO control max_size
-  def serialize(elements, %{type: :list, schema: schema, max_size: _max_size}) do
-    serialize_list(elements, schema)
+  def serialize(elements, %{type: :list, schema: schema, max_size: max_size}) do
+    if length(elements) > max_size do
+      {:error, "max_size_error"}
+    else
+      serialize_list(elements, schema)
+    end
   end
 
   def serialize(value, %{type: :uint, size: size}) when is_integer(value),
     do: serialize_uint(value, size)
 
   def serialize(value, %{type: :bytes, size: _size}), do: {:ok, value}
-  def serialize(value, %{} = schema), do: {:error, "Unknown schema: #{inspect(schema)} for value #{inspect(value)}"}
 
+  def serialize(value, %{} = schema),
+    do: {:error, "Unknown schema: #{inspect(schema)} for value #{inspect(value)}"}
+
+  @spec serialize_list(list, list) :: {:ok, binary} | {:error, String.t()}
   def serialize_list(elements, schema) when is_list(elements) do
     fixed_parts =
       elements
-      |> Enum.map(fn v ->
-        if is_variable_size(schema), do: nil, else: serialize(v, schema)
+      |> Enum.map(fn element ->
+        if is_variable_size(schema), do: nil, else: serialize(element, schema)
       end)
       |> Enum.map(fn
         {:ok, ser} -> ser
@@ -232,8 +238,8 @@ defmodule Ssz do
 
     variable_parts =
       elements
-      |> Enum.map(fn v ->
-        if is_variable_size(schema), do: serialize(v, schema), else: <<>>
+      |> Enum.map(fn element ->
+        if is_variable_size(schema), do: serialize(element, schema), else: <<>>
       end)
       |> Enum.map(fn
         {:ok, ser} -> ser
@@ -262,7 +268,9 @@ defmodule Ssz do
     fixed_parts =
       fixed_parts
       |> Enum.with_index()
-      |> Enum.map(fn {part, i} -> if part != nil, do: part, else: Enum.at(variable_offsets, i) end)
+      |> Enum.map(fn {part, index} ->
+        if part != nil, do: part, else: Enum.at(variable_offsets, index)
+      end)
 
     final_ssz =
       (fixed_parts ++ variable_parts)
@@ -281,6 +289,7 @@ defmodule Ssz do
   end
 
   ### DECODE ######
+  @spec decode_elixir(binary, list) :: {:ok, struct} | {:error, String.t()}
   def decode_elixir(bin, schema) do
     schema_def = schema.schema()
 
@@ -291,43 +300,50 @@ defmodule Ssz do
         schema_def
         |> Enum.reduce_while({:ok, {bin, %{}, [], 0}}, fn s,
                                                           {:ok,
-                                                           {rest_bytes, items, offsets, index}} ->
+                                                           {rest_bytes, items, offsets,
+                                                            position_bin}} ->
           key = Enum.at(Map.keys(s), 0)
           metadata = Map.get(s, key)
-
-          case metadata do
-            %{type: :list, schema: elements_schema, is_variable: false, max_size: max_size} ->
-              %{size: element_size} = elements_schema
-              <<elements::binary-size(max_size * element_size), rest::bitstring>> = rest_bytes
-
-              decoded_list =
-                :binary.bin_to_list(elements)
-                |> Enum.chunk_every(element_size)
-                |> Enum.map(fn c -> :binary.list_to_bin(c) end)
-
-              {:cont,
-               {:ok,
-                {rest, Map.merge(items, %{key => decoded_list}), offsets, max_size * element_size}}}
-
-            %{type: :struct, schema: schema} ->
-              with {:ok, decoded} <- decode_elixir(rest_bytes, schema) do
-                {:cont, {:ok, {rest_bytes, Map.merge(items, %{key => decoded}), offsets, index}}}
-              end
-
-            %{type: :bytes, size: size} ->
-              <<element::binary-size(size), rest::bitstring>> = rest_bytes
-              {:cont, {:ok, {rest, Map.merge(items, %{key => element}), offsets, index}}}
-
-            %{type: :uint, size: size} ->
-              <<element::integer-size(size)-little, rest::bitstring>> = rest_bytes
-              {:cont, {:ok, {rest, Map.merge(items, %{key => element}), offsets, index}}}
-
-            unknown_schema ->
-              {:halt, {:error, "Unknown schema: #{inspect(unknown_schema)}"}}
-          end
+          decode_with_scheme(metadata, key, rest_bytes, items, offsets, position_bin)
         end)
 
       {:ok, struct!(schema, items)}
+    end
+  end
+
+  @spec decode_with_scheme(map, atom, binary, map, list, integer()) ::
+          {:cont, {:ok, {binary, %{}}}} | {:halt, {:error, String.t()}}
+  defp decode_with_scheme(schema, key, rest_bytes, items, offsets, position_bin) do
+    case schema do
+      %{type: :list, schema: elements_schema, is_variable: false, max_size: max_size} ->
+        %{size: element_size} = elements_schema
+        <<elements::binary-size(max_size * element_size), rest::bitstring>> = rest_bytes
+
+        decoded_list =
+          :binary.bin_to_list(elements)
+          |> Enum.chunk_every(element_size)
+          |> Enum.map(fn c -> :binary.list_to_bin(c) end)
+
+        {:cont,
+         {:ok,
+          {rest, Map.merge(items, %{key => decoded_list}), offsets,
+           max_size * element_size + position_bin}}}
+
+      %{type: :struct, schema: schema} ->
+        with {:ok, decoded} <- decode_elixir(rest_bytes, schema) do
+          {:cont, {:ok, {rest_bytes, Map.merge(items, %{key => decoded}), offsets, position_bin}}}
+        end
+
+      %{type: :bytes, size: size} ->
+        <<element::binary-size(size), rest::bitstring>> = rest_bytes
+        {:cont, {:ok, {rest, Map.merge(items, %{key => element}), offsets, position_bin}}}
+
+      %{type: :uint, size: size} ->
+        <<element::integer-size(size)-little, rest::bitstring>> = rest_bytes
+        {:cont, {:ok, {rest, Map.merge(items, %{key => element}), offsets, position_bin}}}
+
+      unknown_schema ->
+        {:halt, {:error, "Unknown schema: #{inspect(unknown_schema)}"}}
     end
   end
 
@@ -366,7 +382,7 @@ defmodule Ssz do
     if byte_size(bin) == 0 do
       {:error, "Error trying to collect empty list"}
     else
-      <<first_offset::integer-32-little, rest::bitstring>> = bin
+      <<first_offset::integer-32-little, rest_bytes::bitstring>> = bin
       num_items = div(first_offset, @bytes_per_length_offset)
 
       if Integer.mod(first_offset, @bytes_per_length_offset) != 0 ||
@@ -376,36 +392,49 @@ defmodule Ssz do
         with {:ok, first_offset} <-
                sanitize_offset(first_offset, nil, byte_size(bin), first_offset) do
           {:ok, {decoded_list, _, _}} =
-            1..num_items
-            |> Enum.reduce_while({:ok, {[], first_offset, rest}}, fn i,
-                                                                     {:ok,
-                                                                      {acc, offset, acc_rest}} ->
-              if i == num_items do
-                part = :binary.part(bin, offset, byte_size(bin) - offset)
-
-                with {:ok, decoded} <- decode_elixir(part, schema) do
-                  {:cont, {:ok, {[decoded | acc], offset, rest}}}
-                end
-              else
-                <<next_offset::integer-32-little, rest::bitstring>> = acc_rest
-
-                case sanitize_offset(next_offset, offset, byte_size(bin), first_offset) do
-                  {:ok, next_offset} ->
-                    part = :binary.part(bin, offset, next_offset - offset)
-
-                    with {:ok, decoded} <- decode_elixir(part, schema) do
-                      {:cont, {:ok, {[decoded | acc], next_offset, rest}}}
-                    end
-
-                  {:error, error} ->
-                    {:halt, {:error, error}}
-                end
-              end
-            end)
+            decode_variable_list(first_offset, rest_bytes, num_items, bin, schema)
 
           {:ok, decoded_list |> Enum.reverse()}
         end
       end
+    end
+  end
+
+  @spec decode_variable_list(integer(), binary, integer(), binary, map) ::
+          {:ok, {list, integer(), binary}} | {:error, String.t()}
+  defp decode_variable_list(first_offset, rest_bytes, num_items, bin, schema) do
+    1..num_items
+    |> Enum.reduce_while({:ok, {[], first_offset, rest_bytes}}, fn i,
+                                                                   {:ok,
+                                                                    {acc_decoded, offset,
+                                                                     acc_rest_bytes}} ->
+      if i == num_items do
+        part = :binary.part(bin, offset, byte_size(bin) - offset)
+
+        with {:ok, decoded} <- decode_elixir(part, schema) do
+          {:cont, {:ok, {[decoded | acc_decoded], offset, rest_bytes}}}
+        end
+      else
+        get_next_offset(acc_decoded, acc_rest_bytes, schema, offset, bin, first_offset)
+      end
+    end)
+  end
+
+  @spec get_next_offset(list, binary, map, integer(), binary, integer()) ::
+          {:cont, {:ok, {list, integer(), binary}}} | {:halt, {:error, String.t()}}
+  defp get_next_offset(acc_decoded, acc_rest_bytes, schema, offset, bin, first_offset) do
+    <<next_offset::integer-32-little, rest_bytes::bitstring>> = acc_rest_bytes
+
+    case sanitize_offset(next_offset, offset, byte_size(bin), first_offset) do
+      {:ok, next_offset} ->
+        part = :binary.part(bin, offset, next_offset - offset)
+
+        with {:ok, decoded} <- decode_elixir(part, schema) do
+          {:cont, {:ok, {[decoded | acc_decoded], next_offset, rest_bytes}}}
+        end
+
+      {:error, error} ->
+        {:halt, {:error, error}}
     end
   end
 
