@@ -256,27 +256,36 @@ defmodule Ssz do
       variable_parts
       |> Enum.map(fn part -> byte_size(part) end)
 
-    variable_offsets =
-      0..(length(elements) - 1)
-      |> Enum.map(fn i ->
-        slice_variable_lengths = Enum.take(variable_lengths, i)
-        sum = Enum.sum(fixed_lengths ++ slice_variable_lengths)
-        serialize_uint(sum, 32)
-      end)
-      |> Enum.map(fn {:ok, ser} -> ser end)
+    if Enum.sum(fixed_lengths ++ variable_lengths) <
+         2 ** (@bytes_per_length_offset * @bits_per_byte) do
+      variable_offsets =
+        0..(length(elements) - 1)
+        |> Enum.map(fn i ->
+          slice_variable_lengths = Enum.take(variable_lengths, i)
+          sum = Enum.sum(fixed_lengths ++ slice_variable_lengths)
+          serialize_uint(sum, 32)
+        end)
+        |> Enum.map(fn {:ok, ser} -> ser end)
 
-    fixed_parts =
-      fixed_parts
-      |> Enum.with_index()
-      |> Enum.map(fn {part, index} ->
-        if part != nil, do: part, else: Enum.at(variable_offsets, index)
-      end)
+      fixed_parts = get_fixed_parts(fixed_parts, variable_offsets)
 
-    final_ssz =
-      (fixed_parts ++ variable_parts)
-      |> :binary.list_to_bin()
+      final_ssz =
+        (fixed_parts ++ variable_parts)
+        |> :binary.list_to_bin()
 
-    {:ok, final_ssz}
+      {:ok, final_ssz}
+    else
+      {:error, "invalid lengths"}
+    end
+  end
+
+  @spec get_fixed_parts(list, list) :: list
+  defp get_fixed_parts(fixed_parts, variable_offsets) do
+    fixed_parts
+    |> Enum.with_index()
+    |> Enum.map(fn {part, index} ->
+      if part != nil, do: part, else: Enum.at(variable_offsets, index)
+    end)
   end
 
   defp serialize_uint(value, size) do
