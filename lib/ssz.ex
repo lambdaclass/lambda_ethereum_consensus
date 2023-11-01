@@ -298,7 +298,7 @@ defmodule Ssz do
   end
 
   ### DECODE ######
-  @spec decode_elixir(binary, list) :: {:ok, struct} | {:error, String.t()}
+  @spec decode_elixir(binary, module) :: {:ok, struct} | {:error, String.t()}
   def decode_elixir(bin, schema) do
     schema_def = schema.schema()
 
