@@ -88,7 +88,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     Enum.fetch!(randao_mixes, rem(epoch, epochs_per_historical_vector))
   end
 
-  @spec get_total_balance(BeaconState.t(), list[integer]) :: SszTypes.gwei()
+  @spec get_total_balance(BeaconState.t(), list(SszTypes.validator_index())) :: SszTypes.gwei()
   def get_total_balance(%BeaconState{validators: validators}, indices) do
     effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
 
