@@ -265,13 +265,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     if rem(next_epoch, epochs_per_historical_root) == 0 do
       with {:ok, block_summary_root} <-
-             Ssz.hash_list_tree_root_typed(
+             Ssz.hash_vector_tree_root_typed(
                state.block_roots,
                slots_per_historical_root,
                SszTypes.Root
              ),
            {:ok, state_summary_root} <-
-             Ssz.hash_list_tree_root_typed(
+             Ssz.hash_vector_tree_root_typed(
                state.state_roots,
                slots_per_historical_root,
                SszTypes.Root
