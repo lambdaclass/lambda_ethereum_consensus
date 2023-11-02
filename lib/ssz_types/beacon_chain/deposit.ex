@@ -10,7 +10,7 @@ defmodule SszTypes.Deposit do
   ]
 
   @schema [
-    %{proof: %{type: :list, schema: %{type: :bytes, size: 32}, max_size: 33, is_variable: false}},
+    %{proof: %{type: :vector, schema: %{type: :bytes, size: 32}, max_size: 33}},
     %{
       data: %{
         type: :container,
