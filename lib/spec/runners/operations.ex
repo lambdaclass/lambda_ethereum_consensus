@@ -97,7 +97,7 @@ defmodule OperationsTestRunner do
     if post != nil do
       IO.inspect(LambdaEthereumConsensus.Utils.Diff.diff(post, result))
     end
-    # assert result == {:ok, post}
+    assert result == {:ok, post}
     # IO.inspect(post)
   end
 
