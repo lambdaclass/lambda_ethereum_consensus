@@ -165,8 +165,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
         genesis_validators_root
       )
 
-    <<_::binary-size(4), remainder::binary>> = fork_data_root
-    {:ok, domain_type <> remainder}
+    <<fork_data_prefix::binary-size(28), _::binary>> = fork_data_root
+    {:ok, domain_type <> fork_data_prefix}
   end
 
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
