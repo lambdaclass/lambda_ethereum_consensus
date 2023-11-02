@@ -17,13 +17,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
     tick_slot = div(time - store.genesis_time, seconds_per_slot)
     current_slot = Store.get_current_slot(store)
+    next_slot_start = (current_slot + 1) * seconds_per_slot
+    last_slot_start = tick_slot * seconds_per_slot
 
-    current_slot..(tick_slot - 1)//1
-    |> Enum.reduce(store, fn current_slot, store ->
-      # TODO: simplify this by using time instead of slots
-      previous_time = store.genesis_time + (current_slot + 1) * seconds_per_slot
-      on_tick_per_slot(store, previous_time)
-    end)
+    next_slot_start..last_slot_start//seconds_per_slot
+    |> Enum.reduce(store, &on_tick_per_slot(&2, &1))
     |> on_tick_per_slot(time)
   end
 
