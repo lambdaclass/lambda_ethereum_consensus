@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
     just be the elements that were added. In the case of maps, they are keyword lists
     showing the key and the value that were added.
   - :changed is always a keyword list. In the case of lists, keys are indices of the
-    changed elements and values are the elements itselfs. In the case of maps, the keys
+    changed elements and values are the elements themselves. In the case of maps, the keys
     are the keys of the map.
   """
   @type structured_diff :: %{
@@ -26,7 +26,7 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
           optional(:changed) => Keyword.t()
         }
   @type base_diff :: %{optional(:left) => any(), optional(:right) => any()}
-  @type t :: :unchanged | base_diff() | base_diff()
+  @type t :: :unchanged | base_diff() | structured_diff()
 
   @spec diff(any(), any()) :: t()
   def diff(a, b) when is_map(a) and is_map(b) do
