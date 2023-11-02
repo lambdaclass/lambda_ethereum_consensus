@@ -109,7 +109,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
       |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
       |> Stream.map(fn {%{pubkey: p}, _} -> p end)
       |> Enum.to_list()
-      |> Bls.eth_fast_aggregate_verify(signing_root, indexed_attestation.signature)
+      |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
       res
     end
   end

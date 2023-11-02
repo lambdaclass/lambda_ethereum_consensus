@@ -172,7 +172,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::
-          {:ok, BeaconState.t()}
+          {:ok, BeaconState.t()} | {:ok, nil}
   def process_attester_slashing(state, attester_slashing) do
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2

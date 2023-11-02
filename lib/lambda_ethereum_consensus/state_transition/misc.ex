@@ -159,14 +159,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   def compute_domain(domain_type, opts \\ []) do
     fork_version = Keyword.get(opts, :fork_version, ChainSpec.get("GENESIS_FORK_VERSION"))
     genesis_validators_root = Keyword.get(opts, :genesis_validators_root, <<0::32>>)
-
     fork_data_root =
       LambdaEthereumConsensus.Beacon.HelperFunctions.compute_fork_data_root(
         fork_version,
         genesis_validators_root
       )
 
-    <<_::32, remainder::bitstring>> = fork_data_root
+    <<_::binary-size(4), remainder::binary>> = fork_data_root
     domain_type <> remainder
   end
 
