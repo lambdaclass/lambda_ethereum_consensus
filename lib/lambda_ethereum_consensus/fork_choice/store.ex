@@ -12,7 +12,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   alias SszTypes.SignedBeaconBlock
   alias SszTypes.Store
 
-
   ##########################
   ### Public API
   ##########################
