@@ -7,13 +7,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   ### Public API ###
 
+  @doc """
+  Called once every tick (1 second). This function updates the Store's time.
+  Also updates checkpoints and resets proposer boost at the beginning of every slot.
+  """
   def on_tick(%Store{} = store, time) do
+    # If the ``store.time`` falls behind, while loop catches up slot by slot
+    # to ensure that every previous slot is processed with ``on_tick_per_slot``
     seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
     tick_slot = div(time - store.genesis_time, seconds_per_slot)
     current_slot = Store.get_current_slot(store)
 
-    current_slot..(tick_slot - 1)
-    |> Enum.reduce_while(store, fn current_slot, store ->
+    current_slot..(tick_slot - 1)//1
+    |> Enum.reduce(store, fn current_slot, store ->
       # TODO: simplify this by using time instead of slots
       previous_time = store.genesis_time + (current_slot + 1) * seconds_per_slot
       on_tick_per_slot(store, previous_time)
@@ -21,6 +27,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     |> on_tick_per_slot(time)
   end
 
+  @doc """
+  Called whenever a signed block is received.
+  """
   def on_block(store, _block) do
     {:ok, store}
   end

@@ -34,8 +34,8 @@ defmodule SszTypes.Store do
           unrealized_justifications: %{SszTypes.root() => SszTypes.Checkpoint.t()}
         }
 
-  def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time} = store) do
+  def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
     # NOTE: this assumes GENESIS_SLOT == 0
-    div(time - store.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
+    div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 end
