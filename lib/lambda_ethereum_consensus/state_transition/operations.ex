@@ -190,6 +190,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       Predicates.is_valid_indexed_attestation(state, attestation_2) == false ->
         {:ok, nil}
 
+      Predicates.is_indices_available(length(state.validators), attestation_1.attesting_indices) == false ->
+        {:ok, nil}
+
+      Predicates.is_indices_available(length(state.validators), attestation_2.attesting_indices) == false ->
+        {:ok, nil}
+
       true ->
         {slashed_any, state} =
           Enum.uniq(attestation_1.attesting_indices)

@@ -84,6 +84,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
+  Check if slashing attestation indices are in range of validators.
+  """
+  @spec is_indices_available(any(), list(SszTypes.validator_index())) :: boolean
+  def is_indices_available(validators, indices) do
+    is_indices_available(validators, indices, true)
+  end
+
+  defp is_indices_available(_validators, [], true) do
+    true
+  end
+
+  defp is_indices_available(_validators, _indices, false) do
+    false
+  end
+
+  defp is_indices_available(validators, [h | indices], _acc) do
+    is_indices_available(validators, indices, h < validators)
+  end
+
+  @doc """
   Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
   """
   @spec is_valid_indexed_attestation(BeaconState.t(), SszTypes.IndexedAttestation.t()) :: boolean

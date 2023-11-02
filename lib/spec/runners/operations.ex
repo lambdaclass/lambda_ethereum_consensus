@@ -94,9 +94,9 @@ defmodule OperationsTestRunner do
   defp handle_case("attester_slashing", pre, attester_slashing, post, _case_dir) do
     result = Operations.process_attester_slashing(pre, attester_slashing)
     {:ok, result} = result
-    if post != nil do
-      IO.inspect(LambdaEthereumConsensus.Utils.Diff.diff(result, post))
-    end
+    # if post != nil do
+    #   IO.inspect(LambdaEthereumConsensus.Utils.Diff.diff(result, post))
+    # end
     assert result == post
   end
 
