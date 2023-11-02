@@ -334,6 +334,28 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_rewards_and_penalties(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_rewards_and_penalties(%BeaconState{} = state) do
-    {:ok, state}
+    # No rewards are applied at the end of `GENESIS_EPOCH` because rewards are for work done in the previous epoch
+    if Accessors.get_current_epoch(state) == Constants.genesis_epoch() do
+      {:ok, state}
+    else
+      flag_deltas =
+        Constants.participation_flag_weights()
+        |> Stream.with_index()
+        |> Enum.map(fn {_, index} -> BeaconState.get_flag_index_deltas(state, index) end)
+
+      deltas = flag_deltas ++ [BeaconState.get_inactivity_penalty_deltas(state)]
+
+      Enum.reduce(deltas, state, fn {rewards, penalties}, state ->
+        state.validators
+        |> Stream.with_index()
+        |> Enum.reduce(state, fn {_, index}, state ->
+          state
+          |> Mutators.increase_balance(index, Enum.at(rewards, index))
+          |> BeaconState.decrease_balance(index, Enum.at(penalties, index))
+        end)
+      end)
+
+      {:ok, state}
+    end
   end
 end
