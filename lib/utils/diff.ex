@@ -80,7 +80,7 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
     b_keys = b |> Map.keys() |> MapSet.new()
 
     MapSet.intersection(a_keys, b_keys)
-    |> Enum.map(fn k -> {k, diff(a[k], b[k])} end)
+    |> Enum.map(fn k -> {k, diff(Map.get(a, k), Map.get(b, k))} end)
     |> Enum.reject(fn {_k, v} -> v == :unchanged end)
     |> then(&add_if_not_empty(d, :changed, &1))
   end
