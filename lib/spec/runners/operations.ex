@@ -98,7 +98,6 @@ defmodule OperationsTestRunner do
       IO.inspect(LambdaEthereumConsensus.Utils.Diff.diff(result, post))
     end
     assert result == post
-    # IO.inspect(post)
   end
 
   defp handle_case("attestation", pre, operation, post, _case_dir) do
