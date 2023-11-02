@@ -83,8 +83,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_cast(:on_tick, store) do
-    time = :os.system_time(:seconds)
+  def handle_info(:on_tick, store) do
+    time = :os.system_time(:second)
     new_store = Handlers.on_tick(store, time)
     schedule_next_tick()
     {:noreply, new_store}
@@ -101,7 +101,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   defp schedule_next_tick do
     # For millisecond precision
-    time_to_next_tick = 1000 - rem(:os.system_time(:microseconds), 1000)
+    time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
     Process.send_after(self(), :on_tick, time_to_next_tick)
   end
 end
