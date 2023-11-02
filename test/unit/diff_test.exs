@@ -45,6 +45,13 @@ defmodule DiffTest do
                changed: [{1, %{added_right: [3], changed: [{1, %{left: 2, right: 4}}]}}]
              }
     end
+
+    test "shows the diff for maps in lists" do
+      assert Diff.diff([:a, %{b: 1, c: 2, d: 5}], [:a, %{b: 1, c: 3}, :e]) == %{
+               added_right: [:e],
+               changed: [{1, %{added_left: [d: 5], changed: [c: %{left: 2, right: 3}]}}]
+             }
+    end
   end
 
   describe "Maps comparison" do
@@ -61,6 +68,22 @@ defmodule DiffTest do
 
     test "shows added_right if the right map has more keys" do
       assert Diff.diff(%{a: 1}, %{a: 1, b: 2}) == %{added_right: [b: 2]}
+    end
+
+    test "shows changes" do
+      assert Diff.diff(%{a: 1}, %{a: 2}) == %{changed: [a: %{left: 1, right: 2}]}
+    end
+
+    test "shows recursive diffs with lists in it" do
+      assert Diff.diff(%{a: [1, 2, 3]}, %{a: [1, 2, 4, 5]}) == %{
+               changed: [a: %{added_right: [5], changed: [{2, %{left: 3, right: 4}}]}]
+             }
+    end
+
+    test "shows recursive diffs with maps in it" do
+      assert Diff.diff(%{a: %{c: 1, d: 2}}, %{a: %{c: 1, d: 3, e: 4}}) == %{
+               changed: [a: %{added_right: [e: 4], changed: [d: %{left: 2, right: 3}]}]
+             }
     end
   end
 end
