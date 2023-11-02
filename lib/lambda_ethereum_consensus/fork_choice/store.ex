@@ -9,8 +9,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias SszTypes.BeaconState
-  alias SszTypes.Store
   alias SszTypes.SignedBeaconBlock
+  alias SszTypes.Store
+
 
   ##########################
   ### Public API
