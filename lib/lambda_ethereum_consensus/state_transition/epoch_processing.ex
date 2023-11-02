@@ -331,4 +331,9 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     # TODO: implement this
     state
   end
+
+  @spec process_rewards_and_penalties(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_rewards_and_penalties(%BeaconState{} = state) do
+    {:ok, state}
+  end
 end
