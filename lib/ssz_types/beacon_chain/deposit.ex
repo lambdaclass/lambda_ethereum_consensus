@@ -13,7 +13,7 @@ defmodule SszTypes.Deposit do
     %{proof: %{type: :list, schema: %{type: :bytes, size: 32}, max_size: 33, is_variable: false}},
     %{
       data: %{
-        type: :struct,
+        type: :container,
         schema: SszTypes.DepositData
       }
     }

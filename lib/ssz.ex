@@ -171,22 +171,7 @@ defmodule Ssz do
   @bits_per_byte 8
 
   ### ENCODE ######
-  def serialize(%struct{} = map) do
-    schemas = struct.schema()
-
-    serialized =
-      schemas
-      |> Enum.map(fn schema ->
-        key = Enum.at(Map.keys(schema), 0)
-        metadata = Map.get(schema, key)
-        value = Map.get(map, key)
-        {:ok, serialized} = serialize(value, metadata)
-        serialized
-      end)
-      |> :binary.list_to_bin()
-
-    {:ok, serialized}
-  end
+  def serialize(%struct{} = map), do: serialize(map, %{type: :container, schema: struct})
 
   def serialize(elements) when is_list(elements) do
     serialized =
@@ -202,11 +187,24 @@ defmodule Ssz do
 
   def serialize(value) when is_binary(value), do: {:ok, value}
 
-  def serialize(value, []) when is_binary(value), do: {:ok, value}
+  def serialize(map, %{type: :container, schema: schema}) do
+    schemas = schema.schema()
 
-  def serialize(value, %{type: :struct}) do
-    serialize(value)
+    serialized =
+      schemas
+      |> Enum.map(fn schema ->
+        key = Enum.at(Map.keys(schema), 0)
+        metadata = Map.get(schema, key)
+        value = Map.get(map, key)
+        {:ok, serialized} = serialize(value, metadata)
+        serialized
+      end)
+      |> :binary.list_to_bin()
+
+    {:ok, serialized}
   end
+
+  def serialize(value, []) when is_binary(value), do: {:ok, value}
 
   def serialize(elements, %{type: :list, schema: schema, max_size: max_size}) do
     if length(elements) > max_size do
@@ -313,16 +311,16 @@ defmodule Ssz do
                                                             position_bin}} ->
           key = Enum.at(Map.keys(s), 0)
           metadata = Map.get(s, key)
-          decode_with_scheme(metadata, key, rest_bytes, items, offsets, position_bin)
+          decode_with_schema(metadata, key, rest_bytes, items, offsets, position_bin)
         end)
 
       {:ok, struct!(schema, items)}
     end
   end
 
-  @spec decode_with_scheme(map, atom, binary, map, list, integer()) ::
+  @spec decode_with_schema(map, atom, binary, map, list, integer()) ::
           {:cont, {:ok, {binary, %{}}}} | {:halt, {:error, String.t()}}
-  defp decode_with_scheme(schema, key, rest_bytes, items, offsets, position_bin) do
+  defp decode_with_schema(schema, key, rest_bytes, items, offsets, position_bin) do
     case schema do
       %{type: :list, schema: elements_schema, is_variable: false, max_size: max_size} ->
         %{size: element_size} = elements_schema
@@ -338,7 +336,7 @@ defmodule Ssz do
           {rest, Map.merge(items, %{key => decoded_list}), offsets,
            max_size * element_size + position_bin}}}
 
-      %{type: :struct, schema: schema} ->
+      %{type: :container, schema: schema} ->
         with {:ok, decoded} <- deserialize(rest_bytes, schema) do
           {:cont, {:ok, {rest_bytes, Map.merge(items, %{key => decoded}), offsets, position_bin}}}
         end
@@ -475,7 +473,7 @@ defmodule Ssz do
     |> Enum.all?()
   end
 
-  defp is_variable_size(%{type: :struct, schema: schema}) do
+  defp is_variable_size(%{type: :container, schema: schema}) do
     schema
     |> Enum.map(fn schema ->
       key = Enum.at(Map.keys(schema), 0)
