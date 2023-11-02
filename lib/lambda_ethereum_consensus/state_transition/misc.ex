@@ -234,42 +234,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     root
   end
 
-  # @doc """
-  # Return from ``indices`` a random index sampled by effective balance.
-  # """
-  # @spec compute_proposer_index(
-  #         BeaconState.t(),
-  #         list(SszTypes.validator_index()),
-  #         SszTypes.bytes32()
-  #       ) ::
-  #         SszTypes.validator_index()
-  # def compute_proposer_index(state, indices, seed) when length(indices) > 0 do
-  #   total = length(indices)
-  #   compute_proposer_index(state, indices, seed, 0, total)
-  # end
-
-  # defp compute_proposer_index(_state, _indices, _seed, i, total) when i >= total, do: nil
-
-  # defp compute_proposer_index(state, indices, seed, i, total) do
-  #   max_random_byte = 255
-  #   {:ok, shuffled_index} = compute_shuffled_index(rem(i, total), total, seed)
-  #   candidate_index = Enum.at(indices, shuffled_index)
-
-  #   random_byte =
-  #     :crypto.hash(:sha256, seed <> uint64_to_bytes(div(i, 32)))
-  #     |> :binary.part(rem(i, 32), 1)
-  #     |> :binary.decode_unsigned()
-
-  #   validator = Enum.at(state.validators, candidate_index)
-  #   effective_balance = validator.effective_balance
-
-  #   if effective_balance * max_random_byte >= ChainSpec.get("MAX_EFFECTIVE_BALANCE") * random_byte do
-  #     candidate_index
-  #   else
-  #     compute_proposer_index(state, indices, seed, i + 1, total)
-  #   end
-  # end
-
   @doc """
   Return a new ``ParticipationFlags`` adding ``flag_index`` to ``flags``.
   """

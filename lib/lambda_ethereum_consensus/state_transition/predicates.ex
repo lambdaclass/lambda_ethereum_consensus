@@ -138,44 +138,4 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
       end
     end
   end
-  # @doc """
-  # Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
-  # """
-  # @spec is_valid_indexed_attestation(BeaconState.t(), IndexedAttestation.t()) ::
-  #         {:ok, boolean} | {:error, binary()}
-  # def is_valid_indexed_attestation(
-  #       %BeaconState{validators: validators} = state,
-  #       indexed_attestation
-  #     ) do
-  #   # Verify indices are sorted and unique
-  #   indices = indexed_attestation.attesting_indices
-
-  #   sorted_indices =
-  #     indices
-  #     |> Enum.uniq()
-  #     |> Enum.sort()
-
-  #   # Verify aggregate signature
-  #   case length(indices) != 0 && indices == sorted_indices do
-  #     true ->
-  #       pubkeys =
-  #         Enum.map(indices, fn index ->
-  #           v = Enum.at(validators, index)
-  #           v.pubkey
-  #         end)
-
-  #       domain =
-  #         Accessors.get_domain(
-  #           state,
-  #           Constants.domain_beacon_attester(),
-  #           indexed_attestation.data.target.epoch
-  #         )
-
-  #       signing_root = Misc.compute_signing_root(indexed_attestation.data, domain)
-  #       Bls.fast_aggregate_verify(pubkeys, signing_root, indexed_attestation.signature)
-
-  #     false ->
-  #       {:error, "Attesting Indices are empty or not sorted"}
-  #   end
-  # end
 end
