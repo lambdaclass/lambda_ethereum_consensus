@@ -155,7 +155,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Return the domain for the ``domain_type`` and ``fork_version``.
   """
   @spec compute_domain(SszTypes.domain_type(), Keyword.t()) ::
-          SszTypes.domain()
+          {:ok, SszTypes.domain()}
   def compute_domain(domain_type, opts \\ []) do
     fork_version = Keyword.get(opts, :fork_version, ChainSpec.get("GENESIS_FORK_VERSION"))
     genesis_validators_root = Keyword.get(opts, :genesis_validators_root, <<0::32>>)
@@ -166,7 +166,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       )
 
     <<_::binary-size(4), remainder::binary>> = fork_data_root
-    domain_type <> remainder
+    {:ok, domain_type <> remainder}
   end
 
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
