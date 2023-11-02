@@ -173,7 +173,7 @@ defmodule Unit.SSZTests do
       ])
 
     assert {:ok, ^serialized} = Ssz.to_ssz_typed(deserialized, SszTypes.Transaction)
-    assert {:ok, ^serialized} = Ssz.serialize_list(deserialized, SszTypes.Transaction.schema())
+    assert {:ok, ^serialized} = Ssz.serialize(deserialized, SszTypes.Transaction.schema())
     assert {:ok, ^deserialized} = Ssz.list_from_ssz_elixir(serialized, SszTypes.Transaction)
     assert {:ok, ^deserialized} = Ssz.list_from_ssz(serialized, SszTypes.Transaction)
 

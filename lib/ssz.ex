@@ -206,28 +206,33 @@ defmodule Ssz do
 
   def serialize(value, []) when is_binary(value), do: {:ok, value}
 
-  def serialize(elements, %{type: :list, schema: schema, max_size: max_size}) do
+  def serialize(elements, %{type: :vector, schema: schema, max_size: max_size} = container) do
     if length(elements) > max_size do
       {:error, "max_size_error"}
     else
-      serialize_list(elements, schema)
+      serialize_list(elements, schema, container)
     end
+  end
+
+  # TODO check max_size of variable list
+  def serialize(elements, %{type: :list, schema: schema, max_size: max_size} = container) do
+    serialize_list(elements, schema, container)
   end
 
   def serialize(value, %{type: :uint, size: size}) when is_integer(value),
     do: serialize_uint(value, size)
 
-  def serialize(value, %{type: :bytes, size: _size}), do: {:ok, value}
+  def serialize(value, %{type: :bytes}), do: {:ok, value}
 
   def serialize(value, %{} = schema),
     do: {:error, "Unknown schema: #{inspect(schema)} for value #{inspect(value)}"}
 
-  @spec serialize_list(list, list) :: {:ok, binary} | {:error, String.t()}
-  def serialize_list(elements, schema) when is_list(elements) do
+  @spec serialize_list(list, map, map) :: {:ok, binary} | {:error, String.t()}
+  def serialize_list(elements, schema, container) when is_list(elements) do
     fixed_parts =
       elements
       |> Enum.map(fn element ->
-        if is_variable_size(schema), do: nil, else: serialize(element, schema)
+        if is_variable_size(container), do: nil, else: serialize(element, schema)
       end)
       |> Enum.map(fn
         {:ok, ser} -> ser
@@ -237,7 +242,7 @@ defmodule Ssz do
     variable_parts =
       elements
       |> Enum.map(fn element ->
-        if is_variable_size(schema), do: serialize(element, schema), else: <<>>
+        if is_variable_size(container), do: serialize(element, schema), else: <<>>
       end)
       |> Enum.map(fn
         {:ok, ser} -> ser
@@ -300,9 +305,7 @@ defmodule Ssz do
   def deserialize(bin, schema) do
     schema_def = schema.schema()
 
-    if Enum.empty?(schema_def) do
-      {:ok, bin}
-    else
+    if is_list(schema_def) do
       {:ok, {_rest, items, _, _}} =
         schema_def
         |> Enum.reduce_while({:ok, {bin, %{}, [], 0}}, fn s,
@@ -311,18 +314,31 @@ defmodule Ssz do
                                                             position_bin}} ->
           key = Enum.at(Map.keys(s), 0)
           metadata = Map.get(s, key)
-          decode_with_schema(metadata, key, rest_bytes, items, offsets, position_bin)
+          deserialize_with_acc(metadata, key, rest_bytes, items, offsets, position_bin)
         end)
 
       {:ok, struct!(schema, items)}
+    else
+      {:error, "Invalid container schema: #{inspect(schema_def)}"}
     end
   end
 
-  @spec decode_with_schema(map, atom, binary, map, list, integer()) ::
+  @spec deserialize_with_acc(map, atom, binary, map, list, integer()) ::
           {:cont, {:ok, {binary, %{}}}} | {:halt, {:error, String.t()}}
-  defp decode_with_schema(schema, key, rest_bytes, items, offsets, position_bin) do
+  defp deserialize_with_acc(schema, key, rest_bytes, items, offsets, position_bin) do
+    case deserialize_match(rest_bytes, schema) do
+      {:ok, {decoded, rest, pos}} ->
+        {:cont, {:ok, {rest, Map.merge(items, %{key => decoded}), offsets, position_bin + pos}}}
+
+      {:error, reason} ->
+        {:halt, {:error, reason}}
+    end
+  end
+
+  @spec deserialize_match(binary, %{}) :: {:ok, {any, binary, integer()}} | {:error, String.t()}
+  defp deserialize_match(rest_bytes, schema) do
     case schema do
-      %{type: :list, schema: elements_schema, is_variable: false, max_size: max_size} ->
+      %{type: :vector, schema: elements_schema, max_size: max_size} ->
         %{size: element_size} = elements_schema
         <<elements::binary-size(max_size * element_size), rest::bitstring>> = rest_bytes
 
@@ -331,33 +347,38 @@ defmodule Ssz do
           |> Enum.chunk_every(element_size)
           |> Enum.map(fn c -> :binary.list_to_bin(c) end)
 
-        {:cont,
-         {:ok,
-          {rest, Map.merge(items, %{key => decoded_list}), offsets,
-           max_size * element_size + position_bin}}}
+        {:ok, {decoded_list, rest, max_size * element_size}}
+
+      %{type: :list, schema: elements_schema, max_size: _max_size} ->
+        with {:ok, decoded} <- list_from_ssz_elixir(rest_bytes, schema) do
+          {:ok, {decoded, rest_bytes, 0}}
+        end
 
       %{type: :container, schema: schema} ->
         with {:ok, decoded} <- deserialize(rest_bytes, schema) do
-          {:cont, {:ok, {rest_bytes, Map.merge(items, %{key => decoded}), offsets, position_bin}}}
+          {:ok, {decoded, rest_bytes, 0}}
         end
 
       %{type: :bytes, size: size} ->
         <<element::binary-size(size), rest::bitstring>> = rest_bytes
-        {:cont, {:ok, {rest, Map.merge(items, %{key => element}), offsets, position_bin}}}
+        {:ok, {element, rest, 0}}
+
+      %{type: :bytes} ->
+        {:ok, {rest_bytes, <<>>, 0}}
 
       %{type: :uint, size: size} ->
         <<element::integer-size(size)-little, rest::bitstring>> = rest_bytes
-        {:cont, {:ok, {rest, Map.merge(items, %{key => element}), offsets, position_bin}}}
+        {:ok, {element, rest, 0}}
 
       unknown_schema ->
         {:halt, {:error, "Unknown schema: #{inspect(unknown_schema)}"}}
     end
   end
 
-  @spec list_from_ssz_elixir(binary, module) :: {:ok, struct} | {:error, String.t()}
+  @spec list_from_ssz_elixir(binary, map | module) :: {:ok, list} | {:error, String.t()}
   def list_from_ssz_elixir(bin, schema) do
-    if is_variable_schema(schema.schema) do
-      decode_list_of_variable_length_items(bin, schema)
+    if is_variable_schema(schema) do
+      decode_list_of_variable_length_items(bin, schema.schema())
     else
       ssz_fixed_len =
         schema.schema
@@ -384,7 +405,7 @@ defmodule Ssz do
 
   # based on sigp/ethereum_ssz::decode_list_of_variable_length_items
   @spec decode_list_of_variable_length_items(binary, module) ::
-          {:ok, struct} | {:error, String.t()}
+          {:ok, list} | {:error, String.t()}
   def decode_list_of_variable_length_items(bin, schema) do
     if byte_size(bin) == 0 do
       {:error, "Error trying to collect empty list"}
@@ -399,7 +420,7 @@ defmodule Ssz do
         with {:ok, first_offset} <-
                sanitize_offset(first_offset, nil, byte_size(bin), first_offset) do
           {:ok, {decoded_list, _, _}} =
-            decode_variable_list(first_offset, rest_bytes, num_items, bin, schema)
+            decode_variable_list(first_offset, rest_bytes, num_items, bin, schema.schema())
 
           {:ok, decoded_list |> Enum.reverse()}
         end
@@ -418,7 +439,7 @@ defmodule Ssz do
       if i == num_items do
         part = :binary.part(bin, offset, byte_size(bin) - offset)
 
-        with {:ok, decoded} <- deserialize(part, schema) do
+        with {:ok, {decoded, rest_bytes, pos}} <- deserialize_match(part, schema) do
           {:cont, {:ok, {[decoded | acc_decoded], offset, rest_bytes}}}
         end
       else
@@ -436,7 +457,7 @@ defmodule Ssz do
       {:ok, next_offset} ->
         part = :binary.part(bin, offset, next_offset - offset)
 
-        with {:ok, decoded} <- deserialize(part, schema) do
+        with {:ok, {decoded, _, _}} <- deserialize_match(part, schema) do
           {:cont, {:ok, {[decoded | acc_decoded], next_offset, rest_bytes}}}
         end
 
@@ -446,7 +467,7 @@ defmodule Ssz do
   end
 
   ##### HELPERS ##########
-  defp is_variable_schema(map) when is_list(map) and map == [], do: true
+  defp is_variable_schema(%{type: :list}), do: true
 
   defp is_variable_schema(map) when is_list(map) do
     map
@@ -456,6 +477,12 @@ defmodule Ssz do
       is_variable_size(metadata)
     end)
     |> Enum.all?()
+  end
+
+  defp is_variable_schema(map) do
+    if exported?(map, :schema, 0) do
+      is_variable_schema(map.schema())
+    end
   end
 
   defp byte_size_from_type(%{type: :uint, size: size}), do: div(size, @bits_per_byte)
@@ -483,10 +510,10 @@ defmodule Ssz do
     |> Enum.all?()
   end
 
-  defp is_variable_size(%{type: :list, is_variable: is_variable}), do: is_variable
-  defp is_variable_size(%{type: :bytes}), do: false
+  defp is_variable_size(%{type: :list}), do: true
+  defp is_variable_size(%{type: :vector}), do: false
+  defp is_variable_size(%{type: :bytes}), do: true
   defp is_variable_size(%{type: :uint}), do: false
-  defp is_variable_size([]), do: true
 
   # https://notes.ethereum.org/ruKvDXl6QOW3gnqVYb8ezA?view
   defp sanitize_offset(offset, previous_offset, num_bytes, num_fixed_bytes) do
