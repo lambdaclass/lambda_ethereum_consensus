@@ -137,16 +137,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
 
       blocks =
         start_slot..slot_coverage
-        |> Enum.reduce_while([], fn slot, current_blocks ->
-          blocks = case StateStore.get_state_by_slot(slot) do
+        |> Enum.reduce([], fn slot, current_blocks ->
+          case StateStore.get_state_by_slot(slot) do
             {:ok, state} -> current_blocks ++ BlockStore.get_blocks(state.block_roots)
             {:error, _} -> current_blocks
             :not_found -> current_blocks
-          end
-          if length(blocks) <= ChainSpec.get("MAX_REQUEST_BLOCKS") do
-            {:cont, blocks}
-          else
-            {:halt, blocks}
           end
         end)
 
