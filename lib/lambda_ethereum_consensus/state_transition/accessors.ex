@@ -137,7 +137,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       :crypto.hash(
         :sha256,
         get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
-          Misc.uint_to_bytes4(state.slot)
+          Misc.uint64_to_bytes(state.slot)
       )
 
     indices = get_active_validator_indices(state, epoch)
@@ -325,7 +325,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         state.fork.current_version
       end
 
-    Misc.compute_domain(domain_type, fork_version, state.genesis_validators_root)
+    {:ok, domain} = Misc.compute_domain(domain_type, fork_version: fork_version, genesis_validators_root: state.genesis_validators_root)
+    domain
   end
 
   @doc """

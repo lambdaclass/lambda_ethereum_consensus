@@ -121,7 +121,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
           div(validator.effective_balance, ChainSpec.get("MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX"))
 
         proposer_index = Accessors.get_beacon_proposer_index(state)
-
         case proposer_index do
           {:error, msg} -> {:error, msg}
           _ ->

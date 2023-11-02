@@ -95,9 +95,9 @@ defmodule OperationsTestRunner do
     result = Operations.process_attester_slashing(pre, attester_slashing)
     {:ok, result} = result
     if post != nil do
-      IO.inspect(LambdaEthereumConsensus.Utils.Diff.diff(post, result))
+      IO.inspect(LambdaEthereumConsensus.Utils.Diff.diff(result, post))
     end
-    assert result == {:ok, post}
+    assert result == post
     # IO.inspect(post)
   end
 
