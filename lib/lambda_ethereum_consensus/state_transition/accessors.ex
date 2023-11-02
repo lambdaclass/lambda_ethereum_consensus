@@ -125,20 +125,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     |> Stream.map(fn {_validator, index} -> index end)
     |> Enum.to_list()
   end
-  @doc """
-  Return the seed at ``epoch``.
-  """
-  @spec get_seed(BeaconState.t(), SszTypes.epoch(), SszTypes.domain_type()) :: SszTypes.bytes32()
-  def get_seed(state, epoch, domain_type) do
-    mix =
-      get_randao_mix(
-        state,
-        epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
-          ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
-      )
-
-    :crypto.hash(:sha256, domain_type <> Misc.uint_to_bytes4(epoch) <> mix)
-  end
 
   @doc """
   Return the beacon proposer index at the current slot.
@@ -159,22 +145,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       {:error, msg} -> {:error, msg}
       i -> i
     end
-  end
-
-  @doc """
-  Return the signature domain (fork version concatenated with domain type) of a message.
-  """
-  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch() | nil) :: SszTypes.domain()
-  def get_domain(state, domain_type, epoch \\ nil) do
-    epoch = if epoch == nil, do: get_current_epoch(state), else: epoch
-
-    fork_version =
-      if epoch < state.fork.epoch,
-        do: state.fork.previous_version,
-        else: state.fork.current_version
-
-    {:ok, domain} = Misc.compute_domain(domain_type, fork_version: fork_version, genesis_validators_root: state.genesis_validators_root)
-    domain
   end
 
   @doc """
@@ -344,8 +314,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the signature domain (fork version concatenated with domain type) of a message.
   """
-  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch()) :: SszTypes.domain()
-  def get_domain(state, domain_type, epoch) do
+  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch() | nil) :: SszTypes.domain()
+  def get_domain(state, domain_type, epoch \\ nil) do
     epoch = if epoch == nil, do: get_current_epoch(state), else: epoch
 
     fork_version =
@@ -415,24 +385,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     # Exclude last bit
     |> String.slice(0..-2)
     |> String.graphemes()
-  end
-
-  @doc """
-  Return the beacon proposer index at the current slot.
-  """
-  @spec get_beacon_proposer_index(BeaconState.t()) :: SszTypes.validator_index()
-  def get_beacon_proposer_index(state) do
-    epoch = get_current_epoch(state)
-
-    seed =
-      :crypto.hash(
-        :sha256,
-        get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
-          Misc.uint64_to_bytes(state.slot)
-      )
-
-    indices = get_active_validator_indices(state, epoch)
-    Misc.compute_proposer_index(state, indices, seed)
   end
 
   @doc """

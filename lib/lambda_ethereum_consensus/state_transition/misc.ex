@@ -122,37 +122,37 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     epoch * slots_per_epoch
   end
 
-  @doc """
-  Return from ``indices`` a random index sampled by effective balance.
-  """
-  @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
-          SszTypes.validator_index() | {:error, binary()}
-  def compute_proposer_index(state, indices, seed) do
-    if not (length(indices) > 0) do
-      {:error, "Empty indices"}
-    else
-      compute_proposer_index(state, indices, seed, 0)
-    end
-  end
+  # @doc """
+  # Return from ``indices`` a random index sampled by effective balance.
+  # """
+  # @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
+  #         SszTypes.validator_index() | {:error, binary()}
+  # def compute_proposer_index(state, indices, seed) do
+  #   if not (length(indices) > 0) do
+  #     {:error, "Empty indices"}
+  #   else
+  #     compute_proposer_index(state, indices, seed, 0)
+  #   end
+  # end
 
-  defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
-    max_random_byte = 2 ** 8 - 1
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+  # defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
+  #   max_random_byte = 2 ** 8 - 1
+  #   max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
-    total = length(indices)
-    {:ok, i} = compute_shuffled_index(rem(i, total), total, seed)
-    candidate_index = Enum.at(indices, i)
-    random_byte = :crypto.hash(:sha256, seed <> uint_to_bytes4(div(i, 32)))
-    <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
+  #   total = length(indices)
+  #   {:ok, i} = compute_shuffled_index(rem(i, total), total, seed)
+  #   candidate_index = Enum.at(indices, i)
+  #   random_byte = :crypto.hash(:sha256, seed <> uint_to_bytes4(div(i, 32)))
+  #   <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
 
-    effective_balance = Enum.at(state.validators, candidate_index).effective_balance
+  #   effective_balance = Enum.at(state.validators, candidate_index).effective_balance
 
-    if effective_balance * max_random_byte >= max_effective_balance * byte do
-      candidate_index
-    else
-      compute_proposer_index(state, indices, seed, i + 1)
-    end
-  end
+  #   if effective_balance * max_random_byte >= max_effective_balance * byte do
+  #     candidate_index
+  #   else
+  #     compute_proposer_index(state, indices, seed, i + 1)
+  #   end
+  # end
 
   @doc """
   Return the domain for the ``domain_type`` and ``fork_version``.
