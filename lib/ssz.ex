@@ -36,19 +36,19 @@ defmodule Ssz do
   end
 
   def from_ssz(bin, SszTypes.Checkpoint = schema) do
-    decode_elixir(bin, schema)
+    deserialize(bin, schema)
   end
 
   def from_ssz(bin, SszTypes.Deposit = schema) do
-    decode_elixir(bin, schema)
+    deserialize(bin, schema)
   end
 
   def from_ssz(bin, SszTypes.DepositData = schema) do
-    decode_elixir(bin, schema)
+    deserialize(bin, schema)
   end
 
   def from_ssz(bin, SszTypes.DepositMessage = schema) do
-    decode_elixir(bin, schema)
+    deserialize(bin, schema)
   end
 
   @spec from_ssz(binary, module) :: {:ok, struct} | {:error, String.t()}
@@ -298,8 +298,8 @@ defmodule Ssz do
   end
 
   ### DECODE ######
-  @spec decode_elixir(binary, module) :: {:ok, struct} | {:error, String.t()}
-  def decode_elixir(bin, schema) do
+  @spec deserialize(binary, module) :: {:ok, struct} | {:error, String.t()}
+  def deserialize(bin, schema) do
     schema_def = schema.schema()
 
     if Enum.empty?(schema_def) do
@@ -339,7 +339,7 @@ defmodule Ssz do
            max_size * element_size + position_bin}}}
 
       %{type: :struct, schema: schema} ->
-        with {:ok, decoded} <- decode_elixir(rest_bytes, schema) do
+        with {:ok, decoded} <- deserialize(rest_bytes, schema) do
           {:cont, {:ok, {rest_bytes, Map.merge(items, %{key => decoded}), offsets, position_bin}}}
         end
 
@@ -375,7 +375,7 @@ defmodule Ssz do
         |> Enum.chunk_every(ssz_fixed_len)
         |> Enum.map(fn c -> :binary.list_to_bin(c) end)
         |> Enum.map(fn b ->
-          with {:ok, decoded} <- decode_elixir(b, schema) do
+          with {:ok, decoded} <- deserialize(b, schema) do
             decoded
           end
         end)
@@ -420,7 +420,7 @@ defmodule Ssz do
       if i == num_items do
         part = :binary.part(bin, offset, byte_size(bin) - offset)
 
-        with {:ok, decoded} <- decode_elixir(part, schema) do
+        with {:ok, decoded} <- deserialize(part, schema) do
           {:cont, {:ok, {[decoded | acc_decoded], offset, rest_bytes}}}
         end
       else
@@ -438,7 +438,7 @@ defmodule Ssz do
       {:ok, next_offset} ->
         part = :binary.part(bin, offset, next_offset - offset)
 
-        with {:ok, decoded} <- decode_elixir(part, schema) do
+        with {:ok, decoded} <- deserialize(part, schema) do
           {:cont, {:ok, {[decoded | acc_decoded], next_offset, rest_bytes}}}
         end
 
