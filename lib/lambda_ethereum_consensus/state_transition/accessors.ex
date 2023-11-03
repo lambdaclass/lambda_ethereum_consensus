@@ -328,13 +328,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         state.fork.current_version
       end
 
-    {:ok, domain} =
-      Misc.compute_domain(domain_type,
-        fork_version: fork_version,
-        genesis_validators_root: state.genesis_validators_root
-      )
-
-    domain
+    Misc.compute_domain(domain_type,
+      fork_version: fork_version,
+      genesis_validators_root: state.genesis_validators_root
+    )
   end
 
   @doc """
