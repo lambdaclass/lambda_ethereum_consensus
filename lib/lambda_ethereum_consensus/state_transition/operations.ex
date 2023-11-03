@@ -202,23 +202,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
           |> Enum.sort()
           |> Enum.reduce_while({false, state}, fn i, {slashed_any, state} ->
-            cond do
-              Predicates.is_slashable_validator(
+            if Predicates.is_slashable_validator(
                 Enum.at(state.validators, i),
                 Accessors.get_current_epoch(state)
-              ) ->
-                case Mutators.slash_validator(state, i) do
-                  {:ok, state} -> {:cont, {true, state}}
-                  {:error, _msg} -> {:halt, {false, nil}}
-                end
+              ) do
+              case Mutators.slash_validator(state, i) do
+                {:ok, state} -> {:cont, {true, state}}
+                {:error, _msg} -> {:halt, {false, nil}}
+              end
 
-              true ->
-                {:cont, {slashed_any, state}}
+            else
+              {:cont, {slashed_any, state}}
             end
           end)
-        case slashed_any do
-          false -> {:ok, nil}
-          true -> {:ok, state}
+        if slashed_any do
+          {:ok, state}
+        else
+          {:ok, nil}
         end
     end
   end
