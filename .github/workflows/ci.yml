@@ -222,5 +222,7 @@ jobs:
           mix deps.get
       - name: Uncompress vectors
         run: make test/spec/vectors/tests/${{ matrix.config }}
+      - name: Generate tests
+        run: make gen-spec
       - name: Run tests
-        run: mix test --no-start --trace --only spectest
+        run: mix test --no-start test/generated/${{ matrix.config }}/*/*

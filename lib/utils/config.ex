@@ -4,7 +4,17 @@ defmodule ConfigUtils do
   """
   @forks ["phase0", "altair", "bellatrix", "capella"]
 
-  def load_config_from_file!(path), do: YamlElixir.read_from_file!(path)
+  def load_config_from_file!(path) do
+    path
+    |> File.read!()
+    |> String.replace(~r/(0x[0-9a-fA-F]+)/, "'\\g{1}'")
+    |> YamlElixir.read_from_string!()
+    |> Stream.map(fn
+      {k, "0x" <> hash} -> {k, Base.decode16!(hash, case: :mixed)}
+      e -> e
+    end)
+    |> Enum.into(%{})
+  end
 
   def load_preset_from_dir!(path) do
     # TODO: we should return the merged preset for each fork here

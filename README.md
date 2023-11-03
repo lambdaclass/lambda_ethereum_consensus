@@ -109,23 +109,44 @@ You can run all of them with:
 make spec-test
 ```
 
-Or only run those of a specific test runner with:
+Or only run those of a specific config with:
 
 ```shell
-make spec-test-`runner`
-# some examples
-make spec-test-ssz_static
-make spec-test-bls
-make spec-test-operations
+make spec-test-config-`config`
+
+# Some examples
+make spec-test-config-mainnet
+make spec-test-config-minimal
+make spec-test-config-general
+```
+
+Or by a single runner in all configs, with:
+
+```shell
+make spec-test-runner-`runner`
+
+# Some examples
+make spec-test-config-ssz_static
+make spec-test-config-bls
+make spec-test-config-operations
 ```
 
 The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
 
-For more fine-grained filtering of tests, you can use mix test tag filters:
+If you want to specify both a config and a runner:
 
-```bash
-mix test --no-start --only <tag_name>[:<tag_value>]
+```shell
+make spec-test-mainnet-operations
+make spec-test-minimal-epoch_processing
+make spec-test-general-bls
 ```
+
+More advanced filtering (e.g. by fork or handler) will be re-added again, but if you want to only run a specific test, you can always do that manually with:
+
+```shell
+mix --no-start test/generated/<config>/<fork>/<runner>.exs:<line_of_your_testcase>
+```
+You can put a "*" in any directory (e.g. config) you don't want to filter by, although that won't work if adding the line of the testcase.
 
 > [!NOTE]
 > We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
@@ -412,6 +433,23 @@ Lambda Ethereum Consensus is more than just a project; it's a community-driven i
 ---
 
 **Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
+
+## Metrics
+
+When running the node, metrics are available at [`http://localhost:9568/metrics`](http://localhost:9568/metrics) in Prometheus format.
+
+### Grafana
+
+A docker-compose is available at [`metrics/`](./metrics) with a Grafana-Prometheus setup preloaded with dashboards that disponibilize the data.
+To run it, install [Docker Compose](https://docs.docker.com/compose/) and execute:
+
+```shell
+cd metrics
+docker-compose up
+```
+
+After that, open [`http://localhost:3000/`](http://localhost:3000/) in a browser.
+The default username and password are both `admin`.
 
 ## Profiling
 

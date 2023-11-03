@@ -24,15 +24,16 @@ defmodule LambdaEthereumConsensus.Application do
     ]
 
     children = [
+      {LambdaEthereumConsensus.Telemetry, []},
       {LambdaEthereumConsensus.Libp2pPort, libp2p_opts},
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
-      {LambdaEthereumConsensus.P2P.IncomingRequestHandler, []},
+      {LambdaEthereumConsensus.P2P.IncomingRequests, []},
       {LambdaEthereumConsensus.ForkChoice, [Keyword.get(args, :checkpoint_sync)]},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
       # Start the Endpoint (http/https)
-      BeaconApi.Endpoint
+      {BeaconApi.Endpoint, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
