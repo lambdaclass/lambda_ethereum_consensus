@@ -86,4 +86,20 @@ defmodule DiffTest do
              }
     end
   end
+
+  defmodule MyStruct do
+    defstruct [:a, :b]
+  end
+
+  describe "Structs comparison" do
+    test "shows structs as equal" do
+      assert Diff.diff(%MyStruct{a: 1, b: 2}, %MyStruct{a: 1, b: 2}) == :unchanged
+    end
+
+    test "shows recursive diffs with maps in it" do
+      assert Diff.diff(%MyStruct{a: %{c: 1, d: 2}}, %MyStruct{a: %{c: 1, d: 3, e: 4}}) == %{
+               changed: [a: %{added_right: [e: 4], changed: [d: %{left: 2, right: 3}]}]
+             }
+    end
+  end
 end
