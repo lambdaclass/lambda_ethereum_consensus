@@ -138,7 +138,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
                 ## TODO: Compute the byte length
                 response_chunk <> <<0>> <> @fork_context <> <<13_743>> <> snappy_ssz_signed_block
               else
-                response_chunk <> <<2>> <> @error_message_server_error
+                {:error, _} ->
+                  response_chunk <> <<2>> <> @error_message_server_error
               end
 
             _ ->
