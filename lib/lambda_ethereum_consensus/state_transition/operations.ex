@@ -181,19 +181,19 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     attestation_2 = attester_slashing.attestation_2
 
     cond do
-      Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) == false ->
+      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
         {:ok, nil}
 
-      Predicates.is_valid_indexed_attestation(state, attestation_1) == false ->
+      not Predicates.is_valid_indexed_attestation(state, attestation_1) ->
         {:ok, nil}
 
-      Predicates.is_valid_indexed_attestation(state, attestation_2) == false ->
+      not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
         {:ok, nil}
 
-      Predicates.is_indices_available(length(state.validators), attestation_1.attesting_indices) == false ->
+      not Predicates.is_indices_available(length(state.validators), attestation_1.attesting_indices) ->
         {:ok, nil}
 
-      Predicates.is_indices_available(length(state.validators), attestation_2.attesting_indices) == false ->
+      not Predicates.is_indices_available(length(state.validators), attestation_2.attesting_indices) ->
         {:ok, nil}
 
       true ->
