@@ -136,8 +136,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
             {:error, msg}
 
           {:ok, proposer_index} ->
-            whistleblower_index =
-              if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
+            whistleblower_index = whistleblower_index(whistleblower_index, proposer_index)
 
             whistleblower_reward =
               div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
@@ -156,5 +155,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
              |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
         end
     end
+  end
+
+  defp whistleblower_index(whistleblower_index, proposer_index) do
+    if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
   end
 end
