@@ -95,14 +95,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
           {:ok, BeaconState.t()} | {:error, binary()}
   def slash_validator(state, slashed_index, whistleblower_index \\ nil) do
     epoch = Accessors.get_current_epoch(state)
+
     case initiate_validator_exit(state, slashed_index) do
-      {:error, msg} -> {:error, msg}
+      {:error, msg} ->
+        {:error, msg}
+
       {:ok, validator} ->
         validator = %Validator{
           validator
           | slashed: true,
             withdrawable_epoch:
-              max(validator.withdrawable_epoch, epoch + ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR"))
+              max(
+                validator.withdrawable_epoch,
+                epoch + ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
+              )
         }
 
         state = %BeaconState{
@@ -118,11 +124,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         }
 
         slashing_penalty =
-          div(validator.effective_balance, ChainSpec.get("MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX"))
+          div(
+            validator.effective_balance,
+            ChainSpec.get("MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX")
+          )
 
         proposer_index = Accessors.get_beacon_proposer_index(state)
+
         case proposer_index do
-          {:error, msg} -> {:error, msg}
+          {:error, msg} ->
+            {:error, msg}
+
           {:ok, proposer_index} ->
             whistleblower_index =
               if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
@@ -131,15 +143,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
               div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
 
             proposer_reward =
-              div(whistleblower_reward * Constants.proposer_weight(), Constants.weight_denominator())
+              div(
+                whistleblower_reward * Constants.proposer_weight(),
+                Constants.weight_denominator()
+              )
 
             # Decrease slashers balance, apply proposer and whistleblower rewards
             {:ok,
-              state
-              |> decrease_balance(slashed_index, slashing_penalty)
-              |> increase_balance(proposer_index, proposer_reward)
-              |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
-          end
+             state
+             |> decrease_balance(slashed_index, slashing_penalty)
+             |> increase_balance(proposer_index, proposer_reward)
+             |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
         end
     end
+  end
 end

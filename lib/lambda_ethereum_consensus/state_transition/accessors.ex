@@ -129,7 +129,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the beacon proposer index at the current slot.
   """
-  @spec get_beacon_proposer_index(BeaconState.t()) :: {:ok, SszTypes.validator_index()} | {:error, binary()}
+  @spec get_beacon_proposer_index(BeaconState.t()) ::
+          {:ok, SszTypes.validator_index()} | {:error, binary()}
   def get_beacon_proposer_index(state) do
     epoch = get_current_epoch(state)
 
@@ -141,6 +142,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       )
 
     indices = get_active_validator_indices(state, epoch)
+
     case Misc.compute_proposer_index(state, indices, seed) do
       {:error, msg} -> {:error, msg}
       {:ok, i} -> {:ok, i}
@@ -314,7 +316,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the signature domain (fork version concatenated with domain type) of a message.
   """
-  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch() | nil) :: SszTypes.domain()
+  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch() | nil) ::
+          SszTypes.domain()
   def get_domain(state, domain_type, epoch \\ nil) do
     epoch = if epoch == nil, do: get_current_epoch(state), else: epoch
 
@@ -325,7 +328,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         state.fork.current_version
       end
 
-    {:ok, domain} = Misc.compute_domain(domain_type, fork_version: fork_version, genesis_validators_root: state.genesis_validators_root)
+    {:ok, domain} =
+      Misc.compute_domain(domain_type,
+        fork_version: fork_version,
+        genesis_validators_root: state.genesis_validators_root
+      )
+
     domain
   end
 

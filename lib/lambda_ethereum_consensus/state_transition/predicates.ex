@@ -109,7 +109,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @spec is_valid_indexed_attestation(BeaconState.t(), SszTypes.IndexedAttestation.t()) :: boolean
   def is_valid_indexed_attestation(state, indexed_attestation) do
     indices = indexed_attestation.attesting_indices
-    if length(indices) == 0 or not (indices == Enum.sort(Enum.uniq(indices))) do
+
+    if Enum.empty?(indices) or not (indices == Enum.sort(Enum.uniq(indices))) do
       false
     else
       domain =
@@ -125,12 +126,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
           domain
         )
 
-      res = state.validators
-      |> Stream.with_index()
-      |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
-      |> Stream.map(fn {%{pubkey: p}, _} -> p end)
-      |> Enum.to_list()
-      |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
+      res =
+        state.validators
+        |> Stream.with_index()
+        |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
+        |> Stream.map(fn {%{pubkey: p}, _} -> p end)
+        |> Enum.to_list()
+        |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
 
       case res do
         {:ok, r} -> r

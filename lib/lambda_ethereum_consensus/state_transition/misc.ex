@@ -129,9 +129,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   def compute_proposer_index(state, indices, seed) do
     if not (length(indices) > 0) do
       {:error, "Empty indices"}
-    else
-      {:ok, compute_proposer_index(state, indices, seed, 0)}
     end
+
+    {:ok, compute_proposer_index(state, indices, seed, 0)}
   end
 
   defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
@@ -161,6 +161,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   def compute_domain(domain_type, opts \\ []) do
     fork_version = Keyword.get(opts, :fork_version, ChainSpec.get("GENESIS_FORK_VERSION"))
     genesis_validators_root = Keyword.get(opts, :genesis_validators_root, <<0::256>>)
+
     fork_data_root =
       LambdaEthereumConsensus.Beacon.HelperFunctions.compute_fork_data_root(
         fork_version,

@@ -190,10 +190,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
         {:error, "Attestation 2 is not valid"}
 
-      not Predicates.is_indices_available(length(state.validators), attestation_1.attesting_indices) ->
+      not Predicates.is_indices_available(
+        length(state.validators),
+        attestation_1.attesting_indices
+      ) ->
         {:error, "Index too high attestation 1"}
 
-      not Predicates.is_indices_available(length(state.validators), attestation_2.attesting_indices) ->
+      not Predicates.is_indices_available(
+        length(state.validators),
+        attestation_2.attesting_indices
+      ) ->
         {:error, "Index too high attestation 2"}
 
       true ->
@@ -203,18 +209,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           |> Enum.sort()
           |> Enum.reduce_while({false, state}, fn i, {slashed_any, state} ->
             if Predicates.is_slashable_validator(
-                Enum.at(state.validators, i),
-                Accessors.get_current_epoch(state)
-              ) do
+                 Enum.at(state.validators, i),
+                 Accessors.get_current_epoch(state)
+               ) do
               case Mutators.slash_validator(state, i) do
                 {:ok, state} -> {:cont, {true, state}}
                 {:error, _msg} -> {:halt, {false, nil}}
               end
-
             else
               {:cont, {slashed_any, state}}
             end
           end)
+
         if slashed_any do
           {:ok, state}
         else
@@ -223,7 +229,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-@doc """
+  @doc """
   Process attestations during state transition.
   """
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
