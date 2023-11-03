@@ -127,11 +127,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
           {:ok, SszTypes.validator_index()} | {:error, binary()}
   def compute_proposer_index(state, indices, seed) do
-    if not (length(indices) > 0) do
+    if length(indices) <= 0 do
       {:error, "Empty indices"}
+    else
+      {:ok, compute_proposer_index(state, indices, seed, 0)}
     end
-
-    {:ok, compute_proposer_index(state, indices, seed, 0)}
   end
 
   defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
