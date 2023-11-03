@@ -127,6 +127,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
+  Return the beacon proposer index at the current slot.
+  """
+  @spec get_beacon_proposer_index(BeaconState.t()) ::
+          {:ok, SszTypes.validator_index()} | {:error, binary()}
+  def get_beacon_proposer_index(state) do
+    epoch = get_current_epoch(state)
+
+    seed =
+      :crypto.hash(
+        :sha256,
+        get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
+          Misc.uint64_to_bytes(state.slot)
+      )
+
+    indices = get_active_validator_indices(state, epoch)
+
+    case Misc.compute_proposer_index(state, indices, seed) do
+      {:error, msg} -> {:error, msg}
+      {:ok, i} -> {:ok, i}
+    end
+  end
+
+  @doc """
   Return the number of committees in each slot for the given ``epoch``.
   """
   @spec get_committee_count_per_slot(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
@@ -293,8 +316,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the signature domain (fork version concatenated with domain type) of a message.
   """
-  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch()) :: SszTypes.domain()
-  def get_domain(state, domain_type, epoch) do
+  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch() | nil) ::
+          SszTypes.domain()
+  def get_domain(state, domain_type, epoch \\ nil) do
     epoch = if epoch == nil, do: get_current_epoch(state), else: epoch
 
     fork_version =
@@ -304,7 +328,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         state.fork.current_version
       end
 
-    Misc.compute_domain(domain_type, fork_version, state.genesis_validators_root)
+    Misc.compute_domain(domain_type,
+      fork_version: fork_version,
+      genesis_validators_root: state.genesis_validators_root
+    )
   end
 
   @doc """
@@ -364,24 +391,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     # Exclude last bit
     |> String.slice(0..-2)
     |> String.graphemes()
-  end
-
-  @doc """
-  Return the beacon proposer index at the current slot.
-  """
-  @spec get_beacon_proposer_index(BeaconState.t()) :: SszTypes.validator_index()
-  def get_beacon_proposer_index(state) do
-    epoch = get_current_epoch(state)
-
-    seed =
-      :crypto.hash(
-        :sha256,
-        get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
-          Misc.uint64_to_bytes(state.slot)
-      )
-
-    indices = get_active_validator_indices(state, epoch)
-    Misc.compute_proposer_index(state, indices, seed)
   end
 
   @doc """
