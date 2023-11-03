@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias LambdaEthereumConsensus.StateTransition.Mutators
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
+  alias SszTypes.HistoricalSummary
   alias SszTypes.Validator
 
   @spec process_effective_balance_updates(BeaconState.t()) ::
@@ -287,6 +288,43 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         |> Enum.to_list()
 
       {:ok, %{state | inactivity_scores: updated_inactive_scores}}
+    end
+  end
+
+  @spec process_historical_summaries_update(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_historical_summaries_update(%BeaconState{} = state) do
+    next_epoch = Accessors.get_current_epoch(state) + 1
+
+    slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
+
+    epochs_per_historical_root =
+      div(slots_per_historical_root, ChainSpec.get("SLOTS_PER_EPOCH"))
+
+    if rem(next_epoch, epochs_per_historical_root) == 0 do
+      with {:ok, block_summary_root} <-
+             Ssz.hash_vector_tree_root_typed(
+               state.block_roots,
+               slots_per_historical_root,
+               SszTypes.Root
+             ),
+           {:ok, state_summary_root} <-
+             Ssz.hash_vector_tree_root_typed(
+               state.state_roots,
+               slots_per_historical_root,
+               SszTypes.Root
+             ) do
+        historical_summary = %HistoricalSummary{
+          block_summary_root: block_summary_root,
+          state_summary_root: state_summary_root
+        }
+
+        new_state =
+          Map.update!(state, :historical_summaries, &(&1 ++ [historical_summary]))
+
+        {:ok, new_state}
+      end
+    else
+      {:ok, state}
     end
   end
 end

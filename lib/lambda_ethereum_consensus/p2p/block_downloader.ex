@@ -52,13 +52,19 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
            ),
          {:ok, chunks} <- parse_response(response_chunk, count),
          {:ok, blocks} <- decode_chunks(chunks) do
+      tags = %{result: "success", type: "by_slot", reason: "success"}
+      :telemetry.execute([:network, :request], %{}, tags)
       {:ok, blocks}
     else
       {:error, reason} ->
+        tags = %{type: "by_slot", reason: parse_reason(reason)}
+
         if retries > 0 do
+          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "retry"))
           Logger.debug("Retrying request for block with slot #{slot}")
           request_blocks_by_slot(slot, count, retries - 1)
         else
+          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "error"))
           {:error, reason}
         end
     end
@@ -98,20 +104,23 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
            ),
          {:ok, chunks} <- parse_response(response_chunk, length(roots)),
          {:ok, blocks} <- decode_chunks(chunks) do
-      if length(blocks) != length(roots) do
-        {:error, "expected #{length(roots)} blocks, got #{length(blocks)}"}
-      else
-        {:ok, blocks}
-      end
+      tags = %{result: "success", type: "by_root", reason: "success"}
+      :telemetry.execute([:network, :request], %{}, tags)
+      {:ok, blocks}
     else
       {:error, reason} ->
+        tags = %{type: "by_root", reason: parse_reason(reason)}
+
         if retries > 0 do
+          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "retry"))
+
           Logger.debug(
             "Retrying request for blocks with roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}"
           )
 
           request_blocks_by_root(roots, retries - 1)
         else
+          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "error"))
           {:error, reason}
         end
     end
@@ -193,6 +202,13 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
       peer_id ->
         peer_id
+    end
+  end
+
+  defp parse_reason(reason) do
+    case reason do
+      "failed to dial" <> _ -> "failed to dial"
+      res -> res
     end
   end
 end
