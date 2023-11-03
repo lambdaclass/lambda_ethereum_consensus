@@ -266,10 +266,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       proposer_reward = compute_proposer_reward(proposer_reward_numerator)
 
+      {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state)
+
       bal_updated_state =
         Mutators.increase_balance(
           state,
-          Accessors.get_beacon_proposer_index(state),
+          proposer_index,
           proposer_reward
         )
 

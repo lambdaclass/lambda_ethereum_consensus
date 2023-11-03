@@ -123,7 +123,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         proposer_index = Accessors.get_beacon_proposer_index(state)
         case proposer_index do
           {:error, msg} -> {:error, msg}
-          _ ->
+          {:ok, proposer_index} ->
             whistleblower_index =
               if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
 
