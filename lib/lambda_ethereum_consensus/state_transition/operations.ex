@@ -208,7 +208,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
           |> Enum.sort()
           |> Enum.reduce_while({false, state}, fn i, {slashed_any, state} ->
-            slash_validator(state, i)
+            slash_validator(slashed_any, state, i)
           end)
 
         if slashed_any do
@@ -219,7 +219,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp slash_validator(state, i) do
+  defp slash_validator(slashed_any, state, i) do
     if Predicates.is_slashable_validator(
          Enum.at(state.validators, i),
          Accessors.get_current_epoch(state)
