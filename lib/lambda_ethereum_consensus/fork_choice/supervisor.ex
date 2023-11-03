@@ -78,9 +78,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     case BlockDownloader.request_block_by_root(block_root) do
       {:ok, signed_block} ->
         Logger.info("[Sync] Initial block fetched.")
-        block = signed_block.message
-
-        {:ok, block}
+        {:ok, signed_block}
 
       {:error, message} ->
         Logger.warning("[Sync] Failed to fetch initial block: #{message}.\nRetrying...")

@@ -9,12 +9,13 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   @blockslot_prefix @block_prefix <> "slot"
 
   @spec store_block(SszTypes.SignedBeaconBlock.t()) :: :ok
-  def store_block(%SszTypes.SignedBeaconBlock{} = block) do
+  def store_block(%SszTypes.SignedBeaconBlock{} = signed_block) do
+    block = signed_block.message
     {:ok, block_root} = Ssz.hash_tree_root(block)
-    {:ok, encoded_block} = Ssz.to_ssz(block)
+    {:ok, encoded_signed_block} = Ssz.to_ssz(signed_block)
 
     key = block_key(block_root)
-    Db.put(key, encoded_block)
+    Db.put(key, encoded_signed_block)
 
     # WARN: this overrides any previous mapping for the same slot
     # TODO: this should apply fork-choice if not applied elsewhere
@@ -27,8 +28,8 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   def get_block(block_root) do
     key = block_key(block_root)
 
-    with {:ok, block} <- Db.get(key) do
-      Ssz.from_ssz(block, SszTypes.SignedBeaconBlock)
+    with {:ok, signed_block} <- Db.get(key) do
+      Ssz.from_ssz(signed_block, SszTypes.SignedBeaconBlock)
     end
   end
 
