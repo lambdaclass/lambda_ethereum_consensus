@@ -166,76 +166,42 @@ Some useful tag filters:
 
 ### State transition
 
-Here are all **State Transition** related functions and their state.
+Here are all **State Transition** related functions and their implementation state.
 
 *State Trasition Functions* in compliance with [State Transition Handbook](https://github.com/lambdaclass/lambda_ethereum_consensus/blob/main/docs/handbooks/state_transition.md):
 
 ### Epoch processing
-| Function                                   | Implemented          |
-| :----------------------------------------- | :-----------------   |
-| `starknet_getBlockWithTxHashes`            | :white_check_mark:   |
-| `starknet_getBlockWithTxs`                 | :white_check_mark:   |
-| `starknet_getStateUpdate`                  | :white_check_mark:   |
-| `starknet_getStorageAt`                    | :white_check_mark:   |
-| `process_slashings`            | :white_check_mark:   |
-| `process_eth1_data_reset` | :white_check_mark:   |
-| `process_effective_balance_updates`           | :white_check_mark:   |
-| `process_slashings_reset`                        | :white_check_mark:   |
-| `process_randao_mixes_reset`                  | :white_check_mark:   |
-| `process_historical_summaries_update`                      | :white_check_mark:   |
-| `process_participation_flag_updates`        | :white_check_mark:   |
-| `process_sync_committee_update`                       | :x:                  |
-
-
-### Block processing
 
 | Function                                   | Implemented          |
 | :----------------------------------------- | :-----------------   |
-| `starknet_getBlockWithTxHashes`            | :white_check_mark:   |
-| `starknet_getBlockWithTxs`                 | :white_check_mark:   |
-| `starknet_getStateUpdate`                  | :white_check_mark:   |
-| `starknet_getStorageAt`                    | :white_check_mark:   |
-| `starknet_getTransactionByHash`            | :white_check_mark:   |
-| `starknet_getTransactionByBlockIdAndIndex` | :white_check_mark:   |
-| `starknet_getTransactionReceipt`           | :white_check_mark:   |
-| `starknet_getClass`                        | :white_check_mark:   |
-| `starknet_getClassHashAt`                  | :white_check_mark:   |
-| `starknet_getClassAt`                      | :white_check_mark:   |
-| `starknet_getBlockTransactionCount`        | :white_check_mark:   |
-| `starknet_call`                            | :white_check_mark:   |
-| `starknet_estimateFee`                     | :white_check_mark:   |
-| `starknet_blockNumber`                     | :white_check_mark:   |
-| `starknet_blockHashAndNumber`              | :white_check_mark:   |
-| `starknet_chainId`                         | :white_check_mark:   |
-| `starknet_pendingTransactions`             | :white_check_mark:   |
-| `starknet_syncing`                         | :white_check_mark:   |
-| `starknet_getEvents`                       | :x:                  |
-| `starknet_getNonce`                        | :white_check_mark:   |
+| `process_justification_and_finalization`   | :x:                  |
+| `process_inactivity_updates`               | :white_check_mark:   |
+| `process_rewards_and_penalties`            | :x:                  |
+| `process_registry_updates`                 | :white_check_mark:   |
+| `process_slashings`                        | :x:                  |
+| `process_eth1_data_reset`                  | :white_check_mark:   |
+| `process_effective_balance_updates`        | :white_check_mark:   |
+| `process_slashings_reset`                  | :white_check_mark:   |
+| `process_randao_mixes_reset`               | :white_check_mark:   |
+| `process_historical_summaries_update`      | :white_check_mark:   |
+| `process_participation_flag_updates`       | :white_check_mark:   |
+| `process_sync_committee_update`            | :x:                  |
 
-### Slot processing
+
+### Operations processing
 
 | Function                                   | Implemented          |
 | :----------------------------------------- | :-----------------   |
-| `starknet_getBlockWithTxHashes`            | :white_check_mark:   |
-| `starknet_getBlockWithTxs`                 | :white_check_mark:   |
-| `starknet_getStateUpdate`                  | :white_check_mark:   |
-| `starknet_getStorageAt`                    | :white_check_mark:   |
-| `starknet_getTransactionByHash`            | :white_check_mark:   |
-| `starknet_getTransactionByBlockIdAndIndex` | :white_check_mark:   |
-| `starknet_getTransactionReceipt`           | :white_check_mark:   |
-| `starknet_getClass`                        | :white_check_mark:   |
-| `starknet_getClassHashAt`                  | :white_check_mark:   |
-| `starknet_getClassAt`                      | :white_check_mark:   |
-| `starknet_getBlockTransactionCount`        | :white_check_mark:   |
-| `starknet_call`                            | :white_check_mark:   |
-| `starknet_estimateFee`                     | :white_check_mark:   |
-| `starknet_blockNumber`                     | :white_check_mark:   |
-| `starknet_blockHashAndNumber`              | :white_check_mark:   |
-| `starknet_chainId`                         | :white_check_mark:   |
-| `starknet_pendingTransactions`             | :white_check_mark:   |
-| `starknet_syncing`                         | :white_check_mark:   |
-| `starknet_getEvents`                       | :x:                  |
-| `starknet_getNonce`                        | :white_check_mark:   |
+| `process_execution_payload`                | :x:   |
+| `process_attestation`                      | :white_check_mark:   |
+| `process_attester_slashing`                | :x:   |
+| `process_block_header`                     | :x:   |
+| `process_deposit`                          | :x:   |
+| `process_proposer_slashing`                | :x:   |
+| `process_voluntary_exit`                   | :x:   |
+| `process_sync_aggregate`                   | :x:   |
+| `process_withdrawals`                      | :white_check_mark:   |
+| `process_bls_to_execution_change`          | :x:   |
 
 ## Why Elixir?
 
