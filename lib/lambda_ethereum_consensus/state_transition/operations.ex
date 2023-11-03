@@ -420,7 +420,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp invalid_signature?(state, indexed_attestation) do
-    Predicates.is_valid_indexed_attestation(state, indexed_attestation) != {:ok, true}
+    Predicates.is_valid_indexed_attestation(state, indexed_attestation) != true
   end
 
   defp length_of_bitstring(binary) when is_binary(binary) do
