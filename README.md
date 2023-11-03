@@ -139,6 +139,83 @@ Some useful tag filters:
 - `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
 - `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
 
+## Work in progress
+
+## Endpoint support
+
+### State transition
+
+Here are all **State Transition** related functions and their state.
+
+*State Trasition Functions* in compliance with [State Transition Handbook](https://github.com/lambdaclass/lambda_ethereum_consensus/blob/main/docs/handbooks/state_transition.md):
+
+### Epoch processing
+| Function                                   | Implemented          |
+| :----------------------------------------- | :-----------------   |
+| `starknet_getBlockWithTxHashes`            | :white_check_mark:   |
+| `starknet_getBlockWithTxs`                 | :white_check_mark:   |
+| `starknet_getStateUpdate`                  | :white_check_mark:   |
+| `starknet_getStorageAt`                    | :white_check_mark:   |
+| `process_slashings`            | :white_check_mark:   |
+| `process_eth1_data_reset` | :white_check_mark:   |
+| `process_effective_balance_updates`           | :white_check_mark:   |
+| `process_slashings_reset`                        | :white_check_mark:   |
+| `process_randao_mixes_reset`                  | :white_check_mark:   |
+| `process_historical_summaries_update`                      | :white_check_mark:   |
+| `process_participation_flag_updates`        | :white_check_mark:   |
+| `process_sync_committee_update`                       | :x:                  |
+
+
+### Block processing
+
+| Function                                   | Implemented          |
+| :----------------------------------------- | :-----------------   |
+| `starknet_getBlockWithTxHashes`            | :white_check_mark:   |
+| `starknet_getBlockWithTxs`                 | :white_check_mark:   |
+| `starknet_getStateUpdate`                  | :white_check_mark:   |
+| `starknet_getStorageAt`                    | :white_check_mark:   |
+| `starknet_getTransactionByHash`            | :white_check_mark:   |
+| `starknet_getTransactionByBlockIdAndIndex` | :white_check_mark:   |
+| `starknet_getTransactionReceipt`           | :white_check_mark:   |
+| `starknet_getClass`                        | :white_check_mark:   |
+| `starknet_getClassHashAt`                  | :white_check_mark:   |
+| `starknet_getClassAt`                      | :white_check_mark:   |
+| `starknet_getBlockTransactionCount`        | :white_check_mark:   |
+| `starknet_call`                            | :white_check_mark:   |
+| `starknet_estimateFee`                     | :white_check_mark:   |
+| `starknet_blockNumber`                     | :white_check_mark:   |
+| `starknet_blockHashAndNumber`              | :white_check_mark:   |
+| `starknet_chainId`                         | :white_check_mark:   |
+| `starknet_pendingTransactions`             | :white_check_mark:   |
+| `starknet_syncing`                         | :white_check_mark:   |
+| `starknet_getEvents`                       | :x:                  |
+| `starknet_getNonce`                        | :white_check_mark:   |
+
+### Slot processing
+
+| Function                                   | Implemented          |
+| :----------------------------------------- | :-----------------   |
+| `starknet_getBlockWithTxHashes`            | :white_check_mark:   |
+| `starknet_getBlockWithTxs`                 | :white_check_mark:   |
+| `starknet_getStateUpdate`                  | :white_check_mark:   |
+| `starknet_getStorageAt`                    | :white_check_mark:   |
+| `starknet_getTransactionByHash`            | :white_check_mark:   |
+| `starknet_getTransactionByBlockIdAndIndex` | :white_check_mark:   |
+| `starknet_getTransactionReceipt`           | :white_check_mark:   |
+| `starknet_getClass`                        | :white_check_mark:   |
+| `starknet_getClassHashAt`                  | :white_check_mark:   |
+| `starknet_getClassAt`                      | :white_check_mark:   |
+| `starknet_getBlockTransactionCount`        | :white_check_mark:   |
+| `starknet_call`                            | :white_check_mark:   |
+| `starknet_estimateFee`                     | :white_check_mark:   |
+| `starknet_blockNumber`                     | :white_check_mark:   |
+| `starknet_blockHashAndNumber`              | :white_check_mark:   |
+| `starknet_chainId`                         | :white_check_mark:   |
+| `starknet_pendingTransactions`             | :white_check_mark:   |
+| `starknet_syncing`                         | :white_check_mark:   |
+| `starknet_getEvents`                       | :x:                  |
+| `starknet_getNonce`                        | :white_check_mark:   |
+
 ## Why Elixir?
 
 Elixir is a functional programming language that runs atop the Erlang Virtual Machine (BEAM). It offers enhanced readability, syntactic sugar, and reduced boilerplate, enabling developers to achieve more with fewer lines of code compared to Erlang. Like Erlang, Elixir compiles to bytecode that is interpreted by the VM. As a result, it inherits several notable properties, including:
