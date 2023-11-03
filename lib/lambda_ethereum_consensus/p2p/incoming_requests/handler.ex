@@ -16,7 +16,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
                                       ?l, ?a, ?b, ?l, ?e>>
   @error_message_server_error <<?S, ?e, ?r, ?v, ?e, ?r, 32, ?E, ?r, ?r, ?o, ?r>>
 
-
   def handle(name, message_id, message) do
     case handle_req(name, message_id, message) do
       :ok -> :ok
