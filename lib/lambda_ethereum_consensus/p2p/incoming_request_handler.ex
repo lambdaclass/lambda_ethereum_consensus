@@ -7,9 +7,17 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
   require Logger
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Store.BlockStore
-  alias LambdaEthereumConsensus.Store.StateStore
 
   @prefix "/eth2/beacon_chain/req/"
+  # This is the `ForkDigest` for mainnet in the capella fork
+  # TODO: compute this at runtime
+  @fork_context "BBA4DA96" |> Base.decode16!()
+
+  # This is the `Resource Available` error message in binary
+  # TODO: compute this and other messages at runtime
+  @error_message_resourse_avalaible <<?R, ?e, ?s, ?o, ?u, ?r, ?c, ?e, 32, ?U, ?n, ?a, ?v, ?a, ?i,
+                                      ?l, ?a, ?b, ?l, ?e>>
+  @error_message_server_error <<?S, ?e, ?r, ?v, ?e, ?r, 32, ?E, ?r, ?r, ?o, ?r>>
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
@@ -133,25 +141,40 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
       %SszTypes.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
         blocks_by_range_request
 
-      slot_coverage = start_slot + count
+      count =
+        if count > ChainSpec.get("MAX_REQUEST_BLOCKS") do
+          ChainSpec.get("MAX_REQUEST_BLOCKS")
+        else
+          count
+        end
+
+      slot_coverage = start_slot + (count - 1)
 
       blocks =
         start_slot..slot_coverage
         |> Enum.reduce([], fn slot, current_blocks ->
-          case StateStore.get_state_by_slot(slot) do
-            {:ok, state} -> current_blocks ++ BlockStore.get_blocks(state.block_roots)
-            {:error, _} -> current_blocks
-            :not_found -> current_blocks
+          current_blocks ++ [BlockStore.get_block_by_slot(slot)]
+        end)
+
+      response_chunk =
+        blocks
+        |> Enum.reduce(<<>>, fn block_response, response_chunk ->
+          case block_response do
+            {:ok, block} ->
+              with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
+                   {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
+                ## TODO: Compute the byte length
+                response_chunk <> <<0>> <> @fork_context <> <<13_743>> <> snappy_ssz_signed_block
+              else
+                response_chunk <> <<2>> <> @error_message_server_error
+              end
+
+            _ ->
+              response_chunk <> <<3>> <> @error_message_resourse_avalaible
           end
         end)
 
-      blocks_by_range_response = %SszTypes.BeaconBlocksByRangeResponse{body: blocks}
-
-      with {:ok, payload} <- Ssz.to_ssz(blocks_by_range_response),
-           {:ok, payload} <- Snappy.compress(payload) do
-        ## TODO: Change length (Length is hardcoded for now)
-        Libp2pPort.send_response(message_id, <<0, 8>> <> payload)
-      end
+      Libp2pPort.send_response(message_id, response_chunk)
     end
   end
 
