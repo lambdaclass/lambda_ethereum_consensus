@@ -175,26 +175,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::
-          {:ok, BeaconState.t()} | {:ok, nil}
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def process_attester_slashing(state, attester_slashing) do
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
 
     cond do
       not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
-        {:ok, nil}
+        {:error, "Attestation data is not slashable"}
 
       not Predicates.is_valid_indexed_attestation(state, attestation_1) ->
-        {:ok, nil}
+        {:error, "Attestation 1 is not valid"}
 
       not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
-        {:ok, nil}
+        {:error, "Attestation 2 is not valid"}
 
       not Predicates.is_indices_available(length(state.validators), attestation_1.attesting_indices) ->
-        {:ok, nil}
+        {:error, "Index too high attestation 1"}
 
       not Predicates.is_indices_available(length(state.validators), attestation_2.attesting_indices) ->
-        {:ok, nil}
+        {:error, "Index too high attestation 2"}
 
       true ->
         {slashed_any, state} =
@@ -218,7 +218,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         if slashed_any do
           {:ok, state}
         else
-          {:ok, nil}
+          {:error, "Didn't slash any"}
         end
     end
   end
