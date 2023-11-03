@@ -6,10 +6,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   use GenServer
   require Logger
 
-  alias LambdaEthereumConsensus.ForkChoice.Utils
+  alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
-  alias SszTypes.BeaconBlock
   alias SszTypes.BeaconState
+  alias SszTypes.SignedBeaconBlock
   alias SszTypes.Store
 
   ##########################
@@ -23,20 +23,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @spec get_finalized_checkpoint() :: {:ok, SszTypes.Checkpoint.t()}
   def get_finalized_checkpoint do
-    store = get_state()
-    {:ok, store.finalized_checkpoint}
+    [finalized_checkpoint] = get_store_attrs([:finalized_checkpoint])
+    {:ok, finalized_checkpoint}
   end
 
   @spec get_current_slot() :: integer()
   def get_current_slot do
-    store = get_state()
-    div(store.time - store.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
+    [time, genesis_time] = get_store_attrs([:time, :genesis_time])
+    div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
   @spec has_block?(SszTypes.root()) :: boolean()
   def has_block?(block_root) do
-    state = get_state()
-    Map.has_key?(state.blocks, block_root)
+    [blocks] = get_store_attrs([:blocks])
+    Map.has_key?(blocks, block_root)
   end
 
   @spec on_block(SszTypes.BeaconBlock.t()) :: :ok
@@ -50,10 +50,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ##########################
 
   @impl GenServer
-  @spec init({BeaconState.t(), BeaconBlock.t()}) :: {:ok, Store.t()} | {:stop, any}
-  def init({anchor_state = %BeaconState{}, anchor_block = %BeaconBlock{}}) do
+  @spec init({BeaconState.t(), SignedBeaconBlock.t()}) :: {:ok, Store.t()} | {:stop, any}
+  def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}}) do
     result =
-      case Utils.get_forkchoice_store(anchor_state, anchor_block) do
+      case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
         {:ok, store = %Store{}} ->
           Logger.info("[Fork choice] Initialized store.")
           {:ok, store}
@@ -64,13 +64,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
     # TODO: this should be done after validation
     :ok = StateStore.store_state(anchor_state)
-    :ok = BlockStore.store_block(anchor_block)
+    :ok = BlockStore.store_block(signed_anchor_block)
     result
   end
 
   @impl GenServer
-  def handle_call({:get_state}, _from, state) do
-    {:reply, state, state}
+  def handle_call({:get_store_attrs, attrs}, _from, state) do
+    values = Enum.map(attrs, &Map.fetch!(state, &1))
+    {:reply, values, state}
   end
 
   @impl GenServer
@@ -84,8 +85,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ### Private Functions
   ##########################
 
-  @spec get_state() :: Store.t()
-  defp get_state do
-    GenServer.call(__MODULE__, {:get_state})
+  @spec get_store_attrs([atom()]) :: [any()]
+  defp get_store_attrs(attrs) do
+    GenServer.call(__MODULE__, {:get_store_attrs, attrs})
   end
 end

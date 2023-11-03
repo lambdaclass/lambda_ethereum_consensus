@@ -94,6 +94,20 @@ defmodule SszTypes.BeaconState do
   """
   @spec is_merge_transition_complete(SszTypes.BeaconState.t()) :: boolean()
   def is_merge_transition_complete(state) do
-    state.latest_execution_payload_header != SszTypes.ExecutionPayloadHeader.new(SszTypes.ExecutionPayloadHeader.default())
+    state.latest_execution_payload_header !=
+      SszTypes.ExecutionPayloadHeader.new(SszTypes.ExecutionPayloadHeader.default())
+  end
+
+  @doc """
+    Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
+  """
+  @spec decrease_balance(t(), SszTypes.validator_index(), SszTypes.gwei()) :: t()
+  def decrease_balance(%{balances: balances} = state, index, delta) do
+    current_balance = Enum.fetch!(balances, index)
+
+    %{
+      state
+      | balances: List.replace_at(balances, index, max(current_balance - delta, 0))
+    }
   end
 end
