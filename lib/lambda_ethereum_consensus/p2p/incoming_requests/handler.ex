@@ -99,7 +99,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     end
   end
 
-  def handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
+  defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
     with <<24, snappy_blocks_by_range_request::binary>> <- message,
          {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
          {:ok, blocks_by_range_request} <-
