@@ -103,6 +103,18 @@ defmodule OperationsTestRunner do
     end
   end
 
+  defp handle_case("proposer_slashing", pre, proposer_slashing, post, _case_dir) do
+    result = Operations.process_proposer_slashing(pre, proposer_slashing)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
+  end
+
   defp handle_case("attestation", pre, operation, post, _case_dir) do
     result = Operations.process_attestation(pre, operation)
 
