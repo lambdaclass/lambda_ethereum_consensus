@@ -3,7 +3,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Handlers that update the fork choice store.
   """
 
-  alias SszTypes.Store
+  alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Misc}
+  alias SszTypes.{Checkpoint, SignedBeaconBlock, Store}
 
   ### Public API ###
 
@@ -26,10 +27,83 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   @doc """
-  Called whenever a signed block is received.
+  Run ``on_block`` upon receiving a new block.
+
+  A block that is asserted as invalid due to unavailable PoW block may be valid at a later time,
+  consider scheduling it for later processing in such case.
   """
-  def on_block(store, _block) do
-    {:ok, store}
+  def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
+    finalized_slot =
+      Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
+
+    finalized_checkpoint_block =
+      Store.get_checkpoint_block(
+        store,
+        block.parent_root,
+        store.finalized_checkpoint.epoch
+      )
+
+    cond do
+      # Parent block must be known
+      not Map.has_key?(store.block_states, block.parent_root) ->
+        {:error, "parent state not found in store"}
+
+      # Blocks cannot be in the future. If they are, their
+      # consideration must be delayed until they are in the past.
+      Store.get_current_slot(store) < block.slot ->
+        # TODO: handle this error somehow
+        {:error, "block is from the future"}
+
+      # Check that block is later than the finalized epoch slot (optimization to reduce calls to get_ancestor)
+      block.slot <= finalized_slot ->
+        {:error, "block is prior to last finalized epoch"}
+
+      # Check block is a descendant of the finalized block at the checkpoint finalized slot
+      store.finalized_checkpoint.root != finalized_checkpoint_block ->
+        {:error, "block isn't descendant of latest finalized block"}
+
+      true ->
+        compute_post_state(store, signed_block)
+    end
+  end
+
+  # Check the block is valid and compute the post-state.
+  defp compute_post_state(
+         %Store{block_states: states} = store,
+         %SignedBeaconBlock{message: block} = signed_block
+       ) do
+    state = states[block.parent_root]
+    block_root = Ssz.hash_tree_root(block)
+
+    # TODO: add stub for this
+    state = StateTransition.state_transition(state, signed_block, true)
+
+    # Add new block to the store
+    blocks = Map.put(store.blocks, block_root, block)
+    # Add new state for this block to the store
+    states = Map.put(store.block_states, block_root, state)
+
+    store = %Store{store | blocks: blocks, block_states: states}
+
+    seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
+    intervals_per_slot = ChainSpec.get("INTERVALS_PER_SLOT")
+    # Add proposer score boost if the block is timely
+    time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
+    is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
+
+    store =
+      if is_before_attesting_interval and Store.get_current_slot(store) == block.slot do
+        %Store{store | proposer_boost_root: block_root}
+      else
+        store
+      end
+
+    # Update checkpoints in store if necessary
+    store =
+      update_checkpoints(store, state.current_justified_checkpoint, state.finalized_checkpoint)
+
+    # Eagerly compute unrealized justification and finality
+    compute_pulled_up_tip(store, block_root)
   end
 
   ### Private functions ###
@@ -70,6 +144,54 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         )
       end)
     end)
+  end
+
+  defp compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
+    state = states[block_root]
+    # Pull up the post-state of the block to the next epoch boundary
+    # TODO: implement stub
+    state = EpochProcessing.process_justification_and_finalization(state)
+
+    unrealized_justifications =
+      Map.put(store.unrealized_justifications, block_root, state.current_justified_checkpoint)
+
+    store = %Store{store | unrealized_justifications: unrealized_justifications}
+
+    store =
+      update_unrealized_checkpoints(
+        store,
+        state.current_justified_checkpoint,
+        state.finalized_checkpoint
+      )
+
+    # If the block is from a prior epoch, apply the realized values
+    block_epoch = Misc.compute_epoch_at_slot(store.blocks[block_root].slot)
+    current_epoch = Misc.compute_epoch_at_slot(Store.get_current_slot(store))
+
+    if block_epoch < current_epoch do
+      update_checkpoints(store, state.current_justified_checkpoint, state.finalized_checkpoint)
+    else
+      store
+    end
+  end
+
+  # Update unrealized checkpoints in store if necessary
+  defp update_unrealized_checkpoints(
+         %Store{} = store,
+         %Checkpoint{} = unrealized_justified_checkpoint,
+         %Checkpoint{} = unrealized_finalized_checkpoint
+       ) do
+    store
+    |> if_then_update(
+      unrealized_justified_checkpoint.epoch > store.unrealized_justified_checkpoint.epoch,
+      # Update unrealized justified checkpoint
+      &%Store{&1 | unrealized_justified_checkpoint: unrealized_justified_checkpoint}
+    )
+    |> if_then_update(
+      unrealized_finalized_checkpoint.epoch > store.unrealized_finalized_checkpoint.epoch,
+      # Update unrealized finalized checkpoint
+      &%Store{&1 | unrealized_finalized_checkpoint: unrealized_finalized_checkpoint}
+    )
   end
 
   defp compute_slots_since_epoch_start(slot) do
