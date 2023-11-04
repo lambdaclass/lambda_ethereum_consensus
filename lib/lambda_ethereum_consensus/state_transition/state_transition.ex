@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   State transition logic.
   """
 
-  alias SszTypes.{SignedBeaconBlock, BeaconState}
+  alias SszTypes.{BeaconState, SignedBeaconBlock}
 
   def state_transition(
         %BeaconState{} = state,

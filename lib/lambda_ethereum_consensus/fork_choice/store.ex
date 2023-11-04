@@ -41,7 +41,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @spec on_block(SszTypes.SignedBeaconBlock.t(), SszTypes.root()) :: :ok
   def on_block(signed_block, block_root) do
-    :ok = BlockStore.store_block(signed_block.message)
+    :ok = BlockStore.store_block(signed_block)
     GenServer.cast(__MODULE__, {:on_block, block_root, signed_block})
   end
 
@@ -80,9 +80,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     Logger.info("[Fork choice] Adding block #{block_root} to the store.")
 
     state =
-      state
-      |> Handlers.on_block(signed_block)
-      |> then(&Map.put(&1, :blocks, Map.put(&1.blocks, block_root, signed_block.message)))
+      case Handlers.on_block(state, signed_block) do
+        {:ok, state} ->
+          Map.put(state, :blocks, Map.put(state.blocks, block_root, signed_block.message))
+
+        _ ->
+          state
+      end
 
     {:noreply, state}
   end

@@ -13,6 +13,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Called once every tick (1 second). This function updates the Store's time.
   Also updates checkpoints and resets proposer boost at the beginning of every slot.
   """
+  @spec on_tick(Store.t(), integer()) :: Store.t()
   def on_tick(%Store{} = store, time) do
     # If the ``store.time`` falls behind, while loop catches up slot by slot
     # to ensure that every previous slot is processed with ``on_tick_per_slot``
@@ -33,6 +34,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   A block that is asserted as invalid due to unavailable PoW block may be valid at a later time,
   consider scheduling it for later processing in such case.
   """
+  @spec on_tick(Store.t(), SignedBeaconBlock.t()) :: {:ok, Store.t()} | {:error, String.t()}
   def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
     finalized_slot =
       Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
@@ -74,7 +76,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
          %SignedBeaconBlock{message: block} = signed_block
        ) do
     state = states[block.parent_root]
-    block_root = Ssz.hash_tree_root(block)
+    {:ok, block_root} = Ssz.hash_tree_root(block)
 
     state = StateTransition.state_transition(state, signed_block, true)
 
@@ -100,6 +102,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
     # Eagerly compute unrealized justification and finality
     |> compute_pulled_up_tip(block_root)
+    |> then(&{:ok, &1})
   end
 
   ### Private functions ###
@@ -144,7 +147,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   defp compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
     # Pull up the post-state of the block to the next epoch boundary
-    state = EpochProcessing.process_justification_and_finalization(states[block_root])
+    # TODO: handle possible errors
+    {:ok, state} = EpochProcessing.process_justification_and_finalization(states[block_root])
 
     block_epoch = Misc.compute_epoch_at_slot(store.blocks[block_root].slot)
     current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
