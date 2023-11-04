@@ -91,19 +91,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
     is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
-    store =
-      if is_before_attesting_interval and Store.get_current_slot(store) == block.slot do
-        %Store{store | proposer_boost_root: block_root}
-      else
-        store
-      end
-
+    store
+    |> if_then_update(
+      is_before_attesting_interval and Store.get_current_slot(store) == block.slot,
+      &%Store{&1 | proposer_boost_root: block_root}
+    )
     # Update checkpoints in store if necessary
-    store =
-      update_checkpoints(store, state.current_justified_checkpoint, state.finalized_checkpoint)
-
+    |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
     # Eagerly compute unrealized justification and finality
-    compute_pulled_up_tip(store, block_root)
+    |> compute_pulled_up_tip(block_root)
   end
 
   ### Private functions ###
@@ -147,31 +143,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   defp compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
-    state = states[block_root]
     # Pull up the post-state of the block to the next epoch boundary
-    state = EpochProcessing.process_justification_and_finalization(state)
+    state = EpochProcessing.process_justification_and_finalization(states[block_root])
+
+    block_epoch = Misc.compute_epoch_at_slot(store.blocks[block_root].slot)
+    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
 
     unrealized_justifications =
       Map.put(store.unrealized_justifications, block_root, state.current_justified_checkpoint)
 
-    store = %Store{store | unrealized_justifications: unrealized_justifications}
-
-    store =
-      update_unrealized_checkpoints(
-        store,
-        state.current_justified_checkpoint,
-        state.finalized_checkpoint
-      )
-
-    # If the block is from a prior epoch, apply the realized values
-    block_epoch = Misc.compute_epoch_at_slot(store.blocks[block_root].slot)
-    current_epoch = Misc.compute_epoch_at_slot(Store.get_current_slot(store))
-
-    if block_epoch < current_epoch do
-      update_checkpoints(store, state.current_justified_checkpoint, state.finalized_checkpoint)
-    else
-      store
-    end
+    %Store{store | unrealized_justifications: unrealized_justifications}
+    |> update_unrealized_checkpoints(
+      state.current_justified_checkpoint,
+      state.finalized_checkpoint
+    )
+    |> if_then_update(
+      block_epoch < current_epoch,
+      # If the block is from a prior epoch, apply the realized values
+      &update_checkpoints(&1, state.current_justified_checkpoint, state.finalized_checkpoint)
+    )
   end
 
   # Update unrealized checkpoints in store if necessary
