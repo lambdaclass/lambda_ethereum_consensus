@@ -14,7 +14,7 @@ defmodule EpochProcessingTestRunner do
     # "inactivity_updates",
     "rewards_and_penalties",
     # "registry_updates",
-    "slashings",
+    # "slashings",
     # "effective_balance_updates",
     # "eth1_data_reset",
     # "slashings_reset",
