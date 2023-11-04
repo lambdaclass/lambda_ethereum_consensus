@@ -92,18 +92,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     Enum.fetch!(randao_mixes, rem(epoch, epochs_per_historical_vector))
   end
 
-  @spec get_total_balance(BeaconState.t(), list(SszTypes.validator_index())) :: SszTypes.gwei()
-  def get_total_balance(%BeaconState{validators: validators}, indices) do
-    effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
-
-    sum =
-      Enum.reduce(indices, 0, fn index, acc ->
-        acc + Enum.at(validators, index).effective_balance
-      end)
-
-    max(effective_balance_increment, sum)
-  end
-
+  @doc """
+  Return the combined effective balance of the active validators.
+  Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
+  """
   @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
   def get_total_active_balance(state) do
     active_validator_indices = get_active_validator_indices(state, get_current_epoch(state))
@@ -426,16 +418,5 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
-  end
-
-  @doc """
-  Return the combined effective balance of the active validators.
-  Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
-  """
-  @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
-  def get_total_active_balance(state) do
-    current_epoch = get_current_epoch(state)
-    validator_indices = get_active_validator_indices(state, current_epoch)
-    get_total_balance(state, validator_indices)
   end
 end

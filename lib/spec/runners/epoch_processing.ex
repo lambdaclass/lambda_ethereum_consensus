@@ -66,19 +66,4 @@ defmodule EpochProcessingTestRunner do
         assert Diff.diff(state, post) == :unchanged
     end
   end
-
-  defp handle_case("participation_flag_updates", pre, post) do
-    result = EpochProcessing.process_participation_flag_updates(pre)
-    assert result == {:ok, post}
-  end
-
-  defp handle_case("slashings_reset", pre, post) do
-    result = EpochProcessing.process_slashings_reset(pre)
-    assert result == {:ok, post}
-  end
-
-  defp handle_case("slashings", pre_state, post_state) do
-    result = EpochProcessing.process_slashings(pre_state)
-    assert {:ok, post_state} == result
-  end
 end
