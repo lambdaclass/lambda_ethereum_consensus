@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   require Logger
   alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.P2P.BlockDownloader
+  alias SszTypes.SignedBeaconBlock
 
   @type state :: %{pending_blocks: %{}}
 
@@ -21,9 +22,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec add_block(SszTypes.BeaconBlock.t()) :: :ok
-  def add_block(block) do
-    GenServer.cast(__MODULE__, {:add_block, block})
+  @spec add_block(SignedBeaconBlock.t()) :: :ok
+  def add_block(signed_block) do
+    GenServer.cast(__MODULE__, {:add_block, signed_block})
   end
 
   @spec is_pending_block(SszTypes.root()) :: boolean()
@@ -44,9 +45,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @impl true
-  def handle_cast({:add_block, block}, state) do
+  def handle_cast({:add_block, %SignedBeaconBlock{message: block} = signed_block}, state) do
     {:ok, block_root} = Ssz.hash_tree_root(block)
-    pending_blocks = Map.put(state.pending_blocks, block_root, block)
+    pending_blocks = Map.put(state.pending_blocks, block_root, signed_block)
     {:noreply, Map.put(state, :pending_blocks, pending_blocks)}
   end
 
@@ -64,13 +65,13 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     pending_blocks = state.pending_blocks
 
     blocks_to_remove =
-      for {block_root, block} <- pending_blocks do
+      for {block_root, %SignedBeaconBlock{message: block} = signed_block} <- pending_blocks do
         cond do
           Store.has_block?(block_root) ->
             block_root
 
           Store.has_block?(block.parent_root) ->
-            Store.on_block(block)
+            Store.on_block(signed_block, block_root)
             block_root
 
           Map.has_key?(pending_blocks, block.parent_root) ->
@@ -82,8 +83,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             case BlockDownloader.request_block_by_root(block.parent_root) do
               {:ok, signed_block} ->
                 Logger.info("Block downloaded: #{signed_block.message.slot}")
-                block = signed_block.message
-                add_block(block)
+                add_block(signed_block)
 
               {:error, reason} ->
                 Logger.debug("Block download failed: '#{reason}'")

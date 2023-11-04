@@ -39,10 +39,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     Map.has_key?(blocks, block_root)
   end
 
-  @spec on_block(SszTypes.BeaconBlock.t()) :: :ok
-  def on_block(block) do
-    {:ok, block_root} = Ssz.hash_tree_root(block)
-    GenServer.cast(__MODULE__, {:on_block, block_root, block})
+  @spec on_block(SszTypes.SignedBeaconBlock.t(), SszTypes.root()) :: :ok
+  def on_block(signed_block, block_root) do
+    :ok = BlockStore.store_block(signed_block.message)
+    GenServer.cast(__MODULE__, {:on_block, block_root, signed_block})
   end
 
   ##########################
@@ -76,10 +76,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_cast({:on_block, block_root, block}, state) do
+  def handle_cast({:on_block, block_root, signed_block}, state) do
     Logger.info("[Fork choice] Adding block #{block_root} to the store.")
-    :ok = BlockStore.store_block(block)
-    {:noreply, Map.put(state, :blocks, Map.put(state.blocks, block_root, block))}
+
+    state =
+      state
+      |> Handlers.on_block(signed_block)
+      |> then(&Map.put(&1, :blocks, Map.put(&1.blocks, block_root, signed_block.message)))
+
+    {:noreply, state}
   end
 
   @impl GenServer
