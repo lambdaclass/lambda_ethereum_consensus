@@ -85,6 +85,41 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     {:ok, new_state}
   end
 
+  @spec process_slashings(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_slashings(%BeaconState{validators: validators, slashings: slashings} = state) do
+    epoch = Accessors.get_current_epoch(state)
+    total_balance = Accessors.get_total_active_balance(state)
+
+    proportional_slashing_multiplier = ChainSpec.get("PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX")
+    epochs_per_slashings_vector = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
+    increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+
+    slashed_sum = Enum.reduce(slashings, 0, &+/2)
+
+    adjusted_total_slashing_balance =
+      min(slashed_sum * proportional_slashing_multiplier, total_balance)
+
+    new_state =
+      validators
+      |> Enum.with_index()
+      |> Enum.reduce(state, fn {validator, index}, acc ->
+        if validator.slashed and
+             epoch + div(epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
+          # increment factored out from penalty numerator to avoid uint64 overflow
+          penalty_numerator =
+            div(validator.effective_balance, increment) * adjusted_total_slashing_balance
+
+          penalty = div(penalty_numerator, total_balance) * increment
+
+          Mutators.decrease_balance(acc, index, penalty)
+        else
+          acc
+        end
+      end)
+
+    {:ok, new_state}
+  end
+
   @spec process_registry_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def process_registry_updates(%BeaconState{validators: validators} = state) do
     ejection_balance = ChainSpec.get("EJECTION_BALANCE")
