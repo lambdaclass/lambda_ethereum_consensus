@@ -18,6 +18,11 @@ defmodule Fixtures.Random do
     binary(32)
   end
 
+  @spec bls_pubkey :: binary
+  def bls_pubkey do
+    binary(48)
+  end
+
   @spec bls_signature :: binary
   def bls_signature do
     binary(96)
