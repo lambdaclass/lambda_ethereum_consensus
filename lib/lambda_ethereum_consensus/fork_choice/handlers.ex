@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Handlers that update the fork choice store.
   """
 
+  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Misc}
   alias SszTypes.{Checkpoint, SignedBeaconBlock, Store}
 
@@ -75,7 +76,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     state = states[block.parent_root]
     block_root = Ssz.hash_tree_root(block)
 
-    # TODO: add stub for this
     state = StateTransition.state_transition(state, signed_block, true)
 
     # Add new block to the store
@@ -149,7 +149,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   defp compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
     state = states[block_root]
     # Pull up the post-state of the block to the next epoch boundary
-    # TODO: implement stub
     state = EpochProcessing.process_justification_and_finalization(state)
 
     unrealized_justifications =
