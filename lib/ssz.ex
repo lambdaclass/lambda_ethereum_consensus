@@ -190,18 +190,14 @@ defmodule Ssz do
   def serialize(map, %{type: :container, schema: schema}) do
     schemas = schema.schema()
 
-    serialized =
-      schemas
-      |> Enum.map(fn schema ->
-        key = Enum.at(Map.keys(schema), 0)
-        metadata = Map.get(schema, key)
-        value = Map.get(map, key)
-        {:ok, serialized} = serialize(value, metadata)
-        serialized
-      end)
-      |> :binary.list_to_bin()
-
-    {:ok, serialized}
+    schemas
+    |> Enum.map(fn schema ->
+      key = Enum.at(Map.keys(schema), 0)
+      metadata = Map.get(schema, key)
+      value = Map.get(map, key)
+      {value, metadata}
+    end)
+    |> serialize_list(schema)
   end
 
   def serialize(value, []) when is_binary(value), do: {:ok, value}
@@ -210,13 +206,21 @@ defmodule Ssz do
     if length(elements) > max_size do
       {:error, "max_size_error"}
     else
-      serialize_list(elements, schema, container)
+      tuple =
+        elements
+        |> Enum.map(fn element -> {element, schema} end)
+
+      serialize_list(tuple, container)
     end
   end
 
   # TODO check max_size of variable list
   def serialize(elements, %{type: :list, schema: schema, max_size: max_size} = container) do
-    serialize_list(elements, schema, container)
+    tuple =
+      elements
+      |> Enum.map(fn element -> {element, schema} end)
+
+    serialize_list(tuple, container)
   end
 
   def serialize(value, %{type: :uint, size: size}) when is_integer(value),
@@ -227,12 +231,13 @@ defmodule Ssz do
   def serialize(value, %{} = schema),
     do: {:error, "Unknown schema: #{inspect(schema)} for value #{inspect(value)}"}
 
-  @spec serialize_list(list, map, map) :: {:ok, binary} | {:error, String.t()}
-  def serialize_list(elements, schema, container) when is_list(elements) do
+  @spec serialize_list(list, map) :: {:ok, binary} | {:error, String.t()}
+  def serialize_list(elements, container) when is_list(elements) do
     fixed_parts =
       elements
-      |> Enum.map(fn element ->
-        if is_variable_size(container), do: nil, else: serialize(element, schema)
+      |> Enum.map(fn {element, schema} ->
+        schema = if is_map(schema) || is_struct(schema), do: schema, else: schema.schema()
+        if is_variable_size(schema, container), do: nil, else: serialize(element, schema)
       end)
       |> Enum.map(fn
         {:ok, ser} -> ser
@@ -241,8 +246,9 @@ defmodule Ssz do
 
     variable_parts =
       elements
-      |> Enum.map(fn element ->
-        if is_variable_size(container), do: serialize(element, schema), else: <<>>
+      |> Enum.map(fn {element, schema} ->
+        schema = if is_map(schema) || is_struct(schema), do: schema, else: schema.schema()
+        if is_variable_size(schema, container), do: serialize(element, schema), else: <<>>
       end)
       |> Enum.map(fn
         {:ok, ser} -> ser
@@ -474,7 +480,7 @@ defmodule Ssz do
     |> Enum.map(fn schema ->
       key = Enum.at(Map.keys(schema), 0)
       metadata = Map.get(schema, key)
-      is_variable_size(metadata)
+      is_variable_size(metadata, map)
     end)
     |> Enum.all?()
   end
@@ -488,32 +494,35 @@ defmodule Ssz do
   defp byte_size_from_type(%{type: :uint, size: size}), do: div(size, @bits_per_byte)
   defp byte_size_from_type(%{type: :bytes, size: size}), do: size
 
-  defp is_variable_size(%struct{} = map) when is_struct(map) do
+  defp is_variable_size(%struct{} = map, container) when is_struct(map) do
     schema = struct.schema()
 
     schema
     |> Enum.map(fn schema ->
       key = Enum.at(Map.keys(schema), 0)
       metadata = Map.get(schema, key)
-      is_variable_size(metadata)
+      is_variable_size(metadata, container)
     end)
     |> Enum.all?()
   end
 
-  defp is_variable_size(%{type: :container, schema: schema}) do
+  defp is_variable_size(%{type: :container, schema: schema}, container) do
+    schema = if is_map(schema) || is_struct(schema), do: schema, else: schema.schema()
+
     schema
     |> Enum.map(fn schema ->
       key = Enum.at(Map.keys(schema), 0)
       metadata = Map.get(schema, key)
-      is_variable_size(metadata)
+      is_variable_size(metadata, container)
     end)
-    |> Enum.all?()
+    |> Enum.any?()
   end
 
-  defp is_variable_size(%{type: :list}), do: true
-  defp is_variable_size(%{type: :vector}), do: false
-  defp is_variable_size(%{type: :bytes}), do: true
-  defp is_variable_size(%{type: :uint}), do: false
+  defp is_variable_size(%{type: :list}, _), do: true
+  defp is_variable_size(%{type: :vector}, _), do: false
+  defp is_variable_size(%{type: :bytes}, %{type: :list}), do: true
+  defp is_variable_size(%{type: :bytes}, _), do: false
+  defp is_variable_size(%{type: :uint}, _), do: false
 
   # https://notes.ethereum.org/ruKvDXl6QOW3gnqVYb8ezA?view
   defp sanitize_offset(offset, previous_offset, num_bytes, num_fixed_bytes) do
