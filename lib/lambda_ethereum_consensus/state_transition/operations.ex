@@ -195,24 +195,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         {:error, "Proposer is not slashable"}
 
       true ->
-        [proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
-        |> Enum.each(fn signed_header ->
-          domain =
-            Accessors.get_domain(
-              state,
-              Constants.domain_beacon_proposer(),
-              Misc.compute_epoch_at_slot(signed_header.slot)
+        is_verified =
+          [proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
+          |> Enum.reduce_while(false, fn signed_header, _acc ->
+            domain =
+              Accessors.get_domain(
+                state,
+                Constants.domain_beacon_proposer(),
+                Misc.compute_epoch_at_slot(signed_header.slot)
+              )
+
+            signing_root =
+              Misc.compute_signing_root(signed_header.message, domain)
+
+            bls_verify_proposer_slashing(
+              proposer.pubkey,
+              signing_root,
+              signed_header.signature
             )
+          end)
 
-          signing_root =
-            Misc.compute_signing_root(signed_header.message, domain)
-
-          bls_verify_proposer_slashing(
-            proposer.pubkey,
-            signing_root,
-            signed_header.signature
-          )
-        end)
+        if not is_verified do
+          {:error, "Signed header 1 or 2 signature is not verified"}
+        end
 
         case Mutators.slash_validator(state, header_1.proposer_index) do
           {:ok, state} -> {:ok, state}
@@ -227,8 +232,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          signing_root,
          signature
        ) do
-      {:error, "Signed header 1 or 2 signature is not verified"}
+      {:halt, false}
     end
+
+    {:cont, true}
   end
 
   @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::
