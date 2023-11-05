@@ -182,27 +182,52 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     proposer = Enum.at(state.validators, header_1.proposer_index)
 
     cond do
-      not (header_1.slot == header_2.slot) -> {:error, "Slots doesn't match"}
-      not (header_1.proposer_index == header_2.proposer_index) -> {:error, "Proposer indices doesn't match"}
-      not (header_1 != header_2) -> {:error, "Headers are same"}
-      not Predicates.is_slashable_validator(proposer, Accessors.get_current_epoch(state)) -> {:error, "Proposer is not slashable"}
-      true ->
-        domain = Accessors.get_domain(state, Constants.domain_beacon_proposer(), Misc.compute_epoch_at_slot(proposer_slashing.signed_header_1.message.slot))
-        signing_root = Misc.compute_signing_root(proposer_slashing.signed_header_1.message, domain)
-        if not Bls.verify(proposer.pubkey, signing_root, proposer_slashing.signed_header_1.signature) do
-          {:error, "Signed header 1 signature is not verified"}
-        end
+      not (header_1.slot == header_2.slot) ->
+        {:error, "Slots doesn't match"}
 
-        domain = Accessors.get_domain(state, Constants.domain_beacon_proposer(), Misc.compute_epoch_at_slot(proposer_slashing.signed_header_2.message.slot))
-        signing_root = Misc.compute_signing_root(proposer_slashing.signed_header_2.message, domain)
-        if not Bls.verify(proposer.pubkey, signing_root, proposer_slashing.signed_header_2.signature) do
-          {:error, "Signed header 2 signature is not verified"}
-        end
+      not (header_1.proposer_index == header_2.proposer_index) ->
+        {:error, "Proposer indices doesn't match"}
+
+      not (header_1 != header_2) ->
+        {:error, "Headers are same"}
+
+      not Predicates.is_slashable_validator(proposer, Accessors.get_current_epoch(state)) ->
+        {:error, "Proposer is not slashable"}
+
+      true ->
+        [proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
+        |> Enum.each(fn signed_header ->
+          domain =
+            Accessors.get_domain(
+              state,
+              Constants.domain_beacon_proposer(),
+              Misc.compute_epoch_at_slot(signed_header.slot)
+            )
+
+          signing_root =
+            Misc.compute_signing_root(signed_header.message, domain)
+
+          bls_verify_proposer_slashing(
+            proposer.pubkey,
+            signing_root,
+            signed_header.signature
+          )
+        end)
 
         case Mutators.slash_validator(state, header_1.proposer_index) do
           {:ok, state} -> {:ok, state}
           {:error, msg} -> {:error, msg}
         end
+    end
+  end
+
+  defp bls_verify_proposer_slashing(pubkey, signing_root, signature) do
+    if not Bls.verify(
+         pubkey,
+         signing_root,
+         signature
+       ) do
+      {:error, "Signed header 1 or 2 signature is not verified"}
     end
   end
 
