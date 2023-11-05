@@ -65,6 +65,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         end
 
       active_validator_indices = get_active_validator_indices(state, epoch)
+      IO.inspect(epoch, label: "epoch (unslashed_participating_indices)")
+      IO.inspect(epoch_participation, label: "epoch participation")
+      IO.inspect(length(active_validator_indices), label: "num active validators")
 
       participating_indices =
         active_validator_indices
@@ -76,7 +79,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           validator = Enum.at(state.validators, index)
           not validator.slashed
         end)
-
+      IO.inspect(MapSet.size(MapSet.new(participating_indices)), label: "num participating indices")
       {:ok, MapSet.new(participating_indices)}
     else
       {:error, "epoch is not present in get_current_epoch or get_previous_epoch of the state"}
