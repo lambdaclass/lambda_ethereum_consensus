@@ -11,8 +11,126 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias SszTypes.Attestation
   alias SszTypes.BeaconState
   alias SszTypes.ExecutionPayload
+  alias SszTypes.SyncAggregate
   alias SszTypes.Validator
   alias SszTypes.Withdrawal
+
+  @spec process_sync_aggregate(BeaconState.t(), SyncAggregate.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_sync_aggregate(
+        %BeaconState{
+          slot: slot,
+          current_sync_committee: current_sync_committee,
+          validators: validators
+        } = state,
+        %SyncAggregate{
+          sync_committee_bits: sync_committee_bits,
+          sync_committee_signature: sync_committee_signature
+        }
+      ) do
+    # Verify sync committee aggregate signature signing over the previous slot block root
+    committee_pubkeys = current_sync_committee.pubkeys
+
+    participant_pubkeys =
+      Enum.zip(committee_pubkeys, sync_committee_bits |> :binary.bin_to_list())
+      |> Enum.reduce(
+        [],
+        fn {pubkey, bit}, participant_pubkeys ->
+          if bit == 1 do
+            participant_pubkeys ++ [pubkey]
+          else
+            participant_pubkeys
+          end
+        end
+      )
+
+    previous_slot = max(slot, 1) - 1
+    epoch = Misc.compute_epoch_at_slot(previous_slot)
+    domain = Accessors.get_domain(state, Constants.domain_sync_committee(), epoch)
+
+    with {:ok, block_root} <- Accessors.get_block_root_at_slot(state, previous_slot),
+         signing_root <- Misc.compute_signing_root(block_root, domain),
+         {:ok, true} <-
+           Bls.eth_fast_aggregate_verify(
+             participant_pubkeys,
+             signing_root,
+             sync_committee_signature
+           ) do
+      # Compute participant and proposer rewards
+      total_active_increments =
+        div(
+          Accessors.get_total_active_balance(state),
+          ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+        )
+
+      total_base_rewards =
+        Accessors.get_base_reward_per_increment(state) * total_active_increments
+
+      max_participant_rewards =
+        div(
+          div(
+            total_base_rewards * Constants.sync_reward_weight(),
+            Constants.weight_denominator()
+          ),
+          ChainSpec.get("SLOTS_PER_EPOCH")
+        )
+
+      participant_reward = div(max_participant_rewards, ChainSpec.get("SYNC_COMMITTEE_SIZE"))
+
+      proposer_reward =
+        div(
+          participant_reward * Constants.proposer_weight(),
+          Constants.weight_denominator() - Constants.proposer_weight()
+        )
+
+      # Apply participant and proposer rewards
+      all_pubkeys =
+        validators
+        |> Enum.reduce([], fn %Validator{pubkey: pubkey}, pubkeys -> pubkeys ++ [pubkey] end)
+
+      committee_indices =
+        committee_pubkeys
+        |> Enum.reduce([], fn pubkey, indices ->
+          indices ++ [Enum.find_index(all_pubkeys, fn x -> x == pubkey end)]
+        end)
+
+      Enum.zip(committee_indices, sync_committee_bits |> :binary.bin_to_list())
+      |> Enum.reduce_while({:ok, state}, fn {participant_index, participation_bit}, {_, state} ->
+        if participation_bit == 1 do
+          increase_balance_or_return_error(
+            participant_index,
+            participant_reward,
+            proposer_reward,
+            state
+          )
+        else
+          {:cont,
+           {:ok, state |> Mutators.decrease_balance(participant_index, participant_reward)}}
+        end
+      end)
+    else
+      {:ok, false} -> {:error, "Signature verification failed"}
+    end
+  end
+
+  defp increase_balance_or_return_error(
+         participant_index,
+         participant_reward,
+         proposer_reward,
+         %BeaconState{} = state
+       ) do
+    case Accessors.get_beacon_proposer_index(state) do
+      {:ok, proposer_index} ->
+        {:cont,
+         {:ok,
+          state
+          |> Mutators.increase_balance(participant_index, participant_reward)
+          |> Mutators.increase_balance(proposer_index, proposer_reward)}}
+
+      {:error, _} ->
+        {:halt, {:error, "Error getting beacon proposer index"}}
+    end
+  end
 
   @doc """
   Apply withdrawals to the state.

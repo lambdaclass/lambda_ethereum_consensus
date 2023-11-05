@@ -46,7 +46,7 @@ defmodule OperationsTestRunner do
     "deposit",
     "proposer_slashing",
     "voluntary_exit",
-    "sync_aggregate",
+    # "sync_aggregate",
     # "execution_payload",
     # "withdrawals",
     "bls_to_execution_change"
@@ -117,6 +117,18 @@ defmodule OperationsTestRunner do
 
   defp handle_case("withdrawals", pre, operation, post, _case_dir) do
     result = Operations.process_withdrawals(pre, operation)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
+  end
+
+  defp handle_case("sync_aggregate", pre, operation, post, _case_dir) do
+    result = Operations.process_sync_aggregate(pre, operation)
 
     case result do
       {:ok, new_state} ->
