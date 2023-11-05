@@ -3,7 +3,7 @@ use rustler::{Binary, Decoder, Encoder, Env, NewBinary, NifResult, Term};
 use ssz::{Decode, Encode};
 
 use std::{fmt::Debug, io::Write};
-use tree_hash::{MerkleHasher, TreeHash};
+use tree_hash::{Hash256, MerkleHasher, TreeHash, TreeHashType};
 
 use super::from_elx::{FromElx, FromElxError};
 
@@ -78,21 +78,58 @@ where
     Elx: Decoder<'a>,
     Ssz: TreeHash + FromElx<Elx>,
 {
-    let len = list.len();
-    let mut hasher = MerkleHasher::with_leaves(max_size);
-
-    for item in list.into_iter().map(Elx::decode) {
-        let item = item?;
-        let v: Ssz = FromElx::from(item).map_err(to_nif_result)?;
-        hasher
-            .write(v.tree_hash_root().as_bytes())
-            .map_err(|_| rustler::Error::Term(Box::new("max_size exceeded")))?;
-    }
-
-    let root = hasher
-        .finish()
-        .map_err(|_| rustler::Error::Term(Box::new("max_size exceeded")))?;
-
-    let bytes = tree_hash::mix_in_length(&root, len).0;
+    let root = hash_vector_tree_root::<'a, Elx, Ssz>((list, max_size))?;
+    let bytes = tree_hash::mix_in_length(&Hash256::from(root), max_size).0;
     Ok(bytes)
+}
+
+pub(crate) fn hash_vector_tree_root<'a, Elx, Ssz>(
+    (list, max_size): (Vec<Term<'a>>, usize),
+) -> NifResult<[u8; 32]>
+where
+    Elx: Decoder<'a>,
+    Ssz: TreeHash + FromElx<Elx>,
+{
+    let v: NifResult<Vec<Elx>> = list.into_iter().map(Elx::decode).collect();
+    let x: Vec<Ssz> = FromElx::from(v?).map_err(to_nif_result)?;
+    Ok(vec_tree_hash_root(&x, max_size))
+}
+
+/// A helper function providing common functionality between the `TreeHash` implementations for
+/// `FixedVector` and `VariableList`.
+pub fn vec_tree_hash_root<T>(vec: &[T], size: usize) -> [u8; 32]
+where
+    T: TreeHash,
+{
+    let root = match T::tree_hash_type() {
+        TreeHashType::Basic => {
+            let mut hasher: MerkleHasher = MerkleHasher::with_leaves(
+                (size + T::tree_hash_packing_factor() - 1) / T::tree_hash_packing_factor(),
+            );
+
+            for item in vec {
+                hasher
+                    .write(&item.tree_hash_packed_encoding())
+                    .expect("ssz_types variable vec should not contain more elements than max");
+            }
+
+            hasher
+                .finish()
+                .expect("ssz_types variable vec should not have a remaining buffer")
+        }
+        TreeHashType::Container | TreeHashType::List | TreeHashType::Vector => {
+            let mut hasher = MerkleHasher::with_leaves(size);
+
+            for item in vec {
+                hasher
+                    .write(item.tree_hash_root().as_bytes())
+                    .expect("ssz_types vec should not contain more elements than max");
+            }
+
+            hasher
+                .finish()
+                .expect("ssz_types vec should not have a remaining buffer")
+        }
+    };
+    root.0
 }

@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias LambdaEthereumConsensus.StateTransition.Mutators
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias SszTypes.BeaconState
+  alias SszTypes.HistoricalSummary
   alias SszTypes.Validator
 
   @spec process_effective_balance_updates(BeaconState.t()) ::
@@ -81,6 +82,41 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     index = rem(next_epoch, epochs_per_historical_vector)
     new_randao_mixes = List.replace_at(randao_mixes, index, random_mix)
     new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
+    {:ok, new_state}
+  end
+
+  @spec process_slashings(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_slashings(%BeaconState{validators: validators, slashings: slashings} = state) do
+    epoch = Accessors.get_current_epoch(state)
+    total_balance = Accessors.get_total_active_balance(state)
+
+    proportional_slashing_multiplier = ChainSpec.get("PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX")
+    epochs_per_slashings_vector = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
+    increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+
+    slashed_sum = Enum.reduce(slashings, 0, &+/2)
+
+    adjusted_total_slashing_balance =
+      min(slashed_sum * proportional_slashing_multiplier, total_balance)
+
+    new_state =
+      validators
+      |> Enum.with_index()
+      |> Enum.reduce(state, fn {validator, index}, acc ->
+        if validator.slashed and
+             epoch + div(epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
+          # increment factored out from penalty numerator to avoid uint64 overflow
+          penalty_numerator =
+            div(validator.effective_balance, increment) * adjusted_total_slashing_balance
+
+          penalty = div(penalty_numerator, total_balance) * increment
+
+          Mutators.decrease_balance(acc, index, penalty)
+        else
+          acc
+        end
+      end)
+
     {:ok, new_state}
   end
 
@@ -250,6 +286,43 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         |> Enum.to_list()
 
       {:ok, %{state | inactivity_scores: updated_inactive_scores}}
+    end
+  end
+
+  @spec process_historical_summaries_update(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_historical_summaries_update(%BeaconState{} = state) do
+    next_epoch = Accessors.get_current_epoch(state) + 1
+
+    slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
+
+    epochs_per_historical_root =
+      div(slots_per_historical_root, ChainSpec.get("SLOTS_PER_EPOCH"))
+
+    if rem(next_epoch, epochs_per_historical_root) == 0 do
+      with {:ok, block_summary_root} <-
+             Ssz.hash_vector_tree_root_typed(
+               state.block_roots,
+               slots_per_historical_root,
+               SszTypes.Root
+             ),
+           {:ok, state_summary_root} <-
+             Ssz.hash_vector_tree_root_typed(
+               state.state_roots,
+               slots_per_historical_root,
+               SszTypes.Root
+             ) do
+        historical_summary = %HistoricalSummary{
+          block_summary_root: block_summary_root,
+          state_summary_root: state_summary_root
+        }
+
+        new_state =
+          Map.update!(state, :historical_summaries, &(&1 ++ [historical_summary]))
+
+        {:ok, new_state}
+      end
+    else
+      {:ok, state}
     end
   end
 
