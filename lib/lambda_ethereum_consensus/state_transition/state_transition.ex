@@ -7,6 +7,8 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
 
+  @spec state_transition(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def state_transition(
         %BeaconState{} = state,
         %SignedBeaconBlock{message: block} = signed_block,
@@ -37,10 +39,10 @@ defmodule LambdaEthereumConsensus.StateTransition do
     )
   end
 
-  def process_slots(%BeaconState{slot: old_slot}, slot) when old_slot >= slot,
+  defp process_slots(%BeaconState{slot: old_slot}, slot) when old_slot >= slot,
     do: {:error, "slot is older than state"}
 
-  def process_slots(%BeaconState{slot: old_slot} = state, slot) do
+  defp process_slots(%BeaconState{slot: old_slot} = state, slot) do
     Enum.reduce((old_slot + 1)..slot, state, fn next_slot, state ->
       state
       |> process_slot()
