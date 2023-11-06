@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
-  alias SszTypes.{Attestation, Checkpoint, SignedBeaconBlock, Store}
+  alias SszTypes.{Attestation, AttestationData, Checkpoint, SignedBeaconBlock, Store}
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3]
 
@@ -266,23 +266,31 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     target.epoch in [current_epoch, previous_epoch]
   end
 
+  # Store target checkpoint state if not yet seen
   def store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
-    # # Store target checkpoint state if not yet seen
-    # if target not in store.checkpoint_states:
-    #     base_state = copy(store.block_states[target.root])
-    #     if base_state.slot < compute_start_slot_at_epoch(target.epoch):
-    #         process_slots(base_state, compute_start_slot_at_epoch(target.epoch))
-    #     store.checkpoint_states[target] = base_state
-    store
+    if Map.has_key?(store.checkpoint_states, target) do
+      store
+    else
+      target_slot = Misc.compute_start_slot_at_epoch(target.epoch)
+
+      store.block_states[target.root]
+      |> if_then_update(
+        &(&1.slot < target_slot),
+        &StateTransition.process_slots(&1, target_slot)
+      )
+      |> then(&%Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)})
+    end
   end
 
-  def update_latest_messages(%Store{} = store, attesting_indices, %Attestation{} = attestation) do
-    # target = attestation.data.target
-    # beacon_block_root = attestation.data.beacon_block_root
-    # non_equivocating_attesting_indices = [i for i in attesting_indices if i not in store.equivocating_indices]
-    # for i in non_equivocating_attesting_indices:
-    #     if i not in store.latest_messages or target.epoch > store.latest_messages[i].epoch:
-    #         store.latest_messages[i] = LatestMessage(epoch=target.epoch, root=beacon_block_root)
-    store
+  def update_latest_messages(%Store{} = store, attesting_indices, %Attestation{data: data}) do
+    %AttestationData{target: target, beacon_block_root: beacon_block_root} = data
+    messages = store.latest_messages
+    message = %Checkpoint{epoch: target.epoch, root: beacon_block_root}
+
+    attesting_indices
+    |> Stream.filter(&MapSet.member?(store.equivocating_indices, &1))
+    |> Stream.filter(&(not Map.has_key?(messages, &1) or target.epoch > messages[&1].epoch))
+    |> Enum.reduce(messages, &Map.put(&2, &1, message))
+    |> then(&%Store{store | latest_messages: &1})
   end
 end
