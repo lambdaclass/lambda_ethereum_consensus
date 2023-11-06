@@ -41,13 +41,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     finalized_slot =
       Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
 
-    finalized_checkpoint_block =
-      Store.get_checkpoint_block(
-        store,
-        block.parent_root,
-        store.finalized_checkpoint.epoch
-      )
-
     cond do
       # Parent block must be known
       not Map.has_key?(store.block_states, block.parent_root) ->
@@ -64,7 +57,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block is prior to last finalized epoch"}
 
       # Check block is a descendant of the finalized block at the checkpoint finalized slot
-      store.finalized_checkpoint.root != finalized_checkpoint_block ->
+      store.finalized_checkpoint.root !=
+          Store.get_checkpoint_block(
+            store,
+            block.parent_root,
+            store.finalized_checkpoint.epoch
+          ) ->
         {:error, "block isn't descendant of latest finalized block"}
 
       true ->
