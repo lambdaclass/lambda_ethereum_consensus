@@ -108,7 +108,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
         StateTransition.Accessors.get_domain(state, Constants.domain_beacon_proposer())
       )
 
-    Bls.is_valid?(proposer.pubkey, signing_root, signed_block.signature)
+    Bls.valid?(proposer.pubkey, signing_root, signed_block.signature)
   end
 
   # TODO: implement

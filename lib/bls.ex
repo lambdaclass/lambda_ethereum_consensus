@@ -52,8 +52,8 @@ defmodule Bls do
   @doc """
   Same as ``Bls.verify``, but treats errors as invalid signatures.
   """
-  @spec is_valid?(SszTypes.bls_pubkey(), binary(), SszTypes.bls_signature()) :: boolean()
-  def is_valid?(public_key, message, signature) do
+  @spec valid?(SszTypes.bls_pubkey(), binary(), SszTypes.bls_signature()) :: boolean()
+  def valid?(public_key, message, signature) do
     case Bls.verify(public_key, message, signature) do
       {:ok, bool} -> bool
       {:error, _} -> false
