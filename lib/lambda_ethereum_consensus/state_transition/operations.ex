@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Mutators
   alias LambdaEthereumConsensus.StateTransition.Predicates
@@ -30,19 +31,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       ) do
     # Verify sync committee aggregate signature signing over the previous slot block root
     committee_pubkeys = current_sync_committee.pubkeys
+    sync_committee_bits_as_num = sync_committee_bits |> :binary.decode_unsigned()
+
+    sync_committee_bits =
+      <<sync_committee_bits_as_num::unsigned-integer-little-size(bit_size(sync_committee_bits))>>
 
     participant_pubkeys =
-      Enum.zip(committee_pubkeys, sync_committee_bits |> :binary.bin_to_list())
-      |> Enum.reduce(
-        [],
-        fn {pubkey, bit}, participant_pubkeys ->
-          if bit == 1 do
-            participant_pubkeys ++ [pubkey]
-          else
-            participant_pubkeys
-          end
+      Enum.with_index(committee_pubkeys)
+      |> Enum.reduce([], fn {public_key, index}, participant_pubkeys ->
+        if BitVector.set?(sync_committee_bits, index) do
+          participant_pubkeys ++ [public_key]
+        else
+          participant_pubkeys
         end
-      )
+      end)
 
     previous_slot = max(slot, 1) - 1
     epoch = Misc.compute_epoch_at_slot(previous_slot)
@@ -94,9 +96,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           indices ++ [Enum.find_index(all_pubkeys, fn x -> x == pubkey end)]
         end)
 
-      Enum.zip(committee_indices, sync_committee_bits |> :binary.bin_to_list())
-      |> Enum.reduce_while({:ok, state}, fn {participant_index, participation_bit}, {_, state} ->
-        if participation_bit == 1 do
+      Enum.with_index(committee_indices)
+      |> Enum.reduce_while({:ok, state}, fn {participant_index, index}, {_, state} ->
+        if BitVector.set?(sync_committee_bits, index) do
           state
           |> increase_balance_or_return_error(
             participant_index,
