@@ -39,4 +39,20 @@ defmodule BitVectorTest do
     # 4 bit range
     assert not BitVector.all?(bv, 0..4)
   end
+
+  test "sets a single bit" do
+    bv = BitVector.new(0b0000, 4)
+    assert bv |> BitVector.set(0) == <<0b0001::4>>
+    assert bv |> BitVector.set(1) == <<0b0010::4>>
+    assert bv |> BitVector.set(2) == <<0b0100::4>>
+    assert bv |> BitVector.set(3) == <<0b1000::4>>
+  end
+
+  test "clears a single bit" do
+    bv = BitVector.new(0b1111, 4)
+    assert bv |> BitVector.clear(0) == <<0b1110::4>>
+    assert bv |> BitVector.clear(1) == <<0b1101::4>>
+    assert bv |> BitVector.clear(2) == <<0b1011::4>>
+    assert bv |> BitVector.clear(3) == <<0b0111::4>>
+  end
 end

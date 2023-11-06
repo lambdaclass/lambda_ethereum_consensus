@@ -5,6 +5,8 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   is the less significant 1.
   """
 
+  # The internal representation is a bitstring, but we could evaluate
+  # turning it into an integer to use bitwise operations instead.
   @type t :: bitstring
 
   @doc """
@@ -14,8 +16,8 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   def new(number, s) when is_integer(number), do: <<number::size(s)>>
 
   def new(bitstring, s) when is_bitstring(bitstring) do
-    <<_::size(bit_size(bitstring) - s), b::size(s)>> = bitstring
-    <<b::size(s)>>
+    <<_::size(bit_size(bitstring) - s), b::bitstring>> = bitstring
+    b
   end
 
   @doc """
@@ -36,5 +38,25 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
     range_size = last - first
     target = 2 ** range_size - 1
     match?(<<_::size(skip), ^target::size(range_size), _::bitstring>>, bit_vector)
+  end
+
+  @doc """
+  Sets a bit (turns it to 1).
+  """
+  @spec set(t, non_neg_integer) :: t
+  def set(bit_vector, index) do
+    skip = bit_size(bit_vector) - index - 1
+    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_vector
+    <<pre::bitstring, 1::1, rest::bitstring>>
+  end
+
+  @doc """
+  Clears a bit (turns it to 0).
+  """
+  @spec clear(t, non_neg_integer) :: t
+  def clear(bit_vector, index) do
+    skip = bit_size(bit_vector) - index - 1
+    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_vector
+    <<pre::bitstring, 0::1, rest::bitstring>>
   end
 end
