@@ -95,6 +95,14 @@ defmodule Ssz do
     |> hash_tree_root_list_rs(max_size, schema)
   end
 
+  @spec hash_vector_tree_root_typed(list(struct), integer, module) ::
+          {:ok, binary} | {:error, String.t()}
+  def hash_vector_tree_root_typed(vector, max_size, schema) do
+    vector
+    |> encode()
+    |> hash_tree_root_vector_rs(max_size, schema)
+  end
+
   ##### Rust-side function stubs
   @spec to_ssz_rs(map | list, module, module) :: {:ok, binary} | {:error, String.t()}
   def to_ssz_rs(_term, _schema, _config \\ ChainSpec.get_config()), do: error()
@@ -111,6 +119,11 @@ defmodule Ssz do
   @spec hash_tree_root_list_rs(list, integer, module, module) ::
           {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root_list_rs(_list, _max_size, _schema, _config \\ ChainSpec.get_config()),
+    do: error()
+
+  @spec hash_tree_root_vector_rs(list, integer, module, module) ::
+          {:ok, SszTypes.root()} | {:error, String.t()}
+  def hash_tree_root_vector_rs(_vector, _max_size, _schema, _config \\ ChainSpec.get_config()),
     do: error()
 
   ##### Utils

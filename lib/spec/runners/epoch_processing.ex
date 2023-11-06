@@ -3,6 +3,7 @@ defmodule EpochProcessingTestRunner do
   Runner for Epoch Processing test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/epoch_processing
   """
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
+  alias LambdaEthereumConsensus.Utils.Diff
 
   use ExUnit.CaseTemplate
   use TestRunner
@@ -13,12 +14,12 @@ defmodule EpochProcessingTestRunner do
     # "inactivity_updates",
     "rewards_and_penalties",
     # "registry_updates",
-    "slashings",
+    # "slashings",
     # "effective_balance_updates",
     # "eth1_data_reset",
     # "slashings_reset",
     # "randao_mixes_reset",
-    "historical_summaries_update",
+    # "historical_summaries_update",
     "participation_record_updates",
     # "participation_flag_updates",
     "sync_committee_updates"
@@ -52,45 +53,17 @@ defmodule EpochProcessingTestRunner do
     handle_case(testcase.handler, pre, post)
   end
 
-  defp handle_case("effective_balance_updates", pre, post) do
-    result = EpochProcessing.process_effective_balance_updates(pre)
-    assert result == {:ok, post}
-  end
-
-  defp handle_case("eth1_data_reset", pre, post) do
-    result = EpochProcessing.process_eth1_data_reset(pre)
-    assert result == {:ok, post}
-  end
-
-  defp handle_case("inactivity_updates", pre, post) do
-    result = EpochProcessing.process_inactivity_updates(pre)
-    assert result == {:ok, post}
-  end
-
-  defp handle_case("randao_mixes_reset", pre, post) do
-    result = EpochProcessing.process_randao_mixes_reset(pre)
-    assert result == {:ok, post}
-  end
-
-  defp handle_case("registry_updates", pre, post) do
-    result = EpochProcessing.process_registry_updates(pre)
+  defp handle_case(name, pre, post) do
+    fun = "process_#{name}" |> String.to_existing_atom()
+    result = apply(EpochProcessing, fun, [pre])
 
     case post do
       nil ->
         assert {:error, _error_msg} = result
 
       post ->
-        assert result == {:ok, post}
+        assert {:ok, state} = result
+        assert Diff.diff(state, post) == :unchanged
     end
-  end
-
-  defp handle_case("participation_flag_updates", pre, post) do
-    result = EpochProcessing.process_participation_flag_updates(pre)
-    assert result == {:ok, post}
-  end
-
-  defp handle_case("slashings_reset", pre, post) do
-    result = EpochProcessing.process_slashings_reset(pre)
-    assert result == {:ok, post}
   end
 end

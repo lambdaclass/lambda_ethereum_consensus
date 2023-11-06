@@ -1,50 +1,21 @@
-defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
-  use GenServer
-
+defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   @moduledoc """
   This module handles Req/Resp domain requests.
   """
   require Logger
   alias LambdaEthereumConsensus.Libp2pPort
 
-  @prefix "/eth2/beacon_chain/req/"
-
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts)
-  end
-
-  @impl true
-  def init(_opts) do
-    [
-      "status/1",
-      "goodbye/1",
-      "ping/1",
-      "beacon_blocks_by_range/2",
-      "metadata/2"
-    ]
-    |> Stream.map(&Enum.join([@prefix, &1, "/ssz_snappy"]))
-    |> Stream.map(&Libp2pPort.set_handler/1)
-    |> Enum.each(fn :ok -> nil end)
-
-    {:ok, nil}
-  end
-
-  @impl true
-  def handle_info({:request, {@prefix <> name, message_id, message}}, state) do
-    Logger.debug("'#{name}' request received")
-
+  def handle(name, message_id, message) do
     case handle_req(name, message_id, message) do
       :ok -> :ok
       :not_implemented -> :ok
       {:error, error} -> Logger.error("[#{name}] Request error: #{inspect(error)}")
     end
-
-    {:noreply, state}
   end
 
   @spec handle_req(String.t(), String.t(), binary()) ::
           :ok | :not_implemented | {:error, binary()}
-  def handle_req("status/1/ssz_snappy", message_id, message) do
+  defp handle_req("status/1/ssz_snappy", message_id, message) do
     # hardcoded response from random peer
     current_status = %SszTypes.StatusMessage{
       fork_digest: Base.decode16!("BBA4DA96"),
@@ -69,7 +40,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     end
   end
 
-  def handle_req("goodbye/1/ssz_snappy", message_id, message) do
+  defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
     with <<8, snappy_code_le::binary>> <- message,
          {:ok, code_le} <- Snappy.decompress(snappy_code_le),
          :ok <-
@@ -92,7 +63,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     end
   end
 
-  def handle_req("ping/1/ssz_snappy", message_id, message) do
+  defp handle_req("ping/1/ssz_snappy", message_id, message) do
     # Values are hardcoded
     with <<8, seq_number_le::binary>> <- message,
          {:ok, decompressed} <-
@@ -108,7 +79,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     end
   end
 
-  def handle_req("metadata/2/ssz_snappy", message_id, _message) do
+  defp handle_req("metadata/2/ssz_snappy", message_id, _message) do
     # Values are hardcoded
     with {:ok, payload} <-
            <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
@@ -117,10 +88,10 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestHandler do
     end
   end
 
-  def handle_req("beacon_blocks_by_range/2/ssz_snappy", _message_id, _message),
+  defp handle_req("beacon_blocks_by_range/2/ssz_snappy", _message_id, _message),
     do: :not_implemented
 
-  def handle_req(protocol, _message_id, _message) do
+  defp handle_req(protocol, _message_id, _message) do
     # This should never happen, since Libp2p only accepts registered protocols
     Logger.error("Unsupported protocol: #{protocol}")
     :ok

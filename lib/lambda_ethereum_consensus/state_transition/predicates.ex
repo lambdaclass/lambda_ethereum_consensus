@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Predicates functions
   """
 
+  alias Bls
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias SszTypes.BeaconState
   alias SszTypes.Validator
@@ -61,5 +62,82 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   def has_flag(participation_flags, flag_index) do
     flag = 2 ** flag_index
     (participation_flags &&& flag) === flag
+  end
+
+  @doc """
+  Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG rules.
+  """
+  @spec is_slashable_attestation_data(SszTypes.AttestationData.t(), SszTypes.AttestationData.t()) ::
+          boolean
+  def is_slashable_attestation_data(data_1, data_2) do
+    (data_1 != data_2 and data_1.target.epoch == data_2.target.epoch) or
+      (data_1.source.epoch < data_2.source.epoch and data_2.target.epoch < data_1.target.epoch)
+  end
+
+  @doc """
+  Check if ``validator`` is slashable.
+  """
+  @spec is_slashable_validator(Validator.t(), SszTypes.epoch()) :: boolean
+  def is_slashable_validator(validator, epoch) do
+    not validator.slashed and
+      (validator.activation_epoch <= epoch and epoch < validator.withdrawable_epoch)
+  end
+
+  @doc """
+  Check if slashing attestation indices are in range of validators.
+  """
+  @spec is_indices_available(any(), list(SszTypes.validator_index())) :: boolean
+  def is_indices_available(validators, indices) do
+    is_indices_available(validators, indices, true)
+  end
+
+  defp is_indices_available(_validators, [], true) do
+    true
+  end
+
+  defp is_indices_available(_validators, _indices, false) do
+    false
+  end
+
+  defp is_indices_available(validators, [h | indices], _acc) do
+    is_indices_available(validators, indices, h < validators)
+  end
+
+  @doc """
+  Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
+  """
+  @spec is_valid_indexed_attestation(BeaconState.t(), SszTypes.IndexedAttestation.t()) :: boolean
+  def is_valid_indexed_attestation(state, indexed_attestation) do
+    indices = indexed_attestation.attesting_indices
+
+    if Enum.empty?(indices) or not (indices == Enum.sort(Enum.uniq(indices))) do
+      false
+    else
+      domain =
+        Accessors.get_domain(
+          state,
+          Constants.domain_beacon_attester(),
+          indexed_attestation.data.target.epoch
+        )
+
+      signing_root =
+        LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
+          indexed_attestation.data,
+          domain
+        )
+
+      res =
+        state.validators
+        |> Stream.with_index()
+        |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
+        |> Stream.map(fn {%{pubkey: p}, _} -> p end)
+        |> Enum.to_list()
+        |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
+
+      case res do
+        {:ok, r} -> r
+        {:error, _} -> false
+      end
+    end
   end
 end

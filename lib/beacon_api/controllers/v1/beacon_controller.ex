@@ -82,7 +82,7 @@ defmodule BeaconApi.V1.BeaconController do
 
   def get_block_root(conn, %{"block_id" => "0x" <> hex_block_id}) do
     with {:ok, block_root} <- Base.decode16(hex_block_id, case: :mixed),
-         {:ok, _block} <- BlockStore.get_block(block_root) do
+         {:ok, _signed_block} <- BlockStore.get_block(block_root) do
       conn |> root_response(block_root)
     else
       :not_found -> conn |> block_not_found()

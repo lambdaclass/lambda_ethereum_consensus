@@ -2,7 +2,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @moduledoc """
   Misc functions
   """
+
+  alias SszTypes.BeaconState
   import Bitwise
+  alias SszTypes.BeaconState
 
   @doc """
   Returns the epoch number at slot.
@@ -23,7 +26,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   @doc """
-     Return the shuffled index corresponding to ``seed`` (and ``index_count``).
+  Return the shuffled index corresponding to ``seed`` (and ``index_count``).
   """
   @spec compute_shuffled_index(SszTypes.uint64(), SszTypes.uint64(), SszTypes.bytes32()) ::
           {:error, String.t()}
@@ -118,16 +121,126 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     epoch * slots_per_epoch
   end
 
+  @doc """
+  Return from ``indices`` a random index sampled by effective balance.
+  """
+  @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
+          {:ok, SszTypes.validator_index()} | {:error, binary()}
+  def compute_proposer_index(state, indices, seed) do
+    if length(indices) <= 0 do
+      {:error, "Empty indices"}
+    else
+      {:ok, compute_proposer_index(state, indices, seed, 0)}
+    end
+  end
+
+  defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
+    max_random_byte = 2 ** 8 - 1
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+
+    total = length(indices)
+    {:ok, i} = compute_shuffled_index(rem(i, total), total, seed)
+    candidate_index = Enum.at(indices, i)
+    random_byte = :crypto.hash(:sha256, seed <> uint_to_bytes4(div(i, 32)))
+    <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
+
+    effective_balance = Enum.at(state.validators, candidate_index).effective_balance
+
+    if effective_balance * max_random_byte >= max_effective_balance * byte do
+      candidate_index
+    else
+      compute_proposer_index(state, indices, seed, i + 1)
+    end
+  end
+
+  @doc """
+  Return the domain for the ``domain_type`` and ``fork_version``.
+  """
+  @spec compute_domain(SszTypes.domain_type(), Keyword.t()) ::
+          SszTypes.domain()
+  def compute_domain(domain_type, opts \\ []) do
+    fork_version = Keyword.get(opts, :fork_version, ChainSpec.get("GENESIS_FORK_VERSION"))
+    genesis_validators_root = Keyword.get(opts, :genesis_validators_root, <<0::256>>)
+
+    fork_data_root =
+      LambdaEthereumConsensus.Beacon.HelperFunctions.compute_fork_data_root(
+        fork_version,
+        genesis_validators_root
+      )
+
+    <<fork_data_prefix::binary-size(28), _::binary>> = fork_data_root
+    domain_type <> fork_data_prefix
+  end
+
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
-  defp bytes_to_uint64(value) do
+  def bytes_to_uint64(value) do
     # Converts a binary value to a 64-bit unsigned integer
     <<first_8_bytes::unsigned-integer-little-size(64), _::binary>> = value
     first_8_bytes
   end
 
   @spec uint_to_bytes4(integer()) :: SszTypes.bytes4()
-  defp uint_to_bytes4(value) do
+  def uint_to_bytes4(value) do
     # Converts an unsigned integer value to a bytes 4 value
     <<value::unsigned-integer-little-size(32)>>
+  end
+
+  @spec uint64_to_bytes(SszTypes.uint64()) :: <<_::64>>
+  def uint64_to_bytes(value) when is_integer(value) and value >= 0 do
+    <<value::unsigned-integer-little-size(64)>>
+  end
+
+  @spec compute_committee(
+          list(SszTypes.validator_index()),
+          SszTypes.bytes32(),
+          SszTypes.uint64(),
+          SszTypes.uint64()
+        ) ::
+          {:ok, list(SszTypes.validator_index())} | {:error, binary()}
+  def compute_committee(indices, seed, index, count) do
+    start_ = div(length(indices) * index, count)
+    end_ = div(length(indices) * (index + 1), count) - 1
+
+    case compute_committee_indices(start_, end_, indices, seed) do
+      {:ok, result_list} -> {:ok, Enum.reverse(result_list)}
+      _ -> {:error, "invalid index_count"}
+    end
+  end
+
+  defp compute_committee_indices(start_, end_, indices, seed) do
+    Enum.reduce_while(start_..end_, {:ok, []}, fn i, {:ok, acc_list} ->
+      case compute_shuffled_index(i, length(indices), seed) do
+        {:ok, shuffled_index} ->
+          {:cont, {:ok, [Enum.at(indices, shuffled_index) | acc_list]}}
+
+        {:error, _} = error ->
+          {:halt, error}
+      end
+    end)
+  end
+
+  @doc """
+  Return the signing root for the corresponding signing data.
+  """
+  @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
+  def compute_signing_root(%SszTypes.AttestationData{} = data, domain) do
+    {:ok, data_root} = Ssz.hash_tree_root(data)
+
+    {:ok, root} =
+      Ssz.hash_tree_root(%SszTypes.SigningData{
+        object_root: data_root,
+        domain: domain
+      })
+
+    root
+  end
+
+  @doc """
+  Return a new ``ParticipationFlags`` adding ``flag_index`` to ``flags``.
+  """
+  @spec add_flag(SszTypes.participation_flags(), integer) :: SszTypes.participation_flags()
+  def add_flag(flags, flag_index) do
+    flag = :math.pow(2, flag_index) |> round
+    bor(flags, flag)
   end
 end
