@@ -4,10 +4,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Mutators
   alias LambdaEthereumConsensus.StateTransition.Predicates
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias SszTypes
   alias SszTypes.Attestation
   alias SszTypes.BeaconState
