@@ -65,8 +65,8 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   end
 
   @doc """
-  Shifts a vector n steps to higher indices. For example, using shift_higher(vector, 1) is equivalent
-  in the specs to:
+  Shifts a vector n steps to higher indices. For example, using shift_higher(vector, 1) is
+  equivalent in the specs to:
   1. vector[1:] = vector[:size-1]
   2. vector[0] = 0b0
 
@@ -79,8 +79,8 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   end
 
   @doc """
-  Shifts a vector left n steps. For example, using left_shift(vector, 1) is equivalent
-  in the specs to:
+  Shifts a vector n steps to the lower indices. For example, using left_shift(vector, 1) is
+  equivalent in the specs to:
   1. vector[:size-1] = vector[1:]
   2. vector[size-1] = 0b0
 
