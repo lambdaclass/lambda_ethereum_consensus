@@ -20,7 +20,7 @@ defmodule Fixtures.SszTestTypes.Bar do
       }
     },
     %{field_static_c: %{type: :bytes, size: 48}},
-    %{int_a: %{type: :uint, size: 32}},
+    %{int_a: %{type: :uint, size: 64}},
     %{vec_a: %{type: :vector, schema: %{type: :uint, size: 8}, max_size: 4}}
   ]
 
@@ -32,7 +32,7 @@ defmodule Fixtures.SszTestTypes.Bar do
           container_static_b: Fixtures.SszTestTypes.Foo.t(),
           list_a: list(Fixtures.SszTestTypes.Foo.t()),
           field_static_c: SszTypes.bls_pubkey(),
-          int_a: SszTypes.uint32(),
+          int_a: SszTypes.uint64(),
           vec_a: list(SszTypes.uint8())
         }
   def schema, do: @schema
