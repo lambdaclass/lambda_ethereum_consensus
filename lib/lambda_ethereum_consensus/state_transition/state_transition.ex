@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   State transition logic.
   """
 
+  alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
 
   def state_transition(
@@ -54,8 +55,26 @@ defmodule LambdaEthereumConsensus.StateTransition do
     %BeaconState{state | block_roots: roots}
   end
 
-  defp process_epoch(%BeaconState{} = state), do: state
+  defp process_epoch(%BeaconState{} = state) do
+    state
+    |> EpochProcessing.process_justification_and_finalization()
+    |> map(&EpochProcessing.process_inactivity_updates/1)
+    # |> map(&EpochProcessing.process_rewards_and_penalties/1)
+    |> map(&EpochProcessing.process_registry_updates/1)
+    |> map(&EpochProcessing.process_slashings/1)
+    |> map(&EpochProcessing.process_eth1_data_reset/1)
+    |> map(&EpochProcessing.process_effective_balance_updates/1)
+    |> map(&EpochProcessing.process_slashings_reset/1)
+    |> map(&EpochProcessing.process_randao_mixes_reset/1)
+    |> map(&EpochProcessing.process_historical_summaries_update/1)
+    |> map(&EpochProcessing.process_participation_flag_updates/1)
+
+    # |> map(&EpochProcessing.process_sync_committee_updates/1)
+  end
 
   defp if_then_update(value, true, fun), do: fun.(value)
   defp if_then_update(value, false, _fun), do: value
+
+  defp map({:ok, value}, fun), do: fun.(value)
+  defp map({:error, _} = err, _fun), do: err
 end
