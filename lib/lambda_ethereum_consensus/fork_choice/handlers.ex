@@ -81,21 +81,21 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   @spec on_attestation(Store.t(), Attestation.t(), boolean()) ::
           {:ok, Store.t()} | {:error, String.t()}
   def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
-    if not on_attestation_valid?(store, attestation, is_from_block) do
-      {:error, "invalid on_attestation"}
-    else
+    if on_attestation_valid?(store, attestation, is_from_block) do
       store = store_target_checkpoint_state(store, attestation.data.target)
 
       # Get state at the `target` to fully validate attestation
       target_state = store.checkpoint_states[attestation.data.target]
       indexed_attestation = Accessors.get_indexed_attestation(target_state, attestation)
 
-      if not Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
-        {:error, "invalid indexed attestation"}
-      else
+      if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
         # Update latest messages for attesting indices
         update_latest_messages(store, indexed_attestation.attesting_indices, attestation)
+      else
+        {:error, "invalid indexed attestation"}
       end
+    else
+      {:error, "invalid on_attestation"}
     end
   end
 
@@ -238,7 +238,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     cond do
       # Check that the epoch number and slot number are matching
       target.epoch != Misc.compute_epoch_at_slot(attestation.data.slot) -> false
-      # Attestation target must be for a known block. If target block is unknown, delay consideration until block is found
+      # Attestation target must be for a known block.
+      # If target block is unknown, delay consideration until block is found
       not Map.has_key?(store.blocks, target.root) -> false
       # Attestations must be for a known block. If block is unknown, delay consideration until the block is found
       not Map.has_key?(store.blocks, block_root) -> false
