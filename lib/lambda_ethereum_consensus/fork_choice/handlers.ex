@@ -3,6 +3,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Handlers that update the fork choice store.
   """
 
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Predicates}
+  alias SszTypes.Attestation
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Misc}
   alias SszTypes.{Checkpoint, SignedBeaconBlock, Store}
@@ -69,6 +71,31 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
       true ->
         compute_post_state(store, signed_block)
+    end
+  end
+
+  @doc """
+  Run ``on_attestation`` upon receiving a new ``attestation`` from either within a block or directly on the wire.
+
+  An ``attestation`` that is asserted as invalid may be valid at a later time,
+  consider scheduling it for later processing in such case.
+  """
+  @spec on_attestation(Store.t(), Attestation.t(), boolean()) ::
+          {:ok, Store.t()} | {:error, String.t()}
+  def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
+    with {:ok, store} <- validate_on_attestation(store, attestation, is_from_block) do
+      store = store_target_checkpoint_state(store, attestation.data.target)
+
+      # Get state at the `target` to fully validate attestation
+      target_state = store.checkpoint_states[attestation.data.target]
+      indexed_attestation = Accessors.get_indexed_attestation(target_state, attestation)
+
+      if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
+        # Update latest messages for attesting indices
+        update_latest_messages(store, indexed_attestation.attesting_indices, attestation)
+      else
+        {:error, "invalid indexed attestation"}
+      end
     end
   end
 
@@ -192,5 +219,54 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   defp compute_slots_since_epoch_start(slot) do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
     slot - div(slot, slots_per_epoch) * slots_per_epoch
+  end
+
+  def validate_on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
+    # target = attestation.data.target
+
+    # # If the given attestation is not from a beacon block message, we have to check the target epoch scope.
+    # if not is_from_block:
+    #     validate_target_epoch_against_current_time(store, attestation)
+
+    # # Check that the epoch number and slot number are matching
+    # assert target.epoch == compute_epoch_at_slot(attestation.data.slot)
+
+    # # Attestation target must be for a known block. If target block is unknown, delay consideration until block is found
+    # assert target.root in store.blocks
+
+    # # Attestations must be for a known block. If block is unknown, delay consideration until the block is found
+    # assert attestation.data.beacon_block_root in store.blocks
+    # # Attestations must not be for blocks in the future. If not, the attestation should not be considered
+    # assert store.blocks[attestation.data.beacon_block_root].slot <= attestation.data.slot
+
+    # # LMD vote must be consistent with FFG vote target
+    # assert target.root == get_checkpoint_block(store, attestation.data.beacon_block_root, target.epoch)
+
+    # # Attestations can only affect the fork choice of subsequent slots.
+    # # Delay consideration in the fork choice until their slot is in the past.
+    # assert get_current_slot(store) >= attestation.data.slot + 1
+    {:ok, store}
+  end
+
+  alias SszTypes.Checkpoint
+
+  def store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
+    # # Store target checkpoint state if not yet seen
+    # if target not in store.checkpoint_states:
+    #     base_state = copy(store.block_states[target.root])
+    #     if base_state.slot < compute_start_slot_at_epoch(target.epoch):
+    #         process_slots(base_state, compute_start_slot_at_epoch(target.epoch))
+    #     store.checkpoint_states[target] = base_state
+    store
+  end
+
+  def update_latest_messages(%Store{} = store, attesting_indices, %Attestation{} = attestation) do
+    # target = attestation.data.target
+    # beacon_block_root = attestation.data.beacon_block_root
+    # non_equivocating_attesting_indices = [i for i in attesting_indices if i not in store.equivocating_indices]
+    # for i in non_equivocating_attesting_indices:
+    #     if i not in store.latest_messages or target.epoch > store.latest_messages[i].epoch:
+    #         store.latest_messages[i] = LatestMessage(epoch=target.epoch, root=beacon_block_root)
+    store
   end
 end
