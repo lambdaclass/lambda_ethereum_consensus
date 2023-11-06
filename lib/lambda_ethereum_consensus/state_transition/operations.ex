@@ -242,32 +242,62 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     voluntary_exit = signed_voluntary_exit.message
     validator = Enum.at(state.validators, voluntary_exit.validator_index)
 
-    cond do
-      not Predicates.is_active_validator(validator, Accessors.get_current_epoch(state)) ->
-        {:error, "Validator isn't active"}
+    res =
+      cond do
+        not Predicates.is_indices_available(
+          length(state.validators),
+          [voluntary_exit.validator_index]
+        ) ->
+          {:error, "Too high index"}
 
-      validator.exit_epoch != Constants.far_future_epoch() ->
-        {:error, "Validator has already initiated exit"}
+        not Predicates.is_active_validator(validator, Accessors.get_current_epoch(state)) ->
+          {:error, "Validator isn't active"}
 
-      Accessors.get_current_epoch(state) < voluntary_exit.epoch ->
-        {:error, "Exit must specify an epoch when they become valid"}
+        validator.exit_epoch != Constants.far_future_epoch() ->
+          {:error, "Validator has already initiated exit"}
 
-      Accessors.get_current_epoch(state) <
-          validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
-        {:error, "Exit must specify an epoch when they become valid"}
+        Accessors.get_current_epoch(state) < voluntary_exit.epoch ->
+          {:error, "Exit must specify an epoch when they become valid"}
 
-      true ->
-        domain =
-          Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
+        Accessors.get_current_epoch(state) <
+            validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
+          {:error, "Exit must specify an epoch when they become valid"}
 
-        signing_root =
-          LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
-            voluntary_exit,
-            domain
-          )
+        true ->
+          domain =
+            Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
 
-        Bls.verify(validator.pubkey, signing_root, signed_voluntary_exit.signature)
-        |> handle_verification_error()
+          signing_root =
+            LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
+              voluntary_exit,
+              domain
+            )
+
+          Bls.verify(validator.pubkey, signing_root, signed_voluntary_exit.signature)
+          |> handle_verification_error()
+      end
+
+    case res do
+      {:ok, _msg} ->
+        initiate_validator_exit(state, voluntary_exit.validator_index)
+
+      {:error, msg} ->
+        {:error, msg}
+    end
+  end
+
+  defp initiate_validator_exit(state, validator_index) do
+    case Mutators.initiate_validator_exit(state, validator_index) do
+      {:ok, validator} ->
+        state = %BeaconState{
+          state
+          | validators: List.replace_at(state.validators, validator_index, validator)
+        }
+
+        {:ok, state}
+
+      {:error, msg} ->
+        {:error, msg}
     end
   end
 
