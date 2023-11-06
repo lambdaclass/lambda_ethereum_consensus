@@ -1,8 +1,8 @@
 defmodule LambdaEthereumConsensus.Utils.BitVector do
   @moduledoc """
   Set of utilities to interact with bit vectors, represented as bitstrings.
-  The vector is indexed with little endian bit notation. That is, the bit 0
-  is the less significant 1.
+  The vector is indexed with little endian bit notation. That is, the 0th bit
+  is the less significant bit of the corresponding byte.
   """
 
   # The internal representation is a bitstring, but we could evaluate
@@ -32,7 +32,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
 
   @doc """
   True if all bits in the specified range are set to 1.
-  Equivalent to all?(bit_vector[first..last]) in the specs.
+  Equivalent to all(bit_vector[first..last]) in the specs.
   """
   @spec all?(t, Range.t()) :: boolean
   def all?(bit_vector, first..last) do
