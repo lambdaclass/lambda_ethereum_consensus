@@ -21,7 +21,7 @@ defmodule Fixtures.SszTestTypes.Bar do
     },
     %{field_static_c: %{type: :bytes, size: 48}},
     %{int_a: %{type: :uint, size: 32}},
-    %{vec_a: %{type: :vector, schema: %{type: :uint, size: 8}, max_size: 33}}
+    %{vec_a: %{type: :vector, schema: %{type: :uint, size: 8}, max_size: 4}}
   ]
 
   @enforce_keys fields

@@ -240,7 +240,10 @@ defmodule Unit.SSZTests do
       vec_a: [1, 2, 4, 5]
     }
 
-    assert {:ok, ^serialized} = Ssz.serialize(bar)
-    # assert {:ok, ^bar} = Ssz.deserialize(serialized, SszTestTypes.Bar)
+    # IO.puts("serialized #{inspect(Ssz.serialize(bar), limit: :infinity)}")
+
+    # assert {:ok, ^serialized} = Ssz.serialize(bar)
+    assert {:ok, ^bar} = Ssz.deserialize(serialized, SszTestTypes.Bar)
+    # assert false
   end
 end
