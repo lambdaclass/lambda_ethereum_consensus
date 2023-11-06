@@ -23,6 +23,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     next_slot_start = (current_slot + 1) * seconds_per_slot
     last_slot_start = tick_slot * seconds_per_slot
 
+    :telemetry.execute([:sync, :store], %{slot: current_slot})
+
     next_slot_start..last_slot_start//seconds_per_slot
     |> Enum.reduce(store, &on_tick_per_slot(&2, &1))
     |> on_tick_per_slot(time)
