@@ -97,11 +97,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       Enum.zip(committee_indices, sync_committee_bits |> :binary.bin_to_list())
       |> Enum.reduce_while({:ok, state}, fn {participant_index, participation_bit}, {_, state} ->
         if participation_bit == 1 do
-          increase_balance_or_return_error(
+          state
+          |> increase_balance_or_return_error(
             participant_index,
             participant_reward,
-            proposer_reward,
-            state
+            proposer_reward
           )
         else
           {:cont,
@@ -110,14 +110,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       end)
     else
       {:ok, false} -> {:error, "Signature verification failed"}
+      {:error, message} -> {:error, message}
     end
   end
 
   defp increase_balance_or_return_error(
+         %BeaconState{} = state,
          participant_index,
          participant_reward,
-         proposer_reward,
-         %BeaconState{} = state
+         proposer_reward
        ) do
     case Accessors.get_beacon_proposer_index(state) do
       {:ok, proposer_index} ->
