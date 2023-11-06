@@ -7,6 +7,8 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
 
+  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map: 2]
+
   @spec state_transition(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def state_transition(
@@ -113,10 +115,4 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   # TODO: implement
   defp process_block(state, _block), do: state
-
-  defp if_then_update(value, true, fun), do: fun.(value)
-  defp if_then_update(value, false, _fun), do: value
-
-  defp map({:ok, value}, fun), do: fun.(value)
-  defp map({:error, _} = err, _fun), do: err
 end
