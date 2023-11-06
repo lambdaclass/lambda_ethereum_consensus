@@ -50,7 +50,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
       state
       |> process_slot()
       # Process epoch on the start slot of the next epoch
-      |> if_then_update(rem(next_slot, ChainSpec.get("SLOTS_PER_EPOCH") == 0), &process_epoch/1)
+      |> if_then_update(rem(next_slot, ChainSpec.get("SLOTS_PER_EPOCH")) == 0, &process_epoch/1)
       |> then(&%BeaconState{&1 | slot: next_slot})
     end)
   end
