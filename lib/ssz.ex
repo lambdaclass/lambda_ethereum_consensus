@@ -215,7 +215,7 @@ defmodule Ssz do
   end
 
   # TODO check max_size of variable list
-  def serialize(elements, %{type: :list, schema: schema, max_size: max_size} = container) do
+  def serialize(elements, %{type: :list, schema: schema, max_size: _max_size} = container) do
     tuple =
       elements
       |> Enum.map(fn element -> {element, schema} end)
@@ -309,159 +309,137 @@ defmodule Ssz do
   ### DECODE ######
   @spec deserialize(binary, module) :: {:ok, struct} | {:error, String.t()}
   def deserialize(bin, schema) do
-    IO.puts("-----------------------start deserialized------------------------")
     schema_def = schema.schema()
 
     if is_list(schema_def) do
-      # {:ok, {_rest, items, _, _}} =
-      {_rest, items, offsets, items_index} =
-        schema_def
-        |> Enum.reduce({bin, [], [], 0}, fn s, {rest_bytes, items, offsets, items_index} ->
-          key = Enum.at(Map.keys(s), 0)
-          metadata = Map.get(s, key)
-          IO.puts("going to chuck #{inspect(metadata)}")
-
-          if is_variable_size(metadata, schema_def) do
-            <<offset::integer-size(32)-little, rest::bitstring>> = rest_bytes
-            %{position: length(items), offset: offset}
-
-            {rest, [%{schema: metadata, key: key, bin: <<>>} | items],
-             [%{position: length(items), offset: offset} | offsets],
-             items_index + @bytes_per_length_offset}
-          else
-            ssz_fixed_len = get_fixed_len(metadata)
-            IO.puts("ssz_fixed_len #{inspect(ssz_fixed_len)}")
-            <<chuck::binary-size(ssz_fixed_len), rest::bitstring>> = rest_bytes
-
-            {rest, [%{schema: metadata, key: key, bin: chuck} | items], offsets,
-             items_index + ssz_fixed_len}
-          end
-
-          # deserialize_with_acc(metadata, key, rest_bytes, items, offsets, position_bin)
-        end)
-
+      {items, offsets, items_index} = build_deserialization_scheme(schema_def, bin)
       items = items |> Enum.reverse()
-      IO.puts("items #{inspect(Enum.reverse(items))}")
-      IO.puts("items_index #{inspect(items_index)}")
-      IO.puts("offsets #{inspect(Enum.reverse(offsets))}")
-      # TODO first offset has to be equal to items_index
-      updated_items =
-        offsets
-        |> Enum.reverse()
-        |> Enum.chunk_every(2, 1)
-        |> IO.inspect(label: "windows: ")
-        |> Enum.reduce(items, fn
-          [first, second], acc ->
-            part = :binary.part(bin, first[:offset], second[:offset] - first[:offset])
-            IO.puts("part is #{inspect(part)}")
-            IO.puts("position: #{inspect(first[:position])}")
-            item = Enum.at(items, first[:position])
-            IO.puts("item to update #{inspect(item)}")
-            updated_item = Map.update!(item, :bin, &(&1 <> part))
-            IO.puts("updated_item #{inspect(updated_item)}")
-            updated_items = List.replace_at(acc, first[:position], updated_item)
-            updated_items
+      offsets = offsets |> Enum.reverse()
 
-          [last], acc ->
-            part = :binary.part(bin, last[:offset], byte_size(bin) - last[:offset])
-            IO.puts("part is #{inspect(part)}")
-            IO.puts("position: #{inspect(last[:position])}")
-            item = Enum.at(items, last[:position])
-            updated_item = Map.update!(item, :bin, &(&1 <> part))
-            updated_items = List.replace_at(acc, last[:position], updated_item)
-            updated_items
-        end)
-
-      IO.puts("updated_items #{inspect(updated_items, limit: :infinity)}")
-      IO.puts("-----------------------start des items------------------------")
-
-      {:ok, map_struct} =
-        updated_items
-        |> Enum.reduce_while({:ok, %{}}, fn %{bin: bin, key: key, schema: schema} = i,
-                                            {:ok, acc} ->
-          IO.puts("deserialized #{inspect(acc)}")
-          IO.puts("going to deserialize_match #{inspect(i)}")
-
-          case deserialize_match(bin, schema) do
-            {:ok, {decoded, _rest}} ->
-              IO.puts("deserialized: #{inspect(decoded)}")
-              {:cont, {:ok, Map.merge(acc, %{key => decoded})}}
-
-            {:error, reason} ->
-              {:halt, {:error, reason}}
-          end
-        end)
-
-      IO.puts(
-        "map_struct #{inspect(map_struct, limit: :infinity)} for container #{inspect(schema)}"
-      )
-
-      IO.puts("-----------------------end------------------------")
-
-      {:ok, struct!(schema, map_struct)}
+      if check_first_offset_position(offsets, items_index) do
+        updated_items_with_offsets = insert_offsets(offsets, items, bin)
+        {:ok, map_struct} = deserialize_with_build_schema(updated_items_with_offsets)
+        {:ok, struct!(schema, map_struct)}
+      else
+        {:error, "invalid offsets position"}
+      end
     else
-      # {:error, "Invalid container schema: #{inspect(schema_def)}"}
-      {:ok, {decoded, _}} = deserialize_match(bin, schema)
-      {:ok, decoded}
+      deserialize_match(bin, schema)
     end
   end
 
-  @spec deserialize_with_acc(map, atom, binary, map, list, integer()) ::
-          {:cont, {:ok, {binary, %{}}}} | {:halt, {:error, String.t()}}
-  defp deserialize_with_acc(schema, key, rest_bytes, items, offsets, position_bin) do
-    case deserialize_match(rest_bytes, schema) do
-      {:ok, {decoded, rest, pos}} ->
-        {:cont, {:ok, {rest, Map.merge(items, %{key => decoded}), offsets, position_bin + pos}}}
+  @spec deserialize_with_build_schema(list(%{})) :: {:ok, %{}}
+  defp deserialize_with_build_schema(updated_items_with_offsets) do
+    updated_items_with_offsets
+    |> Enum.reduce_while({:ok, %{}}, fn %{bin: bin, key: key, schema: schema}, {:ok, acc} ->
+      case deserialize_match(bin, schema) do
+        {:ok, decoded} ->
+          {:cont, {:ok, Map.merge(acc, %{key => decoded})}}
 
-      {:error, reason} ->
-        {:halt, {:error, reason}}
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  @spec check_first_offset_position(list(%{}), integer()) :: boolean
+  defp check_first_offset_position(offsets, items_index) do
+    if Enum.empty?(offsets) do
+      true
+    else
+      %{offset: offset} = Enum.at(offsets, 0)
+      offset == items_index
     end
   end
 
-  @spec deserialize_match(binary, %{} | module) :: {:ok, {any, binary}} | {:error, String.t()}
+  @spec insert_offsets(list(%{}), list(%{}), binary) :: list(%{})
+  defp insert_offsets(offsets, items, bin) do
+    offsets
+    |> Enum.chunk_every(2, 1)
+    |> Enum.reduce(items, fn
+      [first, second], acc ->
+        part = :binary.part(bin, first[:offset], second[:offset] - first[:offset])
+        item = Enum.at(items, first[:position])
+        updated_item = Map.update!(item, :bin, &(&1 <> part))
+        updated_items = List.replace_at(acc, first[:position], updated_item)
+        updated_items
+
+      [last], acc ->
+        part = :binary.part(bin, last[:offset], byte_size(bin) - last[:offset])
+        item = Enum.at(items, last[:position])
+        updated_item = Map.update!(item, :bin, &(&1 <> part))
+        updated_items = List.replace_at(acc, last[:position], updated_item)
+        updated_items
+    end)
+  end
+
+  @spec build_deserialization_scheme(list(%{}), binary) :: {[], [], integer()}
+  defp build_deserialization_scheme(schema_def, bin) do
+    schema_def
+    |> Enum.reduce({bin, [], [], 0}, fn s, {rest_bytes, items, offsets, items_index} ->
+      key = Enum.at(Map.keys(s), 0)
+      metadata = Map.get(s, key)
+
+      if is_variable_size(metadata, schema_def) do
+        <<offset::integer-size(32)-little, rest::bitstring>> = rest_bytes
+        %{position: length(items), offset: offset}
+
+        {rest, [%{schema: metadata, key: key, bin: <<>>} | items],
+         [%{position: length(items), offset: offset} | offsets],
+         items_index + @bytes_per_length_offset}
+      else
+        ssz_fixed_len = get_fixed_len(metadata)
+        <<chuck::binary-size(ssz_fixed_len), rest::bitstring>> = rest_bytes
+
+        {rest, [%{schema: metadata, key: key, bin: chuck} | items], offsets,
+         items_index + ssz_fixed_len}
+      end
+    end)
+    |> then(fn {_rest_bytes, items, offsets, items_index} -> {items, offsets, items_index} end)
+  end
+
+  @spec deserialize_match(binary, %{} | module) :: {:ok, any} | {:error, String.t()}
   defp deserialize_match(rest_bytes, schema) do
     case schema do
       %{type: :vector, schema: elements_schema, max_size: max_size} ->
         elements_size = get_fixed_len(elements_schema)
-        IO.puts("length of elements #{inspect(elements_size)}")
-        <<elements::binary-size(max_size * elements_size), rest::bitstring>> = rest_bytes
-        IO.puts("elements binary #{inspect(elements)}")
+        <<elements::binary-size(max_size * elements_size), _rest::bitstring>> = rest_bytes
 
         decoded_list =
           :binary.bin_to_list(elements)
           |> Enum.chunk_every(elements_size)
           |> Enum.map(fn c ->
-            {:ok, {decoded, _}} = deserialize_match(:binary.list_to_bin(c), elements_schema)
+            {:ok, decoded} = deserialize_match(:binary.list_to_bin(c), elements_schema)
             decoded
           end)
 
-        {:ok, {decoded_list, rest}}
+        {:ok, decoded_list}
 
       %{type: :list, schema: elements_schema, max_size: _max_size} ->
         with {:ok, decoded} <- list_from_ssz_elixir(rest_bytes, elements_schema) do
-          {:ok, {decoded, rest_bytes}}
+          {:ok, decoded}
         end
 
       %{type: :container, schema: schema} ->
         with {:ok, decoded} <- deserialize(rest_bytes, schema) do
-          {:ok, {decoded, rest_bytes}}
+          {:ok, decoded}
         end
 
       %{type: :bytes, size: size} ->
-        <<element::binary-size(size), rest::bitstring>> = rest_bytes
-        {:ok, {element, rest}}
+        <<element::binary-size(size), _rest::bitstring>> = rest_bytes
+        {:ok, element}
 
       %{type: :bytes} ->
-        {:ok, {rest_bytes, <<>>}}
+        {:ok, rest_bytes}
 
       %{type: :uint, size: size} ->
-        <<element::integer-size(size)-little, rest::bitstring>> = rest_bytes
-        {:ok, {element, rest}}
+        <<element::integer-size(size)-little, _rest::bitstring>> = rest_bytes
+        {:ok, element}
 
       schema ->
         if exported?(schema, :schema, 0) do
           with {:ok, decoded} <- deserialize(rest_bytes, schema) do
-            {:ok, {decoded, <<>>}}
+            {:ok, decoded}
           end
         else
           {:halt, {:error, "Unknown schema: #{inspect(schema)}"}}
@@ -471,22 +449,10 @@ defmodule Ssz do
 
   @spec list_from_ssz_elixir(binary, map | module) :: {:ok, list} | {:error, String.t()}
   def list_from_ssz_elixir(bin, schema) do
-    IO.puts("going to des #{inspect(schema)}")
-
     if is_variable_schema(schema) do
-      IO.puts("going to decode variable schema #{inspect(schema.schema())}")
       decode_list_of_variable_length_items(bin, schema.schema())
     else
-      IO.puts("going to decode fixed vec #{inspect(schema)}")
       ssz_fixed_len = get_fixed_len(schema)
-      # schema.schema
-      # |> Enum.map(fn schema ->
-      #   key = Enum.at(Map.keys(schema), 0)
-      #   metadata = Map.get(schema, key)
-      #   get_fixed_len(metadata)
-      # end)
-      # |> Enum.sum()
-      IO.puts("ssz_fixed_len #{inspect(ssz_fixed_len)}")
 
       decoded_list =
         :binary.bin_to_list(bin)
@@ -510,9 +476,7 @@ defmodule Ssz do
       {:error, "Error trying to collect empty list"}
     else
       <<first_offset::integer-32-little, rest_bytes::bitstring>> = bin
-      IO.puts("first_offset: #{inspect(first_offset)}")
       num_items = div(first_offset, @bytes_per_length_offset)
-      IO.puts("num_items: #{inspect(num_items)}")
 
       if Integer.mod(first_offset, @bytes_per_length_offset) != 0 ||
            first_offset < @bytes_per_length_offset do
@@ -542,7 +506,7 @@ defmodule Ssz do
       if i == num_items do
         part = :binary.part(bin, offset, byte_size(bin) - offset)
 
-        with {:ok, {decoded, rest_bytes}} <- deserialize_match(part, schema) do
+        with {:ok, decoded} <- deserialize_match(part, schema) do
           {:cont, {:ok, {[decoded | acc_decoded], offset, rest_bytes}}}
         end
       else
@@ -559,9 +523,8 @@ defmodule Ssz do
     case sanitize_offset(next_offset, offset, byte_size(bin), first_offset) do
       {:ok, next_offset} ->
         part = :binary.part(bin, offset, next_offset - offset)
-        IO.puts("going to des offset from variable list #{inspect(part)}, #{inspect(schema)}")
 
-        with {:ok, {decoded, _}} <- deserialize_match(part, schema) do
+        with {:ok, decoded} <- deserialize_match(part, schema) do
           {:cont, {:ok, {[decoded | acc_decoded], next_offset, rest_bytes}}}
         end
 
@@ -595,7 +558,6 @@ defmodule Ssz do
 
   defp is_variable_schema(map) do
     if exported?(map, :schema, 0) do
-      IO.puts("is_variable_schema from struct #{inspect(map.schema())}")
       is_variable_schema(map.schema())
     end
   end
@@ -621,7 +583,6 @@ defmodule Ssz do
 
   defp get_fixed_len(map) do
     if exported?(map, :schema, 0) do
-      IO.puts("is_variable_schema from struct #{inspect(map.schema())}")
       get_fixed_len(map.schema())
     end
   end
