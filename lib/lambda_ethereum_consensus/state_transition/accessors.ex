@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Functions accessing the current `BeaconState`
   """
 
+  alias ChainSpec
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
@@ -92,6 +93,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
+  Return the combined effective balance of the active validators.
+  Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
+  """
+  @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
+  def get_total_active_balance(state) do
+    active_validator_indices = get_active_validator_indices(state, get_current_epoch(state))
+    get_total_balance(state, active_validator_indices)
+  end
+
+  @doc """
   Return the validator churn limit for the current epoch.
   """
   @spec get_validator_churn_limit(BeaconState.t()) :: SszTypes.uint64()
@@ -125,6 +136,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end)
     |> Stream.map(fn {_validator, index} -> index end)
     |> Enum.to_list()
+  end
+
+  @doc """
+  Return the beacon proposer index at the current slot.
+  """
+  @spec get_beacon_proposer_index(BeaconState.t()) ::
+          {:ok, SszTypes.validator_index()} | {:error, binary()}
+  def get_beacon_proposer_index(state) do
+    epoch = get_current_epoch(state)
+
+    seed =
+      :crypto.hash(
+        :sha256,
+        get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
+          Misc.uint64_to_bytes(state.slot)
+      )
+
+    indices = get_active_validator_indices(state, epoch)
+
+    case Misc.compute_proposer_index(state, indices, seed) do
+      {:error, msg} -> {:error, msg}
+      {:ok, i} -> {:ok, i}
+    end
   end
 
   @doc """
@@ -294,8 +328,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the signature domain (fork version concatenated with domain type) of a message.
   """
-  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch()) :: SszTypes.domain()
-  def get_domain(state, domain_type, epoch) do
+  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch() | nil) ::
+          SszTypes.domain()
+  def get_domain(state, domain_type, epoch \\ nil) do
     epoch = if epoch == nil, do: get_current_epoch(state), else: epoch
 
     fork_version =
@@ -305,7 +340,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         state.fork.current_version
       end
 
-    Misc.compute_domain(domain_type, fork_version, state.genesis_validators_root)
+    Misc.compute_domain(domain_type,
+      fork_version: fork_version,
+      genesis_validators_root: state.genesis_validators_root
+    )
   end
 
   @doc """
@@ -368,24 +406,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
-  Return the beacon proposer index at the current slot.
-  """
-  @spec get_beacon_proposer_index(BeaconState.t()) :: SszTypes.validator_index()
-  def get_beacon_proposer_index(state) do
-    epoch = get_current_epoch(state)
-
-    seed =
-      :crypto.hash(
-        :sha256,
-        get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
-          Misc.uint64_to_bytes(state.slot)
-      )
-
-    indices = get_active_validator_indices(state, epoch)
-    Misc.compute_proposer_index(state, indices, seed)
-  end
-
-  @doc """
   Return the combined effective balance of the ``indices``.
   ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   Math safe up to ~10B ETH, after which this overflows uint64.
@@ -398,16 +418,5 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
-  end
-
-  @doc """
-  Return the combined effective balance of the active validators.
-  Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
-  """
-  @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
-  def get_total_active_balance(state) do
-    current_epoch = get_current_epoch(state)
-    validator_indices = get_active_validator_indices(state, current_epoch)
-    get_total_balance(state, validator_indices)
   end
 end

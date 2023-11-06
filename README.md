@@ -144,7 +144,7 @@ make spec-test-general-bls
 More advanced filtering (e.g. by fork or handler) will be re-added again, but if you want to only run a specific test, you can always do that manually with:
 
 ```shell
-mix --no-start test/generated/<config>/<fork>/<runner>.exs:<line_of_your_testcase>
+mix test --no-start test/generated/<config>/<fork>/<runner>.exs:<line_of_your_testcase>
 ```
 You can put a "*" in any directory (e.g. config) you don't want to filter by, although that won't work if adding the line of the testcase.
 

@@ -3,9 +3,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Misc functions
   """
 
-  alias LambdaEthereumConsensus.Beacon.HelperFunctions
   alias SszTypes.BeaconState
   import Bitwise
+  alias SszTypes.BeaconState
 
   alias SszTypes.BeaconState
 
@@ -132,15 +132,66 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     epoch * slots_per_epoch
   end
 
+  @doc """
+  Return from ``indices`` a random index sampled by effective balance.
+  """
+  @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
+          {:ok, SszTypes.validator_index()} | {:error, binary()}
+  def compute_proposer_index(state, indices, seed) do
+    if length(indices) <= 0 do
+      {:error, "Empty indices"}
+    else
+      {:ok, compute_proposer_index(state, indices, seed, 0)}
+    end
+  end
+
+  defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
+    max_random_byte = 2 ** 8 - 1
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+
+    total = length(indices)
+    {:ok, i} = compute_shuffled_index(rem(i, total), total, seed)
+    candidate_index = Enum.at(indices, i)
+    random_byte = :crypto.hash(:sha256, seed <> uint_to_bytes4(div(i, 32)))
+    <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
+
+    effective_balance = Enum.at(state.validators, candidate_index).effective_balance
+
+    if effective_balance * max_random_byte >= max_effective_balance * byte do
+      candidate_index
+    else
+      compute_proposer_index(state, indices, seed, i + 1)
+    end
+  end
+
+  @doc """
+  Return the domain for the ``domain_type`` and ``fork_version``.
+  """
+  @spec compute_domain(SszTypes.domain_type(), Keyword.t()) ::
+          SszTypes.domain()
+  def compute_domain(domain_type, opts \\ []) do
+    fork_version = Keyword.get(opts, :fork_version, ChainSpec.get("GENESIS_FORK_VERSION"))
+    genesis_validators_root = Keyword.get(opts, :genesis_validators_root, <<0::256>>)
+
+    fork_data_root =
+      LambdaEthereumConsensus.Beacon.HelperFunctions.compute_fork_data_root(
+        fork_version,
+        genesis_validators_root
+      )
+
+    <<fork_data_prefix::binary-size(28), _::binary>> = fork_data_root
+    domain_type <> fork_data_prefix
+  end
+
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
-  defp bytes_to_uint64(value) do
+  def bytes_to_uint64(value) do
     # Converts a binary value to a 64-bit unsigned integer
     <<first_8_bytes::unsigned-integer-little-size(64), _::binary>> = value
     first_8_bytes
   end
 
   @spec uint_to_bytes4(integer()) :: SszTypes.bytes4()
-  defp uint_to_bytes4(value) do
+  def uint_to_bytes4(value) do
     # Converts an unsigned integer value to a bytes 4 value
     <<value::unsigned-integer-little-size(32)>>
   end
@@ -180,37 +231,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   @doc """
-  Return the domain for the ``domain_type`` and ``fork_version``.
-  """
-  @spec compute_domain(SszTypes.domain_type(), SszTypes.version(), SszTypes.root()) ::
-          SszTypes.domain()
-  def compute_domain(domain_type, fork_version, genesis_validators_root) do
-    computed_fork_version =
-      if fork_version == nil do
-        ChainSpec.get("GENESIS_FORK_VERSION")
-      else
-        fork_version
-      end
-
-    computed_genesis_validators_root =
-      if genesis_validators_root == nil do
-        # all bytes zero by default
-        <<0>>
-      else
-        genesis_validators_root
-      end
-
-    fork_data_root =
-      HelperFunctions.compute_fork_data_root(
-        computed_fork_version,
-        computed_genesis_validators_root
-      )
-
-    <<fork_data_prefix::binary-size(28), _rest::binary>> = fork_data_root
-    domain_type <> fork_data_prefix
-  end
-
-  @doc """
   Return the signing root for the corresponding signing data.
   """
   @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
@@ -224,42 +244,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       })
 
     root
-  end
-
-  @doc """
-  Return from ``indices`` a random index sampled by effective balance.
-  """
-  @spec compute_proposer_index(
-          BeaconState.t(),
-          list(SszTypes.validator_index()),
-          SszTypes.bytes32()
-        ) ::
-          SszTypes.validator_index()
-  def compute_proposer_index(state, indices, seed) when length(indices) > 0 do
-    total = length(indices)
-    compute_proposer_index(state, indices, seed, 0, total)
-  end
-
-  defp compute_proposer_index(_state, _indices, _seed, i, total) when i >= total, do: nil
-
-  defp compute_proposer_index(state, indices, seed, i, total) do
-    max_random_byte = 255
-    {:ok, shuffled_index} = compute_shuffled_index(rem(i, total), total, seed)
-    candidate_index = Enum.at(indices, shuffled_index)
-
-    random_byte =
-      :crypto.hash(:sha256, seed <> uint64_to_bytes(div(i, 32)))
-      |> :binary.part(rem(i, 32), 1)
-      |> :binary.decode_unsigned()
-
-    validator = Enum.at(state.validators, candidate_index)
-    effective_balance = validator.effective_balance
-
-    if effective_balance * max_random_byte >= ChainSpec.get("MAX_EFFECTIVE_BALANCE") * random_byte do
-      candidate_index
-    else
-      compute_proposer_index(state, indices, seed, i + 1, total)
-    end
   end
 
   @doc """

@@ -242,6 +242,65 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     Enum.reverse(withdrawals)
   end
 
+  @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_attester_slashing(state, attester_slashing) do
+    attestation_1 = attester_slashing.attestation_1
+    attestation_2 = attester_slashing.attestation_2
+
+    cond do
+      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
+        {:error, "Attestation data is not slashable"}
+
+      not Predicates.is_valid_indexed_attestation(state, attestation_1) ->
+        {:error, "Attestation 1 is not valid"}
+
+      not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
+        {:error, "Attestation 2 is not valid"}
+
+      not Predicates.is_indices_available(
+        length(state.validators),
+        attestation_1.attesting_indices
+      ) ->
+        {:error, "Index too high attestation 1"}
+
+      not Predicates.is_indices_available(
+        length(state.validators),
+        attestation_2.attesting_indices
+      ) ->
+        {:error, "Index too high attestation 2"}
+
+      true ->
+        {slashed_any, state} =
+          Enum.uniq(attestation_1.attesting_indices)
+          |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
+          |> Enum.sort()
+          |> Enum.reduce_while({false, state}, fn i, {slashed_any, state} ->
+            slash_validator(slashed_any, state, i)
+          end)
+
+        if slashed_any do
+          {:ok, state}
+        else
+          {:error, "Didn't slash any"}
+        end
+    end
+  end
+
+  defp slash_validator(slashed_any, state, i) do
+    if Predicates.is_slashable_validator(
+         Enum.at(state.validators, i),
+         Accessors.get_current_epoch(state)
+       ) do
+      case Mutators.slash_validator(state, i) do
+        {:ok, state} -> {:cont, {true, state}}
+        {:error, _msg} -> {:halt, {false, nil}}
+      end
+    else
+      {:cont, {slashed_any, state}}
+    end
+  end
+
   @doc """
   Process attestations during state transition.
   """
@@ -285,10 +344,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       proposer_reward = compute_proposer_reward(proposer_reward_numerator)
 
-      {:ok, bal_updated_state} =
+      {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state)
+
+      bal_updated_state =
         Mutators.increase_balance(
           state,
-          Accessors.get_beacon_proposer_index(state),
+          proposer_index,
           proposer_reward
         )
 
@@ -437,7 +498,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp invalid_signature?(state, indexed_attestation) do
-    Predicates.is_valid_indexed_attestation(state, indexed_attestation) != {:ok, true}
+    not Predicates.is_valid_indexed_attestation(state, indexed_attestation)
   end
 
   defp length_of_bitstring(binary) when is_binary(binary) do
