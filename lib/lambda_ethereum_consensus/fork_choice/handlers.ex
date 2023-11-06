@@ -34,7 +34,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   A block that is asserted as invalid due to unavailable PoW block may be valid at a later time,
   consider scheduling it for later processing in such case.
   """
-  @spec on_tick(Store.t(), SignedBeaconBlock.t()) :: {:ok, Store.t()} | {:error, String.t()}
+  @spec on_block(Store.t(), SignedBeaconBlock.t()) :: {:ok, Store.t()} | {:error, String.t()}
   def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
     finalized_slot =
       Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
