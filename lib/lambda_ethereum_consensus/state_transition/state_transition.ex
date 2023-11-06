@@ -12,8 +12,11 @@ defmodule LambdaEthereumConsensus.StateTransition do
   def state_transition(
         %BeaconState{} = state,
         %SignedBeaconBlock{message: block} = signed_block,
-        validate_result
+        _validate_result
       ) do
+    # NOTE: we aren't in a state to make validations yet
+    validate_result = false
+
     state
     # Process slots (including those with no blocks) since block
     |> process_slots(block.slot)
