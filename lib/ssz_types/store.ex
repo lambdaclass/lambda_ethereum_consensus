@@ -34,8 +34,28 @@ defmodule SszTypes.Store do
           unrealized_justifications: %{SszTypes.root() => SszTypes.Checkpoint.t()}
         }
 
+  alias LambdaEthereumConsensus.StateTransition.Misc
+
   def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
     # NOTE: this assumes GENESIS_SLOT == 0
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
+  end
+
+  def get_ancestor(%__MODULE__{blocks: blocks} = store, root, slot) do
+    %{^root => block} = blocks
+
+    if block.slot > slot do
+      get_ancestor(store, block.parent_root, slot)
+    else
+      root
+    end
+  end
+
+  @doc """
+  Compute the checkpoint block for epoch ``epoch`` in the chain of block ``root``
+  """
+  def get_checkpoint_block(%__MODULE__{} = store, root, epoch) do
+    epoch_first_slot = Misc.compute_start_slot_at_epoch(epoch)
+    get_ancestor(store, root, epoch_first_slot)
   end
 end

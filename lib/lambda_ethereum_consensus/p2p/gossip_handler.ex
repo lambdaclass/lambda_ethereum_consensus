@@ -12,13 +12,16 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
   @spec handle_message(String.t(), struct) :: :ok
   def handle_message(topic_name, payload)
 
-  def handle_message("/eth2/bba4da96/beacon_block/ssz_snappy", %SignedBeaconBlock{message: block}) do
+  def handle_message(
+        "/eth2/bba4da96/beacon_block/ssz_snappy",
+        %SignedBeaconBlock{message: block} = signed_block
+      ) do
     current_slot = Store.get_current_slot()
 
     if block.slot > current_slot - ChainSpec.get("SLOTS_PER_EPOCH") do
       Logger.info("[Gossip] Block decoded for slot #{block.slot}")
 
-      PendingBlocks.add_block(block)
+      PendingBlocks.add_block(signed_block)
     end
 
     :ok
