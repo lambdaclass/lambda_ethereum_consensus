@@ -3,11 +3,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Handlers that update the fork choice store.
   """
 
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Predicates}
-  alias SszTypes.Attestation
   alias LambdaEthereumConsensus.StateTransition
-  alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Misc}
-  alias SszTypes.{Checkpoint, SignedBeaconBlock, Store}
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
+  alias SszTypes.{Attestation, Checkpoint, SignedBeaconBlock, Store}
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3]
 
@@ -83,18 +81,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   @spec on_attestation(Store.t(), Attestation.t(), boolean()) ::
           {:ok, Store.t()} | {:error, String.t()}
   def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
-    with {:ok, store} <- validate_on_attestation(store, attestation, is_from_block) do
+    if not on_attestation_valid?(store, attestation, is_from_block) do
+      {:error, "invalid on_attestation"}
+    else
       store = store_target_checkpoint_state(store, attestation.data.target)
 
       # Get state at the `target` to fully validate attestation
       target_state = store.checkpoint_states[attestation.data.target]
       indexed_attestation = Accessors.get_indexed_attestation(target_state, attestation)
 
-      if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
+      if not Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
+        {:error, "invalid indexed attestation"}
+      else
         # Update latest messages for attesting indices
         update_latest_messages(store, indexed_attestation.attesting_indices, attestation)
-      else
-        {:error, "invalid indexed attestation"}
       end
     end
   end
@@ -221,34 +221,50 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     slot - div(slot, slots_per_epoch) * slots_per_epoch
   end
 
-  def validate_on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
-    # target = attestation.data.target
+  # Called ``validate_on_attestation`` in the spec.
+  defp on_attestation_valid?(store, attestation, is_from_block)
 
-    # # If the given attestation is not from a beacon block message, we have to check the target epoch scope.
-    # if not is_from_block:
-    #     validate_target_epoch_against_current_time(store, attestation)
-
-    # # Check that the epoch number and slot number are matching
-    # assert target.epoch == compute_epoch_at_slot(attestation.data.slot)
-
-    # # Attestation target must be for a known block. If target block is unknown, delay consideration until block is found
-    # assert target.root in store.blocks
-
-    # # Attestations must be for a known block. If block is unknown, delay consideration until the block is found
-    # assert attestation.data.beacon_block_root in store.blocks
-    # # Attestations must not be for blocks in the future. If not, the attestation should not be considered
-    # assert store.blocks[attestation.data.beacon_block_root].slot <= attestation.data.slot
-
-    # # LMD vote must be consistent with FFG vote target
-    # assert target.root == get_checkpoint_block(store, attestation.data.beacon_block_root, target.epoch)
-
-    # # Attestations can only affect the fork choice of subsequent slots.
-    # # Delay consideration in the fork choice until their slot is in the past.
-    # assert get_current_slot(store) >= attestation.data.slot + 1
-    {:ok, store}
+  # If the given attestation is not from a beacon block message, we have to check the target epoch scope.
+  defp on_attestation_valid?(%Store{} = store, %Attestation{} = attestation, false) do
+    target_epoch_against_current_time_valid?(store, attestation) and
+      on_attestation_valid?(store, attestation, true)
   end
 
-  alias SszTypes.Checkpoint
+  defp on_attestation_valid?(%Store{} = store, %Attestation{} = attestation, true) do
+    target = attestation.data.target
+    block_root = attestation.data.beacon_block_root
+
+    # NOTE: we use cond instead of an `and` chain for better formatting
+    cond do
+      # Check that the epoch number and slot number are matching
+      target.epoch != Misc.compute_epoch_at_slot(attestation.data.slot) -> false
+      # Attestation target must be for a known block. If target block is unknown, delay consideration until block is found
+      not Map.has_key?(store.blocks, target.root) -> false
+      # Attestations must be for a known block. If block is unknown, delay consideration until the block is found
+      not Map.has_key?(store.blocks, block_root) -> false
+      # Attestations must not be for blocks in the future. If not, the attestation should not be considered
+      store.blocks[block_root].slot > attestation.data.slot -> false
+      # LMD vote must be consistent with FFG vote target
+      target.root != Store.get_checkpoint_block(store, block_root, target.epoch) -> false
+      # Attestations can only affect the fork choice of subsequent slots.
+      # Delay consideration in the fork choice until their slot is in the past.
+      Store.get_current_slot(store) <= attestation.data.slot -> false
+      true -> true
+    end
+  end
+
+  # Called ``validate_target_epoch_against_current_time`` in the spec.
+  defp target_epoch_against_current_time_valid?(%Store{} = store, %Attestation{} = attestation) do
+    target = attestation.data.target
+
+    # Attestations must be from the current or previous epoch
+    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+    # Use GENESIS_EPOCH for previous when genesis to avoid underflow
+    previous_epoch = max(current_epoch - 1, Constants.genesis_epoch())
+
+    # If attestation target is from a future epoch, delay consideration until the epoch arrives
+    target.epoch in [current_epoch, previous_epoch]
+  end
 
   def store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
     # # Store target checkpoint state if not yet seen
