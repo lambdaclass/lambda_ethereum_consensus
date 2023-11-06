@@ -55,6 +55,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     result =
       case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
         {:ok, store = %Store{}} ->
+          store = on_tick_now(store)
           Logger.info("[Fork choice] Initialized store.")
           {:ok, store}
 
@@ -93,8 +94,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @impl GenServer
   def handle_info(:on_tick, store) do
-    time = :os.system_time(:second)
-    new_store = Handlers.on_tick(store, time)
+    new_store = on_tick_now(store)
+
     schedule_next_tick()
     {:noreply, new_store}
   end
@@ -107,6 +108,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   defp get_store_attrs(attrs) do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs})
   end
+
+  defp on_tick_now(store), do: Handlers.on_tick(store, :os.system_time(:second))
 
   defp schedule_next_tick do
     # For millisecond precision
