@@ -227,15 +227,19 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp bls_verify_proposer_slashing(pubkey, signing_root, signature) do
-    if not Bls.verify(
-         pubkey,
-         signing_root,
-         signature
-       ) do
-      {:halt, false}
-    end
+    verification = Bls.verify(pubkey, signing_root, signature)
 
-    {:cont, true}
+    case verification do
+      {:ok, bool} ->
+        if bool do
+          {:cont, bool}
+        else
+          {:halt, bool}
+        end
+
+      {:error, _msg} ->
+        {:halt, false}
+    end
   end
 
   @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::
