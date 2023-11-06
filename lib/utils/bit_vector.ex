@@ -72,6 +72,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
 
   Internally, this is a left shift, due to the little-endian bit indexing.
   """
+  @spec shift_higher(t, non_neg_integer()) :: t
   def shift_higher(bit_vector, steps) do
     <<_::size(steps), remaining::bitstring>> = bit_vector
     <<remaining::bitstring, 0::size(steps)>>
@@ -84,8 +85,8 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   2. vector[size-1] = 0b0
 
   Internally, this is a right shift, due to the little-endian bit indexing.
-
   """
+  @spec shift_lower(t, non_neg_integer) :: t
   def shift_lower(bit_vector, steps) do
     <<remaining::size(bit_size(bit_vector) - steps)-bitstring, _::bitstring>> = bit_vector
     <<0::size(steps), remaining::bitstring>>
