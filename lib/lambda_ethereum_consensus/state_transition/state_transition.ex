@@ -12,22 +12,29 @@ defmodule LambdaEthereumConsensus.StateTransition do
         %SignedBeaconBlock{message: block} = signed_block,
         validate_result
       ) do
+    state
     # Process slots (including those with no blocks) since block
-    state = process_slots(state, block.slot)
+    |> process_slots(block.slot)
     # Verify signature
-    if validate_result and not verify_block_signature(state, signed_block) do
-      {:error, "invalid block signature"}
-    else
-      # Process block
-      state = process_block(state, block)
-
-      # Verify state root
-      if validate_result and block.state_root != Ssz.hash_tree_root(state) do
-        {:error, "mismatched state roots"}
-      else
+    |> if_then_update(validate_result, fn state ->
+      if verify_block_signature(state, signed_block) do
         {:ok, state}
+      else
+        {:error, "invalid block signature"}
       end
-    end
+    end)
+    # Process block
+    |> map(&process_block(&1, block))
+    # Verify state root
+    |> map(
+      &if_then_update(&1, validate_result, fn state ->
+        if block.state_root != Ssz.hash_tree_root(state) do
+          {:error, "mismatched state roots"}
+        else
+          {:ok, state}
+        end
+      end)
+    )
   end
 
   def process_slots(%BeaconState{slot: old_slot}, slot) when old_slot >= slot,
@@ -96,7 +103,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
         StateTransition.Accessors.get_domain(state, Constants.domain_beacon_proposer())
       )
 
-    Bls.verify(proposer.pubkey, signing_root, signed_block.signature)
+    Bls.is_valid?(proposer.pubkey, signing_root, signed_block.signature)
   end
 
   # TODO: implement
