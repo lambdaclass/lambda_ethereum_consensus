@@ -55,4 +55,22 @@ defmodule BitVectorTest do
     assert bv |> BitVector.clear(2) == <<0b1011::4>>
     assert bv |> BitVector.clear(3) == <<0b0111::4>>
   end
+
+  test "shift lower" do
+    bv = BitVector.new(0b1010, 4)
+    assert bv |> BitVector.shift_lower(0) == <<0b1010::4>>
+    assert bv |> BitVector.shift_lower(1) == <<0b0101::4>>
+    assert bv |> BitVector.shift_lower(2) == <<0b0010::4>>
+    assert bv |> BitVector.shift_lower(3) == <<0b0001::4>>
+    assert bv |> BitVector.shift_lower(4) == <<0b0000::4>>
+  end
+
+  test "shift higher" do
+    bv = BitVector.new(0b0101, 4)
+    assert bv |> BitVector.shift_higher(0) == <<0b0101::4>>
+    assert bv |> BitVector.shift_higher(1) == <<0b1010::4>>
+    assert bv |> BitVector.shift_higher(2) == <<0b0100::4>>
+    assert bv |> BitVector.shift_higher(3) == <<0b1000::4>>
+    assert bv |> BitVector.shift_higher(4) == <<0b0000::4>>
+  end
 end

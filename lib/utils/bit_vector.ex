@@ -22,6 +22,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
 
   @doc """
   True if a single bit is set to 1.
+  Equivalent to bit_vector[index] == 1.
   """
   @spec set?(t, non_neg_integer) :: boolean
   def set?(bit_vector, index) do
@@ -31,6 +32,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
 
   @doc """
   True if all bits in the specified range are set to 1.
+  Equivalent to all?(bit_vector[first..last]) in the specs.
   """
   @spec all?(t, Range.t()) :: boolean
   def all?(bit_vector, first..last) do
@@ -42,6 +44,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
 
   @doc """
   Sets a bit (turns it to 1).
+  Equivalent to bit_vector[index] = 1.
   """
   @spec set(t, non_neg_integer) :: t
   def set(bit_vector, index) do
@@ -52,11 +55,39 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
 
   @doc """
   Clears a bit (turns it to 0).
+  Equivalent to bit_vector[index] = 0.
   """
   @spec clear(t, non_neg_integer) :: t
   def clear(bit_vector, index) do
     skip = bit_size(bit_vector) - index - 1
     <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_vector
     <<pre::bitstring, 0::1, rest::bitstring>>
+  end
+
+  @doc """
+  Shifts a vector n steps to higher indices. For example, using shift_higher(vector, 1) is equivalent
+  in the specs to:
+  1. vector[1:] = vector[:size-1]
+  2. vector[0] = 0b0
+
+  Internally, this is a left shift, due to the little-endian bit indexing.
+  """
+  def shift_higher(bit_vector, steps) do
+    <<_::size(steps), remaining::bitstring>> = bit_vector
+    <<remaining::bitstring, 0::size(steps)>>
+  end
+
+  @doc """
+  Shifts a vector left n steps. For example, using left_shift(vector, 1) is equivalent
+  in the specs to:
+  1. vector[:size-1] = vector[1:]
+  2. vector[size-1] = 0b0
+
+  Internally, this is a right shift, due to the little-endian bit indexing.
+
+  """
+  def shift_lower(bit_vector, steps) do
+    <<remaining::size(bit_size(bit_vector) - steps)-bitstring, _::bitstring>> = bit_vector
+    <<0::size(steps), remaining::bitstring>>
   end
 end
