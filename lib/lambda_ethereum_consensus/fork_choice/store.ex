@@ -39,10 +39,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     Map.has_key?(blocks, block_root)
   end
 
-  @spec on_block(SszTypes.BeaconBlock.t()) :: :ok
-  def on_block(block) do
-    {:ok, block_root} = Ssz.hash_tree_root(block)
-    GenServer.cast(__MODULE__, {:on_block, block_root, block})
+  @spec on_block(SszTypes.SignedBeaconBlock.t(), SszTypes.root()) :: :ok
+  def on_block(signed_block, block_root) do
+    :ok = BlockStore.store_block(signed_block)
+    GenServer.cast(__MODULE__, {:on_block, block_root, signed_block})
   end
 
   ##########################
@@ -55,6 +55,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     result =
       case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
         {:ok, store = %Store{}} ->
+          store = on_tick_now(store)
           Logger.info("[Fork choice] Initialized store.")
           {:ok, store}
 
@@ -76,16 +77,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_cast({:on_block, block_root, block}, state) do
+  def handle_cast({:on_block, block_root, signed_block}, state) do
     Logger.info("[Fork choice] Adding block #{block_root} to the store.")
-    :ok = BlockStore.store_block(block)
-    {:noreply, Map.put(state, :blocks, Map.put(state.blocks, block_root, block))}
+
+    state =
+      case Handlers.on_block(state, signed_block) do
+        {:ok, state} ->
+          Map.put(state, :blocks, Map.put(state.blocks, block_root, signed_block.message))
+
+        _ ->
+          state
+      end
+
+    {:noreply, state}
   end
 
   @impl GenServer
   def handle_info(:on_tick, store) do
-    time = :os.system_time(:second)
-    new_store = Handlers.on_tick(store, time)
+    new_store = on_tick_now(store)
+
     schedule_next_tick()
     {:noreply, new_store}
   end
@@ -98,6 +108,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   defp get_store_attrs(attrs) do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs})
   end
+
+  defp on_tick_now(store), do: Handlers.on_tick(store, :os.system_time(:second))
 
   defp schedule_next_tick do
     # For millisecond precision
