@@ -14,4 +14,26 @@ defmodule BitVectorTest do
     assert BitVector.set?(bv, 2) == true
     assert BitVector.set?(bv, 3) == true
   end
+
+  test "queries if a range of bits is all set" do
+    bv = BitVector.new(0b1110, 4)
+
+    # 1 bit ranges
+    assert not BitVector.all?(bv, 0..1)
+    assert BitVector.all?(bv, 1..2)
+    assert BitVector.all?(bv, 2..3)
+    assert BitVector.all?(bv, 3..4)
+
+    # 2 bit ranges
+    assert not BitVector.all?(bv, 0..2)
+    assert BitVector.all?(bv, 1..3)
+    assert BitVector.all?(bv, 2..4)
+
+    # 3 bit ranges
+    assert not BitVector.all?(bv, 0..3)
+    assert BitVector.all?(bv, 1..4)
+
+    # 4 bit range
+    assert not BitVector.all?(bv, 0..4)
+  end
 end
