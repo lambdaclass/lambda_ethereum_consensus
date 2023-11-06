@@ -1,4 +1,4 @@
-defmodule DiffTest do
+defmodule Unit.DiffTest do
   use ExUnit.Case
   alias LambdaEthereumConsensus.Utils.Diff
 
