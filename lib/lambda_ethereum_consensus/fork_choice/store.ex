@@ -92,8 +92,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
            {:ok, new_state} <-
              signed_block.message.body.attestations
              |> Enum.reduce_while({:ok, new_state}, fn
-               {att, {:ok, state}} -> {:cont, Handlers.on_attestation(state, att, true)}
-               {_, {:error, _} = err} -> {:halt, err}
+               att, {:ok, st} -> {:cont, Handlers.on_attestation(st, att, true)}
+               _, {:error, _} = err -> {:halt, err}
              end) do
         new_state
       else
@@ -106,8 +106,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_cast({:on_attestation, %Attestation{} = attestation}, state) do
-    id = Base.encode16(attestation.signature)
+  def handle_cast({:on_attestation, %Attestation{} = attestation}, %SszTypes.Store{} = state) do
+    id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
     Logger.info("[Fork choice] Adding attestation #{id} to the store.")
 
     state =

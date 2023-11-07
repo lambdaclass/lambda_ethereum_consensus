@@ -86,13 +86,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
       # Get state at the `target` to fully validate attestation
       target_state = store.checkpoint_states[attestation.data.target]
-      indexed_attestation = Accessors.get_indexed_attestation(target_state, attestation)
 
-      if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
-        # Update latest messages for attesting indices
-        update_latest_messages(store, indexed_attestation.attesting_indices, attestation)
-      else
-        {:error, "invalid indexed attestation"}
+      with {:ok, indexed_attestation} <-
+             Accessors.get_indexed_attestation(target_state, attestation) do
+        if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
+          # Update latest messages for attesting indices
+          update_latest_messages(store, indexed_attestation.attesting_indices, attestation)
+        else
+          {:error, "invalid indexed attestation"}
+        end
       end
     else
       {:error, "invalid on_attestation"}
@@ -292,6 +294,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     |> Stream.filter(&MapSet.member?(store.equivocating_indices, &1))
     |> Stream.filter(&(not Map.has_key?(messages, &1) or target.epoch > messages[&1].epoch))
     |> Enum.reduce(messages, &Map.put(&2, &1, message))
-    |> then(&%Store{store | latest_messages: &1})
+    |> then(&{:ok, %Store{store | latest_messages: &1}})
   end
 end
