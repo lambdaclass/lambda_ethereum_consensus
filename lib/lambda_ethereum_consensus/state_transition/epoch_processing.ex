@@ -349,8 +349,9 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_slashings_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_participation_flag_updates(state) do
-    %BeaconState{current_epoch_participation:current_epoch_participation , validators: validators} = state
-    new_state = %BeaconState{state | previous_epoch_participation:current_epoch_participation, current_epoch_participation: for _ <- validators, do: 0}
+    %BeaconState{current_epoch_participation: current_epoch_participation, validators: validators} = state
+    current_epoch_participation = for _ <- validators, do: 0
+    new_state = %BeaconState{state | previous_epoch_participation: current_epoch_participation, current_epoch_participation: current_epoch_participation }
     {:ok, new_state}
   end
 end

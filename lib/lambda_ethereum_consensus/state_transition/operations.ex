@@ -183,10 +183,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     cond do
       not (header_1.slot == header_2.slot) ->
-        {:error, "Slots doesn't match"}
+        {:error, "Slots don't match"}
 
       not (header_1.proposer_index == header_2.proposer_index) ->
-        {:error, "Proposer indices doesn't match"}
+        {:error, "Proposer indices don't match"}
 
       not (header_1 != header_2) ->
         {:error, "Headers are same"}
