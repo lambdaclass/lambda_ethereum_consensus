@@ -33,7 +33,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Verify state root
     |> map(
       &if_then_update(&1, validate_result, fn state ->
-        if block.state_root != Ssz.hash_tree_root(state) do
+        if block.state_root != Ssz.hash_tree_root!(state) do
           {:error, "mismatched state roots"}
         else
           {:ok, state}
@@ -57,7 +57,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   defp process_slot(%BeaconState{} = state) do
     # Cache state root
-    previous_state_root = Ssz.hash_tree_root(state)
+    previous_state_root = Ssz.hash_tree_root!(state)
     slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
     cache_index = rem(state.slot, slots_per_historical_root)
     roots = List.replace_at(state.state_roots, cache_index, previous_state_root)
@@ -77,7 +77,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
       end
 
     # Cache block root
-    previous_block_root = Ssz.hash_tree_root(state.latest_block_header)
+    previous_block_root = Ssz.hash_tree_root!(state.latest_block_header)
     roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
     %BeaconState{state | block_roots: roots}
   end
