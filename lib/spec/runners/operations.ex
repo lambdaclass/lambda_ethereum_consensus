@@ -91,8 +91,32 @@ defmodule OperationsTestRunner do
     assert true
   end
 
-  defp handle_case("attester_slashing", pre, attester_slashing, post, _case_dir) do
-    result = Operations.process_attester_slashing(pre, attester_slashing)
+  defp handle_case("attester_slashing", pre, operation, post, _case_dir) do
+    result = Operations.process_attester_slashing(pre, operation)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
+  end
+
+  defp handle_case("proposer_slashing", pre, operation, post, _case_dir) do
+    result = Operations.process_proposer_slashing(pre, operation)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
+  end
+
+  defp handle_case("voluntary_exit", pre, operation, post, _case_dir) do
+    result = Operations.process_voluntary_exit(pre, operation)
 
     case result do
       {:ok, new_state} ->
