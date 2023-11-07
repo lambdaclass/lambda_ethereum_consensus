@@ -66,9 +66,4 @@ defmodule EpochProcessingTestRunner do
         assert Diff.diff(state, post) == :unchanged
     end
   end
-
-  defp handle_case("participation_flag_updates", pre, post) do
-    result = EpochProcessing.process_participation_flag_updates(pre)
-    assert result == {:ok, post}
-  end
 end

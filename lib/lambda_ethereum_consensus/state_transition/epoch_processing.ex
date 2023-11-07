@@ -116,21 +116,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           acc
         end
       end)
-    {:ok, new_state}
-  end
-
-  @spec process_participation_flag_updates(BeaconState.t()) :: {:ok, BeaconState.t()}
-  def process_participation_flag_updates(state) do
-    %BeaconState{current_epoch_participation: current_epoch_participation, validators: validators} =
-      state
-
-    new_current_epoch_participation = for _ <- validators, do: 0
-
-    new_state = %BeaconState{
-      state
-      | previous_epoch_participation: current_epoch_participation,
-        current_epoch_participation: new_current_epoch_participation
-    }
 
     {:ok, new_state}
   end
@@ -345,13 +330,5 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   def process_justification_and_finalization(state) do
     # TODO: implement this
     state
-  end
-
-  @spec process_slashings_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
-  def process_participation_flag_updates(state) do
-    %BeaconState{current_epoch_participation: current_epoch_participation, validators: validators} = state
-    current_epoch_participation = for _ <- validators, do: 0
-    new_state = %BeaconState{state | previous_epoch_participation: current_epoch_participation, current_epoch_participation: current_epoch_participation }
-    {:ok, new_state}
   end
 end
