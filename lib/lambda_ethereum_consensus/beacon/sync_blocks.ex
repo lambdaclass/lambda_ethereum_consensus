@@ -41,10 +41,6 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch)
     last_slot = Store.get_current_slot()
 
-    Logger.info(
-      "Syncing from slot #{initial_slot} to #{last_slot}, count: #{last_slot - initial_slot + 1}"
-    )
-
     chunks =
       Enum.chunk_every(initial_slot..last_slot, @blocks_per_chunk)
       |> Enum.map(fn chunk ->
@@ -60,7 +56,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   @impl GenServer
   @spec handle_info(:sync, state()) :: {:noreply, state()}
   def handle_info(:sync, %{chunks: chunks}) do
-    Logger.info("Syncing. Blocks remaining: #{Enum.count(chunks) * @blocks_per_chunk}")
+    Logger.info("[Optimistic Sync] Blocks remaining: #{Enum.count(chunks) * @blocks_per_chunk}")
 
     results =
       chunks
@@ -98,7 +94,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   end
 
   @spec fetch_blocks_by_slot(non_neg_integer(), integer()) ::
-          {:ok, [SszTypes.SignedBeaconBlock]} | {:error, any()}
+          {:ok, [SszTypes.SignedBeaconBlock]} | {:error, binary()}
   def fetch_blocks_by_slot(from, count) do
     case BlockDownloader.request_blocks_by_slot(from, count, 0) do
       {:ok, blocks} ->

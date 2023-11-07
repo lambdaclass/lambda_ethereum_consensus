@@ -82,15 +82,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             nil
 
           true ->
-            case BlockDownloader.request_block_by_root(block.parent_root) do
-              {:ok, signed_block} ->
-                Logger.info("Block downloaded: #{signed_block.message.slot}")
-                add_block(signed_block)
-
-              {:error, reason} ->
-                Logger.debug("Block download failed: '#{reason}'")
-            end
-
+            download_block(block.parent_root)
             nil
         end
       end)
@@ -102,6 +94,17 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   ##########################
   ### Private Functions
   ##########################
+
+  defp download_block(block_root) do
+    case BlockDownloader.request_block_by_root(block_root) do
+      {:ok, signed_block} ->
+        Logger.info("Block downloaded: #{signed_block.message.slot}")
+        add_block(signed_block)
+
+      {:error, reason} ->
+        Logger.debug("Block download failed: '#{reason}'")
+    end
+  end
 
   defp schedule_blocks_processing do
     Process.send_after(self(), :process_blocks, 1000)
