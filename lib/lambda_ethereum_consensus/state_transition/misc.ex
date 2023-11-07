@@ -163,7 +163,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     genesis_validators_root = Keyword.get(opts, :genesis_validators_root, <<0::256>>)
 
     compute_fork_data_root(fork_version, genesis_validators_root)
-    |> String.slice(0..27)
+    |> binary_part(0, 28)
     |> then(&(domain_type <> &1))
   end
 
