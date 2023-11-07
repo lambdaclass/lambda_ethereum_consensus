@@ -3,8 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Predicates functions
   """
 
-  alias Bls
-  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias SszTypes.BeaconState
   alias SszTypes.Validator
 
@@ -113,18 +112,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
     if Enum.empty?(indices) or not (indices == Enum.sort(Enum.uniq(indices))) do
       false
     else
-      domain =
-        Accessors.get_domain(
-          state,
-          Constants.domain_beacon_attester(),
-          indexed_attestation.data.target.epoch
-        )
+      domain_type = Constants.domain_beacon_attester()
+      epoch = indexed_attestation.data.target.epoch
 
       signing_root =
-        LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
-          indexed_attestation.data,
-          domain
-        )
+        Accessors.get_domain(state, domain_type, epoch)
+        |> then(&Misc.compute_signing_root(indexed_attestation.data, &1))
 
       res =
         state.validators

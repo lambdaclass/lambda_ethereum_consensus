@@ -46,7 +46,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @impl true
   def handle_cast({:add_block, %SignedBeaconBlock{message: block} = signed_block}, state) do
-    {:ok, block_root} = Ssz.hash_tree_root(block)
+    block_root = Ssz.hash_tree_root!(block)
     pending_blocks = Map.put(state.pending_blocks, block_root, signed_block)
     {:noreply, Map.put(state, :pending_blocks, pending_blocks)}
   end

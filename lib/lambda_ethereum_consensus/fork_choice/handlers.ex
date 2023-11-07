@@ -76,7 +76,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
          %SignedBeaconBlock{message: block} = signed_block
        ) do
     state = states[block.parent_root]
-    {:ok, block_root} = Ssz.hash_tree_root(block)
+    block_root = Ssz.hash_tree_root!(block)
 
     with {:ok, state} <- StateTransition.state_transition(state, signed_block, true) do
       # Add new block to the store
