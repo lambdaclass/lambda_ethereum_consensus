@@ -1,7 +1,9 @@
 defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
-  @moduledoc false
+  @moduledoc """
+    Performs an optimistic block sync from the finalized checkpoint to the current slot.
+  """
 
-  use GenServer
+  use Task
 
   require Logger
 
@@ -12,27 +14,13 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
   @blocks_per_chunk 20
 
-  @type state :: %{
-          chunks: [%{from: integer(), count: integer()}]
-        }
-
-  ##########################
-  ### Public API
-  ##########################
+  @type chunk :: %{from: SszTypes.slot(), count: integer()}
 
   def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    Task.start_link(__MODULE__, :run, [opts])
   end
 
-  ##########################
-  ### GenServer Callbacks
-  ##########################
-
-  @impl GenServer
-  @spec init(any) :: {:ok, state()}
-  def init(_opts) do
-    schedule_sync()
-
+  def run(_opts) do
     # TODO: this is a hack to make sure the on_tick has been called at least once
     Process.sleep(2000)
 
@@ -50,12 +38,11 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
         %{from: first_slot, count: count}
       end)
 
-    {:ok, %{chunks: chunks}}
+    perform_sync(chunks)
   end
 
-  @impl GenServer
-  @spec handle_info(:sync, state()) :: {:noreply, state()}
-  def handle_info(:sync, %{chunks: chunks}) do
+  @spec perform_sync([chunk()]) :: :ok
+  def perform_sync(chunks) do
     Logger.info("[Optimistic Sync] Blocks remaining: #{Enum.count(chunks) * @blocks_per_chunk}")
 
     results =
@@ -83,14 +70,12 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
       |> Enum.filter(fn {_chunk, result} -> match?({:error, _}, result) end)
       |> Enum.map(fn {chunk, _} -> chunk end)
 
-    if not Enum.empty?(remaining_chunks) do
-      schedule_sync()
+    if Enum.empty?(chunks) do
+      Logger.info("[Optimistic Sync] Sync completed")
+    else
+      Process.sleep(1000)
+      perform_sync(remaining_chunks)
     end
-
-    {:noreply,
-     %{
-       chunks: remaining_chunks
-     }}
   end
 
   @spec fetch_blocks_by_slot(non_neg_integer(), integer()) ::
@@ -109,9 +94,5 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
         {:error, error}
     end
-  end
-
-  defp schedule_sync do
-    Process.send_after(self(), :sync, 1_000)
   end
 end
