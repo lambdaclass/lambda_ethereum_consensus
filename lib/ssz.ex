@@ -40,6 +40,12 @@ defmodule Ssz do
     end
   end
 
+  @spec hash_tree_root!(struct) :: SszTypes.root()
+  def hash_tree_root!(map) do
+    {:ok, hash} = hash_tree_root(map)
+    hash
+  end
+
   @spec hash_tree_root(struct) :: {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root(map)
 
