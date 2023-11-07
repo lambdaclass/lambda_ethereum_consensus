@@ -21,9 +21,6 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   end
 
   def run(_opts) do
-    # TODO: this is a hack to make sure the on_tick has been called at least once
-    Process.sleep(2000)
-
     {:ok, checkpoint} = Store.get_finalized_checkpoint()
 
     initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch)
