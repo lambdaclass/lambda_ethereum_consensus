@@ -136,12 +136,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         {:error, "unexpected EOF"}
 
       <<0, ^fork_context::binary-size(4)>> <> rest ->
-        result = rest |> :binary.split(<<0, fork_context::binary-size(4)>>, [:global])
-
-        case result do
-          chunks when length(chunks) == count -> {:ok, chunks}
-          _ -> {:error, "expected #{count} chunks, got #{length(result)}"}
-        end
+        chunks = rest |> :binary.split(<<0, fork_context::binary-size(4)>>, [:global])
+        {:ok, chunks}
 
       <<0, wrong_context::binary-size(4)>> <> _ ->
         {:error, "wrong context: #{Base.encode16(wrong_context)}"}

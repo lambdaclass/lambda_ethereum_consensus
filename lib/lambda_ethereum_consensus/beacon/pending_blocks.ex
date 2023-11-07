@@ -62,10 +62,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @impl true
   @spec handle_info(atom(), state()) :: {:noreply, state()}
   def handle_info(:process_blocks, state) do
-    pending_blocks = state.pending_blocks
+    %{pending_blocks: pending_blocks} = state
 
     blocks_to_remove =
-      for {block_root, %SignedBeaconBlock{message: block} = signed_block} <- pending_blocks do
+      pending_blocks
+      |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
+      |> Enum.map(fn {block_root, %SignedBeaconBlock{message: block} = signed_block} ->
         cond do
           Store.has_block?(block_root) ->
             block_root
@@ -91,7 +93,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
             nil
         end
-      end
+      end)
 
     schedule_blocks_processing()
     {:noreply, Map.put(state, :pending_blocks, Map.drop(pending_blocks, blocks_to_remove))}
