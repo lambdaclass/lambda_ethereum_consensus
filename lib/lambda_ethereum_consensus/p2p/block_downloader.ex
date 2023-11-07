@@ -18,7 +18,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @default_retries 5
 
   @spec request_blocks_by_slot(SszTypes.slot(), integer(), integer()) ::
-          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, binary()}
+          {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, any()}
   def request_blocks_by_slot(slot, count, retries \\ @default_retries) do
     Logger.debug("requesting block for slot #{slot}")
 
@@ -50,23 +50,22 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
              @blocks_by_range_protocol_id,
              size_header <> compressed_payload
            ),
-         {:ok, chunks} <- parse_response(response_chunk, count),
+         {:ok, chunks} <- parse_response(response_chunk),
          {:ok, blocks} <- decode_chunks(chunks) do
       tags = %{result: "success", type: "by_slot", reason: "success"}
       :telemetry.execute([:network, :request], %{}, tags)
       {:ok, blocks}
     else
-      {:error, reason} ->
+      {:error, reason} when retries > 0 ->
         tags = %{type: "by_slot", reason: parse_reason(reason)}
+        :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "retry"))
+        Logger.debug("Retrying request for block with slot #{slot}")
+        request_blocks_by_slot(slot, count, retries - 1)
 
-        if retries > 0 do
-          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "retry"))
-          Logger.debug("Retrying request for block with slot #{slot}")
-          request_blocks_by_slot(slot, count, retries - 1)
-        else
-          :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "error"))
-          {:error, reason}
-        end
+      {:error, reason} when retries == 0 ->
+        tags = %{type: "by_slot", reason: parse_reason(reason)}
+        :telemetry.execute([:network, :request], %{}, Map.put(tags, :result, "error"))
+        {:error, reason}
     end
   end
 
@@ -102,7 +101,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
              @blocks_by_root_protocol_id,
              size_header <> compressed_payload
            ),
-         {:ok, chunks} <- parse_response(response_chunk, length(roots)),
+         {:ok, chunks} <- parse_response(response_chunk),
          {:ok, blocks} <- decode_chunks(chunks) do
       tags = %{result: "success", type: "by_root", reason: "success"}
       :telemetry.execute([:network, :request], %{}, tags)
@@ -126,9 +125,9 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     end
   end
 
-  @spec parse_response(binary, integer) ::
+  @spec parse_response(binary) ::
           {:ok, [binary()]} | {:error, binary()}
-  def parse_response(response_chunk, count) do
+  def parse_response(response_chunk) do
     fork_context = @fork_context
 
     case response_chunk do
@@ -136,12 +135,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         {:error, "unexpected EOF"}
 
       <<0, ^fork_context::binary-size(4)>> <> rest ->
-        result = rest |> :binary.split(<<0, fork_context::binary-size(4)>>, [:global])
-
-        case result do
-          chunks when length(chunks) == count -> {:ok, chunks}
-          _ -> {:error, "expected #{count} chunks, got #{length(result)}"}
-        end
+        chunks = rest |> :binary.split(<<0, fork_context::binary-size(4)>>, [:global])
+        {:ok, chunks}
 
       <<0, wrong_context::binary-size(4)>> <> _ ->
         {:error, "wrong context: #{Base.encode16(wrong_context)}"}
