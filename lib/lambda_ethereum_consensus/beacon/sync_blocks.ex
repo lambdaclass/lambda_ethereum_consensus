@@ -78,8 +78,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     end
   end
 
-  @spec fetch_blocks_by_slot(non_neg_integer(), integer()) ::
-          {:ok, [SszTypes.SignedBeaconBlock]} | {:error, binary()}
+  @spec fetch_blocks_by_slot(SszTypes.slot(), non_neg_integer()) ::
+          {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, String.t()}
   def fetch_blocks_by_slot(from, count) do
     case BlockDownloader.request_blocks_by_slot(from, count, 0) do
       {:ok, blocks} ->
