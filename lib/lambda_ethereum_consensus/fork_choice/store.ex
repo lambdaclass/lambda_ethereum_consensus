@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
+  alias SszTypes.Attestation
   alias SszTypes.BeaconState
   alias SszTypes.SignedBeaconBlock
   alias SszTypes.Store
@@ -45,6 +46,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     GenServer.cast(__MODULE__, {:on_block, block_root, signed_block})
   end
 
+  @spec on_attestation(SszTypes.Attestation.t()) :: :ok
+  def on_attestation(%Attestation{} = attestation) do
+    GenServer.cast(__MODULE__, {:on_attestation, attestation})
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -77,17 +83,37 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_cast({:on_block, block_root, signed_block}, state) do
+  def handle_cast({:on_block, _block_root, %SignedBeaconBlock{} = signed_block}, state) do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
 
     state =
-      case Handlers.on_block(state, signed_block) do
-        {:ok, state} ->
-          Map.put(state, :blocks, Map.put(state.blocks, block_root, signed_block.message))
-
+      with {:ok, new_state} <- Handlers.on_block(state, signed_block),
+           # process block attestations
+           {:ok, new_state} <-
+             signed_block.message.body.attestations
+             |> Enum.reduce_while({:ok, new_state}, fn
+               {att, {:ok, state}} -> {:cont, Handlers.on_attestation(state, att, true)}
+               {_, {:error, _} = err} -> {:halt, err}
+             end) do
+        new_state
+      else
         _ ->
           Logger.error("Failed to add block #{signed_block.message.slot} to the store.")
           state
+      end
+
+    {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_cast({:on_attestation, %Attestation{} = attestation}, state) do
+    id = Base.encode16(attestation.signature)
+    Logger.info("[Fork choice] Adding attestation #{id} to the store.")
+
+    state =
+      case Handlers.on_attestation(state, attestation, false) do
+        {:ok, new_state} -> new_state
+        _ -> state
       end
 
     {:noreply, state}
