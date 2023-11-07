@@ -182,6 +182,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     proposer = Enum.at(state.validators, header_1.proposer_index)
 
     cond do
+      not Predicates.is_indices_available(
+          length(state.validators),
+          [header_1.proposer_index]
+        ) ->
+          {:error, "Too high index"}
+
       not (header_1.slot == header_2.slot) ->
         {:error, "Slots don't match"}
 
@@ -197,12 +203,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       true ->
         is_verified =
           [proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
-          |> Enum.reduce_while(false, fn signed_header, _acc ->
+          |> Enum.all?(fn signed_header ->
             domain =
               Accessors.get_domain(
                 state,
                 Constants.domain_beacon_proposer(),
-                Misc.compute_epoch_at_slot(signed_header.slot)
+                Misc.compute_epoch_at_slot(signed_header.message.slot)
               )
 
             signing_root =
@@ -217,11 +223,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
         if not is_verified do
           {:error, "Signed header 1 or 2 signature is not verified"}
-        end
-
-        case Mutators.slash_validator(state, header_1.proposer_index) do
-          {:ok, state} -> {:ok, state}
-          {:error, msg} -> {:error, msg}
+        else
+          Mutators.slash_validator(state, header_1.proposer_index)
         end
     end
   end
@@ -232,13 +235,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     case verification do
       {:ok, bool} ->
         if bool do
-          {:cont, bool}
+          true
         else
-          {:halt, bool}
+          false
         end
 
       {:error, _msg} ->
-        {:halt, false}
+        true
     end
   end
 
