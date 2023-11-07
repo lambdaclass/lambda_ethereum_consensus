@@ -256,25 +256,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:error, "Exit must specify an epoch when they become valid"}
 
         true ->
-          domain =
-            Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
-
-          signing_root =
-            Misc.compute_signing_root(
-              voluntary_exit,
-              domain
-            )
-
-          Bls.verify(validator.pubkey, signing_root, signed_voluntary_exit.signature)
+          Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
+          |> then(&Misc.compute_signing_root(voluntary_exit, &1))
+          |> then(&Bls.verify(validator.pubkey, &1, signed_voluntary_exit.signature))
           |> handle_verification_error()
       end
 
     case res do
-      :ok ->
-        initiate_validator_exit(state, voluntary_exit.validator_index)
-
-      {:error, msg} ->
-        {:error, msg}
+      :ok -> initiate_validator_exit(state, voluntary_exit.validator_index)
+      {:error, msg} -> {:error, msg}
     end
   end
 

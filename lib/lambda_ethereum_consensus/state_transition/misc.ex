@@ -162,14 +162,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     fork_version = Keyword.get(opts, :fork_version, ChainSpec.get("GENESIS_FORK_VERSION"))
     genesis_validators_root = Keyword.get(opts, :genesis_validators_root, <<0::256>>)
 
-    fork_data_root =
-      compute_fork_data_root(
-        fork_version,
-        genesis_validators_root
-      )
-
-    <<fork_data_prefix::binary-size(28), _::binary>> = fork_data_root
-    domain_type <> fork_data_prefix
+    compute_fork_data_root(fork_version, genesis_validators_root)
+    |> String.slice(0..27)
+    |> then(&(domain_type <> &1))
   end
 
   @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
