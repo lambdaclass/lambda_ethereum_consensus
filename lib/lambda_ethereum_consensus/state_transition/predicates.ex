@@ -3,8 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Predicates functions
   """
 
-  alias Bls
-  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias SszTypes.BeaconState
   alias SszTypes.Validator
 
@@ -121,7 +120,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         )
 
       signing_root =
-        LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
+        Misc.compute_signing_root(
           indexed_attestation.data,
           domain
         )

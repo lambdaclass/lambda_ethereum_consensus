@@ -163,7 +163,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     genesis_validators_root = Keyword.get(opts, :genesis_validators_root, <<0::256>>)
 
     fork_data_root =
-      LambdaEthereumConsensus.Beacon.HelperFunctions.compute_fork_data_root(
+      compute_fork_data_root(
         fork_version,
         genesis_validators_root
       )
