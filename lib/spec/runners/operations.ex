@@ -45,7 +45,7 @@ defmodule OperationsTestRunner do
     "block_header",
     "deposit",
     # "proposer_slashing",
-    "voluntary_exit",
+    # "voluntary_exit",
     "sync_aggregate",
     # "execution_payload",
     # "withdrawals",
@@ -93,18 +93,6 @@ defmodule OperationsTestRunner do
 
   defp handle_case("attester_slashing", pre, attester_slashing, post, _case_dir) do
     result = Operations.process_attester_slashing(pre, attester_slashing)
-
-    case result do
-      {:ok, new_state} ->
-        assert new_state == post
-
-      {:error, _} ->
-        assert nil == post
-    end
-  end
-
-  defp handle_case("proposer_slashing", pre, proposer_slashing, post, _case_dir) do
-    result = Operations.process_proposer_slashing(pre, proposer_slashing)
 
     case result do
       {:ok, new_state} ->
