@@ -278,7 +278,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       end
 
     case res do
-      {:ok, _msg} ->
+      :ok ->
         initiate_validator_exit(state, voluntary_exit.validator_index)
 
       {:error, msg} ->
@@ -303,12 +303,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   defp handle_verification_error(is_verified) do
     case is_verified do
-      {:ok, msg} ->
-        if msg do
-          {:ok, msg}
-        else
-          {:error, "Signature is not verified"}
-        end
+      {:ok, valid} when valid ->
+        :ok
+
+      {:ok, _valid} ->
+        {:error, "Signature is not valid"}
 
       {:error, msg} ->
         {:error, msg}
