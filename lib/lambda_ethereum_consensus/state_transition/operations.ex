@@ -183,10 +183,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     cond do
       not Predicates.is_indices_available(
-          length(state.validators),
-          [header_1.proposer_index]
-        ) ->
-          {:error, "Too high index"}
+        length(state.validators),
+        [header_1.proposer_index]
+      ) ->
+        {:error, "Too high index"}
 
       not (header_1.slot == header_2.slot) ->
         {:error, "Slots don't match"}
@@ -221,10 +221,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
             )
           end)
 
-        if not is_verified do
-          {:error, "Signed header 1 or 2 signature is not verified"}
-        else
+        if is_verified do
           Mutators.slash_validator(state, header_1.proposer_index)
+        else
+          {:error, "Signed header 1 or 2 signature is not verified"}
         end
     end
   end
