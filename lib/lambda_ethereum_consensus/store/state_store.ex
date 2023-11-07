@@ -12,7 +12,7 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   @spec store_state(BeaconState.t()) :: :ok
   def store_state(%BeaconState{} = state) do
     # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
-    {:ok, block_root} = Ssz.hash_tree_root(state.latest_block_header)
+    block_root = Ssz.hash_tree_root!(state.latest_block_header)
     {:ok, encoded_state} = Ssz.to_ssz(state)
 
     key = state_key(block_root)

@@ -54,7 +54,7 @@ defmodule SszStaticTestRunner do
     {:ok, serialized} = Ssz.to_ssz(real_deserialized)
     assert serialized == real_serialized
 
-    {:ok, root} = Ssz.hash_tree_root(real_deserialized)
+    root = Ssz.hash_tree_root!(real_deserialized)
     assert root == expected_root
   end
 
