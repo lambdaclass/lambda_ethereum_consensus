@@ -234,6 +234,87 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @doc """
+  Process voluntary exit.
+  """
+  @spec process_voluntary_exit(BeaconState.t(), SszTypes.SignedVoluntaryExit.t()) ::
+          {:ok, BeaconState.t()} | {:error, binary()}
+  def process_voluntary_exit(state, signed_voluntary_exit) do
+    voluntary_exit = signed_voluntary_exit.message
+    validator = Enum.at(state.validators, voluntary_exit.validator_index)
+
+    res =
+      cond do
+        not Predicates.is_indices_available(
+          length(state.validators),
+          [voluntary_exit.validator_index]
+        ) ->
+          {:error, "Too high index"}
+
+        not Predicates.is_active_validator(validator, Accessors.get_current_epoch(state)) ->
+          {:error, "Validator isn't active"}
+
+        validator.exit_epoch != Constants.far_future_epoch() ->
+          {:error, "Validator has already initiated exit"}
+
+        Accessors.get_current_epoch(state) < voluntary_exit.epoch ->
+          {:error, "Exit must specify an epoch when they become valid"}
+
+        Accessors.get_current_epoch(state) <
+            validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
+          {:error, "Exit must specify an epoch when they become valid"}
+
+        true ->
+          domain =
+            Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
+
+          signing_root =
+            LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
+              voluntary_exit,
+              domain
+            )
+
+          Bls.verify(validator.pubkey, signing_root, signed_voluntary_exit.signature)
+          |> handle_verification_error()
+      end
+
+    case res do
+      :ok ->
+        initiate_validator_exit(state, voluntary_exit.validator_index)
+
+      {:error, msg} ->
+        {:error, msg}
+    end
+  end
+
+  defp initiate_validator_exit(state, validator_index) do
+    case Mutators.initiate_validator_exit(state, validator_index) do
+      {:ok, validator} ->
+        state = %BeaconState{
+          state
+          | validators: List.replace_at(state.validators, validator_index, validator)
+        }
+
+        {:ok, state}
+
+      {:error, msg} ->
+        {:error, msg}
+    end
+  end
+
+  defp handle_verification_error(is_verified) do
+    case is_verified do
+      {:ok, valid} when valid ->
+        :ok
+
+      {:ok, _valid} ->
+        {:error, "Signature is not valid"}
+
+      {:error, msg} ->
+        {:error, msg}
+    end
+  end
+
+  @doc """
   Process attestations during state transition.
   """
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
