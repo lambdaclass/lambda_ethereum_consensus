@@ -306,6 +306,75 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     Enum.reverse(withdrawals)
   end
 
+  @spec process_proposer_slashing(BeaconState.t(), SszTypes.ProposerSlashing.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_proposer_slashing(state, proposer_slashing) do
+    header_1 = proposer_slashing.signed_header_1.message
+    header_2 = proposer_slashing.signed_header_2.message
+    proposer = Enum.at(state.validators, header_1.proposer_index)
+
+    cond do
+      not Predicates.is_indices_available(
+        length(state.validators),
+        [header_1.proposer_index]
+      ) ->
+        {:error, "Too high index"}
+
+      not (header_1.slot == header_2.slot) ->
+        {:error, "Slots don't match"}
+
+      not (header_1.proposer_index == header_2.proposer_index) ->
+        {:error, "Proposer indices don't match"}
+
+      not (header_1 != header_2) ->
+        {:error, "Headers are same"}
+
+      not Predicates.is_slashable_validator(proposer, Accessors.get_current_epoch(state)) ->
+        {:error, "Proposer is not slashable"}
+
+      true ->
+        is_verified =
+          [proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
+          |> Enum.all?(&verify_proposer_slashing(&1, state, proposer))
+
+        if is_verified do
+          Mutators.slash_validator(state, header_1.proposer_index)
+        else
+          {:error, "Signed header 1 or 2 signature is not verified"}
+        end
+    end
+  end
+
+  defp verify_proposer_slashing(signed_header, state, proposer) do
+    domain =
+      Accessors.get_domain(
+        state,
+        Constants.domain_beacon_proposer(),
+        Misc.compute_epoch_at_slot(signed_header.message.slot)
+      )
+
+    signing_root =
+      Misc.compute_signing_root(signed_header.message, domain)
+
+    bls_verify_proposer_slashing(
+      proposer.pubkey,
+      signing_root,
+      signed_header.signature
+    )
+  end
+
+  defp bls_verify_proposer_slashing(pubkey, signing_root, signature) do
+    verification = Bls.verify(pubkey, signing_root, signature)
+
+    case verification do
+      {:ok, bool} ->
+        bool
+
+      {:error, _msg} ->
+        true
+    end
+  end
+
   @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_attester_slashing(state, attester_slashing) do
