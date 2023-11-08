@@ -78,7 +78,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @impl GenServer
   def handle_cast({:on_block, block_root, signed_block}, state) do
-    Logger.info("[Fork choice] Adding block #{block_root} to the store.")
+    Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
 
     state =
       case Handlers.on_block(state, signed_block) do
@@ -86,6 +86,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
           Map.put(state, :blocks, Map.put(state.blocks, block_root, signed_block.message))
 
         _ ->
+          Logger.error("Failed to add block #{signed_block.message.slot} to the store.")
           state
       end
 

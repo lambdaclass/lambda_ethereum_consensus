@@ -3,16 +3,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
-  alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.StateTransition.Mutators
-  alias LambdaEthereumConsensus.StateTransition.Predicates
-  alias SszTypes
-  alias SszTypes.Attestation
-  alias SszTypes.BeaconState
-  alias SszTypes.ExecutionPayload
-  alias SszTypes.Validator
-  alias SszTypes.Withdrawal
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
+  alias SszTypes.{Attestation, BeaconState, ExecutionPayload, Validator, Withdrawal}
 
   @doc """
   Apply withdrawals to the state.
@@ -264,25 +256,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:error, "Exit must specify an epoch when they become valid"}
 
         true ->
-          domain =
-            Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
-
-          signing_root =
-            LambdaEthereumConsensus.Beacon.HelperFunctions.compute_signing_root(
-              voluntary_exit,
-              domain
-            )
-
-          Bls.verify(validator.pubkey, signing_root, signed_voluntary_exit.signature)
+          Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
+          |> then(&Misc.compute_signing_root(voluntary_exit, &1))
+          |> then(&Bls.verify(validator.pubkey, &1, signed_voluntary_exit.signature))
           |> handle_verification_error()
       end
 
     case res do
-      :ok ->
-        initiate_validator_exit(state, voluntary_exit.validator_index)
-
-      {:error, msg} ->
-        {:error, msg}
+      :ok -> initiate_validator_exit(state, voluntary_exit.validator_index)
+      {:error, msg} -> {:error, msg}
     end
   end
 
