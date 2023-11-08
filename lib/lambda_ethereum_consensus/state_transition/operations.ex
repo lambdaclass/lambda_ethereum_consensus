@@ -3,10 +3,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
-  alias LambdaEthereumConsensus.Utils.BitVector
-  alias SszTypes
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
-  alias SszTypes.{Attestation, BeaconState, ExecutionPayload, Validator, Withdrawal, SyncAggregate}
+  alias LambdaEthereumConsensus.Utils.BitVector
+
+  alias SszTypes.{
+    Attestation,
+    BeaconState,
+    ExecutionPayload,
+    Validator,
+    Withdrawal,
+    SyncAggregate
+  }
 
   @spec process_sync_aggregate(BeaconState.t(), SyncAggregate.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
