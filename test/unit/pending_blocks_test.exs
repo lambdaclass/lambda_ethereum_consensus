@@ -16,7 +16,7 @@ defmodule Unit.PendingBlocks do
 
   test "Adds a pending block to fork choice if the parent is there" do
     signed_block = Fixtures.Block.signed_beacon_block()
-    {:ok, block_root} = Ssz.hash_tree_root(signed_block.message)
+    block_root = Ssz.hash_tree_root!(signed_block.message)
 
     patch(Store, :has_block?, fn root -> root == signed_block.message.parent_root end)
 
