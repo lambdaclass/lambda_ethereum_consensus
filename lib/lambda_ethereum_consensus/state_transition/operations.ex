@@ -58,16 +58,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {participant_reward, proposer_reward} = compute_sync_aggregate_rewards(state)
 
       # Apply participant and proposer rewards
-      all_pubkeys =
-        validators
-        |> Enum.map(fn %Validator{pubkey: pubkey} -> pubkey end)
-
-      committee_indices =
-        committee_pubkeys
-        |> Enum.with_index()
-        |> Enum.map(fn {public_key, _} ->
-          Enum.find_index(all_pubkeys, fn x -> x == public_key end)
-        end)
+      committee_indices = get_sync_committee_indices(validators, committee_pubkeys)
 
       Stream.with_index(committee_indices)
       |> Enum.reduce_while({:ok, state}, fn {participant_index, index}, {_, state} ->
@@ -113,6 +104,21 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       |> div(Constants.weight_denominator() - Constants.proposer_weight())
 
     {participant_reward, proposer_reward}
+  end
+
+  @spec get_sync_committee_indices(list(Validator.t()), list(SszTypes.bls_pubkey())) ::
+          list(integer)
+  defp get_sync_committee_indices(validators, committee_pubkeys) do
+    # Apply participant and proposer rewards
+    all_pubkeys =
+      validators
+      |> Enum.map(fn %Validator{pubkey: pubkey} -> pubkey end)
+
+    committee_pubkeys
+    |> Enum.with_index()
+    |> Enum.map(fn {public_key, _} ->
+      Enum.find_index(all_pubkeys, fn x -> x == public_key end)
+    end)
   end
 
   @spec increase_balance_or_return_error(
