@@ -203,23 +203,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       true ->
         is_verified =
           [proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
-          |> Enum.all?(fn signed_header ->
-            domain =
-              Accessors.get_domain(
-                state,
-                Constants.domain_beacon_proposer(),
-                Misc.compute_epoch_at_slot(signed_header.message.slot)
-              )
-
-            signing_root =
-              Misc.compute_signing_root(signed_header.message, domain)
-
-            bls_verify_proposer_slashing(
-              proposer.pubkey,
-              signing_root,
-              signed_header.signature
-            )
-          end)
+          |> Enum.all?(&verify_proposer_slashing(&1, state, proposer))
 
         if is_verified do
           Mutators.slash_validator(state, header_1.proposer_index)
@@ -229,16 +213,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
+  defp verify_proposer_slashing(signed_header, state, proposer) do
+    domain =
+      Accessors.get_domain(
+        state,
+        Constants.domain_beacon_proposer(),
+        Misc.compute_epoch_at_slot(signed_header.message.slot)
+      )
+
+    signing_root =
+      Misc.compute_signing_root(signed_header.message, domain)
+
+    bls_verify_proposer_slashing(
+      proposer.pubkey,
+      signing_root,
+      signed_header.signature
+    )
+  end
+
   defp bls_verify_proposer_slashing(pubkey, signing_root, signature) do
     verification = Bls.verify(pubkey, signing_root, signature)
 
     case verification do
       {:ok, bool} ->
-        if bool do
-          true
-        else
-          false
-        end
+        bool
 
       {:error, _msg} ->
         true
