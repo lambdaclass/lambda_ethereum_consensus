@@ -39,12 +39,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     participant_pubkeys =
       Enum.with_index(committee_pubkeys)
-      |> Enum.flat_map(fn {public_key, index} ->
-        case BitVector.set?(sync_committee_bits, index) do
-          true -> [public_key]
-          false -> []
-        end
-      end)
+      |> Enum.filter(fn {_, index} -> BitVector.set?(sync_committee_bits, index) end)
+      |> Enum.map(fn {public_key, _} -> public_key end)
 
     previous_slot = max(slot, 1) - 1
     epoch = Misc.compute_epoch_at_slot(previous_slot)
