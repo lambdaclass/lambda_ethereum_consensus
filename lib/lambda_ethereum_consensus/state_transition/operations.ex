@@ -10,9 +10,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     Attestation,
     BeaconState,
     ExecutionPayload,
+    SyncAggregate,
     Validator,
-    Withdrawal,
-    SyncAggregate
+    Withdrawal
   }
 
   @spec process_sync_aggregate(BeaconState.t(), SyncAggregate.t()) ::
