@@ -5,7 +5,7 @@ defmodule Unit.SSZExTest do
   def assert_roundtrip(hex_serialized, deserialized, schema) do
     serialized = Base.decode16!(hex_serialized)
     assert ^serialized = SszEx.encode(deserialized, schema)
-    assert (deserialized === SszEx.decode(serialized, schema))
+    assert deserialized === SszEx.decode(serialized, schema)
   end
 
   test "serialize and deserialize uint" do
@@ -24,5 +24,4 @@ defmodule Unit.SSZExTest do
     assert_roundtrip("01", true, :bool)
     assert_roundtrip("00", false, :bool)
   end
-
 end
