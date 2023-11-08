@@ -51,6 +51,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     GenServer.cast(__MODULE__, {:on_attestation, attestation})
   end
 
+  @spec notify_attester_slashing(SszTypes.AttesterSlashing.t()) :: :ok
+  def notify_attester_slashing(attester_slashing) do
+    GenServer.cast(__MODULE__, {:attester_slashing, attester_slashing})
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -91,14 +96,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
            # process block attestations
            {:ok, new_state} <-
              signed_block.message.body.attestations
-             |> Enum.reduce_while({:ok, new_state}, fn
-               att, {:ok, st} -> {:cont, Handlers.on_attestation(st, att, true)}
-               _, {:error, _} = err -> {:halt, err}
-             end) do
+             |> apply_handler(new_state, &Handlers.on_attestation(&1, &2, true)),
+           # process block attester slashings
+           {:ok, new_state} <-
+             signed_block.message.body.attester_slashings
+             |> apply_handler(new_state, &Handlers.on_attester_slashing/2) do
         new_state
       else
-        _ ->
-          Logger.error("Failed to add block #{signed_block.message.slot} to the store.")
+        {:error, reason} ->
+          Logger.error(
+            "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
+          )
+
           state
       end
 
@@ -114,6 +123,23 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
       case Handlers.on_attestation(state, attestation, false) do
         {:ok, new_state} -> new_state
         _ -> state
+      end
+
+    {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_cast({:attester_slashing, attester_slashing}, state) do
+    Logger.info("[Fork choice] Adding attester slashing to the store.")
+
+    state =
+      case Handlers.on_attester_slashing(state, attester_slashing) do
+        {:ok, new_state} ->
+          new_state
+
+        _ ->
+          Logger.error("[Fork choice] Failed to add attester slashing to the store.")
+          state
       end
 
     {:noreply, state}
@@ -142,5 +168,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     # For millisecond precision
     time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
     Process.send_after(self(), :on_tick, time_to_next_tick)
+  end
+
+  defp apply_handler(iter, state, handler) do
+    iter
+    |> Enum.reduce_while({:ok, state}, fn
+      x, {:ok, st} -> {:cont, handler.(st, x)}
+      _, {:error, _} = err -> {:halt, err}
+    end)
   end
 end

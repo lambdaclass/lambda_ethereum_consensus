@@ -5,7 +5,16 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
-  alias SszTypes.{Attestation, AttestationData, Checkpoint, SignedBeaconBlock, Store}
+
+  alias SszTypes.{
+    Attestation,
+    AttestationData,
+    AttesterSlashing,
+    Checkpoint,
+    IndexedAttestation,
+    SignedBeaconBlock,
+    Store
+  }
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3]
 
@@ -98,6 +107,41 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       end
     else
       {:error, "invalid on_attestation"}
+    end
+  end
+
+  @doc """
+  Run ``on_attester_slashing`` immediately upon receiving a new ``AttesterSlashing``
+  from either within a block or directly on the wire.
+  """
+  @spec on_attester_slashing(Store.t(), AttesterSlashing.t()) ::
+          {:ok, Store.t()} | {:error, String.t()}
+  def on_attester_slashing(
+        %Store{} = store,
+        %AttesterSlashing{
+          attestation_1: %IndexedAttestation{} = attestation_1,
+          attestation_2: %IndexedAttestation{} = attestation_2
+        }
+      ) do
+    state = store.block_states[store.justified_checkpoint.root]
+
+    cond do
+      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
+        {:error, "attestation is not slashable"}
+
+      not Predicates.is_valid_indexed_attestation(state, attestation_1) ->
+        {:error, "attestation 1 is not valid"}
+
+      not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
+        {:error, "attestation 2 is not valid"}
+
+      true ->
+        indices_1 = MapSet.new(attestation_1.attesting_indices)
+        indices_2 = MapSet.new(attestation_2.attesting_indices)
+
+        MapSet.intersection(indices_1, indices_2)
+        |> MapSet.union(store.equivocating_indices)
+        |> then(&{:ok, %Store{store | equivocating_indices: &1}})
     end
   end
 
