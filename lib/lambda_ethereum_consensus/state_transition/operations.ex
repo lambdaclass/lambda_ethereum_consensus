@@ -713,4 +713,89 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end)
     |> String.length()
   end
+
+  def process_bls_to_execution_change(state, signed_address_change) do
+    address_change = signed_address_change.message
+
+    case validate_address_change(state, address_change) do
+      {:ok, _} ->
+        validator = state.validators[address_change.validator_index]
+
+        case validate_withdrawal_credentials(validator, address_change) do
+          {:ok, _} ->
+            domain =
+              Misc.compute_domain(
+                ChainSpec.get("DOMAIN_BLS_TO_EXECUTION_CHANGE"),
+                genesis_validators_root = state.genesis_validators_root
+              )
+
+            signing_root = Misc.compute_signing_root(address_change, domain)
+
+            case Bls.verify(
+                   address_change.from_bls_pubkey,
+                   signing_root,
+                   signed_address_change.signature
+                 ) do
+              {:ok, _} ->
+                new_withdrawal_credentials =
+                  <<ChainSpec.get("ETH1_ADDRESS_WITHDRAWAL_PREFIX")::size(8)>> <>
+                    <<0::size(88)>> <> address_change.to_execution_address
+
+                updated_validators =
+                  update_validator_withdrawal_credentials(
+                    state.validators,
+                    address_change.validator_index,
+                    new_withdrawal_credentials
+                  )
+
+                {:ok, %BeaconState{state | validators: updated_validators}}
+
+              {:error, msg} ->
+                {:error, msg}
+            end
+
+          {:error, msg} ->
+            {:error, msg}
+        end
+
+      {:error, msg} ->
+        {:error, msg}
+    end
+  end
+
+  defp validate_address_change(state, address_change) do
+    if address_change.validator_index < length(state.validators) do
+      {:ok, address_change}
+    else
+      {:error, "Invalid address change"}
+    end
+  end
+
+  defp validate_withdrawal_credentials(validator, address_change) do
+    if validator.withdrawal_credentials |> Enum.slice(0..0) == <<ChainSpec.get("BLS_WITHDRAWAL_PREFIX")>> and
+         validator.withdrawal_credentials |> Enum.slice(1..-1) ==
+           :crypto.hash(:sha256, address_change.from_bls_pubkey) |> Enum.slice(1..-1) do
+      {:ok, true}
+    else
+      {:error, "Invalid withdrawal credentials"}
+    end
+  end
+
+  defp update_validator_withdrawal_credentials(
+         validators,
+         validator_index,
+         new_withdrawal_credentials
+       ) do
+    updated_validators =
+      validators
+      |> Enum.with_index(fn validator, index ->
+        if index == validator_index do
+          %Validator{validator | withdrawal_credentials: new_withdrawal_credentials}
+        else
+          validator
+        end
+      end)
+
+    updated_validators
+  end
 end
