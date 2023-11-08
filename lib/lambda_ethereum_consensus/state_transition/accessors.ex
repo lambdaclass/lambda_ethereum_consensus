@@ -79,7 +79,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
       {:ok, MapSet.new(participating_indices)}
     else
-      {:error, "epoch is not present in get_current_epoch or get_previous_epoch of the state"}
+      {:error, "epoch is not current or previous epochs"}
     end
   end
 

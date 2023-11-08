@@ -167,13 +167,14 @@ defmodule SszTypes.BeaconState do
     penalties = List.duplicate(0, n_validator)
     previous_epoch = Accessors.get_previous_epoch(state)
 
-    matching_target_indices =
-      state
-      |> Accessors.get_unslashed_participating_indices(
+    {:ok, unslashed_participating_indices} =
+      Accessors.get_unslashed_participating_indices(
+        state,
         Constants.timely_target_flag_index(),
         previous_epoch
       )
-      |> MapSet.new()
+
+    matching_target_indices = MapSet.new(unslashed_participating_indices)
 
     penalty_denominator =
       ChainSpec.get("INACTIVITY_SCORE_BIAS") *
