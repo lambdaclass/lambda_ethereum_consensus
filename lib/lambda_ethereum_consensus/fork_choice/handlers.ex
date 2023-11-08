@@ -78,31 +78,31 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     state = states[block.parent_root]
     block_root = Ssz.hash_tree_root!(block)
 
-    state = StateTransition.state_transition(state, signed_block, true)
+    with {:ok, state} <- StateTransition.state_transition(state, signed_block, true) do
+      # Add new block to the store
+      blocks = Map.put(store.blocks, block_root, block)
+      # Add new state for this block to the store
+      states = Map.put(store.block_states, block_root, state)
 
-    # Add new block to the store
-    blocks = Map.put(store.blocks, block_root, block)
-    # Add new state for this block to the store
-    states = Map.put(store.block_states, block_root, state)
+      store = %Store{store | blocks: blocks, block_states: states}
 
-    store = %Store{store | blocks: blocks, block_states: states}
+      seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
+      intervals_per_slot = ChainSpec.get("INTERVALS_PER_SLOT")
+      # Add proposer score boost if the block is timely
+      time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
+      is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
-    seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
-    intervals_per_slot = ChainSpec.get("INTERVALS_PER_SLOT")
-    # Add proposer score boost if the block is timely
-    time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
-    is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
-
-    store
-    |> if_then_update(
-      is_before_attesting_interval and Store.get_current_slot(store) == block.slot,
-      &%Store{&1 | proposer_boost_root: block_root}
-    )
-    # Update checkpoints in store if necessary
-    |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
-    # Eagerly compute unrealized justification and finality
-    |> compute_pulled_up_tip(block_root)
-    |> then(&{:ok, &1})
+      store
+      |> if_then_update(
+        is_before_attesting_interval and Store.get_current_slot(store) == block.slot,
+        &%Store{&1 | proposer_boost_root: block_root}
+      )
+      # Update checkpoints in store if necessary
+      |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
+      # Eagerly compute unrealized justification and finality
+      |> compute_pulled_up_tip(block_root)
+      |> then(&{:ok, &1})
+    end
   end
 
   ### Private functions ###
