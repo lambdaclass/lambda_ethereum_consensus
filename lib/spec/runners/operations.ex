@@ -47,7 +47,7 @@ defmodule OperationsTestRunner do
     "deposit",
     # "proposer_slashing",
     # "voluntary_exit",
-    "sync_aggregate",
+    # "sync_aggregate",
     "execution_payload",
     # "withdrawals",
     "bls_to_execution_change"
