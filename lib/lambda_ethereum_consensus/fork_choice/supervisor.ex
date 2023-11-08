@@ -4,9 +4,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use Supervisor
   require Logger
 
+  alias LambdaEthereumConsensus.ForkChoice.CheckpointSync
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
-  alias LambdaEthereumConsensus.Utils
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def init([checkpoint_url]) do
     Logger.info("[Sync] Initiating checkpoint sync.")
 
-    case Utils.sync_from_checkpoint(checkpoint_url) do
+    case CheckpointSync.sync_from_checkpoint(checkpoint_url) do
       {:ok, %SszTypes.BeaconState{} = anchor_state} ->
         Logger.info("[Checkpoint sync] Received beacon state at slot #{anchor_state.slot}.")
 
@@ -53,16 +53,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   defp get_latest_block_hash(anchor_state) do
-    with {:ok, state_root} <- Ssz.hash_tree_root(anchor_state) do
-      # The latest_block_header.state_root was zeroed out to avoid circular dependencies
-      anchor_state.latest_block_header
-      |> Map.put(:state_root, state_root)
-      |> Ssz.hash_tree_root()
-    end
+    state_root = Ssz.hash_tree_root!(anchor_state)
+    # The latest_block_header.state_root was zeroed out to avoid circular dependencies
+    anchor_state.latest_block_header
+    |> Map.put(:state_root, state_root)
+    |> Ssz.hash_tree_root!()
   end
 
   defp fetch_anchor_block(%SszTypes.BeaconState{} = anchor_state) do
-    {:ok, block_root} = get_latest_block_hash(anchor_state)
+    block_root = get_latest_block_hash(anchor_state)
 
     case BlockStore.get_block(block_root) do
       {:ok, anchor_block} ->

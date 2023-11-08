@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
+  alias SszTypes.Attestation
   alias SszTypes.BeaconState
   alias SszTypes.SignedBeaconBlock
   alias SszTypes.Store
@@ -39,10 +40,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     Map.has_key?(blocks, block_root)
   end
 
-  @spec on_block(SszTypes.BeaconBlock.t()) :: :ok
-  def on_block(block) do
-    {:ok, block_root} = Ssz.hash_tree_root(block)
-    GenServer.cast(__MODULE__, {:on_block, block_root, block})
+  @spec on_block(SszTypes.SignedBeaconBlock.t(), SszTypes.root()) :: :ok
+  def on_block(signed_block, block_root) do
+    :ok = BlockStore.store_block(signed_block)
+    GenServer.cast(__MODULE__, {:on_block, block_root, signed_block})
+  end
+
+  @spec on_attestation(SszTypes.Attestation.t()) :: :ok
+  def on_attestation(%Attestation{} = attestation) do
+    GenServer.cast(__MODULE__, {:on_attestation, attestation})
+  end
+
+  @spec notify_attester_slashing(SszTypes.AttesterSlashing.t()) :: :ok
+  def notify_attester_slashing(attester_slashing) do
+    GenServer.cast(__MODULE__, {:attester_slashing, attester_slashing})
   end
 
   ##########################
@@ -55,6 +66,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     result =
       case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
         {:ok, store = %Store{}} ->
+          store = on_tick_now(store)
           Logger.info("[Fork choice] Initialized store.")
           {:ok, store}
 
@@ -76,16 +88,67 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_cast({:on_block, block_root, block}, state) do
-    Logger.info("[Fork choice] Adding block #{block_root} to the store.")
-    :ok = BlockStore.store_block(block)
-    {:noreply, Map.put(state, :blocks, Map.put(state.blocks, block_root, block))}
+  def handle_cast({:on_block, _block_root, %SignedBeaconBlock{} = signed_block}, state) do
+    Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
+
+    state =
+      with {:ok, new_state} <- Handlers.on_block(state, signed_block),
+           # process block attestations
+           {:ok, new_state} <-
+             signed_block.message.body.attestations
+             |> apply_handler(new_state, &Handlers.on_attestation(&1, &2, true)),
+           # process block attester slashings
+           {:ok, new_state} <-
+             signed_block.message.body.attester_slashings
+             |> apply_handler(new_state, &Handlers.on_attester_slashing/2) do
+        new_state
+      else
+        {:error, reason} ->
+          Logger.error(
+            "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
+          )
+
+          state
+      end
+
+    {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_cast({:on_attestation, %Attestation{} = attestation}, %SszTypes.Store{} = state) do
+    id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
+    Logger.info("[Fork choice] Adding attestation #{id} to the store.")
+
+    state =
+      case Handlers.on_attestation(state, attestation, false) do
+        {:ok, new_state} -> new_state
+        _ -> state
+      end
+
+    {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_cast({:attester_slashing, attester_slashing}, state) do
+    Logger.info("[Fork choice] Adding attester slashing to the store.")
+
+    state =
+      case Handlers.on_attester_slashing(state, attester_slashing) do
+        {:ok, new_state} ->
+          new_state
+
+        _ ->
+          Logger.error("[Fork choice] Failed to add attester slashing to the store.")
+          state
+      end
+
+    {:noreply, state}
   end
 
   @impl GenServer
   def handle_info(:on_tick, store) do
-    time = :os.system_time(:second)
-    new_store = Handlers.on_tick(store, time)
+    new_store = on_tick_now(store)
+
     schedule_next_tick()
     {:noreply, new_store}
   end
@@ -99,9 +162,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs})
   end
 
+  defp on_tick_now(store), do: Handlers.on_tick(store, :os.system_time(:second))
+
   defp schedule_next_tick do
     # For millisecond precision
     time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
     Process.send_after(self(), :on_tick, time_to_next_tick)
+  end
+
+  defp apply_handler(iter, state, handler) do
+    iter
+    |> Enum.reduce_while({:ok, state}, fn
+      x, {:ok, st} -> {:cont, handler.(st, x)}
+      _, {:error, _} = err -> {:halt, err}
+    end)
   end
 end

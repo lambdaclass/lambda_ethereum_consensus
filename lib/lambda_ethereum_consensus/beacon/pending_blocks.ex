@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   require Logger
   alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.P2P.BlockDownloader
+  alias SszTypes.SignedBeaconBlock
 
   @type state :: %{pending_blocks: %{}}
 
@@ -21,9 +22,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec add_block(SszTypes.BeaconBlock.t()) :: :ok
-  def add_block(block) do
-    GenServer.cast(__MODULE__, {:add_block, block})
+  @spec add_block(SignedBeaconBlock.t()) :: :ok
+  def add_block(signed_block) do
+    GenServer.cast(__MODULE__, {:add_block, signed_block})
   end
 
   @spec is_pending_block(SszTypes.root()) :: boolean()
@@ -44,9 +45,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @impl true
-  def handle_cast({:add_block, block}, state) do
-    {:ok, block_root} = Ssz.hash_tree_root(block)
-    pending_blocks = Map.put(state.pending_blocks, block_root, block)
+  def handle_cast({:add_block, %SignedBeaconBlock{message: block} = signed_block}, state) do
+    block_root = Ssz.hash_tree_root!(block)
+    pending_blocks = Map.put(state.pending_blocks, block_root, signed_block)
     {:noreply, Map.put(state, :pending_blocks, pending_blocks)}
   end
 
@@ -61,16 +62,18 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @impl true
   @spec handle_info(atom(), state()) :: {:noreply, state()}
   def handle_info(:process_blocks, state) do
-    pending_blocks = state.pending_blocks
+    %{pending_blocks: pending_blocks} = state
 
     blocks_to_remove =
-      for {block_root, block} <- pending_blocks do
+      pending_blocks
+      |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
+      |> Enum.map(fn {block_root, %SignedBeaconBlock{message: block} = signed_block} ->
         cond do
           Store.has_block?(block_root) ->
             block_root
 
           Store.has_block?(block.parent_root) ->
-            Store.on_block(block)
+            Store.on_block(signed_block, block_root)
             block_root
 
           Map.has_key?(pending_blocks, block.parent_root) ->
@@ -79,19 +82,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             nil
 
           true ->
-            case BlockDownloader.request_block_by_root(block.parent_root) do
-              {:ok, signed_block} ->
-                Logger.info("Block downloaded: #{signed_block.message.slot}")
-                block = signed_block.message
-                add_block(block)
-
-              {:error, reason} ->
-                Logger.debug("Block download failed: '#{reason}'")
-            end
-
+            download_block(block.parent_root)
             nil
         end
-      end
+      end)
 
     schedule_blocks_processing()
     {:noreply, Map.put(state, :pending_blocks, Map.drop(pending_blocks, blocks_to_remove))}
@@ -100,6 +94,17 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   ##########################
   ### Private Functions
   ##########################
+
+  defp download_block(block_root) do
+    case BlockDownloader.request_block_by_root(block_root) do
+      {:ok, signed_block} ->
+        Logger.info("Block downloaded: #{signed_block.message.slot}")
+        add_block(signed_block)
+
+      {:error, reason} ->
+        Logger.debug("Block download failed: '#{reason}'")
+    end
+  end
 
   defp schedule_blocks_processing do
     Process.send_after(self(), :process_blocks, 1000)

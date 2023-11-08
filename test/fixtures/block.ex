@@ -5,6 +5,14 @@ defmodule Fixtures.Block do
 
   alias Fixtures.Random
 
+  @spec signed_beacon_block :: SszTypes.SignedBeaconBlock.t()
+  def signed_beacon_block do
+    %SszTypes.SignedBeaconBlock{
+      message: beacon_block(),
+      signature: Random.bls_signature()
+    }
+  end
+
   @spec beacon_block :: SszTypes.BeaconBlock.t()
   def beacon_block do
     %SszTypes.BeaconBlock{
