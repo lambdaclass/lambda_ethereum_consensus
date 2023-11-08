@@ -164,7 +164,7 @@ defmodule OperationsTestRunner do
   end
 
   defp handle_case("bls_to_execution_change", pre, operation, post, _case_dir) do
-    result = Operations.process_attestation(pre, operation)
+    result = Operations.process_bls_to_execution_change(pre, operation)
 
     case result do
       {:ok, new_state} ->
