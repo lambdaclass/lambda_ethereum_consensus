@@ -410,11 +410,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   Math safe up to ~10B ETH, after which this overflows uint64.
   """
-  @spec get_total_balance(BeaconState.t(), list(SszTypes.validator_index())) :: SszTypes.gwei()
+  @spec get_total_balance(BeaconState.t(), Enumerable.t(SszTypes.validator_index())) ::
+          SszTypes.gwei()
   def get_total_balance(state, indices) do
     total_balance =
       indices
-      |> Enum.map(fn index -> Map.get(Enum.at(state.validators, index), :effective_balance, 0) end)
+      |> Stream.map(fn index ->
+        Map.get(Enum.at(state.validators, index), :effective_balance, 0)
+      end)
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
