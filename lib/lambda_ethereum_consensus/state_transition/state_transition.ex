@@ -44,10 +44,10 @@ defmodule LambdaEthereumConsensus.StateTransition do
     )
   end
 
-  defp process_slots(%BeaconState{slot: old_slot}, slot) when old_slot >= slot,
+  def process_slots(%BeaconState{slot: old_slot}, slot) when old_slot >= slot,
     do: {:error, "slot is older than state"}
 
-  defp process_slots(%BeaconState{slot: old_slot} = state, slot) do
+  def process_slots(%BeaconState{slot: old_slot} = state, slot) do
     Enum.reduce((old_slot + 1)..slot, state, fn next_slot, state ->
       state
       |> process_slot()
