@@ -3,9 +3,8 @@ defmodule LambdaEthereumConsensus.StateTransition do
   State transition logic.
   """
 
-  alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.StateTransition
-  alias LambdaEthereumConsensus.StateTransition.EpochProcessing
+  alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
   alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map: 2]
