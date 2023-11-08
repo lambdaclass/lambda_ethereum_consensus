@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Handlers that update the fork choice store.
   """
 
-  alias SszTypes.IndexedAttestation
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
 
@@ -12,6 +11,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     AttestationData,
     AttesterSlashing,
     Checkpoint,
+    IndexedAttestation,
     SignedBeaconBlock,
     Store
   }
