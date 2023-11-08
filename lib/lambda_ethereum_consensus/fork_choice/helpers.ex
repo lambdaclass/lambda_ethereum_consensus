@@ -10,8 +10,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   @spec get_forkchoice_store(BeaconState.t(), BeaconBlock.t()) :: {:ok, Store.t()} | {:error, any}
   def get_forkchoice_store(anchor_state, anchor_block) do
-    {:ok, anchor_state_root} = Ssz.hash_tree_root(anchor_state)
-    {:ok, anchor_block_root} = Ssz.hash_tree_root(anchor_block)
+    anchor_state_root = Ssz.hash_tree_root!(anchor_state)
+    anchor_block_root = Ssz.hash_tree_root!(anchor_block)
 
     if anchor_block.state_root == anchor_state_root do
       anchor_epoch = Accessors.get_current_epoch(anchor_state)
