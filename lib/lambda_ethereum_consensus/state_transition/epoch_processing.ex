@@ -348,14 +348,15 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       Enum.reduce(deltas, state, fn {rewards, penalties}, state ->
         state.validators
         |> Stream.with_index()
-        |> Enum.reduce(state, fn {_, index}, state ->
-          state
-          |> Mutators.increase_balance(index, Enum.at(rewards, index))
-          |> BeaconState.decrease_balance(index, Enum.at(penalties, index))
-        end)
+        |> Enum.reduce(state, &apply_reward_and_penalty(&1, &2, rewards, penalties))
       end)
-
-      {:ok, state}
+      |> then(&{:ok, &1})
     end
+  end
+
+  defp apply_reward_and_penalty({_, index}, state, rewards, penalties) do
+    state
+    |> Mutators.increase_balance(index, Enum.at(rewards, index))
+    |> BeaconState.decrease_balance(index, Enum.at(penalties, index))
   end
 end

@@ -135,16 +135,16 @@ defmodule SszTypes.BeaconState do
     Accessors.get_eligible_validator_indices(state)
     |> Enum.reduce({rewards, penalties}, fn index, {rewards, penalties} ->
       base_reward = Accessors.get_base_reward(state, index)
+      is_unslashed = MapSet.member?(unslashed_participating_indices, index)
 
       cond do
-        MapSet.member?(unslashed_participating_indices, index) ->
-          if Predicates.is_in_inactivity_leak(state) do
-            {rewards, penalties}
-          else
-            reward_numerator = base_reward * weight * unslashed_participating_increments
-            reward = div(reward_numerator, active_increments * weight_denominator)
-            {List.update_at(rewards, index, &(&1 + reward)), penalties}
-          end
+        is_unslashed and Predicates.is_in_inactivity_leak(state) ->
+          {rewards, penalties}
+
+        is_unslashed ->
+          reward_numerator = base_reward * weight * unslashed_participating_increments
+          reward = div(reward_numerator, active_increments * weight_denominator)
+          {List.update_at(rewards, index, &(&1 + reward)), penalties}
 
         flag_index != Constants.timely_head_flag_index() ->
           penalty = div(base_reward * weight, weight_denominator)
@@ -175,6 +175,10 @@ defmodule SszTypes.BeaconState do
       )
       |> MapSet.new()
 
+    penalty_denominator =
+      ChainSpec.get("INACTIVITY_SCORE_BIAS") *
+        ChainSpec.get("INACTIVITY_PENALTY_QUOTIENT_BELLATRIX")
+
     state
     |> Accessors.get_eligible_validator_indices()
     |> Stream.filter(&(not MapSet.member?(matching_target_indices, &1)))
@@ -182,10 +186,6 @@ defmodule SszTypes.BeaconState do
       penalty_numerator =
         Enum.at(state.validators, index).effective_balance *
           Enum.at(state.inactivity_scores, index)
-
-      penalty_denominator =
-        ChainSpec.get("INACTIVITY_SCORE_BIAS") *
-          ChainSpec.get("INACTIVITY_PENALTY_QUOTIENT_BELLATRIX")
 
       penalty = div(penalty_numerator, penalty_denominator)
       {rw, List.update_at(pn, index, &(&1 + penalty))}
