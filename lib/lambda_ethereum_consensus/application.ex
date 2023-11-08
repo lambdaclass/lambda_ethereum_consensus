@@ -31,6 +31,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
       {LambdaEthereumConsensus.ForkChoice, [Keyword.get(args, :checkpoint_sync)]},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
+      {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
       # Start the Endpoint (http/https)
       {BeaconApi.Endpoint, []}
