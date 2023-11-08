@@ -49,7 +49,7 @@ defmodule OperationsTestRunner do
     # "sync_aggregate",
     # "execution_payload",
     # "withdrawals",
-    "bls_to_execution_change"
+    # "bls_to_execution_change"
   ]
 
   @impl TestRunner
@@ -153,6 +153,18 @@ defmodule OperationsTestRunner do
 
   defp handle_case("sync_aggregate", pre, operation, post, _case_dir) do
     result = Operations.process_sync_aggregate(pre, operation)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
+  end
+
+  defp handle_case("bls_to_execution_change", pre, operation, post, _case_dir) do
+    result = Operations.process_attestation(pre, operation)
 
     case result do
       {:ok, new_state} ->
