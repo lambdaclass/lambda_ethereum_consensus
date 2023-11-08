@@ -3,6 +3,7 @@ defmodule OperationsTestRunner do
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
   """
   alias LambdaEthereumConsensus.StateTransition.Operations
+  alias LambdaEthereumConsensus.Utils.Diff
 
   use ExUnit.CaseTemplate
   use TestRunner
@@ -91,63 +92,17 @@ defmodule OperationsTestRunner do
     assert true
   end
 
-  defp handle_case("attester_slashing", pre, operation, post, _case_dir) do
-    result = Operations.process_attester_slashing(pre, operation)
+  defp handle_case(name, pre, operation, post, _case_dir) do
+    fun = "process_#{name}" |> String.to_existing_atom()
+    result = apply(Operations, fun, [pre, operation])
 
-    case result do
-      {:ok, new_state} ->
-        assert new_state == post
+    case post do
+      nil ->
+        assert {:error, _error_msg} = result
 
-      {:error, _} ->
-        assert nil == post
-    end
-  end
-
-  defp handle_case("proposer_slashing", pre, operation, post, _case_dir) do
-    result = Operations.process_proposer_slashing(pre, operation)
-
-    case result do
-      {:ok, new_state} ->
-        assert new_state == post
-
-      {:error, _} ->
-        assert nil == post
-    end
-  end
-
-  defp handle_case("voluntary_exit", pre, operation, post, _case_dir) do
-    result = Operations.process_voluntary_exit(pre, operation)
-
-    case result do
-      {:ok, new_state} ->
-        assert new_state == post
-
-      {:error, _} ->
-        assert nil == post
-    end
-  end
-
-  defp handle_case("attestation", pre, operation, post, _case_dir) do
-    result = Operations.process_attestation(pre, operation)
-
-    case result do
-      {:ok, new_state} ->
-        assert new_state == post
-
-      {:error, _} ->
-        assert nil == post
-    end
-  end
-
-  defp handle_case("withdrawals", pre, operation, post, _case_dir) do
-    result = Operations.process_withdrawals(pre, operation)
-
-    case result do
-      {:ok, new_state} ->
-        assert new_state == post
-
-      {:error, _} ->
-        assert nil == post
+      post ->
+        assert {:ok, state} = result
+        assert Diff.diff(state, post) == :unchanged
     end
   end
 end
