@@ -88,7 +88,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     state
     |> EpochProcessing.process_justification_and_finalization()
     |> map(&EpochProcessing.process_inactivity_updates/1)
-    # |> map(&EpochProcessing.process_rewards_and_penalties/1)
+    |> map(&EpochProcessing.process_rewards_and_penalties/1)
     |> map(&EpochProcessing.process_registry_updates/1)
     |> map(&EpochProcessing.process_slashings/1)
     |> map(&EpochProcessing.process_eth1_data_reset/1)
