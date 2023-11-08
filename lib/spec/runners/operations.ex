@@ -40,12 +40,12 @@ defmodule OperationsTestRunner do
   # Remove handler from here once you implement the corresponding functions
   # "deposit_receipt" handler is not yet implemented
   @disabled_handlers [
+    # "attester_slashing",
     # "attestation",
-    "attester_slashing",
     "block_header",
     "deposit",
     "proposer_slashing",
-    "voluntary_exit",
+    # "voluntary_exit",
     "sync_aggregate",
     # "execution_payload",
     # "withdrawals",
@@ -89,6 +89,30 @@ defmodule OperationsTestRunner do
       |> SpecTestUtils.sanitize_yaml()
 
     assert true
+  end
+
+  defp handle_case("attester_slashing", pre, attester_slashing, post, _case_dir) do
+    result = Operations.process_attester_slashing(pre, attester_slashing)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
+  end
+
+  defp handle_case("voluntary_exit", pre, operation, post, _case_dir) do
+    result = Operations.process_voluntary_exit(pre, operation)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
   end
 
   defp handle_case("attestation", pre, operation, post, _case_dir) do

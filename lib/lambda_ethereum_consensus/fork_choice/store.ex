@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   use GenServer
   require Logger
 
-  alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias SszTypes.BeaconState
   alias SszTypes.SignedBeaconBlock
@@ -39,10 +39,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     Map.has_key?(blocks, block_root)
   end
 
-  @spec on_block(SszTypes.BeaconBlock.t()) :: :ok
-  def on_block(block) do
-    {:ok, block_root} = Ssz.hash_tree_root(block)
-    GenServer.cast(__MODULE__, {:on_block, block_root, block})
+  @spec on_block(SszTypes.SignedBeaconBlock.t(), SszTypes.root()) :: :ok
+  def on_block(signed_block, block_root) do
+    :ok = BlockStore.store_block(signed_block)
+    GenServer.cast(__MODULE__, {:on_block, block_root, signed_block})
   end
 
   ##########################
@@ -55,6 +55,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     result =
       case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
         {:ok, store = %Store{}} ->
+          store = on_tick_now(store)
           Logger.info("[Fork choice] Initialized store.")
           {:ok, store}
 
@@ -65,6 +66,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     # TODO: this should be done after validation
     :ok = StateStore.store_state(anchor_state)
     :ok = BlockStore.store_block(signed_anchor_block)
+    schedule_next_tick()
     result
   end
 
@@ -75,10 +77,28 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_cast({:on_block, block_root, block}, state) do
-    Logger.info("[Fork choice] Adding block #{block_root} to the store.")
-    :ok = BlockStore.store_block(block)
-    {:noreply, Map.put(state, :blocks, Map.put(state.blocks, block_root, block))}
+  def handle_cast({:on_block, block_root, signed_block}, state) do
+    Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
+
+    state =
+      case Handlers.on_block(state, signed_block) do
+        {:ok, state} ->
+          Map.put(state, :blocks, Map.put(state.blocks, block_root, signed_block.message))
+
+        _ ->
+          Logger.error("Failed to add block #{signed_block.message.slot} to the store.")
+          state
+      end
+
+    {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_info(:on_tick, store) do
+    new_store = on_tick_now(store)
+
+    schedule_next_tick()
+    {:noreply, new_store}
   end
 
   ##########################
@@ -88,5 +108,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   @spec get_store_attrs([atom()]) :: [any()]
   defp get_store_attrs(attrs) do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs})
+  end
+
+  defp on_tick_now(store), do: Handlers.on_tick(store, :os.system_time(:second))
+
+  defp schedule_next_tick do
+    # For millisecond precision
+    time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
+    Process.send_after(self(), :on_tick, time_to_next_tick)
   end
 end

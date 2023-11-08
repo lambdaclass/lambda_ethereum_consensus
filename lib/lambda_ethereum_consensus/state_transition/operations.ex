@@ -3,16 +3,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
-  alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.StateTransition.Mutators
-  alias LambdaEthereumConsensus.StateTransition.Predicates
-  alias SszTypes
-  alias SszTypes.Attestation
-  alias SszTypes.BeaconState
-  alias SszTypes.ExecutionPayload
-  alias SszTypes.Validator
-  alias SszTypes.Withdrawal
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
+  alias SszTypes.{Attestation, BeaconState, ExecutionPayload, Validator, Withdrawal}
 
   @doc """
   Apply withdrawals to the state.
@@ -174,6 +166,136 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     Enum.reverse(withdrawals)
   end
 
+  @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_attester_slashing(state, attester_slashing) do
+    attestation_1 = attester_slashing.attestation_1
+    attestation_2 = attester_slashing.attestation_2
+
+    cond do
+      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
+        {:error, "Attestation data is not slashable"}
+
+      not Predicates.is_valid_indexed_attestation(state, attestation_1) ->
+        {:error, "Attestation 1 is not valid"}
+
+      not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
+        {:error, "Attestation 2 is not valid"}
+
+      not Predicates.is_indices_available(
+        length(state.validators),
+        attestation_1.attesting_indices
+      ) ->
+        {:error, "Index too high attestation 1"}
+
+      not Predicates.is_indices_available(
+        length(state.validators),
+        attestation_2.attesting_indices
+      ) ->
+        {:error, "Index too high attestation 2"}
+
+      true ->
+        {slashed_any, state} =
+          Enum.uniq(attestation_1.attesting_indices)
+          |> Enum.filter(fn i -> Enum.member?(attestation_2.attesting_indices, i) end)
+          |> Enum.sort()
+          |> Enum.reduce_while({false, state}, fn i, {slashed_any, state} ->
+            slash_validator(slashed_any, state, i)
+          end)
+
+        if slashed_any do
+          {:ok, state}
+        else
+          {:error, "Didn't slash any"}
+        end
+    end
+  end
+
+  defp slash_validator(slashed_any, state, i) do
+    if Predicates.is_slashable_validator(
+         Enum.at(state.validators, i),
+         Accessors.get_current_epoch(state)
+       ) do
+      case Mutators.slash_validator(state, i) do
+        {:ok, state} -> {:cont, {true, state}}
+        {:error, _msg} -> {:halt, {false, nil}}
+      end
+    else
+      {:cont, {slashed_any, state}}
+    end
+  end
+
+  @doc """
+  Process voluntary exit.
+  """
+  @spec process_voluntary_exit(BeaconState.t(), SszTypes.SignedVoluntaryExit.t()) ::
+          {:ok, BeaconState.t()} | {:error, binary()}
+  def process_voluntary_exit(state, signed_voluntary_exit) do
+    voluntary_exit = signed_voluntary_exit.message
+    validator = Enum.at(state.validators, voluntary_exit.validator_index)
+
+    res =
+      cond do
+        not Predicates.is_indices_available(
+          length(state.validators),
+          [voluntary_exit.validator_index]
+        ) ->
+          {:error, "Too high index"}
+
+        not Predicates.is_active_validator(validator, Accessors.get_current_epoch(state)) ->
+          {:error, "Validator isn't active"}
+
+        validator.exit_epoch != Constants.far_future_epoch() ->
+          {:error, "Validator has already initiated exit"}
+
+        Accessors.get_current_epoch(state) < voluntary_exit.epoch ->
+          {:error, "Exit must specify an epoch when they become valid"}
+
+        Accessors.get_current_epoch(state) <
+            validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
+          {:error, "Exit must specify an epoch when they become valid"}
+
+        true ->
+          Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
+          |> then(&Misc.compute_signing_root(voluntary_exit, &1))
+          |> then(&Bls.verify(validator.pubkey, &1, signed_voluntary_exit.signature))
+          |> handle_verification_error()
+      end
+
+    case res do
+      :ok -> initiate_validator_exit(state, voluntary_exit.validator_index)
+      {:error, msg} -> {:error, msg}
+    end
+  end
+
+  defp initiate_validator_exit(state, validator_index) do
+    case Mutators.initiate_validator_exit(state, validator_index) do
+      {:ok, validator} ->
+        state = %BeaconState{
+          state
+          | validators: List.replace_at(state.validators, validator_index, validator)
+        }
+
+        {:ok, state}
+
+      {:error, msg} ->
+        {:error, msg}
+    end
+  end
+
+  defp handle_verification_error(is_verified) do
+    case is_verified do
+      {:ok, valid} when valid ->
+        :ok
+
+      {:ok, _valid} ->
+        {:error, "Signature is not valid"}
+
+      {:error, msg} ->
+        {:error, msg}
+    end
+  end
+
   @doc """
   Process attestations during state transition.
   """
@@ -217,10 +339,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       proposer_reward = compute_proposer_reward(proposer_reward_numerator)
 
-      {:ok, bal_updated_state} =
+      {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state)
+
+      bal_updated_state =
         Mutators.increase_balance(
           state,
-          Accessors.get_beacon_proposer_index(state),
+          proposer_index,
           proposer_reward
         )
 
@@ -369,7 +493,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp invalid_signature?(state, indexed_attestation) do
-    Predicates.is_valid_indexed_attestation(state, indexed_attestation) != {:ok, true}
+    not Predicates.is_valid_indexed_attestation(state, indexed_attestation)
   end
 
   defp length_of_bitstring(binary) when is_binary(binary) do

@@ -11,7 +11,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   @spec store_block(SszTypes.SignedBeaconBlock.t()) :: :ok
   def store_block(%SszTypes.SignedBeaconBlock{} = signed_block) do
     block = signed_block.message
-    {:ok, block_root} = Ssz.hash_tree_root(block)
+    block_root = Ssz.hash_tree_root!(block)
     {:ok, encoded_signed_block} = Ssz.to_ssz(signed_block)
 
     key = block_key(block_root)
