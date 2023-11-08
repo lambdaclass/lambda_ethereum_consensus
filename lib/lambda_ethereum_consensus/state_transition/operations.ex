@@ -4,7 +4,147 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
 
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
-  alias SszTypes.{Attestation, BeaconState, ExecutionPayload, Validator, Withdrawal}
+  alias LambdaEthereumConsensus.Utils.BitVector
+
+  alias SszTypes.{
+    Attestation,
+    BeaconState,
+    ExecutionPayload,
+    SyncAggregate,
+    Validator,
+    Withdrawal
+  }
+
+  @spec process_sync_aggregate(BeaconState.t(), SyncAggregate.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_sync_aggregate(
+        %BeaconState{
+          slot: slot,
+          current_sync_committee: current_sync_committee,
+          validators: validators
+        } = state,
+        %SyncAggregate{
+          sync_committee_bits: sync_committee_bits,
+          sync_committee_signature: sync_committee_signature
+        }
+      ) do
+    # Verify sync committee aggregate signature signing over the previous slot block root
+    committee_pubkeys = current_sync_committee.pubkeys
+
+    # TODO: Change bitvectors to be in little-endian instead of converting manually
+    sync_committee_bits_as_num = sync_committee_bits |> :binary.decode_unsigned()
+
+    sync_committee_bits =
+      <<sync_committee_bits_as_num::unsigned-integer-little-size(bit_size(sync_committee_bits))>>
+
+    participant_pubkeys =
+      Enum.with_index(committee_pubkeys)
+      |> Enum.filter(fn {_, index} -> BitVector.set?(sync_committee_bits, index) end)
+      |> Enum.map(fn {public_key, _} -> public_key end)
+
+    previous_slot = max(slot, 1) - 1
+    epoch = Misc.compute_epoch_at_slot(previous_slot)
+    domain = Accessors.get_domain(state, Constants.domain_sync_committee(), epoch)
+
+    with {:ok, block_root} <- Accessors.get_block_root_at_slot(state, previous_slot),
+         signing_root <- Misc.compute_signing_root(block_root, domain),
+         {:ok, true} <-
+           Bls.eth_fast_aggregate_verify(
+             participant_pubkeys,
+             signing_root,
+             sync_committee_signature
+           ) do
+      # Compute participant and proposer rewards
+      {participant_reward, proposer_reward} = compute_sync_aggregate_rewards(state)
+
+      # Apply participant and proposer rewards
+      committee_indices = get_sync_committee_indices(validators, committee_pubkeys)
+
+      Stream.with_index(committee_indices)
+      |> Enum.reduce_while({:ok, state}, fn {participant_index, index}, {_, state} ->
+        if BitVector.set?(sync_committee_bits, index) do
+          state
+          |> increase_balance_or_return_error(
+            participant_index,
+            participant_reward,
+            proposer_reward
+          )
+        else
+          {:cont,
+           {:ok, state |> Mutators.decrease_balance(participant_index, participant_reward)}}
+        end
+      end)
+    else
+      {:ok, false} -> {:error, "Signature verification failed"}
+      {:error, message} -> {:error, message}
+    end
+  end
+
+  @spec compute_sync_aggregate_rewards(BeaconState.t()) :: {SszTypes.gwei(), SszTypes.gwei()}
+  defp compute_sync_aggregate_rewards(state) do
+    # Compute participant and proposer rewards
+    total_active_increments =
+      div(
+        Accessors.get_total_active_balance(state),
+        ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+      )
+
+    total_base_rewards =
+      Accessors.get_base_reward_per_increment(state) * total_active_increments
+
+    max_participant_rewards =
+      (total_base_rewards * Constants.sync_reward_weight())
+      |> div(Constants.weight_denominator())
+      |> div(ChainSpec.get("SLOTS_PER_EPOCH"))
+
+    participant_reward = div(max_participant_rewards, ChainSpec.get("SYNC_COMMITTEE_SIZE"))
+
+    proposer_reward =
+      (participant_reward * Constants.proposer_weight())
+      |> div(Constants.weight_denominator() - Constants.proposer_weight())
+
+    {participant_reward, proposer_reward}
+  end
+
+  @spec get_sync_committee_indices(list(Validator.t()), list(SszTypes.bls_pubkey())) ::
+          list(integer)
+  defp get_sync_committee_indices(validators, committee_pubkeys) do
+    # Apply participant and proposer rewards
+    all_pubkeys =
+      validators
+      |> Enum.map(fn %Validator{pubkey: pubkey} -> pubkey end)
+
+    committee_pubkeys
+    |> Enum.with_index()
+    |> Enum.map(fn {public_key, _} ->
+      Enum.find_index(all_pubkeys, fn x -> x == public_key end)
+    end)
+  end
+
+  @spec increase_balance_or_return_error(
+          BeaconState.t(),
+          SszTypes.validator_index(),
+          SszTypes.gwei(),
+          SszTypes.gwei()
+        ) :: {:cont, {:ok, BeaconState.t()}} | {:halt, {:error, String.t()}}
+  defp increase_balance_or_return_error(
+         %BeaconState{} = state,
+         participant_index,
+         participant_reward,
+         proposer_reward
+       ) do
+    case Accessors.get_beacon_proposer_index(state) do
+      {:ok, proposer_index} ->
+        {:cont,
+         {:ok,
+          state
+          |> Mutators.increase_balance(participant_index, participant_reward)
+          |> Mutators.increase_balance(proposer_index, proposer_reward)}}
+
+      {:error, _} ->
+        {:halt, {:error, "Error getting beacon proposer index"}}
+    end
+  end
 
   @doc """
   Apply withdrawals to the state.
@@ -164,6 +304,75 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       end)
 
     Enum.reverse(withdrawals)
+  end
+
+  @spec process_proposer_slashing(BeaconState.t(), SszTypes.ProposerSlashing.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_proposer_slashing(state, proposer_slashing) do
+    header_1 = proposer_slashing.signed_header_1.message
+    header_2 = proposer_slashing.signed_header_2.message
+    proposer = Enum.at(state.validators, header_1.proposer_index)
+
+    cond do
+      not Predicates.is_indices_available(
+        length(state.validators),
+        [header_1.proposer_index]
+      ) ->
+        {:error, "Too high index"}
+
+      not (header_1.slot == header_2.slot) ->
+        {:error, "Slots don't match"}
+
+      not (header_1.proposer_index == header_2.proposer_index) ->
+        {:error, "Proposer indices don't match"}
+
+      not (header_1 != header_2) ->
+        {:error, "Headers are same"}
+
+      not Predicates.is_slashable_validator(proposer, Accessors.get_current_epoch(state)) ->
+        {:error, "Proposer is not slashable"}
+
+      true ->
+        is_verified =
+          [proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
+          |> Enum.all?(&verify_proposer_slashing(&1, state, proposer))
+
+        if is_verified do
+          Mutators.slash_validator(state, header_1.proposer_index)
+        else
+          {:error, "Signed header 1 or 2 signature is not verified"}
+        end
+    end
+  end
+
+  defp verify_proposer_slashing(signed_header, state, proposer) do
+    domain =
+      Accessors.get_domain(
+        state,
+        Constants.domain_beacon_proposer(),
+        Misc.compute_epoch_at_slot(signed_header.message.slot)
+      )
+
+    signing_root =
+      Misc.compute_signing_root(signed_header.message, domain)
+
+    bls_verify_proposer_slashing(
+      proposer.pubkey,
+      signing_root,
+      signed_header.signature
+    )
+  end
+
+  defp bls_verify_proposer_slashing(pubkey, signing_root, signature) do
+    verification = Bls.verify(pubkey, signing_root, signature)
+
+    case verification do
+      {:ok, bool} ->
+        bool
+
+      {:error, _msg} ->
+        true
+    end
   end
 
   @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::

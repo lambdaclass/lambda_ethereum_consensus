@@ -47,4 +47,16 @@ defmodule Bls do
   def key_validate(_public_key) do
     :erlang.nif_error(:nif_not_loaded)
   end
+
+  ##### Helpers #####
+  @doc """
+  Same as ``Bls.verify``, but treats errors as invalid signatures.
+  """
+  @spec valid?(SszTypes.bls_pubkey(), binary(), SszTypes.bls_signature()) :: boolean()
+  def valid?(public_key, message, signature) do
+    case Bls.verify(public_key, message, signature) do
+      {:ok, bool} -> bool
+      {:error, _} -> false
+    end
+  end
 end

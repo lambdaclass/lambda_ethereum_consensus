@@ -35,6 +35,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
     slot = aggregate.data.slot
     root = aggregate.data.beacon_block_root |> Base.encode16()
 
+    Store.on_attestation(aggregate)
+
     Logger.debug(
       "[Gossip] Aggregate decoded for slot #{slot}. Root: #{root}. Total attestations: #{votes}"
     )
