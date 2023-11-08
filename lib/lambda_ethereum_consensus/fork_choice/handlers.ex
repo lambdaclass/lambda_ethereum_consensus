@@ -7,6 +7,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Misc}
   alias SszTypes.{Checkpoint, SignedBeaconBlock, Store}
 
+  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3]
+
   ### Public API ###
 
   @doc """
@@ -191,7 +193,4 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
     slot - div(slot, slots_per_epoch) * slots_per_epoch
   end
-
-  defp if_then_update(value, true, fun), do: fun.(value)
-  defp if_then_update(value, false, _fun), do: value
 end
