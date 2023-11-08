@@ -772,7 +772,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp validate_withdrawal_credentials(validator, address_change) do
-    if validator.withdrawal_credentials |> Enum.slice(0..0) == <<ChainSpec.get("BLS_WITHDRAWAL_PREFIX")>> and
+    if validator.withdrawal_credentials |> Enum.slice(0..0) ==
+         <<ChainSpec.get("BLS_WITHDRAWAL_PREFIX")>> and
          validator.withdrawal_credentials |> Enum.slice(1..-1) ==
            :crypto.hash(:sha256, address_change.from_bls_pubkey) |> Enum.slice(1..-1) do
       {:ok, true}
