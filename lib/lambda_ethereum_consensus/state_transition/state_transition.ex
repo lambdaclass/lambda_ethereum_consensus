@@ -114,6 +114,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     Bls.valid?(proposer.pubkey, signing_root, signed_block.signature)
   end
 
+  # TODO: uncomment when implemented
   defp process_block(state, block) do
     {:ok, state}
     # |> map(&Operations.process_block_header(&1, block))
