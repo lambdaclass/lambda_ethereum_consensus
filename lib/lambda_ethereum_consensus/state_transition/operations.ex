@@ -31,6 +31,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       ) do
     # Verify sync committee aggregate signature signing over the previous slot block root
     committee_pubkeys = current_sync_committee.pubkeys
+
+    # TODO: Change bitvectors to be in little-endian instead of converting manually
     sync_committee_bits_as_num = sync_committee_bits |> :binary.decode_unsigned()
 
     sync_committee_bits =
@@ -38,11 +40,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     participant_pubkeys =
       Enum.with_index(committee_pubkeys)
-      |> Enum.reduce([], fn {public_key, index}, participant_pubkeys ->
-        if BitVector.set?(sync_committee_bits, index) do
-          participant_pubkeys ++ [public_key]
-        else
-          participant_pubkeys
+      |> Enum.flat_map(fn {public_key, index} ->
+        case BitVector.set?(sync_committee_bits, index) do
+          true -> [public_key]
+          false -> []
         end
       end)
 
@@ -69,34 +70,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         Accessors.get_base_reward_per_increment(state) * total_active_increments
 
       max_participant_rewards =
-        div(
-          div(
-            total_base_rewards * Constants.sync_reward_weight(),
-            Constants.weight_denominator()
-          ),
-          ChainSpec.get("SLOTS_PER_EPOCH")
-        )
+        (total_base_rewards * Constants.sync_reward_weight())
+        |> div(Constants.weight_denominator())
+        |> div(ChainSpec.get("SLOTS_PER_EPOCH"))
 
       participant_reward = div(max_participant_rewards, ChainSpec.get("SYNC_COMMITTEE_SIZE"))
 
       proposer_reward =
-        div(
-          participant_reward * Constants.proposer_weight(),
-          Constants.weight_denominator() - Constants.proposer_weight()
-        )
+        (participant_reward * Constants.proposer_weight())
+        |> div(Constants.weight_denominator() - Constants.proposer_weight())
 
       # Apply participant and proposer rewards
       all_pubkeys =
         validators
-        |> Enum.reduce([], fn %Validator{pubkey: pubkey}, pubkeys -> pubkeys ++ [pubkey] end)
+        |> Enum.map(fn %Validator{pubkey: pubkey} -> pubkey end)
 
       committee_indices =
         committee_pubkeys
-        |> Enum.reduce([], fn pubkey, indices ->
-          indices ++ [Enum.find_index(all_pubkeys, fn x -> x == pubkey end)]
+        |> Stream.with_index()
+        |> Enum.map(fn {public_key, _} ->
+          Enum.find_index(all_pubkeys, fn x -> x == public_key end)
         end)
 
-      Enum.with_index(committee_indices)
+      Stream.with_index(committee_indices)
       |> Enum.reduce_while({:ok, state}, fn {participant_index, index}, {_, state} ->
         if BitVector.set?(sync_committee_bits, index) do
           state
