@@ -97,14 +97,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
            {:ok, new_state} <-
              signed_block.message.body.attestations
              |> apply_handler(new_state, &Handlers.on_attestation(&1, &2, true)),
+           # process block attester slashings
            {:ok, new_state} <-
              signed_block.message.body.attester_slashings
              |> apply_handler(new_state, &Handlers.on_attester_slashing/2) do
         new_state
       else
-        _ ->
+        {:error, reason} ->
           Logger.error(
-            "[Fork choice] Failed to add block #{signed_block.message.slot} to the store."
+            "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
           )
 
           state
