@@ -55,25 +55,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
              sync_committee_signature
            ) do
       # Compute participant and proposer rewards
-      total_active_increments =
-        div(
-          Accessors.get_total_active_balance(state),
-          ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
-        )
-
-      total_base_rewards =
-        Accessors.get_base_reward_per_increment(state) * total_active_increments
-
-      max_participant_rewards =
-        (total_base_rewards * Constants.sync_reward_weight())
-        |> div(Constants.weight_denominator())
-        |> div(ChainSpec.get("SLOTS_PER_EPOCH"))
-
-      participant_reward = div(max_participant_rewards, ChainSpec.get("SYNC_COMMITTEE_SIZE"))
-
-      proposer_reward =
-        (participant_reward * Constants.proposer_weight())
-        |> div(Constants.weight_denominator() - Constants.proposer_weight())
+      {participant_reward, proposer_reward} = compute_sync_aggregate_rewards(state)
 
       # Apply participant and proposer rewards
       all_pubkeys =
@@ -82,7 +64,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       committee_indices =
         committee_pubkeys
-        |> Stream.with_index()
+        |> Enum.with_index()
         |> Enum.map(fn {public_key, _} ->
           Enum.find_index(all_pubkeys, fn x -> x == public_key end)
         end)
@@ -107,6 +89,38 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
+  @spec compute_sync_aggregate_rewards(BeaconState.t()) :: {SszTypes.gwei(), SszTypes.gwei()}
+  defp compute_sync_aggregate_rewards(state) do
+    # Compute participant and proposer rewards
+    total_active_increments =
+      div(
+        Accessors.get_total_active_balance(state),
+        ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+      )
+
+    total_base_rewards =
+      Accessors.get_base_reward_per_increment(state) * total_active_increments
+
+    max_participant_rewards =
+      (total_base_rewards * Constants.sync_reward_weight())
+      |> div(Constants.weight_denominator())
+      |> div(ChainSpec.get("SLOTS_PER_EPOCH"))
+
+    participant_reward = div(max_participant_rewards, ChainSpec.get("SYNC_COMMITTEE_SIZE"))
+
+    proposer_reward =
+      (participant_reward * Constants.proposer_weight())
+      |> div(Constants.weight_denominator() - Constants.proposer_weight())
+
+    {participant_reward, proposer_reward}
+  end
+
+  @spec increase_balance_or_return_error(
+          BeaconState.t(),
+          SszTypes.validator_index(),
+          SszTypes.gwei(),
+          SszTypes.gwei()
+        ) :: {:cont, {:ok, BeaconState.t()}} | {:halt, {:error, String.t()}}
   defp increase_balance_or_return_error(
          %BeaconState{} = state,
          participant_index,
