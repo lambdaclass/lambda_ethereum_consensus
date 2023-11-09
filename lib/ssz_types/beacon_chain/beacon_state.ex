@@ -89,6 +89,9 @@ defmodule SszTypes.BeaconState do
           historical_summaries: list(SszTypes.HistoricalSummary.t())
         }
 
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Predicates
+
   @doc """
   Checks if state is pre or post merge
   """
@@ -102,12 +105,100 @@ defmodule SszTypes.BeaconState do
     Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
   """
   @spec decrease_balance(t(), SszTypes.validator_index(), SszTypes.gwei()) :: t()
-  def decrease_balance(%{balances: balances} = state, index, delta) do
+  def decrease_balance(%__MODULE__{balances: balances} = state, index, delta) do
     current_balance = Enum.fetch!(balances, index)
 
     %{
       state
       | balances: List.replace_at(balances, index, max(current_balance - delta, 0))
     }
+  end
+
+  @doc """
+  Return the deltas for a given ``flag_index`` by scanning through the participation flags.
+  """
+  @spec get_flag_index_deltas(t(), integer) :: {list(SszTypes.gwei()), list(SszTypes.gwei())}
+  def get_flag_index_deltas(state, flag_index) do
+    previous_epoch = Accessors.get_previous_epoch(state)
+
+    {:ok, unslashed_participating_indices} =
+      Accessors.get_unslashed_participating_indices(state, flag_index, previous_epoch)
+
+    weight = Enum.at(Constants.participation_flag_weights(), flag_index)
+
+    unslashed_participating_balance =
+      Accessors.get_total_balance(state, unslashed_participating_indices)
+
+    effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+
+    unslashed_participating_increments =
+      div(unslashed_participating_balance, effective_balance_increment)
+
+    active_increments =
+      div(Accessors.get_total_active_balance(state), effective_balance_increment)
+
+    weight_denominator = Constants.weight_denominator()
+
+    penalties = rewards = List.duplicate(0, length(state.validators))
+
+    Accessors.get_eligible_validator_indices(state)
+    |> Enum.reduce({rewards, penalties}, fn index, {rewards, penalties} ->
+      base_reward = Accessors.get_base_reward(state, index)
+      is_unslashed = MapSet.member?(unslashed_participating_indices, index)
+
+      cond do
+        is_unslashed and Predicates.is_in_inactivity_leak(state) ->
+          {rewards, penalties}
+
+        is_unslashed ->
+          reward_numerator = base_reward * weight * unslashed_participating_increments
+          reward = div(reward_numerator, active_increments * weight_denominator)
+          {List.update_at(rewards, index, &(&1 + reward)), penalties}
+
+        flag_index != Constants.timely_head_flag_index() ->
+          penalty = div(base_reward * weight, weight_denominator)
+          {rewards, List.update_at(penalties, index, &(&1 + penalty))}
+
+        true ->
+          {rewards, penalties}
+      end
+    end)
+  end
+
+  @doc """
+  Return the inactivity penalty deltas by considering timely
+  target participation flags and inactivity scores.
+  """
+  @spec get_inactivity_penalty_deltas(t()) :: {list(SszTypes.gwei()), list(SszTypes.gwei())}
+  def get_inactivity_penalty_deltas(state) do
+    n_validator = length(state.validators)
+    rewards = List.duplicate(0, n_validator)
+    penalties = List.duplicate(0, n_validator)
+    previous_epoch = Accessors.get_previous_epoch(state)
+
+    {:ok, unslashed_participating_indices} =
+      Accessors.get_unslashed_participating_indices(
+        state,
+        Constants.timely_target_flag_index(),
+        previous_epoch
+      )
+
+    matching_target_indices = MapSet.new(unslashed_participating_indices)
+
+    penalty_denominator =
+      ChainSpec.get("INACTIVITY_SCORE_BIAS") *
+        ChainSpec.get("INACTIVITY_PENALTY_QUOTIENT_BELLATRIX")
+
+    state
+    |> Accessors.get_eligible_validator_indices()
+    |> Stream.filter(&(not MapSet.member?(matching_target_indices, &1)))
+    |> Enum.reduce({rewards, penalties}, fn index, {rw, pn} ->
+      penalty_numerator =
+        Enum.at(state.validators, index).effective_balance *
+          Enum.at(state.inactivity_scores, index)
+
+      penalty = div(penalty_numerator, penalty_denominator)
+      {rw, List.update_at(pn, index, &(&1 + penalty))}
+    end)
   end
 end
