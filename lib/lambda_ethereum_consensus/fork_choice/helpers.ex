@@ -36,7 +36,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
          finalized_checkpoint: finalized_checkpoint,
          unrealized_justified_checkpoint: justified_checkpoint,
          unrealized_finalized_checkpoint: finalized_checkpoint,
-         proposer_boost_root: nil,
+         proposer_boost_root: <<0::256>>,
          equivocating_indices: MapSet.new(),
          blocks: %{anchor_block_root => anchor_block},
          block_states: %{anchor_block_root => anchor_state},
