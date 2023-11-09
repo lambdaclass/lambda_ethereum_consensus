@@ -77,7 +77,7 @@ defmodule ForkChoiceTestRunner do
     end)
   end
 
-  @spec apply_step(Store.t(), Store.t(), map()) ::
+  @spec apply_step(String.t(), Store.t(), map()) ::
           {:ok, Store.t()} | {:error, binary()}
   defp apply_step(case_dir, store, step)
 
