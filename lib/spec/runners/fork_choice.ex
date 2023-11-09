@@ -44,7 +44,7 @@ defmodule ForkChoiceTestRunner do
 
     {:ok, store} = Helpers.get_forkchoice_store(anchor_state, anchor_block)
 
-    result = apply_steps(store, steps)
+    result = apply_steps(case_dir, store, steps)
 
     case result do
       %Store{} = _store ->
@@ -55,13 +55,13 @@ defmodule ForkChoiceTestRunner do
     end
   end
 
-  @spec apply_steps(Store.t(), list()) ::
+  @spec apply_steps(String.t(), Store.t(), list()) ::
           Store.t() | {:error, binary()}
-  defp apply_steps(store, steps) do
+  defp apply_steps(case_dir, store, steps) do
     Enum.reduce_while(steps, store, fn step, %Store{} = store ->
       should_be_valid = Map.get(step, "valid", true)
 
-      case {apply_step(store, step), should_be_valid} do
+      case {apply_step(case_dir, store, step), should_be_valid} do
         {{:ok, new_store}, true} ->
           {:cont, new_store}
 
@@ -77,47 +77,77 @@ defmodule ForkChoiceTestRunner do
     end)
   end
 
-  @spec apply_step(Store.t(), map()) ::
+  @spec apply_step(Store.t(), Store.t(), map()) ::
           {:ok, Store.t()} | {:error, binary()}
-  defp apply_step(store, step)
+  defp apply_step(case_dir, store, step)
 
-  defp apply_step(store, %{tick: time}) do
-    Handlers.on_tick(store, time)
+  defp apply_step(_case_dir, store, %{tick: time}) do
+    new_store = Handlers.on_tick(store, time)
+    {:ok, new_store}
   end
 
-  defp apply_step(store, %{checks: checks}) do
-    if Map.has_key?(checks, :head) do
+  defp apply_step(case_dir, store, %{block: "block_0x" <> hash = file}) do
+    block =
+      SpecTestUtils.read_ssz_from_file!(
+        case_dir <> "/#{file}.ssz_snappy",
+        SszTypes.SignedBeaconBlock
+      )
+
+    assert Ssz.hash_tree_root!(block.message) == Base.decode16!(hash, case: :mixed)
+    Handlers.on_block(store, block)
+  end
+
+  defp apply_step(case_dir, store, %{attestation: "attestation_0x" <> hash = file}) do
+    attestation =
+      SpecTestUtils.read_ssz_from_file!(
+        case_dir <> "/#{file}.ssz_snappy",
+        SszTypes.Attestation
+      )
+
+    assert Ssz.hash_tree_root!(attestation) == Base.decode16!(hash, case: :mixed)
+    Handlers.on_attestation(store, attestation, false)
+  end
+
+  defp apply_step(case_dir, store, %{attester_slashing: "attester_slashing_0x" <> hash = file}) do
+    attester_slashing =
+      SpecTestUtils.read_ssz_from_file!(
+        case_dir <> "/#{file}.ssz_snappy",
+        SszTypes.AttesterSlashing
+      )
+
+    assert Ssz.hash_tree_root!(attester_slashing) == Base.decode16!(hash, case: :mixed)
+    Handlers.on_attester_slashing(store, attester_slashing)
+  end
+
+  defp apply_step(_case_dir, store, %{checks: checks}) do
+    if %{head: %{root: root, slot: slot}} = checks do
       {:ok, head_root} = Helpers.get_head(store)
-      assert head_root == checks.head.root
-      # TODO get block and assert the slot
+      assert head_root == root
+      assert store.blocks[head_root].slot == slot
     end
 
-    if Map.has_key?(checks, :time) do
-      assert store.time == checks.time
+    if %{time: time} = checks do
+      assert store.time == time
     end
 
-    if Map.has_key?(checks, :justified_checkpoint) do
-      assert store.justified_checkpoint.epoch == checks.justified_checkpoint.epoch
-      assert store.justified_checkpoint.root == checks.justified_checkpoint.root
+    if %{justified_checkpoint: justified_checkpoint} = checks do
+      assert store.justified_checkpoint.epoch == justified_checkpoint.epoch
+      assert store.justified_checkpoint.root == justified_checkpoint.root
     end
 
-    if Map.has_key?(checks, :finalized_checkpoint) do
-      assert store.finalized_checkpoint.epoch == checks.finalized_checkpoint.epoch
-      assert store.finalized_checkpoint.root == checks.finalized_checkpoint.root
+    if %{finalized_checkpoint: finalized_checkpoint} = checks do
+      assert store.finalized_checkpoint.epoch == finalized_checkpoint.epoch
+      assert store.finalized_checkpoint.root == finalized_checkpoint.root
     end
 
-    if Map.has_key?(checks, :proposer_boost_root) do
-      assert store.proposer_boost_root == checks.proposer_boost_root
+    if %{proposer_boost_root: proposer_boost_root} = checks do
+      assert store.proposer_boost_root == proposer_boost_root
     end
 
     {:ok, store}
   end
 
-  defp apply_step(store, %{block: block}) do
-    Handlers.on_block(store, block)
-  end
-
-  defp apply_step(_, _) do
+  defp apply_step(_, _, _) do
     {:error, "unknown step"}
   end
 end
