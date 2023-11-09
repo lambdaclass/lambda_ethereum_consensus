@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
         |> Stream.filter(fn {_, block} -> block.parent_root == head end)
         |> Enum.map(fn {root, _} -> root end)
 
-      if length(children) == 0 do
+      if Enum.empty?(children) do
         {:halt, head}
       else
         {:cont, Enum.max_by(children, fn root -> get_weight(store, root) end)}
@@ -123,51 +123,56 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
     # If any children branches contain expected finalized/justified checkpoints,
     # add to filtered block-tree and signal viability to parent.
-    if Enum.any?(children) do
-      filter_block_tree_result = Enum.map(children, &filter_block_tree(store, &1, blocks))
+    filter_block_tree_result = Enum.map(children, &filter_block_tree(store, &1, blocks))
 
-      if Enum.any?(filter_block_tree_result, fn {b, _} -> b end) do
+    cond do
+      Enum.any?(filter_block_tree_result, fn {b, _} -> b end) ->
         {true, Map.put(blocks, block_root, block)}
-      else
+
+      Enum.any?(children) ->
         {false, blocks}
+
+      true ->
+        filter_leaf_block(store, block_root, block, blocks)
+    end
+  end
+
+  defp filter_leaf_block(%Store{} = store, block_root, block, blocks) do
+    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+    voting_source = get_voting_source(store, block_root)
+
+    # The voting source should be at the same height as the store's justified checkpoint
+    correct_justified =
+      store.justified_checkpoint.epoch == Constants.genesis_epoch() or
+        voting_source.epoch == store.justified_checkpoint.epoch
+
+    # If the previous epoch is justified, the block should be pulled-up. In this case, check that unrealized
+    # justification is higher than the store and that the voting source is not more than two epochs ago
+    correct_justified =
+      if not correct_justified and is_previous_epoch_justified(store) do
+        store.unrealized_justifications[block_root].epoch >= store.justified_checkpoint.epoch and
+          voting_source.epoch + 2 >= current_epoch
+      else
+        correct_justified
       end
+
+    finalized_checkpoint_block =
+      Store.get_checkpoint_block(
+        store,
+        block_root,
+        store.finalized_checkpoint.epoch
+      )
+
+    correct_finalized =
+      store.finalized_checkpoint.epoch == Constants.genesis_epoch() or
+        store.finalized_checkpoint.root == finalized_checkpoint_block
+
+    # If expected finalized/justified, add to viable block-tree and signal viability to parent.
+    if correct_justified and correct_finalized do
+      {true, Map.put(blocks, block_root, block)}
     else
-      current_epoch = Misc.compute_epoch_at_slot(Store.get_current_slot(store))
-      voting_source = get_voting_source(store, block_root)
-
-      # The voting source should be at the same height as the store's justified checkpoint
-      correct_justified =
-        store.justified_checkpoint.epoch == Constants.genesis_epoch() or
-          voting_source.epoch == store.justified_checkpoint.epoch
-
-      # If the previous epoch is justified, the block should be pulled-up. In this case, check that unrealized
-      # justification is higher than the store and that the voting source is not more than two epochs ago
-      correct_justified =
-        if not correct_justified and is_previous_epoch_justified(store) do
-          store.unrealized_justifications[block_root].epoch >= store.justified_checkpoint.epoch and
-            voting_source.epoch + 2 >= current_epoch
-        else
-          correct_justified
-        end
-
-      finalized_checkpoint_block =
-        Store.get_checkpoint_block(
-          store,
-          block_root,
-          store.finalized_checkpoint.epoch
-        )
-
-      correct_finalized =
-        store.finalized_checkpoint.epoch == Constants.genesis_epoch() or
-          store.finalized_checkpoint.root == finalized_checkpoint_block
-
-      # If expected finalized/justified, add to viable block-tree and signal viability to parent.
-      if correct_justified and correct_finalized do
-        {true, Map.put(blocks, block_root, block)}
-      else
-        # Otherwise, branch not viable
-        {false, blocks}
-      end
+      # Otherwise, branch not viable
+      {false, blocks}
     end
   end
 

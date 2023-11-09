@@ -120,28 +120,28 @@ defmodule ForkChoiceTestRunner do
   end
 
   defp apply_step(_case_dir, store, %{checks: checks}) do
-    if %{head: %{root: root, slot: slot}} = checks do
+    if Map.has_key?(checks, :head) do
       {:ok, head_root} = Helpers.get_head(store)
-      assert head_root == root
-      assert store.blocks[head_root].slot == slot
+      assert head_root == checks.head.root
+      assert store.blocks[head_root].slot == checks.head.slot
     end
 
-    if %{time: time} = checks do
-      assert store.time == time
+    if Map.has_key?(checks, :time) do
+      assert store.time == checks.time
     end
 
-    if %{justified_checkpoint: justified_checkpoint} = checks do
-      assert store.justified_checkpoint.epoch == justified_checkpoint.epoch
-      assert store.justified_checkpoint.root == justified_checkpoint.root
+    if Map.has_key?(checks, :justified_checkpoint) do
+      assert store.justified_checkpoint.epoch == checks.justified_checkpoint.epoch
+      assert store.justified_checkpoint.root == checks.justified_checkpoint.root
     end
 
-    if %{finalized_checkpoint: finalized_checkpoint} = checks do
-      assert store.finalized_checkpoint.epoch == finalized_checkpoint.epoch
-      assert store.finalized_checkpoint.root == finalized_checkpoint.root
+    if Map.has_key?(checks, :finalized_checkpoint) do
+      assert store.finalized_checkpoint.epoch == checks.finalized_checkpoint.epoch
+      assert store.finalized_checkpoint.root == checks.finalized_checkpoint.root
     end
 
-    if %{proposer_boost_root: proposer_boost_root} = checks do
-      assert store.proposer_boost_root == proposer_boost_root
+    if Map.has_key?(checks, :proposer_boost_root) do
+      assert store.proposer_boost_root == checks.proposer_boost_root
     end
 
     {:ok, store}
