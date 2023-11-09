@@ -4,9 +4,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use Supervisor
   require Logger
 
+  alias LambdaEthereumConsensus.ForkChoice.CheckpointSync
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
-  alias LambdaEthereumConsensus.Utils
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def init([checkpoint_url]) do
     Logger.info("[Sync] Initiating checkpoint sync.")
 
-    case Utils.sync_from_checkpoint(checkpoint_url) do
+    case CheckpointSync.sync_from_checkpoint(checkpoint_url) do
       {:ok, %SszTypes.BeaconState{} = anchor_state} ->
         Logger.info("[Checkpoint sync] Received beacon state at slot #{anchor_state.slot}.")
 
