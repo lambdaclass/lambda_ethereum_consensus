@@ -124,9 +124,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
       blocks =
         start_slot..slot_coverage
-        |> Enum.reduce([], fn slot, current_blocks ->
-          current_blocks ++ [BlockStore.get_block_by_slot(slot)]
-        end)
+        |> Enum.map(fn slot -> BlockStore.get_block_by_slot(slot) end)
 
       response_chunk =
         blocks
