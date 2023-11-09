@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   This module handles Req/Resp domain requests.
   """
   require Logger
-  alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.{Libp2pPort, P2P}
   alias LambdaEthereumConsensus.Store.BlockStore
 
   # This is the `ForkDigest` for mainnet in the capella fork
@@ -135,8 +135,12 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
             {:ok, block} ->
               with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
                    {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
-                ## TODO: Compute the byte length
-                response_chunk <> <<0>> <> @fork_context <> <<13_743>> <> snappy_ssz_signed_block
+                size_header =
+                  ssz_signed_block
+                  |> byte_size()
+                  |> P2P.Utils.encode_varint()
+
+                response_chunk <> <<0>> <> @fork_context <> size_header <> snappy_ssz_signed_block
               else
                 {:error, _} ->
                   response_chunk <> <<2>> <> @error_message_server_error
