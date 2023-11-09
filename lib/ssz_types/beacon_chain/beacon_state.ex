@@ -95,7 +95,7 @@ defmodule SszTypes.BeaconState do
   @spec is_merge_transition_complete(SszTypes.BeaconState.t()) :: boolean()
   def is_merge_transition_complete(state) do
     state.latest_execution_payload_header !=
-      SszTypes.ExecutionPayloadHeader.new(SszTypes.ExecutionPayloadHeader.default())
+      struct(SszTypes.ExecutionPayload, SszTypes.ExecutionPayloadHeader.default())
   end
 
   @doc """

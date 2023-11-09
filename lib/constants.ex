@@ -6,6 +6,9 @@ defmodule Constants do
   @spec genesis_epoch() :: integer
   def genesis_epoch, do: 0
 
+  @spec genesis_slot() :: integer
+  def genesis_slot, do: 0
+
   @spec domain_beacon_attester() :: <<_::32>>
   def domain_beacon_attester, do: <<1, 0, 0, 0>>
 
