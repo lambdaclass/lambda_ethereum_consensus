@@ -94,7 +94,14 @@ defmodule ForkChoiceTestRunner do
       )
 
     assert Ssz.hash_tree_root!(block.message) == Base.decode16!(hash, case: :mixed)
-    Handlers.on_block(store, block)
+
+    with {:ok, new_store} <- Handlers.on_block(store, block) do
+      block.message.body.attestations
+      |> Enum.reduce_while({:ok, new_store}, fn
+        x, {:ok, st} -> {:cont, Handlers.on_attestation(st, x)}
+        _, {:error, _} = err -> {:halt, err}
+      end)
+    end
   end
 
   defp apply_step(case_dir, store, %{attestation: "attestation_0x" <> hash = file}) do
