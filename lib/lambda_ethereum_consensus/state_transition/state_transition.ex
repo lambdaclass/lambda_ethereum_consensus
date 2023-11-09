@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   """
 
   alias LambdaEthereumConsensus.StateTransition
-  alias LambdaEthereumConsensus.StateTransition.EpochProcessing
+  alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
   alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map: 2]
@@ -113,6 +113,15 @@ defmodule LambdaEthereumConsensus.StateTransition do
     Bls.valid?(proposer.pubkey, signing_root, signed_block.signature)
   end
 
-  # TODO: implement
-  defp process_block(state, _block), do: state
+  # TODO: uncomment when implemented
+  defp process_block(state, block) do
+    {:ok, state}
+    # |> map(&Operations.process_block_header(&1, block))
+    |> map(&Operations.process_withdrawals(&1, block.body.execution_payload))
+    # |> map(&Operations.process_execution_payload(&1, block.body, EXECUTION_ENGINE))
+    # |> map(&Operations.process_randao(&1, block.body))
+    # |> map(&Operations.process_eth1_data(&1, block.body))
+    # |> map(&Operations.process_operations(&1, block.body))
+    |> map(&Operations.process_sync_aggregate(&1, block.body.sync_aggregate))
+  end
 end
