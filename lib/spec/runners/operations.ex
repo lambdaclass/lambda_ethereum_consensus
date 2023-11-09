@@ -1,10 +1,12 @@
 defmodule OperationsTestRunner do
-  use ExUnit.CaseTemplate
-  use TestRunner
-
   @moduledoc """
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
   """
+  alias LambdaEthereumConsensus.StateTransition.Operations
+  alias LambdaEthereumConsensus.Utils.Diff
+
+  use ExUnit.CaseTemplate
+  use TestRunner
 
   # Map the operation-name to the associated operation-type
   @type_map %{
@@ -39,15 +41,15 @@ defmodule OperationsTestRunner do
   # Remove handler from here once you implement the corresponding functions
   # "deposit_receipt" handler is not yet implemented
   @disabled_handlers [
-    "attestation",
-    "attester_slashing",
+    # "attester_slashing",
+    # "attestation",
     "block_header",
     "deposit",
-    "proposer_slashing",
-    "voluntary_exit",
-    "sync_aggregate",
-    # "execution_payload",
-    "withdrawals",
+    # "proposer_slashing",
+    # "voluntary_exit",
+    # "sync_aggregate",
+    "execution_payload",
+    # "withdrawals",
     "bls_to_execution_change"
   ]
 
@@ -85,8 +87,22 @@ defmodule OperationsTestRunner do
   defp handle_case("execution_payload", _pre, _operation, _post, case_dir) do
     %{execution_valid: _execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
-      |> SpecTestUtils.parse_yaml()
+      |> SpecTestUtils.sanitize_yaml()
 
     assert true
+  end
+
+  defp handle_case(name, pre, operation, post, _case_dir) do
+    fun = "process_#{name}" |> String.to_existing_atom()
+    result = apply(Operations, fun, [pre, operation])
+
+    case post do
+      nil ->
+        assert {:error, _error_msg} = result
+
+      post ->
+        assert {:ok, state} = result
+        assert Diff.diff(state, post) == :unchanged
+    end
   end
 end

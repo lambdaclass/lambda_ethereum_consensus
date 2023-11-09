@@ -5,18 +5,26 @@ defmodule Integration.Libp2pPortTest do
 
   @bootnodes Application.compile_env(
                :lambda_ethereum_consensus,
-               LambdaEthereumConsensus.P2P.Discovery
+               :discovery
              )[:bootnodes]
 
   @tag :skip
   @tag timeout: :infinity
   test "discover peers indefinitely" do
-    init_args = [enable_discovery: true, discovery_addr: "0.0.0.0:25100", bootnodes: @bootnodes]
+    init_args = [
+      enable_discovery: true,
+      discovery_addr: "0.0.0.0:25100",
+      bootnodes: @bootnodes,
+      new_peer_handler: self()
+    ]
+
     start_link_supervised!({Libp2pPort, init_args})
-    # We should never receive messages
-    # TODO: we should implement notifications for every discovered peer
-    receive do
-      _ -> nil
-    end
+
+    Stream.iterate(0, fn _ ->
+      receive do
+        {:new_peer, peer_id} -> peer_id |> Base.encode16() |> IO.puts()
+      end
+    end)
+    |> Stream.run()
   end
 end

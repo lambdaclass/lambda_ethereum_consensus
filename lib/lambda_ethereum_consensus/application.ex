@@ -12,25 +12,29 @@ defmodule LambdaEthereumConsensus.Application do
     {args, _remaining_args, _errors} =
       OptionParser.parse(System.argv(), switches: [checkpoint_sync: :string])
 
-    if not Keyword.has_key?(args, :checkpoint_sync) do
-      Logger.error("No checkpoint sync url provided.")
-      :init.stop(1)
-    end
+    config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
+    port = Keyword.fetch!(config, :port)
+    bootnodes = Keyword.fetch!(config, :bootnodes)
 
-    {:ok, host} = Libp2p.host_new()
-    {:ok, gsub} = Libp2p.new_gossip_sub(host)
+    libp2p_opts = [
+      listen_addr: [],
+      enable_discovery: true,
+      discovery_addr: "0.0.0.0:#{port}",
+      bootnodes: bootnodes
+    ]
 
     children = [
+      {LambdaEthereumConsensus.Telemetry, []},
+      {LambdaEthereumConsensus.Libp2pPort, libp2p_opts},
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
-      {LambdaEthereumConsensus.P2P.IncomingRequestHandler, [host]},
-      {LambdaEthereumConsensus.P2P.PeerConsumer, [host]},
-      {LambdaEthereumConsensus.Libp2pPort, []},
-      {LambdaEthereumConsensus.ForkChoice, {Keyword.fetch!(args, :checkpoint_sync), host}},
-      {LambdaEthereumConsensus.Beacon.PendingBlocks, [host]},
-      {LambdaEthereumConsensus.P2P.GossipSub, [gsub]},
+      {LambdaEthereumConsensus.P2P.IncomingRequests, []},
+      {LambdaEthereumConsensus.ForkChoice, [Keyword.get(args, :checkpoint_sync)]},
+      {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
+      {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
+      {LambdaEthereumConsensus.P2P.GossipSub, []},
       # Start the Endpoint (http/https)
-      BeaconApi.Endpoint
+      {BeaconApi.Endpoint, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

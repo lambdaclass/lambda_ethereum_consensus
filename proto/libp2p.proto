@@ -15,8 +15,6 @@ message InitArgs {
 message SetHandler {
     // Protocol ID to set the handler for.
     string protocol_id = 1;
-    // Handler for requests of the given protocol.
-    bytes handler = 2;
 }
 
 message SubscribeToTopic {
@@ -42,11 +40,27 @@ message SendRequest {
 }
 
 message SendResponse {
-    string message_id = 1;
+    string request_id = 1;
     bytes message = 2;
 }
 
 message GetId {}
+
+message Publish {
+    string topic = 1;
+    bytes message = 2;
+}
+
+enum ValidationResult {
+    accept = 0;
+    reject = 1;
+    ignore = 2;
+}
+
+message ValidateMessage {
+    bytes msg_id = 1;
+    ValidationResult result = 2;
+}
 
 message Command {
     bytes from = 1;
@@ -58,35 +72,53 @@ message Command {
         SendRequest send_request = 6;
         SendResponse send_response = 7;
         GetId get_id = 8;
+        Publish publish = 9;
+        ValidateMessage validate_message = 10;
     }
 }
 
 message GossipSub {
     // Name of the topic from which the notification arrived.
     string topic = 1;
+    // PID of the subscribed process.
+    bytes handler = 2;
+    // Message's unique ID.
+    bytes msg_id = 3;
     // Compressed and ssz encoded message.
-    bytes message = 2;
+    bytes message = 4;
 }
 
 // A request from a peer.
 message Request {
     string protocol_id = 1;
     bytes handler = 2;
-    string message_id = 3;
+    string request_id = 3;
     bytes message = 4;
+}
+
+// A new peer was added.
+message NewPeer {
+    bytes peer_id = 1;
+}
+
+message ResultMessage {
+    repeated bytes message = 3;
 }
 
 // A result from a command.
 message Result {
     bytes from = 1;
-    bool success = 2;
-    bytes message = 3;
+    oneof result {
+        ResultMessage ok = 2;
+        ResultMessage error = 3;
+    }
 }
 
 message Notification {
     oneof n {
         GossipSub gossip = 1;
         Request request = 2;
-        Result result = 3;
+        NewPeer new_peer = 3;
+        Result result = 4;
     }
 }

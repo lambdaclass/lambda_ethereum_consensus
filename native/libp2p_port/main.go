@@ -22,18 +22,23 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 		response, err := listener.SendRequest(c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
 		return proto_helpers.ResultNotification(command.From, response, err)
 	case *proto_defs.Command_SendResponse:
-		listener.SendResponse(c.SendResponse.MessageId, c.SendResponse.Message)
+		listener.SendResponse(c.SendResponse.RequestId, c.SendResponse.Message)
 	case *proto_defs.Command_SetHandler:
-		listener.SetHandler(c.SetHandler.ProtocolId, c.SetHandler.Handler)
+		listener.SetHandler(c.SetHandler.ProtocolId, command.From)
 	case *proto_defs.Command_Subscribe:
-		subscriber.Subscribe(c.Subscribe.Name)
+		err := subscriber.Subscribe(c.Subscribe.Name, command.From)
+		return proto_helpers.ResultNotification(command.From, nil, err)
 	case *proto_defs.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
+	case *proto_defs.Command_ValidateMessage:
+		subscriber.Validate(c.ValidateMessage.MsgId, int(c.ValidateMessage.Result))
+	case *proto_defs.Command_Publish:
+		subscriber.Publish(c.Publish.Topic, c.Publish.Message)
 	default:
-		return proto_helpers.ResultNotification(command.From, []byte{}, errors.New("Invalid command."))
+		return proto_helpers.ResultNotification(command.From, nil, errors.New("invalid command"))
 	}
 	// Default, OK empty response
-	return proto_helpers.ResultNotification(command.From, []byte{}, nil)
+	return proto_helpers.ResultNotification(command.From, nil, nil)
 }
 
 func commandServer() {
@@ -49,7 +54,7 @@ func commandServer() {
 	if config.EnableDiscovery {
 		discovery.NewDiscoverer(portInst, &listener, &config)
 	}
-	subscriber := gossipsub.NewSubscriber(portInst)
+	subscriber := gossipsub.NewSubscriber(portInst, listener.Host())
 	command := proto_defs.Command{}
 	for {
 		err := portInst.ReadCommand(&command)

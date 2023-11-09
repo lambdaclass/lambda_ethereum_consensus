@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :observer],
       mod: {LambdaEthereumConsensus.Application, []}
     ]
   end
@@ -38,22 +38,26 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:broadway, "~> 1.0"},
       {:snappyer, "~> 1.2"},
       {:yaml_elixir, "~> 2.8"},
-      {:stream_data, "~> 0.6", only: [:test]},
-      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:timex, "~> 3.7"},
-      {:rexbug, "~> 1.0.5"},
+      {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.12.0"},
       {:uuid, "~> 1.1"},
-      {:patch, "~> 0.12.0", only: [:test]}
+      {:telemetry, "~> 1.0"},
+      {:telemetry_poller, "~> 1.0"},
+      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_metrics_prometheus, "~> 1.1.0"},
+      {:patch, "~> 0.12.0", only: [:test]},
+      {:stream_data, "~> 0.6", only: [:test]},
+      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 
   defp dialyzer do
     [
       # https://elixirforum.com/t/help-with-dialyzer-output/15202/5
-      plt_add_apps: [:ex_unit],
+      plt_add_apps: [:ex_unit, :mix],
       plt_file: {:no_warn, "priv/plts/project.plt"}
     ]
   end

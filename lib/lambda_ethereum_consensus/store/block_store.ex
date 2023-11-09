@@ -8,13 +8,14 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   @block_prefix "block"
   @blockslot_prefix @block_prefix <> "slot"
 
-  @spec store_block(SszTypes.BeaconBlock.t()) :: :ok
-  def store_block(%SszTypes.BeaconBlock{} = block) do
-    {:ok, block_root} = Ssz.hash_tree_root(block)
-    {:ok, encoded_block} = Ssz.to_ssz(block)
+  @spec store_block(SszTypes.SignedBeaconBlock.t()) :: :ok
+  def store_block(%SszTypes.SignedBeaconBlock{} = signed_block) do
+    block = signed_block.message
+    block_root = Ssz.hash_tree_root!(block)
+    {:ok, encoded_signed_block} = Ssz.to_ssz(signed_block)
 
     key = block_key(block_root)
-    Db.put(key, encoded_block)
+    Db.put(key, encoded_signed_block)
 
     # WARN: this overrides any previous mapping for the same slot
     # TODO: this should apply fork-choice if not applied elsewhere
@@ -23,12 +24,12 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   end
 
   @spec get_block(SszTypes.root()) ::
-          {:ok, SszTypes.BeaconBlock.t()} | {:error, String.t()} | :not_found
+          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found
   def get_block(block_root) do
     key = block_key(block_root)
 
-    with {:ok, block} <- Db.get(key) do
-      Ssz.from_ssz(block, SszTypes.BeaconBlock)
+    with {:ok, signed_block} <- Db.get(key) do
+      Ssz.from_ssz(signed_block, SszTypes.SignedBeaconBlock)
     end
   end
 
@@ -40,7 +41,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   end
 
   @spec get_block_by_slot(SszTypes.slot()) ::
-          {:ok, SszTypes.BeaconBlock.t()} | {:error, String.t()} | :not_found
+          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found
   def get_block_by_slot(slot) do
     # WARN: this will return the latest block received for the given slot
     with {:ok, root} <- get_block_root_by_slot(slot) do

@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.ForkChoice.Utils do
+defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @moduledoc """
     Utility functions for the fork choice.
   """
@@ -10,8 +10,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Utils do
 
   @spec get_forkchoice_store(BeaconState.t(), BeaconBlock.t()) :: {:ok, Store.t()} | {:error, any}
   def get_forkchoice_store(anchor_state, anchor_block) do
-    {:ok, anchor_state_root} = Ssz.hash_tree_root(anchor_state)
-    {:ok, anchor_block_root} = Ssz.hash_tree_root(anchor_block)
+    anchor_state_root = Ssz.hash_tree_root!(anchor_state)
+    anchor_block_root = Ssz.hash_tree_root!(anchor_block)
 
     if anchor_block.state_root == anchor_state_root do
       anchor_epoch = Accessors.get_current_epoch(anchor_state)
@@ -47,5 +47,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Utils do
     else
       {:error, "Anchor block state root does not match anchor state root"}
     end
+  end
+
+  @spec get_head(Store.t()) :: {:ok, SszTypes.root()} | {:error, any}
+  def get_head(store) do
+    {:ok, store.justified_checkpoint.root}
   end
 end

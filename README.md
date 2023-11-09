@@ -2,6 +2,135 @@
 
 [![Telegram chat](https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaconsensus%2F&logo=telegram&label=chat&color=neon)](https://t.me/lambdaconsensus)
 
+## Prerequisites
+
+### Direct Installation
+
+You can install the necessary components directly from official sources:
+
+- [Elixir](https://elixir-lang.org/install.html)
+- [Erlang](https://www.erlang.org/downloads)
+- [Go](https://go.dev/doc/install)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Protoc](https://grpc.io/docs/protoc-installation/)
+
+### Alternative (Recommended) Installation
+
+For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
+
+- [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
+
+After installing **asdf**, add the required plugins for managing the tools:
+
+```shell
+asdf plugin add elixir
+asdf plugin add erlang
+asdf plugin add golang
+asdf plugin add rust
+asdf plugin add protoc
+```
+
+Finally, install the specific versions of these tools as specified in `.tool-versions`:
+
+```shell
+asdf install
+```
+
+### Alternative (easier) Installation using Nix
+To create a sandbox environment with all the required tool chains, use Nix. Steps to get Nix working are as follows:
+
+1. Install Nix from the official website: https://nixos.org/download.
+2. To allow experimental features (nix develop and nix-command) you might need to do the following:
+
+```shell
+mkdir ~/.config/nix
+echo "experimental-features = nix-command flakes " > ~/.config/nix/nix.conf
+```
+
+Alternatively, for a smoother experience you can use the following script from [Determinate Systems](https://zero-to-nix.com/start/install) that takes care of setting up everything for you:
+
+```shell
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+```
+
+- Check if Nix has been successfully installed: `nix --version`.
+- To launch the environment: `nix develop`.
+
+## Installing and running
+
+There are Makefile targets for these tasks.
+
+```shell
+make deps # Installs dependencies
+make iex  # Runs a terminal with the application started
+```
+
+The iex terminal can be closed by pressing ctrl+c two times.
+
+### Checkpoint Sync
+
+You can also sync from a checkpoint given by a trusted third-party.
+For that, get the URL that serves the checkpoint, and execute the following command:
+
+```shell
+iex -S mix run -- --checkpoint-sync <your_url_here>
+```
+
+Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/)
+
+### Tests, linting and formatting
+
+Our CI runs tests, linters, and also checks formatting and typing.
+To run these checks locally:
+
+```shell
+make test      # Runs tests
+make spec-test # Runs all spec-tests
+make lint      # Runs linter and format-checker
+mix dialyzer   # Runs type-checker
+```
+
+Source code can be formatted using `make fmt`.
+This formats not only the Elixir code, but also the code under [`native/`](./native/).
+
+## Consensus spec tests
+
+You can run all of them with:
+
+```shell
+make spec-test
+```
+
+Or only run those of a specific test runner with:
+
+```shell
+make spec-test-`runner`
+# some examples
+make spec-test-ssz_static
+make spec-test-bls
+make spec-test-operations
+```
+
+The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
+
+For more fine-grained filtering of tests, you can use mix test tag filters:
+
+```bash
+mix test --no-start --only <tag_name>[:<tag_value>]
+```
+
+> [!NOTE]
+> We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
+
+Some useful tag filters:
+
+- `spectest`: only run spec-tests, same as `make spec-test`
+- `config:general`: only run spec-tests with "general" config
+- `fork:capella`: only run spec-tests of the "capella" fork
+- `runner:ssz_generic`: only run spec-tests of the "ssz_generic" runner
+- `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
+- `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
+
 ## Why Elixir?
 
 Elixir is a functional programming language that runs atop the Erlang Virtual Machine (BEAM). It offers enhanced readability, syntactic sugar, and reduced boilerplate, enabling developers to achieve more with fewer lines of code compared to Erlang. Like Erlang, Elixir compiles to bytecode that is interpreted by the VM. As a result, it inherits several notable properties, including:
@@ -140,76 +269,22 @@ adsf
 
 **Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
 
-## Prerequisites
+## Metrics
 
-### Direct Installation
+When running the node, metrics are available at [`http://localhost:9568/metrics`](http://localhost:9568/metrics) in Prometheus format.
 
-You can install the necessary components directly from official sources:
+### Grafana
 
-- [Elixir](https://elixir-lang.org/install.html)
-- [Erlang](https://www.erlang.org/downloads)
-- [Go](https://go.dev/doc/install)
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Protoc](https://grpc.io/docs/protoc-installation/)
-
-### Alternative (Recommended) Installation
-
-For precise control over versions, it's recommended to use the **asdf** tool version manager and follow the versions specified in `.tool-versions` in this repository.
-
-- [asdf tool version manager](https://asdf-vm.com/guide/getting-started.html)
-
-After installing **asdf**, add the required plugins for managing the tools:
+A docker-compose is available at [`metrics/`](./metrics) with a Grafana-Prometheus setup preloaded with dashboards that disponibilize the data.
+To run it, install [Docker Compose](https://docs.docker.com/compose/) and execute:
 
 ```shell
-asdf plugin add elixir
-asdf plugin add erlang
-asdf plugin add golang
-asdf plugin add rust
+cd metrics
+docker-compose up
 ```
 
-Finally, install the specific versions of these tools as specified in `.tool-versions`:
-
-```shell
-asdf install
-```
-
-## Installing and running
-
-There are Makefile targets for these tasks.
-
-```shell
-make deps # Installs dependencies
-make iex  # Runs a terminal with the application started
-make test # Runs tests
-```
-
-The iex terminal can be closed by pressing ctrl+c two times.
-
-## Consensus spec tests
-
-These can be run with:
-
-```shell
-make spec-test
-```
-
-For more fine-grained filtering of tests, you can use mix test tag filters:
-
-```bash
-mix test --no-start --only <tag_name>[:<tag_value>]
-```
-
-> [!NOTE]
-> We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
-
-Some useful tag filters:
-
-- `spectest`: only run spec-tests, same as `make spec-test`
-- `config:general`: only run spec-tests with "general" config
-- `fork:capella`: only run spec-tests of the "capella" fork
-- `runner:ssz_generic`: only run spec-tests of the "ssz_generic" runner
-- `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
-- `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
+After that, open [`http://localhost:3000/`](http://localhost:3000/) in a browser.
+The default username and password are both `admin`.
 
 ## Profiling
 
@@ -233,18 +308,18 @@ Options and details are in the `Profile` package. After the profile trace is gen
 qcachegrind callgrind.out.<trace_name>
 ```
 
-If you want to group the traces by function instead of process, then you can the following before viewing it in qcachegrind:
+If you want to group the traces by function instead of process, you can use the following before viewing it in qcachegrind:
 
 ```shell
 grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
 ```
 
-### Etop
+### etop
 
-Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar tu UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
+Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar to UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
 
 ```elixir
-:etop.start
+:etop.start()
 ```
 
 In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got. This can be used to identify infinite loops or busy waits.

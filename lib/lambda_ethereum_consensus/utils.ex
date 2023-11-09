@@ -1,42 +1,33 @@
 defmodule LambdaEthereumConsensus.Utils do
   @moduledoc """
-  Set of utility functions used throughout the project
+  Set of utility functions used throughout the project.
   """
-  require Logger
-
-  use Tesla
-  plug(Tesla.Middleware.JSON)
 
   @doc """
-  Syncs the node using an inputed checkpoint
+  If ``condition`` is true, run ``fun`` on ``value`` and return the result.
+  Else return the unmodified ``value``.
+  Accepts a predicate (arity 1) function as a ``condition``.
+
+  ## Examples
+      iex> Utils.if_then_update(1, false, &(&1 + 1))
+      1
+      iex> Utils.if_then_update(1, true, &(&1 + 1))
+      2
+      iex> Utils.if_then_update(1, &(&1 > 3), &(&1 + 1))
+      1
+      iex> Utils.if_then_update(1, &(&1 > 0), &(&1 + 1))
+      2
   """
-  @spec sync_from_checkpoint(binary) :: {:ok, SszTypes.BeaconState.t()} | {:error, any}
-  def sync_from_checkpoint(url) do
-    client =
-      Tesla.client([
-        {Tesla.Middleware.Headers, [{"Accept", "application/octet-stream"}]}
-      ])
+  @spec if_then_update(any(), boolean() | (any() -> boolean()), (any() -> any())) :: any()
+  def if_then_update(value, true, fun), do: fun.(value)
+  def if_then_update(value, false, _fun), do: value
+  def if_then_update(value, pred, fun), do: if_then_update(value, pred.(value), fun)
 
-    full_url =
-      url
-      |> URI.parse()
-      |> URI.append_path("/eth/v2/debug/beacon/states/finalized")
-      |> URI.to_string()
-
-    case get(client, full_url) do
-      {:ok, response} ->
-        case Ssz.from_ssz(response.body, SszTypes.BeaconState) do
-          {:ok, struct} ->
-            {:ok, struct}
-
-          {:error, error} ->
-            Logger.error("There has been an error syncing from checkpoint.")
-            {:error, error}
-        end
-
-      error ->
-        Logger.error("Invalid checkpoint sync url.")
-        {:error, error}
-    end
-  end
+  @doc """
+  If first arg is an ``{:ok, value}`` tuple, apply ``fun`` to ``value`` and
+  return the result. Else, if it's an ``{:error, _}`` tuple, returns it.
+  """
+  @spec map({:ok | :error, any()}, (any() -> any())) :: any() | {:error, any()}
+  def map({:ok, value}, fun), do: fun.(value)
+  def map({:error, _} = err, _fun), do: err
 end
