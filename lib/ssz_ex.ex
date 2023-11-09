@@ -14,14 +14,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   ### Private functions
   #################
-  defp encode_int(value, size) when is_integer(value) do
-    <<encoded::binary-size(div(size, 8)), _rest::binary>> =
-      value
-      |> :binary.encode_unsigned(:little)
-      |> String.pad_trailing(div(size, 8), <<0>>)
-
-    encoded
-  end
+  defp encode_int(value, size) when is_integer(value), do: <<value::size(size)-little>>
 
   defp decode_uint(binary, size) do
     <<element::integer-size(size)-little, _rest::bitstring>> = binary
