@@ -98,7 +98,7 @@ defmodule ForkChoiceTestRunner do
     with {:ok, new_store} <- Handlers.on_block(store, block) do
       block.message.body.attestations
       |> Enum.reduce_while({:ok, new_store}, fn
-        x, {:ok, st} -> {:cont, Handlers.on_attestation(st, x)}
+        x, {:ok, st} -> {:cont, Handlers.on_attestation(st, x, true)}
         _, {:error, _} = err -> {:halt, err}
       end)
     end
