@@ -46,7 +46,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
       chunks
       |> Task.async_stream(
         fn chunk -> fetch_blocks_by_slot(chunk.from, chunk.count) end,
-        max_concurrency: 20,
+        max_concurrency: 4,
         timeout: 20_000,
         on_timeout: :kill_task
       )
