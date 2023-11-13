@@ -117,7 +117,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   @impl GenServer
   def handle_cast({:on_attestation, %Attestation{} = attestation}, %SszTypes.Store{} = state) do
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
-    Logger.info("[Fork choice] Adding attestation #{id} to the store.")
+    Logger.debug("[Fork choice] Adding attestation #{id} to the store.")
 
     state =
       case Handlers.on_attestation(state, attestation, false) do
