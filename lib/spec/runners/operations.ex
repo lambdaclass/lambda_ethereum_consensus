@@ -115,6 +115,18 @@ defmodule OperationsTestRunner do
     end
   end
 
+  defp handle_case("deposit", pre, operation, post, _case_dir) do
+    result = Operations.process_deposit(pre, operation)
+
+    case result do
+      {:ok, new_state} ->
+        assert new_state == post
+
+      {:error, _} ->
+        assert nil == post
+    end
+  end
+
   defp handle_case("voluntary_exit", pre, operation, post, _case_dir) do
     result = Operations.process_voluntary_exit(pre, operation)
 
