@@ -1,7 +1,10 @@
 defmodule BeaconApi.V1.BeaconController do
   alias BeaconApi.ErrorController
   alias LambdaEthereumConsensus.Store.BlockStore
+  alias OpenApiSpex.Plug.CastAndValidate
+
   use BeaconApi, :controller
+  plug CastAndValidate, json_render_error_v2: true
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_state_root(conn, %{"state_id" => "head"}) do
