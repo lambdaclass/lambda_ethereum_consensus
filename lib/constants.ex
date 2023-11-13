@@ -51,4 +51,7 @@ defmodule Constants do
 
   @spec far_future_epoch() :: integer
   def far_future_epoch, do: 2 ** 64 - 1
+
+  @spec deposit_contract_tree_depth() :: integer
+  def deposit_contract_tree_depth, do: 32
 end

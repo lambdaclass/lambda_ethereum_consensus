@@ -235,6 +235,42 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
+  @spec process_deposit(BeaconState.t(), SszTypes.Deposit.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_deposit(state, deposit) do
+    is_valid =
+      Predicates.is_valid_merkle_branch(
+        Ssz.hash_tree_root(deposit.data),
+        deposit.proof,
+        Constants.deposit_contract_tree_depth() + 1,
+        state.eth1_deposit_index,
+        state.eth1_data.deposit_root
+      )
+
+    if is_valid do
+      state = %BeaconState{
+        state
+        | eth1_deposit_index: state.eth1_deposit_index + 1
+      }
+
+      res =
+        Mutators.apply_deposit(
+          state,
+          deposit.data.pubkey,
+          deposit.data.withdrawal_credentials,
+          deposit.data.amount,
+          deposit.data.signature
+        )
+
+      case res do
+        {:ok, state} -> {:ok, state}
+        {:error, msg} -> {:error, msg}
+      end
+    else
+      {:error, "Merkle branch is not valid"}
+    end
+  end
+
   @spec process_attester_slashing(BeaconState.t(), SszTypes.AttesterSlashing.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_attester_slashing(state, attester_slashing) do
