@@ -46,23 +46,28 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     0..max_uint64
     |> Enum.reduce_while([], fn i, sync_committee_indices ->
-      with {:ok, sync_committee_indices} <-
-             compute_sync_committee_index_and_return_indices(
-               i,
-               active_validator_count,
-               active_validator_indices,
-               seed,
-               validators,
-               sync_committee_indices
-             ) do
-        case length(sync_committee_indices) < ChainSpec.get("SYNC_COMMITTEE_SIZE") do
-          true -> {:cont, sync_committee_indices}
-          false -> {:halt, {:ok, Enum.reverse(sync_committee_indices)}}
-        end
-      else
-        {:error, reason} -> {:halt, {:error, reason}}
+      case compute_sync_committee_index_and_return_indices(
+             i,
+             active_validator_count,
+             active_validator_indices,
+             seed,
+             validators,
+             sync_committee_indices
+           ) do
+        {:ok, sync_committee_indices} ->
+          sync_committee_indices_or_halt(sync_committee_indices)
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
       end
     end)
+  end
+
+  defp sync_committee_indices_or_halt(sync_committee_indices) do
+    case length(sync_committee_indices) < ChainSpec.get("SYNC_COMMITTEE_SIZE") do
+      true -> {:cont, sync_committee_indices}
+      false -> {:halt, {:ok, Enum.reverse(sync_committee_indices)}}
+    end
   end
 
   defp compute_sync_committee_index_and_return_indices(
