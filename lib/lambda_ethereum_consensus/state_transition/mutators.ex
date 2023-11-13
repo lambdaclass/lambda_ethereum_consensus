@@ -173,7 +173,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
 
     if Enum.member?(validator_pubkeys, pubkey) do
       index = Enum.find_index(validator_pubkeys, fn validator -> validator == pubkey end)
-      {:ok, increase_balance(state, index, amount)}
+      state = increase_balance(state, index, amount)
+      {:ok, state}
     else
       deposit_message = %SszTypes.DepositMessage{
         pubkey: pubkey,
