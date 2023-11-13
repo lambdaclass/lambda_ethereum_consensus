@@ -12,6 +12,9 @@ defmodule Constants do
   @spec domain_beacon_proposer() :: <<_::32>>
   def domain_beacon_proposer, do: <<0, 0, 0, 0>>
 
+  @spec domain_deposit() :: <<_::32>>
+  def domain_deposit, do: <<3, 0, 0, 0>>
+
   @spec domain_voluntary_exit() :: <<_::32>>
   def domain_voluntary_exit, do: <<4, 0, 0, 0>>
 

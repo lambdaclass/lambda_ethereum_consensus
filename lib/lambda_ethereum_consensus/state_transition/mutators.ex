@@ -160,4 +160,58 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   defp whistleblower_index(whistleblower_index, proposer_index) do
     if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
   end
+
+  @spec apply_deposit(
+          BeaconState.t(),
+          SszTypes.bls_pubkey(),
+          SszTypes.bytes32(),
+          SszTypes.uint64(),
+          SszTypes.bls_signature()
+        ) :: {:ok, BeaconState.t()} | {:error, binary()}
+  def apply_deposit(state, pubkey, withdrawal_credentials, amount, signature) do
+    validator_pubkeys = Enum.map(state.validator, fn validator -> validator.pubkey end)
+
+    if Enum.member?(validator_pubkeys, pubkey) do
+      index = Enum.find_index(validator_pubkeys, fn validator -> validator == pubkey end)
+      {:ok, increase_balance(state, index, amount)}
+    else
+      deposit_message = %SszTypes.DepositMessage{
+        pubkey: pubkey,
+        withdrawal_credentials: withdrawal_credentials,
+        amount: amount
+      }
+
+      domain = Misc.compute_domain(Constants.domain_deposit())
+
+      signing_root = Misc.compute_signing_root(deposit_message, domain)
+
+      case Bls.verify(pubkey, signing_root, signature) do
+        {:ok, verified} ->
+          if verified do
+            %BeaconState{
+              state
+              | validators:
+                  state.validators ++
+                    [
+                      Accessors.get_validator_from_deposit(
+                        pubkey,
+                        withdrawal_credentials,
+                        amount
+                      )
+                    ],
+                previous_epoch_participation: state.previous_epoch_participation ++ [<<0>>],
+                current_epoch_participation: state.current_epoch_participation ++ [<<0>>],
+                inactivity_scores: state.inactivity_scores ++ [0]
+            }
+
+            {:ok, state}
+          else
+            {:error, "BLS verification failed"}
+          end
+
+        {:error, msg} ->
+          {:error, msg}
+      end
+    end
+  end
 end
