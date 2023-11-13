@@ -2,7 +2,6 @@
 
 [![Telegram chat](https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaconsensus%2F&logo=telegram&label=chat&color=neon)](https://t.me/lambdaconsensus)
 
-<<<<<<< HEAD
 ## Prerequisites
 
 ### Direct Installation
@@ -37,7 +36,7 @@ Finally, install the specific versions of these tools as specified in `.tool-ver
 asdf install
 ```
 
-### Alternative (easier) Installation using Nix 
+### Alternative (easier) Installation using Nix
 To create a sandbox environment with all the required tool chains, use Nix. Steps to get Nix working are as follows:
 
 1. Install Nix from the official website: https://nixos.org/download.
@@ -50,7 +49,7 @@ echo "experimental-features = nix-command flakes " > ~/.config/nix/nix.conf
 
 Alternatively, for a smoother experience you can use the following script from [Determinate Systems](https://zero-to-nix.com/start/install) that takes care of setting up everything for you:
 
-```shell 
+```shell
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 ```
 
@@ -68,24 +67,16 @@ make iex  # Runs a terminal with the application started
 
 The iex terminal can be closed by pressing ctrl+c two times.
 
-> [!WARNING]
-> The node isn't capable of syncing from genesis yet, and so requires using checkpoint-sync to start (see [Checkpoint Sync](#checkpoint-sync)).
-> In case checkpoint-sync is needed, `make iex` will end immediately with an error.
-
 ### Checkpoint Sync
 
 You can also sync from a checkpoint given by a trusted third-party.
-For that, get the URL that serves the checkpoint, and pass it to the node with the "--checkpoint-sync" flag:
+For that, get the URL that serves the checkpoint, and execute the following command:
 
 ```shell
 iex -S mix run -- --checkpoint-sync <your_url_here>
 ```
 
-Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/).
-
-> [!IMPORTANT]
-> The data retrieved from the URL is stored in the DB once the node is initiated (i.e. the iex prompt shows).
-> Once this happens, following runs of `make iex` will start the node using that data.
+Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/)
 
 ### Tests, linting and formatting
 
@@ -110,50 +101,45 @@ You can run all of them with:
 make spec-test
 ```
 
-Or only run those of a specific config with:
+Or only run those of a specific test runner with:
 
 ```shell
-make spec-test-config-`config`
-
-# Some examples
-make spec-test-config-mainnet
-make spec-test-config-minimal
-make spec-test-config-general
-```
-
-Or by a single runner in all configs, with:
-
-```shell
-make spec-test-runner-`runner`
-
-# Some examples
-make spec-test-config-ssz_static
-make spec-test-config-bls
-make spec-test-config-operations
+make spec-test-`runner`
+# some examples
+make spec-test-ssz_static
+make spec-test-bls
+make spec-test-operations
 ```
 
 The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
 
-If you want to specify both a config and a runner:
+For more fine-grained filtering of tests, you can use mix test tag filters:
 
-```shell
-make spec-test-mainnet-operations
-make spec-test-minimal-epoch_processing
-make spec-test-general-bls
+```bash
+mix test --no-start --only <tag_name>[:<tag_value>]
 ```
-
-More advanced filtering (e.g. by fork or handler) will be re-added again, but if you want to only run a specific test, you can always do that manually with:
-
-```shell
-mix test --no-start test/generated/<config>/<fork>/<runner>.exs:<line_of_your_testcase>
-```
-You can put a "*" in any directory (e.g. config) you don't want to filter by, although that won't work if adding the line of the testcase.
 
 > [!NOTE]
 > We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
 
-=======
->>>>>>> 8353857 (...)
+Some useful tag filters:
+
+- `spectest`: only run spec-tests, same as `make spec-test`
+- `config:general`: only run spec-tests with "general" config
+- `fork:capella`: only run spec-tests of the "capella" fork
+- `runner:ssz_generic`: only run spec-tests of the "ssz_generic" runner
+- `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
+- `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
+
+Some useful tag filters:
+
+- `spectest`: only run spec-tests, same as `make spec-test`
+- `config:general`: only run spec-tests with "general" config
+- `fork:capella`: only run spec-tests of the "capella" fork
+- `runner:ssz_generic`: only run spec-tests of the "ssz_generic" runner
+- `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
+- `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
+
 ## Why Elixir?
 
 Elixir is a functional programming language that runs atop the Erlang Virtual Machine (BEAM). It offers enhanced readability, syntactic sugar, and reduced boilerplate, enabling developers to achieve more with fewer lines of code compared to Erlang. Like Erlang, Elixir compiles to bytecode that is interpreted by the VM. As a result, it inherits several notable properties, including:
