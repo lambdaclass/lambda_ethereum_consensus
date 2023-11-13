@@ -12,50 +12,85 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_next_sync_committee(BeaconState.t()) ::
           {:ok, SyncCommittee.t()} | {:error, String.t()}
   def get_next_sync_committee(%BeaconState{validators: validators} = state) do
-    indices = get_next_sync_committee_indices(state)
-    pubkeys = indices |> Enum.map(fn index -> validators |> Enum.fetch!(index) end)
-
-    with {:ok, aggregate_pubkey} <- Bls.eth_aggregate_pubkeys(pubkeys) do
+    with {:ok, indices} <- get_next_sync_committee_indices(state),
+         pubkeys <- indices |> Enum.map(fn index -> Enum.fetch!(validators, index).pubkey end),
+         {:ok, aggregate_pubkey} <- Bls.eth_aggregate_pubkeys(pubkeys) do
       {:ok, %SyncCommittee{pubkeys: pubkeys, aggregate_pubkey: aggregate_pubkey}}
     end
   end
 
-  @spec get_next_sync_committee_indices(BeaconState.t()) :: list(SszTypes.validator_index())
+  @spec get_next_sync_committee_indices(BeaconState.t()) ::
+          {:ok, list(SszTypes.validator_index())} | {:error, String.t()}
   defp get_next_sync_committee_indices(%BeaconState{validators: validators} = state) do
     # Return the sync committee indices, with possible duplicates, for the next sync committee.
     epoch = get_current_epoch(state) + 1
-    max_random_byte = 2 ** 8 - 1
     active_validator_indices = get_active_validator_indices(state, epoch)
     active_validator_count = uint64(length(active_validator_indices))
     seed = get_seed(state, epoch, Constants.domain_sync_committee())
 
-    result =
-      0..(ChainSpec.get("SYNC_COMMITTEE_SIZE") - 1)
-      |> Enum.reduce_while([], fn index, sync_committee_indices ->
-        with {:ok, shuffled_index} <-
-               rem(index, active_validator_count)
-               |> Misc.compute_shuffled_index(active_validator_count, seed) do
-          candidate_index = active_validator_indices |> Enum.fetch!(shuffled_index)
+    compute_sync_committee_indices(
+      active_validator_count,
+      active_validator_indices,
+      seed,
+      validators
+    )
+  end
 
-          <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
-            :crypto.hash(:sha256, seed <> Misc.uint64_to_bytes(uint64(div(index, 32))))
+  defp compute_sync_committee_indices(
+         active_validator_count,
+         active_validator_indices,
+         seed,
+         validators
+       ) do
+    max_uint64 = 2 ** 64 * 1
 
-          effective_balance = Enum.fetch!(validators, candidate_index).effective_balance
-
-          if effective_balance * max_random_byte >=
-               ChainSpec.get("MAX_EFFECTIVE_BALANCE") * random_byte do
-            {:cont, sync_committee_indices |> List.insert_at(0, candidate_index)}
-          else
-            {:cont, sync_committee_indices}
-          end
-        else
-          {:error, reason} -> {:halt, {:error, reason}}
+    0..max_uint64
+    |> Enum.reduce_while([], fn i, sync_committee_indices ->
+      with {:ok, sync_committee_indices} <-
+             compute_sync_committee_index_and_return_indices(
+               i,
+               active_validator_count,
+               active_validator_indices,
+               seed,
+               validators,
+               sync_committee_indices
+             ) do
+        case length(sync_committee_indices) < ChainSpec.get("SYNC_COMMITTEE_SIZE") do
+          true -> {:cont, sync_committee_indices}
+          false -> {:halt, {:ok, Enum.reverse(sync_committee_indices)}}
         end
-      end)
+      else
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
 
-    case result do
-      {:error, reason} -> {:error, reason}
-      {sync_committee_indices} -> {:ok, Enum.reverse(sync_committee_indices)}
+  defp compute_sync_committee_index_and_return_indices(
+         index,
+         active_validator_count,
+         active_validator_indices,
+         seed,
+         validators,
+         sync_committee_indices
+       ) do
+    max_random_byte = 2 ** 8 - 1
+
+    with {:ok, shuffled_index} <-
+           rem(index, active_validator_count)
+           |> Misc.compute_shuffled_index(active_validator_count, seed) do
+      candidate_index = active_validator_indices |> Enum.fetch!(shuffled_index)
+
+      <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
+        :crypto.hash(:sha256, seed <> Misc.uint64_to_bytes(uint64(div(index, 32))))
+
+      effective_balance = Enum.fetch!(validators, candidate_index).effective_balance
+
+      if effective_balance * max_random_byte >=
+           ChainSpec.get("MAX_EFFECTIVE_BALANCE") * random_byte do
+        {:ok, sync_committee_indices |> List.insert_at(0, candidate_index)}
+      else
+        {:ok, sync_committee_indices}
+      end
     end
   end
 
