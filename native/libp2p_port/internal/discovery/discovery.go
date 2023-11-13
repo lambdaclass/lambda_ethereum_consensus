@@ -139,7 +139,7 @@ func filterPeer(node *enode.Node) bool {
 	entry := enr.WithEntry("eth2", &sszEncodedForkEntry)
 	nodeENR.Load(entry)
 	forkDigest := sszEncodedForkEntry[:4]
-	if bytes.Equal(currentForkDigest, forkDigest) {
+	if !bytes.Equal(currentForkDigest, forkDigest) {
 		return false
 	}
 	return true
