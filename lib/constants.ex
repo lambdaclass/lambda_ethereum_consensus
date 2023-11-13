@@ -15,6 +15,9 @@ defmodule Constants do
   @spec domain_deposit() :: <<_::32>>
   def domain_deposit, do: <<3, 0, 0, 0>>
 
+  @spec domain_sync_committee() :: <<_::32>>
+  def domain_sync_committee, do: <<7, 0, 0, 0>>
+
   @spec domain_voluntary_exit() :: <<_::32>>
   def domain_voluntary_exit, do: <<4, 0, 0, 0>>
 
@@ -29,6 +32,9 @@ defmodule Constants do
 
   @spec proposer_weight() :: integer
   def proposer_weight, do: 8
+
+  @spec sync_reward_weight() :: integer
+  def sync_reward_weight, do: 2
 
   @spec weight_denominator() :: integer
   def weight_denominator, do: 64
