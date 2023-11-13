@@ -18,12 +18,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
       finalized_checkpoint = %Checkpoint{
         epoch: anchor_epoch,
-        root: anchor_state_root
+        root: anchor_block_root
       }
 
       justified_checkpoint = %Checkpoint{
         epoch: anchor_epoch,
-        root: anchor_state_root
+        root: anchor_block_root
       }
 
       time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
