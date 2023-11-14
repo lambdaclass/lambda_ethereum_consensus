@@ -50,15 +50,17 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
     Enum.reduce((old_slot + 1)..slot, {:ok, state}, fn next_slot, acc ->
       acc
-      |> map(&{:ok, process_slot(&1)})
+      |> map(&process_slot/1)
       # Process epoch on the start slot of the next epoch
-      |> map(&maybe_process_epoch(rem(next_slot, slots_per_epoch), &1))
+      |> map(&maybe_process_epoch(&1, rem(next_slot, slots_per_epoch)))
       |> map(&{:ok, %BeaconState{&1 | slot: next_slot}})
     end)
   end
 
-  defp maybe_process_epoch(state, slot_in_epoch) when slot_in_epoch == 0, do: {:ok, state}
-  defp maybe_process_epoch(state, _slot_in_epoch), do: process_epoch(state)
+  defp maybe_process_epoch(%BeaconState{} = state, slot_in_epoch) when slot_in_epoch == 0,
+    do: {:ok, state}
+
+  defp maybe_process_epoch(%BeaconState{} = state, _slot_in_epoch), do: process_epoch(state)
 
   defp process_slot(%BeaconState{} = state) do
     # Cache state root
@@ -84,7 +86,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Cache block root
     previous_block_root = Ssz.hash_tree_root!(state.latest_block_header)
     roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
-    %BeaconState{state | block_roots: roots}
+    {:ok, %BeaconState{state | block_roots: roots}}
   end
 
   defp process_epoch(%BeaconState{} = state) do

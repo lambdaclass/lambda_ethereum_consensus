@@ -53,7 +53,7 @@ defmodule ForkChoiceTestRunner do
   end
 
   @spec apply_steps(String.t(), Store.t(), list()) ::
-          Store.t() | {:error, binary()}
+          {:ok, Store.t()} | {:error, binary()}
   defp apply_steps(case_dir, store, steps) do
     Enum.reduce_while(steps, {:ok, store}, fn step, {:ok, %Store{} = store} ->
       should_be_valid = Map.get(step, :valid, true)
