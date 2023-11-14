@@ -320,9 +320,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       target_slot = Misc.compute_start_slot_at_epoch(target.epoch)
 
       store.block_states[target.root]
-      |> if_then_update(
-        &(&1.slot < target_slot),
-        &StateTransition.process_slots(&1, target_slot)
+      |> then(
+        &if(&1.slot < target_slot,
+          do: StateTransition.process_slots(&1, target_slot),
+          else: {:ok, &1}
+        )
       )
       |> Utils.map(
         &{:ok, %Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)}}
