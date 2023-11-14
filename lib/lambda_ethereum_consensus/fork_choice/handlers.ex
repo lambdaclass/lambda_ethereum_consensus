@@ -48,7 +48,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   consider scheduling it for later processing in such case.
   """
   @spec on_block(Store.t(), SignedBeaconBlock.t()) :: {:ok, Store.t()} | {:error, String.t()}
-  def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
+  def on_block(%Store{} = store, %SignedBeaconBlock{message: block}) do
     finalized_slot =
       Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
 
@@ -77,6 +77,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block isn't descendant of latest finalized block"}
 
       true ->
+        # TODO: remove when uncommenting compute_post_state
         block_root = Ssz.hash_tree_root!(block)
         new_blocks = store.blocks |> Map.put(block_root, block)
 
@@ -153,10 +154,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Check the block is valid and compute the post-state.
-  defp compute_post_state(
-         %Store{block_states: states} = store,
-         %SignedBeaconBlock{message: block} = signed_block
-       ) do
+  def compute_post_state(
+        %Store{block_states: states} = store,
+        %SignedBeaconBlock{message: block} = signed_block
+      ) do
     state = states[block.parent_root]
     block_root = Ssz.hash_tree_root!(block)
 
@@ -227,7 +228,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     end)
   end
 
-  defp compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
+  def compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
     # Pull up the post-state of the block to the next epoch boundary
     # TODO: handle possible errors
     {:ok, state} = EpochProcessing.process_justification_and_finalization(states[block_root])
@@ -251,11 +252,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Update unrealized checkpoints in store if necessary
-  defp update_unrealized_checkpoints(
-         %Store{} = store,
-         %Checkpoint{} = unrealized_justified_checkpoint,
-         %Checkpoint{} = unrealized_finalized_checkpoint
-       ) do
+  def update_unrealized_checkpoints(
+        %Store{} = store,
+        %Checkpoint{} = unrealized_justified_checkpoint,
+        %Checkpoint{} = unrealized_finalized_checkpoint
+      ) do
     store
     |> if_then_update(
       unrealized_justified_checkpoint.epoch > store.unrealized_justified_checkpoint.epoch,

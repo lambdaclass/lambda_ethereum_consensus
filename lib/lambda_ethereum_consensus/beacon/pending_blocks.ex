@@ -69,8 +69,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @impl true
   @spec handle_info(atom(), state()) :: {:noreply, state()}
   def handle_info(:process_blocks, state) do
-    schedule_blocks_processing()
-
     state.pending_blocks
     |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
     |> Enum.reduce(state, fn {block_root, signed_block}, state ->
@@ -79,7 +77,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       cond do
         # If parent is invalid, block is invalid
         state.invalid_blocks |> Map.has_key?(parent_root) ->
-          state |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
+          state
+          |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
+          |> Map.update!(
+            :invalid_blocks,
+            &Map.put(&1, block_root, signed_block.message |> Map.take([:slot, :parent_root]))
+          )
 
         # If parent is pending, block is pending
         state.pending_blocks |> Map.has_key?(parent_root) ->
@@ -99,14 +102,13 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       end
     end)
     |> then(fn state ->
+      schedule_blocks_processing()
       {:noreply, state}
     end)
   end
 
   @impl true
   def handle_info(:download_blocks, state) do
-    schedule_blocks_download()
-
     downloaded_blocks =
       state.blocks_to_download
       |> Enum.to_list()
@@ -118,7 +120,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           signed_blocks
 
         {:error, reason} ->
-          Logger.warn("Block download failed: '#{reason}'")
+          Logger.warning("Block download failed: '#{reason}'")
           []
       end
 
@@ -129,6 +131,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     roots_to_remove =
       downloaded_blocks |> Enum.map(&Ssz.hash_tree_root!(&1.message)) |> MapSet.new()
 
+    schedule_blocks_download()
     {:noreply, Map.update!(state, :blocks_to_download, &MapSet.difference(&1, roots_to_remove))}
   end
 
