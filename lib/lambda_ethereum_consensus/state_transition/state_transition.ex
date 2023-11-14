@@ -23,9 +23,9 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Process slots (including those with no blocks) since block
     |> process_slots(block.slot)
     # Verify signature
-    |> if_then_update(validate_result, fn state ->
-      if verify_block_signature(state, signed_block) do
-        {:ok, state}
+    |> map(fn st ->
+      if not validate_result or verify_block_signature(st, signed_block) do
+        {:ok, st}
       else
         {:error, "invalid block signature"}
       end
@@ -33,27 +33,29 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Process block
     |> map(&process_block(&1, block))
     # Verify state root
-    |> map(
-      &if_then_update(&1, validate_result, fn state ->
-        if block.state_root != Ssz.hash_tree_root!(state) do
-          {:error, "mismatched state roots"}
-        else
-          {:ok, state}
-        end
-      end)
-    )
+    |> map(fn st ->
+      if not validate_result or block.state_root == Ssz.hash_tree_root!(st) do
+        {:ok, st}
+      else
+        {:error, "mismatched state roots"}
+      end
+    end)
   end
 
   def process_slots(%BeaconState{slot: old_slot}, slot) when old_slot >= slot,
     do: {:error, "slot is older than state"}
 
   def process_slots(%BeaconState{slot: old_slot} = state, slot) do
-    Enum.reduce((old_slot + 1)..slot, state, fn next_slot, state ->
-      state
-      |> process_slot()
+    slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
+
+    Enum.reduce((old_slot + 1)..slot, {:ok, state}, fn next_slot, acc ->
+      acc
+      |> map(&process_slot/1)
       # Process epoch on the start slot of the next epoch
-      |> if_then_update(rem(next_slot, ChainSpec.get("SLOTS_PER_EPOCH")) == 0, &process_epoch/1)
-      |> then(&%BeaconState{&1 | slot: next_slot})
+      |> map(fn st ->
+        if_then_update(st, rem(next_slot, slots_per_epoch) == 0, &process_epoch/1)
+      end)
+      |> map(&{:ok, %BeaconState{&1 | slot: next_slot}})
     end)
   end
 
@@ -81,7 +83,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Cache block root
     previous_block_root = Ssz.hash_tree_root!(state.latest_block_header)
     roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
-    %BeaconState{state | block_roots: roots}
+    {:ok, %BeaconState{state | block_roots: roots}}
   end
 
   defp process_epoch(%BeaconState{} = state) do
@@ -97,8 +99,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> map(&EpochProcessing.process_randao_mixes_reset/1)
     |> map(&EpochProcessing.process_historical_summaries_update/1)
     |> map(&EpochProcessing.process_participation_flag_updates/1)
-
-    # |> map(&EpochProcessing.process_sync_committee_updates/1)
+    |> map(&EpochProcessing.process_sync_committee_updates/1)
   end
 
   def verify_block_signature(%BeaconState{} = state, %SignedBeaconBlock{} = signed_block) do
