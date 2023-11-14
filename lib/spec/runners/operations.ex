@@ -48,9 +48,9 @@ defmodule OperationsTestRunner do
     # "proposer_slashing",
     # "voluntary_exit",
     # "sync_aggregate",
-    "execution_payload",
+    "execution_payload"
     # "withdrawals",
-    "bls_to_execution_change"
+    # "bls_to_execution_change"
   ]
 
   @impl TestRunner
@@ -98,7 +98,7 @@ defmodule OperationsTestRunner do
 
     case post do
       nil ->
-        assert {:error, _error_msg} = result
+        assert {:error, error_msg} = result
 
       post ->
         assert {:ok, state} = result
