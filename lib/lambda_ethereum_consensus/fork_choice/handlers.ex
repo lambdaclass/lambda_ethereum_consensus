@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Handlers that update the fork choice store.
   """
 
+  alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
 
@@ -48,7 +49,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   consider scheduling it for later processing in such case.
   """
   @spec on_block(Store.t(), SignedBeaconBlock.t()) :: {:ok, Store.t()} | {:error, String.t()}
-  def on_block(%Store{} = store, %SignedBeaconBlock{message: block}) do
+  def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
     finalized_slot =
       Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
 
@@ -77,15 +78,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block isn't descendant of latest finalized block"}
 
       true ->
-        # TODO: remove when uncommenting compute_post_state
-        block_root = Ssz.hash_tree_root!(block)
-        new_blocks = store.blocks |> Map.put(block_root, block)
-
-        new_states =
-          store.block_states |> Map.put(block_root, store.block_states[block.parent_root])
-
-        {:ok, store |> Map.put(:blocks, new_blocks) |> Map.put(:block_states, new_states)}
-        # compute_post_state(store, signed_block)
+        compute_post_state(store, signed_block)
     end
   end
 
@@ -99,12 +92,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           {:ok, Store.t()} | {:error, String.t()}
   def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
     if on_attestation_valid?(store, attestation, is_from_block) do
-      store = store_target_checkpoint_state(store, attestation.data.target)
-
-      # Get state at the `target` to fully validate attestation
-      target_state = store.checkpoint_states[attestation.data.target]
-
-      with {:ok, indexed_attestation} <-
+      with {:ok, store} <- store_target_checkpoint_state(store, attestation.data.target),
+           # Get state at the `target` to fully validate attestation
+           target_state = store.checkpoint_states[attestation.data.target],
+           {:ok, indexed_attestation} <-
              Accessors.get_indexed_attestation(target_state, attestation) do
         if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
           # Update latest messages for attesting indices
@@ -170,7 +161,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       store = %Store{store | blocks: blocks, block_states: states}
 
       seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
-      intervals_per_slot = ChainSpec.get("INTERVALS_PER_SLOT")
+      intervals_per_slot = Constants.intervals_per_slot()
       # Add proposer score boost if the block is timely
       time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
       is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
@@ -324,7 +315,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   # Store target checkpoint state if not yet seen
   def store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
     if Map.has_key?(store.checkpoint_states, target) do
-      store
+      {:ok, store}
     else
       target_slot = Misc.compute_start_slot_at_epoch(target.epoch)
 
@@ -333,7 +324,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         &(&1.slot < target_slot),
         &StateTransition.process_slots(&1, target_slot)
       )
-      |> then(&%Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)})
+      |> Utils.map(
+        &{:ok, %Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)}}
+      )
     end
   end
 

@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
   alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
 
-  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map: 2]
+  import LambdaEthereumConsensus.Utils, only: [map: 2]
 
   @spec state_transition(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
@@ -50,10 +50,14 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
     Enum.reduce((old_slot + 1)..slot, {:ok, state}, fn next_slot, acc ->
       acc
-      |> map(&process_slot/1)
+      |> map(&{:ok, process_slot(&1)})
       # Process epoch on the start slot of the next epoch
       |> map(fn st ->
-        if_then_update(st, rem(next_slot, slots_per_epoch) == 0, &process_epoch/1)
+        if rem(next_slot, slots_per_epoch) == 0 do
+          process_epoch(st)
+        else
+          {:ok, st}
+        end
       end)
       |> map(&{:ok, %BeaconState{&1 | slot: next_slot}})
     end)
@@ -83,7 +87,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Cache block root
     previous_block_root = Ssz.hash_tree_root!(state.latest_block_header)
     roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
-    {:ok, %BeaconState{state | block_roots: roots}}
+    %BeaconState{state | block_roots: roots}
   end
 
   defp process_epoch(%BeaconState{} = state) do
