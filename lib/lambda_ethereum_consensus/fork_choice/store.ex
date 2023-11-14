@@ -40,10 +40,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     Map.has_key?(blocks, block_root)
   end
 
-  @spec on_block(SszTypes.SignedBeaconBlock.t(), SszTypes.root()) :: :ok
+  @spec on_block(SszTypes.SignedBeaconBlock.t(), SszTypes.root()) :: :ok | :error
   def on_block(signed_block, block_root) do
     :ok = BlockStore.store_block(signed_block)
-    GenServer.cast(__MODULE__, {:on_block, block_root, signed_block})
+    GenServer.call(__MODULE__, {:on_block, block_root, signed_block})
   end
 
   @spec on_attestation(SszTypes.Attestation.t()) :: :ok
@@ -88,30 +88,28 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_cast({:on_block, _block_root, %SignedBeaconBlock{} = signed_block}, state) do
+  def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
 
-    state =
-      with {:ok, new_state} <- Handlers.on_block(state, signed_block),
-           # process block attestations
-           {:ok, new_state} <-
-             signed_block.message.body.attestations
-             |> apply_handler(new_state, &Handlers.on_attestation(&1, &2, true)),
-           # process block attester slashings
-           {:ok, new_state} <-
-             signed_block.message.body.attester_slashings
-             |> apply_handler(new_state, &Handlers.on_attester_slashing/2) do
-        new_state
-      else
-        {:error, reason} ->
-          Logger.error(
-            "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
-          )
+    with {:ok, new_store} <- Handlers.on_block(state, signed_block) do
+      #  # process block attestations
+      #  {:ok, new_state} <-
+      #    signed_block.message.body.attestations
+      #    |> apply_handler(new_state, &Handlers.on_attestation(&1, &2, true)),
+      #  # process block attester slashings
+      #  {:ok, new_state} <-
+      #    signed_block.message.body.attester_slashings
+      #    |> apply_handler(new_state, &Handlers.on_attester_slashing/2) do
+      BlockStore.store_block(signed_block)
+      {:reply, :ok, new_store}
+    else
+      {:error, reason} ->
+        Logger.error(
+          "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
+        )
 
-          state
-      end
-
-    {:noreply, state}
+        {:reply, :error, state}
+    end
   end
 
   @impl GenServer

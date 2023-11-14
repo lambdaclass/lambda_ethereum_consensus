@@ -77,7 +77,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block isn't descendant of latest finalized block"}
 
       true ->
-        compute_post_state(store, signed_block)
+        block_root = Ssz.hash_tree_root!(block)
+        new_blocks = store.blocks |> Map.put(block_root, block)
+
+        new_states =
+          store.block_states |> Map.put(block_root, store.block_states[block.parent_root])
+
+        {:ok, store |> Map.put(:blocks, new_blocks) |> Map.put(:block_states, new_states)}
+        # compute_post_state(store, signed_block)
     end
   end
 
