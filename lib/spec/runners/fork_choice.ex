@@ -11,11 +11,11 @@ defmodule ForkChoiceTestRunner do
   alias SszTypes.Store
 
   @disabled_handlers [
-    # "on_block",
-    # "ex_ante",
-    # "get_head",
-    # "reorg",
-    # "withholding"
+    "on_block",
+    "ex_ante",
+    "get_head",
+    "reorg",
+    "withholding"
   ]
 
   @enabled_cases [
