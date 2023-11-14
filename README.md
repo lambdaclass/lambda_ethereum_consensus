@@ -289,8 +289,7 @@ A docker-compose is available at [`metrics/`](./metrics) with a Grafana-Promethe
 To run it, install [Docker Compose](https://docs.docker.com/compose/) and execute:
 
 ```shell
-cd metrics
-docker-compose up
+make grafana-up
 ```
 
 After that, open [`http://localhost:3000/`](http://localhost:3000/) in a browser.
@@ -367,6 +366,8 @@ Some useful tag filters:
 - `handler:Checkpoint`: only run spec-tests using the "Checkpoint" handler
 - `test:<name>`: run one specific test named `<name>`, for example `test:"test c:minimal f:capella r:ssz_static h:Checkpoint s:ssz_lenghty -> case_0"`
 >>>>>>> 8353857 (...)
+
+To stop the containers run `make grafana-down`. For cleaning up the metrics data, run `make grafana-clean`.
 
 ## Profiling
 
