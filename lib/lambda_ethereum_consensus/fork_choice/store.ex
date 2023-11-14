@@ -92,6 +92,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
 
     with {:ok, new_store} <- Handlers.on_block(state, signed_block) do
+      # TODO: uncomment when fixed
       #  # process block attestations
       #  {:ok, new_state} <-
       #    signed_block.message.body.attestations

@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @type state :: %{
           pending_blocks: %{SszTypes.root() => SignedBeaconBlock.t()},
-          invalid_blocks: %{SszTypes.root() => SignedBeaconBlock.t()},
+          invalid_blocks: %{SszTypes.root() => map()},
           blocks_to_download: MapSet.t(SszTypes.root())
         }
 
