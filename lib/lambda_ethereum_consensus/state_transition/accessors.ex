@@ -25,7 +25,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     # Return the sync committee indices, with possible duplicates, for the next sync committee.
     epoch = get_current_epoch(state) + 1
     active_validator_indices = get_active_validator_indices(state, epoch)
-    active_validator_count = uint64(length(active_validator_indices))
+    active_validator_count = length(active_validator_indices)
     seed = get_seed(state, epoch, Constants.domain_sync_committee())
 
     compute_sync_committee_indices(
@@ -86,7 +86,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       candidate_index = active_validator_indices |> Enum.fetch!(shuffled_index)
 
       <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
-        :crypto.hash(:sha256, seed <> Misc.uint64_to_bytes(uint64(div(index, 32))))
+        :crypto.hash(:sha256, seed <> Misc.uint64_to_bytes(div(index, 32)))
 
       effective_balance = Enum.fetch!(validators, candidate_index).effective_balance
 
@@ -508,10 +508,5 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
-  end
-
-  defp uint64(value) when is_integer(value) and value >= 0 do
-    max_uint64 = 2 ** 64 - 1
-    min(value, max_uint64)
   end
 end
