@@ -71,10 +71,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def handle_info(:process_blocks, state) do
     schedule_blocks_processing()
 
-    Logger.info(
-      "Processing blocks. Pending: #{Map.size(state.pending_blocks)}, Invalid: #{Map.size(state.invalid_blocks)}, To download: #{MapSet.size(state.blocks_to_download)}"
-    )
-
     state.pending_blocks
     |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
     |> Enum.reduce(state, fn {block_root, signed_block}, state ->
@@ -144,7 +140,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   defp send_block_to_forkchoice(state, signed_block, block_root) do
     case Store.on_block(signed_block, block_root) do
       :ok ->
-        Logger.info("Block added to fork choice: #{signed_block.message.slot}")
         state |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
 
       :error ->
