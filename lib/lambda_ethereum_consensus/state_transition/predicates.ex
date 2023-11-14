@@ -109,7 +109,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   def is_valid_indexed_attestation(state, indexed_attestation) do
     indices = indexed_attestation.attesting_indices
 
-    if Enum.empty?(indices) or not (indices == Enum.sort(Enum.uniq(indices))) do
+    if Enum.empty?(indices) or not (indices == indices |> Enum.uniq() |> Enum.sort()) do
       false
     else
       domain_type = Constants.domain_beacon_attester()
