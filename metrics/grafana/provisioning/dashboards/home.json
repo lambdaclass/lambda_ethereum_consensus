@@ -113,9 +113,9 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "rate(peers_challenge_count{result=\\\"failed\\\"}[$__rate_interval])",
+          "expr": "rate(peers_challenge_count{result=\"failed\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "failed",
           "range": true,
           "refId": "Challenge failed"
         },
@@ -125,10 +125,10 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "rate(peers_challenge_count{result=\\\"passed\\\"}[$__rate_interval])",
+          "expr": "rate(peers_challenge_count{result=\"passed\"}[$__rate_interval])",
           "hide": false,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "passed",
           "range": true,
           "refId": "Challenge passed"
         }
@@ -667,9 +667,9 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "rate(peers_connection_count{result=\\\"success\\\"}[$__rate_interval])",
+          "expr": "rate(peers_connection_count{result=\"success\"}[$__rate_interval])",
           "interval": "",
-          "legendFormat": "success",
+          "legendFormat": "added",
           "range": true,
           "refId": "Added"
         },
@@ -679,10 +679,10 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "rate(peers_challenge_count{result=\\\"failed\\\"}[$__rate_interval])",
+          "expr": "rate(peers_challenge_count{result=\"failed\"}[$__rate_interval])",
           "hide": false,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "removed",
           "range": true,
           "refId": "Removed"
         }
