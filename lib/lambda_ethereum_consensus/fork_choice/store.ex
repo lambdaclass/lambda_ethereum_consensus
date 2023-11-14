@@ -91,19 +91,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
 
-    with {:ok, new_store} <- Handlers.on_block(state, signed_block) do
-      # TODO: uncomment when fixed
-      #  # process block attestations
-      #  {:ok, new_state} <-
-      #    signed_block.message.body.attestations
-      #    |> apply_handler(new_state, &Handlers.on_attestation(&1, &2, true)),
-      #  # process block attester slashings
-      #  {:ok, new_state} <-
-      #    signed_block.message.body.attester_slashings
-      #    |> apply_handler(new_state, &Handlers.on_attester_slashing/2) do
-      BlockStore.store_block(signed_block)
-      {:reply, :ok, new_store}
-    else
+    case Handlers.on_block(state, signed_block) do
+      {:ok, new_state} ->
+        BlockStore.store_block(signed_block)
+        {:reply, :ok, new_state}
+
       {:error, reason} ->
         Logger.error(
           "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
@@ -111,6 +103,26 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
         {:reply, :error, state}
     end
+
+    # TODO: uncomment when fixed
+    # with {:ok, new_store} <- Handlers.on_block(state, signed_block) do
+    #    # process block attestations
+    #    {:ok, new_state} <-
+    #      signed_block.message.body.attestations
+    #      |> apply_handler(new_state, &Handlers.on_attestation(&1, &2, true)),
+    #    # process block attester slashings
+    #    {:ok, new_state} <-
+    #      signed_block.message.body.attester_slashings
+    #      |> apply_handler(new_state, &Handlers.on_attester_slashing/2) do
+    #   BlockStore.store_block(signed_block)
+    #   {:reply, :ok, new_store}
+    # else
+    #   {:error, reason} ->
+    #     Logger.error(
+    #       "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
+    #     )
+    #     {:reply, :error, state}
+    # end
   end
 
   @impl GenServer
@@ -169,7 +181,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     Process.send_after(self(), :on_tick, time_to_next_tick)
   end
 
-  defp apply_handler(iter, state, handler) do
+  def apply_handler(iter, state, handler) do
     iter
     |> Enum.reduce_while({:ok, state}, fn
       x, {:ok, st} -> {:cont, handler.(st, x)}
