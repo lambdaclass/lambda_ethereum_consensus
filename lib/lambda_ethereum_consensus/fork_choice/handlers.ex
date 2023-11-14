@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Handlers that update the fork choice store.
   """
 
-  alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
 
@@ -17,7 +16,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     Store
   }
 
-  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3]
+  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map: 2]
 
   ### Public API ###
 
@@ -324,7 +323,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           else: {:ok, &1}
         )
       )
-      |> Utils.map(
+      |> map(
         &{:ok, %Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)}}
       )
     end
