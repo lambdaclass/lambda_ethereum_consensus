@@ -56,7 +56,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     # Execute the LMD-GHOST fork choice
     head = store.justified_checkpoint.root
 
-    Stream.cycle(nil)
+    Stream.cycle([nil])
     |> Enum.reduce_while(head, fn nil, head ->
       children =
         blocks
