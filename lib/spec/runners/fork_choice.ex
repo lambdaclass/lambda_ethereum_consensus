@@ -18,9 +18,14 @@ defmodule ForkChoiceTestRunner do
     "withholding"
   ]
 
+  @enabled_cases [
+    "genesis"
+  ]
+
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler, case: _testcase}) do
-    fork != "capella" or Enum.member?(@disabled_handlers, handler)
+  def skip?(%SpecTestCase{fork: fork, handler: handler, case: testcase}) do
+    (fork != "capella" or Enum.member?(@disabled_handlers, handler)) and
+      not Enum.member?(@enabled_cases, testcase)
   end
 
   @impl TestRunner
