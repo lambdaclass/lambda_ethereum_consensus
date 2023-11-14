@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
          seed,
          validators
        ) do
-    max_uint64 = 2 ** 64 * 1
+    max_uint64 = 2 ** 64 - 1
 
     0..max_uint64
     |> Enum.reduce_while([], fn i, sync_committee_indices ->
