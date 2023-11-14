@@ -44,7 +44,6 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   @impl true
   def handle_cast({:remove_peer, peer_id}, peerbook) do
-    :telemetry.execute([:peers, :prune], %{})
     updated_peerbook = Map.delete(peerbook, peer_id)
     {:noreply, updated_peerbook}
   end
@@ -71,8 +70,12 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   def challenge_peer(peer_id) do
     case Libp2pPort.send_request(peer_id, @metadata_protocol_id, "") do
-      {:ok, <<0, 17>> <> _payload} -> nil
-      _ -> GenServer.cast(__MODULE__, {:remove_peer, peer_id})
+      {:ok, <<0, 17>> <> _payload} ->
+        :telemetry.execute([:peers, :challenge], %{}, %{result: "passed"})
+
+      _ ->
+        :telemetry.execute([:peers, :challenge], %{}, %{result: "failed"})
+        GenServer.cast(__MODULE__, {:remove_peer, peer_id})
     end
   end
 
