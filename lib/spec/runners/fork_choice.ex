@@ -11,11 +11,11 @@ defmodule ForkChoiceTestRunner do
   alias SszTypes.Store
 
   @disabled_handlers [
-    "on_block",
-    "ex_ante",
-    "get_head",
-    "reorg",
-    "withholding"
+    # "on_block",
+    # "ex_ante",
+    # "get_head",
+    # "reorg",
+    # "withholding"
   ]
 
   @enabled_cases [
@@ -49,26 +49,18 @@ defmodule ForkChoiceTestRunner do
 
     {:ok, store} = Helpers.get_forkchoice_store(anchor_state, anchor_block)
 
-    result = apply_steps(case_dir, store, steps)
-
-    case result do
-      %Store{} = _store ->
-        assert true
-
-      {:error, error} ->
-        assert false, error
-    end
+    assert {:ok, _store} = apply_steps(case_dir, store, steps)
   end
 
   @spec apply_steps(String.t(), Store.t(), list()) ::
           Store.t() | {:error, binary()}
   defp apply_steps(case_dir, store, steps) do
-    Enum.reduce_while(steps, store, fn step, %Store{} = store ->
-      should_be_valid = Map.get(step, "valid", true)
+    Enum.reduce_while(steps, {:ok, store}, fn step, {:ok, %Store{} = store} ->
+      should_be_valid = Map.get(step, :valid, true)
 
       case {apply_step(case_dir, store, step), should_be_valid} do
         {{:ok, new_store}, true} ->
-          {:cont, new_store}
+          {:cont, {:ok, new_store}}
 
         {{:ok, _store}, false} ->
           {:halt, {:error, "expected invalid step to fail"}}
@@ -77,7 +69,7 @@ defmodule ForkChoiceTestRunner do
           {:halt, {:error, error}}
 
         {{:error, _error}, false} ->
-          {:halt, store}
+          {:halt, {:ok, store}}
       end
     end)
   end
@@ -98,7 +90,7 @@ defmodule ForkChoiceTestRunner do
         SszTypes.SignedBeaconBlock
       )
 
-    assert Ssz.hash_tree_root!(block.message) == Base.decode16!(hash, case: :mixed)
+    assert Ssz.hash_tree_root!(block) == Base.decode16!(hash, case: :mixed)
 
     with {:ok, new_store} <- Handlers.on_block(store, block) do
       block.message.body.attestations
