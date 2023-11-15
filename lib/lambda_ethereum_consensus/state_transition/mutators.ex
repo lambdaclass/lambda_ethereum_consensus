@@ -198,18 +198,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
 
   defp apply_initial_deposit(verified, state, pubkey, withdrawal_credentials, amount) do
     if verified do
-      %BeaconState{
+      state = %BeaconState{
         state
         | validators:
             state.validators ++
-                Accessors.get_validator_from_deposit(
+                [Accessors.get_validator_from_deposit(
                   pubkey,
                   withdrawal_credentials,
                   amount
-                ),
-          previous_epoch_participation: state.previous_epoch_participation ++ <<0>>,
-          current_epoch_participation: state.current_epoch_participation ++ <<0>>,
-          inactivity_scores: state.inactivity_scores ++ 0
+                )],
+          previous_epoch_participation: state.previous_epoch_participation ++ [0],
+          current_epoch_participation: state.current_epoch_participation ++ [0],
+          inactivity_scores: state.inactivity_scores ++ [0]
       }
 
       {:ok, state}

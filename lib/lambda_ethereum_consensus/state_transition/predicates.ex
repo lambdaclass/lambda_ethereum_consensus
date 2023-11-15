@@ -118,6 +118,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
   defp is_valid_merkle_branch(leaf, branch, depth, index, root, value, i) do
     if i == depth do
+      IO.inspect(value == root)
       value == root
     else
       if rem(div(index, 2 ** i), 2) == 1 do
