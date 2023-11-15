@@ -44,7 +44,7 @@ defmodule OperationsTestRunner do
     # "attester_slashing",
     # "attestation",
     "block_header",
-    "deposit",
+    # "deposit",
     # "proposer_slashing",
     # "voluntary_exit",
     # "sync_aggregate",

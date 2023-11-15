@@ -169,7 +169,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
           SszTypes.bls_signature()
         ) :: {:ok, BeaconState.t()} | {:error, binary()}
   def apply_deposit(state, pubkey, withdrawal_credentials, amount, signature) do
-    validator_pubkeys = Enum.map(state.validator, fn validator -> validator.pubkey end)
+    validator_pubkeys = Enum.map(state.validators, fn validator -> validator.pubkey end)
 
     if Enum.member?(validator_pubkeys, pubkey) do
       index = Enum.find_index(validator_pubkeys, fn validator -> validator == pubkey end)
@@ -202,16 +202,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         state
         | validators:
             state.validators ++
-              [
                 Accessors.get_validator_from_deposit(
                   pubkey,
                   withdrawal_credentials,
                   amount
-                )
-              ],
-          previous_epoch_participation: state.previous_epoch_participation ++ [<<0>>],
-          current_epoch_participation: state.current_epoch_participation ++ [<<0>>],
-          inactivity_scores: state.inactivity_scores ++ [0]
+                ),
+          previous_epoch_participation: state.previous_epoch_participation ++ <<0>>,
+          current_epoch_participation: state.current_epoch_participation ++ <<0>>,
+          inactivity_scores: state.inactivity_scores ++ 0
       }
 
       {:ok, state}

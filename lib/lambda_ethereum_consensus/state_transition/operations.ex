@@ -384,7 +384,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:ok, deposit_data_root} ->
         is_valid =
           Predicates.is_valid_merkle_branch(
-            Ssz.hash_tree_root(deposit.data),
+            deposit_data_root,
             deposit.proof,
             Constants.deposit_contract_tree_depth() + 1,
             state.eth1_deposit_index,
