@@ -66,18 +66,14 @@ defmodule LambdaEthereumConsensus.SszEx do
             {[sum | res], element + acc}
           end)
 
-        variable_offsets
-        |> Enum.reverse()
-        |> Enum.map(&encode(&1, {:int, 32}))
-        |> flatten_results()
-        |> case do
-          {:ok, encoded_variable_offsets} ->
-            (encoded_variable_offsets ++ encoded_variable_parts)
-            |> :binary.list_to_bin()
-            |> then(&{:ok, &1})
-
-          error ->
-            error
+        with {:ok, encoded_variable_offsets} <-
+               variable_offsets
+               |> Enum.reverse()
+               |> Enum.map(&encode(&1, {:int, 32}))
+               |> flatten_results() do
+          (encoded_variable_offsets ++ encoded_variable_parts)
+          |> :binary.list_to_bin()
+          |> then(&{:ok, &1})
         end
       else
         {:error, "invalid lengths"}
@@ -86,41 +82,34 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   defp encode_variable_parts(list, basic_type) do
-    Enum.reduce_while(list, {:ok, {[], [], 0}}, fn value, {:ok, {res_encoded, res_size, acc}} ->
-      case encode(value, basic_type) do
-        {:ok, encoded} ->
-          size = byte_size(encoded)
-          {:cont, {:ok, {[encoded | res_encoded], [size | res_size], size + acc}}}
+    with {:ok, {encoded_list, byte_size_list, total_byte_size}} <-
+           Enum.reduce_while(list, {:ok, {[], [], 0}}, fn value,
+                                                          {:ok, {res_encoded, res_size, acc}} ->
+             case encode(value, basic_type) do
+               {:ok, encoded} ->
+                 size = byte_size(encoded)
+                 {:cont, {:ok, {[encoded | res_encoded], [size | res_size], size + acc}}}
 
-        error ->
-          {:halt, {:error, error}}
-      end
-    end)
-    |> case do
-      {:ok, {encoded_list, byte_size_list, total_byte_size}} ->
-        {:ok, {Enum.reverse(encoded_list), Enum.reverse(byte_size_list), total_byte_size}}
-
-      error ->
-        error
+               error ->
+                 {:halt, {:error, error}}
+             end
+           end) do
+      {:ok, {Enum.reverse(encoded_list), Enum.reverse(byte_size_list), total_byte_size}}
     end
   end
 
   defp decode_list(binary, basic_type, size) do
     fixed_size = get_fixed_size(basic_type)
 
-    binary
-    |> decode_chunk(fixed_size, basic_type)
-    |> flatten_results()
-    |> case do
-      {:ok, decoded_list} = result ->
-        if length(decoded_list) > size do
-          {:error, "invalid length list"}
-        else
-          result
-        end
-
-      error ->
-        error
+    with {:ok, decoded_list} = result <-
+           binary
+           |> decode_chunk(fixed_size, basic_type)
+           |> flatten_results() do
+      if length(decoded_list) > size do
+        {:error, "invalid length list"}
+      else
+        result
+      end
     end
   end
 
