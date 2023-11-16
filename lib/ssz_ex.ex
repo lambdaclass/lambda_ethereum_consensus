@@ -41,72 +41,109 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_bool("\x01"), do: {:ok, true}
   defp decode_bool("\x00"), do: {:ok, false}
 
+  defp encode_fixed_size_list(list, _basic_type, max_size) when length(list) > max_size,
+    do: {:error, "invalid size for list"}
+
   defp encode_fixed_size_list(list, basic_type, _size) when is_list(list) do
     list
     |> Enum.map(&encode(&1, basic_type))
-    |> Enum.map(fn {:ok, result} -> result end)
-    |> :binary.list_to_bin()
-    |> then(&{:ok, &1})
+    |> flatten_results_by(&Enum.join/1)
   end
 
+  defp encode_variable_size_list(list, _basic_type, max_size) when length(list) > max_size,
+    do: {:error, "invalid size for list"}
+
   defp encode_variable_size_list(list, basic_type, _size) when is_list(list) do
-    fixed_lengths = List.duplicate(@bytes_per_length_offset, length(list))
+    fixed_lengths = @bytes_per_length_offset * length(list)
 
-    variable_parts =
-      list
-      |> Enum.map(&encode(&1, basic_type))
-      |> Enum.map(fn {:ok, result} -> result end)
+    with {:ok, {encoded_variable_parts, variable_offsets_list, total_byte_size}} <-
+           encode_variable_parts(list, basic_type) do
+      if fixed_lengths + total_byte_size <
+           2 ** (@bytes_per_length_offset * @bits_per_byte) do
+        {variable_offsets, _} =
+          Enum.reduce(variable_offsets_list, {[], 0}, fn element, {res, acc} ->
+            sum = fixed_lengths + acc
+            {[sum | res], element + acc}
+          end)
 
-    variable_lengths =
-      variable_parts
-      |> Enum.map(&byte_size(&1))
+        variable_offsets
+        |> Enum.reverse()
+        |> Enum.map(&encode(&1, {:int, 32}))
+        |> flatten_results()
+        |> case do
+          {:ok, encoded_variable_offsets} ->
+            (encoded_variable_offsets ++ encoded_variable_parts)
+            |> :binary.list_to_bin()
+            |> then(&{:ok, &1})
 
-    if Enum.sum(fixed_lengths ++ variable_lengths) <
-         2 ** (@bytes_per_length_offset * @bits_per_byte) do
-      variable_offsets =
-        0..(length(list) - 1)
-        |> Enum.map(fn i ->
-          slice_variable_legths = Enum.take(variable_lengths, i)
-          sum = Enum.sum(fixed_lengths ++ slice_variable_legths)
-          {:ok, result} = encode(sum, {:int, 32})
-          result
-        end)
-
-      (variable_offsets ++ variable_parts)
-      |> :binary.list_to_bin()
-      |> then(&{:ok, &1})
-    else
-      {:error, "invalid lengths"}
+          error ->
+            error
+        end
+      else
+        {:error, "invalid lengths"}
+      end
     end
   end
 
-  defp decode_list(binary, basic_type, _size) do
-    fixed_size = get_fixed_size(basic_type)
+  defp encode_variable_parts(list, basic_type) do
+    Enum.reduce_while(list, {:ok, {[], [], 0}}, fn value, {:ok, {res_encoded, res_size, acc}} ->
+      case encode(value, basic_type) do
+        {:ok, encoded} ->
+          size = byte_size(encoded)
+          {:cont, {:ok, {[encoded | res_encoded], [size | res_size], size + acc}}}
 
-    :binary.bin_to_list(binary)
-    |> Enum.chunk_every(fixed_size)
-    |> Enum.map(&:binary.list_to_bin(&1))
-    |> Enum.map(&decode(&1, basic_type))
-    |> Enum.map(fn {:ok, result} -> result end)
-    |> then(&{:ok, &1})
+        error ->
+          {:halt, {:error, error}}
+      end
+    end)
+    |> case do
+      {:ok, {encoded_list, byte_size_list, total_byte_size}} ->
+        {:ok, {Enum.reverse(encoded_list), Enum.reverse(byte_size_list), total_byte_size}}
+
+      error ->
+        error
+    end
   end
 
-  defp decode_variable_list(binary, basic_type, _size) do
-    if byte_size(binary) == 0 do
-      {:error, "Error trying to collect empty list"}
+  defp decode_list(binary, basic_type, size) do
+    fixed_size = get_fixed_size(basic_type)
+
+    binary
+    |> decode_chunk(fixed_size, basic_type)
+    |> flatten_results()
+    |> case do
+      {:ok, decoded_list} = result ->
+        if length(decoded_list) > size do
+          {:error, "invalid length list"}
+        else
+          result
+        end
+
+      error ->
+        error
+    end
+  end
+
+  defp decode_variable_list(binary, _, _) when byte_size(binary) == 0 do
+    {:error, "Error trying to collect empty list"}
+  end
+
+  defp decode_variable_list(binary, basic_type, size) do
+    <<first_offset::integer-32-little, rest_bytes::bitstring>> = binary
+    num_items = div(first_offset, @bytes_per_length_offset)
+
+    if Integer.mod(first_offset, @bytes_per_length_offset) != 0 ||
+         first_offset < @bytes_per_length_offset do
+      {:error, "InvalidListFixedBytesLen"}
     else
-      <<first_offset::integer-32-little, rest_bytes::bitstring>> = binary
-      num_items = div(first_offset, @bytes_per_length_offset)
+      with {:ok, first_offset} <-
+             sanitize_offset(first_offset, nil, byte_size(binary), first_offset) do
+        {:ok, {decoded_list, _, _}} =
+          decode_variable_list(first_offset, rest_bytes, num_items, binary, basic_type)
 
-      if Integer.mod(first_offset, @bytes_per_length_offset) != 0 ||
-           first_offset < @bytes_per_length_offset do
-        {:error, "InvalidListFixedBytesLen"}
-      else
-        with {:ok, first_offset} <-
-               sanitize_offset(first_offset, nil, byte_size(binary), first_offset) do
-          {:ok, {decoded_list, _, _}} =
-            decode_variable_list(first_offset, rest_bytes, num_items, binary, basic_type)
-
+        if length(decoded_list) > size do
+          {:error, "invalid length list"}
+        else
           {:ok, decoded_list |> Enum.reverse()}
         end
       end
@@ -168,6 +205,29 @@ defmodule LambdaEthereumConsensus.SszEx do
 
       true ->
         {:ok, offset}
+    end
+  end
+
+  defp decode_chunk(binary, chunk_size, basic_type) do
+    decode_chunk(binary, chunk_size, basic_type, [])
+    |> Enum.reverse()
+  end
+
+  defp decode_chunk(<<>>, _chunk_size, _basic_type, results), do: results
+
+  defp decode_chunk(binary, chunk_size, basic_type, results) do
+    <<element::binary-size(chunk_size), rest::bitstring>> = binary
+    decode_chunk(rest, chunk_size, basic_type, [decode(element, basic_type) | results])
+  end
+
+  defp flatten_results(results) do
+    flatten_results_by(results, &Function.identity/1)
+  end
+
+  defp flatten_results_by(results, fun) do
+    case Enum.group_by(results, fn {type, _} -> type end, fn {_, result} -> result end) do
+      %{error: errors} -> {:error, errors}
+      summary -> {:ok, fun.(Map.get(summary, :ok, []))}
     end
   end
 
