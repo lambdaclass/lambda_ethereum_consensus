@@ -422,27 +422,4 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
   end
-
-  @spec get_validator_from_deposit(SszTypes.bls_pubkey(), SszTypes.bytes32(), SszTypes.uint64()) ::
-          SszTypes.Validator.t()
-  def get_validator_from_deposit(pubkey, withdrawal_credentials, amount) do
-    effective_balance =
-      min(
-        amount - rem(amount, ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")),
-        ChainSpec.get("MAX_EFFECTIVE_BALANCE")
-      )
-
-    far_future_epoch = Constants.far_future_epoch()
-
-    %SszTypes.Validator{
-      pubkey: pubkey,
-      withdrawal_credentials: withdrawal_credentials,
-      activation_eligibility_epoch: far_future_epoch,
-      activation_epoch: far_future_epoch,
-      exit_epoch: far_future_epoch,
-      withdrawable_epoch: far_future_epoch,
-      effective_balance: effective_balance,
-      slashed: false
-    }
-  end
 end

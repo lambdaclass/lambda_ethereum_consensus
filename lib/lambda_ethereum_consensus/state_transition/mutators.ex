@@ -171,42 +171,41 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   def apply_deposit(state, pubkey, withdrawal_credentials, amount, signature) do
     validator_pubkeys = Enum.map(state.validators, fn validator -> validator.pubkey end)
 
-    if Enum.member?(validator_pubkeys, pubkey) do
-      index = Enum.find_index(validator_pubkeys, fn validator -> validator == pubkey end)
-      state = increase_balance(state, index, amount)
-      {:ok, state}
-    else
-      deposit_message = %SszTypes.DepositMessage{
-        pubkey: pubkey,
-        withdrawal_credentials: withdrawal_credentials,
-        amount: amount
-      }
+    case Enum.find_index(state.validators, fn validator -> validator.pubkey == pubkey end) do
+      index when is_number(index) ->
+        index = Enum.find_index(validator_pubkeys, fn validator -> validator == pubkey end)
+        {:ok, increase_balance(state, index, amount)}
 
-      domain = Misc.compute_domain(Constants.domain_deposit())
+      _ ->
+        deposit_message = %SszTypes.DepositMessage{
+          pubkey: pubkey,
+          withdrawal_credentials: withdrawal_credentials,
+          amount: amount
+        }
 
-      signing_root = Misc.compute_signing_root(deposit_message, domain)
+        domain = Misc.compute_domain(Constants.domain_deposit())
 
-      case Bls.verify(pubkey, signing_root, signature) do
-        {:ok, verified} ->
+        signing_root = Misc.compute_signing_root(deposit_message, domain)
+
+        with {:ok, verified} <- Bls.verify(pubkey, signing_root, signature) do
           apply_initial_deposit(verified, state, pubkey, withdrawal_credentials, amount)
-
-        {:error, msg} ->
-          {:error, msg}
-      end
+        end
     end
   end
 
   defp apply_initial_deposit(verified, state, pubkey, withdrawal_credentials, amount) do
-    if verified do
+    if verified == true do
       state = %BeaconState{
         state
         | validators:
             state.validators ++
-                [Accessors.get_validator_from_deposit(
+              [
+                SszTypes.Deposit.get_validator_from_deposit(
                   pubkey,
                   withdrawal_credentials,
                   amount
-                )],
+                )
+              ],
           previous_epoch_participation: state.previous_epoch_participation ++ [0],
           current_epoch_participation: state.current_epoch_participation ++ [0],
           inactivity_scores: state.inactivity_scores ++ [0]
