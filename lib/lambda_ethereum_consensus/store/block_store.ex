@@ -33,21 +33,6 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     end
   end
 
-  @spec get_blocks(list(SszTypes.root())) ::
-          {:ok, list(SszTypes.SignedBeaconBlock.t())} | {:error, String.t()} | :not_found
-  def get_blocks(block_roots) do
-    block_roots
-    |> Enum.reduce([], fn block_root, blocks ->
-      key = block_key(block_root)
-      result = Db.get(key)
-
-      case result do
-        {:ok, block} -> blocks ++ [{:ok, Ssz.from_ssz(block, SszTypes.SignedBeaconBlock)}]
-        _ -> blocks ++ [result]
-      end
-    end)
-  end
-
   @spec get_block_root_by_slot(SszTypes.slot()) ::
           {:ok, SszTypes.root()} | {:error, String.t()} | :not_found
   def get_block_root_by_slot(slot) do

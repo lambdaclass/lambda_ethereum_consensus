@@ -12,9 +12,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
   # This is the `Resource Available` error message in binary
   # TODO: compute this and other messages at runtime
-  @error_message_resourse_avalaible <<?R, ?e, ?s, ?o, ?u, ?r, ?c, ?e, 32, ?U, ?n, ?a, ?v, ?a, ?i,
-                                      ?l, ?a, ?b, ?l, ?e>>
-  @error_message_server_error <<?S, ?e, ?r, ?v, ?e, ?r, 32, ?E, ?r, ?r, ?o, ?r>>
+  @error_message_resource_available "Resource Unavailable"
+  @error_message_server_error "Server Error"
 
   def handle(name, message_id, message) do
     case handle_req(name, message_id, message) do
@@ -104,50 +103,25 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
          {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
          {:ok, blocks_by_range_request} <-
            Ssz.from_ssz(ssz_blocks_by_range_request, SszTypes.BeaconBlocksByRangeRequest) do
-      blocks_by_range_request
-      |> inspect(limit: :infinity)
-      |> then(&"[Received BlocksByRange Request] '#{&1}'")
-      |> Logger.debug()
-
       ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
       %SszTypes.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
         blocks_by_range_request
 
-      count =
-        if count > ChainSpec.get("MAX_REQUEST_BLOCKS") do
-          ChainSpec.get("MAX_REQUEST_BLOCKS")
-        else
-          count
-        end
+      "[Received BlocksByRange Request] requested slots #{start_slot} to #{start_slot + count - 1}"
+      |> Logger.info()
+
+      count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
       slot_coverage = start_slot + (count - 1)
 
       blocks =
         start_slot..slot_coverage
-        |> Enum.map(fn slot -> BlockStore.get_block_by_slot(slot) end)
+        |> Enum.map(&BlockStore.get_block_by_slot/1)
 
       response_chunk =
         blocks
-        |> Enum.reduce(<<>>, fn block_response, response_chunk ->
-          case block_response do
-            {:ok, block} ->
-              with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
-                   {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
-                size_header =
-                  ssz_signed_block
-                  |> byte_size()
-                  |> P2P.Utils.encode_varint()
-
-                response_chunk <> <<0>> <> @fork_context <> size_header <> snappy_ssz_signed_block
-              else
-                {:error, _} ->
-                  response_chunk <> <<2>> <> @error_message_server_error
-              end
-
-            _ ->
-              response_chunk <> <<3>> <> @error_message_resourse_avalaible
-          end
-        end)
+        |> Enum.map(&create_block_response_chunk/1)
+        |> Enum.join()
 
       Libp2pPort.send_response(message_id, response_chunk)
     end
@@ -157,5 +131,40 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     # This should never happen, since Libp2p only accepts registered protocols
     Logger.error("Unsupported protocol: #{protocol}")
     :ok
+  end
+
+  defp create_block_response_chunk(maybe_block) do
+    case maybe_block do
+      {:ok, block} ->
+        with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
+             {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
+          size_header =
+            ssz_signed_block
+            |> byte_size()
+            |> P2P.Utils.encode_varint()
+
+          <<0>> <> @fork_context <> size_header <> snappy_ssz_signed_block
+        else
+          {:error, _} ->
+            ## TODO: Add SSZ encoding
+            size_header =
+              @error_message_server_error
+              |> byte_size()
+              |> P2P.Utils.encode_varint()
+
+            {:ok, snappy_message} = Snappy.compress(@error_message_server_error)
+            <<2>> <> size_header <> snappy_message
+        end
+
+      _ ->
+        ## TODO: Add SSZ encoding
+        size_header =
+          @error_message_resource_available
+          |> byte_size()
+          |> P2P.Utils.encode_varint()
+
+        {:ok, snappy_message} = Snappy.compress(@error_message_resource_available)
+        <<3>> <> size_header <> snappy_message
+    end
   end
 end
