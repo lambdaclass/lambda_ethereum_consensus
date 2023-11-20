@@ -130,6 +130,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
       end
     end
   end
+
   # def is_valid_merkle_branch?(leaf, branch, depth, index, root) do
   #   root ==
   #     branch
@@ -145,7 +146,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   # defp hash_merkle_node(value_1, value_2, _index, _i) do
   #   :crypto.hash(:sha256, value_2 <> value_1)
   # end
-
 
   @doc """
   Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
