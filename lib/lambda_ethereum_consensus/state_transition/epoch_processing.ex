@@ -3,13 +3,29 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   This module contains utility functions for handling epoch processing
   """
 
-  alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.StateTransition.Mutators
-  alias LambdaEthereumConsensus.StateTransition.Predicates
-  alias SszTypes.BeaconState
-  alias SszTypes.HistoricalSummary
-  alias SszTypes.Validator
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
+  alias SszTypes.{BeaconState, HistoricalSummary, Validator}
+
+  @spec process_sync_committee_updates(BeaconState.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_sync_committee_updates(
+        %BeaconState{next_sync_committee: next_sync_committee} = state
+      ) do
+    next_epoch = Accessors.get_current_epoch(state) + 1
+
+    if rem(next_epoch, ChainSpec.get("EPOCHS_PER_SYNC_COMMITTEE_PERIOD")) == 0 do
+      with {:ok, new_next_sync_committee} <- Accessors.get_next_sync_committee(state) do
+        {:ok,
+         %BeaconState{
+           state
+           | current_sync_committee: next_sync_committee,
+             next_sync_committee: new_next_sync_committee
+         }}
+      end
+    else
+      {:ok, state}
+    end
+  end
 
   @spec process_effective_balance_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()}
@@ -330,5 +346,33 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   def process_justification_and_finalization(state) do
     # TODO: implement this
     state
+  end
+
+  @spec process_rewards_and_penalties(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_rewards_and_penalties(%BeaconState{} = state) do
+    # No rewards are applied at the end of `GENESIS_EPOCH` because rewards are for work done in the previous epoch
+    if Accessors.get_current_epoch(state) == Constants.genesis_epoch() do
+      {:ok, state}
+    else
+      flag_deltas =
+        Constants.participation_flag_weights()
+        |> Stream.with_index()
+        |> Enum.map(fn {_, index} -> BeaconState.get_flag_index_deltas(state, index) end)
+
+      deltas = flag_deltas ++ [BeaconState.get_inactivity_penalty_deltas(state)]
+
+      Enum.reduce(deltas, state, fn {rewards, penalties}, state ->
+        state.validators
+        |> Stream.with_index()
+        |> Enum.reduce(state, &apply_reward_and_penalty(&1, &2, rewards, penalties))
+      end)
+      |> then(&{:ok, &1})
+    end
+  end
+
+  defp apply_reward_and_penalty({_, index}, state, rewards, penalties) do
+    state
+    |> Mutators.increase_balance(index, Enum.at(rewards, index))
+    |> BeaconState.decrease_balance(index, Enum.at(penalties, index))
   end
 end

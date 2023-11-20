@@ -12,7 +12,7 @@ defmodule EpochProcessingTestRunner do
   @disabled_handlers [
     "justification_and_finalization",
     # "inactivity_updates",
-    "rewards_and_penalties",
+    # "rewards_and_penalties",
     # "registry_updates",
     # "slashings",
     # "effective_balance_updates",
@@ -20,9 +20,9 @@ defmodule EpochProcessingTestRunner do
     # "slashings_reset",
     # "randao_mixes_reset",
     # "historical_summaries_update",
-    "participation_record_updates",
+    "participation_record_updates"
     # "participation_flag_updates",
-    "sync_committee_updates"
+    # "sync_committee_updates"
   ]
 
   @deprecated_handlers [

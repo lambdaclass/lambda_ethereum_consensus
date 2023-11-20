@@ -16,7 +16,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
-	"github.com/multiformats/go-multiaddr"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type responseChannel = chan []byte
@@ -56,13 +56,17 @@ func (l *Listener) HostId() []byte {
 func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
 	addrInfo := peer.AddrInfo{ID: peer.ID(id)}
 	for _, addr := range addrs {
-		maddr, err := multiaddr.NewMultiaddr(addr)
+		maddr, err := ma.NewMultiaddr(addr)
 		// TODO: return error to caller
 		utils.PanicIfError(err)
 		addrInfo.Addrs = append(addrInfo.Addrs, maddr)
 	}
+	l.AddPeerWithAddrInfo(addrInfo, ttl)
+}
+
+func (l *Listener) AddPeerWithAddrInfo(addrInfo peer.AddrInfo, ttl int64) {
 	l.hostHandle.Connect(context.TODO(), addrInfo)
-	notification := proto_helpers.NewPeerNotification(id)
+	notification := proto_helpers.NewPeerNotification([]byte(addrInfo.ID))
 	l.port.SendNotification(&notification)
 }
 

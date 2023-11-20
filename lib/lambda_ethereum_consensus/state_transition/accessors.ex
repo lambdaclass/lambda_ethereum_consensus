@@ -3,14 +3,101 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Functions accessing the current beacon state
   """
 
-  alias ChainSpec
-  alias LambdaEthereumConsensus.StateTransition.Math
-  alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.StateTransition.Predicates
-  alias SszTypes
-  alias SszTypes.Attestation
-  alias SszTypes.BeaconState
-  alias SszTypes.IndexedAttestation
+  alias LambdaEthereumConsensus.StateTransition.{Math, Misc, Predicates}
+  alias SszTypes.{Attestation, BeaconState, IndexedAttestation, SyncCommittee}
+
+  @doc """
+    Return the next sync committee, with possible pubkey duplicates.
+  """
+  @spec get_next_sync_committee(BeaconState.t()) ::
+          {:ok, SyncCommittee.t()} | {:error, String.t()}
+  def get_next_sync_committee(%BeaconState{validators: validators} = state) do
+    with {:ok, indices} <- get_next_sync_committee_indices(state),
+         pubkeys <- indices |> Enum.map(fn index -> Enum.fetch!(validators, index).pubkey end),
+         {:ok, aggregate_pubkey} <- Bls.eth_aggregate_pubkeys(pubkeys) do
+      {:ok, %SyncCommittee{pubkeys: pubkeys, aggregate_pubkey: aggregate_pubkey}}
+    end
+  end
+
+  @spec get_next_sync_committee_indices(BeaconState.t()) ::
+          {:ok, list(SszTypes.validator_index())} | {:error, String.t()}
+  defp get_next_sync_committee_indices(%BeaconState{validators: validators} = state) do
+    # Return the sync committee indices, with possible duplicates, for the next sync committee.
+    epoch = get_current_epoch(state) + 1
+    active_validator_indices = get_active_validator_indices(state, epoch)
+    active_validator_count = length(active_validator_indices)
+    seed = get_seed(state, epoch, Constants.domain_sync_committee())
+
+    compute_sync_committee_indices(
+      active_validator_count,
+      active_validator_indices,
+      seed,
+      validators
+    )
+  end
+
+  defp compute_sync_committee_indices(
+         active_validator_count,
+         active_validator_indices,
+         seed,
+         validators
+       ) do
+    max_uint64 = 2 ** 64 - 1
+
+    0..max_uint64
+    |> Enum.reduce_while([], fn i, sync_committee_indices ->
+      case compute_sync_committee_index_and_return_indices(
+             i,
+             active_validator_count,
+             active_validator_indices,
+             seed,
+             validators,
+             sync_committee_indices
+           ) do
+        {:ok, sync_committee_indices} ->
+          sync_committee_indices_or_halt(sync_committee_indices)
+
+        {:error, reason} ->
+          {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp sync_committee_indices_or_halt(sync_committee_indices) do
+    case length(sync_committee_indices) < ChainSpec.get("SYNC_COMMITTEE_SIZE") do
+      true -> {:cont, sync_committee_indices}
+      false -> {:halt, {:ok, Enum.reverse(sync_committee_indices)}}
+    end
+  end
+
+  defp compute_sync_committee_index_and_return_indices(
+         index,
+         active_validator_count,
+         active_validator_indices,
+         seed,
+         validators,
+         sync_committee_indices
+       ) do
+    max_random_byte = 2 ** 8 - 1
+
+    with {:ok, shuffled_index} <-
+           rem(index, active_validator_count)
+           |> Misc.compute_shuffled_index(active_validator_count, seed) do
+      candidate_index = active_validator_indices |> Enum.fetch!(shuffled_index)
+
+      <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
+        :crypto.hash(:sha256, seed <> Misc.uint64_to_bytes(div(index, 32)))
+
+      effective_balance = Enum.fetch!(validators, candidate_index).effective_balance
+
+      if effective_balance * max_random_byte >=
+           ChainSpec.get("MAX_EFFECTIVE_BALANCE") * random_byte do
+        {:ok, sync_committee_indices |> List.insert_at(0, candidate_index)}
+      else
+        {:ok, sync_committee_indices}
+      end
+    end
+  end
 
   @doc """
   Return the sequence of active validator indices at ``epoch``.
@@ -79,7 +166,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
       {:ok, MapSet.new(participating_indices)}
     else
-      {:error, "epoch is not present in get_current_epoch or get_previous_epoch of the state"}
+      {:error, "epoch is not current or previous epochs"}
     end
   end
 
@@ -410,11 +497,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   Math safe up to ~10B ETH, after which this overflows uint64.
   """
-  @spec get_total_balance(BeaconState.t(), list(SszTypes.validator_index())) :: SszTypes.gwei()
+  @spec get_total_balance(BeaconState.t(), Enumerable.t(SszTypes.validator_index())) ::
+          SszTypes.gwei()
   def get_total_balance(state, indices) do
     total_balance =
       indices
-      |> Enum.map(fn index -> Map.get(Enum.at(state.validators, index), :effective_balance, 0) end)
+      |> Stream.map(fn index ->
+        Map.get(Enum.at(state.validators, index), :effective_balance, 0)
+      end)
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
