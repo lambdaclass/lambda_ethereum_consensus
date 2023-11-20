@@ -40,7 +40,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
   @spec perform_sync([chunk()]) :: :ok
   def perform_sync(chunks) do
-    Logger.info("[Optimistic Sync] Blocks remaining: #{Enum.count(chunks) * @blocks_per_chunk}")
+    remaining = chunks |> Stream.map(fn %{count: c} -> c end) |> Enum.sum()
+    Logger.info("[Optimistic Sync] Blocks remaining: #{remaining}")
 
     results =
       chunks
