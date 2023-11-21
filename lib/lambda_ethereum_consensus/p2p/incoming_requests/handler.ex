@@ -120,8 +120,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
       response_chunk =
         blocks
-        |> Enum.map(&create_block_response_chunk/1)
-        |> Enum.join()
+        |> Enum.map_join(&create_block_response_chunk/1)
 
       Libp2pPort.send_response(message_id, response_chunk)
     end
@@ -133,38 +132,47 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     :ok
   end
 
-  defp create_block_response_chunk(maybe_block) do
-    case maybe_block do
-      {:ok, block} ->
-        with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
-             {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
-          size_header =
-            ssz_signed_block
-            |> byte_size()
-            |> P2P.Utils.encode_varint()
+  defp create_block_response_chunk({:ok, block}) do
+    with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
+         {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
+      size_header =
+        ssz_signed_block
+        |> byte_size()
+        |> P2P.Utils.encode_varint()
 
-          <<0>> <> @fork_context <> size_header <> snappy_ssz_signed_block
-        else
-          {:error, _} ->
-            ## TODO: Add SSZ encoding
-            size_header =
-              @error_message_server_error
-              |> byte_size()
-              |> P2P.Utils.encode_varint()
-
-            {:ok, snappy_message} = Snappy.compress(@error_message_server_error)
-            <<2>> <> size_header <> snappy_message
-        end
-
-      _ ->
+      <<0>> <> @fork_context <> size_header <> snappy_ssz_signed_block
+    else
+      {:error, _} ->
         ## TODO: Add SSZ encoding
         size_header =
-          @error_message_resource_available
+          @error_message_server_error
           |> byte_size()
           |> P2P.Utils.encode_varint()
 
-        {:ok, snappy_message} = Snappy.compress(@error_message_resource_available)
-        <<3>> <> size_header <> snappy_message
+        {:ok, snappy_message} = Snappy.compress(@error_message_server_error)
+        <<2>> <> size_header <> snappy_message
     end
+  end
+
+  defp create_block_response_chunk({:error, _}) do
+    ## TODO: Add SSZ encoding
+    size_header =
+      @error_message_resource_available
+      |> byte_size()
+      |> P2P.Utils.encode_varint()
+
+    {:ok, snappy_message} = Snappy.compress(@error_message_resource_available)
+    <<3>> <> size_header <> snappy_message
+  end
+
+  defp create_block_response_chunk(:not_found) do
+    ## TODO: Add SSZ encoding
+    size_header =
+      @error_message_resource_available
+      |> byte_size()
+      |> P2P.Utils.encode_varint()
+
+    {:ok, snappy_message} = Snappy.compress(@error_message_resource_available)
+    <<3>> <> size_header <> snappy_message
   end
 end
