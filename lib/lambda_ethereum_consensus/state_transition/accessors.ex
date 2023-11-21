@@ -252,7 +252,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the number of committees in each slot for the given ``epoch``.
   """
   @spec get_committee_count_per_slot(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
-  def get_committee_count_per_slot(state, epoch) do
+  def get_committee_count_per_slot(%BeaconState{} = state, epoch) do
     active_validators_count = length(get_active_validator_indices(state, epoch))
 
     committee_size =
@@ -270,7 +270,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.commitee_index()) ::
           {:ok, list(SszTypes.validator_index())} | {:error, binary()}
-  def get_beacon_committee(state, slot, index) do
+  def get_beacon_committee(%BeaconState{} = state, slot, index) do
     epoch = Misc.compute_epoch_at_slot(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch)
 
@@ -438,7 +438,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_indexed_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, IndexedAttestation.t()} | {:error, binary()}
-  def get_indexed_attestation(state, attestation) do
+  def get_indexed_attestation(%BeaconState{} = state, attestation) do
     case get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
       {:ok, indices} ->
         attesting_indices = indices
@@ -462,7 +462,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_attesting_indices(BeaconState.t(), SszTypes.AttestationData.t(), SszTypes.bitlist()) ::
           {:ok, MapSet.t()} | {:error, binary()}
-  def get_attesting_indices(state, data, bits) do
+  def get_attesting_indices(%BeaconState{} = state, data, bits) do
     case get_beacon_committee(state, data.slot, data.index) do
       {:ok, committee} ->
         bit_list = bitstring_to_list(bits)
