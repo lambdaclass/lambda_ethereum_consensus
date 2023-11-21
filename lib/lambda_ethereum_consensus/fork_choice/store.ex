@@ -173,7 +173,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs})
   end
 
-  defp on_tick_now(store), do: Handlers.on_tick(store, :os.system_time(:second))
+  defp on_tick_now(store) do
+    new_store = Handlers.on_tick(store, :os.system_time(:second))
+    current_slot = Store.get_current_slot(new_store)
+    :telemetry.execute([:sync, :store], %{slot: current_slot})
+  end
 
   defp schedule_next_tick do
     # For millisecond precision
