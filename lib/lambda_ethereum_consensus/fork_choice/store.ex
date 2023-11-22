@@ -177,6 +177,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     new_store = Handlers.on_tick(store, :os.system_time(:second))
     current_slot = Store.get_current_slot(new_store)
     :telemetry.execute([:sync, :store], %{slot: current_slot})
+    new_store
   end
 
   defp schedule_next_tick do
