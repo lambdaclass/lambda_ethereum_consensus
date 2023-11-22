@@ -653,14 +653,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         hash = :crypto.hash(:sha256, randao_reveal)
 
         # Mix in RANDAO reveal
-        mix =
-          Enum.zip(:binary.bin_to_list(randao_mix), :binary.bin_to_list(hash))
-          |> Enum.map_join(fn {left, rigth} -> Bitwise.bxor(left, rigth) end)
+        mix = :crypto.exor(randao_mix, hash)
 
         updated_randao_mixes =
           List.replace_at(
             state.randao_mixes,
-            Integer.mod(epoch, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")),
+            rem(epoch, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")),
             mix
           )
 
@@ -670,7 +668,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
            | randao_mixes: updated_randao_mixes
          }}
       else
-        {:error, "unable to verify public signature while executing process_randao"}
+        {:error, "invalid randao reveal"}
       end
     end
   end
