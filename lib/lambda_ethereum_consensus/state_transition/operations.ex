@@ -717,47 +717,39 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_bls_to_execution_change(state, signed_address_change) do
     address_change = signed_address_change.message
 
-    case validate_address_change(state, address_change) do
-      {:ok, _} ->
-        validator = Enum.at(state.validators, address_change.validator_index)
+    with {:ok, _} <- validate_address_change(state, address_change) do
+      validator = Enum.at(state.validators, address_change.validator_index)
 
-        case validate_withdrawal_credentials(validator, address_change) do
-          {:ok, _} ->
-            domain =
-              Misc.compute_domain(
-                Constants.domain_bls_to_execution_change(),
-                genesis_validators_root: state.genesis_validators_root
-              )
+      with {:ok, _} <- validate_withdrawal_credentials(validator, address_change) do
+        domain =
+          Misc.compute_domain(
+            Constants.domain_bls_to_execution_change(),
+            genesis_validators_root: state.genesis_validators_root
+          )
 
-            signing_root = Misc.compute_signing_root(address_change, domain)
+        signing_root = Misc.compute_signing_root(address_change, domain)
 
-            if Bls.valid?(
-                 address_change.from_bls_pubkey,
-                 signing_root,
-                 signed_address_change.signature
-               ) do
-              new_withdrawal_credentials =
-                Constants.eth1_address_withdrawal_prefix() <>
-                  <<0::size(88)>> <> address_change.to_execution_address
+        if Bls.valid?(
+             address_change.from_bls_pubkey,
+             signing_root,
+             signed_address_change.signature
+           ) do
+          new_withdrawal_credentials =
+            Constants.eth1_address_withdrawal_prefix() <>
+              <<0::size(88)>> <> address_change.to_execution_address
 
-              updated_validators =
-                update_validator_withdrawal_credentials(
-                  state.validators,
-                  address_change.validator_index,
-                  new_withdrawal_credentials
-                )
+          updated_validators =
+            update_validator_withdrawal_credentials(
+              state.validators,
+              address_change.validator_index,
+              new_withdrawal_credentials
+            )
 
-              {:ok, %BeaconState{state | validators: updated_validators}}
-            else
-              {:error, "bls verification failed"}
-            end
-
-          {:error, msg} ->
-            {:error, msg}
+          {:ok, %BeaconState{state | validators: updated_validators}}
+        else
+          {:error, "bls verification failed"}
         end
-
-      {:error, msg} ->
-        {:error, msg}
+      end
     end
   end
 
@@ -770,9 +762,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp validate_withdrawal_credentials(validator, address_change) do
-    if binary_part(validator.withdrawal_credentials, 0, 1) == Constants.bls_withdrawal_prefix() and
-         binary_part(validator.withdrawal_credentials, 1, 31) ==
-           binary_part(:crypto.hash(:sha256, address_change.from_bls_pubkey), 1, 31) do
+    <<prefix::binary-size(1), address::binary-size(31)>> = validator.withdrawal_credentials
+    <<_, hash::binary-size(31)>> = :crypto.hash(:sha256, address_change.from_bls_pubkey)
+
+    if prefix == Constants.bls_withdrawal_prefix() and address == hash do
       {:ok, true}
     else
       {:error, "Invalid withdrawal credentials"}

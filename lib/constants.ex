@@ -6,10 +6,10 @@ defmodule Constants do
   @spec genesis_epoch() :: integer
   def genesis_epoch, do: 0
 
-  @spec bls_withdrawal_prefix() :: <<_::1>>
+  @spec bls_withdrawal_prefix() :: <<_::8>>
   def bls_withdrawal_prefix, do: <<0>>
 
-  @spec eth1_address_withdrawal_prefix() :: <<_::1>>
+  @spec eth1_address_withdrawal_prefix() :: <<_::8>>
   def eth1_address_withdrawal_prefix, do: <<1>>
 
   @spec domain_beacon_attester() :: <<_::32>>
