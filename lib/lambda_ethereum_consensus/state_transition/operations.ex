@@ -720,7 +720,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     with {:ok, _} <- validate_address_change(state, address_change) do
       validator = Enum.at(state.validators, address_change.validator_index)
 
-      with {:ok, _} <- validate_withdrawal_credentials(validator, address_change) do
+      with {:ok} <- validate_withdrawal_credentials(validator, address_change) do
         domain =
           Misc.compute_domain(
             Constants.domain_bls_to_execution_change(),
@@ -766,7 +766,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     <<_, hash::binary-size(31)>> = :crypto.hash(:sha256, address_change.from_bls_pubkey)
 
     if prefix == Constants.bls_withdrawal_prefix() and address == hash do
-      {:ok, true}
+      {:ok}
     else
       {:error, "Invalid withdrawal credentials"}
     end
