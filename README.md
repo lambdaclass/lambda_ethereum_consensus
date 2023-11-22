@@ -358,12 +358,13 @@ A docker-compose is available at [`metrics/`](./metrics) with a Grafana-Promethe
 To run it, install [Docker Compose](https://docs.docker.com/compose/) and execute:
 
 ```shell
-cd metrics
-docker-compose up
+make grafana-up
 ```
 
 After that, open [`http://localhost:3000/`](http://localhost:3000/) in a browser.
 The default username and password are both `admin`.
+
+To stop the containers run `make grafana-down`. For cleaning up the metrics data, run `make grafana-clean`.
 
 ## Profiling
 

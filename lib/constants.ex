@@ -63,4 +63,7 @@ defmodule Constants do
 
   @spec far_future_epoch() :: integer
   def far_future_epoch, do: 2 ** 64 - 1
+
+  @spec intervals_per_slot() :: integer
+  def intervals_per_slot, do: 3
 end

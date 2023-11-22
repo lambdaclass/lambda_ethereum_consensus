@@ -5,7 +5,7 @@ config :lambda_ethereum_consensus,
   jwt_secret: "0000000000000000000000000000000000000000000000000000000000000000"
 
 # Configure logging
-config :logger, level: :info
+config :logger, level: :info, truncate: :infinity
 
 config :lambda_ethereum_consensus, ChainSpec, config: MainnetConfig
 

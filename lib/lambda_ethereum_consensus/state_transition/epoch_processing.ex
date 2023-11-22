@@ -3,13 +3,29 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   This module contains utility functions for handling epoch processing
   """
 
-  alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.StateTransition.Mutators
-  alias LambdaEthereumConsensus.StateTransition.Predicates
-  alias SszTypes.BeaconState
-  alias SszTypes.HistoricalSummary
-  alias SszTypes.Validator
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
+  alias SszTypes.{BeaconState, HistoricalSummary, Validator}
+
+  @spec process_sync_committee_updates(BeaconState.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_sync_committee_updates(
+        %BeaconState{next_sync_committee: next_sync_committee} = state
+      ) do
+    next_epoch = Accessors.get_current_epoch(state) + 1
+
+    if rem(next_epoch, ChainSpec.get("EPOCHS_PER_SYNC_COMMITTEE_PERIOD")) == 0 do
+      with {:ok, new_next_sync_committee} <- Accessors.get_next_sync_committee(state) do
+        {:ok,
+         %BeaconState{
+           state
+           | current_sync_committee: next_sync_committee,
+             next_sync_committee: new_next_sync_committee
+         }}
+      end
+    else
+      {:ok, state}
+    end
+  end
 
   @spec process_effective_balance_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()}
@@ -329,7 +345,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   @spec process_justification_and_finalization(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_justification_and_finalization(state) do
     # TODO: implement this
-    state
+    {:ok, state}
   end
 
   @spec process_rewards_and_penalties(BeaconState.t()) :: {:ok, BeaconState.t()}
