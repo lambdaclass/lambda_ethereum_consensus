@@ -10,9 +10,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   # TODO: compute this at runtime
   @fork_context "BBA4DA96" |> Base.decode16!()
 
-  # This is the `Resource Available` error message in binary
+  # This is the `Resource Unavailable` error message
   # TODO: compute this and other messages at runtime
-  @error_message_resource_available "Resource Unavailable"
+  @error_message_resource_unavailable "Resource Unavailable"
+  # This is the `Server Error` error message
+  # TODO: compute this and other messages at runtime
   @error_message_server_error "Server Error"
 
   def handle(name, message_id, message) do
@@ -157,22 +159,22 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp create_block_response_chunk({:error, _}) do
     ## TODO: Add SSZ encoding
     size_header =
-      @error_message_resource_available
+      @error_message_resource_unavailable
       |> byte_size()
       |> P2P.Utils.encode_varint()
 
-    {:ok, snappy_message} = Snappy.compress(@error_message_resource_available)
+    {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
     <<3>> <> size_header <> snappy_message
   end
 
   defp create_block_response_chunk(:not_found) do
     ## TODO: Add SSZ encoding
     size_header =
-      @error_message_resource_available
+      @error_message_resource_unavailable
       |> byte_size()
       |> P2P.Utils.encode_varint()
 
-    {:ok, snappy_message} = Snappy.compress(@error_message_resource_available)
+    {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
     <<3>> <> size_header <> snappy_message
   end
 end
