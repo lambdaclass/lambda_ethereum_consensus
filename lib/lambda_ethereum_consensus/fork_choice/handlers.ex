@@ -16,7 +16,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     Store
   }
 
-  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3]
+  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map: 2]
 
   ### Public API ###
 
@@ -33,8 +33,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     current_slot = Store.get_current_slot(store)
     next_slot_start = (current_slot + 1) * seconds_per_slot
     last_slot_start = tick_slot * seconds_per_slot
-
-    :telemetry.execute([:sync, :store], %{slot: current_slot})
 
     next_slot_start..last_slot_start//seconds_per_slot
     |> Enum.reduce(store, &on_tick_per_slot(&2, &1))
@@ -91,12 +89,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           {:ok, Store.t()} | {:error, String.t()}
   def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
     if on_attestation_valid?(store, attestation, is_from_block) do
-      store = store_target_checkpoint_state(store, attestation.data.target)
-
-      # Get state at the `target` to fully validate attestation
-      target_state = store.checkpoint_states[attestation.data.target]
-
-      with {:ok, indexed_attestation} <-
+      with {:ok, store} <- store_target_checkpoint_state(store, attestation.data.target),
+           # Get state at the `target` to fully validate attestation
+           target_state = store.checkpoint_states[attestation.data.target],
+           {:ok, indexed_attestation} <-
              Accessors.get_indexed_attestation(target_state, attestation) do
         if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
           # Update latest messages for attesting indices
@@ -146,10 +142,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Check the block is valid and compute the post-state.
-  defp compute_post_state(
-         %Store{block_states: states} = store,
-         %SignedBeaconBlock{message: block} = signed_block
-       ) do
+  def compute_post_state(
+        %Store{block_states: states} = store,
+        %SignedBeaconBlock{message: block} = signed_block
+      ) do
     state = states[block.parent_root]
     block_root = Ssz.hash_tree_root!(block)
 
@@ -162,7 +158,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       store = %Store{store | blocks: blocks, block_states: states}
 
       seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
-      intervals_per_slot = ChainSpec.get("INTERVALS_PER_SLOT")
+      intervals_per_slot = Constants.intervals_per_slot()
       # Add proposer score boost if the block is timely
       time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
       is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
@@ -220,7 +216,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     end)
   end
 
-  defp compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
+  def compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
     # Pull up the post-state of the block to the next epoch boundary
     # TODO: handle possible errors
     {:ok, state} = EpochProcessing.process_justification_and_finalization(states[block_root])
@@ -244,11 +240,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Update unrealized checkpoints in store if necessary
-  defp update_unrealized_checkpoints(
-         %Store{} = store,
-         %Checkpoint{} = unrealized_justified_checkpoint,
-         %Checkpoint{} = unrealized_finalized_checkpoint
-       ) do
+  def update_unrealized_checkpoints(
+        %Store{} = store,
+        %Checkpoint{} = unrealized_justified_checkpoint,
+        %Checkpoint{} = unrealized_finalized_checkpoint
+      ) do
     store
     |> if_then_update(
       unrealized_justified_checkpoint.epoch > store.unrealized_justified_checkpoint.epoch,
@@ -316,16 +312,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   # Store target checkpoint state if not yet seen
   def store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
     if Map.has_key?(store.checkpoint_states, target) do
-      store
+      {:ok, store}
     else
       target_slot = Misc.compute_start_slot_at_epoch(target.epoch)
 
       store.block_states[target.root]
-      |> if_then_update(
-        &(&1.slot < target_slot),
-        &StateTransition.process_slots(&1, target_slot)
+      |> then(
+        &if(&1.slot < target_slot,
+          do: StateTransition.process_slots(&1, target_slot),
+          else: {:ok, &1}
+        )
       )
-      |> then(&%Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)})
+      |> map(
+        &{:ok, %Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)}}
+      )
     end
   end
 
