@@ -59,6 +59,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
       counter("peers.connection.count", tags: [:result]),
       counter("peers.challenge.count", tags: [:result]),
       counter("network.request.count", tags: [:result, :type, :reason]),
+      counter("port.message.count", tags: [:function, :direction]),
 
       # Sync metrics
       last_value("sync.store.slot"),

@@ -181,10 +181,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     new_store
   end
 
-  defp schedule_next_tick do
+  def schedule_next_tick do
     # For millisecond precision
     time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
-    Process.send_after(self(), :on_tick, time_to_next_tick)
+    Process.send_after(__MODULE__, :on_tick, time_to_next_tick)
   end
 
   def apply_handler(iter, state, handler) do

@@ -41,7 +41,16 @@ defmodule LambdaEthereumConsensus.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: LambdaEthereumConsensus.Supervisor]
 
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+
+    # Start scheduled tasks only when app started, to avoid
+    # hogging resources while starting up
+    case result do
+      {:ok, _} -> start_scheduled_tasks()
+      _ -> nil
+    end
+
+    result
   end
 
   # Tell Phoenix to update the endpoint configuration
@@ -50,5 +59,12 @@ defmodule LambdaEthereumConsensus.Application do
   def config_change(changed, _new, removed) do
     BeaconApi.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp start_scheduled_tasks do
+    LambdaEthereumConsensus.P2P.Peerbook.schedule_pruning()
+    LambdaEthereumConsensus.ForkChoice.Store.schedule_next_tick()
+    LambdaEthereumConsensus.Beacon.PendingBlocks.schedule_blocks_processing()
+    LambdaEthereumConsensus.Beacon.PendingBlocks.schedule_blocks_download()
   end
 end
