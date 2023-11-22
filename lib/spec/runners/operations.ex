@@ -98,7 +98,7 @@ defmodule OperationsTestRunner do
 
     case post do
       nil ->
-        assert {:error, error_msg} = result
+        assert {:error, _error_msg} = result
 
       post ->
         assert {:ok, state} = result
