@@ -12,6 +12,9 @@ defmodule Constants do
   @spec domain_beacon_proposer() :: <<_::32>>
   def domain_beacon_proposer, do: <<0, 0, 0, 0>>
 
+  @spec domain_randao() :: <<_::32>>
+  def domain_randao, do: <<2, 0, 0, 0>>
+
   @spec domain_sync_committee() :: <<_::32>>
   def domain_sync_committee, do: <<7, 0, 0, 0>>
 
