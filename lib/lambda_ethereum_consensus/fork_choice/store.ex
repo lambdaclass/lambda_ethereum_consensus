@@ -173,6 +173,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs})
   end
 
+  @spec on_tick_now(Store.t()) :: Store.t()
   defp on_tick_now(store) do
     new_store = Handlers.on_tick(store, :os.system_time(:second))
     current_slot = Store.get_current_slot(new_store)
