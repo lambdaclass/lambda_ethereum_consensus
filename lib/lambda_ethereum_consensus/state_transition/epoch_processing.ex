@@ -345,7 +345,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   @spec process_justification_and_finalization(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_justification_and_finalization(state) do
     # TODO: implement this
-    state
+    {:ok, state}
   end
 
   @spec process_rewards_and_penalties(BeaconState.t()) :: {:ok, BeaconState.t()}
