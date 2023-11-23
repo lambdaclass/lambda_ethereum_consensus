@@ -93,3 +93,8 @@ PROPOSER_SCORE_BOOST: 40
 DEPOSIT_CHAIN_ID: 1
 DEPOSIT_NETWORK_ID: 1
 DEPOSIT_CONTRACT_ADDRESS: 0x00000000219ab540356cBB839Cbe05303d7705Fa
+
+# Networking
+# ---------------------------------------------------------------
+# `2**10` (= 1024)
+MAX_REQUEST_BLOCKS: 1024

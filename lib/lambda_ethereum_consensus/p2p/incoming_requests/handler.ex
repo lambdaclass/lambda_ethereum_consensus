@@ -3,7 +3,19 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   This module handles Req/Resp domain requests.
   """
   require Logger
-  alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.Store.BlockStore
+
+  # This is the `ForkDigest` for mainnet in the capella fork
+  # TODO: compute this at runtime
+  @fork_context "BBA4DA96" |> Base.decode16!()
+
+  # This is the `Resource Unavailable` error message
+  # TODO: compute this and other messages at runtime
+  @error_message_resource_unavailable "Resource Unavailable"
+  # This is the `Server Error` error message
+  # TODO: compute this and other messages at runtime
+  @error_message_server_error "Server Error"
 
   def handle(name, message_id, message) do
     case handle_req(name, message_id, message) do
@@ -88,12 +100,81 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     end
   end
 
-  defp handle_req("beacon_blocks_by_range/2/ssz_snappy", _message_id, _message),
-    do: :not_implemented
+  defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
+    with <<24, snappy_blocks_by_range_request::binary>> <- message,
+         {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
+         {:ok, blocks_by_range_request} <-
+           Ssz.from_ssz(ssz_blocks_by_range_request, SszTypes.BeaconBlocksByRangeRequest) do
+      ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
+      %SszTypes.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
+        blocks_by_range_request
+
+      "[Received BlocksByRange Request] requested slots #{start_slot} to #{start_slot + count - 1}"
+      |> Logger.info()
+
+      count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
+
+      slot_coverage = start_slot + (count - 1)
+
+      blocks =
+        start_slot..slot_coverage
+        |> Enum.map(&BlockStore.get_block_by_slot/1)
+
+      response_chunk =
+        blocks
+        |> Enum.map_join(&create_block_response_chunk/1)
+
+      Libp2pPort.send_response(message_id, response_chunk)
+    end
+  end
 
   defp handle_req(protocol, _message_id, _message) do
     # This should never happen, since Libp2p only accepts registered protocols
     Logger.error("Unsupported protocol: #{protocol}")
     :ok
+  end
+
+  defp create_block_response_chunk({:ok, block}) do
+    with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
+         {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
+      size_header =
+        ssz_signed_block
+        |> byte_size()
+        |> P2P.Utils.encode_varint()
+
+      <<0>> <> @fork_context <> size_header <> snappy_ssz_signed_block
+    else
+      {:error, _} ->
+        ## TODO: Add SSZ encoding
+        size_header =
+          @error_message_server_error
+          |> byte_size()
+          |> P2P.Utils.encode_varint()
+
+        {:ok, snappy_message} = Snappy.compress(@error_message_server_error)
+        <<2>> <> size_header <> snappy_message
+    end
+  end
+
+  defp create_block_response_chunk({:error, _}) do
+    ## TODO: Add SSZ encoding
+    size_header =
+      @error_message_resource_unavailable
+      |> byte_size()
+      |> P2P.Utils.encode_varint()
+
+    {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
+    <<3>> <> size_header <> snappy_message
+  end
+
+  defp create_block_response_chunk(:not_found) do
+    ## TODO: Add SSZ encoding
+    size_header =
+      @error_message_resource_unavailable
+      |> byte_size()
+      |> P2P.Utils.encode_varint()
+
+    {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
+    <<3>> <> size_header <> snappy_message
   end
 end

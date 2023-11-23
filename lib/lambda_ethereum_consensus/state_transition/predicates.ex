@@ -109,7 +109,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   def is_valid_indexed_attestation(state, indexed_attestation) do
     indices = indexed_attestation.attesting_indices
 
-    if Enum.empty?(indices) or not (indices == Enum.sort(Enum.uniq(indices))) do
+    if Enum.empty?(indices) or not (indices == indices |> Enum.uniq() |> Enum.sort()) do
       false
     else
       domain_type = Constants.domain_beacon_attester()
@@ -123,8 +123,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         state.validators
         |> Stream.with_index()
         |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
-        |> Stream.map(fn {%{pubkey: p}, _} -> p end)
-        |> Enum.to_list()
+        |> Enum.map(fn {%{pubkey: p}, _} -> p end)
         |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
 
       case res do

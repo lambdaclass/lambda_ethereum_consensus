@@ -9,6 +9,7 @@ defmodule Unit.PendingBlocks do
   setup do
     # Lets trigger the process_blocks manually
     patch(PendingBlocks, :schedule_blocks_processing, fn -> :ok end)
+    patch(PendingBlocks, :schedule_blocks_download, fn -> :ok end)
 
     start_supervised!({PendingBlocks, []})
     :ok
@@ -19,6 +20,7 @@ defmodule Unit.PendingBlocks do
     block_root = Ssz.hash_tree_root!(signed_block.message)
 
     patch(Store, :has_block?, fn root -> root == signed_block.message.parent_root end)
+    patch(Store, :on_block, fn _block, _root -> :ok end)
 
     # Don't store the block in the DB, to avoid having to set it up
     patch(BlockStore, :store_block, fn _block -> :ok end)

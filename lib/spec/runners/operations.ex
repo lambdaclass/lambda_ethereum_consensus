@@ -43,14 +43,14 @@ defmodule OperationsTestRunner do
   @disabled_handlers [
     # "attester_slashing",
     # "attestation",
-    "block_header",
+    # "block_header",
     "deposit",
     # "proposer_slashing",
     # "voluntary_exit",
     # "sync_aggregate",
-    "execution_payload",
+    "execution_payload"
     # "withdrawals",
-    "bls_to_execution_change"
+    # "bls_to_execution_change"
   ]
 
   @impl TestRunner
