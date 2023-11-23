@@ -836,7 +836,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:ok, BeaconState.t()} | {:error, binary}
   def process_eth1_data(
         %BeaconState{} = state,
-        %BeaconBlockBody{eth1_data: eth1_data} = _body
+        %BeaconBlockBody{eth1_data: eth1_data}
       ) do
     updated_eth1_data_votes = List.insert_at(state.eth1_data_votes, -1, eth1_data)
 
