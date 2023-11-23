@@ -44,7 +44,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec check_slots_match(SszTypes.slot(), SszTypes.slot()) ::
           :ok | {:error, String.t()}
   defp check_slots_match(state_slot, block_slot) do
-    # Verify that the slots match 
+    # Verify that the slots match
     if block_slot == state_slot do
       :ok
     else
@@ -66,7 +66,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec check_proposer_index_is_correct(SszTypes.validator_index(), BeaconState.t()) ::
           :ok | {:error, String.t()}
   defp check_proposer_index_is_correct(block_proposer_index, state) do
-    # Verify that proposer index is the correct index 
+    # Verify that proposer index is the correct index
     with {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
       if block_proposer_index == proposer_index do
         :ok
@@ -79,7 +79,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec check_parent_root_match(SszTypes.root(), BeaconBlockHeader.t()) ::
           :ok | {:error, String.t()}
   defp check_parent_root_match(parent_root, latest_block_header) do
-    # Verify that the parent matches 
+    # Verify that the parent matches
     with {:ok, root} <- Ssz.hash_tree_root(latest_block_header) do
       if parent_root == root do
         :ok
@@ -92,7 +92,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec cache_current_block(BeaconState.t(), BeaconBlock.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   defp cache_current_block(state, block) do
-    # Cache current block as the new latest block 
+    # Cache current block as the new latest block
     with {:ok, root} <- Ssz.hash_tree_root(block.body) do
       latest_block_header = %BeaconBlockHeader{
         slot: block.slot,
