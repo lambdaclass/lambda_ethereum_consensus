@@ -57,3 +57,7 @@ level_db
 
 # Generated tests
 test/generated
+
+# profiling artifacts
+callgrind.out.*
+*-eflambe-output.bggg
