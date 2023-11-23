@@ -47,6 +47,7 @@ macro_rules! schema_match {
                 Transaction,
                 Metadata<C>,
                 Root,
+                Epoch,
             }
         )
     };

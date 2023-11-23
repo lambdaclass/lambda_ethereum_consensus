@@ -7,6 +7,7 @@ import (
 	"libp2p_port/internal/proto_helpers"
 	"libp2p_port/internal/utils"
 	"sync"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	mplex "github.com/libp2p/go-libp2p-mplex"
@@ -20,6 +21,8 @@ import (
 )
 
 type responseChannel = chan []byte
+
+const RESP_TIMEOUT = time.Duration(10 * time.Second)
 
 type Listener struct {
 	hostHandle      host.Host
@@ -71,7 +74,9 @@ func (l *Listener) AddPeerWithAddrInfo(addrInfo peer.AddrInfo, ttl int64) {
 }
 
 func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte) ([]byte, error) {
-	ctx := context.TODO()
+	ctx, cancel := context.WithTimeout(context.Background(), RESP_TIMEOUT)
+	defer cancel()
+
 	stream, err := l.hostHandle.NewStream(ctx, peer.ID(peerId), protocol.ID(protocolId))
 	if err != nil {
 		return nil, err

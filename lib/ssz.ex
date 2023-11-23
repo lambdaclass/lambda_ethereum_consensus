@@ -46,6 +46,12 @@ defmodule Ssz do
     root
   end
 
+  @spec hash_tree_root!(term, module) :: SszTypes.root()
+  def hash_tree_root!(value, schema) do
+    {:ok, root} = hash_tree_root(value, schema)
+    root
+  end
+
   @spec hash_tree_root(struct) :: {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root(map)
 
@@ -53,6 +59,13 @@ defmodule Ssz do
     map
     |> encode()
     |> hash_tree_root_rs(name)
+  end
+
+  @spec hash_tree_root(term, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
+  def hash_tree_root(value, schema) do
+    value
+    |> encode()
+    |> hash_tree_root_rs(schema)
   end
 
   @spec hash_list_tree_root(list(struct), integer) ::

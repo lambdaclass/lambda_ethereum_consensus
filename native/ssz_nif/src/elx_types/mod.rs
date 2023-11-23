@@ -21,7 +21,7 @@ type Bytes48<'a> = Binary<'a>;
 type Bytes96<'a> = Binary<'a>;
 
 type Slot = u64;
-type Epoch = u64;
+pub(crate) type Epoch = u64;
 type CommitteeIndex = u64;
 type ValidatorIndex = u64;
 type Gwei = u64;
