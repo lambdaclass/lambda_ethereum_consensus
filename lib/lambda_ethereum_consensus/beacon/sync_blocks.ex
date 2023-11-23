@@ -85,7 +85,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
       {:error, error} ->
         if not String.contains?(inspect(error), "failed to dial") do
-          Logger.warning(
+          Logger.debug(
             "Blocks download failed for slot #{from} count #{count} Error: #{inspect(error)}"
           )
         end
