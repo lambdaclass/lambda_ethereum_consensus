@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_bool("\x00"), do: {:ok, false}
 
   defp encode_fixed_size_list(list, _basic_type, max_size) when length(list) > max_size,
-    do: {:error, "invalid size for list"}
+    do: {:error, "invalid max_size of list"}
 
   defp encode_fixed_size_list(list, basic_type, _size) when is_list(list) do
     list
@@ -51,7 +51,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   defp encode_variable_size_list(list, _basic_type, max_size) when length(list) > max_size,
-    do: {:error, "invalid size for list"}
+    do: {:error, "invalid max_size of list"}
 
   defp encode_variable_size_list(list, basic_type, _size) when is_list(list) do
     fixed_lengths = @bytes_per_length_offset * length(list)
@@ -106,7 +106,7 @@ defmodule LambdaEthereumConsensus.SszEx do
            |> decode_chunk(fixed_size, basic_type)
            |> flatten_results() do
       if length(decoded_list) > size do
-        {:error, "invalid length list"}
+        {:error, "invalid max_size of list"}
       else
         result
       end

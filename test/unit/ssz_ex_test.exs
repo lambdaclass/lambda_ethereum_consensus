@@ -7,6 +7,11 @@ defmodule Unit.SSZExTest do
     assert {:ok, deserialized} === SszEx.decode(serialized, schema)
   end
 
+  def error_assert_roundtrip(serialized, deserialized, schema, error_message) do
+    assert {:error, ^error_message} = SszEx.encode(deserialized, schema)
+    assert {:error, ^error_message} = SszEx.decode(serialized, schema)
+  end
+
   test "serialize and deserialize uint" do
     assert_roundtrip(<<5>>, 5, {:int, 8})
     assert_roundtrip(<<5, 0>>, 5, {:int, 16})
@@ -24,6 +29,7 @@ defmodule Unit.SSZExTest do
   end
 
   test "serialize and deserialize list" do
+    # for test purposes only, do not use in practice
     assert_roundtrip(<<1, 1, 0>>, [true, true, false], {:list, :bool, 3})
 
     assert_roundtrip(
@@ -44,5 +50,12 @@ defmodule Unit.SSZExTest do
         0, 0, 0>>
 
     assert_roundtrip(encoded_variable_list, variable_list, {:list, {:list, {:int, 64}, 2}, 3})
+
+    error_assert_roundtrip(
+      <<230, 0, 0, 0, 124, 1, 0, 0, 11, 2, 0, 0, 127, 91, 0, 0>>,
+      [230, 380, 523, 23_423],
+      {:list, {:int, 32}, 3},
+      "invalid max_size of list"
+    )
   end
 end
