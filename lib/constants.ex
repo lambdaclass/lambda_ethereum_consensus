@@ -6,6 +6,9 @@ defmodule Constants do
   @spec genesis_epoch() :: integer
   def genesis_epoch, do: 0
 
+  @spec genesis_slot() :: integer
+  def genesis_slot, do: 0
+
   @spec bls_withdrawal_prefix() :: <<_::8>>
   def bls_withdrawal_prefix, do: <<0>>
 

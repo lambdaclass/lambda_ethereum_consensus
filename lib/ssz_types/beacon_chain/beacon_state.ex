@@ -93,6 +93,15 @@ defmodule SszTypes.BeaconState do
   alias LambdaEthereumConsensus.StateTransition.Predicates
 
   @doc """
+  Checks if state is pre or post merge
+  """
+  @spec is_merge_transition_complete(SszTypes.BeaconState.t()) :: boolean()
+  def is_merge_transition_complete(state) do
+    state.latest_execution_payload_header !=
+      struct(SszTypes.ExecutionPayload, SszTypes.ExecutionPayloadHeader.default())
+  end
+
+  @doc """
     Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
   """
   @spec decrease_balance(t(), SszTypes.validator_index(), SszTypes.gwei()) :: t()
