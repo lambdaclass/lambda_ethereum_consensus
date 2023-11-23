@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias SszTypes.BeaconBlockBody
 
   alias SszTypes.{
     Attestation,
@@ -627,6 +628,48 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:error, get_error_message(data, state, beacon_committee, indexed_attestation, attestation)}
     else
       {:ok, "Valid"}
+    end
+  end
+
+  @doc """
+  Provide randomness to the operation of the beacon chain.
+  """
+  @spec process_randao(BeaconState.t(), BeaconBlockBody.t()) ::
+          {:ok, BeaconState.t()} | {:error, binary}
+  def process_randao(
+        %BeaconState{} = state,
+        %BeaconBlockBody{randao_reveal: randao_reveal} = _body
+      ) do
+    epoch = Accessors.get_current_epoch(state)
+
+    # Verify RANDAO reveal
+    with {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
+      proposer = Enum.at(state.validators, proposer_index)
+      domain = Accessors.get_domain(state, Constants.domain_randao(), nil)
+      signing_root = Misc.compute_signing_root(epoch, SszTypes.Epoch, domain)
+
+      if Bls.valid?(proposer.pubkey, signing_root, randao_reveal) do
+        randao_mix = Accessors.get_randao_mix(state, epoch)
+        hash = :crypto.hash(:sha256, randao_reveal)
+
+        # Mix in RANDAO reveal
+        mix = :crypto.exor(randao_mix, hash)
+
+        updated_randao_mixes =
+          List.replace_at(
+            state.randao_mixes,
+            rem(epoch, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")),
+            mix
+          )
+
+        {:ok,
+         %BeaconState{
+           state
+           | randao_mixes: updated_randao_mixes
+         }}
+      else
+        {:error, "invalid randao reveal"}
+      end
     end
   end
 
