@@ -35,9 +35,10 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
     slot = aggregate.data.slot
     root = aggregate.data.beacon_block_root |> Base.encode16()
 
-    Store.on_attestation(aggregate)
+    # We are getting ~500 attestations in half a second. This is overwheling the store GenServer at the moment.
+    # Store.on_attestation(aggregate)
 
-    Logger.debug(
+    Logger.info(
       "[Gossip] Aggregate decoded for slot #{slot}. Root: #{root}. Total attestations: #{votes}"
     )
   end

@@ -13,6 +13,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   alias SszTypes.SignedBeaconBlock
   alias SszTypes.Store
 
+  @default_timeout 10_000
+
   ##########################
   ### Public API
   ##########################
@@ -36,14 +38,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @spec has_block?(SszTypes.root()) :: boolean()
   def has_block?(block_root) do
-    [blocks] = get_store_attrs([:blocks])
-    Map.has_key?(blocks, block_root)
+    block = get_block(block_root)
+    block != nil
   end
 
   @spec on_block(SszTypes.SignedBeaconBlock.t(), SszTypes.root()) :: :ok | :error
   def on_block(signed_block, block_root) do
     :ok = BlockStore.store_block(signed_block)
-    GenServer.call(__MODULE__, {:on_block, block_root, signed_block})
+    GenServer.call(__MODULE__, {:on_block, block_root, signed_block}, @default_timeout)
   end
 
   @spec on_attestation(SszTypes.Attestation.t()) :: :ok
@@ -87,13 +89,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     {:reply, values, state}
   end
 
+  def handle_call({:get_block, block_root}, _from, state) do
+    {:reply, Map.get(state.blocks, block_root), state}
+  end
+
   @impl GenServer
   def handle_call({:on_block, _block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
 
     case Handlers.on_block(state, signed_block) do
-      {:ok, new_state} ->
+      {:ok, %SszTypes.Store{} = new_state} ->
         BlockStore.store_block(signed_block)
+        Logger.info("[Fork choice] Block #{signed_block.message.slot} added to the store.")
         {:reply, :ok, new_state}
 
       {:error, reason} ->
@@ -130,11 +137,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
     Logger.debug("[Fork choice] Adding attestation #{id} to the store.")
 
-    state =
-      case Handlers.on_attestation(state, attestation, false) do
-        {:ok, new_state} -> new_state
-        _ -> state
-      end
+    # state =
+    case Handlers.on_attestation(state, attestation, false) do
+      {:ok, new_state} -> new_state
+      _ -> state
+    end
 
     {:noreply, state}
   end
@@ -168,9 +175,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ### Private Functions
   ##########################
 
+  @spec get_block(SszTypes.root()) :: SszTypes.SignedBeaconBlock.t() | nil
+  def get_block(block_root) do
+    GenServer.call(__MODULE__, {:get_block, block_root}, @default_timeout)
+  end
+
   @spec get_store_attrs([atom()]) :: [any()]
   defp get_store_attrs(attrs) do
-    GenServer.call(__MODULE__, {:get_store_attrs, attrs})
+    GenServer.call(__MODULE__, {:get_store_attrs, attrs}, @default_timeout)
   end
 
   defp on_tick_now(store), do: Handlers.on_tick(store, :os.system_time(:second))
