@@ -137,11 +137,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
     Logger.debug("[Fork choice] Adding attestation #{id} to the store.")
 
-    # state =
-    case Handlers.on_attestation(state, attestation, false) do
-      {:ok, new_state} -> new_state
-      _ -> state
-    end
+    state =
+      case Handlers.on_attestation(state, attestation, false) do
+        {:ok, new_state} -> new_state
+        _ -> state
+      end
 
     {:noreply, state}
   end
