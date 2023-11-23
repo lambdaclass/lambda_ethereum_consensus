@@ -69,7 +69,7 @@ defmodule SszTypes.ExecutionPayloadHeader do
     Map.update!(map, :base_fee_per_gas, &Ssz.decode_u256/1)
   end
 
-  def default() do
+  def default do
     @default_execution_payload_header
   end
 end
