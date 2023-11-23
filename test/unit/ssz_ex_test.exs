@@ -57,5 +57,10 @@ defmodule Unit.SSZExTest do
       {:list, {:int, 32}, 3},
       "invalid max_size of list"
     )
+
+    # length < max_size
+    assert_roundtrip(<<2, 0, 0, 0>>, [2], {:list, {:int, 32}, 53})
+    # empty list
+    assert_roundtrip(<<>>, [], {:list, {:int, 32}, 6})
   end
 end
