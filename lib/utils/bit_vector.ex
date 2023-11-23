@@ -91,4 +91,9 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
     <<remaining::size(bit_size(bit_vector) - steps)-bitstring, _::bitstring>> = bit_vector
     <<0::size(steps), remaining::bitstring>>
   end
+
+  @spec to_byte(t) :: t
+  def to_byte(bit_vector) do
+    <<0::size(4), bit_vector::bits-size(4)>>
+  end
 end
