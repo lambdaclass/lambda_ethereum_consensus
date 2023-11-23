@@ -33,9 +33,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       # Verify proposer is not slashed
       proposer = state.validators |> Enum.fetch!(proposer_index)
 
-      case proposer.slashed do
-        true -> {:error, "proposer is slashed"}
-        false -> {:ok, state}
+      if proposer.slashed do
+        {:error, "proposer is slashed"}
+      else
+        {:ok, state}
       end
     end
   end
