@@ -24,6 +24,10 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     GenServer.call(__MODULE__, :get_some_peer)
   end
 
+  def penalize_peer(peer_id) do
+    GenServer.cast(__MODULE__, {:remove_peer, peer_id})
+  end
+
   @impl true
   def init(_opts) do
     Libp2pPort.set_new_peer_handler(self())
@@ -84,7 +88,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
       _ ->
         :telemetry.execute([:peers, :challenge], %{}, %{result: "failed"})
-        GenServer.cast(__MODULE__, {:remove_peer, peer_id})
+        penalize_peer(peer_id)
     end
   end
 
