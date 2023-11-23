@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 1,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -36,167 +36,63 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisWidth": 1,
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "continuous-RdYlGr"
           },
           "mappings": [],
-          "min": -3,
+          "max": 0.1,
+          "min": 0,
+          "noValue": "0",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
-              },
-              {
                 "color": "red",
-                "value": 80
+                "value": null
               }
             ]
           },
-          "unit": "decbytes"
+          "unit": "none"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
         "x": 0,
         "y": 0
       },
-      "id": 2,
+      "id": 7,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
       },
+      "pluginVersion": "10.2.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "exemplar": true,
-          "expr": "vm_memory_total{instance=\"host.docker.internal:9568\"}",
-          "interval": "",
-          "legendFormat": "total",
-          "refId": "Total"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "exemplar": true,
-          "expr": "vm_memory_atom{instance=\"host.docker.internal:9568\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "atom",
-          "refId": "Atom"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "exemplar": true,
-          "expr": "vm_memory_binary{instance=\"host.docker.internal:9568\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "binary",
-          "refId": "Binary"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "exemplar": true,
-          "expr": "vm_memory_code{instance=\"host.docker.internal:9568\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "code",
-          "refId": "Code"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "exemplar": true,
-          "expr": "vm_memory_ets{instance=\"host.docker.internal:9568\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "ETS",
-          "refId": "ETS"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "exemplar": true,
-          "expr": "vm_memory_processes{instance=\"host.docker.internal:9568\"}",
-          "hide": false,
+          "editorMode": "code",
+          "expr": "sum by (result) (rate(network_request_count{result=\"success\"}[$__range]))",
           "instant": false,
-          "interval": "",
-          "legendFormat": "processes",
-          "refId": "Processes"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "exemplar": true,
-          "expr": "vm_memory_system{instance=\"host.docker.internal:9568\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "system",
-          "refId": "System"
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
         }
       ],
-      "title": "VM Memory",
-      "type": "timeseries"
+      "title": "Block download rate",
+      "type": "gauge"
     },
     {
       "datasource": {
@@ -330,6 +226,7 @@
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
+            "axisWidth": 1,
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 0,
@@ -357,6 +254,7 @@
             }
           },
           "mappings": [],
+          "min": -3,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -369,7 +267,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "decbytes"
         },
         "overrides": []
       },
@@ -377,9 +276,9 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 6
+        "y": 8
       },
-      "id": 6,
+      "id": 2,
       "options": {
         "legend": {
           "calcs": [],
@@ -398,15 +297,87 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "editorMode": "code",
-          "expr": "sync_store_slot{}",
+          "exemplar": true,
+          "expr": "vm_memory_total{instance=\"host.docker.internal:9568\"}",
+          "interval": "",
+          "legendFormat": "total",
+          "refId": "Total"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "exemplar": true,
+          "expr": "vm_memory_atom{instance=\"host.docker.internal:9568\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "atom",
+          "refId": "Atom"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "exemplar": true,
+          "expr": "vm_memory_binary{instance=\"host.docker.internal:9568\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "binary",
+          "refId": "Binary"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "exemplar": true,
+          "expr": "vm_memory_code{instance=\"host.docker.internal:9568\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "code",
+          "refId": "Code"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "exemplar": true,
+          "expr": "vm_memory_ets{instance=\"host.docker.internal:9568\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "ETS",
+          "refId": "ETS"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "exemplar": true,
+          "expr": "vm_memory_processes{instance=\"host.docker.internal:9568\"}",
+          "hide": false,
           "instant": false,
-          "legendFormat": "max_slot",
-          "range": true,
-          "refId": "Max slot"
+          "interval": "",
+          "legendFormat": "processes",
+          "refId": "Processes"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "exemplar": true,
+          "expr": "vm_memory_system{instance=\"host.docker.internal:9568\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "system",
+          "refId": "System"
         }
       ],
-      "title": "Current sync progress",
+      "title": "VM Memory",
       "type": "timeseries"
     },
     {
@@ -536,7 +507,102 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 14
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sync_store_slot{}",
+          "instant": false,
+          "legendFormat": "max_slot",
+          "range": true,
+          "refId": "Max slot"
+        }
+      ],
+      "title": "Current sync progress",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 20
       },
       "id": 3,
       "options": {
@@ -575,13 +641,13 @@
     "list": []
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Node",
   "uid": "90EXFQnIk",
-  "version": 7,
+  "version": 2,
   "weekStart": ""
 }
