@@ -466,13 +466,17 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
+          "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(peers_challenge_count{result=\"failed\"}[$__rate_interval])",
+          "expr": "sum(rate(peers_challenge_count{result=\"failed\"}[$__rate_interval])) + sum(rate(network_request_count{result=~\"error|retry\"}[$__rate_interval]))",
+          "fullMetaSearch": false,
           "hide": false,
+          "includeNullMetadata": true,
           "instant": false,
           "legendFormat": "removed",
           "range": true,
-          "refId": "Removed"
+          "refId": "Removed",
+          "useBackend": false
         }
       ],
       "title": "Peer additions",
@@ -904,13 +908,13 @@
     "list": []
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Node",
   "uid": "90EXFQnIk",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }
