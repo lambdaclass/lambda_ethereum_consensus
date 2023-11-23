@@ -38,7 +38,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
     # We are getting ~500 attestations in half a second. This is overwheling the store GenServer at the moment.
     # Store.on_attestation(aggregate)
 
-    Logger.info(
+    Logger.debug(
       "[Gossip] Aggregate decoded for slot #{slot}. Root: #{root}. Total attestations: #{votes}"
     )
   end
