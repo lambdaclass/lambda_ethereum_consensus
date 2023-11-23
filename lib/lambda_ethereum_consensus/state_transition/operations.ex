@@ -9,12 +9,103 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   alias SszTypes.{
     Attestation,
+    BeaconBlock,
+    BeaconBlockHeader,
     BeaconState,
     ExecutionPayload,
     SyncAggregate,
     Validator,
     Withdrawal
   }
+
+  @spec process_block_header(BeaconState.t(), BeaconBlock.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_block_header(
+        %BeaconState{slot: state_slot, latest_block_header: latest_block_header} = state,
+        %BeaconBlock{slot: block_slot, proposer_index: proposer_index, parent_root: parent_root} =
+          block
+      ) do
+    with :ok <- check_slots_match(state_slot, block_slot),
+         :ok <-
+           check_block_is_newer_than_latest_block_header(block_slot, latest_block_header.slot),
+         :ok <- check_proposer_index_is_correct(proposer_index, state),
+         :ok <- check_parent_root_match(parent_root, latest_block_header),
+         {:ok, state} <- cache_current_block(state, block) do
+      # Verify proposer is not slashed
+      proposer = state.validators |> Enum.fetch!(proposer_index)
+
+      if proposer.slashed do
+        {:error, "proposer is slashed"}
+      else
+        {:ok, state}
+      end
+    end
+  end
+
+  @spec check_slots_match(SszTypes.slot(), SszTypes.slot()) ::
+          :ok | {:error, String.t()}
+  defp check_slots_match(state_slot, block_slot) do
+    # Verify that the slots match
+    if block_slot == state_slot do
+      :ok
+    else
+      {:error, "slots don't match"}
+    end
+  end
+
+  @spec check_block_is_newer_than_latest_block_header(SszTypes.slot(), SszTypes.slot()) ::
+          :ok | {:error, String.t()}
+  defp check_block_is_newer_than_latest_block_header(block_slot, latest_block_header_slot) do
+    # Verify that the block is newer than latest block header
+    if block_slot > latest_block_header_slot do
+      :ok
+    else
+      {:error, "block is not newer than latest block header"}
+    end
+  end
+
+  @spec check_proposer_index_is_correct(SszTypes.validator_index(), BeaconState.t()) ::
+          :ok | {:error, String.t()}
+  defp check_proposer_index_is_correct(block_proposer_index, state) do
+    # Verify that proposer index is the correct index
+    with {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
+      if block_proposer_index == proposer_index do
+        :ok
+      else
+        {:error, "proposer index is incorrect"}
+      end
+    end
+  end
+
+  @spec check_parent_root_match(SszTypes.root(), BeaconBlockHeader.t()) ::
+          :ok | {:error, String.t()}
+  defp check_parent_root_match(parent_root, latest_block_header) do
+    # Verify that the parent matches
+    with {:ok, root} <- Ssz.hash_tree_root(latest_block_header) do
+      if parent_root == root do
+        :ok
+      else
+        {:error, "parent roots mismatch"}
+      end
+    end
+  end
+
+  @spec cache_current_block(BeaconState.t(), BeaconBlock.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  defp cache_current_block(state, block) do
+    # Cache current block as the new latest block
+    with {:ok, root} <- Ssz.hash_tree_root(block.body) do
+      latest_block_header = %BeaconBlockHeader{
+        slot: block.slot,
+        proposer_index: block.proposer_index,
+        parent_root: block.parent_root,
+        state_root: <<0::256>>,
+        body_root: root
+      }
+
+      {:ok, %BeaconState{state | latest_block_header: latest_block_header}}
+    end
+  end
 
   @spec process_sync_aggregate(BeaconState.t(), SyncAggregate.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
