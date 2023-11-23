@@ -253,6 +253,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     ssz_object |> Ssz.hash_tree_root!() |> compute_signing_root(domain)
   end
 
+  @spec compute_signing_root(any(), module, SszTypes.domain()) :: SszTypes.root()
+  def compute_signing_root(ssz_object, schema, domain) do
+    ssz_object |> Ssz.hash_tree_root!(schema) |> compute_signing_root(domain)
+  end
+
   @doc """
   Return a new ``ParticipationFlags`` adding ``flag_index`` to ``flags``.
   """

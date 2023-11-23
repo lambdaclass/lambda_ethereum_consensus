@@ -177,4 +177,8 @@ defmodule Unit.SSZTests do
     assert {:ok, _hash} =
              Ssz.hash_list_tree_root_typed(deserialized, 1_048_576, SszTypes.Transaction)
   end
+
+  test "serialize and hash epoch" do
+    assert {:ok, _hash} = Ssz.hash_tree_root(10_991_501_063_301_624_660, SszTypes.Epoch)
+  end
 end
