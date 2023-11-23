@@ -36,6 +36,72 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "mode": "continuous-RdYlGr"
+          },
+          "mappings": [],
+          "max": 0.1,
+          "min": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 7,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.2.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum by (result) (rate(network_request_count{result=\"success\"}[$__range]))",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Block download rate",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "mode": "palette-classic"
           },
           "custom": {
@@ -93,7 +159,7 @@
         "x": 0,
         "y": 0
       },
-      "id": 7,
+      "id": 11,
       "options": {
         "legend": {
           "calcs": [],
@@ -318,7 +384,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 6
+        "y": 8
       },
       "id": 2,
       "options": {
@@ -549,7 +615,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 14
       },
       "id": 6,
       "options": {
@@ -838,7 +904,7 @@
     "list": []
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},

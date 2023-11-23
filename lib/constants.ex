@@ -6,17 +6,32 @@ defmodule Constants do
   @spec genesis_epoch() :: integer
   def genesis_epoch, do: 0
 
-  @spec domain_beacon_attester() :: <<_::32>>
+  @spec genesis_slot() :: integer
+  def genesis_slot, do: 0
+
+  @spec bls_withdrawal_prefix() :: <<_::8>>
+  def bls_withdrawal_prefix, do: <<0>>
+
+  @spec eth1_address_withdrawal_prefix() :: <<_::8>>
+  def eth1_address_withdrawal_prefix, do: <<1>>
+
+  @spec domain_beacon_attester() :: SszTypes.domain_type()
   def domain_beacon_attester, do: <<1, 0, 0, 0>>
 
-  @spec domain_beacon_proposer() :: <<_::32>>
+  @spec domain_beacon_proposer() :: SszTypes.domain_type()
   def domain_beacon_proposer, do: <<0, 0, 0, 0>>
 
-  @spec domain_sync_committee() :: <<_::32>>
+  @spec domain_randao() :: SszTypes.domain_type()
+  def domain_randao, do: <<2, 0, 0, 0>>
+
+  @spec domain_sync_committee() :: SszTypes.domain_type()
   def domain_sync_committee, do: <<7, 0, 0, 0>>
 
-  @spec domain_voluntary_exit() :: <<_::32>>
+  @spec domain_voluntary_exit() :: SszTypes.domain_type()
   def domain_voluntary_exit, do: <<4, 0, 0, 0>>
+
+  @spec domain_bls_to_execution_change() :: SszTypes.domain_type()
+  def domain_bls_to_execution_change, do: <<10, 0, 0, 0>>
 
   @spec timely_source_flag_index() :: integer
   def timely_source_flag_index, do: 0

@@ -41,14 +41,14 @@ $(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c
 
 ### PORT
 
-PROTOBUF_EX_FILES := lib/proto/libp2p.pb.ex
+PROTOBUF_EX_FILES := proto/libp2p.pb.ex
 PROTOBUF_GO_FILES := native/libp2p_port/internal/proto/libp2p.pb.go
 
 $(PROTOBUF_GO_FILES): proto/libp2p.proto
 	protoc --go_out=./native/libp2p_port $<
 
 $(PROTOBUF_EX_FILES): proto/libp2p.proto
-	protoc --elixir_out=./lib $<
+	protoc --elixir_out=. $<
 
 PORT_SOURCES := $(shell find native/libp2p_port -type f)
 

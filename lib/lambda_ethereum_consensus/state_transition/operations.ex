@@ -3,17 +3,110 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
+  alias LambdaEthereumConsensus.Engine
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias SszTypes.BeaconBlockBody
 
   alias SszTypes.{
     Attestation,
+    BeaconBlock,
+    BeaconBlockHeader,
     BeaconState,
     ExecutionPayload,
     SyncAggregate,
     Validator,
     Withdrawal
   }
+
+  @spec process_block_header(BeaconState.t(), BeaconBlock.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_block_header(
+        %BeaconState{slot: state_slot, latest_block_header: latest_block_header} = state,
+        %BeaconBlock{slot: block_slot, proposer_index: proposer_index, parent_root: parent_root} =
+          block
+      ) do
+    with :ok <- check_slots_match(state_slot, block_slot),
+         :ok <-
+           check_block_is_newer_than_latest_block_header(block_slot, latest_block_header.slot),
+         :ok <- check_proposer_index_is_correct(proposer_index, state),
+         :ok <- check_parent_root_match(parent_root, latest_block_header),
+         {:ok, state} <- cache_current_block(state, block) do
+      # Verify proposer is not slashed
+      proposer = state.validators |> Enum.fetch!(proposer_index)
+
+      if proposer.slashed do
+        {:error, "proposer is slashed"}
+      else
+        {:ok, state}
+      end
+    end
+  end
+
+  @spec check_slots_match(SszTypes.slot(), SszTypes.slot()) ::
+          :ok | {:error, String.t()}
+  defp check_slots_match(state_slot, block_slot) do
+    # Verify that the slots match
+    if block_slot == state_slot do
+      :ok
+    else
+      {:error, "slots don't match"}
+    end
+  end
+
+  @spec check_block_is_newer_than_latest_block_header(SszTypes.slot(), SszTypes.slot()) ::
+          :ok | {:error, String.t()}
+  defp check_block_is_newer_than_latest_block_header(block_slot, latest_block_header_slot) do
+    # Verify that the block is newer than latest block header
+    if block_slot > latest_block_header_slot do
+      :ok
+    else
+      {:error, "block is not newer than latest block header"}
+    end
+  end
+
+  @spec check_proposer_index_is_correct(SszTypes.validator_index(), BeaconState.t()) ::
+          :ok | {:error, String.t()}
+  defp check_proposer_index_is_correct(block_proposer_index, state) do
+    # Verify that proposer index is the correct index
+    with {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
+      if block_proposer_index == proposer_index do
+        :ok
+      else
+        {:error, "proposer index is incorrect"}
+      end
+    end
+  end
+
+  @spec check_parent_root_match(SszTypes.root(), BeaconBlockHeader.t()) ::
+          :ok | {:error, String.t()}
+  defp check_parent_root_match(parent_root, latest_block_header) do
+    # Verify that the parent matches
+    with {:ok, root} <- Ssz.hash_tree_root(latest_block_header) do
+      if parent_root == root do
+        :ok
+      else
+        {:error, "parent roots mismatch"}
+      end
+    end
+  end
+
+  @spec cache_current_block(BeaconState.t(), BeaconBlock.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  defp cache_current_block(state, block) do
+    # Cache current block as the new latest block
+    with {:ok, root} <- Ssz.hash_tree_root(block.body) do
+      latest_block_header = %BeaconBlockHeader{
+        slot: block.slot,
+        proposer_index: block.proposer_index,
+        parent_root: block.parent_root,
+        state_root: <<0::256>>,
+        body_root: root
+      }
+
+      {:ok, %BeaconState{state | latest_block_header: latest_block_header}}
+    end
+  end
 
   @spec process_sync_aggregate(BeaconState.t(), SyncAggregate.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
@@ -143,6 +236,73 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       {:error, _} ->
         {:halt, {:error, "Error getting beacon proposer index"}}
+    end
+  end
+
+  @doc """
+  State transition function managing the processing & validation of the `ExecutionPayload`
+  """
+  @spec process_execution_payload(BeaconState.t(), ExecutionPayload.t(), boolean()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+
+  def process_execution_payload(_state, _payload, false) do
+    {:error, "Invalid execution payload"}
+  end
+
+  def process_execution_payload(state, payload, _execution_valid) do
+    cond do
+      # Verify consistency of the parent hash with respect to the previous execution payload header
+      SszTypes.BeaconState.is_merge_transition_complete(state) and
+          payload.parent_hash != state.latest_execution_payload_header.block_hash ->
+        {:error, "Inconsistency in parent hash"}
+
+      # Verify prev_randao
+      payload.prev_randao != Accessors.get_randao_mix(state, Accessors.get_current_epoch(state)) ->
+        {:error, "Prev_randao verification failed"}
+
+      # Verify timestamp
+      payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->
+        {:error, "Timestamp verification failed"}
+
+      # Verify the execution payload is valid if not mocked
+      Engine.Execution.verify_and_notify_new_payload(payload) != {:ok, true} ->
+        {:error, "Invalid execution payload"}
+
+      # Cache execution payload header
+      true ->
+        with {:ok, transactions_root} <-
+               Ssz.hash_list_tree_root_typed(
+                 payload.transactions,
+                 ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD"),
+                 SszTypes.Transaction
+               ),
+             {:ok, withdrawals_root} <-
+               Ssz.hash_list_tree_root(
+                 payload.withdrawals,
+                 ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
+               ) do
+          {:ok,
+           %BeaconState{
+             state
+             | latest_execution_payload_header: %SszTypes.ExecutionPayloadHeader{
+                 parent_hash: payload.parent_hash,
+                 fee_recipient: payload.fee_recipient,
+                 state_root: payload.state_root,
+                 receipts_root: payload.receipts_root,
+                 logs_bloom: payload.logs_bloom,
+                 prev_randao: payload.prev_randao,
+                 block_number: payload.block_number,
+                 gas_limit: payload.gas_limit,
+                 gas_used: payload.gas_used,
+                 timestamp: payload.timestamp,
+                 extra_data: payload.extra_data,
+                 base_fee_per_gas: payload.base_fee_per_gas,
+                 block_hash: payload.block_hash,
+                 transactions_root: transactions_root,
+                 withdrawals_root: withdrawals_root
+               }
+           }}
+        end
     end
   end
 
@@ -630,6 +790,48 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
+  @doc """
+  Provide randomness to the operation of the beacon chain.
+  """
+  @spec process_randao(BeaconState.t(), BeaconBlockBody.t()) ::
+          {:ok, BeaconState.t()} | {:error, binary}
+  def process_randao(
+        %BeaconState{} = state,
+        %BeaconBlockBody{randao_reveal: randao_reveal} = _body
+      ) do
+    epoch = Accessors.get_current_epoch(state)
+
+    # Verify RANDAO reveal
+    with {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
+      proposer = Enum.at(state.validators, proposer_index)
+      domain = Accessors.get_domain(state, Constants.domain_randao(), nil)
+      signing_root = Misc.compute_signing_root(epoch, SszTypes.Epoch, domain)
+
+      if Bls.valid?(proposer.pubkey, signing_root, randao_reveal) do
+        randao_mix = Accessors.get_randao_mix(state, epoch)
+        hash = :crypto.hash(:sha256, randao_reveal)
+
+        # Mix in RANDAO reveal
+        mix = :crypto.exor(randao_mix, hash)
+
+        updated_randao_mixes =
+          List.replace_at(
+            state.randao_mixes,
+            rem(epoch, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")),
+            mix
+          )
+
+        {:ok,
+         %BeaconState{
+           state
+           | randao_mixes: updated_randao_mixes
+         }}
+      else
+        {:error, "invalid randao reveal"}
+      end
+    end
+  end
+
   defp has_invalid_conditions?(data, state, beacon_committee, indexed_attestation, attestation) do
     invalid_target_epoch?(data, state) ||
       epoch_mismatch?(data) ||
@@ -712,5 +914,81 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       acc <> Integer.to_string(byte, 2)
     end)
     |> String.length()
+  end
+
+  def process_bls_to_execution_change(state, signed_address_change) do
+    address_change = signed_address_change.message
+
+    with {:ok, _} <- validate_address_change(state, address_change) do
+      validator = Enum.at(state.validators, address_change.validator_index)
+
+      with {:ok} <- validate_withdrawal_credentials(validator, address_change) do
+        domain =
+          Misc.compute_domain(
+            Constants.domain_bls_to_execution_change(),
+            genesis_validators_root: state.genesis_validators_root
+          )
+
+        signing_root = Misc.compute_signing_root(address_change, domain)
+
+        if Bls.valid?(
+             address_change.from_bls_pubkey,
+             signing_root,
+             signed_address_change.signature
+           ) do
+          new_withdrawal_credentials =
+            Constants.eth1_address_withdrawal_prefix() <>
+              <<0::size(88)>> <> address_change.to_execution_address
+
+          updated_validators =
+            update_validator_withdrawal_credentials(
+              state.validators,
+              address_change.validator_index,
+              new_withdrawal_credentials
+            )
+
+          {:ok, %BeaconState{state | validators: updated_validators}}
+        else
+          {:error, "bls verification failed"}
+        end
+      end
+    end
+  end
+
+  defp validate_address_change(state, address_change) do
+    if address_change.validator_index < length(state.validators) do
+      {:ok, address_change}
+    else
+      {:error, "Invalid address change"}
+    end
+  end
+
+  defp validate_withdrawal_credentials(validator, address_change) do
+    <<prefix::binary-size(1), address::binary-size(31)>> = validator.withdrawal_credentials
+    <<_, hash::binary-size(31)>> = :crypto.hash(:sha256, address_change.from_bls_pubkey)
+
+    if prefix == Constants.bls_withdrawal_prefix() and address == hash do
+      {:ok}
+    else
+      {:error, "Invalid withdrawal credentials"}
+    end
+  end
+
+  defp update_validator_withdrawal_credentials(
+         validators,
+         validator_index,
+         new_withdrawal_credentials
+       ) do
+    updated_validators =
+      validators
+      |> Enum.with_index(fn validator, index ->
+        if index == validator_index do
+          %Validator{validator | withdrawal_credentials: new_withdrawal_credentials}
+        else
+          validator
+        end
+      end)
+
+    updated_validators
   end
 end

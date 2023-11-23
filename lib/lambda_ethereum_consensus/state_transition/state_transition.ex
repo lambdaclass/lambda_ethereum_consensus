@@ -118,7 +118,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   end
 
   # TODO: uncomment when implemented
-  defp process_block(state, block) do
+  def process_block(state, block) do
     {:ok, state}
     # |> map(&Operations.process_block_header(&1, block))
     |> map(&Operations.process_withdrawals(&1, block.body.execution_payload))

@@ -10,7 +10,15 @@ defmodule Mix.Tasks.GenerateSpecTests do
   use Mix.Task
   require Logger
 
-  @runners ["bls", "epoch_processing", "fork_choice", "operations", "shuffling", "ssz_static"]
+  @runners [
+    "bls",
+    "epoch_processing",
+    "fork_choice",
+    "operations",
+    "shuffling",
+    "ssz_static",
+    "sanity"
+  ]
   @configs ["mainnet", "minimal"]
   @forks ["altair", "deneb", "phase0"]
 
