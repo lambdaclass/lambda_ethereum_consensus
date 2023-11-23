@@ -58,7 +58,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
       # Peer metrics
       counter("peers.connection.count", tags: [:result]),
       counter("network.request.count", tags: [:result, :type, :reason]),
-      counter("network.request.blocks", tags: [:result, :type, :reason]),
+      sum("network.request.blocks", tags: [:result, :type, :reason]),
 
       # Sync metrics
       last_value("sync.store.slot"),
