@@ -411,6 +411,23 @@ Also of note is the `:sort` option, that allows sorting the list by, for example
 :etop.start(sort: :msg_q)
 ```
 
+### eFlambè
+
+When optimizing code, it might be useful to have a graphic way to determine bottlenecks in the system.
+In that case, you can use [eFlambè](https://github.com/Stratus3D/eflambe) to generate flamegraphs of specific functions.
+The following code will capture information from 10 calls to `Handlers.on_block/2`, dumping it in different files named \<timestamp\>-eflambe-output.bggg.
+
+```elixir
+:eflambe.capture({LambdaEthereumConsensus.ForkChoice.Handlers, :has_block?, 2}, 10)
+```
+
+The files generated can be processed via common flamegraph tools.
+For example, using [Brendan Gregg's stack](https://github.com/brendangregg/FlameGraph):
+
+```shell
+cat *-eflambe-output.bggg | flamegraph.pl - > flamegraph.svg
+```
+
 ## Code of Conduct
 
 ### Our Pledge
