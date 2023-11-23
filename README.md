@@ -402,7 +402,14 @@ Another useful tool to quickly diagnose processes taking too much CPU is `:etop`
 :etop.start()
 ```
 
-In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got. This can be used to identify infinite loops or busy waits.
+In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got.
+This can be used to identify infinite loops or busy waits.
+
+Also of note is the `:sort` option, that allows sorting the list by, for example, message queue size:
+
+```elixir
+:etop.start(sort: :msg_q)
+```
 
 ## Code of Conduct
 
