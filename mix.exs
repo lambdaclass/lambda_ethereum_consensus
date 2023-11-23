@@ -64,5 +64,5 @@ defmodule LambdaEthereumConsensus.MixProject do
   end
 
   defp compiler_paths(:test), do: ["test/spec", "test/fixtures"] ++ compiler_paths(:prod)
-  defp compiler_paths(_), do: ["lib"]
+  defp compiler_paths(_), do: ["lib", "proto"]
 end
