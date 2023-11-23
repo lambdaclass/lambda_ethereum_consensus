@@ -832,6 +832,31 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
+  @spec process_eth1_data(BeaconState.t(), BeaconBlockBody.t()) ::
+          {:ok, BeaconState.t()} | {:error, binary}
+  def process_eth1_data(
+        %BeaconState{} = state,
+        %BeaconBlockBody{eth1_data: eth1_data}
+      ) do
+    updated_eth1_data_votes = List.insert_at(state.eth1_data_votes, -1, eth1_data)
+
+    if Enum.count(updated_eth1_data_votes, &(&1 == eth1_data)) * 2 >
+         ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH") do
+      {:ok,
+       %BeaconState{
+         state
+         | eth1_data: eth1_data,
+           eth1_data_votes: updated_eth1_data_votes
+       }}
+    else
+      {:ok,
+       %BeaconState{
+         state
+         | eth1_data_votes: updated_eth1_data_votes
+       }}
+    end
+  end
+
   defp has_invalid_conditions?(data, state, beacon_committee, indexed_attestation, attestation) do
     invalid_target_epoch?(data, state) ||
       epoch_mismatch?(data) ||
