@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @moduledoc """
-  Predicates functions
+  Range of predicates enabling verification of state
   """
 
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}

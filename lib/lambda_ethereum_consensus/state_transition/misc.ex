@@ -7,6 +7,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   import Bitwise
   alias SszTypes.BeaconState
 
+  alias SszTypes.BeaconState
+
+  @doc """
+  Returns the Unix timestamp at the start of the given slot
+  """
+  @spec compute_timestamp_at_slot(BeaconState.t(), SszTypes.uint64()) :: SszTypes.uint64()
+  def compute_timestamp_at_slot(state, slot) do
+    slots_since_genesis = slot - Constants.genesis_slot()
+    state.genesis_time + slots_since_genesis * ChainSpec.get("SECONDS_PER_SLOT")
+  end
+
   @doc """
   Returns the epoch number at slot.
   """
