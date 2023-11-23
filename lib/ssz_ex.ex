@@ -57,27 +57,21 @@ defmodule LambdaEthereumConsensus.SszEx do
     fixed_lengths = @bytes_per_length_offset * length(list)
 
     with {:ok, {encoded_variable_parts, variable_offsets_list, total_byte_size}} <-
-           encode_variable_parts(list, basic_type) do
-      if fixed_lengths + total_byte_size <
-           2 ** (@bytes_per_length_offset * @bits_per_byte) do
-        {variable_offsets, _} =
-          Enum.reduce(variable_offsets_list, {[], 0}, fn element, {res, acc} ->
-            sum = fixed_lengths + acc
-            {[sum | res], element + acc}
-          end)
-
-        with {:ok, encoded_variable_offsets} <-
-               variable_offsets
-               |> Enum.reverse()
-               |> Enum.map(&encode(&1, {:int, 32}))
-               |> flatten_results() do
-          (encoded_variable_offsets ++ encoded_variable_parts)
-          |> :binary.list_to_bin()
-          |> then(&{:ok, &1})
-        end
-      else
-        {:error, "invalid lengths"}
-      end
+           encode_variable_parts(list, basic_type),
+         :ok <- check_length(fixed_lengths, total_byte_size),
+         {variable_offsets, _} =
+           Enum.reduce(variable_offsets_list, {[], 0}, fn element, {res, acc} ->
+             sum = fixed_lengths + acc
+             {[sum | res], element + acc}
+           end),
+         {:ok, encoded_variable_offsets} <-
+           variable_offsets
+           |> Enum.reverse()
+           |> Enum.map(&encode(&1, {:int, 32}))
+           |> flatten_results() do
+      (encoded_variable_offsets ++ encoded_variable_parts)
+      |> :binary.list_to_bin()
+      |> then(&{:ok, &1})
     end
   end
 
@@ -114,12 +108,20 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   defp decode_variable_list(binary, _, _) when byte_size(binary) == 0 do
-    {:error, "Error trying to collect empty list"}
+    {:ok, []}
   end
 
-  defp decode_variable_list(binary, basic_type, size) do
+  defp decode_variable_list(
+         <<first_offset::integer-32-little, _rest_bytes::bitstring>>,
+         _basic_type,
+         size
+       )
+       when div(first_offset, @bytes_per_length_offset) > size,
+       do: {:error, "invalid length list"}
+
+  defp decode_variable_list(binary, basic_type, _size) do
     <<first_offset::integer-32-little, rest_bytes::bitstring>> = binary
-    num_items = div(first_offset, @bytes_per_length_offset)
+    num_elements = div(first_offset, @bytes_per_length_offset)
 
     if Integer.mod(first_offset, @bytes_per_length_offset) != 0 ||
          first_offset < @bytes_per_length_offset do
@@ -127,53 +129,58 @@ defmodule LambdaEthereumConsensus.SszEx do
     else
       with {:ok, first_offset} <-
              sanitize_offset(first_offset, nil, byte_size(binary), first_offset) do
-        {:ok, {decoded_list, _, _}} =
-          decode_variable_list(first_offset, rest_bytes, num_items, binary, basic_type)
-
-        if length(decoded_list) > size do
-          {:error, "invalid length list"}
-        else
-          {:ok, decoded_list |> Enum.reverse()}
-        end
+        decode_variable_list_elements(
+          num_elements,
+          rest_bytes,
+          basic_type,
+          first_offset,
+          binary,
+          first_offset,
+          []
+        )
+        |> Enum.reverse()
+        |> flatten_results()
       end
     end
   end
 
-  @spec decode_variable_list(integer(), binary, integer(), binary, any) ::
-          {:ok, {list, integer(), binary}} | {:error, String.t()}
-  defp decode_variable_list(first_offset, rest_bytes, num_items, binary, basic_type) do
-    1..num_items
-    |> Enum.reduce_while({:ok, {[], first_offset, rest_bytes}}, fn i,
-                                                                   {:ok,
-                                                                    {acc_decoded, offset,
-                                                                     acc_rest_bytes}} ->
-      if i == num_items do
-        part = :binary.part(binary, offset, byte_size(binary) - offset)
-
-        with {:ok, decoded} <- decode(part, basic_type) do
-          {:cont, {:ok, {[decoded | acc_decoded], offset, rest_bytes}}}
-        end
-      else
-        get_next_offset(acc_decoded, acc_rest_bytes, basic_type, offset, binary, first_offset)
-      end
-    end)
+  defp decode_variable_list_elements(
+         1 = _num_elements,
+         _acc_rest_bytes,
+         basic_type,
+         offset,
+         binary,
+         _first_offset,
+         results
+       ) do
+    part = :binary.part(binary, offset, byte_size(binary) - offset)
+    [decode(part, basic_type) | results]
   end
 
-  @spec get_next_offset(list, binary, any, integer(), binary, integer()) ::
-          {:cont, {:ok, {list, integer(), binary}}} | {:halt, {:error, String.t()}}
-  defp get_next_offset(acc_decoded, acc_rest_bytes, basic_type, offset, binary, first_offset) do
+  defp decode_variable_list_elements(
+         num_elements,
+         acc_rest_bytes,
+         basic_type,
+         offset,
+         binary,
+         first_offset,
+         results
+       ) do
     <<next_offset::integer-32-little, rest_bytes::bitstring>> = acc_rest_bytes
 
-    case sanitize_offset(next_offset, offset, byte_size(binary), first_offset) do
-      {:ok, next_offset} ->
-        part = :binary.part(binary, offset, next_offset - offset)
+    with {:ok, next_offset} <-
+           sanitize_offset(next_offset, offset, byte_size(binary), first_offset) do
+      part = :binary.part(binary, offset, next_offset - offset)
 
-        with {:ok, decoded} <- decode(part, basic_type) do
-          {:cont, {:ok, {[decoded | acc_decoded], next_offset, rest_bytes}}}
-        end
-
-      {:error, error} ->
-        {:halt, {:error, error}}
+      decode_variable_list_elements(
+        num_elements - 1,
+        rest_bytes,
+        basic_type,
+        next_offset,
+        binary,
+        first_offset,
+        [decode(part, basic_type) | results]
+      )
     end
   end
 
@@ -217,6 +224,15 @@ defmodule LambdaEthereumConsensus.SszEx do
     case Enum.group_by(results, fn {type, _} -> type end, fn {_, result} -> result end) do
       %{error: errors} -> {:error, errors}
       summary -> {:ok, fun.(Map.get(summary, :ok, []))}
+    end
+  end
+
+  defp check_length(fixed_lengths, total_byte_size) do
+    if fixed_lengths + total_byte_size <
+         2 ** (@bytes_per_length_offset * @bits_per_byte) do
+      :ok
+    else
+      {:error, "invalid lengths"}
     end
   end
 
