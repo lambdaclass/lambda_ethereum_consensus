@@ -35,7 +35,7 @@ func RequestNotification(protocolId string, handler []byte, requestId string, me
 	return proto_defs.Notification{N: &proto_defs.Notification_Request{Request: requestNotification}}
 }
 
-func ResultNotification(from []byte, result []byte, err error) proto_defs.Notification {
+func ResultNotification(from []byte, result []byte, err error) *proto_defs.Notification {
 	var responseNotification *proto_defs.Result
 	if err != nil {
 		resultError := &proto_defs.Result_Error{Error: &proto_defs.ResultMessage{Message: [][]byte{[]byte(err.Error())}}}
@@ -48,5 +48,5 @@ func ResultNotification(from []byte, result []byte, err error) proto_defs.Notifi
 		resultOk := &proto_defs.Result_Ok{Ok: &proto_defs.ResultMessage{Message: message}}
 		responseNotification = &proto_defs.Result{From: from, Result: resultOk}
 	}
-	return proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
+	return &proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
 }
