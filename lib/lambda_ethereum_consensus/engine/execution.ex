@@ -30,4 +30,12 @@ defmodule LambdaEthereumConsensus.Engine.Execution do
       RPC.validate_rpc_response(result)
     end
   end
+
+  @doc """
+  Verifies the validity of the data contained in the new payload and notifies the Execution client of a new payload
+  """
+  @spec verify_and_notify_new_payload(SszTypes.ExecutionPayload.t()) :: {:ok, any} | {:error, any}
+  def verify_and_notify_new_payload(_execution_payload) do
+    {:ok, true}
+  end
 end

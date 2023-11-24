@@ -47,6 +47,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_metrics_prometheus, "~> 1.1.0"},
+      {:eflambe, "~> 0.3.1"},
       {:patch, "~> 0.12.0", only: [:test]},
       {:stream_data, "~> 0.6", only: [:test]},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
@@ -63,5 +64,5 @@ defmodule LambdaEthereumConsensus.MixProject do
   end
 
   defp compiler_paths(:test), do: ["test/spec", "test/fixtures"] ++ compiler_paths(:prod)
-  defp compiler_paths(_), do: ["lib"]
+  defp compiler_paths(_), do: ["lib", "proto"]
 end

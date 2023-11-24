@@ -7,6 +7,7 @@ import (
 	"libp2p_port/internal/proto_helpers"
 	"libp2p_port/internal/utils"
 	"sync"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	mplex "github.com/libp2p/go-libp2p-mplex"
@@ -16,10 +17,12 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
-	"github.com/multiformats/go-multiaddr"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type responseChannel = chan []byte
+
+const RESP_TIMEOUT = time.Duration(10 * time.Second)
 
 type Listener struct {
 	hostHandle      host.Host
@@ -56,18 +59,24 @@ func (l *Listener) HostId() []byte {
 func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
 	addrInfo := peer.AddrInfo{ID: peer.ID(id)}
 	for _, addr := range addrs {
-		maddr, err := multiaddr.NewMultiaddr(addr)
+		maddr, err := ma.NewMultiaddr(addr)
 		// TODO: return error to caller
 		utils.PanicIfError(err)
 		addrInfo.Addrs = append(addrInfo.Addrs, maddr)
 	}
+	l.AddPeerWithAddrInfo(addrInfo, ttl)
+}
+
+func (l *Listener) AddPeerWithAddrInfo(addrInfo peer.AddrInfo, ttl int64) {
 	l.hostHandle.Connect(context.TODO(), addrInfo)
-	notification := proto_helpers.NewPeerNotification(id)
+	notification := proto_helpers.NewPeerNotification([]byte(addrInfo.ID))
 	l.port.SendNotification(&notification)
 }
 
 func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte) ([]byte, error) {
-	ctx := context.TODO()
+	ctx, cancel := context.WithTimeout(context.Background(), RESP_TIMEOUT)
+	defer cancel()
+
 	stream, err := l.hostHandle.NewStream(ctx, peer.ID(peerId), protocol.ID(protocolId))
 	if err != nil {
 		return nil, err

@@ -12,7 +12,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias SszTypes.SignedBeaconBlock
 
-  @type state :: %{pending_blocks: %{}}
+  @type state :: %{
+          pending_blocks: %{SszTypes.root() => SignedBeaconBlock.t()},
+          invalid_blocks: %{SszTypes.root() => map()},
+          blocks_to_download: MapSet.t(SszTypes.root())
+        }
 
   ##########################
   ### Public API
@@ -40,8 +44,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @spec init(any) :: {:ok, state()}
   def init(_opts) do
     schedule_blocks_processing()
+    schedule_blocks_download()
 
-    {:ok, %{pending_blocks: %{}}}
+    {:ok, %{pending_blocks: %{}, invalid_blocks: %{}, blocks_to_download: MapSet.new()}}
   end
 
   @impl true
@@ -56,57 +61,118 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     {:reply, Map.has_key?(state.pending_blocks, block_root), state}
   end
 
+  @spec handle_info(any(), state()) :: {:noreply, state()}
+
   @doc """
   Iterates through the pending blocks and adds them to the fork choice if their parent is already in the fork choice.
   """
   @impl true
   @spec handle_info(atom(), state()) :: {:noreply, state()}
   def handle_info(:process_blocks, state) do
-    %{pending_blocks: pending_blocks} = state
+    state.pending_blocks
+    |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
+    |> Enum.reduce(state, fn {block_root, signed_block}, state ->
+      parent_root = signed_block.message.parent_root
 
-    blocks_to_remove =
-      pending_blocks
-      |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
-      |> Enum.map(fn {block_root, %SignedBeaconBlock{message: block} = signed_block} ->
-        cond do
-          Store.has_block?(block_root) ->
-            block_root
+      cond do
+        # If parent is invalid, block is invalid
+        state.invalid_blocks |> Map.has_key?(parent_root) ->
+          state
+          |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
+          |> Map.update!(
+            :invalid_blocks,
+            &Map.put(&1, block_root, signed_block.message |> Map.take([:slot, :parent_root]))
+          )
 
-          Store.has_block?(block.parent_root) ->
-            Store.on_block(signed_block, block_root)
-            block_root
+        # If parent is pending, block is pending
+        state.pending_blocks |> Map.has_key?(parent_root) ->
+          state
 
-          Map.has_key?(pending_blocks, block.parent_root) ->
-            # parent block is in pending_blocks
-            # do nothing
-            nil
+        # If already in fork choice, remove from pending
+        Store.has_block?(block_root) ->
+          state |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
 
-          true ->
-            download_block(block.parent_root)
-            nil
-        end
-      end)
+        # If parent is not in fork choice, download parent
+        not Store.has_block?(parent_root) ->
+          state |> Map.update!(:blocks_to_download, &MapSet.put(&1, parent_root))
 
-    schedule_blocks_processing()
-    {:noreply, Map.put(state, :pending_blocks, Map.drop(pending_blocks, blocks_to_remove))}
+        # If all the other conditions are false, add block to fork choice
+        true ->
+          new_state = send_block_to_forkchoice(state, signed_block, block_root)
+
+          # When on checkpoint sync, we might accumulate a couple of hundred blocks in the pending blocks queue.
+          # This can cause the ForkChoie to timeout on other call requests since it has to process all the
+          # pending blocks first. TODO: find a better way to handle this
+          Process.sleep(100)
+
+          new_state
+      end
+    end)
+    |> then(fn state ->
+      schedule_blocks_processing()
+      {:noreply, state}
+    end)
+  end
+
+  @impl true
+  def handle_info(:download_blocks, state) do
+    blocks_in_store = state.blocks_to_download |> MapSet.filter(&Store.has_block?/1)
+
+    downloaded_blocks =
+      state.blocks_to_download
+      |> MapSet.difference(blocks_in_store)
+      |> Enum.to_list()
+      # max 20 blocks per request
+      |> Enum.take(20)
+      |> BlockDownloader.request_blocks_by_root()
+      |> case do
+        {:ok, signed_blocks} ->
+          signed_blocks
+
+        {:error, reason} ->
+          Logger.debug("Block download failed: '#{reason}'")
+          []
+      end
+
+    for signed_block <- downloaded_blocks do
+      add_block(signed_block)
+    end
+
+    roots_to_remove =
+      downloaded_blocks
+      |> Enum.map(&Ssz.hash_tree_root!(&1.message))
+      |> MapSet.new()
+      |> MapSet.union(blocks_in_store)
+
+    schedule_blocks_download()
+    {:noreply, Map.update!(state, :blocks_to_download, &MapSet.difference(&1, roots_to_remove))}
   end
 
   ##########################
   ### Private Functions
   ##########################
 
-  defp download_block(block_root) do
-    case BlockDownloader.request_block_by_root(block_root) do
-      {:ok, signed_block} ->
-        Logger.info("Block downloaded: #{signed_block.message.slot}")
-        add_block(signed_block)
+  @spec send_block_to_forkchoice(state(), SignedBeaconBlock.t(), SszTypes.root()) :: state()
+  defp send_block_to_forkchoice(state, signed_block, block_root) do
+    case Store.on_block(signed_block, block_root) do
+      :ok ->
+        state |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
 
-      {:error, reason} ->
-        Logger.debug("Block download failed: '#{reason}'")
+      :error ->
+        state
+        |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
+        |> Map.update!(
+          :invalid_blocks,
+          &Map.put(&1, block_root, signed_block.message |> Map.take([:slot, :parent_root]))
+        )
     end
   end
 
   defp schedule_blocks_processing do
-    Process.send_after(self(), :process_blocks, 1000)
+    Process.send_after(self(), :process_blocks, 3000)
+  end
+
+  def schedule_blocks_download do
+    Process.send_after(self(), :download_blocks, 1000)
   end
 end

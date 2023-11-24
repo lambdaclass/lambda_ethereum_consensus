@@ -7,6 +7,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   import Bitwise
   alias SszTypes.BeaconState
 
+  alias SszTypes.BeaconState
+
+  @doc """
+  Returns the Unix timestamp at the start of the given slot
+  """
+  @spec compute_timestamp_at_slot(BeaconState.t(), SszTypes.uint64()) :: SszTypes.uint64()
+  def compute_timestamp_at_slot(state, slot) do
+    slots_since_genesis = slot - Constants.genesis_slot()
+    state.genesis_time + slots_since_genesis * ChainSpec.get("SECONDS_PER_SLOT")
+  end
+
   @doc """
   Returns the epoch number at slot.
   """
@@ -242,21 +253,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
   @spec compute_signing_root(SszTypes.bytes32(), SszTypes.domain()) :: SszTypes.root()
   def compute_signing_root(<<_::256>> = data, domain) do
-    {:ok, root} =
-      Ssz.hash_tree_root(%SszTypes.SigningData{
-        object_root: data,
-        domain: domain
-      })
-
-    root
+    Ssz.hash_tree_root!(%SszTypes.SigningData{
+      object_root: data,
+      domain: domain
+    })
   end
 
   @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
   def compute_signing_root(ssz_object, domain) do
-    Ssz.hash_tree_root!(%SszTypes.SigningData{
-      object_root: Ssz.hash_tree_root!(ssz_object),
-      domain: domain
-    })
+    ssz_object |> Ssz.hash_tree_root!() |> compute_signing_root(domain)
+  end
+
+  @spec compute_signing_root(any(), module, SszTypes.domain()) :: SszTypes.root()
+  def compute_signing_root(ssz_object, schema, domain) do
+    ssz_object |> Ssz.hash_tree_root!(schema) |> compute_signing_root(domain)
   end
 
   @doc """
