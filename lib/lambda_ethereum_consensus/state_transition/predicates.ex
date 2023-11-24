@@ -116,17 +116,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
     is_valid_merkle_branch(leaf, branch, depth, index, root, leaf, 0)
   end
 
+  defp is_valid_merkle_branch(_, _, depth, _, root, value, depth), do: value == root
+
   defp is_valid_merkle_branch(leaf, branch, depth, index, root, value, i) do
-    if i == depth do
-      value == root
+    if rem(div(index, 2 ** i), 2) == 1 do
+      value = :crypto.hash(:sha256, Enum.at(branch, i) <> value)
+      is_valid_merkle_branch(leaf, branch, depth, index, root, value, i + 1)
     else
-      if rem(div(index, 2 ** i), 2) == 1 do
-        value = :crypto.hash(:sha256, Enum.at(branch, i) <> value)
-        is_valid_merkle_branch(leaf, branch, depth, index, root, value, i + 1)
-      else
-        value = :crypto.hash(:sha256, value <> Enum.at(branch, i))
-        is_valid_merkle_branch(leaf, branch, depth, index, root, value, i + 1)
-      end
+      value = :crypto.hash(:sha256, value <> Enum.at(branch, i))
+      is_valid_merkle_branch(leaf, branch, depth, index, root, value, i + 1)
     end
   end
 
