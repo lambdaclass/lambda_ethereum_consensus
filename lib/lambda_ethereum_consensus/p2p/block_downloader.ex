@@ -58,11 +58,13 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     else
       {:error, reason} when retries > 0 ->
         tags = %{type: "by_slot", reason: parse_reason(reason)}
+        P2P.Peerbook.penalize_peer(peer_id)
         :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
         Logger.debug("Retrying request for block with slot #{slot}")
         request_blocks_by_slot(slot, count, retries - 1)
 
       {:error, reason} when retries == 0 ->
+        P2P.Peerbook.penalize_peer(peer_id)
         tags = %{type: "by_slot", reason: parse_reason(reason)}
         :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
         {:error, reason}
@@ -109,6 +111,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     else
       {:error, reason} ->
         tags = %{type: "by_root", reason: parse_reason(reason)}
+        P2P.Peerbook.penalize_peer(peer_id)
 
         if retries > 0 do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))

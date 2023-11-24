@@ -12,7 +12,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.StateTransition.Misc
 
-  @blocks_per_chunk 20
+  @blocks_per_chunk 16
 
   @type chunk :: %{from: SszTypes.slot(), count: integer()}
 
@@ -21,6 +21,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   end
 
   def run(_opts) do
+    # Initial sleep for faster app start
+    Process.sleep(1000)
     {:ok, checkpoint} = Store.get_finalized_checkpoint()
 
     initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch)

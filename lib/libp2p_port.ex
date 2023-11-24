@@ -79,6 +79,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec get_id(GenServer.server()) :: binary()
   def get_id(pid \\ __MODULE__) do
+    :telemetry.execute([:port, :message], %{}, %{function: "get_id", direction: "elixir->"})
     {:ok, id} = call_command(pid, {:get_id, %GetId{}})
     id
   end
@@ -90,6 +91,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec set_handler(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
   def set_handler(pid \\ __MODULE__, protocol_id) do
+    :telemetry.execute([:port, :message], %{}, %{function: "set_handler", direction: "elixir->"})
     call_command(pid, {:set_handler, %SetHandler{protocol_id: protocol_id}})
   end
 
@@ -100,6 +102,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec add_peer(GenServer.server(), binary(), [String.t()], integer()) ::
           :ok | {:error, String.t()}
   def add_peer(pid \\ __MODULE__, id, addrs, ttl) do
+    :telemetry.execute([:port, :message], %{}, %{function: "add_peer", direction: "elixir->"})
     c = %AddPeer{id: id, addrs: addrs, ttl: ttl}
     call_command(pid, {:add_peer, c})
   end
@@ -111,6 +114,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec send_request(GenServer.server(), binary(), String.t(), binary()) ::
           {:ok, binary()} | {:error, String.t()}
   def send_request(pid \\ __MODULE__, peer_id, protocol_id, message) do
+    :telemetry.execute([:port, :message], %{}, %{function: "send_request", direction: "elixir->"})
     c = %SendRequest{id: peer_id, protocol_id: protocol_id, message: message}
     call_command(pid, {:send_request, c})
   end
@@ -132,6 +136,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec send_response(GenServer.server(), String.t(), binary()) ::
           :ok | {:error, String.t()}
   def send_response(pid \\ __MODULE__, request_id, response) do
+    :telemetry.execute([:port, :message], %{}, %{function: "send_response", direction: "elixir->"})
+
     c = %SendResponse{request_id: request_id, message: response}
     call_command(pid, {:send_response, c})
   end
@@ -142,6 +148,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec subscribe_to_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
   def subscribe_to_topic(pid \\ __MODULE__, topic_name) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "subscribe_to_topic",
+      direction: "elixir->"
+    })
+
     call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
 
@@ -161,6 +172,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec publish(GenServer.server(), String.t(), binary()) :: :ok | {:error, String.t()}
   def publish(pid \\ __MODULE__, topic_name, message) do
+    :telemetry.execute([:port, :message], %{}, %{function: "publish", direction: "elixir->"})
     call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
   end
 
@@ -169,6 +181,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec unsubscribe_from_topic(GenServer.server(), String.t()) :: :ok
   def unsubscribe_from_topic(pid \\ __MODULE__, topic_name) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "unsubscribe_from_topic",
+      direction: "elixir->"
+    })
+
     cast_command(pid, {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}})
   end
 
@@ -178,6 +195,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec set_new_peer_handler(GenServer.server(), pid() | nil) :: :ok
   def set_new_peer_handler(pid \\ __MODULE__, handler) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "set_new_peer_handler",
+      direction: "elixir->"
+    })
+
     GenServer.cast(pid, {:set_new_peer_handler, handler})
   end
 
@@ -189,6 +211,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec validate_message(GenServer.server(), binary(), :accept | :reject | :ignore) :: :ok
   def validate_message(pid \\ __MODULE__, msg_id, result) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "validate_message",
+      direction: "elixir->"
+    })
+
     cast_command(pid, {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
   end
 
@@ -235,6 +262,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_info(other, state) do
+    :telemetry.execute([:port, :message], %{}, %{function: "other", direction: "->elixir"})
     Logger.error(inspect(other))
     {:noreply, state}
   end
@@ -244,6 +272,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ######################
 
   defp handle_notification(%GossipSub{} = gs, _state) do
+    :telemetry.execute([:port, :message], %{}, %{function: "gossipsub", direction: "->elixir"})
     handler_pid = :erlang.binary_to_term(gs.handler)
     send(handler_pid, {:gossipsub, {gs.topic, gs.msg_id, gs.message}})
   end
@@ -257,6 +286,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
          },
          _state
        ) do
+    :telemetry.execute([:port, :message], %{}, %{function: "request", direction: "->elixir"})
     handler_pid = :erlang.binary_to_term(handler)
     send(handler_pid, {:request, {protocol_id, request_id, message}})
   end
@@ -264,15 +294,18 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp handle_notification(%NewPeer{peer_id: _peer_id}, %{new_peer_handler: nil}), do: :ok
 
   defp handle_notification(%NewPeer{peer_id: peer_id}, %{new_peer_handler: handler}) do
+    :telemetry.execute([:port, :message], %{}, %{function: "new peer", direction: "->elixir"})
     send(handler, {:new_peer, peer_id})
   end
 
   defp handle_notification(%Result{from: "", result: result}, _state) do
+    :telemetry.execute([:port, :message], %{}, %{function: "result", direction: "->elixir"})
     # TODO: amount of failures would be a useful metric
     _success_txt = if match?({:ok, _}, result), do: "success", else: "failed"
   end
 
   defp handle_notification(%Result{from: from, result: result}, _state) do
+    :telemetry.execute([:port, :message], %{}, %{function: "result", direction: "->elixir"})
     pid = :erlang.binary_to_term(from)
     send(pid, {:response, result})
   end
