@@ -43,6 +43,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @impl true
   @spec init(any) :: {:ok, state()}
   def init(_opts) do
+    schedule_blocks_processing()
+    schedule_blocks_download()
     {:ok, %{pending_blocks: %{}, invalid_blocks: %{}, blocks_to_download: MapSet.new()}}
   end
 

@@ -32,6 +32,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   def init(_opts) do
     Libp2pPort.set_new_peer_handler(self())
     peerbook = %{}
+    schedule_pruning()
     {:ok, peerbook}
   end
 
