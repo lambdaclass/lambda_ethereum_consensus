@@ -21,7 +21,7 @@ defmodule Constants do
   @spec domain_beacon_proposer() :: SszTypes.domain_type()
   def domain_beacon_proposer, do: <<0, 0, 0, 0>>
 
-  @spec domain_deposit() :: <<_::32>>
+  @spec domain_deposit() :: SszTypes.domain_type()
   def domain_deposit, do: <<3, 0, 0, 0>>
 
   @spec domain_randao() :: SszTypes.domain_type()
