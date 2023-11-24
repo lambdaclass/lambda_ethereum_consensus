@@ -84,7 +84,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (result) (rate(network_request_count{result=\"success\"}[$__range]))",
+          "expr": "sum(rate(network_request_blocks{}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -244,7 +244,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "rate(network_request_count{result=\"success\",type=\"by_root\"}[$__rate_interval])",
+          "expr": "rate(network_request_count{result=\"success\"}[$__rate_interval])",
           "hide": false,
           "interval": "",
           "legendFormat": "success",
@@ -259,7 +259,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(network_request_count{result=~\"error|retry\", type=\"by_root\"}[$__rate_interval]))",
+          "expr": "sum(rate(network_request_count{result=~\"error|retry\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -908,7 +908,7 @@
     "list": []
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},
