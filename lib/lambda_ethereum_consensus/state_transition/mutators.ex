@@ -189,6 +189,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
 
         if Bls.valid?(pubkey, signing_root, signature) do
           apply_initial_deposit(state, pubkey, withdrawal_credentials, amount)
+        else
+          {:ok, state}
         end
     end
   end
@@ -206,6 +208,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
                  amount
                )
              ],
+         balances: state.balances ++ [amount],
          previous_epoch_participation: state.previous_epoch_participation ++ [0],
          current_epoch_participation: state.current_epoch_participation ++ [0],
          inactivity_scores: state.inactivity_scores ++ [0]
