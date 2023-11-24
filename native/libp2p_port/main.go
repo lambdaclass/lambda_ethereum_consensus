@@ -12,15 +12,15 @@ import (
 	gossipsub "libp2p_port/internal/subscriptions"
 )
 
-func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber) proto_defs.Notification {
+func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber) *proto_defs.Notification {
 	switch c := command.C.(type) {
 	case *proto_defs.Command_GetId:
 		return proto_helpers.ResultNotification(command.From, []byte(listener.HostId()), nil)
 	case *proto_defs.Command_AddPeer:
 		listener.AddPeer(c.AddPeer.Id, c.AddPeer.Addrs, c.AddPeer.Ttl)
 	case *proto_defs.Command_SendRequest:
-		response, err := listener.SendRequest(c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
-		return proto_helpers.ResultNotification(command.From, response, err)
+		listener.SendRequest(command.From, c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
+		return nil // No response
 	case *proto_defs.Command_SendResponse:
 		listener.SendResponse(c.SendResponse.RequestId, c.SendResponse.Message)
 	case *proto_defs.Command_SetHandler:
@@ -62,7 +62,7 @@ func commandServer() {
 			break
 		}
 		reply := handleCommand(&command, &listener, &subscriber)
-		portInst.SendNotification(&reply)
+		portInst.SendNotification(reply)
 	}
 }
 
