@@ -14,6 +14,11 @@ defmodule LambdaEthereumConsensus.SszEx do
       else: encode_fixed_size_list(list, basic_type, size)
   end
 
+  def encode(value, {:bytes, _}), do: {:ok, value}
+
+  def encode(container, module) when is_map(container),
+    do: encode_container(container, module.schema())
+
   def decode(binary, :bool), do: decode_bool(binary)
   def decode(binary, {:int, size}), do: decode_uint(binary, size)
 
@@ -184,6 +189,113 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  defp encode_container(container, schemas) do
+    values =
+      schemas
+      |> Enum.map(fn {key, schema} ->
+        value = Map.get(container, key)
+        {value, schema}
+      end)
+
+    with {:ok,
+          {encoded_variable_parts, encoded_fixed_parts, variable_size_list,
+           total_variable_byte_size, total_fixed_byte_size}} <- encode_container_parts(values),
+         :ok <- check_length(total_fixed_byte_size, total_variable_byte_size),
+         {variable_offsets, _} =
+           Enum.reduce(variable_size_list, {[], 0}, fn element, {res, acc} ->
+             sum = total_fixed_byte_size + acc
+             {[sum | res], element + acc}
+           end),
+         {:ok, encoded_variable_offsets} <-
+           variable_offsets
+           |> Enum.reverse()
+           |> Enum.map(&encode(&1, {:int, 32}))
+           |> flatten_results() do
+      {encoded_parts, _} =
+        Enum.reduce(encoded_fixed_parts, {[], encoded_variable_offsets}, fn element,
+                                                                            {acc_encoded_list,
+                                                                             acc_offsets_list} ->
+          if element == nil do
+            [offset | rest_offsets] = acc_offsets_list
+            {[offset | acc_encoded_list], rest_offsets}
+          else
+            {[element | acc_encoded_list], acc_offsets_list}
+          end
+        end)
+
+      (Enum.reverse(encoded_parts) ++ encoded_variable_parts)
+      |> :binary.list_to_bin()
+      |> then(&{:ok, &1})
+    end
+  end
+
+  defp encode_container_parts(values) do
+    with {:ok,
+          {encoded_variable_list, encoded_fixed_list, variable_size_list,
+           total_variable_byte_size,
+           total_fixed_byte_size}} <-
+           Enum.reduce_while(values, {:ok, {[], [], [], 0, 0}}, fn {value, schema},
+                                                                   {:ok,
+                                                                    {res_encoded_variable_list,
+                                                                     res_encoded_fixed_list,
+                                                                     res_variable_size_list,
+                                                                     varible_size_acc,
+                                                                     fixed_size_acc}} ->
+             encode_container_part(
+               value,
+               schema,
+               res_encoded_variable_list,
+               res_encoded_fixed_list,
+               res_variable_size_list,
+               varible_size_acc,
+               fixed_size_acc
+             )
+           end) do
+      {:ok,
+       {Enum.reverse(encoded_variable_list), Enum.reverse(encoded_fixed_list),
+        Enum.reverse(variable_size_list), total_variable_byte_size, total_fixed_byte_size}}
+    end
+  end
+
+  defp encode_container_part(
+         value,
+         schema,
+         res_encoded_variable_list,
+         res_encoded_fixed_list,
+         res_variable_size_list,
+         varible_size_acc,
+         fixed_size_acc
+       ) do
+    if variable_size?(schema) do
+      case encode(value, schema) do
+        {:ok, encoded} ->
+          size = byte_size(encoded)
+
+          {:cont,
+           {:ok,
+            {[encoded | res_encoded_variable_list], [nil | res_encoded_fixed_list],
+             [size | res_variable_size_list], size + varible_size_acc,
+             @bytes_per_length_offset + fixed_size_acc}}}
+
+        error ->
+          {:halt, {:error, error}}
+      end
+    else
+      case encode(value, schema) do
+        {:ok, encoded} ->
+          size = byte_size(encoded)
+
+          {:cont,
+           {:ok,
+            {res_encoded_variable_list, [encoded | res_encoded_fixed_list],
+             res_variable_size_list, varible_size_acc, size + fixed_size_acc}}}
+
+        error ->
+          {:halt, {:error, error}}
+      end
+    end
+  end
+
   # https://notes.ethereum.org/ruKvDXl6QOW3gnqVYb8ezA?view
   defp sanitize_offset(offset, previous_offset, num_bytes, num_fixed_bytes) do
     cond do
@@ -242,4 +354,5 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp variable_size?({:list, _, _}), do: true
   defp variable_size?(:bool), do: false
   defp variable_size?({:int, _}), do: false
+  defp variable_size?({:bytes, _}), do: false
 end

@@ -4,6 +4,8 @@ defmodule SszTypes.SyncCommittee do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
+  @behaviour LambdaEthereumConsensus.Container
+
   fields = [
     :pubkeys,
     :aggregate_pubkey
@@ -16,4 +18,12 @@ defmodule SszTypes.SyncCommittee do
           pubkeys: list(SszTypes.bls_pubkey()),
           aggregate_pubkey: SszTypes.bls_pubkey()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:pubkeys, {:list, {:bytes, 48}, 100}},
+      {:aggregate_pubkey, {:bytes, 48}}
+    ]
+  end
 end
