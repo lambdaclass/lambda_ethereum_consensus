@@ -1,7 +1,14 @@
 defmodule BeaconApi.V2.BeaconController do
   alias BeaconApi.ErrorController
   alias LambdaEthereumConsensus.Store.BlockStore
+
   use BeaconApi, :controller
+  use Phoenix.Controller
+  plug(
+    OpenApiSpex.Plug.CastAndValidate,
+    json_render_error_v2: true,
+    replace_params: false
+  )
 
   @spec get_block(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_block(conn, %{"block_id" => "head"}) do
