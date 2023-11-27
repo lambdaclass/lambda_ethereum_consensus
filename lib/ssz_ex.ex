@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.SszEx do
       else: decode_list(binary, basic_type, size)
   end
 
-  def decode(binary, module), do: decode_container(binary, module)
+  def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
 
   #################
   ### Private functions
@@ -193,110 +193,66 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   defp encode_container(container, schemas) do
-    values =
-      schemas
-      |> Enum.map(fn {key, schema} ->
-        value = Map.get(container, key)
-        {value, schema}
-      end)
+    {fixed_size_values, fixed_length, variable_values} = analyze_schemas(container, schemas)
 
-    with {:ok,
-          {encoded_variable_parts, encoded_fixed_parts, variable_size_list,
-           total_variable_byte_size, total_fixed_byte_size}} <- encode_container_parts(values),
-         :ok <- check_length(total_fixed_byte_size, total_variable_byte_size),
-         {variable_offsets, _} =
-           Enum.reduce(variable_size_list, {[], 0}, fn element, {res, acc} ->
-             sum = total_fixed_byte_size + acc
-             {[sum | res], element + acc}
-           end),
-         {:ok, encoded_variable_offsets} <-
-           variable_offsets
-           |> Enum.reverse()
-           |> Enum.map(&encode(&1, {:int, 32}))
-           |> flatten_results() do
-      {encoded_parts, _} =
-        Enum.reduce(encoded_fixed_parts, {[], encoded_variable_offsets}, fn element,
-                                                                            {acc_encoded_list,
-                                                                             acc_offsets_list} ->
-          if element == nil do
-            [offset | rest_offsets] = acc_offsets_list
-            {[offset | acc_encoded_list], rest_offsets}
-          else
-            {[element | acc_encoded_list], acc_offsets_list}
-          end
-        end)
-
-      (Enum.reverse(encoded_parts) ++ encoded_variable_parts)
-      |> :binary.list_to_bin()
+    with {:ok, variable_parts} <- encode_schemas(variable_values),
+         offsets = calculate_offsets(variable_parts, fixed_length),
+         variable_length =
+           Enum.reduce(variable_parts, 0, fn part, acc -> byte_size(part) + acc end),
+         :ok <- check_length(fixed_length, variable_length),
+         {:ok, fixed_parts} <-
+           replace_offsets(fixed_size_values, offsets)
+           |> encode_schemas do
+      (fixed_parts ++ variable_parts)
+      |> Enum.join()
       |> then(&{:ok, &1})
     end
   end
 
-  defp encode_container_parts(values) do
-    with {:ok,
-          {encoded_variable_list, encoded_fixed_list, variable_size_list,
-           total_variable_byte_size,
-           total_fixed_byte_size}} <-
-           Enum.reduce_while(values, {:ok, {[], [], [], 0, 0}}, fn {value, schema},
-                                                                   {:ok,
-                                                                    {res_encoded_variable_list,
-                                                                     res_encoded_fixed_list,
-                                                                     res_variable_size_list,
-                                                                     varible_size_acc,
-                                                                     fixed_size_acc}} ->
-             encode_container_part(
-               value,
-               schema,
-               res_encoded_variable_list,
-               res_encoded_fixed_list,
-               res_variable_size_list,
-               varible_size_acc,
-               fixed_size_acc
-             )
-           end) do
-      {:ok,
-       {Enum.reverse(encoded_variable_list), Enum.reverse(encoded_fixed_list),
-        Enum.reverse(variable_size_list), total_variable_byte_size, total_fixed_byte_size}}
-    end
+  defp analyze_schemas(container, schemas) do
+    schemas
+    |> Enum.reduce({[], 0, []}, fn {key, schema},
+                                   {acc_fixed_size_values, acc_fixed_length, acc_variable_values} ->
+      value = Map.fetch!(container, key)
+
+      if variable_size?(schema) do
+        {[:offset | acc_fixed_size_values], @bytes_per_length_offset + acc_fixed_length,
+         [{value, schema} | acc_variable_values]}
+      else
+        {[{value, schema} | acc_fixed_size_values], acc_fixed_length + get_fixed_size(schema),
+         acc_variable_values}
+      end
+    end)
   end
 
-  defp encode_container_part(
-         value,
-         schema,
-         res_encoded_variable_list,
-         res_encoded_fixed_list,
-         res_variable_size_list,
-         varible_size_acc,
-         fixed_size_acc
-       ) do
-    if variable_size?(schema) do
-      case encode(value, schema) do
-        {:ok, encoded} ->
-          size = byte_size(encoded)
+  defp encode_schemas(tuple_values) do
+    Enum.map(tuple_values, fn {value, schema} -> encode(value, schema) end)
+    |> flatten_results()
+  end
 
-          {:cont,
-           {:ok,
-            {[encoded | res_encoded_variable_list], [nil | res_encoded_fixed_list],
-             [size | res_variable_size_list], size + varible_size_acc,
-             @bytes_per_length_offset + fixed_size_acc}}}
+  defp calculate_offsets(variable_parts, fixed_length) do
+    {offsets, _} =
+      Enum.reduce(variable_parts, {[], 0}, fn element, {res, acc} ->
+        sum = fixed_length + acc
+        {[{sum, {:int, 32}} | res], byte_size(element) + acc}
+      end)
 
-        error ->
-          {:halt, {:error, error}}
-      end
-    else
-      case encode(value, schema) do
-        {:ok, encoded} ->
-          size = byte_size(encoded)
+    offsets
+  end
 
-          {:cont,
-           {:ok,
-            {res_encoded_variable_list, [encoded | res_encoded_fixed_list],
-             res_variable_size_list, varible_size_acc, size + fixed_size_acc}}}
+  defp replace_offsets(fixed_size_values, offsets) do
+    {fixed_size_values, _} =
+      Enum.reduce(fixed_size_values, {[], offsets}, fn element,
+                                                       {acc_fixed_list, acc_offsets_list} ->
+        if element == :offset do
+          [offset | rest_offsets] = acc_offsets_list
+          {[offset | acc_fixed_list], rest_offsets}
+        else
+          {[element | acc_fixed_list], acc_offsets_list}
+        end
+      end)
 
-        error ->
-          {:halt, {:error, error}}
-      end
-    end
+    fixed_size_values
   end
 
   defp decode_container(binary, module) do

@@ -4,7 +4,8 @@ defmodule LambdaEthereumConsensus.Container do
   """
 
   @doc """
-  List of ordered key/value schemas of struct fields
+  List of ordered {key, schema} tuples. 
+    It specifies both the serialization order and the schema for each key in the map.
   """
-  @callback schema() :: [tuple]
+  @callback schema() :: [{atom, any}]
 end
