@@ -63,7 +63,9 @@ SPECTEST_CONFIGS = general minimal mainnet
 
 SPECTEST_ROOTDIR = test/spec/vectors
 SPECTEST_GENERATED_ROOTDIR = test/generated
+RUNNERS_ROOTDIR = lib/spec/runners
 VECTORS_DIR = $(SPECTEST_ROOTDIR)/tests
+
 # create directory if it doesn't exist
 $(info $(shell mkdir -p $(SPECTEST_ROOTDIR)))
 
@@ -79,7 +81,7 @@ $(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
 	-rm -rf $@
 	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
 
-$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general lib/mix/tasks/generate_spec_tests.ex
+$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general lib/spec/runners/*.ex lib/mix/tasks/generate_spec_tests.ex
 	mix generate_spec_tests
 
 download-vectors: $(SPECTEST_TARS)
