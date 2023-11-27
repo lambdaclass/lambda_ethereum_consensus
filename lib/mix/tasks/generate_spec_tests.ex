@@ -10,26 +10,20 @@ defmodule Mix.Tasks.GenerateSpecTests do
   use Mix.Task
   require Logger
 
-  @runners [
-    "bls",
-    "epoch_processing",
-    "fork_choice",
-    "operations",
-    "shuffling",
-    "ssz_static",
-    "sanity"
-  ]
   @configs ["mainnet", "minimal"]
   @forks ["altair", "deneb", "phase0"]
 
   @shortdoc "Generates tests for spec test files"
   @impl Mix.Task
   def run(_args) do
-    for config <- @configs, runner <- @runners do
+    {:ok, file_names} = File.ls(Path.join(["lib", "spec", "runners"]))
+    runners = Enum.map(file_names, fn file_name -> Path.basename(file_name, ".ex") end)
+
+    for config <- @configs, runner <- runners do
       generate_test(config, "capella", runner)
     end
 
-    for fork <- @forks, runner <- @runners do
+    for fork <- @forks, runner <- runners do
       generate_test("general", fork, runner)
     end
 
