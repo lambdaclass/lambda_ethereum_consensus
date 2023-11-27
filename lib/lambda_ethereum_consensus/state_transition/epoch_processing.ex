@@ -252,44 +252,46 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   @spec process_inactivity_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def process_inactivity_updates(%BeaconState{} = state) do
     genesis_epoch = Constants.genesis_epoch()
-    timely_target_index = Constants.timely_target_flag_index()
-    inactivity_score_bias = ChainSpec.get("INACTIVITY_SCORE_BIAS")
-    inactivity_score_recovery_rate = ChainSpec.get("INACTIVITY_SCORE_RECOVERY_RATE")
 
     if Accessors.get_current_epoch(state) == genesis_epoch do
       {:ok, state}
     else
-      previous_epoch = Accessors.get_previous_epoch(state)
-
-      # PERF: this can be inlined and combined with the next pipeline
-      {:ok, unslashed_participating_indices} =
-        Accessors.get_unslashed_participating_indices(state, timely_target_index, previous_epoch)
-
-      state_is_in_inactivity_leak = Predicates.is_in_inactivity_leak(state)
-
-      updated_inactive_scores =
-        state.validators
-        |> Stream.zip(state.inactivity_scores)
-        |> Stream.with_index()
-        |> Enum.map(fn {{validator, inactivity_score}, index} ->
-          if Predicates.is_eligible_validator(validator, previous_epoch) do
-            inactivity_score
-            |> Misc.increase_inactivity_score(
-              index,
-              unslashed_participating_indices,
-              inactivity_score_bias
-            )
-            |> Misc.decrease_inactivity_score(
-              state_is_in_inactivity_leak,
-              inactivity_score_recovery_rate
-            )
-          else
-            inactivity_score
-          end
-        end)
-
-      {:ok, %{state | inactivity_scores: updated_inactive_scores}}
+      process_inactivity_scores(state)
     end
+  end
+
+  defp process_inactivity_scores(%BeaconState{} = state) do
+    timely_target_index = Constants.timely_target_flag_index()
+    inactivity_score_bias = ChainSpec.get("INACTIVITY_SCORE_BIAS")
+    inactivity_score_recovery_rate = ChainSpec.get("INACTIVITY_SCORE_RECOVERY_RATE")
+    previous_epoch = Accessors.get_previous_epoch(state)
+
+    # PERF: this can be inlined and combined with the next pipeline
+    {:ok, unslashed_participating_indices} =
+      Accessors.get_unslashed_participating_indices(state, timely_target_index, previous_epoch)
+
+    state_is_in_inactivity_leak = Predicates.is_in_inactivity_leak(state)
+
+    state.validators
+    |> Stream.zip(state.inactivity_scores)
+    |> Stream.with_index()
+    |> Enum.map(fn {{validator, inactivity_score}, index} ->
+      if Predicates.is_eligible_validator(validator, previous_epoch) do
+        inactivity_score
+        |> Misc.increase_inactivity_score(
+          index,
+          unslashed_participating_indices,
+          inactivity_score_bias
+        )
+        |> Misc.decrease_inactivity_score(
+          state_is_in_inactivity_leak,
+          inactivity_score_recovery_rate
+        )
+      else
+        inactivity_score
+      end
+    end)
+    |> then(&{:ok, %{state | inactivity_scores: &1}})
   end
 
   @spec process_historical_summaries_update(BeaconState.t()) :: {:ok, BeaconState.t()}
