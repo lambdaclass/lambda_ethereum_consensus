@@ -539,7 +539,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_deposit(state, deposit) do
     with {:ok, deposit_data_root} <- Ssz.hash_tree_root(deposit.data) do
-      if Predicates.is_valid_merkle_branch(
+      if Predicates.is_valid_merkle_branch?(
            deposit_data_root,
            deposit.proof,
            Constants.deposit_contract_tree_depth() + 1,

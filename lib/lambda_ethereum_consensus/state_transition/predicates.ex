@@ -105,26 +105,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @doc """
   Check if merkle branch is valid
   """
-  @spec is_valid_merkle_branch(
+  @spec is_valid_merkle_branch?(
           SszTypes.bytes32(),
           list(SszTypes.bytes32()),
           SszTypes.uint64(),
           SszTypes.uint64(),
           SszTypes.root()
         ) :: boolean
-  def is_valid_merkle_branch(leaf, branch, depth, index, root) do
-    is_valid_merkle_branch(leaf, branch, depth, index, root, 0)
+  def is_valid_merkle_branch?(leaf, branch, depth, index, root) do
+    root ==
+      branch
+      |> Enum.take(depth)
+      |> Enum.with_index()
+      |> Enum.reduce(leaf, fn {i, v}, value -> hash_merkle_node(v, value, index, i) end)
   end
 
-  defp is_valid_merkle_branch(value, _, depth, _, root, depth), do: value == root
-
-  defp is_valid_merkle_branch(value, branch, depth, index, root, i) do
+  defp hash_merkle_node(value_1, value_2, index, i) do
     if rem(div(index, 2 ** i), 2) == 1 do
-      value = :crypto.hash(:sha256, Enum.at(branch, i) <> value)
-      is_valid_merkle_branch(value, branch, depth, index, root, i + 1)
+      :crypto.hash(:sha256, value_1 <> value_2)
     else
-      value = :crypto.hash(:sha256, value <> Enum.at(branch, i))
-      is_valid_merkle_branch(value, branch, depth, index, root, i + 1)
+      :crypto.hash(:sha256, value_2 <> value_1)
     end
   end
 
