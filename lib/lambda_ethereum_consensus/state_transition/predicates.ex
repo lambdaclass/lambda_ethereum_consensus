@@ -113,7 +113,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
           SszTypes.root()
         ) :: boolean
   def is_valid_merkle_branch?(leaf, branch, depth, index, root) do
-    root == branch
+    root ==
+      branch
       |> Enum.take(depth)
       |> Enum.with_index()
       |> Enum.reduce(leaf, fn {v, i}, value -> hash_merkle_node(v, value, index, i) end)
