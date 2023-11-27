@@ -15,7 +15,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
         concurrency: 1
       ],
       processors: [
-        default: [concurrency: 1, max_demand: 1]
+        default: [concurrency: 8, max_demand: 1]
       ]
     )
   end

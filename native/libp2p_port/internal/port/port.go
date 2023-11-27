@@ -63,7 +63,9 @@ func (p *Port) sendMessage(protoMsg proto.Message) {
 }
 
 func (p *Port) SendNotification(notification *proto_defs.Notification) {
-	p.sendMessage(notification)
+	if notification != nil {
+		p.sendMessage(notification)
+	}
 }
 
 func ReadDelimitedMessage(r io.Reader) ([]byte, error) {
