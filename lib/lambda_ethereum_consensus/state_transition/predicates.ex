@@ -116,7 +116,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
     root == branch
       |> Enum.take(depth)
       |> Enum.with_index()
-      |> Enum.reduce(leaf, fn {i, v}, value -> hash_merkle_node(value, v, index, i) end)
+      |> Enum.reduce(leaf, fn {v, i}, value -> hash_merkle_node(v, value, index, i) end)
   end
 
   defp hash_merkle_node(value_1, value_2, index, i) do
