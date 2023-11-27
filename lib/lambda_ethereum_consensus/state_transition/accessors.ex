@@ -217,8 +217,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     validators
     |> Stream.with_index()
     |> Stream.filter(fn {validator, _index} ->
-      Predicates.is_active_validator(validator, previous_epoch) ||
-        (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
+      Predicates.is_eligible_validator(validator, previous_epoch)
     end)
     |> Stream.map(fn {_validator, index} -> index end)
     |> Enum.to_list()

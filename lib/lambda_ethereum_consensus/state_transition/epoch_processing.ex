@@ -259,23 +259,22 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     if Accessors.get_current_epoch(state) == genesis_epoch do
       {:ok, state}
     else
+      previous_epoch = Accessors.get_previous_epoch(state)
+
+      # PERF: this can be inlined and combined with the next pipeline
       {:ok, unslashed_participating_indices} =
-        Accessors.get_unslashed_participating_indices(
-          state,
-          timely_target_index,
-          Accessors.get_previous_epoch(state)
-        )
+        Accessors.get_unslashed_participating_indices(state, timely_target_index, previous_epoch)
 
       state_is_in_inactivity_leak = Predicates.is_in_inactivity_leak(state)
 
-      updated_eligible_validator_indices =
-        Accessors.get_eligible_validator_indices(state)
-        |> Enum.map(fn index ->
-          inactivity_score = Enum.at(state.inactivity_scores, index)
-
-          new_inactivity_score =
-            Misc.increase_inactivity_score(
-              inactivity_score,
+      updated_inactive_scores =
+        state.validators
+        |> Stream.zip(state.inactivity_scores)
+        |> Stream.with_index()
+        |> Enum.map(fn {{validator, inactivity_score}, index} ->
+          if Predicates.is_eligible_validator(validator, previous_epoch) do
+            inactivity_score
+            |> Misc.increase_inactivity_score(
               index,
               unslashed_participating_indices,
               inactivity_score_bias
@@ -284,22 +283,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
               state_is_in_inactivity_leak,
               inactivity_score_recovery_rate
             )
-
-          {index, new_inactivity_score}
-        end)
-        |> Enum.into(%{})
-
-      updated_inactive_scores =
-        state.inactivity_scores
-        |> Stream.with_index()
-        |> Stream.map(fn {inactivity_score, index} ->
-          Misc.update_inactivity_score(
-            updated_eligible_validator_indices,
-            index,
+          else
             inactivity_score
-          )
+          end
         end)
-        |> Enum.to_list()
 
       {:ok, %{state | inactivity_scores: updated_inactive_scores}}
     end
