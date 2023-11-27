@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   """
 
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
-  alias SszTypes.{BeaconState, HistoricalSummary, Validator}
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias SszTypes.{BeaconState, HistoricalSummary, Validator}
 
   @spec process_sync_committee_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
@@ -432,62 +432,49 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     }
   end
 
-  @spec update_previous_epoch_justified(
-          BeaconState.t(),
-          boolean,
-          SszTypes.epoch(),
-          SszTypes.root()
-        ) :: BeaconState.t()
-  defp update_previous_epoch_justified(state, is_true, previous_epoch, previous_block_root) do
-    if is_true do
-      new_checkpoint = %SszTypes.Checkpoint{
-        epoch: previous_epoch,
-        root: previous_block_root
-      }
+  defp update_previous_epoch_justified(state, true, previous_epoch, previous_block_root) do
+    new_checkpoint = %SszTypes.Checkpoint{
+      epoch: previous_epoch,
+      root: previous_block_root
+    }
 
-      bits =
-        state.justification_bits
-        |> BitVector.new(4)
-        |> BitVector.set(1)
-        |> BitVector.to_byte()
+    bits =
+      state.justification_bits
+      |> BitVector.new(4)
+      |> BitVector.set(1)
+      |> BitVector.to_byte()
 
-      %BeaconState{
-        state
-        | current_justified_checkpoint: new_checkpoint,
-          justification_bits: bits
-      }
-    else
+    %BeaconState{
       state
-    end
+      | current_justified_checkpoint: new_checkpoint,
+        justification_bits: bits
+    }
   end
 
-  @spec update_current_epoch_justified(
-          BeaconState.t(),
-          boolean,
-          SszTypes.epoch(),
-          SszTypes.root()
-        ) :: BeaconState.t()
-  defp update_current_epoch_justified(state, is_true, current_epoch, current_block_root) do
-    if is_true do
-      new_checkpoint = %SszTypes.Checkpoint{
-        epoch: current_epoch,
-        root: current_block_root
-      }
+  defp update_previous_epoch_justified(state, false, previous_epoch, previous_block_root) do
+    state
+  end
 
-      bits =
-        state.justification_bits
-        |> BitVector.new(4)
-        |> BitVector.set(0)
-        |> BitVector.to_byte()
+  defp update_current_epoch_justified(state, true, current_epoch, current_block_root) do
+    new_checkpoint = %SszTypes.Checkpoint{
+      epoch: current_epoch,
+      root: current_block_root
+    }
+    bits =
+      state.justification_bits
+      |> BitVector.new(4)
+      |> BitVector.set(0)
+      |> BitVector.to_byte()
 
-      %BeaconState{
-        state
-        | current_justified_checkpoint: new_checkpoint,
-          justification_bits: bits
-      }
-    else
+    %BeaconState{
       state
-    end
+      | current_justified_checkpoint: new_checkpoint,
+        justification_bits: bits
+    }
+  end
+
+  defp update_current_epoch_justified(state, false, current_epoch, current_block_root) do
+    state
   end
 
   defp update_checkpoint_finalization_1(state, old_previous_justified_checkpoint, current_epoch) do
