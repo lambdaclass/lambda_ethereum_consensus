@@ -439,9 +439,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           SszTypes.root()
         ) :: BeaconState.t()
   defp update_previous_epoch_justified(state, is_true, previous_epoch, previous_block_root) do
-    if !is_true do
-      state
-    else
+    if is_true do
       new_checkpoint = %SszTypes.Checkpoint{
         epoch: previous_epoch,
         root: previous_block_root
@@ -458,6 +456,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         | current_justified_checkpoint: new_checkpoint,
           justification_bits: bits
       }
+    else
+      state
     end
   end
 
@@ -468,9 +468,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           SszTypes.root()
         ) :: BeaconState.t()
   defp update_current_epoch_justified(state, is_true, current_epoch, current_block_root) do
-    if !is_true do
-      state
-    else
+    if is_true do
       new_checkpoint = %SszTypes.Checkpoint{
         epoch: current_epoch,
         root: current_block_root
@@ -487,6 +485,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         | current_justified_checkpoint: new_checkpoint,
           justification_bits: bits
       }
+    else
+      state
     end
   end
 
