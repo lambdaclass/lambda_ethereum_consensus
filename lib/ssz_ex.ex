@@ -21,12 +21,15 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def decode(binary, :bool), do: decode_bool(binary)
   def decode(binary, {:int, size}), do: decode_uint(binary, size)
+  def decode(value, {:bytes, _}), do: {:ok, value}
 
   def decode(binary, {:list, basic_type, size}) do
     if variable_size?(basic_type),
       do: decode_variable_list(binary, basic_type, size),
       else: decode_list(binary, basic_type, size)
   end
+
+  def decode(binary, module), do: decode_container(binary, module)
 
   #################
   ### Private functions
@@ -296,6 +299,78 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  defp decode_container(binary, module) do
+    schemas = module.schema()
+    {items, offsets, items_index} = build_deserialization_strategy(schemas, binary)
+
+    if check_first_offset_position(offsets, items_index) do
+      updated_items_with_offsets = insert_offsets(offsets, items, binary)
+
+      decode_container_elements(updated_items_with_offsets, [])
+      |> Enum.reduce(%{:ok => %{}, :errors => []}, &flatten_container_results/2)
+      |> case do
+        %{ok: map_decoded, errors: []} -> {:ok, struct!(module, map_decoded)}
+        %{ok: %{}, errors: errors} -> {:error, errors}
+      end
+    else
+      {:error, "invalid offsets position"}
+    end
+  end
+
+  defp build_deserialization_strategy(schemas, binary) do
+    schemas
+    |> Enum.reduce({binary, [], [], 0}, fn {key, schema},
+                                           {rest_bytes, items, offsets, items_index} ->
+      if variable_size?(schema) do
+        <<offset::integer-size(32)-little, rest::bitstring>> = rest_bytes
+
+        {rest, [%{schema: schema, key: key, bin: <<>>} | items],
+         [%{position: length(items), offset: offset} | offsets],
+         items_index + @bytes_per_length_offset}
+      else
+        ssz_fixed_len = get_fixed_size(schema)
+        <<chuck::binary-size(ssz_fixed_len), rest::bitstring>> = rest_bytes
+
+        {rest, [%{schema: schema, key: key, bin: chuck} | items], offsets,
+         items_index + ssz_fixed_len}
+      end
+    end)
+    |> then(fn {_rest_bytes, items, offsets, items_index} ->
+      {Enum.reverse(items), Enum.reverse(offsets), items_index}
+    end)
+  end
+
+  defp decode_container_elements([%{bin: bin, key: key, schema: schema} | rest], results) do
+    decode_container_elements(rest, [%{key => decode(bin, schema)} | results])
+  end
+
+  defp decode_container_elements([], results), do: results
+
+  defp check_first_offset_position([], _items_index), do: true
+
+  defp check_first_offset_position([%{offset: offset} | _offsets], items_index),
+    do: offset == items_index
+
+  defp insert_offsets(offsets, items, bin) do
+    offsets
+    |> Enum.chunk_every(2, 1)
+    |> Enum.reduce(items, fn
+      [first, second], acc ->
+        part = :binary.part(bin, first[:offset], second[:offset] - first[:offset])
+        item = Enum.at(items, first[:position])
+        updated_item = Map.update!(item, :bin, &(&1 <> part))
+        updated_items = List.replace_at(acc, first[:position], updated_item)
+        updated_items
+
+      [last], acc ->
+        part = :binary.part(bin, last[:offset], byte_size(bin) - last[:offset])
+        item = Enum.at(items, last[:position])
+        updated_item = Map.update!(item, :bin, &(&1 <> part))
+        updated_items = List.replace_at(acc, last[:position], updated_item)
+        updated_items
+    end)
+  end
+
   # https://notes.ethereum.org/ruKvDXl6QOW3gnqVYb8ezA?view
   defp sanitize_offset(offset, previous_offset, num_bytes, num_fixed_bytes) do
     cond do
@@ -339,6 +414,21 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  def flatten_container_results(element, acc) do
+    case Enum.group_by(element, fn {_, {type, _}} -> type end, fn {key, {_, result}} ->
+           %{key => result}
+         end) do
+      %{errors: errors} ->
+        Map.update!(acc, :errors, &(&1 ++ errors))
+
+      summary ->
+        result =
+          Enum.reduce(Map.get(summary, :ok, []), %{}, &Map.merge(&2, &1))
+
+        Map.update!(acc, :ok, &Map.merge(&1, result))
+    end
+  end
+
   defp check_length(fixed_lengths, total_byte_size) do
     if fixed_lengths + total_byte_size <
          2 ** (@bytes_per_length_offset * @bits_per_byte) do
@@ -350,6 +440,7 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp get_fixed_size(:bool), do: 1
   defp get_fixed_size({:int, size}), do: div(size, @bits_per_byte)
+  defp get_fixed_size({:bytes, size}), do: size
 
   defp variable_size?({:list, _, _}), do: true
   defp variable_size?(:bool), do: false

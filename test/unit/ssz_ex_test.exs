@@ -90,7 +90,7 @@ defmodule Unit.SSZExTest do
         46, 197, 36, 179, 178, 69, 163, 242, 127, 74, 10, 138, 199, 91, 197, 184, 216, 150, 162,
         44, 135, 243, 163>>
 
-    assert {:ok, ^serialized} = SszEx.encode(validator, SszTypes.Validator)
+    assert_roundtrip(serialized, validator, SszTypes.Validator)
   end
 
   test "serialize and deserialize variable container" do
@@ -131,6 +131,6 @@ defmodule Unit.SSZExTest do
         53, 183, 95, 32, 20, 57, 245, 54, 60, 97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72,
         46, 131, 80, 54, 55, 203, 11, 160, 206, 88, 144, 58, 231, 142, 94, 235>>
 
-    assert {:ok, ^serialized} = SszEx.encode(sync, SszTypes.SyncCommittee)
+    assert_roundtrip(serialized, sync, SszTypes.SyncCommittee)
   end
 end
