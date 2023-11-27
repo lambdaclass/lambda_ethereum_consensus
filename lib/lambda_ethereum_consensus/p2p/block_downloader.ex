@@ -168,7 +168,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       |> Enum.map(&decode_chunk/1)
       |> Enum.map(fn
         {:ok, block} -> block
-        {:error, reason} -> nil
+        {:error, _reason} -> nil
       end)
       |> Enum.filter(&(&1 != nil))
 
