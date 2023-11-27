@@ -14,6 +14,7 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
 type subscription struct {
@@ -26,6 +27,70 @@ type Subscriber struct {
 	pendingMessages sync.Map
 	gsub            *pubsub.PubSub
 	port            *port.Port
+}
+
+type GossipTracer struct {
+	host host.Host
+}
+
+func (g GossipTracer) AddPeer(p peer.ID, proto protocol.ID) {
+	// no-op
+}
+
+func (g GossipTracer) RemovePeer(p peer.ID) {
+	// no-op
+}
+
+func (g GossipTracer) Join(topic string) {
+	// no-op
+}
+
+func (g GossipTracer) Leave(topic string) {
+	// no-op
+}
+
+func (g GossipTracer) Graft(p peer.ID, topic string) {
+	// no-op
+}
+
+func (g GossipTracer) Prune(p peer.ID, topic string) {
+	// no-op
+}
+
+func (g GossipTracer) ValidateMessage(msg *pubsub.Message) {
+	// no-op
+}
+
+func (g GossipTracer) DeliverMessage(msg *pubsub.Message) {
+	// no-op
+}
+
+func (g GossipTracer) RejectMessage(msg *pubsub.Message, reason string) {
+	// no-op
+}
+
+func (g GossipTracer) DuplicateMessage(msg *pubsub.Message) {
+	// no-op
+}
+
+func (g GossipTracer) ThrottlePeer(p peer.ID) {
+	// no-op
+}
+
+func (g GossipTracer) RecvRPC(rpc *pubsub.RPC) {
+	// no-op
+}
+
+func (g GossipTracer) SendRPC(rpc *pubsub.RPC, p peer.ID) {
+	// no-op
+}
+
+func (g GossipTracer) DropRPC(rpc *pubsub.RPC, p peer.ID) {
+	// no-op
+}
+
+func (g GossipTracer) UndeliverableMessage(msg *pubsub.Message) {
+	// no-op
 }
 
 func NewSubscriber(p *port.Port, h host.Host) Subscriber {
@@ -74,6 +139,7 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 		pubsub.WithPeerOutboundQueueSize(600),
 		pubsub.WithValidateQueueSize(600),
 		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
+		pubsub.WithRawTracer(GossipTracer{host: h}),
 	}
 
 	gsub, err := pubsub.NewGossipSub(context.Background(), h, options...)
