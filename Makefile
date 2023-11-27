@@ -63,7 +63,6 @@ SPECTEST_CONFIGS = general minimal mainnet
 
 SPECTEST_ROOTDIR = test/spec/vectors
 SPECTEST_GENERATED_ROOTDIR = test/generated
-RUNNERS_ROOTDIR = lib/spec/runners
 VECTORS_DIR = $(SPECTEST_ROOTDIR)/tests
 # create directory if it doesn't exist
 $(info $(shell mkdir -p $(SPECTEST_ROOTDIR)))
