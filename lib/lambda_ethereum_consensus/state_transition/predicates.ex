@@ -21,6 +21,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
+  Check if ``validator`` is eligible for rewards and penalties.
+  """
+  @spec is_eligible_validator(Validator.t(), SszTypes.epoch()) :: boolean
+  def is_eligible_validator(%Validator{} = validator, previous_epoch) do
+    is_active_validator(validator, previous_epoch) ||
+      (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
+  end
+
+  @doc """
   If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
   Check if ``validator`` is eligible to be placed into the activation queue.
   """
