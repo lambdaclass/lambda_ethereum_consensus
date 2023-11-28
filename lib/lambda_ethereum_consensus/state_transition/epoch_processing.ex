@@ -471,7 +471,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     }
   end
 
-  defp update_previous_epoch_justified(state, false, previous_epoch, previous_block_root) do
+  defp update_previous_epoch_justified(state, false, _previous_epoch, _previous_block_root) do
     state
   end
 
