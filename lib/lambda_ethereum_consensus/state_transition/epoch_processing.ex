@@ -407,10 +407,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           current_epoch,
           current_block_root
         )
-        |> update_checkpoint_finalization_1(old_previous_justified_checkpoint, current_epoch)
-        |> update_checkpoint_finalization_2(old_previous_justified_checkpoint, current_epoch)
-        |> update_checkpoint_finalization_3(old_current_justified_checkpoint, current_epoch)
-        |> update_checkpoint_finalization_4(old_current_justified_checkpoint, current_epoch)
+        |> update_checkpoint_finalization(old_previous_justified_checkpoint, current_epoch, 1..3, 3)
+        |> update_checkpoint_finalization(old_previous_justified_checkpoint, current_epoch, 1..2, 2)
+        |> update_checkpoint_finalization(old_current_justified_checkpoint, current_epoch, 0..2, 2)
+        |> update_checkpoint_finalization(old_current_justified_checkpoint, current_epoch, 0..1, 1)
 
       {:ok, new_state}
     else
@@ -423,7 +423,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       state.justification_bits
       |> BitVector.new(4)
       |> BitVector.shift_higher(1)
-      |> BitVector.to_byte()
+      |> to_byte()
 
     %BeaconState{
       state
@@ -442,7 +442,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       state.justification_bits
       |> BitVector.new(4)
       |> BitVector.set(1)
-      |> BitVector.to_byte()
+      |> to_byte()
 
     %BeaconState{
       state
@@ -464,7 +464,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       state.justification_bits
       |> BitVector.new(4)
       |> BitVector.set(0)
-      |> BitVector.to_byte()
+      |> to_byte()
 
     %BeaconState{
       state
@@ -477,60 +477,21 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     state
   end
 
-  defp update_checkpoint_finalization_1(state, old_previous_justified_checkpoint, current_epoch) do
+  defp update_checkpoint_finalization(state, old_justified_checkpoint, current_epoch, range, offset) do
     bits_set =
       state.justification_bits
       |> BitVector.new(4)
-      |> BitVector.all?(1..3)
+      |> BitVector.all?(range)
 
-    if bits_set &&
-         old_previous_justified_checkpoint.epoch + 3 == current_epoch do
-      %BeaconState{state | finalized_checkpoint: old_previous_justified_checkpoint}
+    if bits_set && old_justified_checkpoint.epoch + offset == current_epoch do
+      %BeaconState{state | finalized_checkpoint: old_justified_checkpoint}
     else
       state
     end
   end
 
-  defp update_checkpoint_finalization_2(state, old_previous_justified_checkpoint, current_epoch) do
-    bits_set =
-      state.justification_bits
-      |> BitVector.new(4)
-      |> BitVector.all?(1..2)
-
-    if bits_set &&
-         old_previous_justified_checkpoint.epoch + 2 == current_epoch do
-      %BeaconState{state | finalized_checkpoint: old_previous_justified_checkpoint}
-    else
-      state
-    end
-  end
-
-  defp update_checkpoint_finalization_3(state, old_current_justified_checkpoint, current_epoch) do
-    bits_set =
-      state.justification_bits
-      |> BitVector.new(4)
-      |> BitVector.all?(0..2)
-
-    if bits_set &&
-         old_current_justified_checkpoint.epoch + 2 == current_epoch do
-      %BeaconState{state | finalized_checkpoint: old_current_justified_checkpoint}
-    else
-      state
-    end
-  end
-
-  defp update_checkpoint_finalization_4(state, old_current_justified_checkpoint, current_epoch) do
-    bits_set =
-      state.justification_bits
-      |> BitVector.new(4)
-      |> BitVector.all?(0..1)
-
-    if bits_set &&
-         old_current_justified_checkpoint.epoch + 1 == current_epoch do
-      %BeaconState{state | finalized_checkpoint: old_current_justified_checkpoint}
-    else
-      state
-    end
+  def to_byte(bit_vector) do
+    <<0::size(4), bit_vector::bits-size(4)>>
   end
 
   @spec process_rewards_and_penalties(BeaconState.t()) :: {:ok, BeaconState.t()}

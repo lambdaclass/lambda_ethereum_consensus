@@ -15,6 +15,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   @spec new(integer, non_neg_integer) :: t
   def new(number, size) when is_integer(number), do: <<number::size(size)>>
 
+  @spec new(bitstring, non_neg_integer) :: t
   def new(bitstring, size) when is_bitstring(bitstring) do
     <<_::size(bit_size(bitstring) - size), b::bitstring>> = bitstring
     b
@@ -92,8 +93,4 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
     <<0::size(steps), remaining::bitstring>>
   end
 
-  @spec to_byte(t) :: t
-  def to_byte(bit_vector) do
-    <<0::size(4), bit_vector::bits-size(4)>>
-  end
 end
