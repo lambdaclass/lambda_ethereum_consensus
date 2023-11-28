@@ -42,19 +42,23 @@ func (g GossipTracer) RemovePeer(p peer.ID) {
 }
 
 func (g GossipTracer) Join(topic string) {
-	// g.port.SendNotification()
+	notification := proto_helpers.JoinNotification(topic)
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) Leave(topic string) {
-	// no-op
+	notification := proto_helpers.LeaveNofication(topic)
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) Graft(p peer.ID, topic string) {
-	// no-op
+	notification := proto_helpers.GraftNotification([]byte(p), topic)
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) Prune(p peer.ID, topic string) {
-	// no-op
+	notification := proto_helpers.PruneNotification([]byte(p), topic)
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) ValidateMessage(msg *pubsub.Message) {
