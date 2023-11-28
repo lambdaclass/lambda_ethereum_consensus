@@ -101,7 +101,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
           # When on checkpoint sync, we might accumulate a couple of hundred blocks in the pending blocks queue.
           # This can cause the ForkChoie to timeout on other call requests since it has to process all the
-          # pending blocks first. TODO: find a better way to handle this
+          # pending blocks first.
+          # TODO: find a better way to handle this
           Process.sleep(100)
 
           new_state

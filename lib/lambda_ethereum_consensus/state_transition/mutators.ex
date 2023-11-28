@@ -160,4 +160,55 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   defp whistleblower_index(whistleblower_index, proposer_index) do
     if whistleblower_index == nil, do: proposer_index, else: whistleblower_index
   end
+
+  @spec apply_deposit(
+          BeaconState.t(),
+          SszTypes.bls_pubkey(),
+          SszTypes.bytes32(),
+          SszTypes.uint64(),
+          SszTypes.bls_signature()
+        ) :: {:ok, BeaconState.t()} | {:error, binary()}
+  def apply_deposit(state, pubkey, withdrawal_credentials, amount, signature) do
+    case Enum.find_index(state.validators, fn validator -> validator.pubkey == pubkey end) do
+      index when is_number(index) ->
+        {:ok, increase_balance(state, index, amount)}
+
+      _ ->
+        deposit_message = %SszTypes.DepositMessage{
+          pubkey: pubkey,
+          withdrawal_credentials: withdrawal_credentials,
+          amount: amount
+        }
+
+        domain = Misc.compute_domain(Constants.domain_deposit())
+
+        signing_root = Misc.compute_signing_root(deposit_message, domain)
+
+        if Bls.valid?(pubkey, signing_root, signature) do
+          apply_initial_deposit(state, pubkey, withdrawal_credentials, amount)
+        else
+          {:ok, state}
+        end
+    end
+  end
+
+  defp apply_initial_deposit(state, pubkey, withdrawal_credentials, amount) do
+    {:ok,
+     %BeaconState{
+       state
+       | validators:
+           state.validators ++
+             [
+               SszTypes.Deposit.get_validator_from_deposit(
+                 pubkey,
+                 withdrawal_credentials,
+                 amount
+               )
+             ],
+         balances: state.balances ++ [amount],
+         previous_epoch_participation: state.previous_epoch_participation ++ [0],
+         current_epoch_participation: state.current_epoch_participation ++ [0],
+         inactivity_scores: state.inactivity_scores ++ [0]
+     }}
+  end
 end
