@@ -73,11 +73,21 @@ func (l *Listener) AddPeerWithAddrInfo(addrInfo peer.AddrInfo, ttl int64) {
 	l.port.SendNotification(&notification)
 }
 
-func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte) ([]byte, error) {
+func (l *Listener) SendRequest(from, peerId []byte, protocolId string, message []byte) {
+	go sendAsyncRequest(l.hostHandle, *l.port, from, peer.ID(peerId), protocol.ID(protocolId), message)
+}
+
+func sendAsyncRequest(h host.Host, p port.Port, from []byte, peerId peer.ID, protocolId protocol.ID, message []byte) {
+	response, err := sendRequest(h, peerId, protocolId, message)
+	result := proto_helpers.ResultNotification([]byte(from), response, err)
+	p.SendNotification(result)
+}
+
+func sendRequest(h host.Host, peerId peer.ID, protocolId protocol.ID, message []byte) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), RESP_TIMEOUT)
 	defer cancel()
 
-	stream, err := l.hostHandle.NewStream(ctx, peer.ID(peerId), protocol.ID(protocolId))
+	stream, err := h.NewStream(ctx, peerId, protocolId)
 	if err != nil {
 		return nil, err
 	}

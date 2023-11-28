@@ -99,7 +99,8 @@ message Command {
 
 message GossipSub {
     // Name of the topic from which the notification arrived.
-    string topic = 1;
+    // We use bytes to skip UTF8 validation
+    bytes topic = 1;
     // PID of the subscribed process.
     bytes handler = 2;
     // Message's unique ID.
@@ -110,9 +111,11 @@ message GossipSub {
 
 // A request from a peer.
 message Request {
-    string protocol_id = 1;
+    // We use bytes to skip UTF8 validation
+    bytes protocol_id = 1;
     bytes handler = 2;
-    string request_id = 3;
+    // We use bytes to skip UTF8 validation
+    bytes request_id = 3;
     bytes message = 4;
 }
 
