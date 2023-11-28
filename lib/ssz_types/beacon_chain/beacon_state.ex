@@ -140,29 +140,33 @@ defmodule SszTypes.BeaconState do
 
     previous_epoch = Accessors.get_previous_epoch(state)
 
+    process_reward_and_penalty = fn index ->
+      base_reward = Accessors.get_base_reward(state, index)
+      is_unslashed = MapSet.member?(unslashed_participating_indices, index)
+
+      cond do
+        is_unslashed and Predicates.is_in_inactivity_leak(state) ->
+          {0, 0}
+
+        is_unslashed ->
+          reward_numerator = base_reward * weight * unslashed_participating_increments
+          reward = div(reward_numerator, active_increments * weight_denominator)
+          {reward, 0}
+
+        flag_index != Constants.timely_head_flag_index() ->
+          penalty = div(base_reward * weight, weight_denominator)
+          {0, penalty}
+
+        true ->
+          {0, 0}
+      end
+    end
+
     state.validators
     |> Stream.with_index()
     |> Stream.map(fn {validator, index} ->
       if Predicates.is_eligible_validator(validator, previous_epoch) do
-        base_reward = Accessors.get_base_reward(state, index)
-        is_unslashed = MapSet.member?(unslashed_participating_indices, index)
-
-        cond do
-          is_unslashed and Predicates.is_in_inactivity_leak(state) ->
-            {0, 0}
-
-          is_unslashed ->
-            reward_numerator = base_reward * weight * unslashed_participating_increments
-            reward = div(reward_numerator, active_increments * weight_denominator)
-            {reward, 0}
-
-          flag_index != Constants.timely_head_flag_index() ->
-            penalty = div(base_reward * weight, weight_denominator)
-            {0, penalty}
-
-          true ->
-            {0, 0}
-        end
+        process_reward_and_penalty.(index)
       else
         {0, 0}
       end
@@ -173,8 +177,8 @@ defmodule SszTypes.BeaconState do
   Return the inactivity penalty deltas by considering timely
   target participation flags and inactivity scores.
   """
-  @spec get_inactivity_penalty_deltas(t()) :: {list(SszTypes.gwei()), list(SszTypes.gwei())}
-  def get_inactivity_penalty_deltas(state) do
+  @spec get_inactivity_penalty_deltas(t()) :: Enumerable.t({SszTypes.gwei(), SszTypes.gwei()})
+  def get_inactivity_penalty_deltas(%__MODULE__{} = state) do
     previous_epoch = Accessors.get_previous_epoch(state)
 
     {:ok, matching_target_indices} =
