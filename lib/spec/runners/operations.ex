@@ -43,8 +43,8 @@ defmodule OperationsTestRunner do
   @disabled_handlers [
     # "attester_slashing",
     # "attestation",
+    # "deposit",
     # "block_header",
-    "deposit",
     # "proposer_slashing",
     # "voluntary_exit",
     # "sync_aggregate",

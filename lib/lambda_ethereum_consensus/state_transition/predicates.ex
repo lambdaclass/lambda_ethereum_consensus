@@ -21,6 +21,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
+  Check if ``validator`` is eligible for rewards and penalties.
+  """
+  @spec is_eligible_validator(Validator.t(), SszTypes.epoch()) :: boolean
+  def is_eligible_validator(%Validator{} = validator, previous_epoch) do
+    is_active_validator(validator, previous_epoch) ||
+      (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
+  end
+
+  @doc """
   If the beacon chain has not managed to finalise a checkpoint for MIN_EPOCHS_TO_INACTIVITY_PENALTY epochs
   Check if ``validator`` is eligible to be placed into the activation queue.
   """
@@ -100,6 +109,32 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
   defp is_indices_available(validators, [h | indices], _acc) do
     is_indices_available(validators, indices, h < validators)
+  end
+
+  @doc """
+  Check if merkle branch is valid
+  """
+  @spec is_valid_merkle_branch?(
+          SszTypes.bytes32(),
+          list(SszTypes.bytes32()),
+          SszTypes.uint64(),
+          SszTypes.uint64(),
+          SszTypes.root()
+        ) :: boolean
+  def is_valid_merkle_branch?(leaf, branch, depth, index, root) do
+    root ==
+      branch
+      |> Enum.take(depth)
+      |> Enum.with_index()
+      |> Enum.reduce(leaf, fn {v, i}, value -> hash_merkle_node(v, value, index, i) end)
+  end
+
+  defp hash_merkle_node(value_1, value_2, index, i) do
+    if rem(div(index, 2 ** i), 2) == 1 do
+      :crypto.hash(:sha256, value_1 <> value_2)
+    else
+      :crypto.hash(:sha256, value_2 <> value_1)
+    end
   end
 
   @doc """

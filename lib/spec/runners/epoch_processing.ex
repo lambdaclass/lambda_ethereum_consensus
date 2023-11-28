@@ -10,7 +10,7 @@ defmodule EpochProcessingTestRunner do
 
   # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [
-    "justification_and_finalization",
+    # "justification_and_finalization",
     # "inactivity_updates",
     # "rewards_and_penalties",
     # "registry_updates",
