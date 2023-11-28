@@ -516,25 +516,27 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     if Accessors.get_current_epoch(state) == Constants.genesis_epoch() do
       {:ok, state}
     else
-      flag_deltas =
+      deltas =
         Constants.participation_flag_weights()
         |> Stream.with_index()
-        |> Enum.map(fn {_, index} -> BeaconState.get_flag_index_deltas(state, index) end)
+        |> Stream.map(fn {weight, index} ->
+          BeaconState.get_flag_index_deltas(state, weight, index)
+        end)
+        |> Stream.concat([BeaconState.get_inactivity_penalty_deltas(state)])
+        |> Stream.zip()
 
-      deltas = flag_deltas ++ [BeaconState.get_inactivity_penalty_deltas(state)]
-
-      Enum.reduce(deltas, state, fn {rewards, penalties}, state ->
-        state.validators
-        |> Stream.with_index()
-        |> Enum.reduce(state, &apply_reward_and_penalty(&1, &2, rewards, penalties))
-      end)
-      |> then(&{:ok, &1})
+      state.balances
+      |> Stream.zip(deltas)
+      |> Enum.map(&update_balance/1)
+      |> then(&{:ok, %{state | balances: &1}})
     end
   end
 
-  defp apply_reward_and_penalty({_, index}, state, rewards, penalties) do
-    state
-    |> Mutators.increase_balance(index, Enum.at(rewards, index))
-    |> BeaconState.decrease_balance(index, Enum.at(penalties, index))
+  defp update_balance({balance, deltas}) do
+    deltas
+    |> Tuple.to_list()
+    |> Enum.reduce(balance, fn {reward, penalty}, balance ->
+      max(balance + reward - penalty, 0)
+    end)
   end
 end

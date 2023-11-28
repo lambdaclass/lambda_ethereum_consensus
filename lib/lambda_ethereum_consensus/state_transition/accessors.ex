@@ -291,8 +291,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the base reward for the validator defined by ``index`` with respect to the current ``state``.
   """
   @spec get_base_reward(BeaconState.t(), SszTypes.validator_index()) :: SszTypes.gwei()
-  def get_base_reward(state, index) do
+  def get_base_reward(%BeaconState{} = state, index) do
     validator = Enum.at(state.validators, index)
+    get_base_reward(validator, get_base_reward_per_increment(state))
+  end
+
+  @spec get_base_reward(SszTypes.Validator.t(), SszTypes.gwei()) :: SszTypes.gwei()
+  def get_base_reward(%SszTypes.Validator{} = validator, base_reward_per_increment) do
     effective_balance = validator.effective_balance
 
     increments =
@@ -301,7 +306,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
       )
 
-    increments * get_base_reward_per_increment(state)
+    increments * base_reward_per_increment
   end
 
   @doc """
@@ -498,11 +503,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_total_balance(BeaconState.t(), Enumerable.t(SszTypes.validator_index())) ::
           SszTypes.gwei()
   def get_total_balance(state, indices) do
+    indices = MapSet.new(indices)
+
     total_balance =
-      indices
-      |> Stream.map(fn index ->
-        Map.get(Enum.at(state.validators, index), :effective_balance, 0)
-      end)
+      state.validators
+      |> Stream.with_index()
+      |> Stream.filter(fn {_, index} -> MapSet.member?(indices, index) end)
+      |> Stream.map(fn {%SszTypes.Validator{effective_balance: n}, _} -> n end)
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
