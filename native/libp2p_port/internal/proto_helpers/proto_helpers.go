@@ -20,7 +20,7 @@ func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 	}
 }
 
-func JoinNotification(topic string) proto_defs.Notification{
+func JoinNotification(topic string) proto_defs.Notification {
 	joinNotification := &proto_defs.Join{Topic: topic}
 	return proto_defs.Notification{N: &proto_defs.Notification_Joined{Joined: joinNotification}}
 }
@@ -35,7 +35,7 @@ func GraftNotification(id []byte, topic string) proto_defs.Notification {
 	return proto_defs.Notification{N: &proto_defs.Notification_Grafted{Grafted: graftNotification}}
 }
 
-func PruneNotification(id [] byte, topic string) proto_defs.Notification {
+func PruneNotification(id []byte, topic string) proto_defs.Notification {
 	pruneNotification := &proto_defs.Prune{PeerId: id, Topic: topic}
 	return proto_defs.Notification{N: &proto_defs.Notification_Pruned{Pruned: pruneNotification}}
 }
