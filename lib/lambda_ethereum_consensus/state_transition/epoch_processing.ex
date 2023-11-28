@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   """
 
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias SszTypes.{BeaconState, HistoricalSummary, Validator}
 
   @spec process_sync_committee_updates(BeaconState.t()) ::
@@ -333,8 +334,180 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_justification_and_finalization(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_justification_and_finalization(state) do
-    # TODO: implement this
-    {:ok, state}
+    # Initial FFG checkpoint values have a `0x00` stub for `root`.
+    # Skip FFG updates in the first two epochs to avoid corner cases that might result in modifying this stub.
+    genesis_epoch = Constants.genesis_epoch()
+    timely_target_index = Constants.timely_target_flag_index()
+
+    if Accessors.get_current_epoch(state) <= genesis_epoch + 1 do
+      {:ok, state}
+    else
+      with {:ok, previous_indices} <-
+             Accessors.get_unslashed_participating_indices(
+               state,
+               timely_target_index,
+               Accessors.get_previous_epoch(state)
+             ),
+           {:ok, current_indices} <-
+             Accessors.get_unslashed_participating_indices(
+               state,
+               timely_target_index,
+               Accessors.get_current_epoch(state)
+             ) do
+        total_active_balance = Accessors.get_total_active_balance(state)
+        previous_target_balance = Accessors.get_total_balance(state, previous_indices)
+        current_target_balance = Accessors.get_total_balance(state, current_indices)
+
+        weigh_justification_and_finalization(
+          state,
+          total_active_balance,
+          previous_target_balance,
+          current_target_balance
+        )
+      else
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  defp weigh_justification_and_finalization(
+         state,
+         total_active_balance,
+         previous_epoch_target_balance,
+         current_epoch_target_balance
+       ) do
+    previous_epoch = Accessors.get_previous_epoch(state)
+    current_epoch = Accessors.get_current_epoch(state)
+    old_previous_justified_checkpoint = state.previous_justified_checkpoint
+    old_current_justified_checkpoint = state.current_justified_checkpoint
+
+    with {:ok, previous_block_root} <- Accessors.get_block_root(state, previous_epoch),
+         {:ok, current_block_root} <- Accessors.get_block_root(state, current_epoch) do
+      new_state =
+        state
+        |> update_first_bit()
+        |> update_previous_epoch_justified(
+          previous_epoch_target_balance * 3 >= total_active_balance * 2,
+          previous_epoch,
+          previous_block_root
+        )
+        |> update_current_epoch_justified(
+          current_epoch_target_balance * 3 >= total_active_balance * 2,
+          current_epoch,
+          current_block_root
+        )
+        |> update_checkpoint_finalization(
+          old_previous_justified_checkpoint,
+          current_epoch,
+          1..3,
+          3
+        )
+        |> update_checkpoint_finalization(
+          old_previous_justified_checkpoint,
+          current_epoch,
+          1..2,
+          2
+        )
+        |> update_checkpoint_finalization(
+          old_current_justified_checkpoint,
+          current_epoch,
+          0..2,
+          2
+        )
+        |> update_checkpoint_finalization(
+          old_current_justified_checkpoint,
+          current_epoch,
+          0..1,
+          1
+        )
+
+      {:ok, new_state}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp update_first_bit(state) do
+    bits =
+      state.justification_bits
+      |> BitVector.new(4)
+      |> BitVector.shift_higher(1)
+      |> to_byte()
+
+    %BeaconState{
+      state
+      | previous_justified_checkpoint: state.current_justified_checkpoint,
+        justification_bits: bits
+    }
+  end
+
+  defp update_previous_epoch_justified(state, true, previous_epoch, previous_block_root) do
+    new_checkpoint = %SszTypes.Checkpoint{
+      epoch: previous_epoch,
+      root: previous_block_root
+    }
+
+    bits =
+      state.justification_bits
+      |> BitVector.new(4)
+      |> BitVector.set(1)
+      |> to_byte()
+
+    %BeaconState{
+      state
+      | current_justified_checkpoint: new_checkpoint,
+        justification_bits: bits
+    }
+  end
+
+  defp update_previous_epoch_justified(state, false, _previous_epoch, _previous_block_root) do
+    state
+  end
+
+  defp update_current_epoch_justified(state, true, current_epoch, current_block_root) do
+    new_checkpoint = %SszTypes.Checkpoint{
+      epoch: current_epoch,
+      root: current_block_root
+    }
+
+    bits =
+      state.justification_bits
+      |> BitVector.new(4)
+      |> BitVector.set(0)
+      |> to_byte()
+
+    %BeaconState{
+      state
+      | current_justified_checkpoint: new_checkpoint,
+        justification_bits: bits
+    }
+  end
+
+  defp update_current_epoch_justified(state, false, _current_epoch, _current_block_root) do
+    state
+  end
+
+  defp update_checkpoint_finalization(
+         state,
+         old_justified_checkpoint,
+         current_epoch,
+         range,
+         offset
+       ) do
+    bits_set =
+      state.justification_bits
+      |> BitVector.new(4)
+      |> BitVector.all?(range)
+
+    if bits_set && old_justified_checkpoint.epoch + offset == current_epoch do
+      %BeaconState{state | finalized_checkpoint: old_justified_checkpoint}
+    else
+      state
+    end
+  end
+
+  def to_byte(bit_vector) do
+    <<0::size(4), bit_vector::bits-size(4)>>
   end
 
   @spec process_rewards_and_penalties(BeaconState.t()) :: {:ok, BeaconState.t()}
