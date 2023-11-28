@@ -260,7 +260,10 @@ defmodule LambdaEthereumConsensus.SszEx do
     {items, offsets, items_index} = build_deserialization_strategy(schemas, binary)
 
     if check_first_offset_position(offsets, items_index) do
-      updated_items_with_offsets = insert_offsets(offsets, items, binary)
+      updated_items_with_offsets =
+        insert_offsets(offsets, items, binary)
+        |> Map.to_list()
+        |> Enum.map(fn {_index, value} -> value end)
 
       decode_container_elements(updated_items_with_offsets, [])
       |> Enum.reduce(%{:ok => %{}, :errors => []}, &flatten_container_results/2)
@@ -275,24 +278,25 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp build_deserialization_strategy(schemas, binary) do
     schemas
-    |> Enum.reduce({binary, [], [], 0}, fn {key, schema},
-                                           {rest_bytes, items, offsets, items_index} ->
+    |> Enum.reduce({binary, %{}, [], 0, 0}, fn {key, schema},
+                                               {rest_bytes, items, offsets, items_index,
+                                                acc_position} ->
       if variable_size?(schema) do
         <<offset::integer-size(32)-little, rest::bitstring>> = rest_bytes
 
-        {rest, [%{schema: schema, key: key, bin: <<>>} | items],
-         [%{position: length(items), offset: offset} | offsets],
-         items_index + @bytes_per_length_offset}
+        {rest, Map.merge(items, %{acc_position => %{schema: schema, key: key, bin: <<>>}}),
+         [%{position: acc_position, offset: offset} | offsets],
+         items_index + @bytes_per_length_offset, acc_position + 1}
       else
         ssz_fixed_len = get_fixed_size(schema)
         <<chuck::binary-size(ssz_fixed_len), rest::bitstring>> = rest_bytes
 
-        {rest, [%{schema: schema, key: key, bin: chuck} | items], offsets,
-         items_index + ssz_fixed_len}
+        {rest, Map.merge(items, %{acc_position => %{schema: schema, key: key, bin: chuck}}),
+         offsets, items_index + ssz_fixed_len, acc_position + 1}
       end
     end)
-    |> then(fn {_rest_bytes, items, offsets, items_index} ->
-      {Enum.reverse(items), Enum.reverse(offsets), items_index}
+    |> then(fn {_rest_bytes, items, offsets, items_index, _acc_position} ->
+      {items, Enum.reverse(offsets), items_index}
     end)
   end
 
@@ -313,16 +317,16 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.reduce(items, fn
       [first, second], acc ->
         part = :binary.part(bin, first[:offset], second[:offset] - first[:offset])
-        item = Enum.at(items, first[:position])
+        item = Map.fetch!(items, first[:position])
         updated_item = Map.update!(item, :bin, &(&1 <> part))
-        updated_items = List.replace_at(acc, first[:position], updated_item)
+        updated_items = Map.replace!(acc, first[:position], updated_item)
         updated_items
 
       [last], acc ->
         part = :binary.part(bin, last[:offset], byte_size(bin) - last[:offset])
-        item = Enum.at(items, last[:position])
+        item = Map.fetch!(items, last[:position])
         updated_item = Map.update!(item, :bin, &(&1 <> part))
-        updated_items = List.replace_at(acc, last[:position], updated_item)
+        updated_items = Map.replace!(acc, last[:position], updated_item)
         updated_items
     end)
   end
