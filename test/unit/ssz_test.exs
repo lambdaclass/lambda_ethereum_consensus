@@ -171,10 +171,17 @@ defmodule Unit.SSZTests do
         Enum.join(deserialized)
       ])
 
+    assert serialized ==
+             Base.decode16!(
+               "0C000000140000001F000000617366617366617331383431383238303139327A6439673861733066373061307366"
+             )
+
     assert {:ok, ^serialized} = Ssz.to_ssz_typed(deserialized, SszTypes.Transaction)
     assert {:ok, ^deserialized} = Ssz.list_from_ssz(serialized, SszTypes.Transaction)
 
-    assert {:ok, _hash} =
+    hash = Base.decode16!("D5ACD42F851C9AE241B55AB79B23D7EC613E01BB6404B4A49D8CF214DBA26CF2")
+
+    assert {:ok, ^hash} =
              Ssz.hash_list_tree_root_typed(deserialized, 1_048_576, SszTypes.Transaction)
   end
 
