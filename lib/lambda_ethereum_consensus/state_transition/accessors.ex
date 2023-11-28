@@ -383,7 +383,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_block_root_at_slot(BeaconState.t(), SszTypes.slot()) ::
           {:ok, SszTypes.root()} | {:error, binary()}
   def get_block_root_at_slot(state, slot) do
-    if slot < state.slot && state.slot <= slot + ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT") do
+    if slot < state.slot and state.slot <= slot + ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT") do
       root = Enum.at(state.block_roots, rem(slot, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")))
       {:ok, root}
     else

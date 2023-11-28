@@ -422,8 +422,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         )
 
       {:ok, new_state}
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 
