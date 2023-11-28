@@ -314,7 +314,19 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp handle_notification(%Join{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub], %{topic: topic})
+    :telemetry.execute([:network, :pubsub_topic_active], %{}, %{topic: topic})
+  end
+
+  defp handle_notification(%Leave{topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topic_active], %{}, %{topic: topic})
+  end
+
+  defp handle_notification(%Graft{peer_id: peer_id, topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_graft], %{}, %{topic: topic})
+  end
+
+  defp handle_notification(%Prune{peer_id: peer_id, topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_prune], %{}, %{topic: topic})
   end
 
   defp parse_args(args) do
