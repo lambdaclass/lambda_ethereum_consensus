@@ -92,5 +92,4 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
     <<remaining::size(bit_size(bit_vector) - steps)-bitstring, _::bitstring>> = bit_vector
     <<0::size(steps), remaining::bitstring>>
   end
-
 end

@@ -407,10 +407,30 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           current_epoch,
           current_block_root
         )
-        |> update_checkpoint_finalization(old_previous_justified_checkpoint, current_epoch, 1..3, 3)
-        |> update_checkpoint_finalization(old_previous_justified_checkpoint, current_epoch, 1..2, 2)
-        |> update_checkpoint_finalization(old_current_justified_checkpoint, current_epoch, 0..2, 2)
-        |> update_checkpoint_finalization(old_current_justified_checkpoint, current_epoch, 0..1, 1)
+        |> update_checkpoint_finalization(
+          old_previous_justified_checkpoint,
+          current_epoch,
+          1..3,
+          3
+        )
+        |> update_checkpoint_finalization(
+          old_previous_justified_checkpoint,
+          current_epoch,
+          1..2,
+          2
+        )
+        |> update_checkpoint_finalization(
+          old_current_justified_checkpoint,
+          current_epoch,
+          0..2,
+          2
+        )
+        |> update_checkpoint_finalization(
+          old_current_justified_checkpoint,
+          current_epoch,
+          0..1,
+          1
+        )
 
       {:ok, new_state}
     else
@@ -460,6 +480,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       epoch: current_epoch,
       root: current_block_root
     }
+
     bits =
       state.justification_bits
       |> BitVector.new(4)
@@ -477,7 +498,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     state
   end
 
-  defp update_checkpoint_finalization(state, old_justified_checkpoint, current_epoch, range, offset) do
+  defp update_checkpoint_finalization(
+         state,
+         old_justified_checkpoint,
+         current_epoch,
+         range,
+         offset
+       ) do
     bits_set =
       state.justification_bits
       |> BitVector.new(4)
