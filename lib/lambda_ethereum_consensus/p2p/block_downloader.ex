@@ -166,17 +166,22 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
   @spec decode_chunks([binary()]) :: {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, binary()}
   defp decode_chunks(chunks) do
-    results =
+    blocks =
       chunks
       |> Enum.map(&decode_chunk/1)
+      |> Enum.map(fn
+        {:ok, block} -> block
+        {:error, _reason} -> nil
+      end)
+      |> Enum.filter(&(&1 != nil))
 
-    if Enum.all?(results, fn
-         {:ok, _} -> true
-         _ -> false
-       end) do
-      {:ok, results |> Enum.map(fn {:ok, block} -> block end)}
-    else
-      {:error, "some decoding of chunks failed"}
+    case blocks do
+      [] ->
+        Logger.error("All blocks decoding failed")
+        {:error, "all blocks decoding failed"}
+
+      blocks ->
+        {:ok, blocks}
     end
   end
 
