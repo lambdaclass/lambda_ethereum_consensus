@@ -1,8 +1,7 @@
 defmodule LambdaEthereumConsensus.Libp2pPort do
   @moduledoc """
   A GenServer that allows other elixir processes to send and receive commands to/from
-  the LibP2P server in Go. For now, it only supports subscribing and unsubscribing from
-  topics.
+  the LibP2P server in Go.
 
   Requests are generated with an ID, which is returned when calling. Those IDs appear
   in the responses that might be listened to by other processes.
@@ -15,10 +14,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Command,
     GetId,
     GossipSub,
+    Graft,
     InitArgs,
+    Join,
+    Leave,
     NewPeer,
     Notification,
     Publish,
+    Prune,
     Request,
     Result,
     ResultMessage,
@@ -275,6 +278,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp handle_notification(%Result{from: from, result: result}, _state) do
     pid = :erlang.binary_to_term(from)
     send(pid, {:response, result})
+  end
+
+  defp handle_notification(%Join{topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub], %{topic: topic})
   end
 
   defp parse_args(args) do
