@@ -27,6 +27,26 @@ message UnsubscribeFromTopic {
     string name = 1;
 }
 
+message Join {
+    // topic that was joined
+    string topic = 1;
+}
+
+message Leave {
+    // topic that was abandoned
+    string topic = 1;
+}
+
+message Graft {
+    bytes peer_id = 1;
+    string topic = 2;
+}
+
+message Prune {
+    bytes peer_id = 1;
+    string topic = 2;
+}
+
 message AddPeer {
     bytes id = 1;
     repeated string addrs = 2;
@@ -120,5 +140,9 @@ message Notification {
         Request request = 2;
         NewPeer new_peer = 3;
         Result result = 4;
+        Join joined = 5;
+        Leave left = 6;
+        Graft grafted = 7;
+        Prune pruned = 8;
     }
 }

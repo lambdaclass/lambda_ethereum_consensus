@@ -30,7 +30,7 @@ type Subscriber struct {
 }
 
 type GossipTracer struct {
-	host host.Host
+	port *port.Port
 }
 
 func (g GossipTracer) AddPeer(p peer.ID, proto protocol.ID) {
@@ -42,7 +42,7 @@ func (g GossipTracer) RemovePeer(p peer.ID) {
 }
 
 func (g GossipTracer) Join(topic string) {
-	// no-op
+	// g.port.SendNotification()
 }
 
 func (g GossipTracer) Leave(topic string) {
@@ -139,7 +139,7 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 		pubsub.WithPeerOutboundQueueSize(600),
 		pubsub.WithValidateQueueSize(600),
 		pubsub.WithMaxMessageSize(10 * (1 << 20)), // 10 MB
-		pubsub.WithRawTracer(GossipTracer{host: h}),
+		pubsub.WithRawTracer(GossipTracer{port: p}),
 	}
 
 	gsub, err := pubsub.NewGossipSub(context.Background(), h, options...)
