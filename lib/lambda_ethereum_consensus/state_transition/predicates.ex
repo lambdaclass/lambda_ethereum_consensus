@@ -112,6 +112,32 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
+  Check if merkle branch is valid
+  """
+  @spec is_valid_merkle_branch?(
+          SszTypes.bytes32(),
+          list(SszTypes.bytes32()),
+          SszTypes.uint64(),
+          SszTypes.uint64(),
+          SszTypes.root()
+        ) :: boolean
+  def is_valid_merkle_branch?(leaf, branch, depth, index, root) do
+    root ==
+      branch
+      |> Enum.take(depth)
+      |> Enum.with_index()
+      |> Enum.reduce(leaf, fn {v, i}, value -> hash_merkle_node(v, value, index, i) end)
+  end
+
+  defp hash_merkle_node(value_1, value_2, index, i) do
+    if rem(div(index, 2 ** i), 2) == 1 do
+      :crypto.hash(:sha256, value_1 <> value_2)
+    else
+      :crypto.hash(:sha256, value_2 <> value_1)
+    end
+  end
+
+  @doc """
   Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
   """
   @spec is_valid_indexed_attestation(BeaconState.t(), SszTypes.IndexedAttestation.t()) :: boolean
