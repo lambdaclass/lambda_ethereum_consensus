@@ -62,19 +62,28 @@ func (g GossipTracer) Prune(p peer.ID, topic string) {
 }
 
 func (g GossipTracer) ValidateMessage(msg *pubsub.Message) {
-	// no-op
+	notification := proto_helpers.ValidateMessageNotification(*msg.Topic)
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) DeliverMessage(msg *pubsub.Message) {
-	// no-op
+	notification := proto_helpers.DeliverMessageNotification(*msg.Topic)
+	g.port.SendNotification(&notification)
+}
+
+func (g GossipTracer) UndeliverableMessage(msg *pubsub.Message) {
+	notification := proto_helpers.UndeliverableMessageNotification(*msg.Topic)
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) RejectMessage(msg *pubsub.Message, reason string) {
-	// no-op
+	notification := proto_helpers.RejectMessageNotification(*msg.Topic)
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) DuplicateMessage(msg *pubsub.Message) {
-	// no-op
+	notification := proto_helpers.DuplicateMessageNotification(*msg.Topic)
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) ThrottlePeer(p peer.ID) {
@@ -90,10 +99,6 @@ func (g GossipTracer) SendRPC(rpc *pubsub.RPC, p peer.ID) {
 }
 
 func (g GossipTracer) DropRPC(rpc *pubsub.RPC, p peer.ID) {
-	// no-op
-}
-
-func (g GossipTracer) UndeliverableMessage(msg *pubsub.Message) {
 	// no-op
 }
 

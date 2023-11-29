@@ -12,6 +12,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias Libp2pProto.{
     AddPeer,
     Command,
+    DeliverMessage,
+    DuplicateMessage,
     GetId,
     GossipSub,
     Graft,
@@ -22,6 +24,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Notification,
     Prune,
     Publish,
+    RejectMessage,
     Request,
     Result,
     ResultMessage,
@@ -29,8 +32,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     SendResponse,
     SetHandler,
     SubscribeToTopic,
+    UnDeliverableMessage,
     UnsubscribeFromTopic,
-    ValidateMessage
+    ValidateMessage,
+    ValidateMessageGossip
   }
 
   require Logger
@@ -327,6 +332,26 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp handle_notification(%Prune{peer_id: peer_id, topic: topic}, _state) do
     :telemetry.execute([:network, :pubsub_topics_prune], %{}, %{topic: topic})
+  end
+
+  defp handle_notification(%DeliverMessage{topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_deliver_message], %{}, %{topic: topic})
+  end
+
+  defp handle_notification(%DuplicateMessage{topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_duplicate_message], %{}, %{topic: topic})
+  end
+
+  defp handle_notification(%RejectMessage{topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_reject_message], %{}, %{topic: topic})
+  end
+
+  defp handle_notification(%UnDeliverableMessage{topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_un_deliverable_message], %{}, %{topic: topic})
+  end
+
+  defp handle_notification(%ValidateMessageGossip{topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_validate_message], %{}, %{topic: topic})
   end
 
   defp parse_args(args) do

@@ -62,6 +62,11 @@ defmodule LambdaEthereumConsensus.Telemetry do
       counter("network.pubsub_topic_active.count", tags: [:topic]),
       counter("network.pubsub_topics_graft.count", tags: [:topic]),
       counter("network.pubsub_topics_prune.count", tags: [:topic]),
+      counter("network.pubsub_topics_deliver_message.count", tags: [:topic]),
+      counter("network.pubsub_topics_duplicate_message.count", tags: [:topic]),
+      counter("network.pubsub_topics_reject_message.count", tags: [:topic]),
+      counter("network.pubsub_topics_un_deliverable_message.count", tags: [:topic]),
+      counter("network.pubsub_topics_validate_message.count", tags: [:topic]),
       counter("port.message.count", tags: [:function, :direction]),
       sum("network.request.blocks", tags: [:result, :type, :reason]),
 

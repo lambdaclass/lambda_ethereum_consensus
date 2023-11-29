@@ -47,6 +47,26 @@ message Prune {
     string topic = 2;
 }
 
+message ValidateMessageGossip {
+    string topic = 1;
+}
+
+message DeliverMessage {
+    string topic = 1;
+}
+
+message UnDeliverableMessage {
+    string topic = 1;
+}
+
+message RejectMessage {
+    string topic = 1;
+}
+
+message DuplicateMessage {
+    string topic = 1;
+}
+
 message AddPeer {
     bytes id = 1;
     repeated string addrs = 2;
@@ -147,5 +167,10 @@ message Notification {
         Leave left = 6;
         Graft grafted = 7;
         Prune pruned = 8;
+        ValidateMessageGossip validate_message = 9;
+        DeliverMessage deliver_message = 10;
+        UnDeliverableMessage un_deliverable_message = 11;
+        RejectMessage reject_message = 12;
+        DuplicateMessage duplicate_message = 13;
     }
 }
