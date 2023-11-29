@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias SszTypes.Store
 
   @spec get_forkchoice_store(BeaconState.t(), BeaconBlock.t()) :: {:ok, Store.t()} | {:error, any}
-  def get_forkchoice_store(anchor_state, anchor_block) do
+  def get_forkchoice_store(%BeaconState{} = anchor_state, %BeaconBlock{} = anchor_block) do
     anchor_state_root = Ssz.hash_tree_root!(anchor_state)
     anchor_block_root = Ssz.hash_tree_root!(anchor_block)
 
