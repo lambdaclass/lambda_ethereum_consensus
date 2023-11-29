@@ -144,7 +144,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
       count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
-
       blocks =
         body
         |> Enum.map(&BlockStore.get_block/1)
