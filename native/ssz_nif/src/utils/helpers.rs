@@ -78,8 +78,9 @@ where
     Elx: Decoder<'a>,
     Ssz: TreeHash + FromElx<Elx>,
 {
+    let list_size = list.len();
     let root = hash_vector_tree_root::<'a, Elx, Ssz>((list, max_size))?;
-    let bytes = tree_hash::mix_in_length(&Hash256::from(root), max_size).0;
+    let bytes = tree_hash::mix_in_length(&Hash256::from(root), list_size).0;
     Ok(bytes)
 }
 
@@ -95,16 +96,15 @@ where
     Ok(vec_tree_hash_root(&x, max_size))
 }
 
-/// A helper function providing common functionality between the `TreeHash` implementations for
-/// `FixedVector` and `VariableList`.
-pub fn vec_tree_hash_root<T>(vec: &[T], size: usize) -> [u8; 32]
+/// Taken from `ssz_types` and modified to take `max_size` as dynamic parameter.
+pub fn vec_tree_hash_root<T>(vec: &[T], max_size: usize) -> [u8; 32]
 where
     T: TreeHash,
 {
     let root = match T::tree_hash_type() {
         TreeHashType::Basic => {
-            let mut hasher: MerkleHasher = MerkleHasher::with_leaves(
-                (size + T::tree_hash_packing_factor() - 1) / T::tree_hash_packing_factor(),
+            let mut hasher = MerkleHasher::with_leaves(
+                (max_size + T::tree_hash_packing_factor() - 1) / T::tree_hash_packing_factor(),
             );
 
             for item in vec {
@@ -118,7 +118,7 @@ where
                 .expect("ssz_types variable vec should not have a remaining buffer")
         }
         TreeHashType::Container | TreeHashType::List | TreeHashType::Vector => {
-            let mut hasher = MerkleHasher::with_leaves(size);
+            let mut hasher = MerkleHasher::with_leaves(max_size);
 
             for item in vec {
                 hasher
