@@ -36,6 +36,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   @bytes_per_length_offset 4
   @bits_per_byte 8
+  @offset_bits 32
 
   defp encode_int(value, size) when is_integer(value), do: {:ok, <<value::size(size)-little>>}
   defp encode_bool(true), do: {:ok, "\x01"}
@@ -283,14 +284,14 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_fixed_section(binary, schemas, fixed_length) do
     schemas
     |> Enum.reduce({binary, [], []}, fn {key, schema},
-                                        {rest_bytes, acc_fixed_parts, acc_offsets} ->
+                                        {binary, fixed_parts, offsets} ->
       if variable_size?(schema) do
-        <<offset::integer-size(32)-little, rest::bitstring>> = rest_bytes
-        {rest, acc_fixed_parts, [{offset - fixed_length, {key, schema}} | acc_offsets]}
+        <<offset::integer-size(@offset_bits)-little, rest::bitstring>> = binary
+        {rest, fixed_parts, [{offset - fixed_length, {key, schema}} | offsets]}
       else
         ssz_fixed_len = get_fixed_size(schema)
-        <<chunk::binary-size(ssz_fixed_len), rest::bitstring>> = rest_bytes
-        {rest, [{key, decode(chunk, schema)} | acc_fixed_parts], acc_offsets}
+        <<chunk::binary-size(ssz_fixed_len), rest::bitstring>> = binary
+        {rest, [{key, decode(chunk, schema)} | fixed_parts], offsets}
       end
     end)
     |> then(fn {_rest_bytes, fixed_parts, offsets} ->
