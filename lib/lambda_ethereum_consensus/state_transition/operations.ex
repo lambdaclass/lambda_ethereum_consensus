@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Math, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
   alias SszTypes.BeaconBlockBody
 
@@ -109,80 +109,91 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec process_sync_aggregate(BeaconState.t(), SyncAggregate.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_sync_aggregate(
-        %BeaconState{
-          slot: slot,
-          current_sync_committee: current_sync_committee,
-          validators: validators
-        } = state,
-        %SyncAggregate{
-          sync_committee_bits: sync_committee_bits,
-          sync_committee_signature: sync_committee_signature
-        }
-      ) do
+  def process_sync_aggregate(%BeaconState{} = state, %SyncAggregate{} = aggregate) do
     # Verify sync committee aggregate signature signing over the previous slot block root
-    committee_pubkeys = current_sync_committee.pubkeys
-
-    # TODO: Change bitvectors to be in little-endian instead of converting manually
-    sync_committee_bits_as_num = sync_committee_bits |> :binary.decode_unsigned()
-
-    sync_committee_bits =
-      <<sync_committee_bits_as_num::unsigned-integer-little-size(bit_size(sync_committee_bits))>>
+    committee_pubkeys = state.current_sync_committee.pubkeys
+    sync_committee_bits = parse_sync_committee_bits(aggregate.sync_committee_bits)
 
     participant_pubkeys =
-      Enum.with_index(committee_pubkeys)
+      committee_pubkeys
+      |> Enum.with_index()
       |> Enum.filter(fn {_, index} -> BitVector.set?(sync_committee_bits, index) end)
       |> Enum.map(fn {public_key, _} -> public_key end)
 
-    previous_slot = max(slot, 1) - 1
+    previous_slot = max(state.slot, 1) - 1
     epoch = Misc.compute_epoch_at_slot(previous_slot)
     domain = Accessors.get_domain(state, Constants.domain_sync_committee(), epoch)
 
     with {:ok, block_root} <- Accessors.get_block_root_at_slot(state, previous_slot),
          signing_root <- Misc.compute_signing_root(block_root, domain),
-         {:ok, true} <-
-           Bls.eth_fast_aggregate_verify(
-             participant_pubkeys,
-             signing_root,
-             sync_committee_signature
-           ) do
+         :ok <-
+           verify_signature(participant_pubkeys, signing_root, aggregate.sync_committee_signature),
+         {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
       # Compute participant and proposer rewards
       {participant_reward, proposer_reward} = compute_sync_aggregate_rewards(state)
 
-      # Apply participant and proposer rewards
-      committee_indices = get_sync_committee_indices(validators, committee_pubkeys)
+      total_proposer_reward = BitVector.count(sync_committee_bits) * proposer_reward
 
-      Stream.with_index(committee_indices)
-      |> Enum.reduce_while({:ok, state}, fn {participant_index, index}, {_, state} ->
-        if BitVector.set?(sync_committee_bits, index) do
-          state
-          |> increase_balance_or_return_error(
-            participant_index,
-            participant_reward,
-            proposer_reward
-          )
-        else
-          {:cont,
-           {:ok, state |> Mutators.decrease_balance(participant_index, participant_reward)}}
-        end
-      end)
-    else
-      {:ok, false} -> {:error, "Signature verification failed"}
-      {:error, message} -> {:error, message}
+      # PERF: make Map with committee_index by pubkey, then
+      # Enum.map validators -> new balance all in place, without map_reduce
+      committee_deltas =
+        state.validators
+        |> get_sync_committee_indices(committee_pubkeys)
+        |> Stream.with_index()
+        |> Stream.map(fn {validator_index, committee_index} ->
+          if BitVector.set?(sync_committee_bits, committee_index),
+            do: {validator_index, participant_reward},
+            else: {validator_index, -participant_reward}
+        end)
+        |> Enum.sort(fn {vi1, _}, {vi2, _} -> vi1 <= vi2 end)
+
+      # Apply participant and proposer rewards
+      {new_balances, []} =
+        state.balances
+        |> Stream.with_index()
+        |> Stream.map(&add_proposer_reward(&1, proposer_index, total_proposer_reward))
+        |> Enum.map_reduce(committee_deltas, &update_balance/2)
+
+      {:ok, %BeaconState{state | balances: new_balances}}
     end
+  end
+
+  defp add_proposer_reward({balance, proposer}, proposer, proposer_reward),
+    do: {balance + proposer_reward, proposer}
+
+  defp add_proposer_reward(v, _, _), do: v
+
+  defp update_balance({balance, i}, [{i, delta} | acc]),
+    do: update_balance({max(balance + delta, 0), i}, acc)
+
+  defp update_balance({balance, _}, acc), do: {balance, acc}
+
+  defp verify_signature(pubkeys, message, signature) do
+    case Bls.eth_fast_aggregate_verify(pubkeys, message, signature) do
+      {:ok, true} -> :ok
+      _ -> {:error, "Signature verification failed"}
+    end
+  end
+
+  defp parse_sync_committee_bits(bits) do
+    # TODO: Change bitvectors to be in little-endian instead of converting manually
+    bitsize = bit_size(bits)
+    <<num::integer-size(bitsize)>> = bits
+    <<num::integer-little-size(bitsize)>>
   end
 
   @spec compute_sync_aggregate_rewards(BeaconState.t()) :: {SszTypes.gwei(), SszTypes.gwei()}
   defp compute_sync_aggregate_rewards(state) do
     # Compute participant and proposer rewards
-    total_active_increments =
-      div(
-        Accessors.get_total_active_balance(state),
-        ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
-      )
+    total_active_balance = Accessors.get_total_active_balance(state)
 
-    total_base_rewards =
-      Accessors.get_base_reward_per_increment(state) * total_active_increments
+    effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+    total_active_increments = total_active_balance |> div(effective_balance_increment)
+
+    numerator = effective_balance_increment * Constants.base_reward_factor()
+    denominator = Math.integer_squareroot(total_active_balance)
+    base_reward_per_increment = div(numerator, denominator)
+    total_base_rewards = base_reward_per_increment * total_active_increments
 
     max_participant_rewards =
       (total_base_rewards * Constants.sync_reward_weight())
@@ -201,41 +212,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec get_sync_committee_indices(list(Validator.t()), list(SszTypes.bls_pubkey())) ::
           list(integer)
   defp get_sync_committee_indices(validators, committee_pubkeys) do
-    # Apply participant and proposer rewards
     all_pubkeys =
       validators
-      |> Enum.map(fn %Validator{pubkey: pubkey} -> pubkey end)
+      |> Stream.map(fn %Validator{pubkey: pubkey} -> pubkey end)
+      |> Stream.with_index()
+      |> Map.new()
 
     committee_pubkeys
-    |> Enum.with_index()
-    |> Enum.map(fn {public_key, _} ->
-      Enum.find_index(all_pubkeys, fn x -> x == public_key end)
-    end)
-  end
-
-  @spec increase_balance_or_return_error(
-          BeaconState.t(),
-          SszTypes.validator_index(),
-          SszTypes.gwei(),
-          SszTypes.gwei()
-        ) :: {:cont, {:ok, BeaconState.t()}} | {:halt, {:error, String.t()}}
-  defp increase_balance_or_return_error(
-         %BeaconState{} = state,
-         participant_index,
-         participant_reward,
-         proposer_reward
-       ) do
-    case Accessors.get_beacon_proposer_index(state) do
-      {:ok, proposer_index} ->
-        {:cont,
-         {:ok,
-          state
-          |> Mutators.increase_balance(participant_index, participant_reward)
-          |> Mutators.increase_balance(proposer_index, proposer_reward)}}
-
-      {:error, _} ->
-        {:halt, {:error, "Error getting beacon proposer index"}}
-    end
+    |> Enum.map(&Map.fetch!(all_pubkeys, &1))
   end
 
   @doc """
