@@ -27,6 +27,9 @@ message UnsubscribeFromTopic {
     string name = 1;
 }
 
+message AddPeerGossip {}
+message RemovePeerGossip {}
+
 message Join {
     // topic that was joined
     string topic = 1;
@@ -38,13 +41,11 @@ message Leave {
 }
 
 message Graft {
-    bytes peer_id = 1;
-    string topic = 2;
+    string topic = 1;
 }
 
 message Prune {
-    bytes peer_id = 1;
-    string topic = 2;
+    string topic = 1;
 }
 
 message ValidateMessageGossip {
@@ -172,5 +173,7 @@ message Notification {
         UnDeliverableMessage un_deliverable_message = 11;
         RejectMessage reject_message = 12;
         DuplicateMessage duplicate_message = 13;
+        AddPeerGossip add_peer = 14;
+        RemovePeerGossip remove_peer = 15;
     }
 }

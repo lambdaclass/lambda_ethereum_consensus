@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   alias Libp2pProto.{
     AddPeer,
+    AddPeerGossip,
     Command,
     DeliverMessage,
     DuplicateMessage,
@@ -25,6 +26,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Prune,
     Publish,
     RejectMessage,
+    RemovePeerGossip,
     Request,
     Result,
     ResultMessage,
@@ -318,6 +320,18 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     send(pid, {:response, result})
   end
 
+  defp handle_notification(%AddPeerGossip{}, _state) do
+    :telemetry.execute([:network, :pubsub_peers], %{peers: 1}, %{
+      result: "add"
+    })
+  end
+
+  defp handle_notification(%RemovePeerGossip{}, _state) do
+    :telemetry.execute([:network, :pubsub_peers], %{peers: 0}, %{
+      result: "remove"
+    })
+  end
+
   defp handle_notification(%Join{topic: topic}, _state) do
     :telemetry.execute([:network, :pubsub_topic_active], %{active: 1}, %{
       topic: get_topic_name(topic)
@@ -330,11 +344,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     })
   end
 
-  defp handle_notification(%Graft{peer_id: _peer_id, topic: topic}, _state) do
+  defp handle_notification(%Graft{topic: topic}, _state) do
     :telemetry.execute([:network, :pubsub_topics_graft], %{}, %{topic: get_topic_name(topic)})
   end
 
-  defp handle_notification(%Prune{peer_id: _peer_id, topic: topic}, _state) do
+  defp handle_notification(%Prune{topic: topic}, _state) do
     :telemetry.execute([:network, :pubsub_topics_prune], %{}, %{topic: get_topic_name(topic)})
   end
 

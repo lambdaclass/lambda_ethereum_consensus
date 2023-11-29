@@ -20,6 +20,14 @@ func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 	}
 }
 
+func AddPeerNotification() proto_defs.Notification {
+	return proto_defs.Notification{N: &proto_defs.Notification_AddPeer{}}
+}
+
+func RemovePeerNotification() proto_defs.Notification {
+	return proto_defs.Notification{N: &proto_defs.Notification_RemovePeer{}}
+}
+
 func JoinNotification(topic string) proto_defs.Notification {
 	joinNotification := &proto_defs.Join{Topic: topic}
 	return proto_defs.Notification{N: &proto_defs.Notification_Joined{Joined: joinNotification}}
@@ -30,13 +38,13 @@ func LeaveNofication(topic string) proto_defs.Notification {
 	return proto_defs.Notification{N: &proto_defs.Notification_Left{Left: leaveNofication}}
 }
 
-func GraftNotification(id []byte, topic string) proto_defs.Notification {
-	graftNotification := &proto_defs.Graft{PeerId: id, Topic: topic}
+func GraftNotification(topic string) proto_defs.Notification {
+	graftNotification := &proto_defs.Graft{Topic: topic}
 	return proto_defs.Notification{N: &proto_defs.Notification_Grafted{Grafted: graftNotification}}
 }
 
-func PruneNotification(id []byte, topic string) proto_defs.Notification {
-	pruneNotification := &proto_defs.Prune{PeerId: id, Topic: topic}
+func PruneNotification(topic string) proto_defs.Notification {
+	pruneNotification := &proto_defs.Prune{Topic: topic}
 	return proto_defs.Notification{N: &proto_defs.Notification_Pruned{Pruned: pruneNotification}}
 }
 

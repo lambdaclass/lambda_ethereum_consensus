@@ -34,11 +34,13 @@ type GossipTracer struct {
 }
 
 func (g GossipTracer) AddPeer(p peer.ID, proto protocol.ID) {
-	// no-op
+	notification := proto_helpers.AddPeerNotification()
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) RemovePeer(p peer.ID) {
-	// no-op
+	notification := proto_helpers.RemovePeerNotification()
+	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) Join(topic string) {
@@ -52,12 +54,12 @@ func (g GossipTracer) Leave(topic string) {
 }
 
 func (g GossipTracer) Graft(p peer.ID, topic string) {
-	notification := proto_helpers.GraftNotification([]byte(p), topic)
+	notification := proto_helpers.GraftNotification(topic)
 	g.port.SendNotification(&notification)
 }
 
 func (g GossipTracer) Prune(p peer.ID, topic string) {
-	notification := proto_helpers.PruneNotification([]byte(p), topic)
+	notification := proto_helpers.PruneNotification(topic)
 	g.port.SendNotification(&notification)
 }
 
