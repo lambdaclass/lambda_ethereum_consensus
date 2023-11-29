@@ -232,9 +232,8 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp calculate_offsets(variable_parts, fixed_length) do
     {offsets, _} =
-      Enum.reduce(variable_parts, {[], 0}, fn element, {res, acc} ->
-        sum = fixed_length + acc
-        {[{sum, {:int, 32}} | res], byte_size(element) + acc}
+      Enum.reduce(variable_parts, {[], fixed_length}, fn element, {res, acc} ->
+        {[{acc, {:int, 32}} | res], byte_size(element) + acc}
       end)
 
     offsets
@@ -242,93 +241,73 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp replace_offsets(fixed_size_values, offsets) do
     {fixed_size_values, _} =
-      Enum.reduce(fixed_size_values, {[], offsets}, fn element,
-                                                       {acc_fixed_list, acc_offsets_list} ->
-        if element == :offset do
-          [offset | rest_offsets] = acc_offsets_list
-          {[offset | acc_fixed_list], rest_offsets}
-        else
-          {[element | acc_fixed_list], acc_offsets_list}
-        end
-      end)
+      Enum.reduce(fixed_size_values, {[], offsets}, &replace_offset/2)
 
     fixed_size_values
   end
 
+  defp replace_offset(:offset, {acc_fixed_list, [offset | rest_offsets]}),
+    do: {[offset | acc_fixed_list], rest_offsets}
+
+  defp replace_offset(element, {acc_fixed_list, acc_offsets_list}),
+    do: {[element | acc_fixed_list], acc_offsets_list}
+
   defp decode_container(binary, module) do
     schemas = module.schema()
-    {items, offsets, items_index} = build_deserialization_strategy(schemas, binary)
+    fixed_length = get_fixed_length(schemas)
+    <<fixed_binary::binary-size(fixed_length), variable_binary::bitstring>> = binary
 
-    if check_first_offset_position(offsets, items_index) do
-      updated_items_with_offsets =
-        insert_offsets(offsets, items, binary)
-        |> Map.to_list()
-        |> Enum.map(fn {_index, value} -> value end)
-
-      decode_container_elements(updated_items_with_offsets, [])
-      |> Enum.reduce(%{:ok => %{}, :errors => []}, &flatten_container_results/2)
-      |> case do
-        %{ok: map_decoded, errors: []} -> {:ok, struct!(module, map_decoded)}
-        %{ok: %{}, errors: errors} -> {:error, errors}
-      end
-    else
-      {:error, "invalid offsets position"}
+    with {:ok, fixed_parts, offsets} <- decode_fixed_section(fixed_binary, schemas, fixed_length),
+         {:ok, variable_parts} <- decode_variable_section(variable_binary, offsets) do
+      {:ok, struct!(module, fixed_parts ++ variable_parts)}
     end
   end
 
-  defp build_deserialization_strategy(schemas, binary) do
-    schemas
-    |> Enum.reduce({binary, %{}, [], 0, 0}, fn {key, schema},
-                                               {rest_bytes, items, offsets, items_index,
-                                                acc_position} ->
-      if variable_size?(schema) do
-        <<offset::integer-size(32)-little, rest::bitstring>> = rest_bytes
-
-        {rest, Map.merge(items, %{acc_position => %{schema: schema, key: key, bin: <<>>}}),
-         [%{position: acc_position, offset: offset} | offsets],
-         items_index + @bytes_per_length_offset, acc_position + 1}
-      else
-        ssz_fixed_len = get_fixed_size(schema)
-        <<chuck::binary-size(ssz_fixed_len), rest::bitstring>> = rest_bytes
-
-        {rest, Map.merge(items, %{acc_position => %{schema: schema, key: key, bin: chuck}}),
-         offsets, items_index + ssz_fixed_len, acc_position + 1}
-      end
-    end)
-    |> then(fn {_rest_bytes, items, offsets, items_index, _acc_position} ->
-      {items, Enum.reverse(offsets), items_index}
-    end)
-  end
-
-  defp decode_container_elements([%{bin: bin, key: key, schema: schema} | rest], results) do
-    decode_container_elements(rest, [%{key => decode(bin, schema)} | results])
-  end
-
-  defp decode_container_elements([], results), do: results
-
-  defp check_first_offset_position([], _items_index), do: true
-
-  defp check_first_offset_position([%{offset: offset} | _offsets], items_index),
-    do: offset == items_index
-
-  defp insert_offsets(offsets, items, bin) do
+  defp decode_variable_section(binary, offsets) do
     offsets
     |> Enum.chunk_every(2, 1)
-    |> Enum.reduce(items, fn
-      [first, second], acc ->
-        part = :binary.part(bin, first[:offset], second[:offset] - first[:offset])
-        item = Map.fetch!(items, first[:position])
-        updated_item = Map.update!(item, :bin, &(&1 <> part))
-        updated_items = Map.replace!(acc, first[:position], updated_item)
-        updated_items
+    |> Enum.reduce({binary, []}, fn
+      [{offset, {key, schema}}, {next_offset, _}], {rest_bytes, acc_variable_parts} ->
+        size = next_offset - offset
+        <<chunk::binary-size(size), rest::bitstring>> = rest_bytes
+        {rest, [{key, decode(chunk, schema)} | acc_variable_parts]}
 
-      [last], acc ->
-        part = :binary.part(bin, last[:offset], byte_size(bin) - last[:offset])
-        item = Map.fetch!(items, last[:position])
-        updated_item = Map.update!(item, :bin, &(&1 <> part))
-        updated_items = Map.replace!(acc, last[:position], updated_item)
-        updated_items
+      [{_offset, {key, schema}}], {rest_bytes, acc_variable_parts} ->
+        {<<>>, [{key, decode(rest_bytes, schema)} | acc_variable_parts]}
     end)
+    |> then(fn {<<>>, variable_parts} ->
+      flatten_container_results(variable_parts)
+    end)
+  end
+
+  defp decode_fixed_section(binary, schemas, fixed_length) do
+    schemas
+    |> Enum.reduce({binary, [], []}, fn {key, schema},
+                                        {rest_bytes, acc_fixed_parts, acc_offsets} ->
+      if variable_size?(schema) do
+        <<offset::integer-size(32)-little, rest::bitstring>> = rest_bytes
+        {rest, acc_fixed_parts, [{offset - fixed_length, {key, schema}} | acc_offsets]}
+      else
+        ssz_fixed_len = get_fixed_size(schema)
+        <<chunk::binary-size(ssz_fixed_len), rest::bitstring>> = rest_bytes
+        {rest, [{key, decode(chunk, schema)} | acc_fixed_parts], acc_offsets}
+      end
+    end)
+    |> then(fn {_rest_bytes, fixed_parts, offsets} ->
+      Tuple.append(flatten_container_results(fixed_parts), Enum.reverse(offsets))
+    end)
+  end
+
+  defp get_fixed_length(schemas) do
+    schemas
+    |> Stream.map(fn {_key, schema} ->
+      if variable_size?(schema) do
+        @bytes_per_length_offset
+      else
+        get_fixed_size(schema)
+      end
+    end)
+    |> Enum.sum()
   end
 
   # https://notes.ethereum.org/ruKvDXl6QOW3gnqVYb8ezA?view
@@ -374,18 +353,12 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  def flatten_container_results(element, acc) do
-    case Enum.group_by(element, fn {_, {type, _}} -> type end, fn {key, {_, result}} ->
-           %{key => result}
+  defp flatten_container_results(results) do
+    case Enum.group_by(results, fn {_, {type, _}} -> type end, fn {key, {_, result}} ->
+           {key, result}
          end) do
-      %{errors: errors} ->
-        Map.update!(acc, :errors, &(&1 ++ errors))
-
-      summary ->
-        result =
-          Enum.reduce(Map.get(summary, :ok, []), %{}, &Map.merge(&2, &1))
-
-        Map.update!(acc, :ok, &Map.merge(&1, result))
+      %{error: errors} -> {:error, errors}
+      summary -> {:ok, Map.get(summary, :ok, [])}
     end
   end
 
