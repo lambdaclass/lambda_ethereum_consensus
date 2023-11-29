@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
   alias SszTypes.BeaconBlockBody
+  alias LambdaEthereumConsensus.SszEx
 
   alias SszTypes.{
     Attestation,
@@ -277,9 +278,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                  SszTypes.Transaction
                ),
              {:ok, withdrawals_root} <-
-               Ssz.hash_list_tree_root(
+               Ssz.hash_list_tree_root_typed(
                  payload.withdrawals,
-                 ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
+                 ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD"),
+                 SszTypes.Withdrawal
                ) do
           {:ok,
            %BeaconState{
