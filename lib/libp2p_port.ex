@@ -319,39 +319,39 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp handle_notification(%Join{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topic_active], %{}, %{topic: topic})
+    :telemetry.execute([:network, :pubsub_topic_active], %{active: 1}, %{topic: get_topic_name(topic)})
   end
 
   defp handle_notification(%Leave{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topic_active], %{}, %{topic: topic})
+    :telemetry.execute([:network, :pubsub_topic_active], %{active: 0}, %{topic: get_topic_name(topic)})
   end
 
-  defp handle_notification(%Graft{peer_id: peer_id, topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_graft], %{}, %{topic: topic})
+  defp handle_notification(%Graft{peer_id: _peer_id, topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_graft], %{}, %{topic: get_topic_name(topic)})
   end
 
-  defp handle_notification(%Prune{peer_id: peer_id, topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_prune], %{}, %{topic: topic})
+  defp handle_notification(%Prune{peer_id: _peer_id, topic: topic}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_prune], %{}, %{topic: get_topic_name(topic)})
   end
 
   defp handle_notification(%DeliverMessage{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_deliver_message], %{}, %{topic: topic})
+    :telemetry.execute([:network, :pubsub_topics_deliver_message], %{}, %{topic: get_topic_name(topic)})
   end
 
   defp handle_notification(%DuplicateMessage{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_duplicate_message], %{}, %{topic: topic})
+    :telemetry.execute([:network, :pubsub_topics_duplicate_message], %{}, %{topic: get_topic_name(topic)})
   end
 
   defp handle_notification(%RejectMessage{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_reject_message], %{}, %{topic: topic})
+    :telemetry.execute([:network, :pubsub_topics_reject_message], %{}, %{topic: get_topic_name(topic)})
   end
 
   defp handle_notification(%UnDeliverableMessage{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_un_deliverable_message], %{}, %{topic: topic})
+    :telemetry.execute([:network, :pubsub_topics_un_deliverable_message], %{}, %{topic: get_topic_name(topic)})
   end
 
   defp handle_notification(%ValidateMessageGossip{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_validate_message], %{}, %{topic: topic})
+    :telemetry.execute([:network, :pubsub_topics_validate_message], %{}, %{topic: get_topic_name(topic)})
   end
 
   defp parse_args(args) do
@@ -382,5 +382,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       {:response, {res, %ResultMessage{message: []}}} -> res
       {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()
     end
+  end
+
+  defp get_topic_name(topic) do
+    topic |> String.split("/") |> Enum.fetch!(3)
   end
 end

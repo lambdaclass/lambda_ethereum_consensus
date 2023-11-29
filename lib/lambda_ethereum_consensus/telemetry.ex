@@ -59,7 +59,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
       counter("peers.connection.count", tags: [:result]),
       counter("peers.challenge.count", tags: [:result]),
       counter("network.request.count", tags: [:result, :type, :reason]),
-      counter("network.pubsub_topic_active.count", tags: [:topic]),
+      last_value("network.pubsub_topic_active.active", tags: [:topic]),
       counter("network.pubsub_topics_graft.count", tags: [:topic]),
       counter("network.pubsub_topics_prune.count", tags: [:topic]),
       counter("network.pubsub_topics_deliver_message.count", tags: [:topic]),
