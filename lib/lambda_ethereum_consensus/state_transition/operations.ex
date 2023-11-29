@@ -390,78 +390,48 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())
-  defp get_expected_withdrawals(
-         %BeaconState{
-           next_withdrawal_index: next_withdrawal_index,
-           next_withdrawal_validator_index: next_withdrawal_validator_index,
-           validators: validators,
-           balances: balances
-         } = state
-       ) do
+  defp get_expected_withdrawals(%BeaconState{} = state) do
     # Compute the next batch of withdrawals which should be included in a block.
     epoch = Accessors.get_current_epoch(state)
-    withdrawal_index = next_withdrawal_index
-    validator_index = next_withdrawal_validator_index
+
     max_validators_per_withdrawals_sweep = ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
-    bound = min(length(validators), max_validators_per_withdrawals_sweep)
+    max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
-    {withdrawals, _, _} =
-      Enum.reduce_while(0..(bound - 1), {[], validator_index, withdrawal_index}, fn _,
-                                                                                    {withdrawals,
-                                                                                     validator_index,
-                                                                                     withdrawal_index} ->
-        validator = Enum.fetch!(validators, validator_index)
-        balance = Enum.fetch!(balances, validator_index)
-        %Validator{withdrawal_credentials: withdrawal_credentials} = validator
+    bound = min(length(state.validators), max_validators_per_withdrawals_sweep)
 
-        {withdrawals, withdrawal_index} =
-          cond do
-            Validator.is_fully_withdrawable_validator(validator, balance, epoch) ->
-              <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
+    Stream.zip([state.validators, state.balances])
+    |> Stream.with_index()
+    |> Stream.cycle()
+    |> Stream.drop(state.next_withdrawal_validator_index)
+    |> Stream.take(bound)
+    |> Stream.map(fn {{validator, balance}, index} ->
+      cond do
+        Validator.is_fully_withdrawable_validator(validator, balance, epoch) ->
+          {validator, balance, index}
 
-              withdrawal = %Withdrawal{
-                index: withdrawal_index,
-                validator_index: validator_index,
-                address: execution_address,
-                amount: balance
-              }
+        Validator.is_partially_withdrawable_validator(validator, balance) ->
+          {validator, balance - max_effective_balance, index}
 
-              withdrawals = [withdrawal | withdrawals]
-              withdrawal_index = withdrawal_index + 1
+        true ->
+          nil
+      end
+    end)
+    |> Stream.reject(&is_nil/1)
+    |> Stream.with_index()
+    |> Stream.map(fn {{validator, balance, validator_index}, index} ->
+      %Validator{withdrawal_credentials: withdrawal_credentials} = validator
 
-              {withdrawals, withdrawal_index}
+      <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
 
-            Validator.is_partially_withdrawable_validator(validator, balance) ->
-              <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
-              max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
-
-              withdrawal = %Withdrawal{
-                index: withdrawal_index,
-                validator_index: validator_index,
-                address: execution_address,
-                amount: balance - max_effective_balance
-              }
-
-              withdrawals = [withdrawal | withdrawals]
-              withdrawal_index = withdrawal_index + 1
-
-              {withdrawals, withdrawal_index}
-
-            true ->
-              {withdrawals, withdrawal_index}
-          end
-
-        max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
-
-        if length(withdrawals) == max_withdrawals_per_payload do
-          {:halt, {withdrawals, validator_index, withdrawal_index}}
-        else
-          validator_index = rem(validator_index + 1, length(validators))
-          {:cont, {withdrawals, validator_index, withdrawal_index}}
-        end
-      end)
-
-    Enum.reverse(withdrawals)
+      %Withdrawal{
+        index: index + state.next_withdrawal_index,
+        validator_index: validator_index,
+        address: execution_address,
+        amount: balance
+      }
+    end)
+    |> Enum.take(max_withdrawals_per_payload)
   end
 
   @spec process_proposer_slashing(BeaconState.t(), SszTypes.ProposerSlashing.t()) ::
