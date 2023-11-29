@@ -167,7 +167,12 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
             }
 
             updated_validators_list =
-              List.replace_at(updated_validators_list_acc, index, updated_validator)
+              updated_validators_list_acc
+              |> Stream.with_index()
+              |> Stream.map(fn {elem, idx} ->
+                if idx == index, do: updated_validator, else: elem
+              end)
+              |> Enum.to_list()
 
             {%{state_acc | validators: updated_validators_list}, updated_validators_list}
           end)
