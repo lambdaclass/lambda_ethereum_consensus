@@ -319,11 +319,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp handle_notification(%Join{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topic_active], %{active: 1}, %{topic: get_topic_name(topic)})
+    :telemetry.execute([:network, :pubsub_topic_active], %{active: 1}, %{
+      topic: get_topic_name(topic)
+    })
   end
 
   defp handle_notification(%Leave{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topic_active], %{active: 0}, %{topic: get_topic_name(topic)})
+    :telemetry.execute([:network, :pubsub_topic_active], %{active: 0}, %{
+      topic: get_topic_name(topic)
+    })
   end
 
   defp handle_notification(%Graft{peer_id: _peer_id, topic: topic}, _state) do
@@ -335,23 +339,33 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp handle_notification(%DeliverMessage{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_deliver_message], %{}, %{topic: get_topic_name(topic)})
+    :telemetry.execute([:network, :pubsub_topics_deliver_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
   end
 
   defp handle_notification(%DuplicateMessage{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_duplicate_message], %{}, %{topic: get_topic_name(topic)})
+    :telemetry.execute([:network, :pubsub_topics_duplicate_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
   end
 
   defp handle_notification(%RejectMessage{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_reject_message], %{}, %{topic: get_topic_name(topic)})
+    :telemetry.execute([:network, :pubsub_topics_reject_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
   end
 
   defp handle_notification(%UnDeliverableMessage{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_un_deliverable_message], %{}, %{topic: get_topic_name(topic)})
+    :telemetry.execute([:network, :pubsub_topics_un_deliverable_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
   end
 
   defp handle_notification(%ValidateMessageGossip{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_validate_message], %{}, %{topic: get_topic_name(topic)})
+    :telemetry.execute([:network, :pubsub_topics_validate_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
   end
 
   defp parse_args(args) do
