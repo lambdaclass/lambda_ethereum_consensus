@@ -413,6 +413,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp get_topic_name(topic) do
-    topic |> String.split("/") |> Enum.fetch!(3)
+    case topic |> String.split("/") |> Enum.fetch(3) do
+      {:ok, name} -> name
+      :error -> topic
+    end
   end
 end
