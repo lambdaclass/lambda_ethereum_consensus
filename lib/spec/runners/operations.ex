@@ -98,9 +98,6 @@ defmodule OperationsTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    # dbg(pre.latest_execution_payload_header)
-    # dbg(operation)
-    # dbg(post.latest_execution_payload_header)
     result = Operations.process_execution_payload(pre, operation, execution_valid)
 
     case result do

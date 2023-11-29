@@ -278,10 +278,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                  SszTypes.Transaction
                ),
              {:ok, withdrawals_root} <-
-               Ssz.hash_list_tree_root_typed(
+               Ssz.hash_list_tree_root(
                  payload.withdrawals,
-                 ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD"),
-                 SszTypes.Withdrawal
+                 ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
                ) do
           {:ok,
            %BeaconState{
