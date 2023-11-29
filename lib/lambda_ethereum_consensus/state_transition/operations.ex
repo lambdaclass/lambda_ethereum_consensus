@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
   alias SszTypes.BeaconBlockBody
-  alias LambdaEthereumConsensus.SszEx
 
   alias SszTypes.{
     Attestation,
