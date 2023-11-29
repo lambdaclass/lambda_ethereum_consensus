@@ -55,13 +55,9 @@ defmodule OperationsTestRunner do
     # "bls_to_execution_change"
   ]
 
-  @disabled_cases [
-    "bad_parent_hash_first_payload"
-  ]
-
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella", handler: handler, case: testcase}) do
-    Enum.member?(@disabled_handlers, handler) or Enum.member?(@disabled_cases, testcase)
+  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
+    Enum.member?(@disabled_handlers, handler)
   end
 
   @impl TestRunner
