@@ -6,11 +6,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Engine
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias SszTypes.BeaconBlockBody
 
   alias SszTypes.{
     Attestation,
     BeaconBlock,
+    BeaconBlockBody,
     BeaconBlockHeader,
     BeaconState,
     ExecutionPayload,
@@ -1040,5 +1040,33 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       end)
 
     updated_validators
+  end
+
+  @spec process_operations(BeaconState.t(), BeaconBlockBody.t()) ::
+          {:ok, BeaconState.t()} | {:error, binary}
+  def process_operations(state, body) do
+    deposit_count = state.eth1_data.deposit_count - state.eth1_deposit_index
+    deposit_limit = min(ChainSpec.get("MAX_DEPOSITS"), deposit_count)
+
+    # Ensure that outstanding deposits are processed up to the maximum number of deposits
+    if length(body.deposits) == deposit_limit do
+      # Define a function that iterates over a list of operations and applies a given function to each element
+      updated_state =
+        state
+        |> process_operation(body.proposer_slashings, &process_proposer_slashing/2)
+        |> process_operation(body.attester_slashings, &process_attester_slashing/2)
+        |> process_operation(body.attestations, &process_attestation/2)
+        |> process_operation(body.deposits, &process_deposit/2)
+        |> process_operation(body.voluntary_exits, &process_voluntary_exit/2)
+        |> process_operation(body.bls_to_execution_changes, &process_bls_to_execution_change/2)
+
+      {:ok, updated_state}
+    else
+      {:error, "deposits length mismatch"}
+    end
+  end
+
+  defp process_operation(state, operations, func) do
+    Enum.reduce(operations, state, fn operation, acc -> func.(acc, operation) end)
   end
 end
