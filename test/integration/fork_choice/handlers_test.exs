@@ -1,11 +1,11 @@
 defmodule Integration.ForkChoice.HandlersTest do
   use ExUnit.Case
 
-  alias LambdaEthereumConsensus.Store.Db
-  alias LambdaEthereumConsensus.Store.BlockStore
-  alias LambdaEthereumConsensus.Store.StateStore
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.Db
+  alias LambdaEthereumConsensus.Store.StateStore
 
   setup_all do
     start_supervised!(Db)
