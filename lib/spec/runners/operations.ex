@@ -3,9 +3,10 @@ defmodule OperationsTestRunner do
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
   """
 
-  alias SszTypes.BeaconBlockBody
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Utils.Diff
+
+  alias SszTypes.BeaconBlockBody
 
   use ExUnit.CaseTemplate
   use TestRunner
