@@ -151,20 +151,19 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           state.previous_epoch_participation
         end
 
-      active_validator_indices = get_active_validator_indices(state, epoch)
-
       participating_indices =
-        active_validator_indices
-        |> Stream.filter(fn index ->
-          current_epoch_participation = Enum.at(epoch_participation, index)
-          Predicates.has_flag(current_epoch_participation, flag_index)
+        state.validators
+        |> Stream.zip(epoch_participation)
+        |> Stream.with_index()
+        |> Stream.filter(fn {{v, _}, _} -> not v.slashed end)
+        |> Stream.filter(fn {{v, _}, _} -> Predicates.is_active_validator(v, epoch) end)
+        |> Stream.filter(fn {{_, participation}, _} ->
+          Predicates.has_flag(participation, flag_index)
         end)
-        |> Stream.filter(fn index ->
-          validator = Enum.at(state.validators, index)
-          not validator.slashed
-        end)
+        |> Stream.map(fn {{_, _}, index} -> index end)
+        |> MapSet.new()
 
-      {:ok, MapSet.new(participating_indices)}
+      {:ok, participating_indices}
     else
       {:error, "epoch is not current or previous epochs"}
     end
@@ -218,8 +217,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     validators
     |> Stream.with_index()
     |> Stream.filter(fn {validator, _index} ->
-      Predicates.is_active_validator(validator, previous_epoch) ||
-        (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
+      Predicates.is_eligible_validator(validator, previous_epoch)
     end)
     |> Stream.map(fn {_validator, index} -> index end)
     |> Enum.to_list()
