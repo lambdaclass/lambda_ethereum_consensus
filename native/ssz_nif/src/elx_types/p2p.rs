@@ -28,8 +28,24 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconBlocksByRangeRequest"]
+    #[module = "SszTypes.BeaconBlocksByRangeResponse"]
     pub(crate) struct BeaconBlocksByRangeResponse<'a> {
+        body: Vec<SignedBeaconBlock<'a>>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlocksByRootRequest"]
+    pub(crate) struct BeaconBlocksByRootRequest<'a> {
+        body: Vec<Root<'a>>,
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "SszTypes.BeaconBlocksByRootResponse"]
+    pub(crate) struct BeaconBlocksByRootResponse<'a> {
         body: Vec<SignedBeaconBlock<'a>>,
     }
 );

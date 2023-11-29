@@ -128,6 +128,35 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     end
   end
 
+  defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
+    with <<24, snappy_blocks_by_root_request::binary>> <- message,
+         {:ok, ssz_blocks_by_root_request} <- Snappy.decompress(snappy_blocks_by_root_request),
+         {:ok, blocks_by_root_request} <-
+           Ssz.from_ssz(ssz_blocks_by_root_request, SszTypes.BeaconBlocksByRootRequest) do
+      ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
+      %SszTypes.BeaconBlocksByRootRequest{body: body} =
+        blocks_by_root_request
+
+      count = length(body)
+
+      "[Received BlocksByRoot Request] requested #{count} number of blocks"
+      |> Logger.info()
+
+      count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
+
+
+      blocks =
+        body
+        |> Enum.map(&BlockStore.get_block/1)
+
+      response_chunk =
+        blocks
+        |> Enum.map_join(&create_block_response_chunk/1)
+
+      Libp2pPort.send_response(message_id, response_chunk)
+    end
+  end
+
   defp handle_req(protocol, _message_id, _message) do
     # This should never happen, since Libp2p only accepts registered protocols
     Logger.error("Unsupported protocol: #{protocol}")
