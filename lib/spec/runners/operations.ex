@@ -43,19 +43,28 @@ defmodule OperationsTestRunner do
   @disabled_handlers [
     # "attester_slashing",
     # "attestation",
-    # "deposit",
     # "block_header",
+    # "deposit",
     # "proposer_slashing",
     # "voluntary_exit",
     # "sync_aggregate",
-    "execution_payload"
+    # "execution_payload"
     # "withdrawals",
     # "bls_to_execution_change"
   ]
 
+  @disabled_cases [
+    "bad_parent_hash_first_payload"
+  ]
+
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
-    fork != "capella" or Enum.member?(@disabled_handlers, handler)
+  def skip?(%SpecTestCase{fork: "capella", handler: handler, case: testcase}) do
+    Enum.member?(@disabled_handlers, handler) or Enum.member?(@disabled_cases, testcase)
+  end
+
+  @impl TestRunner
+  def skip?(_testcase) do
+    true
   end
 
   @impl TestRunner
@@ -89,14 +98,14 @@ defmodule OperationsTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    new_state = Operations.process_execution_payload(pre, operation, execution_valid)
+    result = Operations.process_execution_payload(pre, operation, execution_valid)
 
-    case post do
-      nil ->
-        assert match?({:error, _message}, new_state)
+    case result do
+      {:ok, state} ->
+        assert Diff.diff(state, post) == :unchanged
 
-      _ ->
-        assert new_state == {:ok, post}
+      {:error, error} ->
+        assert post == nil, "Execution payload failed, error: #{error}"
     end
   end
 

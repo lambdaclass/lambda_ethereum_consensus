@@ -86,6 +86,8 @@ jobs:
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: ${{ env.RUST_WORKSPACES }}
+    - name: Compile Elixir (Warnings as errors)
+      run: mix compile --warnings-as-errors
     - name: Retrieve PLT Cache
       uses: actions/cache@v1
       id: plt-cache
