@@ -14,6 +14,7 @@ defmodule Integration.ForkChoice.HandlersTest do
 
   @tag :skip
   test "on_block w/data from DB" do
+    # NOTE: this test requires a DB with a state, and blocks for the state's slot and the next slot.
     # WARN: sometimes fails with "OffsetOutOfBounds" errors. Re-run the test in those cases.
     {:ok, state} = StateStore.get_latest_state()
 
