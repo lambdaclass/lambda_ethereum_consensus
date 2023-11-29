@@ -283,8 +283,7 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp decode_fixed_section(binary, schemas, fixed_length) do
     schemas
-    |> Enum.reduce({binary, [], []}, fn {key, schema},
-                                        {binary, fixed_parts, offsets} ->
+    |> Enum.reduce({binary, [], []}, fn {key, schema}, {binary, fixed_parts, offsets} ->
       if variable_size?(schema) do
         <<offset::integer-size(@offset_bits)-little, rest::bitstring>> = binary
         {rest, fixed_parts, [{offset - fixed_length, {key, schema}} | offsets]}
