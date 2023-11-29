@@ -2,6 +2,8 @@ defmodule OperationsTestRunner do
   @moduledoc """
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/operations
   """
+
+  alias SszTypes.BeaconBlockBody
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Utils.Diff
 
@@ -17,7 +19,7 @@ defmodule OperationsTestRunner do
     "proposer_slashing" => "ProposerSlashing",
     "voluntary_exit" => "SignedVoluntaryExit",
     "sync_aggregate" => "SyncAggregate",
-    "execution_payload" => "ExecutionPayload",
+    "execution_payload" => "BeaconBlockBody",
     "withdrawals" => "ExecutionPayload",
     "bls_to_execution_change" => "SignedBLSToExecutionChange"
     # "deposit_receipt" => "DepositReceipt" Not yet implemented
@@ -32,7 +34,7 @@ defmodule OperationsTestRunner do
     "proposer_slashing" => "proposer_slashing",
     "voluntary_exit" => "voluntary_exit",
     "sync_aggregate" => "sync_aggregate",
-    "execution_payload" => "execution_payload",
+    "execution_payload" => "body",
     "withdrawals" => "execution_payload",
     "bls_to_execution_change" => "address_change"
     # "deposit_receipt" => "deposit_receipt" Not yet implemented
@@ -93,19 +95,21 @@ defmodule OperationsTestRunner do
     handle_case(testcase.handler, pre, operation, post, case_dir)
   end
 
-  defp handle_case("execution_payload", pre, operation, post, case_dir) do
+  defp handle_case("execution_payload", pre, %BeaconBlockBody{} = body, post, case_dir) do
     %{execution_valid: execution_valid} =
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    result = Operations.process_execution_payload(pre, operation, execution_valid)
+    result =
+      Operations.process_execution_payload(pre, body, fn _payload -> {:ok, execution_valid} end)
 
-    case result do
-      {:ok, state} ->
+    case post do
+      nil ->
+        assert {:error, _error_msg} = result
+
+      post ->
+        assert {:ok, state} = result
         assert Diff.diff(state, post) == :unchanged
-
-      {:error, error} ->
-        assert post == nil, "Execution payload failed, error: #{error}"
     end
   end
 
