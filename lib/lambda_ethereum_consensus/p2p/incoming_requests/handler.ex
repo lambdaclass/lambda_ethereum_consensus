@@ -141,8 +141,12 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
       count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
+      "[Received BlocksByRoot Request] requested #{count} number of blocks"
+      |> Logger.info()
+
       blocks =
         body
+        |> Enum.slice(0..(count - 1))
         |> Enum.map(&BlockStore.get_block/1)
 
       response_chunk =
