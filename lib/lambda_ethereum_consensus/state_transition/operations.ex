@@ -1044,7 +1044,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:ok, BeaconState.t()} | {:error, binary}
   def process_operations(state, body) do
     # Ensure that outstanding deposits are processed up to the maximum number of deposits
-    with {:ok} <- verify_deposits(state, body) do
+    with :ok <- verify_deposits(state, body) do
       # Define a function that iterates over a list of operations and applies a given function to each element
       updated_state =
         state
