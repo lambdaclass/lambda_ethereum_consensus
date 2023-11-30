@@ -40,16 +40,16 @@ defmodule SanityTestRunner do
     # "historical_batch",
     # "inactivity_scores_full_participation_leaking",
     # "inactivity_scores_leaking",
-    # "invalid_all_zeroed_sig",
+    "invalid_all_zeroed_sig",
     "invalid_duplicate_attester_slashing_same_block",
     "invalid_duplicate_bls_changes_same_block",
     # "invalid_duplicate_deposit_same_block",
     "invalid_duplicate_proposer_slashings_same_block",
     "invalid_duplicate_validator_exit_same_block",
-    # "invalid_incorrect_block_sig",
+    "invalid_incorrect_block_sig",
     # "invalid_incorrect_proposer_index_sig_from_expected_proposer",
     # "invalid_incorrect_proposer_index_sig_from_proposer_index",
-    # "invalid_incorrect_state_root",
+    "invalid_incorrect_state_root",
     # "invalid_only_increase_deposit_count",
     # "invalid_parent_from_same_slot",
     # "invalid_prev_slot_block_transition",
@@ -87,7 +87,7 @@ defmodule SanityTestRunner do
     # "slots_1",
     # "slots_2",
     # "over_epoch_boundary",
-    # "historical_accumulator",
+    "historical_accumulator",
     "double_empty_epoch"
   ]
 
