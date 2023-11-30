@@ -30,4 +30,12 @@ defmodule LambdaEthereumConsensus.Utils do
   @spec map({:ok | :error, any()}, (any() -> any())) :: any() | {:error, any()}
   def map({:ok, value}, fun), do: fun.(value)
   def map({:error, _} = err, _fun), do: err
+
+  @doc """
+  If first arg is an ``{:error, reason}`` tuple, replace ``reason`` with
+  ``new_reason``. Else, return the first arg unmodified.
+  """
+  @spec map_err(any() | {:error, String.t()}, String.t()) :: any() | {:error, String.t()}
+  def map_err({:error, _}, reason), do: {:error, reason}
+  def map_err(v, _), do: v
 end

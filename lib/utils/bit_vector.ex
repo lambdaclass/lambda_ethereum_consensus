@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   @doc """
   Turns the bit_vector into an integer.
   """
-  @spec to_integer(t) :: t
+  @spec to_integer(t) :: non_neg_integer()
   def to_integer(bit_vector) do
     <<int::unsigned-size(bit_size(bit_vector))>> = bit_vector
     int
