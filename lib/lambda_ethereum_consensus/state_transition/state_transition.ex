@@ -126,7 +126,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> map(&Operations.process_execution_payload(&1, block.body, verify_and_notify_new_payload))
     |> map(&Operations.process_randao(&1, block.body))
     |> map(&Operations.process_eth1_data(&1, block.body))
-    # |> map(&Operations.process_operations(&1, block.body))
+    |> map(&Operations.process_operations(&1, block.body))
     |> map(&Operations.process_sync_aggregate(&1, block.body.sync_aggregate))
   end
 end
