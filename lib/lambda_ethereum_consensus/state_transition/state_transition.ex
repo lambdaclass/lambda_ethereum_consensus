@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   State transition logic.
   """
 
+  alias LambdaEthereumConsensus.Engine.Execution
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
   alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
@@ -48,7 +49,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   def process_slots(%BeaconState{slot: old_slot} = state, slot) do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
 
-    Enum.reduce((old_slot + 1)..slot, {:ok, state}, fn next_slot, acc ->
+    Enum.reduce((old_slot + 1)..slot//1, {:ok, state}, fn next_slot, acc ->
       acc
       |> map(&process_slot/1)
       # Process epoch on the start slot of the next epoch
@@ -57,10 +58,8 @@ defmodule LambdaEthereumConsensus.StateTransition do
     end)
   end
 
-  defp maybe_process_epoch(%BeaconState{} = state, slot_in_epoch) when slot_in_epoch == 0,
-    do: {:ok, state}
-
-  defp maybe_process_epoch(%BeaconState{} = state, _slot_in_epoch), do: process_epoch(state)
+  defp maybe_process_epoch(%BeaconState{} = state, 0), do: process_epoch(state)
+  defp maybe_process_epoch(%BeaconState{} = state, _slot_in_epoch), do: {:ok, state}
 
   defp process_slot(%BeaconState{} = state) do
     # Cache state root
@@ -119,10 +118,12 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   # TODO: uncomment when implemented
   def process_block(state, block) do
+    verify_and_notify_new_payload = &Execution.verify_and_notify_new_payload/1
+
     {:ok, state}
     |> map(&Operations.process_block_header(&1, block))
     |> map(&Operations.process_withdrawals(&1, block.body.execution_payload))
-    # |> map(&Operations.process_execution_payload(&1, block.body, EXECUTION_ENGINE))
+    |> map(&Operations.process_execution_payload(&1, block.body, verify_and_notify_new_payload))
     |> map(&Operations.process_randao(&1, block.body))
     |> map(&Operations.process_eth1_data(&1, block.body))
     |> map(&Operations.process_operations(&1, block.body))

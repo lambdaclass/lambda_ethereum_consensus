@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
-  alias LambdaEthereumConsensus.Engine
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
 
@@ -242,14 +241,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @doc """
   State transition function managing the processing & validation of the `ExecutionPayload`
   """
-  @spec process_execution_payload(BeaconState.t(), ExecutionPayload.t(), boolean()) ::
+  @spec process_execution_payload(BeaconState.t(), BeaconBlockBody.t(), fun()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-
-  def process_execution_payload(_state, _payload, false) do
-    {:error, "Invalid execution payload"}
-  end
-
-  def process_execution_payload(state, payload, _execution_valid) do
+  def process_execution_payload(
+        state,
+        %BeaconBlockBody{execution_payload: payload},
+        verify_and_notify_new_payload
+      ) do
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
       SszTypes.BeaconState.is_merge_transition_complete(state) and
@@ -265,7 +263,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         {:error, "Timestamp verification failed"}
 
       # Verify the execution payload is valid if not mocked
-      Engine.Execution.verify_and_notify_new_payload(payload) != {:ok, true} ->
+      verify_and_notify_new_payload.(payload) != {:ok, true} ->
         {:error, "Invalid execution payload"}
 
       # Cache execution payload header
