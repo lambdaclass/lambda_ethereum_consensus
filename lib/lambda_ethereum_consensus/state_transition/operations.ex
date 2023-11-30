@@ -672,7 +672,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       initial_epoch_participation = get_initial_epoch_participation(state, is_current_epoch)
 
-      {proposer_reward_numerator, updated_epoch_participation} =
+      {updated_epoch_participation, proposer_reward_numerator} =
         update_epoch_participation(
           state,
           attesting_indices,
@@ -709,31 +709,31 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          initial_epoch_participation,
          participation_flag_indices
        ) do
-    Enum.reduce(attesting_indices, {0, initial_epoch_participation}, fn index, {acc, ep} ->
-      update_participation_for_index(state, index, acc, ep, participation_flag_indices)
-    end)
-  end
+    weights =
+      Constants.participation_flag_weights()
+      |> Stream.with_index()
+      |> Enum.filter(&(elem(&1, 1) in participation_flag_indices))
 
-  defp update_participation_for_index(state, index, acc, ep, participation_flag_indices) do
-    Enum.reduce_while(
-      0..(length(Constants.participation_flag_weights()) - 1),
-      {acc, ep},
-      fn flag_index, {inner_acc, inner_ep} ->
-        if flag_index in participation_flag_indices &&
-             not Predicates.has_flag(Enum.at(inner_ep, index), flag_index) do
-          updated_ep =
-            List.replace_at(inner_ep, index, Misc.add_flag(Enum.at(inner_ep, index), flag_index))
+    base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
 
-          acc_delta =
-            Accessors.get_base_reward(state, index) *
-              Enum.at(Constants.participation_flag_weights(), flag_index)
+    state.validators
+    |> Stream.zip(initial_epoch_participation)
+    |> Stream.with_index()
+    |> Enum.map_reduce(0, fn {{validator, participation}, i}, acc ->
+      if MapSet.member?(attesting_indices, i) do
+        bv_participation = BitVector.new(participation, 8)
+        base_reward = Accessors.get_base_reward(validator, base_reward_per_increment)
 
-          {:cont, {inner_acc + acc_delta, updated_ep}}
-        else
-          {:cont, {inner_acc, inner_ep}}
-        end
+        weights
+        |> Stream.reject(&BitVector.set?(bv_participation, elem(&1, 1)))
+        |> Enum.reduce({bv_participation, acc}, fn {weight, index}, {bv_participation, acc} ->
+          {bv_participation |> BitVector.set(index), acc + base_reward * weight}
+        end)
+        |> then(fn {p, acc} -> {BitVector.to_integer(p), acc} end)
+      else
+        {participation, acc}
       end
-    )
+    end)
   end
 
   defp compute_proposer_reward(proposer_reward_numerator) do

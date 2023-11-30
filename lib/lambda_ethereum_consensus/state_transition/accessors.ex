@@ -250,16 +250,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_committee_count_per_slot(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
   def get_committee_count_per_slot(%BeaconState{} = state, epoch) do
-    active_validators_count = length(get_active_validator_indices(state, epoch))
-
-    committee_size =
-      active_validators_count
-      |> Kernel.div(ChainSpec.get("SLOTS_PER_EPOCH"))
-      |> Kernel.div(ChainSpec.get("TARGET_COMMITTEE_SIZE"))
-
-    [ChainSpec.get("MAX_COMMITTEES_PER_SLOT"), committee_size]
-    |> Enum.min()
-    |> (&max(1, &1)).()
+    get_active_validator_indices(state, epoch)
+    |> length()
+    |> div(ChainSpec.get("SLOTS_PER_EPOCH"))
+    |> div(ChainSpec.get("TARGET_COMMITTEE_SIZE"))
+    |> min(ChainSpec.get("MAX_COMMITTEES_PER_SLOT"))
+    |> max(1)
   end
 
   @doc """
@@ -339,7 +335,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           head_indices =
             compute_head_indices(data, block_root_at_slot, inclusion_delay, is_matching_target)
 
-          {:ok, source_indices ++ target_indices ++ head_indices}
+          {:ok, Enum.concat([source_indices, target_indices, head_indices])}
         else
           {:error, "Attestation source does not match justified checkpoint"}
         end

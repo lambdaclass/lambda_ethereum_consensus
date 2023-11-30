@@ -22,6 +22,15 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   end
 
   @doc """
+  Turns the bit_vector into an integer.
+  """
+  @spec to_integer(t) :: t
+  def to_integer(bit_vector) do
+    <<int::unsigned-size(bit_size(bit_vector))>> = bit_vector
+    int
+  end
+
+  @doc """
   True if a single bit is set to 1.
   Equivalent to bit_vector[index] == 1.
   """
