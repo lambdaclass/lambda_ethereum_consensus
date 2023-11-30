@@ -1045,28 +1045,39 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec process_operations(BeaconState.t(), BeaconBlockBody.t()) ::
           {:ok, BeaconState.t()} | {:error, binary}
   def process_operations(state, body) do
-    deposit_count = state.eth1_data.deposit_count - state.eth1_deposit_index
-    deposit_limit = min(ChainSpec.get("MAX_DEPOSITS"), deposit_count)
-
     # Ensure that outstanding deposits are processed up to the maximum number of deposits
-    if length(body.deposits) == deposit_limit do
+    with {:ok} <- verify_deposits(state, body) do
       # Define a function that iterates over a list of operations and applies a given function to each element
       updated_state =
         state
-        |> process_operation(body.proposer_slashings, &process_proposer_slashing/2)
-        |> process_operation(body.attester_slashings, &process_attester_slashing/2)
-        |> process_operation(body.attestations, &process_attestation/2)
-        |> process_operation(body.deposits, &process_deposit/2)
-        |> process_operation(body.voluntary_exits, &process_voluntary_exit/2)
-        |> process_operation(body.bls_to_execution_changes, &process_bls_to_execution_change/2)
+        |> for_ops(body.proposer_slashings, &process_proposer_slashing/2)
+        |> for_ops(body.attester_slashings, &process_attester_slashing/2)
+        |> for_ops(body.attestations, &process_attestation/2)
+        |> for_ops(body.deposits, &process_deposit/2)
+        |> for_ops(body.voluntary_exits, &process_voluntary_exit/2)
+        |> for_ops(body.bls_to_execution_changes, &process_bls_to_execution_change/2)
 
       {:ok, updated_state}
-    else
-      {:error, "deposits length mismatch"}
     end
   end
 
-  defp process_operation(state, operations, func) do
-    Enum.reduce(operations, state, fn operation, acc -> func.(acc, operation) end)
+  defp for_ops(state, operations, func) do
+    Enum.reduce(operations, state, fn operation, acc ->
+      with {:ok, state} <- func.(acc, operation) do
+        state
+      end
+    end)
+  end
+
+  @spec verify_deposits(BeaconState.t(), BeaconBlockBody.t()) :: {:ok} | {:error, binary}
+  defp verify_deposits(state, body) do
+    deposit_count = state.eth1_data.deposit_count - state.eth1_deposit_index
+    deposit_limit = min(ChainSpec.get("MAX_DEPOSITS"), deposit_count)
+
+    if length(body.deposits) == deposit_limit do
+      {:ok}
+    else
+      {:error, "deposits length mismatch"}
+    end
   end
 end
