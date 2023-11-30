@@ -26,8 +26,6 @@ defmodule Helpers.ProcessBlocks do
     meta =
       YamlElixir.read_from_file!(case_dir <> "/meta.yaml") |> SpecTestUtils.sanitize_yaml()
 
-    dbg(meta)
-
     %{blocks_count: blocks_count} = meta
 
     blocks =
