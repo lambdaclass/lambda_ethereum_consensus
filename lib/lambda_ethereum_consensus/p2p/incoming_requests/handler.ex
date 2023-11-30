@@ -139,9 +139,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
       count = length(body)
 
-      "[Received BlocksByRoot Request] requested #{count} number of blocks"
-      |> Logger.info()
-
       count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
       blocks =
