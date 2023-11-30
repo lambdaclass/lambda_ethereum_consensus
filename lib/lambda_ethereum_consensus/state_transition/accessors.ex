@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Functions accessing the current `BeaconState`
   """
 
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Math, Misc, Predicates}
   alias SszTypes.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
@@ -86,7 +87,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       candidate_index = active_validator_indices |> Enum.fetch!(shuffled_index)
 
       <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
-        :crypto.hash(:sha256, seed <> Misc.uint64_to_bytes(div(index, 32)))
+        SszEx.hash(seed <> Misc.uint64_to_bytes(div(index, 32)))
 
       effective_balance = Enum.fetch!(validators, candidate_index).effective_balance
 
@@ -240,7 +241,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     state
     |> get_seed(epoch, Constants.domain_beacon_proposer())
-    |> then(&:crypto.hash(:sha256, &1 <> Misc.uint64_to_bytes(state.slot)))
+    |> then(&SszEx.hash(&1 <> Misc.uint64_to_bytes(state.slot)))
     |> then(&Misc.compute_proposer_index(state, indices, &1))
   end
 
@@ -410,7 +411,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
       )
 
-    :crypto.hash(:sha256, domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
+    SszEx.hash(domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
   end
 
   @doc """
