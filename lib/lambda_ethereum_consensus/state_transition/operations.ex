@@ -1069,13 +1069,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end)
   end
 
-  @spec verify_deposits(BeaconState.t(), BeaconBlockBody.t()) :: {:ok} | {:error, binary}
+  @spec verify_deposits(BeaconState.t(), BeaconBlockBody.t()) :: :ok | {:error, binary}
   defp verify_deposits(state, body) do
     deposit_count = state.eth1_data.deposit_count - state.eth1_deposit_index
     deposit_limit = min(ChainSpec.get("MAX_DEPOSITS"), deposit_count)
 
     if length(body.deposits) == deposit_limit do
-      {:ok}
+      :ok
     else
       {:error, "deposits length mismatch"}
     end
