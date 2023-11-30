@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Misc functions
   """
 
+  alias LambdaEthereumConsensus.SszEx
   alias SszTypes.BeaconState
   import Bitwise
   alias SszTypes.BeaconState
@@ -55,7 +56,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
         round_as_bytes = <<round>>
 
-        hash_of_seed_round = :crypto.hash(:sha256, seed <> round_as_bytes)
+        hash_of_seed_round = SszEx.hash(seed <> round_as_bytes)
 
         pivot = rem(bytes_to_uint64(hash_of_seed_round), index_count)
 
@@ -65,7 +66,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
         position_div_256 = uint_to_bytes4(div(position, 256))
 
         source =
-          :crypto.hash(:sha256, seed <> round_as_bytes <> position_div_256)
+          SszEx.hash(seed <> round_as_bytes <> position_div_256)
 
         byte_index = div(rem(position, 256), 8)
         <<_::binary-size(byte_index), byte, _::binary>> = source
@@ -146,7 +147,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     total = length(indices)
     {:ok, i} = compute_shuffled_index(rem(i, total), total, seed)
     candidate_index = Enum.at(indices, i)
-    random_byte = :crypto.hash(:sha256, seed <> uint_to_bytes4(div(i, 32)))
+    random_byte = SszEx.hash(seed <> uint_to_bytes4(div(i, 32)))
     <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
 
     effective_balance = Enum.at(state.validators, candidate_index).effective_balance

@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
 
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.ForkChoice.Store
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias SszTypes.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
 
   @spec handle_message(String.t(), struct) :: :ok
@@ -31,7 +32,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
         "/eth2/bba4da96/beacon_aggregate_and_proof/ssz_snappy",
         %SignedAggregateAndProof{message: %AggregateAndProof{aggregate: aggregate}}
       ) do
-    votes = count_bits(aggregate.aggregation_bits)
+    votes = BitVector.count(aggregate.aggregation_bits)
     slot = aggregate.data.slot
     root = aggregate.data.beacon_block_root |> Base.encode16()
 
@@ -49,7 +50,4 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
     |> then(&"[#{topic_name}] decoded: '#{&1}'")
     |> Logger.debug()
   end
-
-  defp count_bits(bitstring),
-    do: for(<<bit::1 <- bitstring>>, do: bit) |> Enum.sum()
 end
