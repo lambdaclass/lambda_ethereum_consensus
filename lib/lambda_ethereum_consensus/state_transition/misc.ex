@@ -102,17 +102,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
 
   @spec decrease_inactivity_score(SszTypes.uint64(), boolean, SszTypes.uint64()) ::
           SszTypes.uint64()
-  def decrease_inactivity_score(
-        inactivity_score,
-        state_is_in_inactivity_leak,
-        inactivity_score_recovery_rate
-      ) do
-    if state_is_in_inactivity_leak do
-      inactivity_score
-    else
-      inactivity_score - min(inactivity_score_recovery_rate, inactivity_score)
-    end
-  end
+  def decrease_inactivity_score(inactivity_score, true, _inactivity_score_recovery_rate),
+    do: inactivity_score
+
+  def decrease_inactivity_score(inactivity_score, false, inactivity_score_recovery_rate),
+    do: inactivity_score - min(inactivity_score_recovery_rate, inactivity_score)
 
   @spec update_inactivity_score(%{integer => SszTypes.uint64()}, integer, {SszTypes.uint64()}) ::
           SszTypes.uint64()

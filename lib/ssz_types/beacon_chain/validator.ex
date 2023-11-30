@@ -3,6 +3,7 @@ defmodule SszTypes.Validator do
   Struct definition for `Validator`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   @eth1_address_withdrawal_prefix <<0x01>>
 
@@ -65,5 +66,19 @@ defmodule SszTypes.Validator do
     has_max_effective_balance = effective_balance == max_effective_balance
     has_excess_balance = balance > max_effective_balance
     has_eth1_withdrawal_credential(validator) && has_max_effective_balance && has_excess_balance
+  end
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:pubkey, {:bytes, 48}},
+      {:withdrawal_credentials, {:bytes, 32}},
+      {:effective_balance, {:int, 64}},
+      {:slashed, :bool},
+      {:activation_eligibility_epoch, {:int, 64}},
+      {:activation_epoch, {:int, 64}},
+      {:exit_epoch, {:int, 64}},
+      {:withdrawable_epoch, {:int, 64}}
+    ]
   end
 end
