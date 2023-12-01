@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Range of predicates enabling verification of state
   """
 
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias SszTypes.BeaconState
   alias SszTypes.Validator
@@ -18,6 +19,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         epoch
       ) do
     activation_epoch <= epoch && epoch < exit_epoch
+  end
+
+  @doc """
+  Check if ``validator`` is eligible for rewards and penalties.
+  """
+  @spec is_eligible_validator(Validator.t(), SszTypes.epoch()) :: boolean
+  def is_eligible_validator(%Validator{} = validator, previous_epoch) do
+    is_active_validator(validator, previous_epoch) ||
+      (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
   end
 
   @doc """
@@ -100,6 +110,32 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
   defp is_indices_available(validators, [h | indices], _acc) do
     is_indices_available(validators, indices, h < validators)
+  end
+
+  @doc """
+  Check if merkle branch is valid
+  """
+  @spec is_valid_merkle_branch?(
+          SszTypes.bytes32(),
+          list(SszTypes.bytes32()),
+          SszTypes.uint64(),
+          SszTypes.uint64(),
+          SszTypes.root()
+        ) :: boolean
+  def is_valid_merkle_branch?(leaf, branch, depth, index, root) do
+    root ==
+      branch
+      |> Enum.take(depth)
+      |> Enum.with_index()
+      |> Enum.reduce(leaf, fn {v, i}, value -> hash_merkle_node(v, value, index, i) end)
+  end
+
+  defp hash_merkle_node(value_1, value_2, index, i) do
+    if rem(div(index, 2 ** i), 2) == 1 do
+      SszEx.hash(value_1 <> value_2)
+    else
+      SszEx.hash(value_2 <> value_1)
+    end
   end
 
   @doc """

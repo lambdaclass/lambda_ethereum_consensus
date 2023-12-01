@@ -21,6 +21,9 @@ defmodule Constants do
   @spec domain_beacon_proposer() :: SszTypes.domain_type()
   def domain_beacon_proposer, do: <<0, 0, 0, 0>>
 
+  @spec domain_deposit() :: SszTypes.domain_type()
+  def domain_deposit, do: <<3, 0, 0, 0>>
+
   @spec domain_randao() :: SszTypes.domain_type()
   def domain_randao, do: <<2, 0, 0, 0>>
 
@@ -69,6 +72,9 @@ defmodule Constants do
 
   @spec far_future_epoch() :: integer
   def far_future_epoch, do: 2 ** 64 - 1
+
+  @spec deposit_contract_tree_depth() :: integer
+  def deposit_contract_tree_depth, do: 32
 
   @spec intervals_per_slot() :: integer
   def intervals_per_slot, do: 3
