@@ -145,7 +145,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   def is_valid_indexed_attestation(state, indexed_attestation) do
     indices = indexed_attestation.attesting_indices
 
-    if Enum.empty?(indices) or not (indices == indices |> Enum.uniq() |> Enum.sort()) do
+    if Enum.empty?(indices) or not uniq_and_sorted?(indices) do
       false
     else
       domain_type = Constants.domain_beacon_attester()
@@ -160,17 +160,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
       |> Enum.flat_map_reduce(
         indices,
         fn
-          _, [] -> {:halt, []}
           {%Validator{pubkey: p}, i}, [i | acc] -> {[p], acc}
           _, acc -> {[], acc}
         end
       )
-      |> then(fn {pks, []} -> pks end)
-      |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
+      |> then(fn
+        {pks, []} -> pks |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
+        {_, _} -> {:error, "invalid indices"}
+      end)
       |> then(fn
         {:ok, b} -> b
         {:error, _} -> false
       end)
     end
   end
+
+  defp uniq_and_sorted?([]), do: true
+  defp uniq_and_sorted?([a, b | _]) when a >= b, do: false
+  defp uniq_and_sorted?([_ | tail]), do: uniq_and_sorted?(tail)
 end
