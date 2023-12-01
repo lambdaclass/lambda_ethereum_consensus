@@ -11,22 +11,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   alias Libp2pProto.{
     AddPeer,
-    AddPeerGossip,
     Command,
-    DeliverMessage,
-    DuplicateMessage,
     GetId,
     GossipSub,
-    Graft,
     InitArgs,
-    Join,
-    Leave,
     NewPeer,
     Notification,
-    Prune,
     Publish,
-    RejectMessage,
-    RemovePeerGossip,
     Request,
     Result,
     ResultMessage,
@@ -34,10 +25,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     SendResponse,
     SetHandler,
     SubscribeToTopic,
-    UnDeliverableMessage,
+    Tracer,
     UnsubscribeFromTopic,
-    ValidateMessage,
-    ValidateMessageGossip
+    ValidateMessage
   }
 
   require Logger
@@ -320,63 +310,63 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     send(pid, {:response, result})
   end
 
-  defp handle_notification(%AddPeerGossip{}, _state) do
-    :telemetry.execute([:network, :pubsub_peers], %{peers: 1}, %{
+  defp handle_notification(%Tracer{t: {:add_peer, %{}}}, _state) do
+    :telemetry.execute([:network, :pubsub_peers], %{}, %{
       result: "add"
     })
   end
 
-  defp handle_notification(%RemovePeerGossip{}, _state) do
-    :telemetry.execute([:network, :pubsub_peers], %{peers: 0}, %{
+  defp handle_notification(%Tracer{t: {:remove_peer, %{}}}, _state) do
+    :telemetry.execute([:network, :pubsub_peers], %{}, %{
       result: "remove"
     })
   end
 
-  defp handle_notification(%Join{topic: topic}, _state) do
+  defp handle_notification(%Tracer{t: {:joined, %{topic: topic}}}, _state) do
     :telemetry.execute([:network, :pubsub_topic_active], %{active: 1}, %{
       topic: get_topic_name(topic)
     })
   end
 
-  defp handle_notification(%Leave{topic: topic}, _state) do
-    :telemetry.execute([:network, :pubsub_topic_active], %{active: 0}, %{
+  defp handle_notification(%Tracer{t: {:left, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topic_active], %{active: -1}, %{
       topic: get_topic_name(topic)
     })
   end
 
-  defp handle_notification(%Graft{topic: topic}, _state) do
+  defp handle_notification(%Tracer{t: {:grafted, %{topic: topic}}}, _state) do
     :telemetry.execute([:network, :pubsub_topics_graft], %{}, %{topic: get_topic_name(topic)})
   end
 
-  defp handle_notification(%Prune{topic: topic}, _state) do
+  defp handle_notification(%Tracer{t: {:pruned, %{topic: topic}}}, _state) do
     :telemetry.execute([:network, :pubsub_topics_prune], %{}, %{topic: get_topic_name(topic)})
   end
 
-  defp handle_notification(%DeliverMessage{topic: topic}, _state) do
+  defp handle_notification(%Tracer{t: {:deliver_message, %{topic: topic}}}, _state) do
     :telemetry.execute([:network, :pubsub_topics_deliver_message], %{}, %{
       topic: get_topic_name(topic)
     })
   end
 
-  defp handle_notification(%DuplicateMessage{topic: topic}, _state) do
+  defp handle_notification(%Tracer{t: {:duplicate_message, %{topic: topic}}}, _state) do
     :telemetry.execute([:network, :pubsub_topics_duplicate_message], %{}, %{
       topic: get_topic_name(topic)
     })
   end
 
-  defp handle_notification(%RejectMessage{topic: topic}, _state) do
+  defp handle_notification(%Tracer{t: {:reject_message, %{topic: topic}}}, _state) do
     :telemetry.execute([:network, :pubsub_topics_reject_message], %{}, %{
       topic: get_topic_name(topic)
     })
   end
 
-  defp handle_notification(%UnDeliverableMessage{topic: topic}, _state) do
+  defp handle_notification(%Tracer{t: {:un_deliverable_message, %{topic: topic}}}, _state) do
     :telemetry.execute([:network, :pubsub_topics_un_deliverable_message], %{}, %{
       topic: get_topic_name(topic)
     })
   end
 
-  defp handle_notification(%ValidateMessageGossip{topic: topic}, _state) do
+  defp handle_notification(%Tracer{t: {:validate_message, %{topic: topic}}}, _state) do
     :telemetry.execute([:network, :pubsub_topics_validate_message], %{}, %{
       topic: get_topic_name(topic)
     })
