@@ -2,9 +2,14 @@ defmodule LambdaEthereumConsensus.SszEx do
   @moduledoc """
     SSZ library in Elixir
   """
+
   #################
   ### Public API
   #################
+
+  @spec hash(iodata()) :: binary()
+  def hash(data), do: :crypto.hash(:sha256, data)
+
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
 

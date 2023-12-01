@@ -3,8 +3,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Functions accessing the current `BeaconState`
   """
 
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Math, Misc, Predicates}
-  alias SszTypes.{Attestation, BeaconState, IndexedAttestation, SyncCommittee}
+  alias SszTypes.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
   @doc """
     Return the next sync committee, with possible pubkey duplicates.
@@ -86,7 +87,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       candidate_index = active_validator_indices |> Enum.fetch!(shuffled_index)
 
       <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
-        :crypto.hash(:sha256, seed <> Misc.uint64_to_bytes(div(index, 32)))
+        SszEx.hash(seed <> Misc.uint64_to_bytes(div(index, 32)))
 
       effective_balance = Enum.fetch!(validators, candidate_index).effective_balance
 
@@ -104,7 +105,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_active_validator_indices(BeaconState.t(), SszTypes.epoch()) ::
           list(SszTypes.validator_index())
-  def get_active_validator_indices(%BeaconState{validators: validators} = _state, epoch) do
+  def get_active_validator_indices(%BeaconState{validators: validators}, epoch) do
     validators
     |> Stream.with_index()
     |> Stream.filter(fn {v, _} ->
@@ -184,8 +185,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
   def get_total_active_balance(state) do
-    active_validator_indices = get_active_validator_indices(state, get_current_epoch(state))
-    get_total_balance(state, active_validator_indices)
+    epoch = get_current_epoch(state)
+
+    state.validators
+    |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
+    |> Stream.map(fn %Validator{effective_balance: effective_balance} -> effective_balance end)
+    |> Enum.sum()
+    |> max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
   end
 
   @doc """
@@ -227,23 +233,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the beacon proposer index at the current slot.
   """
   @spec get_beacon_proposer_index(BeaconState.t()) ::
-          {:ok, SszTypes.validator_index()} | {:error, binary()}
+          {:ok, SszTypes.validator_index()} | {:error, String.t()}
   def get_beacon_proposer_index(state) do
     epoch = get_current_epoch(state)
 
-    seed =
-      :crypto.hash(
-        :sha256,
-        get_seed(state, epoch, Constants.domain_beacon_proposer()) <>
-          Misc.uint64_to_bytes(state.slot)
-      )
-
     indices = get_active_validator_indices(state, epoch)
 
-    case Misc.compute_proposer_index(state, indices, seed) do
-      {:error, msg} -> {:error, msg}
-      {:ok, i} -> {:ok, i}
-    end
+    state
+    |> get_seed(epoch, Constants.domain_beacon_proposer())
+    |> then(&SszEx.hash(&1 <> Misc.uint64_to_bytes(state.slot)))
+    |> then(&Misc.compute_proposer_index(state, indices, &1))
   end
 
   @doc """
@@ -291,8 +290,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the base reward for the validator defined by ``index`` with respect to the current ``state``.
   """
   @spec get_base_reward(BeaconState.t(), SszTypes.validator_index()) :: SszTypes.gwei()
-  def get_base_reward(state, index) do
+  def get_base_reward(%BeaconState{} = state, index) do
     validator = Enum.at(state.validators, index)
+    get_base_reward(validator, get_base_reward_per_increment(state))
+  end
+
+  @spec get_base_reward(SszTypes.Validator.t(), SszTypes.gwei()) :: SszTypes.gwei()
+  def get_base_reward(%SszTypes.Validator{} = validator, base_reward_per_increment) do
     effective_balance = validator.effective_balance
 
     increments =
@@ -301,7 +305,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
       )
 
-    increments * get_base_reward_per_increment(state)
+    increments * base_reward_per_increment
   end
 
   @doc """
@@ -378,7 +382,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_block_root_at_slot(BeaconState.t(), SszTypes.slot()) ::
           {:ok, SszTypes.root()} | {:error, binary()}
   def get_block_root_at_slot(state, slot) do
-    if slot < state.slot && state.slot <= slot + ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT") do
+    if slot < state.slot and state.slot <= slot + ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT") do
       root = Enum.at(state.block_roots, rem(slot, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")))
       {:ok, root}
     else
@@ -407,7 +411,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
       )
 
-    :crypto.hash(:sha256, domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
+    SszEx.hash(domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
   end
 
   @doc """
@@ -498,11 +502,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_total_balance(BeaconState.t(), Enumerable.t(SszTypes.validator_index())) ::
           SszTypes.gwei()
   def get_total_balance(state, indices) do
+    indices = MapSet.new(indices)
+
     total_balance =
-      indices
-      |> Stream.map(fn index ->
-        Map.get(Enum.at(state.validators, index), :effective_balance, 0)
-      end)
+      state.validators
+      |> Stream.with_index()
+      |> Stream.filter(fn {_, index} -> MapSet.member?(indices, index) end)
+      |> Stream.map(fn {%SszTypes.Validator{effective_balance: n}, _} -> n end)
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)

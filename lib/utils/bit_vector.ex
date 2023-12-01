@@ -92,4 +92,10 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
     <<remaining::size(bit_size(bit_vector) - steps)-bitstring, _::bitstring>> = bit_vector
     <<0::size(steps), remaining::bitstring>>
   end
+
+  @doc """
+  Returns the amount of bits set.
+  """
+  @spec count(t) :: non_neg_integer()
+  def count(bit_vector), do: for(<<bit::1 <- bit_vector>>, do: bit) |> Enum.sum()
 end
