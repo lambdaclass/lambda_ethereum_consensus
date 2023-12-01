@@ -145,7 +145,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   def is_valid_indexed_attestation(state, indexed_attestation) do
     indices = indexed_attestation.attesting_indices
 
-    if Enum.empty?(indices) or not (indices == indices |> Enum.uniq() |> Enum.sort()) do
+    if Enum.empty?(indices) or not uniq_and_sorted?(indices) do
       false
     else
       domain_type = Constants.domain_beacon_attester()
@@ -155,17 +155,27 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         Accessors.get_domain(state, domain_type, epoch)
         |> then(&Misc.compute_signing_root(indexed_attestation.data, &1))
 
-      res =
-        state.validators
-        |> Stream.with_index()
-        |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
-        |> Enum.map(fn {%{pubkey: p}, _} -> p end)
-        |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
-
-      case res do
-        {:ok, r} -> r
+      state.validators
+      |> Stream.with_index()
+      |> Enum.flat_map_reduce(
+        indices,
+        fn
+          {%Validator{pubkey: p}, i}, [i | acc] -> {[p], acc}
+          _, acc -> {[], acc}
+        end
+      )
+      |> then(fn
+        {pks, []} -> pks |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
+        {_, _} -> {:error, "invalid indices"}
+      end)
+      |> then(fn
+        {:ok, b} -> b
         {:error, _} -> false
-      end
+      end)
     end
   end
+
+  defp uniq_and_sorted?([]), do: true
+  defp uniq_and_sorted?([a, b | _]) when a >= b, do: false
+  defp uniq_and_sorted?([_ | tail]), do: uniq_and_sorted?(tail)
 end
