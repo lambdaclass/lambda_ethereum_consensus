@@ -36,6 +36,57 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
+  @spec get_store() :: {:ok, SszTypes.Store.t()}
+  def get_store() do
+    [
+      time,
+      genesis_time,
+      justified_checkpoint,
+      finalized_checkpoint,
+      unrealized_justified_checkpoint,
+      unrealized_finalized_checkpoint,
+      proposer_boost_root,
+      equivocating_indices,
+      blocks,
+      block_states,
+      checkpoint_states,
+      latest_messages,
+      unrealized_justifications
+    ] =
+      get_store_attrs([
+        :time,
+        :genesis_time,
+        :justified_checkpoint,
+        :finalized_checkpoint,
+        :unrealized_justified_checkpoint,
+        :unrealized_finalized_checkpoint,
+        :proposer_boost_root,
+        :equivocating_indices,
+        :blocks,
+        :block_states,
+        :checkpoint_states,
+        :latest_messages,
+        :unrealized_justifications
+      ])
+
+    {:ok,
+     %SszTypes.Store{
+       time: time,
+       genesis_time: genesis_time,
+       justified_checkpoint: justified_checkpoint,
+       finalized_checkpoint: finalized_checkpoint,
+       unrealized_justified_checkpoint: unrealized_justified_checkpoint,
+       unrealized_finalized_checkpoint: unrealized_finalized_checkpoint,
+       proposer_boost_root: proposer_boost_root,
+       equivocating_indices: equivocating_indices,
+       blocks: blocks,
+       block_states: block_states,
+       checkpoint_states: checkpoint_states,
+       latest_messages: latest_messages,
+       unrealized_justifications: unrealized_justifications
+     }}
+  end
+
   @spec has_block?(SszTypes.root()) :: boolean()
   def has_block?(block_root) do
     block = get_block(block_root)

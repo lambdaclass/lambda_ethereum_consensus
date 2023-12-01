@@ -8,18 +8,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias SszTypes.Checkpoint
   alias SszTypes.Store
 
-  @spec current_status_message(BeaconState.t(), Store.t()) :: {:ok, SszTypes.StatusMessage.t()} | {:error, any}
-  def current_status_message(state, store) do
-    with {:ok, head_root} <- get_head(store),
-         {:ok, signed_head_block} <- LambdaEthereumConsensus.Store.BlockStore.get_block(head_root),
-         {:ok, finalized_checkpoint} <- LambdaEthereumConsensus.ForkChoice.Store.get_finalized_checkpoint() do
-      {:ok, %SszTypes.StatusMessage{
-        fork_digest: Misc.compute_fork_digest(state.fork.current_version, state.genesis_validators_root),
-        finalized_root: finalized_checkpoint.root,
-        finalized_epoch: finalized_checkpoint.epoch,
-        head_root: head_root,
-        head_slot: signed_head_block.message.slot
-      }}
+  @spec current_status_message() ::
+          {:ok, SszTypes.StatusMessage.t()} | {:error, any}
+  def current_status_message(store) do
+    with {:ok, store} <- LambdaEthereumConsensus.ForkChoice.Store.get_store(),
+         {:ok, head_root} <- get_head(store),
+         {:ok, state} <- LambdaEthereumConsensus.Store.StateStore.get_state(head_root),
+         {:ok, signed_head_block} <-
+           LambdaEthereumConsensus.Store.BlockStore.get_block(head_root),
+         {:ok, finalized_checkpoint} <-
+           LambdaEthereumConsensus.ForkChoice.Store.get_finalized_checkpoint() do
+      {:ok,
+       %SszTypes.StatusMessage{
+         fork_digest:
+           Misc.compute_fork_digest(state.fork.current_version, state.genesis_validators_root),
+         finalized_root: finalized_checkpoint.root,
+         finalized_epoch: finalized_checkpoint.epoch,
+         head_root: head_root,
+         head_slot: signed_head_block.message.slot
+       }}
     else
       {:error, msg} -> {:error, msg}
     end
