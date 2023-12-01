@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @spec get_store() :: {:ok, SszTypes.Store.t()}
-  def get_store() do
+  def get_store do
     [
       time,
       genesis_time,

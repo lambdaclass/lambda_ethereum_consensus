@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   @spec current_status_message() ::
           {:ok, SszTypes.StatusMessage.t()} | {:error, any}
-  def current_status_message(store) do
+  def current_status_message do
     with {:ok, store} <- LambdaEthereumConsensus.ForkChoice.Store.get_store(),
          {:ok, head_root} <- get_head(store),
          {:ok, state} <- LambdaEthereumConsensus.Store.StateStore.get_state(head_root),
