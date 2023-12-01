@@ -11,7 +11,7 @@ defmodule ForkChoiceTestRunner do
   alias SszTypes.Store
 
   @disabled_on_block_cases [
-    "basic",
+    # "basic",
     "incompatible_justification_update_end_of_epoch",
     "incompatible_justification_update_start_of_epoch",
     "justification_update_beginning_of_epoch",
@@ -23,28 +23,28 @@ defmodule ForkChoiceTestRunner do
     "justified_update_not_realized_finality",
     "new_finalized_slot_is_justified_checkpoint_ancestor",
     "not_pull_up_current_epoch_block",
-    "on_block_bad_parent_root",
+    # "on_block_bad_parent_root",
     "on_block_before_finalized",
     "on_block_checkpoints",
     "on_block_finalized_skip_slots",
     "on_block_finalized_skip_slots_not_in_skip_chain",
-    "on_block_future_block",
-    "proposer_boost",
-    "proposer_boost_root_same_slot_untimely_block",
+    # "on_block_future_block",
+    # "proposer_boost",
+    # "proposer_boost_root_same_slot_untimely_block",
     "pull_up_on_tick",
     "pull_up_past_epoch_block"
   ]
 
   @disabled_ex_ante_cases [
-    "ex_ante_attestations_is_greater_than_proposer_boost_with_boost",
+    # "ex_ante_attestations_is_greater_than_proposer_boost_with_boost",
     "ex_ante_sandwich_with_boost_not_sufficient",
     "ex_ante_sandwich_with_honest_attestation",
-    "ex_ante_sandwich_without_attestations",
-    "ex_ante_vanilla"
+    "ex_ante_sandwich_without_attestations"
+    # "ex_ante_vanilla"
   ]
 
   @disabled_get_head_cases [
-    "chain_no_attestations",
+    # "chain_no_attestations",
     "discard_equivocations_on_attester_slashing",
     "discard_equivocations_slashed_validator_censoring",
     "filtered_block_tree",
