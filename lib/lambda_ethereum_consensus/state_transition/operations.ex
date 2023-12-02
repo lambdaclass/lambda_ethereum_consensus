@@ -645,18 +645,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, binary()}
   def process_attestation(state, attestation) do
-    case verify_attestation_for_process(state, attestation) do
-      {:ok, _} ->
-        data = attestation.data
-        aggregation_bits = attestation.aggregation_bits
-
-        case process_attestation(state, data, aggregation_bits) do
-          {:ok, updated_state} -> {:ok, updated_state}
-          {:error, reason} -> {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+    # TODO: optimize (takes ~3s)
+    with :ok <- verify_attestation_for_process(state, attestation) do
+      # TODO: optimize (takes ~1s)
+      process_attestation(state, attestation.data, attestation.aggregation_bits)
     end
   end
 
@@ -672,7 +664,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       initial_epoch_participation = get_initial_epoch_participation(state, is_current_epoch)
 
-      {proposer_reward_numerator, updated_epoch_participation} =
+      {updated_epoch_participation, proposer_reward_numerator} =
         update_epoch_participation(
           state,
           attesting_indices,
@@ -684,17 +676,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state)
 
-      bal_updated_state =
-        Mutators.increase_balance(
-          state,
-          proposer_index,
-          proposer_reward
-        )
-
-      updated_state =
-        update_state(bal_updated_state, is_current_epoch, updated_epoch_participation)
-
-      {:ok, updated_state}
+      state
+      |> Mutators.increase_balance(proposer_index, proposer_reward)
+      |> update_state(is_current_epoch, updated_epoch_participation)
+      |> then(&{:ok, &1})
     else
       {:error, reason} -> {:error, reason}
     end
@@ -709,31 +694,35 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          initial_epoch_participation,
          participation_flag_indices
        ) do
-    Enum.reduce(attesting_indices, {0, initial_epoch_participation}, fn index, {acc, ep} ->
-      update_participation_for_index(state, index, acc, ep, participation_flag_indices)
+    weights =
+      Constants.participation_flag_weights()
+      |> Stream.with_index()
+      |> Enum.filter(&(elem(&1, 1) in participation_flag_indices))
+
+    base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
+
+    state.validators
+    |> Stream.zip(initial_epoch_participation)
+    |> Stream.with_index()
+    |> Enum.map_reduce(0, fn {{validator, participation}, i}, acc ->
+      if MapSet.member?(attesting_indices, i) do
+        base_reward = Accessors.get_base_reward(validator, base_reward_per_increment)
+        update_participation(participation, acc, base_reward, weights)
+      else
+        {participation, acc}
+      end
     end)
   end
 
-  defp update_participation_for_index(state, index, acc, ep, participation_flag_indices) do
-    Enum.reduce_while(
-      0..(length(Constants.participation_flag_weights()) - 1),
-      {acc, ep},
-      fn flag_index, {inner_acc, inner_ep} ->
-        if flag_index in participation_flag_indices &&
-             not Predicates.has_flag(Enum.at(inner_ep, index), flag_index) do
-          updated_ep =
-            List.replace_at(inner_ep, index, Misc.add_flag(Enum.at(inner_ep, index), flag_index))
+  defp update_participation(participation, acc, base_reward, weights) do
+    bv_participation = BitVector.new(participation, 8)
 
-          acc_delta =
-            Accessors.get_base_reward(state, index) *
-              Enum.at(Constants.participation_flag_weights(), flag_index)
-
-          {:cont, {inner_acc + acc_delta, updated_ep}}
-        else
-          {:cont, {inner_acc, inner_ep}}
-        end
-      end
-    )
+    weights
+    |> Stream.reject(&BitVector.set?(bv_participation, elem(&1, 1)))
+    |> Enum.reduce({bv_participation, acc}, fn {weight, index}, {bv_participation, acc} ->
+      {bv_participation |> BitVector.set(index), acc + base_reward * weight}
+    end)
+    |> then(fn {p, acc} -> {BitVector.to_integer(p), acc} end)
   end
 
   defp compute_proposer_reward(proposer_reward_numerator) do
@@ -751,16 +740,31 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp update_state(state, false, updated_epoch_participation),
     do: %{state | previous_epoch_participation: updated_epoch_participation}
 
-  def verify_attestation_for_process(state, attestation) do
-    data = attestation.data
+  def verify_attestation_for_process(state, %Attestation{data: data} = attestation) do
+    with {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
+         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
+      cond do
+        invalid_target_epoch?(data, state) ->
+          {:error, "Invalid target epoch"}
 
-    beacon_committee = fetch_beacon_committee(state, data)
-    indexed_attestation = fetch_indexed_attestation(state, attestation)
+        epoch_mismatch?(data) ->
+          {:error, "Epoch mismatch"}
 
-    if has_invalid_conditions?(data, state, beacon_committee, indexed_attestation, attestation) do
-      {:error, get_error_message(data, state, beacon_committee, indexed_attestation, attestation)}
-    else
-      {:ok, "Valid"}
+        invalid_slot_range?(data, state) ->
+          {:error, "Invalid slot range"}
+
+        exceeds_committee_count?(data, state) ->
+          {:error, "Index exceeds committee count"}
+
+        mismatched_aggregation_bits_length?(attestation, beacon_committee) ->
+          {:error, "Mismatched aggregation bits length"}
+
+        not valid_signature?(state, indexed_attestation) ->
+          {:error, "Invalid signature"}
+
+        true ->
+          :ok
+      end
     end
   end
 
@@ -831,55 +835,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp has_invalid_conditions?(data, state, beacon_committee, indexed_attestation, attestation) do
-    invalid_target_epoch?(data, state) ||
-      epoch_mismatch?(data) ||
-      invalid_slot_range?(data, state) ||
-      exceeds_committee_count?(data, state) ||
-      !beacon_committee || !indexed_attestation ||
-      mismatched_aggregation_bits_length?(attestation, beacon_committee) ||
-      invalid_signature?(state, indexed_attestation)
-  end
-
-  defp get_error_message(data, state, beacon_committee, indexed_attestation, attestation) do
-    cond do
-      invalid_target_epoch?(data, state) ->
-        "Invalid target epoch"
-
-      epoch_mismatch?(data) ->
-        "Epoch mismatch"
-
-      invalid_slot_range?(data, state) ->
-        "Invalid slot range"
-
-      exceeds_committee_count?(data, state) ->
-        "Index exceeds committee count"
-
-      !beacon_committee || !indexed_attestation ->
-        "Indexing error at beacon committee"
-
-      mismatched_aggregation_bits_length?(attestation, beacon_committee) ->
-        "Mismatched aggregation bits length"
-
-      invalid_signature?(state, indexed_attestation) ->
-        "Invalid signature"
-    end
-  end
-
-  defp fetch_beacon_committee(state, data) do
-    case Accessors.get_beacon_committee(state, data.slot, data.index) do
-      {:ok, committee} -> committee
-      {:error, _reason} -> nil
-    end
-  end
-
-  defp fetch_indexed_attestation(state, attestation) do
-    case Accessors.get_indexed_attestation(state, attestation) do
-      {:ok, indexed_attestation} -> indexed_attestation
-      {:error, _reason} -> nil
-    end
-  end
-
   defp invalid_target_epoch?(data, state) do
     data.target.epoch < Accessors.get_previous_epoch(state) ||
       data.target.epoch > Accessors.get_current_epoch(state)
@@ -902,8 +857,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     length_of_bitstring(attestation.aggregation_bits) - 1 != length(beacon_committee)
   end
 
-  defp invalid_signature?(state, indexed_attestation) do
-    not Predicates.is_valid_indexed_attestation(state, indexed_attestation)
+  defp valid_signature?(state, indexed_attestation) do
+    Predicates.is_valid_indexed_attestation(state, indexed_attestation)
   end
 
   defp length_of_bitstring(binary) when is_binary(binary) do
@@ -996,25 +951,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_operations(state, body) do
     # Ensure that outstanding deposits are processed up to the maximum number of deposits
     with :ok <- verify_deposits(state, body) do
-      # Define a function that iterates over a list of operations and applies a given function to each element
-      updated_state =
-        state
-        |> for_ops(body.proposer_slashings, &process_proposer_slashing/2)
-        |> for_ops(body.attester_slashings, &process_attester_slashing/2)
-        |> for_ops(body.attestations, &process_attestation/2)
-        |> for_ops(body.deposits, &process_deposit/2)
-        |> for_ops(body.voluntary_exits, &process_voluntary_exit/2)
-        |> for_ops(body.bls_to_execution_changes, &process_bls_to_execution_change/2)
-
-      {:ok, updated_state}
+      {:ok, state}
+      |> for_ops(body.proposer_slashings, &process_proposer_slashing/2)
+      |> for_ops(body.attester_slashings, &process_attester_slashing/2)
+      |> for_ops(body.attestations, &process_attestation/2)
+      |> for_ops(body.deposits, &process_deposit/2)
+      |> for_ops(body.voluntary_exits, &process_voluntary_exit/2)
+      |> for_ops(body.bls_to_execution_changes, &process_bls_to_execution_change/2)
     end
   end
 
-  defp for_ops(state, operations, func) do
-    Enum.reduce(operations, state, fn operation, acc ->
-      with {:ok, state} <- func.(acc, operation) do
-        state
-      end
+  defp for_ops(acc, operations, func) do
+    Enum.reduce_while(operations, acc, fn
+      operation, {:ok, state} -> {:cont, func.(state, operation)}
+      _, {:error, reason} -> {:halt, {:error, reason}}
     end)
   end
 
