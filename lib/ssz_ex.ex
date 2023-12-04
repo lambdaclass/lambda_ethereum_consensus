@@ -2,7 +2,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @moduledoc """
     SSZ library in Elixir
   """
-alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Utils.BitVector
 
   #################
   ### Public API
@@ -137,7 +137,9 @@ alias LambdaEthereumConsensus.Utils.BitVector
     end
   end
 
-  defp decode_bitvector(bit_vector, size) when bit_size(bit_vector) == size, do: {:ok, BitVector.new(bit_vector, size)}
+  defp decode_bitvector(bit_vector, size) when bit_size(bit_vector) == size,
+    do: {:ok, BitVector.new(bit_vector, size)}
+
   defp decode_bitvector(bit_vector, _size), do: {:error, "invalid bit_vector length"}
 
   defp encode_bitlist(bit_list, max_size) do
