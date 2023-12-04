@@ -140,7 +140,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_bitvector(bit_vector, size) when bit_size(bit_vector) == size,
     do: {:ok, BitVector.new(bit_vector, size)}
 
-  defp decode_bitvector(bit_vector, _size), do: {:error, "invalid bit_vector length"}
+  defp decode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
 
   defp encode_bitlist(bit_list, max_size) do
     len = bit_size(bit_list)
@@ -164,7 +164,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   defp encode_bitvector(bit_vector, size) when bit_size(bit_vector) == size, do: {:ok, bit_vector}
-  defp encode_bitvector(bit_vector, _size), do: {:error, "invalid bit_vector length"}
+  defp encode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
 
   defp encode_variable_size_list(list, _basic_type, max_size) when length(list) > max_size,
     do: {:error, "invalid max_size of list"}
