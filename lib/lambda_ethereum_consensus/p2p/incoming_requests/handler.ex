@@ -145,7 +145,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     end
   end
 
-  defp slot_is_empty(%BeaconBlock{parent_root: previous_parent_root}, %BeaconBlock{parent_root: current_parent_root}) do
+  defp slot_is_empty(%BeaconBlock{parent_root: previous_parent_root}, %BeaconBlock{
+         parent_root: current_parent_root
+       }) do
     previous_parent_root == current_parent_root
   end
 
