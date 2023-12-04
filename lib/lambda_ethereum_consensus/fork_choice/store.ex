@@ -196,7 +196,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @spec get_head() :: SszTypes.root()
-  defp get_head() do
+  defp get_head do
     GenServer.call(__MODULE__, {:get_head}, @default_timeout)
   end
 
