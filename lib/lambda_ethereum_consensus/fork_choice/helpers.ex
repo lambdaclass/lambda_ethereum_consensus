@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias SszTypes.Store
 
   @spec get_forkchoice_store(BeaconState.t(), BeaconBlock.t()) :: {:ok, Store.t()} | {:error, any}
-  def get_forkchoice_store(anchor_state, anchor_block) do
+  def get_forkchoice_store(%BeaconState{} = anchor_state, %BeaconBlock{} = anchor_block) do
     anchor_state_root = Ssz.hash_tree_root!(anchor_state)
     anchor_block_root = Ssz.hash_tree_root!(anchor_block)
 
@@ -123,14 +123,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
     # If any children branches contain expected finalized/justified checkpoints,
     # add to filtered block-tree and signal viability to parent.
-    filter_block_tree_result = Enum.map(children, &filter_block_tree(store, &1, blocks))
+    {filter_block_tree_result, new_blocks} =
+      Enum.map_reduce(children, blocks, fn root, acc -> filter_block_tree(store, root, acc) end)
 
     cond do
-      Enum.any?(filter_block_tree_result, fn {b, _} -> b end) ->
-        {true, Map.put(blocks, block_root, block)}
+      Enum.any?(filter_block_tree_result) ->
+        {true, Map.put(new_blocks, block_root, block)}
 
-      Enum.any?(children) ->
-        {false, blocks}
+      not Enum.empty?(children) ->
+        {false, new_blocks}
 
       true ->
         filter_leaf_block(store, block_root, block, blocks)

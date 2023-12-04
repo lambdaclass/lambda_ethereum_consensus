@@ -1,5 +1,6 @@
 # Lambda Ethereum Consensus Client
 
+[![CI](https://github.com/lambdaclass/lambda_ethereum_consensus/actions/workflows/ci.yml/badge.svg)](https://github.com/lambdaclass/lambda_ethereum_consensus/actions/workflows/ci.yml)
 [![Telegram chat](https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaconsensus%2F&logo=telegram&label=chat&color=neon)](https://t.me/lambdaconsensus)
 
 ## Prerequisites
@@ -165,66 +166,6 @@ Elixir is a functional programming language that runs atop the Erlang Virtual Ma
 Our aim is to infuse these strengths into the Ethereum consensus client ecosystem with our offering.
 
 We also have for objective to bootstart an Ethereum Elixir community, and to make Elixir a first-class citizen in the Ethereum ecosystem.
-
-## Roadmap
-
-**1. Block Subscription - Mid September**
-   - Libp2p discovery and block retrieval
-   - SSZ + snappy
-   - `on_block` callback: Save the latest block in fork-choice store, conduct basic checks. GetHead returns the last obtained block.
-   - Beacon API: Return block root (`GET /beacon/states/{state_id}/root`)
-
-**2. Checkpoint Sync - October**
-   - Libp2p primitives for sync
-   - Support checkpoint Sync from a known provider
-   - Sync from the latest finalized block
-   - BeaconAPI: Return headers for head block
-   - EngineAPI: Validate incoming blocks
-
-**3. Attestations - Mid October**
-   - Libp2p attestation retrieval
-   - Basic beacon state representation
-   - Store attestations (last message sent by each validator)
-   - `on_attestation` callback for attestations sent via Gossip
-   - Process attestations from blocks
-   - Beacon API: Return head block root (`GET /beacon/states/head/root`)
-
-**4. Deposits - November**
-   - BLS signature checks
-   - Update consensus state view of deposit contract (`process_eth1_data`)
-   - Process deposit operation to update validator list (`process_deposit`)
-   - Verify block signatures (`verify_block_signature`)
-
-**5. Slots and Fork-choice - Mid November**
-   - `on_tick`/`process_slot` in state transition; a GenServer that calls this periodically
-   - `on_block`: Add slot-related checks and epoch calculations (excluding finalization)
-   - Get-head uses the messages
-   - Block header validation
-   - EngineAPI: Process execution payload
-   - BeaconAPI: Ensure getting head values point to the heaviest
-
-**6. Finality and Slashing - Mid November**
-   - Epoch processing
-   - `on_block`: Prune fork-choice store; reject blocks before finalization
-   - Add RANDAO mix to the beacon state
-   - BeaconAPI: Retrieve finality checkpoints, randao mixes
-   - Process attester slashings and proposer slashings
-   - EngineAPI: fork-choice updates
-
-**7. Rewards, Shuffling - December**
-   - Process rewards `on_epoch` for a checkpoint
-   - Handle Deposits and Withdrawals
-   - Implement RANDAO
-   - Calculate committee for a given state
-   - Conduct shuffling
-   - Integrate with Grafana
-   - BeaconAPI: Retrieve randao mix for a given block 
-
-**8. Validator Features - Mid December/January 2024**
-   - Create attestations
-   - Monitor for slashings
-   - Create slashing proofs
-   - BeaconAPI: Post blocks, slashings, voluntary exits, and withdrawals
 
 ## Contributor Package
 
