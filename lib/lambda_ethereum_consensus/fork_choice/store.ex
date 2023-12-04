@@ -36,55 +36,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
-  @spec get_store() :: {:ok, SszTypes.Store.t()}
-  def get_store do
-    [
-      time,
-      genesis_time,
-      justified_checkpoint,
-      finalized_checkpoint,
-      unrealized_justified_checkpoint,
-      unrealized_finalized_checkpoint,
-      proposer_boost_root,
-      equivocating_indices,
-      blocks,
-      block_states,
-      checkpoint_states,
-      latest_messages,
-      unrealized_justifications
-    ] =
-      get_store_attrs([
-        :time,
-        :genesis_time,
-        :justified_checkpoint,
-        :finalized_checkpoint,
-        :unrealized_justified_checkpoint,
-        :unrealized_finalized_checkpoint,
-        :proposer_boost_root,
-        :equivocating_indices,
-        :blocks,
-        :block_states,
-        :checkpoint_states,
-        :latest_messages,
-        :unrealized_justifications
-      ])
-
-    {:ok,
-     %SszTypes.Store{
-       time: time,
-       genesis_time: genesis_time,
-       justified_checkpoint: justified_checkpoint,
-       finalized_checkpoint: finalized_checkpoint,
-       unrealized_justified_checkpoint: unrealized_justified_checkpoint,
-       unrealized_finalized_checkpoint: unrealized_finalized_checkpoint,
-       proposer_boost_root: proposer_boost_root,
-       equivocating_indices: equivocating_indices,
-       blocks: blocks,
-       block_states: block_states,
-       checkpoint_states: checkpoint_states,
-       latest_messages: latest_messages,
-       unrealized_justifications: unrealized_justifications
-     }}
+  @spec get_head_root() :: SszTypes.root()
+  def get_head_root do
+    get_head()
   end
 
   @spec has_block?(SszTypes.root()) :: boolean()
@@ -138,6 +92,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   def handle_call({:get_store_attrs, attrs}, _from, state) do
     values = Enum.map(attrs, &Map.fetch!(state, &1))
     {:reply, values, state}
+  end
+
+  @impl GenServer
+  def handle_call({:get_head}, _from, state) do
+    {:reply, Helpers.get_head(state)}
   end
 
   def handle_call({:get_block, block_root}, _from, state) do
@@ -234,6 +193,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   @spec get_store_attrs([atom()]) :: [any()]
   defp get_store_attrs(attrs) do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs}, @default_timeout)
+  end
+
+  @spec get_head() :: SszTypes.root()
+  defp get_head() do
+    GenServer.call(__MODULE__, {:get_head}, @default_timeout)
   end
 
   @spec on_tick_now(Store.t()) :: Store.t()
