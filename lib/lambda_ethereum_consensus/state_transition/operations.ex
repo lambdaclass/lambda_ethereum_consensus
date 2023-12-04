@@ -3,14 +3,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
-  alias LambdaEthereumConsensus.Engine
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
+  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Math, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias SszTypes.BeaconBlockBody
 
   alias SszTypes.{
     Attestation,
     BeaconBlock,
+    BeaconBlockBody,
     BeaconBlockHeader,
     BeaconState,
     ExecutionPayload,
@@ -110,80 +110,91 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec process_sync_aggregate(BeaconState.t(), SyncAggregate.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_sync_aggregate(
-        %BeaconState{
-          slot: slot,
-          current_sync_committee: current_sync_committee,
-          validators: validators
-        } = state,
-        %SyncAggregate{
-          sync_committee_bits: sync_committee_bits,
-          sync_committee_signature: sync_committee_signature
-        }
-      ) do
+  def process_sync_aggregate(%BeaconState{} = state, %SyncAggregate{} = aggregate) do
     # Verify sync committee aggregate signature signing over the previous slot block root
-    committee_pubkeys = current_sync_committee.pubkeys
-
-    # TODO: Change bitvectors to be in little-endian instead of converting manually
-    sync_committee_bits_as_num = sync_committee_bits |> :binary.decode_unsigned()
-
-    sync_committee_bits =
-      <<sync_committee_bits_as_num::unsigned-integer-little-size(bit_size(sync_committee_bits))>>
+    committee_pubkeys = state.current_sync_committee.pubkeys
+    sync_committee_bits = parse_sync_committee_bits(aggregate.sync_committee_bits)
 
     participant_pubkeys =
-      Enum.with_index(committee_pubkeys)
+      committee_pubkeys
+      |> Enum.with_index()
       |> Enum.filter(fn {_, index} -> BitVector.set?(sync_committee_bits, index) end)
       |> Enum.map(fn {public_key, _} -> public_key end)
 
-    previous_slot = max(slot, 1) - 1
+    previous_slot = max(state.slot, 1) - 1
     epoch = Misc.compute_epoch_at_slot(previous_slot)
     domain = Accessors.get_domain(state, Constants.domain_sync_committee(), epoch)
 
     with {:ok, block_root} <- Accessors.get_block_root_at_slot(state, previous_slot),
          signing_root <- Misc.compute_signing_root(block_root, domain),
-         {:ok, true} <-
-           Bls.eth_fast_aggregate_verify(
-             participant_pubkeys,
-             signing_root,
-             sync_committee_signature
-           ) do
+         :ok <-
+           verify_signature(participant_pubkeys, signing_root, aggregate.sync_committee_signature),
+         {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
       # Compute participant and proposer rewards
       {participant_reward, proposer_reward} = compute_sync_aggregate_rewards(state)
 
-      # Apply participant and proposer rewards
-      committee_indices = get_sync_committee_indices(validators, committee_pubkeys)
+      total_proposer_reward = BitVector.count(sync_committee_bits) * proposer_reward
 
-      Stream.with_index(committee_indices)
-      |> Enum.reduce_while({:ok, state}, fn {participant_index, index}, {_, state} ->
-        if BitVector.set?(sync_committee_bits, index) do
-          state
-          |> increase_balance_or_return_error(
-            participant_index,
-            participant_reward,
-            proposer_reward
-          )
-        else
-          {:cont,
-           {:ok, state |> Mutators.decrease_balance(participant_index, participant_reward)}}
-        end
-      end)
-    else
-      {:ok, false} -> {:error, "Signature verification failed"}
-      {:error, message} -> {:error, message}
+      # PERF: make Map with committee_index by pubkey, then
+      # Enum.map validators -> new balance all in place, without map_reduce
+      committee_deltas =
+        state.validators
+        |> get_sync_committee_indices(committee_pubkeys)
+        |> Stream.with_index()
+        |> Stream.map(fn {validator_index, committee_index} ->
+          if BitVector.set?(sync_committee_bits, committee_index),
+            do: {validator_index, participant_reward},
+            else: {validator_index, -participant_reward}
+        end)
+        |> Enum.sort(fn {vi1, _}, {vi2, _} -> vi1 <= vi2 end)
+
+      # Apply participant and proposer rewards
+      {new_balances, []} =
+        state.balances
+        |> Stream.with_index()
+        |> Stream.map(&add_proposer_reward(&1, proposer_index, total_proposer_reward))
+        |> Enum.map_reduce(committee_deltas, &update_balance/2)
+
+      {:ok, %BeaconState{state | balances: new_balances}}
     end
+  end
+
+  defp add_proposer_reward({balance, proposer}, proposer, proposer_reward),
+    do: {balance + proposer_reward, proposer}
+
+  defp add_proposer_reward(v, _, _), do: v
+
+  defp update_balance({balance, i}, [{i, delta} | acc]),
+    do: update_balance({max(balance + delta, 0), i}, acc)
+
+  defp update_balance({balance, _}, acc), do: {balance, acc}
+
+  defp verify_signature(pubkeys, message, signature) do
+    case Bls.eth_fast_aggregate_verify(pubkeys, message, signature) do
+      {:ok, true} -> :ok
+      _ -> {:error, "Signature verification failed"}
+    end
+  end
+
+  defp parse_sync_committee_bits(bits) do
+    # TODO: Change bitvectors to be in little-endian instead of converting manually
+    bitsize = bit_size(bits)
+    <<num::integer-size(bitsize)>> = bits
+    <<num::integer-little-size(bitsize)>>
   end
 
   @spec compute_sync_aggregate_rewards(BeaconState.t()) :: {SszTypes.gwei(), SszTypes.gwei()}
   defp compute_sync_aggregate_rewards(state) do
     # Compute participant and proposer rewards
-    total_active_increments =
-      div(
-        Accessors.get_total_active_balance(state),
-        ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
-      )
+    total_active_balance = Accessors.get_total_active_balance(state)
 
-    total_base_rewards =
-      Accessors.get_base_reward_per_increment(state) * total_active_increments
+    effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+    total_active_increments = total_active_balance |> div(effective_balance_increment)
+
+    numerator = effective_balance_increment * Constants.base_reward_factor()
+    denominator = Math.integer_squareroot(total_active_balance)
+    base_reward_per_increment = div(numerator, denominator)
+    total_base_rewards = base_reward_per_increment * total_active_increments
 
     max_participant_rewards =
       (total_base_rewards * Constants.sync_reward_weight())
@@ -202,54 +213,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec get_sync_committee_indices(list(Validator.t()), list(SszTypes.bls_pubkey())) ::
           list(integer)
   defp get_sync_committee_indices(validators, committee_pubkeys) do
-    # Apply participant and proposer rewards
     all_pubkeys =
       validators
-      |> Enum.map(fn %Validator{pubkey: pubkey} -> pubkey end)
+      |> Stream.map(fn %Validator{pubkey: pubkey} -> pubkey end)
+      |> Stream.with_index()
+      |> Map.new()
 
     committee_pubkeys
-    |> Enum.with_index()
-    |> Enum.map(fn {public_key, _} ->
-      Enum.find_index(all_pubkeys, fn x -> x == public_key end)
-    end)
-  end
-
-  @spec increase_balance_or_return_error(
-          BeaconState.t(),
-          SszTypes.validator_index(),
-          SszTypes.gwei(),
-          SszTypes.gwei()
-        ) :: {:cont, {:ok, BeaconState.t()}} | {:halt, {:error, String.t()}}
-  defp increase_balance_or_return_error(
-         %BeaconState{} = state,
-         participant_index,
-         participant_reward,
-         proposer_reward
-       ) do
-    case Accessors.get_beacon_proposer_index(state) do
-      {:ok, proposer_index} ->
-        {:cont,
-         {:ok,
-          state
-          |> Mutators.increase_balance(participant_index, participant_reward)
-          |> Mutators.increase_balance(proposer_index, proposer_reward)}}
-
-      {:error, _} ->
-        {:halt, {:error, "Error getting beacon proposer index"}}
-    end
+    |> Enum.map(&Map.fetch!(all_pubkeys, &1))
   end
 
   @doc """
   State transition function managing the processing & validation of the `ExecutionPayload`
   """
-  @spec process_execution_payload(BeaconState.t(), ExecutionPayload.t(), boolean()) ::
+  @spec process_execution_payload(BeaconState.t(), BeaconBlockBody.t(), fun()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-
-  def process_execution_payload(_state, _payload, false) do
-    {:error, "Invalid execution payload"}
-  end
-
-  def process_execution_payload(state, payload, _execution_valid) do
+  def process_execution_payload(
+        state,
+        %BeaconBlockBody{execution_payload: payload},
+        verify_and_notify_new_payload
+      ) do
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
       SszTypes.BeaconState.is_merge_transition_complete(state) and
@@ -265,7 +248,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         {:error, "Timestamp verification failed"}
 
       # Verify the execution payload is valid if not mocked
-      Engine.Execution.verify_and_notify_new_payload(payload) != {:ok, true} ->
+      verify_and_notify_new_payload.(payload) != {:ok, true} ->
         {:error, "Invalid execution payload"}
 
       # Cache execution payload header
@@ -319,151 +302,117 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       ) do
     expected_withdrawals = get_expected_withdrawals(state)
 
-    length_of_validators = length(validators)
-
-    with {:ok, state} <- decrease_balances(state, withdrawals, expected_withdrawals) do
-      {:ok,
-       state
-       |> update_next_withdrawal_index(expected_withdrawals)
-       |> update_next_withdrawal_validator_index(expected_withdrawals, length_of_validators)}
+    with :ok <- check_withdrawals(withdrawals, expected_withdrawals) do
+      state
+      |> decrease_balances(withdrawals)
+      |> update_next_withdrawal_index(withdrawals)
+      |> update_next_withdrawal_validator_index(withdrawals, length(validators))
+      |> then(&{:ok, &1})
     end
   end
 
+  # Update the next withdrawal index if this block contained withdrawals
   @spec update_next_withdrawal_index(BeaconState.t(), list(Withdrawal.t())) :: BeaconState.t()
-  defp update_next_withdrawal_index(state, expected_withdrawals) do
-    # Update the next withdrawal index if this block contained withdrawals
-    length_of_expected_withdrawals = length(expected_withdrawals)
+  defp update_next_withdrawal_index(state, []), do: state
 
-    case length_of_expected_withdrawals != 0 do
-      true ->
-        latest_withdrawal = List.last(expected_withdrawals)
-        %BeaconState{state | next_withdrawal_index: latest_withdrawal.index + 1}
-
-      false ->
-        state
-    end
+  defp update_next_withdrawal_index(state, withdrawals) do
+    latest_withdrawal = List.last(withdrawals)
+    %BeaconState{state | next_withdrawal_index: latest_withdrawal.index + 1}
   end
 
-  @spec update_next_withdrawal_validator_index(BeaconState.t(), list(Withdrawal.t()), integer) ::
+  @spec update_next_withdrawal_validator_index(BeaconState.t(), list(Withdrawal.t()), integer()) ::
           BeaconState.t()
-  defp update_next_withdrawal_validator_index(state, expected_withdrawals, length_of_validators) do
-    length_of_expected_withdrawals = length(expected_withdrawals)
+  defp update_next_withdrawal_validator_index(state, withdrawals, validator_len) do
+    next_index =
+      if length(withdrawals) == ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD") do
+        # Update the next validator index to start the next withdrawal sweep
+        latest_withdrawal = List.last(withdrawals)
+        latest_withdrawal.validator_index + 1
+      else
+        # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
+        state.next_withdrawal_validator_index +
+          ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
+      end
 
-    case length_of_expected_withdrawals == ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD") do
-      # Update the next validator index to start the next withdrawal sweep
-      true ->
-        latest_withdrawal = List.last(expected_withdrawals)
-        next_validator_index = rem(latest_withdrawal.validator_index + 1, length_of_validators)
-        %BeaconState{state | next_withdrawal_validator_index: next_validator_index}
-
-      # Advance sweep by the max length of the sweep if there was not a full set of withdrawals
-      false ->
-        next_index =
-          state.next_withdrawal_validator_index +
-            ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
-
-        next_validator_index = rem(next_index, length_of_validators)
-        %BeaconState{state | next_withdrawal_validator_index: next_validator_index}
-    end
+    next_validator_index = rem(next_index, validator_len)
+    %BeaconState{state | next_withdrawal_validator_index: next_validator_index}
   end
 
-  @spec decrease_balances(BeaconState.t(), list(Withdrawal.t()), list(Withdrawal.t())) ::
-          {:ok, BeaconState.t()} | {:error, String.t()}
-  defp decrease_balances(_state, withdrawals, expected_withdrawals)
+  @spec check_withdrawals(list(Withdrawal.t()), list(Withdrawal.t())) ::
+          :ok | {:error, String.t()}
+  defp check_withdrawals(withdrawals, expected_withdrawals)
        when length(withdrawals) !== length(expected_withdrawals) do
     {:error, "expected withdrawals don't match the state withdrawals in length"}
   end
 
-  @spec decrease_balances(BeaconState.t(), list(Withdrawal.t()), list(Withdrawal.t())) ::
-          {:ok, BeaconState.t()} | {:error, String.t()}
-  defp decrease_balances(state, withdrawals, expected_withdrawals) do
-    Enum.zip(expected_withdrawals, withdrawals)
-    |> Enum.reduce_while({:ok, state}, &decrease_or_halt/2)
+  defp check_withdrawals(withdrawals, expected_withdrawals) do
+    Stream.zip(expected_withdrawals, withdrawals)
+    |> Enum.all?(fn {expected_withdrawal, withdrawal} ->
+      expected_withdrawal == withdrawal
+    end)
+    |> then(&if &1, do: :ok, else: {:error, "withdrawal doesn't match expected withdrawal"})
   end
 
-  defp decrease_or_halt({expected_withdrawal, withdrawal}, _)
-       when expected_withdrawal !== withdrawal do
-    {:halt, {:error, "withdrawal != expected_withdrawal"}}
+  @spec decrease_balances(BeaconState.t(), list(Withdrawal.t())) :: BeaconState.t()
+  defp decrease_balances(state, withdrawals) do
+    withdrawals = Enum.sort(withdrawals, &(&1.validator_index <= &2.validator_index))
+
+    state.balances
+    |> Stream.with_index()
+    |> Enum.map_reduce(withdrawals, &maybe_decrease_balance/2)
+    |> then(fn {balances, []} -> %BeaconState{state | balances: balances} end)
   end
 
-  defp decrease_or_halt({_, withdrawal}, {:ok, state}) do
-    {:cont,
-     {:ok, BeaconState.decrease_balance(state, withdrawal.validator_index, withdrawal.amount)}}
-  end
+  defp maybe_decrease_balance({balance, index}, [
+         %Withdrawal{validator_index: index, amount: amount} | remaining
+       ]),
+       do: {max(balance - amount, 0), remaining}
+
+  defp maybe_decrease_balance({balance, _index}, acc), do: {balance, acc}
 
   @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())
-  defp get_expected_withdrawals(
-         %BeaconState{
-           next_withdrawal_index: next_withdrawal_index,
-           next_withdrawal_validator_index: next_withdrawal_validator_index,
-           validators: validators,
-           balances: balances
-         } = state
-       ) do
+  defp get_expected_withdrawals(%BeaconState{} = state) do
     # Compute the next batch of withdrawals which should be included in a block.
     epoch = Accessors.get_current_epoch(state)
-    withdrawal_index = next_withdrawal_index
-    validator_index = next_withdrawal_validator_index
+
     max_validators_per_withdrawals_sweep = ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
-    bound = min(length(validators), max_validators_per_withdrawals_sweep)
+    max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
-    {withdrawals, _, _} =
-      Enum.reduce_while(0..(bound - 1), {[], validator_index, withdrawal_index}, fn _,
-                                                                                    {withdrawals,
-                                                                                     validator_index,
-                                                                                     withdrawal_index} ->
-        validator = Enum.fetch!(validators, validator_index)
-        balance = Enum.fetch!(balances, validator_index)
-        %Validator{withdrawal_credentials: withdrawal_credentials} = validator
+    bound = min(length(state.validators), max_validators_per_withdrawals_sweep)
 
-        {withdrawals, withdrawal_index} =
-          cond do
-            Validator.is_fully_withdrawable_validator(validator, balance, epoch) ->
-              <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
+    Stream.zip([state.validators, state.balances])
+    |> Stream.with_index()
+    |> Stream.cycle()
+    |> Stream.drop(state.next_withdrawal_validator_index)
+    |> Stream.take(bound)
+    |> Stream.map(fn {{validator, balance}, index} ->
+      cond do
+        Validator.is_fully_withdrawable_validator(validator, balance, epoch) ->
+          {validator, balance, index}
 
-              withdrawal = %Withdrawal{
-                index: withdrawal_index,
-                validator_index: validator_index,
-                address: execution_address,
-                amount: balance
-              }
+        Validator.is_partially_withdrawable_validator(validator, balance) ->
+          {validator, balance - max_effective_balance, index}
 
-              withdrawals = [withdrawal | withdrawals]
-              withdrawal_index = withdrawal_index + 1
+        true ->
+          nil
+      end
+    end)
+    |> Stream.reject(&is_nil/1)
+    |> Stream.with_index()
+    |> Stream.map(fn {{validator, balance, validator_index}, index} ->
+      %Validator{withdrawal_credentials: withdrawal_credentials} = validator
 
-              {withdrawals, withdrawal_index}
+      <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
 
-            Validator.is_partially_withdrawable_validator(validator, balance) ->
-              <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
-              max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
-
-              withdrawal = %Withdrawal{
-                index: withdrawal_index,
-                validator_index: validator_index,
-                address: execution_address,
-                amount: balance - max_effective_balance
-              }
-
-              withdrawals = [withdrawal | withdrawals]
-              withdrawal_index = withdrawal_index + 1
-
-              {withdrawals, withdrawal_index}
-
-            true ->
-              {withdrawals, withdrawal_index}
-          end
-
-        max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
-
-        if length(withdrawals) == max_withdrawals_per_payload do
-          {:halt, {withdrawals, validator_index, withdrawal_index}}
-        else
-          validator_index = rem(validator_index + 1, length(validators))
-          {:cont, {withdrawals, validator_index, withdrawal_index}}
-        end
-      end)
-
-    Enum.reverse(withdrawals)
+      %Withdrawal{
+        index: index + state.next_withdrawal_index,
+        validator_index: validator_index,
+        address: execution_address,
+        amount: balance
+      }
+    end)
+    |> Enum.take(max_withdrawals_per_payload)
   end
 
   @spec process_proposer_slashing(BeaconState.t(), SszTypes.ProposerSlashing.t()) ::
@@ -532,6 +481,31 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       {:error, _msg} ->
         true
+    end
+  end
+
+  @spec process_deposit(BeaconState.t(), SszTypes.Deposit.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_deposit(state, deposit) do
+    with {:ok, deposit_data_root} <- Ssz.hash_tree_root(deposit.data) do
+      if Predicates.is_valid_merkle_branch?(
+           deposit_data_root,
+           deposit.proof,
+           Constants.deposit_contract_tree_depth() + 1,
+           state.eth1_deposit_index,
+           state.eth1_data.deposit_root
+         ) do
+        state
+        |> Map.put(:eth1_deposit_index, state.eth1_deposit_index + 1)
+        |> Mutators.apply_deposit(
+          deposit.data.pubkey,
+          deposit.data.withdrawal_credentials,
+          deposit.data.amount,
+          deposit.data.signature
+        )
+      else
+        {:error, "Merkle branch is not valid"}
+      end
     end
   end
 
@@ -671,18 +645,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, binary()}
   def process_attestation(state, attestation) do
-    case verify_attestation_for_process(state, attestation) do
-      {:ok, _} ->
-        data = attestation.data
-        aggregation_bits = attestation.aggregation_bits
-
-        case process_attestation(state, data, aggregation_bits) do
-          {:ok, updated_state} -> {:ok, updated_state}
-          {:error, reason} -> {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+    # TODO: optimize (takes ~3s)
+    with :ok <- verify_attestation_for_process(state, attestation) do
+      # TODO: optimize (takes ~1s)
+      process_attestation(state, attestation.data, attestation.aggregation_bits)
     end
   end
 
@@ -698,7 +664,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       initial_epoch_participation = get_initial_epoch_participation(state, is_current_epoch)
 
-      {proposer_reward_numerator, updated_epoch_participation} =
+      {updated_epoch_participation, proposer_reward_numerator} =
         update_epoch_participation(
           state,
           attesting_indices,
@@ -710,17 +676,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state)
 
-      bal_updated_state =
-        Mutators.increase_balance(
-          state,
-          proposer_index,
-          proposer_reward
-        )
-
-      updated_state =
-        update_state(bal_updated_state, is_current_epoch, updated_epoch_participation)
-
-      {:ok, updated_state}
+      state
+      |> Mutators.increase_balance(proposer_index, proposer_reward)
+      |> update_state(is_current_epoch, updated_epoch_participation)
+      |> then(&{:ok, &1})
     else
       {:error, reason} -> {:error, reason}
     end
@@ -735,31 +694,35 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          initial_epoch_participation,
          participation_flag_indices
        ) do
-    Enum.reduce(attesting_indices, {0, initial_epoch_participation}, fn index, {acc, ep} ->
-      update_participation_for_index(state, index, acc, ep, participation_flag_indices)
+    weights =
+      Constants.participation_flag_weights()
+      |> Stream.with_index()
+      |> Enum.filter(&(elem(&1, 1) in participation_flag_indices))
+
+    base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
+
+    state.validators
+    |> Stream.zip(initial_epoch_participation)
+    |> Stream.with_index()
+    |> Enum.map_reduce(0, fn {{validator, participation}, i}, acc ->
+      if MapSet.member?(attesting_indices, i) do
+        base_reward = Accessors.get_base_reward(validator, base_reward_per_increment)
+        update_participation(participation, acc, base_reward, weights)
+      else
+        {participation, acc}
+      end
     end)
   end
 
-  defp update_participation_for_index(state, index, acc, ep, participation_flag_indices) do
-    Enum.reduce_while(
-      0..(length(Constants.participation_flag_weights()) - 1),
-      {acc, ep},
-      fn flag_index, {inner_acc, inner_ep} ->
-        if flag_index in participation_flag_indices &&
-             not Predicates.has_flag(Enum.at(inner_ep, index), flag_index) do
-          updated_ep =
-            List.replace_at(inner_ep, index, Misc.add_flag(Enum.at(inner_ep, index), flag_index))
+  defp update_participation(participation, acc, base_reward, weights) do
+    bv_participation = BitVector.new(participation, 8)
 
-          acc_delta =
-            Accessors.get_base_reward(state, index) *
-              Enum.at(Constants.participation_flag_weights(), flag_index)
-
-          {:cont, {inner_acc + acc_delta, updated_ep}}
-        else
-          {:cont, {inner_acc, inner_ep}}
-        end
-      end
-    )
+    weights
+    |> Stream.reject(&BitVector.set?(bv_participation, elem(&1, 1)))
+    |> Enum.reduce({bv_participation, acc}, fn {weight, index}, {bv_participation, acc} ->
+      {bv_participation |> BitVector.set(index), acc + base_reward * weight}
+    end)
+    |> then(fn {p, acc} -> {BitVector.to_integer(p), acc} end)
   end
 
   defp compute_proposer_reward(proposer_reward_numerator) do
@@ -777,16 +740,31 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp update_state(state, false, updated_epoch_participation),
     do: %{state | previous_epoch_participation: updated_epoch_participation}
 
-  def verify_attestation_for_process(state, attestation) do
-    data = attestation.data
+  def verify_attestation_for_process(state, %Attestation{data: data} = attestation) do
+    with {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
+         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
+      cond do
+        invalid_target_epoch?(data, state) ->
+          {:error, "Invalid target epoch"}
 
-    beacon_committee = fetch_beacon_committee(state, data)
-    indexed_attestation = fetch_indexed_attestation(state, attestation)
+        epoch_mismatch?(data) ->
+          {:error, "Epoch mismatch"}
 
-    if has_invalid_conditions?(data, state, beacon_committee, indexed_attestation, attestation) do
-      {:error, get_error_message(data, state, beacon_committee, indexed_attestation, attestation)}
-    else
-      {:ok, "Valid"}
+        invalid_slot_range?(data, state) ->
+          {:error, "Invalid slot range"}
+
+        exceeds_committee_count?(data, state) ->
+          {:error, "Index exceeds committee count"}
+
+        mismatched_aggregation_bits_length?(attestation, beacon_committee) ->
+          {:error, "Mismatched aggregation bits length"}
+
+        not valid_signature?(state, indexed_attestation) ->
+          {:error, "Invalid signature"}
+
+        true ->
+          :ok
+      end
     end
   end
 
@@ -809,7 +787,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       if Bls.valid?(proposer.pubkey, signing_root, randao_reveal) do
         randao_mix = Accessors.get_randao_mix(state, epoch)
-        hash = :crypto.hash(:sha256, randao_reveal)
+        hash = SszEx.hash(randao_reveal)
 
         # Mix in RANDAO reveal
         mix = :crypto.exor(randao_mix, hash)
@@ -857,55 +835,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp has_invalid_conditions?(data, state, beacon_committee, indexed_attestation, attestation) do
-    invalid_target_epoch?(data, state) ||
-      epoch_mismatch?(data) ||
-      invalid_slot_range?(data, state) ||
-      exceeds_committee_count?(data, state) ||
-      !beacon_committee || !indexed_attestation ||
-      mismatched_aggregation_bits_length?(attestation, beacon_committee) ||
-      invalid_signature?(state, indexed_attestation)
-  end
-
-  defp get_error_message(data, state, beacon_committee, indexed_attestation, attestation) do
-    cond do
-      invalid_target_epoch?(data, state) ->
-        "Invalid target epoch"
-
-      epoch_mismatch?(data) ->
-        "Epoch mismatch"
-
-      invalid_slot_range?(data, state) ->
-        "Invalid slot range"
-
-      exceeds_committee_count?(data, state) ->
-        "Index exceeds committee count"
-
-      !beacon_committee || !indexed_attestation ->
-        "Indexing error at beacon committee"
-
-      mismatched_aggregation_bits_length?(attestation, beacon_committee) ->
-        "Mismatched aggregation bits length"
-
-      invalid_signature?(state, indexed_attestation) ->
-        "Invalid signature"
-    end
-  end
-
-  defp fetch_beacon_committee(state, data) do
-    case Accessors.get_beacon_committee(state, data.slot, data.index) do
-      {:ok, committee} -> committee
-      {:error, _reason} -> nil
-    end
-  end
-
-  defp fetch_indexed_attestation(state, attestation) do
-    case Accessors.get_indexed_attestation(state, attestation) do
-      {:ok, indexed_attestation} -> indexed_attestation
-      {:error, _reason} -> nil
-    end
-  end
-
   defp invalid_target_epoch?(data, state) do
     data.target.epoch < Accessors.get_previous_epoch(state) ||
       data.target.epoch > Accessors.get_current_epoch(state)
@@ -928,8 +857,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     length_of_bitstring(attestation.aggregation_bits) - 1 != length(beacon_committee)
   end
 
-  defp invalid_signature?(state, indexed_attestation) do
-    not Predicates.is_valid_indexed_attestation(state, indexed_attestation)
+  defp valid_signature?(state, indexed_attestation) do
+    Predicates.is_valid_indexed_attestation(state, indexed_attestation)
   end
 
   defp length_of_bitstring(binary) when is_binary(binary) do
@@ -990,7 +919,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   defp validate_withdrawal_credentials(validator, address_change) do
     <<prefix::binary-size(1), address::binary-size(31)>> = validator.withdrawal_credentials
-    <<_, hash::binary-size(31)>> = :crypto.hash(:sha256, address_change.from_bls_pubkey)
+    <<_, hash::binary-size(31)>> = SszEx.hash(address_change.from_bls_pubkey)
 
     if prefix == Constants.bls_withdrawal_prefix() and address == hash do
       {:ok}
@@ -1015,5 +944,39 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       end)
 
     updated_validators
+  end
+
+  @spec process_operations(BeaconState.t(), BeaconBlockBody.t()) ::
+          {:ok, BeaconState.t()} | {:error, binary}
+  def process_operations(state, body) do
+    # Ensure that outstanding deposits are processed up to the maximum number of deposits
+    with :ok <- verify_deposits(state, body) do
+      {:ok, state}
+      |> for_ops(body.proposer_slashings, &process_proposer_slashing/2)
+      |> for_ops(body.attester_slashings, &process_attester_slashing/2)
+      |> for_ops(body.attestations, &process_attestation/2)
+      |> for_ops(body.deposits, &process_deposit/2)
+      |> for_ops(body.voluntary_exits, &process_voluntary_exit/2)
+      |> for_ops(body.bls_to_execution_changes, &process_bls_to_execution_change/2)
+    end
+  end
+
+  defp for_ops(acc, operations, func) do
+    Enum.reduce_while(operations, acc, fn
+      operation, {:ok, state} -> {:cont, func.(state, operation)}
+      _, {:error, reason} -> {:halt, {:error, reason}}
+    end)
+  end
+
+  @spec verify_deposits(BeaconState.t(), BeaconBlockBody.t()) :: :ok | {:error, binary}
+  defp verify_deposits(state, body) do
+    deposit_count = state.eth1_data.deposit_count - state.eth1_deposit_index
+    deposit_limit = min(ChainSpec.get("MAX_DEPOSITS"), deposit_count)
+
+    if length(body.deposits) == deposit_limit do
+      :ok
+    else
+      {:error, "deposits length mismatch"}
+    end
   end
 end

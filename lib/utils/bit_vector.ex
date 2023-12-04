@@ -15,9 +15,19 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   @spec new(integer, non_neg_integer) :: t
   def new(number, size) when is_integer(number), do: <<number::size(size)>>
 
+  @spec new(bitstring, non_neg_integer) :: t
   def new(bitstring, size) when is_bitstring(bitstring) do
     <<_::size(bit_size(bitstring) - size), b::bitstring>> = bitstring
     b
+  end
+
+  @doc """
+  Turns the bit_vector into an integer.
+  """
+  @spec to_integer(t) :: non_neg_integer()
+  def to_integer(bit_vector) do
+    <<int::unsigned-size(bit_size(bit_vector))>> = bit_vector
+    int
   end
 
   @doc """
@@ -91,4 +101,10 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
     <<remaining::size(bit_size(bit_vector) - steps)-bitstring, _::bitstring>> = bit_vector
     <<0::size(steps), remaining::bitstring>>
   end
+
+  @doc """
+  Returns the amount of bits set.
+  """
+  @spec count(t) :: non_neg_integer()
+  def count(bit_vector), do: for(<<bit::1 <- bit_vector>>, do: bit) |> Enum.sum()
 end

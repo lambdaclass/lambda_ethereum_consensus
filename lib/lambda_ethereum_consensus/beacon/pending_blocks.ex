@@ -45,7 +45,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def init(_opts) do
     schedule_blocks_processing()
     schedule_blocks_download()
-
     {:ok, %{pending_blocks: %{}, invalid_blocks: %{}, blocks_to_download: MapSet.new()}}
   end
 
@@ -102,7 +101,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
           # When on checkpoint sync, we might accumulate a couple of hundred blocks in the pending blocks queue.
           # This can cause the ForkChoie to timeout on other call requests since it has to process all the
-          # pending blocks first. TODO: find a better way to handle this
+          # pending blocks first.
+          # TODO: find a better way to handle this
           Process.sleep(100)
 
           new_state
@@ -168,11 +168,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end
   end
 
-  defp schedule_blocks_processing do
-    Process.send_after(self(), :process_blocks, 3000)
+  def schedule_blocks_processing do
+    Process.send_after(__MODULE__, :process_blocks, 3000)
   end
 
   def schedule_blocks_download do
-    Process.send_after(self(), :download_blocks, 1000)
+    Process.send_after(__MODULE__, :download_blocks, 1000)
   end
 end

@@ -3,27 +3,25 @@ defmodule LambdaEthereumConsensus.StateTransition do
   State transition logic.
   """
 
+  alias LambdaEthereumConsensus.Engine.Execution
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
   alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
 
-  import LambdaEthereumConsensus.Utils, only: [map: 2]
+  import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
 
   @spec state_transition(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def state_transition(
         %BeaconState{} = state,
         %SignedBeaconBlock{message: block} = signed_block,
-        _validate_result
+        validate_result
       ) do
-    # NOTE: we aren't in a state to make validations yet
-    validate_result = false
-
     state
     # Process slots (including those with no blocks) since block
     |> process_slots(block.slot)
     # Verify signature
-    |> map(fn st ->
+    |> map_ok(fn st ->
       if not validate_result or verify_block_signature(st, signed_block) do
         {:ok, st}
       else
@@ -31,9 +29,9 @@ defmodule LambdaEthereumConsensus.StateTransition do
       end
     end)
     # Process block
-    |> map(&process_block(&1, block))
+    |> map_ok(&process_block(&1, block))
     # Verify state root
-    |> map(fn st ->
+    |> map_ok(fn st ->
       if not validate_result or block.state_root == Ssz.hash_tree_root!(st) do
         {:ok, st}
       else
@@ -48,19 +46,17 @@ defmodule LambdaEthereumConsensus.StateTransition do
   def process_slots(%BeaconState{slot: old_slot} = state, slot) do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
 
-    Enum.reduce((old_slot + 1)..slot, {:ok, state}, fn next_slot, acc ->
+    Enum.reduce((old_slot + 1)..slot//1, {:ok, state}, fn next_slot, acc ->
       acc
-      |> map(&process_slot/1)
+      |> map_ok(&process_slot/1)
       # Process epoch on the start slot of the next epoch
-      |> map(&maybe_process_epoch(&1, rem(next_slot, slots_per_epoch)))
-      |> map(&{:ok, %BeaconState{&1 | slot: next_slot}})
+      |> map_ok(&maybe_process_epoch(&1, rem(next_slot, slots_per_epoch)))
+      |> map_ok(&{:ok, %BeaconState{&1 | slot: next_slot}})
     end)
   end
 
-  defp maybe_process_epoch(%BeaconState{} = state, slot_in_epoch) when slot_in_epoch == 0,
-    do: {:ok, state}
-
-  defp maybe_process_epoch(%BeaconState{} = state, _slot_in_epoch), do: process_epoch(state)
+  defp maybe_process_epoch(%BeaconState{} = state, 0), do: process_epoch(state)
+  defp maybe_process_epoch(%BeaconState{} = state, _slot_in_epoch), do: {:ok, state}
 
   defp process_slot(%BeaconState{} = state) do
     # Cache state root
@@ -92,17 +88,17 @@ defmodule LambdaEthereumConsensus.StateTransition do
   defp process_epoch(%BeaconState{} = state) do
     state
     |> EpochProcessing.process_justification_and_finalization()
-    |> map(&EpochProcessing.process_inactivity_updates/1)
-    |> map(&EpochProcessing.process_rewards_and_penalties/1)
-    |> map(&EpochProcessing.process_registry_updates/1)
-    |> map(&EpochProcessing.process_slashings/1)
-    |> map(&EpochProcessing.process_eth1_data_reset/1)
-    |> map(&EpochProcessing.process_effective_balance_updates/1)
-    |> map(&EpochProcessing.process_slashings_reset/1)
-    |> map(&EpochProcessing.process_randao_mixes_reset/1)
-    |> map(&EpochProcessing.process_historical_summaries_update/1)
-    |> map(&EpochProcessing.process_participation_flag_updates/1)
-    |> map(&EpochProcessing.process_sync_committee_updates/1)
+    |> map_ok(&EpochProcessing.process_inactivity_updates/1)
+    |> map_ok(&EpochProcessing.process_rewards_and_penalties/1)
+    |> map_ok(&EpochProcessing.process_registry_updates/1)
+    |> map_ok(&EpochProcessing.process_slashings/1)
+    |> map_ok(&EpochProcessing.process_eth1_data_reset/1)
+    |> map_ok(&EpochProcessing.process_effective_balance_updates/1)
+    |> map_ok(&EpochProcessing.process_slashings_reset/1)
+    |> map_ok(&EpochProcessing.process_randao_mixes_reset/1)
+    |> map_ok(&EpochProcessing.process_historical_summaries_update/1)
+    |> map_ok(&EpochProcessing.process_participation_flag_updates/1)
+    |> map_ok(&EpochProcessing.process_sync_committee_updates/1)
   end
 
   def verify_block_signature(%BeaconState{} = state, %SignedBeaconBlock{} = signed_block) do
@@ -119,13 +115,17 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   # TODO: uncomment when implemented
   def process_block(state, block) do
+    verify_and_notify_new_payload = &Execution.verify_and_notify_new_payload/1
+
     {:ok, state}
-    # |> map(&Operations.process_block_header(&1, block))
-    |> map(&Operations.process_withdrawals(&1, block.body.execution_payload))
-    # |> map(&Operations.process_execution_payload(&1, block.body, EXECUTION_ENGINE))
-    # |> map(&Operations.process_randao(&1, block.body))
-    # |> map(&Operations.process_eth1_data(&1, block.body))
-    # |> map(&Operations.process_operations(&1, block.body))
-    |> map(&Operations.process_sync_aggregate(&1, block.body.sync_aggregate))
+    |> map_ok(&Operations.process_block_header(&1, block))
+    |> map_ok(&Operations.process_withdrawals(&1, block.body.execution_payload))
+    |> map_ok(
+      &Operations.process_execution_payload(&1, block.body, verify_and_notify_new_payload)
+    )
+    |> map_ok(&Operations.process_randao(&1, block.body))
+    |> map_ok(&Operations.process_eth1_data(&1, block.body))
+    |> map_ok(&Operations.process_operations(&1, block.body))
+    |> map_ok(&Operations.process_sync_aggregate(&1, block.body.sync_aggregate))
   end
 end

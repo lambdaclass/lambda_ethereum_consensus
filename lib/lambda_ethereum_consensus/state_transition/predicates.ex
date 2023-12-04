@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Range of predicates enabling verification of state
   """
 
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias SszTypes.BeaconState
   alias SszTypes.Validator
@@ -18,6 +19,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         epoch
       ) do
     activation_epoch <= epoch && epoch < exit_epoch
+  end
+
+  @doc """
+  Check if ``validator`` is eligible for rewards and penalties.
+  """
+  @spec is_eligible_validator(Validator.t(), SszTypes.epoch()) :: boolean
+  def is_eligible_validator(%Validator{} = validator, previous_epoch) do
+    is_active_validator(validator, previous_epoch) ||
+      (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
   end
 
   @doc """
@@ -103,13 +113,39 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   @doc """
+  Check if merkle branch is valid
+  """
+  @spec is_valid_merkle_branch?(
+          SszTypes.bytes32(),
+          list(SszTypes.bytes32()),
+          SszTypes.uint64(),
+          SszTypes.uint64(),
+          SszTypes.root()
+        ) :: boolean
+  def is_valid_merkle_branch?(leaf, branch, depth, index, root) do
+    root ==
+      branch
+      |> Enum.take(depth)
+      |> Enum.with_index()
+      |> Enum.reduce(leaf, fn {v, i}, value -> hash_merkle_node(v, value, index, i) end)
+  end
+
+  defp hash_merkle_node(value_1, value_2, index, i) do
+    if rem(div(index, 2 ** i), 2) == 1 do
+      SszEx.hash(value_1 <> value_2)
+    else
+      SszEx.hash(value_2 <> value_1)
+    end
+  end
+
+  @doc """
   Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
   """
   @spec is_valid_indexed_attestation(BeaconState.t(), SszTypes.IndexedAttestation.t()) :: boolean
   def is_valid_indexed_attestation(state, indexed_attestation) do
     indices = indexed_attestation.attesting_indices
 
-    if Enum.empty?(indices) or not (indices == indices |> Enum.uniq() |> Enum.sort()) do
+    if Enum.empty?(indices) or not uniq_and_sorted?(indices) do
       false
     else
       domain_type = Constants.domain_beacon_attester()
@@ -119,17 +155,27 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         Accessors.get_domain(state, domain_type, epoch)
         |> then(&Misc.compute_signing_root(indexed_attestation.data, &1))
 
-      res =
-        state.validators
-        |> Stream.with_index()
-        |> Stream.filter(fn {_, i} -> Enum.member?(indices, i) end)
-        |> Enum.map(fn {%{pubkey: p}, _} -> p end)
-        |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
-
-      case res do
-        {:ok, r} -> r
+      state.validators
+      |> Stream.with_index()
+      |> Enum.flat_map_reduce(
+        indices,
+        fn
+          {%Validator{pubkey: p}, i}, [i | acc] -> {[p], acc}
+          _, acc -> {[], acc}
+        end
+      )
+      |> then(fn
+        {pks, []} -> pks |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
+        {_, _} -> {:error, "invalid indices"}
+      end)
+      |> then(fn
+        {:ok, b} -> b
         {:error, _} -> false
-      end
+      end)
     end
   end
+
+  defp uniq_and_sorted?([]), do: true
+  defp uniq_and_sorted?([a, b | _]) when a >= b, do: false
+  defp uniq_and_sorted?([_ | tail]), do: uniq_and_sorted?(tail)
 end

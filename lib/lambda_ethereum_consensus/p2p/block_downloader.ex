@@ -58,11 +58,13 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     else
       {:error, reason} when retries > 0 ->
         tags = %{type: "by_slot", reason: parse_reason(reason)}
+        P2P.Peerbook.penalize_peer(peer_id)
         :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
         Logger.debug("Retrying request for block with slot #{slot}")
         request_blocks_by_slot(slot, count, retries - 1)
 
       {:error, reason} when retries == 0 ->
+        P2P.Peerbook.penalize_peer(peer_id)
         tags = %{type: "by_slot", reason: parse_reason(reason)}
         :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
         {:error, reason}
@@ -109,6 +111,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     else
       {:error, reason} ->
         tags = %{type: "by_root", reason: parse_reason(reason)}
+        P2P.Peerbook.penalize_peer(peer_id)
 
         if retries > 0 do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
@@ -163,17 +166,22 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
   @spec decode_chunks([binary()]) :: {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, binary()}
   defp decode_chunks(chunks) do
-    results =
+    blocks =
       chunks
       |> Enum.map(&decode_chunk/1)
+      |> Enum.map(fn
+        {:ok, block} -> block
+        {:error, _reason} -> nil
+      end)
+      |> Enum.filter(&(&1 != nil))
 
-    if Enum.all?(results, fn
-         {:ok, _} -> true
-         _ -> false
-       end) do
-      {:ok, results |> Enum.map(fn {:ok, block} -> block end)}
-    else
-      {:error, "some decoding of chunks failed"}
+    case blocks do
+      [] ->
+        Logger.error("All blocks decoding failed")
+        {:error, "all blocks decoding failed"}
+
+      blocks ->
+        {:ok, blocks}
     end
   end
 
