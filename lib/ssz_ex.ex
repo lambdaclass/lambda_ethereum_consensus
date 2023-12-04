@@ -21,6 +21,9 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def encode(value, {:bytes, _}), do: {:ok, value}
 
+  def encode(value, {:bitlist, max_size}) when is_bitstring(value),
+    do: encode_bitlist(value, max_size)
+
   def encode(container, module) when is_map(container),
     do: encode_container(container, module.schema())
 
@@ -33,6 +36,9 @@ defmodule LambdaEthereumConsensus.SszEx do
       do: decode_variable_list(binary, basic_type, size),
       else: decode_list(binary, basic_type, size)
   end
+
+  def decode(value, {:bitlist, max_size}) when is_bitstring(value),
+    do: decode_bitlist(value, max_size)
 
   def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
 
@@ -62,6 +68,87 @@ defmodule LambdaEthereumConsensus.SszEx do
     list
     |> Enum.map(&encode(&1, basic_type))
     |> flatten_results_by(&Enum.join/1)
+  end
+
+  defp decode_bitlist(bit_list, max_size) do
+    num_bytes = byte_size(bit_list)
+
+    with {:ok, len} <- get_bitlist_len(bit_list) do
+      cond do
+        div(len, 8) + 1 != num_bytes ->
+          {:error, "InvalidByteCount"}
+
+        len > max_size ->
+          {:error, "OutOfBounds"}
+
+        true ->
+          bytes_for_bit_len = max(1, div(len + 7, 8))
+          bit_size = bit_size(bit_list)
+          index = rem(len, 8)
+          skip = bit_size - index - 1
+          <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_list
+
+          <<pre::binary-size(bytes_for_bit_len - 1), rest::bitstring>> =
+            <<pre::bitstring, 0::1, rest::bitstring>>
+
+          remain_bits_size = len - bit_size(pre)
+          <<_::size(8 - remain_bits_size), rest::bitstring>> = rest
+          formatted = <<pre::bitstring, rest::bitstring>>
+
+          if byte_size(formatted) > bytes_for_bit_len do
+            <<truncated::binary-size(bytes_for_bit_len), _rest::bitstring>> = formatted
+            {:ok, truncated}
+          else
+            {:ok, formatted}
+          end
+      end
+    end
+  end
+
+  defp get_bitlist_len(bit_list) do
+    :binary.bin_to_list(bit_list)
+    |> Enum.with_index()
+    |> Enum.reverse()
+    |> Enum.find_value({:error, "missing_length_information"}, fn {byte, byte_index} ->
+      if for(<<(bit::1 <- <<byte>>)>>, do: bit) |> Enum.any?(&(&1 == 1)) do
+        {:ok, {byte, byte_index}}
+      else
+        {:error, "missing_length_information"}
+      end
+    end)
+    |> case do
+      {:ok, {byte, byte_index}} ->
+        leading_zeros =
+          for(<<(bit::1 <- <<byte>>)>>, do: bit)
+          |> Enum.take_while(&(&1 == 0))
+          |> Enum.count()
+
+        {:ok, byte_index * 8 + 7 - leading_zeros}
+
+      error ->
+        error
+    end
+  end
+
+  defp encode_bitlist(bit_list, max_size) do
+    len = bit_size(bit_list)
+    bytes_len = byte_size(bit_list)
+    bytes_for_bit_len = max(1, div(len + 1 + 7, 8))
+
+    if len > max_size do
+      {:error, "ExcessBits"}
+    else
+      if bytes_for_bit_len > bytes_len do
+        append_size = (bytes_for_bit_len - bytes_len) * @bits_per_byte
+        resized = <<bit_list::bitstring, 0::size(append_size)>>
+        skip = bit_size(resized) - 1
+        <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = resized
+        {:ok, <<pre::bitstring, 1::1, rest::bitstring>>}
+      else
+        <<pre::binary-size(bytes_len - 1), last::bitstring>> = bit_list
+        {:ok, <<pre::bitstring, 0::size(8 - bit_size(last) - 1), last::bitstring, 1::1>>}
+      end
+    end
   end
 
   defp encode_variable_size_list(list, _basic_type, max_size) when length(list) > max_size,

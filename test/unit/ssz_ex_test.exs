@@ -133,4 +133,36 @@ defmodule Unit.SSZExTest do
 
     assert_roundtrip(serialized, sync, SszTypes.SyncCommittee)
   end
+
+  test "serialize and deserialize bitlist" do
+    encoded_bytes = <<160, 92, 1>>
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 16})
+
+    encoded_bytes = <<255, 1>>
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 16})
+
+    encoded_bytes = <<31>>
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 16})
+
+    encoded_bytes = <<1>>
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 31})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 31})
+
+    encoded_bytes = <<106, 141, 117, 7>>
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 31})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 31})
+
+    encoded_bytes = <<7>>
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
+
+    encoded_bytes = <<124, 3>>
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
+
+    encoded_bytes = <<0>>
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 16})
+  end
 end
