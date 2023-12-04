@@ -27,7 +27,15 @@ defmodule LambdaEthereumConsensus.Utils do
   If first arg is an ``{:ok, value}`` tuple, apply ``fun`` to ``value`` and
   return the result. Else, if it's an ``{:error, _}`` tuple, returns it.
   """
-  @spec map({:ok | :error, any()}, (any() -> any())) :: any() | {:error, any()}
-  def map({:ok, value}, fun), do: fun.(value)
-  def map({:error, _} = err, _fun), do: err
+  @spec map_ok({:ok | :error, any()}, (any() -> any())) :: any() | {:error, any()}
+  def map_ok({:ok, value}, fun), do: fun.(value)
+  def map_ok({:error, _} = err, _fun), do: err
+
+  @doc """
+  If first arg is an ``{:error, reason}`` tuple, replace ``reason`` with
+  ``new_reason``. Else, return the first arg unmodified.
+  """
+  @spec map_err(any() | {:error, String.t()}, String.t()) :: any() | {:error, String.t()}
+  def map_err({:error, _}, reason), do: {:error, reason}
+  def map_err(v, _), do: v
 end

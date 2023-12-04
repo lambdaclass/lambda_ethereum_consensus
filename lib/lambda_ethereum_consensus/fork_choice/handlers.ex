@@ -16,7 +16,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     Store
   }
 
-  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map: 2]
+  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
 
   ### Public API ###
 
@@ -323,7 +323,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           else: {:ok, &1}
         )
       )
-      |> map(
+      |> map_ok(
         &{:ok, %Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)}}
       )
     end
