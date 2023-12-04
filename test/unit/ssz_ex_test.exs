@@ -165,4 +165,20 @@ defmodule Unit.SSZExTest do
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 16})
   end
+
+  test "serialize and deserialize bitvector" do
+    encoded_bytes = <<255, 255>>
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitvector, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitvector, 16})
+
+    encoded_bytes = <<0, 0>>
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitvector, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitvector, 16})
+
+    encoded_bytes = <<255, 255, 255, 255, 1>>
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 33})
+
+    encoded_bytes = <<0>>
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 9})
+  end
 end
