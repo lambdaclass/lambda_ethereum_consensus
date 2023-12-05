@@ -20,6 +20,72 @@ func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 	}
 }
 
+func AddPeerNotification() proto_defs.Notification {
+	addPeerNotification := &proto_defs.AddPeerGossip{}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_AddPeer{AddPeer: addPeerNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func RemovePeerNotification() proto_defs.Notification {
+	removePeerNotification := &proto_defs.RemovePeerGossip{}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_RemovePeer{RemovePeer: removePeerNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func JoinNotification(topic string) proto_defs.Notification {
+	joinNotification := &proto_defs.Join{Topic: topic}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_Joined{Joined: joinNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func LeaveNofication(topic string) proto_defs.Notification {
+	leaveNofication := &proto_defs.Leave{Topic: topic}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_Left{Left: leaveNofication}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func GraftNotification(topic string) proto_defs.Notification {
+	graftNotification := &proto_defs.Graft{Topic: topic}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_Grafted{Grafted: graftNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func PruneNotification(topic string) proto_defs.Notification {
+	pruneNotification := &proto_defs.Prune{Topic: topic}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_Pruned{Pruned: pruneNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func ValidateMessageNotification(topic string) proto_defs.Notification {
+	validateMessageNotification := &proto_defs.ValidateMessageGossip{Topic: topic}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_ValidateMessage{ValidateMessage: validateMessageNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func DeliverMessageNotification(topic string) proto_defs.Notification {
+	deliverMessageNotification := &proto_defs.DeliverMessage{Topic: topic}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_DeliverMessage{DeliverMessage: deliverMessageNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func UndeliverableMessageNotification(topic string) proto_defs.Notification {
+	unDeliverableMessageNotification := &proto_defs.UnDeliverableMessage{Topic: topic}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_UnDeliverableMessage{UnDeliverableMessage: unDeliverableMessageNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func RejectMessageNotification(topic string) proto_defs.Notification {
+	rejectMessageNotification := &proto_defs.RejectMessage{Topic: topic}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_RejectMessage{RejectMessage: rejectMessageNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
+func DuplicateMessageNotification(topic string) proto_defs.Notification {
+	duplicateMessageNotification := &proto_defs.DuplicateMessage{Topic: topic}
+	tracer := &proto_defs.Tracer{T: &proto_defs.Tracer_DuplicateMessage{DuplicateMessage: duplicateMessageNotification}}
+	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
+}
+
 func GossipNotification(topic string, handler, msgId, message []byte) proto_defs.Notification {
 	gossipSubNotification := &proto_defs.GossipSub{Topic: []byte(topic), Handler: handler, MsgId: msgId, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Gossip{Gossip: gossipSubNotification}}
