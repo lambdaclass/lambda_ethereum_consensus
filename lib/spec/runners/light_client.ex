@@ -1,6 +1,5 @@
 defmodule LightClientTestRunner do
   alias LambdaEthereumConsensus.StateTransition.Predicates
-  alias LambdaEthereumConsensus.Utils.Diff
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -27,7 +26,7 @@ defmodule LightClientTestRunner do
     object =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/object.ssz_snappy",
-        SszTypes.BeaconState
+        String.to_existing_atom("Elixir.SszTypes." <> testcase.suite)
       )
 
     %{leaf: leaf, leaf_index: leaf_index, branch: branch} =
@@ -49,6 +48,6 @@ defmodule LightClientTestRunner do
         object_root
       )
 
-    assert Diff.diff(true, res) == :unchanged
+    assert true == res
   end
 end
