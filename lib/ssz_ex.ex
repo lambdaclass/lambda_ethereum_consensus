@@ -44,10 +44,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   @offset_bits 32
 
   defp encode_int(value, size) when is_integer(value), do: {:ok, <<value::size(size)-little>>}
-  defp encode_int(value, _size), do: {:error, "#{inspect(value)} is not a integer"}
   defp encode_bool(true), do: {:ok, "\x01"}
   defp encode_bool(false), do: {:ok, "\x00"}
-  defp encode_bool(not_valid), do: {:error, "#{inspect(not_valid)} not boolean"}
 
   defp decode_uint(binary, size) do
     <<element::integer-size(size)-little, _rest::bitstring>> = binary

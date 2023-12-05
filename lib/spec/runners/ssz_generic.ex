@@ -9,15 +9,29 @@ defmodule SszGenericTestRunner do
   @disabled [
     "basic_vector",
     "bitlist",
-    "bitvector",
+    "bitvector"
     # "boolean",
-    "containers"
+    # "containers"
     # "uints"
   ]
 
+  @disabled_containers [
+    # "SingleFieldTestStruct",
+    # "SmallTestStruct",
+    # "FixedTestStruct",
+    # "VarTestStruct",
+    "ComplexTestStruct",
+    "BitsStruct"
+  ]
+
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
-    fork != "phase0" or Enum.member?(@disabled, handler)
+  def skip?(%SpecTestCase{fork: fork, handler: handler, case: cse}) do
+    skip_container? =
+      @disabled_containers
+      |> Enum.map(fn container -> String.contains?(cse, container) end)
+      |> Enum.any?()
+
+    fork != "phase0" or Enum.member?(@disabled, handler) or skip_container?
   end
 
   @impl TestRunner
@@ -32,18 +46,26 @@ defmodule SszGenericTestRunner do
     handle_case(testcase.suite, schema, decompressed, testcase)
   end
 
-  defp handle_case("valid", schema, real_deserialized, testcase) do
+  defp handle_case("valid", schema, real_serialized, testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
     expected =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    assert_ssz("valid", schema, real_deserialized, expected)
+    assert_ssz("valid", schema, real_serialized, expected)
   end
 
-  defp handle_case("invalid", schema, real_deserialized, _testcase) do
-    assert_ssz("invalid", schema, real_deserialized)
+  defp handle_case("invalid", schema, real_serialized, _testcase) do
+    assert_ssz("invalid", schema, real_serialized)
+  end
+
+  defp assert_ssz("valid", {:container, module}, real_serialized, real_deserialized) do
+    real_struct = struct!(module, real_deserialized)
+    {:ok, deserialized} = SszEx.decode(real_serialized, module)
+    assert deserialized == real_struct
+    {:ok, serialized} = SszEx.encode(real_struct, module)
+    assert serialized == real_serialized
   end
 
   defp assert_ssz("valid", schema, real_serialized, real_deserialized) do
@@ -56,7 +78,7 @@ defmodule SszGenericTestRunner do
   end
 
   defp assert_ssz("invalid", schema, real_serialized) do
-    assert {:error, _error} = SszEx.encode(real_serialized, schema)
+    catch_error(SszEx.encode(real_serialized, schema))
   end
 
   defp parse_type(%SpecTestCase{handler: handler, case: cse}) do
@@ -69,13 +91,26 @@ defmodule SszGenericTestRunner do
           "uint_" <> _rest ->
             [_head, size] = Regex.run(~r/^.*?_(.*?)_.*$/, cse)
             {:int, String.to_integer(size)}
-
-          unknown ->
-            :error
         end
 
-      unknown ->
-        :error
+      "containers" ->
+        [name] = Regex.run(~r/^[^_]+(?=_)/, cse)
+        {:container, Module.concat(Helpers.SszStaticContainers, name)}
+        # "basic_vector" ->
+        #   case cse do
+        #     "vec_" <> rest ->
+        #       case String.split(rest, "_") do
+        #         ["bool", max_size | _] -> {:vector, :bool, String.to_integer(max_size)}
+        #         ["uint" <> size, max_size | _] ->
+        # {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
+        #       end
+        #   end
+        # "bitlist" ->
+        #   case cse do
+        #     "bitlist_" <> rest ->
+        #       [size | _] = String.split(rest, "_")
+        #       {:bitlist, :bool, String.to_integer(size)}
+        #   end
     end
   end
 end
