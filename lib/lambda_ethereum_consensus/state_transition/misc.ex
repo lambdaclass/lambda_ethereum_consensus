@@ -50,38 +50,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   def compute_shuffled_index(index, index_count, seed) do
     shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
 
-    new_index =
-      Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
-        round_as_bytes = <<round>>
+    0..(shuffle_round_count - 1)
+    |> Enum.reduce(index, fn round, current_index ->
+      pivot = SszEx.hash(seed <> <<round>>) |> bytes_to_uint64() |> rem(index_count)
 
-        hash_of_seed_round = SszEx.hash(seed <> round_as_bytes)
+      flip = rem(pivot + index_count - current_index, index_count)
+      position = max(current_index, flip)
 
-        pivot = rem(bytes_to_uint64(hash_of_seed_round), index_count)
+      position_div_256 = position |> div(256) |> uint_to_bytes4()
 
-        flip = rem(pivot + index_count - current_index, index_count)
-        position = max(current_index, flip)
+      source = SszEx.hash(seed <> <<round>> <> position_div_256)
 
-        position_div_256 = uint_to_bytes4(div(position, 256))
+      bit_index = rem(position, 256) + 7 - 2 * rem(position, 8)
+      <<_::size(bit_index), bit::1, _::bits>> = source
 
-        source =
-          SszEx.hash(seed <> round_as_bytes <> position_div_256)
-
-        byte_index = div(rem(position, 256), 8)
-        <<_::binary-size(byte_index), byte, _::binary>> = source
-        right_shift = byte >>> rem(position, 8)
-        bit = rem(right_shift, 2)
-
-        current_index =
-          if bit == 1 do
-            flip
-          else
-            current_index
-          end
-
-        current_index
-      end)
-
-    {:ok, new_index}
+      if bit == 1, do: flip, else: current_index
+    end)
+    |> then(&{:ok, &1})
   end
 
   @spec increase_inactivity_score(SszTypes.uint64(), integer, MapSet.t(), SszTypes.uint64()) ::
