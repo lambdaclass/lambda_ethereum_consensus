@@ -364,8 +364,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           previous_target_balance,
           current_target_balance
         )
-      else
-        {:error, reason} -> {:error, reason}
       end
     end
   end
@@ -373,55 +371,28 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   defp weigh_justification_and_finalization(
          state,
          total_active_balance,
-         previous_epoch_target_balance,
-         current_epoch_target_balance
+         previous_target_balance,
+         current_target_balance
        ) do
     previous_epoch = Accessors.get_previous_epoch(state)
     current_epoch = Accessors.get_current_epoch(state)
-    old_previous_justified_checkpoint = state.previous_justified_checkpoint
-    old_current_justified_checkpoint = state.current_justified_checkpoint
+    old_previous_justified = state.previous_justified_checkpoint
+    old_current_justified = state.current_justified_checkpoint
+    previous_is_justified = previous_target_balance * 3 >= total_active_balance * 2
+    current_is_justified = current_target_balance * 3 >= total_active_balance * 2
 
-    with {:ok, previous_block_root} <- Accessors.get_block_root(state, previous_epoch),
-         {:ok, current_block_root} <- Accessors.get_block_root(state, current_epoch) do
-      new_state =
-        state
-        |> update_first_bit()
-        |> update_previous_epoch_justified(
-          previous_epoch_target_balance * 3 >= total_active_balance * 2,
-          previous_epoch,
-          previous_block_root
-        )
-        |> update_current_epoch_justified(
-          current_epoch_target_balance * 3 >= total_active_balance * 2,
-          current_epoch,
-          current_block_root
-        )
-        |> update_checkpoint_finalization(
-          old_previous_justified_checkpoint,
-          current_epoch,
-          1..3,
-          3
-        )
-        |> update_checkpoint_finalization(
-          old_previous_justified_checkpoint,
-          current_epoch,
-          1..2,
-          2
-        )
-        |> update_checkpoint_finalization(
-          old_current_justified_checkpoint,
-          current_epoch,
-          0..2,
-          2
-        )
-        |> update_checkpoint_finalization(
-          old_current_justified_checkpoint,
-          current_epoch,
-          0..1,
-          1
-        )
+    new_state = update_first_bit(state)
 
-      {:ok, new_state}
+    with {:ok, new_state} <-
+           update_epoch_justified(new_state, previous_is_justified, previous_epoch, 1),
+         {:ok, new_state} <-
+           update_epoch_justified(new_state, current_is_justified, current_epoch, 0) do
+      new_state
+      |> update_checkpoint_finalization(old_previous_justified, current_epoch, 1..3, 3)
+      |> update_checkpoint_finalization(old_previous_justified, current_epoch, 1..2, 2)
+      |> update_checkpoint_finalization(old_current_justified, current_epoch, 0..2, 2)
+      |> update_checkpoint_finalization(old_current_justified, current_epoch, 0..1, 1)
+      |> then(&{:ok, &1})
     end
   end
 
@@ -439,50 +410,21 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     }
   end
 
-  defp update_previous_epoch_justified(state, true, previous_epoch, previous_block_root) do
-    new_checkpoint = %SszTypes.Checkpoint{
-      epoch: previous_epoch,
-      root: previous_block_root
-    }
+  defp update_epoch_justified(state, false, _, _), do: {:ok, state}
 
-    bits =
-      state.justification_bits
-      |> BitVector.new(4)
-      |> BitVector.set(1)
-      |> to_byte()
+  defp update_epoch_justified(state, true, epoch, index) do
+    with {:ok, block_root} <- Accessors.get_block_root(state, epoch) do
+      new_checkpoint = %SszTypes.Checkpoint{epoch: epoch, root: block_root}
 
-    %BeaconState{
-      state
-      | current_justified_checkpoint: new_checkpoint,
-        justification_bits: bits
-    }
-  end
+      bits =
+        state.justification_bits
+        |> BitVector.new(4)
+        |> BitVector.set(index)
+        |> to_byte()
 
-  defp update_previous_epoch_justified(state, false, _previous_epoch, _previous_block_root) do
-    state
-  end
-
-  defp update_current_epoch_justified(state, true, current_epoch, current_block_root) do
-    new_checkpoint = %SszTypes.Checkpoint{
-      epoch: current_epoch,
-      root: current_block_root
-    }
-
-    bits =
-      state.justification_bits
-      |> BitVector.new(4)
-      |> BitVector.set(0)
-      |> to_byte()
-
-    %BeaconState{
-      state
-      | current_justified_checkpoint: new_checkpoint,
-        justification_bits: bits
-    }
-  end
-
-  defp update_current_epoch_justified(state, false, _current_epoch, _current_block_root) do
-    state
+      %{state | current_justified_checkpoint: new_checkpoint, justification_bits: bits}
+      |> then(&{:ok, &1})
+    end
   end
 
   defp update_checkpoint_finalization(
@@ -497,7 +439,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       |> BitVector.new(4)
       |> BitVector.all?(range)
 
-    if bits_set && old_justified_checkpoint.epoch + offset == current_epoch do
+    if bits_set and old_justified_checkpoint.epoch + offset == current_epoch do
       %BeaconState{state | finalized_checkpoint: old_justified_checkpoint}
     else
       state

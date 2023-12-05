@@ -27,6 +27,47 @@ message UnsubscribeFromTopic {
     string name = 1;
 }
 
+message AddPeerGossip {}
+message RemovePeerGossip {}
+
+message Join {
+    // topic that was joined
+    string topic = 1;
+}
+
+message Leave {
+    // topic that was abandoned
+    string topic = 1;
+}
+
+message Graft {
+    string topic = 1;
+}
+
+message Prune {
+    string topic = 1;
+}
+
+message ValidateMessageGossip {
+    string topic = 1;
+}
+
+message DeliverMessage {
+    string topic = 1;
+}
+
+message UnDeliverableMessage {
+    string topic = 1;
+}
+
+message RejectMessage {
+    string topic = 1;
+}
+
+message DuplicateMessage {
+    string topic = 1;
+}
+
 message AddPeer {
     bytes id = 1;
     repeated string addrs = 2;
@@ -117,11 +158,28 @@ message Result {
     }
 }
 
+message Tracer {
+    oneof t {
+        Join joined = 1;
+        Leave left = 2;
+        Graft grafted = 3;
+        Prune pruned = 4;
+        ValidateMessageGossip validate_message = 5;
+        DeliverMessage deliver_message = 6;
+        UnDeliverableMessage un_deliverable_message = 7;
+        RejectMessage reject_message = 8;
+        DuplicateMessage duplicate_message = 9;
+        AddPeerGossip add_peer = 10;
+        RemovePeerGossip remove_peer = 11;
+    }
+}
+
 message Notification {
     oneof n {
         GossipSub gossip = 1;
         Request request = 2;
         NewPeer new_peer = 3;
         Result result = 4;
+        Tracer tracer = 5;
     }
 }
