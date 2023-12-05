@@ -12,7 +12,7 @@ defmodule LightClientTestRunner do
   @disabled_handlers [
     # "single_merkle_proof",
     "sync",
-    "update_ranking",
+    "update_ranking"
   ]
 
   @impl TestRunner
@@ -39,13 +39,16 @@ defmodule LightClientTestRunner do
 
   defp handle("single_merkle_proof", leaf, leaf_index, branch, object) do
     object_root = Ssz.hash_tree_root!(object)
-    res = Predicates.is_valid_merkle_branch?(
-      leaf,
-      branch,
-      Constants.deposit_contract_tree_depth() + 1,
-      leaf_index,
-      object_root
-    )
+
+    res =
+      Predicates.is_valid_merkle_branch?(
+        leaf,
+        branch,
+        Constants.deposit_contract_tree_depth() + 1,
+        leaf_index,
+        object_root
+      )
+
     assert Diff.diff(true, res) == :unchanged
   end
 end
