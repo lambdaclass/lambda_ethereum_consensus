@@ -1,8 +1,7 @@
 defmodule LambdaEthereumConsensus.Libp2pPort do
   @moduledoc """
   A GenServer that allows other elixir processes to send and receive commands to/from
-  the LibP2P server in Go. For now, it only supports subscribing and unsubscribing from
-  topics.
+  the LibP2P server in Go.
 
   Requests are generated with an ID, which is returned when calling. Those IDs appear
   in the responses that might be listened to by other processes.
@@ -26,6 +25,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     SendResponse,
     SetHandler,
     SubscribeToTopic,
+    Tracer,
     UnsubscribeFromTopic,
     ValidateMessage
   }
@@ -310,6 +310,68 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     send(pid, {:response, result})
   end
 
+  defp handle_notification(%Tracer{t: {:add_peer, %{}}}, _state) do
+    :telemetry.execute([:network, :pubsub_peers], %{}, %{
+      result: "add"
+    })
+  end
+
+  defp handle_notification(%Tracer{t: {:remove_peer, %{}}}, _state) do
+    :telemetry.execute([:network, :pubsub_peers], %{}, %{
+      result: "remove"
+    })
+  end
+
+  defp handle_notification(%Tracer{t: {:joined, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topic_active], %{active: 1}, %{
+      topic: get_topic_name(topic)
+    })
+  end
+
+  defp handle_notification(%Tracer{t: {:left, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topic_active], %{active: -1}, %{
+      topic: get_topic_name(topic)
+    })
+  end
+
+  defp handle_notification(%Tracer{t: {:grafted, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_graft], %{}, %{topic: get_topic_name(topic)})
+  end
+
+  defp handle_notification(%Tracer{t: {:pruned, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_prune], %{}, %{topic: get_topic_name(topic)})
+  end
+
+  defp handle_notification(%Tracer{t: {:deliver_message, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_deliver_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
+  end
+
+  defp handle_notification(%Tracer{t: {:duplicate_message, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_duplicate_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
+  end
+
+  defp handle_notification(%Tracer{t: {:reject_message, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_reject_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
+  end
+
+  defp handle_notification(%Tracer{t: {:un_deliverable_message, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_un_deliverable_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
+  end
+
+  defp handle_notification(%Tracer{t: {:validate_message, %{topic: topic}}}, _state) do
+    :telemetry.execute([:network, :pubsub_topics_validate_message], %{}, %{
+      topic: get_topic_name(topic)
+    })
+  end
+
   defp parse_args(args) do
     args
     |> Keyword.validate!(@default_args)
@@ -337,6 +399,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     receive do
       {:response, {res, %ResultMessage{message: []}}} -> res
       {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()
+    end
+  end
+
+  defp get_topic_name(topic) do
+    case topic |> String.split("/") |> Enum.fetch(3) do
+      {:ok, name} -> name
+      :error -> topic
     end
   end
 end

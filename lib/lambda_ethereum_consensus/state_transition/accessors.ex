@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Math, Misc, Predicates}
+  alias LambdaEthereumConsensus.Utils
   alias SszTypes.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
   @doc """
@@ -119,7 +120,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the current epoch.
   """
   @spec get_current_epoch(BeaconState.t()) :: SszTypes.epoch()
-  def get_current_epoch(%BeaconState{slot: slot} = _state) do
+  def get_current_epoch(%BeaconState{slot: slot}) do
     Misc.compute_epoch_at_slot(slot)
   end
 
@@ -250,16 +251,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_committee_count_per_slot(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
   def get_committee_count_per_slot(%BeaconState{} = state, epoch) do
-    active_validators_count = length(get_active_validator_indices(state, epoch))
-
-    committee_size =
-      active_validators_count
-      |> Kernel.div(ChainSpec.get("SLOTS_PER_EPOCH"))
-      |> Kernel.div(ChainSpec.get("TARGET_COMMITTEE_SIZE"))
-
-    [ChainSpec.get("MAX_COMMITTEES_PER_SLOT"), committee_size]
-    |> Enum.min()
-    |> (&max(1, &1)).()
+    get_active_validator_indices(state, epoch)
+    |> length()
+    |> div(ChainSpec.get("SLOTS_PER_EPOCH"))
+    |> div(ChainSpec.get("TARGET_COMMITTEE_SIZE"))
+    |> min(ChainSpec.get("MAX_COMMITTEES_PER_SLOT"))
+    |> max(1)
   end
 
   @doc """
@@ -318,6 +315,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         ) ::
           {:ok, list(SszTypes.uint64())} | {:error, binary()}
   def get_attestation_participation_flag_indices(state, data, inclusion_delay) do
+    with :ok <- check_valid_source(state, data),
+         {:ok, target_root} <-
+           get_block_root(state, data.target.epoch) |> Utils.map_err("invalid target"),
+         {:ok, head_root} <-
+           get_block_root_at_slot(state, data.slot) |> Utils.map_err("invalid head") do
+      is_matching_target = data.target.root == target_root
+      is_matching_head = is_matching_target and data.beacon_block_root == head_root
+
+      source_indices = compute_source_indices(inclusion_delay)
+      target_indices = compute_target_indices(is_matching_target, inclusion_delay)
+      head_indices = compute_head_indices(is_matching_head, inclusion_delay)
+
+      {:ok, Enum.concat([source_indices, target_indices, head_indices])}
+    end
+  end
+
+  defp check_valid_source(state, data) do
     justified_checkpoint =
       if data.target.epoch == get_current_epoch(state) do
         state.current_justified_checkpoint
@@ -325,55 +339,32 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         state.previous_justified_checkpoint
       end
 
-    is_matching_source = data.source == justified_checkpoint
-
-    case {get_block_root(state, data.target.epoch), get_block_root_at_slot(state, data.slot)} do
-      {{:ok, block_root}, {:ok, block_root_at_slot}} ->
-        if is_matching_source do
-          is_matching_target = is_matching_source && data.target.root == block_root
-          source_indices = compute_source_indices(data, justified_checkpoint, inclusion_delay)
-
-          target_indices =
-            compute_target_indices(data, block_root, inclusion_delay, is_matching_source)
-
-          head_indices =
-            compute_head_indices(data, block_root_at_slot, inclusion_delay, is_matching_target)
-
-          {:ok, source_indices ++ target_indices ++ head_indices}
-        else
-          {:error, "Attestation source does not match justified checkpoint"}
-        end
-
-      _ ->
-        {:error, "Failed to get block roots"}
+    if data.source == justified_checkpoint do
+      :ok
+    else
+      {:error, "invalid source"}
     end
   end
 
-  defp compute_source_indices(data, justified_checkpoint, inclusion_delay) do
-    if data.source == justified_checkpoint &&
-         inclusion_delay <= Math.integer_squareroot(ChainSpec.get("SLOTS_PER_EPOCH")) do
-      [Constants.timely_source_flag_index()]
-    else
-      []
-    end
+  defp compute_source_indices(inclusion_delay) do
+    max_delay = ChainSpec.get("SLOTS_PER_EPOCH") |> Math.integer_squareroot()
+    if inclusion_delay <= max_delay, do: [Constants.timely_source_flag_index()], else: []
   end
 
-  defp compute_target_indices(data, block_root, inclusion_delay, is_matching_source) do
-    if is_matching_source && data.target.root == block_root &&
-         inclusion_delay <= ChainSpec.get("SLOTS_PER_EPOCH") do
-      [Constants.timely_target_flag_index()]
-    else
-      []
-    end
+  defp compute_target_indices(is_matching_target, inclusion_delay) do
+    max_delay = ChainSpec.get("SLOTS_PER_EPOCH")
+
+    if is_matching_target and inclusion_delay <= max_delay,
+      do: [Constants.timely_target_flag_index()],
+      else: []
   end
 
-  defp compute_head_indices(data, block_root_at_slot, inclusion_delay, is_matching_target) do
-    if is_matching_target && data.beacon_block_root == block_root_at_slot &&
-         inclusion_delay == ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") do
-      [Constants.timely_head_flag_index()]
-    else
-      []
-    end
+  defp compute_head_indices(is_matching_head, inclusion_delay) do
+    min_inclusion_delay = ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY")
+
+    if is_matching_head and inclusion_delay == min_inclusion_delay,
+      do: [Constants.timely_head_flag_index()],
+      else: []
   end
 
   @doc """
@@ -382,8 +373,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_block_root_at_slot(BeaconState.t(), SszTypes.slot()) ::
           {:ok, SszTypes.root()} | {:error, binary()}
   def get_block_root_at_slot(state, slot) do
-    if slot < state.slot and state.slot <= slot + ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT") do
-      root = Enum.at(state.block_roots, rem(slot, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")))
+    slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
+
+    if slot < state.slot and state.slot <= slot + slots_per_historical_root do
+      root = Enum.at(state.block_roots, rem(slot, slots_per_historical_root))
       {:ok, root}
     else
       {:error, "Block root not available"}
