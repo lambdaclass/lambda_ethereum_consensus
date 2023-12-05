@@ -87,6 +87,8 @@ defmodule SanityTestRunner do
     # "slots_1",
     # "slots_2",
     # "over_epoch_boundary",
+    # NOTE: this is too long to run in CI
+    # TODO: optimize
     "historical_accumulator"
     # "double_empty_epoch"
   ]
