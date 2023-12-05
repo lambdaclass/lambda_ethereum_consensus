@@ -120,7 +120,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the current epoch.
   """
   @spec get_current_epoch(BeaconState.t()) :: SszTypes.epoch()
-  def get_current_epoch(%BeaconState{slot: slot} = _state) do
+  def get_current_epoch(%BeaconState{slot: slot}) do
     Misc.compute_epoch_at_slot(slot)
   end
 
@@ -373,8 +373,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_block_root_at_slot(BeaconState.t(), SszTypes.slot()) ::
           {:ok, SszTypes.root()} | {:error, binary()}
   def get_block_root_at_slot(state, slot) do
-    if slot < state.slot and state.slot <= slot + ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT") do
-      root = Enum.at(state.block_roots, rem(slot, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")))
+    slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
+
+    if slot < state.slot and state.slot <= slot + slots_per_historical_root do
+      root = Enum.at(state.block_roots, rem(slot, slots_per_historical_root))
       {:ok, root}
     else
       {:error, "Block root not available"}

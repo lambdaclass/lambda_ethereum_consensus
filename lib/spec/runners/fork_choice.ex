@@ -207,8 +207,4 @@ defmodule ForkChoiceTestRunner do
 
     {:ok, store}
   end
-
-  defp apply_step(_, _, _) do
-    {:error, "unknown step"}
-  end
 end
