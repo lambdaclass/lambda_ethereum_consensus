@@ -40,22 +40,22 @@ defmodule SanityTestRunner do
     # "historical_batch",
     # "inactivity_scores_full_participation_leaking",
     # "inactivity_scores_leaking",
-    "invalid_all_zeroed_sig",
-    "invalid_duplicate_attester_slashing_same_block",
-    "invalid_duplicate_bls_changes_same_block",
+    # "invalid_all_zeroed_sig",
+    # "invalid_duplicate_attester_slashing_same_block",
+    # "invalid_duplicate_bls_changes_same_block",
     # "invalid_duplicate_deposit_same_block",
-    "invalid_duplicate_proposer_slashings_same_block",
-    "invalid_duplicate_validator_exit_same_block",
-    "invalid_incorrect_block_sig",
+    # "invalid_duplicate_proposer_slashings_same_block",
+    # "invalid_duplicate_validator_exit_same_block",
+    # "invalid_incorrect_block_sig",
     # "invalid_incorrect_proposer_index_sig_from_expected_proposer",
     # "invalid_incorrect_proposer_index_sig_from_proposer_index",
-    "invalid_incorrect_state_root",
+    # "invalid_incorrect_state_root",
     # "invalid_only_increase_deposit_count",
     # "invalid_parent_from_same_slot",
     # "invalid_prev_slot_block_transition",
     # "invalid_same_slot_block_transition",
-    "invalid_similar_proposer_slashings_same_block",
-    "invalid_two_bls_changes_of_different_addresses_same_validator_same_block",
+    # "invalid_similar_proposer_slashings_same_block",
+    # "invalid_two_bls_changes_of_different_addresses_same_validator_same_block",
     # "invalid_withdrawal_fail_second_block_payload_isnt_compatible",
     # "is_execution_enabled_false",
     # "many_partial_withdrawals_in_epoch_transition",
@@ -69,7 +69,7 @@ defmodule SanityTestRunner do
     # "proposer_slashing",
     # "skipped_slots",
     # "slash_and_exit_diff_index",
-    "slash_and_exit_same_index"
+    # "slash_and_exit_same_index"
     # "sync_committee_committee__empty",
     # "sync_committee_committee__full",
     # "sync_committee_committee__half",
@@ -87,8 +87,8 @@ defmodule SanityTestRunner do
     # "slots_1",
     # "slots_2",
     # "over_epoch_boundary",
-    "historical_accumulator",
-    "double_empty_epoch"
+    "historical_accumulator"
+    # "double_empty_epoch"
   ]
 
   @impl TestRunner
