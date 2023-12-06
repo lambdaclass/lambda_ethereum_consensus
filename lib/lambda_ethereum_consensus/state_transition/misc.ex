@@ -3,11 +3,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Misc functions
   """
 
-  alias LambdaEthereumConsensus.SszEx
-  alias SszTypes.BeaconState
   import Bitwise
-  alias SszTypes.BeaconState
 
+  alias LambdaEthereumConsensus.SszEx
   alias SszTypes.BeaconState
 
   @doc """
@@ -132,31 +130,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
   @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
           {:ok, SszTypes.validator_index()} | {:error, binary()}
-  def compute_proposer_index(state, indices, seed) do
-    if length(indices) <= 0 do
-      {:error, "Empty indices"}
-    else
-      {:ok, compute_proposer_index(state, indices, seed, 0)}
-    end
-  end
+  def compute_proposer_index(_state, [], _seed), do: {:error, "Empty indices"}
 
-  defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
+  def compute_proposer_index(state, indices, seed) do
     max_random_byte = 2 ** 8 - 1
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
-
     total = length(indices)
-    {:ok, index} = compute_shuffled_index(rem(i, total), total, seed)
-    candidate_index = Enum.at(indices, index)
-    random_byte = SszEx.hash(seed <> uint_to_bytes4(div(i, 32)))
-    <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
 
-    effective_balance = Enum.at(state.validators, candidate_index).effective_balance
+    Stream.iterate(0, &(&1 + 1))
+    |> Stream.map(fn i ->
+      {:ok, index} = compute_shuffled_index(rem(i, total), total, seed)
+      candidate_index = Enum.at(indices, index)
 
-    if effective_balance * max_random_byte >= max_effective_balance * byte do
-      candidate_index
-    else
-      compute_proposer_index(state, indices, seed, i + 1)
-    end
+      <<_::binary-size(rem(i, 32)), random_byte, _::binary>> =
+        SszEx.hash(seed <> uint_to_bytes4(div(i, 32)))
+
+      effective_balance = Enum.at(state.validators, candidate_index).effective_balance
+
+      {effective_balance, random_byte, candidate_index}
+    end)
+    |> Stream.filter(fn {effective_balance, random_byte, _} ->
+      effective_balance * max_random_byte >= max_effective_balance * random_byte
+    end)
+    |> Enum.take(1)
+    |> then(fn [{_, _, candidate_index}] -> {:ok, candidate_index} end)
   end
 
   @doc """
