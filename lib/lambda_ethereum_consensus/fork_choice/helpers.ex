@@ -65,7 +65,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       |> Enum.sort(:desc)
       |> then(fn
         [] -> {:halt, head}
-        c -> {:cont, Enum.max_by(c, fn root -> get_weight(store, root) end)}
+        c -> {:cont, Enum.max_by(c, &get_weight(store, &1))}
       end)
     end)
     |> then(&{:ok, &1})
