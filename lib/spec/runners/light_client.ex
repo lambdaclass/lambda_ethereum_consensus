@@ -39,13 +39,14 @@ defmodule LightClientTestRunner do
       |> SpecTestUtils.sanitize_yaml()
 
     res =
-      Predicates.generate_merkle_proof(
+      Predicates.is_valid_merkle_branch?(
         leaf,
         branch,
         Constants.deposit_contract_tree_depth() + 1,
-        leaf_index
+        leaf_index,
+        object_root
       )
 
-    assert object_root == res
+    assert true == res
   end
 end
