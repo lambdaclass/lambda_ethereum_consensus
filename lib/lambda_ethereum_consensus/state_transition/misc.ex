@@ -59,7 +59,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       flip = rem(pivot + index_count - current_index, index_count)
       position = max(current_index, flip)
 
-      position_div_256 = position |> div(256) |> uint_to_bytes4()
+      position_div_256 = position |> div(256) |> uint_to_bytes(32)
 
       source = SszEx.hash(seed <> <<round>> <> position_div_256)
 
@@ -129,7 +129,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       candidate_index = Enum.at(indices, index)
 
       <<_::binary-size(rem(i, 32)), random_byte, _::binary>> =
-        SszEx.hash(seed <> uint_to_bytes4(div(i, 32)))
+        SszEx.hash(seed <> uint_to_bytes(div(i, 32), 64))
 
       effective_balance = Enum.at(state.validators, candidate_index).effective_balance
 
@@ -163,10 +163,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     first_8_bytes
   end
 
-  @spec uint_to_bytes4(integer()) :: SszTypes.bytes4()
-  def uint_to_bytes4(value) do
-    # Converts an unsigned integer value to a bytes 4 value
-    <<value::unsigned-integer-little-size(32)>>
+  @spec uint_to_bytes(non_neg_integer(), 8 | 32 | 64) :: binary()
+  def uint_to_bytes(value, size) do
+    # Converts an unsigned integer value to a bytes value
+    <<value::unsigned-integer-little-size(size)>>
   end
 
   @spec uint64_to_bytes(SszTypes.uint64()) :: <<_::64>>
