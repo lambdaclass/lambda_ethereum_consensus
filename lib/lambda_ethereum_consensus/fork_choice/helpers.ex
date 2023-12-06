@@ -28,6 +28,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
          head_root: head_root,
          head_slot: signed_head_block.message.slot
        }}
+    end
   end
 
   @spec get_forkchoice_store(BeaconState.t(), BeaconBlock.t()) :: {:ok, Store.t()} | {:error, any}
