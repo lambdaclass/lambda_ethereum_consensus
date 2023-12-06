@@ -61,7 +61,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       children =
         blocks
         |> Stream.filter(fn {_, block} -> block.parent_root == head end)
-        |> Enum.map(fn {root, _} -> root end)
+        |> Stream.map(fn {root, _} -> root end)
+        # Ties broken by favoring block with lexicographically higher root
+        |> Enum.sort(:desc)
 
       if Enum.empty?(children) do
         {:halt, head}
