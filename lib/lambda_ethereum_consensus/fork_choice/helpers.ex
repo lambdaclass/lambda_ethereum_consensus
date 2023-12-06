@@ -58,18 +58,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
     Stream.cycle([nil])
     |> Enum.reduce_while(head, fn nil, head ->
-      children =
-        blocks
-        |> Stream.filter(fn {_, block} -> block.parent_root == head end)
-        |> Stream.map(fn {root, _} -> root end)
-        # Ties broken by favoring block with lexicographically higher root
-        |> Enum.sort(:desc)
-
-      if Enum.empty?(children) do
-        {:halt, head}
-      else
-        {:cont, Enum.max_by(children, fn root -> get_weight(store, root) end)}
-      end
+      blocks
+      |> Stream.filter(fn {_, block} -> block.parent_root == head end)
+      |> Stream.map(fn {root, _} -> root end)
+      # Ties broken by favoring block with lexicographically higher root
+      |> Enum.sort(:desc)
+      |> then(fn
+        [] -> {:halt, head}
+        c -> {:cont, Enum.max_by(c, fn root -> get_weight(store, root) end)}
+      end)
     end)
     |> then(&{:ok, &1})
   end
