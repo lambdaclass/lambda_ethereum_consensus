@@ -21,33 +21,31 @@ defmodule LightClientTestRunner do
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
+    handle(testcase.handler, testcase)
+  end
+
+  defp handle("single_merkle_proof", testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    object =
+    object_root =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/object.ssz_snappy",
         String.to_existing_atom("Elixir.SszTypes." <> testcase.suite)
       )
+      |> Ssz.hash_tree_root!()
 
     %{leaf: leaf, leaf_index: leaf_index, branch: branch} =
       YamlElixir.read_from_file!(case_dir <> "/proof.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    handle(testcase.handler, leaf, leaf_index, branch, object)
-  end
-
-  defp handle("single_merkle_proof", leaf, leaf_index, branch, object) do
-    object_root = Ssz.hash_tree_root!(object)
-
     res =
-      Predicates.is_valid_merkle_branch?(
+      Predicates.generate_merkle_proof(
         leaf,
         branch,
         Constants.deposit_contract_tree_depth() + 1,
-        leaf_index,
-        object_root
+        leaf_index
       )
 
-    assert true == res
+    assert object_root == res
   end
 end
