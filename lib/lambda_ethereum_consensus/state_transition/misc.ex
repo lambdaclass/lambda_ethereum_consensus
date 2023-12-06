@@ -145,8 +145,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
     total = length(indices)
-    {:ok, i} = compute_shuffled_index(rem(i, total), total, seed)
-    candidate_index = Enum.at(indices, i)
+    {:ok, index} = compute_shuffled_index(rem(i, total), total, seed)
+    candidate_index = Enum.at(indices, index)
     random_byte = SszEx.hash(seed <> uint_to_bytes4(div(i, 32)))
     <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
 
