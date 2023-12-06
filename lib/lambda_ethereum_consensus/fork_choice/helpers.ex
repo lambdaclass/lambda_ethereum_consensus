@@ -8,10 +8,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias SszTypes.Checkpoint
   alias SszTypes.Store
 
-  @spec current_status_message() ::
+  @spec current_status_message(Store.t()) ::
           {:ok, SszTypes.StatusMessage.t()} | {:error, any}
-  def current_status_message do
-    with head_root <- LambdaEthereumConsensus.ForkChoice.Store.get_head(),
+  def current_status_message(store) do
+    with {:ok, head_root} <- get_head(store),
          {:ok, state} <- LambdaEthereumConsensus.Store.StateStore.get_state(head_root),
          {:ok, signed_head_block} <-
            LambdaEthereumConsensus.Store.BlockStore.get_block(head_root),

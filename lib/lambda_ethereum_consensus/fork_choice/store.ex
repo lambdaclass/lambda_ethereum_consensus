@@ -36,9 +36,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
-  @spec get_head_root() :: SszTypes.root()
-  def get_head_root do
-    get_head()
+  @spec get_current_status_message() :: {:ok, SszTypes.StatusMessage.t()} | {:error, any}
+  def get_current_status_message do
+    get_current_status_message_from_store()
   end
 
   @spec has_block?(SszTypes.root()) :: boolean()
@@ -95,8 +95,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_call({:get_head}, _from, state) do
-    {:reply, Helpers.get_head(state)}
+  def handle_call({:get_current_status_message}, _from, state) do
+    {:reply, Helpers.current_status_message(state)}
   end
 
   def handle_call({:get_block, block_root}, _from, state) do
@@ -195,9 +195,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs}, @default_timeout)
   end
 
-  @spec get_head() :: SszTypes.root()
-  def get_head do
-    GenServer.call(__MODULE__, {:get_head}, @default_timeout)
+  @spec get_current_status_message_from_store() :: SszTypes.root()
+  def get_current_status_message_from_store do
+    GenServer.call(__MODULE__, {:get_current_status_message}, @default_timeout)
   end
 
   @spec on_tick_now(Store.t()) :: Store.t()

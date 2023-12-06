@@ -28,9 +28,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   @spec handle_req(String.t(), String.t(), binary()) ::
           :ok | :not_implemented | {:error, binary()}
   defp handle_req("status/1/ssz_snappy", message_id, message) do
-    with {:ok, current_status} <-
-           LambdaEthereumConsensus.ForkChoice.Helpers.current_status_message(),
-         <<84, snappy_status::binary>> <- message,
+    with <<84, snappy_status::binary>> <- message,
+         {:ok, current_status} <-
+           LambdaEthereumConsensus.ForkChoice.Store.current_status_message(),
          {:ok, ssz_status} <- Snappy.decompress(snappy_status),
          {:ok, status} <- Ssz.from_ssz(ssz_status, SszTypes.StatusMessage),
          status
