@@ -95,7 +95,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_call({:get_current_status_message}, _from, state) do
+  def handle_call(:get_current_status_message, _from, state) do
     {:reply, Helpers.current_status_message(state)}
   end
 
@@ -197,7 +197,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @spec get_current_status_message_from_store() :: SszTypes.root()
   def get_current_status_message_from_store do
-    GenServer.call(__MODULE__, {:get_current_status_message}, @default_timeout)
+    GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
   end
 
   @spec on_tick_now(Store.t()) :: Store.t()

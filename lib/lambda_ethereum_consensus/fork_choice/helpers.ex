@@ -3,6 +3,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     Utility functions for the fork choice.
   """
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
+  alias LambdaEthereumConsensus.Store.{StateStore, BlockStore}
+  alias LambdaEthereumConsensus.ForkChoice
   alias SszTypes.BeaconBlock
   alias SszTypes.BeaconState
   alias SszTypes.Checkpoint
@@ -12,11 +14,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           {:ok, SszTypes.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do
     with {:ok, head_root} <- get_head(store),
-         {:ok, state} <- LambdaEthereumConsensus.Store.StateStore.get_state(head_root),
+         {:ok, state} <- StateStore.get_state(head_root),
          {:ok, signed_head_block} <-
-           LambdaEthereumConsensus.Store.BlockStore.get_block(head_root),
+           BlockStore.get_block(head_root),
          {:ok, finalized_checkpoint} <-
-           LambdaEthereumConsensus.ForkChoice.Store.get_finalized_checkpoint() do
+           ForkChoice.Store.get_finalized_checkpoint() do
       {:ok,
        %SszTypes.StatusMessage{
          fork_digest:
@@ -26,9 +28,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
          head_root: head_root,
          head_slot: signed_head_block.message.slot
        }}
-    else
-      {:error, msg} -> {:error, msg}
-    end
   end
 
   @spec get_forkchoice_store(BeaconState.t(), BeaconBlock.t()) :: {:ok, Store.t()} | {:error, any}
