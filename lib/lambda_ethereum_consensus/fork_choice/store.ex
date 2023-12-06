@@ -38,7 +38,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @spec get_current_status_message() :: {:ok, SszTypes.StatusMessage.t()} | {:error, any}
   def get_current_status_message do
-    get_current_status_message_from_store()
+    GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
   end
 
   @spec has_block?(SszTypes.root()) :: boolean()
@@ -193,11 +193,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   @spec get_store_attrs([atom()]) :: [any()]
   defp get_store_attrs(attrs) do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs}, @default_timeout)
-  end
-
-  @spec get_current_status_message_from_store() :: SszTypes.root()
-  def get_current_status_message_from_store do
-    GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
   end
 
   @spec on_tick_now(Store.t()) :: Store.t()
