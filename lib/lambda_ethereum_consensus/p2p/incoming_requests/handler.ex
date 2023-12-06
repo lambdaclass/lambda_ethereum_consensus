@@ -30,7 +30,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp handle_req("status/1/ssz_snappy", message_id, message) do
     with <<84, snappy_status::binary>> <- message,
          {:ok, current_status} <-
-           LambdaEthereumConsensus.ForkChoice.Store.current_status_message(),
+           LambdaEthereumConsensus.ForkChoice.Store.get_current_status_message(),
          {:ok, ssz_status} <- Snappy.decompress(snappy_status),
          {:ok, status} <- Ssz.from_ssz(ssz_status, SszTypes.StatusMessage),
          status
