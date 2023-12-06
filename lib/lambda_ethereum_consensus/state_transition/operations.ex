@@ -191,7 +191,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
     total_active_increments = total_active_balance |> div(effective_balance_increment)
 
-    numerator = effective_balance_increment * Constants.base_reward_factor()
+    numerator = effective_balance_increment * ChainSpec.get("BASE_REWARD_FACTOR")
     denominator = Math.integer_squareroot(total_active_balance)
     base_reward_per_increment = div(numerator, denominator)
     total_base_rewards = base_reward_per_increment * total_active_increments

@@ -8,6 +8,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   alias LambdaEthereumConsensus.SszEx
   alias SszTypes.BeaconState
 
+  @max_random_byte 2 ** 8 - 1
+
   @doc """
   Returns the Unix timestamp at the start of the given slot
   """
@@ -118,7 +120,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   def compute_proposer_index(_state, [], _seed), do: {:error, "Empty indices"}
 
   def compute_proposer_index(state, indices, seed) do
-    max_random_byte = 2 ** 8 - 1
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
     total = length(indices)
 
@@ -135,7 +136,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       {effective_balance, random_byte, candidate_index}
     end)
     |> Stream.filter(fn {effective_balance, random_byte, _} ->
-      effective_balance * max_random_byte >= max_effective_balance * random_byte
+      effective_balance * @max_random_byte >= max_effective_balance * random_byte
     end)
     |> Enum.take(1)
     |> then(fn [{_, _, candidate_index}] -> {:ok, candidate_index} end)
