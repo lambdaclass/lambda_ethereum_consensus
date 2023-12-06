@@ -172,7 +172,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
       # Eagerly compute unrealized justification and finality
       |> compute_pulled_up_tip(block_root)
-      |> then(&{:ok, &1})
     end
   end
 
@@ -216,27 +215,29 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     end)
   end
 
+  # Pull up the post-state of the block to the next epoch boundary
   def compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
-    # Pull up the post-state of the block to the next epoch boundary
-    # TODO: handle possible errors
-    {:ok, state} = EpochProcessing.process_justification_and_finalization(states[block_root])
+    result = EpochProcessing.process_justification_and_finalization(states[block_root])
 
-    block_epoch = Misc.compute_epoch_at_slot(store.blocks[block_root].slot)
-    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+    with {:ok, state} <- result do
+      block_epoch = Misc.compute_epoch_at_slot(store.blocks[block_root].slot)
+      current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
 
-    unrealized_justifications =
-      Map.put(store.unrealized_justifications, block_root, state.current_justified_checkpoint)
+      unrealized_justifications =
+        Map.put(store.unrealized_justifications, block_root, state.current_justified_checkpoint)
 
-    %Store{store | unrealized_justifications: unrealized_justifications}
-    |> update_unrealized_checkpoints(
-      state.current_justified_checkpoint,
-      state.finalized_checkpoint
-    )
-    |> if_then_update(
-      block_epoch < current_epoch,
-      # If the block is from a prior epoch, apply the realized values
-      &update_checkpoints(&1, state.current_justified_checkpoint, state.finalized_checkpoint)
-    )
+      %Store{store | unrealized_justifications: unrealized_justifications}
+      |> update_unrealized_checkpoints(
+        state.current_justified_checkpoint,
+        state.finalized_checkpoint
+      )
+      |> if_then_update(
+        block_epoch < current_epoch,
+        # If the block is from a prior epoch, apply the realized values
+        &update_checkpoints(&1, state.current_justified_checkpoint, state.finalized_checkpoint)
+      )
+      |> then(&{:ok, &1})
+    end
   end
 
   # Update unrealized checkpoints in store if necessary
