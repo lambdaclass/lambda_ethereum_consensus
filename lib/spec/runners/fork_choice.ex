@@ -37,38 +37,38 @@ defmodule ForkChoiceTestRunner do
 
   @disabled_ex_ante_cases [
     # "ex_ante_attestations_is_greater_than_proposer_boost_with_boost",
-    "ex_ante_sandwich_with_boost_not_sufficient",
-    "ex_ante_sandwich_with_honest_attestation",
-    "ex_ante_sandwich_without_attestations"
+    # "ex_ante_sandwich_with_boost_not_sufficient",
+    # "ex_ante_sandwich_with_honest_attestation",
+    # "ex_ante_sandwich_without_attestations",
     # "ex_ante_vanilla"
   ]
 
   @disabled_get_head_cases [
     # "chain_no_attestations",
-    "discard_equivocations_on_attester_slashing",
-    "discard_equivocations_slashed_validator_censoring",
+    # "discard_equivocations_on_attester_slashing",
+    # "discard_equivocations_slashed_validator_censoring",
     # "filtered_block_tree",
     # "genesis",
-    "proposer_boost_correct_head",
-    "shorter_chain_but_heavier_weight",
-    "split_tie_breaker_no_attestations",
+    # "proposer_boost_correct_head",
+    # "shorter_chain_but_heavier_weight",
+    # "split_tie_breaker_no_attestations",
     # "voting_source_beyond_two_epoch",
-    "voting_source_within_two_epoch"
+    # "voting_source_within_two_epoch"
   ]
 
   @disabled_reorg_cases [
     # "delayed_justification_current_epoch",
     # "delayed_justification_previous_epoch",
-    "include_votes_another_empty_chain_with_enough_ffg_votes_current_epoch",
-    "include_votes_another_empty_chain_with_enough_ffg_votes_previous_epoch",
-    "include_votes_another_empty_chain_without_enough_ffg_votes_current_epoch",
-    "simple_attempted_reorg_delayed_justification_current_epoch",
-    "simple_attempted_reorg_delayed_justification_previous_epoch",
-    "simple_attempted_reorg_without_enough_ffg_votes"
+    # "include_votes_another_empty_chain_with_enough_ffg_votes_current_epoch",
+    # "include_votes_another_empty_chain_with_enough_ffg_votes_previous_epoch",
+    # "include_votes_another_empty_chain_without_enough_ffg_votes_current_epoch",
+    # "simple_attempted_reorg_delayed_justification_current_epoch",
+    # "simple_attempted_reorg_delayed_justification_previous_epoch",
+    # "simple_attempted_reorg_without_enough_ffg_votes"
   ]
 
   @disabled_withholding_cases [
-    "withholding_attack"
+    # "withholding_attack",
     # "withholding_attack_unviable_honest_chain"
   ]
 
@@ -81,9 +81,7 @@ defmodule ForkChoiceTestRunner do
       Enum.member?(@disabled_withholding_cases, testcase)
   end
 
-  def skip?(_testcase) do
-    true
-  end
+  def skip?(_testcase), do: true
 
   @impl TestRunner
   def run_test_case(testcase) do

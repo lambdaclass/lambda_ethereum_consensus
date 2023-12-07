@@ -336,7 +336,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     message = %Checkpoint{epoch: target.epoch, root: beacon_block_root}
 
     attesting_indices
-    |> Stream.filter(&MapSet.member?(store.equivocating_indices, &1))
+    |> Stream.reject(&MapSet.member?(store.equivocating_indices, &1))
     |> Stream.filter(&(not Map.has_key?(messages, &1) or target.epoch > messages[&1].epoch))
     |> Enum.reduce(messages, &Map.put(&2, &1, message))
     |> then(&{:ok, %Store{store | latest_messages: &1}})
