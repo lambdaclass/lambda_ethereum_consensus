@@ -854,21 +854,28 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp mismatched_aggregation_bits_length?(attestation, beacon_committee) do
-    length_of_bitstring(attestation.aggregation_bits) - 1 != length(beacon_committee)
+    length_of_bitlist(attestation.aggregation_bits) != length(beacon_committee)
   end
 
   defp valid_signature?(state, indexed_attestation) do
     Predicates.is_valid_indexed_attestation(state, indexed_attestation)
   end
 
-  defp length_of_bitstring(binary) when is_binary(binary) do
-    binary
-    |> :binary.bin_to_list()
-    |> Enum.reduce("", fn byte, acc ->
-      acc <> Integer.to_string(byte, 2)
-    end)
-    |> String.length()
+  defp length_of_bitlist(bitlist) when is_binary(bitlist) do
+    bit_size = bit_size(bitlist)
+    <<_::size(bit_size - 8), last_byte>> = bitlist
+    bit_size - leading_zeros(<<last_byte>>) - 1
   end
+
+  defp leading_zeros(<<1::1, _::7>>), do: 0
+  defp leading_zeros(<<0::1, 1::1, _::6>>), do: 1
+  defp leading_zeros(<<0::2, 1::1, _::5>>), do: 2
+  defp leading_zeros(<<0::3, 1::1, _::4>>), do: 3
+  defp leading_zeros(<<0::4, 1::1, _::3>>), do: 4
+  defp leading_zeros(<<0::5, 1::1, _::2>>), do: 5
+  defp leading_zeros(<<0::6, 1::1, _::1>>), do: 6
+  defp leading_zeros(<<0::7, 1::1>>), do: 7
+  defp leading_zeros(<<0::8>>), do: 8
 
   def process_bls_to_execution_change(state, signed_address_change) do
     address_change = signed_address_change.message
