@@ -644,11 +644,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, binary()}
-  def process_attestation(state, attestation) do
+  def process_attestation(state, %Attestation{data: data} = attestation) do
     # TODO: optimize (takes ~3s)
-    with :ok <- verify_attestation_for_process(state, attestation) do
+    with :ok <- check_valid_target_epoch(data, state),
+         :ok <- check_epoch_matches(data),
+         :ok <- check_valid_slot_range(data, state),
+         :ok <- check_committee_count(data, state),
+         {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
+         :ok <- check_matching_aggregation_bits_length(attestation, beacon_committee),
+         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation),
+         :ok <- check_valid_signature(state, indexed_attestation) do
       # TODO: optimize (takes ~1s)
-      process_attestation(state, attestation.data, attestation.aggregation_bits)
+      process_attestation(state, data, attestation.aggregation_bits)
     end
   end
 
@@ -740,34 +747,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp update_state(state, false, updated_epoch_participation),
     do: %{state | previous_epoch_participation: updated_epoch_participation}
 
-  def verify_attestation_for_process(state, %Attestation{data: data} = attestation) do
-    with {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
-         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
-      cond do
-        not valid_target_epoch?(data, state) ->
-          {:error, "Invalid target epoch"}
-
-        epoch_mismatch?(data) ->
-          {:error, "Epoch mismatch"}
-
-        not valid_slot_range?(data, state) ->
-          {:error, "Invalid slot range"}
-
-        exceeds_committee_count?(data, state) ->
-          {:error, "Index exceeds committee count"}
-
-        mismatched_aggregation_bits_length?(attestation, beacon_committee) ->
-          {:error, "Mismatched aggregation bits length"}
-
-        not valid_signature?(state, indexed_attestation) ->
-          {:error, "Invalid signature"}
-
-        true ->
-          :ok
-      end
-    end
-  end
-
   @doc """
   Provide randomness to the operation of the beacon chain.
   """
@@ -835,29 +814,56 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp valid_target_epoch?(data, state) do
-    data.target.epoch in [Accessors.get_previous_epoch(state), Accessors.get_current_epoch(state)]
+  defp check_valid_target_epoch(data, state) do
+    if data.target.epoch in [
+         Accessors.get_previous_epoch(state),
+         Accessors.get_current_epoch(state)
+       ] do
+      :ok
+    else
+      {:error, "Invalid target epoch"}
+    end
   end
 
-  defp epoch_mismatch?(data) do
-    data.target.epoch != Misc.compute_epoch_at_slot(data.slot)
+  defp check_epoch_matches(data) do
+    if data.target.epoch == Misc.compute_epoch_at_slot(data.slot) do
+      :ok
+    else
+      {:error, "Epoch mismatch"}
+    end
   end
 
-  defp valid_slot_range?(data, state) do
-    data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot or
-      state.slot <= data.slot + ChainSpec.get("SLOTS_PER_EPOCH")
+  defp check_valid_slot_range(data, state) do
+    if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot or
+         state.slot <= data.slot + ChainSpec.get("SLOTS_PER_EPOCH") do
+      :ok
+    else
+      {:error, "Invalid slot range"}
+    end
   end
 
-  defp exceeds_committee_count?(data, state) do
-    data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch)
+  defp check_committee_count(data, state) do
+    if data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch) do
+      {:error, "Index exceeds committee count"}
+    else
+      :ok
+    end
   end
 
-  defp mismatched_aggregation_bits_length?(attestation, beacon_committee) do
-    length_of_bitlist(attestation.aggregation_bits) != length(beacon_committee)
+  defp check_matching_aggregation_bits_length(attestation, beacon_committee) do
+    if length_of_bitlist(attestation.aggregation_bits) == length(beacon_committee) do
+      :ok
+    else
+      {:error, "Mismatched aggregation bits length"}
+    end
   end
 
-  defp valid_signature?(state, indexed_attestation) do
-    Predicates.is_valid_indexed_attestation(state, indexed_attestation)
+  defp check_valid_signature(state, indexed_attestation) do
+    if Predicates.is_valid_indexed_attestation(state, indexed_attestation) do
+      :ok
+    else
+      {:error, "Invalid signature"}
+    end
   end
 
   defp length_of_bitlist(bitlist) when is_binary(bitlist) do
