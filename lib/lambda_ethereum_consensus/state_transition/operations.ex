@@ -744,13 +744,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     with {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
          {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
       cond do
-        invalid_target_epoch?(data, state) ->
+        not valid_target_epoch?(data, state) ->
           {:error, "Invalid target epoch"}
 
         epoch_mismatch?(data) ->
           {:error, "Epoch mismatch"}
 
-        invalid_slot_range?(data, state) ->
+        not valid_slot_range?(data, state) ->
           {:error, "Invalid slot range"}
 
         exceeds_committee_count?(data, state) ->
@@ -835,18 +835,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp invalid_target_epoch?(data, state) do
-    data.target.epoch < Accessors.get_previous_epoch(state) ||
-      data.target.epoch > Accessors.get_current_epoch(state)
+  defp valid_target_epoch?(data, state) do
+    data.target.epoch in [Accessors.get_previous_epoch(state), Accessors.get_current_epoch(state)]
   end
 
   defp epoch_mismatch?(data) do
     data.target.epoch != Misc.compute_epoch_at_slot(data.slot)
   end
 
-  defp invalid_slot_range?(data, state) do
-    state.slot < data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") ||
-      state.slot > data.slot + ChainSpec.get("SLOTS_PER_EPOCH")
+  defp valid_slot_range?(data, state) do
+    data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot or
+      state.slot <= data.slot + ChainSpec.get("SLOTS_PER_EPOCH")
   end
 
   defp exceeds_committee_count?(data, state) do
