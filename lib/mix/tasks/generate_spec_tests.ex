@@ -10,21 +10,28 @@ defmodule Mix.Tasks.GenerateSpecTests do
   use Mix.Task
   require Logger
 
-  @configs ["mainnet", "minimal"]
-  @forks ["altair", "deneb", "phase0"]
+  @configs ["mainnet", "minimal", "general"]
+  @forks ["phase0", "altair", "bellatrix", "capella", "deneb"]
 
   @shortdoc "Generates tests for spec test files"
   @impl Mix.Task
   def run(_args) do
     {:ok, file_names} = File.ls(Path.join(["lib", "spec", "runners"]))
-    runners = Enum.map(file_names, fn file_name -> Path.basename(file_name, ".ex") end)
+    runners = Enum.map(file_names, &Path.basename(&1, ".ex"))
 
+    # Generate all tests for Capella fork
     for config <- @configs, runner <- runners do
       generate_test(config, "capella", runner)
     end
 
+    # Generate tests for all forks in general preset
     for fork <- @forks, runner <- runners do
       generate_test("general", fork, runner)
+    end
+
+    # Generate shuffling tests for all testcases
+    for config <- @configs, fork <- @forks do
+      generate_test(config, fork, "shuffling")
     end
 
     File.touch(Path.join(["test", "generated"]))
@@ -45,9 +52,9 @@ defmodule Mix.Tasks.GenerateSpecTests do
   end
 
   defp test_module(cases, config, fork, runner) do
-    r = Macro.camelize(runner)
     c = Macro.camelize(config)
     f = Macro.camelize(fork)
+    r = Macro.camelize(runner)
 
     module_name = "Elixir.#{c}.#{f}.#{r}Test" |> String.to_atom()
     runner_module = "Elixir.#{r}TestRunner" |> String.to_atom()
