@@ -434,21 +434,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_indexed_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, IndexedAttestation.t()} | {:error, binary()}
   def get_indexed_attestation(%BeaconState{} = state, attestation) do
-    case get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
-      {:ok, indices} ->
-        attesting_indices = indices
-        sorted_attesting_indices = Enum.sort(attesting_indices)
-
-        res = %IndexedAttestation{
-          attesting_indices: sorted_attesting_indices,
-          data: attestation.data,
-          signature: attestation.signature
-        }
-
-        {:ok, res}
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, indices} <-
+           get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
+      %IndexedAttestation{
+        attesting_indices: Enum.sort(indices),
+        data: attestation.data,
+        signature: attestation.signature
+      }
+      |> then(&{:ok, &1})
     end
   end
 
@@ -458,33 +451,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_attesting_indices(BeaconState.t(), SszTypes.AttestationData.t(), SszTypes.bitlist()) ::
           {:ok, MapSet.t()} | {:error, binary()}
   def get_attesting_indices(%BeaconState{} = state, data, bits) do
-    case get_beacon_committee(state, data.slot, data.index) do
-      {:ok, committee} ->
-        bit_list = bitstring_to_list(bits)
-
-        res =
-          committee
-          |> Stream.with_index()
-          |> Stream.filter(fn {_value, index} -> Enum.at(bit_list, index) == "1" end)
-          |> Stream.map(fn {value, _index} -> value end)
-          |> MapSet.new()
-
-        {:ok, res}
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, committee} <- get_beacon_committee(state, data.slot, data.index) do
+      committee
+      |> Stream.with_index()
+      |> Stream.filter(fn {_value, index} -> participated?(bits, index) end)
+      |> Stream.map(fn {value, _index} -> value end)
+      |> MapSet.new()
+      |> then(&{:ok, &1})
     end
   end
 
-  def bitstring_to_list(binary) when is_binary(binary) do
-    binary
-    |> :binary.bin_to_list()
-    |> Enum.reduce("", fn byte, acc ->
-      acc <> Integer.to_string(byte, 2)
-    end)
-    # Exclude last bit
-    |> String.slice(0..-2)
-    |> String.graphemes()
+  defp participated?(bits, index) do
+    # The bit order inside the byte is reversed (e.g. bits[0] is the 8th bit).
+    # Here we keep the byte index the same, but reverse the bit index.
+    bit_index = index + 7 - 2 * rem(index, 8)
+    <<_::size(bit_index), flag::1, _::bits>> = bits
+    flag == 1
   end
 
   @doc """
