@@ -191,7 +191,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
     total_active_increments = total_active_balance |> div(effective_balance_increment)
 
-    numerator = effective_balance_increment * Constants.base_reward_factor()
+    numerator = effective_balance_increment * ChainSpec.get("BASE_REWARD_FACTOR")
     denominator = Math.integer_squareroot(total_active_balance)
     base_reward_per_increment = div(numerator, denominator)
     total_base_rewards = base_reward_per_increment * total_active_increments
@@ -644,11 +644,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, binary()}
-  def process_attestation(state, attestation) do
+  def process_attestation(state, %Attestation{data: data} = attestation) do
     # TODO: optimize (takes ~3s)
-    with :ok <- verify_attestation_for_process(state, attestation) do
+    with :ok <- check_valid_target_epoch(data, state),
+         :ok <- check_epoch_matches(data),
+         :ok <- check_valid_slot_range(data, state),
+         :ok <- check_committee_count(data, state),
+         {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
+         :ok <- check_matching_aggregation_bits_length(attestation, beacon_committee),
+         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation),
+         :ok <- check_valid_signature(state, indexed_attestation) do
       # TODO: optimize (takes ~1s)
-      process_attestation(state, attestation.data, attestation.aggregation_bits)
+      process_attestation(state, data, attestation.aggregation_bits)
     end
   end
 
@@ -740,34 +747,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp update_state(state, false, updated_epoch_participation),
     do: %{state | previous_epoch_participation: updated_epoch_participation}
 
-  def verify_attestation_for_process(state, %Attestation{data: data} = attestation) do
-    with {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
-         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
-      cond do
-        invalid_target_epoch?(data, state) ->
-          {:error, "Invalid target epoch"}
-
-        epoch_mismatch?(data) ->
-          {:error, "Epoch mismatch"}
-
-        invalid_slot_range?(data, state) ->
-          {:error, "Invalid slot range"}
-
-        exceeds_committee_count?(data, state) ->
-          {:error, "Index exceeds committee count"}
-
-        mismatched_aggregation_bits_length?(attestation, beacon_committee) ->
-          {:error, "Mismatched aggregation bits length"}
-
-        not valid_signature?(state, indexed_attestation) ->
-          {:error, "Invalid signature"}
-
-        true ->
-          :ok
-      end
-    end
-  end
-
   @doc """
   Provide randomness to the operation of the beacon chain.
   """
@@ -835,40 +814,73 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp invalid_target_epoch?(data, state) do
-    data.target.epoch < Accessors.get_previous_epoch(state) ||
-      data.target.epoch > Accessors.get_current_epoch(state)
+  defp check_valid_target_epoch(data, state) do
+    if data.target.epoch in [
+         Accessors.get_previous_epoch(state),
+         Accessors.get_current_epoch(state)
+       ] do
+      :ok
+    else
+      {:error, "Invalid target epoch"}
+    end
   end
 
-  defp epoch_mismatch?(data) do
-    data.target.epoch != Misc.compute_epoch_at_slot(data.slot)
+  defp check_epoch_matches(data) do
+    if data.target.epoch == Misc.compute_epoch_at_slot(data.slot) do
+      :ok
+    else
+      {:error, "Epoch mismatch"}
+    end
   end
 
-  defp invalid_slot_range?(data, state) do
-    state.slot < data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") ||
-      state.slot > data.slot + ChainSpec.get("SLOTS_PER_EPOCH")
+  defp check_valid_slot_range(data, state) do
+    if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot and
+         state.slot <= data.slot + ChainSpec.get("SLOTS_PER_EPOCH") do
+      :ok
+    else
+      {:error, "Invalid slot range"}
+    end
   end
 
-  defp exceeds_committee_count?(data, state) do
-    data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch)
+  defp check_committee_count(data, state) do
+    if data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch) do
+      {:error, "Index exceeds committee count"}
+    else
+      :ok
+    end
   end
 
-  defp mismatched_aggregation_bits_length?(attestation, beacon_committee) do
-    length_of_bitstring(attestation.aggregation_bits) - 1 != length(beacon_committee)
+  defp check_matching_aggregation_bits_length(attestation, beacon_committee) do
+    if length_of_bitlist(attestation.aggregation_bits) == length(beacon_committee) do
+      :ok
+    else
+      {:error, "Mismatched aggregation bits length"}
+    end
   end
 
-  defp valid_signature?(state, indexed_attestation) do
-    Predicates.is_valid_indexed_attestation(state, indexed_attestation)
+  defp check_valid_signature(state, indexed_attestation) do
+    if Predicates.is_valid_indexed_attestation(state, indexed_attestation) do
+      :ok
+    else
+      {:error, "Invalid signature"}
+    end
   end
 
-  defp length_of_bitstring(binary) when is_binary(binary) do
-    binary
-    |> :binary.bin_to_list()
-    |> Enum.reduce("", fn byte, acc ->
-      acc <> Integer.to_string(byte, 2)
-    end)
-    |> String.length()
+  defp length_of_bitlist(bitlist) when is_binary(bitlist) do
+    bit_size = bit_size(bitlist)
+    <<_::size(bit_size - 8), last_byte>> = bitlist
+    bit_size - leading_zeros(<<last_byte>>) - 1
   end
+
+  defp leading_zeros(<<1::1, _::7>>), do: 0
+  defp leading_zeros(<<0::1, 1::1, _::6>>), do: 1
+  defp leading_zeros(<<0::2, 1::1, _::5>>), do: 2
+  defp leading_zeros(<<0::3, 1::1, _::4>>), do: 3
+  defp leading_zeros(<<0::4, 1::1, _::3>>), do: 4
+  defp leading_zeros(<<0::5, 1::1, _::2>>), do: 5
+  defp leading_zeros(<<0::6, 1::1, _::1>>), do: 6
+  defp leading_zeros(<<0::7, 1::1>>), do: 7
+  defp leading_zeros(<<0::8>>), do: 8
 
   def process_bls_to_execution_change(state, signed_address_change) do
     address_change = signed_address_change.message
