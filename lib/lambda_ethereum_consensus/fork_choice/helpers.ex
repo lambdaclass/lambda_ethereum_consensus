@@ -14,19 +14,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           {:ok, SszTypes.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do
     with {:ok, head_root} <- get_head(store),
-         {:ok, state} <- StateStore.get_state(head_root),
-         {:ok, signed_head_block} <-
-           BlockStore.get_block(head_root),
-         {:ok, finalized_checkpoint} <-
-           ForkChoice.Store.get_finalized_checkpoint() do
+         {:ok, state} <- StateStore.get_state(head_root) do
       {:ok,
        %SszTypes.StatusMessage{
          fork_digest:
            Misc.compute_fork_digest(state.fork.current_version, state.genesis_validators_root),
-         finalized_root: finalized_checkpoint.root,
-         finalized_epoch: finalized_checkpoint.epoch,
+         finalized_root: state.finalized_checkpoint.root,
+         finalized_epoch: state.finalized_checkpoint.epoch,
          head_root: head_root,
-         head_slot: signed_head_block.message.slot
+         head_slot: state.slot
        }}
     end
   end
