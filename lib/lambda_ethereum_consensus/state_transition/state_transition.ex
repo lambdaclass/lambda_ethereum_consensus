@@ -113,7 +113,6 @@ defmodule LambdaEthereumConsensus.StateTransition do
     Bls.valid?(proposer.pubkey, signing_root, signed_block.signature)
   end
 
-  # TODO: uncomment when implemented
   def process_block(state, block) do
     verify_and_notify_new_payload = &Execution.verify_and_notify_new_payload/1
 
