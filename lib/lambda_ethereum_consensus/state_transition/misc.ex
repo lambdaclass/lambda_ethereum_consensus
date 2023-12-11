@@ -230,11 +230,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Return the signing root for the corresponding signing data.
   """
   @spec compute_signing_root(SszTypes.bytes32(), SszTypes.domain()) :: SszTypes.root()
-  def compute_signing_root(<<_::256>> = data, domain) do
-    Ssz.hash_tree_root!(%SszTypes.SigningData{
-      object_root: data,
-      domain: domain
-    })
+  def compute_signing_root(<<_::256>> = root, domain) do
+    Ssz.hash_tree_root!(%SszTypes.SigningData{object_root: root, domain: domain})
   end
 
   @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
@@ -242,7 +239,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     ssz_object |> Ssz.hash_tree_root!() |> compute_signing_root(domain)
   end
 
-  @spec compute_signing_root(any(), module, SszTypes.domain()) :: SszTypes.root()
+  @spec compute_signing_root(any(), module(), SszTypes.domain()) :: SszTypes.root()
   def compute_signing_root(ssz_object, schema, domain) do
     ssz_object |> Ssz.hash_tree_root!(schema) |> compute_signing_root(domain)
   end
