@@ -834,7 +834,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_valid_slot_range(data, state) do
-    if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot or
+    if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot and
          state.slot <= data.slot + ChainSpec.get("SLOTS_PER_EPOCH") do
       :ok
     else
