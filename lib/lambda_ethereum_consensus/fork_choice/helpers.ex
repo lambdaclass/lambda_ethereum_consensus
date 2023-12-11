@@ -13,7 +13,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           {:ok, SszTypes.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do
     with {:ok, head_root} <- get_head(store),
-         {:ok, state} <- StateStore.get_state(head_root) do
+         {:ok, state} <- Map.fetch(store.block_states, head_root) do
       {:ok,
        %SszTypes.StatusMessage{
          fork_digest:
