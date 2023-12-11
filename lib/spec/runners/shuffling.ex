@@ -1,11 +1,12 @@
 defmodule ShufflingTestRunner do
-  alias LambdaEthereumConsensus.StateTransition.Misc
-  use ExUnit.CaseTemplate
-  use TestRunner
-
   @moduledoc """
   Runner for Operations test cases. See: https://github.com/ethereum/consensus-specs/tree/dev/tests/formats/shuffling
   """
+
+  use ExUnit.CaseTemplate
+  use TestRunner
+
+  alias LambdaEthereumConsensus.StateTransition.Misc
 
   # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [

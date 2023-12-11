@@ -81,16 +81,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
     Stream.cycle([nil])
     |> Enum.reduce_while(head, fn nil, head ->
-      children =
-        blocks
-        |> Stream.filter(fn {_, block} -> block.parent_root == head end)
-        |> Enum.map(fn {root, _} -> root end)
-
-      if Enum.empty?(children) do
-        {:halt, head}
-      else
-        {:cont, Enum.max_by(children, fn root -> get_weight(store, root) end)}
-      end
+      blocks
+      |> Stream.filter(fn {_, block} -> block.parent_root == head end)
+      |> Stream.map(fn {root, _} -> root end)
+      # Ties broken by favoring block with lexicographically higher root
+      |> Enum.sort(:desc)
+      |> then(fn
+        [] -> {:halt, head}
+        c -> {:cont, Enum.max_by(c, &get_weight(store, &1))}
+      end)
     end)
     |> then(&{:ok, &1})
   end
@@ -98,18 +97,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   defp get_weight(%Store{} = store, root) do
     state = store.checkpoint_states[store.justified_checkpoint]
 
-    unslashed_and_active_indices =
-      Accessors.get_active_validator_indices(state, Accessors.get_current_epoch(state))
-      |> Enum.filter(fn i -> not Enum.at(state.validators, i).slashed end)
-
     attestation_score =
-      unslashed_and_active_indices
+      Accessors.get_active_validator_indices(state, Accessors.get_current_epoch(state))
+      |> Stream.reject(&Enum.at(state.validators, &1).slashed)
       |> Stream.filter(&Map.has_key?(store.latest_messages, &1))
-      |> Stream.filter(&(not MapSet.member?(store.equivocating_indices, &1)))
+      |> Stream.reject(&MapSet.member?(store.equivocating_indices, &1))
       |> Stream.filter(fn i ->
         Store.get_ancestor(store, store.latest_messages[i].root, store.blocks[root].slot) == root
       end)
-      |> Stream.map(fn i -> Enum.at(state.validators, i).effective_balance end)
+      |> Stream.map(&Enum.at(state.validators, &1).effective_balance)
       |> Enum.sum()
 
     if store.proposer_boost_root == <<0::256>> or
