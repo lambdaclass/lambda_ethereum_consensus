@@ -4,8 +4,6 @@ defmodule Ssz do
   """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "ssz_nif"
 
-  alias LambdaEthereumConsensus.SszEx
-
   ##### Functional wrappers
   @spec to_ssz(struct | list(struct)) :: {:ok, binary} | {:error, String.t()}
   def to_ssz(map)
@@ -40,16 +38,6 @@ defmodule Ssz do
     with {:ok, list} <- list_from_ssz_rs(bin, schema) do
       {:ok, decode(list)}
     end
-  end
-
-  @spec hash_tree_root!(boolean) :: SszTypes.root()
-  def hash_tree_root!(value) when is_boolean(value) do
-    pack(value) |> SszEx.hash()
-  end
-
-  @spec hash_tree_root!(non_neg_integer) :: SszTypes.root()
-  def hash_tree_root!(value) when is_integer(value) and value >= 0 do
-    pack(value) |> SszEx.hash()
   end
 
   @spec hash_tree_root!(struct) :: SszTypes.root()
@@ -183,15 +171,4 @@ defmodule Ssz do
 
   @spec decode_u256(binary) :: non_neg_integer
   def decode_u256(num), do: :binary.decode_unsigned(num, :little)
-
-  defp pack(value) when is_integer(value) and value >= 0 do
-    value |> :binary.encode_unsigned(:little) |> String.pad_trailing(32, <<0>>)
-  end
-
-  defp pack(value) when is_boolean(value) do
-    case value do
-      true -> <<1>> |> String.pad_trailing(32, <<0>>)
-      false -> <<0>> |> String.pad_trailing(32, <<0>>)
-    end
-  end
 end

@@ -49,11 +49,15 @@ defmodule SszGenericTestRunner do
   defp handle_case("valid", schema, real_serialized, testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    expected =
+    expected_value =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    assert_ssz("valid", schema, real_serialized, expected)
+    expected_root =
+      YamlElixir.read_from_file!(case_dir <> "/meta.yaml")
+      |> SpecTestUtils.sanitize_yaml()
+
+    assert_ssz("valid", schema, real_serialized, expected_value)
   end
 
   defp handle_case("invalid", schema, real_serialized, _testcase) do
