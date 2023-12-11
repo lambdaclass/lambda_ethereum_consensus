@@ -2,9 +2,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @moduledoc """
     Utility functions for the fork choice.
   """
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
-  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
+  alias LambdaEthereumConsensus.Store.StateStore
   alias SszTypes.BeaconBlock
   alias SszTypes.BeaconState
   alias SszTypes.Checkpoint
