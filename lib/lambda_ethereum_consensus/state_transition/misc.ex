@@ -182,25 +182,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
         ) ::
           {:ok, list(SszTypes.validator_index())} | {:error, binary()}
   def compute_committee(indices, seed, index, count) do
-    start_ = div(length(indices) * index, count)
-    end_ = div(length(indices) * (index + 1), count) - 1
+    index_count = length(indices)
+    a = div(index_count * index, count)
+    b = div(index_count * (index + 1), count) - 1
 
-    case compute_committee_indices(start_, end_, indices, seed) do
-      {:ok, result_list} -> {:ok, Enum.reverse(result_list)}
-      _ -> {:error, "invalid index_count"}
-    end
-  end
+    to_swap_indices =
+      a..b//1
+      |> Stream.map(&compute_shuffled_index(&1, index_count, seed))
+      |> Stream.map(fn {:ok, i} -> i end)
+      |> Stream.with_index()
+      |> Enum.sort(fn {a, _}, {b, _} -> a <= b end)
 
-  defp compute_committee_indices(start_, end_, indices, seed) do
-    Enum.reduce_while(start_..end_, {:ok, []}, fn i, {:ok, acc_list} ->
-      case compute_shuffled_index(i, length(indices), seed) do
-        {:ok, shuffled_index} ->
-          {:cont, {:ok, [Enum.at(indices, shuffled_index) | acc_list]}}
+    {swapped_indices, []} =
+      indices
+      |> Stream.with_index()
+      |> Enum.flat_map_reduce(to_swap_indices, fn
+        {v, i}, [{i, j} | tail] -> {[{v, j}], tail}
+        _, acc -> {[], acc}
+      end)
 
-        {:error, _} = error ->
-          {:halt, error}
-      end
-    end)
+    swapped_indices
+    |> Enum.sort(fn {_, a}, {_, b} -> a <= b end)
+    |> Enum.map(fn {v, _} -> v end)
+    |> then(&{:ok, &1})
   end
 
   @doc """
