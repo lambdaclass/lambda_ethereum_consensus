@@ -8,6 +8,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.Utils
   alias SszTypes.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
+  @max_random_byte 2 ** 8 - 1
+
   @doc """
     Return the next sync committee, with possible pubkey duplicates.
   """
@@ -80,8 +82,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
          validators,
          sync_committee_indices
        ) do
-    max_random_byte = 2 ** 8 - 1
-
     with {:ok, shuffled_index} <-
            rem(index, active_validator_count)
            |> Misc.compute_shuffled_index(active_validator_count, seed) do
@@ -90,10 +90,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
         SszEx.hash(seed <> Misc.uint64_to_bytes(div(index, 32)))
 
+      max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
       effective_balance = Enum.fetch!(validators, candidate_index).effective_balance
 
-      if effective_balance * max_random_byte >=
-           ChainSpec.get("MAX_EFFECTIVE_BALANCE") * random_byte do
+      if effective_balance * @max_random_byte >= max_effective_balance * random_byte do
         {:ok, sync_committee_indices |> List.insert_at(0, candidate_index)}
       else
         {:ok, sync_committee_indices}
@@ -278,7 +278,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   @spec get_base_reward_per_increment(BeaconState.t()) :: SszTypes.gwei()
   def get_base_reward_per_increment(state) do
-    numerator = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT") * Constants.base_reward_factor()
+    numerator = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT") * ChainSpec.get("BASE_REWARD_FACTOR")
     denominator = Math.integer_squareroot(get_total_active_balance(state))
     div(numerator, denominator)
   end
@@ -397,12 +397,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_seed(BeaconState.t(), SszTypes.epoch(), SszTypes.domain_type()) :: SszTypes.bytes32()
   def get_seed(state, epoch, domain_type) do
-    mix =
-      get_randao_mix(
-        state,
-        epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
-          ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
-      )
+    future_epoch =
+      epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
+        ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
+
+    mix = get_randao_mix(state, future_epoch)
 
     SszEx.hash(domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
   end
