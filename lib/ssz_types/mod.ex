@@ -6,6 +6,7 @@ defmodule SszTypes do
   # Primitive types
   ## Integer types
   @type uint8 :: 0..unquote(2 ** 8 - 1)
+  @type uint16 :: 0..unquote(2 ** 16 - 1)
   @type uint64 :: 0..unquote(2 ** 64 - 1)
   @type uint256 :: 0..unquote(2 ** 256 - 1)
 

@@ -10,14 +10,12 @@ defmodule Helpers.SszStaticContainers.VarTestStruct do
     :C
   ]
 
-  @type uint16 :: 0..unquote(2 ** 16 - 1)
-
   @enforce_keys fields
   defstruct fields
 
   @type t :: %__MODULE__{
-          A: uint16(),
-          B: list(uint16()),
+          A: SszTypes.uint16(),
+          B: list(SszTypes.uint16()),
           C: SszTypes.uint8()
         }
 

@@ -96,20 +96,25 @@ defmodule SszGenericTestRunner do
       "containers" ->
         [name] = Regex.run(~r/^[^_]+(?=_)/, cse)
         {:container, Module.concat(Helpers.SszStaticContainers, name)}
+
+        # TODO enable when basic_vector and bitlist tests are enable
         # "basic_vector" ->
         #   case cse do
         #     "vec_" <> rest ->
         #       case String.split(rest, "_") do
-        #         ["bool", max_size | _] -> {:vector, :bool, String.to_integer(max_size)}
+        #         ["bool", max_size | _] ->
+        #           {:vector, :bool, String.to_integer(max_size)}
+        #
         #         ["uint" <> size, max_size | _] ->
-        # {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
+        #           {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
         #       end
         #   end
+        #
         # "bitlist" ->
         #   case cse do
         #     "bitlist_" <> rest ->
         #       [size | _] = String.split(rest, "_")
-        #       {:bitlist, :bool, String.to_integer(size)}
+        #       {:bitlist, String.to_integer(size)}
         #   end
     end
   end
