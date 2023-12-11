@@ -48,7 +48,7 @@ defmodule Ssz do
   end
 
   @spec hash_tree_root!(non_neg_integer) :: SszTypes.root()
-  def hash_tree_root!(value) when is_integer(value) and value > 0 do
+  def hash_tree_root!(value) when is_integer(value) and value >= 0 do
     pack(value) |> SszEx.hash()
   end
 
