@@ -94,9 +94,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
   defp handle_req("metadata/2/ssz_snappy", message_id, _message) do
     # Values are hardcoded
-    with {:ok, payload} <-
-           Metadata.get_metadata()
-           |> Snappy.compress() do
+    with metadata <- Metadata.get_metadata(),
+         {:ok, payload} <- Ssz.to_ssz(metadata),
+         {:ok, payload} <- Snappy.compress(payload) do
       Libp2pPort.send_response(message_id, <<0, 17>> <> payload)
     end
   end
