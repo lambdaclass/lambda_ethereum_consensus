@@ -60,6 +60,66 @@ PORT_SOURCES := $(shell find native/libp2p_port -type f)
 $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) $(PROTOBUF_GO_FILES)
 	cd native/libp2p_port; go build -o ../../$@
 
+##### TARGETS #####
+
+#💻 nix: @ Start a nix environment.
+nix:
+	nix develop
+
+#💻 nix-zsh: @ Start a nix environment using zsh as a console.
+nix-zsh:
+	nix develop -c zsh
+
+#🔄 deps: @ Install mix dependencies.
+deps:
+	sh scripts/install_protos.sh
+	$(MAKE) proto
+
+	cd native/libp2p_port; \
+	go get && go install
+	mix deps.get
+
+#📝 proto: @ Generate protobuf code
+proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
+
+#🔨 compile-native: @ Compile C and Go artifacts.
+compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
+
+#🔨 compile-all: @ Compile the elixir project and its dependencies.
+compile-all: compile-native $(PROTOBUF_EX_FILES)
+	mix compile
+
+#🗑️ clean: @ Remove the build files.
+clean:
+	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
+
+#📊 grafana-up: @ Start grafana server.
+grafana-up:
+	cd metrics/ && docker-compose up -d
+
+#📊 grafana-down: @ Stop grafana server.
+grafana-down:
+	cd metrics/ && docker-compose down
+
+#🗑️ grafana-clean: @ Remove the grafana data.
+grafana-clean:
+	cd metrics/ && docker-compose down -v
+
+#▶️ start: @ Start application with Beacon API.
+start: compile-all
+	iex -S mix phx.server
+
+#▶️ iex: @ Runs an interactive terminal with the main supervisor setup.
+iex: compile-all
+	iex -S mix
+
+#▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync.
+checkpoint-sync: compile-all
+	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
+
+#🔴 test: @ Run tests
+test: compile-all
+	mix test --no-start --exclude spectest
 
 ##### SPEC TEST VECTORS #####
 
@@ -103,66 +163,6 @@ gen-spec: $(SPECTEST_GENERATED_ROOTDIR)
 clean-tests:
 	-rm -r test/generated
 
-#📝 proto: @ Generate protobuf code
-proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
-
-##### TARGETS #####
-
-#💻 nix: start a nix environment.
-nix:
-	nix develop
-
-#💻 nix-zsh: start a nix environment using zsh as a console.
-nix-zsh:
-	nix develop -c zsh
-
-#🔄 deps: @ Install mix dependencies.
-deps:
-	sh scripts/install_protos.sh
-	$(MAKE) proto
-
-	cd native/libp2p_port; \
-	go get && go install
-	mix deps.get
-
-#🔨 compile-native: @ Compile C and Go artifacts.
-compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
-
-#🔨 compile-all: @ Compile the elixir project and its dependencies.
-compile-all: compile-native $(PROTOBUF_EX_FILES)
-	mix compile
-
-#🗑️ clean: @ Remove the build files.
-clean:
-	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
-
-#📊 grafana-up: @ Start grafana server.
-grafana-up:
-	cd metrics/ && docker-compose up -d
-
-#📊 grafana-down: @ Stop grafana server.
-grafana-down:
-	cd metrics/ && docker-compose down
-
-#🗑️ grafana-clean: @ Remove the grafana data.
-grafana-clean:
-	cd metrics/ && docker-compose down -v
-
-#▶️ start: @ Start application with Beacon API.
-start: compile-all
-	iex -S mix phx.server
-
-#▶️ iex: @ Runs an interactive terminal with the main supervisor setup.
-iex: compile-all
-	iex -S mix
-
-#▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync.
-checkpoint-sync: compile-all
-	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
-
-#🔴 test: @ Run tests
-test: compile-all
-	mix test --no-start --exclude spectest
 
 #🔴 spec-test: @ Run all spec tests
 spec-test: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
