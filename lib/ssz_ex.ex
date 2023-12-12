@@ -8,6 +8,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   ### Public API
   #################
 
+  @bits_per_chunk 256
+
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
 
@@ -48,6 +50,12 @@ defmodule LambdaEthereumConsensus.SszEx do
     do: decode_bitvector(value, size)
 
   def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
+
+  @spec hash_tree_root!(boolean, atom) :: SszTypes.root()
+  def hash_tree_root!(value, :bool), do: pack(value)
+
+  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
+  def hash_tree_root!(value, {:int, size}), do: pack(value, size)
 
   #################
   ### Private functions
@@ -482,8 +490,34 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp get_fixed_size({:int, size}), do: div(size, @bits_per_byte)
   defp get_fixed_size({:bytes, size}), do: size
 
+  defp get_fixed_size(module) when is_atom(module) do
+    schemas = module.schema()
+
+    schemas
+    |> Enum.map(fn {_, schema} -> get_fixed_size(schema) end)
+    |> Enum.sum()
+  end
+
   defp variable_size?({:list, _, _}), do: true
   defp variable_size?(:bool), do: false
   defp variable_size?({:int, _}), do: false
   defp variable_size?({:bytes, _}), do: false
+
+  defp variable_size?(module) when is_atom(module) do
+    module.schema()
+    |> Enum.map(fn {_, schema} -> variable_size?(schema) end)
+    |> Enum.any?()
+  end
+
+  defp pack(value, size) when is_integer(value) and value >= 0 do
+    pad = @bits_per_chunk - size
+    <<value::size(size)-little, 0::size(pad)>>
+  end
+
+  defp pack(value) when is_boolean(value) do
+    case value do
+      true -> <<1::@bits_per_chunk-little>>
+      false -> <<0::@bits_per_chunk>>
+    end
+  end
 end
