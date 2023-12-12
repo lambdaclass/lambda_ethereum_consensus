@@ -36,15 +36,11 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
 
-  @spec hash_tree_root!(boolean) :: SszTypes.root()
-  def hash_tree_root!(value) when is_boolean(value) do
-    pack(value) |> hash()
-  end
+  @spec hash_tree_root!(boolean, atom) :: SszTypes.root()
+  def hash_tree_root!(value, :bool), do: pack(value)
 
-  @spec hash_tree_root!(non_neg_integer) :: SszTypes.root()
-  def hash_tree_root!(value) when is_integer(value) and value >= 0 do
-    pack(value) |> hash()
-  end
+  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
+  def hash_tree_root!(value, {:int, size}), do: pack(value, size)
 
   #################
   ### Private functions
@@ -395,14 +391,14 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp variable_size?({:int, _}), do: false
   defp variable_size?({:bytes, _}), do: false
 
-  defp pack(value) when is_integer(value) and value >= 0 do
-    value |> :binary.encode_unsigned(:little) |> String.pad_trailing(32, <<0>>)
+  defp pack(value, size) when is_integer(value) and value >= 0 do
+    <<value::size(size)-little>> |> String.pad_trailing(32, <<0>>)
   end
 
   defp pack(value) when is_boolean(value) do
     case value do
-      true -> <<1>> |> String.pad_trailing(32, <<0>>)
-      false -> <<0>> |> String.pad_trailing(32, <<0>>)
+      true -> <<1::256-little>>
+      false -> <<0::256>>
     end
   end
 end

@@ -53,18 +53,24 @@ defmodule SszGenericTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    expected_root =
+    %{root: expected_root} =
       YamlElixir.read_from_file!(case_dir <> "/meta.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    assert_ssz("valid", schema, real_serialized, expected_value)
+    assert_ssz("valid", schema, real_serialized, expected_value, expected_root)
   end
 
   defp handle_case("invalid", schema, real_serialized, _testcase) do
     assert_ssz("invalid", schema, real_serialized)
   end
 
-  defp assert_ssz("valid", {:container, module}, real_serialized, real_deserialized) do
+  defp assert_ssz(
+         "valid",
+         {:container, module},
+         real_serialized,
+         real_deserialized,
+         _hash_tree_root
+       ) do
     real_struct = struct!(module, real_deserialized)
     {:ok, deserialized} = SszEx.decode(real_serialized, module)
     assert deserialized == real_struct
@@ -72,13 +78,15 @@ defmodule SszGenericTestRunner do
     assert serialized == real_serialized
   end
 
-  defp assert_ssz("valid", schema, real_serialized, real_deserialized) do
+  defp assert_ssz("valid", schema, real_serialized, real_deserialized, hash_tree_root) do
     {:ok, deserialized} = SszEx.decode(real_serialized, schema)
     assert deserialized == real_deserialized
 
     {:ok, serialized} = SszEx.encode(real_deserialized, schema)
 
     assert serialized == real_serialized
+
+    assert hash_tree_root == SszEx.hash_tree_root!(real_deserialized, schema)
   end
 
   defp assert_ssz("invalid", schema, real_serialized) do
