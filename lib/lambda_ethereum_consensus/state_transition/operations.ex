@@ -645,29 +645,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, binary()}
   def process_attestation(state, %Attestation{data: data} = attestation) do
-    # TODO: optimize (takes ~3s)
     with :ok <- check_valid_target_epoch(data, state),
          :ok <- check_epoch_matches(data),
          :ok <- check_valid_slot_range(data, state),
          :ok <- check_committee_count(data, state),
          {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
          :ok <- check_matching_aggregation_bits_length(attestation, beacon_committee),
-         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation),
+         indexed_attestation =
+           Accessors.get_committee_indexed_attestation(beacon_committee, attestation),
          :ok <- check_valid_signature(state, indexed_attestation) do
-      # TODO: optimize (takes ~1s)
-      process_attestation(state, data, attestation.aggregation_bits)
+      inner_process_attestation(state, data, attestation.aggregation_bits, beacon_committee)
     end
   end
 
-  defp process_attestation(state, data, aggregation_bits) do
+  defp inner_process_attestation(state, data, aggregation_bits, committee) do
+    slot = state.slot - data.slot
+
     with {:ok, participation_flag_indices} <-
-           Accessors.get_attestation_participation_flag_indices(
-             state,
-             data,
-             state.slot - data.slot
-           ),
-         {:ok, attesting_indices} <-
-           Accessors.get_attesting_indices(state, data, aggregation_bits) do
+           Accessors.get_attestation_participation_flag_indices(state, data, slot),
+         attesting_indices =
+           Accessors.get_committee_attesting_indices(committee, aggregation_bits) do
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       initial_epoch_participation = get_initial_epoch_participation(state, is_current_epoch)
 
