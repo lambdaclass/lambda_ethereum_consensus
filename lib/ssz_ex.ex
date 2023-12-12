@@ -398,7 +398,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp variable_size?(:bool), do: false
   defp variable_size?({:int, _}), do: false
   defp variable_size?({:bytes, _}), do: false
-  
+
   defp variable_size?(module) when is_atom(module) do
     module.schema()
     |> Enum.map(fn {_, schema} -> variable_size?(schema) end)
@@ -416,5 +416,4 @@ defmodule LambdaEthereumConsensus.SszEx do
       false -> <<0::256>>
     end
   end
-  
 end
