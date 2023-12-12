@@ -85,9 +85,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
          |> :binary.decode_unsigned(:little)
          |> then(&"[Ping] seq_number: #{&1}")
          |> Logger.debug(),
-         {:ok, payload} <-
-           Metadata.get_seq_number()
-           |> Snappy.compress() do
+         seq_number <- Metadata.get_seq_number(),
+         {:ok, payload} <- Ssz.to_ssz(seq_number),
+         {:ok, payload} <- Snappy.compress(payload) do
       Libp2pPort.send_response(message_id, <<0, 8>> <> payload)
     end
   end
