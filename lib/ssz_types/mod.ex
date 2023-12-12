@@ -6,10 +6,12 @@ defmodule SszTypes do
   # Primitive types
   ## Integer types
   @type uint8 :: 0..unquote(2 ** 8 - 1)
+  @type uint16 :: 0..unquote(2 ** 16 - 1)
   @type uint64 :: 0..unquote(2 ** 64 - 1)
   @type uint256 :: 0..unquote(2 ** 256 - 1)
 
   ## Binary types
+  @type bytes1 :: <<_::8>>
   @type bytes4 :: <<_::32>>
   @type bytes20 :: <<_::160>>
   @type bytes32 :: <<_::256>>
