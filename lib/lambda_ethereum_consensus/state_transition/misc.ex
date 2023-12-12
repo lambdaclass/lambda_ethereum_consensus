@@ -3,12 +3,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Misc functions
   """
 
+  import Bitwise
+
   alias LambdaEthereumConsensus.SszEx
   alias SszTypes.BeaconState
-  import Bitwise
-  alias SszTypes.BeaconState
 
-  alias SszTypes.BeaconState
+  @max_random_byte 2 ** 8 - 1
 
   @doc """
   Returns the Unix timestamp at the start of the given slot
@@ -52,38 +52,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   def compute_shuffled_index(index, index_count, seed) do
     shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
 
-    new_index =
-      Enum.reduce(0..(shuffle_round_count - 1), index, fn round, current_index ->
-        round_as_bytes = <<round>>
+    0..(shuffle_round_count - 1)
+    |> Enum.reduce(index, fn round, current_index ->
+      pivot = SszEx.hash(seed <> <<round>>) |> bytes_to_uint64() |> rem(index_count)
 
-        hash_of_seed_round = SszEx.hash(seed <> round_as_bytes)
+      flip = rem(pivot + index_count - current_index, index_count)
+      position = max(current_index, flip)
 
-        pivot = rem(bytes_to_uint64(hash_of_seed_round), index_count)
+      position_div_256 = position |> div(256) |> uint_to_bytes(32)
 
-        flip = rem(pivot + index_count - current_index, index_count)
-        position = max(current_index, flip)
+      source = SszEx.hash(seed <> <<round>> <> position_div_256)
 
-        position_div_256 = uint_to_bytes4(div(position, 256))
+      bit_index = rem(position, 256) + 7 - 2 * rem(position, 8)
+      <<_::size(bit_index), bit::1, _::bits>> = source
 
-        source =
-          SszEx.hash(seed <> round_as_bytes <> position_div_256)
-
-        byte_index = div(rem(position, 256), 8)
-        <<_::binary-size(byte_index), byte, _::binary>> = source
-        right_shift = byte >>> rem(position, 8)
-        bit = rem(right_shift, 2)
-
-        current_index =
-          if bit == 1 do
-            flip
-          else
-            current_index
-          end
-
-        current_index
-      end)
-
-    {:ok, new_index}
+      if bit == 1, do: flip, else: current_index
+    end)
+    |> then(&{:ok, &1})
   end
 
   @spec increase_inactivity_score(SszTypes.uint64(), integer, MapSet.t(), SszTypes.uint64()) ::
@@ -132,31 +117,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
   @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
           {:ok, SszTypes.validator_index()} | {:error, binary()}
+  def compute_proposer_index(_state, [], _seed), do: {:error, "Empty indices"}
+
   def compute_proposer_index(state, indices, seed) do
-    if length(indices) <= 0 do
-      {:error, "Empty indices"}
-    else
-      {:ok, compute_proposer_index(state, indices, seed, 0)}
-    end
-  end
-
-  defp compute_proposer_index(state, indices, seed, i) when i < length(indices) do
-    max_random_byte = 2 ** 8 - 1
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
-
     total = length(indices)
-    {:ok, i} = compute_shuffled_index(rem(i, total), total, seed)
-    candidate_index = Enum.at(indices, i)
-    random_byte = SszEx.hash(seed <> uint_to_bytes4(div(i, 32)))
-    <<_::binary-size(rem(i, 32)), byte, _::binary>> = random_byte
 
-    effective_balance = Enum.at(state.validators, candidate_index).effective_balance
+    Stream.iterate(0, &(&1 + 1))
+    |> Stream.map(fn i ->
+      {:ok, index} = compute_shuffled_index(rem(i, total), total, seed)
+      candidate_index = Enum.at(indices, index)
 
-    if effective_balance * max_random_byte >= max_effective_balance * byte do
-      candidate_index
-    else
-      compute_proposer_index(state, indices, seed, i + 1)
-    end
+      <<_::binary-size(rem(i, 32)), random_byte, _::binary>> =
+        SszEx.hash(seed <> uint_to_bytes(div(i, 32), 64))
+
+      effective_balance = Enum.at(state.validators, candidate_index).effective_balance
+
+      {effective_balance, random_byte, candidate_index}
+    end)
+    |> Stream.filter(fn {effective_balance, random_byte, _} ->
+      effective_balance * @max_random_byte >= max_effective_balance * random_byte
+    end)
+    |> Enum.take(1)
+    |> then(fn [{_, _, candidate_index}] -> {:ok, candidate_index} end)
   end
 
   @doc """
@@ -180,10 +163,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     first_8_bytes
   end
 
-  @spec uint_to_bytes4(integer()) :: SszTypes.bytes4()
-  def uint_to_bytes4(value) do
-    # Converts an unsigned integer value to a bytes 4 value
-    <<value::unsigned-integer-little-size(32)>>
+  @spec uint_to_bytes(non_neg_integer(), 8 | 32 | 64) :: binary()
+  def uint_to_bytes(value, size) do
+    # Converts an unsigned integer value to a bytes value
+    <<value::unsigned-integer-little-size(size)>>
   end
 
   @spec uint64_to_bytes(SszTypes.uint64()) :: <<_::64>>
@@ -247,11 +230,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Return the signing root for the corresponding signing data.
   """
   @spec compute_signing_root(SszTypes.bytes32(), SszTypes.domain()) :: SszTypes.root()
-  def compute_signing_root(<<_::256>> = data, domain) do
-    Ssz.hash_tree_root!(%SszTypes.SigningData{
-      object_root: data,
-      domain: domain
-    })
+  def compute_signing_root(<<_::256>> = root, domain) do
+    Ssz.hash_tree_root!(%SszTypes.SigningData{object_root: root, domain: domain})
   end
 
   @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
@@ -259,7 +239,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     ssz_object |> Ssz.hash_tree_root!() |> compute_signing_root(domain)
   end
 
-  @spec compute_signing_root(any(), module, SszTypes.domain()) :: SszTypes.root()
+  @spec compute_signing_root(any(), module(), SszTypes.domain()) :: SszTypes.root()
   def compute_signing_root(ssz_object, schema, domain) do
     ssz_object |> Ssz.hash_tree_root!(schema) |> compute_signing_root(domain)
   end
