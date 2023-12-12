@@ -414,8 +414,8 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp pack(value) when is_boolean(value) do
     case value do
-      true -> <<1::256-little>>
-      false -> <<0::256>>
+      true -> <<1::@bits_per_chunk-little>>
+      false -> <<0::@bits_per_chunk>>
     end
   end
 end
