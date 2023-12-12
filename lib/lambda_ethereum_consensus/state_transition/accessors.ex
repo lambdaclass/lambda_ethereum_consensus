@@ -251,8 +251,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_committee_count_per_slot(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
   def get_committee_count_per_slot(%BeaconState{} = state, epoch) do
-    get_active_validator_indices(state, epoch)
-    |> length()
+    state.validators
+    |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
+    |> Enum.count()
     |> div(ChainSpec.get("SLOTS_PER_EPOCH"))
     |> div(ChainSpec.get("TARGET_COMMITTEE_SIZE"))
     |> min(ChainSpec.get("MAX_COMMITTEES_PER_SLOT"))
@@ -444,6 +445,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end
   end
 
+  @spec get_committee_indexed_attestation([SszTypes.validator_index()], Attestation.t()) ::
+          IndexedAttestation.t()
+  def get_committee_indexed_attestation(beacon_committee, attestation) do
+    get_committee_attesting_indices(beacon_committee, attestation.aggregation_bits)
+    |> Enum.sort()
+    |> then(
+      &%IndexedAttestation{
+        attesting_indices: &1,
+        data: attestation.data,
+        signature: attestation.signature
+      }
+    )
+  end
+
   @doc """
   Return the set of attesting indices corresponding to ``data`` and ``bits``.
   """
@@ -458,6 +473,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       |> MapSet.new()
       |> then(&{:ok, &1})
     end
+  end
+
+  @spec get_committee_attesting_indices([SszTypes.validator_index()], SszTypes.bitlist()) ::
+          MapSet.t()
+  def get_committee_attesting_indices(committee, bits) do
+    committee
+    |> Stream.with_index()
+    |> Stream.filter(fn {_value, index} -> participated?(bits, index) end)
+    |> Stream.map(fn {value, _index} -> value end)
+    |> MapSet.new()
   end
 
   defp participated?(bits, index) do
