@@ -7,6 +7,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   ### Public API
   #################
 
+  @bits_per_chunk 256
+
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
 
@@ -406,7 +408,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   defp pack(value, size) when is_integer(value) and value >= 0 do
-    pad = 256 - size
+    pad = @bits_per_chunk - size
     <<value::size(size)-little, 0::size(pad)>>
   end
 
