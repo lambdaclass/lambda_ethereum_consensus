@@ -3,6 +3,7 @@ defmodule SszTypes.DepositMessage do
   Struct definition for `DepositMessage`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :pubkey,
@@ -18,4 +19,12 @@ defmodule SszTypes.DepositMessage do
           withdrawal_credentials: SszTypes.bytes32(),
           amount: SszTypes.gwei()
         }
+
+  def schema do
+    [
+      {:pubkey, {:bytes, 48}},
+      {:withdrawal_credentials, {:bytes, 32}},
+      {:amount, {:int, 64}}
+    ]
+  end
 end

@@ -3,6 +3,7 @@ defmodule SszTypes.SigningData do
   Struct definition for `SigningData`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :object_root,
@@ -16,4 +17,12 @@ defmodule SszTypes.SigningData do
           object_root: SszTypes.root(),
           domain: SszTypes.domain()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:object_root, {:bytes, 32}},
+      {:domain, {:bytes, 32}}
+    ]
+  end
 end
