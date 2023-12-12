@@ -380,8 +380,22 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp get_fixed_size({:int, size}), do: div(size, @bits_per_byte)
   defp get_fixed_size({:bytes, size}), do: size
 
+  defp get_fixed_size(module) when is_atom(module) do
+    schemas = module.schema()
+
+    schemas
+    |> Enum.map(fn {_, schema} -> get_fixed_size(schema) end)
+    |> Enum.sum()
+  end
+
   defp variable_size?({:list, _, _}), do: true
   defp variable_size?(:bool), do: false
   defp variable_size?({:int, _}), do: false
   defp variable_size?({:bytes, _}), do: false
+
+  defp variable_size?(module) when is_atom(module) do
+    module.schema()
+    |> Enum.map(fn {_, schema} -> variable_size?(schema) end)
+    |> Enum.any?()
+  end
 end
