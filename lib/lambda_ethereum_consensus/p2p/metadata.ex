@@ -1,4 +1,8 @@
 defmodule LambdaEthereumConsensus.P2P.Metadata do
+  @moduledoc """
+  This module handles Metadata's genserver to fetch and edit.
+  """
+
   use GenServer
 
   alias SszTypes.Metadata
@@ -9,7 +13,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   ### Public API
   ##########################
 
-  @spec get_seq_number() :: SszTypes.uint64
+  @spec get_seq_number() :: SszTypes.uint64()
   def get_seq_number do
     [seq_number] = get_metadata_attrs([:seq_number])
     seq_number
@@ -48,5 +52,4 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   defp get_metadata_attrs(attrs) do
     GenServer.call(__MODULE__, {:get_metadata_attrs, attrs}, @default_timeout)
   end
-
 end

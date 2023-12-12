@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   """
   require Logger
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.P2P.Metadata
   alias LambdaEthereumConsensus.Store.BlockStore
 
   # This is the `ForkDigest` for mainnet in the capella fork
@@ -85,7 +86,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
          |> then(&"[Ping] seq_number: #{&1}")
          |> Logger.debug(),
          {:ok, payload} <-
-           <<0, 0, 0, 0, 0, 0, 0, 0>>
+           Metadata.get_seq_number()
            |> Snappy.compress() do
       Libp2pPort.send_response(message_id, <<0, 8>> <> payload)
     end
@@ -94,7 +95,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp handle_req("metadata/2/ssz_snappy", message_id, _message) do
     # Values are hardcoded
     with {:ok, payload} <-
-           <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
+           Metadata.get_metadata()
            |> Snappy.compress() do
       Libp2pPort.send_response(message_id, <<0, 17>> <> payload)
     end
