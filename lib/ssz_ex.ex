@@ -392,7 +392,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp variable_size?({:bytes, _}), do: false
 
   defp pack(value, size) when is_integer(value) and value >= 0 do
-    <<value::size(size)-little>> |> String.pad_trailing(32, <<0>>)
+    pad = 256 - size
+    <<value::size(size)-little, 0::size(pad)>>
   end
 
   defp pack(value) when is_boolean(value) do
