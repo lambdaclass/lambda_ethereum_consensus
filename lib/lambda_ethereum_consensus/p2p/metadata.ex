@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
     seq_number
   end
 
-  @spec get_metadata() :: SszTypes.Metadata.t()
+  @spec get_metadata() :: Metadata.t()
   def get_metadata do
     GenServer.call(__MODULE__, :get_metadata, @default_timeout)
   end
