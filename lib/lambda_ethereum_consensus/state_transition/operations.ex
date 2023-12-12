@@ -662,9 +662,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     slot = state.slot - data.slot
 
     with {:ok, participation_flag_indices} <-
-           Accessors.get_attestation_participation_flag_indices(state, data, slot),
-         attesting_indices =
-           Accessors.get_committee_attesting_indices(committee, aggregation_bits) do
+           Accessors.get_attestation_participation_flag_indices(state, data, slot) do
+      attesting_indices =
+        Accessors.get_committee_attesting_indices(committee, aggregation_bits)
+
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       initial_epoch_participation = get_initial_epoch_participation(state, is_current_epoch)
 
@@ -684,8 +685,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       |> Mutators.increase_balance(proposer_index, proposer_reward)
       |> update_state(is_current_epoch, updated_epoch_participation)
       |> then(&{:ok, &1})
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 
