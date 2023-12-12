@@ -194,7 +194,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       committee_start..committee_end//1
       |> Stream.map(&compute_shuffled_index(&1, index_count, seed))
       |> Stream.with_index()
-      |> Enum.reduce_while([], fn
+      |> Enum.reduce_while({:ok, []}, fn
         {{:ok, shuffled_index}, i}, {:ok, acc} ->
           {:cont, {:ok, [{shuffled_index, i} | acc]}}
 
