@@ -36,6 +36,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
+  @spec get_current_status_message() :: {:ok, SszTypes.StatusMessage.t()} | {:error, any}
+  def get_current_status_message do
+    GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
+  end
+
   @spec has_block?(SszTypes.root()) :: boolean()
   def has_block?(block_root) do
     block = get_block(block_root)
@@ -87,6 +92,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   def handle_call({:get_store_attrs, attrs}, _from, state) do
     values = Enum.map(attrs, &Map.fetch!(state, &1))
     {:reply, values, state}
+  end
+
+  @impl GenServer
+  def handle_call(:get_current_status_message, _from, state) do
+    {:reply, Helpers.current_status_message(state)}
   end
 
   def handle_call({:get_block, block_root}, _from, state) do
