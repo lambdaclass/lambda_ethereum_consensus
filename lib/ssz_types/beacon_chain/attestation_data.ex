@@ -4,6 +4,8 @@ defmodule SszTypes.AttestationData do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
+  @behaviour LambdaEthereumConsensus.Container
+
   fields = [
     :slot,
     :index,
@@ -22,4 +24,15 @@ defmodule SszTypes.AttestationData do
           source: SszTypes.Checkpoint.t(),
           target: SszTypes.Checkpoint.t()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:slot, {:int, 64}},
+      {:index, {:int, 64}},
+      {:beacon_block_root, {:bytes, 32}},
+      {:source, SszTypes.Checkpoint},
+      {:target, SszTypes.Checkpoint}
+    ]
+  end
 end
