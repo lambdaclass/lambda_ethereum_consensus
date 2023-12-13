@@ -186,9 +186,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
   def get_total_active_balance(state) do
-    epoch = get_current_epoch(state)
+    Cache.cache_total_active_balance(state, fn ->
+      epoch = get_current_epoch(state)
 
-    Cache.cache_total_active_balance(epoch, fn ->
       state.validators
       |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
       |> Stream.map(fn %Validator{effective_balance: effective_balance} -> effective_balance end)
@@ -374,7 +374,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the block root at a recent ``slot``.
   """
   @spec get_block_root_at_slot(BeaconState.t(), SszTypes.slot()) ::
-          {:ok, SszTypes.root()} | {:error, binary()}
+          {:ok, SszTypes.root()} | {:error, String.t()}
   def get_block_root_at_slot(state, slot) do
     slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
 
@@ -390,7 +390,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the block root at the start of a recent ``epoch``.
   """
   @spec get_block_root(BeaconState.t(), SszTypes.epoch()) ::
-          {:ok, SszTypes.root()} | {:error, binary()}
+          {:ok, SszTypes.root()} | {:error, String.t()}
   def get_block_root(state, epoch) do
     get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch))
   end
