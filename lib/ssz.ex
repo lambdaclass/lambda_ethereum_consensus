@@ -1,6 +1,6 @@
 defmodule Ssz do
   @moduledoc """
-  SimpleSerialize (SSZ) serialization and deserialization.
+  SimpleSerialize (SSZ) serialization, deserialization and merkleization.
   """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "ssz_nif"
 

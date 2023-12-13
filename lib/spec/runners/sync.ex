@@ -7,6 +7,7 @@ defmodule SyncTestRunner do
   use TestRunner
 
   @disabled_cases [
+    # TODO: we have to support https://github.com/ethereum/consensus-specs/blob/dev/tests/formats/fork_choice/README.md#on_payload_info-execution-step
     "from_syncing_to_invalid"
   ]
 
