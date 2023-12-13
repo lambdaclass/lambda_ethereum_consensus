@@ -6,16 +6,11 @@ defmodule LambdaEthereumConsensus.Application do
   use Application
   require Logger
 
+  alias LambdaEthereumConsensus.Cli
+
   @impl true
   def start(_type, _args) do
-    # Parse command line arguments
-    {args, _remaining_args, _errors} =
-      OptionParser.parse(System.argv(),
-        switches: [checkpoint_sync: :string, execution_client: :string, execution_jwt: :string]
-      )
-
-    execution_jwt = Keyword.get(args, :execution_jwt)
-    execution_endpoint = Keyword.get(args, :execution_client)
+    args = Cli.parse_args()
     checkpoint_sync = Keyword.get(args, :checkpoint_sync)
 
     config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
@@ -33,7 +28,6 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Telemetry, []},
       {LambdaEthereumConsensus.Libp2pPort, libp2p_opts},
       {LambdaEthereumConsensus.Store.Db, []},
-      {LambdaEthereumConsensus.Execution.ExecutionClient, [execution_endpoint, execution_jwt]},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
       {LambdaEthereumConsensus.ForkChoice, [checkpoint_sync]},
