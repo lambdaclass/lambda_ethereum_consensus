@@ -1,6 +1,6 @@
-defmodule SszTypes.BeaconBlocksByRootResponse do
+defmodule SszTypes.BeaconBlocksByRootRequest do
   @moduledoc """
-  Struct definition for `BeaconBlocksByRootResponse`.
+  Struct definition for `BeaconBlocksByRootRequest`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
