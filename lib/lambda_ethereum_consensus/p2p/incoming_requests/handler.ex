@@ -7,9 +7,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
   alias SszTypes.BeaconBlock
-
+  
   require Logger
-
+  
   # This is the `ForkDigest` for mainnet in the capella fork
   # TODO: compute this at runtime
   @fork_context "BBA4DA96" |> Base.decode16!()
