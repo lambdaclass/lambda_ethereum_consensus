@@ -87,8 +87,11 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp decode_bitlist(bit_list, max_size) do
     num_bytes = byte_size(bit_list)
+    num_bits = num_bytes * 8
+    padding = num_bits - bit_size(bit_list)
+    formatted_bit_list = <<0::size(padding), bit_list::bitstring>>
 
-    with {:ok, len} <- get_bitlist_len(bit_list) do
+    with {:ok, len} <- get_bitlist_len(formatted_bit_list) do
       cond do
         div(len, 8) + 1 != num_bytes ->
           {:error, "InvalidByteCount"}
@@ -97,11 +100,11 @@ defmodule LambdaEthereumConsensus.SszEx do
           {:error, "OutOfBounds"}
 
         true ->
-          bytes_for_bit_len = max(1, div(len + 7, 8))
-          bit_size = bit_size(bit_list)
+          bytes_for_bit_len = div(len, 8) + 1
+          bit_size = bit_size(formatted_bit_list)
           index = rem(len, 8)
           skip = bit_size - index - 1
-          <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_list
+          <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = formatted_bit_list
 
           <<pre::binary-size(bytes_for_bit_len - 1), rest::bitstring>> =
             <<pre::bitstring, 0::1, rest::bitstring>>
@@ -153,21 +156,26 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp encode_bitlist(bit_list, max_size) do
     len = bit_size(bit_list)
     bytes_len = byte_size(bit_list)
-    bytes_for_bit_len = max(1, div(len + 1 + 7, 8))
+    bytes_for_bit_len = div(len, 8) + 1
 
-    if len > max_size do
-      {:error, "ExcessBits"}
-    else
-      if bytes_for_bit_len > bytes_len do
-        append_size = (bytes_for_bit_len - bytes_len) * @bits_per_byte
-        resized = <<bit_list::bitstring, 0::size(append_size)>>
-        skip = bit_size(resized) - 1
-        <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = resized
-        {:ok, <<pre::bitstring, 1::1, rest::bitstring>>}
-      else
+    cond do
+      len > max_size ->
+        {:error, "ExcessBits"}
+
+      bytes_for_bit_len > bytes_len ->
+        resize = (bytes_for_bit_len - bytes_len) * @bits_per_byte
+        {:ok, <<bit_list::bitstring, 0::size(resize - 1), 1::1>>}
+
+      bytes_len > 1 ->
         <<pre::binary-size(bytes_len - 1), last::bitstring>> = bit_list
         {:ok, <<pre::bitstring, 0::size(8 - bit_size(last) - 1), last::bitstring, 1::1>>}
-      end
+
+      true ->
+        resized_bitlist = <<0::1, bit_list::bitstring>>
+        skip = bit_size(resized_bitlist) - len - 1
+        <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = resized_bitlist
+        padding =  8 - bit_size(pre) - 1 - bit_size(rest)
+        {:ok, <<0::size(padding), pre::bitstring, 1::1, rest::bitstring>>}
     end
   end
 

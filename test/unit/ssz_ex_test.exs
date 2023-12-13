@@ -209,6 +209,16 @@ defmodule Unit.SSZExTest do
     assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 31})
     assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 31})
 
+    truncated_encoded_bytes = <<11::4>>
+    expected_encoded_bytes = <<11>>
+    assert {:ok, decoded_bytes} = SszEx.decode(truncated_encoded_bytes, {:bitlist, 31})
+    assert {:ok, ^expected_encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 31})
+
+    truncated_encoded_bytes = <<10::4>>
+    expected_encoded_bytes = <<10>>
+    assert {:ok, decoded_bytes} = SszEx.decode(truncated_encoded_bytes, {:bitlist, 31})
+    assert {:ok, ^expected_encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 31})
+
     encoded_bytes = <<7>>
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
 
