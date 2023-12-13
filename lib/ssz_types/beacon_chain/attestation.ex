@@ -3,6 +3,7 @@ defmodule SszTypes.Attestation do
   Struct definition for `AttestationMainnet`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :aggregation_bits,
@@ -19,4 +20,13 @@ defmodule SszTypes.Attestation do
           data: SszTypes.AttestationData.t(),
           signature: SszTypes.bls_signature()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:aggregation_bits, {:bitlist, 2048}},
+      {:data, SszTypes.AttestationData},
+      {:signature, {:bytes, 96}}
+    ]
+  end
 end

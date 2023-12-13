@@ -3,6 +3,7 @@ defmodule SszTypes.Deposit do
   Struct definition for `Deposit`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :proof,
@@ -39,5 +40,13 @@ defmodule SszTypes.Deposit do
       effective_balance: effective_balance,
       slashed: false
     }
+  end
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:proof, {:list, {:bytes, 32}, 33}},
+      {:data, SszTypes.DepositData}
+    ]
   end
 end

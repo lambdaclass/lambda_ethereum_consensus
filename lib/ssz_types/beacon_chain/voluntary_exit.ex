@@ -3,6 +3,7 @@ defmodule SszTypes.VoluntaryExit do
   Struct definition for `VoluntaryExit`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :epoch,
@@ -16,4 +17,12 @@ defmodule SszTypes.VoluntaryExit do
           epoch: SszTypes.epoch(),
           validator_index: SszTypes.validator_index()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:epoch, {:int, 64}},
+      {:validator_index, {:int, 64}}
+    ]
+  end
 end
