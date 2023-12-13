@@ -7,8 +7,10 @@ config :logger, level: :info, truncate: :infinity
 config :lambda_ethereum_consensus, ChainSpec, config: MainnetConfig
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
-  endpoint: "http://localhost:8080",
-  version: "2.0"
+  endpoint: "http://localhost:8551",
+  version: "2.0",
+  # Will be set by CLI
+  jwt_secret: nil
 
 # Configures the phoenix endpoint
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
