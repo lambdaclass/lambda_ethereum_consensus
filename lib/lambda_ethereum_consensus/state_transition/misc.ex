@@ -174,6 +174,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     <<value::unsigned-integer-little-size(64)>>
   end
 
+  @doc """
+  Computes the validator indices of the ``committee_index``-th committee at some epoch
+  with ``committee_count`` committees, and for some given ``indices`` and ``seed``.
+  """
   @spec compute_committee(
           list(SszTypes.validator_index()),
           SszTypes.bytes32(),
@@ -181,26 +185,39 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
           SszTypes.uint64()
         ) ::
           {:ok, list(SszTypes.validator_index())} | {:error, binary()}
-  def compute_committee(indices, seed, index, count) do
-    start_ = div(length(indices) * index, count)
-    end_ = div(length(indices) * (index + 1), count) - 1
+  def compute_committee(indices, seed, committee_index, committee_count) do
+    index_count = length(indices)
+    committee_start = div(index_count * committee_index, committee_count)
+    committee_end = div(index_count * (committee_index + 1), committee_count) - 1
 
-    case compute_committee_indices(start_, end_, indices, seed) do
-      {:ok, result_list} -> {:ok, Enum.reverse(result_list)}
-      _ -> {:error, "invalid index_count"}
+    result =
+      committee_start..committee_end//1
+      |> Stream.map(&compute_shuffled_index(&1, index_count, seed))
+      |> Stream.with_index()
+      |> Enum.reduce_while({:ok, []}, fn
+        {{:ok, shuffled_index}, i}, {:ok, acc} ->
+          {:cont, {:ok, [{shuffled_index, i} | acc]}}
+
+        {{:error, _} = err, _}, _ ->
+          {:halt, err}
+      end)
+
+    with {:ok, to_swap_indices} <- result do
+      to_swap_indices = Enum.sort(to_swap_indices, fn {a, _}, {b, _} -> a <= b end)
+
+      {swapped_indices, []} =
+        indices
+        |> Stream.with_index()
+        |> Enum.flat_map_reduce(to_swap_indices, fn
+          {v, i}, [{i, j} | tail] -> {[{v, j}], tail}
+          _, acc -> {[], acc}
+        end)
+
+      swapped_indices
+      |> Enum.sort(fn {_, a}, {_, b} -> a <= b end)
+      |> Enum.map(fn {v, _} -> v end)
+      |> then(&{:ok, &1})
     end
-  end
-
-  defp compute_committee_indices(start_, end_, indices, seed) do
-    Enum.reduce_while(start_..end_, {:ok, []}, fn i, {:ok, acc_list} ->
-      case compute_shuffled_index(i, length(indices), seed) do
-        {:ok, shuffled_index} ->
-          {:cont, {:ok, [Enum.at(indices, shuffled_index) | acc_list]}}
-
-        {:error, _} = error ->
-          {:halt, error}
-      end
-    end)
   end
 
   @doc """

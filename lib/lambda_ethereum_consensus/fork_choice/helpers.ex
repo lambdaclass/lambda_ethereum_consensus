@@ -8,6 +8,23 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias SszTypes.Checkpoint
   alias SszTypes.Store
 
+  @spec current_status_message(Store.t()) ::
+          {:ok, SszTypes.StatusMessage.t()} | {:error, any}
+  def current_status_message(store) do
+    with {:ok, head_root} <- get_head(store),
+         {:ok, state} <- Map.fetch(store.block_states, head_root) do
+      {:ok,
+       %SszTypes.StatusMessage{
+         fork_digest:
+           Misc.compute_fork_digest(state.fork.current_version, state.genesis_validators_root),
+         finalized_root: state.finalized_checkpoint.root,
+         finalized_epoch: state.finalized_checkpoint.epoch,
+         head_root: head_root,
+         head_slot: state.slot
+       }}
+    end
+  end
+
   @spec get_forkchoice_store(BeaconState.t(), BeaconBlock.t()) :: {:ok, Store.t()} | {:error, any}
   def get_forkchoice_store(%BeaconState{} = anchor_state, %BeaconBlock{} = anchor_block) do
     anchor_state_root = Ssz.hash_tree_root!(anchor_state)

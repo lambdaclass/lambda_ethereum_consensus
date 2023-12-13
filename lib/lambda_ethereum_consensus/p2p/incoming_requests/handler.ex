@@ -2,9 +2,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   @moduledoc """
   This module handles Req/Resp domain requests.
   """
-  require Logger
-  alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  require Logger
 
   # This is the `ForkDigest` for mainnet in the capella fork
   # TODO: compute this at runtime
@@ -28,18 +30,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   @spec handle_req(String.t(), String.t(), binary()) ::
           :ok | :not_implemented | {:error, binary()}
   defp handle_req("status/1/ssz_snappy", message_id, message) do
-    # hardcoded response from random peer
-    current_status = %SszTypes.StatusMessage{
-      fork_digest: Base.decode16!("BBA4DA96"),
-      finalized_root:
-        Base.decode16!("7715794499C07D9954DD223EC2C6B846D3BAB27956D093000FADC1B8219F74D4"),
-      finalized_epoch: 228_168,
-      head_root:
-        Base.decode16!("D62A74AE0F933224133C5E6E1827A2835A1E705F0CDFEE3AD25808DDEA5572DB"),
-      head_slot: 7_301_450
-    }
-
     with <<84, snappy_status::binary>> <- message,
+         {:ok, current_status} <- ForkChoice.Store.get_current_status_message(),
          {:ok, ssz_status} <- Snappy.decompress(snappy_status),
          {:ok, status} <- Ssz.from_ssz(ssz_status, SszTypes.StatusMessage),
          status
