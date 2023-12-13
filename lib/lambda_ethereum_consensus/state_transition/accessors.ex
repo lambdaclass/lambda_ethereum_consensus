@@ -269,12 +269,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     epoch = Misc.compute_epoch_at_slot(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch)
 
-    Misc.compute_committee(
-      get_active_validator_indices(state, epoch),
-      get_seed(state, epoch, Constants.domain_beacon_attester()),
-      rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index,
-      committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
-    )
+    indices = get_active_validator_indices(state, epoch)
+    seed = get_seed(state, epoch, Constants.domain_beacon_attester())
+    committee_index = rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index
+    committee_count = committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    Misc.compute_committee(indices, seed, committee_index, committee_count)
   end
 
   @spec get_base_reward_per_increment(BeaconState.t()) :: SszTypes.gwei()
