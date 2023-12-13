@@ -6,11 +6,12 @@ defmodule LambdaEthereumConsensus.Application do
   use Application
   require Logger
 
+  alias LambdaEthereumConsensus.Cli
+
   @impl true
   def start(_type, _args) do
-    # Parse command line arguments
-    {args, _remaining_args, _errors} =
-      OptionParser.parse(System.argv(), switches: [checkpoint_sync: :string])
+    args = Cli.parse_args()
+    checkpoint_sync = Keyword.get(args, :checkpoint_sync)
 
     config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
     port = Keyword.fetch!(config, :port)
@@ -29,11 +30,10 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
-      {LambdaEthereumConsensus.ForkChoice, [Keyword.get(args, :checkpoint_sync)]},
+      {LambdaEthereumConsensus.ForkChoice, [checkpoint_sync]},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
-      # Start the Endpoint (http/https)
       {BeaconApi.Endpoint, []}
     ]
 

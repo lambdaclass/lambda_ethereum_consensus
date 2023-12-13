@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   State transition logic.
   """
 
-  alias LambdaEthereumConsensus.Engine.Execution
+  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
   alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
@@ -114,7 +114,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   end
 
   def process_block(state, block) do
-    verify_and_notify_new_payload = &Execution.verify_and_notify_new_payload/1
+    verify_and_notify_new_payload = &ExecutionClient.verify_and_notify_new_payload/1
 
     {:ok, state}
     |> map_ok(&Operations.process_block_header(&1, block))

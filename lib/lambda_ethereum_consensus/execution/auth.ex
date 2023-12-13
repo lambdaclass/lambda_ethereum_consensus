@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Engine.JWT do
+defmodule LambdaEthereumConsensus.Execution.Auth do
   @moduledoc """
   JWT generator module for authenticated Engine API communication
   """
@@ -16,16 +16,20 @@ defmodule LambdaEthereumConsensus.Engine.JWT do
   @doc """
   Generates a JWT token using HS256 algo and provided secret, additionaly adds an iat claim at current time.
   """
-  @spec generate_token :: {:error, atom | keyword} | {:ok, binary, %{optional(binary) => any}}
-  def generate_token do
+  @spec generate_token(binary) ::
+          {:error, atom | keyword} | {:ok, binary, %{optional(binary) => any}}
+  def generate_token("0x" <> jwt_secret) do
     claim = %{"iat" => Joken.current_time()}
+
+    jwt_secret =
+      jwt_secret
+      |> String.upcase()
+      |> Base.decode16!()
 
     signer =
       Joken.Signer.create(
         "HS256",
-        Application.fetch_env!(:lambda_ethereum_consensus, :jwt_secret)
-        |> String.upcase()
-        |> Base.decode16!()
+        jwt_secret
       )
 
     generate_and_sign(claim, signer)
