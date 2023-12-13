@@ -127,9 +127,9 @@ Or by a single runner in all configs, with:
 make spec-test-runner-`runner`
 
 # Some examples
-make spec-test-config-ssz_static
-make spec-test-config-bls
-make spec-test-config-operations
+make spec-test-runner-ssz_static
+make spec-test-runner-bls
+make spec-test-runner-operations
 ```
 
 The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
