@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
 
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.StateTransition.{Math, Misc, Predicates}
+  alias LambdaEthereumConsensus.StateTransition.{Cache, Math, Misc, Predicates}
   alias LambdaEthereumConsensus.Utils
   alias SszTypes.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
@@ -188,11 +188,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   def get_total_active_balance(state) do
     epoch = get_current_epoch(state)
 
-    state.validators
-    |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
-    |> Stream.map(fn %Validator{effective_balance: effective_balance} -> effective_balance end)
-    |> Enum.sum()
-    |> max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
+    Cache.cache_total_active_balance(epoch, fn ->
+      state.validators
+      |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
+      |> Stream.map(fn %Validator{effective_balance: effective_balance} -> effective_balance end)
+      |> Enum.sum()
+      |> max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
+    end)
   end
 
   @doc """
@@ -280,7 +282,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_base_reward_per_increment(BeaconState.t()) :: SszTypes.gwei()
   def get_base_reward_per_increment(state) do
     numerator = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT") * ChainSpec.get("BASE_REWARD_FACTOR")
-    denominator = Math.integer_squareroot(get_total_active_balance(state))
+    denominator = state |> get_total_active_balance() |> Math.integer_squareroot()
     div(numerator, denominator)
   end
 
