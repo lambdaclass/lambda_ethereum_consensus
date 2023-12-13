@@ -6,7 +6,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Store.BlockStore
 
   # This is the `ForkDigest` for mainnet in the capella fork
