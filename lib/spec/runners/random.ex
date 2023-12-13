@@ -7,22 +7,22 @@ defmodule RandomTestRunner do
   use TestRunner
 
   @disabled_cases [
-    "randomized_0",
+    # "randomized_0",
     # "randomized_1",
-    "randomized_2",
-    "randomized_3",
+    # "randomized_2",
+    # "randomized_3",
     # "randomized_4",
-    "randomized_5",
-    "randomized_6",
-    "randomized_7",
+    # "randomized_5",
+    # "randomized_6",
+    # "randomized_7",
     # "randomized_8",
     # "randomized_9",
-    "randomized_10",
+    # "randomized_10",
     # "randomized_11",
-    "randomized_12",
-    "randomized_13",
-    "randomized_14",
-    "randomized_15"
+    # "randomized_12",
+    # "randomized_13",
+    # "randomized_14",
+    # "randomized_15"
   ]
 
   @impl TestRunner

@@ -4,6 +4,7 @@ defmodule SszTypes.Checkpoint do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
+  @behaviour LambdaEthereumConsensus.Container
   fields = [
     :root,
     :epoch
@@ -16,4 +17,11 @@ defmodule SszTypes.Checkpoint do
           epoch: SszTypes.epoch(),
           root: SszTypes.root()
         }
+
+  def schema do
+    [
+      {:epoch, {:int, 64}},
+      {:root, {:bytes, 32}}
+    ]
+  end
 end

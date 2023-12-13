@@ -95,9 +95,9 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     current_epoch = Accessors.get_current_epoch(state)
     next_epoch = current_epoch + 1
     epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
-    random_mix = Accessors.get_randao_mix(state, current_epoch)
+    randao_mix = Accessors.get_randao_mix(state, current_epoch)
     index = rem(next_epoch, epochs_per_historical_vector)
-    new_randao_mixes = List.replace_at(randao_mixes, index, random_mix)
+    new_randao_mixes = List.replace_at(randao_mixes, index, randao_mix)
     new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
     {:ok, new_state}
   end

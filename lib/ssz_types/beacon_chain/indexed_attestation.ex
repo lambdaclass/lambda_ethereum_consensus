@@ -3,6 +3,7 @@ defmodule SszTypes.IndexedAttestation do
   Struct definition for `IndexedAttestation`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :attesting_indices,
@@ -19,4 +20,13 @@ defmodule SszTypes.IndexedAttestation do
           data: SszTypes.AttestationData.t(),
           signature: SszTypes.bls_signature()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:attesting_indices, {:list, {:int, 64}, 2048}},
+      {:data, SszTypes.AttestationData},
+      {:signature, {:bytes, 96}}
+    ]
+  end
 end
