@@ -193,7 +193,7 @@ lint:
 	mix format --check-formatted
 	mix credo --strict
 
-#✅ fmt: @ Format Go code.
+#✅ fmt: @ Format all code (Go, rust and elixir).
 fmt:
 	mix format
 	gofmt -l -w native/libp2p_nif/go_src
