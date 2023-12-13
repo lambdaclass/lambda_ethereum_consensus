@@ -10,7 +10,13 @@ defmodule LambdaEthereumConsensus.Application do
   def start(_type, _args) do
     # Parse command line arguments
     {args, _remaining_args, _errors} =
-      OptionParser.parse(System.argv(), switches: [checkpoint_sync: :string])
+      OptionParser.parse(System.argv(),
+        switches: [checkpoint_sync: :string, execution_client: :string, execution_jwt: :string]
+      )
+
+    execution_jwt = Keyword.get(args, :execution_jwt)
+    execution_endpoint = Keyword.get(args, :execution_client)
+    checkpoint_sync = Keyword.get(args, :checkpoint_sync)
 
     config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
     port = Keyword.fetch!(config, :port)
@@ -27,13 +33,13 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Telemetry, []},
       {LambdaEthereumConsensus.Libp2pPort, libp2p_opts},
       {LambdaEthereumConsensus.Store.Db, []},
+      {LambdaEthereumConsensus.Execution.ExecutionClient, [execution_endpoint, execution_jwt]},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
-      {LambdaEthereumConsensus.ForkChoice, [Keyword.get(args, :checkpoint_sync)]},
+      {LambdaEthereumConsensus.ForkChoice, [checkpoint_sync]},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
-      # Start the Endpoint (http/https)
       {BeaconApi.Endpoint, []}
     ]
 
