@@ -174,7 +174,7 @@ defmodule LambdaEthereumConsensus.SszEx do
         resized_bitlist = <<0::1, bit_list::bitstring>>
         skip = bit_size(resized_bitlist) - len - 1
         <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = resized_bitlist
-        padding =  8 - bit_size(pre) - 1 - bit_size(rest)
+        padding = 8 - bit_size(pre) - 1 - bit_size(rest)
         {:ok, <<0::size(padding), pre::bitstring, 1::1, rest::bitstring>>}
     end
   end
