@@ -111,11 +111,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       slot_coverage = start_slot + (count - 1)
 
       blocks =
-        (start_slot - 1)..slot_coverage
+        (start_slot)..slot_coverage
         |> Enum.map(&BlockStore.get_block_by_slot/1)
-        |> Enum.chunk_every(2, 1, :discard)
-        |> Enum.map(&resolve_empty_slot/1)
-
+        
       response_chunk =
         blocks
         |> Enum.map_join(&create_block_response_chunk/1)
@@ -128,24 +126,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     # This should never happen, since Libp2p only accepts registered protocols
     Logger.error("Unsupported protocol: #{protocol}")
     :ok
-  end
-
-  defp resolve_empty_slot([previous_block_response, current_block_response]) do
-    if slot_is_empty(previous_block_response, current_block_response) do
-      :empty_slot
-    else
-      current_block_response
-    end
-  end
-
-  defp slot_is_empty(%BeaconBlock{parent_root: previous_parent_root}, %BeaconBlock{
-         parent_root: current_parent_root
-       }) do
-    previous_parent_root == current_parent_root
-  end
-
-  defp slot_is_empty(_, _) do
-    false
   end
 
   defp create_block_response_chunk({:ok, block}) do

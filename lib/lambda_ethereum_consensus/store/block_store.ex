@@ -19,6 +19,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
 
     # WARN: this overrides any previous mapping for the same slot
     # TODO: this should apply fork-choice if not applied elsewhere
+    # TODO: handle cases where slot is empty
     slothash_key = block_root_by_slot_key(block.slot)
     Db.put(slothash_key, block_root)
   end
@@ -41,7 +42,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   end
 
   @spec get_block_by_slot(SszTypes.slot()) ::
-          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found
+          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found | :empty_slot
   def get_block_by_slot(slot) do
     # WARN: this will return the latest block received for the given slot
     with {:ok, root} <- get_block_root_by_slot(slot) do
