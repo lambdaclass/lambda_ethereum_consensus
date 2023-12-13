@@ -1,13 +1,16 @@
 # General application configuration
 import Config
 
-config :lambda_ethereum_consensus,
-  jwt_secret: "0000000000000000000000000000000000000000000000000000000000000000"
-
 # Configure logging
 config :logger, level: :info, truncate: :infinity
 
 config :lambda_ethereum_consensus, ChainSpec, config: MainnetConfig
+
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
+  endpoint: "http://localhost:8551",
+  version: "2.0",
+  # Will be set by CLI
+  jwt_secret: nil
 
 # Configures the phoenix endpoint
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
