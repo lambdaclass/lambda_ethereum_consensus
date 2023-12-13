@@ -6,7 +6,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
-  alias SszTypes.BeaconBlock
 
   require Logger
 
@@ -113,7 +112,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       blocks =
         (start_slot)..slot_coverage
         |> Enum.map(&BlockStore.get_block_by_slot/1)
-        
+
       response_chunk =
         blocks
         |> Enum.map_join(&create_block_response_chunk/1)
