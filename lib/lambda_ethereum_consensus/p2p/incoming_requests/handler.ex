@@ -171,7 +171,5 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     <<3>> <> size_header <> snappy_message
   end
 
-  defp create_block_response_chunk(:empty_slot) do
-    <<>>
-  end
+  defp create_block_response_chunk(:empty_slot), do: <<>>
 end
