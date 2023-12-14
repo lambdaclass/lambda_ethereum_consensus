@@ -11,6 +11,11 @@
 
 ### NIF
 
+default: help
+#❓ help: @ Displays this message
+help:
+	@grep -E '[a-zA-Z\.\-\%]+:.*?@ .*$$' $(firstword $(MAKEFILE_LIST))| tr -d '#'  | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
+
 # magic from sym_num https://elixirforum.com/t/where-is-erl-nif-h-header-file-required-for-nif/27142/5
 ERLANG_INCLUDES := $(shell erl -eval 'io:format("~s", \
 		[lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])] \
@@ -55,6 +60,66 @@ PORT_SOURCES := $(shell find native/libp2p_port -type f)
 $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) $(PROTOBUF_GO_FILES)
 	cd native/libp2p_port; go build -o ../../$@
 
+##### TARGETS #####
+
+#💻 nix: @ Start a nix environment.
+nix:
+	nix develop
+
+#💻 nix-zsh: @ Start a nix environment using zsh as a console.
+nix-zsh:
+	nix develop -c zsh
+
+#🔄 deps: @ Install mix dependencies.
+deps:
+	sh scripts/install_protos.sh
+	$(MAKE) proto
+
+	cd native/libp2p_port; \
+	go get && go install
+	mix deps.get
+
+#📝 proto: @ Generate protobuf code
+proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
+
+#🔨 compile-native: @ Compile C and Go artifacts.
+compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
+
+#🔨 compile-all: @ Compile the elixir project and its dependencies.
+compile-all: compile-native $(PROTOBUF_EX_FILES)
+	mix compile
+
+#🗑️ clean: @ Remove the build files.
+clean:
+	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
+
+#📊 grafana-up: @ Start grafana server.
+grafana-up:
+	cd metrics/ && docker-compose up -d
+
+#📊 grafana-down: @ Stop grafana server.
+grafana-down:
+	cd metrics/ && docker-compose down
+
+#🗑️ grafana-clean: @ Remove the grafana data.
+grafana-clean:
+	cd metrics/ && docker-compose down -v
+
+#▶️ start: @ Start application with Beacon API.
+start: compile-all
+	iex -S mix phx.server
+
+#▶️ iex: @ Runs an interactive terminal with the main supervisor setup.
+iex: compile-all
+	iex -S mix
+
+#▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync.
+checkpoint-sync: compile-all
+	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
+
+#🔴 test: @ Run tests
+test: compile-all
+	mix test --no-start --exclude spectest
 
 ##### SPEC TEST VECTORS #####
 
@@ -82,92 +147,53 @@ $(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
 $(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general lib/spec/runners/*.ex lib/mix/tasks/generate_spec_tests.ex
 	mix generate_spec_tests
 
+#⬇️ download-vectors: @ Download the spec test vectors files.
 download-vectors: $(SPECTEST_TARS)
 
+#🗑️ clean-vectors: @ Remove the downloaded spec test vectors.
 clean-vectors:
 	-rm -rf $(SPECTEST_ROOTDIR)/tests
 	-rm $(SPECTEST_ROOTDIR)/*.tar.gz
 
+#📝 gen-spec: @ Generate the spec tests.
+gen-spec: $(SPECTEST_GENERATED_ROOTDIR)
+
+
+#🗑️ clean-tests: @ Remove the generated spec tests.
 clean-tests:
 	-rm -r test/generated
 
-gen-spec: $(SPECTEST_GENERATED_ROOTDIR)
 
-##### TARGETS #####
-
-clean:
-	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
-
-# Compile C and Go artifacts.
-compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
-
-compile-all: compile-native $(PROTOBUF_EX_FILES)
-	mix compile
-
-
-# Start application with Beacon API.
-start: compile-all
-	iex -S mix phx.server
-
-grafana-up:
-	cd metrics/ && docker-compose up -d
-
-grafana-down:
-	cd metrics/ && docker-compose down
-
-grafana-clean:
-	cd metrics/ && docker-compose down -v
-
-# Run an interactive terminal with the main supervisor setup.
-iex: compile-all
-	iex -S mix
-
-# Run an interactive terminal using checkpoint sync.
-checkpoint-sync: compile-all
-	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
-
-# Install mix dependencies.
-
-deps:
-	sh scripts/install_protos.sh
-	$(MAKE) proto
-
-	cd native/libp2p_port; \
-	go get && go install
-	mix deps.get
-
-# Run tests
-test: compile-all
-	mix test --no-start --exclude spectest
-
-# Run all spec tests
+#🔴 spec-test: @ Run all spec tests
 spec-test: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/*
 
-# Run all spec tests for a specific config (e.g. mainnet)
+#🔴 spec-test-config-%: @ Run all spec tests for a specific config (e.g. mainnet)
 spec-test-config-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/$*/*/*
 
-# Run all spec tests for a specific runner (e.g. epoch_processing)
+#🔴 spec-test-runner-%: @ Run all spec tests for a specific runner (e.g. epoch_processing)
 spec-test-runner-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/$*.exs
 
-# Run spec tests for mainnet config, for the specified runner.
+#🔴 spec-test-mainnet-%: @ Run spec tests for mainnet config, for the specified runner.
 spec-test-mainnet-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
-# Run spec tests for minimal config, for the specified runner.
+#🔴 spec-test-minimal-%: @ Run spec tests for minimal config, for the specified runner.
 spec-test-minimal-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/minimal/*/$*.exs
 
-# Run spec tests for general config, for the specified runner.
+#🔴 spec-test-general-%: @ Run spec tests for general config, for the specified runner.
 spec-test-general-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/general/*/$*.exs
 
+#✅ lint: @ Check formatting and linting.
 lint:
 	mix format --check-formatted
 	mix credo --strict
 
+#✅ fmt: @ Format all code (Go, rust and elixir).
 fmt:
 	mix format
 	gofmt -l -w native/libp2p_nif/go_src
@@ -175,12 +201,3 @@ fmt:
 	cd native/snappy_nif; cargo fmt
 	cd native/ssz_nif; cargo fmt
 	cd native/bls_nif; cargo fmt
-
-# Generate protobuf code
-proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
-
-nix:
-	nix develop
-
-nix-zsh:
-	nix develop -c zsh
