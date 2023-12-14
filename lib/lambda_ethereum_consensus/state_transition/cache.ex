@@ -23,7 +23,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
     end
   end
 
-  @spec cache_total_active_balance({SszTypes.epoch(), SszTypes.root()}, (-> SszTypes.gwei())) ::
+  @spec cache_total_active_balance(SszTypes.BeaconState.t(), (-> SszTypes.gwei())) ::
           SszTypes.gwei()
   def cache_total_active_balance(state, compute_fun) do
     epoch = Accessors.get_current_epoch(state)
