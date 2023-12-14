@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+
   require Logger
 
   # This is the `ForkDigest` for mainnet in the capella fork
@@ -169,4 +170,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
     <<3>> <> size_header <> snappy_message
   end
+
+  defp create_block_response_chunk(:empty_slot), do: <<>>
 end
