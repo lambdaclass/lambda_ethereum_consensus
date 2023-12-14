@@ -18,6 +18,7 @@ defmodule SszTypes.Checkpoint do
           root: SszTypes.root()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:epoch, {:int, 64}},

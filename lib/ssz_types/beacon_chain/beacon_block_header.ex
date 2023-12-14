@@ -24,6 +24,7 @@ defmodule SszTypes.BeaconBlockHeader do
           body_root: SszTypes.root()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:slot, {:int, 64}},

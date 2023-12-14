@@ -21,6 +21,7 @@ defmodule SszTypes.Fork do
           epoch: SszTypes.epoch()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:previous_version, {:int, 4}},

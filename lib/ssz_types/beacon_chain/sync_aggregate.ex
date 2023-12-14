@@ -18,6 +18,7 @@ defmodule SszTypes.SyncAggregate do
           sync_committee_signature: SszTypes.bls_signature()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:sync_committee_bits, {:bitvector, 512}},

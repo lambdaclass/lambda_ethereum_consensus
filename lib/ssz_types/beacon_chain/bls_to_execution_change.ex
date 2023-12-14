@@ -20,6 +20,7 @@ defmodule SszTypes.BLSToExecutionChange do
           to_execution_address: SszTypes.execution_address()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:validator_index, {:int, 64}},

@@ -19,6 +19,7 @@ defmodule SszTypes.HistoricalBatch do
           state_roots: list(SszTypes.root())
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:block_roots, {:vector, {:bytes, 32}, 8192}},

@@ -20,6 +20,7 @@ defmodule SszTypes.DepositMessage do
           amount: SszTypes.gwei()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:pubkey, {:bytes, 48}},

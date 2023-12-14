@@ -23,6 +23,7 @@ defmodule SszTypes.DepositData do
           signature: SszTypes.bls_signature()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:pubkey, {:bytes, 48}},

@@ -20,6 +20,7 @@ defmodule SszTypes.Eth1Data do
           block_hash: SszTypes.hash32()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:deposit_root, {:bytes, 32}},

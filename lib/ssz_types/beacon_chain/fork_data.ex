@@ -19,6 +19,7 @@ defmodule SszTypes.ForkData do
           genesis_validators_root: SszTypes.root()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:current_version, {:int, 4}},
