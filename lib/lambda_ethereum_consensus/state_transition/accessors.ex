@@ -274,19 +274,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the beacon committee at ``slot`` for ``index``.
   """
   @spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.commitee_index()) ::
-          {:ok, list(SszTypes.validator_index())} | {:error, binary()}
+          {:ok, list(SszTypes.validator_index())} | {:error, String.t()}
   def get_beacon_committee(%BeaconState{} = state, slot, index) do
-    Cache.cache_beacon_committee(state, slot, index, fn ->
-      epoch = Misc.compute_epoch_at_slot(slot)
-      committees_per_slot = get_committee_count_per_slot(state, epoch)
+    epoch = Misc.compute_epoch_at_slot(slot)
+    committees_per_slot = get_committee_count_per_slot(state, epoch)
 
-      indices = get_active_validator_indices(state, epoch)
-      seed = get_seed(state, epoch, Constants.domain_beacon_attester())
-      committee_index = rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index
-      committee_count = committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
+    if index >= committees_per_slot do
+      {:error, "Invalid committee index"}
+    else
+      Cache.cache_beacon_committee(state, slot, index, fn ->
+        indices = get_active_validator_indices(state, epoch)
+        seed = get_seed(state, epoch, Constants.domain_beacon_attester())
 
-      Misc.compute_committee(indices, seed, committee_index, committee_count)
-    end)
+        committee_index =
+          rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index
+
+        committee_count = committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
+
+        # Cannot fail: `committee_index` < `committee_count` because `index < committees_per_slot`
+        {:ok, committee} = Misc.compute_committee(indices, seed, committee_index, committee_count)
+        committee
+      end)
+      |> then(&{:ok, &1})
+    end
   end
 
   @spec get_base_reward_per_increment(BeaconState.t()) :: SszTypes.gwei()
@@ -444,7 +454,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the indexed attestation corresponding to ``attestation``.
   """
   @spec get_indexed_attestation(BeaconState.t(), Attestation.t()) ::
-          {:ok, IndexedAttestation.t()} | {:error, binary()}
+          {:ok, IndexedAttestation.t()} | {:error, String.t()}
   def get_indexed_attestation(%BeaconState{} = state, attestation) do
     with {:ok, indices} <-
            get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
@@ -475,7 +485,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the set of attesting indices corresponding to ``data`` and ``bits``.
   """
   @spec get_attesting_indices(BeaconState.t(), SszTypes.AttestationData.t(), SszTypes.bitlist()) ::
-          {:ok, MapSet.t()} | {:error, binary()}
+          {:ok, MapSet.t()} | {:error, String.t()}
   def get_attesting_indices(%BeaconState{} = state, data, bits) do
     with {:ok, committee} <- get_beacon_committee(state, data.slot, data.index) do
       committee

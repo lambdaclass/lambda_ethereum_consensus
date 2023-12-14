@@ -50,9 +50,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
           SszTypes.BeaconState.t(),
           SszTypes.slot(),
           SszTypes.commitee_index(),
-          (-> SszTypes.validator_index())
+          (-> list(SszTypes.validator_index()))
         ) ::
-          SszTypes.validator_index()
+          list(SszTypes.validator_index())
   def cache_beacon_committee(state, slot, committee_index, compute_fun) do
     # PERF: compute all committees for the epoch
     epoch = Misc.compute_epoch_at_slot(slot)
