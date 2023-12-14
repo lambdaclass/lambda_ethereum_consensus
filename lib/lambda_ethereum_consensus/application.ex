@@ -35,7 +35,6 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
       {LambdaEthereumConsensus.P2P.Metadata, []},
-      # Start the Endpoint (http/https)
       {BeaconApi.Endpoint, []}
     ]
 
