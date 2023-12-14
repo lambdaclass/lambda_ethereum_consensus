@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   ### GenServer Callbacks
   ##########################
 
-  @impl GenServer
+  @impl true
   def init(metadata) do
     {:ok, metadata}
   end
