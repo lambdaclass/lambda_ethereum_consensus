@@ -39,6 +39,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   def get_block_root_by_slot(slot) do
     key = block_root_by_slot_key(slot)
     block = Db.get(key)
+
     if block == <<>> do
       :empty_slot
     else
