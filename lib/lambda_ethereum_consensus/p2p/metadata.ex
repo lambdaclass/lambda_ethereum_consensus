@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   """
 
   use GenServer
+  use Supervisor
 
   alias SszTypes.Metadata
 
