@@ -40,10 +40,9 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     key = block_root_by_slot_key(slot)
     block = Db.get(key)
 
-    if block == <<>> do
-      :empty_slot
-    else
-      block
+    case block do
+      {:ok, <<>>} -> :empty_slot
+      _ -> block
     end
   end
 
