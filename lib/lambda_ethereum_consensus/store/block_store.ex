@@ -35,10 +35,15 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   end
 
   @spec get_block_root_by_slot(SszTypes.slot()) ::
-          {:ok, SszTypes.root()} | {:error, String.t()} | :not_found
+          {:ok, SszTypes.root()} | {:error, String.t()} | :not_found | :empty_slot
   def get_block_root_by_slot(slot) do
     key = block_root_by_slot_key(slot)
-    Db.get(key)
+    block = Db.get(key)
+    if block == <<>> do
+      :empty_slot
+    else
+      block
+    end
   end
 
   @spec get_block_by_slot(SszTypes.slot()) ::
