@@ -52,6 +52,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
            ),
          {:ok, chunks} <- parse_response(response_chunk),
          {:ok, blocks} <- decode_chunks(chunks) do
+      # TODO: handle cases where slot is empty
       tags = %{result: "success", type: "by_slot", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: count}, tags)
       {:ok, blocks}
