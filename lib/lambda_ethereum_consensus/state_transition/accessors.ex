@@ -255,13 +255,19 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_committee_count_per_slot(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
   def get_committee_count_per_slot(%BeaconState{} = state, epoch) do
-    state.validators
-    |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
-    |> Enum.count()
+    get_active_validator_count(state, epoch)
     |> div(ChainSpec.get("SLOTS_PER_EPOCH"))
     |> div(ChainSpec.get("TARGET_COMMITTEE_SIZE"))
     |> min(ChainSpec.get("MAX_COMMITTEES_PER_SLOT"))
     |> max(1)
+  end
+
+  def get_active_validator_count(%BeaconState{} = state, epoch) do
+    Cache.cache_active_validator_count(state, epoch, fn ->
+      state.validators
+      |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
+      |> Enum.count()
+    end)
   end
 
   @doc """
@@ -270,15 +276,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.commitee_index()) ::
           {:ok, list(SszTypes.validator_index())} | {:error, binary()}
   def get_beacon_committee(%BeaconState{} = state, slot, index) do
-    epoch = Misc.compute_epoch_at_slot(slot)
-    committees_per_slot = get_committee_count_per_slot(state, epoch)
+    Cache.cache_beacon_committee(state, slot, index, fn ->
+      epoch = Misc.compute_epoch_at_slot(slot)
+      committees_per_slot = get_committee_count_per_slot(state, epoch)
 
-    indices = get_active_validator_indices(state, epoch)
-    seed = get_seed(state, epoch, Constants.domain_beacon_attester())
-    committee_index = rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index
-    committee_count = committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
+      indices = get_active_validator_indices(state, epoch)
+      seed = get_seed(state, epoch, Constants.domain_beacon_attester())
+      committee_index = rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index
+      committee_count = committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
 
-    Misc.compute_committee(indices, seed, committee_index, committee_count)
+      Misc.compute_committee(indices, seed, committee_index, committee_count)
+    end)
   end
 
   @spec get_base_reward_per_increment(BeaconState.t()) :: SszTypes.gwei()

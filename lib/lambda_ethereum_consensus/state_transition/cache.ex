@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
 
   @spec init_cache_tables() :: :ok
   def init_cache_tables do
-    [:total_active_balance, :beacon_proposer_index]
+    [:total_active_balance, :beacon_proposer_index, :beacon_committee, :active_validator_count]
     |> Enum.each(fn table ->
       :ets.new(table, [:set, :public, :named_table])
     end)
@@ -29,9 +29,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
           SszTypes.gwei()
   def cache_total_active_balance(state, compute_fun) do
     epoch = Accessors.get_current_epoch(state)
-
-    {:ok, root} =
-      Accessors.get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch) - 1)
+    root = get_epoch_root(state, epoch)
 
     lookup(:total_active_balance, {epoch, root}, compute_fun)
   rescue
@@ -41,13 +39,49 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
   @spec cache_beacon_proposer_index(SszTypes.BeaconState.t(), (-> SszTypes.validator_index())) ::
           SszTypes.validator_index()
   def cache_beacon_proposer_index(%SszTypes.BeaconState{slot: slot} = state, compute_fun) do
-    epoch = Accessors.get_current_epoch(state)
-
-    {:ok, root} =
-      Accessors.get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch) - 1)
+    root = get_epoch_root(state)
 
     lookup(:beacon_proposer_index, {slot, root}, compute_fun)
   rescue
     _ -> compute_fun.()
+  end
+
+  @spec cache_beacon_committee(
+          SszTypes.BeaconState.t(),
+          SszTypes.slot(),
+          SszTypes.commitee_index(),
+          (-> SszTypes.validator_index())
+        ) ::
+          SszTypes.validator_index()
+  def cache_beacon_committee(state, slot, committee_index, compute_fun) do
+    # PERF: compute all committees for the epoch
+    epoch = Misc.compute_epoch_at_slot(slot)
+    root = get_epoch_root(state, epoch)
+
+    lookup(:beacon_committee, {slot, committee_index, root}, compute_fun)
+  rescue
+    _ -> compute_fun.()
+  end
+
+  @spec cache_beacon_proposer_index(SszTypes.BeaconState.t(), (-> non_neg_integer())) ::
+          non_neg_integer()
+  def cache_active_validator_count(state, epoch, compute_fun) do
+    lookup(:active_validator_count, {epoch, get_epoch_root(state)}, compute_fun)
+  rescue
+    _ -> compute_fun.()
+  end
+
+  defp get_epoch_root(state) do
+    epoch = Accessors.get_current_epoch(state)
+    get_epoch_root(state, epoch)
+  end
+
+  defp get_epoch_root(state, epoch) do
+    {:ok, root} =
+      epoch
+      |> Misc.compute_start_slot_at_epoch()
+      |> then(&Accessors.get_block_root_at_slot(state, &1 - 1))
+
+    root
   end
 end
