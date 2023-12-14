@@ -238,14 +238,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_beacon_proposer_index(BeaconState.t()) ::
           {:ok, SszTypes.validator_index()} | {:error, String.t()}
   def get_beacon_proposer_index(state) do
-    epoch = get_current_epoch(state)
+    Cache.cache_beacon_proposer_index(state, fn ->
+      epoch = get_current_epoch(state)
 
-    indices = get_active_validator_indices(state, epoch)
+      indices = get_active_validator_indices(state, epoch)
 
-    state
-    |> get_seed(epoch, Constants.domain_beacon_proposer())
-    |> then(&SszEx.hash(&1 <> Misc.uint64_to_bytes(state.slot)))
-    |> then(&Misc.compute_proposer_index(state, indices, &1))
+      state
+      |> get_seed(epoch, Constants.domain_beacon_proposer())
+      |> then(&SszEx.hash(&1 <> Misc.uint64_to_bytes(state.slot)))
+      |> then(&Misc.compute_proposer_index(state, indices, &1))
+    end)
   end
 
   @doc """
