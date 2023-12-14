@@ -96,7 +96,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @impl GenServer
   def handle_call(:get_current_status_message, _from, state) do
-    {:reply, Helpers.current_status_message(state)}
+    {:reply, Helpers.current_status_message(state), state}
   end
 
   def handle_call({:get_block, block_root}, _from, state) do
