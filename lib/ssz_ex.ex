@@ -407,15 +407,45 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.any?()
   end
 
+  defp size_of(value) when is_integer(value) and value >= 0 do
+    value |> :binary.encode_unsigned() |> byte_size()
+  end
+
+  # NOTE:
+  # - When the elements of the list is an uint then it is a basic list or basic vector
+  # - When the elements of the list is a boolean then it is a bit vector
+  defp chunk_count([head | _tail] = list) when is_integer(head) do
+    size = size_of(head)
+    length = length(list)
+    div(length * size + 31, 32)
+  end
+
   defp pack(value, size) when is_integer(value) and value >= 0 do
-    pad = @bits_per_chunk - size
-    <<value::size(size)-little, 0::size(pad)>>
+    <<value::size(size)-little>> |> pack_bytes()
   end
 
   defp pack(value) when is_boolean(value) do
     case value do
       true -> <<1::@bits_per_chunk-little>>
       false -> <<0::@bits_per_chunk>>
+    end
+  end
+
+  defp pack([head | _tail] = list) when is_integer(head) do
+    list
+    |> Enum.map(fn x ->
+      x |> pack(size_of(x))
+    end)
+  end
+
+  defp pack_bytes(value) when is_binary(value) do
+    incomplete_chunk_len = value |> bit_size() |> rem(@bits_per_chunk)
+
+    if incomplete_chunk_len != 0 do
+      pad = @bits_per_chunk - incomplete_chunk_len
+      <<value::binary, 0::size(pad)>>
+    else
+      value
     end
   end
 end
