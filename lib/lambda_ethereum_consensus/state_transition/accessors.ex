@@ -262,6 +262,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     |> max(1)
   end
 
+  @spec get_active_validator_count(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
   def get_active_validator_count(%BeaconState{} = state, epoch) do
     Cache.cache_active_validator_count(state, epoch, fn ->
       state.validators

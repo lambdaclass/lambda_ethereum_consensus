@@ -63,8 +63,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
     _ -> compute_fun.()
   end
 
-  @spec cache_beacon_proposer_index(SszTypes.BeaconState.t(), (-> non_neg_integer())) ::
-          non_neg_integer()
+  @spec cache_active_validator_count(
+          SszTypes.BeaconState.t(),
+          SszTypes.epoch(),
+          (-> SszTypes.uint64())
+        ) ::
+          SszTypes.uint64()
   def cache_active_validator_count(state, epoch, compute_fun) do
     lookup(:active_validator_count, {epoch, get_epoch_root(state)}, compute_fun)
   rescue
