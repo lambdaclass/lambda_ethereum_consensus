@@ -7,11 +7,13 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   alias SszTypes.Metadata
 
-  @default_timeout 10_000
-
   ##########################
   ### Public API
   ##########################
+
+  def start_link(arg) do
+    Supervisor.start_link(__MODULE__, arg, name: __MODULE__)
+  end
 
   @spec get_seq_number() :: SszTypes.uint64()
   def get_seq_number do
@@ -21,7 +23,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   @spec get_metadata() :: Metadata.t()
   def get_metadata do
-    GenServer.call(__MODULE__, :get_metadata, @default_timeout)
+    GenServer.call(__MODULE__, :get_metadata)
   end
 
   ##########################
@@ -50,6 +52,6 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   @spec get_metadata_attrs([atom()]) :: [any()]
   defp get_metadata_attrs(attrs) do
-    GenServer.call(__MODULE__, {:get_metadata_attrs, attrs}, @default_timeout)
+    GenServer.call(__MODULE__, {:get_metadata_attrs, attrs})
   end
 end
