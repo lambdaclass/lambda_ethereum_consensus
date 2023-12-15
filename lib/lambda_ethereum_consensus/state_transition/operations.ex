@@ -644,25 +644,32 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_attestation(state, %Attestation{data: data} = attestation) do
+  def process_attestation(state, attestation) do
+    with :ok <- validate_attestation(state, attestation) do
+      inner_process_attestation(state, attestation.data, attestation.aggregation_bits)
+    end
+  end
+
+  @spec validate_attestation(BeaconState.t(), Attestation.t()) :: :ok | {:error, String.t()}
+  def validate_attestation(state, %Attestation{data: data} = attestation) do
     with :ok <- check_valid_target_epoch(data, state),
          :ok <- check_epoch_matches(data),
          :ok <- check_valid_slot_range(data, state),
          :ok <- check_committee_count(data, state),
          {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
-         :ok <- check_matching_aggregation_bits_length(attestation, beacon_committee),
-         indexed_attestation =
-           Accessors.get_committee_indexed_attestation(beacon_committee, attestation),
-         :ok <- check_valid_signature(state, indexed_attestation) do
-      inner_process_attestation(state, data, attestation.aggregation_bits, beacon_committee)
+         :ok <- check_matching_aggregation_bits_length(attestation, beacon_committee) do
+      beacon_committee
+      |> Accessors.get_committee_indexed_attestation(attestation)
+      |> then(&check_valid_signature(state, &1))
     end
   end
 
-  defp inner_process_attestation(state, data, aggregation_bits, committee) do
+  defp inner_process_attestation(state, data, aggregation_bits) do
     slot = state.slot - data.slot
 
     with {:ok, flag_indices} <-
-           Accessors.get_attestation_participation_flag_indices(state, data, slot) do
+           Accessors.get_attestation_participation_flag_indices(state, data, slot),
+         {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, data.index) do
       attesting_indices =
         Accessors.get_committee_attesting_indices(committee, aggregation_bits)
 
