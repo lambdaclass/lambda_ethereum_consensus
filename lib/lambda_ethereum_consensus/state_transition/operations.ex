@@ -690,7 +690,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     weights =
       Constants.participation_flag_weights()
       |> Stream.with_index()
-      |> Enum.filter(&(elem(&1, 1) in flag_indices))
+      |> Stream.filter(&(elem(&1, 1) in flag_indices))
+      |> Enum.map(fn {w, i} -> {w, 2 ** i} end)
 
     base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
 
@@ -710,14 +711,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp update_participation(participation, acc, base_reward, weights) do
-    bv_participation = BitVector.new(participation, 8)
-
     weights
-    |> Stream.reject(&BitVector.set?(bv_participation, elem(&1, 1)))
-    |> Enum.reduce({bv_participation, acc}, fn {weight, index}, {bv_participation, acc} ->
-      {bv_participation |> BitVector.set(index), acc + base_reward * weight}
+    |> Enum.reduce({participation, acc}, fn {weight, i}, {participation, acc} ->
+      new_participation = Bitwise.bor(participation, i)
+      new_acc = if new_participation == participation, do: acc, else: acc + base_reward * weight
+      {new_participation, new_acc}
     end)
-    |> then(fn {p, acc} -> {BitVector.to_integer(p), acc} end)
   end
 
   defp compute_proposer_reward(proposer_reward_numerator) do
