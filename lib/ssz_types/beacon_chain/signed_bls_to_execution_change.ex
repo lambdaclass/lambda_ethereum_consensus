@@ -3,6 +3,7 @@ defmodule SszTypes.SignedBLSToExecutionChange do
   Struct definition for `SignedBLSToExecutionChange`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :message,
@@ -16,4 +17,12 @@ defmodule SszTypes.SignedBLSToExecutionChange do
           message: SszTypes.BLSToExecutionChange.t(),
           signature: SszTypes.bls_signature()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:message, SszTypes.BLSToExecutionChange},
+      {:signature, {:bytes, 96}}
+    ]
+  end
 end
