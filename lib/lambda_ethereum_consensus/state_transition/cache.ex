@@ -3,13 +3,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
   Caches expensive function calls.
   """
 
-  @spec init_table(atom()) :: :ok
+  @spec init_table(:ets.table()) :: :ok
   def init_table(table) do
     :ets.new(table, [:set, :public, :named_table])
     :ok
   end
 
-  @spec cache_fun(atom(), key :: any(), (-> value :: any())) :: value :: any()
+  @spec cache_fun(:ets.table(), key :: any(), (-> value :: any())) :: value :: any()
   def cache_fun(table, key, compute_fun) do
     if :ets.info(table) == :undefined do
       init_table(table)

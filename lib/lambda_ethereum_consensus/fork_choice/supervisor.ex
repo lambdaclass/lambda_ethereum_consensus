@@ -6,7 +6,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   alias LambdaEthereumConsensus.ForkChoice.CheckpointSync
   alias LambdaEthereumConsensus.P2P.BlockDownloader
-  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
 
   def start_link(opts) do
@@ -15,8 +14,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @impl true
   def init([nil]) do
-    StateTransition.Cache.init_cache_tables()
-
     case StateStore.get_latest_state() do
       {:ok, anchor_state} ->
         {:ok, anchor_block} = fetch_anchor_block(anchor_state)
