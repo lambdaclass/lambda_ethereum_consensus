@@ -186,9 +186,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
   def get_total_active_balance(state) do
-    Cache.cache_total_active_balance(state, fn ->
-      epoch = get_current_epoch(state)
+    epoch = get_current_epoch(state)
+    {:ok, root} = get_epoch_root(state, epoch)
 
+    Cache.cache_fun(:total_active_balance, {epoch, root}, fn ->
       state.validators
       |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
       |> Stream.map(fn %Validator{effective_balance: effective_balance} -> effective_balance end)
@@ -237,17 +238,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_beacon_proposer_index(BeaconState.t()) ::
           {:ok, SszTypes.validator_index()} | {:error, String.t()}
-  def get_beacon_proposer_index(state) do
-    Cache.cache_beacon_proposer_index(state, fn ->
-      epoch = get_current_epoch(state)
+  def get_beacon_proposer_index(%BeaconState{slot: slot} = state) do
+    epoch = get_current_epoch(state)
+    {:ok, root} = get_epoch_root(state, epoch)
 
+    Cache.cache_fun(:beacon_proposer_index, {slot, root}, fn ->
       indices = get_active_validator_indices(state, epoch)
 
       state
       |> get_seed(epoch, Constants.domain_beacon_proposer())
-      |> then(&SszEx.hash(&1 <> Misc.uint64_to_bytes(state.slot)))
+      |> then(&SszEx.hash(&1 <> Misc.uint64_to_bytes(slot)))
       |> then(&Misc.compute_proposer_index(state, indices, &1))
     end)
+  end
+
+  defp get_state_epoch_root(state) do
+    epoch = get_current_epoch(state)
+    {:ok, root} = get_epoch_root(state, epoch)
+    root
+  end
+
+  defp get_epoch_root(state, epoch) do
+    epoch
+    |> Misc.compute_start_slot_at_epoch()
+    |> then(&get_block_root_at_slot(state, &1 - 1))
   end
 
   @doc """
@@ -264,7 +278,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   @spec get_active_validator_count(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
   def get_active_validator_count(%BeaconState{} = state, epoch) do
-    Cache.cache_active_validator_count(state, epoch, fn ->
+    Cache.cache_fun(:active_validator_count, {epoch, get_state_epoch_root(state)}, fn ->
       state.validators
       |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
       |> Enum.count()
@@ -278,25 +292,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           {:ok, list(SszTypes.validator_index())} | {:error, String.t()}
   def get_beacon_committee(%BeaconState{} = state, slot, index) do
     epoch = Misc.compute_epoch_at_slot(slot)
-    committees_per_slot = get_committee_count_per_slot(state, epoch)
 
-    if index >= committees_per_slot do
-      {:error, "Invalid committee index"}
-    else
-      Cache.cache_beacon_committee(state, slot, index, fn ->
-        indices = get_active_validator_indices(state, epoch)
-        seed = get_seed(state, epoch, Constants.domain_beacon_attester())
+    compute_fn = fn ->
+      committees_per_slot = get_committee_count_per_slot(state, epoch)
+      indices = get_active_validator_indices(state, epoch)
+      seed = get_seed(state, epoch, Constants.domain_beacon_attester())
 
-        committee_index =
-          rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index
+      committee_index =
+        rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index
 
-        committee_count = committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
+      committee_count = committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
 
-        # Cannot fail: `committee_index` < `committee_count` because `index < committees_per_slot`
-        {:ok, committee} = Misc.compute_committee(indices, seed, committee_index, committee_count)
-        committee
-      end)
-      |> then(&{:ok, &1})
+      Misc.compute_committee(indices, seed, committee_index, committee_count)
+    end
+
+    case get_epoch_root(state, epoch) do
+      {:ok, root} -> Cache.cache_fun(:beacon_committee, {slot, index, root}, compute_fn)
+      _ -> compute_fn.()
     end
   end
 

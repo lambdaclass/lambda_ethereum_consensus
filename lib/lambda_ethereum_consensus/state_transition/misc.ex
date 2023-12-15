@@ -184,15 +184,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Computes the validator indices of the ``committee_index``-th committee at some epoch
   with ``committee_count`` committees, and for some given ``indices`` and ``seed``.
   """
+  @spec compute_committee([], SszTypes.bytes32(), SszTypes.uint64(), SszTypes.uint64()) ::
+          {:error, String.t()}
+  def compute_committee([], _, _, _), do: {:error, "Empty indices"}
+
   @spec compute_committee(
-          list(SszTypes.validator_index()),
+          [SszTypes.validator_index(), ...],
           SszTypes.bytes32(),
           SszTypes.uint64(),
           SszTypes.uint64()
-        ) ::
-          {:ok, list(SszTypes.validator_index())} | {:error, String.t()}
-  def compute_committee([], _, _, _), do: {:error, "Empty indices"}
-
+        ) :: {:ok, [SszTypes.validator_index()]}
   def compute_committee(indices, seed, committee_index, committee_count)
       when committee_index < committee_count do
     index_count = length(indices)
