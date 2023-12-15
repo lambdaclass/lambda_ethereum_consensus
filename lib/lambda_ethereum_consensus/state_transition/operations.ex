@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
+  alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Math, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
@@ -664,6 +665,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
+  @spec batch_process_attestations(BeaconState.t(), [Attestation.t()]) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def batch_process_attestations(state, attestations) do
+    attestations
+    |> Enum.reduce_while({:ok, state}, fn
+      att, {:ok, state} -> {:cont, process_attestation(state, att)}
+      _, {:error, _} = err -> {:halt, err}
+    end)
+  end
+
   defp inner_process_attestation(state, data, aggregation_bits) do
     slot = state.slot - data.slot
 
@@ -960,7 +971,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:ok, state}
       |> for_ops(body.proposer_slashings, &process_proposer_slashing/2)
       |> for_ops(body.attester_slashings, &process_attester_slashing/2)
-      |> for_ops(body.attestations, &process_attestation/2)
+      |> Utils.map_ok(&batch_process_attestations(&1, body.attestations))
       |> for_ops(body.deposits, &process_deposit/2)
       |> for_ops(body.voluntary_exits, &process_voluntary_exit/2)
       |> for_ops(body.bls_to_execution_changes, &process_bls_to_execution_change/2)
