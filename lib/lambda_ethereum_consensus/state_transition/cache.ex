@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
   end
 
   @spec cache_beacon_proposer_index(SszTypes.BeaconState.t(), (-> SszTypes.validator_index())) ::
-          SszTypes.validator_index()
+          {:ok, SszTypes.validator_index()} | {:error, String.t()}
   def cache_beacon_proposer_index(%SszTypes.BeaconState{slot: slot} = state, compute_fun) do
     root = get_epoch_root(state)
 

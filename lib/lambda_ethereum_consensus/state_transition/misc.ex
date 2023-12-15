@@ -115,10 +115,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return from ``indices`` a random index sampled by effective balance.
   """
-  @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
-          {:ok, SszTypes.validator_index()} | {:error, binary()}
+  @spec compute_proposer_index(BeaconState.t(), [], SszTypes.bytes32()) ::
+          {:error, String.t()}
   def compute_proposer_index(_state, [], _seed), do: {:error, "Empty indices"}
 
+  @spec compute_proposer_index(
+          BeaconState.t(),
+          nonempty_list(SszTypes.validator_index()),
+          SszTypes.bytes32()
+        ) ::
+          {:ok, SszTypes.validator_index()}
   def compute_proposer_index(state, indices, seed) do
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
     total = length(indices)
