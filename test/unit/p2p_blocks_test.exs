@@ -10,7 +10,7 @@ defmodule Unit.P2PBlocks do
   alias LambdaEthereumConsensus.Store.Db
 
   setup do
-    expose(Handler, :all)
+    # expose(Handler, :all)
     start_supervised!(Db)
     :ok
   end
@@ -24,7 +24,7 @@ defmodule Unit.P2PBlocks do
     BlockStore.store_block(signed_block_input)
 
     # ssz serialize and snappy compress the block root
-    with {:ok, ssz_serialized} <- Ssz.to_ssz(BeaconBlocksByRootRequest{body: [block_root]}),
+    with {:ok, ssz_serialized} <- Ssz.to_ssz(%BeaconBlocksByRootRequest{body: [block_root]}),
          {:ok, snappy_compressed_message} <- Snappy.compress(ssz_serialized) do
       # patch the Libp2pPort's send_request function to call the incoming_requests handler function we want to test
       patch(Libp2pPort, :send_request, fn _peer_id, _protocol, message ->
