@@ -6,8 +6,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   ### Public API
   #################
-
-  @bits_per_chunk 256
+  import Bitwise
 
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
@@ -44,9 +43,12 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
   def hash_tree_root!(value, {:int, size}), do: pack(value, size)
 
+  def hash_tree_root!(value)
+
   #################
   ### Private functions
   #################
+  @bits_per_chunk 256
   @bytes_per_length_offset 4
   @bits_per_byte 8
   @offset_bits 32
@@ -406,6 +408,13 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.map(fn {_, schema} -> variable_size?(schema) end)
     |> Enum.any?()
   end
+  
+  # NOTE: 
+  # - chunks is a list of bytes
+  # - limit is the max size of the list
+  defp merklelize(chunks, limit // nil) do
+    
+  end
 
   defp size_of(value) when is_integer(value) and value >= 0 do
     value |> :binary.encode_unsigned() |> byte_size()
@@ -446,6 +455,20 @@ defmodule LambdaEthereumConsensus.SszEx do
       <<value::binary, 0::size(pad)>>
     else
       value
+    end
+  end
+
+  defp next_pow_of_two(len) when is_integer(len) and len >= 0 do
+    cond do
+      len == 0 or len == 1 ->
+        1
+
+      len == 2 ->
+        2
+
+      true ->
+        n = ((len <<< 1) - 1) |> :math.log2() |> trunc()
+        2 ** n
     end
   end
 end
