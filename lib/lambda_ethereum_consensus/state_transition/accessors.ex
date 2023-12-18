@@ -483,15 +483,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_committee_indexed_attestation([SszTypes.validator_index()], Attestation.t()) ::
           IndexedAttestation.t()
   def get_committee_indexed_attestation(beacon_committee, attestation) do
-    get_committee_attesting_indices(beacon_committee, attestation.aggregation_bits)
-    |> Enum.sort()
-    |> then(
-      &%IndexedAttestation{
-        attesting_indices: &1,
-        data: attestation.data,
-        signature: attestation.signature
-      }
-    )
+    indices = get_committee_attesting_indices(beacon_committee, attestation.aggregation_bits)
+
+    %IndexedAttestation{
+      attesting_indices: indices,
+      data: attestation.data,
+      signature: attestation.signature
+    }
   end
 
   @doc """
@@ -511,13 +509,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @spec get_committee_attesting_indices([SszTypes.validator_index()], SszTypes.bitlist()) ::
-          MapSet.t()
+          [SszTypes.validator_index()]
   def get_committee_attesting_indices(committee, bits) do
     committee
     |> Stream.with_index()
     |> Stream.filter(fn {_value, index} -> participated?(bits, index) end)
     |> Stream.map(fn {value, _index} -> value end)
-    |> MapSet.new()
+    |> Enum.sort()
   end
 
   defp participated?(bits, index) do
