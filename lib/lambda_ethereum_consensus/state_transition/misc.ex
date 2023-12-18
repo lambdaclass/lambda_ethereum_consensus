@@ -115,10 +115,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return from ``indices`` a random index sampled by effective balance.
   """
-  @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
-          {:ok, SszTypes.validator_index()} | {:error, binary()}
+  @spec compute_proposer_index(BeaconState.t(), [], SszTypes.bytes32()) ::
+          {:error, String.t()}
   def compute_proposer_index(_state, [], _seed), do: {:error, "Empty indices"}
 
+  @spec compute_proposer_index(
+          BeaconState.t(),
+          nonempty_list(SszTypes.validator_index()),
+          SszTypes.bytes32()
+        ) ::
+          {:ok, SszTypes.validator_index()}
   def compute_proposer_index(state, indices, seed) do
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
     total = length(indices)
@@ -178,47 +184,47 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Computes the validator indices of the ``committee_index``-th committee at some epoch
   with ``committee_count`` committees, and for some given ``indices`` and ``seed``.
   """
+  @spec compute_committee([], SszTypes.bytes32(), SszTypes.uint64(), SszTypes.uint64()) ::
+          {:error, String.t()}
+  def compute_committee([], _, _, _), do: {:error, "Empty indices"}
+
   @spec compute_committee(
-          list(SszTypes.validator_index()),
+          [SszTypes.validator_index(), ...],
           SszTypes.bytes32(),
           SszTypes.uint64(),
           SszTypes.uint64()
-        ) ::
-          {:ok, list(SszTypes.validator_index())} | {:error, binary()}
-  def compute_committee(indices, seed, committee_index, committee_count) do
+        ) :: {:ok, [SszTypes.validator_index()]}
+  def compute_committee(indices, seed, committee_index, committee_count)
+      when committee_index < committee_count do
     index_count = length(indices)
     committee_start = div(index_count * committee_index, committee_count)
     committee_end = div(index_count * (committee_index + 1), committee_count) - 1
 
-    result =
+    to_swap_indices =
       committee_start..committee_end//1
-      |> Stream.map(&compute_shuffled_index(&1, index_count, seed))
+      # NOTE: this cannot fail because committee_end < index_count
+      |> Stream.map(fn i ->
+        {:ok, index} = compute_shuffled_index(i, index_count, seed)
+        index
+      end)
       |> Stream.with_index()
-      |> Enum.reduce_while({:ok, []}, fn
-        {{:ok, shuffled_index}, i}, {:ok, acc} ->
-          {:cont, {:ok, [{shuffled_index, i} | acc]}}
+      |> Enum.sort(fn {a, _}, {b, _} -> a <= b end)
 
-        {{:error, _} = err, _}, _ ->
-          {:halt, err}
+    {swapped_indices, []} =
+      indices
+      |> Stream.with_index()
+      |> Enum.flat_map_reduce(to_swap_indices, fn
+        {v, i}, [{i, j} | tail] -> {[{v, j}], tail}
+        _, acc -> {[], acc}
       end)
 
-    with {:ok, to_swap_indices} <- result do
-      to_swap_indices = Enum.sort(to_swap_indices, fn {a, _}, {b, _} -> a <= b end)
-
-      {swapped_indices, []} =
-        indices
-        |> Stream.with_index()
-        |> Enum.flat_map_reduce(to_swap_indices, fn
-          {v, i}, [{i, j} | tail] -> {[{v, j}], tail}
-          _, acc -> {[], acc}
-        end)
-
-      swapped_indices
-      |> Enum.sort(fn {_, a}, {_, b} -> a <= b end)
-      |> Enum.map(fn {v, _} -> v end)
-      |> then(&{:ok, &1})
-    end
+    swapped_indices
+    |> Enum.sort(fn {_, a}, {_, b} -> a <= b end)
+    |> Enum.map(fn {v, _} -> v end)
+    |> then(&{:ok, &1})
   end
+
+  def compute_committee(_, _, _, _), do: {:error, "Invalid committee index"}
 
   @doc """
   Return the 32-byte fork data root for the ``current_version`` and ``genesis_validators_root``.
