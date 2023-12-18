@@ -43,12 +43,11 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
   def hash_tree_root!(value, {:int, size}), do: pack(value, size)
 
-  def hash_tree_root!(value)
-
   #################
   ### Private functions
   #################
   @bits_per_chunk 256
+  @bytes_per_chunk 32
   @bytes_per_length_offset 4
   @bits_per_byte 8
   @offset_bits 32
@@ -408,12 +407,18 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.map(fn {_, schema} -> variable_size?(schema) end)
     |> Enum.any?()
   end
-  
+
   # NOTE: 
   # - chunks is a list of bytes
   # - limit is the max size of the list
-  defp merklelize(chunks, limit // nil) do
-    
+  defp merklelize(chunks, limit \\ nil) when limit == nil do
+    size = next_pow_of_two(length(chunks))
+
+    if size == 1 do
+      [head | _tail] = chunks
+      head
+    else
+    end
   end
 
   defp size_of(value) when is_integer(value) and value >= 0 do
@@ -429,22 +434,27 @@ defmodule LambdaEthereumConsensus.SszEx do
     div(length * size + 31, 32)
   end
 
-  defp pack(value, size) when is_integer(value) and value >= 0 do
+  def pack(value, size) when is_integer(value) and value >= 0 do
     <<value::size(size)-little>> |> pack_bytes()
   end
 
-  defp pack(value) when is_boolean(value) do
+  def pack(value) when is_boolean(value) do
     case value do
       true -> <<1::@bits_per_chunk-little>>
       false -> <<0::@bits_per_chunk>>
     end
   end
 
-  defp pack([head | _tail] = list) when is_integer(head) do
+  def pack([{value, _size} = head | _tail] = list) when is_integer(value) do
     list
-    |> Enum.map(fn x ->
-      x |> pack(size_of(x))
+    |> Enum.reduce(<<>>, fn {x, size}, acc ->
+      {:ok, encoded} = encode_int(x, size)
+      acc <> encoded
     end)
+    |> pack_bytes()
+    |> :binary.bin_to_list()
+    |> Enum.chunk_every(@bytes_per_chunk)
+    |> Enum.map(fn x -> :binary.list_to_bin(x) end)
   end
 
   defp pack_bytes(value) when is_binary(value) do
