@@ -747,7 +747,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   Provide randomness to the operation of the beacon chain.
   """
   @spec process_randao(BeaconState.t(), BeaconBlockBody.t()) ::
-          {:ok, BeaconState.t()} | {:error, binary}
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def process_randao(
         %BeaconState{} = state,
         %BeaconBlockBody{randao_reveal: randao_reveal} = _body

@@ -139,10 +139,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
               div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
 
             proposer_reward =
-              div(
-                whistleblower_reward * Constants.proposer_weight(),
-                Constants.weight_denominator()
-              )
+              (whistleblower_reward * Constants.proposer_weight())
+              |> div(Constants.weight_denominator())
 
             # Decrease slashers balance, apply proposer and whistleblower rewards
             {:ok,
