@@ -332,11 +332,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   def get_base_reward(%SszTypes.Validator{} = validator, base_reward_per_increment) do
     effective_balance = validator.effective_balance
 
-    increments =
-      div(
-        effective_balance,
-        ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
-      )
+    increments = div(effective_balance, ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
 
     increments * base_reward_per_increment
   end
