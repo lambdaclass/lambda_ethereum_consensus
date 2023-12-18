@@ -2,6 +2,7 @@ defmodule SpecTestUtils do
   @moduledoc """
   Utilities for spec tests.
   """
+  alias LambdaEthereumConsensus.SszEx
 
   @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
 
@@ -61,9 +62,29 @@ defmodule SpecTestUtils do
     end
   end
 
+  @spec read_ssz_ex_from_optional_file!(binary, module) :: any() | nil
+  def read_ssz_ex_from_optional_file!(file_path, ssz_type) do
+    if File.exists?(file_path) do
+      compressed = File.read!(file_path)
+      {:ok, decompressed} = :snappyer.decompress(compressed)
+      {:ok, ssz_object} = SszEx.decode(decompressed, ssz_type)
+      ssz_object
+    else
+      nil
+    end
+  end
+
   @spec read_ssz_from_file!(binary, module) :: any()
   def read_ssz_from_file!(file_path, ssz_type) do
     case read_ssz_from_optional_file!(file_path, ssz_type) do
+      nil -> raise "File not found: #{file_path}"
+      ssz_object -> ssz_object
+    end
+  end
+
+  @spec read_ssz_ex_from_file!(binary, module) :: any()
+  def read_ssz_ex_from_file!(file_path, ssz_type) do
+    case read_ssz_ex_from_optional_file!(file_path, ssz_type) do
       nil -> raise "File not found: #{file_path}"
       ssz_object -> ssz_object
     end
