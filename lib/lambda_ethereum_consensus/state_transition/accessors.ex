@@ -189,7 +189,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     epoch = get_current_epoch(state)
     {:ok, root} = get_epoch_root(state, epoch)
 
-    Cache.cache_fun(:total_active_balance, {epoch, root}, fn ->
+    Cache.lazily_compute(:total_active_balance, {epoch, root}, fn ->
       state.validators
       |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
       |> Stream.map(fn %Validator{effective_balance: effective_balance} -> effective_balance end)
@@ -242,7 +242,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     epoch = get_current_epoch(state)
     {:ok, root} = get_epoch_root(state, epoch)
 
-    Cache.cache_fun(:beacon_proposer_index, {slot, root}, fn ->
+    Cache.lazily_compute(:beacon_proposer_index, {slot, root}, fn ->
       indices = get_active_validator_indices(state, epoch)
 
       state
@@ -278,7 +278,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   @spec get_active_validator_count(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
   def get_active_validator_count(%BeaconState{} = state, epoch) do
-    Cache.cache_fun(:active_validator_count, {epoch, get_state_epoch_root(state)}, fn ->
+    Cache.lazily_compute(:active_validator_count, {epoch, get_state_epoch_root(state)}, fn ->
       state.validators
       |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
       |> Enum.count()
@@ -307,7 +307,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end
 
     case get_epoch_root(state, epoch) do
-      {:ok, root} -> Cache.cache_fun(:beacon_committee, {slot, index, root}, compute_fn)
+      {:ok, root} -> Cache.lazily_compute(:beacon_committee, {slot, index, root}, compute_fn)
       _ -> compute_fn.()
     end
   end

@@ -9,8 +9,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
     :ok
   end
 
-  @spec cache_fun(:ets.table(), key :: any(), (-> value :: any())) :: value :: any()
-  def cache_fun(table, key, compute_fun) do
+  @spec lazily_compute(:ets.table(), key :: any(), (-> value :: any())) :: value :: any()
+  def lazily_compute(table, key, compute_fun) do
     if :ets.info(table) == :undefined do
       init_table(table)
     end
