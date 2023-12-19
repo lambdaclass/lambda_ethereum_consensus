@@ -665,9 +665,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  @spec batch_process_attestations(BeaconState.t(), [Attestation.t()]) ::
+  @spec process_attestation_batch(BeaconState.t(), [Attestation.t()]) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-  def batch_process_attestations(state, attestations) do
+  def process_attestation_batch(state, attestations) do
     with {:ok, {previous_epoch_updates, current_epoch_updates}} <-
            attestations
            |> Stream.with_index()
@@ -1093,7 +1093,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:ok, state}
       |> for_ops(body.proposer_slashings, &process_proposer_slashing/2)
       |> for_ops(body.attester_slashings, &process_attester_slashing/2)
-      |> Utils.map_ok(&batch_process_attestations(&1, body.attestations))
+      |> Utils.map_ok(&process_attestation_batch(&1, body.attestations))
       |> for_ops(body.deposits, &process_deposit/2)
       |> for_ops(body.voluntary_exits, &process_voluntary_exit/2)
       |> for_ops(body.bls_to_execution_changes, &process_bls_to_execution_change/2)
