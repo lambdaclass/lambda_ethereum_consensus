@@ -30,7 +30,7 @@ defmodule LightClientTestRunner do
     object_root =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/object.ssz_snappy",
-        String.to_existing_atom("Elixir.SszTypes." <> testcase.suite)
+        String.to_existing_atom("Elixir.Types." <> testcase.suite)
       )
       |> Ssz.hash_tree_root!()
 

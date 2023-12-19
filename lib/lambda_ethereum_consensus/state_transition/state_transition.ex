@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
-  alias SszTypes.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
+  alias Types.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
 
   import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
 

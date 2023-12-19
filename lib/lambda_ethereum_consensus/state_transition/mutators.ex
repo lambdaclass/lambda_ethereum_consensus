@@ -4,13 +4,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias SszTypes.BeaconState
-  alias SszTypes.Validator
+  alias Types.BeaconState
+  alias Types.Validator
 
   @doc """
     Increase the validator balance at index ``index`` by ``delta``.
   """
-  @spec increase_balance(BeaconState.t(), SszTypes.validator_index(), SszTypes.gwei()) ::
+  @spec increase_balance(BeaconState.t(), Types.validator_index(), Types.gwei()) ::
           BeaconState.t()
   def increase_balance(%BeaconState{balances: balances} = state, index, delta) do
     %BeaconState{state | balances: List.update_at(balances, index, &(&1 + delta))}
@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   @doc """
       Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
   """
-  @spec decrease_balance(BeaconState.t(), SszTypes.validator_index(), SszTypes.gwei()) ::
+  @spec decrease_balance(BeaconState.t(), Types.validator_index(), Types.gwei()) ::
           BeaconState.t()
   def decrease_balance(%BeaconState{balances: balances} = state, index, delta) do
     %BeaconState{state | balances: List.update_at(balances, index, &max(&1 - delta, 0))}
@@ -86,8 +86,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   """
   @spec slash_validator(
           BeaconState.t(),
-          SszTypes.validator_index(),
-          SszTypes.validator_index() | nil
+          Types.validator_index(),
+          Types.validator_index() | nil
         ) ::
           {:ok, BeaconState.t()} | {:error, binary()}
   def slash_validator(state, slashed_index, whistleblower_index \\ nil) do
@@ -158,10 +158,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
 
   @spec apply_deposit(
           BeaconState.t(),
-          SszTypes.bls_pubkey(),
-          SszTypes.bytes32(),
-          SszTypes.uint64(),
-          SszTypes.bls_signature()
+          Types.bls_pubkey(),
+          Types.bytes32(),
+          Types.uint64(),
+          Types.bls_signature()
         ) :: {:ok, BeaconState.t()} | {:error, binary()}
   def apply_deposit(state, pubkey, withdrawal_credentials, amount, signature) do
     case Enum.find_index(state.validators, fn validator -> validator.pubkey == pubkey end) do
@@ -169,7 +169,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         {:ok, increase_balance(state, index, amount)}
 
       _ ->
-        deposit_message = %SszTypes.DepositMessage{
+        deposit_message = %Types.DepositMessage{
           pubkey: pubkey,
           withdrawal_credentials: withdrawal_credentials,
           amount: amount
@@ -194,7 +194,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
        | validators:
            state.validators ++
              [
-               SszTypes.Deposit.get_validator_from_deposit(
+               Types.Deposit.get_validator_from_deposit(
                  pubkey,
                  withdrawal_credentials,
                  amount

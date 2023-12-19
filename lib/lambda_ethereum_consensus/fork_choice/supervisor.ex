@@ -33,7 +33,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     Logger.info("[Sync] Initiating checkpoint sync.")
 
     case CheckpointSync.sync_from_checkpoint(checkpoint_url) do
-      {:ok, %SszTypes.BeaconState{} = anchor_state} ->
+      {:ok, %Types.BeaconState{} = anchor_state} ->
         Logger.info("[Checkpoint sync] Received beacon state at slot #{anchor_state.slot}.")
 
         {:ok, anchor_block} = fetch_anchor_block(anchor_state)
@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     |> Ssz.hash_tree_root!()
   end
 
-  defp fetch_anchor_block(%SszTypes.BeaconState{} = anchor_state) do
+  defp fetch_anchor_block(%Types.BeaconState{} = anchor_state) do
     block_root = get_latest_block_hash(anchor_state)
 
     case BlockStore.get_block(block_root) do

@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Math do
   @doc """
   Return the largest integer ``x`` such that ``x**2 <= n``.
   """
-  @spec integer_squareroot(SszTypes.uint64()) :: SszTypes.uint64()
+  @spec integer_squareroot(Types.uint64()) :: Types.uint64()
   def integer_squareroot(n) when is_integer(n) do
     compute_root(n, n, div(n + 1, 2))
   end

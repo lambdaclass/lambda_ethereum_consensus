@@ -16,8 +16,8 @@ defmodule Helpers.SszStaticContainers.FixedTestStruct do
   defstruct fields
 
   @type t :: %__MODULE__{
-          A: SszTypes.uint8(),
-          B: SszTypes.uint64(),
+          A: Types.uint8(),
+          B: Types.uint64(),
           C: uint32()
         }
 
