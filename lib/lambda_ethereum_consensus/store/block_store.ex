@@ -8,8 +8,8 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   @block_prefix "block"
   @blockslot_prefix @block_prefix <> "slot"
 
-  @spec store_block(SszTypes.SignedBeaconBlock.t()) :: :ok
-  def store_block(%SszTypes.SignedBeaconBlock{} = signed_block) do
+  @spec store_block(Types.SignedBeaconBlock.t()) :: :ok
+  def store_block(%Types.SignedBeaconBlock{} = signed_block) do
     block = signed_block.message
     block_root = Ssz.hash_tree_root!(block)
     {:ok, encoded_signed_block} = Ssz.to_ssz(signed_block)
@@ -24,18 +24,18 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     Db.put(slothash_key, block_root)
   end
 
-  @spec get_block(SszTypes.root()) ::
-          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found
+  @spec get_block(Types.root()) ::
+          {:ok, Types.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found
   def get_block(block_root) do
     key = block_key(block_root)
 
     with {:ok, signed_block} <- Db.get(key) do
-      Ssz.from_ssz(signed_block, SszTypes.SignedBeaconBlock)
+      Ssz.from_ssz(signed_block, Types.SignedBeaconBlock)
     end
   end
 
-  @spec get_block_root_by_slot(SszTypes.slot()) ::
-          {:ok, SszTypes.root()} | {:error, String.t()} | :not_found | :empty_slot
+  @spec get_block_root_by_slot(Types.slot()) ::
+          {:ok, Types.root()} | {:error, String.t()} | :not_found | :empty_slot
   def get_block_root_by_slot(slot) do
     key = block_root_by_slot_key(slot)
     block = Db.get(key)
@@ -46,8 +46,8 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     end
   end
 
-  @spec get_block_by_slot(SszTypes.slot()) ::
-          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found | :empty_slot
+  @spec get_block_by_slot(Types.slot()) ::
+          {:ok, Types.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found | :empty_slot
   def get_block_by_slot(slot) do
     # WARN: this will return the latest block received for the given slot
     with {:ok, root} <- get_block_root_by_slot(slot) do

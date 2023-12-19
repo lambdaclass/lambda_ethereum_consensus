@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
     call("engine_exchangeCapabilities", [@supported_methods])
   end
 
-  @spec new_payload_v1(SszTypes.ExecutionPayload.t()) ::
+  @spec new_payload_v1(Types.ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
   def new_payload_v1(execution_payload) do
     call("engine_newPayloadV2", [execution_payload])

@@ -6,7 +6,7 @@ defmodule OperationsTestRunner do
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Utils.Diff
 
-  alias SszTypes.BeaconBlockBody
+  alias Types.BeaconBlockBody
 
   use ExUnit.CaseTemplate
   use TestRunner
@@ -73,7 +73,7 @@ defmodule OperationsTestRunner do
     pre =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
-        SszTypes.BeaconState
+        Types.BeaconState
       )
 
     operation =
@@ -86,7 +86,7 @@ defmodule OperationsTestRunner do
     post =
       SpecTestUtils.read_ssz_from_optional_file!(
         case_dir <> "/post.ssz_snappy",
-        SszTypes.BeaconState
+        Types.BeaconState
       )
 
     handle_case(testcase.handler, pre, operation, post, case_dir)

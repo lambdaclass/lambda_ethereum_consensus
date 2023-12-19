@@ -18,7 +18,7 @@ Rust side (`native/ssz_nif`):
 
 Elixir side:
 
-1. Add a new file and module with the container's name under `lib/ssz_types`. The module should be prefixed with `SszTypes.` (you can use an existing one as a template).
+1. Add a new file and module with the container's name under `lib/ssz_types`. The module should be prefixed with `Types.` (you can use an existing one as a template).
 2. Add the struct definition and `t` type. You should try to mimic types used in the official spec, like those in `lib/ssz_types/mod.ex` (feel free to add any that are missing).
 3. Remove the implemented struct's name from the `@disabled` list in the `SSZStaticTestRunner` module (file `test/spec/runners/ssz_static.ex`).
 4. Check that it compiles correctly.

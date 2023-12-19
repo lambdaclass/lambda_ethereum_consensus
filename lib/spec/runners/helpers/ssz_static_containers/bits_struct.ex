@@ -16,11 +16,11 @@ defmodule Helpers.SszStaticContainers.BitsStruct do
   defstruct fields
 
   @type t :: %__MODULE__{
-          A: SszTypes.bitlist(),
-          B: SszTypes.bitvector(),
-          C: SszTypes.bitvector(),
-          D: SszTypes.bitlist(),
-          E: SszTypes.bitvector()
+          A: Types.bitlist(),
+          B: Types.bitvector(),
+          C: Types.bitvector(),
+          D: Types.bitlist(),
+          E: Types.bitvector()
         }
 
   @impl LambdaEthereumConsensus.Container

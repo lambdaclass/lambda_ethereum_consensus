@@ -4,7 +4,7 @@ use rustler::{Binary, NifStruct};
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.Fork"]
+    #[module = "Types.Fork"]
     pub(crate) struct Fork<'a> {
         previous_version: Version<'a>,
         current_version: Version<'a>,
@@ -14,7 +14,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.ForkData"]
+    #[module = "Types.ForkData"]
     pub(crate) struct ForkData<'a> {
         current_version: Version<'a>,
         genesis_validators_root: Root<'a>,
@@ -23,7 +23,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.Checkpoint"]
+    #[module = "Types.Checkpoint"]
     pub(crate) struct Checkpoint<'a> {
         epoch: Epoch,
         root: Root<'a>,
@@ -32,7 +32,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.Validator"]
+    #[module = "Types.Validator"]
     pub(crate) struct Validator<'a> {
         pubkey: BLSPubkey<'a>,
         withdrawal_credentials: Bytes32<'a>,
@@ -47,7 +47,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.AttestationData"]
+    #[module = "Types.AttestationData"]
     pub(crate) struct AttestationData<'a> {
         slot: Slot,
         index: CommitteeIndex,
@@ -59,7 +59,7 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.IndexedAttestation"]
+    #[module = "Types.IndexedAttestation"]
     pub(crate) struct IndexedAttestation<'a> {
         attesting_indices: Vec<ValidatorIndex>, // Max size: MAX_VALIDATORS_PER_COMMITTEE
         data: AttestationData<'a>,
@@ -69,7 +69,7 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.PendingAttestation"]
+    #[module = "Types.PendingAttestation"]
     pub(crate) struct PendingAttestation<'a> {
         aggregation_bits: Binary<'a>, // Max size: MAX_VALIDATORS_PER_COMMITTEE
         data: AttestationData<'a>,
@@ -80,7 +80,7 @@ gen_struct_with_config!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.Eth1Data"]
+    #[module = "Types.Eth1Data"]
     pub(crate) struct Eth1Data<'a> {
         deposit_root: Root<'a>,
         deposit_count: u64,
@@ -90,7 +90,7 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.HistoricalBatch"]
+    #[module = "Types.HistoricalBatch"]
     pub(crate) struct HistoricalBatch<'a> {
         block_roots: Vec<Root<'a>>,
         state_roots: Vec<Root<'a>>,
@@ -99,7 +99,7 @@ gen_struct_with_config!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.DepositMessage"]
+    #[module = "Types.DepositMessage"]
     pub(crate) struct DepositMessage<'a> {
         pubkey: BLSPubkey<'a>,
         withdrawal_credentials: Bytes32<'a>,
@@ -109,7 +109,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.DepositData"]
+    #[module = "Types.DepositData"]
     pub(crate) struct DepositData<'a> {
         pubkey: BLSPubkey<'a>,
         withdrawal_credentials: Bytes32<'a>,
@@ -120,7 +120,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.HistoricalSummary"]
+    #[module = "Types.HistoricalSummary"]
     pub(crate) struct HistoricalSummary<'a> {
         pub(crate) block_summary_root: Root<'a>,
         pub(crate) state_summary_root: Root<'a>,
@@ -129,7 +129,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.Deposit"]
+    #[module = "Types.Deposit"]
     pub(crate) struct Deposit<'a> {
         proof: Vec<Bytes32<'a>>,
         data: DepositData<'a>,
@@ -138,7 +138,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.VoluntaryExit"]
+    #[module = "Types.VoluntaryExit"]
     pub(crate) struct VoluntaryExit {
         epoch: Epoch,
         validator_index: ValidatorIndex,
@@ -147,7 +147,7 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.Attestation"]
+    #[module = "Types.Attestation"]
     pub(crate) struct Attestation<'a> {
         aggregation_bits: Binary<'a>,
         data: AttestationData<'a>,
@@ -157,7 +157,7 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconBlock"]
+    #[module = "Types.BeaconBlock"]
     pub(crate) struct BeaconBlock<'a> {
         slot: Slot,
         proposer_index: ValidatorIndex,
@@ -169,7 +169,7 @@ gen_struct_with_config!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconBlockHeader"]
+    #[module = "Types.BeaconBlockHeader"]
     pub(crate) struct BeaconBlockHeader<'a> {
         slot: Slot,
         proposer_index: ValidatorIndex,
@@ -181,7 +181,7 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.AttesterSlashing"]
+    #[module = "Types.AttesterSlashing"]
     pub(crate) struct AttesterSlashing<'a> {
         attestation_1: IndexedAttestation<'a>,
         attestation_2: IndexedAttestation<'a>,
@@ -190,7 +190,7 @@ gen_struct_with_config!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.SignedVoluntaryExit"]
+    #[module = "Types.SignedVoluntaryExit"]
     pub(crate) struct SignedVoluntaryExit<'a> {
         message: VoluntaryExit,
         signature: BLSSignature<'a>,
@@ -199,7 +199,7 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.SignedBeaconBlock"]
+    #[module = "Types.SignedBeaconBlock"]
     pub(crate) struct SignedBeaconBlock<'a> {
         message: BeaconBlock<'a>,
         signature: BLSSignature<'a>,
@@ -208,7 +208,7 @@ gen_struct_with_config!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.SignedBeaconBlockHeader"]
+    #[module = "Types.SignedBeaconBlockHeader"]
     pub(crate) struct SignedBeaconBlockHeader<'a> {
         message: BeaconBlockHeader<'a>,
         signature: BLSSignature<'a>,
@@ -217,7 +217,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BLSToExecutionChange"]
+    #[module = "Types.BLSToExecutionChange"]
     pub(crate) struct BLSToExecutionChange<'a> {
         validator_index: ValidatorIndex,
         from_bls_pubkey: BLSPubkey<'a>,
@@ -227,7 +227,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.SignedBLSToExecutionChange"]
+    #[module = "Types.SignedBLSToExecutionChange"]
     pub(crate) struct SignedBLSToExecutionChange<'a> {
         message: BLSToExecutionChange<'a>,
         signature: BLSSignature<'a>,
@@ -236,7 +236,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.ProposerSlashing"]
+    #[module = "Types.ProposerSlashing"]
     pub(crate) struct ProposerSlashing<'a> {
         signed_header_1: SignedBeaconBlockHeader<'a>,
         signed_header_2: SignedBeaconBlockHeader<'a>,
@@ -245,7 +245,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.SigningData"]
+    #[module = "Types.SigningData"]
     pub(crate) struct SigningData<'a> {
         object_root: Root<'a>,
         domain: Domain<'a>,
@@ -254,7 +254,7 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.SyncAggregate"]
+    #[module = "Types.SyncAggregate"]
     pub(crate) struct SyncAggregate<'a> {
         sync_committee_bits: Binary<'a>,
         sync_committee_signature: BLSSignature<'a>,
@@ -263,7 +263,7 @@ gen_struct_with_config!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.Withdrawal"]
+    #[module = "Types.Withdrawal"]
     pub(crate) struct Withdrawal<'a> {
         index: WithdrawalIndex,
         validator_index: ValidatorIndex,
@@ -274,7 +274,7 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.ExecutionPayloadHeader"]
+    #[module = "Types.ExecutionPayloadHeader"]
     pub(crate) struct ExecutionPayloadHeader<'a> {
         parent_hash: Hash32<'a>,
         fee_recipient: ExecutionAddress<'a>,
@@ -296,7 +296,7 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.ExecutionPayload"]
+    #[module = "Types.ExecutionPayload"]
     pub(crate) struct ExecutionPayload<'a> {
         parent_hash: Hash32<'a>,
         fee_recipient: ExecutionAddress<'a>,
@@ -318,7 +318,7 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.SyncCommittee"]
+    #[module = "Types.SyncCommittee"]
     pub(crate) struct SyncCommittee<'a> {
         pubkeys: Vec<BLSPubkey<'a>>,
         aggregate_pubkey: BLSPubkey<'a>,
@@ -327,7 +327,7 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconState"]
+    #[module = "Types.BeaconState"]
     pub(crate) struct BeaconState<'a> {
         // Versioning
         genesis_time: u64,
@@ -375,7 +375,7 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconBlockBody"]
+    #[module = "Types.BeaconBlockBody"]
     pub(crate) struct BeaconBlockBody<'a> {
         randao_reveal: BLSSignature<'a>,
         eth1_data: Eth1Data<'a>,
