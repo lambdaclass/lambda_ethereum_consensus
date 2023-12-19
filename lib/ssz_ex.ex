@@ -8,6 +8,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   import Bitwise
 
+  @bits_per_chunk 256
+
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
 
@@ -37,15 +39,33 @@ defmodule LambdaEthereumConsensus.SszEx do
   def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
 
   @spec hash_tree_root!(boolean, atom) :: SszTypes.root()
-  def hash_tree_root!(value, :bool), do: pack(value)
+  def hash_tree_root!(value, :bool), do: pack(value, :bool)
 
   @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
-  def hash_tree_root!(value, {:int, size}), do: pack(value, size)
+  def hash_tree_root!(value, {:int, size}), do: pack(value, {:int, size})
+
+  def pack(value, {:int, size}) do
+    <<value::size(size)-little>> |> pack_bytes()
+  end
+
+  def pack(value, :bool) do
+    case value do
+      true -> <<1::@bits_per_chunk-little>>
+      false -> <<0::@bits_per_chunk>>
+    end
+  end
+
+  def pack(list, {:list, basic_type, _size}) do
+    if !variable_size?(basic_type) do
+      pack_basic_type_list(list)
+    else
+      pack_complex_type_list(list)
+    end
+  end
 
   #################
   ### Private functions
   #################
-  @bits_per_chunk 256
   @bytes_per_chunk 32
   @bytes_per_length_offset 4
   @bits_per_byte 8
@@ -431,25 +451,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     size = size_of(head)
     length = length(list)
     div(length * size + 31, 32)
-  end
-
-  def pack(value, size) when is_integer(value) and value >= 0 do
-    <<value::size(size)-little>> |> pack_bytes()
-  end
-
-  def pack(value) when is_boolean(value) do
-    case value do
-      true -> <<1::@bits_per_chunk-little>>
-      false -> <<0::@bits_per_chunk>>
-    end
-  end
-
-  def pack(list, {:list, basic_type, _size}) do
-    if !variable_size?(basic_type) do
-      pack_basic_type_list(list)
-    else
-      pack_complex_type_list(list)
-    end
   end
 
   defp pack_basic_type_list(list) do
