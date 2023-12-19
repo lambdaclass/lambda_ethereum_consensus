@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.Cli do
   end
 
   defp init_engine_api_config(_endpoint, nil) do
-    Logger.error(
+    Logger.warning(
       "No jwt file provided. Please specify the path to fetch it from via the --execution-jwt flag."
     )
   end
