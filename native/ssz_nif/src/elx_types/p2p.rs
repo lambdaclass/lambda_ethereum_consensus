@@ -6,7 +6,7 @@ use super::*;
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.StatusMessage"]
+    #[module = "Types.StatusMessage"]
     pub(crate) struct StatusMessage<'a> {
         fork_digest: ForkDigest<'a>,
         finalized_root: Root<'a>,
@@ -18,7 +18,7 @@ gen_struct!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconBlocksByRangeRequest"]
+    #[module = "Types.BeaconBlocksByRangeRequest"]
     pub(crate) struct BeaconBlocksByRangeRequest {
         start_slot: Slot,
         count: u64,
@@ -52,7 +52,7 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.Metadata"]
+    #[module = "Types.Metadata"]
     pub(crate) struct Metadata<'a> {
         seq_number: u64,
         attnets: Binary<'a>,
