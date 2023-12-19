@@ -737,10 +737,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp reduce_participation_batch(
          validator,
          base_reward_per_increment,
-         {att_index, weights},
+         {att_index, mask},
          {participation, reward_numerators}
        ) do
     base_reward = Accessors.get_base_reward(validator, base_reward_per_increment)
+
+    weights =
+      Constants.participation_flag_weights()
+      |> Stream.with_index()
+      |> Stream.map(fn {w, i} -> {w, 2 ** i} end)
+      |> Enum.filter(fn {_, i} -> Bitwise.band(mask, i) != 0 end)
 
     {participation, reward} = update_participation(participation, base_reward, weights)
 
@@ -765,23 +771,31 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       epoch_updates = if is_current_epoch, do: current_epoch_updates, else: previous_epoch_updates
 
-      weights =
+      weights_mask =
         Constants.participation_flag_weights()
         |> Stream.with_index()
         |> Stream.filter(&(elem(&1, 1) in flag_indices))
-        |> Enum.map(fn {w, i} -> {w, 2 ** i} end)
+        |> Stream.map(fn {_, i} -> 2 ** i end)
+        |> Enum.sum()
+
+      v = {attestation_index, weights_mask}
 
       new_epoch_updates =
         attesting_indices
-        |> Stream.map(&{&1, %{attestation_index => weights}})
-        |> Map.new()
-        |> Map.merge(epoch_updates, fn _key, v1, v2 -> Map.merge(v1, v2) end)
+        |> Enum.reduce(epoch_updates, fn i, epoch_updates ->
+          Map.update(epoch_updates, i, [v], &merge_masks(&1, v))
+        end)
 
       if is_current_epoch,
         do: {:ok, {previous_epoch_updates, new_epoch_updates}},
         else: {:ok, {new_epoch_updates, current_epoch_updates}}
     end
   end
+
+  # We simplify masks by discarding duplicates, and simplify
+  # next merges by OR-ing them together.
+  defp merge_masks([{_, v} | _] = masks, {_, v}), do: masks
+  defp merge_masks([{_, v1} | _] = masks, {i, v2}), do: [{i, Bitwise.bor(v1, v2)} | masks]
 
   defp inner_process_attestation(state, data, aggregation_bits) do
     slot = state.slot - data.slot

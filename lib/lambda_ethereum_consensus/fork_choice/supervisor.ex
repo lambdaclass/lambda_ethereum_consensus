@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   alias LambdaEthereumConsensus.ForkChoice.CheckpointSync
   alias LambdaEthereumConsensus.P2P.BlockDownloader
+  alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
 
   def start_link(opts) do
@@ -44,6 +45,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   defp init_children(anchor_state, anchor_block) do
+    Cache.initialize_tables()
+
     children = [
       {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block}},
       {LambdaEthereumConsensus.ForkChoice.Tree, []}
