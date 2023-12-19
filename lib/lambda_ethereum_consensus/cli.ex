@@ -10,14 +10,14 @@ defmodule LambdaEthereumConsensus.Cli do
       OptionParser.parse(System.argv(),
         switches: [
           checkpoint_sync: :string,
-          engine_api_endpoint: :string,
-          engine_api_jwt: :string
+          execution_endpoint: :string,
+          execution_jwt: :string
         ]
       )
 
     init_engine_api_config(
-      Keyword.get(args, :engine_api_endpoint),
-      Keyword.get(args, :engine_api_jwt)
+      Keyword.get(args, :execution_endpoint),
+      Keyword.get(args, :execution_jwt)
     )
 
     args
