@@ -1,4 +1,4 @@
-defmodule SszTypes.AttesterSlashing do
+defmodule Types.AttesterSlashing do
   @moduledoc """
   Struct definition for `AttesterSlashing`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.AttesterSlashing do
   defstruct fields
 
   @type t :: %__MODULE__{
-          attestation_1: SszTypes.IndexedAttestation.t(),
-          attestation_2: SszTypes.IndexedAttestation.t()
+          attestation_1: Types.IndexedAttestation.t(),
+          attestation_2: Types.IndexedAttestation.t()
         }
 end

@@ -1,4 +1,4 @@
-defmodule SszTypes.PendingAttestation do
+defmodule Types.PendingAttestation do
   @moduledoc """
   Struct definition for `PendingAttestation`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -15,9 +15,9 @@ defmodule SszTypes.PendingAttestation do
   defstruct fields
 
   @type t :: %__MODULE__{
-          aggregation_bits: SszTypes.bitlist(),
-          data: SszTypes.AttestationData.t(),
-          inclusion_delay: SszTypes.slot(),
-          proposer_index: SszTypes.validator_index()
+          aggregation_bits: Types.bitlist(),
+          data: Types.AttestationData.t(),
+          inclusion_delay: Types.slot(),
+          proposer_index: Types.validator_index()
         }
 end

@@ -1,4 +1,4 @@
-defmodule SszTypes.SigningData do
+defmodule Types.SigningData do
   @moduledoc """
   Struct definition for `SigningData`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.SigningData do
   defstruct fields
 
   @type t :: %__MODULE__{
-          object_root: SszTypes.root(),
-          domain: SszTypes.domain()
+          object_root: Types.root(),
+          domain: Types.domain()
         }
 end

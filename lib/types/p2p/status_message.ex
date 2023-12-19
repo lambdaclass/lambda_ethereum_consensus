@@ -1,4 +1,4 @@
-defmodule SszTypes.StatusMessage do
+defmodule Types.StatusMessage do
   @moduledoc """
   Struct definition for `StatusMessage`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -16,10 +16,10 @@ defmodule SszTypes.StatusMessage do
   defstruct fields
 
   @type t :: %__MODULE__{
-          fork_digest: SszTypes.fork_digest(),
-          finalized_root: SszTypes.root(),
-          finalized_epoch: SszTypes.epoch(),
-          head_root: SszTypes.root(),
-          head_slot: SszTypes.slot()
+          fork_digest: Types.fork_digest(),
+          finalized_root: Types.root(),
+          finalized_epoch: Types.epoch(),
+          head_root: Types.root(),
+          head_slot: Types.slot()
         }
 end

@@ -1,4 +1,4 @@
-defmodule SszTypes.Store do
+defmodule Types.Store do
   @moduledoc """
     The Store struct is used to track information required for the fork choice algorithm.
   """
@@ -19,19 +19,19 @@ defmodule SszTypes.Store do
   ]
 
   @type t :: %__MODULE__{
-          time: SszTypes.uint64(),
-          genesis_time: SszTypes.uint64(),
-          justified_checkpoint: SszTypes.Checkpoint.t() | nil,
-          finalized_checkpoint: SszTypes.Checkpoint.t(),
-          unrealized_justified_checkpoint: SszTypes.Checkpoint.t() | nil,
-          unrealized_finalized_checkpoint: SszTypes.Checkpoint.t() | nil,
-          proposer_boost_root: SszTypes.root() | nil,
-          equivocating_indices: MapSet.t(SszTypes.validator_index()),
-          blocks: %{SszTypes.root() => SszTypes.BeaconBlock.t()},
-          block_states: %{SszTypes.root() => SszTypes.BeaconState.t()},
-          checkpoint_states: %{SszTypes.Checkpoint.t() => SszTypes.BeaconState.t()},
-          latest_messages: %{SszTypes.validator_index() => SszTypes.Checkpoint.t()},
-          unrealized_justifications: %{SszTypes.root() => SszTypes.Checkpoint.t()}
+          time: Types.uint64(),
+          genesis_time: Types.uint64(),
+          justified_checkpoint: Types.Checkpoint.t() | nil,
+          finalized_checkpoint: Types.Checkpoint.t(),
+          unrealized_justified_checkpoint: Types.Checkpoint.t() | nil,
+          unrealized_finalized_checkpoint: Types.Checkpoint.t() | nil,
+          proposer_boost_root: Types.root() | nil,
+          equivocating_indices: MapSet.t(Types.validator_index()),
+          blocks: %{Types.root() => Types.BeaconBlock.t()},
+          block_states: %{Types.root() => Types.BeaconState.t()},
+          checkpoint_states: %{Types.Checkpoint.t() => Types.BeaconState.t()},
+          latest_messages: %{Types.validator_index() => Types.Checkpoint.t()},
+          unrealized_justifications: %{Types.root() => Types.Checkpoint.t()}
         }
 
   alias LambdaEthereumConsensus.StateTransition.Misc

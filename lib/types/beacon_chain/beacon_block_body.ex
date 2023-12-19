@@ -1,4 +1,4 @@
-defmodule SszTypes.BeaconBlockBody do
+defmodule Types.BeaconBlockBody do
   @moduledoc """
   Struct definition for `BeaconBlockBody`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -22,16 +22,16 @@ defmodule SszTypes.BeaconBlockBody do
   defstruct fields
 
   @type t :: %__MODULE__{
-          randao_reveal: SszTypes.bls_signature(),
-          eth1_data: SszTypes.Eth1Data.t(),
-          graffiti: SszTypes.bytes32(),
-          proposer_slashings: list(SszTypes.ProposerSlashing.t()),
-          attester_slashings: list(SszTypes.AttesterSlashing.t()),
-          attestations: list(SszTypes.Attestation.t()),
-          deposits: list(SszTypes.Deposit.t()),
-          voluntary_exits: list(SszTypes.VoluntaryExit.t()),
-          sync_aggregate: SszTypes.SyncAggregate.t(),
-          execution_payload: SszTypes.ExecutionPayload.t(),
-          bls_to_execution_changes: list(SszTypes.BLSToExecutionChange.t())
+          randao_reveal: Types.bls_signature(),
+          eth1_data: Types.Eth1Data.t(),
+          graffiti: Types.bytes32(),
+          proposer_slashings: list(Types.ProposerSlashing.t()),
+          attester_slashings: list(Types.AttesterSlashing.t()),
+          attestations: list(Types.Attestation.t()),
+          deposits: list(Types.Deposit.t()),
+          voluntary_exits: list(Types.VoluntaryExit.t()),
+          sync_aggregate: Types.SyncAggregate.t(),
+          execution_payload: Types.ExecutionPayload.t(),
+          bls_to_execution_changes: list(Types.BLSToExecutionChange.t())
         }
 end

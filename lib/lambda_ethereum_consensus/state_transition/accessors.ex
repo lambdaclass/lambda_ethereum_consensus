@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Cache, Math, Misc, Predicates}
   alias LambdaEthereumConsensus.Utils
-  alias SszTypes.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
+  alias Types.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
   @max_random_byte 2 ** 8 - 1
 
@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @spec get_next_sync_committee_indices(BeaconState.t()) ::
-          {:ok, list(SszTypes.validator_index())} | {:error, String.t()}
+          {:ok, list(Types.validator_index())} | {:error, String.t()}
   defp get_next_sync_committee_indices(%BeaconState{validators: validators} = state) do
     # Return the sync committee indices, with possible duplicates, for the next sync committee.
     epoch = get_current_epoch(state) + 1
@@ -104,8 +104,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the sequence of active validator indices at ``epoch``.
   """
-  @spec get_active_validator_indices(BeaconState.t(), SszTypes.epoch()) ::
-          list(SszTypes.validator_index())
+  @spec get_active_validator_indices(BeaconState.t(), Types.epoch()) ::
+          list(Types.validator_index())
   def get_active_validator_indices(%BeaconState{validators: validators}, epoch) do
     validators
     |> Stream.with_index()
@@ -119,7 +119,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the current epoch.
   """
-  @spec get_current_epoch(BeaconState.t()) :: SszTypes.epoch()
+  @spec get_current_epoch(BeaconState.t()) :: Types.epoch()
   def get_current_epoch(%BeaconState{slot: slot}) do
     Misc.compute_epoch_at_slot(slot)
   end
@@ -127,7 +127,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   """
-  @spec get_previous_epoch(BeaconState.t()) :: SszTypes.epoch()
+  @spec get_previous_epoch(BeaconState.t()) :: Types.epoch()
   def get_previous_epoch(%BeaconState{} = state) do
     current_epoch = get_current_epoch(state)
     genesis_epoch = Constants.genesis_epoch()
@@ -142,7 +142,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the set of validator indices that are both active and unslashed for the given ``flag_index`` and ``epoch``.
   """
-  @spec get_unslashed_participating_indices(BeaconState.t(), integer, SszTypes.epoch()) ::
+  @spec get_unslashed_participating_indices(BeaconState.t(), integer, Types.epoch()) ::
           {:ok, MapSet.t()} | {:error, binary()}
   def get_unslashed_participating_indices(%BeaconState{} = state, flag_index, epoch) do
     if epoch in [get_previous_epoch(state), get_current_epoch(state)] do
@@ -174,7 +174,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the randao mix at a recent ``epoch``.
   """
-  @spec get_randao_mix(BeaconState.t(), SszTypes.epoch()) :: SszTypes.bytes32()
+  @spec get_randao_mix(BeaconState.t(), Types.epoch()) :: Types.bytes32()
   def get_randao_mix(%BeaconState{randao_mixes: randao_mixes}, epoch) do
     epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
     Enum.fetch!(randao_mixes, rem(epoch, epochs_per_historical_vector))
@@ -184,7 +184,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the combined effective balance of the active validators.
   Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   """
-  @spec get_total_active_balance(BeaconState.t()) :: SszTypes.gwei()
+  @spec get_total_active_balance(BeaconState.t()) :: Types.gwei()
   def get_total_active_balance(state) do
     epoch = get_current_epoch(state)
     {:ok, root} = get_epoch_root(state, epoch)
@@ -201,7 +201,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the validator churn limit for the current epoch.
   """
-  @spec get_validator_churn_limit(BeaconState.t()) :: SszTypes.uint64()
+  @spec get_validator_churn_limit(BeaconState.t()) :: Types.uint64()
   def get_validator_churn_limit(%BeaconState{} = state) do
     active_validator_indices = get_active_validator_indices(state, get_current_epoch(state))
     min_per_epoch_churn_limit = ChainSpec.get("MIN_PER_EPOCH_CHURN_LIMIT")
@@ -212,7 +212,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Returns the number of epochs since the last finalised checkpoint (minus one).
   """
-  @spec get_finality_delay(BeaconState.t()) :: SszTypes.uint64()
+  @spec get_finality_delay(BeaconState.t()) :: Types.uint64()
   def get_finality_delay(%BeaconState{} = state) do
     get_previous_epoch(state) - state.finalized_checkpoint.epoch
   end
@@ -220,7 +220,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   These are the validators that were subject to rewards and penalties in the previous epoch.
   """
-  @spec get_eligible_validator_indices(BeaconState.t()) :: list(SszTypes.validator_index())
+  @spec get_eligible_validator_indices(BeaconState.t()) :: list(Types.validator_index())
   def get_eligible_validator_indices(%BeaconState{validators: validators} = state) do
     previous_epoch = get_previous_epoch(state)
 
@@ -237,7 +237,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the beacon proposer index at the current slot.
   """
   @spec get_beacon_proposer_index(BeaconState.t()) ::
-          {:ok, SszTypes.validator_index()} | {:error, String.t()}
+          {:ok, Types.validator_index()} | {:error, String.t()}
   def get_beacon_proposer_index(%BeaconState{slot: slot} = state) do
     epoch = get_current_epoch(state)
     {:ok, root} = get_epoch_root(state, epoch)
@@ -267,7 +267,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the number of committees in each slot for the given ``epoch``.
   """
-  @spec get_committee_count_per_slot(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
+  @spec get_committee_count_per_slot(BeaconState.t(), Types.epoch()) :: Types.uint64()
   def get_committee_count_per_slot(%BeaconState{} = state, epoch) do
     get_active_validator_count(state, epoch)
     |> div(ChainSpec.get("SLOTS_PER_EPOCH"))
@@ -276,7 +276,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     |> max(1)
   end
 
-  @spec get_active_validator_count(BeaconState.t(), SszTypes.epoch()) :: SszTypes.uint64()
+  @spec get_active_validator_count(BeaconState.t(), Types.epoch()) :: Types.uint64()
   def get_active_validator_count(%BeaconState{} = state, epoch) do
     Cache.lazily_compute(:active_validator_count, {epoch, get_state_epoch_root(state)}, fn ->
       state.validators
@@ -288,8 +288,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the beacon committee at ``slot`` for ``index``.
   """
-  @spec get_beacon_committee(BeaconState.t(), SszTypes.slot(), SszTypes.commitee_index()) ::
-          {:ok, list(SszTypes.validator_index())} | {:error, String.t()}
+  @spec get_beacon_committee(BeaconState.t(), Types.slot(), Types.commitee_index()) ::
+          {:ok, list(Types.validator_index())} | {:error, String.t()}
   def get_beacon_committee(%BeaconState{} = state, slot, index) do
     epoch = Misc.compute_epoch_at_slot(slot)
 
@@ -312,7 +312,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end
   end
 
-  @spec get_base_reward_per_increment(BeaconState.t()) :: SszTypes.gwei()
+  @spec get_base_reward_per_increment(BeaconState.t()) :: Types.gwei()
   def get_base_reward_per_increment(state) do
     numerator = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT") * ChainSpec.get("BASE_REWARD_FACTOR")
     denominator = state |> get_total_active_balance() |> Math.integer_squareroot()
@@ -322,14 +322,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the base reward for the validator defined by ``index`` with respect to the current ``state``.
   """
-  @spec get_base_reward(BeaconState.t(), SszTypes.validator_index()) :: SszTypes.gwei()
+  @spec get_base_reward(BeaconState.t(), Types.validator_index()) :: Types.gwei()
   def get_base_reward(%BeaconState{} = state, index) do
     validator = Enum.at(state.validators, index)
     get_base_reward(validator, get_base_reward_per_increment(state))
   end
 
-  @spec get_base_reward(SszTypes.Validator.t(), SszTypes.gwei()) :: SszTypes.gwei()
-  def get_base_reward(%SszTypes.Validator{} = validator, base_reward_per_increment) do
+  @spec get_base_reward(Types.Validator.t(), Types.gwei()) :: Types.gwei()
+  def get_base_reward(%Types.Validator{} = validator, base_reward_per_increment) do
     effective_balance = validator.effective_balance
 
     increments =
@@ -346,10 +346,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_attestation_participation_flag_indices(
           BeaconState.t(),
-          SszTypes.AttestationData.t(),
-          SszTypes.uint64()
+          Types.AttestationData.t(),
+          Types.uint64()
         ) ::
-          {:ok, list(SszTypes.uint64())} | {:error, binary()}
+          {:ok, list(Types.uint64())} | {:error, binary()}
   def get_attestation_participation_flag_indices(state, data, inclusion_delay) do
     with :ok <- check_valid_source(state, data),
          {:ok, target_root} <-
@@ -406,8 +406,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the block root at a recent ``slot``.
   """
-  @spec get_block_root_at_slot(BeaconState.t(), SszTypes.slot()) ::
-          {:ok, SszTypes.root()} | {:error, String.t()}
+  @spec get_block_root_at_slot(BeaconState.t(), Types.slot()) ::
+          {:ok, Types.root()} | {:error, String.t()}
   def get_block_root_at_slot(state, slot) do
     slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
 
@@ -422,8 +422,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the block root at the start of a recent ``epoch``.
   """
-  @spec get_block_root(BeaconState.t(), SszTypes.epoch()) ::
-          {:ok, SszTypes.root()} | {:error, String.t()}
+  @spec get_block_root(BeaconState.t(), Types.epoch()) ::
+          {:ok, Types.root()} | {:error, String.t()}
   def get_block_root(state, epoch) do
     get_block_root_at_slot(state, Misc.compute_start_slot_at_epoch(epoch))
   end
@@ -431,7 +431,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the seed at ``epoch``.
   """
-  @spec get_seed(BeaconState.t(), SszTypes.epoch(), SszTypes.domain_type()) :: SszTypes.bytes32()
+  @spec get_seed(BeaconState.t(), Types.epoch(), Types.domain_type()) :: Types.bytes32()
   def get_seed(state, epoch, domain_type) do
     future_epoch =
       epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
@@ -445,8 +445,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the signature domain (fork version concatenated with domain type) of a message.
   """
-  @spec get_domain(BeaconState.t(), SszTypes.domain_type(), SszTypes.epoch() | nil) ::
-          SszTypes.domain()
+  @spec get_domain(BeaconState.t(), Types.domain_type(), Types.epoch() | nil) ::
+          Types.domain()
   def get_domain(state, domain_type, epoch \\ nil) do
     epoch = if epoch == nil, do: get_current_epoch(state), else: epoch
 
@@ -480,7 +480,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end
   end
 
-  @spec get_committee_indexed_attestation([SszTypes.validator_index()], Attestation.t()) ::
+  @spec get_committee_indexed_attestation([Types.validator_index()], Attestation.t()) ::
           IndexedAttestation.t()
   def get_committee_indexed_attestation(beacon_committee, attestation) do
     indices = get_committee_attesting_indices(beacon_committee, attestation.aggregation_bits)
@@ -495,7 +495,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @doc """
   Return the set of attesting indices corresponding to ``data`` and ``bits``.
   """
-  @spec get_attesting_indices(BeaconState.t(), SszTypes.AttestationData.t(), SszTypes.bitlist()) ::
+  @spec get_attesting_indices(BeaconState.t(), Types.AttestationData.t(), Types.bitlist()) ::
           {:ok, MapSet.t()} | {:error, String.t()}
   def get_attesting_indices(%BeaconState{} = state, data, bits) do
     with {:ok, committee} <- get_beacon_committee(state, data.slot, data.index) do
@@ -508,8 +508,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end
   end
 
-  @spec get_committee_attesting_indices([SszTypes.validator_index()], SszTypes.bitlist()) ::
-          [SszTypes.validator_index()]
+  @spec get_committee_attesting_indices([Types.validator_index()], Types.bitlist()) ::
+          [Types.validator_index()]
   def get_committee_attesting_indices(committee, bits) do
     committee
     |> Stream.with_index()
@@ -531,8 +531,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   Math safe up to ~10B ETH, after which this overflows uint64.
   """
-  @spec get_total_balance(BeaconState.t(), Enumerable.t(SszTypes.validator_index())) ::
-          SszTypes.gwei()
+  @spec get_total_balance(BeaconState.t(), Enumerable.t(Types.validator_index())) ::
+          Types.gwei()
   def get_total_balance(state, indices) do
     indices = MapSet.new(indices)
 
@@ -540,7 +540,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       state.validators
       |> Stream.with_index()
       |> Stream.filter(fn {_, index} -> MapSet.member?(indices, index) end)
-      |> Stream.map(fn {%SszTypes.Validator{effective_balance: n}, _} -> n end)
+      |> Stream.map(fn {%Types.Validator{effective_balance: n}, _} -> n end)
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)

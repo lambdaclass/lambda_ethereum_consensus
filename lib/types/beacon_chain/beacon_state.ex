@@ -1,4 +1,4 @@
-defmodule SszTypes.BeaconState do
+defmodule Types.BeaconState do
   @moduledoc """
   Struct definition for `BeaconState`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -40,53 +40,53 @@ defmodule SszTypes.BeaconState do
 
   @type t :: %__MODULE__{
           # Versioning
-          genesis_time: SszTypes.uint64(),
-          genesis_validators_root: SszTypes.root(),
-          slot: SszTypes.slot(),
-          fork: SszTypes.Fork.t(),
+          genesis_time: Types.uint64(),
+          genesis_validators_root: Types.root(),
+          slot: Types.slot(),
+          fork: Types.Fork.t(),
           # History
-          latest_block_header: SszTypes.BeaconBlockHeader.t(),
-          block_roots: list(SszTypes.root()),
-          state_roots: list(SszTypes.root()),
+          latest_block_header: Types.BeaconBlockHeader.t(),
+          block_roots: list(Types.root()),
+          state_roots: list(Types.root()),
           # Frozen in Capella, replaced by historical_summaries
-          historical_roots: list(SszTypes.root()),
+          historical_roots: list(Types.root()),
           # Eth1
-          eth1_data: SszTypes.Eth1Data.t(),
-          eth1_data_votes: list(SszTypes.Eth1Data.t()),
-          eth1_deposit_index: SszTypes.uint64(),
+          eth1_data: Types.Eth1Data.t(),
+          eth1_data_votes: list(Types.Eth1Data.t()),
+          eth1_deposit_index: Types.uint64(),
           # Registry
-          validators: list(SszTypes.Validator.t()),
-          balances: list(SszTypes.gwei()),
+          validators: list(Types.Validator.t()),
+          balances: list(Types.gwei()),
           # Randomness
-          randao_mixes: list(SszTypes.bytes32()),
+          randao_mixes: list(Types.bytes32()),
           # Slashings
           # Per-epoch sums of slashed effective balances
-          slashings: list(SszTypes.gwei()),
+          slashings: list(Types.gwei()),
           # Participation
-          previous_epoch_participation: list(SszTypes.participation_flags()),
-          current_epoch_participation: list(SszTypes.participation_flags()),
+          previous_epoch_participation: list(Types.participation_flags()),
+          current_epoch_participation: list(Types.participation_flags()),
           # Finality
           # Bit set for every recent justified epoch
-          justification_bits: SszTypes.bitvector(),
-          previous_justified_checkpoint: SszTypes.Checkpoint.t(),
-          current_justified_checkpoint: SszTypes.Checkpoint.t(),
-          finalized_checkpoint: SszTypes.Checkpoint.t(),
+          justification_bits: Types.bitvector(),
+          previous_justified_checkpoint: Types.Checkpoint.t(),
+          current_justified_checkpoint: Types.Checkpoint.t(),
+          finalized_checkpoint: Types.Checkpoint.t(),
           # Inactivity
-          inactivity_scores: list(SszTypes.uint64()),
+          inactivity_scores: list(Types.uint64()),
           # Sync
-          current_sync_committee: SszTypes.SyncCommittee.t(),
-          next_sync_committee: SszTypes.SyncCommittee.t(),
+          current_sync_committee: Types.SyncCommittee.t(),
+          next_sync_committee: Types.SyncCommittee.t(),
           # Execution
           # [Modified in Capella]
-          latest_execution_payload_header: SszTypes.ExecutionPayloadHeader.t(),
+          latest_execution_payload_header: Types.ExecutionPayloadHeader.t(),
           # Withdrawals
           # [New in Capella]
-          next_withdrawal_index: SszTypes.withdrawal_index(),
+          next_withdrawal_index: Types.withdrawal_index(),
           # [New in Capella]
-          next_withdrawal_validator_index: SszTypes.withdrawal_index(),
+          next_withdrawal_validator_index: Types.withdrawal_index(),
           # Deep history valid from Capella onwards
           # [New in Capella]
-          historical_summaries: list(SszTypes.HistoricalSummary.t())
+          historical_summaries: list(Types.HistoricalSummary.t())
         }
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
@@ -95,16 +95,16 @@ defmodule SszTypes.BeaconState do
   @doc """
   Checks if state is pre or post merge
   """
-  @spec is_merge_transition_complete(SszTypes.BeaconState.t()) :: boolean()
+  @spec is_merge_transition_complete(Types.BeaconState.t()) :: boolean()
   def is_merge_transition_complete(state) do
     state.latest_execution_payload_header !=
-      struct(SszTypes.ExecutionPayload, SszTypes.ExecutionPayloadHeader.default())
+      struct(Types.ExecutionPayload, Types.ExecutionPayloadHeader.default())
   end
 
   @doc """
     Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
   """
-  @spec decrease_balance(t(), SszTypes.validator_index(), SszTypes.gwei()) :: t()
+  @spec decrease_balance(t(), Types.validator_index(), Types.gwei()) :: t()
   def decrease_balance(%__MODULE__{balances: balances} = state, index, delta) do
     current_balance = Enum.fetch!(balances, index)
 
@@ -118,7 +118,7 @@ defmodule SszTypes.BeaconState do
   Return the deltas for a given ``flag_index`` by scanning through the participation flags.
   """
   @spec get_flag_index_deltas(t(), integer(), integer()) ::
-          Enumerable.t({SszTypes.gwei(), SszTypes.gwei()})
+          Enumerable.t({Types.gwei(), Types.gwei()})
   def get_flag_index_deltas(state, weight, flag_index) do
     previous_epoch = Accessors.get_previous_epoch(state)
 
@@ -177,7 +177,7 @@ defmodule SszTypes.BeaconState do
   Return the inactivity penalty deltas by considering timely
   target participation flags and inactivity scores.
   """
-  @spec get_inactivity_penalty_deltas(t()) :: Enumerable.t({SszTypes.gwei(), SszTypes.gwei()})
+  @spec get_inactivity_penalty_deltas(t()) :: Enumerable.t({Types.gwei(), Types.gwei()})
   def get_inactivity_penalty_deltas(%__MODULE__{} = state) do
     previous_epoch = Accessors.get_previous_epoch(state)
 

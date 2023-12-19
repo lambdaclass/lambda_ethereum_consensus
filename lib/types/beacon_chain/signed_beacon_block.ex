@@ -1,4 +1,4 @@
-defmodule SszTypes.SignedBeaconBlock do
+defmodule Types.SignedBeaconBlock do
   @moduledoc """
   Struct definition for `SignedBeaconBlock`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.SignedBeaconBlock do
   defstruct fields
 
   @type t :: %__MODULE__{
-          message: SszTypes.BeaconBlock.t(),
-          signature: SszTypes.bls_signature()
+          message: Types.BeaconBlock.t(),
+          signature: Types.bls_signature()
         }
 end

@@ -1,4 +1,4 @@
-defmodule SszTypes.DepositMessage do
+defmodule Types.DepositMessage do
   @moduledoc """
   Struct definition for `DepositMessage`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -14,8 +14,8 @@ defmodule SszTypes.DepositMessage do
   defstruct fields
 
   @type t :: %__MODULE__{
-          pubkey: SszTypes.bls_pubkey(),
-          withdrawal_credentials: SszTypes.bytes32(),
-          amount: SszTypes.gwei()
+          pubkey: Types.bls_pubkey(),
+          withdrawal_credentials: Types.bytes32(),
+          amount: Types.gwei()
         }
 end

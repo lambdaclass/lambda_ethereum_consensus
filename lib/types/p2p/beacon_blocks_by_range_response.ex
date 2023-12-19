@@ -1,4 +1,4 @@
-defmodule SszTypes.BeaconBlocksByRangeResponse do
+defmodule Types.BeaconBlocksByRangeResponse do
   @moduledoc """
   Struct definition for `BeaconBlocksByRangeResponse`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -12,6 +12,6 @@ defmodule SszTypes.BeaconBlocksByRangeResponse do
   defstruct fields
 
   @type t :: %__MODULE__{
-          body: list(SszTypes.SignedBeaconBlock.t())
+          body: list(Types.SignedBeaconBlock.t())
         }
 end

@@ -1,4 +1,4 @@
-defmodule SszTypes.SyncCommittee do
+defmodule Types.SyncCommittee do
   @moduledoc """
   Struct definition for `SyncCommittee`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -15,8 +15,8 @@ defmodule SszTypes.SyncCommittee do
   defstruct fields
 
   @type t :: %__MODULE__{
-          pubkeys: list(SszTypes.bls_pubkey()),
-          aggregate_pubkey: SszTypes.bls_pubkey()
+          pubkeys: list(Types.bls_pubkey()),
+          aggregate_pubkey: Types.bls_pubkey()
         }
 
   @impl LambdaEthereumConsensus.Container

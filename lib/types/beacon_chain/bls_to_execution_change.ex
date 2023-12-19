@@ -1,4 +1,4 @@
-defmodule SszTypes.BLSToExecutionChange do
+defmodule Types.BLSToExecutionChange do
   @moduledoc """
   Struct definition for `BLSToExecutionChange`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -14,8 +14,8 @@ defmodule SszTypes.BLSToExecutionChange do
   defstruct fields
 
   @type t :: %__MODULE__{
-          validator_index: SszTypes.validator_index(),
-          from_bls_pubkey: SszTypes.bls_pubkey(),
-          to_execution_address: SszTypes.execution_address()
+          validator_index: Types.validator_index(),
+          from_bls_pubkey: Types.bls_pubkey(),
+          to_execution_address: Types.execution_address()
         }
 end

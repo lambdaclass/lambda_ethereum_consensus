@@ -1,4 +1,4 @@
-defmodule SszTypes.Deposit do
+defmodule Types.Deposit do
   @moduledoc """
   Struct definition for `Deposit`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -14,12 +14,12 @@ defmodule SszTypes.Deposit do
 
   @type t :: %__MODULE__{
           # max size is 33
-          proof: list(SszTypes.bytes32()),
-          data: SszTypes.DepositData.t()
+          proof: list(Types.bytes32()),
+          data: Types.DepositData.t()
         }
 
-  @spec get_validator_from_deposit(SszTypes.bls_pubkey(), SszTypes.bytes32(), SszTypes.uint64()) ::
-          SszTypes.Validator.t()
+  @spec get_validator_from_deposit(Types.bls_pubkey(), Types.bytes32(), Types.uint64()) ::
+          Types.Validator.t()
   def get_validator_from_deposit(pubkey, withdrawal_credentials, amount) do
     effective_balance =
       min(
@@ -29,7 +29,7 @@ defmodule SszTypes.Deposit do
 
     far_future_epoch = Constants.far_future_epoch()
 
-    %SszTypes.Validator{
+    %Types.Validator{
       pubkey: pubkey,
       withdrawal_credentials: withdrawal_credentials,
       activation_eligibility_epoch: far_future_epoch,

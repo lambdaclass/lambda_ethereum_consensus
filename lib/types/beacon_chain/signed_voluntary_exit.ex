@@ -1,4 +1,4 @@
-defmodule SszTypes.SignedVoluntaryExit do
+defmodule Types.SignedVoluntaryExit do
   @moduledoc """
   Struct definition for `SignedVoluntaryExit`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.SignedVoluntaryExit do
   defstruct fields
 
   @type t :: %__MODULE__{
-          message: SszTypes.VoluntaryExit.t(),
-          signature: SszTypes.bls_signature()
+          message: Types.VoluntaryExit.t(),
+          signature: Types.bls_signature()
         }
 end

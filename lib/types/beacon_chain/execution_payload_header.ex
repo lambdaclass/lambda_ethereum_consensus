@@ -1,4 +1,4 @@
-defmodule SszTypes.ExecutionPayloadHeader do
+defmodule Types.ExecutionPayloadHeader do
   @moduledoc """
   Struct definition for `ExecutionPayloadHeader`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -44,21 +44,21 @@ defmodule SszTypes.ExecutionPayloadHeader do
   defstruct fields
 
   @type t :: %__MODULE__{
-          parent_hash: SszTypes.hash32(),
-          fee_recipient: SszTypes.execution_address(),
-          state_root: SszTypes.root(),
-          receipts_root: SszTypes.root(),
+          parent_hash: Types.hash32(),
+          fee_recipient: Types.execution_address(),
+          state_root: Types.root(),
+          receipts_root: Types.root(),
           logs_bloom: binary(),
-          prev_randao: SszTypes.bytes32(),
-          block_number: SszTypes.uint64(),
-          gas_limit: SszTypes.uint64(),
-          gas_used: SszTypes.uint64(),
-          timestamp: SszTypes.uint64(),
+          prev_randao: Types.bytes32(),
+          block_number: Types.uint64(),
+          gas_limit: Types.uint64(),
+          gas_used: Types.uint64(),
+          timestamp: Types.uint64(),
           extra_data: binary(),
-          base_fee_per_gas: SszTypes.uint256(),
-          block_hash: SszTypes.hash32(),
-          transactions_root: SszTypes.root(),
-          withdrawals_root: SszTypes.root()
+          base_fee_per_gas: Types.uint256(),
+          block_hash: Types.hash32(),
+          transactions_root: Types.root(),
+          withdrawals_root: Types.root()
         }
 
   def encode(%__MODULE__{} = map) do

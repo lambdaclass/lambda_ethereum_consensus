@@ -1,5 +1,5 @@
-defmodule SszTypes.Epoch do
+defmodule Types.Epoch do
   @moduledoc """
-  Alias for `SszTypes.epoch`. Is used when explicit typing is needed.
+  Alias for `Types.epoch`. Is used when explicit typing is needed.
   """
 end

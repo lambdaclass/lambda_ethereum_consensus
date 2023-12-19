@@ -1,4 +1,4 @@
-defmodule SszTypes.AttestationData do
+defmodule Types.AttestationData do
   @moduledoc """
   Struct definition for `AttestationData`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -18,11 +18,11 @@ defmodule SszTypes.AttestationData do
   defstruct fields
 
   @type t :: %__MODULE__{
-          slot: SszTypes.slot(),
-          index: SszTypes.commitee_index(),
-          beacon_block_root: SszTypes.root(),
-          source: SszTypes.Checkpoint.t(),
-          target: SszTypes.Checkpoint.t()
+          slot: Types.slot(),
+          index: Types.commitee_index(),
+          beacon_block_root: Types.root(),
+          source: Types.Checkpoint.t(),
+          target: Types.Checkpoint.t()
         }
 
   @impl LambdaEthereumConsensus.Container
@@ -31,8 +31,8 @@ defmodule SszTypes.AttestationData do
       {:slot, {:int, 64}},
       {:index, {:int, 64}},
       {:beacon_block_root, {:bytes, 32}},
-      {:source, SszTypes.Checkpoint},
-      {:target, SszTypes.Checkpoint}
+      {:source, Types.Checkpoint},
+      {:target, Types.Checkpoint}
     ]
   end
 end

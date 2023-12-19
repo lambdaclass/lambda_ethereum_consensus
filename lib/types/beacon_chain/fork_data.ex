@@ -1,4 +1,4 @@
-defmodule SszTypes.ForkData do
+defmodule Types.ForkData do
   @moduledoc """
   Struct definition for `ForkData`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.ForkData do
   defstruct fields
 
   @type t :: %__MODULE__{
-          current_version: SszTypes.version(),
-          genesis_validators_root: SszTypes.root()
+          current_version: Types.version(),
+          genesis_validators_root: Types.root()
         }
 end

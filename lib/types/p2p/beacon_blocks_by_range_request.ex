@@ -1,4 +1,4 @@
-defmodule SszTypes.BeaconBlocksByRangeRequest do
+defmodule Types.BeaconBlocksByRangeRequest do
   @moduledoc """
   Struct definition for `BeaconBlocksByRangeRequest`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -12,9 +12,9 @@ defmodule SszTypes.BeaconBlocksByRangeRequest do
   ]
 
   @type t :: %__MODULE__{
-          start_slot: SszTypes.slot(),
-          count: SszTypes.uint64(),
+          start_slot: Types.slot(),
+          count: Types.uint64(),
           # Deprecated, must be set to 1
-          step: SszTypes.uint64()
+          step: Types.uint64()
         }
 end

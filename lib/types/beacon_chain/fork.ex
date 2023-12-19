@@ -1,4 +1,4 @@
-defmodule SszTypes.Fork do
+defmodule Types.Fork do
   @moduledoc """
   Struct definition for `Fork`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -14,8 +14,8 @@ defmodule SszTypes.Fork do
   defstruct fields
 
   @type t :: %__MODULE__{
-          previous_version: SszTypes.version(),
-          current_version: SszTypes.version(),
-          epoch: SszTypes.epoch()
+          previous_version: Types.version(),
+          current_version: Types.version(),
+          epoch: Types.epoch()
         }
 end

@@ -1,4 +1,4 @@
-defmodule SszTypes.HistoricalSummary do
+defmodule Types.HistoricalSummary do
   @moduledoc """
   Struct definition for `HistoricalSummary`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.HistoricalSummary do
   defstruct fields
 
   @type t :: %__MODULE__{
-          block_summary_root: SszTypes.root(),
-          state_summary_root: SszTypes.root()
+          block_summary_root: Types.root(),
+          state_summary_root: Types.root()
         }
 end

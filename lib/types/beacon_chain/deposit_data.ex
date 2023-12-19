@@ -1,4 +1,4 @@
-defmodule SszTypes.DepositData do
+defmodule Types.DepositData do
   @moduledoc """
   Struct definition for `DepositData`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -15,9 +15,9 @@ defmodule SszTypes.DepositData do
   defstruct fields
 
   @type t :: %__MODULE__{
-          pubkey: SszTypes.bls_pubkey(),
-          withdrawal_credentials: SszTypes.bytes32(),
-          amount: SszTypes.gwei(),
-          signature: SszTypes.bls_signature()
+          pubkey: Types.bls_pubkey(),
+          withdrawal_credentials: Types.bytes32(),
+          amount: Types.gwei(),
+          signature: Types.bls_signature()
         }
 end

@@ -1,4 +1,4 @@
-defmodule SszTypes.ProposerSlashing do
+defmodule Types.ProposerSlashing do
   @moduledoc """
   Struct definition for `ProposerSlashing`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.ProposerSlashing do
   defstruct fields
 
   @type t :: %__MODULE__{
-          signed_header_1: SszTypes.SignedBeaconBlockHeader.t(),
-          signed_header_2: SszTypes.SignedBeaconBlockHeader.t()
+          signed_header_1: Types.SignedBeaconBlockHeader.t(),
+          signed_header_2: Types.SignedBeaconBlockHeader.t()
         }
 end

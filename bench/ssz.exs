@@ -1,5 +1,5 @@
 alias LambdaEthereumConsensus.SszEx
-alias SszTypes.Checkpoint
+alias Types.Checkpoint
 
 checkpoint = %Checkpoint{
   epoch: 12_345,

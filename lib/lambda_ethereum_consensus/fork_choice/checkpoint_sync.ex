@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.CheckpointSync do
   @doc """
   Syncs the node using an inputed checkpoint
   """
-  @spec sync_from_checkpoint(binary) :: {:ok, SszTypes.BeaconState.t()} | {:error, any}
+  @spec sync_from_checkpoint(binary) :: {:ok, Types.BeaconState.t()} | {:error, any}
   def sync_from_checkpoint(url) do
     client =
       Tesla.client([
@@ -25,7 +25,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.CheckpointSync do
 
     case get(client, full_url) do
       {:ok, response} ->
-        case Ssz.from_ssz(response.body, SszTypes.BeaconState) do
+        case Ssz.from_ssz(response.body, Types.BeaconState) do
           {:ok, struct} ->
             {:ok, struct}
 

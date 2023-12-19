@@ -1,4 +1,4 @@
-defmodule SszTypes.Eth1Data do
+defmodule Types.Eth1Data do
   @moduledoc """
   Struct definition for `Eth1Data`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -14,8 +14,8 @@ defmodule SszTypes.Eth1Data do
   defstruct fields
 
   @type t :: %__MODULE__{
-          deposit_root: SszTypes.root(),
-          deposit_count: SszTypes.uint64(),
-          block_hash: SszTypes.hash32()
+          deposit_root: Types.root(),
+          deposit_count: Types.uint64(),
+          block_hash: Types.hash32()
         }
 end

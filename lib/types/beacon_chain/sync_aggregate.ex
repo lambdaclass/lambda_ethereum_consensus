@@ -1,4 +1,4 @@
-defmodule SszTypes.SyncAggregate do
+defmodule Types.SyncAggregate do
   @moduledoc """
   Struct definition for `SyncAggregate`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.SyncAggregate do
   defstruct fields
 
   @type t :: %__MODULE__{
-          sync_committee_bits: SszTypes.bitvector(),
-          sync_committee_signature: SszTypes.bls_signature()
+          sync_committee_bits: Types.bitvector(),
+          sync_committee_signature: Types.bls_signature()
         }
 end

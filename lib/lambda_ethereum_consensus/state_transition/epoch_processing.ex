@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias SszTypes.{BeaconState, HistoricalSummary, Validator}
+  alias Types.{BeaconState, HistoricalSummary, Validator}
 
   @spec process_sync_committee_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
@@ -179,7 +179,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     end
   end
 
-  @spec activation_eligibility_and_ejections(Enum.t(), BeaconState.t(), SszTypes.gwei()) ::
+  @spec activation_eligibility_and_ejections(Enum.t(), BeaconState.t(), Types.gwei()) ::
           {:ok, {BeaconState.t(), Enum.t()}} | {:error, binary()}
   defp activation_eligibility_and_ejections(validators_list_with_index, state, ejection_balance) do
     validators_list_with_index
@@ -309,13 +309,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
              Ssz.hash_vector_tree_root_typed(
                state.block_roots,
                slots_per_historical_root,
-               SszTypes.Root
+               Types.Root
              ),
            {:ok, state_summary_root} <-
              Ssz.hash_vector_tree_root_typed(
                state.state_roots,
                slots_per_historical_root,
-               SszTypes.Root
+               Types.Root
              ) do
         historical_summary = %HistoricalSummary{
           block_summary_root: block_summary_root,
@@ -414,7 +414,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   defp update_epoch_justified(state, true, epoch, index) do
     with {:ok, block_root} <- Accessors.get_block_root(state, epoch) do
-      new_checkpoint = %SszTypes.Checkpoint{epoch: epoch, root: block_root}
+      new_checkpoint = %Types.Checkpoint{epoch: epoch, root: block_root}
 
       bits =
         state.justification_bits

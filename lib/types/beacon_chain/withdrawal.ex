@@ -1,4 +1,4 @@
-defmodule SszTypes.Withdrawal do
+defmodule Types.Withdrawal do
   @moduledoc """
   Struct definition for `Withdrawal`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -15,9 +15,9 @@ defmodule SszTypes.Withdrawal do
   defstruct fields
 
   @type t :: %__MODULE__{
-          index: SszTypes.withdrawal_index(),
-          validator_index: SszTypes.validator_index(),
-          address: SszTypes.hash32(),
-          amount: SszTypes.gwei()
+          index: Types.withdrawal_index(),
+          validator_index: Types.validator_index(),
+          address: Types.hash32(),
+          amount: Types.gwei()
         }
 end

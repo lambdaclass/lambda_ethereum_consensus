@@ -1,4 +1,4 @@
-defmodule SszTypes.AggregateAndProof do
+defmodule Types.AggregateAndProof do
   @moduledoc """
   Struct definition for `AggregateAndProof`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -14,8 +14,8 @@ defmodule SszTypes.AggregateAndProof do
   defstruct fields
 
   @type t :: %__MODULE__{
-          aggregator_index: SszTypes.validator_index(),
-          aggregate: SszTypes.Attestation.t(),
-          selection_proof: SszTypes.bls_signature()
+          aggregator_index: Types.validator_index(),
+          aggregate: Types.Attestation.t(),
+          selection_proof: Types.bls_signature()
         }
 end

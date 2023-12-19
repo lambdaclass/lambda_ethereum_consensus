@@ -1,4 +1,4 @@
-defmodule SszTypes do
+defmodule Types do
   @moduledoc """
   Lists some types used in SSZ structs.
   """

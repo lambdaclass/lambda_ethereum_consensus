@@ -1,4 +1,4 @@
-defmodule SszTypes.SignedBLSToExecutionChange do
+defmodule Types.SignedBLSToExecutionChange do
   @moduledoc """
   Struct definition for `SignedBLSToExecutionChange`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.SignedBLSToExecutionChange do
   defstruct fields
 
   @type t :: %__MODULE__{
-          message: SszTypes.BLSToExecutionChange.t(),
-          signature: SszTypes.bls_signature()
+          message: Types.BLSToExecutionChange.t(),
+          signature: Types.bls_signature()
         }
 end

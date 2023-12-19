@@ -1,4 +1,4 @@
-defmodule SszTypes.Metadata do
+defmodule Types.Metadata do
   @moduledoc """
   Struct definition for `Metadata`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -14,8 +14,8 @@ defmodule SszTypes.Metadata do
   defstruct fields
 
   @type t :: %__MODULE__{
-          seq_number: SszTypes.uint64(),
-          attnets: SszTypes.bitvector(),
-          syncnets: SszTypes.bitvector()
+          seq_number: Types.uint64(),
+          attnets: Types.bitvector(),
+          syncnets: Types.bitvector()
         }
 end

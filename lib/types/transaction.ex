@@ -1,5 +1,5 @@
-defmodule SszTypes.Transaction do
+defmodule Types.Transaction do
   @moduledoc """
-  Alias for `SszTypes.transaction`. Is used when explicit typing is needed.
+  Alias for `Types.transaction`. Is used when explicit typing is needed.
   """
 end

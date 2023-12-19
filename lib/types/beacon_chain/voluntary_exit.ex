@@ -1,4 +1,4 @@
-defmodule SszTypes.VoluntaryExit do
+defmodule Types.VoluntaryExit do
   @moduledoc """
   Struct definition for `VoluntaryExit`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.VoluntaryExit do
   defstruct fields
 
   @type t :: %__MODULE__{
-          epoch: SszTypes.epoch(),
-          validator_index: SszTypes.validator_index()
+          epoch: Types.epoch(),
+          validator_index: Types.validator_index()
         }
 end

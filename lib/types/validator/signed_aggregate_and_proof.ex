@@ -1,4 +1,4 @@
-defmodule SszTypes.SignedAggregateAndProof do
+defmodule Types.SignedAggregateAndProof do
   @moduledoc """
   Struct definition for `SignedAggregateAndProof`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.SignedAggregateAndProof do
   defstruct fields
 
   @type t :: %__MODULE__{
-          message: SszTypes.AggregateAndProof.t(),
-          signature: SszTypes.bls_signature()
+          message: Types.AggregateAndProof.t(),
+          signature: Types.bls_signature()
         }
 end

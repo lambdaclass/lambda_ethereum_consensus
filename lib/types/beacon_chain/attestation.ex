@@ -1,4 +1,4 @@
-defmodule SszTypes.Attestation do
+defmodule Types.Attestation do
   @moduledoc """
   Struct definition for `AttestationMainnet`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -15,8 +15,8 @@ defmodule SszTypes.Attestation do
 
   @type t :: %__MODULE__{
           # max validators per committee is 2048
-          aggregation_bits: SszTypes.bitlist(),
-          data: SszTypes.AttestationData.t(),
-          signature: SszTypes.bls_signature()
+          aggregation_bits: Types.bitlist(),
+          data: Types.AttestationData.t(),
+          signature: Types.bls_signature()
         }
 end

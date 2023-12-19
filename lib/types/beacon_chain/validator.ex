@@ -1,4 +1,4 @@
-defmodule SszTypes.Validator do
+defmodule Types.Validator do
   @moduledoc """
   Struct definition for `Validator`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -22,14 +22,14 @@ defmodule SszTypes.Validator do
   defstruct fields
 
   @type t :: %__MODULE__{
-          pubkey: SszTypes.bls_pubkey(),
-          withdrawal_credentials: SszTypes.bytes32(),
-          effective_balance: SszTypes.gwei(),
+          pubkey: Types.bls_pubkey(),
+          withdrawal_credentials: Types.bytes32(),
+          effective_balance: Types.gwei(),
           slashed: boolean,
-          activation_eligibility_epoch: SszTypes.epoch(),
-          activation_epoch: SszTypes.epoch(),
-          exit_epoch: SszTypes.epoch(),
-          withdrawable_epoch: SszTypes.epoch()
+          activation_eligibility_epoch: Types.epoch(),
+          activation_epoch: Types.epoch(),
+          exit_epoch: Types.epoch(),
+          withdrawable_epoch: Types.epoch()
         }
 
   @doc """
@@ -44,7 +44,7 @@ defmodule SszTypes.Validator do
   @doc """
     Check if ``validator`` is fully withdrawable.
   """
-  @spec is_fully_withdrawable_validator(t(), SszTypes.gwei(), SszTypes.epoch()) ::
+  @spec is_fully_withdrawable_validator(t(), Types.gwei(), Types.epoch()) ::
           boolean
   def is_fully_withdrawable_validator(
         %{withdrawable_epoch: withdrawable_epoch} = validator,
@@ -57,7 +57,7 @@ defmodule SszTypes.Validator do
   @doc """
     Check if ``validator`` is partially withdrawable.
   """
-  @spec is_partially_withdrawable_validator(t(), SszTypes.gwei()) :: boolean
+  @spec is_partially_withdrawable_validator(t(), Types.gwei()) :: boolean
   def is_partially_withdrawable_validator(
         %{effective_balance: effective_balance} = validator,
         balance

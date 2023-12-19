@@ -1,5 +1,5 @@
-defmodule SszTypes.Root do
+defmodule Types.Root do
   @moduledoc """
-  Alias for `SszTypes.root`. Is used when explicit typing is needed.
+  Alias for `Types.root`. Is used when explicit typing is needed.
   """
 end

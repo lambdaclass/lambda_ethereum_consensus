@@ -1,4 +1,4 @@
-defmodule SszTypes.HistoricalBatch do
+defmodule Types.HistoricalBatch do
   @moduledoc """
   Struct definition for `HistoricalBatch`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -13,7 +13,7 @@ defmodule SszTypes.HistoricalBatch do
   defstruct fields
 
   @type t :: %__MODULE__{
-          block_roots: list(SszTypes.root()),
-          state_roots: list(SszTypes.root())
+          block_roots: list(Types.root()),
+          state_roots: list(Types.root())
         }
 end

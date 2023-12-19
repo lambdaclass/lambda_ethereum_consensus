@@ -1,4 +1,4 @@
-defmodule SszTypes.Checkpoint do
+defmodule Types.Checkpoint do
   @moduledoc """
   Struct definition for `Checkpoint`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -14,8 +14,8 @@ defmodule SszTypes.Checkpoint do
   defstruct fields
 
   @type t :: %__MODULE__{
-          epoch: SszTypes.epoch(),
-          root: SszTypes.root()
+          epoch: Types.epoch(),
+          root: Types.root()
         }
 
   def schema do

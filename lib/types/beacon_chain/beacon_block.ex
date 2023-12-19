@@ -1,4 +1,4 @@
-defmodule SszTypes.BeaconBlock do
+defmodule Types.BeaconBlock do
   @moduledoc """
   Struct definition for `BeaconBlock`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -16,10 +16,10 @@ defmodule SszTypes.BeaconBlock do
   defstruct fields
 
   @type t :: %__MODULE__{
-          slot: SszTypes.slot(),
-          proposer_index: SszTypes.validator_index(),
-          parent_root: SszTypes.root(),
-          state_root: SszTypes.root(),
-          body: SszTypes.BeaconBlockBody.t()
+          slot: Types.slot(),
+          proposer_index: Types.validator_index(),
+          parent_root: Types.root(),
+          state_root: Types.root(),
+          body: Types.BeaconBlockBody.t()
         }
 end
