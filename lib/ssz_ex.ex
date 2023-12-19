@@ -13,14 +13,13 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
+  def encode(value, {:bytes, _}), do: {:ok, value}
 
   def encode(list, {:list, basic_type, size}) do
     if variable_size?(basic_type),
       do: encode_variable_size_list(list, basic_type, size),
       else: encode_fixed_size_list(list, basic_type, size)
   end
-
-  def encode(value, {:bytes, _}), do: {:ok, value}
 
   def encode(container, module) when is_map(container),
     do: encode_container(container, module.schema())
@@ -445,16 +444,28 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  def pack([{value, _size} = head | _tail] = list) when is_integer(value) do
+  def pack(list, {:list, basic_type, _size}) do
+    if !variable_size?(basic_type) do
+      pack_basic_type_list(list)
+    else
+      pack_complex_type_list(list)
+    end
+  end
+
+  defp pack_basic_type_list(list) do
     list
-    |> Enum.reduce(<<>>, fn {x, size}, acc ->
-      {:ok, encoded} = encode_int(x, size)
+    |> Enum.reduce(<<>>, fn {x, schema}, acc ->
+      {:ok, encoded} = encode(x, schema)
       acc <> encoded
     end)
     |> pack_bytes()
     |> :binary.bin_to_list()
     |> Enum.chunk_every(@bytes_per_chunk)
     |> Enum.map(fn x -> :binary.list_to_bin(x) end)
+  end
+
+  defp pack_complex_type_list(list) do
+    # TODO
   end
 
   defp pack_bytes(value) when is_binary(value) do
