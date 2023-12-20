@@ -73,7 +73,7 @@ defmodule SpecTestUtils do
   def resolve_type_from_handler(handler, map) do
     case Map.get(map, handler) do
       nil -> raise "Unknown case #{handler}"
-      type -> Module.concat(SszTypes, type)
+      type -> Module.concat(Types, type)
     end
   end
 

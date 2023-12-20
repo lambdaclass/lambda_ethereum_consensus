@@ -14,15 +14,15 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   @impl true
   def init(_opts) do
     topics = [
-      {"beacon_block", SszTypes.SignedBeaconBlock},
-      {"beacon_aggregate_and_proof", SszTypes.SignedAggregateAndProof}
-      # {"beacon_attestation_0", SszTypes.Attestation},
-      # {"voluntary_exit", SszTypes.SignedVoluntaryExit},
-      # {"proposer_slashing", SszTypes.ProposerSlashing},
-      # {"attester_slashing", SszTypes.AttesterSlashing},
-      # {"bls_to_execution_change", SszTypes.SignedBLSToExecutionChange},
-      # {"sync_committee_contribution_and_proof", SszTypes.SignedContributionAndProof},
-      # {"sync_committee_0", SszTypes.SyncCommitteeMessage}
+      {"beacon_block", Types.SignedBeaconBlock},
+      {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof}
+      # {"beacon_attestation_0", Types.Attestation},
+      # {"voluntary_exit", Types.SignedVoluntaryExit},
+      # {"proposer_slashing", Types.ProposerSlashing},
+      # {"attester_slashing", Types.AttesterSlashing},
+      # {"bls_to_execution_change", Types.SignedBLSToExecutionChange},
+      # {"sync_committee_contribution_and_proof", Types.SignedContributionAndProof},
+      # {"sync_committee_0", Types.SyncCommitteeMessage}
     ]
 
     children =
