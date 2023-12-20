@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
   @blocks_per_chunk 16
 
-  @type chunk :: %{from: SszTypes.slot(), count: integer()}
+  @type chunk :: %{from: Types.slot(), count: integer()}
 
   def start_link(opts) do
     Task.start_link(__MODULE__, :run, [opts])
@@ -78,8 +78,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     end
   end
 
-  @spec fetch_blocks_by_slot(SszTypes.slot(), non_neg_integer()) ::
-          {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, String.t()}
+  @spec fetch_blocks_by_slot(Types.slot(), non_neg_integer()) ::
+          {:ok, [Types.SignedBeaconBlock.t()]} | {:error, String.t()}
   def fetch_blocks_by_slot(from, count) do
     case BlockDownloader.request_blocks_by_slot(from, count, 0) do
       {:ok, blocks} ->

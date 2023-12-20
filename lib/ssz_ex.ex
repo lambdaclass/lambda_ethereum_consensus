@@ -51,10 +51,10 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
 
-  @spec hash_tree_root!(boolean, atom) :: SszTypes.root()
+  @spec hash_tree_root!(boolean, atom) :: Types.root()
   def hash_tree_root!(value, :bool), do: pack(value)
 
-  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
+  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
   def hash_tree_root!(value, {:int, size}), do: pack(value, size)
 
   #################

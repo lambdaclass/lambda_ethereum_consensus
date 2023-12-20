@@ -29,21 +29,21 @@ defmodule Unit.SSZExTest do
   end
 
   test "serialize and deserialize nested container" do
-    checkpoint_source = %SszTypes.Checkpoint{
+    checkpoint_source = %Types.Checkpoint{
       epoch: 3_776_037_760_046_644_755,
       root:
         <<29, 22, 191, 147, 188, 238, 162, 89, 147, 162, 202, 111, 169, 162, 84, 95, 194, 85, 54,
           172, 44, 74, 37, 128, 248, 21, 86, 246, 151, 54, 24, 54>>
     }
 
-    checkpoint_target = %SszTypes.Checkpoint{
+    checkpoint_target = %Types.Checkpoint{
       epoch: 2_840_053_453_521_072_037,
       root:
         <<15, 174, 23, 120, 4, 9, 2, 116, 67, 73, 254, 53, 197, 3, 191, 166, 104, 34, 121, 2, 57,
           69, 75, 69, 254, 237, 132, 68, 254, 49, 127, 175>>
     }
 
-    attestation_data = %SszTypes.AttestationData{
+    attestation_data = %Types.AttestationData{
       slot: 5_057_010_135_270_197_978,
       index: 6_920_931_864_607_509_210,
       beacon_block_root:
@@ -53,7 +53,7 @@ defmodule Unit.SSZExTest do
       target: checkpoint_target
     }
 
-    indexed_attestation = %SszTypes.IndexedAttestation{
+    indexed_attestation = %Types.IndexedAttestation{
       attesting_indices: [15_833_676_831_095_072_535, 7_978_643_446_947_046_229],
       data: attestation_data,
       signature:
@@ -79,7 +79,7 @@ defmodule Unit.SSZExTest do
         152, 237, 244, 72, 231, 179, 239, 22, 23, 39, 193, 253, 47, 133, 188, 219, 85, 227, 198,
         60, 241, 213, 185, 110>>
 
-    assert_roundtrip(serialized, indexed_attestation, SszTypes.IndexedAttestation)
+    assert_roundtrip(serialized, indexed_attestation, Types.IndexedAttestation)
   end
 
   test "serialize and deserialize list" do
@@ -119,7 +119,7 @@ defmodule Unit.SSZExTest do
   end
 
   test "serialize and deserialize container only with fixed parts" do
-    validator = %SszTypes.Validator{
+    validator = %Types.Validator{
       pubkey:
         <<166, 144, 240, 158, 185, 117, 206, 31, 49, 45, 247, 53, 183, 95, 32, 20, 57, 245, 54,
           60, 97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72, 46, 131, 80, 54, 55, 203, 11,
@@ -144,7 +144,7 @@ defmodule Unit.SSZExTest do
         46, 197, 36, 179, 178, 69, 163, 242, 127, 74, 10, 138, 199, 91, 197, 184, 216, 150, 162,
         44, 135, 243, 163>>
 
-    assert_roundtrip(serialized, validator, SszTypes.Validator)
+    assert_roundtrip(serialized, validator, Types.Validator)
   end
 
   test "serialize and deserialize variable container" do
@@ -168,7 +168,7 @@ defmodule Unit.SSZExTest do
         97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72, 46, 131, 80, 54, 55, 203, 11, 160,
         206, 88, 144, 58, 231, 142, 94, 235>>
 
-    sync = %SszTypes.SyncCommittee{
+    sync = %Types.SyncCommittee{
       pubkeys: [pubkey1, pubkey2, pubkey3],
       aggregate_pubkey: pubkey4
     }
@@ -185,7 +185,7 @@ defmodule Unit.SSZExTest do
         53, 183, 95, 32, 20, 57, 245, 54, 60, 97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72,
         46, 131, 80, 54, 55, 203, 11, 160, 206, 88, 144, 58, 231, 142, 94, 235>>
 
-    assert_roundtrip(serialized, sync, SszTypes.SyncCommittee)
+    assert_roundtrip(serialized, sync, Types.SyncCommittee)
   end
 
   test "serialize and deserialize bitlist" do

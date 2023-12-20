@@ -14,9 +14,9 @@ defmodule Helpers.SszStaticContainers.VarTestStruct do
   defstruct fields
 
   @type t :: %__MODULE__{
-          A: SszTypes.uint16(),
-          B: list(SszTypes.uint16()),
-          C: SszTypes.uint8()
+          A: Types.uint16(),
+          B: list(Types.uint16()),
+          C: Types.uint8()
         }
 
   @impl LambdaEthereumConsensus.Container

@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+
   require Logger
 
   # This is the `ForkDigest` for mainnet in the capella fork
@@ -33,7 +34,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     with <<84, snappy_status::binary>> <- message,
          {:ok, current_status} <- ForkChoice.Store.get_current_status_message(),
          {:ok, ssz_status} <- Snappy.decompress(snappy_status),
-         {:ok, status} <- Ssz.from_ssz(ssz_status, SszTypes.StatusMessage),
+         {:ok, status} <- Ssz.from_ssz(ssz_status, Types.StatusMessage),
          status
          |> inspect(limit: :infinity)
          |> then(&"[Status] '#{&1}'")
@@ -96,9 +97,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     with <<24, snappy_blocks_by_range_request::binary>> <- message,
          {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
          {:ok, blocks_by_range_request} <-
-           Ssz.from_ssz(ssz_blocks_by_range_request, SszTypes.BeaconBlocksByRangeRequest) do
+           Ssz.from_ssz(ssz_blocks_by_range_request, Types.BeaconBlocksByRangeRequest) do
       ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
-      %SszTypes.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
+      %Types.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
         blocks_by_range_request
 
       "[Received BlocksByRange Request] requested slots #{start_slot} to #{start_slot + count - 1}"
@@ -169,4 +170,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
     <<3>> <> size_header <> snappy_message
   end
+
+  defp create_block_response_chunk(:empty_slot), do: <<>>
 end

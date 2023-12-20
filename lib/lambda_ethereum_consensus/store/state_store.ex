@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   """
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
-  alias SszTypes.BeaconState
+  alias Types.BeaconState
 
   @state_prefix "beacon_state"
   @stateslot_prefix @state_prefix <> "slot"
@@ -23,7 +23,7 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
     Db.put(slothash_key, block_root)
   end
 
-  @spec get_state(SszTypes.root()) ::
+  @spec get_state(Types.root()) ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
   def get_state(root) do
     with {:ok, bin} <- root |> state_key() |> Db.get() do
@@ -47,12 +47,12 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
     end
   end
 
-  @spec get_state_root_by_slot(SszTypes.slot()) ::
-          {:ok, SszTypes.root()} | {:error, String.t()} | :not_found
+  @spec get_state_root_by_slot(Types.slot()) ::
+          {:ok, Types.root()} | {:error, String.t()} | :not_found
   def get_state_root_by_slot(slot),
     do: slot |> root_by_slot_key() |> Db.get()
 
-  @spec get_state_by_slot(SszTypes.slot()) ::
+  @spec get_state_by_slot(Types.slot()) ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
   def get_state_by_slot(slot) do
     # WARN: this will return the latest state received for the given slot

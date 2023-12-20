@@ -6,14 +6,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   import Bitwise
 
   alias LambdaEthereumConsensus.SszEx
-  alias SszTypes.BeaconState
+  alias Types.BeaconState
 
   @max_random_byte 2 ** 8 - 1
 
   @doc """
   Returns the Unix timestamp at the start of the given slot
   """
-  @spec compute_timestamp_at_slot(BeaconState.t(), SszTypes.uint64()) :: SszTypes.uint64()
+  @spec compute_timestamp_at_slot(BeaconState.t(), Types.uint64()) :: Types.uint64()
   def compute_timestamp_at_slot(state, slot) do
     slots_since_genesis = slot - Constants.genesis_slot()
     state.genesis_time + slots_since_genesis * ChainSpec.get("SECONDS_PER_SLOT")
@@ -22,7 +22,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Returns the epoch number at slot.
   """
-  @spec compute_epoch_at_slot(SszTypes.slot()) :: SszTypes.epoch()
+  @spec compute_epoch_at_slot(Types.slot()) :: Types.epoch()
   def compute_epoch_at_slot(slot) do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
     div(slot, slots_per_epoch)
@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return the epoch during which validator activations and exits initiated in ``epoch`` take effect.
   """
-  @spec compute_activation_exit_epoch(SszTypes.epoch()) :: SszTypes.epoch()
+  @spec compute_activation_exit_epoch(Types.epoch()) :: Types.epoch()
   def compute_activation_exit_epoch(epoch) do
     max_seed_lookahead = ChainSpec.get("MAX_SEED_LOOKAHEAD")
     epoch + 1 + max_seed_lookahead
@@ -40,15 +40,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return the shuffled index corresponding to ``seed`` (and ``index_count``).
   """
-  @spec compute_shuffled_index(SszTypes.uint64(), SszTypes.uint64(), SszTypes.bytes32()) ::
+  @spec compute_shuffled_index(Types.uint64(), Types.uint64(), Types.bytes32()) ::
           {:error, String.t()}
   def compute_shuffled_index(index, index_count, _seed)
       when index >= index_count or index_count == 0 do
     {:error, "invalid index_count"}
   end
 
-  @spec compute_shuffled_index(SszTypes.uint64(), SszTypes.uint64(), SszTypes.bytes32()) ::
-          {:ok, SszTypes.uint64()}
+  @spec compute_shuffled_index(Types.uint64(), Types.uint64(), Types.bytes32()) ::
+          {:ok, Types.uint64()}
   def compute_shuffled_index(index, index_count, seed) do
     shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
 
@@ -71,8 +71,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     |> then(&{:ok, &1})
   end
 
-  @spec increase_inactivity_score(SszTypes.uint64(), integer, MapSet.t(), SszTypes.uint64()) ::
-          SszTypes.uint64()
+  @spec increase_inactivity_score(Types.uint64(), integer, MapSet.t(), Types.uint64()) ::
+          Types.uint64()
   def increase_inactivity_score(
         inactivity_score,
         index,
@@ -86,16 +86,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     end
   end
 
-  @spec decrease_inactivity_score(SszTypes.uint64(), boolean, SszTypes.uint64()) ::
-          SszTypes.uint64()
+  @spec decrease_inactivity_score(Types.uint64(), boolean, Types.uint64()) ::
+          Types.uint64()
   def decrease_inactivity_score(inactivity_score, true, _inactivity_score_recovery_rate),
     do: inactivity_score
 
   def decrease_inactivity_score(inactivity_score, false, inactivity_score_recovery_rate),
     do: inactivity_score - min(inactivity_score_recovery_rate, inactivity_score)
 
-  @spec update_inactivity_score(%{integer => SszTypes.uint64()}, integer, {SszTypes.uint64()}) ::
-          SszTypes.uint64()
+  @spec update_inactivity_score(%{integer => Types.uint64()}, integer, {Types.uint64()}) ::
+          Types.uint64()
   def update_inactivity_score(updated_eligible_validator_indices, index, inactivity_score) do
     case Map.fetch(updated_eligible_validator_indices, index) do
       {:ok, new_eligible_validator_index} -> new_eligible_validator_index
@@ -106,7 +106,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return the start slot of ``epoch``.
   """
-  @spec compute_start_slot_at_epoch(SszTypes.epoch()) :: SszTypes.slot()
+  @spec compute_start_slot_at_epoch(Types.epoch()) :: Types.slot()
   def compute_start_slot_at_epoch(epoch) do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
     epoch * slots_per_epoch
@@ -115,10 +115,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return from ``indices`` a random index sampled by effective balance.
   """
-  @spec compute_proposer_index(BeaconState.t(), [SszTypes.validator_index()], SszTypes.bytes32()) ::
-          {:ok, SszTypes.validator_index()} | {:error, binary()}
+  @spec compute_proposer_index(BeaconState.t(), [], Types.bytes32()) ::
+          {:error, String.t()}
   def compute_proposer_index(_state, [], _seed), do: {:error, "Empty indices"}
 
+  @spec compute_proposer_index(
+          BeaconState.t(),
+          nonempty_list(Types.validator_index()),
+          Types.bytes32()
+        ) ::
+          {:ok, Types.validator_index()}
   def compute_proposer_index(state, indices, seed) do
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
     total = length(indices)
@@ -145,8 +151,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return the domain for the ``domain_type`` and ``fork_version``.
   """
-  @spec compute_domain(SszTypes.domain_type(), Keyword.t()) ::
-          SszTypes.domain()
+  @spec compute_domain(Types.domain_type(), Keyword.t()) ::
+          Types.domain()
   def compute_domain(domain_type, opts \\ []) do
     fork_version = Keyword.get(opts, :fork_version, ChainSpec.get("GENESIS_FORK_VERSION"))
     genesis_validators_root = Keyword.get(opts, :genesis_validators_root, <<0::256>>)
@@ -156,7 +162,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     |> then(&(domain_type <> &1))
   end
 
-  @spec bytes_to_uint64(binary()) :: SszTypes.uint64()
+  @spec bytes_to_uint64(binary()) :: Types.uint64()
   def bytes_to_uint64(value) do
     # Converts a binary value to a 64-bit unsigned integer
     <<first_8_bytes::unsigned-integer-little-size(64), _::binary>> = value
@@ -169,7 +175,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     <<value::unsigned-integer-little-size(size)>>
   end
 
-  @spec uint64_to_bytes(SszTypes.uint64()) :: <<_::64>>
+  @spec uint64_to_bytes(Types.uint64()) :: <<_::64>>
   def uint64_to_bytes(value) when is_integer(value) and value >= 0 do
     <<value::unsigned-integer-little-size(64)>>
   end
@@ -178,55 +184,55 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Computes the validator indices of the ``committee_index``-th committee at some epoch
   with ``committee_count`` committees, and for some given ``indices`` and ``seed``.
   """
+  @spec compute_committee([], Types.bytes32(), Types.uint64(), Types.uint64()) ::
+          {:error, String.t()}
+  def compute_committee([], _, _, _), do: {:error, "Empty indices"}
+
   @spec compute_committee(
-          list(SszTypes.validator_index()),
-          SszTypes.bytes32(),
-          SszTypes.uint64(),
-          SszTypes.uint64()
-        ) ::
-          {:ok, list(SszTypes.validator_index())} | {:error, binary()}
-  def compute_committee(indices, seed, committee_index, committee_count) do
+          [Types.validator_index(), ...],
+          Types.bytes32(),
+          Types.uint64(),
+          Types.uint64()
+        ) :: {:ok, [Types.validator_index()]}
+  def compute_committee(indices, seed, committee_index, committee_count)
+      when committee_index < committee_count do
     index_count = length(indices)
     committee_start = div(index_count * committee_index, committee_count)
     committee_end = div(index_count * (committee_index + 1), committee_count) - 1
 
-    result =
+    to_swap_indices =
       committee_start..committee_end//1
-      |> Stream.map(&compute_shuffled_index(&1, index_count, seed))
+      # NOTE: this cannot fail because committee_end < index_count
+      |> Stream.map(fn i ->
+        {:ok, index} = compute_shuffled_index(i, index_count, seed)
+        index
+      end)
       |> Stream.with_index()
-      |> Enum.reduce_while({:ok, []}, fn
-        {{:ok, shuffled_index}, i}, {:ok, acc} ->
-          {:cont, {:ok, [{shuffled_index, i} | acc]}}
+      |> Enum.sort(fn {a, _}, {b, _} -> a <= b end)
 
-        {{:error, _} = err, _}, _ ->
-          {:halt, err}
+    {swapped_indices, []} =
+      indices
+      |> Stream.with_index()
+      |> Enum.flat_map_reduce(to_swap_indices, fn
+        {v, i}, [{i, j} | tail] -> {[{v, j}], tail}
+        _, acc -> {[], acc}
       end)
 
-    with {:ok, to_swap_indices} <- result do
-      to_swap_indices = Enum.sort(to_swap_indices, fn {a, _}, {b, _} -> a <= b end)
-
-      {swapped_indices, []} =
-        indices
-        |> Stream.with_index()
-        |> Enum.flat_map_reduce(to_swap_indices, fn
-          {v, i}, [{i, j} | tail] -> {[{v, j}], tail}
-          _, acc -> {[], acc}
-        end)
-
-      swapped_indices
-      |> Enum.sort(fn {_, a}, {_, b} -> a <= b end)
-      |> Enum.map(fn {v, _} -> v end)
-      |> then(&{:ok, &1})
-    end
+    swapped_indices
+    |> Enum.sort(fn {_, a}, {_, b} -> a <= b end)
+    |> Enum.map(fn {v, _} -> v end)
+    |> then(&{:ok, &1})
   end
+
+  def compute_committee(_, _, _, _), do: {:error, "Invalid committee index"}
 
   @doc """
   Return the 32-byte fork data root for the ``current_version`` and ``genesis_validators_root``.
   This is used primarily in signature domains to avoid collisions across forks/chains.
   """
-  @spec compute_fork_data_root(SszTypes.version(), SszTypes.root()) :: SszTypes.root()
+  @spec compute_fork_data_root(Types.version(), Types.root()) :: Types.root()
   def compute_fork_data_root(current_version, genesis_validators_root) do
-    Ssz.hash_tree_root!(%SszTypes.ForkData{
+    Ssz.hash_tree_root!(%Types.ForkData{
       current_version: current_version,
       genesis_validators_root: genesis_validators_root
     })
@@ -237,7 +243,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   This is a digest primarily used for domain separation on the p2p layer.
   4-bytes suffices for practical separation of forks/chains.
   """
-  @spec compute_fork_digest(SszTypes.version(), SszTypes.root()) :: SszTypes.fork_digest()
+  @spec compute_fork_digest(Types.version(), Types.root()) :: Types.fork_digest()
   def compute_fork_digest(current_version, genesis_validators_root) do
     compute_fork_data_root(current_version, genesis_validators_root)
     |> binary_part(0, 4)
@@ -246,17 +252,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return the signing root for the corresponding signing data.
   """
-  @spec compute_signing_root(SszTypes.bytes32(), SszTypes.domain()) :: SszTypes.root()
+  @spec compute_signing_root(Types.bytes32(), Types.domain()) :: Types.root()
   def compute_signing_root(<<_::256>> = root, domain) do
-    Ssz.hash_tree_root!(%SszTypes.SigningData{object_root: root, domain: domain})
+    Ssz.hash_tree_root!(%Types.SigningData{object_root: root, domain: domain})
   end
 
-  @spec compute_signing_root(any(), SszTypes.domain()) :: SszTypes.root()
+  @spec compute_signing_root(any(), Types.domain()) :: Types.root()
   def compute_signing_root(ssz_object, domain) do
     ssz_object |> Ssz.hash_tree_root!() |> compute_signing_root(domain)
   end
 
-  @spec compute_signing_root(any(), module(), SszTypes.domain()) :: SszTypes.root()
+  @spec compute_signing_root(any(), module(), Types.domain()) :: Types.root()
   def compute_signing_root(ssz_object, schema, domain) do
     ssz_object |> Ssz.hash_tree_root!(schema) |> compute_signing_root(domain)
   end
@@ -264,7 +270,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return a new ``ParticipationFlags`` adding ``flag_index`` to ``flags``.
   """
-  @spec add_flag(SszTypes.participation_flags(), integer) :: SszTypes.participation_flags()
+  @spec add_flag(Types.participation_flags(), integer) :: Types.participation_flags()
   def add_flag(flags, flag_index) do
     flag = :math.pow(2, flag_index) |> round
     bor(flags, flag)

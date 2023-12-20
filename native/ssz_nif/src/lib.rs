@@ -20,7 +20,7 @@ mod atoms {
     }
 }
 
-const SCHEMA_PREFIX_SIZE: usize = "Elixir.SszTypes.".len();
+const SCHEMA_PREFIX_SIZE: usize = "Elixir.Types.".len();
 const ELIXIR_PREFIX_SIZE: usize = "Elixir.".len();
 
 #[rustler::nif]
