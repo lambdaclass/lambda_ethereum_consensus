@@ -158,22 +158,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         Accessors.get_domain(state, domain_type, epoch)
         |> then(&Misc.compute_signing_root(indexed_attestation.data, &1))
 
-      state.validators
-      |> Stream.with_index()
-      |> Enum.flat_map_reduce(
-        indices,
-        fn
-          {%Validator{pubkey: p}, i}, [i | acc] -> {[p], acc}
-          _, acc -> {[], acc}
-        end
-      )
-      |> then(fn
-        {pks, []} -> pks |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
-        {_, _} -> {:error, "invalid indices"}
+      indices
+      |> Stream.map(&state.validators[&1])
+      |> Enum.map_reduce(true, fn
+        nil, _ -> {nil, false}
+        v, b -> {v.pubkey, b}
       end)
-      |> then(fn
-        {:ok, b} -> b
-        {:error, _} -> false
+      |> then(fn {pks, b} ->
+        b and Bls.fast_aggregate_valid?(pks, signing_root, indexed_attestation.signature)
       end)
     end
   end

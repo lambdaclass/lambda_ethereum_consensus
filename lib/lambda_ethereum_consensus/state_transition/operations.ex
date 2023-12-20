@@ -34,7 +34,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          :ok <- check_parent_root_match(parent_root, latest_block_header),
          {:ok, state} <- cache_current_block(state, block) do
       # Verify proposer is not slashed
-      proposer = state.validators |> Enum.fetch!(proposer_index)
+      proposer = Arrays.get(state.validators, proposer_index)
 
       if proposer.slashed do
         {:error, "proposer is slashed"}
@@ -296,9 +296,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec process_withdrawals(BeaconState.t(), ExecutionPayload.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_withdrawals(
-        %BeaconState{
-          validators: validators
-        } = state,
+        %BeaconState{validators: validators} = state,
         %ExecutionPayload{withdrawals: withdrawals}
       ) do
     expected_withdrawals = get_expected_withdrawals(state)
@@ -307,7 +305,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       state
       |> decrease_balances(withdrawals)
       |> update_next_withdrawal_index(withdrawals)
-      |> update_next_withdrawal_validator_index(withdrawals, length(validators))
+      |> update_next_withdrawal_validator_index(withdrawals, Arrays.size(validators))
       |> then(&{:ok, &1})
     end
   end
@@ -380,7 +378,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
-    bound = min(length(state.validators), max_validators_per_withdrawals_sweep)
+    bound = state.validators |> Arrays.size() |> min(max_validators_per_withdrawals_sweep)
 
     Stream.zip([state.validators, state.balances])
     |> Stream.with_index()
@@ -421,13 +419,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_proposer_slashing(state, proposer_slashing) do
     header_1 = proposer_slashing.signed_header_1.message
     header_2 = proposer_slashing.signed_header_2.message
-    proposer = Enum.at(state.validators, header_1.proposer_index)
+    validators_size = Arrays.size(state.validators)
+    proposer = state.validators[header_1.proposer_index]
 
     cond do
-      not Predicates.is_indices_available(
-        length(state.validators),
-        [header_1.proposer_index]
-      ) ->
+      not Predicates.is_indices_available(validators_size, [header_1.proposer_index]) ->
         {:error, "Too high index"}
 
       not (header_1.slot == header_2.slot) ->
@@ -442,16 +438,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       not Predicates.is_slashable_validator(proposer, Accessors.get_current_epoch(state)) ->
         {:error, "Proposer is not slashable"}
 
-      true ->
-        is_verified =
-          [proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
-          |> Enum.all?(&verify_proposer_slashing(&1, state, proposer))
+      not ([proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
+           |> Enum.all?(&verify_proposer_slashing(&1, state, proposer))) ->
+        {:error, "Signed header 1 or 2 signature is not verified"}
 
-        if is_verified do
-          Mutators.slash_validator(state, header_1.proposer_index)
-        else
-          {:error, "Signed header 1 or 2 signature is not verified"}
-        end
+      true ->
+        Mutators.slash_validator(state, header_1.proposer_index)
     end
   end
 
@@ -515,6 +507,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_attester_slashing(state, attester_slashing) do
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
+    validator_size = Arrays.size(state.validators)
 
     cond do
       not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
@@ -526,16 +519,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
         {:error, "Attestation 2 is not valid"}
 
-      not Predicates.is_indices_available(
-        length(state.validators),
-        attestation_1.attesting_indices
-      ) ->
+      not Predicates.is_indices_available(validator_size, attestation_1.attesting_indices) ->
         {:error, "Index too high attestation 1"}
 
-      not Predicates.is_indices_available(
-        length(state.validators),
-        attestation_2.attesting_indices
-      ) ->
+      not Predicates.is_indices_available(validator_size, attestation_2.attesting_indices) ->
         {:error, "Index too high attestation 2"}
 
       true ->
@@ -556,10 +543,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp slash_validator(slashed_any, state, i) do
-    if Predicates.is_slashable_validator(
-         Enum.at(state.validators, i),
-         Accessors.get_current_epoch(state)
-       ) do
+    if Arrays.get(state.validators, i)
+       |> Predicates.is_slashable_validator(Accessors.get_current_epoch(state)) do
       case Mutators.slash_validator(state, i) do
         {:ok, state} -> {:cont, {true, state}}
         {:error, _msg} -> {:halt, {false, nil}}
@@ -576,67 +561,36 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:ok, BeaconState.t()} | {:error, binary()}
   def process_voluntary_exit(state, signed_voluntary_exit) do
     voluntary_exit = signed_voluntary_exit.message
-    validator = Enum.at(state.validators, voluntary_exit.validator_index)
+    validator_index = voluntary_exit.validator_index
+    validator = state.validators[validator_index]
 
-    res =
-      cond do
-        not Predicates.is_indices_available(
-          length(state.validators),
-          [voluntary_exit.validator_index]
-        ) ->
-          {:error, "Too high index"}
+    cond do
+      not Predicates.is_indices_available(Arrays.size(state.validators), [validator_index]) ->
+        {:error, "Too high index"}
 
-        not Predicates.is_active_validator(validator, Accessors.get_current_epoch(state)) ->
-          {:error, "Validator isn't active"}
+      not Predicates.is_active_validator(validator, Accessors.get_current_epoch(state)) ->
+        {:error, "Validator isn't active"}
 
-        validator.exit_epoch != Constants.far_future_epoch() ->
-          {:error, "Validator has already initiated exit"}
+      validator.exit_epoch != Constants.far_future_epoch() ->
+        {:error, "Validator has already initiated exit"}
 
-        Accessors.get_current_epoch(state) < voluntary_exit.epoch ->
-          {:error, "Exit must specify an epoch when they become valid"}
+      Accessors.get_current_epoch(state) < voluntary_exit.epoch ->
+        {:error, "Exit must specify an epoch when they become valid"}
 
-        Accessors.get_current_epoch(state) <
-            validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
-          {:error, "Exit must specify an epoch when they become valid"}
+      Accessors.get_current_epoch(state) <
+          validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
+        {:error, "Exit must specify an epoch when they become valid"}
 
-        true ->
-          Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
-          |> then(&Misc.compute_signing_root(voluntary_exit, &1))
-          |> then(&Bls.verify(validator.pubkey, &1, signed_voluntary_exit.signature))
-          |> handle_verification_error()
-      end
+      not (Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
+           |> then(&Misc.compute_signing_root(voluntary_exit, &1))
+           |> then(&Bls.valid?(validator.pubkey, &1, signed_voluntary_exit.signature))) ->
+        {:error, "Signature not valid"}
 
-    case res do
-      :ok -> initiate_validator_exit(state, voluntary_exit.validator_index)
-      {:error, msg} -> {:error, msg}
-    end
-  end
-
-  defp initiate_validator_exit(state, validator_index) do
-    case Mutators.initiate_validator_exit(state, validator_index) do
-      {:ok, validator} ->
-        state = %BeaconState{
-          state
-          | validators: List.replace_at(state.validators, validator_index, validator)
-        }
-
-        {:ok, state}
-
-      {:error, msg} ->
-        {:error, msg}
-    end
-  end
-
-  defp handle_verification_error(is_verified) do
-    case is_verified do
-      {:ok, valid} when valid ->
-        :ok
-
-      {:ok, _valid} ->
-        {:error, "Signature is not valid"}
-
-      {:error, msg} ->
-        {:error, msg}
+      true ->
+        with {:ok, validator} <- Mutators.initiate_validator_exit(state, validator_index) do
+          Arrays.replace(state.validators, validator_index, validator)
+          |> then(&{:ok, %BeaconState{state | validators: &1}})
+        end
     end
   end
 
@@ -887,7 +841,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     # Verify RANDAO reveal
     with {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
-      proposer = Enum.at(state.validators, proposer_index)
+      proposer = Arrays.get(state.validators, proposer_index)
       domain = Accessors.get_domain(state, Constants.domain_randao(), nil)
       signing_root = Misc.compute_signing_root(epoch, Types.Epoch, domain)
 
@@ -1012,45 +966,39 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_bls_to_execution_change(state, signed_address_change) do
     address_change = signed_address_change.message
 
-    with {:ok, _} <- validate_address_change(state, address_change) do
-      validator = Enum.at(state.validators, address_change.validator_index)
+    with :ok <- validate_address_change(state, address_change),
+         validator = Arrays.get(state.validators, address_change.validator_index),
+         :ok <- validate_withdrawal_credentials(validator, address_change) do
+      signing_root =
+        Misc.compute_domain(
+          Constants.domain_bls_to_execution_change(),
+          genesis_validators_root: state.genesis_validators_root
+        )
+        |> then(&Misc.compute_signing_root(address_change, &1))
 
-      with {:ok} <- validate_withdrawal_credentials(validator, address_change) do
-        domain =
-          Misc.compute_domain(
-            Constants.domain_bls_to_execution_change(),
-            genesis_validators_root: state.genesis_validators_root
-          )
-
-        signing_root = Misc.compute_signing_root(address_change, domain)
-
-        if Bls.valid?(
-             address_change.from_bls_pubkey,
-             signing_root,
-             signed_address_change.signature
-           ) do
-          new_withdrawal_credentials =
-            Constants.eth1_address_withdrawal_prefix() <>
-              <<0::size(88)>> <> address_change.to_execution_address
-
-          updated_validators =
-            update_validator_withdrawal_credentials(
-              state.validators,
-              address_change.validator_index,
-              new_withdrawal_credentials
-            )
-
-          {:ok, %BeaconState{state | validators: updated_validators}}
-        else
-          {:error, "bls verification failed"}
-        end
+      if Bls.valid?(
+           address_change.from_bls_pubkey,
+           signing_root,
+           signed_address_change.signature
+         ) do
+        [
+          Constants.eth1_address_withdrawal_prefix(),
+          <<0::size(88)>>,
+          address_change.to_execution_address
+        ]
+        |> Enum.join()
+        |> then(&%Validator{validator | withdrawal_credentials: &1})
+        |> then(&Arrays.replace(state.validators, address_change.validator_index, &1))
+        |> then(&{:ok, %BeaconState{state | validators: &1}})
+      else
+        {:error, "bls verification failed"}
       end
     end
   end
 
   defp validate_address_change(state, address_change) do
-    if address_change.validator_index < length(state.validators) do
-      {:ok, address_change}
+    if address_change.validator_index < Arrays.size(state.validators) do
+      :ok
     else
       {:error, "Invalid address change"}
     end
@@ -1061,28 +1009,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     <<_, hash::binary-size(31)>> = SszEx.hash(address_change.from_bls_pubkey)
 
     if prefix == Constants.bls_withdrawal_prefix() and address == hash do
-      {:ok}
+      :ok
     else
       {:error, "Invalid withdrawal credentials"}
     end
-  end
-
-  defp update_validator_withdrawal_credentials(
-         validators,
-         validator_index,
-         new_withdrawal_credentials
-       ) do
-    updated_validators =
-      validators
-      |> Enum.with_index(fn validator, index ->
-        if index == validator_index do
-          %Validator{validator | withdrawal_credentials: new_withdrawal_credentials}
-        else
-          validator
-        end
-      end)
-
-    updated_validators
   end
 
   @spec process_operations(BeaconState.t(), BeaconBlockBody.t()) ::
@@ -1093,6 +1023,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:ok, state}
       |> for_ops(body.proposer_slashings, &process_proposer_slashing/2)
       |> for_ops(body.attester_slashings, &process_attester_slashing/2)
+      # |> tap(fn {:ok, s} ->
+      #   {:ok, v} = s |> Ssz.to_ssz()
+      #   {:ok, c} = v |> :snappyer.compress()
+      #   File.write!("bench/state.ssz", c)
+      #   IO.inspect("done!")
+      # end)
       |> Utils.map_ok(&process_attestation_batch(&1, body.attestations))
       |> for_ops(body.deposits, &process_deposit/2)
       |> for_ops(body.voluntary_exits, &process_voluntary_exit/2)

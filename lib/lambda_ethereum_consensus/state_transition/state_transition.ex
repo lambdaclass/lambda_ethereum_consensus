@@ -22,7 +22,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> process_slots(block.slot)
     # Verify signature
     |> map_ok(fn st ->
-      if not validate_result or verify_block_signature(st, signed_block) do
+      if not validate_result or block_signature_valid?(st, signed_block) do
         {:ok, st}
       else
         {:error, "invalid block signature"}
@@ -101,15 +101,10 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> map_ok(&EpochProcessing.process_sync_committee_updates/1)
   end
 
-  def verify_block_signature(%BeaconState{} = state, %SignedBeaconBlock{} = signed_block) do
-    proposer = Enum.at(state.validators, signed_block.message.proposer_index)
-
-    signing_root =
-      StateTransition.Misc.compute_signing_root(
-        signed_block.message,
-        StateTransition.Accessors.get_domain(state, Constants.domain_beacon_proposer())
-      )
-
+  def block_signature_valid?(%BeaconState{} = state, %SignedBeaconBlock{} = signed_block) do
+    proposer = Arrays.get(state.validators, signed_block.message.proposer_index)
+    domain = StateTransition.Accessors.get_domain(state, Constants.domain_beacon_proposer())
+    signing_root = StateTransition.Misc.compute_signing_root(signed_block.message, domain)
     Bls.valid?(proposer.pubkey, signing_root, signed_block.signature)
   end
 

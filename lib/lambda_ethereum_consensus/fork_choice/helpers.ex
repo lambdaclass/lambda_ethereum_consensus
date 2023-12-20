@@ -93,13 +93,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
     attestation_score =
       Accessors.get_active_validator_indices(state, Accessors.get_current_epoch(state))
-      |> Stream.reject(&Enum.at(state.validators, &1).slashed)
+      |> Stream.reject(&Arrays.get(state.validators, &1).slashed)
       |> Stream.filter(&Map.has_key?(store.latest_messages, &1))
       |> Stream.reject(&MapSet.member?(store.equivocating_indices, &1))
       |> Stream.filter(fn i ->
         Store.get_ancestor(store, store.latest_messages[i].root, store.blocks[root].slot) == root
       end)
-      |> Stream.map(&Enum.at(state.validators, &1).effective_balance)
+      |> Stream.map(&Arrays.get(state.validators, &1).effective_balance)
       |> Enum.sum()
 
     if store.proposer_boost_root == <<0::256>> or

@@ -2,6 +2,7 @@ defmodule SszStaticTestRunner do
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
+  alias LambdaEthereumConsensus.Utils.Diff
 
   use ExUnit.CaseTemplate
   use TestRunner
@@ -49,7 +50,7 @@ defmodule SszStaticTestRunner do
     {:ok, deserialized} = Ssz.from_ssz(real_serialized, schema)
     real_deserialized = to_struct_checked(deserialized, real_deserialized)
 
-    assert deserialized == real_deserialized
+    assert Diff.diff(deserialized, real_deserialized) == :unchanged
 
     {:ok, serialized} = Ssz.to_ssz(real_deserialized)
     assert serialized == real_serialized
@@ -59,20 +60,28 @@ defmodule SszStaticTestRunner do
   end
 
   defp to_struct_checked(actual, expected) when is_list(actual) and is_list(expected) do
-    Stream.zip(actual, expected)
-    |> Enum.map(fn {a, e} -> to_struct_checked(a, e) end)
+    Stream.zip(actual, expected) |> Enum.map(fn {a, e} -> to_struct_checked(a, e) end)
   end
 
   defp to_struct_checked(%name{} = actual, %{} = expected) do
     expected
-    |> Stream.map(fn {k, v} -> {k, to_struct_checked(Map.get(actual, k), v)} end)
+    |> Stream.map(&parse_map_entry(&1, actual))
     |> Map.new()
     |> then(&struct!(name, &1))
   end
 
-  defp to_struct_checked(_actual, expected) do
-    expected
+  defp to_struct_checked(_actual, expected), do: expected
+
+  defp parse_map_entry({:validators = k, v}, actual) do
+    actual
+    |> Map.get(k)
+    |> Arrays.to_list()
+    |> to_struct_checked(Arrays.to_list(v))
+    |> Arrays.new()
+    |> then(&{k, &1})
   end
+
+  defp parse_map_entry({k, v}, actual), do: {k, to_struct_checked(Map.get(actual, k), v)}
 
   defp parse_type(%SpecTestCase{handler: handler}) do
     Module.concat(Types, handler)

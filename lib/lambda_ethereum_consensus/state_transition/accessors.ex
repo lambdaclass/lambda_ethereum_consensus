@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           {:ok, SyncCommittee.t()} | {:error, String.t()}
   def get_next_sync_committee(%BeaconState{validators: validators} = state) do
     with {:ok, indices} <- get_next_sync_committee_indices(state),
-         pubkeys <- indices |> Enum.map(fn index -> Enum.fetch!(validators, index).pubkey end),
+         pubkeys <- indices |> Enum.map(fn index -> Arrays.get(validators, index).pubkey end),
          {:ok, aggregate_pubkey} <- Bls.eth_aggregate_pubkeys(pubkeys) do
       {:ok, %SyncCommittee{pubkeys: pubkeys, aggregate_pubkey: aggregate_pubkey}}
     end
@@ -91,7 +91,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         SszEx.hash(seed <> Misc.uint64_to_bytes(div(index, 32)))
 
       max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
-      effective_balance = Enum.fetch!(validators, candidate_index).effective_balance
+      effective_balance = Arrays.get(validators, candidate_index).effective_balance
 
       if effective_balance * @max_random_byte >= max_effective_balance * random_byte do
         {:ok, sync_committee_indices |> List.insert_at(0, candidate_index)}
@@ -203,10 +203,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_validator_churn_limit(BeaconState.t()) :: Types.uint64()
   def get_validator_churn_limit(%BeaconState{} = state) do
-    active_validator_indices = get_active_validator_indices(state, get_current_epoch(state))
     min_per_epoch_churn_limit = ChainSpec.get("MIN_PER_EPOCH_CHURN_LIMIT")
     churn_limit_quotient = ChainSpec.get("CHURN_LIMIT_QUOTIENT")
-    max(min_per_epoch_churn_limit, div(length(active_validator_indices), churn_limit_quotient))
+
+    get_active_validator_count(state, get_current_epoch(state))
+    |> div(churn_limit_quotient)
+    |> max(min_per_epoch_churn_limit)
   end
 
   @doc """
@@ -324,7 +326,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_base_reward(BeaconState.t(), Types.validator_index()) :: Types.gwei()
   def get_base_reward(%BeaconState{} = state, index) do
-    validator = Enum.at(state.validators, index)
+    validator = Arrays.get(state.validators, index)
     get_base_reward(validator, get_base_reward_per_increment(state))
   end
 

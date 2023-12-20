@@ -55,7 +55,7 @@ defmodule Types.BeaconState do
           eth1_data_votes: list(Types.Eth1Data.t()),
           eth1_deposit_index: Types.uint64(),
           # Registry
-          validators: list(Types.Validator.t()),
+          validators: Arrays.array(Types.Validator.t()),
           balances: list(Types.gwei()),
           # Randomness
           randao_mixes: list(Types.bytes32()),
@@ -92,6 +92,18 @@ defmodule Types.BeaconState do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Predicates
 
+  def encode(%__MODULE__{} = map) do
+    map
+    |> Map.update!(:validators, &Enum.to_list/1)
+    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
+  end
+
+  def decode(%__MODULE__{} = map) do
+    map
+    |> Map.update!(:validators, &Arrays.new/1)
+    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
+  end
+
   @doc """
   Checks if state is pre or post merge
   """
@@ -102,7 +114,7 @@ defmodule Types.BeaconState do
   end
 
   @doc """
-    Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
+  Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
   """
   @spec decrease_balance(t(), Types.validator_index(), Types.gwei()) :: t()
   def decrease_balance(%__MODULE__{balances: balances} = state, index, delta) do
