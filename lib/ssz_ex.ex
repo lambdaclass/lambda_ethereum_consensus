@@ -27,6 +27,9 @@ defmodule LambdaEthereumConsensus.SszEx do
   def encode(value, {:bitlist, max_size}) when is_bitstring(value),
     do: encode_bitlist(value, max_size)
 
+  def encode(value, {:bitlist, max_size}) when is_integer(value),
+    do: encode_bitlist(:binary.encode_unsigned(value), max_size)
+
   def encode(value, {:bitvector, size}) when is_bitstring(value),
     do: encode_bitvector(value, size)
 
@@ -85,97 +88,24 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> flatten_results_by(&Enum.join/1)
   end
 
-  defp decode_bitlist(bit_list, max_size) do
-    num_bytes = byte_size(bit_list)
-    num_bits = num_bytes * 8
-    padding = num_bits - bit_size(bit_list)
-    formatted_bit_list = <<0::size(padding), bit_list::bitstring>>
-
-    with {:ok, len} <- get_bitlist_len(formatted_bit_list) do
-      cond do
-        div(len, 8) + 1 != num_bytes ->
-          {:error, "InvalidByteCount"}
-
-        len > max_size ->
-          {:error, "OutOfBounds"}
-
-        true ->
-          bytes_for_bit_len = div(len, 8) + 1
-          bit_size = bit_size(formatted_bit_list)
-          index = rem(len, 8)
-          skip = bit_size - index - 1
-          <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = formatted_bit_list
-
-          <<pre::binary-size(bytes_for_bit_len - 1), rest::bitstring>> =
-            <<pre::bitstring, 0::1, rest::bitstring>>
-
-          remain_bits_size = len - bit_size(pre)
-          <<_::size(8 - remain_bits_size), rest::bitstring>> = rest
-          formatted = <<pre::bitstring, rest::bitstring>>
-
-          if byte_size(formatted) > bytes_for_bit_len do
-            <<truncated::binary-size(bytes_for_bit_len), _rest::bitstring>> = formatted
-            {:ok, truncated}
-          else
-            {:ok, formatted}
-          end
-      end
-    end
-  end
-
-  defp get_bitlist_len(bit_list) do
-    :binary.bin_to_list(bit_list)
-    |> Enum.with_index()
-    |> Enum.reverse()
-    |> Enum.find_value({:error, "missing_length_information"}, fn {byte, byte_index} ->
-      if for(<<(bit::1 <- <<byte>>)>>, do: bit) |> Enum.any?(&(&1 == 1)) do
-        {:ok, {byte, byte_index}}
-      else
-        {:error, "missing_length_information"}
-      end
-    end)
-    |> case do
-      {:ok, {byte, byte_index}} ->
-        leading_zeros =
-          for(<<(bit::1 <- <<byte>>)>>, do: bit)
-          |> Enum.take_while(&(&1 == 0))
-          |> Enum.count()
-
-        {:ok, byte_index * 8 + 7 - leading_zeros}
-
-      error ->
-        error
-    end
-  end
-
-  defp decode_bitvector(bit_vector, size) when bit_size(bit_vector) == size,
-    do: {:ok, BitVector.new(bit_vector, size)}
-
-  defp decode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
-
   defp encode_bitlist(bit_list, max_size) do
     len = bit_size(bit_list)
     bytes_len = byte_size(bit_list)
-    bytes_for_bit_len = div(len, 8) + 1
+    bytes_for_bit_len = div(len, @bits_per_byte) + 1
 
     cond do
       len > max_size ->
-        {:error, "ExcessBits"}
+        {:error, "excess bits"}
+
+      bit_list == <<0>> ->
+        {:ok, <<1>>}
 
       bytes_for_bit_len > bytes_len ->
-        resize = (bytes_for_bit_len - bytes_len) * @bits_per_byte
-        {:ok, <<bit_list::bitstring, 0::size(resize - 1), 1::1>>}
-
-      bytes_len > 1 ->
-        <<pre::binary-size(bytes_len - 1), last::bitstring>> = bit_list
-        {:ok, <<pre::bitstring, 0::size(8 - bit_size(last) - 1), last::bitstring, 1::1>>}
+        {:ok, <<bit_list::bitstring, 1>>}
 
       true ->
-        resized_bitlist = <<0::1, bit_list::bitstring>>
-        skip = bit_size(resized_bitlist) - len - 1
-        <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = resized_bitlist
-        padding = 8 - bit_size(pre) - 1 - bit_size(rest)
-        {:ok, <<0::size(padding), pre::bitstring, 1::1, rest::bitstring>>}
+        <<pre::binary-size(bytes_len - 1), last::bitstring>> = bit_list
+        {:ok, <<pre::bitstring, 1::size(@bits_per_byte - bit_size(last)), last::bitstring>>}
     end
   end
 
@@ -223,6 +153,46 @@ defmodule LambdaEthereumConsensus.SszEx do
       {:ok, {Enum.reverse(encoded_list), Enum.reverse(byte_size_list), total_byte_size}}
     end
   end
+
+  defp decode_bitlist(bit_list, max_size) do
+    num_bytes = byte_size(bit_list)
+    num_bits = num_bytes * @bits_per_byte
+    padding = num_bits - bit_size(bit_list)
+    formatted_bit_list = <<0::size(padding), bit_list::bitstring>>
+    len = length_of_bitlist(formatted_bit_list)
+
+    cond do
+      len < 0 ->
+        {:error, "missing length information"}
+
+      div(len, @bits_per_byte) + 1 != num_bytes ->
+        {:error, "invalid byte count"}
+
+      len > max_size ->
+        {:error, "out of bounds"}
+
+      true ->
+        pre_trailing_bits_size = (num_bytes - 1) * @bits_per_byte
+        <<pre::size(pre_trailing_bits_size), last_byte::binary>> = formatted_bit_list
+        <<_trailing::1, last::size(7)>> = last_byte
+
+        cond do
+          last == 0 ->
+            {:ok, pre}
+
+          pre == 0 ->
+            {:ok, <<last::size(len)>>}
+
+          true ->
+            {:ok, <<pre::size(pre_trailing_bits_size), last::size(len - pre_trailing_bits_size)>>}
+        end
+    end
+  end
+
+  defp decode_bitvector(bit_vector, size) when bit_size(bit_vector) == size,
+    do: {:ok, BitVector.new(bit_vector, size)}
+
+  defp decode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
 
   defp decode_list(binary, basic_type, size) do
     fixed_size = get_fixed_size(basic_type)
@@ -516,6 +486,22 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.map(fn {_, schema} -> variable_size?(schema) end)
     |> Enum.any?()
   end
+
+  def length_of_bitlist(bitlist) when is_binary(bitlist) do
+    bit_size = bit_size(bitlist)
+    <<_::size(bit_size - 8), last_byte>> = bitlist
+    bit_size - leading_zeros(<<last_byte>>) - 1
+  end
+
+  defp leading_zeros(<<1::1, _::7>>), do: 0
+  defp leading_zeros(<<0::1, 1::1, _::6>>), do: 1
+  defp leading_zeros(<<0::2, 1::1, _::5>>), do: 2
+  defp leading_zeros(<<0::3, 1::1, _::4>>), do: 3
+  defp leading_zeros(<<0::4, 1::1, _::3>>), do: 4
+  defp leading_zeros(<<0::5, 1::1, _::2>>), do: 5
+  defp leading_zeros(<<0::6, 1::1, _::1>>), do: 6
+  defp leading_zeros(<<0::7, 1::1>>), do: 7
+  defp leading_zeros(<<0::8>>), do: 8
 
   defp pack(value, size) when is_integer(value) and value >= 0 do
     pad = @bits_per_chunk - size
