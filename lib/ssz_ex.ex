@@ -8,6 +8,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   import Bitwise
 
+  alias LambdaEthereumConsensus.Utils
+
   @bits_per_chunk 256
 
   @spec hash(iodata()) :: binary()
@@ -44,6 +46,46 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
   def hash_tree_root!(value, {:int, size}), do: pack(value, {:int, size})
 
+  @spec hash_tree_root(list(), {:list, any, non_neg_integer}, non_neg_integer | nil) ::
+          {:ok, SszTypes.root()} | {:error, String.t()}
+  def hash_tree_root(value, {:list, type, size}, limit \\ nil)
+      when limit != nil and length(value) > limit do
+    {:error, "chunk size exceeds limit"}
+  end
+
+  def hash_tree_root(value, {:list, type, size}, limit) do
+    if !variable_size?(type) do
+      hash_tree_root_list_basic_type(value, {:list, type, size}, limit)
+    else
+      hash_tree_root_list_complex_type(value, {:list, type, size}, limit)
+    end
+  end
+
+  def hash_tree_root_list_basic_type(list, {:list, type, size}, _limit) do
+    # len = length(chunks)
+
+    # size =
+    #   if limit do
+    #     next_pow_of_two(limit)
+    #   else
+    #     next_pow_of_two(len)
+    #   end
+
+    # split =
+    #   if size |> div(2) < len do
+    #     size |> div(2)
+    #   else
+    #     len
+    #   end
+    chunks = pack(list, {:list, type, size})
+    chunks |> IO.inspect(limit: :infinity)
+    # MerkleTrie.create(chunks).hash
+  end
+
+  def hash_tree_root_list_complex_type(value, {:list, type, size}, limit \\ nil) do
+    # TODO
+  end
+
   def pack(value, {:int, size}) do
     <<value::size(size)-little>> |> pack_bytes()
   end
@@ -55,8 +97,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  def pack(list, {:list, basic_type, _size}) do
-    if !variable_size?(basic_type) do
+  def pack(list, {:list, type, _size}) do
+    if !variable_size?(type) do
       pack_basic_type_list(list)
     else
       pack_complex_type_list(list)

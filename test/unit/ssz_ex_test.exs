@@ -116,6 +116,11 @@ defmodule Unit.SSZExTest do
     assert expected_2 == actual_2
   end
 
+  test "hash tree of list of basic type" do
+    list = [{1, {:int, 8}}, {2, {:int, 8}}, {3, {:int, 8}}, {4, {:int, 8}}, {5, {:int, 8}}]
+    list |> SszEx.hash_tree_root({:list, {:int, 8}, 5})
+  end
+
   test "serialize and deserialize uint" do
     assert_roundtrip(<<5>>, 5, {:int, 8})
     assert_roundtrip(<<5, 0>>, 5, {:int, 16})
