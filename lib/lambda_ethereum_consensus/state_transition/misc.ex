@@ -280,9 +280,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Generates merkle proof from whole array
   """
   @spec get_merkle_proof(
-          list(SszTypes.bytes32()),
+          list(Types.bytes32()),
           integer
-        ) :: SszTypes.root()
+        ) :: Types.root()
   def get_merkle_proof(input_arr, n) do
     _get_merkle_proof(input_arr, n, [])
   end
@@ -300,8 +300,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Generates merkle proof by taking branch
   """
   @spec get_merkle_proof_by_branch(
-      list(SszTypes.bytes32())
-    ) :: SszTypes.root()
+      list(Types.bytes32())
+    ) :: Types.root()
   def get_merkle_proof_by_branch(input_arr) do
     input_arr
     |> Enum.reduce(Enum.at(input_arr, 0), fn val1, val2 -> pair_hash(val1, val2) end)
@@ -311,7 +311,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc"""
   Generates merkle root
   """
-  @spec get_merkle_root(list(SszTypes.bytes32())) :: SszTypes.root()
+  @spec get_merkle_root(list(Types.bytes32())) :: Types.root()
   def get_merkle_root(input_arr) do
     if(length(input_arr) > 1) do
       one_level_up(input_arr)
