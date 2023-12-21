@@ -23,10 +23,14 @@ defmodule LambdaEthereumConsensus.Cli do
     args
   end
 
-  defp init_engine_api_config(_endpoint, nil) do
-    Logger.error(
+  defp init_engine_api_config(endpoint, nil) do
+    Logger.warning(
       "No jwt file provided. Please specify the path to fetch it from via the --execution-jwt flag."
     )
+
+    Application.fetch_env!(:lambda_ethereum_consensus, EngineApi)
+    |> then(&if endpoint, do: Keyword.put(&1, :endpoint, endpoint), else: &1)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, EngineApi, &1))
   end
 
   defp init_engine_api_config(endpoint, jwt_path) do
