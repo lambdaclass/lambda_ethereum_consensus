@@ -277,7 +277,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   @doc """
-  Generates merkle proof
+  Generates merkle proof from whole array
   """
   @spec get_merkle_proof(
           list(SszTypes.bytes32()),
@@ -287,13 +287,25 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     _get_merkle_proof(input_arr, n, [])
   end
 
+  defp _get_merkle_proof([_ | []], _, acc), do: acc
+
   defp _get_merkle_proof(input_arr, n, acc) do
     e = if rem(n, 2) == 0, do: Enum.at(input_arr, n + 1), else: Enum.at(input_arr, n - 1)
     acc = acc ++ [e]
     _get_merkle_proof(one_level_up(input_arr), div(n, 2), acc)
   end
 
-  defp _get_merkle_proof([result | []], _, acc), do: acc
+
+  @doc """
+  Generates merkle proof by taking branch
+  """
+  @spec get_merkle_proof_by_branch(
+      list(SszTypes.bytes32())
+    ) :: SszTypes.root()
+  def get_merkle_proof_by_branch(input_arr) do
+    input_arr
+    |> Enum.reduce(Enum.at(input_arr, 0), fn val1, val2 -> pair_hash(val1, val2) end)
+  end
 
 
   @doc"""
@@ -301,42 +313,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
   @spec get_merkle_root(list(SszTypes.bytes32())) :: SszTypes.root()
   def get_merkle_root(input_arr) do
-    one_level_up(input_arr)
-    |> get_merkle_root()
-  end
-
-  defp get_merkle_root([result | []]), do: result
-
-  defp xor_bitstring(a, b) do
-    _xor_bitstring(a, b, <<>>)
-  end
-
-  defp _xor_bitstring(<<>>, <<>>, acc) do
-    acc
-  end
-
-  defp _xor_bitstring(<<a::8, rema::bitsring()>>, <<b::8, remb::bitsring()>>, acc) do
-    _xor_bitstring(rema, remb, acc <> bxor(a, b))
+    if(length(input_arr) > 1) do
+      one_level_up(input_arr)
+      |> get_merkle_root()
+    else
+      Enum.at(input_arr, 0)
+    end
   end
 
   defp pair_hash(a, b) do
-    :crypto.hash(:sha256, xor_bitstring(:crypto.hash(:sha256, a), :crypto.hash(:sha256, b)))
+    IO.inspect(:crypto.hash(:sha256, :crypto.exor(:crypto.hash(:sha256, a), :crypto.hash(:sha256, b))))
+    :crypto.hash(:sha256, :crypto.exor(:crypto.hash(:sha256, a), :crypto.hash(:sha256, b)))
   end
 
   defp one_level_up(input_arr) do
-    input_arr = if rem(length(input_arr), 2), do: input_arr ++ [0]
-
-    result =
-      input_arr
-      |> Enum.chunk_every(2)
-      |> _one_level_up(input_arr, [])
+    if rem(length(input_arr), 2) == 1, do: input_arr ++ [<<0::256>>], else: input_arr
+    |> Enum.chunk_every(2)
+    |> _one_level_up([])
   end
 
   defp _one_level_up([], acc), do: acc
 
-  defp _one_level_up([pair | rem_arr], acc) do
-    [a | [b | _]] = pair
-    acc ++ pair_hash(a, b)
+  defp _one_level_up([[a | [b | _]] | rem_arr], acc) do
+    acc = acc ++ [pair_hash(a, b)]
     _one_level_up(rem_arr, acc)
   end
 end
