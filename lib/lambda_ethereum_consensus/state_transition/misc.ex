@@ -282,7 +282,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @spec get_merkle_proof(
           list(Types.bytes32()),
           integer
-        ) :: Types.root()
+        ) :: list(Types.bytes32())
   def get_merkle_proof(input_arr, n) do
     _get_merkle_proof(input_arr, n, [])
   end
@@ -295,20 +295,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     _get_merkle_proof(one_level_up(input_arr), div(n, 2), acc)
   end
 
-
   @doc """
   Generates merkle proof by taking branch
   """
-  @spec get_merkle_proof_by_branch(
-      list(Types.bytes32())
-    ) :: Types.root()
+  @spec get_merkle_proof_by_branch(list(Types.bytes32())) :: Types.root()
   def get_merkle_proof_by_branch(input_arr) do
     input_arr
     |> Enum.reduce(Enum.at(input_arr, 0), fn val1, val2 -> pair_hash(val1, val2) end)
   end
 
-
-  @doc"""
+  @doc """
   Generates merkle root
   """
   @spec get_merkle_root(list(Types.bytes32())) :: Types.root()
@@ -322,14 +318,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   defp pair_hash(a, b) do
-    IO.inspect(:crypto.hash(:sha256, :crypto.exor(:crypto.hash(:sha256, a), :crypto.hash(:sha256, b))))
+    IO.inspect(
+      :crypto.hash(:sha256, :crypto.exor(:crypto.hash(:sha256, a), :crypto.hash(:sha256, b)))
+    )
+
     :crypto.hash(:sha256, :crypto.exor(:crypto.hash(:sha256, a), :crypto.hash(:sha256, b)))
   end
 
   defp one_level_up(input_arr) do
-    if rem(length(input_arr), 2) == 1, do: input_arr ++ [<<0::256>>], else: input_arr
-    |> Enum.chunk_every(2)
-    |> _one_level_up([])
+    if rem(length(input_arr), 2) == 1,
+      do: input_arr ++ [<<0::256>>],
+      else:
+        input_arr
+        |> Enum.chunk_every(2)
+        |> _one_level_up([])
   end
 
   defp _one_level_up([], acc), do: acc
