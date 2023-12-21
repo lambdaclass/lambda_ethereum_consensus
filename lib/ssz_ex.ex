@@ -90,22 +90,13 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp encode_bitlist(bit_list, max_size) do
     len = bit_size(bit_list)
-    bytes_len = byte_size(bit_list)
-    bytes_for_bit_len = div(len, @bits_per_byte) + 1
 
-    cond do
-      len > max_size ->
-        {:error, "excess bits"}
-
-      bit_list == <<0>> ->
-        {:ok, <<1>>}
-
-      bytes_for_bit_len > bytes_len ->
-        {:ok, <<bit_list::bitstring, 1>>}
-
-      true ->
-        <<pre::binary-size(bytes_len - 1), last::bitstring>> = bit_list
-        {:ok, <<pre::bitstring, 1::size(@bits_per_byte - bit_size(last)), last::bitstring>>}
+    if len > max_size do
+      {:error, "excess bits"}
+    else
+      r = rem(len, @bits_per_byte)
+      <<pre::bitstring-size(len - r), post::bitstring-size(r)>> = bit_list
+      {:ok, <<pre::bitstring, 1::size(@bits_per_byte - r), post::bitstring>>}
     end
   end
 
