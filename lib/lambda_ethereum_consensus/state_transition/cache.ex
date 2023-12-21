@@ -3,6 +3,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
   Caches expensive function calls.
   """
 
+  @tables [
+    :total_active_balance,
+    :beacon_proposer_index,
+    :active_validator_count,
+    :beacon_committee
+  ]
+
+  @spec initialize_tables() :: :ok
+  def initialize_tables do
+    @tables |> Enum.each(&init_table/1)
+  end
+
   @spec init_table(:ets.table()) :: :ok
   def init_table(table) do
     :ets.new(table, [:set, :public, :named_table])
@@ -11,18 +23,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
 
   @spec lazily_compute(:ets.table(), key :: any(), (-> value :: any())) :: value :: any()
   def lazily_compute(table, key, compute_fun) do
-    if :ets.info(table) == :undefined do
-      init_table(table)
-    end
-
     case :ets.lookup(table, key) do
-      [{^key, balance}] ->
-        balance
+      [{^key, value}] ->
+        value
 
       [] ->
-        balance = compute_fun.()
-        :ets.insert_new(table, {key, balance})
-        balance
+        value = compute_fun.()
+        :ets.insert_new(table, {key, value})
+        value
     end
   end
 end
