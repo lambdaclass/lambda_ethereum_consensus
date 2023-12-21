@@ -56,36 +56,6 @@ defmodule LambdaEthereumConsensus.Cli do
     |> then(&Application.put_env(:lambda_ethereum_consensus, :discovery, &1))
   end
 
-  def init_config_spec(network) do
-    config_spec =
-      case network do
-        "minimal" ->
-          MinimalConfig
-
-        "mainnet" ->
-          MainnetConfig
-
-        _ ->
-          Logger.error(
-            "Invalid network provided. Please specify a valid network via the --network flag."
-          )
-
-          System.stop(1)
-      end
-
-    Application.put_env(
-      :lambda_ethereum_consensus,
-      ChainSpec,
-      config: config_spec
-    )
-
-    bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/bootnodes.yaml")
-
-    Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
-    |> Keyword.put(:bootnodes, bootnodes)
-    |> then(&Application.put_env(:lambda_ethereum_consensus, :discovery, &1))
-  end
-
   defp init_engine_api_config(endpoint, nil) do
     Logger.warning(
       "No jwt file provided. Please specify the path to fetch it from via the --execution-jwt flag."
