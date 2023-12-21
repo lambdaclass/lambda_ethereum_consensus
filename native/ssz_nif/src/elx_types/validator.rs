@@ -6,7 +6,7 @@ use super::*;
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.AggregateAndProof"]
+    #[module = "Types.AggregateAndProof"]
     pub(crate) struct AggregateAndProof<'a> {
         aggregator_index: ValidatorIndex,
         aggregate: Attestation<'a>,
@@ -16,7 +16,7 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.SignedAggregateAndProof"]
+    #[module = "Types.SignedAggregateAndProof"]
     pub(crate) struct SignedAggregateAndProof<'a> {
         message: AggregateAndProof<'a>,
         signature: BLSSignature<'a>,

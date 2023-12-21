@@ -20,10 +20,10 @@ defmodule Helpers.SszStaticContainers.ComplexTestStruct do
   defstruct fields
 
   @type t :: %__MODULE__{
-          A: SszTypes.uint16(),
-          B: list(SszTypes.uint16()),
-          C: SszTypes.uint8(),
-          D: SszTypes.bitlist(),
+          A: Types.uint16(),
+          B: list(Types.uint16()),
+          C: Types.uint8(),
+          D: Types.bitlist(),
           E: VarTestStruct,
           F: list(FixedTestStruct),
           G: list(VarTestStruct)

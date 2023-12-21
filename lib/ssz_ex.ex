@@ -104,6 +104,12 @@ defmodule LambdaEthereumConsensus.SszEx do
       pack_complex_type_list(list)
     end
   end
+  
+  @spec hash_tree_root!(boolean, atom) :: Types.root()
+  def hash_tree_root!(value, :bool), do: pack(value)
+
+  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
+  def hash_tree_root!(value, {:int, size}), do: pack(value, size)
 
   #################
   ### Private functions

@@ -3,7 +3,7 @@ defmodule Unit.ForkChoice.HandlersTest do
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Utils.Diff
-  alias SszTypes.Store
+  alias Types.Store
 
   doctest Handlers
 
@@ -47,10 +47,10 @@ defmodule Unit.ForkChoice.HandlersTest do
       start_time = 0
       end_time = start_time + ChainSpec.get("SECONDS_PER_SLOT") * ChainSpec.get("SLOTS_PER_EPOCH")
 
-      justified = %SszTypes.Checkpoint{epoch: 0, root: <<0::256>>}
-      finalized = %SszTypes.Checkpoint{epoch: 0, root: <<1::256>>}
-      unjustified = %SszTypes.Checkpoint{epoch: 1, root: <<2::256>>}
-      unfinalized = %SszTypes.Checkpoint{epoch: 1, root: <<3::256>>}
+      justified = %Types.Checkpoint{epoch: 0, root: <<0::256>>}
+      finalized = %Types.Checkpoint{epoch: 0, root: <<1::256>>}
+      unjustified = %Types.Checkpoint{epoch: 1, root: <<2::256>>}
+      unfinalized = %Types.Checkpoint{epoch: 1, root: <<3::256>>}
 
       start_store = %Store{
         @empty_store

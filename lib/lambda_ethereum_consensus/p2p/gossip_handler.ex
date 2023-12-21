@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias SszTypes.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
+  alias Types.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
 
   @spec handle_message(String.t(), struct) :: :ok
   def handle_message(topic_name, payload)

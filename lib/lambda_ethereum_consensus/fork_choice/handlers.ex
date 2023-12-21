@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
 
-  alias SszTypes.{
+  alias Types.{
     Attestation,
     AttestationData,
     AttesterSlashing,

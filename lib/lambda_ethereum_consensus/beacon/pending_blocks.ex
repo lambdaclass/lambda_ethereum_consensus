@@ -10,12 +10,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   require Logger
   alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.P2P.BlockDownloader
-  alias SszTypes.SignedBeaconBlock
+  alias Types.SignedBeaconBlock
 
   @type state :: %{
-          pending_blocks: %{SszTypes.root() => SignedBeaconBlock.t()},
-          invalid_blocks: %{SszTypes.root() => map()},
-          blocks_to_download: MapSet.t(SszTypes.root())
+          pending_blocks: %{Types.root() => SignedBeaconBlock.t()},
+          invalid_blocks: %{Types.root() => map()},
+          blocks_to_download: MapSet.t(Types.root())
         }
 
   ##########################
@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     GenServer.cast(__MODULE__, {:add_block, signed_block})
   end
 
-  @spec is_pending_block(SszTypes.root()) :: boolean()
+  @spec is_pending_block(Types.root()) :: boolean()
   def is_pending_block(block_root) do
     GenServer.call(__MODULE__, {:is_pending_block, block_root})
   end
@@ -152,7 +152,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   ### Private Functions
   ##########################
 
-  @spec send_block_to_forkchoice(state(), SignedBeaconBlock.t(), SszTypes.root()) :: state()
+  @spec send_block_to_forkchoice(state(), SignedBeaconBlock.t(), Types.root()) :: state()
   defp send_block_to_forkchoice(state, signed_block, block_root) do
     case Store.on_block(signed_block, block_root) do
       :ok ->
