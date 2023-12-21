@@ -57,7 +57,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           validator
         end
       end)
-      |> Arrays.new()
+      |> Aja.Vector.new()
 
     {:ok, %BeaconState{state | validators: new_validators}}
   end
@@ -172,19 +172,20 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       |> Enum.slice(0..(churn_limit - 1))
       |> Enum.reduce(new_state.validators, fn {v, i}, acc ->
         %{v | activation_epoch: activation_exit_epoch}
-        |> then(&Arrays.replace(acc, i, &1))
+        |> then(&Aja.Vector.replace_at!(acc, i, &1))
       end)
       |> then(&{:ok, %BeaconState{new_state | validators: &1}})
     end
   end
 
   defp eject_validator(state, validator, index, false) do
-    {:ok, %{state | validators: Arrays.replace(state.validators, index, validator)}}
+    {:ok, %{state | validators: Aja.Vector.replace_at!(state.validators, index, validator)}}
   end
 
   defp eject_validator(state, validator, index, true) do
     with {:ok, ejected_validator} <- Mutators.initiate_validator_exit(state, validator) do
-      {:ok, %{state | validators: Arrays.replace(state.validators, index, ejected_validator)}}
+      {:ok,
+       %{state | validators: Aja.Vector.replace_at!(state.validators, index, ejected_validator)}}
     end
   end
 

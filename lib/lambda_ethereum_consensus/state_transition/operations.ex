@@ -34,7 +34,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          :ok <- check_parent_root_match(parent_root, latest_block_header),
          {:ok, state} <- cache_current_block(state, block) do
       # Verify proposer is not slashed
-      proposer = Arrays.get(state.validators, proposer_index)
+      proposer = Aja.Vector.at!(state.validators, proposer_index)
 
       if proposer.slashed do
         {:error, "proposer is slashed"}
@@ -211,13 +211,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     {participant_reward, proposer_reward}
   end
 
-  @spec get_sync_committee_indices(list(Validator.t()), list(Types.bls_pubkey())) ::
-          list(integer)
+  @spec get_sync_committee_indices(Aja.Vector.t(Validator.t()), list(Types.bls_pubkey())) ::
+          list(Types.validator_index())
   defp get_sync_committee_indices(validators, committee_pubkeys) do
     all_pubkeys =
       validators
-      |> Stream.map(fn %Validator{pubkey: pubkey} -> pubkey end)
-      |> Stream.with_index()
+      |> Aja.Vector.with_index(fn %Validator{pubkey: pubkey}, i -> {pubkey, i} end)
       |> Map.new()
 
     committee_pubkeys
@@ -305,7 +304,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       state
       |> decrease_balances(withdrawals)
       |> update_next_withdrawal_index(withdrawals)
-      |> update_next_withdrawal_validator_index(withdrawals, Arrays.size(validators))
+      |> update_next_withdrawal_validator_index(withdrawals, Aja.Vector.size(validators))
       |> then(&{:ok, &1})
     end
   end
@@ -378,7 +377,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
-    bound = state.validators |> Arrays.size() |> min(max_validators_per_withdrawals_sweep)
+    bound = state.validators |> Aja.Vector.size() |> min(max_validators_per_withdrawals_sweep)
 
     Stream.zip([state.validators, state.balances])
     |> Stream.with_index()
@@ -419,7 +418,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_proposer_slashing(state, proposer_slashing) do
     header_1 = proposer_slashing.signed_header_1.message
     header_2 = proposer_slashing.signed_header_2.message
-    validators_size = Arrays.size(state.validators)
+    validators_size = Aja.Vector.size(state.validators)
     proposer = state.validators[header_1.proposer_index]
 
     cond do
@@ -507,7 +506,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_attester_slashing(state, attester_slashing) do
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
-    validator_size = Arrays.size(state.validators)
+    validator_size = Aja.Vector.size(state.validators)
 
     cond do
       not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
@@ -543,7 +542,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp slash_validator(slashed_any, state, i) do
-    if Arrays.get(state.validators, i)
+    if Aja.Vector.at!(state.validators, i)
        |> Predicates.is_slashable_validator(Accessors.get_current_epoch(state)) do
       case Mutators.slash_validator(state, i) do
         {:ok, state} -> {:cont, {true, state}}
@@ -565,7 +564,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     validator = state.validators[validator_index]
 
     cond do
-      not Predicates.is_indices_available(Arrays.size(state.validators), [validator_index]) ->
+      not Predicates.is_indices_available(Aja.Vector.size(state.validators), [validator_index]) ->
         {:error, "Too high index"}
 
       not Predicates.is_active_validator(validator, Accessors.get_current_epoch(state)) ->
@@ -588,7 +587,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       true ->
         with {:ok, validator} <- Mutators.initiate_validator_exit(state, validator_index) do
-          Arrays.replace(state.validators, validator_index, validator)
+          Aja.Vector.replace_at!(state.validators, validator_index, validator)
           |> then(&{:ok, %BeaconState{state | validators: &1}})
         end
     end
@@ -636,7 +635,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       {new_previous_participation, reward_numerators} =
         update_participations(
-          state.validators,
+          state,
           state.previous_epoch_participation,
           previous_epoch_updates,
           base_reward_per_increment,
@@ -645,7 +644,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       {new_current_participation, reward_numerators} =
         update_participations(
-          state.validators,
+          state,
           state.current_epoch_participation,
           current_epoch_updates,
           base_reward_per_increment,
@@ -669,22 +668,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp update_participations(
-         validators,
+         state,
          epoch_participation,
          epoch_updates,
          base_per_increment,
          reward_numerators
        ) do
-    validators
-    |> Stream.zip(epoch_participation)
+    epoch_participation
     |> Stream.with_index()
     |> Enum.map_reduce(reward_numerators, fn
-      {{validator, participation}, i}, reward_numerators ->
-        Map.get(epoch_updates, i, [])
-        |> Enum.reduce(
-          {participation, reward_numerators},
-          &reduce_participation_batch(validator, base_per_increment, &1, &2)
-        )
+      {participation, i}, reward_numerators ->
+        case epoch_updates do
+          %{^i => masks} ->
+            validator = Aja.Vector.at!(state.validators, i)
+
+            masks
+            |> Enum.reduce(
+              {participation, reward_numerators},
+              &reduce_participation_batch(validator, base_per_increment, &1, &2)
+            )
+
+          _ ->
+            {participation, reward_numerators}
+        end
     end)
   end
 
@@ -841,7 +847,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     # Verify RANDAO reveal
     with {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
-      proposer = Arrays.get(state.validators, proposer_index)
+      proposer = Aja.Vector.at!(state.validators, proposer_index)
       domain = Accessors.get_domain(state, Constants.domain_randao(), nil)
       signing_root = Misc.compute_signing_root(epoch, Types.Epoch, domain)
 
@@ -967,7 +973,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     address_change = signed_address_change.message
 
     with :ok <- validate_address_change(state, address_change),
-         validator = Arrays.get(state.validators, address_change.validator_index),
+         validator = Aja.Vector.at!(state.validators, address_change.validator_index),
          :ok <- validate_withdrawal_credentials(validator, address_change) do
       signing_root =
         Misc.compute_domain(
@@ -988,7 +994,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         ]
         |> Enum.join()
         |> then(&%Validator{validator | withdrawal_credentials: &1})
-        |> then(&Arrays.replace(state.validators, address_change.validator_index, &1))
+        |> then(&Aja.Vector.replace_at!(state.validators, address_change.validator_index, &1))
         |> then(&{:ok, %BeaconState{state | validators: &1}})
       else
         {:error, "bls verification failed"}
@@ -997,7 +1003,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp validate_address_change(state, address_change) do
-    if address_change.validator_index < Arrays.size(state.validators) do
+    if address_change.validator_index < Aja.Vector.size(state.validators) do
       :ok
     else
       {:error, "Invalid address change"}
@@ -1023,12 +1029,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:ok, state}
       |> for_ops(body.proposer_slashings, &process_proposer_slashing/2)
       |> for_ops(body.attester_slashings, &process_attester_slashing/2)
-      # |> tap(fn {:ok, s} ->
-      #   {:ok, v} = s |> Ssz.to_ssz()
-      #   {:ok, c} = v |> :snappyer.compress()
-      #   File.write!("bench/state.ssz", c)
-      #   IO.inspect("done!")
-      # end)
       |> Utils.map_ok(&process_attestation_batch(&1, body.attestations))
       |> for_ops(body.deposits, &process_deposit/2)
       |> for_ops(body.voluntary_exits, &process_voluntary_exit/2)

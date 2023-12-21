@@ -102,7 +102,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   end
 
   def block_signature_valid?(%BeaconState{} = state, %SignedBeaconBlock{} = signed_block) do
-    proposer = Arrays.get(state.validators, signed_block.message.proposer_index)
+    proposer = Aja.Vector.at!(state.validators, signed_block.message.proposer_index)
     domain = StateTransition.Accessors.get_domain(state, Constants.domain_beacon_proposer())
     signing_root = StateTransition.Misc.compute_signing_root(signed_block.message, domain)
     Bls.valid?(proposer.pubkey, signing_root, signed_block.signature)

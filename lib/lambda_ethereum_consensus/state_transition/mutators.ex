@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   @spec initiate_validator_exit(BeaconState.t(), integer()) ::
           {:ok, Validator.t()} | {:error, String.t()}
   def initiate_validator_exit(%BeaconState{} = state, index) when is_integer(index) do
-    initiate_validator_exit(state, Arrays.get(state.validators, index))
+    initiate_validator_exit(state, Aja.Vector.at!(state.validators, index))
   end
 
   @spec initiate_validator_exit(BeaconState.t(), Validator.t()) ::
@@ -146,7 +146,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     |> then(
       &%BeaconState{
         state
-        | validators: Arrays.replace(state.validators, slashed_index, &1),
+        | validators: Aja.Vector.replace_at!(state.validators, slashed_index, &1),
           slashings: new_slashings
       }
     )
@@ -189,7 +189,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
 
   defp apply_initial_deposit(%BeaconState{} = state, pubkey, withdrawal_credentials, amount) do
     Types.Deposit.get_validator_from_deposit(pubkey, withdrawal_credentials, amount)
-    |> then(&Arrays.append(state.validators, &1))
+    |> then(&Aja.Vector.append(state.validators, &1))
     |> then(
       &%BeaconState{
         state

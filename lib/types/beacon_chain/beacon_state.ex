@@ -55,7 +55,7 @@ defmodule Types.BeaconState do
           eth1_data_votes: list(Types.Eth1Data.t()),
           eth1_deposit_index: Types.uint64(),
           # Registry
-          validators: Arrays.array(Types.Validator.t()),
+          validators: Aja.Vector.t(Types.Validator.t()),
           balances: list(Types.gwei()),
           # Randomness
           randao_mixes: list(Types.bytes32()),
@@ -100,7 +100,7 @@ defmodule Types.BeaconState do
 
   def decode(%__MODULE__{} = map) do
     map
-    |> Map.update!(:validators, &Arrays.new/1)
+    |> Map.update!(:validators, &Aja.Vector.new/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
   end
 

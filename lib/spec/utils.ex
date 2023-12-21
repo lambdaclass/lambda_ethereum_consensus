@@ -32,7 +32,7 @@ defmodule SpecTestUtils do
     do: {:transactions, Enum.map(list, &parse_as_string/1)}
 
   def sanitize_yaml({"validators", list}) do
-    {:validators, list |> Stream.map(&sanitize_yaml/1) |> Arrays.new()}
+    {:validators, list |> Stream.map(&sanitize_yaml/1) |> Aja.Vector.new()}
   end
 
   def sanitize_yaml({k, v}), do: {String.to_atom(k), sanitize_yaml(v)}

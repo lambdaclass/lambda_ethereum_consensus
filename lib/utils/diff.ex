@@ -28,10 +28,8 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
   @type base_diff :: %{optional(:left) => any(), optional(:right) => any()}
   @type t :: :unchanged | base_diff() | structured_diff()
 
-  @array_impls [Arrays.Implementations.MapArray, Arrays.Implementations.ErlangArray]
-
   @spec diff(any(), any()) :: t()
-  def diff(%name{} = a, %name{} = b) when name in @array_impls do
+  def diff(%Aja.Vector{} = a, %Aja.Vector{} = b) do
     diff(Enum.to_list(a), Enum.to_list(b))
   end
 

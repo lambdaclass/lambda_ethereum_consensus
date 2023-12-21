@@ -75,9 +75,9 @@ defmodule SszStaticTestRunner do
   defp parse_map_entry({:validators = k, v}, actual) do
     actual
     |> Map.get(k)
-    |> Arrays.to_list()
-    |> to_struct_checked(Arrays.to_list(v))
-    |> Arrays.new()
+    |> Aja.Vector.to_list()
+    |> to_struct_checked(Aja.Vector.to_list(v))
+    |> Aja.Vector.new()
     |> then(&{k, &1})
   end
 
