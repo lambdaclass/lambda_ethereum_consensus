@@ -195,8 +195,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         state
         | validators: &1,
           balances: state.balances ++ [amount],
-          previous_epoch_participation: state.previous_epoch_participation ++ [0],
-          current_epoch_participation: state.current_epoch_participation ++ [0],
+          previous_epoch_participation: Aja.Vector.append(state.previous_epoch_participation, 0),
+          current_epoch_participation: Aja.Vector.append(state.current_epoch_participation, 0),
           inactivity_scores: state.inactivity_scores ++ [0]
       }
     )

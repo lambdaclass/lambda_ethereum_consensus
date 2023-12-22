@@ -5,6 +5,7 @@ defmodule SpecTestUtils do
   alias LambdaEthereumConsensus.SszEx
 
   @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
+  @vector_keys ["validators"]
 
   def vectors_dir, do: @vectors_dir
 
@@ -32,8 +33,8 @@ defmodule SpecTestUtils do
   def sanitize_yaml({"transactions", list}),
     do: {:transactions, Enum.map(list, &parse_as_string/1)}
 
-  def sanitize_yaml({"validators", list}) do
-    {:validators, list |> Stream.map(&sanitize_yaml/1) |> Aja.Vector.new()}
+  def sanitize_yaml({k, list}) when k in @vector_keys do
+    {String.to_atom(k), list |> Stream.map(&sanitize_yaml/1) |> Aja.Vector.new()}
   end
 
   def sanitize_yaml({k, v}), do: {String.to_atom(k), sanitize_yaml(v)}

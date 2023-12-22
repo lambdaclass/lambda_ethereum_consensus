@@ -594,9 +594,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_attestation(state, attestation) do
-    with :ok <- validate_attestation(state, attestation) do
-      inner_process_attestation(state, attestation.data, attestation.aggregation_bits)
-    end
+    process_attestation_batch(state, [attestation])
   end
 
   @spec validate_attestation(BeaconState.t(), Attestation.t()) :: :ok | {:error, String.t()}
@@ -669,23 +667,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          base_per_increment,
          reward_numerators
        ) do
-    epoch_participation
-    |> Stream.with_index()
-    |> Enum.map_reduce(reward_numerators, fn
-      {participation, i}, reward_numerators ->
-        case epoch_updates do
-          %{^i => masks} ->
-            validator = Aja.Vector.at!(state.validators, i)
+    epoch_updates
+    |> Enum.reduce({epoch_participation, reward_numerators}, fn
+      {i, masks}, {participations, reward_numerators} ->
+        validator = Aja.Vector.at!(state.validators, i)
+        participation = Aja.Vector.at!(participations, i)
 
-            masks
-            |> Enum.reduce(
-              {participation, reward_numerators},
-              &reduce_participation_batch(validator, base_per_increment, &1, &2)
-            )
-
-          _ ->
-            {participation, reward_numerators}
-        end
+        masks
+        |> Enum.reduce(
+          {participation, reward_numerators},
+          &reduce_participation_batch(validator, base_per_increment, &1, &2)
+        )
+        |> then(fn {participation, reward_numerators} ->
+          {Aja.Vector.replace_at!(participations, i, participation), reward_numerators}
+        end)
     end)
   end
 
@@ -752,59 +747,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp merge_masks([{_, v} | _] = masks, {_, v}), do: masks
   defp merge_masks([{_, v1} | _] = masks, {i, v2}), do: [{i, Bitwise.bor(v1, v2)} | masks]
 
-  defp inner_process_attestation(state, data, aggregation_bits) do
-    slot = state.slot - data.slot
-
-    with {:ok, flag_indices} <-
-           Accessors.get_attestation_participation_flag_indices(state, data, slot),
-         {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, data.index) do
-      attesting_indices =
-        Accessors.get_committee_attesting_indices(committee, aggregation_bits)
-
-      is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
-      participation = get_initial_epoch_participation(state, is_current_epoch)
-
-      {updated_epoch_participation, proposer_reward_numerator} =
-        update_epoch_participation(state, attesting_indices, participation, flag_indices)
-
-      proposer_reward = compute_proposer_reward(proposer_reward_numerator)
-
-      {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state)
-
-      state
-      |> Mutators.increase_balance(proposer_index, proposer_reward)
-      |> update_state(is_current_epoch, updated_epoch_participation)
-      |> then(&{:ok, &1})
-    end
-  end
-
-  defp get_initial_epoch_participation(state, true), do: state.current_epoch_participation
-  defp get_initial_epoch_participation(state, false), do: state.previous_epoch_participation
-
-  defp update_epoch_participation(state, attesting_indices, participation, flag_indices) do
-    weights =
-      Constants.participation_flag_weights()
-      |> Stream.with_index()
-      |> Stream.filter(&(elem(&1, 1) in flag_indices))
-      |> Enum.map(fn {w, i} -> {w, 2 ** i} end)
-
-    base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
-
-    state.validators
-    |> Stream.zip(participation)
-    |> Stream.with_index()
-    |> Enum.map_reduce({0, attesting_indices}, fn
-      {{validator, participation}, i}, {proposer_reward, [i | rest]} ->
-        base_reward = Accessors.get_base_reward(validator, base_reward_per_increment)
-        {p, reward} = update_participation(participation, base_reward, weights)
-        {p, {proposer_reward + reward, rest}}
-
-      {{_, participation}, _}, acc ->
-        {participation, acc}
-    end)
-    |> then(fn {participation, {proposer_reward, []}} -> {participation, proposer_reward} end)
-  end
-
   defp update_participation(participation, base_reward, weights) do
     weights
     |> Enum.reduce({participation, 0}, fn {weight, i}, {participation, acc} ->
@@ -822,12 +764,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     div(proposer_reward_numerator, proposer_reward_denominator)
   end
-
-  defp update_state(state, true, updated_epoch_participation),
-    do: %{state | current_epoch_participation: updated_epoch_participation}
-
-  defp update_state(state, false, updated_epoch_participation),
-    do: %{state | previous_epoch_participation: updated_epoch_participation}
 
   @doc """
   Provide randomness to the operation of the beacon chain.

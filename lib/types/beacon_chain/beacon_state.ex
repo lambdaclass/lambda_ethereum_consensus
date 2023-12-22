@@ -63,8 +63,8 @@ defmodule Types.BeaconState do
           # Per-epoch sums of slashed effective balances
           slashings: list(Types.gwei()),
           # Participation
-          previous_epoch_participation: list(Types.participation_flags()),
-          current_epoch_participation: list(Types.participation_flags()),
+          previous_epoch_participation: Aja.Vector.t(Types.participation_flags()),
+          current_epoch_participation: Aja.Vector.t(Types.participation_flags()),
           # Finality
           # Bit set for every recent justified epoch
           justification_bits: Types.bitvector(),
@@ -94,13 +94,17 @@ defmodule Types.BeaconState do
 
   def encode(%__MODULE__{} = map) do
     map
-    |> Map.update!(:validators, &Enum.to_list/1)
+    |> Map.update!(:validators, &Aja.Vector.to_list/1)
+    |> Map.update!(:previous_epoch_participation, &Aja.Vector.to_list/1)
+    |> Map.update!(:current_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
   end
 
   def decode(%__MODULE__{} = map) do
     map
     |> Map.update!(:validators, &Aja.Vector.new/1)
+    |> Map.update!(:previous_epoch_participation, &Aja.Vector.new/1)
+    |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
   end
 

@@ -194,7 +194,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     %BeaconState{current_epoch_participation: current_epoch_participation, validators: validators} =
       state
 
-    new_current_epoch_participation = for _ <- validators, do: 0
+    new_current_epoch_participation = Aja.Vector.duplicate(0, Aja.Vector.size(validators))
 
     new_state = %BeaconState{
       state
