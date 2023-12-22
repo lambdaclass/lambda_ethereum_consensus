@@ -196,13 +196,10 @@ defmodule Types.BeaconState do
   @spec get_inactivity_penalty_deltas(t()) :: Enumerable.t({Types.gwei(), Types.gwei()})
   def get_inactivity_penalty_deltas(%__MODULE__{} = state) do
     previous_epoch = Accessors.get_previous_epoch(state)
+    target_index = Constants.timely_target_flag_index()
 
     {:ok, matching_target_indices} =
-      Accessors.get_unslashed_participating_indices(
-        state,
-        Constants.timely_target_flag_index(),
-        previous_epoch
-      )
+      Accessors.get_unslashed_participating_indices(state, target_index, previous_epoch)
 
     penalty_denominator =
       ChainSpec.get("INACTIVITY_SCORE_BIAS") *

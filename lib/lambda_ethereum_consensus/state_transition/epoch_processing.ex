@@ -291,24 +291,19 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   def process_justification_and_finalization(state) do
     # Initial FFG checkpoint values have a `0x00` stub for `root`.
     # Skip FFG updates in the first two epochs to avoid corner cases that might result in modifying this stub.
-    genesis_epoch = Constants.genesis_epoch()
-    timely_target_index = Constants.timely_target_flag_index()
+    target_index = Constants.timely_target_flag_index()
+    previous_epoch = Accessors.get_previous_epoch(state)
+    current_epoch = Accessors.get_current_epoch(state)
 
-    if Accessors.get_current_epoch(state) <= genesis_epoch + 1 do
+    if current_epoch <= Constants.genesis_epoch() + 1 do
       {:ok, state}
     else
+      # PERF: unify in get_unslashed_participating_total_balances that returns total balance
+      #  for both previous and current epochs
       with {:ok, previous_indices} <-
-             Accessors.get_unslashed_participating_indices(
-               state,
-               timely_target_index,
-               Accessors.get_previous_epoch(state)
-             ),
+             Accessors.get_unslashed_participating_indices(state, target_index, previous_epoch),
            {:ok, current_indices} <-
-             Accessors.get_unslashed_participating_indices(
-               state,
-               timely_target_index,
-               Accessors.get_current_epoch(state)
-             ) do
+             Accessors.get_unslashed_participating_indices(state, target_index, current_epoch) do
         total_active_balance = Accessors.get_total_active_balance(state)
         previous_target_balance = Accessors.get_total_balance(state, previous_indices)
         current_target_balance = Accessors.get_total_balance(state, current_indices)
