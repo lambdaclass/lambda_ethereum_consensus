@@ -106,11 +106,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_active_validator_indices(BeaconState.t(), Types.epoch()) ::
           Aja.Vector.t(Types.validator_index())
-  def get_active_validator_indices(%BeaconState{validators: validators}, epoch) do
-    validators
-    |> Aja.Vector.with_index()
-    |> Aja.Vector.filter(fn {v, _} -> Predicates.is_active_validator(v, epoch) end)
-    |> Aja.Vector.map(fn {_, index} -> index end)
+  def get_active_validator_indices(%BeaconState{validators: validators} = state, epoch) do
+    compute_fn = fn ->
+      validators
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.filter(fn {v, _} -> Predicates.is_active_validator(v, epoch) end)
+      |> Aja.Vector.map(fn {_, index} -> index end)
+    end
+
+    case get_epoch_root(state, epoch) do
+      {:ok, root} -> Cache.lazily_compute(:active_validator_indices, {epoch, root}, compute_fn)
+      _ -> compute_fn.()
+    end
   end
 
   @doc """
@@ -291,23 +298,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     compute_fn = fn ->
       committees_per_slot = get_committee_count_per_slot(state, epoch)
-      {committees_per_slot, get_active_validator_indices(state, epoch)}
+      indices = get_active_validator_indices(state, epoch)
+
+      seed = get_seed(state, epoch, Constants.domain_beacon_attester())
+
+      committee_index =
+        rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index
+
+      committee_count = committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
+
+      Misc.compute_committee(indices, seed, committee_index, committee_count)
     end
 
-    {committees_per_slot, indices} =
-      case get_epoch_root(state, epoch) do
-        {:ok, root} -> Cache.lazily_compute(:beacon_committee, {epoch, root}, compute_fn)
-        _ -> compute_fn.()
-      end
-
-    seed = get_seed(state, epoch, Constants.domain_beacon_attester())
-
-    committee_index =
-      rem(slot, ChainSpec.get("SLOTS_PER_EPOCH")) * committees_per_slot + index
-
-    committee_count = committees_per_slot * ChainSpec.get("SLOTS_PER_EPOCH")
-
-    Misc.compute_committee(indices, seed, committee_index, committee_count)
+    case get_epoch_root(state, epoch) do
+      {:ok, root} -> Cache.lazily_compute(:beacon_committee, {slot, index, root}, compute_fn)
+      _ -> compute_fn.()
+    end
   end
 
   @spec get_base_reward_per_increment(BeaconState.t()) :: Types.gwei()
