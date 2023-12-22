@@ -401,7 +401,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       state.justification_bits
       |> BitVector.new(4)
       |> BitVector.shift_higher(1)
-      |> to_byte()
+      |> BitVector.to_bytes()
 
     %BeaconState{
       state
@@ -420,7 +420,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         state.justification_bits
         |> BitVector.new(4)
         |> BitVector.set(index)
-        |> to_byte()
+        |> BitVector.to_bytes()
 
       %{state | current_justified_checkpoint: new_checkpoint, justification_bits: bits}
       |> then(&{:ok, &1})
@@ -444,10 +444,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     else
       state
     end
-  end
-
-  def to_byte(bit_vector) do
-    <<0::size(4), bit_vector::bits-size(4)>>
   end
 
   @spec process_rewards_and_penalties(BeaconState.t()) :: {:ok, BeaconState.t()}
