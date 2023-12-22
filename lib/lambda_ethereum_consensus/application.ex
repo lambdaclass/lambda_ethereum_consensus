@@ -6,12 +6,12 @@ defmodule LambdaEthereumConsensus.Application do
   use Application
   require Logger
 
-  alias LambdaEthereumConsensus.Cli
-
   @impl true
   def start(_type, _args) do
-    args = Cli.parse_args()
-    checkpoint_sync = Keyword.get(args, :checkpoint_sync)
+    checkpoint_sync =
+      Application.fetch_env!(:lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice)[
+        :checkpoint_sync
+      ]
 
     config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
     port = Keyword.fetch!(config, :port)
