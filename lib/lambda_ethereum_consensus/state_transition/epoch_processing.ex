@@ -406,20 +406,19 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         end)
         |> Stream.concat([BeaconState.get_inactivity_penalty_deltas(state)])
         |> Stream.zip()
+        |> Aja.Vector.new()
 
       state.balances
-      |> Stream.zip(deltas)
-      |> Enum.map(&update_balance/1)
-      |> Aja.Vector.new()
-      |> then(&{:ok, %{state | balances: &1}})
+      |> Aja.Vector.zip_with(deltas, &update_balance/2)
+      |> then(&{:ok, %BeaconState{state | balances: &1}})
     end
   end
 
-  defp update_balance({balance, deltas}) do
+  defp update_balance(balance, deltas) do
     deltas
     |> Tuple.to_list()
-    |> Enum.reduce(balance, fn {reward, penalty}, balance ->
-      max(balance + reward - penalty, 0)
+    |> Enum.reduce(balance, fn delta, balance ->
+      max(balance + delta, 0)
     end)
   end
 end

@@ -167,30 +167,26 @@ defmodule Types.BeaconState do
 
       cond do
         is_unslashed and Predicates.is_in_inactivity_leak(state) ->
-          {0, 0}
+          0
 
         is_unslashed ->
           reward_numerator = base_reward * weight * unslashed_participating_increments
-          reward = div(reward_numerator, active_increments * weight_denominator)
-          {reward, 0}
+          div(reward_numerator, active_increments * weight_denominator)
 
         flag_index != Constants.timely_head_flag_index() ->
-          penalty = div(base_reward * weight, weight_denominator)
-          {0, penalty}
+          -div(base_reward * weight, weight_denominator)
 
         true ->
-          {0, 0}
+          0
       end
     end
 
     state.validators
     |> Stream.with_index()
     |> Stream.map(fn {validator, index} ->
-      if Predicates.is_eligible_validator(validator, previous_epoch) do
-        process_reward_and_penalty.(index)
-      else
-        {0, 0}
-      end
+      if Predicates.is_eligible_validator(validator, previous_epoch),
+        do: process_reward_and_penalty.(index),
+        else: 0
     end)
   end
 
@@ -217,10 +213,9 @@ defmodule Types.BeaconState do
       if Predicates.is_eligible_validator(validator, previous_epoch) and
            not MapSet.member?(matching_target_indices, index) do
         penalty_numerator = validator.effective_balance * inactivity_score
-        penalty = div(penalty_numerator, penalty_denominator)
-        {0, penalty}
+        -div(penalty_numerator, penalty_denominator)
       else
-        {0, 0}
+        0
       end
     end)
   end

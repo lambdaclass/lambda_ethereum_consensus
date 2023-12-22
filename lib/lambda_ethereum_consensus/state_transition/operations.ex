@@ -140,37 +140,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       # PERF: make Map with committee_index by pubkey, then
       # Enum.map validators -> new balance all in place, without map_reduce
-      committee_deltas =
-        state.validators
-        |> get_sync_committee_indices(committee_pubkeys)
-        |> Stream.with_index()
-        |> Stream.map(fn {validator_index, committee_index} ->
-          if BitVector.set?(sync_committee_bits, committee_index),
-            do: {validator_index, participant_reward},
-            else: {validator_index, -participant_reward}
-        end)
-        |> Enum.sort(fn {vi1, _}, {vi2, _} -> vi1 <= vi2 end)
-
-      # Apply participant and proposer rewards
-      {new_balances, []} =
-        state.balances
-        |> Stream.with_index()
-        |> Stream.map(&add_proposer_reward(&1, proposer_index, total_proposer_reward))
-        |> Enum.map_reduce(committee_deltas, &update_balance/2)
-
-      {:ok, %BeaconState{state | balances: Aja.Vector.new(new_balances)}}
+      state.validators
+      |> get_sync_committee_indices(committee_pubkeys)
+      |> Stream.with_index()
+      |> Stream.map(fn {validator_index, committee_index} ->
+        if BitVector.set?(sync_committee_bits, committee_index),
+          do: {validator_index, participant_reward},
+          else: {validator_index, -participant_reward}
+      end)
+      |> Enum.reduce(state.balances, fn {validator_index, delta}, balances ->
+        Aja.Vector.update_at!(balances, validator_index, &max(&1 + delta, 0))
+      end)
+      |> then(&%{state | balances: &1})
+      |> BeaconState.increase_balance(proposer_index, total_proposer_reward)
+      |> then(&{:ok, &1})
     end
   end
-
-  defp add_proposer_reward({balance, proposer}, proposer, proposer_reward),
-    do: {balance + proposer_reward, proposer}
-
-  defp add_proposer_reward(v, _, _), do: v
-
-  defp update_balance({balance, i}, [{i, delta} | acc]),
-    do: update_balance({max(balance + delta, 0), i}, acc)
-
-  defp update_balance({balance, _}, acc), do: {balance, acc}
 
   defp verify_signature(pubkeys, message, signature) do
     case Bls.eth_fast_aggregate_verify(pubkeys, message, signature) do
@@ -209,13 +194,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec get_sync_committee_indices(Aja.Vector.t(Validator.t()), list(Types.bls_pubkey())) ::
           list(Types.validator_index())
   defp get_sync_committee_indices(validators, committee_pubkeys) do
-    all_pubkeys =
-      validators
-      |> Aja.Vector.with_index(fn %Validator{pubkey: pubkey}, i -> {pubkey, i} end)
-      |> Map.new()
+    pk_map = committee_pubkeys |> Stream.with_index() |> Map.new()
 
-    committee_pubkeys
-    |> Enum.map(&Map.fetch!(all_pubkeys, &1))
+    validators
+    |> Stream.with_index()
+    |> Stream.map(fn {%Validator{pubkey: pubkey}, i} -> {Map.get(pk_map, pubkey), i} end)
+    |> Stream.reject(fn {v, _} -> is_nil(v) end)
+    |> Enum.sort(fn {v1, _}, {v2, _} -> v1 <= v2 end)
+    |> Enum.map(fn {_, i} -> i end)
   end
 
   @doc """
@@ -297,7 +283,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     with :ok <- check_withdrawals(withdrawals, expected_withdrawals) do
       state
-      |> decrease_balances(withdrawals)
+      |> Map.update!(:balances, &decrease_balances(&1, withdrawals))
       |> update_next_withdrawal_index(withdrawals)
       |> update_next_withdrawal_validator_index(withdrawals, Aja.Vector.size(validators))
       |> then(&{:ok, &1})
@@ -346,22 +332,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     |> then(&if &1, do: :ok, else: {:error, "withdrawal doesn't match expected withdrawal"})
   end
 
-  @spec decrease_balances(BeaconState.t(), list(Withdrawal.t())) :: BeaconState.t()
-  defp decrease_balances(state, withdrawals) do
-    withdrawals = Enum.sort(withdrawals, &(&1.validator_index <= &2.validator_index))
-
-    state.balances
-    |> Stream.with_index()
-    |> Enum.map_reduce(withdrawals, &maybe_decrease_balance/2)
-    |> then(fn {balances, []} -> %BeaconState{state | balances: Aja.Vector.new(balances)} end)
+  @spec decrease_balances(Aja.Vector.t(Types.gwei()), list(Withdrawal.t())) :: BeaconState.t()
+  defp decrease_balances(balances, withdrawals) do
+    withdrawals
+    |> Enum.reduce(balances, fn %Withdrawal{validator_index: index, amount: amount}, balances ->
+      Aja.Vector.update_at!(balances, index, &max(&1 - amount, 0))
+    end)
   end
-
-  defp maybe_decrease_balance({balance, index}, [
-         %Withdrawal{validator_index: index, amount: amount} | remaining
-       ]),
-       do: {max(balance - amount, 0), remaining}
-
-  defp maybe_decrease_balance({balance, _index}, acc), do: {balance, acc}
 
   @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())
   defp get_expected_withdrawals(%BeaconState{} = state) do
@@ -648,7 +625,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       proposer_reward =
         reward_numerators
-        |> Enum.map(fn {_, numerator} -> compute_proposer_reward(numerator) end)
+        |> Stream.map(fn {_, numerator} -> compute_proposer_reward(numerator) end)
         |> Enum.sum()
 
       {:ok,
