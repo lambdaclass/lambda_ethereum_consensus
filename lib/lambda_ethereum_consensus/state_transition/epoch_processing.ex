@@ -45,19 +45,15 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     new_validators =
       validators
-      |> Stream.zip(balances)
-      |> Enum.map(fn {%Validator{effective_balance: effective_balance} = validator, balance} ->
-        if balance + downward_threshold < effective_balance or
-             effective_balance + upward_threshold < balance do
-          new_effective_balance =
-            min(balance - rem(balance, effective_balance_increment), max_effective_balance)
-
-          %{validator | effective_balance: new_effective_balance}
+      |> Aja.Vector.zip_with(balances, fn %Validator{} = validator, balance ->
+        if balance + downward_threshold < validator.effective_balance or
+             validator.effective_balance + upward_threshold < balance do
+          min(balance - rem(balance, effective_balance_increment), max_effective_balance)
+          |> then(&%{validator | effective_balance: &1})
         else
           validator
         end
       end)
-      |> Aja.Vector.new()
 
     {:ok, %BeaconState{state | validators: new_validators}}
   end
@@ -129,7 +125,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
           penalty = div(penalty_numerator, total_balance) * increment
 
-          Mutators.decrease_balance(acc, index, penalty)
+          BeaconState.decrease_balance(acc, index, penalty)
         else
           acc
         end
@@ -414,6 +410,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       state.balances
       |> Stream.zip(deltas)
       |> Enum.map(&update_balance/1)
+      |> Aja.Vector.new()
       |> then(&{:ok, %{state | balances: &1}})
     end
   end

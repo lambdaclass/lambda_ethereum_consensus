@@ -158,7 +158,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         |> Stream.map(&add_proposer_reward(&1, proposer_index, total_proposer_reward))
         |> Enum.map_reduce(committee_deltas, &update_balance/2)
 
-      {:ok, %BeaconState{state | balances: new_balances}}
+      {:ok, %BeaconState{state | balances: Aja.Vector.new(new_balances)}}
     end
   end
 
@@ -353,7 +353,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     state.balances
     |> Stream.with_index()
     |> Enum.map_reduce(withdrawals, &maybe_decrease_balance/2)
-    |> then(fn {balances, []} -> %BeaconState{state | balances: balances} end)
+    |> then(fn {balances, []} -> %BeaconState{state | balances: Aja.Vector.new(balances)} end)
   end
 
   defp maybe_decrease_balance({balance, index}, [
@@ -653,7 +653,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       {:ok,
        %BeaconState{
-         Mutators.increase_balance(state, proposer_index, proposer_reward)
+         BeaconState.increase_balance(state, proposer_index, proposer_reward)
          | previous_epoch_participation: new_previous_participation,
            current_epoch_participation: new_current_participation
        }}

@@ -56,7 +56,7 @@ defmodule Types.BeaconState do
           eth1_deposit_index: Types.uint64(),
           # Registry
           validators: Aja.Vector.t(Types.Validator.t()),
-          balances: list(Types.gwei()),
+          balances: Aja.Vector.t(Types.gwei()),
           # Randomness
           randao_mixes: list(Types.bytes32()),
           # Slashings
@@ -95,6 +95,7 @@ defmodule Types.BeaconState do
   def encode(%__MODULE__{} = map) do
     map
     |> Map.update!(:validators, &Aja.Vector.to_list/1)
+    |> Map.update!(:balances, &Aja.Vector.to_list/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
@@ -103,6 +104,7 @@ defmodule Types.BeaconState do
   def decode(%__MODULE__{} = map) do
     map
     |> Map.update!(:validators, &Aja.Vector.new/1)
+    |> Map.update!(:balances, &Aja.Vector.new/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
@@ -111,23 +113,26 @@ defmodule Types.BeaconState do
   @doc """
   Checks if state is pre or post merge
   """
-  @spec is_merge_transition_complete(Types.BeaconState.t()) :: boolean()
+  @spec is_merge_transition_complete(t()) :: boolean()
   def is_merge_transition_complete(state) do
     state.latest_execution_payload_header !=
       struct(Types.ExecutionPayload, Types.ExecutionPayloadHeader.default())
   end
 
   @doc """
-  Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
+      Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
   """
   @spec decrease_balance(t(), Types.validator_index(), Types.gwei()) :: t()
   def decrease_balance(%__MODULE__{balances: balances} = state, index, delta) do
-    current_balance = Enum.fetch!(balances, index)
+    %{state | balances: Aja.Vector.update_at!(balances, index, &max(&1 - delta, 0))}
+  end
 
-    %{
-      state
-      | balances: List.replace_at(balances, index, max(current_balance - delta, 0))
-    }
+  @doc """
+    Increase the validator balance at index ``index`` by ``delta``.
+  """
+  @spec increase_balance(t(), Types.validator_index(), Types.gwei()) :: t()
+  def increase_balance(%__MODULE__{balances: balances} = state, index, delta) do
+    %{state | balances: Aja.Vector.update_at!(balances, index, &(&1 + delta))}
   end
 
   @doc """

@@ -63,25 +63,21 @@ defmodule SszStaticTestRunner do
     Stream.zip(actual, expected) |> Enum.map(fn {a, e} -> to_struct_checked(a, e) end)
   end
 
+  defp to_struct_checked(%Aja.Vector{} = actual, %Aja.Vector{} = expected) do
+    actual
+    |> Aja.Vector.to_list()
+    |> to_struct_checked(Aja.Vector.to_list(expected))
+    |> Aja.Vector.new()
+  end
+
   defp to_struct_checked(%name{} = actual, %{} = expected) do
     expected
-    |> Stream.map(&parse_map_entry(&1, actual))
+    |> Stream.map(fn {k, v} -> {k, to_struct_checked(Map.get(actual, k), v)} end)
     |> Map.new()
     |> then(&struct!(name, &1))
   end
 
   defp to_struct_checked(_actual, expected), do: expected
-
-  defp parse_map_entry({:validators = k, v}, actual) do
-    actual
-    |> Map.get(k)
-    |> Aja.Vector.to_list()
-    |> to_struct_checked(Aja.Vector.to_list(v))
-    |> Aja.Vector.new()
-    |> then(&{k, &1})
-  end
-
-  defp parse_map_entry({k, v}, actual), do: {k, to_struct_checked(Map.get(actual, k), v)}
 
   defp parse_type(%SpecTestCase{handler: handler}) do
     Module.concat(Types, handler)

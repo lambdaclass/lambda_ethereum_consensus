@@ -5,7 +5,12 @@ defmodule SpecTestUtils do
   alias LambdaEthereumConsensus.SszEx
 
   @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
-  @vector_keys ["validators"]
+  @vector_keys [
+    "validators",
+    "balances",
+    "previous_epoch_participation",
+    "current_epoch_participation"
+  ]
 
   def vectors_dir, do: @vectors_dir
 
