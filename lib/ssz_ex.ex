@@ -78,7 +78,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def merklelize(chunks, limit) do
-        size =
+    size =
       if limit != nil and limit >= length(chunks) do
         limit
       else
@@ -498,13 +498,13 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp chunk_count([{value, {:int, size}} = _head | _tail] = list) do
     size = size_of(value, size)
     len = length(list)
-    ((len * size) + 31) |> div(32)
+    (len * size + 31) |> div(32)
   end
 
   defp chunk_count([{value, :bool} = _head | _tail] = list) do
     size = size_of(value)
     len = length(list)
-    ((len * size) + 31) |> div(32)
+    (len * size + 31) |> div(32)
   end
 
   defp pack_basic_type_list(list) do

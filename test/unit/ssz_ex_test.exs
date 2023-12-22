@@ -119,8 +119,6 @@ defmodule Unit.SSZExTest do
   test "hash tree of list of basic type" do
     list = [{1, {:int, 8}}, {2, {:int, 8}}, {3, {:int, 8}}, {4, {:int, 8}}, {5, {:int, 8}}]
     root = list |> SszEx.hash_tree_root({:list, {:int, 8}, 5})
-    root |> IO.inspect()
-    # root = list |> SszEx.hash_tree_root({:list, {:int, 8}, 5})
   end
 
   test "serialize and deserialize uint" do
