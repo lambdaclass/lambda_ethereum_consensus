@@ -8,9 +8,10 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   import Bitwise
 
-  alias LambdaEthereumConsensus.Utils
+  alias LambdaEthereumConsensus.Utils.MerkleTrie
 
   @bits_per_chunk 256
+  @zero_chunk <<0::size(@bits_per_chunk)>>
 
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
@@ -46,44 +47,56 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
   def hash_tree_root!(value, {:int, size}), do: pack(value, {:int, size})
 
-  @spec hash_tree_root(list(), {:list, any, non_neg_integer}, non_neg_integer | nil) ::
+  @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
           {:ok, SszTypes.root()} | {:error, String.t()}
-  def hash_tree_root(value, {:list, type, size}, limit \\ nil)
-      when limit != nil and length(value) > limit do
-    {:error, "chunk size exceeds limit"}
-  end
-
-  def hash_tree_root(value, {:list, type, size}, limit) do
+  def hash_tree_root(list, {:list, type, size}) do
     if !variable_size?(type) do
-      hash_tree_root_list_basic_type(value, {:list, type, size}, limit)
+      packed_chunks = pack(list, {:list, type, size})
+      limit = chunk_count(list)
+      hash_tree_root_list_basic_type(packed_chunks, limit, length(list))
     else
-      hash_tree_root_list_complex_type(value, {:list, type, size}, limit)
+      # TODO
+      # hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
     end
   end
 
-  def hash_tree_root_list_basic_type(list, {:list, type, size}, _limit) do
-    # len = length(chunks)
-
-    # size =
-    #   if limit do
-    #     next_pow_of_two(limit)
-    #   else
-    #     next_pow_of_two(len)
-    #   end
-
-    # split =
-    #   if size |> div(2) < len do
-    #     size |> div(2)
-    #   else
-    #     len
-    #   end
-    chunks = pack(list, {:list, type, size})
-    chunks |> IO.inspect(limit: :infinity)
-    # MerkleTrie.create(chunks).hash
+  def hash_tree_root_list_basic_type(chunks, limit \\ nil, _len)
+      when limit and length(chunks) > limit do
+    {:error, "chunk size exceeds limit"}
   end
 
-  def hash_tree_root_list_complex_type(value, {:list, type, size}, limit \\ nil) do
-    # TODO
+  def hash_tree_root_list_basic_type(chunks, limit, len) do
+    merklelize(chunks, limit) |> mix_in_length(len)
+  end
+
+  # def hash_tree_root_list_complex_type(value, {:list, type, size}, limit \\ nil) do
+  #   # TODO
+  # end
+
+  def mix_in_length(root, len) do
+    hash(root <> <<len>>)
+  end
+
+  def merklelize(chunks, limit) do
+        size =
+      if limit != nil and limit >= length(chunks) do
+        limit
+      else
+        length(chunks)
+      end
+
+    leaf_count = next_pow_of_two(size)
+
+    chunks =
+      if leaf_count == size do
+        chunks
+      else
+        diff = leaf_count - size
+        zero_chunks = 0..(diff - 1) |> Enum.map(fn _ -> @zero_chunk end)
+        chunks ++ zero_chunks
+      end
+
+    MerkleTrie.create(chunks).hash
   end
 
   def pack(value, {:int, size}) do
@@ -93,7 +106,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   def pack(value, :bool) do
     case value do
       true -> <<1::@bits_per_chunk-little>>
-      false -> <<0::@bits_per_chunk>>
+      false -> @zero_chunk
     end
   end
 
@@ -101,13 +114,14 @@ defmodule LambdaEthereumConsensus.SszEx do
     if !variable_size?(type) do
       pack_basic_type_list(list)
     else
-      pack_complex_type_list(list)
+      # pack_complex_type_list(list)
     end
   end
 
   #################
   ### Private functions
   #################
+  @bytes_per_boolean 4
   @bytes_per_chunk 32
   @bytes_per_length_offset 4
   @bits_per_byte 8
@@ -469,30 +483,28 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.any?()
   end
 
-  # NOTE: 
-  # - chunks is a list of bytes
-  # - limit is the max size of the list
-  defp merklelize(chunks, limit \\ nil) when limit == nil do
-    size = next_pow_of_two(length(chunks))
-
-    if size == 1 do
-      [head | _tail] = chunks
-      head
-    else
-    end
+  defp size_of(value) when is_boolean(value) do
+    @bytes_per_boolean
   end
 
-  defp size_of(value) when is_integer(value) and value >= 0 do
-    value |> :binary.encode_unsigned() |> byte_size()
+  defp size_of(value, size) when is_integer(value) and value >= 0 do
+    {:ok, encoded} = value |> encode_int(size)
+    encoded |> byte_size()
   end
 
   # NOTE:
   # - When the elements of the list is an uint then it is a basic list or basic vector
   # - When the elements of the list is a boolean then it is a bit vector
-  defp chunk_count([head | _tail] = list) when is_integer(head) do
-    size = size_of(head)
-    length = length(list)
-    div(length * size + 31, 32)
+  defp chunk_count([{value, {:int, size}} = _head | _tail] = list) do
+    size = size_of(value, size)
+    len = length(list)
+    ((len * size) + 31) |> div(32)
+  end
+
+  defp chunk_count([{value, :bool} = _head | _tail] = list) do
+    size = size_of(value)
+    len = length(list)
+    ((len * size) + 31) |> div(32)
   end
 
   defp pack_basic_type_list(list) do
@@ -507,9 +519,9 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.map(fn x -> :binary.list_to_bin(x) end)
   end
 
-  defp pack_complex_type_list(list) do
-    # TODO
-  end
+  # defp pack_complex_type_list(list) do
+  #   # TODO
+  # end
 
   defp pack_bytes(value) when is_binary(value) do
     incomplete_chunk_len = value |> bit_size() |> rem(@bits_per_chunk)
@@ -523,16 +535,11 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   defp next_pow_of_two(len) when is_integer(len) and len >= 0 do
-    cond do
-      len == 0 or len == 1 ->
-        1
-
-      len == 2 ->
-        2
-
-      true ->
-        n = ((len <<< 1) - 1) |> :math.log2() |> trunc()
-        2 ** n
+    if len == 0 do
+      0
+    else
+      n = ((len <<< 1) - 1) |> :math.log2() |> trunc()
+      2 ** n
     end
   end
 end

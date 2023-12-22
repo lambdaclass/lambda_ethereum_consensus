@@ -7,13 +7,13 @@ defmodule LambdaEthereumConsensus.Utils.MerkleTrie do
 
   # Function to create a leaf node
   defp leaf(value) do
-    hash = :crypto.hash(:sha256, value) |> Base.encode16(case: :lower)
+    hash = :crypto.hash(:sha256, value)
     %{hash: hash}
   end
 
   # Function to create an internal node
   defp internal(left, right) do
-    combined_hash = :crypto.hash(:sha256, left.hash <> right.hash) |> Base.encode16(case: :lower)
+    combined_hash = :crypto.hash(:sha256, left.hash <> right.hash)
     %{hash: combined_hash, left: left, right: right}
   end
 
