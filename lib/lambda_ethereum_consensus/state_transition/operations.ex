@@ -114,7 +114,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   def process_sync_aggregate(%BeaconState{} = state, %SyncAggregate{} = aggregate) do
     # Verify sync committee aggregate signature signing over the previous slot block root
     committee_pubkeys = state.current_sync_committee.pubkeys
-    sync_committee_bits = parse_sync_committee_bits(aggregate.sync_committee_bits)
+
+    sync_committee_bits =
+      BitVector.new(aggregate.sync_committee_bits, ChainSpec.get("SYNC_COMMITTEE_SIZE"))
 
     participant_pubkeys =
       committee_pubkeys
@@ -175,13 +177,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:ok, true} -> :ok
       _ -> {:error, "Signature verification failed"}
     end
-  end
-
-  defp parse_sync_committee_bits(bits) do
-    # TODO: Change bitvectors to be in little-endian instead of converting manually
-    bitsize = bit_size(bits)
-    <<num::integer-size(bitsize)>> = bits
-    <<num::integer-little-size(bitsize)>>
   end
 
   @spec compute_sync_aggregate_rewards(BeaconState.t()) :: {Types.gwei(), Types.gwei()}

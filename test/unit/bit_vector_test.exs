@@ -3,6 +3,38 @@ defmodule BitVectorTest do
   alias LambdaEthereumConsensus.Utils.BitVector
 
   describe "Sub-byte VitBectors" do
+    test "binary round trip" do
+      bv = BitVector.new(<<1, 0, 0, 0>>, 32)
+
+      serialized_1 =
+        bv
+        |> BitVector.shift_higher(1)
+        |> BitVector.to_bytes()
+
+      serialized_2 =
+        bv
+        |> BitVector.shift_higher(8)
+        |> BitVector.to_bytes()
+
+      assert <<2, 0, 0, 0>> == serialized_1
+      assert <<0, 1, 0, 0>> == serialized_2
+    end
+
+    test "bitstring roundtrip and shifting" do
+      bv = BitVector.new(<<0, 0, 0, 1>>, 25)
+      serialized_1 = BitVector.to_bytes(bv)
+
+      # As this is only 25 bits, a shift should make the bit dissappear.
+      serialized_2 =
+        bv
+        |> BitVector.shift_higher(1)
+        |> BitVector.to_bytes()
+
+      # This is just a roundtrip sanity check for bitstring round trips.
+      assert <<0, 0, 0, 1>> == serialized_1
+      assert <<0, 0, 0, 0>> == serialized_2
+    end
+
     test "build from integer" do
       assert BitVector.new(0b1110, 4) == <<14::4>>
     end
