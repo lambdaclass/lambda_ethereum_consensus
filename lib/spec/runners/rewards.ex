@@ -4,7 +4,7 @@ defmodule RewardsTestRunner do
   """
   use ExUnit.CaseTemplate
   use TestRunner
-  alias SszTypes.BeaconState
+  alias Types.BeaconState
 
   @disabled [
     # "basic",
@@ -24,7 +24,7 @@ defmodule RewardsTestRunner do
     pre_state =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
-        SszTypes.BeaconState
+        BeaconState
       )
 
     %{rewards: rewards, penalties: penalties} =
@@ -91,8 +91,8 @@ defmodule Deltas do
   defstruct fields
 
   @type t :: %__MODULE__{
-          rewards: list(SszTypes.gwei()),
-          penalties: list(SszTypes.gwei())
+          rewards: list(Types.gwei()),
+          penalties: list(Types.gwei())
         }
 
   @impl LambdaEthereumConsensus.Container
