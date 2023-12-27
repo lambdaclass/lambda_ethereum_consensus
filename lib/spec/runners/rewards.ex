@@ -91,8 +91,8 @@ defmodule Deltas do
   defstruct fields
 
   @type t :: %__MODULE__{
-          rewards: list(SszTypes.gwei()),
-          penalties: list(SszTypes.gwei())
+          rewards: list(Types.gwei()),
+          penalties: list(Types.gwei())
         }
 
   @impl LambdaEthereumConsensus.Container
