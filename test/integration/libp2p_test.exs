@@ -1,19 +1,21 @@
 defmodule Integration.Libp2pTest do
   use ExUnit.Case
 
-  @bootnodes Application.compile_env(
-               :lambda_ethereum_consensus,
-               :discovery
-             )[:bootnodes]
+  setup_all do
+    bootnodes = YamlElixir.read_from_file!("config/networks/mainnet/bootnodes.yaml")
+    {:ok, bootnodes}
+  end
 
   @tag :skip
-  test "discover peer and add it to peerstore" do
+  test "discover peer and add it to peerstore", bootnodes do
+    IO.puts("test1")
+
     {:ok, host} = Libp2p.host_new()
 
     {:ok, peerstore} = Libp2p.host_peerstore(host)
 
     {:ok, listener} =
-      Libp2p.listen_v5("0.0.0.0:25000", @bootnodes)
+      Libp2p.listen_v5("0.0.0.0:25000", bootnodes)
 
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
 
@@ -75,7 +77,7 @@ defmodule Integration.Libp2pTest do
 
   @tag :skip
   @tag timeout: :infinity
-  test "discover new peers" do
+  test "discover new peers", bootnodes do
     {:ok, host} = Libp2p.host_new()
 
     # ask for metadata
@@ -84,7 +86,7 @@ defmodule Integration.Libp2pTest do
     :ok = Libp2p.host_set_stream_handler(host, protocol_id)
 
     {:ok, listener} =
-      Libp2p.listen_v5("0.0.0.0:45122", @bootnodes)
+      Libp2p.listen_v5("0.0.0.0:45122", bootnodes)
 
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
 
@@ -99,7 +101,7 @@ defmodule Integration.Libp2pTest do
 
   @tag :skip
   @tag timeout: :infinity
-  test "ping peers" do
+  test "ping peers", bootnodes do
     {:ok, host} = Libp2p.host_new()
 
     # ping peers
@@ -112,7 +114,7 @@ defmodule Integration.Libp2pTest do
     :ok = Libp2p.host_set_stream_handler(host, protocol_id)
 
     {:ok, listener} =
-      Libp2p.listen_v5("0.0.0.0:45123", @bootnodes)
+      Libp2p.listen_v5("0.0.0.0:45123", bootnodes)
 
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
 
@@ -130,7 +132,7 @@ defmodule Integration.Libp2pTest do
 
   @tag :skip
   @tag timeout: :infinity
-  test "Gossip with CL peers" do
+  test "Gossip with CL peers", bootnodes do
     # Setup host
     {:ok, host} = Libp2p.host_new()
 
@@ -147,7 +149,7 @@ defmodule Integration.Libp2pTest do
     {:ok, sub} = Libp2p.topic_subscribe(topic)
 
     # Start discovery in another process
-    {:ok, listener} = Libp2p.listen_v5("0.0.0.0:45124", @bootnodes)
+    {:ok, listener} = Libp2p.listen_v5("0.0.0.0:45124", bootnodes)
     {:ok, iterator} = Libp2p.listener_random_nodes(listener)
     spawn(fn -> find_peers(host, iterator, &Libp2p.host_connect(host, &1)) end)
 
