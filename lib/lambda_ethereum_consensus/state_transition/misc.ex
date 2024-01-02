@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
 
   import Bitwise
 
+  require Aja
   alias LambdaEthereumConsensus.SszEx
   alias Types.BeaconState
 
@@ -115,29 +116,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @doc """
   Return from ``indices`` a random index sampled by effective balance.
   """
-  @spec compute_proposer_index(BeaconState.t(), [], Types.bytes32()) ::
+  @spec compute_proposer_index(BeaconState.t(), Aja.Vector.t(), Types.bytes32()) ::
           {:error, String.t()}
-  def compute_proposer_index(_state, [], _seed), do: {:error, "Empty indices"}
+  def compute_proposer_index(_state, Aja.vec([]), _seed), do: {:error, "Empty indices"}
 
   @spec compute_proposer_index(
           BeaconState.t(),
-          nonempty_list(Types.validator_index()),
+          Aja.Vector.t(Types.validator_index()),
           Types.bytes32()
         ) ::
           {:ok, Types.validator_index()}
   def compute_proposer_index(state, indices, seed) do
     max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
-    total = length(indices)
+    total = Aja.Vector.size(indices)
 
     Stream.iterate(0, &(&1 + 1))
     |> Stream.map(fn i ->
       {:ok, index} = compute_shuffled_index(rem(i, total), total, seed)
-      candidate_index = Enum.at(indices, index)
+      candidate_index = Aja.Vector.at!(indices, index)
 
       <<_::binary-size(rem(i, 32)), random_byte, _::binary>> =
         SszEx.hash(seed <> uint_to_bytes(div(i, 32), 64))
 
-      effective_balance = Enum.at(state.validators, candidate_index).effective_balance
+      effective_balance = Aja.Vector.at(state.validators, candidate_index).effective_balance
 
       {effective_balance, random_byte, candidate_index}
     end)
@@ -184,43 +185,28 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Computes the validator indices of the ``committee_index``-th committee at some epoch
   with ``committee_count`` committees, and for some given ``indices`` and ``seed``.
   """
-  @spec compute_committee([], Types.bytes32(), Types.uint64(), Types.uint64()) ::
+  @spec compute_committee(Aja.Vector.t(), Types.bytes32(), Types.uint64(), Types.uint64()) ::
           {:error, String.t()}
-  def compute_committee([], _, _, _), do: {:error, "Empty indices"}
+  def compute_committee(Aja.vec([]), _, _, _), do: {:error, "Empty indices"}
 
   @spec compute_committee(
-          [Types.validator_index(), ...],
+          Aja.Vector.t(Types.validator_index()),
           Types.bytes32(),
           Types.uint64(),
           Types.uint64()
         ) :: {:ok, [Types.validator_index()]}
   def compute_committee(indices, seed, committee_index, committee_count)
       when committee_index < committee_count do
-    index_count = length(indices)
+    index_count = Aja.Vector.size(indices)
     committee_start = div(index_count * committee_index, committee_count)
     committee_end = div(index_count * (committee_index + 1), committee_count) - 1
 
-    to_swap_indices =
-      committee_start..committee_end//1
-      # NOTE: this cannot fail because committee_end < index_count
-      |> Stream.map(fn i ->
-        {:ok, index} = compute_shuffled_index(i, index_count, seed)
-        index
-      end)
-      |> Stream.with_index()
-      |> Enum.sort(fn {a, _}, {b, _} -> a <= b end)
-
-    {swapped_indices, []} =
-      indices
-      |> Stream.with_index()
-      |> Enum.flat_map_reduce(to_swap_indices, fn
-        {v, i}, [{i, j} | tail] -> {[{v, j}], tail}
-        _, acc -> {[], acc}
-      end)
-
-    swapped_indices
-    |> Enum.sort(fn {_, a}, {_, b} -> a <= b end)
-    |> Enum.map(fn {v, _} -> v end)
+    committee_start..committee_end//1
+    # NOTE: this cannot fail because committee_end < index_count
+    |> Enum.map(fn i ->
+      {:ok, index} = compute_shuffled_index(i, index_count, seed)
+      Aja.Vector.at!(indices, index)
+    end)
     |> then(&{:ok, &1})
   end
 
