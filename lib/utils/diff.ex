@@ -29,6 +29,10 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
   @type t :: :unchanged | base_diff() | structured_diff()
 
   @spec diff(any(), any()) :: t()
+  def diff(%Aja.Vector{} = a, %Aja.Vector{} = b) do
+    diff(Enum.to_list(a), Enum.to_list(b))
+  end
+
   def diff(a, b) when is_map(a) and is_map(b) do
     %{}
     |> maybe_added(a, b)
@@ -52,10 +56,10 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
     b_keys = b |> Map.keys() |> MapSet.new()
 
     a_extra =
-      MapSet.difference(a_keys, b_keys) |> Enum.map(fn k -> {k, a[k]} end)
+      MapSet.difference(a_keys, b_keys) |> Enum.map(fn k -> {k, Map.fetch!(a, k)} end)
 
     b_extra =
-      MapSet.difference(b_keys, a_keys) |> Enum.map(fn k -> {k, b[k]} end)
+      MapSet.difference(b_keys, a_keys) |> Enum.map(fn k -> {k, Map.fetch!(b, k)} end)
 
     d
     |> add_if_not_empty(:added_left, a_extra)

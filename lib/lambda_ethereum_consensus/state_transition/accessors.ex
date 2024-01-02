@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           {:ok, SyncCommittee.t()} | {:error, String.t()}
   def get_next_sync_committee(%BeaconState{validators: validators} = state) do
     with {:ok, indices} <- get_next_sync_committee_indices(state),
-         pubkeys <- indices |> Enum.map(fn index -> Enum.fetch!(validators, index).pubkey end),
+         pubkeys <- indices |> Enum.map(fn index -> Aja.Vector.at!(validators, index).pubkey end),
          {:ok, aggregate_pubkey} <- Bls.eth_aggregate_pubkeys(pubkeys) do
       {:ok, %SyncCommittee{pubkeys: pubkeys, aggregate_pubkey: aggregate_pubkey}}
     end
@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     # Return the sync committee indices, with possible duplicates, for the next sync committee.
     epoch = get_current_epoch(state) + 1
     active_validator_indices = get_active_validator_indices(state, epoch)
-    active_validator_count = length(active_validator_indices)
+    active_validator_count = Aja.Vector.size(active_validator_indices)
     seed = get_seed(state, epoch, Constants.domain_sync_committee())
 
     compute_sync_committee_indices(
@@ -85,13 +85,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     with {:ok, shuffled_index} <-
            rem(index, active_validator_count)
            |> Misc.compute_shuffled_index(active_validator_count, seed) do
-      candidate_index = active_validator_indices |> Enum.fetch!(shuffled_index)
+      candidate_index = Aja.Vector.at!(active_validator_indices, shuffled_index)
 
       <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
         SszEx.hash(seed <> Misc.uint64_to_bytes(div(index, 32)))
 
       max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
-      effective_balance = Enum.fetch!(validators, candidate_index).effective_balance
+      effective_balance = Aja.Vector.at!(validators, candidate_index).effective_balance
 
       if effective_balance * @max_random_byte >= max_effective_balance * random_byte do
         {:ok, sync_committee_indices |> List.insert_at(0, candidate_index)}
@@ -105,15 +105,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the sequence of active validator indices at ``epoch``.
   """
   @spec get_active_validator_indices(BeaconState.t(), Types.epoch()) ::
-          list(Types.validator_index())
+          Aja.Vector.t(Types.validator_index())
   def get_active_validator_indices(%BeaconState{validators: validators}, epoch) do
     validators
-    |> Stream.with_index()
-    |> Stream.filter(fn {v, _} ->
+    |> Aja.Vector.with_index()
+    |> Aja.Vector.filter(fn {v, _} ->
       Predicates.is_active_validator(v, epoch)
     end)
-    |> Stream.map(fn {_, index} -> index end)
-    |> Enum.to_list()
+    |> Aja.Vector.map(fn {_, index} -> index end)
   end
 
   @doc """
@@ -203,10 +202,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_validator_churn_limit(BeaconState.t()) :: Types.uint64()
   def get_validator_churn_limit(%BeaconState{} = state) do
-    active_validator_indices = get_active_validator_indices(state, get_current_epoch(state))
     min_per_epoch_churn_limit = ChainSpec.get("MIN_PER_EPOCH_CHURN_LIMIT")
     churn_limit_quotient = ChainSpec.get("CHURN_LIMIT_QUOTIENT")
-    max(min_per_epoch_churn_limit, div(length(active_validator_indices), churn_limit_quotient))
+
+    get_active_validator_count(state, get_current_epoch(state))
+    |> div(churn_limit_quotient)
+    |> max(min_per_epoch_churn_limit)
   end
 
   @doc """
@@ -279,9 +280,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_active_validator_count(BeaconState.t(), Types.epoch()) :: Types.uint64()
   def get_active_validator_count(%BeaconState{} = state, epoch) do
     Cache.lazily_compute(:active_validator_count, {epoch, get_state_epoch_root(state)}, fn ->
-      state.validators
-      |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
-      |> Enum.count()
+      Aja.Enum.count(state.validators, &Predicates.is_active_validator(&1, epoch))
     end)
   end
 
@@ -289,7 +288,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the beacon committee at ``slot`` for ``index``.
   """
   @spec get_beacon_committee(BeaconState.t(), Types.slot(), Types.commitee_index()) ::
-          {:ok, list(Types.validator_index())} | {:error, String.t()}
+          {:ok, [Types.validator_index()]} | {:error, String.t()}
   def get_beacon_committee(%BeaconState{} = state, slot, index) do
     epoch = Misc.compute_epoch_at_slot(slot)
 
@@ -324,7 +323,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_base_reward(BeaconState.t(), Types.validator_index()) :: Types.gwei()
   def get_base_reward(%BeaconState{} = state, index) do
-    validator = Enum.at(state.validators, index)
+    validator = Aja.Vector.at!(state.validators, index)
     get_base_reward(validator, get_base_reward_per_increment(state))
   end
 

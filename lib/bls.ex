@@ -59,4 +59,16 @@ defmodule Bls do
       {:error, _} -> false
     end
   end
+
+  ##### Helpers #####
+  @doc """
+  Same as ``Bls.fast_aggregate_verify``, but treats errors as invalid signatures.
+  """
+  @spec fast_aggregate_valid?([Types.bls_pubkey()], binary(), Types.bls_signature()) :: boolean()
+  def fast_aggregate_valid?(public_keys, message, signature) do
+    case Bls.fast_aggregate_verify(public_keys, message, signature) do
+      {:ok, bool} -> bool
+      {:error, _} -> false
+    end
+  end
 end
