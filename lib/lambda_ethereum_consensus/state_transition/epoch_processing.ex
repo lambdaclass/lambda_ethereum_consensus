@@ -296,10 +296,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       {:ok, state}
     else
       previous_target_balance =
-        Accessors.get_total_participating_balance(state, target_index, previous_epoch)
+        get_total_participating_balance(state, target_index, previous_epoch)
 
       current_target_balance =
-        Accessors.get_total_participating_balance(state, target_index, current_epoch)
+        get_total_participating_balance(state, target_index, current_epoch)
 
       total_active_balance = Accessors.get_total_active_balance(state)
 
@@ -310,6 +310,24 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         current_target_balance
       )
     end
+  end
+
+  # NOTE: epoch must be the current or previous one
+  defp get_total_participating_balance(state, flag_index, epoch) do
+    epoch_participation =
+      if epoch == Accessors.get_current_epoch(state) do
+        state.current_epoch_participation
+      else
+        state.previous_epoch_participation
+      end
+
+    state.validators
+    |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
+      {not v.slashed and Predicates.is_active_validator(v, epoch) and
+         Predicates.has_flag(participation, flag_index), v.effective_balance}
+    end)
+    |> Aja.Vector.filter(&elem(&1, 0))
+    |> Aja.Enum.reduce(0, fn {true, balance}, acc -> acc + balance end)
   end
 
   defp weigh_justification_and_finalization(

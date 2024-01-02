@@ -174,23 +174,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end
   end
 
-  def get_total_participating_balance(state, flag_index, epoch) do
-    epoch_participation =
-      if epoch == get_current_epoch(state) do
-        state.current_epoch_participation
-      else
-        state.previous_epoch_participation
-      end
-
-    state.validators
-    |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
-      {not v.slashed and Predicates.is_active_validator(v, epoch) and
-         Predicates.has_flag(participation, flag_index), v.effective_balance}
-    end)
-    |> Aja.Vector.filter(&elem(&1, 0))
-    |> Aja.Enum.reduce(0, fn {true, balance}, acc -> acc + balance end)
-  end
-
   @doc """
   Return the randao mix at a recent ``epoch``.
   """
