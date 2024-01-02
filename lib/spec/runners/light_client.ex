@@ -1,4 +1,5 @@
 defmodule LightClientTestRunner do
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
   use ExUnit.CaseTemplate
   use TestRunner
@@ -47,6 +48,8 @@ defmodule LightClientTestRunner do
         object_root
       )
 
+    IO.inspect(branch, label: "branch")
+    IO.inspect(Misc.get_merkle_proof_by_branch([leaf] ++ branch), label: "res")
     assert true == res
   end
 end
