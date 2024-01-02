@@ -147,7 +147,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the set of validator indices that are both active and unslashed for the given ``flag_index`` and ``epoch``.
   """
   @spec get_unslashed_participating_indices(BeaconState.t(), integer, Types.epoch()) ::
-          {:ok, MapSet.t()} | {:error, binary()}
+          {:ok, MapSet.t()} | {:error, String.t()}
   def get_unslashed_participating_indices(%BeaconState{} = state, flag_index, epoch) do
     if epoch in [get_previous_epoch(state), get_current_epoch(state)] do
       epoch_participation =
@@ -172,6 +172,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     else
       {:error, "epoch is not current or previous epochs"}
     end
+  end
+
+  def get_total_participating_balance(state, flag_index, epoch) do
+    epoch_participation =
+      if epoch == get_current_epoch(state) do
+        state.current_epoch_participation
+      else
+        state.previous_epoch_participation
+      end
+
+    state.validators
+    |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
+      {not v.slashed and Predicates.is_active_validator(v, epoch) and
+         Predicates.has_flag(participation, flag_index), v.effective_balance}
+    end)
+    |> Aja.Vector.filter(&elem(&1, 0))
+    |> Aja.Enum.reduce(0, fn {true, balance}, acc -> acc + balance end)
   end
 
   @doc """
@@ -349,7 +366,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           Types.AttestationData.t(),
           Types.uint64()
         ) ::
-          {:ok, list(Types.uint64())} | {:error, binary()}
+          {:ok, list(Types.uint64())} | {:error, String.t()}
   def get_attestation_participation_flag_indices(state, data, inclusion_delay) do
     with :ok <- check_valid_source(state, data),
          {:ok, target_root} <-

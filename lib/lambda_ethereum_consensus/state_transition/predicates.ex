@@ -69,7 +69,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   """
   @spec has_flag(Types.participation_flags(), integer) :: boolean
   def has_flag(participation_flags, flag_index) do
-    flag = 2 ** flag_index
+    flag = 1 <<< flag_index
     (participation_flags &&& flag) === flag
   end
 
