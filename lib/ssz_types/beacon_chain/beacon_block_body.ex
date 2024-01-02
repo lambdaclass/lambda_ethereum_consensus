@@ -23,39 +23,39 @@ defmodule SszTypes.BeaconBlockBody do
   defstruct fields
 
   @type t :: %__MODULE__{
-          randao_reveal: SszTypes.bls_signature(),
-          eth1_data: SszTypes.Eth1Data.t(),
-          graffiti: SszTypes.bytes32(),
+          randao_reveal: Types.bls_signature(),
+          eth1_data: Types.Eth1Data.t(),
+          graffiti: Types.bytes32(),
           # max 16
-          proposer_slashings: list(SszTypes.ProposerSlashing.t()),
+          proposer_slashings: list(Types.ProposerSlashing.t()),
           # max 2
-          attester_slashings: list(SszTypes.AttesterSlashing.t()),
+          attester_slashings: list(Types.AttesterSlashing.t()),
           # max 128
-          attestations: list(SszTypes.Attestation.t()),
+          attestations: list(Types.Attestation.t()),
           # max 16
-          deposits: list(SszTypes.Deposit.t()),
+          deposits: list(Types.Deposit.t()),
           # max 16
-          voluntary_exits: list(SszTypes.VoluntaryExit.t()),
-          sync_aggregate: SszTypes.SyncAggregate.t(),
-          execution_payload: SszTypes.ExecutionPayload.t(),
+          voluntary_exits: list(Types.VoluntaryExit.t()),
+          sync_aggregate: Types.SyncAggregate.t(),
+          execution_payload: Types.ExecutionPayload.t(),
           # max 16
-          bls_to_execution_changes: list(SszTypes.BLSToExecutionChange.t())
+          bls_to_execution_changes: list(Types.BLSToExecutionChange.t())
         }
 
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
       {:randao_reveal, {:bytes, 96}},
-      {:eth1_data, SszTypes.Eth1Data},
+      {:eth1_data, Types.Eth1Data},
       {:graffiti, {:bytes, 32}},
-      {:proposer_slashings, {:list, SszTypes.ProposerSlashing, 16}},
-      {:attester_slashings, {:list, SszTypes.AttesterSlashing, 2}},
-      {:attestations, {:list, SszTypes.Attestation, 128}},
-      {:deposits, {:list, SszTypes.Deposit, 16}},
-      {:voluntary_exits, {:list, SszTypes.VoluntaryExit, 16}},
-      {:sync_aggregate, SszTypes.SyncAggregate},
-      {:execution_payload, SszTypes.ExecutionPayload},
-      {:bls_to_execution_changes, {:list, SszTypes.BLSToExecutionChange, 16}}
+      {:proposer_slashings, {:list, Types.ProposerSlashing, 16}},
+      {:attester_slashings, {:list, Types.AttesterSlashing, 2}},
+      {:attestations, {:list, Types.Attestation, 128}},
+      {:deposits, {:list, Types.Deposit, 16}},
+      {:voluntary_exits, {:list, Types.VoluntaryExit, 16}},
+      {:sync_aggregate, Types.SyncAggregate},
+      {:execution_payload, Types.ExecutionPayload},
+      {:bls_to_execution_changes, {:list, Types.BLSToExecutionChange, 16}}
     ]
   end
 end

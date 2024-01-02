@@ -41,13 +41,13 @@ defmodule EpochProcessingTestRunner do
     pre =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
-        SszTypes.BeaconState
+        Types.BeaconState
       )
 
     post =
       SpecTestUtils.read_ssz_from_optional_file!(
         case_dir <> "/post.ssz_snappy",
-        SszTypes.BeaconState
+        Types.BeaconState
       )
 
     handle_case(testcase.handler, pre, post)
