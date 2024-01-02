@@ -14,6 +14,7 @@ defmodule Types.SyncAggregate do
   defstruct fields
 
   @type t :: %__MODULE__{
+          # max size SYNC_COMMITTEE_SIZE
           sync_committee_bits: Types.bitvector(),
           sync_committee_signature: Types.bls_signature()
         }
@@ -21,7 +22,7 @@ defmodule Types.SyncAggregate do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:sync_committee_bits, {:bitvector, 512}},
+      {:sync_committee_bits, {:bitvector, ChainSpec.get("SYNC_COMMITTEE_SIZE")}},
       {:sync_committee_signature, {:bytes, 96}}
     ]
   end

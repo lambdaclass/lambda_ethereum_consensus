@@ -31,20 +31,20 @@ defmodule Types.ExecutionPayload do
           fee_recipient: Types.execution_address(),
           state_root: Types.root(),
           receipts_root: Types.root(),
-          # size BYTES_PER_LOGS_BLOOM 256
+          # size BYTES_PER_LOGS_BLOOM
           logs_bloom: Types.bitvector(),
           prev_randao: Types.bytes32(),
           block_number: Types.uint64(),
           gas_limit: Types.uint64(),
           gas_used: Types.uint64(),
           timestamp: Types.uint64(),
-          # size MAX_EXTRA_DATA_BYTES 32
+          # size MAX_EXTRA_DATA_BYTES
           extra_data: Types.bitlist(),
           base_fee_per_gas: Types.uint256(),
           block_hash: Types.hash32(),
-          # size MAX_TRANSACTIONS_PER_PAYLOAD 1048576
+          # size MAX_TRANSACTIONS_PER_PAYLOAD
           transactions: list(Types.transaction()),
-          # size MAX_TRANSACTIONS_PER_PAYLOAD 1048576
+          # size MAX_TRANSACTIONS_PER_PAYLOAD
           withdrawals: list(Types.Withdrawal.t())
         }
 
@@ -63,17 +63,17 @@ defmodule Types.ExecutionPayload do
       {:fee_recipient, {:bytes, 20}},
       {:state_root, {:bytes, 32}},
       {:receipts_root, {:bytes, 32}},
-      {:logs_bloom, {:bitvector, 256}},
+      {:logs_bloom, {:bitvector, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
       {:prev_randao, {:bytes, 32}},
       {:block_number, {:int, 64}},
       {:gas_limit, {:int, 64}},
       {:gas_used, {:int, 64}},
       {:timestamp, {:int, 64}},
-      {:extra_data, {:bitlist, 32}},
+      {:extra_data, {:bitlist, ChainSpec.get("MAX_EXTRA_DATA_BYTES")}},
       {:base_fee_per_gas, {:int, 256}},
       {:block_hash, {:bytes, 32}},
-      {:transactions, {:list, {:bytes, 8}, 1_048_576}},
-      {:withdrawals, {:list, Types.Withdrawal, 1_048_576}}
+      {:transactions, {:list, {:bytes, 8}, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}},
+      {:withdrawals, {:list, Types.Withdrawal, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}}
     ]
   end
 end

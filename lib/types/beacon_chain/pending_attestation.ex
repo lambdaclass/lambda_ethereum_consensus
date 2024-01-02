@@ -16,7 +16,7 @@ defmodule Types.PendingAttestation do
   defstruct fields
 
   @type t :: %__MODULE__{
-          # max size is 2048
+          # max size is MAX_VALIDATORS_PER_COMMITTEE
           aggregation_bits: Types.bitlist(),
           data: Types.AttestationData.t(),
           inclusion_delay: Types.slot(),
@@ -26,7 +26,7 @@ defmodule Types.PendingAttestation do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:aggregation_bits, {:bitlist, 2048}},
+      {:aggregation_bits, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
       {:data, Types.AttestationData},
       {:inclusion_delay, {:int, 64}},
       {:proposer_index, {:int, 64}}

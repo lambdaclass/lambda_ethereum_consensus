@@ -98,6 +98,7 @@ defmodule Types.BeaconState do
           next_withdrawal_validator_index: Types.withdrawal_index(),
           # Deep history valid from Capella onwards
           # [New in Capella]
+          # HISTORICAL_ROOTS_LIMIT
           historical_summaries: list(Types.HistoricalSummary.t())
         }
 
@@ -239,29 +240,34 @@ defmodule Types.BeaconState do
       {:slot, {:int, 64}},
       {:fork, Types.Fork},
       {:latest_block_header, Types.BeaconBlockHeader},
-      {:block_roots, {:list, {:bytes, 32}, 8192}},
-      {:state_roots, {:list, {:bytes, 32}, 8192}},
-      {:historical_roots, {:list, {:bytes, 32}, 16_777_216}},
+      {:block_roots, {:list, {:bytes, 32}, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
+      {:state_roots, {:list, {:bytes, 32}, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
+      {:historical_roots, {:list, {:bytes, 32}, ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}},
       {:eth1_data, Types.Eth1Data},
-      {:eth1_data_votes, {:list, Types.Eth1Data, 2048}},
+      {:eth1_data_votes,
+       {:list, Types.Eth1Data,
+        ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH")}},
       {:eth1_deposit_index, {:int, 64}},
-      {:validators, {:list, Types.Validator, 1_099_511_627_776}},
-      {:balances, {:list, {:int, 64}, 1_099_511_627_776}},
-      {:randao_mixes, {:list, {:bytes, 32}, 65_536}},
-      {:slashings, {:list, {:int, 64}, 8192}},
-      {:previous_epoch_participation, {:list, {:int, 8}, 1_099_511_627_776}},
-      {:current_epoch_participation, {:list, {:int, 8}, 1_099_511_627_776}},
+      {:validators, {:list, Types.Validator, ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:balances, {:list, {:int, 64}, ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:randao_mixes, {:list, {:bytes, 32}, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")}},
+      {:slashings, {:list, {:int, 64}, ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")}},
+      {:previous_epoch_participation,
+       {:list, {:int, 8}, ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:current_epoch_participation,
+       {:list, {:int, 8}, ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
       {:justification_bits, {:bitvector, 4}},
       {:previous_justified_checkpoint, Types.Checkpoint},
       {:current_justified_checkpoint, Types.Checkpoint},
       {:finalized_checkpoint, Types.Checkpoint},
-      {:inactivity_scores, {:list, {:int, 64}, 1_099_511_627_776}},
+      {:inactivity_scores, {:list, {:int, 64}, ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
       {:current_sync_committee, Types.SyncCommittee},
       {:next_sync_committee, Types.SyncCommittee},
       {:latest_execution_payload_header, Types.ExecutionPayloadHeader},
       {:next_withdrawal_index, {:int, 64}},
       {:next_withdrawal_validator_index, {:int, 64}},
-      {:historical_summaries, {:list, Types.HistoricalSummary, 16_777_216}}
+      {:historical_summaries,
+       {:list, Types.HistoricalSummary, ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}}
     ]
   end
 end

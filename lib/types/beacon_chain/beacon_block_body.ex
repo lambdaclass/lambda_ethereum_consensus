@@ -26,19 +26,19 @@ defmodule Types.BeaconBlockBody do
           randao_reveal: Types.bls_signature(),
           eth1_data: Types.Eth1Data.t(),
           graffiti: Types.bytes32(),
-          # max 16
+          # max MAX_PROPOSER_SLASHINGS
           proposer_slashings: list(Types.ProposerSlashing.t()),
-          # max 2
+          # max MAX_ATTESTER_SLASHINGS
           attester_slashings: list(Types.AttesterSlashing.t()),
-          # max 128
+          # max MAX_ATTESTATIONS
           attestations: list(Types.Attestation.t()),
-          # max 16
+          # max MAX_DEPOSITS
           deposits: list(Types.Deposit.t()),
-          # max 16
+          # max MAX_VOLUNTARY_EXITS
           voluntary_exits: list(Types.VoluntaryExit.t()),
           sync_aggregate: Types.SyncAggregate.t(),
           execution_payload: Types.ExecutionPayload.t(),
-          # max 16
+          # max MAX_BLS_TO_EXECUTION_CHANGES
           bls_to_execution_changes: list(Types.BLSToExecutionChange.t())
         }
 
@@ -48,14 +48,17 @@ defmodule Types.BeaconBlockBody do
       {:randao_reveal, {:bytes, 96}},
       {:eth1_data, Types.Eth1Data},
       {:graffiti, {:bytes, 32}},
-      {:proposer_slashings, {:list, Types.ProposerSlashing, 16}},
-      {:attester_slashings, {:list, Types.AttesterSlashing, 2}},
-      {:attestations, {:list, Types.Attestation, 128}},
-      {:deposits, {:list, Types.Deposit, 16}},
-      {:voluntary_exits, {:list, Types.VoluntaryExit, 16}},
+      {:proposer_slashings,
+       {:list, Types.ProposerSlashing, ChainSpec.get("MAX_PROPOSER_SLASHINGS")}},
+      {:attester_slashings,
+       {:list, Types.AttesterSlashing, ChainSpec.get("MAX_ATTESTER_SLASHINGS")}},
+      {:attestations, {:list, Types.Attestation, ChainSpec.get("MAX_ATTESTATIONS")}},
+      {:deposits, {:list, Types.Deposit, ChainSpec.get("MAX_DEPOSITS")}},
+      {:voluntary_exits, {:list, Types.VoluntaryExit, ChainSpec.get("MAX_VOLUNTARY_EXITS")}},
       {:sync_aggregate, Types.SyncAggregate},
       {:execution_payload, Types.ExecutionPayload},
-      {:bls_to_execution_changes, {:list, Types.BLSToExecutionChange, 16}}
+      {:bls_to_execution_changes,
+       {:list, Types.BLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")}}
     ]
   end
 end

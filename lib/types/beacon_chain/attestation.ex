@@ -15,7 +15,7 @@ defmodule Types.Attestation do
   defstruct fields
 
   @type t :: %__MODULE__{
-          # max validators per committee is 2048
+          # MAX_VALIDATORS_PER_COMMITTEE
           aggregation_bits: Types.bitlist(),
           data: Types.AttestationData.t(),
           signature: Types.bls_signature()
@@ -24,7 +24,7 @@ defmodule Types.Attestation do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:aggregation_bits, {:bitlist, 2048}},
+      {:aggregation_bits, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
       {:data, Types.AttestationData},
       {:signature, {:bytes, 96}}
     ]
