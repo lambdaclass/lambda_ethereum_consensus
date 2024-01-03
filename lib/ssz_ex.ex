@@ -100,7 +100,9 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp encode_bitvector(bit_vector, size) when bit_size(bit_vector) == size, do: {:ok, bit_vector}
+  defp encode_bitvector(bit_vector, size) when bit_size(bit_vector) == size,
+    do: {:ok, BitVector.to_bytes(bit_vector)}
+
   defp encode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
 
   defp encode_variable_size_list(list, _basic_type, max_size) when length(list) > max_size,
@@ -147,10 +149,10 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp decode_bitlist(bit_list, max_size) do
     num_bytes = byte_size(bit_list)
-    num_bits = num_bytes * @bits_per_byte
-    padding = num_bits - bit_size(bit_list)
-    formatted_bit_list = <<0::size(padding), bit_list::bitstring>>
-    len = length_of_bitlist(formatted_bit_list)
+    num_bits = bit_size(bit_list)
+    len = length_of_bitlist(bit_list)
+    <<pre::size(num_bits - 8), last_byte::8>> = bit_list
+    decoded = <<pre::size(num_bits - 8), remove_trailing_bit(<<last_byte>>)::bitstring>>
 
     cond do
       len < 0 ->
@@ -163,20 +165,7 @@ defmodule LambdaEthereumConsensus.SszEx do
         {:error, "out of bounds"}
 
       true ->
-        pre_trailing_bits_size = (num_bytes - 1) * @bits_per_byte
-        <<pre::size(pre_trailing_bits_size), last_byte::binary>> = formatted_bit_list
-        <<_trailing::1, last::size(7)>> = last_byte
-
-        cond do
-          last == 0 ->
-            {:ok, pre}
-
-          pre == 0 ->
-            {:ok, <<last::size(len)>>}
-
-          true ->
-            {:ok, <<pre::size(pre_trailing_bits_size), last::size(len - pre_trailing_bits_size)>>}
-        end
+        {:ok, decoded}
     end
   end
 
@@ -493,6 +482,17 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp leading_zeros(<<0::6, 1::1, _::1>>), do: 6
   defp leading_zeros(<<0::7, 1::1>>), do: 7
   defp leading_zeros(<<0::8>>), do: 8
+
+  @spec remove_trailing_bit(binary()) :: bitstring()
+  defp remove_trailing_bit(<<1::1, rest::7>>), do: <<rest::7>>
+  defp remove_trailing_bit(<<0::1, 1::1, rest::6>>), do: <<rest::6>>
+  defp remove_trailing_bit(<<0::2, 1::1, rest::5>>), do: <<rest::5>>
+  defp remove_trailing_bit(<<0::3, 1::1, rest::4>>), do: <<rest::4>>
+  defp remove_trailing_bit(<<0::4, 1::1, rest::3>>), do: <<rest::3>>
+  defp remove_trailing_bit(<<0::5, 1::1, rest::2>>), do: <<rest::2>>
+  defp remove_trailing_bit(<<0::6, 1::1, rest::1>>), do: <<rest::1>>
+  defp remove_trailing_bit(<<0::7, 1::1>>), do: <<0::0>>
+  defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 
   defp pack(value, size) when is_integer(value) and value >= 0 do
     pad = @bits_per_chunk - size
