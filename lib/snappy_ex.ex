@@ -66,6 +66,10 @@ defmodule LambdaEthereumConsensus.SnappyEx do
     end
   end
 
+  defp process_chunks(chunks, acc, size, 0x01)
+       when byte_size(chunks) < size || byte_size(chunks) > 65540,
+       do: {:error, "invalid size: uncompressed data chunks"}
+
   defp process_chunks(chunks, acc, size, 0x01) do
     # process uncompressed data
     <<checksum::binary-size(4), uncompressed_data::binary-size(size - 4),
