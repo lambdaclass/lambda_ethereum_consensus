@@ -67,7 +67,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   def handle_cast({:set_attestation_subnet, i, set}, _from, metadata) do
     metadata = %Metadata{
       metadata |
-      attnets: if set, do: BitVector.set(metadata.attnets, i), else: BitVector.clear(metadata.attnets, i)
+      attnets: if set, do: BitVector.set(metadata.attnets, i), else: BitVector.clear(metadata.attnets, i),
       seq_number: metadata.seq_number + 1
     }
     {:noreply, metadata}
@@ -77,7 +77,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   def handle_cast({:set_sync_committee, i, set}, _from, metadata) do
     metadata = %Metadata{
       metadata |
-      syncnets: if set, do: BitVector.set(metadata.syncnets, i), else: BitVector.clear(metadata.syncnets, i)
+      syncnets: if set, do: BitVector.set(metadata.syncnets, i), else: BitVector.clear(metadata.syncnets, i),
       seq_number: metadata.seq_number + 1
     }
     {:noreply, metadata}
