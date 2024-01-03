@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.SnappyEx do
+defmodule SnappyEx do
   @moduledoc """
     SSZ library in Elixir
   """
@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.SnappyEx do
     end
   end
 
-  defp process_chunks(chunks, acc, size, 0xFF) when byte_size(chunks) < size,
+  defp process_chunks(chunks, _acc, size, 0xFF) when byte_size(chunks) < size,
     do: {:error, "invalid size: stream identifier chunks"}
 
   defp process_chunks(chunks, acc, size, 0xFF) do
@@ -47,11 +47,11 @@ defmodule LambdaEthereumConsensus.SnappyEx do
     {:ok, {acc, remaining_chunks}}
   end
 
-  defp process_chunks(chunks, acc, size, 0x00)
+  defp process_chunks(chunks, _acc, size, 0x00)
        when byte_size(chunks) < size,
        do: {:error, "invalid size: compressed data chunks"}
 
-  defp process_chunks(chunks, acc, size, 0x00) when byte_size(chunks) > 65_540,
+  defp process_chunks(chunks, _acc, _size, 0x00) when byte_size(chunks) > 65_540,
     do: {:error, "invalid size: compressed data chunks"}
 
   defp process_chunks(chunks, acc, size, 0x00) do
@@ -70,11 +70,11 @@ defmodule LambdaEthereumConsensus.SnappyEx do
     end
   end
 
-  defp process_chunks(chunks, acc, size, 0x01)
+  defp process_chunks(chunks, _acc, size, 0x01)
        when byte_size(chunks) < size,
        do: {:error, "invalid size: uncompressed data chunks"}
 
-  defp process_chunks(chunks, acc, size, 0x01)
+  defp process_chunks(chunks, _acc, _size, 0x01)
        when byte_size(chunks) > 65_540,
        do: {:error, "invalid size: uncompressed data chunks"}
 
@@ -83,13 +83,13 @@ defmodule LambdaEthereumConsensus.SnappyEx do
     <<checksum::binary-size(4), uncompressed_data::binary-size(size - 4),
       remaining_chunks::binary>> = chunks
 
-    with {:ok, computed_checksum} <- :erlang.crc32(uncompressed_data) do
-      if computed_checksum == checksum do
-        acc = <<acc::binary, uncompressed_data::binary>>
-        {:ok, {acc, remaining_chunks}}
-      else
-        {:error, "uncompressed chunks checksum invalid"}
-      end
+    computed_checksum = :erlang.crc32(uncompressed_data)
+
+    if computed_checksum == checksum do
+      acc = <<acc::binary, uncompressed_data::binary>>
+      {:ok, {acc, remaining_chunks}}
+    else
+      {:error, "uncompressed chunks checksum invalid"}
     end
   end
 end
