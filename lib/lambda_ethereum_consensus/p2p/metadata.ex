@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   use Supervisor
 
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias SszTypes.Metadata
+  alias Types.Metadata
 
   ##########################
   ### Public API
@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec get_seq_number() :: SszTypes.uint64()
+  @spec get_seq_number() :: Types.uint64()
   def get_seq_number do
     [seq_number] = get_metadata_attrs([:seq_number])
     seq_number
