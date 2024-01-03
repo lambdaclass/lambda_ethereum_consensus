@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   """
 
   use GenServer
-  use Supervisor
 
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.Metadata
@@ -28,12 +27,12 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
     GenServer.call(__MODULE__, :get_metadata)
   end
 
-  @spec set_attestation_subnet(integer(), boolean())
+  @spec set_attestation_subnet(integer(), boolean()) :: none()
   def set_attestation_subnet(i, set) do
     GenServer.call(__MODULE__, {:set_attestation_subnet, i, set})
   end
 
-  @spec set_sync_committee(integer(), boolean())
+  @spec set_sync_committee(integer(), boolean()) :: none()
   def set_sync_committee(i, set) do
     GenServer.call(__MODULE__, {:set_sync_committee, i, set})
   end
@@ -42,7 +41,8 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   ### GenServer Callbacks
   ##########################
 
-  @impl GenServer
+  @impl true
+  @spec init(any) :: Metadata.t()
   def init(_opts) do
     {:ok,
      %Metadata{
@@ -52,19 +52,19 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
      }}
   end
 
-  @impl GenServer
+  @impl true
   def handle_call({:get_metadata_attrs, attrs}, _from, metadata) do
     values = Enum.map(attrs, &Map.fetch!(metadata, &1))
     {:reply, values, metadata}
   end
 
-  @impl GenServer
+  @impl true
   def handle_call(:get_metadata, _from, metadata) do
     {:reply, metadata}
   end
 
-  @impl GenServer
-  def handle_cast({:set_attestation_subnet, i, set}, _from, metadata) do
+  @impl true
+  def handle_cast({:set_attestation_subnet, i, set}, metadata) do
     attnets =
       if set, do: BitVector.set(metadata.attnets, i), else: BitVector.clear(metadata.attnets, i)
 
@@ -76,8 +76,8 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
      }}
   end
 
-  @impl GenServer
-  def handle_cast({:set_sync_committee, i, set}, _from, metadata) do
+  @impl true
+  def handle_cast({:set_sync_committee, i, set}, metadata) do
     syncnets =
       if set, do: BitVector.set(metadata.syncnets, i), else: BitVector.clear(metadata.syncnets, i)
 
