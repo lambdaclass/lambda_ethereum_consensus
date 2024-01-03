@@ -4,9 +4,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.Store.BlockStore
 
   require Logger
 
