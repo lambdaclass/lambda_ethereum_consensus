@@ -6,6 +6,7 @@ defmodule SszStaticTestRunner do
 
   use ExUnit.CaseTemplate
   use TestRunner
+  import Aja
 
   @disabled [
     "ContributionAndProof",
@@ -63,14 +64,10 @@ defmodule SszStaticTestRunner do
     Stream.zip(actual, expected) |> Enum.map(fn {a, e} -> to_struct_checked(a, e) end)
   end
 
-  # We are matching against an opaque struct, so dialyzer complains.
-  # However, we have no other way of doing this.
-  # TODO: remove if/when https://github.com/sabiwara/aja/pull/4 is merged
-  @dialyzer {:no_opaque, to_struct_checked: 2}
-  defp to_struct_checked(%Aja.Vector{} = actual, %Aja.Vector{} = expected) do
+  defp to_struct_checked(vec(_) = actual, vec(_) = expected) do
     actual
-    |> Aja.Vector.to_list()
-    |> to_struct_checked(Aja.Vector.to_list(expected))
+    |> Aja.Enum.to_list()
+    |> to_struct_checked(Aja.Enum.to_list(expected))
     |> Aja.Vector.new()
   end
 
