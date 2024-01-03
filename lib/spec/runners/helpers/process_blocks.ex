@@ -14,13 +14,13 @@ defmodule Helpers.ProcessBlocks do
     pre =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/pre.ssz_snappy",
-        SszTypes.BeaconState
+        Types.BeaconState
       )
 
     post =
       SpecTestUtils.read_ssz_from_optional_file!(
         case_dir <> "/post.ssz_snappy",
-        SszTypes.BeaconState
+        Types.BeaconState
       )
 
     meta =
@@ -33,7 +33,7 @@ defmodule Helpers.ProcessBlocks do
       |> Enum.map(fn index ->
         SpecTestUtils.read_ssz_from_file!(
           case_dir <> "/blocks_#{index}.ssz_snappy",
-          SszTypes.SignedBeaconBlock
+          Types.SignedBeaconBlock
         )
       end)
 

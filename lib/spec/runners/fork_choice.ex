@@ -8,7 +8,7 @@ defmodule ForkChoiceTestRunner do
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Helpers
-  alias SszTypes.Store
+  alias Types.Store
 
   @disabled_on_block_cases [
     # "basic",
@@ -90,13 +90,13 @@ defmodule ForkChoiceTestRunner do
     anchor_state =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/anchor_state.ssz_snappy",
-        SszTypes.BeaconState
+        Types.BeaconState
       )
 
     anchor_block =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/anchor_block.ssz_snappy",
-        SszTypes.BeaconBlock
+        Types.BeaconBlock
       )
 
     steps =
@@ -142,7 +142,7 @@ defmodule ForkChoiceTestRunner do
     block =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/#{file}.ssz_snappy",
-        SszTypes.SignedBeaconBlock
+        Types.SignedBeaconBlock
       )
 
     assert Ssz.hash_tree_root!(block) == Base.decode16!(hash, case: :mixed)
@@ -160,7 +160,7 @@ defmodule ForkChoiceTestRunner do
     attestation =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/#{file}.ssz_snappy",
-        SszTypes.Attestation
+        Types.Attestation
       )
 
     assert Ssz.hash_tree_root!(attestation) == Base.decode16!(hash, case: :mixed)
@@ -171,7 +171,7 @@ defmodule ForkChoiceTestRunner do
     attester_slashing =
       SpecTestUtils.read_ssz_from_file!(
         case_dir <> "/#{file}.ssz_snappy",
-        SszTypes.AttesterSlashing
+        Types.AttesterSlashing
       )
 
     assert Ssz.hash_tree_root!(attester_slashing) == Base.decode16!(hash, case: :mixed)

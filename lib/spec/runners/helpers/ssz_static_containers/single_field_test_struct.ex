@@ -12,7 +12,7 @@ defmodule Helpers.SszStaticContainers.SingleFieldTestStruct do
   defstruct fields
 
   @type t :: %__MODULE__{
-          A: SszTypes.uint8()
+          A: Types.uint8()
         }
 
   @impl LambdaEthereumConsensus.Container

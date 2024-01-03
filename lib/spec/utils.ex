@@ -2,6 +2,7 @@ defmodule SpecTestUtils do
   @moduledoc """
   Utilities for spec tests.
   """
+  alias LambdaEthereumConsensus.SszEx
 
   @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
 
@@ -31,9 +32,13 @@ defmodule SpecTestUtils do
   def sanitize_yaml({"transactions", list}),
     do: {:transactions, Enum.map(list, &parse_as_string/1)}
 
+  def sanitize_yaml({"validators", list}) do
+    {:validators, list |> Stream.map(&sanitize_yaml/1) |> Aja.Vector.new()}
+  end
+
   def sanitize_yaml({k, v}), do: {String.to_atom(k), sanitize_yaml(v)}
   def sanitize_yaml("0x"), do: <<0>>
-  def sanitize_yaml("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
+  def sanitize_yaml("0x" <> hash), do: Base.decode16!(hash, case: :lower)
 
   def sanitize_yaml(x) when is_binary(x) do
     case Integer.parse(x) do
@@ -61,9 +66,29 @@ defmodule SpecTestUtils do
     end
   end
 
+  @spec read_ssz_ex_from_optional_file!(binary, module) :: any() | nil
+  def read_ssz_ex_from_optional_file!(file_path, ssz_type) do
+    if File.exists?(file_path) do
+      compressed = File.read!(file_path)
+      {:ok, decompressed} = :snappyer.decompress(compressed)
+      {:ok, ssz_object} = SszEx.decode(decompressed, ssz_type)
+      ssz_object
+    else
+      nil
+    end
+  end
+
   @spec read_ssz_from_file!(binary, module) :: any()
   def read_ssz_from_file!(file_path, ssz_type) do
     case read_ssz_from_optional_file!(file_path, ssz_type) do
+      nil -> raise "File not found: #{file_path}"
+      ssz_object -> ssz_object
+    end
+  end
+
+  @spec read_ssz_ex_from_file!(binary, module) :: any()
+  def read_ssz_ex_from_file!(file_path, ssz_type) do
+    case read_ssz_ex_from_optional_file!(file_path, ssz_type) do
       nil -> raise "File not found: #{file_path}"
       ssz_object -> ssz_object
     end
@@ -73,7 +98,7 @@ defmodule SpecTestUtils do
   def resolve_type_from_handler(handler, map) do
     case Map.get(map, handler) do
       nil -> raise "Unknown case #{handler}"
-      type -> Module.concat(SszTypes, type)
+      type -> Module.concat(Types, type)
     end
   end
 

@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice.CheckpointSync
-  alias LambdaEthereumConsensus.P2P.BlockDownloader
+  alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
 
   def start_link(opts) do
@@ -29,21 +29,35 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   def init([checkpoint_url]) do
-    Logger.info("[Sync] Initiating checkpoint sync.")
+    Logger.info("[Checkpoint sync] Initiating checkpoint sync.")
 
-    case CheckpointSync.sync_from_checkpoint(checkpoint_url) do
-      {:ok, %SszTypes.BeaconState{} = anchor_state} ->
-        Logger.info("[Checkpoint sync] Received beacon state at slot #{anchor_state.slot}.")
+    case Task.await_many(
+           [
+             Task.async(fn -> CheckpointSync.get_last_finalized_state(checkpoint_url) end),
+             Task.async(fn -> CheckpointSync.get_last_finalized_block(checkpoint_url) end)
+           ],
+           60_000
+         ) do
+      [
+        {:ok, anchor_state},
+        {:ok, anchor_block}
+      ] ->
+        Logger.info(
+          "[Checkpoint sync] Received beacon state and block at slot #{anchor_state.slot}."
+        )
 
-        {:ok, anchor_block} = fetch_anchor_block(anchor_state)
         init_children(anchor_state, anchor_block)
 
-      {:error, _} ->
-        :ignore
+      _ ->
+        Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block.")
+
+        System.stop(1)
     end
   end
 
   defp init_children(anchor_state, anchor_block) do
+    Cache.initialize_tables()
+
     children = [
       {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block}},
       {LambdaEthereumConsensus.ForkChoice.Tree, []}
@@ -60,7 +74,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     |> Ssz.hash_tree_root!()
   end
 
-  defp fetch_anchor_block(%SszTypes.BeaconState{} = anchor_state) do
+  defp fetch_anchor_block(%Types.BeaconState{} = anchor_state) do
     block_root = get_latest_block_hash(anchor_state)
 
     case BlockStore.get_block(block_root) do
@@ -68,20 +82,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         {:ok, anchor_block}
 
       :not_found ->
-        Logger.info("[Sync] Current block not found. Fetching from peers...")
-        request_block_to_peers(block_root)
-    end
-  end
-
-  defp request_block_to_peers(block_root) do
-    case BlockDownloader.request_block_by_root(block_root) do
-      {:ok, signed_block} ->
-        Logger.info("[Sync] Initial block fetched.")
-        {:ok, signed_block}
-
-      {:error, message} ->
-        Logger.warning("[Sync] Failed to fetch initial block: #{message}.\nRetrying...")
-        request_block_to_peers(block_root)
+        Logger.info("[Sync] Current block not found")
+        {:error, :not_found}
     end
   end
 end

@@ -6,10 +6,10 @@ defmodule Constants do
 
   ### Misc
 
-  @spec genesis_epoch() :: SszTypes.slot()
+  @spec genesis_epoch() :: Types.slot()
   def genesis_epoch, do: 0
 
-  @spec genesis_slot() :: SszTypes.slot()
+  @spec genesis_slot() :: Types.slot()
   def genesis_slot, do: 0
 
   @far_future_epoch 2 ** 64 - 1
@@ -35,48 +35,48 @@ defmodule Constants do
 
   ### Withdrawal prefixes
 
-  @spec bls_withdrawal_prefix() :: SszTypes.bytes1()
+  @spec bls_withdrawal_prefix() :: Types.bytes1()
   def bls_withdrawal_prefix, do: <<0>>
 
-  @spec eth1_address_withdrawal_prefix() :: SszTypes.bytes1()
+  @spec eth1_address_withdrawal_prefix() :: Types.bytes1()
   def eth1_address_withdrawal_prefix, do: <<1>>
 
   ### Domain types
 
-  @spec domain_beacon_proposer() :: SszTypes.domain_type()
+  @spec domain_beacon_proposer() :: Types.domain_type()
   def domain_beacon_proposer, do: <<0, 0, 0, 0>>
 
-  @spec domain_beacon_attester() :: SszTypes.domain_type()
+  @spec domain_beacon_attester() :: Types.domain_type()
   def domain_beacon_attester, do: <<1, 0, 0, 0>>
 
-  @spec domain_randao() :: SszTypes.domain_type()
+  @spec domain_randao() :: Types.domain_type()
   def domain_randao, do: <<2, 0, 0, 0>>
 
-  @spec domain_deposit() :: SszTypes.domain_type()
+  @spec domain_deposit() :: Types.domain_type()
   def domain_deposit, do: <<3, 0, 0, 0>>
 
-  @spec domain_voluntary_exit() :: SszTypes.domain_type()
+  @spec domain_voluntary_exit() :: Types.domain_type()
   def domain_voluntary_exit, do: <<4, 0, 0, 0>>
 
-  @spec domain_selection_proof() :: SszTypes.domain_type()
+  @spec domain_selection_proof() :: Types.domain_type()
   def domain_selection_proof, do: <<5, 0, 0, 0>>
 
-  @spec domain_aggregate_and_proof() :: SszTypes.domain_type()
+  @spec domain_aggregate_and_proof() :: Types.domain_type()
   def domain_aggregate_and_proof, do: <<6, 0, 0, 0>>
 
-  @spec domain_application_mask() :: SszTypes.domain_type()
+  @spec domain_application_mask() :: Types.domain_type()
   def domain_application_mask, do: <<0, 0, 0, 1>>
 
-  @spec domain_sync_committee() :: SszTypes.domain_type()
+  @spec domain_sync_committee() :: Types.domain_type()
   def domain_sync_committee, do: <<7, 0, 0, 0>>
 
-  @spec domain_sync_committee_selection_proof() :: SszTypes.domain_type()
+  @spec domain_sync_committee_selection_proof() :: Types.domain_type()
   def domain_sync_committee_selection_proof, do: <<8, 0, 0, 0>>
 
-  @spec domain_contribution_and_proof() :: SszTypes.domain_type()
+  @spec domain_contribution_and_proof() :: Types.domain_type()
   def domain_contribution_and_proof, do: <<9, 0, 0, 0>>
 
-  @spec domain_bls_to_execution_change() :: SszTypes.domain_type()
+  @spec domain_bls_to_execution_change() :: Types.domain_type()
   def domain_bls_to_execution_change, do: <<10, 0, 0, 0>>
 
   ### Participation flag indices

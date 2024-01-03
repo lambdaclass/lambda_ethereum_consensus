@@ -5,17 +5,17 @@ defmodule Fixtures.Block do
 
   alias Fixtures.Random
 
-  @spec signed_beacon_block :: SszTypes.SignedBeaconBlock.t()
+  @spec signed_beacon_block :: Types.SignedBeaconBlock.t()
   def signed_beacon_block do
-    %SszTypes.SignedBeaconBlock{
+    %Types.SignedBeaconBlock{
       message: beacon_block(),
       signature: Random.bls_signature()
     }
   end
 
-  @spec beacon_block :: SszTypes.BeaconBlock.t()
+  @spec beacon_block :: Types.BeaconBlock.t()
   def beacon_block do
-    %SszTypes.BeaconBlock{
+    %Types.BeaconBlock{
       parent_root: Random.root(),
       slot: Random.uint64(),
       proposer_index: Random.uint64(),
@@ -24,9 +24,9 @@ defmodule Fixtures.Block do
     }
   end
 
-  @spec beacon_block_body :: SszTypes.BeaconBlockBody.t()
+  @spec beacon_block_body :: Types.BeaconBlockBody.t()
   def beacon_block_body do
-    %SszTypes.BeaconBlockBody{
+    %Types.BeaconBlockBody{
       randao_reveal: Random.bls_signature(),
       eth1_data: eth1_data(),
       graffiti: Random.hash32(),
@@ -41,26 +41,26 @@ defmodule Fixtures.Block do
     }
   end
 
-  @spec eth1_data :: SszTypes.Eth1Data.t()
+  @spec eth1_data :: Types.Eth1Data.t()
   def eth1_data do
-    %SszTypes.Eth1Data{
+    %Types.Eth1Data{
       deposit_root: Random.root(),
       deposit_count: Random.uint64(),
       block_hash: Random.hash32()
     }
   end
 
-  @spec sync_aggregate :: SszTypes.SyncAggregate.t()
+  @spec sync_aggregate :: Types.SyncAggregate.t()
   def sync_aggregate do
-    %SszTypes.SyncAggregate{
+    %Types.SyncAggregate{
       sync_committee_bits: Random.sync_committee_bits(),
       sync_committee_signature: Random.bls_signature()
     }
   end
 
-  @spec execution_payload :: SszTypes.ExecutionPayload.t()
+  @spec execution_payload :: Types.ExecutionPayload.t()
   def execution_payload do
-    %SszTypes.ExecutionPayload{
+    %Types.ExecutionPayload{
       parent_hash: Random.hash32(),
       fee_recipient: Random.execution_address(),
       state_root: Random.root(),

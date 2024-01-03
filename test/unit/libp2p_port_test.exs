@@ -2,11 +2,6 @@ defmodule Unit.Libp2pPortTest do
   use ExUnit.Case
   alias LambdaEthereumConsensus.Libp2pPort
 
-  @bootnodes Application.compile_env(
-               :lambda_ethereum_consensus,
-               :discovery
-             )[:bootnodes]
-
   doctest Libp2pPort
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
@@ -64,10 +59,12 @@ defmodule Unit.Libp2pPortTest do
   end
 
   test "start discovery service and discover one peer" do
+    bootnodes = YamlElixir.read_from_file!("config/networks/mainnet/bootnodes.yaml")
+
     start_port(:discoverer,
       enable_discovery: true,
       discovery_addr: "0.0.0.0:25101",
-      bootnodes: @bootnodes,
+      bootnodes: bootnodes,
       new_peer_handler: self()
     )
 

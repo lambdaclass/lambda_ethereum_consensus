@@ -8,12 +8,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
-  alias SszTypes.Attestation
-  alias SszTypes.BeaconState
-  alias SszTypes.SignedBeaconBlock
-  alias SszTypes.Store
+  alias Types.Attestation
+  alias Types.BeaconState
+  alias Types.SignedBeaconBlock
+  alias Types.Store
 
-  @default_timeout 10_000
+  @default_timeout 20_000
 
   ##########################
   ### Public API
@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec get_finalized_checkpoint() :: {:ok, SszTypes.Checkpoint.t()}
+  @spec get_finalized_checkpoint() :: {:ok, Types.Checkpoint.t()}
   def get_finalized_checkpoint do
     [finalized_checkpoint] = get_store_attrs([:finalized_checkpoint])
     {:ok, finalized_checkpoint}
@@ -36,29 +36,29 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
-  @spec get_current_status_message() :: {:ok, SszTypes.StatusMessage.t()} | {:error, any}
+  @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
   def get_current_status_message do
     GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
   end
 
-  @spec has_block?(SszTypes.root()) :: boolean()
+  @spec has_block?(Types.root()) :: boolean()
   def has_block?(block_root) do
     block = get_block(block_root)
     block != nil
   end
 
-  @spec on_block(SszTypes.SignedBeaconBlock.t(), SszTypes.root()) :: :ok | :error
+  @spec on_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok | :error
   def on_block(signed_block, block_root) do
     :ok = BlockStore.store_block(signed_block)
     GenServer.call(__MODULE__, {:on_block, block_root, signed_block}, @default_timeout)
   end
 
-  @spec on_attestation(SszTypes.Attestation.t()) :: :ok
+  @spec on_attestation(Types.Attestation.t()) :: :ok
   def on_attestation(%Attestation{} = attestation) do
     GenServer.cast(__MODULE__, {:on_attestation, attestation})
   end
 
-  @spec notify_attester_slashing(SszTypes.AttesterSlashing.t()) :: :ok
+  @spec notify_attester_slashing(Types.AttesterSlashing.t()) :: :ok
   def notify_attester_slashing(attester_slashing) do
     GenServer.cast(__MODULE__, {:attester_slashing, attester_slashing})
   end
@@ -108,7 +108,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
 
     case Handlers.on_block(state, signed_block) do
-      {:ok, %SszTypes.Store{} = new_state} ->
+      {:ok, %Types.Store{} = new_state} ->
         BlockStore.store_block(signed_block)
         Logger.info("[Fork choice] Block #{signed_block.message.slot} added to the store.")
         {:reply, :ok, new_state}
@@ -143,7 +143,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_cast({:on_attestation, %Attestation{} = attestation}, %SszTypes.Store{} = state) do
+  def handle_cast({:on_attestation, %Attestation{} = attestation}, %Types.Store{} = state) do
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
     Logger.debug("[Fork choice] Adding attestation #{id} to the store.")
 
@@ -185,7 +185,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ### Private Functions
   ##########################
 
-  @spec get_block(SszTypes.root()) :: SszTypes.SignedBeaconBlock.t() | nil
+  @spec get_block(Types.root()) :: Types.SignedBeaconBlock.t() | nil
   def get_block(block_root) do
     GenServer.call(__MODULE__, {:get_block, block_root}, @default_timeout)
   end

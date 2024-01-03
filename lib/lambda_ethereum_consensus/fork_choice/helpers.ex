@@ -3,18 +3,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     Utility functions for the fork choice.
   """
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
-  alias SszTypes.BeaconBlock
-  alias SszTypes.BeaconState
-  alias SszTypes.Checkpoint
-  alias SszTypes.Store
+  alias Types.BeaconBlock
+  alias Types.BeaconState
+  alias Types.Checkpoint
+  alias Types.Store
 
   @spec current_status_message(Store.t()) ::
-          {:ok, SszTypes.StatusMessage.t()} | {:error, any}
+          {:ok, Types.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do
     with {:ok, head_root} <- get_head(store),
          {:ok, state} <- Map.fetch(store.block_states, head_root) do
       {:ok,
-       %SszTypes.StatusMessage{
+       %Types.StatusMessage{
          fork_digest:
            Misc.compute_fork_digest(state.fork.current_version, state.genesis_validators_root),
          finalized_root: state.finalized_checkpoint.root,
@@ -66,7 +66,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     end
   end
 
-  @spec get_head(Store.t()) :: {:ok, SszTypes.root()} | {:error, any}
+  @spec get_head(Store.t()) :: {:ok, Types.root()} | {:error, any}
   def get_head(%Store{} = store) do
     # Get filtered block tree that only includes viable branches
     blocks = get_filtered_block_tree(store)
@@ -91,15 +91,16 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   defp get_weight(%Store{} = store, root) do
     state = store.checkpoint_states[store.justified_checkpoint]
 
+    # PERF: use ``Aja.Vector.foldl``
     attestation_score =
       Accessors.get_active_validator_indices(state, Accessors.get_current_epoch(state))
-      |> Stream.reject(&Enum.at(state.validators, &1).slashed)
+      |> Stream.reject(&Aja.Vector.at!(state.validators, &1).slashed)
       |> Stream.filter(&Map.has_key?(store.latest_messages, &1))
       |> Stream.reject(&MapSet.member?(store.equivocating_indices, &1))
       |> Stream.filter(fn i ->
         Store.get_ancestor(store, store.latest_messages[i].root, store.blocks[root].slot) == root
       end)
-      |> Stream.map(&Enum.at(state.validators, &1).effective_balance)
+      |> Stream.map(&Aja.Vector.at!(state.validators, &1).effective_balance)
       |> Enum.sum()
 
     if store.proposer_boost_root == <<0::256>> or
