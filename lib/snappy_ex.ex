@@ -23,7 +23,8 @@ defmodule LambdaEthereumConsensus.SnappyEx do
     do: {:error, "invalid chunks metadata size"}
 
   defp process_chunk_metadata(chunks) do
-    {:ok, {<<chunk_id::size(8), chunks_size::size(24), chunks::binary>>}}
+    <<chunk_id::size(8), chunks_size::size(24), chunks::binary>> = chunks
+    {:ok, {chunk_id, chunks_size, chunks}}
   end
 
   defp validate_stream(chunks) do
@@ -42,13 +43,16 @@ defmodule LambdaEthereumConsensus.SnappyEx do
   defp process_chunks(chunks, acc, size, 0xFF) do
     # process stream identifier
     # according to the specs, you just ignore it given the size and contents are correct
-    <<stream_data::binary-size(size), remaining_chunks::binary>> = chunks
+    <<_stream_data::binary-size(size), remaining_chunks::binary>> = chunks
     {:ok, {acc, remaining_chunks}}
   end
 
   defp process_chunks(chunks, acc, size, 0x00)
-       when byte_size(chunks) < size || byte_size(chunks) > 65_540,
+       when byte_size(chunks) < size,
        do: {:error, "invalid size: compressed data chunks"}
+
+  defp process_chunks(chunks, acc, size, 0x00) when byte_size(chunks) > 65_540,
+    do: {:error, "invalid size: compressed data chunks"}
 
   defp process_chunks(chunks, acc, size, 0x00) do
     # process compressed data
@@ -67,7 +71,11 @@ defmodule LambdaEthereumConsensus.SnappyEx do
   end
 
   defp process_chunks(chunks, acc, size, 0x01)
-       when byte_size(chunks) < size || byte_size(chunks) > 65_540,
+       when byte_size(chunks) < size,
+       do: {:error, "invalid size: uncompressed data chunks"}
+
+  defp process_chunks(chunks, acc, size, 0x01)
+       when byte_size(chunks) > 65_540,
        do: {:error, "invalid size: uncompressed data chunks"}
 
   defp process_chunks(chunks, acc, size, 0x01) do
