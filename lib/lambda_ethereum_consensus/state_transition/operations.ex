@@ -194,12 +194,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec get_sync_committee_indices(Aja.Vector.t(Validator.t()), list(Types.bls_pubkey())) ::
           list(Types.validator_index())
   defp get_sync_committee_indices(validators, committee_pubkeys) do
-    pk_map = committee_pubkeys |> Stream.with_index() |> Map.new()
+    pk_map =
+      committee_pubkeys
+      |> Stream.with_index()
+      |> Enum.reduce(%{}, fn {pk, i}, map ->
+        Map.update(map, pk, [i], &[i | &1])
+      end)
 
     validators
     |> Stream.with_index()
     |> Stream.map(fn {%Validator{pubkey: pubkey}, i} -> {Map.get(pk_map, pubkey), i} end)
     |> Stream.reject(fn {v, _} -> is_nil(v) end)
+    |> Stream.flat_map(fn {list, i} -> list |> Stream.map(&{&1, i}) end)
     |> Enum.sort(fn {v1, _}, {v2, _} -> v1 <= v2 end)
     |> Enum.map(fn {_, i} -> i end)
   end
