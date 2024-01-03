@@ -35,6 +35,10 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   # turning it into an integer to use bitwise operations instead.
   @opaque t :: bitstring
 
+  defguard is_bitvector(value) when is_bitstring(value)
+
+  defguard bit_vector_size(value) when bit_size(value)
+
   @doc """
   Creates a new bit_vector from an integer or a bitstring.
   """
