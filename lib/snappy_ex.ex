@@ -23,7 +23,7 @@ defmodule SnappyEx do
     do: {:error, "invalid chunks metadata size"}
 
   defp process_chunk_metadata(chunks) do
-    <<chunk_id::size(8), chunks_size::size(24), chunks::binary>> = chunks
+    <<chunk_id::size(8), chunks_size::little-size(24), chunks::binary>> = chunks
     {:ok, {chunk_id, chunks_size, chunks}}
   end
 
@@ -51,7 +51,7 @@ defmodule SnappyEx do
        when byte_size(chunks) < size,
        do: {:error, "invalid size: compressed data chunks"}
 
-  defp process_chunks(chunks, _acc, _size, 0x00) when byte_size(chunks) > 65_540,
+  defp process_chunks(chunks, _acc, size, 0x00) when size > 65_540,
     do: {:error, "invalid size: compressed data chunks"}
 
   defp process_chunks(chunks, acc, size, 0x00) do
@@ -74,8 +74,8 @@ defmodule SnappyEx do
        when byte_size(chunks) < size,
        do: {:error, "invalid size: uncompressed data chunks"}
 
-  defp process_chunks(chunks, _acc, _size, 0x01)
-       when byte_size(chunks) > 65_540,
+  defp process_chunks(chunks, _acc, size, 0x01)
+       when size > 65_540,
        do: {:error, "invalid size: uncompressed data chunks"}
 
   defp process_chunks(chunks, acc, size, 0x01) do
