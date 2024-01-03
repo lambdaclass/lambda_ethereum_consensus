@@ -28,6 +28,16 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
     GenServer.call(__MODULE__, :get_metadata)
   end
 
+  @spec set_attestation_subnet(integer(), boolean())
+  def set_attestation_subnet(i, set) do
+    GenServer.call(__MODULE__, {:set_attestation_subnet, i, set})
+  end
+
+  @spec set_sync_committee(integer(), boolean())
+  def set_sync_committee(i, set) do
+    GenServer.call(__MODULE__, {:set_sync_committee, i, set})
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -78,15 +88,5 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   @spec get_metadata_attrs([atom()]) :: [any()]
   defp get_metadata_attrs(attrs) do
     GenServer.call(__MODULE__, {:get_metadata_attrs, attrs})
-  end
-
-  @spec set_attestation_subnet(integer(), boolean())
-  defp set_attestation_subnet(i, set) do
-    GenServer.call(__MODULE__, {:set_attestation_subnet, i, set})
-  end
-
-  @spec set_sync_committee(integer(), boolean())
-  defp set_sync_committee(i, set) do
-    GenServer.call(__MODULE__, {:set_sync_committee, i, set})
   end
 end
