@@ -27,12 +27,12 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
     GenServer.call(__MODULE__, :get_metadata)
   end
 
-  @spec set_attestation_subnet(integer(), boolean()) :: none()
+  @spec set_attestation_subnet(integer(), boolean()) :: any()
   def set_attestation_subnet(i, set) do
     GenServer.call(__MODULE__, {:set_attestation_subnet, i, set})
   end
 
-  @spec set_sync_committee(integer(), boolean()) :: none()
+  @spec set_sync_committee(integer(), boolean()) :: any()
   def set_sync_committee(i, set) do
     GenServer.call(__MODULE__, {:set_sync_committee, i, set})
   end
@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   ##########################
 
   @impl true
-  @spec init(any) :: Metadata.t()
+  @spec init(any) :: {:ok, Metadata.t()}
   def init(_opts) do
     {:ok,
      %Metadata{
