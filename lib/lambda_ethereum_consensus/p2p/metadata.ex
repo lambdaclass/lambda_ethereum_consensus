@@ -36,10 +36,9 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   def init(_opts) do
     {:ok,
      %Metadata{
-       seq_number: 0
-       # get values from config
-       attnets: BitVector.new(0,),
-       syncnets: BitVector.new(0,)
+       seq_number: 0,
+       attnets: BitVector.new(0, Constants.attestation_subnet_count()),
+       syncnets: BitVector.new(0, Constants.sync_committee_subnet_count())
      }}
   end
 
