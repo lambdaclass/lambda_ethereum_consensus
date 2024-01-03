@@ -32,9 +32,13 @@ defmodule SpecTestUtils do
   def sanitize_yaml({"transactions", list}),
     do: {:transactions, Enum.map(list, &parse_as_string/1)}
 
+  def sanitize_yaml({"validators", list}) do
+    {:validators, list |> Stream.map(&sanitize_yaml/1) |> Aja.Vector.new()}
+  end
+
   def sanitize_yaml({k, v}), do: {String.to_atom(k), sanitize_yaml(v)}
   def sanitize_yaml("0x"), do: <<0>>
-  def sanitize_yaml("0x" <> hash), do: Base.decode16!(hash, [{:case, :lower}])
+  def sanitize_yaml("0x" <> hash), do: Base.decode16!(hash, case: :lower)
 
   def sanitize_yaml(x) when is_binary(x) do
     case Integer.parse(x) do
