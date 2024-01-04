@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Libp2pPort, libp2p_opts},
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
-      {LambdaEthereumConsensus.Beacon.BeaconChain, [checkpoint_sync]},
+      {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync]},
       {BeaconApi.Endpoint, []}
     ]
 

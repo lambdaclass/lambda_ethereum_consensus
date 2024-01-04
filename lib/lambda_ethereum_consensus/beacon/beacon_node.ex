@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
+defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   @moduledoc false
 
   use Supervisor
