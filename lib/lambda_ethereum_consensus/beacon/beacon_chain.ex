@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
-      {LambdaEthereumConsensus.P2P.GossipSub, []},
+      {LambdaEthereumConsensus.P2P.GossipSub, []}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
