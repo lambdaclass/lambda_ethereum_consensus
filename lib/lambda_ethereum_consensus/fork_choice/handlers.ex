@@ -97,6 +97,17 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
          :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do
       # Update latest messages for attesting indices
       update_latest_messages(store, indexed_attestation.attesting_indices, attestation)
+    else
+      {:unknown_block, _} ->
+        # TODO: this is just a patch, we should fetch blocks preemptively
+        if is_from_block do
+          {:ok, store}
+        else
+          {:error, "unknown block"}
+        end
+
+      v ->
+        v
     end
   end
 
@@ -265,6 +276,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Called ``validate_on_attestation`` in the spec.
+  @spec check_attestation_valid(Store.t(), Attestation.t(), boolean()) ::
+          :ok | {:error, String.t()} | {:unknown_block, Types.root()}
   defp check_attestation_valid(store, attestation, is_from_block)
 
   # If the given attestation is not from a beacon block message, we have to check the target epoch scope.
@@ -288,12 +301,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # If target block is unknown, delay consideration until block is found
       # TODO: delay consideration until block is found
       not Map.has_key?(store.blocks, target.root) ->
-        {:error, "unknown target block"}
+        {:unknown_block, target.root}
 
       # Attestations must be for a known block. If block is unknown, delay consideration until the block is found
       # TODO: delay consideration until block is found
       not Map.has_key?(store.blocks, block_root) ->
-        {:error, "unknown head block"}
+        {:unknown_block, block_root}
 
       # Attestations must not be for blocks in the future. If not, the attestation should not be considered
       store.blocks[block_root].slot > attestation.data.slot ->
