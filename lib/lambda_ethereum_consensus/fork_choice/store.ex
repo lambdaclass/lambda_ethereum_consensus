@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ### Public API
   ##########################
 
-  @spec start_link([BeaconState.t()]) :: :ignore | {:error, any} | {:ok, pid}
+  @spec start_link({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -28,12 +28,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   def get_finalized_checkpoint do
     [finalized_checkpoint] = get_store_attrs([:finalized_checkpoint])
     {:ok, finalized_checkpoint}
-  end
-
-  @spec get_current_slot() :: integer()
-  def get_current_slot do
-    [time, genesis_time] = get_store_attrs([:time, :genesis_time])
-    div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
   @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
@@ -45,6 +39,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   def has_block?(block_root) do
     block = get_block(block_root)
     block != nil
+  end
+
+  @spec on_tick(Types.uint64()) :: :ok
+  def on_tick(time) do
+    GenServer.cast(__MODULE__, {:on_tick, time})
   end
 
   @spec on_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok | :error
@@ -68,12 +67,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ##########################
 
   @impl GenServer
-  @spec init({BeaconState.t(), SignedBeaconBlock.t()}) :: {:ok, Store.t()} | {:stop, any}
-  def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}}) do
+  @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) :: {:ok, Store.t()} | {:stop, any}
+  def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
     result =
       case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
         {:ok, store = %Store{}} ->
-          store = on_tick_now(store)
+          store = Handlers.on_tick(store, time)
           Logger.info("[Fork choice] Initialized store.")
           {:ok, store}
 
@@ -84,7 +83,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     # TODO: this should be done after validation
     :ok = StateStore.store_state(anchor_state)
     :ok = BlockStore.store_block(signed_anchor_block)
-    schedule_next_tick()
     result
   end
 
@@ -174,10 +172,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_info(:on_tick, store) do
-    new_store = on_tick_now(store)
-
-    schedule_next_tick()
+  def handle_cast({:on_tick, time}, store) do
+    new_store = Handlers.on_tick(store, time)
     {:noreply, new_store}
   end
 
@@ -195,20 +191,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     GenServer.call(__MODULE__, {:get_store_attrs, attrs}, @default_timeout)
   end
 
-  @spec on_tick_now(Store.t()) :: Store.t()
-  defp on_tick_now(store) do
-    new_store = Handlers.on_tick(store, :os.system_time(:second))
-    current_slot = Store.get_current_slot(new_store)
-    :telemetry.execute([:sync, :store], %{slot: current_slot})
-    new_store
-  end
-
-  def schedule_next_tick do
-    # For millisecond precision
-    time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
-    Process.send_after(__MODULE__, :on_tick, time_to_next_tick)
-  end
-
+  @spec apply_handler(any(), any(), any()) :: any()
   def apply_handler(iter, state, handler) do
     iter
     |> Enum.reduce_while({:ok, state}, fn
