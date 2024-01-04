@@ -117,6 +117,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
            signed_block.message.body.attester_slashings
            |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
       BlockStore.store_block(signed_block)
+      {:ok, block_root} = BlockStore.get_block_root_by_slot(signed_block.message.slot)
+      Map.fetch!(new_store.block_states, block_root) |> StateStore.store_state()
       Logger.info("[Fork choice] Block #{signed_block.message.slot} added to the store.")
       {:reply, :ok, new_store}
     else
