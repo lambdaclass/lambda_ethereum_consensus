@@ -107,12 +107,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   def handle_call({:on_block, _block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
 
-    case Handlers.on_block(state, signed_block) do
-      {:ok, %Types.Store{} = new_state} ->
-        BlockStore.store_block(signed_block)
-        Logger.info("[Fork choice] Block #{signed_block.message.slot} added to the store.")
-        {:reply, :ok, new_state}
-
+    with {:ok, new_store} <- Handlers.on_block(state, signed_block),
+         # process block attestations
+         {:ok, new_store} <-
+           signed_block.message.body.attestations
+           |> apply_handler(new_store, &Handlers.on_attestation(&1, &2, true)),
+         # process block attester slashings
+         {:ok, new_store} <-
+           signed_block.message.body.attester_slashings
+           |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
+      BlockStore.store_block(signed_block)
+      Logger.info("[Fork choice] Block #{signed_block.message.slot} added to the store.")
+      {:reply, :ok, new_store}
+    else
       {:error, reason} ->
         Logger.error(
           "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
@@ -120,26 +127,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
         {:reply, :error, state}
     end
-
-    # TODO: uncomment when fixed
-    # with {:ok, new_store} <- Handlers.on_block(state, signed_block) do
-    #    # process block attestations
-    #    {:ok, new_state} <-
-    #      signed_block.message.body.attestations
-    #      |> apply_handler(new_state, &Handlers.on_attestation(&1, &2, true)),
-    #    # process block attester slashings
-    #    {:ok, new_state} <-
-    #      signed_block.message.body.attester_slashings
-    #      |> apply_handler(new_state, &Handlers.on_attester_slashing/2) do
-    #   BlockStore.store_block(signed_block)
-    #   {:reply, :ok, new_store}
-    # else
-    #   {:error, reason} ->
-    #     Logger.error(
-    #       "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
-    #     )
-    #     {:reply, :error, state}
-    # end
   end
 
   @impl GenServer
