@@ -36,9 +36,22 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
-  @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
+  @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, String.t()}
   def get_current_status_message do
-    GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
+    # TODO: un-hardcode when get_head is optimized and/or cached
+    # GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
+
+    # hardcoded response from random peer
+    {:ok,
+     %Types.StatusMessage{
+       fork_digest: Base.decode16!("BBA4DA96"),
+       finalized_root:
+         Base.decode16!("7715794499C07D9954DD223EC2C6B846D3BAB27956D093000FADC1B8219F74D4"),
+       finalized_epoch: 228_168,
+       head_root:
+         Base.decode16!("D62A74AE0F933224133C5E6E1827A2835A1E705F0CDFEE3AD25808DDEA5572DB"),
+       head_slot: 7_301_450
+     }}
   end
 
   @spec has_block?(Types.root()) :: boolean()
