@@ -7,13 +7,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
     :total_active_balance,
     :beacon_proposer_index,
     :active_validator_count,
-    :beacon_committee
+    :beacon_committee,
+    :active_validator_indices
   ]
 
-  @spec initialize_tables() :: :ok
-  def initialize_tables do
-    @tables |> Enum.each(&init_table/1)
-  end
+  @spec initialize_cache() :: :ok
+  def initialize_cache, do: @tables |> Enum.each(&init_table/1)
+
+  @spec clear_cache() :: :ok
+  def clear_cache, do: @tables |> Enum.each(&:ets.delete_all_objects/1)
 
   @spec init_table(:ets.table()) :: :ok
   def init_table(table) do

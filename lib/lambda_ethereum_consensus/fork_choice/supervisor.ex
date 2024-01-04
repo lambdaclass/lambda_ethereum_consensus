@@ -56,7 +56,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   defp init_children(anchor_state, anchor_block) do
-    Cache.initialize_tables()
+    Cache.initialize_cache()
 
     children = [
       {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block}},

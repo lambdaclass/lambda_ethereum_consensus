@@ -106,13 +106,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_active_validator_indices(BeaconState.t(), Types.epoch()) ::
           Aja.Vector.t(Types.validator_index())
-  def get_active_validator_indices(%BeaconState{validators: validators}, epoch) do
-    validators
-    |> Aja.Vector.with_index()
-    |> Aja.Vector.filter(fn {v, _} ->
-      Predicates.is_active_validator(v, epoch)
-    end)
-    |> Aja.Vector.map(fn {_, index} -> index end)
+  def get_active_validator_indices(%BeaconState{validators: validators} = state, epoch) do
+    compute_fn = fn ->
+      validators
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.filter(fn {v, _} -> Predicates.is_active_validator(v, epoch) end)
+      |> Aja.Vector.map(fn {_, index} -> index end)
+    end
+
+    case get_epoch_root(state, epoch) do
+      {:ok, root} -> Cache.lazily_compute(:active_validator_indices, {epoch, root}, compute_fn)
+      _ -> compute_fn.()
+    end
   end
 
   @doc """
@@ -154,14 +159,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
       participating_indices =
         state.validators
-        |> Stream.zip(epoch_participation)
-        |> Stream.with_index()
-        |> Stream.filter(fn {{v, _}, _} -> not v.slashed end)
-        |> Stream.filter(fn {{v, _}, _} -> Predicates.is_active_validator(v, epoch) end)
-        |> Stream.filter(fn {{_, participation}, _} ->
-          Predicates.has_flag(participation, flag_index)
+        |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
+          not v.slashed and Predicates.is_active_validator(v, epoch) and
+            Predicates.has_flag(participation, flag_index)
         end)
-        |> Stream.map(fn {{_, _}, index} -> index end)
+        |> Aja.Vector.with_index()
+        |> Aja.Vector.filter(&elem(&1, 0))
+        |> Aja.Vector.map(fn {true, index} -> index end)
         |> MapSet.new()
 
       {:ok, participating_indices}
@@ -295,6 +299,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     compute_fn = fn ->
       committees_per_slot = get_committee_count_per_slot(state, epoch)
       indices = get_active_validator_indices(state, epoch)
+
       seed = get_seed(state, epoch, Constants.domain_beacon_attester())
 
       committee_index =

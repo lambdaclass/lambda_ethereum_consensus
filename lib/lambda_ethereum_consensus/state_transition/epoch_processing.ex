@@ -45,19 +45,15 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     new_validators =
       validators
-      |> Stream.zip(balances)
-      |> Enum.map(fn {%Validator{effective_balance: effective_balance} = validator, balance} ->
-        if balance + downward_threshold < effective_balance or
-             effective_balance + upward_threshold < balance do
-          new_effective_balance =
-            min(balance - rem(balance, effective_balance_increment), max_effective_balance)
-
-          %{validator | effective_balance: new_effective_balance}
+      |> Aja.Vector.zip_with(balances, fn %Validator{} = validator, balance ->
+        if balance + downward_threshold < validator.effective_balance or
+             validator.effective_balance + upward_threshold < balance do
+          min(balance - rem(balance, effective_balance_increment), max_effective_balance)
+          |> then(&%{validator | effective_balance: &1})
         else
           validator
         end
       end)
-      |> Aja.Vector.new()
 
     {:ok, %BeaconState{state | validators: new_validators}}
   end
@@ -129,7 +125,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
           penalty = div(penalty_numerator, total_balance) * increment
 
-          Mutators.decrease_balance(acc, index, penalty)
+          BeaconState.decrease_balance(acc, index, penalty)
         else
           acc
         end
@@ -194,7 +190,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     %BeaconState{current_epoch_participation: current_epoch_participation, validators: validators} =
       state
 
-    new_current_epoch_participation = for _ <- validators, do: 0
+    new_current_epoch_participation = Aja.Vector.duplicate(0, Aja.Vector.size(validators))
 
     new_state = %BeaconState{
       state
@@ -291,24 +287,19 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   def process_justification_and_finalization(state) do
     # Initial FFG checkpoint values have a `0x00` stub for `root`.
     # Skip FFG updates in the first two epochs to avoid corner cases that might result in modifying this stub.
-    genesis_epoch = Constants.genesis_epoch()
-    timely_target_index = Constants.timely_target_flag_index()
+    target_index = Constants.timely_target_flag_index()
+    previous_epoch = Accessors.get_previous_epoch(state)
+    current_epoch = Accessors.get_current_epoch(state)
 
-    if Accessors.get_current_epoch(state) <= genesis_epoch + 1 do
+    if current_epoch <= Constants.genesis_epoch() + 1 do
       {:ok, state}
     else
+      # PERF: unify in get_unslashed_participating_total_balances that returns total balance
+      #  for both previous and current epochs
       with {:ok, previous_indices} <-
-             Accessors.get_unslashed_participating_indices(
-               state,
-               timely_target_index,
-               Accessors.get_previous_epoch(state)
-             ),
+             Accessors.get_unslashed_participating_indices(state, target_index, previous_epoch),
            {:ok, current_indices} <-
-             Accessors.get_unslashed_participating_indices(
-               state,
-               timely_target_index,
-               Accessors.get_current_epoch(state)
-             ) do
+             Accessors.get_unslashed_participating_indices(state, target_index, current_epoch) do
         total_active_balance = Accessors.get_total_active_balance(state)
         previous_target_balance = Accessors.get_total_balance(state, previous_indices)
         current_target_balance = Accessors.get_total_balance(state, current_indices)
@@ -415,19 +406,19 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         end)
         |> Stream.concat([BeaconState.get_inactivity_penalty_deltas(state)])
         |> Stream.zip()
+        |> Aja.Vector.new()
 
       state.balances
-      |> Stream.zip(deltas)
-      |> Enum.map(&update_balance/1)
-      |> then(&{:ok, %{state | balances: &1}})
+      |> Aja.Vector.zip_with(deltas, &update_balance/2)
+      |> then(&{:ok, %BeaconState{state | balances: &1}})
     end
   end
 
-  defp update_balance({balance, deltas}) do
+  defp update_balance(balance, deltas) do
     deltas
     |> Tuple.to_list()
-    |> Enum.reduce(balance, fn {reward, penalty}, balance ->
-      max(balance + reward - penalty, 0)
+    |> Enum.reduce(balance, fn delta, balance ->
+      max(balance + delta, 0)
     end)
   end
 end
