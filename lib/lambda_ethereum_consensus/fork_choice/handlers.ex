@@ -88,22 +88,33 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   @spec on_attestation(Store.t(), Attestation.t(), boolean()) ::
           {:ok, Store.t()} | {:error, String.t()}
   def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
-    if on_attestation_valid?(store, attestation, is_from_block) do
-      with {:ok, store} <- store_target_checkpoint_state(store, attestation.data.target),
-           # Get state at the `target` to fully validate attestation
-           target_state = store.checkpoint_states[attestation.data.target],
-           {:ok, indexed_attestation} <-
-             Accessors.get_indexed_attestation(target_state, attestation) do
-        if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation) do
-          # Update latest messages for attesting indices
-          update_latest_messages(store, indexed_attestation.attesting_indices, attestation)
-        else
-          {:error, "invalid indexed attestation"}
-        end
-      end
+    with :ok <- check_attestation_valid(store, attestation, is_from_block),
+         {:ok, store} <- store_target_checkpoint_state(store, attestation.data.target),
+         # Get state at the `target` to fully validate attestation
+         target_state = store.checkpoint_states[attestation.data.target],
+         {:ok, indexed_attestation} <-
+           Accessors.get_indexed_attestation(target_state, attestation),
+         :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do
+      # Update latest messages for attesting indices
+      update_latest_messages(store, indexed_attestation.attesting_indices, attestation)
     else
-      {:error, "invalid on_attestation"}
+      {:unknown_block, _} ->
+        # TODO: this is just a patch, we should fetch blocks preemptively
+        if is_from_block do
+          {:ok, store}
+        else
+          {:error, "unknown block"}
+        end
+
+      v ->
+        v
     end
+  end
+
+  defp check_valid_indexed_attestation(target_state, indexed_attestation) do
+    if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation),
+      do: :ok,
+      else: {:error, "invalid indexed attestation"}
   end
 
   @doc """
@@ -265,35 +276,54 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Called ``validate_on_attestation`` in the spec.
-  defp on_attestation_valid?(store, attestation, is_from_block)
+  @spec check_attestation_valid(Store.t(), Attestation.t(), boolean()) ::
+          :ok | {:error, String.t()} | {:unknown_block, Types.root()}
+  defp check_attestation_valid(store, attestation, is_from_block)
 
   # If the given attestation is not from a beacon block message, we have to check the target epoch scope.
-  defp on_attestation_valid?(%Store{} = store, %Attestation{} = attestation, false) do
-    target_epoch_against_current_time_valid?(store, attestation) and
-      on_attestation_valid?(store, attestation, true)
+  defp check_attestation_valid(%Store{} = store, %Attestation{} = attestation, false) do
+    with :ok <- target_epoch_against_current_time_valid?(store, attestation) do
+      check_attestation_valid(store, attestation, true)
+    end
   end
 
-  defp on_attestation_valid?(%Store{} = store, %Attestation{} = attestation, true) do
+  defp check_attestation_valid(%Store{} = store, %Attestation{} = attestation, true) do
     target = attestation.data.target
     block_root = attestation.data.beacon_block_root
 
     # NOTE: we use cond instead of an `and` chain for better formatting
     cond do
       # Check that the epoch number and slot number are matching
-      target.epoch != Misc.compute_epoch_at_slot(attestation.data.slot) -> false
+      target.epoch != Misc.compute_epoch_at_slot(attestation.data.slot) ->
+        {:error, "mismatched epoch and slot"}
+
       # Attestation target must be for a known block.
       # If target block is unknown, delay consideration until block is found
-      not Map.has_key?(store.blocks, target.root) -> false
+      # TODO: delay consideration until block is found
+      not Map.has_key?(store.blocks, target.root) ->
+        {:unknown_block, target.root}
+
       # Attestations must be for a known block. If block is unknown, delay consideration until the block is found
-      not Map.has_key?(store.blocks, block_root) -> false
+      # TODO: delay consideration until block is found
+      not Map.has_key?(store.blocks, block_root) ->
+        {:unknown_block, block_root}
+
       # Attestations must not be for blocks in the future. If not, the attestation should not be considered
-      store.blocks[block_root].slot > attestation.data.slot -> false
+      store.blocks[block_root].slot > attestation.data.slot ->
+        {:error, "future head block"}
+
       # LMD vote must be consistent with FFG vote target
-      target.root != Store.get_checkpoint_block(store, block_root, target.epoch) -> false
+      target.root != Store.get_checkpoint_block(store, block_root, target.epoch) ->
+        {:error, "mismatched head and target blocks"}
+
       # Attestations can only affect the fork choice of subsequent slots.
       # Delay consideration in the fork choice until their slot is in the past.
-      Store.get_current_slot(store) <= attestation.data.slot -> false
-      true -> true
+      # TODO: delay consideration
+      Store.get_current_slot(store) <= attestation.data.slot ->
+        {:error, "attestation is for a future slot"}
+
+      true ->
+        :ok
     end
   end
 
@@ -307,7 +337,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     previous_epoch = max(current_epoch - 1, Constants.genesis_epoch())
 
     # If attestation target is from a future epoch, delay consideration until the epoch arrives
-    target.epoch in [current_epoch, previous_epoch]
+    # TODO: delay consideration until the epoch arrives
+    if target.epoch in [current_epoch, previous_epoch], do: :ok, else: {:error, "future epoch"}
   end
 
   # Store target checkpoint state if not yet seen
