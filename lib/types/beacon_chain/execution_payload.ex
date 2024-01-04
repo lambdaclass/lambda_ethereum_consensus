@@ -3,7 +3,6 @@ defmodule Types.ExecutionPayload do
   Struct definition for `ExecutionPayload`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  alias LambdaEthereumConsensus.Execution.ExecutionClient
 
   fields = [
     :parent_hash,
@@ -50,26 +49,5 @@ defmodule Types.ExecutionPayload do
 
   def decode(%__MODULE__{} = map) do
     Map.update!(map, :base_fee_per_gas, &Ssz.decode_u256/1)
-  end
-
-  @spec prepare_execution_payload(
-          Types.BeaconState.t(),
-          Types.hash32(),
-          Types.hash32(),
-          Types.execution_address()
-        ) :: {:ok, any} | {:error, any}
-  def prepare_execution_payload(
-        state,
-        safe_block_hash,
-        finalized_block_hash,
-        _suggested_fee_recipient
-      ) do
-    head_block_hash = state.latest_execution_payload_header.block_hash
-
-    ExecutionClient.notify_forkchoice_updated(
-      head_block_hash,
-      safe_block_hash,
-      finalized_block_hash
-    )
   end
 end
