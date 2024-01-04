@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.P2P.GossipHandler do
+defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   @moduledoc """
   Module that implements the handle_message callback,
   used in the GossipConsumer module to handle messages.
@@ -10,11 +10,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
 
-  @spec handle_message(String.t(), struct) :: :ok
-  def handle_message(topic_name, payload)
-
-  def handle_message(
-        "/eth2/bba4da96/beacon_block/ssz_snappy",
+  def handle_beacon_block(
         %SignedBeaconBlock{message: block} = signed_block
       ) do
     current_slot = Store.get_current_slot()
@@ -28,8 +24,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
     :ok
   end
 
-  def handle_message(
-        "/eth2/bba4da96/beacon_aggregate_and_proof/ssz_snappy",
+  def handle_beacon_aggregate_and_proof(
         %SignedAggregateAndProof{message: %AggregateAndProof{aggregate: aggregate}}
       ) do
     votes = BitVector.count(aggregate.aggregation_bits)
@@ -42,12 +37,5 @@ defmodule LambdaEthereumConsensus.P2P.GossipHandler do
     Logger.debug(
       "[Gossip] Aggregate decoded for slot #{slot}. Root: #{root}. Total attestations: #{votes}"
     )
-  end
-
-  def handle_message(topic_name, payload) do
-    payload
-    |> inspect(limit: :infinity)
-    |> then(&"[#{topic_name}] decoded: '#{&1}'")
-    |> Logger.debug()
   end
 end

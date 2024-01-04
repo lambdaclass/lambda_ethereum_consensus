@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.StateTransition.Cache
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
 
   def start_link(opts) do
@@ -58,12 +59,14 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   defp init_children(anchor_state, anchor_block) do
     Cache.initialize_cache()
 
+    fork_digest = Misc.compute_fork_digest(anchor_state.fork.current_version, anchor_state.genesis_validators_root)
+
     children = [
       {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block}},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
-      {LambdaEthereumConsensus.P2P.GossipSub, []}
+      {LambdaEthereumConsensus.P2P.GossipSub, [fork_digest |> Base.encode16(case: :lower)]},
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
