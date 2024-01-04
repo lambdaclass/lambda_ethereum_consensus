@@ -12,7 +12,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   end
 
   @impl true
-  def init([fork_digest]) do
+  def init([fork_digest_context]) do
     topics = [
       {"beacon_block", Types.SignedBeaconBlock, &Handler.handle_beacon_block/1},
       {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof, &Handler.handle_beacon_aggregate_and_proof/1}
@@ -27,7 +27,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
 
     children =
       for {topic_msg, ssz_type, handler} <- topics do
-        topic = "/eth2/#{fork_digest}/#{topic_msg}/ssz_snappy"
+        topic = "/eth2/#{fork_digest_context}/#{topic_msg}/ssz_snappy"
         {Consumer, %{topic: topic, ssz_type: ssz_type, handler: handler}}
       end
 
