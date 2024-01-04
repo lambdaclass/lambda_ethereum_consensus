@@ -8,24 +8,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   alias Types.Validator
 
   @doc """
-    Increase the validator balance at index ``index`` by ``delta``.
-  """
-  @spec increase_balance(BeaconState.t(), Types.validator_index(), Types.gwei()) ::
-          BeaconState.t()
-  def increase_balance(%BeaconState{balances: balances} = state, index, delta) do
-    %BeaconState{state | balances: List.update_at(balances, index, &(&1 + delta))}
-  end
-
-  @doc """
-      Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
-  """
-  @spec decrease_balance(BeaconState.t(), Types.validator_index(), Types.gwei()) ::
-          BeaconState.t()
-  def decrease_balance(%BeaconState{balances: balances} = state, index, delta) do
-    %BeaconState{state | balances: List.update_at(balances, index, &max(&1 - delta, 0))}
-  end
-
-  @doc """
   Initiate the exit of the validator with index ``index``.
   """
   @spec initiate_validator_exit(BeaconState.t(), integer()) ::
@@ -115,9 +97,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       # Decrease slashers balance, apply proposer and whistleblower rewards
       {:ok,
        state
-       |> decrease_balance(slashed_index, slashing_penalty)
-       |> increase_balance(proposer_index, proposer_reward)
-       |> increase_balance(whistleblower_index, whistleblower_reward - proposer_reward)}
+       |> BeaconState.decrease_balance(slashed_index, slashing_penalty)
+       |> BeaconState.increase_balance(proposer_index, proposer_reward)
+       |> BeaconState.increase_balance(
+         whistleblower_index,
+         whistleblower_reward - proposer_reward
+       )}
     end
   end
 
@@ -162,11 +147,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
           Types.bytes32(),
           Types.uint64(),
           Types.bls_signature()
-        ) :: {:ok, BeaconState.t()} | {:error, binary()}
+        ) :: {:ok, BeaconState.t()} | {:error, String.t()}
   def apply_deposit(state, pubkey, withdrawal_credentials, amount, signature) do
     case Enum.find_index(state.validators, fn validator -> validator.pubkey == pubkey end) do
       index when is_number(index) ->
-        {:ok, increase_balance(state, index, amount)}
+        {:ok, BeaconState.increase_balance(state, index, amount)}
 
       _ ->
         deposit_message = %Types.DepositMessage{
@@ -194,9 +179,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       &%BeaconState{
         state
         | validators: &1,
-          balances: state.balances ++ [amount],
-          previous_epoch_participation: state.previous_epoch_participation ++ [0],
-          current_epoch_participation: state.current_epoch_participation ++ [0],
+          balances: Aja.Vector.append(state.balances, amount),
+          previous_epoch_participation: Aja.Vector.append(state.previous_epoch_participation, 0),
+          current_epoch_participation: Aja.Vector.append(state.current_epoch_participation, 0),
           inactivity_scores: state.inactivity_scores ++ [0]
       }
     )
