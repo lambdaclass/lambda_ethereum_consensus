@@ -13,7 +13,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
-  @default_timeout 20_000
+  @default_timeout 100_000
 
   ##########################
   ### Public API
