@@ -29,11 +29,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Libp2pPort, libp2p_opts},
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
-      {LambdaEthereumConsensus.ForkChoice, [checkpoint_sync]},
-      {LambdaEthereumConsensus.P2P.IncomingRequests, []},
-      {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
-      {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
-      {LambdaEthereumConsensus.P2P.GossipSub, []},
+      {LambdaEthereumConsensus.Beacon.BeaconChain, [checkpoint_sync]},
       {BeaconApi.Endpoint, []}
     ]
 
