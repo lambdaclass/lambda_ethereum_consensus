@@ -535,7 +535,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   Process voluntary exit.
   """
   @spec process_voluntary_exit(BeaconState.t(), Types.SignedVoluntaryExit.t()) ::
-          {:ok, BeaconState.t()} | {:error, binary()}
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def process_voluntary_exit(state, signed_voluntary_exit) do
     voluntary_exit = signed_voluntary_exit.message
     validator_index = voluntary_exit.validator_index
@@ -791,7 +791,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec process_eth1_data(BeaconState.t(), BeaconBlockBody.t()) ::
-          {:ok, BeaconState.t()} | {:error, binary}
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def process_eth1_data(
         %BeaconState{} = state,
         %BeaconBlockBody{eth1_data: eth1_data}
@@ -936,7 +936,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec process_operations(BeaconState.t(), BeaconBlockBody.t()) ::
-          {:ok, BeaconState.t()} | {:error, binary}
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def process_operations(state, body) do
     # Ensure that outstanding deposits are processed up to the maximum number of deposits
     with :ok <- verify_deposits(state, body) do
@@ -957,7 +957,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end)
   end
 
-  @spec verify_deposits(BeaconState.t(), BeaconBlockBody.t()) :: :ok | {:error, binary}
+  @spec verify_deposits(BeaconState.t(), BeaconBlockBody.t()) :: :ok | {:error, String.t()}
   defp verify_deposits(state, body) do
     deposit_count = state.eth1_data.deposit_count - state.eth1_deposit_index
     deposit_limit = min(ChainSpec.get("MAX_DEPOSITS"), deposit_count)

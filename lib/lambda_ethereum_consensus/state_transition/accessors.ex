@@ -147,7 +147,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the set of validator indices that are both active and unslashed for the given ``flag_index`` and ``epoch``.
   """
   @spec get_unslashed_participating_indices(BeaconState.t(), integer, Types.epoch()) ::
-          {:ok, MapSet.t()} | {:error, binary()}
+          {:ok, MapSet.t()} | {:error, String.t()}
   def get_unslashed_participating_indices(%BeaconState{} = state, flag_index, epoch) do
     if epoch in [get_previous_epoch(state), get_current_epoch(state)] do
       epoch_participation =
@@ -349,7 +349,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           Types.AttestationData.t(),
           Types.uint64()
         ) ::
-          {:ok, list(Types.uint64())} | {:error, binary()}
+          {:ok, list(Types.uint64())} | {:error, String.t()}
   def get_attestation_participation_flag_indices(state, data, inclusion_delay) do
     with :ok <- check_valid_source(state, data),
          {:ok, target_root} <-
