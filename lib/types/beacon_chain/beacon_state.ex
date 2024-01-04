@@ -63,7 +63,7 @@ defmodule Types.BeaconState do
           # size VALIDATOR_REGISTRY_LIMIT 1099511627776
           validators: Aja.Vector.t(Types.Validator.t()),
           # size VALIDATOR_REGISTRY_LIMIT 1099511627776
-          balances: list(Types.gwei()),
+          balances: Aja.Vector.t(Types.gwei()),
           # Randomness
           # size EPOCHS_PER_HISTORICAL_VECTOR 65_536
           randao_mixes: list(Types.bytes32()),
@@ -73,9 +73,9 @@ defmodule Types.BeaconState do
           slashings: list(Types.gwei()),
           # Participation
           # size VALIDATOR_REGISTRY_LIMIT 1099511627776
-          previous_epoch_participation: list(Types.participation_flags()),
+          previous_epoch_participation: Aja.Vector.t(Types.participation_flags()),
           # size VALIDATOR_REGISTRY_LIMIT 1099511627776
-          current_epoch_participation: list(Types.participation_flags()),
+          current_epoch_participation: Aja.Vector.t(Types.participation_flags()),
           # Finality
           # Bit set for every recent justified epoch size 4
           justification_bits: Types.bitvector(),
@@ -107,36 +107,45 @@ defmodule Types.BeaconState do
 
   def encode(%__MODULE__{} = map) do
     map
-    |> Map.update!(:validators, &Enum.to_list/1)
+    |> Map.update!(:validators, &Aja.Vector.to_list/1)
+    |> Map.update!(:balances, &Aja.Vector.to_list/1)
+    |> Map.update!(:previous_epoch_participation, &Aja.Vector.to_list/1)
+    |> Map.update!(:current_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
   end
 
   def decode(%__MODULE__{} = map) do
     map
     |> Map.update!(:validators, &Aja.Vector.new/1)
+    |> Map.update!(:balances, &Aja.Vector.new/1)
+    |> Map.update!(:previous_epoch_participation, &Aja.Vector.new/1)
+    |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
   end
 
   @doc """
   Checks if state is pre or post merge
   """
-  @spec is_merge_transition_complete(Types.BeaconState.t()) :: boolean()
+  @spec is_merge_transition_complete(t()) :: boolean()
   def is_merge_transition_complete(state) do
     state.latest_execution_payload_header !=
       struct(Types.ExecutionPayload, Types.ExecutionPayloadHeader.default())
   end
 
   @doc """
-  Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
+      Decrease the validator balance at index ``index`` by ``delta``, with underflow protection.
   """
   @spec decrease_balance(t(), Types.validator_index(), Types.gwei()) :: t()
   def decrease_balance(%__MODULE__{balances: balances} = state, index, delta) do
-    current_balance = Enum.fetch!(balances, index)
+    %{state | balances: Aja.Vector.update_at!(balances, index, &max(&1 - delta, 0))}
+  end
 
-    %{
-      state
-      | balances: List.replace_at(balances, index, max(current_balance - delta, 0))
-    }
+  @doc """
+    Increase the validator balance at index ``index`` by ``delta``.
+  """
+  @spec increase_balance(t(), Types.validator_index(), Types.gwei()) :: t()
+  def increase_balance(%__MODULE__{balances: balances} = state, index, delta) do
+    %{state | balances: Aja.Vector.update_at!(balances, index, &(&1 + delta))}
   end
 
   @doc """
@@ -171,30 +180,26 @@ defmodule Types.BeaconState do
 
       cond do
         is_unslashed and Predicates.is_in_inactivity_leak(state) ->
-          {0, 0}
+          0
 
         is_unslashed ->
           reward_numerator = base_reward * weight * unslashed_participating_increments
-          reward = div(reward_numerator, active_increments * weight_denominator)
-          {reward, 0}
+          div(reward_numerator, active_increments * weight_denominator)
 
         flag_index != Constants.timely_head_flag_index() ->
-          penalty = div(base_reward * weight, weight_denominator)
-          {0, penalty}
+          -div(base_reward * weight, weight_denominator)
 
         true ->
-          {0, 0}
+          0
       end
     end
 
     state.validators
     |> Stream.with_index()
     |> Stream.map(fn {validator, index} ->
-      if Predicates.is_eligible_validator(validator, previous_epoch) do
-        process_reward_and_penalty.(index)
-      else
-        {0, 0}
-      end
+      if Predicates.is_eligible_validator(validator, previous_epoch),
+        do: process_reward_and_penalty.(index),
+        else: 0
     end)
   end
 
@@ -205,13 +210,10 @@ defmodule Types.BeaconState do
   @spec get_inactivity_penalty_deltas(t()) :: Enumerable.t({Types.gwei(), Types.gwei()})
   def get_inactivity_penalty_deltas(%__MODULE__{} = state) do
     previous_epoch = Accessors.get_previous_epoch(state)
+    target_index = Constants.timely_target_flag_index()
 
     {:ok, matching_target_indices} =
-      Accessors.get_unslashed_participating_indices(
-        state,
-        Constants.timely_target_flag_index(),
-        previous_epoch
-      )
+      Accessors.get_unslashed_participating_indices(state, target_index, previous_epoch)
 
     penalty_denominator =
       ChainSpec.get("INACTIVITY_SCORE_BIAS") *
@@ -224,10 +226,9 @@ defmodule Types.BeaconState do
       if Predicates.is_eligible_validator(validator, previous_epoch) and
            not MapSet.member?(matching_target_indices, index) do
         penalty_numerator = validator.effective_balance * inactivity_score
-        penalty = div(penalty_numerator, penalty_denominator)
-        {0, penalty}
+        -div(penalty_numerator, penalty_denominator)
       else
-        {0, 0}
+        0
       end
     end)
   end

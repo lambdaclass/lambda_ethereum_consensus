@@ -60,7 +60,9 @@ defmodule RewardsTestRunner do
     inactivity_penalty_deltas = Enum.zip(rewards, penalties)
 
     deltas =
-      Enum.zip([source_deltas, target_deltas, head_deltas, inactivity_penalty_deltas])
+      [source_deltas, target_deltas, head_deltas, inactivity_penalty_deltas]
+      |> Stream.map(&Enum.map(&1, fn {reward, penalty} -> reward - penalty end))
+      |> Enum.zip()
 
     calculated_deltas =
       Constants.participation_flag_weights()
