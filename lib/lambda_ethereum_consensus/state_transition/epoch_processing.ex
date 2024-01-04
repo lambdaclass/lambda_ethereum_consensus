@@ -201,7 +201,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     {:ok, new_state}
   end
 
-  @spec process_inactivity_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
+  @spec process_inactivity_updates(BeaconState.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def process_inactivity_updates(%BeaconState{} = state) do
     genesis_epoch = Constants.genesis_epoch()
 
@@ -294,24 +295,39 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     if current_epoch <= Constants.genesis_epoch() + 1 do
       {:ok, state}
     else
-      # PERF: unify in get_unslashed_participating_total_balances that returns total balance
-      #  for both previous and current epochs
-      with {:ok, previous_indices} <-
-             Accessors.get_unslashed_participating_indices(state, target_index, previous_epoch),
-           {:ok, current_indices} <-
-             Accessors.get_unslashed_participating_indices(state, target_index, current_epoch) do
-        total_active_balance = Accessors.get_total_active_balance(state)
-        previous_target_balance = Accessors.get_total_balance(state, previous_indices)
-        current_target_balance = Accessors.get_total_balance(state, current_indices)
+      previous_target_balance =
+        get_total_participating_balance(state, target_index, previous_epoch)
 
-        weigh_justification_and_finalization(
-          state,
-          total_active_balance,
-          previous_target_balance,
-          current_target_balance
-        )
-      end
+      current_target_balance =
+        get_total_participating_balance(state, target_index, current_epoch)
+
+      total_active_balance = Accessors.get_total_active_balance(state)
+
+      weigh_justification_and_finalization(
+        state,
+        total_active_balance,
+        previous_target_balance,
+        current_target_balance
+      )
     end
+  end
+
+  # NOTE: epoch must be the current or previous one
+  defp get_total_participating_balance(state, flag_index, epoch) do
+    epoch_participation =
+      if epoch == Accessors.get_current_epoch(state) do
+        state.current_epoch_participation
+      else
+        state.previous_epoch_participation
+      end
+
+    state.validators
+    |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
+      {not v.slashed and Predicates.is_active_validator(v, epoch) and
+         Predicates.has_flag(participation, flag_index), v.effective_balance}
+    end)
+    |> Aja.Vector.filter(&elem(&1, 0))
+    |> Aja.Enum.reduce(0, fn {true, balance}, acc -> acc + balance end)
   end
 
   defp weigh_justification_and_finalization(

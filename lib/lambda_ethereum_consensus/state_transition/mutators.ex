@@ -147,7 +147,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
           Types.bytes32(),
           Types.uint64(),
           Types.bls_signature()
-        ) :: {:ok, BeaconState.t()} | {:error, binary()}
+        ) :: {:ok, BeaconState.t()} | {:error, String.t()}
   def apply_deposit(state, pubkey, withdrawal_credentials, amount, signature) do
     case Enum.find_index(state.validators, fn validator -> validator.pubkey == pubkey end) do
       index when is_number(index) ->
