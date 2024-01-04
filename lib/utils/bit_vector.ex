@@ -33,7 +33,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
 
   # The internal representation is a bitstring, but we could evaluate
   # turning it into an integer to use bitwise operations instead.
-  @opaque t :: bitstring
+  @type t :: bitstring
 
   defguard is_bitvector(value) when is_bitstring(value)
 
