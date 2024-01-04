@@ -140,37 +140,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       # PERF: make Map with committee_index by pubkey, then
       # Enum.map validators -> new balance all in place, without map_reduce
-      committee_deltas =
-        state.validators
-        |> get_sync_committee_indices(committee_pubkeys)
-        |> Stream.with_index()
-        |> Stream.map(fn {validator_index, committee_index} ->
-          if BitVector.set?(sync_committee_bits, committee_index),
-            do: {validator_index, participant_reward},
-            else: {validator_index, -participant_reward}
-        end)
-        |> Enum.sort(fn {vi1, _}, {vi2, _} -> vi1 <= vi2 end)
-
-      # Apply participant and proposer rewards
-      {new_balances, []} =
-        state.balances
-        |> Stream.with_index()
-        |> Stream.map(&add_proposer_reward(&1, proposer_index, total_proposer_reward))
-        |> Enum.map_reduce(committee_deltas, &update_balance/2)
-
-      {:ok, %BeaconState{state | balances: new_balances}}
+      state.validators
+      |> get_sync_committee_indices(committee_pubkeys)
+      |> Stream.with_index()
+      |> Stream.map(fn {validator_index, committee_index} ->
+        if BitVector.set?(sync_committee_bits, committee_index),
+          do: {validator_index, participant_reward},
+          else: {validator_index, -participant_reward}
+      end)
+      |> Enum.reduce(state.balances, fn {validator_index, delta}, balances ->
+        Aja.Vector.update_at!(balances, validator_index, &max(&1 + delta, 0))
+      end)
+      |> then(&%{state | balances: &1})
+      |> BeaconState.increase_balance(proposer_index, total_proposer_reward)
+      |> then(&{:ok, &1})
     end
   end
-
-  defp add_proposer_reward({balance, proposer}, proposer, proposer_reward),
-    do: {balance + proposer_reward, proposer}
-
-  defp add_proposer_reward(v, _, _), do: v
-
-  defp update_balance({balance, i}, [{i, delta} | acc]),
-    do: update_balance({max(balance + delta, 0), i}, acc)
-
-  defp update_balance({balance, _}, acc), do: {balance, acc}
 
   defp verify_signature(pubkeys, message, signature) do
     case Bls.eth_fast_aggregate_verify(pubkeys, message, signature) do
@@ -209,13 +194,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec get_sync_committee_indices(Aja.Vector.t(Validator.t()), list(Types.bls_pubkey())) ::
           list(Types.validator_index())
   defp get_sync_committee_indices(validators, committee_pubkeys) do
-    all_pubkeys =
-      validators
-      |> Aja.Vector.with_index(fn %Validator{pubkey: pubkey}, i -> {pubkey, i} end)
-      |> Map.new()
+    pk_map =
+      committee_pubkeys
+      |> Stream.with_index()
+      |> Enum.reduce(%{}, fn {pk, i}, map ->
+        Map.update(map, pk, [i], &[i | &1])
+      end)
 
-    committee_pubkeys
-    |> Enum.map(&Map.fetch!(all_pubkeys, &1))
+    validators
+    |> Stream.with_index()
+    |> Stream.map(fn {%Validator{pubkey: pubkey}, i} -> {Map.get(pk_map, pubkey), i} end)
+    |> Stream.reject(fn {v, _} -> is_nil(v) end)
+    |> Stream.flat_map(fn {list, i} -> list |> Stream.map(&{&1, i}) end)
+    |> Enum.sort(fn {v1, _}, {v2, _} -> v1 <= v2 end)
+    |> Enum.map(fn {_, i} -> i end)
   end
 
   @doc """
@@ -297,7 +289,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     with :ok <- check_withdrawals(withdrawals, expected_withdrawals) do
       state
-      |> decrease_balances(withdrawals)
+      |> Map.update!(:balances, &decrease_balances(&1, withdrawals))
       |> update_next_withdrawal_index(withdrawals)
       |> update_next_withdrawal_validator_index(withdrawals, Aja.Vector.size(validators))
       |> then(&{:ok, &1})
@@ -346,22 +338,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     |> then(&if &1, do: :ok, else: {:error, "withdrawal doesn't match expected withdrawal"})
   end
 
-  @spec decrease_balances(BeaconState.t(), list(Withdrawal.t())) :: BeaconState.t()
-  defp decrease_balances(state, withdrawals) do
-    withdrawals = Enum.sort(withdrawals, &(&1.validator_index <= &2.validator_index))
-
-    state.balances
-    |> Stream.with_index()
-    |> Enum.map_reduce(withdrawals, &maybe_decrease_balance/2)
-    |> then(fn {balances, []} -> %BeaconState{state | balances: balances} end)
+  @spec decrease_balances(Aja.Vector.t(Types.gwei()), list(Withdrawal.t())) :: BeaconState.t()
+  defp decrease_balances(balances, withdrawals) do
+    withdrawals
+    |> Enum.reduce(balances, fn %Withdrawal{validator_index: index, amount: amount}, balances ->
+      Aja.Vector.update_at!(balances, index, &max(&1 - amount, 0))
+    end)
   end
-
-  defp maybe_decrease_balance({balance, index}, [
-         %Withdrawal{validator_index: index, amount: amount} | remaining
-       ]),
-       do: {max(balance - amount, 0), remaining}
-
-  defp maybe_decrease_balance({balance, _index}, acc), do: {balance, acc}
 
   @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())
   defp get_expected_withdrawals(%BeaconState{} = state) do
@@ -552,7 +535,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   Process voluntary exit.
   """
   @spec process_voluntary_exit(BeaconState.t(), Types.SignedVoluntaryExit.t()) ::
-          {:ok, BeaconState.t()} | {:error, binary()}
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def process_voluntary_exit(state, signed_voluntary_exit) do
     voluntary_exit = signed_voluntary_exit.message
     validator_index = voluntary_exit.validator_index
@@ -594,9 +577,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec process_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_attestation(state, attestation) do
-    with :ok <- validate_attestation(state, attestation) do
-      inner_process_attestation(state, attestation.data, attestation.aggregation_bits)
-    end
+    process_attestation_batch(state, [attestation])
   end
 
   @spec validate_attestation(BeaconState.t(), Attestation.t()) :: :ok | {:error, String.t()}
@@ -650,12 +631,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       proposer_reward =
         reward_numerators
-        |> Enum.map(fn {_, numerator} -> compute_proposer_reward(numerator) end)
+        |> Stream.map(fn {_, numerator} -> compute_proposer_reward(numerator) end)
         |> Enum.sum()
 
       {:ok,
        %BeaconState{
-         Mutators.increase_balance(state, proposer_index, proposer_reward)
+         BeaconState.increase_balance(state, proposer_index, proposer_reward)
          | previous_epoch_participation: new_previous_participation,
            current_epoch_participation: new_current_participation
        }}
@@ -669,23 +650,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          base_per_increment,
          reward_numerators
        ) do
-    epoch_participation
-    |> Stream.with_index()
-    |> Enum.map_reduce(reward_numerators, fn
-      {participation, i}, reward_numerators ->
-        case epoch_updates do
-          %{^i => masks} ->
-            validator = Aja.Vector.at!(state.validators, i)
+    epoch_updates
+    |> Enum.reduce({epoch_participation, reward_numerators}, fn
+      {i, masks}, {participations, reward_numerators} ->
+        validator = Aja.Vector.at!(state.validators, i)
+        participation = Aja.Vector.at!(participations, i)
 
-            masks
-            |> Enum.reduce(
-              {participation, reward_numerators},
-              &reduce_participation_batch(validator, base_per_increment, &1, &2)
-            )
-
-          _ ->
-            {participation, reward_numerators}
-        end
+        masks
+        |> Enum.reduce(
+          {participation, reward_numerators},
+          &reduce_participation_batch(validator, base_per_increment, &1, &2)
+        )
+        |> then(fn {participation, reward_numerators} ->
+          {Aja.Vector.replace_at!(participations, i, participation), reward_numerators}
+        end)
     end)
   end
 
@@ -752,59 +730,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp merge_masks([{_, v} | _] = masks, {_, v}), do: masks
   defp merge_masks([{_, v1} | _] = masks, {i, v2}), do: [{i, Bitwise.bor(v1, v2)} | masks]
 
-  defp inner_process_attestation(state, data, aggregation_bits) do
-    slot = state.slot - data.slot
-
-    with {:ok, flag_indices} <-
-           Accessors.get_attestation_participation_flag_indices(state, data, slot),
-         {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, data.index) do
-      attesting_indices =
-        Accessors.get_committee_attesting_indices(committee, aggregation_bits)
-
-      is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
-      participation = get_initial_epoch_participation(state, is_current_epoch)
-
-      {updated_epoch_participation, proposer_reward_numerator} =
-        update_epoch_participation(state, attesting_indices, participation, flag_indices)
-
-      proposer_reward = compute_proposer_reward(proposer_reward_numerator)
-
-      {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state)
-
-      state
-      |> Mutators.increase_balance(proposer_index, proposer_reward)
-      |> update_state(is_current_epoch, updated_epoch_participation)
-      |> then(&{:ok, &1})
-    end
-  end
-
-  defp get_initial_epoch_participation(state, true), do: state.current_epoch_participation
-  defp get_initial_epoch_participation(state, false), do: state.previous_epoch_participation
-
-  defp update_epoch_participation(state, attesting_indices, participation, flag_indices) do
-    weights =
-      Constants.participation_flag_weights()
-      |> Stream.with_index()
-      |> Stream.filter(&(elem(&1, 1) in flag_indices))
-      |> Enum.map(fn {w, i} -> {w, 2 ** i} end)
-
-    base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
-
-    state.validators
-    |> Stream.zip(participation)
-    |> Stream.with_index()
-    |> Enum.map_reduce({0, attesting_indices}, fn
-      {{validator, participation}, i}, {proposer_reward, [i | rest]} ->
-        base_reward = Accessors.get_base_reward(validator, base_reward_per_increment)
-        {p, reward} = update_participation(participation, base_reward, weights)
-        {p, {proposer_reward + reward, rest}}
-
-      {{_, participation}, _}, acc ->
-        {participation, acc}
-    end)
-    |> then(fn {participation, {proposer_reward, []}} -> {participation, proposer_reward} end)
-  end
-
   defp update_participation(participation, base_reward, weights) do
     weights
     |> Enum.reduce({participation, 0}, fn {weight, i}, {participation, acc} ->
@@ -822,12 +747,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     div(proposer_reward_numerator, proposer_reward_denominator)
   end
-
-  defp update_state(state, true, updated_epoch_participation),
-    do: %{state | current_epoch_participation: updated_epoch_participation}
-
-  defp update_state(state, false, updated_epoch_participation),
-    do: %{state | previous_epoch_participation: updated_epoch_participation}
 
   @doc """
   Provide randomness to the operation of the beacon chain.
@@ -872,7 +791,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec process_eth1_data(BeaconState.t(), BeaconBlockBody.t()) ::
-          {:ok, BeaconState.t()} | {:error, binary}
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def process_eth1_data(
         %BeaconState{} = state,
         %BeaconBlockBody{eth1_data: eth1_data}
@@ -1001,7 +920,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec process_operations(BeaconState.t(), BeaconBlockBody.t()) ::
-          {:ok, BeaconState.t()} | {:error, binary}
+          {:ok, BeaconState.t()} | {:error, String.t()}
   def process_operations(state, body) do
     # Ensure that outstanding deposits are processed up to the maximum number of deposits
     with :ok <- verify_deposits(state, body) do
@@ -1022,7 +941,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end)
   end
 
-  @spec verify_deposits(BeaconState.t(), BeaconBlockBody.t()) :: :ok | {:error, binary}
+  @spec verify_deposits(BeaconState.t(), BeaconBlockBody.t()) :: :ok | {:error, String.t()}
   defp verify_deposits(state, body) do
     deposit_count = state.eth1_data.deposit_count - state.eth1_deposit_index
     deposit_limit = min(ChainSpec.get("MAX_DEPOSITS"), deposit_count)
