@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.ForkChoice.CheckpointSync do
+defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   @moduledoc """
   Functions related to checkpoint-sync.
   """
