@@ -35,6 +35,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []},
       {LambdaEthereumConsensus.P2P.Metadata, []},
+      {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync]},
       {BeaconApi.Endpoint, []}
     ]
 

@@ -1,10 +1,10 @@
-defmodule LambdaEthereumConsensus.ForkChoice do
+defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   @moduledoc false
 
   use Supervisor
   require Logger
 
-  alias LambdaEthereumConsensus.ForkChoice.CheckpointSync
+  alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
 
@@ -56,11 +56,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   defp init_children(anchor_state, anchor_block) do
-    Cache.initialize_tables()
+    Cache.initialize_cache()
 
     children = [
       {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block}},
-      {LambdaEthereumConsensus.ForkChoice.Tree, []}
+      {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
+      {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
+      {LambdaEthereumConsensus.P2P.IncomingRequests, []},
+      {LambdaEthereumConsensus.P2P.GossipSub, []}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
