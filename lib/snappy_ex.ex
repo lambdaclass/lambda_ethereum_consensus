@@ -27,6 +27,9 @@ defmodule SnappyEx do
     {:ok, {chunk_id, chunks_size, chunks}}
   end
 
+  defp validate_stream(chunks) when byte_size(chunks) < 10,
+    do: {:error, "stream identifier invalid size"}
+
   defp validate_stream(chunks) do
     <<stream_identifier::binary-size(10), remaining_chunks::binary>> = chunks
 
@@ -56,12 +59,19 @@ defmodule SnappyEx do
 
   defp process_chunks(chunks, acc, size, 0x00) do
     # process compressed data
-    <<checksum::binary-size(4), compressed_data::binary-size(size - 4), remaining_chunks::binary>> =
+    <<masked_checksum::little-size(32), compressed_data::binary-size(size - 4),
+      remaining_chunks::binary>> =
       chunks
 
-    with {:ok, decompressed_data} <- :snappyer.decompress(compressed_data),
-         {:ok, computed_checksum} <- :erlang.crc32(decompressed_data) do
-      if computed_checksum == checksum do
+    with {:ok, decompressed_data} <- :snappyer.decompress(compressed_data) do
+      computed_checksum = :erlang.crc32(decompressed_data)
+
+      # the crc32 checksum of the uncompressed data is masked before inserted into the frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
+      masked_computed_checksum =
+        Bitwise.bor(Bitwise.bsr(computed_checksum, 15), Bitwise.bsl(computed_checksum, 17)) +
+          0xA282EAD8
+
+      if computed_checksum == masked_checksum do
         acc = <<acc::binary, decompressed_data::binary>>
         {:ok, {acc, remaining_chunks}}
       else
@@ -70,6 +80,7 @@ defmodule SnappyEx do
     end
   end
 
+  # Uncompressed chunks
   defp process_chunks(chunks, _acc, size, 0x01)
        when byte_size(chunks) < size,
        do: {:error, "invalid size: uncompressed data chunks"}
@@ -80,12 +91,17 @@ defmodule SnappyEx do
 
   defp process_chunks(chunks, acc, size, 0x01) do
     # process uncompressed data
-    <<checksum::binary-size(4), uncompressed_data::binary-size(size - 4),
+    <<masked_checksum::little-size(32), uncompressed_data::binary-size(size - 4),
       remaining_chunks::binary>> = chunks
 
     computed_checksum = :erlang.crc32(uncompressed_data)
 
-    if computed_checksum == checksum do
+    # the crc32 checksum of the uncompressed data is masked before inserted into the frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
+    masked_computed_checksum =
+      Bitwise.bor(Bitwise.bsr(computed_checksum, 15), Bitwise.bsl(computed_checksum, 17)) +
+        0xA282EAD8
+
+    if computed_checksum == masked_checksum do
       acc = <<acc::binary, uncompressed_data::binary>>
       {:ok, {acc, remaining_chunks}}
     else
