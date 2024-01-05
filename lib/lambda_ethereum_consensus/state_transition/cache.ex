@@ -33,7 +33,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
     # NOTE: no need to specify false clause
     # This match-spec returns true for tuples with epoch/slot smaller than `const`
     Ex2ms.fun do
-      {x, _} when x < ^const -> true
+      {{x, _}} when x < ^const -> true
     end
   end
 
