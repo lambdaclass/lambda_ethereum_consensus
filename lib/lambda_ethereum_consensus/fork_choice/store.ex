@@ -97,6 +97,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     # TODO: this should be done after validation
     :ok = StateStore.store_state(anchor_state)
     :ok = BlockStore.store_block(signed_anchor_block)
+    slot = signed_anchor_block.message.slot
+    :telemetry.execute([:sync, :store], %{slot: slot})
+    :telemetry.execute([:sync, :on_block], %{slot: slot})
     schedule_next_tick()
     result
   end
@@ -119,6 +122,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   @impl GenServer
   def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
+    slot = signed_block.message.slot
 
     with {:ok, new_store} <- Handlers.on_block(state, signed_block),
          # process block attestations
@@ -131,13 +135,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
            |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
       BlockStore.store_block(signed_block)
       Map.fetch!(new_store.block_states, block_root) |> StateStore.store_state()
-      Logger.info("[Fork choice] Block #{signed_block.message.slot} added to the store.")
+      :telemetry.execute([:sync, :on_block], %{slot: slot})
+      Logger.info("[Fork choice] Block #{slot} added to the store.")
       {:reply, :ok, new_store}
     else
       {:error, reason} ->
-        Logger.error(
-          "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
-        )
+        Logger.error("[Fork choice] Failed to add block #{slot} to the store: #{reason}")
 
         {:reply, :error, state}
     end
