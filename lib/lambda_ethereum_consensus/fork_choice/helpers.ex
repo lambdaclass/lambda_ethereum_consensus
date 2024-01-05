@@ -33,12 +33,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     if anchor_block.state_root == anchor_state_root do
       anchor_epoch = Accessors.get_current_epoch(anchor_state)
 
-      finalized_checkpoint = %Checkpoint{
-        epoch: anchor_epoch,
-        root: anchor_block_root
-      }
-
-      justified_checkpoint = %Checkpoint{
+      anchor_checkpoint = %Checkpoint{
         epoch: anchor_epoch,
         root: anchor_block_root
       }
@@ -49,17 +44,17 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
        %Store{
          time: time,
          genesis_time: anchor_state.genesis_time,
-         justified_checkpoint: justified_checkpoint,
-         finalized_checkpoint: finalized_checkpoint,
-         unrealized_justified_checkpoint: justified_checkpoint,
-         unrealized_finalized_checkpoint: finalized_checkpoint,
+         justified_checkpoint: anchor_checkpoint,
+         finalized_checkpoint: anchor_checkpoint,
+         unrealized_justified_checkpoint: anchor_checkpoint,
+         unrealized_finalized_checkpoint: anchor_checkpoint,
          proposer_boost_root: <<0::256>>,
          equivocating_indices: MapSet.new(),
          blocks: %{anchor_block_root => anchor_block},
          block_states: %{anchor_block_root => anchor_state},
-         checkpoint_states: %{justified_checkpoint => anchor_state},
+         checkpoint_states: %{anchor_checkpoint => anchor_state},
          latest_messages: %{},
-         unrealized_justifications: %{anchor_block_root => justified_checkpoint}
+         unrealized_justifications: %{anchor_block_root => anchor_checkpoint}
        }}
     else
       {:error, "Anchor block state root does not match anchor state root"}
@@ -89,7 +84,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   defp get_weight(%Store{} = store, root) do
-    state = store.checkpoint_states[store.justified_checkpoint]
+    state = Map.fetch!(store.checkpoint_states, store.justified_checkpoint)
 
     # PERF: use ``Aja.Vector.foldl``
     attestation_score =

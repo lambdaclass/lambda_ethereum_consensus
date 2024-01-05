@@ -13,7 +13,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
-  @default_timeout 20_000
+  @default_timeout 100_000
 
   ##########################
   ### Public API
@@ -33,7 +33,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
   def get_current_status_message do
-    GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
+    # TODO: un-hardcode when get_head is optimized and/or cached
+    # GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
+
+    # hardcoded response from random peer
+    {:ok,
+     %Types.StatusMessage{
+       fork_digest: Base.decode16!("BBA4DA96"),
+       finalized_root:
+         Base.decode16!("7715794499C07D9954DD223EC2C6B846D3BAB27956D093000FADC1B8219F74D4"),
+       finalized_epoch: 228_168,
+       head_root:
+         Base.decode16!("D62A74AE0F933224133C5E6E1827A2835A1E705F0CDFEE3AD25808DDEA5572DB"),
+       head_slot: 7_301_450
+     }}
   end
 
   @spec has_block?(Types.root()) :: boolean()
@@ -104,15 +117,23 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_call({:on_block, _block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
+  def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
 
-    case Handlers.on_block(state, signed_block) do
-      {:ok, %Types.Store{} = new_state} ->
-        BlockStore.store_block(signed_block)
-        Logger.info("[Fork choice] Block #{signed_block.message.slot} added to the store.")
-        {:reply, :ok, new_state}
-
+    with {:ok, new_store} <- Handlers.on_block(state, signed_block),
+         # process block attestations
+         {:ok, new_store} <-
+           signed_block.message.body.attestations
+           |> apply_handler(new_store, &Handlers.on_attestation(&1, &2, true)),
+         # process block attester slashings
+         {:ok, new_store} <-
+           signed_block.message.body.attester_slashings
+           |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
+      BlockStore.store_block(signed_block)
+      Map.fetch!(new_store.block_states, block_root) |> StateStore.store_state()
+      Logger.info("[Fork choice] Block #{signed_block.message.slot} added to the store.")
+      {:reply, :ok, new_store}
+    else
       {:error, reason} ->
         Logger.error(
           "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
@@ -120,26 +141,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
         {:reply, :error, state}
     end
-
-    # TODO: uncomment when fixed
-    # with {:ok, new_store} <- Handlers.on_block(state, signed_block) do
-    #    # process block attestations
-    #    {:ok, new_state} <-
-    #      signed_block.message.body.attestations
-    #      |> apply_handler(new_state, &Handlers.on_attestation(&1, &2, true)),
-    #    # process block attester slashings
-    #    {:ok, new_state} <-
-    #      signed_block.message.body.attester_slashings
-    #      |> apply_handler(new_state, &Handlers.on_attester_slashing/2) do
-    #   BlockStore.store_block(signed_block)
-    #   {:reply, :ok, new_store}
-    # else
-    #   {:error, reason} ->
-    #     Logger.error(
-    #       "[Fork choice] Failed to add block #{signed_block.message.slot} to the store: #{reason}"
-    #     )
-    #     {:reply, :error, state}
-    # end
   end
 
   @impl GenServer
