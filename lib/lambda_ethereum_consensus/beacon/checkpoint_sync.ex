@@ -8,6 +8,29 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   plug(Tesla.Middleware.JSON)
 
   @doc """
+  Safely retrieves the last finalized state and block
+  """
+  @spec get_state(String.t()) ::
+          {:ok, {Types.BeaconState.t(), Types.SignedBeaconBlock.t()}} | {:error, any()}
+  def get_finalized_block_and_state(url) do
+    tasks = [Task.async(__MODULE__, :get_state, [url]), Task.async(__MODULE__, :get_block, [url])]
+
+    case Task.await_many(tasks, 60_000) do
+      [{:ok, state}, {:ok, block}] -> validate_finalized(url, state, block)
+      res -> Enum.find(res, fn {:error, _} -> true end)
+    end
+  end
+
+  defp validate_finalized(_, state, block) when state.slot == block.message.slot,
+    do: {:ok, {state, block}}
+
+  defp validate_finalized(url, state, _block) do
+    with {:ok, new_block} <- get_block(url, state.slot) do
+      {:ok, {state, new_block}}
+    end
+  end
+
+  @doc """
   Retrieves the last finalized state
   """
   @spec get_state(String.t()) :: {:ok, Types.BeaconState.t()} | {:error, any()}
@@ -23,9 +46,9 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   Retrieves the last finalized block
   """
   @spec get_block(String.t()) :: {:ok, Types.SignedBeaconBlock.t()} | {:error, any()}
-  def get_block(url) do
+  def get_block(url, id \\ "finalized") do
     with {:error, err} <-
-           get_from_url(url, "/eth/v2/beacon/blocks/finalized", Types.SignedBeaconBlock) do
+           get_from_url(url, "/eth/v2/beacon/blocks/#{id}", Types.SignedBeaconBlock) do
       Logger.error("There has been an error retrieving the last finalized block.")
       {:error, err}
     end

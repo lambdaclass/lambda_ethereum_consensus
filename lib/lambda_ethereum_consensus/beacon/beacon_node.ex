@@ -31,12 +31,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   def init([checkpoint_url]) do
     Logger.info("[Checkpoint sync] Initiating checkpoint sync.")
 
-    tasks =
-      [:get_state, :get_block]
-      |> Enum.map(&Task.async(CheckpointSync, &1, [checkpoint_url]))
-
-    case Task.await_many(tasks, 60_000) do
-      [{:ok, anchor_state}, {:ok, anchor_block}] ->
+    case CheckpointSync.get_finalized_block_and_state(checkpoint_url) do
+      {:ok, {anchor_state, anchor_block}} ->
         Logger.info(
           "[Checkpoint sync] Received beacon state and block at slot #{anchor_state.slot}."
         )
