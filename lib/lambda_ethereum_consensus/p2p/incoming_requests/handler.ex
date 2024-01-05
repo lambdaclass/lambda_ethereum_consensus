@@ -144,13 +144,10 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       "[Received BlocksByRoot Request] requested #{count} number of blocks"
       |> Logger.info()
 
-      blocks =
+      response_chunk =
         body
         |> Enum.slice(0..(count - 1))
         |> Enum.map(&BlockStore.get_block/1)
-
-      response_chunk =
-        blocks
         |> Enum.map_join(&create_block_response_chunk/1)
 
       Libp2pPort.send_response(message_id, response_chunk)
