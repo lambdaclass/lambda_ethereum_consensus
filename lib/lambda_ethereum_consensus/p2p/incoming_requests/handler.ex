@@ -128,8 +128,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     end
   end
 
+  defp parse_message_size(<<24, request::binary>>), do: {:ok, request}
+  defp parse_message_size(_), do: {:error, "invalid request"}
+
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
-    with <<24, snappy_blocks_by_root_request::binary>> <- message,
+    with {:ok, snappy_blocks_by_root_request} <- parse_message_size(message),
          {:ok, ssz_blocks_by_root_request} <- Snappy.decompress(snappy_blocks_by_root_request),
          {:ok, blocks_by_root_request} <-
            Ssz.from_ssz(ssz_blocks_by_root_request, SszTypes.BeaconBlocksByRootRequest) do
@@ -137,7 +140,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       %SszTypes.BeaconBlocksByRootRequest{body: body} =
         blocks_by_root_request
 
-      count = 
+      count =
         length(body)
         |> min(ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
