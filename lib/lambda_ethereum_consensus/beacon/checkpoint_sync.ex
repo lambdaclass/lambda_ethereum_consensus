@@ -10,66 +10,41 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   @doc """
   Retrieves the last finalized state
   """
-  @spec get_last_finalized_state(binary) :: {:ok, Types.BeaconState.t()} | {:error, any}
-  def get_last_finalized_state(url) do
-    client =
-      Tesla.client([
-        {Tesla.Middleware.Headers, [{"Accept", "application/octet-stream"}]}
-      ])
-
-    full_url =
-      url
-      |> URI.parse()
-      |> URI.append_path("/eth/v2/debug/beacon/states/finalized")
-      |> URI.to_string()
-
-    case get(client, full_url) do
-      {:ok, response} ->
-        case Ssz.from_ssz(response.body, Types.BeaconState) do
-          {:ok, struct} ->
-            {:ok, struct}
-
-          {:error, error} ->
-            Logger.error("There has been an error syncing from checkpoint.")
-            {:error, error}
-        end
-
-      error ->
-        Logger.error("Invalid checkpoint sync url.")
-        {:error, error}
+  @spec get_state(String.t()) :: {:ok, Types.BeaconState.t()} | {:error, any()}
+  def get_state(url) do
+    with {:error, err} <-
+           get_from_url(url, "/eth/v2/debug/beacon/states/finalized", Types.BeaconState) do
+      Logger.error("There has been an error retrieving the last finalized state.")
+      {:error, err}
     end
   end
 
   @doc """
   Retrieves the last finalized block
   """
-  @spec get_last_finalized_block(binary) :: {:ok, Types.SignedBeaconBlock.t()} | {:error, any}
-  def get_last_finalized_block(url) do
+  @spec get_block(String.t()) :: {:ok, Types.SignedBeaconBlock.t()} | {:error, any()}
+  def get_block(url) do
+    with {:error, err} <-
+           get_from_url(url, "/eth/v2/beacon/blocks/finalized", Types.SignedBeaconBlock) do
+      Logger.error("There has been an error retrieving the last finalized block.")
+      {:error, err}
+    end
+  end
+
+  defp get_from_url(base_url, path, result_type) do
     client =
       Tesla.client([
         {Tesla.Middleware.Headers, [{"Accept", "application/octet-stream"}]}
       ])
 
     full_url =
-      url
+      base_url
       |> URI.parse()
-      |> URI.append_path("/eth/v2/beacon/blocks/finalized")
+      |> URI.append_path(path)
       |> URI.to_string()
 
-    case get(client, full_url) do
-      {:ok, response} ->
-        case Ssz.from_ssz(response.body, Types.SignedBeaconBlock) do
-          {:ok, struct} ->
-            {:ok, struct}
-
-          {:error, error} ->
-            Logger.error("There has been an error retrieving the last finalized block.")
-            {:error, error}
-        end
-
-      error ->
-        Logger.error("Invalid checkpoint sync url.")
-        {:error, error}
+    with {:ok, response} <- get(client, full_url) do
+      Ssz.from_ssz(response.body, result_type)
     end
   end
 end
