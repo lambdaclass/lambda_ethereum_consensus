@@ -2,6 +2,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @moduledoc """
     Utility functions for the fork choice.
   """
+  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.StateStore
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias Types.BeaconBlock
   alias Types.BeaconState
@@ -207,4 +209,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     current_epoch = Misc.compute_epoch_at_slot(current_slot)
     store.justified_checkpoint.epoch + 1 == current_epoch
   end
+
+  @spec root_by_id(atom() | binary) :: {:ok, Types.root()} | {:error, String.t()} | atom()
+  def root_by_id(:head) do
+    with {:ok, state} <- StateStore.get_latest_state(),
+         {:ok, signed_block} <- BlockStore.get_block_by_slot(state.slot),
+         {:ok, store} <- get_forkchoice_store(state, signed_block.message),
+         {:ok, root} <- get_head(store) do
+      {:ok, root}
+    end
+  end
+
+  def root_by_id(:genesis), do: :invalid_id
+  def root_by_id(:justified), do: :invalid_id
+  def root_by_id(:finalized), do: :invalid_id
+  def root_by_id(:invalid_id), do: :invalid_id
+  def root_by_id(_hex_root), do: :invalid_id
 end
