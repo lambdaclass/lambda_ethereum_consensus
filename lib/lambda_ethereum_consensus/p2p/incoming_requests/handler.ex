@@ -137,9 +137,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       %SszTypes.BeaconBlocksByRootRequest{body: body} =
         blocks_by_root_request
 
-      count = length(body)
-
-      count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
+      count = 
+        length(body)
+        |> min(ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
       "[Received BlocksByRoot Request] requested #{count} number of blocks"
       |> Logger.info()
