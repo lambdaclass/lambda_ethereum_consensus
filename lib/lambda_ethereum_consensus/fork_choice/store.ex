@@ -19,7 +19,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ### Public API
   ##########################
 
-  @spec start_link({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) :: :ignore | {:error, any} | {:ok, pid}
+  @spec start_link({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
+          :ignore | {:error, any} | {:ok, pid}
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -67,7 +68,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   ##########################
 
   @impl GenServer
-  @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) :: {:ok, Store.t()} | {:stop, any}
+  @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
+          {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
     result =
       case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do

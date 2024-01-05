@@ -15,9 +15,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     ]
 
     @type t :: %__MODULE__{
-      genesis_time: Types.uint64(),
-      time: Types.uint64()
-    }
+            genesis_time: Types.uint64(),
+            time: Types.uint64()
+          }
   end
 
   @spec start_link({BeaconState.t(), Types.uint64()}) :: :ignore | {:error, any} | {:ok, pid}
@@ -27,7 +27,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @spec get_current_slot() :: integer()
   def get_current_slot do
-    GenServer.call(__MODULE__, {:get_current_slot})
+    GenServer.call(__MODULE__, :get_current_slot)
   end
 
   ##########################
@@ -35,25 +35,29 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   ##########################
 
   @impl GenServer
-  @spec init({BeaconState.t(), Types.uint64()}) :: {:ok, BeaconChainState.t() } | {:stop, any}
+  @spec init({BeaconState.t(), Types.uint64()}) :: {:ok, BeaconChainState.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, time}) do
     schedule_next_tick()
-    {:ok, %BeaconChainState{
-      genesis_time: anchor_state.genesis_time,
-      time: time
-    }}
+
+    {:ok,
+     %BeaconChainState{
+       genesis_time: anchor_state.genesis_time,
+       time: time
+     }}
   end
 
   @impl true
-  def handle_call({:get_current_slot}, _from, state) do
-    {:reply, div(state.time - state.genesis_time, ChainSpec.get("SECONDS_PER_SLOT")), state}
+  def handle_call(:get_current_slot, _from, state) do
+    {:reply, compute_current_slot(state), state}
   end
 
   @impl true
   def handle_info(:on_tick, state) do
     schedule_next_tick()
-    time = :os.system_time(:second) |> floor()
+    time = :os.system_time(:second)
     ForkChoice.Store.on_tick(time)
+
+    :telemetry.execute([:sync, :store], %{slot: compute_current_slot(state)})
 
     {:noreply, %BeaconChainState{state | time: time}}
   end
@@ -62,5 +66,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     # For millisecond precision
     time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
     Process.send_after(__MODULE__, :on_tick, time_to_next_tick)
+  end
+
+  defp compute_current_slot(state) do
+    div(state.time - state.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 end
