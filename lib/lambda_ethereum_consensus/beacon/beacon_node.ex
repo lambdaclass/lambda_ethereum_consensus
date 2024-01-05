@@ -58,8 +58,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   defp init_children(anchor_state, anchor_block) do
     Cache.initialize_cache()
 
+    time = :os.system_time(:second)
+
     children = [
-      {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block}},
+      {LambdaEthereumConsensus.Beacon.BeaconChain, {anchor_state, time}},
+      {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block, time}},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
