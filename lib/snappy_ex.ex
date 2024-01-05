@@ -1,6 +1,6 @@
 defmodule SnappyEx do
-
   import Bitwise
+
   @moduledoc """
     SSZ library in Elixir
   """
@@ -73,8 +73,11 @@ defmodule SnappyEx do
       # the crc32 checksum of the uncompressed data is masked before inserted into the frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
       masked_computed_checksum =
         computed_checksum >>> 15 |||
-          (computed_checksum <<< 17 &&& @bit_mask_32) +
-            0xA282EAD8
+          ((computed_checksum <<< 17 &&& @bit_mask_32) +
+             0xA282EAD8 &&& @bit_mask_32)
+
+      IO.inspect(masked_checksum, label: "masked_checksum compressed")
+      IO.inspect(masked_computed_checksum, label: "masked_computed_checksum compressed")
 
       if masked_computed_checksum == masked_checksum do
         acc = <<acc::binary, decompressed_data::binary>>
@@ -103,12 +106,12 @@ defmodule SnappyEx do
 
     # the crc32 checksum of the uncompressed data is masked before inserted into the frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
     masked_computed_checksum =
-      (computed_checksum >>> (15 &&& @bit_mask_32)) |||
-        (computed_checksum <<< (17 &&& @bit_mask_32)) +
-          0xA282EAD8 &&& @bit_mask_32
+      computed_checksum >>> (15 &&& @bit_mask_32) |||
+        ((computed_checksum <<< (17 &&& @bit_mask_32)) +
+           0xA282EAD8 &&& @bit_mask_32)
 
-    IO.inspect(masked_checksum)
-    IO.inspect(masked_computed_checksum)
+    IO.inspect(masked_checksum, label: "masked_checksum uncompressed")
+    IO.inspect(masked_computed_checksum, label: "masked_computed_checksum uncompressed")
 
     if masked_computed_checksum == masked_checksum do
       acc = <<acc::binary, uncompressed_data::binary>>
