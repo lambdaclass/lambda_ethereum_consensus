@@ -37,6 +37,7 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.Store.StateStore
+  alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
   def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
@@ -62,65 +63,69 @@ defmodule Types.Store do
     get_ancestor(store, root, epoch_first_slot)
   end
 
+  @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
   def get_state(%__MODULE__{block_states: states}, block_root) do
-    case Map.get(states, block_root) do
-      nil -> :not_found
-      v -> v
-    end
+    Map.get(states, block_root)
   end
 
+  @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
   def get_state(%__MODULE__{}, block_root) do
     case StateStore.get_state(block_root) do
       {:ok, state} -> state
-      _ -> :not_found
+      _ -> nil
     end
   end
 
+  @spec get_state!(t(), Types.root()) :: BeaconState.t()
   def get_state!(store, block_root) do
     case get_state(store, block_root) do
-      :not_found -> raise "State not found for block #{block_root}"
+      nil -> raise "State not found for block #{block_root}"
       v -> v
     end
   end
 
+  @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
   def store_state(%__MODULE__{block_states: states} = store, block_root, state) do
     states
     |> Map.put(block_root, state)
     |> then(&%{store | block_states: &1})
   end
 
+  @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
   def store_state(%__MODULE__{} = store, block_root, state) do
     StateStore.store_state(state, block_root)
     store
   end
 
+  @spec get_block(t(), Types.root()) :: Types.BeaconBlock.t() | nil
   def get_block(%__MODULE__{blocks: blocks}, block_root) do
-    case Map.get(blocks, block_root) do
-      nil -> :not_found
-      v -> v
-    end
+    Map.get(blocks, block_root)
   end
 
+  @spec get_block(t(), Types.root()) :: Types.BeaconBlock.t() | nil
   def get_block(%__MODULE__{}, block_root) do
     case BlockStore.get_block(block_root) do
       {:ok, signed_block} -> signed_block.message
-      _ -> :not_found
+      _ -> nil
     end
   end
 
+  @spec get_block!(t(), Types.root()) :: Types.BeaconBlock.t()
   def get_block!(store, block_root) do
     case get_block(store, block_root) do
-      :not_found -> raise "Block not found: #{block_root}"
+      nil -> raise "Block not found: #{block_root}"
       v -> v
     end
   end
 
+  @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
   def store_block(%__MODULE__{blocks: blocks} = store, block_root, %{message: block}) do
     blocks
     |> Map.put(block_root, block)
     |> then(&%{store | blocks: &1})
   end
 
+  @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
   def store_block(%__MODULE__{} = store, block_root, %SignedBeaconBlock{} = signed_block) do
     BlockStore.store_block(signed_block, block_root)
     store

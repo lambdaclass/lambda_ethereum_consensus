@@ -52,7 +52,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
     cond do
       # Parent block must be known
-      Store.get_state(store, block.parent_root) == :not_found ->
+      Store.get_state(store, block.parent_root) |> is_nil() ->
         {:error, "parent state not found in store"}
 
       # Blocks cannot be in the future. If they are, their
@@ -297,12 +297,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Attestation target must be for a known block.
       # If target block is unknown, delay consideration until block is found
       # TODO: delay consideration until block is found
-      Store.get_block(store, target.root) == :not_found ->
+      Store.get_block(store, target.root) |> is_nil() ->
         {:unknown_block, target.root}
 
       # Attestations must be for a known block. If block is unknown, delay consideration until the block is found
       # TODO: delay consideration until block is found
-      head_block == :not_found ->
+      is_nil(head_block) ->
         {:unknown_block, block_root}
 
       # Attestations must not be for blocks in the future. If not, the attestation should not be considered

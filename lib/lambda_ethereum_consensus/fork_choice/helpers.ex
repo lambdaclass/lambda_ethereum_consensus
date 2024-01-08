@@ -12,7 +12,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           {:ok, Types.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do
     with {:ok, head_root} <- get_head(store),
-         state when state != :not_found <- Store.get_state(store, head_root) do
+         state when state != nil <- Store.get_state(store, head_root) do
       {:ok,
        %Types.StatusMessage{
          fork_digest:
@@ -22,6 +22,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
          head_root: head_root,
          head_slot: state.slot
        }}
+    else
+      nil -> {:error, "Head state not found"}
     end
   end
 
