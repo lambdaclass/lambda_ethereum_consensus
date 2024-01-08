@@ -4,21 +4,21 @@ defmodule SnappyEx do
   @moduledoc """
     SSZ library in Elixir
   """
-  @bit_mask_32 2 ** 31 - 1
+  @bit_mask_32 2 ** 32 - 1
   @chunk_size_limit 65_540
 
   def decompress_frames(chunks) do
-    with {:ok, chunks} <- validate_stream(chunks) do
+    with {:ok, chunks} <- validate_stream_id(chunks) do
       decompress_frames(chunks, <<>>)
     end
   end
 
-  defp decompress_frames(chunks, acc) when byte_size(chunks) == 0, do: acc
+  defp decompress_frames(chunks, acc) when byte_size(chunks) == 0, do: {:ok, acc}
 
   defp decompress_frames(chunks, acc) do
-    with {:ok, {chunk_id, chunk_size, chunks}} <- process_chunk_metadata(chunks),
-         {:ok, {acc, chunks}} <- process_chunks(chunks, acc, chunk_size, chunk_id) do
-      decompress_frames(chunks, acc)
+    with {:ok, {id, data, remaining_chunks}} <- process_chunk_metadata(chunks),
+         {:ok, new_acc} <- apply_chunks(acc, id, data) do
+      decompress_frames(remaining_chunks, new_acc)
     end
   end
 
@@ -28,60 +28,66 @@ defmodule SnappyEx do
 
   defp process_chunk_metadata(chunks) do
     <<chunk_id::size(8), chunks_size::little-size(24), chunks::binary>> = chunks
-    {:ok, {chunk_id, chunks_size, chunks}}
+
+    with {:ok, {data, remaining_chunks}} <- extract_chunk_data(chunks_size, chunks) do
+      {:ok, {chunk_id, data, remaining_chunks}}
+    end
   end
 
-  defp validate_stream(chunks) when byte_size(chunks) < 10,
-    do: {:error, "stream identifier invalid size"}
+  defp extract_chunk_data(size, chunks) when byte_size(chunks) < size,
+    do: {:error, "invalid chunk size"}
 
-  defp validate_stream(chunks) do
-    <<stream_identifier::binary-size(10), remaining_chunks::binary>> = chunks
+  defp extract_chunk_data(size, chunks) do
+    <<data::binary-size(size), remaining_chunks::binary>> = chunks
+    {:ok, {data, remaining_chunks}}
+  end
 
-    if stream_identifier == <<0xFF, 0x06, 0x00, 0x00, 0x73, 0x4E, 0x61, 0x50, 0x70, 0x59>> do
+  # Validates that the stream identifier is present at the beginning of the stream. If successful,
+  # returns the stream with the identifier removed. If not, returns an error tuple.
+  defp validate_stream_id(chunks) when byte_size(chunks) < 10 do
+    {:error, "stream identifier invalid size"}
+  end
+
+  defp validate_stream_id(data) do
+    <<stream_identifier::binary-size(10), remaining_chunks::binary>> = data
+
+    with {:ok, _acc} <- apply_chunks(<<>>, 0xFF, stream_identifier) do
       {:ok, remaining_chunks}
+    end
+  end
+
+  defp apply_chunks(acc, 0xFF, data) do
+    # process stream identifier
+    # according to the specs, you just ignore it given the size and contents are correct
+    if data == <<0xFF, 0x06, 0x00, 0x00, 0x73, 0x4E, 0x61, 0x50, 0x70, 0x59>> do
+      {:ok, acc}
     else
       {:error, "invalid stream identifier"}
     end
   end
 
-  defp process_chunks(chunks, _acc, size, 0xFF) when byte_size(chunks) < size,
-    do: {:error, "invalid size: stream identifier chunks"}
-
-  defp process_chunks(chunks, acc, size, 0xFF) do
-    # process stream identifier
-    # according to the specs, you just ignore it given the size and contents are correct
-    <<_stream_data::binary-size(size), remaining_chunks::binary>> = chunks
-    {:ok, {acc, remaining_chunks}}
-  end
-
-  defp process_chunks(chunks, _acc, size, 0x00)
-       when byte_size(chunks) < size,
+  defp apply_chunks(_acc, 0x00, data)
+       when byte_size(data) > @chunk_size_limit,
        do: {:error, "invalid size: compressed data chunks"}
 
-  defp process_chunks(chunks, _acc, size, 0x00) when size > @chunk_size_limit,
-    do: {:error, "invalid size: compressed data chunks"}
-
-  defp process_chunks(chunks, acc, size, 0x00) do
+  defp apply_chunks(acc, 0x00, data) do
     # process compressed data
-    <<masked_checksum::little-size(32), compressed_data::binary-size(size - 4),
-      remaining_chunks::binary>> =
-      chunks
+    <<masked_checksum::little-size(32), compressed_data::binary>> =
+      data
 
     with {:ok, decompressed_data} <- :snappyer.decompress(compressed_data) do
       computed_checksum = :erlang.crc32(decompressed_data)
 
       # the crc32 checksum of the uncompressed data is masked before inserted into the frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
       masked_computed_checksum =
-        computed_checksum >>> 15 |||
-          ((computed_checksum <<< 17 &&& @bit_mask_32) +
-             0xA282EAD8 &&& @bit_mask_32)
+        mask_checksum(computed_checksum)
 
       IO.inspect(masked_checksum, label: "masked_checksum compressed")
       IO.inspect(masked_computed_checksum, label: "masked_computed_checksum compressed")
 
       if masked_computed_checksum == masked_checksum do
         acc = <<acc::binary, decompressed_data::binary>>
-        {:ok, {acc, remaining_chunks}}
+        {:ok, acc}
       else
         {:error, "compressed chunks checksum invalid"}
       end
@@ -89,35 +95,34 @@ defmodule SnappyEx do
   end
 
   # Uncompressed chunks
-  defp process_chunks(chunks, _acc, size, 0x01)
-       when byte_size(chunks) < size,
+  defp apply_chunks(_acc, 0x01, data)
+       when byte_size(data) > @chunk_size_limit,
        do: {:error, "invalid size: uncompressed data chunks"}
 
-  defp process_chunks(chunks, _acc, size, 0x01)
-       when size > @chunk_size_limit,
-       do: {:error, "invalid size: uncompressed data chunks"}
-
-  defp process_chunks(chunks, acc, size, 0x01) do
+  defp apply_chunks(acc, 0x01, data) do
     # process uncompressed data
-    <<masked_checksum::little-size(32), uncompressed_data::binary-size(size - 4),
-      remaining_chunks::binary>> = chunks
+    <<masked_checksum::little-size(32), uncompressed_data::binary>> = data
 
     computed_checksum = :erlang.crc32(uncompressed_data)
 
     # the crc32 checksum of the uncompressed data is masked before inserted into the frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
     masked_computed_checksum =
-      computed_checksum >>> (15 &&& @bit_mask_32) |||
-        ((computed_checksum <<< (17 &&& @bit_mask_32)) +
-           0xA282EAD8 &&& @bit_mask_32)
+      mask_checksum(computed_checksum)
 
     IO.inspect(masked_checksum, label: "masked_checksum uncompressed")
     IO.inspect(masked_computed_checksum, label: "masked_computed_checksum uncompressed")
 
     if masked_computed_checksum == masked_checksum do
       acc = <<acc::binary, uncompressed_data::binary>>
-      {:ok, {acc, remaining_chunks}}
+      {:ok, acc}
     else
       {:error, "uncompressed chunks checksum invalid"}
     end
+  end
+
+  defp mask_checksum(checksum) do
+    (checksum >>> 15 |||
+       (checksum <<< 17 &&& @bit_mask_32)) +
+      0xA282EAD8 &&& @bit_mask_32
   end
 end
