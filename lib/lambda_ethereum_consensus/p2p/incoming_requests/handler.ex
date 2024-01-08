@@ -127,7 +127,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp create_block_response_chunk({:ok, block}) do
     with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
          {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
-      fork_context = BeaconChain.get_fork_digest()
+      fork_context = BeaconChain.get_fork_digest_for_slot(block.message.slot)
 
       size_header =
         ssz_signed_block

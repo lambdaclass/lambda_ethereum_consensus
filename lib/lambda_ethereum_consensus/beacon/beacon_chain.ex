@@ -40,7 +40,12 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @spec get_fork_digest() :: binary()
   def get_fork_digest do
-    GenServer.call(__MODULE__, :get_fork_digest)
+    GenServer.call(__MODULE__, {:get_fork_digest, nil})
+  end
+
+  @spec get_fork_digest_for_slot(Types.slot()) :: binary()
+  def get_fork_digest_for_slot(slot) do
+    GenServer.call(__MODULE__, {:get_fork_digest, slot})
   end
 
   ##########################
@@ -66,11 +71,14 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @impl true
-  def handle_call(:get_fork_digest, _from, state) do
+  def handle_call({:get_fork_digest, slot}, _from, state) do
     current_fork_version =
-      compute_current_slot(state)
+      case slot do
+        nil -> compute_current_slot(state)
+        _ -> slot
+      end
       |> Misc.compute_epoch_at_slot()
-      |> get_fork_version_for_epoch()
+      |> ChainSpec.get_fork_version_for_epoch()
 
     fork_digest =
       Misc.compute_fork_digest(
@@ -100,16 +108,5 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   defp compute_current_slot(state) do
     div(state.time - state.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
-  end
-
-  defp get_fork_version_for_epoch(epoch) do
-    capella_version = ChainSpec.get("CAPELLA_FORK_VERSION")
-    cappella_epoch = ChainSpec.get("CAPELLA_FORK_EPOCH")
-
-    if epoch >= cappella_epoch do
-      capella_version
-    else
-      raise "Forks before Capella are not supported"
-    end
   end
 end
