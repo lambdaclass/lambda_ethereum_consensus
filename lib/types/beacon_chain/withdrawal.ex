@@ -3,6 +3,7 @@ defmodule Types.Withdrawal do
   Struct definition for `Withdrawal`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :index,
@@ -20,4 +21,14 @@ defmodule Types.Withdrawal do
           address: Types.hash32(),
           amount: Types.gwei()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:index, {:int, 64}},
+      {:validator_index, {:int, 32}},
+      {:address, {:bytes, 32}},
+      {:amount, {:int, 64}}
+    ]
+  end
 end

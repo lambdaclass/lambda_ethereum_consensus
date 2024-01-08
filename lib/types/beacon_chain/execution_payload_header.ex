@@ -3,6 +3,7 @@ defmodule Types.ExecutionPayloadHeader do
   Struct definition for `ExecutionPayloadHeader`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   @default_execution_payload_header %{
     parent_hash: <<0::256>>,
@@ -48,13 +49,15 @@ defmodule Types.ExecutionPayloadHeader do
           fee_recipient: Types.execution_address(),
           state_root: Types.root(),
           receipts_root: Types.root(),
-          logs_bloom: binary(),
+          # size BYTES_PER_LOGS_BLOOM 256
+          logs_bloom: Types.bitvector(),
           prev_randao: Types.bytes32(),
           block_number: Types.uint64(),
           gas_limit: Types.uint64(),
           gas_used: Types.uint64(),
           timestamp: Types.uint64(),
-          extra_data: binary(),
+          # size MAX_EXTRA_DATA_BYTES 32
+          extra_data: Types.bitlist(),
           base_fee_per_gas: Types.uint256(),
           block_hash: Types.hash32(),
           transactions_root: Types.root(),
@@ -71,5 +74,26 @@ defmodule Types.ExecutionPayloadHeader do
 
   def default do
     @default_execution_payload_header
+  end
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:parent_hash, {:bytes, 32}},
+      {:fee_recipient, {:bytes, 20}},
+      {:state_root, {:bytes, 32}},
+      {:receipts_root, {:bytes, 32}},
+      {:logs_bloom, {:bitvector, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
+      {:prev_randao, {:bytes, 32}},
+      {:block_number, {:int, 64}},
+      {:gas_limit, {:int, 64}},
+      {:gas_used, {:int, 64}},
+      {:timestamp, {:int, 64}},
+      {:extra_data, {:bitlist, ChainSpec.get("MAX_EXTRA_DATA_BYTES")}},
+      {:base_fee_per_gas, {:int, 256}},
+      {:block_hash, {:bytes, 32}},
+      {:transactions_root, {:bytes, 32}},
+      {:withdrawals_root, {:bytes, 32}}
+    ]
   end
 end

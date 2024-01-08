@@ -15,7 +15,7 @@ defmodule Types.IndexedAttestation do
   defstruct fields
 
   @type t :: %__MODULE__{
-          # max size is 2048
+          # max size is MAX_VALIDATORS_PER_COMMITTEE
           attesting_indices: list(Types.validator_index()),
           data: Types.AttestationData.t(),
           signature: Types.bls_signature()
@@ -24,7 +24,7 @@ defmodule Types.IndexedAttestation do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:attesting_indices, {:list, {:int, 64}, 2048}},
+      {:attesting_indices, {:list, {:int, 64}, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
       {:data, Types.AttestationData},
       {:signature, {:bytes, 96}}
     ]

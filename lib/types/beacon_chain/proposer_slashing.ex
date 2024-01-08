@@ -3,6 +3,7 @@ defmodule Types.ProposerSlashing do
   Struct definition for `ProposerSlashing`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :signed_header_1,
@@ -16,4 +17,12 @@ defmodule Types.ProposerSlashing do
           signed_header_1: Types.SignedBeaconBlockHeader.t(),
           signed_header_2: Types.SignedBeaconBlockHeader.t()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:signed_header_1, Types.SignedBeaconBlockHeader},
+      {:signed_header_2, Types.SignedBeaconBlockHeader}
+    ]
+  end
 end
