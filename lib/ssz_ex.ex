@@ -8,14 +8,22 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   ### Public API
   #################
+  import Bitwise
 
   @bits_per_chunk 256
+  @bytes_per_chunk 32
+  @bits_per_byte 8
+  @zero_chunk <<0::size(@bits_per_chunk)>>
 
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
 
+  @spec hash_nodes(binary(), binary()) :: binary()
+  def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
+
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
+  def encode(value, {:bytes, _}), do: {:ok, value}
 
   def encode(list, {:list, basic_type, size}) do
     if variable_size?(basic_type),
@@ -55,17 +63,112 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
 
-  @spec hash_tree_root!(boolean, atom) :: Types.root()
-  def hash_tree_root!(value, :bool), do: pack(value)
+  @spec hash_tree_root!(boolean, atom) :: SszTypes.root()
+  def hash_tree_root!(value, :bool), do: pack(value, :bool)
 
-  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(value, {:int, size}), do: pack(value, size)
+  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
+  def hash_tree_root!(value, {:int, size}), do: pack(value, {:int, size})
+
+  @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
+          {:ok, SszTypes.root()} | {:error, String.t()}
+  def hash_tree_root(list, {:list, type, size}) do
+    if !variable_size?(type) do
+      packed_chunks = pack(list, {:list, type, size})
+      limit = chunk_count(list)
+      hash_tree_root_list_basic_type(packed_chunks, limit, length(list))
+    else
+      # TODO
+      # hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
+    end
+  end
+
+  def hash_tree_root_list_basic_type(chunks, limit \\ nil, _len)
+      when limit and length(chunks) > limit do
+    {:error, "chunk size exceeds limit"}
+  end
+
+  def hash_tree_root_list_basic_type(chunks, limit, len) do
+    merklelize_chunks(chunks, limit) |> mix_in_length(len)
+  end
+
+  def mix_in_length(root, len) do
+    hash(root <> <<len>>)
+  end
+
+  def merklelize_chunks(chunks, leaf_count) do
+    "Leaf Count: #{leaf_count}" |> IO.inspect()
+    node_count = 2 * leaf_count - 1
+    "Node Count: #{node_count}" |> IO.inspect()
+    interior_count = node_count - leaf_count
+    "Interior Count: #{interior_count}" |> IO.inspect()
+    leaf_start = interior_count * @bytes_per_chunk
+    "Leaf Start: #{leaf_start}" |> IO.inspect()
+    padded_chunks = chunks |> convert_to_next_pow_of_two()
+    padded_chunks |> IO.inspect(limit: :infinity)
+    buffer = <<0::size(leaf_start * @bits_per_byte), padded_chunks::binary>>
+    buffer_len = buffer |> byte_size()
+    buffer |> IO.inspect(limit: :infinity)
+    buffer_len |> IO.inspect()
+
+    new_buffer =
+      1..node_count
+      |> Enum.filter(fn x -> rem(x, 2) == 0 end)
+      |> Enum.reverse()
+      |> Enum.reduce(buffer, fn index, acc_buffer ->
+        parent_index = (index - 1) |> div(2)
+        "Parent Index: #{parent_index}" |> IO.inspect()
+        start = parent_index * @bytes_per_chunk
+        "Start: #{start}" |> IO.inspect()
+        stop = (index + 1) * @bytes_per_chunk
+        "Stop: #{stop}" |> IO.inspect()
+        focus = acc_buffer |> :binary.part(start, stop - start)
+        focus_len = focus |> byte_size()
+        focus |> IO.inspect(limit: :infinity)
+        focus_len |> IO.inspect()
+        children_index = focus_len - 2 * @bytes_per_chunk
+        "Children Index: #{children_index}" |> IO.inspect()
+        children = focus |> :binary.part(children_index, focus_len - children_index)
+        children |> IO.inspect(limit: :infinity)
+        left = children |> :binary.part(0, 32)
+        right = children |> :binary.part(32, 32)
+        parent = hash_nodes(left, right)
+        first = acc_buffer |> :binary.part(0, start)
+        middle = parent <> children
+        last = acc_buffer |> :binary.part(stop, focus_len - stop)
+        new_buffer = first <> middle <> last
+        new_buffer_len = new_buffer |> byte_size()
+        new_buffer |> IO.inspect(limit: :infinity)
+        new_buffer
+      end)
+  end
+
+  @spec pack(non_neg_integer, {:int, non_neg_integer}) :: binary()
+  def pack(value, {:int, size}) do
+    <<value::size(size)-little>> |> pack_bytes()
+  end
+
+  @spec pack(boolean, :bool) :: binary()
+  def pack(value, :bool) do
+    case value do
+      true -> <<1::@bits_per_chunk-little>>
+      false -> @zero_chunk
+    end
+  end
+
+  @spec pack(list(), {:list, any, non_neg_integer}) :: binary()
+  def pack(list, {:list, type, _size}) do
+    if !variable_size?(type) do
+      pack_basic_type_list(list)
+    else
+      # pack_complex_type_list(list)
+    end
+  end
 
   #################
   ### Private functions
   #################
+  @bytes_per_boolean 4
   @bytes_per_length_offset 4
-  @bits_per_byte 8
   @offset_bits 32
 
   defp encode_int(value, size) when is_integer(value), do: {:ok, <<value::size(size)-little>>}
@@ -468,6 +571,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.any?()
   end
 
+  defp size_of(value) when is_boolean(value), do: @bytes_per_boolean
+
   def length_of_bitlist(bitlist) when is_binary(bitlist) do
     bit_size = bit_size(bitlist)
     <<_::size(bit_size - 8), last_byte>> = bitlist
@@ -500,10 +605,65 @@ defmodule LambdaEthereumConsensus.SszEx do
     <<value::size(size)-little, 0::size(pad)>>
   end
 
-  defp pack(value) when is_boolean(value) do
-    case value do
-      true -> <<1::@bits_per_chunk-little>>
-      false -> <<0::@bits_per_chunk>>
+  defp size_of(value, size) when is_integer(value) and value >= 0 do
+    {:ok, encoded} = value |> encode_int(size)
+    encoded |> byte_size()
+  end
+
+  # NOTE:
+  # - When the elements of the list is an uint then it is a basic list or basic vector
+  # - When the elements of the list is a boolean then it is a bit vector
+  defp chunk_count([{value, {:int, size}} = _head | _tail] = list) do
+    size = size_of(value, size)
+    len = length(list)
+    (len * size + 31) |> div(32)
+  end
+
+  defp chunk_count([{value, :bool} = _head | _tail] = list) do
+    size = size_of(value)
+    len = length(list)
+    (len * size + 31) |> div(32)
+  end
+
+  defp pack_basic_type_list(list) do
+    list
+    |> Enum.reduce(<<>>, fn {x, schema}, acc ->
+      {:ok, encoded} = encode(x, schema)
+      acc <> encoded
+    end)
+    |> pack_bytes()
+  end
+
+  defp pack_bytes(value) when is_binary(value) do
+    incomplete_chunk_len = value |> bit_size() |> rem(@bits_per_chunk)
+
+    if incomplete_chunk_len != 0 do
+      pad = @bits_per_chunk - incomplete_chunk_len
+      <<value::binary, 0::size(pad)>>
+    else
+      value
+    end
+  end
+
+  defp convert_to_next_pow_of_two(chunks) do
+    size = chunks |> byte_size() |> div(@bytes_per_chunk)
+    next_pow = size |> next_pow_of_two()
+
+    if size == next_pow do
+      chunks
+    else
+      diff = next_pow - size
+      zero_chunks = 0..(diff - 1) |> Enum.reduce(<<>>, fn _, acc -> <<0::256>> <> acc end)
+      chunks <> zero_chunks
+    end
+  end
+
+  defp next_pow_of_two(len) when is_integer(len) and len >= 0 do
+    if len == 0 do
+      0
+    else
+      n = ((len <<< 1) - 1) |> :math.log2() |> trunc()
+      2 ** n
     end
   end
 end
