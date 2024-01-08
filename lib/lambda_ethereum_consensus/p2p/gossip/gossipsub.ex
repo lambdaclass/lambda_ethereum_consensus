@@ -27,7 +27,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
       # {"sync_committee_0", Types.SyncCommitteeMessage}
     ]
 
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16!()
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16!(case: :lower)
 
     children =
       for {topic_msg, ssz_type, handler} <- topics do
