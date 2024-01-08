@@ -95,7 +95,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
           {:stop, error}
       end
 
-    # TODO: this should be done after validation
+    # TODO: remove
     :ok = StateStore.store_state(anchor_state)
     :ok = BlockStore.store_block(signed_anchor_block)
 

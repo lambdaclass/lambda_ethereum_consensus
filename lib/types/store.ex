@@ -41,9 +41,8 @@ defmodule Types.Store do
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
-  def get_ancestor(%__MODULE__{blocks: blocks} = store, root, slot) do
-    # TODO: this should fetch from the DB
-    %{^root => block} = blocks
+  def get_ancestor(%__MODULE__{} = store, root, slot) do
+    block = get_block!(store, root)
 
     if block.slot > slot do
       get_ancestor(store, block.parent_root, slot)
@@ -58,5 +57,45 @@ defmodule Types.Store do
   def get_checkpoint_block(%__MODULE__{} = store, root, epoch) do
     epoch_first_slot = Misc.compute_start_slot_at_epoch(epoch)
     get_ancestor(store, root, epoch_first_slot)
+  end
+
+  def get_state(%__MODULE__{} = store, block_root) do
+    case Map.get(store.block_states, block_root) do
+      nil -> :not_found
+      v -> v
+    end
+  end
+
+  def get_state!(store, block_root) do
+    case get_state(store, block_root) do
+      :not_found -> raise "State not found for block #{block_root}"
+      v -> v
+    end
+  end
+
+  def store_state(%__MODULE__{} = store, block_root, state) do
+    store.block_states
+    |> Map.put(block_root, state)
+    |> then(&%{store | block_states: &1})
+  end
+
+  def get_block(%__MODULE__{} = store, block_root) do
+    case Map.get(store.blocks, block_root) do
+      nil -> :not_found
+      v -> v
+    end
+  end
+
+  def get_block!(store, block_root) do
+    case get_block(store, block_root) do
+      :not_found -> raise "Block not found: #{block_root}"
+      v -> v
+    end
+  end
+
+  def store_block(%__MODULE__{} = store, block_root, signed_block) do
+    store.blocks
+    |> Map.put(block_root, signed_block)
+    |> then(&%{store | blocks: &1})
   end
 end

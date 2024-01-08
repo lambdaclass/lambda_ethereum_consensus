@@ -8,10 +8,14 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   @block_prefix "block"
   @blockslot_prefix @block_prefix <> "slot"
 
-  @spec store_block(Types.SignedBeaconBlock.t()) :: :ok
-  def store_block(%Types.SignedBeaconBlock{} = signed_block) do
-    block = signed_block.message
-    block_root = Ssz.hash_tree_root!(block)
+  @spec store_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok
+  def store_block(signed_block, block_root \\ nil)
+
+  def store_block(%Types.SignedBeaconBlock{} = signed_block, nil) do
+    store_block(signed_block, Ssz.hash_tree_root!(signed_block.message))
+  end
+
+  def store_block(%Types.SignedBeaconBlock{} = signed_block, block_root) do
     {:ok, encoded_signed_block} = Ssz.to_ssz(signed_block)
 
     key = block_key(block_root)
@@ -20,7 +24,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     # WARN: this overrides any previous mapping for the same slot
     # TODO: this should apply fork-choice if not applied elsewhere
     # TODO: handle cases where slot is empty
-    slothash_key = block_root_by_slot_key(block.slot)
+    slothash_key = block_root_by_slot_key(signed_block.message.slot)
     Db.put(slothash_key, block_root)
   end
 
