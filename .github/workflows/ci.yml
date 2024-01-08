@@ -20,7 +20,7 @@ jobs:
     name: Build native libraries
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Elixir
         # NOTE: this is needed for the NIF header files
         uses: erlef/setup-beam@v1
@@ -56,7 +56,7 @@ jobs:
     needs: compile-native
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
@@ -107,7 +107,7 @@ jobs:
     needs: compile-native
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
@@ -143,7 +143,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
@@ -168,7 +168,7 @@ jobs:
     name: Download spectests
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cache compressed spectests
         id: output-cache
         uses: actions/cache@v3
@@ -188,7 +188,7 @@ jobs:
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
