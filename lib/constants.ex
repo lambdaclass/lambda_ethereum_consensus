@@ -117,4 +117,7 @@ defmodule Constants do
 
   @spec proposer_score_boost() :: non_neg_integer()
   def proposer_score_boost, do: 3
+
+  @spec sync_committee_subnet_count() :: non_neg_integer()
+  def sync_committee_subnet_count, do: 4
 end

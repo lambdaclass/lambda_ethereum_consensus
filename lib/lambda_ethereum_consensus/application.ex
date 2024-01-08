@@ -30,6 +30,7 @@ defmodule LambdaEthereumConsensus.Application do
       {LambdaEthereumConsensus.Store.Db, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync]},
+      {LambdaEthereumConsensus.P2P.Metadata, []},
       {BeaconApi.Endpoint, []}
     ]
 
