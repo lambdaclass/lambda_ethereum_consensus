@@ -10,9 +10,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
 
-  def handle_beacon_block(
-        %SignedBeaconBlock{message: block} = signed_block
-      ) do
+  def handle_beacon_block(%SignedBeaconBlock{message: block} = signed_block) do
     current_slot = BeaconChain.get_current_slot()
 
     if block.slot > current_slot - ChainSpec.get("SLOTS_PER_EPOCH") do
@@ -24,9 +22,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
     :ok
   end
 
-  def handle_beacon_aggregate_and_proof(
-        %SignedAggregateAndProof{message: %AggregateAndProof{aggregate: aggregate}}
-      ) do
+  def handle_beacon_aggregate_and_proof(%SignedAggregateAndProof{
+        message: %AggregateAndProof{aggregate: aggregate}
+      }) do
     votes = BitVector.count(aggregate.aggregation_bits)
     slot = aggregate.data.slot
     root = aggregate.data.beacon_block_root |> Base.encode16()

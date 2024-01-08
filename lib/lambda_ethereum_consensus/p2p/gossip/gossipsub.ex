@@ -15,7 +15,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   def init([fork_digest_context]) do
     topics = [
       {"beacon_block", Types.SignedBeaconBlock, &Handler.handle_beacon_block/1},
-      {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof, &Handler.handle_beacon_aggregate_and_proof/1}
+      {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof,
+       &Handler.handle_beacon_aggregate_and_proof/1}
       # {"beacon_attestation_0", Types.Attestation},
       # {"voluntary_exit", Types.SignedVoluntaryExit},
       # {"proposer_slashing", Types.ProposerSlashing},
