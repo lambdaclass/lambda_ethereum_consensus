@@ -8,13 +8,16 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   import Bitwise
 
-  alias LambdaEthereumConsensus.Utils.MerkleTrie
-
   @bits_per_chunk 256
+  @bytes_per_chunk 32
+  @bits_per_byte 8
   @zero_chunk <<0::size(@bits_per_chunk)>>
 
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
+
+  @spec hash_nodes(binary(), binary()) :: binary()
+  def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
 
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
@@ -66,43 +69,65 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def hash_tree_root_list_basic_type(chunks, limit, len) do
-    merklelize(chunks, limit) |> mix_in_length(len)
+    merklelize_chunks(chunks, limit) |> mix_in_length(len)
   end
-
-  # def hash_tree_root_list_complex_type(value, {:list, type, size}, limit \\ nil) do
-  #   # TODO
-  # end
 
   def mix_in_length(root, len) do
     hash(root <> <<len>>)
   end
 
-  def merklelize(chunks, limit) do
-    size =
-      if limit != nil and limit >= length(chunks) do
-        limit
-      else
-        length(chunks)
-      end
-
-    leaf_count = next_pow_of_two(size)
-
-    chunks =
-      if leaf_count == size do
-        chunks
-      else
-        diff = leaf_count - size
-        zero_chunks = 0..(diff - 1) |> Enum.map(fn _ -> @zero_chunk end)
-        chunks ++ zero_chunks
-      end
-
-    MerkleTrie.create(chunks).hash
+  def merklelize_chunks(chunks, leaf_count) do
+    "Leaf Count: #{leaf_count}" |> IO.inspect()
+    node_count = 2 * leaf_count - 1
+    "Node Count: #{node_count}" |> IO.inspect()
+    interior_count = node_count - leaf_count
+    "Interior Count: #{interior_count}" |> IO.inspect()
+    leaf_start = interior_count * @bytes_per_chunk
+    "Leaf Start: #{leaf_start}" |> IO.inspect()
+    padded_chunks = chunks |> convert_to_next_pow_of_two()
+    padded_chunks |> IO.inspect(limit: :infinity)
+    buffer = <<0::size(leaf_start * @bits_per_byte), padded_chunks::binary>>
+    buffer_len = buffer |> byte_size()
+    buffer |> IO.inspect(limit: :infinity)
+    buffer_len |> IO.inspect()
+    new_buffer =
+      1..node_count
+      |> Enum.filter(fn x -> rem(x, 2) == 0 end)
+      |> Enum.reverse()
+      |> Enum.reduce(buffer, fn index, acc_buffer ->
+        parent_index = (index - 1) |> div(2)
+        "Parent Index: #{parent_index}" |> IO.inspect()
+        start = parent_index * @bytes_per_chunk
+        "Start: #{start}" |> IO.inspect()
+        stop = (index + 1) * @bytes_per_chunk
+        "Stop: #{stop}" |> IO.inspect()
+        focus = acc_buffer |> :binary.part(start, stop - start)
+        focus_len = focus |> byte_size()
+        focus |> IO.inspect(limit: :infinity)
+        focus_len |> IO.inspect()
+        children_index = focus_len - 2 * @bytes_per_chunk
+        "Children Index: #{children_index}" |> IO.inspect()
+        children = focus |> :binary.part(children_index, focus_len - children_index)
+        children |> IO.inspect(limit: :infinity)
+        left = children |> :binary.part(0, 32)
+        right = children |> :binary.part(32, 32)
+        parent = hash_nodes(left, right)
+        first = acc_buffer |> :binary.part(0, start)
+        middle = parent <> children
+        last = acc_buffer |> :binary.part(stop, focus_len - stop)
+        new_buffer = first <> middle <> last
+        new_buffer_len = new_buffer |> byte_size()
+        new_buffer |> IO.inspect(limit: :infinity)
+        new_buffer
+      end)
   end
 
+  @spec pack(non_neg_integer, {:int, non_neg_integer}) :: binary()
   def pack(value, {:int, size}) do
     <<value::size(size)-little>> |> pack_bytes()
   end
 
+  @spec pack(boolean, :bool) :: binary()
   def pack(value, :bool) do
     case value do
       true -> <<1::@bits_per_chunk-little>>
@@ -110,6 +135,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec pack(list(), {:list, any, non_neg_integer}) :: binary()
   def pack(list, {:list, type, _size}) do
     if !variable_size?(type) do
       pack_basic_type_list(list)
@@ -122,9 +148,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   ### Private functions
   #################
   @bytes_per_boolean 4
-  @bytes_per_chunk 32
   @bytes_per_length_offset 4
-  @bits_per_byte 8
   @offset_bits 32
 
   defp encode_int(value, size) when is_integer(value), do: {:ok, <<value::size(size)-little>>}
@@ -514,14 +538,7 @@ defmodule LambdaEthereumConsensus.SszEx do
       acc <> encoded
     end)
     |> pack_bytes()
-    |> :binary.bin_to_list()
-    |> Enum.chunk_every(@bytes_per_chunk)
-    |> Enum.map(fn x -> :binary.list_to_bin(x) end)
   end
-
-  # defp pack_complex_type_list(list) do
-  #   # TODO
-  # end
 
   defp pack_bytes(value) when is_binary(value) do
     incomplete_chunk_len = value |> bit_size() |> rem(@bits_per_chunk)
@@ -531,6 +548,18 @@ defmodule LambdaEthereumConsensus.SszEx do
       <<value::binary, 0::size(pad)>>
     else
       value
+    end
+  end
+
+  defp convert_to_next_pow_of_two(chunks) do
+    size = chunks |> byte_size() |> div(@bytes_per_chunk)
+    next_pow = size |> next_pow_of_two()
+    if size == next_pow do
+      chunks
+    else
+      diff = next_pow - size
+      zero_chunks = 0..(diff - 1) |> Enum.reduce(<<>>, fn _, acc -> <<0::256>> <> acc end)
+      chunks <> zero_chunks
     end
   end
 
