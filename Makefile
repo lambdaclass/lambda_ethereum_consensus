@@ -91,6 +91,7 @@ compile-all: compile-native $(PROTOBUF_EX_FILES)
 
 #🗑️ clean: @ Remove the build files.
 clean:
+	-mix clean
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
 
 #📊 grafana-up: @ Start grafana server.

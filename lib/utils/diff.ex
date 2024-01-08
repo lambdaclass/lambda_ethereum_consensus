@@ -28,9 +28,11 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
   @type base_diff :: %{optional(:left) => any(), optional(:right) => any()}
   @type t :: :unchanged | base_diff() | structured_diff()
 
+  import Aja
+
   @spec diff(any(), any()) :: t()
-  def diff(%Aja.Vector{} = a, %Aja.Vector{} = b) do
-    diff(Enum.to_list(a), Enum.to_list(b))
+  def diff(vec(_) = a, vec(_) = b) do
+    diff(Aja.Enum.to_list(a), Aja.Enum.to_list(b))
   end
 
   def diff(a, b) when is_map(a) and is_map(b) do
