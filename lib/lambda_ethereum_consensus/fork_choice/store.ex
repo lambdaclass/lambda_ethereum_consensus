@@ -99,6 +99,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
         |> Store.store_state(anchor_block_root, anchor_state)
         |> Store.store_block(anchor_block_root, signed_anchor_block)
         |> Handlers.on_tick(time)
+        |> then(&{:ok, &1})
 
       {:error, error} ->
         {:stop, error}
