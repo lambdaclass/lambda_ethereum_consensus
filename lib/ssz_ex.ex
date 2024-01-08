@@ -109,6 +109,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     buffer_len = buffer |> byte_size()
     buffer |> IO.inspect(limit: :infinity)
     buffer_len |> IO.inspect()
+
     new_buffer =
       1..node_count
       |> Enum.filter(fn x -> rem(x, 2) == 0 end)
@@ -570,9 +571,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.any?()
   end
 
-  defp size_of(value) when is_boolean(value) do
-    @bytes_per_boolean
-    
+  defp size_of(value) when is_boolean(value), do: @bytes_per_boolean
+
   def length_of_bitlist(bitlist) when is_binary(bitlist) do
     bit_size = bit_size(bitlist)
     <<_::size(bit_size - 8), last_byte>> = bitlist
@@ -648,6 +648,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp convert_to_next_pow_of_two(chunks) do
     size = chunks |> byte_size() |> div(@bytes_per_chunk)
     next_pow = size |> next_pow_of_two()
+
     if size == next_pow do
       chunks
     else
