@@ -13,6 +13,7 @@ defmodule Types do
   ## Binary types
   @type bytes1 :: <<_::8>>
   @type bytes4 :: <<_::32>>
+  @type bytes8 :: <<_::64>>
   @type bytes20 :: <<_::160>>
   @type bytes32 :: <<_::256>>
   @type bytes48 :: <<_::384>>
@@ -40,4 +41,5 @@ defmodule Types do
   @type transaction :: binary
   @type execution_address :: bytes20
   @type withdrawal_index :: uint64
+  @type payload_id :: bytes8
 end
