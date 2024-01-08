@@ -42,6 +42,7 @@ defmodule Types.Store do
   end
 
   def get_ancestor(%__MODULE__{blocks: blocks} = store, root, slot) do
+    # TODO: this should fetch from the DB
     %{^root => block} = blocks
 
     if block.slot > slot do

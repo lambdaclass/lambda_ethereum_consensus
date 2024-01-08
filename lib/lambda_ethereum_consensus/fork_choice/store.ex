@@ -118,6 +118,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   def handle_call({:get_block, block_root}, _from, state) do
+    # TODO: this should fetch from the DB
     {:reply, Map.get(state.blocks, block_root), state}
   end
 
@@ -136,6 +137,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
            signed_block.message.body.attester_slashings
            |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
       BlockStore.store_block(signed_block)
+      # TODO: this should fetch from the DB
       Map.fetch!(new_store.block_states, block_root) |> StateStore.store_state()
       :telemetry.execute([:sync, :on_block], %{slot: slot})
       Logger.info("[Fork choice] Block #{slot} added to the store.")

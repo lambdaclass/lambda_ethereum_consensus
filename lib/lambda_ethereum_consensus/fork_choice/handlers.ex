@@ -52,6 +52,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
     cond do
       # Parent block must be known
+      # TODO: this should fetch from the DB
       not Map.has_key?(store.block_states, block.parent_root) ->
         {:error, "parent state not found in store"}
 
@@ -130,6 +131,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           attestation_2: %IndexedAttestation{} = attestation_2
         }
       ) do
+    # TODO: this should fetch from the DB
     state = store.block_states[store.justified_checkpoint.root]
 
     cond do
@@ -157,13 +159,16 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         %Store{block_states: states} = store,
         %SignedBeaconBlock{message: block} = signed_block
       ) do
+    # TODO: this should fetch from the DB
     state = states[block.parent_root]
     block_root = Ssz.hash_tree_root!(block)
 
     with {:ok, state} <- StateTransition.state_transition(state, signed_block, true) do
       # Add new block to the store
+      # TODO: this should store in the DB
       blocks = Map.put(store.blocks, block_root, block)
       # Add new state for this block to the store
+      # TODO: this should store in the DB
       states = Map.put(store.block_states, block_root, state)
 
       store = %Store{store | blocks: blocks, block_states: states}
@@ -228,9 +233,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   # Pull up the post-state of the block to the next epoch boundary
   def compute_pulled_up_tip(%Store{block_states: states} = store, block_root) do
+    # TODO: this should fetch from the DB
     result = EpochProcessing.process_justification_and_finalization(states[block_root])
 
     with {:ok, state} <- result do
+      # TODO: this should fetch from the DB
       block_epoch = Misc.compute_epoch_at_slot(store.blocks[block_root].slot)
       current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
 
@@ -300,15 +307,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Attestation target must be for a known block.
       # If target block is unknown, delay consideration until block is found
       # TODO: delay consideration until block is found
+      # TODO: this should fetch from the DB
       not Map.has_key?(store.blocks, target.root) ->
         {:unknown_block, target.root}
 
       # Attestations must be for a known block. If block is unknown, delay consideration until the block is found
       # TODO: delay consideration until block is found
+      # TODO: this should fetch from the DB
       not Map.has_key?(store.blocks, block_root) ->
         {:unknown_block, block_root}
 
       # Attestations must not be for blocks in the future. If not, the attestation should not be considered
+      # TODO: this should fetch from the DB
       store.blocks[block_root].slot > attestation.data.slot ->
         {:error, "future head block"}
 
@@ -348,6 +358,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     else
       target_slot = Misc.compute_start_slot_at_epoch(target.epoch)
 
+      # TODO: this should fetch from the DB
       store.block_states[target.root]
       |> then(
         &if(&1.slot < target_slot,
