@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   use GenServer
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
 
   defmodule BeaconChainState do
@@ -11,11 +12,13 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
     defstruct [
       :genesis_time,
+      :genesis_validators_root,
       :time
     ]
 
     @type t :: %__MODULE__{
             genesis_time: Types.uint64(),
+            genesis_validators_root: Types.bytes32(),
             time: Types.uint64()
           }
   end
@@ -30,6 +33,16 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     GenServer.call(__MODULE__, :get_current_slot)
   end
 
+  @spec get_current_epoch() :: integer()
+  def get_current_epoch do
+    Misc.compute_epoch_at_slot(get_current_slot())
+  end
+
+  @spec get_fork_digest() :: binary()
+  def get_fork_digest do
+    GenServer.call(__MODULE__, :get_fork_digest)
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -42,6 +55,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     {:ok,
      %BeaconChainState{
        genesis_time: anchor_state.genesis_time,
+       genesis_validators_root: anchor_state.genesis_validators_root,
        time: time
      }}
   end
@@ -49,6 +63,22 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @impl true
   def handle_call(:get_current_slot, _from, state) do
     {:reply, compute_current_slot(state), state}
+  end
+
+  @impl true
+  def handle_call(:get_fork_digest, _from, state) do
+    current_fork_version =
+      compute_current_slot(state)
+      |> Misc.compute_epoch_at_slot()
+      |> get_fork_version_for_epoch()
+
+    fork_digest =
+      Misc.compute_fork_digest(
+        current_fork_version,
+        state.genesis_validators_root
+      )
+
+    {:reply, fork_digest, state}
   end
 
   @impl true
@@ -70,5 +100,16 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   defp compute_current_slot(state) do
     div(state.time - state.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
+  end
+
+  defp get_fork_version_for_epoch(epoch) do
+    capella_version = ChainSpec.get("CAPELLA_FORK_VERSION")
+    cappella_epoch = ChainSpec.get("CAPELLA_FORK_EPOCH")
+
+    if epoch >= cappella_epoch do
+      capella_version
+    else
+      raise "Forks before Capella are not supported"
+    end
   end
 end
