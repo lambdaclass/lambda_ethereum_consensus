@@ -4,18 +4,17 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   """
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
+  alias Types.SignedBeaconBlock
 
   @block_prefix "block"
   @blockslot_prefix @block_prefix <> "slot"
 
-  @spec store_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok
-  def store_block(signed_block, block_root \\ nil)
-
-  def store_block(%Types.SignedBeaconBlock{} = signed_block, nil) do
+  @spec store_block(SignedBeaconBlock.t(), Types.root()) :: :ok
+  def store_block(%SignedBeaconBlock{} = signed_block) do
     store_block(signed_block, Ssz.hash_tree_root!(signed_block.message))
   end
 
-  def store_block(%Types.SignedBeaconBlock{} = signed_block, block_root) do
+  def store_block(%SignedBeaconBlock{} = signed_block, block_root) do
     {:ok, encoded_signed_block} = Ssz.to_ssz(signed_block)
 
     key = block_key(block_root)
@@ -29,12 +28,12 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   end
 
   @spec get_block(Types.root()) ::
-          {:ok, Types.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found
+          {:ok, SignedBeaconBlock.t()} | {:error, String.t()} | :not_found
   def get_block(block_root) do
     key = block_key(block_root)
 
     with {:ok, signed_block} <- Db.get(key) do
-      Ssz.from_ssz(signed_block, Types.SignedBeaconBlock)
+      Ssz.from_ssz(signed_block, SignedBeaconBlock)
     end
   end
 
@@ -51,7 +50,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   end
 
   @spec get_block_by_slot(Types.slot()) ::
-          {:ok, Types.SignedBeaconBlock.t()} | {:error, String.t()} | :not_found | :empty_slot
+          {:ok, SignedBeaconBlock.t()} | {:error, String.t()} | :not_found | :empty_slot
   def get_block_by_slot(slot) do
     # WARN: this will return the latest block received for the given slot
     with {:ok, root} <- get_block_root_by_slot(slot) do

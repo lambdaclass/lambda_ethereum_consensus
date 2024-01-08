@@ -34,10 +34,10 @@ defmodule Types.Store do
           unrealized_justifications: %{Types.root() => Types.Checkpoint.t()}
         }
 
-  alias Types.SignedBeaconBlock
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.Store.StateStore
-  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias Types.SignedBeaconBlock
 
   def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
     # NOTE: this assumes GENESIS_SLOT == 0
