@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
-  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -123,7 +122,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   @impl GenServer
-  def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
+  def handle_call({:on_block, _block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
     Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
     slot = signed_block.message.slot
 
