@@ -44,6 +44,8 @@ macro_rules! schema_match {
                 SignedAggregateAndProof<C>,
                 BeaconBlocksByRangeRequest,
                 BeaconBlocksByRangeResponse<C>,
+                BeaconBlocksByRootRequest,
+                BeaconBlocksByRootResponse<C>,
                 Transaction,
                 Metadata<C>,
                 Root,
