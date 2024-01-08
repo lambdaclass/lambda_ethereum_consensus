@@ -84,26 +84,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    result =
-      case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
-        {:ok, store = %Store{}} ->
-          store = Handlers.on_tick(store, time)
-          Logger.info("[Fork choice] Initialized store.")
-          {:ok, store}
+    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
+      {:ok, %Store{} = store} ->
+        [anchor_block_root] = Map.keys(store.blocks)
+        Logger.info("[Fork choice] Initialized store.")
 
-        {:error, error} ->
-          {:stop, error}
-      end
+        slot = signed_anchor_block.message.slot
+        :telemetry.execute([:sync, :store], %{slot: slot})
+        :telemetry.execute([:sync, :on_block], %{slot: slot})
 
-    # TODO: remove
-    :ok = StateStore.store_state(anchor_state)
-    :ok = BlockStore.store_block(signed_anchor_block)
+        store
+        |> Map.delete(:blocks)
+        |> Map.delete(:block_states)
+        |> Store.store_state(anchor_block_root, anchor_state)
+        |> Store.store_block(anchor_block_root, signed_anchor_block)
+        |> Handlers.on_tick(time)
 
-    slot = signed_anchor_block.message.slot
-    :telemetry.execute([:sync, :store], %{slot: slot})
-    :telemetry.execute([:sync, :on_block], %{slot: slot})
-
-    result
+      {:error, error} ->
+        {:stop, error}
+    end
   end
 
   @impl GenServer

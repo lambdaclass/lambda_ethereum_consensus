@@ -50,14 +50,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           unrealized_finalized_checkpoint: anchor_checkpoint,
           proposer_boost_root: <<0::256>>,
           equivocating_indices: MapSet.new(),
-          blocks: %{},
-          block_states: %{},
+          blocks: %{anchor_block_root => anchor_block},
+          block_states: %{anchor_block_root => anchor_state},
           checkpoint_states: %{anchor_checkpoint => anchor_state},
           latest_messages: %{},
           unrealized_justifications: %{anchor_block_root => anchor_checkpoint}
         }
-        |> Store.store_block(anchor_block_root, anchor_block)
-        |> Store.store_state(anchor_block_root, anchor_state)
 
       {:ok, store}
     else

@@ -34,6 +34,9 @@ defmodule Types.Store do
           unrealized_justifications: %{Types.root() => Types.Checkpoint.t()}
         }
 
+  alias Types.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.StateStore
   alias LambdaEthereumConsensus.StateTransition.Misc
 
   def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
@@ -59,10 +62,17 @@ defmodule Types.Store do
     get_ancestor(store, root, epoch_first_slot)
   end
 
-  def get_state(%__MODULE__{} = store, block_root) do
-    case Map.get(store.block_states, block_root) do
+  def get_state(%__MODULE__{block_states: states}, block_root) do
+    case Map.get(states, block_root) do
       nil -> :not_found
       v -> v
+    end
+  end
+
+  def get_state(%__MODULE__{}, block_root) do
+    case StateStore.get_state(block_root) do
+      {:ok, state} -> state
+      _ -> :not_found
     end
   end
 
@@ -73,16 +83,28 @@ defmodule Types.Store do
     end
   end
 
-  def store_state(%__MODULE__{} = store, block_root, state) do
-    store.block_states
+  def store_state(%__MODULE__{block_states: states} = store, block_root, state) do
+    states
     |> Map.put(block_root, state)
     |> then(&%{store | block_states: &1})
   end
 
-  def get_block(%__MODULE__{} = store, block_root) do
-    case Map.get(store.blocks, block_root) do
+  def store_state(%__MODULE__{} = store, block_root, state) do
+    StateStore.store_state(state, block_root)
+    store
+  end
+
+  def get_block(%__MODULE__{blocks: blocks}, block_root) do
+    case Map.get(blocks, block_root) do
       nil -> :not_found
       v -> v
+    end
+  end
+
+  def get_block(%__MODULE__{}, block_root) do
+    case BlockStore.get_block(block_root) do
+      {:ok, signed_block} -> signed_block.message
+      _ -> :not_found
     end
   end
 
@@ -93,9 +115,14 @@ defmodule Types.Store do
     end
   end
 
-  def store_block(%__MODULE__{} = store, block_root, signed_block) do
-    store.blocks
-    |> Map.put(block_root, signed_block)
+  def store_block(%__MODULE__{blocks: blocks} = store, block_root, %{message: block}) do
+    blocks
+    |> Map.put(block_root, block)
     |> then(&%{store | blocks: &1})
+  end
+
+  def store_block(%__MODULE__{} = store, block_root, %SignedBeaconBlock{} = signed_block) do
+    BlockStore.store_block(signed_block, block_root)
+    store
   end
 end
