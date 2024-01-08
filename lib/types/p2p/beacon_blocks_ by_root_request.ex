@@ -1,4 +1,4 @@
-defmodule SszTypes.BeaconBlocksByRootRequest do
+defmodule Types.BeaconBlocksByRootRequest do
   @moduledoc """
   Struct definition for `BeaconBlocksByRootRequest`.
   Related definitions in `native/ssz_nif/src/types/`.
@@ -12,6 +12,6 @@ defmodule SszTypes.BeaconBlocksByRootRequest do
   defstruct fields
 
   @type t :: %__MODULE__{
-          body: list(SszTypes.root())
+          body: list(Types.root())
         }
 end

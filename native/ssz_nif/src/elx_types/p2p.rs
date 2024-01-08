@@ -28,7 +28,7 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconBlocksByRangeResponse"]
+    #[module = "Types.BeaconBlocksByRangeResponse"]
     pub(crate) struct BeaconBlocksByRangeResponse<'a> {
         body: Vec<SignedBeaconBlock<'a>>,
     }
@@ -36,7 +36,7 @@ gen_struct_with_config!(
 
 gen_struct!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconBlocksByRootRequest"]
+    #[module = "Types.BeaconBlocksByRootRequest"]
     pub(crate) struct BeaconBlocksByRootRequest<'a> {
         body: Vec<Root<'a>>,
     }
@@ -44,7 +44,7 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "SszTypes.BeaconBlocksByRootResponse"]
+    #[module = "Types.BeaconBlocksByRootResponse"]
     pub(crate) struct BeaconBlocksByRootResponse<'a> {
         body: Vec<SignedBeaconBlock<'a>>,
     }

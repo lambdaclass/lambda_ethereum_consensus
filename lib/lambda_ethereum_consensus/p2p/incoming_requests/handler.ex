@@ -128,9 +128,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     with {:ok, snappy_blocks_by_root_request} <- parse_message_size(message),
          {:ok, ssz_blocks_by_root_request} <- Snappy.decompress(snappy_blocks_by_root_request),
          {:ok, blocks_by_root_request} <-
-           Ssz.from_ssz(ssz_blocks_by_root_request, SszTypes.BeaconBlocksByRootRequest) do
+           Ssz.from_ssz(ssz_blocks_by_root_request, Types.BeaconBlocksByRootRequest) do
       ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
-      %SszTypes.BeaconBlocksByRootRequest{body: body} =
+      %Types.BeaconBlocksByRootRequest{body: body} =
         blocks_by_root_request
 
       count =
