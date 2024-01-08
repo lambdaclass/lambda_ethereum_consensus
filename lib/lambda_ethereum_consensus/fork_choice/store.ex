@@ -62,7 +62,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @spec on_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok | :error
   def on_block(signed_block, block_root) do
-    :ok = BlockStore.store_block(signed_block)
     GenServer.call(__MODULE__, {:on_block, block_root, signed_block}, @default_timeout)
   end
 
@@ -86,12 +85,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
     case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
       {:ok, %Store{} = store} ->
-        [anchor_block_root] = Map.keys(store.blocks)
         Logger.info("[Fork choice] Initialized store.")
 
         slot = signed_anchor_block.message.slot
         :telemetry.execute([:sync, :store], %{slot: slot})
         :telemetry.execute([:sync, :on_block], %{slot: slot})
+
+        # TODO: solve this in a more elegant way
+        [anchor_block_root] = Map.keys(store.blocks)
 
         store
         |> Map.delete(:blocks)
@@ -118,8 +119,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
   end
 
   def handle_call({:get_block, block_root}, _from, state) do
-    # TODO: this should fetch from the DB
-    {:reply, Map.get(state.blocks, block_root), state}
+    {:reply, Store.get_block(state, block_root), state}
   end
 
   @impl GenServer
@@ -136,9 +136,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
          {:ok, new_store} <-
            signed_block.message.body.attester_slashings
            |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
-      BlockStore.store_block(signed_block)
-      # TODO: this should fetch from the DB
-      Map.fetch!(new_store.block_states, block_root) |> StateStore.store_state()
       :telemetry.execute([:sync, :on_block], %{slot: slot})
       Logger.info("[Fork choice] Block #{slot} added to the store.")
       {:reply, :ok, new_store}
