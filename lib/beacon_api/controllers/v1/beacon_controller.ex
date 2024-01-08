@@ -7,8 +7,8 @@ defmodule BeaconApi.V1.BeaconController do
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_state_root(conn, %{"state_id" => state_id}) do
     case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.root_by_id() do
-      {:ok, root} ->
-        conn |> root_response(root)
+      {:ok, {root, execution_optimistic, finalized}} ->
+        conn |> root_response(root, execution_optimistic, finalized)
 
       {:error, error_msg} ->
         conn |> ErrorController.internal_error("Error: #{inspect(error_msg)}")
@@ -48,7 +48,7 @@ defmodule BeaconApi.V1.BeaconController do
   def get_block_root(conn, %{"block_id" => "0x" <> hex_block_id}) do
     with {:ok, block_root} <- Base.decode16(hex_block_id, case: :mixed),
          {:ok, _signed_block} <- BlockStore.get_block(block_root) do
-      conn |> root_response(block_root)
+      conn |> root_response(block_root, true, false)
     else
       :not_found -> conn |> block_not_found()
       _ -> conn |> ErrorController.bad_request("Invalid block ID: 0x#{hex_block_id}")
@@ -58,7 +58,7 @@ defmodule BeaconApi.V1.BeaconController do
   def get_block_root(conn, %{"block_id" => block_id}) do
     with {slot, ""} when slot >= 0 <- Integer.parse(block_id),
          {:ok, block_root} <- BlockStore.get_block_root_by_slot(slot) do
-      conn |> root_response(block_root)
+      conn |> root_response(block_root, true, false)
     else
       :not_found ->
         conn |> block_not_found()
@@ -77,11 +77,11 @@ defmodule BeaconApi.V1.BeaconController do
     })
   end
 
-  defp root_response(conn, root) do
+  defp root_response(conn, root, execution_optimistic, finalized) do
     conn
     |> json(%{
-      execution_optimistic: true,
-      finalized: false,
+      execution_optimistic: execution_optimistic,
+      finalized: finalized,
       data: %{
         root: "0x" <> Base.encode16(root, case: :lower)
       }

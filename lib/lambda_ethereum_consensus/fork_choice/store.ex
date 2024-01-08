@@ -31,6 +31,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     {:ok, finalized_checkpoint}
   end
 
+  @spec get_justified_checkpoint() :: {:ok, Types.Checkpoint.t()}
+  def get_justified_checkpoint do
+    [justified_checkpoint] = get_store_attrs([:justified_checkpoint])
+    {:ok, justified_checkpoint}
+  end
+
   @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
   def get_current_status_message do
     # TODO: un-hardcode when get_head is optimized and/or cached

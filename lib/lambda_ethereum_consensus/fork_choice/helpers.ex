@@ -2,9 +2,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @moduledoc """
     Utility functions for the fork choice.
   """
+  alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.Store.StateStore
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
+  alias Plug.Session.Store
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
@@ -210,19 +212,57 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     store.justified_checkpoint.epoch + 1 == current_epoch
   end
 
-  @spec root_by_id(atom() | binary) :: {:ok, Types.root()} | {:error, String.t()} | atom()
+  @spec root_by_id(atom() | Types.root() | Types.slot()) ::
+          {:ok, {Types.root(), boolean(), boolean()}} | {:error, String.t()} | atom()
   def root_by_id(:head) do
-    with {:ok, state} <- StateStore.get_latest_state(),
-         {:ok, signed_block} <- BlockStore.get_block_by_slot(state.slot),
-         {:ok, store} <- get_forkchoice_store(state, signed_block.message),
-         {:ok, root} <- get_head(store) do
-      {:ok, root}
+    with {:ok, current_status} <- ForkChoice.Store.get_current_status_message(),
+         {:ok, signed_block} <- BlockStore.get_block(current_status.head_root) do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {signed_block.message.state_root, execution_optimistic, false}}
     end
   end
 
   def root_by_id(:genesis), do: :invalid_id
-  def root_by_id(:justified), do: :invalid_id
-  def root_by_id(:finalized), do: :invalid_id
+
+  def root_by_id(:justified) do
+    with {:ok, justified_checkpoint} <- ForkChoice.Store.get_justified_checkpoint(),
+         {:ok, signed_block} <- BlockStore.get_block(justified_checkpoint.root) do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, signed_block.message.state_root, execution_optimistic, false}
+    end
+  end
+
+  def root_by_id(:finalized) do
+    with {:ok, finalized_checkpoint} <- ForkChoice.Store.get_finalized_checkpoint(),
+         {:ok, signed_block} <- BlockStore.get_block(finalized_checkpoint.root) do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, signed_block.message.state_root, execution_optimistic, true}
+    end
+  end
+
   def root_by_id(:invalid_id), do: :invalid_id
-  def root_by_id(_hex_root), do: :invalid_id
+
+  def root_by_id(hex_root) when is_binary(hex_root) do
+    # TODO compute is_optimistic_or_invalid() and is_finalized()
+    execution_optimistic = true
+    finalized = false
+    {:ok, {hex_root, execution_optimistic, finalized}}
+  end
+
+  def root_by_id(slot) when is_integer(slot) do
+    with {:ok, state} <- StateStore.get_latest_state(),
+         {:ok, signed_block} <- BlockStore.get_block_by_slot(state.slot),
+         {:ok, store} <- get_forkchoice_store(state, signed_block.message),
+         current_slot = Store.get_current_slot(store),
+         true <- slot < current_slot,
+         {:ok, signed_block_for_slot} <- BlockStore.get_block_by_slot(slot) do
+      # TODO compute is_optimistic_or_invalid() and is_finalized()
+      execution_optimistic = true
+      finalized = false
+      {:ok, signed_block_for_slot.message.state_root, execution_optimistic, finalized}
+    end
+  end
 end
