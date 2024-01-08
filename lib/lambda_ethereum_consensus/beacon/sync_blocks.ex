@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
   require Logger
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.P2P.BlockDownloader
@@ -26,7 +27,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     {:ok, checkpoint} = Store.get_finalized_checkpoint()
 
     initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch)
-    last_slot = Store.get_current_slot()
+    last_slot = BeaconChain.get_current_slot()
 
     chunks =
       Enum.chunk_every(initial_slot..last_slot, @blocks_per_chunk)

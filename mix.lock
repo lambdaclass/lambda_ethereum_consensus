@@ -16,6 +16,7 @@
   "eflambe": {:hex, :eflambe, "0.3.1", "ef0a35084fad1f50744496730a9662782c0a9ebf449d3e03143e23295c5926ea", [:rebar3], [{:meck, "0.9.2", [hex: :meck, repo: "hexpm", optional: false]}], "hexpm", "58d5997be606d4e269e9e9705338e055281fdf3e4935cc902c8908e9e4516c5f"},
   "eleveldb": {:hex, :eleveldb, "2.2.20", "1fff63a5055bbf4bf821f797ef76065882b193f5e8095f95fcd9287187773b58", [:rebar3], [], "hexpm", "0e67df12ef836a7bcdde9373c59f1ae18b335defd1d66b820d3d4dd7ca1844e2"},
   "erlex": {:hex, :erlex, "0.2.6", "c7987d15e899c7a2f34f5420d2a2ea0d659682c06ac607572df55a43753aa12e", [:mix], [], "hexpm", "2ed2e25711feb44d52b17d2780eabf998452f6efda104877a3881c2f8c0c0c75"},
+  "ex2ms": {:hex, :ex2ms, "1.6.1", "66d472eb14da43087c156e0396bac3cc7176b4f24590a251db53f84e9a0f5f72", [:mix], [], "hexpm", "a7192899d84af03823a8ec2f306fa858cbcce2c2e7fd0f1c49e05168fb9c740e"},
   "exleveldb": {:hex, :exleveldb, "0.14.0", "8e9353bbce38482d6971d254c6b98ceb50f3f179c94732b5d17db1be426fca18", [:mix], [{:eleveldb, "~> 2.2.20", [hex: :eleveldb, repo: "hexpm", optional: false]}], "hexpm", "803cd3b4c826a1e17e7e28f6afe224837a743b475e1a48336f186af3dd8636ad"},
   "expo": {:hex, :expo, "0.5.1", "249e826a897cac48f591deba863b26c16682b43711dd15ee86b92f25eafd96d9", [:mix], [], "hexpm", "68a4233b0658a3d12ee00d27d37d856b1ba48607e7ce20fd376958d0ba6ce92b"},
   "file_system": {:hex, :file_system, "0.2.10", "fb082005a9cd1711c05b5248710f8826b02d7d1784e7c3451f9c1231d4fc162d", [:mix], [], "hexpm", "41195edbfb562a593726eda3b3e8b103a309b733ad25f3d642ba49696bf715dc"},

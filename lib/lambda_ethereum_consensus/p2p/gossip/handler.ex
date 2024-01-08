@@ -5,15 +5,15 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   """
   require Logger
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
-  alias LambdaEthereumConsensus.ForkChoice.Store
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
 
   def handle_beacon_block(
         %SignedBeaconBlock{message: block} = signed_block
       ) do
-    current_slot = Store.get_current_slot()
+    current_slot = BeaconChain.get_current_slot()
 
     if block.slot > current_slot - ChainSpec.get("SLOTS_PER_EPOCH") do
       Logger.info("[Gossip] Block decoded for slot #{block.slot}")
