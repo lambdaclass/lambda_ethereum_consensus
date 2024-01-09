@@ -50,9 +50,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     finalized_slot =
       Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
 
+    base_state = Store.get_state(store, block.parent_root)
+
     cond do
       # Parent block must be known
-      Store.get_state(store, block.parent_root) |> is_nil() ->
+      base_state |> is_nil() ->
         {:error, "parent state not found in store"}
 
       # Blocks cannot be in the future. If they are, their
@@ -75,7 +77,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block isn't descendant of latest finalized block"}
 
       true ->
-        compute_post_state(store, signed_block)
+        compute_post_state(store, signed_block, base_state)
     end
   end
 
@@ -153,8 +155,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Check the block is valid and compute the post-state.
-  def compute_post_state(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
-    state = Store.get_state!(store, block.parent_root)
+  def compute_post_state(%Store{} = store, %SignedBeaconBlock{} = signed_block, state) do
+    %{message: block} = signed_block
     block_root = Ssz.hash_tree_root!(block)
 
     with {:ok, state} <- StateTransition.state_transition(state, signed_block, true) do
