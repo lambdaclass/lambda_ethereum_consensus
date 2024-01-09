@@ -581,7 +581,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 
   defp size_of(value) when is_boolean(value), do: @bytes_per_boolean
-  
+
   defp size_of(value, size) when is_integer(value) and value >= 0 do
     {:ok, encoded} = value |> encode_int(size)
     encoded |> byte_size()
