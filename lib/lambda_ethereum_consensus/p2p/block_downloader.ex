@@ -2,15 +2,12 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @moduledoc """
   This module requests blocks from peers.
   """
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
   require Logger
 
   @blocks_by_range_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
   @blocks_by_root_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_root/2/ssz_snappy"
-
-  # This is the `ForkDigest` for mainnet in the capella fork
-  # TODO: compute this at runtime
-  @fork_context "BBA4DA96" |> Base.decode16!()
 
   # Requests to peers might fail for various reasons,
   # for example they might not support the protocol or might not reply
@@ -132,7 +129,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @spec parse_response(binary) ::
           {:ok, [binary()]} | {:error, binary()}
   def parse_response(response_chunk) do
-    fork_context = @fork_context
+    fork_context = BeaconChain.get_fork_digest()
 
     case response_chunk do
       <<>> ->
