@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @moduledoc """
     Utility functions for the fork choice.
   """
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.BlockStore
@@ -215,7 +216,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @spec root_by_id(atom() | Types.root() | Types.slot()) ::
           {:ok, {Types.root(), boolean(), boolean()}} | {:error, String.t()} | atom()
   def root_by_id(:head) do
-    with {:ok, current_status} <- ForkChoice.Store.get_current_status_message(),
+    with {:ok, current_status} <- BeaconChain.get_current_status_message(),
          {:ok, signed_block} <- BlockStore.get_block(current_status.head_root) do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
@@ -226,7 +227,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   def root_by_id(:genesis), do: :invalid_id
 
   def root_by_id(:justified) do
-    with {:ok, justified_checkpoint} <- ForkChoice.Store.get_justified_checkpoint(),
+    with {:ok, justified_checkpoint} <- ForkChoice.get_justified_checkpoint(),
          {:ok, signed_block} <- BlockStore.get_block(justified_checkpoint.root) do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
@@ -235,7 +236,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   def root_by_id(:finalized) do
-    with {:ok, finalized_checkpoint} <- ForkChoice.Store.get_finalized_checkpoint(),
+    with {:ok, finalized_checkpoint} <- ForkChoice.get_finalized_checkpoint(),
          {:ok, signed_block} <- BlockStore.get_block(finalized_checkpoint.root) do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true

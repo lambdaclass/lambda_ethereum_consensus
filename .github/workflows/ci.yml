@@ -20,7 +20,7 @@ jobs:
     name: Build native libraries
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Elixir
         # NOTE: this is needed for the NIF header files
         uses: erlef/setup-beam@v1
@@ -29,7 +29,7 @@ jobs:
           version-file: .tool-versions
       - name: Set up Go
         # NOTE: this action comes with caching by default
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: "1.21"
           cache-dependency-path: |
@@ -56,7 +56,7 @@ jobs:
     needs: compile-native
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
@@ -89,7 +89,7 @@ jobs:
     - name: Compile Elixir (Warnings as errors)
       run: mix compile --warnings-as-errors
     - name: Retrieve PLT Cache
-      uses: actions/cache@v1
+      uses: actions/cache@v3
       id: plt-cache
       with:
         path: priv/plts
@@ -102,12 +102,53 @@ jobs:
     - name: Run dialyzer
       run: mix dialyzer --no-check
 
+  smoke:
+    name: Start and stop the node
+    needs: compile-native
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        version-type: strict
+        version-file: .tool-versions
+    - name: Fetch native libraries
+      id: output-cache
+      uses: actions/cache/restore@v3
+      with:
+        path: priv/native/*
+        key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
+        fail-on-cache-miss: true
+    - name: Restore dependencies cache
+      uses: actions/cache@v3
+      with:
+        path: deps
+        key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+        restore-keys: ${{ runner.os }}-mix-
+    - name: Install dependencies
+      run: |
+        sudo apt-get install -y protobuf-compiler
+        echo $(protoc --version)
+        mix escript.install --force hex protobuf
+        protoc --elixir_out=./lib proto/libp2p.proto
+        mix deps.get
+    - name: Set up cargo cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ env.RUST_WORKSPACES }}
+    - name: Compile Elixir (Warnings as errors)
+      run: mix compile --warnings-as-errors
+    - name: Run the node
+      # NOTE: this starts and then stops the application. It should catch simple runtime errors
+      run: mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
+
   test:
     name: Test
     needs: compile-native
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
@@ -143,7 +184,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
@@ -168,7 +209,7 @@ jobs:
     name: Download spectests
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cache compressed spectests
         id: output-cache
         uses: actions/cache@v3
@@ -188,7 +229,7 @@ jobs:
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
