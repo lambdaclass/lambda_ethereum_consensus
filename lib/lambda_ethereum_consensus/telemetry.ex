@@ -94,7 +94,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
       last_value("vm.system_counts.process_count"),
       last_value("vm.system_counts.atom_count"),
       last_value("vm.system_counts.port_count"),
-      last_value("vm.message_queues.length")
+      last_value("vm.message_queue.length", tags: [:process])
     ]
   end
 
@@ -102,19 +102,22 @@ defmodule LambdaEthereumConsensus.Telemetry do
     [
       # A module, function and arguments to be invoked periodically.
       # This function must call :telemetry.execute/3 and a metric must be added above.
-      {__MODULE__, :message_queues_length, []}
+      {__MODULE__, :message_queue_lengths, []}
     ]
   end
 
-  def message_queues_length do
-    total_len =
-      Process.list()
-      |> Stream.map(fn pid ->
-        {:message_queue_len, len} = Process.info(pid, :message_queue_len)
-        len
-      end)
-      |> Enum.sum()
+  defp register_queue_length(name, len) do
+    :telemetry.execute([:vm, :message_queue], %{length: len}, %{process: inspect(name)})
+  end
 
-    :telemetry.execute([:vm, :message_queues], %{length: total_len})
+  def message_queue_lengths do
+    Process.list()
+    |> Enum.each(fn pid ->
+      case Process.info(pid, [:message_queue_len, :registered_name]) do
+        [message_queue_len: len, registered_name: name] -> register_queue_length(name, len)
+        [message_queue_len: len] -> register_queue_length(pid, len)
+        _ -> nil
+      end
+    end)
   end
 end
