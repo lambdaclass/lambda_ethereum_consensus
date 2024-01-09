@@ -18,8 +18,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   @spec get_seq_number() :: Types.uint64()
   def get_seq_number do
-    [seq_number] = get_metadata_attrs([:seq_number])
-    seq_number
+    GenServer.call(__MODULE__, {:get_seq_number})
   end
 
   @spec get_metadata() :: Metadata.t()
@@ -53,9 +52,9 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   end
 
   @impl true
-  def handle_call({:get_metadata_attrs, attrs}, _from, metadata) do
-    values = Enum.map(attrs, &Map.fetch!(metadata, &1))
-    {:reply, values, metadata}
+  def handle_call({:get_seq_number, attrs}, _from, metadata) do
+    seq_number = Map.fetch!(metadata, :seq_number)
+    {:reply, seq_number, metadata}
   end
 
   @impl true
@@ -90,11 +89,6 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   ##########################
   ### Private Functions
   ##########################
-
-  @spec get_metadata_attrs([atom()]) :: [any()]
-  defp get_metadata_attrs(attrs) do
-    GenServer.call(__MODULE__, {:get_metadata_attrs, attrs})
-  end
 
   @spec set_or_clear(BitVector.t(), integer(), boolean()) :: BitVector.t()
   defp set_or_clear(bitvector, i, set) do
