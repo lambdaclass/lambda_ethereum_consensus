@@ -70,14 +70,14 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
           {:ok, SszTypes.root()} | {:error, String.t()}
   def hash_tree_root(list, {:list, type, size}) do
-    if !variable_size?(type) do
+    if variable_size?(type) do
+      # TODO
+      # hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
+    else
       packed_chunks = pack(list, {:list, type, size})
       limit = chunk_count({:list, type, size})
       len = length(list)
       hash_tree_root_list_basic_type(packed_chunks, limit, len)
-    else
-      # TODO
-      # hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
     end
   end
 
@@ -149,10 +149,10 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @spec pack(list(), {:list, any, non_neg_integer}) :: binary()
   def pack(list, {:list, schema, _size}) do
-    if !variable_size?(schema) do
-      pack_basic_type_list(list, schema)
-    else
+    if variable_size?(schema) do
       # pack_complex_type_list(list)
+    else
+      pack_basic_type_list(list, schema)
     end
   end
 
