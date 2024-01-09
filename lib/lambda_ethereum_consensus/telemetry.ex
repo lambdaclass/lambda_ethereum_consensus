@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
     children = [
       # Telemetry poller will execute the given period measurements
       # every 10_000ms. Learn more here: https://hexdocs.pm/telemetry_metrics
-      {:telemetry_poller, measurements: periodic_measurements(), period: 10_000},
+      {:telemetry_poller, measurements: periodic_measurements(), period: 15_000},
       # Add reporters as children of your supervision tree.
       # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()},
       {TelemetryMetricsPrometheus, [metrics: metrics()]}
@@ -93,7 +93,8 @@ defmodule LambdaEthereumConsensus.Telemetry do
       ## System counts
       last_value("vm.system_counts.process_count"),
       last_value("vm.system_counts.atom_count"),
-      last_value("vm.system_counts.port_count")
+      last_value("vm.system_counts.port_count"),
+      last_value("vm.message_queue.length", tags: [:process])
     ]
   end
 
@@ -101,7 +102,22 @@ defmodule LambdaEthereumConsensus.Telemetry do
     [
       # A module, function and arguments to be invoked periodically.
       # This function must call :telemetry.execute/3 and a metric must be added above.
-      # {Module, :count, []}
+      {__MODULE__, :message_queue_lengths, []}
     ]
+  end
+
+  defp register_queue_length(name, len) do
+    :telemetry.execute([:vm, :message_queue], %{length: len}, %{process: inspect(name)})
+  end
+
+  def message_queue_lengths do
+    Process.list()
+    |> Enum.each(fn pid ->
+      case Process.info(pid, [:message_queue_len, :registered_name]) do
+        [message_queue_len: len, registered_name: name] -> register_queue_length(name, len)
+        [message_queue_len: len] -> register_queue_length(pid, len)
+        _ -> nil
+      end
+    end)
   end
 end
