@@ -1592,16 +1592,46 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
+          "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "vm_message_queues_length",
+          "expr": "sum(vm_message_queue_length{process!~\"LambdaEthereumConsensus.ForkChoice|LambdaEthereumConsensus.Beacon.PendingBlocks\"})",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
           "instant": false,
           "legendFormat": "total_message_queue_length",
           "range": true,
-          "refId": "A"
+          "refId": "Total",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "vm_message_queue_length{process=\"LambdaEthereumConsensus.ForkChoice\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{process}}",
+          "range": true,
+          "refId": "ForkChoice"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "vm_message_queue_length{process=\"LambdaEthereumConsensus.Beacon.PendingBlocks\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{process}}",
+          "range": true,
+          "refId": "PendingBlocks"
         }
       ],
-      "title": "Total message queue length",
+      "title": "Message queue length",
       "type": "timeseries"
     },
     {
@@ -1821,6 +1851,6 @@
   "timezone": "",
   "title": "Node",
   "uid": "90EXFQnIk",
-  "version": 1,
+  "version": 4,
   "weekStart": ""
 }
