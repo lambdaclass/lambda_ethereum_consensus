@@ -6,8 +6,8 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.SignedBeaconBlock
 
-  @block_prefix "block"
-  @blockslot_prefix @block_prefix <> "slot"
+  @block_prefix "blockHash"
+  @blockslot_prefix "blockSlot"
 
   @spec store_block(SignedBeaconBlock.t(), Types.root()) :: :ok
   def store_block(%SignedBeaconBlock{} = signed_block) do
@@ -60,7 +60,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
 
   def stream_missing_blocks_desc do
     Stream.resource(
-      fn -> init_cursor(0xFFFFFFFFFFFFFFFF) end,
+      fn -> 0xFFFFFFFFFFFFFFFF |> block_root_by_slot_key() |> init_keycursor() end,
       &next_slot(&1, :prev),
       &close_cursor/1
     )
@@ -70,10 +70,12 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   end
 
   def stream_missing_blocks_asc(starting_slot) do
+    initial_key = block_root_by_slot_key(starting_slot)
+
     [starting_slot - 1]
     |> Stream.concat(
       Stream.resource(
-        fn -> init_cursor(starting_slot) end,
+        fn -> init_keycursor(initial_key) end,
         &next_slot(&1, :next),
         &close_cursor/1
       )
@@ -81,9 +83,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     |> Stream.transform(nil, &get_missing_asc/2)
   end
 
-  defp init_cursor(starting_slot) do
-    initial_key = block_root_by_slot_key(starting_slot)
-
+  defp init_keycursor(initial_key) do
     with {:ok, it} <- Db.iterate_keys(),
          {:ok, key} <- Exleveldb.iterator_move(it, initial_key),
          {:ok, _} <-
@@ -118,4 +118,36 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
   defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)
+
+  def stream_blocks do
+    Stream.resource(
+      fn -> <<0::256>> |> block_key() |> init_cursor() end,
+      &next_block/1,
+      &close_cursor/1
+    )
+  end
+
+  defp init_cursor(initial_key) do
+    with {:ok, it} <- Db.iterate(),
+         {:ok, _, _} <- Exleveldb.iterator_move(it, initial_key),
+         {:ok, _, _} <- Exleveldb.iterator_move(it, :prev) do
+      it
+    else
+      # DB is empty
+      {:error, :invalid_iterator} -> nil
+    end
+  end
+
+  defp next_block(nil), do: {:halt, nil}
+
+  defp next_block(it) do
+    case Exleveldb.iterator_move(it, :prefetch) do
+      {:ok, @block_prefix <> <<hash::binary-size(32)>>, value} ->
+        {:ok, block} = Ssz.from_ssz(value, SignedBeaconBlock)
+        {[{hash, block.message}], it}
+
+      _ ->
+        {:halt, it}
+    end
+  end
 end

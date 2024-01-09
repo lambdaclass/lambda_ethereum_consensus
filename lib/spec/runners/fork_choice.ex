@@ -182,7 +182,7 @@ defmodule ForkChoiceTestRunner do
     if Map.has_key?(checks, :head) do
       {:ok, head_root} = Helpers.get_head(store)
       assert head_root == checks.head.root
-      assert store.blocks[head_root].slot == checks.head.slot
+      assert Store.get_block!(store, head_root).slot == checks.head.slot
     end
 
     if Map.has_key?(checks, :time) do
