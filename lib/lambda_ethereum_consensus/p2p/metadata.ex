@@ -65,8 +65,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   @impl true
   def handle_cast({:set_attestation_subnet, i, set}, metadata) do
-    attnets =
-      if set, do: BitVector.set(metadata.attnets, i), else: BitVector.clear(metadata.attnets, i)
+    attnets = set_or_clear(metadata.attnets, i, set)
 
     {:noreply,
      %Metadata{
@@ -78,8 +77,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   @impl true
   def handle_cast({:set_sync_committee, i, set}, metadata) do
-    syncnets =
-      if set, do: BitVector.set(metadata.syncnets, i), else: BitVector.clear(metadata.syncnets, i)
+    syncnets = set_or_clear(metadata.syncnets, i, set)
 
     {:noreply,
      %Metadata{
@@ -96,5 +94,14 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   @spec get_metadata_attrs([atom()]) :: [any()]
   defp get_metadata_attrs(attrs) do
     GenServer.call(__MODULE__, {:get_metadata_attrs, attrs})
+  end
+
+  @spec set_or_clear(BitVector.t(), integer(), boolean()) :: BitVector.t()
+  defp set_or_clear(bitvector, i, set) do
+    if set do
+      BitVector.set(bitvector, i)
+    else
+      BitVector.clear(bitvector, i)
+    end
   end
 end
