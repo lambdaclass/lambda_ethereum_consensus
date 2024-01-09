@@ -72,7 +72,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   def hash_tree_root(list, {:list, type, size}) do
     if !variable_size?(type) do
       packed_chunks = pack(list, {:list, type, size})
-      limit = chunk_count(list, {:list, type, size})
+      limit = chunk_count({:list, type, size})
       len = length(list)
       hash_tree_root_list_basic_type(packed_chunks, limit, len)
     else
@@ -97,35 +97,41 @@ defmodule LambdaEthereumConsensus.SszEx do
     root |> hash_nodes(serialized_len)
   end
 
-  def merklelize_chunks(chunks, leaf_count) do
-    node_count = 2 * leaf_count - 1
-    interior_count = node_count - leaf_count
-    leaf_start = interior_count * @bytes_per_chunk
-    padded_chunks = chunks |> convert_to_next_pow_of_two(leaf_count)
-    buffer = <<0::size(leaf_start * @bits_per_byte), padded_chunks::bitstring>>
+  def merklelize_chunks(chunks, leaf_count \\ nil) do
+    chunks_len = chunks |> byte_size() |> div(@bytes_per_chunk)
 
-    new_buffer =
-      1..node_count
-      |> Enum.filter(fn x -> rem(x, 2) == 0 end)
-      |> Enum.reverse()
-      |> Enum.reduce(buffer, fn index, acc_buffer ->
-        parent_index = (index - 1) |> div(2)
-        start = parent_index * @bytes_per_chunk
-        stop = (index + 1) * @bytes_per_chunk
-        focus = acc_buffer |> :binary.part(start, stop - start)
-        focus_len = focus |> byte_size()
-        children_index = focus_len - 2 * @bytes_per_chunk
-        children = focus |> :binary.part(children_index, focus_len - children_index)
+    if chunks_len == 1 and leaf_count == nil do
+      chunks
+    else
+      node_count = 2 * leaf_count - 1
+      interior_count = node_count - leaf_count
+      leaf_start = interior_count * @bytes_per_chunk
+      padded_chunks = chunks |> convert_to_next_pow_of_two(leaf_count)
+      buffer = <<0::size(leaf_start * @bits_per_byte), padded_chunks::bitstring>>
 
-        <<left::bitstring-size(@bytes_per_chunk * @bits_per_byte),
-          right::bitstring-size(@bytes_per_chunk * @bits_per_byte)>> = children
+      new_buffer =
+        1..node_count
+        |> Enum.filter(fn x -> rem(x, 2) == 0 end)
+        |> Enum.reverse()
+        |> Enum.reduce(buffer, fn index, acc_buffer ->
+          parent_index = (index - 1) |> div(2)
+          start = parent_index * @bytes_per_chunk
+          stop = (index + 1) * @bytes_per_chunk
+          focus = acc_buffer |> :binary.part(start, stop - start)
+          focus_len = focus |> byte_size()
+          children_index = focus_len - 2 * @bytes_per_chunk
+          children = focus |> :binary.part(children_index, focus_len - children_index)
 
-        parent = hash_nodes(left, right)
-        replace_chunk(acc_buffer, start, parent)
-      end)
+          <<left::bitstring-size(@bytes_per_chunk * @bits_per_byte),
+            right::bitstring-size(@bytes_per_chunk * @bits_per_byte)>> = children
 
-    <<root::bitstring-size(@bytes_per_chunk * @bits_per_byte), _::bitstring>> = new_buffer
-    root
+          parent = hash_nodes(left, right)
+          replace_chunk(acc_buffer, start, parent)
+        end)
+
+      <<root::bitstring-size(@bytes_per_chunk * @bits_per_byte), _::bitstring>> = new_buffer
+      root
+    end
   end
 
   @spec pack(non_neg_integer, {:int, non_neg_integer}) :: binary()
@@ -584,20 +590,17 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp remove_trailing_bit(<<0::7, 1::1>>), do: <<0::0>>
   defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 
-  defp size_of(_value, :bool), do: @bytes_per_boolean
+  defp size_of(:bool), do: @bytes_per_boolean
 
-  defp size_of(value, {:int, size}) do
-    {:ok, encoded} = value |> encode_int(size)
-    encoded |> byte_size()
-  end
+  defp size_of({:int, size}), do: size |> div(@bits_per_byte)
 
-  defp chunk_count([head | _tail] = _list, {:list, {:int, size}, max_size}) do
-    size = size_of(head, {:int, size})
+  defp chunk_count({:list, {:int, size}, max_size}) do
+    size = size_of({:int, size})
     (max_size * size + 31) |> div(32)
   end
 
-  defp chunk_count([head | _tail] = _list, {:list, :bool, max_size}) do
-    size = size_of(head, :bool)
+  defp chunk_count({:list, :bool, max_size}) do
+    size = size_of(:bool)
     (max_size * size + 31) |> div(32)
   end
 

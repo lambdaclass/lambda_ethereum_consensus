@@ -97,6 +97,11 @@ defmodule Unit.SSZExTest do
     ## Reference:  https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L371
     ##            https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L416
 
+    chunks = <<0::256>>
+    root = SszEx.merklelize_chunks(chunks)
+    expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
     chunks = <<0::256>> <> <<0::256>>
     root = chunks |> SszEx.merklelize_chunks(2)
     expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
@@ -480,6 +485,10 @@ defmodule Unit.SSZExTest do
 
     {:ok, root} = list |> SszEx.hash_tree_root({:list, {:int, 16}, 1024})
     expected_value = "d20d2246e1438d88de46f6f41c7b041f92b673845e51f2de93b944bf599e63b1"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    {:ok, root} = [] |> SszEx.hash_tree_root({:list, {:int, 16}, 1024})
+    expected_value = "c9eece3e14d3c3db45c38bbf69a4cb7464981e2506d8424a0ba450dad9b9af30"
     assert root |> Base.encode16(case: :lower) == expected_value
   end
 
