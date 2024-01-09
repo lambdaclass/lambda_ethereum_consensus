@@ -140,6 +140,7 @@ jobs:
     - name: Compile Elixir (Warnings as errors)
       run: mix compile --warnings-as-errors
     - name: Run the node
+      # NOTE: this starts and then stops the application. It should catch simple runtime errors
       run: mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
   test:
