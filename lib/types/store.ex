@@ -118,6 +118,10 @@ defmodule Types.Store do
     end
   end
 
+  @spec get_blocks(t()) :: Enumerable.t(Types.BeaconBlock.t())
+  def get_blocks(%__MODULE__{blocks: blocks}), do: blocks
+  def get_blocks(%__MODULE__{}), do: BlockStore.stream_blocks()
+
   @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
   def store_block(%__MODULE__{blocks: blocks} = store, block_root, %{message: block}) do
     blocks

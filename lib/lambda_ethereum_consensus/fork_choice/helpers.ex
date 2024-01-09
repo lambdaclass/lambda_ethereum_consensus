@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     Utility functions for the fork choice.
   """
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
-  alias LambdaEthereumConsensus.Store.BlockStore
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
@@ -133,10 +132,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   defp filter_block_tree(%Store{} = store, block_root, blocks) do
     block = Store.get_block!(store, block_root)
 
-    # TODO: this should fetch from the DB
     # TODO: this is highly inefficient. We should move to `ForkChoice.Tree` ASAP
     children =
-      BlockStore.stream_blocks()
+      Store.get_blocks(store)
       |> Stream.filter(fn {_, block} -> block.parent_root == block_root end)
       |> Enum.map(fn {root, _} -> root end)
 
