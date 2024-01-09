@@ -23,7 +23,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
     call("engine_newPayloadV2", [execution_payload])
   end
 
-  @spec forkchoice_updated(map, any) :: {:ok, any} | {:error, any}
+  @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes) do
     forkchoice_state =
       forkchoice_state
