@@ -3,15 +3,12 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   This module handles Req/Resp domain requests.
   """
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
 
   require Logger
-
-  # This is the `ForkDigest` for mainnet in the capella fork
-  # TODO: compute this at runtime
-  @fork_context "BBA4DA96" |> Base.decode16!()
 
   # This is the `Resource Unavailable` error message
   # TODO: compute this and other messages at runtime
@@ -130,12 +127,14 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp create_block_response_chunk({:ok, block}) do
     with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
          {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
+      fork_context = BeaconChain.get_fork_digest_for_slot(block.message.slot)
+
       size_header =
         ssz_signed_block
         |> byte_size()
         |> P2P.Utils.encode_varint()
 
-      <<0>> <> @fork_context <> size_header <> snappy_ssz_signed_block
+      <<0>> <> fork_context <> size_header <> snappy_ssz_signed_block
     else
       {:error, _} ->
         ## TODO: Add SSZ encoding
