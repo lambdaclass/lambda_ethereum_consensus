@@ -91,19 +91,20 @@ compile-all: compile-native $(PROTOBUF_EX_FILES)
 
 #🗑️ clean: @ Remove the build files.
 clean:
+	-mix clean
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
 
 #📊 grafana-up: @ Start grafana server.
 grafana-up:
-	cd metrics/ && docker-compose up -d
+	cd metrics/ && docker compose up -d
 
 #📊 grafana-down: @ Stop grafana server.
 grafana-down:
-	cd metrics/ && docker-compose down
+	cd metrics/ && docker compose down
 
 #🗑️ grafana-clean: @ Remove the grafana data.
 grafana-clean:
-	cd metrics/ && docker-compose down -v
+	cd metrics/ && docker compose down -v
 
 #▶️ start: @ Start application with Beacon API.
 start: compile-all

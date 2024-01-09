@@ -1,9 +1,11 @@
 defmodule Unit.PendingBlocks do
+  @moduledoc false
+
   use ExUnit.Case, async: true
   use Patch
 
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
-  alias LambdaEthereumConsensus.ForkChoice.Store
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockStore
 
   setup do
@@ -19,8 +21,8 @@ defmodule Unit.PendingBlocks do
     signed_block = Fixtures.Block.signed_beacon_block()
     block_root = Ssz.hash_tree_root!(signed_block.message)
 
-    patch(Store, :has_block?, fn root -> root == signed_block.message.parent_root end)
-    patch(Store, :on_block, fn _block, _root -> :ok end)
+    patch(ForkChoice, :has_block?, fn root -> root == signed_block.message.parent_root end)
+    patch(ForkChoice, :on_block, fn _block, _root -> :ok end)
 
     # Don't store the block in the DB, to avoid having to set it up
     patch(BlockStore, :store_block, fn _block -> :ok end)
