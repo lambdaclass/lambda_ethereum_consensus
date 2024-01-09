@@ -61,6 +61,23 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
     end
   end
 
+  @spec get_state_root_by_root(Types.root()) ::
+          {:ok, {Types.root(), boolean(), boolean()}} | {:error, String.t()} | atom()
+  def get_state_root_by_root(root) do
+    case get_state(root) do
+      {:ok, state} ->
+        with {:ok, state_root} <- Ssz.hash_tree_root(state) do
+          {:ok, {state_root, false, false}}
+        end
+
+      {:error, err} ->
+        {:error, err}
+
+      err ->
+        err
+    end
+  end
+
   defp state_key(root), do: Utils.get_key(@state_prefix, root)
   defp root_by_slot_key(slot), do: Utils.get_key(@stateslot_prefix, slot)
 end

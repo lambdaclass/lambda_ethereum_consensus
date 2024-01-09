@@ -1,6 +1,8 @@
 defmodule BeaconApi.V1.BeaconController do
   alias BeaconApi.ErrorController
   alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.StateStore
+
   use BeaconApi, :controller
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
@@ -59,6 +61,20 @@ defmodule BeaconApi.V1.BeaconController do
     end
   end
 
+  @spec get_state_root_by_root(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def get_state_root_by_root(conn, %{"state_root" => root}) do
+    case StateStore.get_state_root_by_root(root) do
+      {:ok, {state_root, execution_optimistic, finalized}} ->
+        conn |> root_response(state_root, execution_optimistic, finalized)
+
+      {:error, err} ->
+        conn |> ErrorController.internal_error(err)
+
+      :not_found ->
+        conn |> ErrorController.not_found(nil)
+    end
+  end
+
   @spec get_block_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_block_root(conn, %{"block_id" => "head"}) do
     # TODO: determine head and return it
@@ -83,7 +99,7 @@ defmodule BeaconApi.V1.BeaconController do
   def get_block_root(conn, %{"block_id" => "0x" <> hex_block_id}) do
     with {:ok, block_root} <- Base.decode16(hex_block_id, case: :mixed),
          {:ok, _signed_block} <- BlockStore.get_block(block_root) do
-      conn |> root_response(block_root)
+      conn |> root_response(block_root, false, false)
     else
       :not_found -> conn |> block_not_found()
       _ -> conn |> ErrorController.bad_request("Invalid block ID: 0x#{hex_block_id}")
@@ -93,7 +109,7 @@ defmodule BeaconApi.V1.BeaconController do
   def get_block_root(conn, %{"block_id" => block_id}) do
     with {slot, ""} when slot >= 0 <- Integer.parse(block_id),
          {:ok, block_root} <- BlockStore.get_block_root_by_slot(slot) do
-      conn |> root_response(block_root)
+      conn |> root_response(block_root, false, false)
     else
       :not_found ->
         conn |> block_not_found()
@@ -112,11 +128,12 @@ defmodule BeaconApi.V1.BeaconController do
     })
   end
 
-  defp root_response(conn, root) do
+  defp root_response(conn, root, execution_optimistic, finalized) do
+    # after optimistic execution and finalized is calculated make sure to check the usages above
     conn
     |> json(%{
-      execution_optimistic: true,
-      finalized: false,
+      execution_optimistic: execution_optimistic,
+      finalized: finalized,
       data: %{
         root: "0x" <> Base.encode16(root, case: :lower)
       }
