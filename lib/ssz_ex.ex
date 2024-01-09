@@ -80,13 +80,13 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  def hash_tree_root_list_basic_type(chunks, limit \\ nil, _len)
-      when limit and length(chunks) > limit do
-    {:error, "chunk size exceeds limit"}
-  end
-
-  def hash_tree_root_list_basic_type(chunks, limit, len) do
-    merklelize_chunks(chunks, limit)
+  def hash_tree_root_list_basic_type(chunks, limit \\ nil, _len \\ nil) do
+    if limit and length(chunks) > limit do
+      {:error, "chunk size exceeds limit"}
+    else
+      root = merklelize_chunks(chunks, limit)
+      {:ok, root}
+    end
   end
 
   def mix_in_length(root, len) do
@@ -553,8 +553,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.any?()
   end
 
-  defp size_of(value) when is_boolean(value), do: @bytes_per_boolean
-
   def length_of_bitlist(bitlist) when is_binary(bitlist) do
     bit_size = bit_size(bitlist)
     <<_::size(bit_size - 8), last_byte>> = bitlist
@@ -582,6 +580,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp remove_trailing_bit(<<0::7, 1::1>>), do: <<0::0>>
   defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 
+  defp size_of(value) when is_boolean(value), do: @bytes_per_boolean
+  
   defp size_of(value, size) when is_integer(value) and value >= 0 do
     {:ok, encoded} = value |> encode_int(size)
     encoded |> byte_size()

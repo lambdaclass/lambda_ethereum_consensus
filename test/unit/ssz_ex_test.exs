@@ -488,7 +488,7 @@ defmodule Unit.SSZExTest do
       65_535,
       65_535
     ]
-    # root = list |> SszEx.hash_tree_root({:list, {:int, 16}, 1024})
+    root = list |> SszEx.hash_tree_root({:list, {:int, 16}, 316})
     # root |> Base.encode16() |> IO.inspect()
   end
 
