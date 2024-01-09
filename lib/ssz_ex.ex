@@ -100,7 +100,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     root |> hash_nodes(serialized_len)
   end
 
-  @spec merklelize_chunks(binary(), non_neg_integer) :: Types.root()
   def merklelize_chunks(chunks, leaf_count \\ nil) do
     chunks_len = chunks |> byte_size() |> div(@bytes_per_chunk)
 
