@@ -73,6 +73,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
 
       # Sync metrics
       last_value("sync.store.slot"),
+      last_value("sync.on_block.slot"),
 
       # VM Metrics
       ## Memory

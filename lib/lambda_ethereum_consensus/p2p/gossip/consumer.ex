@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
+defmodule LambdaEthereumConsensus.P2P.Gossip.Consumer do
   @moduledoc """
   This module consumes events created by Subscriber.
   """
@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipConsumer do
       }) do
     with {:ok, decompressed} <- :snappyer.decompress(data),
          {:ok, res} <- Ssz.from_ssz(decompressed, ssz_type),
-         :ok <- handler.handle_message(topic, res) do
+         :ok <- handler.(res) do
       message
     else
       {:error, reason} ->
