@@ -110,6 +110,9 @@ defmodule Unit.SSZExTest do
   end
 
   test "merklelization of chunks" do
+    ## Reference:  https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L371
+    ##            https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L416
+
     chunks = <<0::256>> <> <<0::256>>
     root = chunks |> SszEx.merklelize_chunks(2)
     expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
