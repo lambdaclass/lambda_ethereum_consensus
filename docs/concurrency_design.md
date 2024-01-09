@@ -188,7 +188,6 @@ We can see here that:
 sequenceDiagram
 
 participant bp as Block Processor (Genserver)
-participant store as Fork Choice Store <br> (Genserver)
 participant db as Persistent Store <br> (DB/Cache)
 participant dt as Download Task
 participant bpp as Parent Block Processor (Genserver)
