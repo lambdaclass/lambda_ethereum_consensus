@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   use GenServer
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
 
   defmodule BeaconChainState do
@@ -11,11 +12,13 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
     defstruct [
       :genesis_time,
+      :genesis_validators_root,
       :time
     ]
 
     @type t :: %__MODULE__{
             genesis_time: Types.uint64(),
+            genesis_validators_root: Types.bytes32(),
             time: Types.uint64()
           }
   end
@@ -30,6 +33,21 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     GenServer.call(__MODULE__, :get_current_slot)
   end
 
+  @spec get_current_epoch() :: integer()
+  def get_current_epoch do
+    Misc.compute_epoch_at_slot(get_current_slot())
+  end
+
+  @spec get_fork_digest() :: binary()
+  def get_fork_digest do
+    GenServer.call(__MODULE__, {:get_fork_digest, nil})
+  end
+
+  @spec get_fork_digest_for_slot(Types.slot()) :: binary()
+  def get_fork_digest_for_slot(slot) do
+    GenServer.call(__MODULE__, {:get_fork_digest, slot})
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -42,6 +60,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     {:ok,
      %BeaconChainState{
        genesis_time: anchor_state.genesis_time,
+       genesis_validators_root: anchor_state.genesis_validators_root,
        time: time
      }}
   end
@@ -49,6 +68,25 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @impl true
   def handle_call(:get_current_slot, _from, state) do
     {:reply, compute_current_slot(state), state}
+  end
+
+  @impl true
+  def handle_call({:get_fork_digest, slot}, _from, state) do
+    current_fork_version =
+      case slot do
+        nil -> compute_current_slot(state)
+        _ -> slot
+      end
+      |> Misc.compute_epoch_at_slot()
+      |> ChainSpec.get_fork_version_for_epoch()
+
+    fork_digest =
+      Misc.compute_fork_digest(
+        current_fork_version,
+        state.genesis_validators_root
+      )
+
+    {:reply, fork_digest, state}
   end
 
   @impl true
