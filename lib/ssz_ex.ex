@@ -31,8 +31,6 @@ defmodule LambdaEthereumConsensus.SszEx do
       else: encode_fixed_size_list(list, basic_type, size)
   end
 
-  def encode(value, {:bytes, _}), do: {:ok, value}
-
   def encode(value, {:bitlist, max_size}) when is_bitstring(value),
     do: encode_bitlist(value, max_size)
 
@@ -88,7 +86,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def hash_tree_root_list_basic_type(chunks, limit, len) do
-    merklelize_chunks(chunks, limit) |> mix_in_length(len)
+    merklelize_chunks(chunks, limit)
   end
 
   def mix_in_length(root, len) do
@@ -96,19 +94,11 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def merklelize_chunks(chunks, leaf_count) do
-    "Leaf Count: #{leaf_count}" |> IO.inspect()
     node_count = 2 * leaf_count - 1
-    "Node Count: #{node_count}" |> IO.inspect()
     interior_count = node_count - leaf_count
-    "Interior Count: #{interior_count}" |> IO.inspect()
     leaf_start = interior_count * @bytes_per_chunk
-    "Leaf Start: #{leaf_start}" |> IO.inspect()
-    padded_chunks = chunks |> convert_to_next_pow_of_two()
-    padded_chunks |> IO.inspect(limit: :infinity)
-    buffer = <<0::size(leaf_start * @bits_per_byte), padded_chunks::binary>>
-    buffer_len = buffer |> byte_size()
-    buffer |> IO.inspect(limit: :infinity)
-    buffer_len |> IO.inspect()
+    padded_chunks = chunks |> convert_to_next_pow_of_two(leaf_count)
+    buffer = <<0::size(leaf_start * @bits_per_byte), padded_chunks::bitstring>>
 
     new_buffer =
       1..node_count
@@ -116,30 +106,22 @@ defmodule LambdaEthereumConsensus.SszEx do
       |> Enum.reverse()
       |> Enum.reduce(buffer, fn index, acc_buffer ->
         parent_index = (index - 1) |> div(2)
-        "Parent Index: #{parent_index}" |> IO.inspect()
         start = parent_index * @bytes_per_chunk
-        "Start: #{start}" |> IO.inspect()
         stop = (index + 1) * @bytes_per_chunk
-        "Stop: #{stop}" |> IO.inspect()
         focus = acc_buffer |> :binary.part(start, stop - start)
         focus_len = focus |> byte_size()
-        focus |> IO.inspect(limit: :infinity)
-        focus_len |> IO.inspect()
         children_index = focus_len - 2 * @bytes_per_chunk
-        "Children Index: #{children_index}" |> IO.inspect()
         children = focus |> :binary.part(children_index, focus_len - children_index)
-        children |> IO.inspect(limit: :infinity)
-        left = children |> :binary.part(0, 32)
-        right = children |> :binary.part(32, 32)
+
+        <<left::bitstring-size(@bytes_per_chunk * @bits_per_byte),
+          right::bitstring-size(@bytes_per_chunk * @bits_per_byte)>> = children
+
         parent = hash_nodes(left, right)
-        first = acc_buffer |> :binary.part(0, start)
-        middle = parent <> children
-        last = acc_buffer |> :binary.part(stop, focus_len - stop)
-        new_buffer = first <> middle <> last
-        new_buffer_len = new_buffer |> byte_size()
-        new_buffer |> IO.inspect(limit: :infinity)
-        new_buffer
+        replace_chunk(acc_buffer, start, parent)
       end)
+
+    <<root::bitstring-size(@bytes_per_chunk * @bits_per_byte), _::bitstring>> = new_buffer
+    root
   end
 
   @spec pack(non_neg_integer, {:int, non_neg_integer}) :: binary()
@@ -600,11 +582,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp remove_trailing_bit(<<0::7, 1::1>>), do: <<0::0>>
   defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 
-  defp pack(value, size) when is_integer(value) and value >= 0 do
-    pad = @bits_per_chunk - size
-    <<value::size(size)-little, 0::size(pad)>>
-  end
-
   defp size_of(value, size) when is_integer(value) and value >= 0 do
     {:ok, encoded} = value |> encode_int(size)
     encoded |> byte_size()
@@ -645,9 +622,9 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp convert_to_next_pow_of_two(chunks) do
+  defp convert_to_next_pow_of_two(chunks, leaf_count) do
     size = chunks |> byte_size() |> div(@bytes_per_chunk)
-    next_pow = size |> next_pow_of_two()
+    next_pow = leaf_count |> next_pow_of_two()
 
     if size == next_pow do
       chunks
@@ -665,5 +642,13 @@ defmodule LambdaEthereumConsensus.SszEx do
       n = ((len <<< 1) - 1) |> :math.log2() |> trunc()
       2 ** n
     end
+  end
+
+  defp replace_chunk(chunks, start, new_chunk) do
+    <<left::bitstring-size(start * @bits_per_byte), _::size(@bytes_per_chunk * @bits_per_byte),
+      right::bitstring>> =
+      chunks
+
+    <<left::bitstring, new_chunk::bitstring, right::bitstring>>
   end
 end
