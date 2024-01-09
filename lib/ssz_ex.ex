@@ -61,14 +61,14 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
 
-  @spec hash_tree_root!(boolean, atom) :: SszTypes.root()
+  @spec hash_tree_root!(boolean, atom) :: Types.root()
   def hash_tree_root!(value, :bool), do: pack(value, :bool)
 
-  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
+  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
   def hash_tree_root!(value, {:int, size}), do: pack(value, {:int, size})
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
-          {:ok, SszTypes.root()} | {:error, String.t()}
+          {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(list, {:list, type, size}) do
     if variable_size?(type) do
       # TODO
@@ -81,6 +81,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec hash_tree_root_list_basic_type(binary(), non_neg_integer, non_neg_integer) ::
+          {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root_list_basic_type(chunks, limit, len) do
     chunks_len = chunks |> byte_size() |> div(@bytes_per_chunk)
 
@@ -92,11 +94,13 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec mix_in_length(Types.root(), non_neg_integer) :: Types.root()
   def mix_in_length(root, len) do
     {:ok, serialized_len} = encode_int(len, @bits_per_chunk)
     root |> hash_nodes(serialized_len)
   end
 
+  @spec merklelize_chunks(binary(), non_neg_integer) :: Types.root()
   def merklelize_chunks(chunks, leaf_count \\ nil) do
     chunks_len = chunks |> byte_size() |> div(@bytes_per_chunk)
 
