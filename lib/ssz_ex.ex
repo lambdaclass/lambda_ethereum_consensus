@@ -72,25 +72,29 @@ defmodule LambdaEthereumConsensus.SszEx do
   def hash_tree_root(list, {:list, type, size}) do
     if !variable_size?(type) do
       packed_chunks = pack(list, {:list, type, size})
-      limit = chunk_count(list)
-      hash_tree_root_list_basic_type(packed_chunks, limit, length(list))
+      limit = chunk_count(list, {:list, type, size})
+      len = length(list)
+      hash_tree_root_list_basic_type(packed_chunks, limit, len)
     else
       # TODO
       # hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
     end
   end
 
-  def hash_tree_root_list_basic_type(chunks, limit \\ nil, _len \\ nil) do
-    if limit and length(chunks) > limit do
+  def hash_tree_root_list_basic_type(chunks, limit, len) do
+    chunks_len = chunks |> byte_size() |> div(@bytes_per_chunk)
+
+    if chunks_len > limit do
       {:error, "chunk size exceeds limit"}
     else
-      root = merklelize_chunks(chunks, limit)
+      root = merklelize_chunks(chunks, limit) |> mix_in_length(len)
       {:ok, root}
     end
   end
 
   def mix_in_length(root, len) do
-    hash(root <> <<len>>)
+    {:ok, serialized_len} = encode_int(len, @bits_per_chunk)
+    root |> hash_nodes(serialized_len)
   end
 
   def merklelize_chunks(chunks, leaf_count) do
@@ -138,9 +142,9 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   @spec pack(list(), {:list, any, non_neg_integer}) :: binary()
-  def pack(list, {:list, type, _size}) do
-    if !variable_size?(type) do
-      pack_basic_type_list(list)
+  def pack(list, {:list, schema, _size}) do
+    if !variable_size?(schema) do
+      pack_basic_type_list(list, schema)
     else
       # pack_complex_type_list(list)
     end
@@ -580,31 +584,26 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp remove_trailing_bit(<<0::7, 1::1>>), do: <<0::0>>
   defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 
-  defp size_of(value) when is_boolean(value), do: @bytes_per_boolean
+  defp size_of(_value, :bool), do: @bytes_per_boolean
 
-  defp size_of(value, size) when is_integer(value) and value >= 0 do
+  defp size_of(value, {:int, size}) do
     {:ok, encoded} = value |> encode_int(size)
     encoded |> byte_size()
   end
 
-  # NOTE:
-  # - When the elements of the list is an uint then it is a basic list or basic vector
-  # - When the elements of the list is a boolean then it is a bit vector
-  defp chunk_count([{value, {:int, size}} = _head | _tail] = list) do
-    size = size_of(value, size)
-    len = length(list)
-    (len * size + 31) |> div(32)
+  defp chunk_count([head | _tail] = _list, {:list, {:int, size}, max_size}) do
+    size = size_of(head, {:int, size})
+    (max_size * size + 31) |> div(32)
   end
 
-  defp chunk_count([{value, :bool} = _head | _tail] = list) do
-    size = size_of(value)
-    len = length(list)
-    (len * size + 31) |> div(32)
+  defp chunk_count([head | _tail] = _list, {:list, :bool, max_size}) do
+    size = size_of(head, :bool)
+    (max_size * size + 31) |> div(32)
   end
 
-  defp pack_basic_type_list(list) do
+  defp pack_basic_type_list(list, schema) do
     list
-    |> Enum.reduce(<<>>, fn {x, schema}, acc ->
+    |> Enum.reduce(<<>>, fn x, acc ->
       {:ok, encoded} = encode(x, schema)
       acc <> encoded
     end)
