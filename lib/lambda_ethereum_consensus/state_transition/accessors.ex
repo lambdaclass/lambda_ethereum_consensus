@@ -311,7 +311,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end
 
     case get_epoch_root(state, epoch) do
-      {:ok, root} -> Cache.lazily_compute(:beacon_committee, {slot, index, root}, compute_fn)
+      {:ok, root} -> Cache.lazily_compute(:beacon_committee, {slot, {index, root}}, compute_fn)
       _ -> compute_fn.()
     end
   end

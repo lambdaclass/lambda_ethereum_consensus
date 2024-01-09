@@ -31,17 +31,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   def init([checkpoint_url]) do
     Logger.info("[Checkpoint sync] Initiating checkpoint sync.")
 
-    case Task.await_many(
-           [
-             Task.async(fn -> CheckpointSync.get_last_finalized_state(checkpoint_url) end),
-             Task.async(fn -> CheckpointSync.get_last_finalized_block(checkpoint_url) end)
-           ],
-           60_000
-         ) do
-      [
-        {:ok, anchor_state},
-        {:ok, anchor_block}
-      ] ->
+    case CheckpointSync.get_finalized_block_and_state(checkpoint_url) do
+      {:ok, {anchor_state, anchor_block}} ->
         Logger.info(
           "[Checkpoint sync] Received beacon state and block at slot #{anchor_state.slot}."
         )
@@ -58,8 +49,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   defp init_children(anchor_state, anchor_block) do
     Cache.initialize_cache()
 
+    time = :os.system_time(:second)
+
     children = [
-      {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block}},
+      {LambdaEthereumConsensus.Beacon.BeaconChain, {anchor_state, time}},
+      {LambdaEthereumConsensus.ForkChoice, {anchor_state, anchor_block, time}},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
       {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
