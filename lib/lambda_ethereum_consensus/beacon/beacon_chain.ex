@@ -48,6 +48,24 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     GenServer.call(__MODULE__, {:get_fork_digest, slot})
   end
 
+  @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
+  def get_current_status_message do
+    # TODO: un-hardcode when get_head is optimized and/or cached
+    # GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
+
+    # hardcoded response from random peer
+    {:ok,
+     %Types.StatusMessage{
+       fork_digest: get_fork_digest(),
+       finalized_root:
+         Base.decode16!("7715794499C07D9954DD223EC2C6B846D3BAB27956D093000FADC1B8219F74D4"),
+       finalized_epoch: 228_168,
+       head_root:
+         Base.decode16!("D62A74AE0F933224133C5E6E1827A2835A1E705F0CDFEE3AD25808DDEA5572DB"),
+       head_slot: 7_301_450
+     }}
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -93,7 +111,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   def handle_info(:on_tick, state) do
     schedule_next_tick()
     time = :os.system_time(:second)
-    ForkChoice.Store.on_tick(time)
+    ForkChoice.on_tick(time)
 
     :telemetry.execute([:sync, :store], %{slot: compute_current_slot(state)})
 
