@@ -41,7 +41,6 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   ##########################
 
   @impl true
-  @spec init(any) :: {:ok, Metadata.t()}
   def init(_opts) do
     {:ok,
      %{
@@ -60,12 +59,11 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   @impl true
   def handle_call(:get_metadata, _from, metadata) do
     {:reply,
-      %Metadata{
-        seq_number: metadata.seq_number
-        attnets: metadata.attnets
-        syncnets: metadata.syncnets
-      }
-    }
+     %Metadata{
+       seq_number: metadata.seq_number,
+       attnets: metadata.attnets,
+       syncnets: metadata.syncnets
+     }}
   end
 
   @impl true
