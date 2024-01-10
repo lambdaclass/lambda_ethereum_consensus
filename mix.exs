@@ -53,7 +53,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:benchee, "~> 1.2", only: [:dev]},
       {:aja, "~> 0.6.2"},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:crc32c, "~> 1.2"}
     ]
   end
 
