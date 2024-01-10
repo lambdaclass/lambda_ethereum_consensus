@@ -23,9 +23,9 @@ defmodule Types.BLSToExecutionChange do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:validator_index, {:int, 64}},
-      {:from_bls_pubkey, {:bytes, 48}},
-      {:to_execution_address, {:bytes, 20}}
+      {:validator_index, TypeAliases.validator_index()},
+      {:from_bls_pubkey, TypeAliases.bls_pubkey()},
+      {:to_execution_address, TypeAliases.execution_address()}
     ]
   end
 end

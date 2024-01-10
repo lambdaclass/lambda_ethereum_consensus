@@ -22,8 +22,8 @@ defmodule Types.ForkData do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:current_version, {:int, 4}},
-      {:genesis_validators_root, {:bytes, 32}}
+      {:current_version, TypeAliases.version()},
+      {:genesis_validators_root, TypeAliases.root()}
     ]
   end
 end

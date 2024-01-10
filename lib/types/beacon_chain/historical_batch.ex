@@ -22,8 +22,8 @@ defmodule Types.HistoricalBatch do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:block_roots, {:vector, {:bytes, 32}, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
-      {:state_roots, {:vector, {:bytes, 32}, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}}
+      {:block_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
+      {:state_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}}
     ]
   end
 end

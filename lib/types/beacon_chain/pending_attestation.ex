@@ -28,8 +28,8 @@ defmodule Types.PendingAttestation do
     [
       {:aggregation_bits, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
       {:data, Types.AttestationData},
-      {:inclusion_delay, {:int, 64}},
-      {:proposer_index, {:int, 64}}
+      {:inclusion_delay, TypeAliases.slot()},
+      {:proposer_index, TypeAliases.validator_index()}
     ]
   end
 end

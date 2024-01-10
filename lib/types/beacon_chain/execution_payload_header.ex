@@ -79,21 +79,21 @@ defmodule Types.ExecutionPayloadHeader do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:parent_hash, {:bytes, 32}},
-      {:fee_recipient, {:bytes, 20}},
-      {:state_root, {:bytes, 32}},
-      {:receipts_root, {:bytes, 32}},
+      {:parent_hash, TypeAliases.hash32()},
+      {:fee_recipient, TypeAliases.execution_address()},
+      {:state_root, TypeAliases.root()},
+      {:receipts_root, TypeAliases.root()},
       {:logs_bloom, {:bitvector, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
-      {:prev_randao, {:bytes, 32}},
-      {:block_number, {:int, 64}},
-      {:gas_limit, {:int, 64}},
-      {:gas_used, {:int, 64}},
-      {:timestamp, {:int, 64}},
+      {:prev_randao, TypeAliases.bytes32()},
+      {:block_number, TypeAliases.uint64()},
+      {:gas_limit, TypeAliases.uint64()},
+      {:gas_used, TypeAliases.uint64()},
+      {:timestamp, TypeAliases.uint64()},
       {:extra_data, {:bitlist, ChainSpec.get("MAX_EXTRA_DATA_BYTES")}},
-      {:base_fee_per_gas, {:int, 256}},
-      {:block_hash, {:bytes, 32}},
-      {:transactions_root, {:bytes, 32}},
-      {:withdrawals_root, {:bytes, 32}}
+      {:base_fee_per_gas, TypeAliases.uint256()},
+      {:block_hash, TypeAliases.hash32()},
+      {:transactions_root, TypeAliases.root()},
+      {:withdrawals_root, TypeAliases.root()}
     ]
   end
 end

@@ -27,11 +27,11 @@ defmodule Types.BeaconBlockHeader do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:slot, {:int, 64}},
-      {:proposer_index, {:int, 64}},
-      {:parent_root, {:bytes, 32}},
-      {:state_root, {:bytes, 32}},
-      {:body_root, {:bytes, 32}}
+      {:slot, TypeAliases.slot()},
+      {:proposer_index, TypeAliases.validator_index()},
+      {:parent_root, TypeAliases.root()},
+      {:state_root, TypeAliases.root()},
+      {:body_root, TypeAliases.root()}
     ]
   end
 end

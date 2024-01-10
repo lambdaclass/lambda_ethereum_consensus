@@ -24,9 +24,10 @@ defmodule Types.IndexedAttestation do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:attesting_indices, {:list, {:int, 64}, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
+      {:attesting_indices,
+       {:list, TypeAliases.validator_index(), ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
       {:data, Types.AttestationData},
-      {:signature, {:bytes, 96}}
+      {:signature, TypeAliases.bls_signature()}
     ]
   end
 end

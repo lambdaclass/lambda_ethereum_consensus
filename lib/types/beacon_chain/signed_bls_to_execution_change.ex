@@ -22,7 +22,7 @@ defmodule Types.SignedBLSToExecutionChange do
   def schema do
     [
       {:message, Types.BLSToExecutionChange},
-      {:signature, {:bytes, 96}}
+      {:signature, TypeAliases.bls_signature()}
     ]
   end
 end

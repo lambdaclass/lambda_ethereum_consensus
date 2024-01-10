@@ -26,10 +26,10 @@ defmodule Types.DepositData do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:pubkey, {:bytes, 48}},
-      {:withdrawal_credentials, {:bytes, 32}},
-      {:amount, {:int, 64}},
-      {:signature, {:bytes, 96}}
+      {:pubkey, TypeAliases.bls_pubkey()},
+      {:withdrawal_credentials, TypeAliases.bytes32()},
+      {:amount, TypeAliases.gwei()},
+      {:signature, TypeAliases.bls_signature()}
     ]
   end
 end

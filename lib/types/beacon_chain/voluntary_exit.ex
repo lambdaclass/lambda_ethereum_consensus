@@ -21,8 +21,8 @@ defmodule Types.VoluntaryExit do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:epoch, {:int, 64}},
-      {:validator_index, {:int, 64}}
+      {:epoch, TypeAliases.epoch()},
+      {:validator_index, TypeAliases.validator_index()}
     ]
   end
 end

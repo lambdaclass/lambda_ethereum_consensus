@@ -24,9 +24,9 @@ defmodule Types.Fork do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:previous_version, {:int, 4}},
-      {:current_version, {:int, 4}},
-      {:epoch, {:int, 64}}
+      {:previous_version, TypeAliases.version()},
+      {:current_version, TypeAliases.version()},
+      {:epoch, TypeAliases.epoch()}
     ]
   end
 end

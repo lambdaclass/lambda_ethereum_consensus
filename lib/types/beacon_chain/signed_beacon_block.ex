@@ -22,7 +22,7 @@ defmodule Types.SignedBeaconBlock do
   def schema do
     [
       {:message, Types.BeaconBlock},
-      {:signature, {:bytes, 96}}
+      {:signature, TypeAliases.bls_signature()}
     ]
   end
 end

@@ -23,9 +23,9 @@ defmodule Types.Eth1Data do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:deposit_root, {:bytes, 32}},
-      {:deposit_count, {:int, 64}},
-      {:block_hash, {:bytes, 32}}
+      {:deposit_root, TypeAliases.root()},
+      {:deposit_count, TypeAliases.uint64()},
+      {:block_hash, TypeAliases.hash32()}
     ]
   end
 end

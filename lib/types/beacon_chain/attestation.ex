@@ -26,7 +26,7 @@ defmodule Types.Attestation do
     [
       {:aggregation_bits, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
       {:data, Types.AttestationData},
-      {:signature, {:bytes, 96}}
+      {:signature, TypeAliases.bls_signature()}
     ]
   end
 end

@@ -22,7 +22,7 @@ defmodule Types.SignedVoluntaryExit do
   def schema do
     [
       {:message, Types.VoluntaryExit},
-      {:signature, {:bytes, 96}}
+      {:signature, TypeAliases.bls_signature()}
     ]
   end
 end

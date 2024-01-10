@@ -21,8 +21,8 @@ defmodule Types.SigningData do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:object_root, {:bytes, 32}},
-      {:domain, {:bytes, 32}}
+      {:object_root, TypeAliases.root()},
+      {:domain, TypeAliases.domain()}
     ]
   end
 end

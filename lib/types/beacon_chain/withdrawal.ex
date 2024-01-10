@@ -25,10 +25,10 @@ defmodule Types.Withdrawal do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:index, {:int, 64}},
-      {:validator_index, {:int, 32}},
-      {:address, {:bytes, 32}},
-      {:amount, {:int, 64}}
+      {:index, TypeAliases.withdrawal_index()},
+      {:validator_index, TypeAliases.validator_index()},
+      {:address, TypeAliases.hash32()},
+      {:amount, TypeAliases.gwei()}
     ]
   end
 end

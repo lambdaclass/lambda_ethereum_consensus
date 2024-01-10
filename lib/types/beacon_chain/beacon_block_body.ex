@@ -45,9 +45,9 @@ defmodule Types.BeaconBlockBody do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:randao_reveal, {:bytes, 96}},
+      {:randao_reveal, TypeAliases.bls_signature()},
       {:eth1_data, Types.Eth1Data},
-      {:graffiti, {:bytes, 32}},
+      {:graffiti, TypeAliases.bytes32()},
       {:proposer_slashings,
        {:list, Types.ProposerSlashing, ChainSpec.get("MAX_PROPOSER_SLASHINGS")}},
       {:attester_slashings,
