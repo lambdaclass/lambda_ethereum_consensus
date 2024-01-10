@@ -37,6 +37,7 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.Store.StateStore
+  alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
@@ -104,16 +105,16 @@ defmodule Types.Store do
 
   @spec get_block(t(), Types.root()) :: Types.BeaconBlock.t() | nil
   def get_block(%__MODULE__{}, block_root) do
-    case BlockStore.get_block(block_root) do
-      {:ok, signed_block} -> signed_block.message
-      _ -> nil
+    case Blocks.get_block(block_root) do
+      nil -> nil
+      signed_block -> signed_block.message
     end
   end
 
   @spec get_block!(t(), Types.root()) :: Types.BeaconBlock.t()
   def get_block!(store, block_root) do
     case get_block(store, block_root) do
-      nil -> raise "Block not found: #{block_root}"
+      nil -> raise "Block not found: 0x#{Base.encode16(block_root)}"
       v -> v
     end
   end
@@ -131,7 +132,7 @@ defmodule Types.Store do
 
   @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
   def store_block(%__MODULE__{} = store, block_root, %SignedBeaconBlock{} = signed_block) do
-    BlockStore.store_block(signed_block, block_root)
+    Blocks.store_block(block_root, signed_block)
     store
   end
 end
