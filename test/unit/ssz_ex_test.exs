@@ -493,6 +493,7 @@ defmodule Unit.SSZExTest do
     expected_value = "d20d2246e1438d88de46f6f41c7b041f92b673845e51f2de93b944bf599e63b1"
     assert root |> Base.encode16(case: :lower) == expected_value
 
+    ## hash tree root of empty list
     {:ok, root} = [] |> SszEx.hash_tree_root({:list, {:int, 16}, 1024})
     expected_value = "c9eece3e14d3c3db45c38bbf69a4cb7464981e2506d8424a0ba450dad9b9af30"
     assert root |> Base.encode16(case: :lower) == expected_value
