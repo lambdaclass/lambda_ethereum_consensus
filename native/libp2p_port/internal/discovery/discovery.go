@@ -20,8 +20,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var currentForkDigest = []byte{187, 164, 218, 150}
-
 type Discoverer struct {
 	port           *port.Port
 	discv5_service *discover.UDPv5
@@ -37,6 +35,7 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 	privKey, err := utils.ConvertFromInterfacePrivKey(intPrivKey)
 	utils.PanicIfError(err)
 
+	currentForkDigest := config.ForkDigest
 	bootnodes := make([]*enode.Node, 0, len(config.Bootnodes))
 
 	for _, strBootnode := range config.Bootnodes {
@@ -71,15 +70,15 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 	discv5_service, err := discover.ListenV5(conn, localNode, cfg)
 	utils.PanicIfError(err)
 
-	go lookForPeers(discv5_service.RandomNodes(), listener)
+	go lookForPeers(discv5_service.RandomNodes(), listener, currentForkDigest)
 
 	return Discoverer{port: p, discv5_service: discv5_service}
 }
 
-func lookForPeers(iter enode.Iterator, listener *reqresp.Listener) {
+func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, currentForkDigest []byte) {
 	for iter.Next() {
 		node := iter.Node()
-		if !filterPeer(node) {
+		if !filterPeer(node, currentForkDigest) {
 			continue
 		}
 		var addrArr []string
@@ -119,7 +118,7 @@ func lookForPeers(iter enode.Iterator, listener *reqresp.Listener) {
 //  5. Peer is ready to receive incoming connections.
 //  6. Peer's fork digest in their ENR matches that of
 //     our localnodes.
-func filterPeer(node *enode.Node) bool {
+func filterPeer(node *enode.Node, currentForkDigest []byte) bool {
 	// Ignore nil node entries passed in.
 	if node == nil {
 		return false

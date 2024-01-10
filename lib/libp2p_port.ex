@@ -9,6 +9,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
+
   alias Libp2pProto.{
     AddPeer,
     Command,
@@ -38,7 +40,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     listen_addr: [],
     enable_discovery: false,
     discovery_addr: "",
-    bootnodes: []
+    bootnodes: [],
+    fork_digest: <<>>
   ]
 
   @type init_arg ::
@@ -46,6 +49,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
+          | {:fork_digest, binary()}
           | {:new_peer_handler, pid()}
 
   ######################
@@ -66,6 +70,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       should be started.
     * `:discovery_addr` - the address used by the discovery service.
     * `:bootnodes` - a list of bootnodes to use for discovery.
+    * `:fork_digest` - the fork digest to use for gossipsub.
   """
   @spec start_link([{:opts, GenServer.options()} | init_arg()]) :: GenServer.on_start()
   def start_link(init_args) do
@@ -224,7 +229,20 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ########################
 
   @impl GenServer
-  def init(args) do
+  def init(_args) do
+    config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
+    port = Keyword.fetch!(config, :port)
+    bootnodes = Keyword.fetch!(config, :bootnodes)
+
+    args = [
+      listen_addr: [],
+      enable_discovery: true,
+      discovery_addr: "0.0.0.0:#{port}",
+      bootnodes: bootnodes,
+      #  BeaconChain.get_fork_digest()
+      fork_digest: BeaconChain.get_fork_digest()
+    ]
+
     {new_peer_handler, args} = Keyword.pop(args, :new_peer_handler, nil)
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])

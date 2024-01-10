@@ -55,8 +55,10 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       {LambdaEthereumConsensus.Beacon.BeaconChain, {anchor_state, time}},
       {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block, time}},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
-      {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
+      {LambdaEthereumConsensus.Libp2pPort, []},
+      {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
+      {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
       {LambdaEthereumConsensus.P2P.GossipSub, []}
     ]
 
