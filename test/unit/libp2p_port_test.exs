@@ -1,8 +1,19 @@
 defmodule Unit.Libp2pPortTest do
   use ExUnit.Case
+  use Patch
+
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
 
   doctest Libp2pPort
+
+  setup do
+    patch(BeaconChain, :init, fn _ -> {:ok, nil} end)
+    patch(BeaconChain, :get_fork_digest, fn -> <<71, 235, 114, 179>> end)
+
+    start_supervised!({BeaconChain, nil})
+    :ok
+  end
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
     start_link_supervised!({Libp2pPort, [opts: [name: name]] ++ init_args}, id: name)
@@ -65,8 +76,7 @@ defmodule Unit.Libp2pPortTest do
       enable_discovery: true,
       discovery_addr: "0.0.0.0:25101",
       bootnodes: bootnodes,
-      new_peer_handler: self(),
-      fork_digest: <<71, 235, 114, 179>>
+      new_peer_handler: self()
     )
 
     assert_receive {:new_peer, _peer_id}, 10_000
