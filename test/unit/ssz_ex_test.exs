@@ -119,6 +119,15 @@ defmodule Unit.SSZExTest do
     expected_value = "db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"
     assert root |> Base.encode16(case: :lower) == expected_value
 
+    chunks =
+      <<0::256>> <>
+        <<0::256>> <>
+        <<0::256>> <> <<0::256>> <> <<0::256>> <> <<0::256>> <> <<0::256>> <> <<0::256>>
+
+    root = chunks |> SszEx.merklelize_chunks(8)
+    expected_value = "c78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
     chunks = ones
     root = chunks |> SszEx.merklelize_chunks(4)
     expected_value = "29797eded0e83376b70f2bf034cc0811ae7f1414653b1d720dfd18f74cf13309"
