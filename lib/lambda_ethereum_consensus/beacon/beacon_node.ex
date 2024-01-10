@@ -49,12 +49,23 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   defp init_children(anchor_state, anchor_block) do
     Cache.initialize_cache()
 
+    config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
+    port = Keyword.fetch!(config, :port)
+    bootnodes = Keyword.fetch!(config, :bootnodes)
+
+    libp2p_args = [
+      listen_addr: [],
+      enable_discovery: true,
+      discovery_addr: "0.0.0.0:#{port}",
+      bootnodes: bootnodes
+    ]
+
     time = :os.system_time(:second)
 
     children = [
       {LambdaEthereumConsensus.Beacon.BeaconChain, {anchor_state, time}},
       {LambdaEthereumConsensus.ForkChoice, {anchor_state, anchor_block, time}},
-      {LambdaEthereumConsensus.Libp2pPort, []},
+      {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},
       {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
