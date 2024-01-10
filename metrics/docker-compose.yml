@@ -16,6 +16,8 @@ services:
       open:
         aliases:
           - prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   grafana:
     image: grafana/grafana

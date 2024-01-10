@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   """
   use Supervisor
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.Gossip.Consumer
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
 
@@ -12,7 +13,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   end
 
   @impl true
-  def init([fork_digest_context]) do
+  def init(_opts) do
     topics = [
       {"beacon_block", Types.SignedBeaconBlock, &Handler.handle_beacon_block/1},
       {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof,
@@ -26,9 +27,11 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
       # {"sync_committee_0", Types.SyncCommitteeMessage}
     ]
 
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+
     children =
       for {topic_msg, ssz_type, handler} <- topics do
-        topic = "/eth2/#{fork_digest_context}/#{topic_msg}/ssz_snappy"
+        topic = "/eth2/#{fork_context}/#{topic_msg}/ssz_snappy"
         {Consumer, %{topic: topic, ssz_type: ssz_type, handler: handler}}
       end
 

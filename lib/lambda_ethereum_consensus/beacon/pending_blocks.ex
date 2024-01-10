@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   use GenServer
 
   require Logger
-  alias LambdaEthereumConsensus.ForkChoice.Store
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias Types.SignedBeaconBlock
 
@@ -88,11 +88,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           state
 
         # If already in fork choice, remove from pending
-        Store.has_block?(block_root) ->
+        ForkChoice.has_block?(block_root) ->
           state |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
 
         # If parent is not in fork choice, download parent
-        not Store.has_block?(parent_root) ->
+        not ForkChoice.has_block?(parent_root) ->
           state |> Map.update!(:blocks_to_download, &MapSet.put(&1, parent_root))
 
         # If all the other conditions are false, add block to fork choice
@@ -116,7 +116,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @impl true
   def handle_info(:download_blocks, state) do
-    blocks_in_store = state.blocks_to_download |> MapSet.filter(&Store.has_block?/1)
+    blocks_in_store = state.blocks_to_download |> MapSet.filter(&ForkChoice.has_block?/1)
 
     downloaded_blocks =
       state.blocks_to_download
@@ -154,7 +154,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @spec send_block_to_forkchoice(state(), SignedBeaconBlock.t(), Types.root()) :: state()
   defp send_block_to_forkchoice(state, signed_block, block_root) do
-    case Store.on_block(signed_block, block_root) do
+    case ForkChoice.on_block(signed_block, block_root) do
       :ok ->
         state |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
 
