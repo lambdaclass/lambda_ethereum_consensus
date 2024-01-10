@@ -16,16 +16,18 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   # TODO: compute this and other messages at runtime
   @error_message_server_error "Server Error"
 
+  @spec handle(String.t(), String.t(), binary()) :: any()
   def handle(name, message_id, message) do
     case handle_req(name, message_id, message) do
       :ok -> :ok
-      :not_implemented -> :ok
       {:error, error} -> Logger.error("[#{name}] Request error: #{inspect(error)}")
     end
   end
 
   @spec handle_req(String.t(), String.t(), binary()) ::
-          :ok | :not_implemented | {:error, binary()}
+          :ok | {:error, String.t()}
+  defp handle_req(protocol_name, message_id, message)
+
   defp handle_req("status/1/ssz_snappy", message_id, message) do
     with {:ok, snappy_status} <- decode_size_header(84, message),
          {:ok, current_status} <- BeaconChain.get_current_status_message(),
