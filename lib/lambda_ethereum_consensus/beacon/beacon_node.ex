@@ -53,7 +53,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     children = [
       {LambdaEthereumConsensus.Beacon.BeaconChain, {anchor_state, time}},
-      {LambdaEthereumConsensus.ForkChoice.Store, {anchor_state, anchor_block, time}},
+      {LambdaEthereumConsensus.ForkChoice, {anchor_state, anchor_block, time}},
       {LambdaEthereumConsensus.Libp2pPort, []},
       {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.P2P.IncomingRequests, []},

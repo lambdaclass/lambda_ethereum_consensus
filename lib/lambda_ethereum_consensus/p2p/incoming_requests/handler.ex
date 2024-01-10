@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   """
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
 
@@ -29,7 +28,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
           :ok | :not_implemented | {:error, binary()}
   defp handle_req("status/1/ssz_snappy", message_id, message) do
     with <<84, snappy_status::binary>> <- message,
-         {:ok, current_status} <- ForkChoice.Store.get_current_status_message(),
+         {:ok, current_status} <- BeaconChain.get_current_status_message(),
          {:ok, ssz_status} <- Snappy.decompress(snappy_status),
          {:ok, status} <- Ssz.from_ssz(ssz_status, Types.StatusMessage),
          status
