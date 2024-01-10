@@ -114,9 +114,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end)
   end
 
+  @empty_mapset MapSet.new()
+
   @impl true
-  def handle_info(:download_blocks, %{blocks_to_download: %MapSet{map: blocks}} = state)
-      when map_size(blocks) == 0 do
+  def handle_info(:download_blocks, %{blocks_to_download: @empty_mapset} = state) do
     schedule_blocks_download()
     {:noreply, state}
   end
