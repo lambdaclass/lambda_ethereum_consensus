@@ -4,6 +4,24 @@ defmodule Unit.Libp2pPortTest do
 
   doctest Libp2pPort
 
+  defmodule BeaconChain do
+    @moduledoc false
+    use GenServer
+
+    def start_link(opts) do
+      GenServer.start_link(__MODULE__, opts, name: LambdaEthereumConsensus.Beacon.BeaconChain)
+    end
+
+    def handle_call({:get_fork_digest, _slot}, _from, state) do
+      {:reply, <<71, 235, 114, 179>>, state}
+    end
+  end
+
+  setup do
+    start_supervised!(BeaconChain)
+    :ok
+  end
+
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
     start_link_supervised!({Libp2pPort, [opts: [name: name]] ++ init_args}, id: name)
   end
@@ -65,7 +83,8 @@ defmodule Unit.Libp2pPortTest do
       enable_discovery: true,
       discovery_addr: "0.0.0.0:25101",
       bootnodes: bootnodes,
-      new_peer_handler: self()
+      new_peer_handler: self(),
+      fork_digest: <<71, 235, 114, 179>>
     )
 
     assert_receive {:new_peer, _peer_id}, 10_000
