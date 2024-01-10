@@ -96,13 +96,14 @@ defmodule Unit.SSZExTest do
   test "merklelization of chunks" do
     ## Reference:  https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L371
     ##            https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L416
+    zero = <<0::256>>
 
-    chunks = <<0::256>>
+    chunks = zero
     root = SszEx.merklelize_chunks(chunks)
     expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
     assert root |> Base.encode16(case: :lower) == expected_value
 
-    chunks = <<0::256>> <> <<0::256>>
+    chunks = zero <> zero
     root = chunks |> SszEx.merklelize_chunks(2)
     expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
     assert root |> Base.encode16(case: :lower) == expected_value
@@ -114,16 +115,12 @@ defmodule Unit.SSZExTest do
     expected_value = "7c8975e1e60a5c8337f28edf8c33c3b180360b7279644a9bc1af3c51e6220bf5"
     assert root |> Base.encode16(case: :lower) == expected_value
 
-    chunks = <<0::256>> <> <<0::256>> <> <<0::256>> <> <<0::256>>
+    chunks = zero <> zero <> zero <> zero
     root = chunks |> SszEx.merklelize_chunks(4)
     expected_value = "db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"
     assert root |> Base.encode16(case: :lower) == expected_value
 
-    chunks =
-      <<0::256>> <>
-        <<0::256>> <>
-        <<0::256>> <> <<0::256>> <> <<0::256>> <> <<0::256>> <> <<0::256>> <> <<0::256>>
-
+    chunks = zero <> zero <> zero <> zero <> zero <> zero <> zero <> zero
     root = chunks |> SszEx.merklelize_chunks(8)
     expected_value = "c78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c"
     assert root |> Base.encode16(case: :lower) == expected_value
