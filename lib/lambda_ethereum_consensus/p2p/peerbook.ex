@@ -60,6 +60,12 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   end
 
   @impl true
+  def handle_info(:prune, peerbook) when map_size(peerbook) == 0 do
+    schedule_pruning()
+    {:noreply, peerbook}
+  end
+
+  @impl true
   def handle_info(:prune, peerbook) do
     len = map_size(peerbook)
 
@@ -70,7 +76,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
       |> min(len - @target_peers)
       |> max(0)
 
-    n = if(len > 0, do: :rand.uniform(len), else: 0)
+    n = :rand.uniform(len)
 
     peerbook
     |> Map.keys()
