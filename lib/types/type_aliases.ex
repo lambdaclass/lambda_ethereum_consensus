@@ -14,7 +14,7 @@ defmodule TypeAliases do
   def withdrawal_index, do: {:int, 64}
   def bls_pubkey, do: {:bytes, 48}
   def execution_address, do: {:bytes, 20}
-  def version, do: {:int, 4}
+  def version, do: {:bytes, 4}
   def domain, do: {:bytes, 32}
   def bytes32, do: {:bytes, 32}
   def uint64, do: {:int, 64}
