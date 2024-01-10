@@ -90,7 +90,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     if chunks_len > limit do
       {:error, "chunk size exceeds limit"}
     else
-      root = merklelize_chunks(chunks, limit) |> mix_in_length(len)
+      root = merkleize_chunks(chunks, limit) |> mix_in_length(len)
       {:ok, root}
     end
   end
@@ -101,7 +101,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     root |> hash_nodes(serialized_len)
   end
 
-  def merklelize_chunks(chunks, leaf_count \\ nil) do
+  def merkleize_chunks(chunks, leaf_count \\ nil) do
     chunks_len = chunks |> byte_size() |> div(@bytes_per_chunk)
 
     if chunks_len == 1 and leaf_count == nil do
