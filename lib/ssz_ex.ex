@@ -138,17 +138,13 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec pack(boolean, :bool) :: binary()
+  def pack(true, :bool), do: <<1::@bits_per_chunk-little>>
+  def pack(false, :bool), do: @zero_chunk
+
   @spec pack(non_neg_integer, {:int, non_neg_integer}) :: binary()
   def pack(value, {:int, size}) do
     <<value::size(size)-little>> |> pack_bytes()
-  end
-
-  @spec pack(boolean, :bool) :: binary()
-  def pack(value, :bool) do
-    case value do
-      true -> <<1::@bits_per_chunk-little>>
-      false -> @zero_chunk
-    end
   end
 
   @spec pack(list(), {:list, any, non_neg_integer}) :: binary()
