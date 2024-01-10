@@ -10,9 +10,9 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   import Bitwise
 
-  @bits_per_chunk 256
   @bytes_per_chunk 32
   @bits_per_byte 8
+  @bits_per_chunk @bytes_per_chunk * @bits_per_byte
   @zero_chunk <<0::size(@bits_per_chunk)>>
 
   @spec hash(iodata()) :: binary()
@@ -73,6 +73,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     if variable_size?(type) do
       # TODO
       # hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
+      {:error, "Not implemented"}
     else
       packed_chunks = pack(list, {:list, type, size})
       limit = chunk_count({:list, type, size})
