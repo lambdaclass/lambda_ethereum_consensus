@@ -6,7 +6,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.BlockStore
-  alias LambdaEthereumConsensus.Store.StateStore
   alias Plug.Session.Store
   alias Types.BeaconBlock
   alias Types.BeaconState
@@ -214,24 +213,24 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   @spec root_by_id(atom() | Types.root() | Types.slot()) ::
-          {:ok, {Types.root(), boolean(), boolean()}} | {:error, String.t()} | atom()
+          {:ok, {Types.BeaconBlock.t(), boolean(), boolean()}} | {:error, String.t()} | atom()
   def root_by_id(:head) do
     with {:ok, current_status} <- BeaconChain.get_current_status_message(),
          {:ok, signed_block} <- BlockStore.get_block(current_status.head_root) do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, {signed_block.message.state_root, execution_optimistic, false}}
+      {:ok, {signed_block.message, execution_optimistic, false}}
     end
   end
 
-  def root_by_id(:genesis), do: :invalid_id
+  def root_by_id(:genesis), do: :not_found
 
   def root_by_id(:justified) do
     with {:ok, justified_checkpoint} <- ForkChoice.get_justified_checkpoint(),
          {:ok, signed_block} <- BlockStore.get_block(justified_checkpoint.root) do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, signed_block.message.state_root, execution_optimistic, false}
+      {:ok, signed_block.message, execution_optimistic, false}
     end
   end
 
@@ -240,7 +239,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
          {:ok, signed_block} <- BlockStore.get_block(finalized_checkpoint.root) do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, signed_block.message.state_root, execution_optimistic, true}
+      {:ok, signed_block.message, execution_optimistic, true}
     end
   end
 
@@ -250,20 +249,24 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     # TODO compute is_optimistic_or_invalid() and is_finalized()
     execution_optimistic = true
     finalized = false
-    {:ok, {hex_root, execution_optimistic, finalized}}
+
+    with signed_block <- BlockStore.get_block(hex_root) do
+      {:ok, {signed_block.message, execution_optimistic, finalized}}
+    end
   end
 
   def root_by_id(slot) when is_integer(slot) do
-    with {:ok, state} <- StateStore.get_latest_state(),
-         {:ok, signed_block} <- BlockStore.get_block_by_slot(state.slot),
-         {:ok, store} <- get_forkchoice_store(state, signed_block.message),
-         current_slot = Store.get_current_slot(store),
-         true <- slot < current_slot,
+    with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
          {:ok, signed_block_for_slot} <- BlockStore.get_block_by_slot(slot) do
       # TODO compute is_optimistic_or_invalid() and is_finalized()
       execution_optimistic = true
       finalized = false
-      {:ok, signed_block_for_slot.message.state_root, execution_optimistic, finalized}
+      {:ok, signed_block_for_slot.message, execution_optimistic, finalized}
     end
   end
+
+  defp check_valid_slot(slot, current_slot) when slot < current_slot, do: :ok
+
+  defp check_valid_slot(slot, _current_slot),
+    do: {:error, "slot #{slot} cannot be greater that current slot"}
 end

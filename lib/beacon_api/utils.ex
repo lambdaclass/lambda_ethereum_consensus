@@ -17,13 +17,8 @@ defmodule BeaconApi.Utils do
   def parse_id("finalized"), do: :finalized
   def parse_id("head"), do: :head
 
-  def parse_id("0x" <> hex_root) do
-    if byte_size(hex_root) == 66 do
-      <<hex_root::binary>>
-    else
-      :invalid_id
-    end
-  end
+  def parse_id("0x" <> hex_root) when byte_size(hex_root) == 64, do: Base.decode16!(hex_root)
+  def parse_id("0x" <> _hex_root), do: :invalid_id
 
   def parse_id(slot) do
     case Integer.parse(slot) do
