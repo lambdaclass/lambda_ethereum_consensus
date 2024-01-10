@@ -44,7 +44,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   @spec init(any) :: {:ok, Metadata.t()}
   def init(_opts) do
     {:ok,
-     %Metadata{
+     %{
        seq_number: 0,
        attnets: BitVector.new(0, ChainSpec.get("ATTESTATION_SUBNET_COUNT")),
        syncnets: BitVector.new(0, Constants.sync_committee_subnet_count())
@@ -59,7 +59,13 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   @impl true
   def handle_call(:get_metadata, _from, metadata) do
-    {:reply, metadata}
+    {:reply,
+      %Metadata{
+        seq_number: metadata.seq_number
+        attnets: metadata.attnets
+        syncnets: metadata.syncnets
+      }
+    }
   end
 
   @impl true
@@ -67,7 +73,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
     attnets = set_or_clear(metadata.attnets, i, set)
 
     {:noreply,
-     %Metadata{
+     %{
        metadata
        | attnets: attnets,
          seq_number: metadata.seq_number + 1
@@ -79,7 +85,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
     syncnets = set_or_clear(metadata.syncnets, i, set)
 
     {:noreply,
-     %Metadata{
+     %{
        metadata
        | syncnets: syncnets,
          seq_number: metadata.seq_number + 1
