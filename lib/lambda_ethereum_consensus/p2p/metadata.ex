@@ -52,7 +52,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   end
 
   @impl true
-  def handle_call({:get_seq_number, attrs}, _from, metadata) do
+  def handle_call({:get_seq_number}, _from, metadata) do
     seq_number = Map.fetch!(metadata, :seq_number)
     {:reply, seq_number, metadata}
   end
