@@ -19,9 +19,6 @@ defmodule Types.Store do
     :impl
   ]
 
-  @type impl_state :: any()
-  @type stored_impl :: {module(), impl_state()} | module()
-
   @type t :: %__MODULE__{
           time: Types.uint64(),
           genesis_time: Types.uint64(),
@@ -35,9 +32,10 @@ defmodule Types.Store do
           latest_messages: %{Types.validator_index() => Types.Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Types.Checkpoint.t()},
           # This defines where data is stored
-          impl: stored_impl()
+          impl: StoreImpl.t()
         }
 
+  alias Types.StoreImpl
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
@@ -72,7 +70,7 @@ defmodule Types.Store do
   def get_forkchoice_store(
         %BeaconState{} = anchor_state,
         %SignedBeaconBlock{message: anchor_block} = signed_block,
-        impl \\ InMemory
+        impl \\ %InMemory{}
       ) do
     anchor_state_root = Ssz.hash_tree_root!(anchor_state)
     anchor_block_root = Ssz.hash_tree_root!(anchor_block)
@@ -99,7 +97,7 @@ defmodule Types.Store do
         checkpoint_states: %{anchor_checkpoint => anchor_state},
         latest_messages: %{},
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
-        impl: impl.init()
+        impl: impl
       }
       |> store_block(anchor_block_root, signed_block)
       |> store_state(anchor_block_root, anchor_state)
@@ -158,17 +156,10 @@ defmodule Types.Store do
   ### Private functions
   ########################
 
-  # TODO: this could be improved via protocols or behaviours
   @spec delegate_mut(t(), atom(), [any()]) :: t()
-  defp delegate_mut(%__MODULE__{impl: {mod, state}} = store, fun, args),
-    do: %{store | impl: {mod, apply(mod, fun, [state | args])}}
-
-  defp delegate_mut(%__MODULE__{impl: mod} = store, fun, args) do
-    apply(mod, fun, args)
-    store
-  end
+  defp delegate_mut(store, fun, args),
+    do: %{store | impl: delegate(store, fun, args)}
 
   @spec delegate(t(), atom(), [any()]) :: any()
-  defp delegate(%__MODULE__{impl: {mod, state}}, fun, args), do: apply(mod, fun, [state | args])
-  defp delegate(%__MODULE__{impl: mod}, fun, args), do: apply(mod, fun, args)
+  defp delegate(%__MODULE__{impl: impl}, fun, args), do: apply(StoreImpl, fun, [impl | args])
 end
