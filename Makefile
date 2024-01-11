@@ -83,10 +83,10 @@ deps:
 proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 
 #🔨 compile-native: @ Compile C and Go artifacts.
-compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
+compile-native: proto $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
-compile-all: compile-native $(PROTOBUF_EX_FILES)
+compile-all: compile-native
 	mix compile
 
 #🗑️ clean: @ Remove the build files.
