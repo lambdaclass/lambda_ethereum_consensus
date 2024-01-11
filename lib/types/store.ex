@@ -68,8 +68,7 @@ defmodule Types.Store do
     get_ancestor(store, root, epoch_first_slot)
   end
 
-  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) ::
-          {:ok, Store.t()} | {:error, any}
+  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) :: {:ok, t()} | {:error, any}
   def get_forkchoice_store(
         %BeaconState{} = anchor_state,
         %SignedBeaconBlock{message: anchor_block} = signed_block,

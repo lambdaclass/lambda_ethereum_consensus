@@ -3,6 +3,7 @@ defmodule Types.StoreImpl.InMemory do
   Store implementation that stores data in memory.
   """
   alias Types.BeaconBlock
+  alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
   @typep storage() :: %{
@@ -20,10 +21,10 @@ defmodule Types.StoreImpl.InMemory do
   def store_block(%{blocks: blocks} = storage, block_root, %{message: block}),
     do: %{storage | blocks: Map.put(blocks, block_root, block)}
 
-  @spec get_block(storage(), Types.root()) :: Types.BeaconBlock.t() | nil
+  @spec get_block(storage(), Types.root()) :: BeaconBlock.t() | nil
   def get_block(%{blocks: blocks}, block_root), do: Map.get(blocks, block_root)
 
-  @spec get_blocks(storage()) :: Enumerable.t(Types.BeaconBlock.t())
+  @spec get_blocks(storage()) :: Enumerable.t(BeaconBlock.t())
   def get_blocks(%{blocks: blocks}), do: blocks
 
   ## Block states
