@@ -38,8 +38,13 @@ jwt_secret =
     nil
   end
 
+implementation =
+  if mock_execution,
+    do: LambdaEthereumConsensus.Execution.EngineApi.Debug,
+    else: LambdaEthereumConsensus.Execution.EngineApi.Tesla
+
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
   endpoint: execution_endpoint,
   jwt_secret: jwt_secret,
-  mock_execution: mock_execution,
+  implementation: implementation,
   version: "2.0"

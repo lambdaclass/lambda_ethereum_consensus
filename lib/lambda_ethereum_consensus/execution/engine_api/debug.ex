@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
   Mock Execution Layer Engine API methods
   """
 
-  @supported_methods ["engine_forkchoiceUpdatedV2", "engine_getPayloadV2","engine_newPayloadV2"]
+  @supported_methods ["engine_forkchoiceUpdatedV2", "engine_getPayloadV2", "engine_newPayloadV2"]
 
   @doc """
   Using this method Execution and consensus layer client software may
@@ -11,7 +11,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
   """
   @spec exchange_capabilities() :: {:ok, any} | {:error, any}
   def exchange_capabilities do
-    call("engine_exchangeCapabilities", [@supported_methods])
+    mock_call("engine_exchangeCapabilities", [@supported_methods])
   end
 
   @spec new_payload(Types.ExecutionPayload.t()) ::
@@ -27,7 +27,11 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
 
   # This will be used for logging
   defp mock_call(method, params) do
-    config = Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)
+    config =
+      Application.fetch_env!(
+        :lambda_ethereum_consensus,
+        LambdaEthereumConsensus.Execution.EngineApi
+      )
 
     endpoint = Keyword.fetch!(config, :endpoint)
     version = Keyword.fetch!(config, :version)

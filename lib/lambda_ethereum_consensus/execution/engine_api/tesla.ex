@@ -35,7 +35,11 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Tesla do
   end
 
   defp call(method, params) do
-    config = Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)
+    config =
+      Application.fetch_env!(
+        :lambda_ethereum_consensus,
+        LambdaEthereumConsensus.Execution.EngineApi
+      )
 
     endpoint = Keyword.fetch!(config, :endpoint)
     version = Keyword.fetch!(config, :version)
