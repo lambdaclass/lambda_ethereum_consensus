@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
+  alias LambdaEthereumConsensus.Store.BlockStore
   alias Types.Store
 
   @spec current_status_message(Store.t()) ::

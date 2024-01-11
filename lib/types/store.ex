@@ -66,7 +66,8 @@ defmodule Types.Store do
     get_ancestor(store, root, epoch_first_slot)
   end
 
-  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) :: {:ok, t()} | {:error, any}
+  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t(), StoreImpl.t()) ::
+          {:ok, t()} | {:error, any}
   def get_forkchoice_store(
         %BeaconState{} = anchor_state,
         %SignedBeaconBlock{message: anchor_block} = signed_block,
@@ -114,23 +115,23 @@ defmodule Types.Store do
   ## Blocks
 
   @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
-  def store_block(store, block_root, signed_block),
-    do: delegate_mut(store, :store_block, [block_root, signed_block])
+  def store_block(%__MODULE__{impl: impl} = store, block_root, signed_block),
+    do: %{store | impl: StoreImpl.store_block(impl, block_root, signed_block)}
 
   @spec get_block(t(), Types.root()) :: Types.BeaconBlock.t() | nil
-  def get_block(store, block_root), do: delegate(store, :get_block, [block_root])
+  def get_block(%__MODULE__{impl: impl}, block_root), do: StoreImpl.get_block(impl, block_root)
 
   @spec get_blocks(t()) :: Enumerable.t(Types.BeaconBlock.t())
-  def get_blocks(store), do: delegate(store, :get_blocks, [])
+  def get_blocks(%__MODULE__{impl: impl}), do: StoreImpl.get_blocks(impl)
 
   ## Block states
 
   @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
-  def store_state(store, block_root, state),
-    do: delegate_mut(store, :store_state, [block_root, state])
+  def store_state(%__MODULE__{impl: impl} = store, block_root, state),
+    do: %{store | impl: StoreImpl.store_state(impl, block_root, state)}
 
   @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
-  def get_state(store, block_root), do: delegate(store, :get_state, [block_root])
+  def get_state(%__MODULE__{impl: impl}, block_root), do: StoreImpl.get_state(impl, block_root)
 
   ########################
   ### Wrapper functions
@@ -151,15 +152,4 @@ defmodule Types.Store do
       v -> v
     end
   end
-
-  ########################
-  ### Private functions
-  ########################
-
-  @spec delegate_mut(t(), atom(), [any()]) :: t()
-  defp delegate_mut(store, fun, args),
-    do: %{store | impl: delegate(store, fun, args)}
-
-  @spec delegate(t(), atom(), [any()]) :: any()
-  defp delegate(%__MODULE__{impl: impl}, fun, args), do: apply(StoreImpl, fun, [impl | args])
 end

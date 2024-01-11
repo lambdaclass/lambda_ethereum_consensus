@@ -11,8 +11,10 @@ defmodule Types.StoreImpl.Db do
 
   defimpl Types.StoreImpl, for: __MODULE__ do
     ## Blocks
-    def store_block(_, block_root, signed_block),
-      do: BlockStore.store_block(signed_block, block_root)
+    def store_block(t, block_root, signed_block) do
+      BlockStore.store_block(signed_block, block_root)
+      t
+    end
 
     def get_block(_, block_root) do
       case BlockStore.get_block(block_root) do
@@ -25,7 +27,10 @@ defmodule Types.StoreImpl.Db do
 
     ## Block states
 
-    def store_state(_, block_root, state), do: StateStore.store_state(state, block_root)
+    def store_state(t, block_root, state) do
+      StateStore.store_state(state, block_root)
+      t
+    end
 
     def get_state(_, block_root) do
       case StateStore.get_state(block_root) do
