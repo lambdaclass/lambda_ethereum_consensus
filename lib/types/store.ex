@@ -35,9 +35,9 @@ defmodule Types.Store do
         }
 
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.Store.StateStore
-  alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
