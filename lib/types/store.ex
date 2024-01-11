@@ -28,11 +28,11 @@ defmodule Types.Store do
           unrealized_finalized_checkpoint: Types.Checkpoint.t() | nil,
           proposer_boost_root: Types.root() | nil,
           equivocating_indices: MapSet.t(Types.validator_index()),
-          blocks: %{Types.root() => Types.BeaconBlock.t()},
-          block_states: %{Types.root() => Types.BeaconState.t()},
           checkpoint_states: %{Types.Checkpoint.t() => Types.BeaconState.t()},
           latest_messages: %{Types.validator_index() => Types.Checkpoint.t()},
-          unrealized_justifications: %{Types.root() => Types.Checkpoint.t()}
+          unrealized_justifications: %{Types.root() => Types.Checkpoint.t()},
+          # This defines where data is stored
+          impl: {module(), any()} | module()
         }
 
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -98,18 +98,27 @@ defmodule Types.Store do
     store
   end
 
-  @spec get_block(t(), Types.root()) :: Types.BeaconBlock.t() | nil
-  def get_block(%__MODULE__{blocks: blocks}, block_root) do
-    Map.get(blocks, block_root)
-  end
+  ########################
+  ### Delegators
+  ########################
+
+  ## Blocks
+
+  @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
+  def store_block(store, block_root, signed_block),
+    do: delegate_mut(store, :store_block, [block_root, signed_block])
 
   @spec get_block(t(), Types.root()) :: Types.BeaconBlock.t() | nil
-  def get_block(%__MODULE__{}, block_root) do
-    case BlockStore.get_block(block_root) do
-      {:ok, signed_block} -> signed_block.message
-      _ -> nil
-    end
-  end
+  def get_block(store, block_root), do: delegate(store, :get_block, [block_root])
+
+  @spec get_blocks(t()) :: Enumerable.t(Types.BeaconBlock.t())
+  def get_blocks(store), do: delegate(store, :get_blocks, [])
+
+  ## Block states
+
+  ########################
+  ### Wrapper functions
+  ########################
 
   @spec get_block!(t(), Types.root()) :: Types.BeaconBlock.t()
   def get_block!(store, block_root) do
@@ -119,15 +128,12 @@ defmodule Types.Store do
     end
   end
 
-  @spec get_blocks(t()) :: Enumerable.t(Types.BeaconBlock.t())
-  def get_blocks(%__MODULE__{blocks: blocks}), do: blocks
-  def get_blocks(%__MODULE__{}), do: BlockStore.stream_blocks()
-
-  @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
-  def store_block(store, block_root, signed_block),
-    do: delegate_mut(store, :store_block, [block_root, signed_block])
+  ########################
+  ### Private functions
+  ########################
 
   # TODO: this could be improved via protocols or behaviours
+  @spec delegate_mut(t(), atom(), [any()]) :: t()
   defp delegate_mut(%__MODULE__{impl: {mod, state}} = store, fun, args),
     do: %{store | impl: {mod, apply(mod, fun, [state | args])}}
 
@@ -135,4 +141,8 @@ defmodule Types.Store do
     apply(mod, fun, args)
     store
   end
+
+  @spec delegate(t(), atom(), [any()]) :: any()
+  defp delegate(%__MODULE__{impl: {mod, state}}, fun, args), do: apply(mod, fun, [state | args])
+  defp delegate(%__MODULE__{impl: mod}, fun, args), do: apply(mod, fun, args)
 end
