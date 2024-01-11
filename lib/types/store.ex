@@ -36,8 +36,6 @@ defmodule Types.Store do
         }
 
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Store.BlockStore
-  alias LambdaEthereumConsensus.Store.StateStore
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
@@ -64,40 +62,6 @@ defmodule Types.Store do
     get_ancestor(store, root, epoch_first_slot)
   end
 
-  @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
-  def get_state(%__MODULE__{block_states: states}, block_root) do
-    Map.get(states, block_root)
-  end
-
-  @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
-  def get_state(%__MODULE__{}, block_root) do
-    case StateStore.get_state(block_root) do
-      {:ok, state} -> state
-      _ -> nil
-    end
-  end
-
-  @spec get_state!(t(), Types.root()) :: BeaconState.t()
-  def get_state!(store, block_root) do
-    case get_state(store, block_root) do
-      nil -> raise "State not found for block #{block_root}"
-      v -> v
-    end
-  end
-
-  @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
-  def store_state(%__MODULE__{block_states: states} = store, block_root, state) do
-    states
-    |> Map.put(block_root, state)
-    |> then(&%{store | block_states: &1})
-  end
-
-  @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
-  def store_state(%__MODULE__{} = store, block_root, state) do
-    StateStore.store_state(state, block_root)
-    store
-  end
-
   ########################
   ### Delegators
   ########################
@@ -116,6 +80,13 @@ defmodule Types.Store do
 
   ## Block states
 
+  @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
+  def store_state(store, block_root, state),
+    do: delegate_mut(store, :store_state, [block_root, state])
+
+  @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
+  def get_state(store, block_root), do: delegate(store, :get_state, [block_root])
+
   ########################
   ### Wrapper functions
   ########################
@@ -124,6 +95,14 @@ defmodule Types.Store do
   def get_block!(store, block_root) do
     case get_block(store, block_root) do
       nil -> raise "Block not found: #{block_root}"
+      v -> v
+    end
+  end
+
+  @spec get_state!(t(), Types.root()) :: BeaconState.t()
+  def get_state!(store, block_root) do
+    case get_state(store, block_root) do
+      nil -> raise "State not found for block #{block_root}"
       v -> v
     end
   end
