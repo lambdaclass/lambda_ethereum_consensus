@@ -13,7 +13,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   ##########################
 
   def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @spec get_seq_number() :: Types.uint64()
