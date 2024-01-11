@@ -72,6 +72,10 @@ macro_rules! config_match {
                 elx_types::$t,
                 ssz_types::$t<$crate::ssz_types::config::Mainnet>,
             >($args),
+            "SepoliaConfig" => $crate::utils::helpers::$fun::<
+                elx_types::$t,
+                ssz_types::$t<$crate::ssz_types::config::Mainnet>,
+            >($args),
             "MinimalConfig" => $crate::utils::helpers::$fun::<
                 elx_types::$t,
                 ssz_types::$t<$crate::ssz_types::config::Minimal>,
@@ -81,7 +85,7 @@ macro_rules! config_match {
     };
     ($config:expr, $fun:ident, $args:tt, $t:ident) => {
         match $config {
-            "MainnetConfig" | "MinimalConfig" => {
+            "MainnetConfig" | "MinimalConfig" | "SepoliaConfig" => {
                 $crate::utils::helpers::$fun::<elx_types::$t, ssz_types::$t>($args)
             }
             _ => Err(rustler::Error::BadArg),
