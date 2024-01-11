@@ -15,7 +15,8 @@ defmodule Types.Store do
     :block_states,
     :checkpoint_states,
     :latest_messages,
-    :unrealized_justifications
+    :unrealized_justifications,
+    :impl
   ]
 
   @type t :: %__MODULE__{
@@ -123,15 +124,15 @@ defmodule Types.Store do
   def get_blocks(%__MODULE__{}), do: BlockStore.stream_blocks()
 
   @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
-  def store_block(%__MODULE__{blocks: blocks} = store, block_root, %{message: block}) do
-    blocks
-    |> Map.put(block_root, block)
-    |> then(&%{store | blocks: &1})
-  end
+  def store_block(store, block_root, signed_block),
+    do: delegate_mut(store, :store_block, [block_root, signed_block])
 
-  @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
-  def store_block(%__MODULE__{} = store, block_root, %SignedBeaconBlock{} = signed_block) do
-    BlockStore.store_block(signed_block, block_root)
+  # TODO: this could be improved via protocols or behaviours
+  defp delegate_mut(%__MODULE__{impl: {mod, state}} = store, fun, args),
+    do: %{store | impl: {mod, apply(mod, fun, [state | args])}}
+
+  defp delegate_mut(%__MODULE__{impl: mod} = store, fun, args) do
+    apply(mod, fun, args)
     store
   end
 end
