@@ -169,6 +169,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     {:noreply, new_store}
   end
 
+  @impl GenServer
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
+
   ##########################
   ### Private Functions
   ##########################

@@ -65,7 +65,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
   def get_current_status_message do
-    GenServer.call(__MODULE__, :get_current_status_message)
+    status_message = GenServer.call(__MODULE__, :get_current_status_message)
+    {:ok, status_message}
   end
 
   ##########################
@@ -104,13 +105,19 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @impl true
   def handle_call(:get_current_status_message, _from, state) do
+    %{
+      head_root: head_root,
+      head_slot: head_slot,
+      finalized_root: finalized_root,
+      finalized_epoch: finalized_epoch
+    } = state.fork_choice
+
     status_message = %Types.StatusMessage{
-      fork_digest:
-        compute_fork_digest(state.genesis_validators_root, state.fork_choice.head_slot),
-      finalized_root: state.fork_choice.finalized_root,
-      finalized_epoch: state.fork_choice.finalized_epoch,
-      head_root: state.fork_choice.head_root,
-      head_slot: state.fork_choice.head_slot
+      fork_digest: compute_fork_digest(head_slot, state.genesis_validators_root),
+      finalized_root: finalized_root,
+      finalized_epoch: finalized_epoch,
+      head_root: head_root,
+      head_slot: head_slot
     }
 
     {:reply, status_message, state}
@@ -152,7 +159,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     div(state.time - state.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
-  defp compute_fork_digest(genesis_validators_root, slot) do
+  defp compute_fork_digest(slot, genesis_validators_root) do
     current_fork_version =
       slot |> Misc.compute_epoch_at_slot() |> ChainSpec.get_fork_version_for_epoch()
 
