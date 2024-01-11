@@ -1,7 +1,12 @@
 defmodule Types.StoreImpl.Db do
+  @moduledoc """
+  Store implementation that stores data in the database, uncached.
+  """
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.Store.StateStore
   alias Types.SignedBeaconBlock
+
+  def init, do: __MODULE__
 
   ## Blocks
 

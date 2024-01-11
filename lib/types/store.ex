@@ -19,6 +19,9 @@ defmodule Types.Store do
     :impl
   ]
 
+  @type impl_state :: any()
+  @type stored_impl :: {module(), impl_state()} | module()
+
   @type t :: %__MODULE__{
           time: Types.uint64(),
           genesis_time: Types.uint64(),
@@ -32,11 +35,14 @@ defmodule Types.Store do
           latest_messages: %{Types.validator_index() => Types.Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Types.Checkpoint.t()},
           # This defines where data is stored
-          impl: {module(), any()} | module()
+          impl: stored_impl()
         }
 
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias Types.StoreImpl.InMemory
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
+  alias Types.Checkpoint
   alias Types.SignedBeaconBlock
 
   def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
@@ -60,6 +66,48 @@ defmodule Types.Store do
   def get_checkpoint_block(%__MODULE__{} = store, root, epoch) do
     epoch_first_slot = Misc.compute_start_slot_at_epoch(epoch)
     get_ancestor(store, root, epoch_first_slot)
+  end
+
+  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) ::
+          {:ok, Store.t()} | {:error, any}
+  def get_forkchoice_store(
+        %BeaconState{} = anchor_state,
+        %SignedBeaconBlock{message: anchor_block} = signed_block,
+        impl \\ InMemory
+      ) do
+    anchor_state_root = Ssz.hash_tree_root!(anchor_state)
+    anchor_block_root = Ssz.hash_tree_root!(anchor_block)
+
+    if anchor_block.state_root == anchor_state_root do
+      anchor_epoch = Accessors.get_current_epoch(anchor_state)
+
+      anchor_checkpoint = %Checkpoint{
+        epoch: anchor_epoch,
+        root: anchor_block_root
+      }
+
+      time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
+
+      %__MODULE__{
+        time: time,
+        genesis_time: anchor_state.genesis_time,
+        justified_checkpoint: anchor_checkpoint,
+        finalized_checkpoint: anchor_checkpoint,
+        unrealized_justified_checkpoint: anchor_checkpoint,
+        unrealized_finalized_checkpoint: anchor_checkpoint,
+        proposer_boost_root: <<0::256>>,
+        equivocating_indices: MapSet.new(),
+        checkpoint_states: %{anchor_checkpoint => anchor_state},
+        latest_messages: %{},
+        unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
+        impl: apply(impl, :init, [])
+      }
+      |> store_block(anchor_block_root, signed_block)
+      |> store_state(anchor_block_root, anchor_state)
+      |> then(&{:ok, &1})
+    else
+      {:error, "Anchor block state root does not match anchor state root"}
+    end
   end
 
   ########################

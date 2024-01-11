@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
   alias Types.Store
+  alias Types.StoreImpl
 
   @default_timeout 100_000
 
@@ -70,7 +71,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
+    case Store.get_forkchoice_store(anchor_state, signed_anchor_block, StoreImpl.Db) do
       {:ok, %Store{} = store} ->
         Logger.info("[Fork choice] Initialized store.")
 

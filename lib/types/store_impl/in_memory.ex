@@ -1,4 +1,7 @@
 defmodule Types.StoreImpl.InMemory do
+  @moduledoc """
+  Store implementation that stores data in memory.
+  """
   alias Types.BeaconBlock
   alias Types.SignedBeaconBlock
 
@@ -6,6 +9,10 @@ defmodule Types.StoreImpl.InMemory do
            blocks: %{Types.root() => BeaconBlock.t()},
            block_states: %{Types.root() => BeaconState.t()}
          }
+
+  @empty_state %{blocks: %{}, block_states: %{}}
+
+  def init, do: {__MODULE__, @empty_state}
 
   ## Blocks
 
