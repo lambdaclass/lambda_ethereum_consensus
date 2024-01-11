@@ -269,5 +269,5 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   defp check_valid_slot(slot, current_slot) when slot < current_slot, do: :ok
 
   defp check_valid_slot(slot, _current_slot),
-    do: {:error, "slot #{slot} cannot be greater that current slot"}
+    do: {:error, "slot #{slot} cannot be greater than current slot"}
 end
