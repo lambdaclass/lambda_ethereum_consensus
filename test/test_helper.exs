@@ -1,4 +1,5 @@
 ExUnit.start()
+Application.ensure_all_started(:telemetry)
 
 # Load all modules as ExUnit tests (needed because we use .ex files)
 # Copied from https://github.com/elixir-lang/elixir/issues/10983#issuecomment-1133554155

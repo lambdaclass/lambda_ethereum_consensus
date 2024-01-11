@@ -9,6 +9,7 @@ type Config struct {
 	EnableDiscovery bool
 	DiscoveryAddr   string
 	Bootnodes       []string
+	ForkDigest      []byte
 }
 
 func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
@@ -17,6 +18,7 @@ func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 		EnableDiscovery: initArgs.EnableDiscovery,
 		DiscoveryAddr:   initArgs.DiscoveryAddr,
 		Bootnodes:       initArgs.Bootnodes,
+		ForkDigest:      initArgs.ForkDigest,
 	}
 }
 
