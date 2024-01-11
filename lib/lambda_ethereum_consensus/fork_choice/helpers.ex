@@ -228,7 +228,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     with {:ok, justified_checkpoint} <- ForkChoice.get_justified_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, justified_checkpoint.root, execution_optimistic, false}
+      {:ok, {justified_checkpoint.root, execution_optimistic, false}}
     end
   end
 
@@ -236,7 +236,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     with {:ok, finalized_checkpoint} <- ForkChoice.get_finalized_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, finalized_checkpoint.root, execution_optimistic, true}
+      {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
     end
   end
 
@@ -255,7 +255,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       # TODO compute is_optimistic_or_invalid() and is_finalized()
       execution_optimistic = true
       finalized = false
-      {:ok, root, execution_optimistic, finalized}
+      {:ok, {root, execution_optimistic, finalized}}
     end
   end
 
