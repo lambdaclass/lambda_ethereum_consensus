@@ -31,6 +31,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     {:ok, finalized_checkpoint}
   end
 
+  @spec get_justified_checkpoint() :: {:ok, Types.Checkpoint.t()}
+  def get_justified_checkpoint do
+    [justified_checkpoint] = get_store_attrs([:justified_checkpoint])
+    {:ok, justified_checkpoint}
+  end
+
   @spec has_block?(Types.root()) :: boolean()
   def has_block?(block_root) do
     block = get_block(block_root)
