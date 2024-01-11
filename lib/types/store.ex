@@ -39,11 +39,11 @@ defmodule Types.Store do
         }
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias Types.StoreImpl.InMemory
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
   alias Types.Checkpoint
   alias Types.SignedBeaconBlock
+  alias Types.StoreImpl.InMemory
 
   def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
     # NOTE: this assumes GENESIS_SLOT == 0
@@ -100,7 +100,7 @@ defmodule Types.Store do
         checkpoint_states: %{anchor_checkpoint => anchor_state},
         latest_messages: %{},
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
-        impl: apply(impl, :init, [])
+        impl: impl.init()
       }
       |> store_block(anchor_block_root, signed_block)
       |> store_state(anchor_block_root, anchor_state)
