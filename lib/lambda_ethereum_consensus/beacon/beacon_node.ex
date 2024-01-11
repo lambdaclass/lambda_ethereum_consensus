@@ -18,6 +18,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
          {:ok, anchor_block} <- fetch_anchor_block(anchor_state) do
       init_children(anchor_state, anchor_block)
     else
+      {:error, reason} ->
+        Logger.error("[Sync] Fetching from the database failed with: #{inspect(reason)}")
+
+        System.stop(1)
+
       :not_found ->
         Logger.error(
           "[Sync] No initial state or block found. Please specify the URL to fetch them from via the --checkpoint-sync flag."
