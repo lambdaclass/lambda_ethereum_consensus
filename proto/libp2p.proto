@@ -10,6 +10,7 @@ message InitArgs {
     bool enable_discovery = 2;
     string discovery_addr = 3;
     repeated string bootnodes = 4;
+    bytes fork_digest = 5;
 }
 
 message SetHandler {

@@ -114,6 +114,14 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end)
   end
 
+  @empty_mapset MapSet.new()
+
+  @impl true
+  def handle_info(:download_blocks, %{blocks_to_download: @empty_mapset} = state) do
+    schedule_blocks_download()
+    {:noreply, state}
+  end
+
   @impl true
   def handle_info(:download_blocks, state) do
     blocks_in_store = state.blocks_to_download |> MapSet.filter(&ForkChoice.has_block?/1)
