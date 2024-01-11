@@ -6,7 +6,8 @@ import Config
       network: :string,
       checkpoint_sync: :string,
       execution_endpoint: :string,
-      execution_jwt: :string
+      execution_jwt: :string,
+      mock_execution: :boolean
     ]
   )
 
@@ -40,4 +41,5 @@ jwt_secret =
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
   endpoint: execution_endpoint,
   jwt_secret: jwt_secret,
+  mock_execution: mock_execution,
   version: "2.0"
