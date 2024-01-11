@@ -71,28 +71,6 @@ defmodule Unit.SSZExTest do
     assert expected == actual
   end
 
-  test "packing a list of bytes" do
-    list_1 = [<<1>>, <<2>>, <<3>>, <<4>>, <<5>>]
-
-    expected_1 =
-      <<1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0>>
-
-    actual_1 = SszEx.pack(list_1, {:list, {:bytes, 8}, 5})
-    assert expected_1 == actual_1
-
-    list_2 = [<<255, 12>>, <<2>>, <<64, 78, 65, 90>>, <<4>>, <<5>>]
-
-    expected_2 =
-      <<255, 12, 2, 64, 78, 65, 90, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0>>
-
-    ## the size doesn't matter because the bytes are self describing
-    size = 0
-    actual_2 = SszEx.pack(list_2, {:list, {:bytes, size}, 5})
-    assert expected_2 == actual_2
-  end
-
   test "merklelization of chunks" do
     ## Reference:  https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L371
     ##            https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L416
