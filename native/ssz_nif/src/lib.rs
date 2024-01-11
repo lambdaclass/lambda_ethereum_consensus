@@ -21,7 +21,6 @@ mod atoms {
 }
 
 const SCHEMA_PREFIX_SIZE: usize = "Elixir.Types.".len();
-const ELIXIR_PREFIX_SIZE: usize = "Elixir.".len();
 
 #[rustler::nif]
 fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom, config: Atom) -> NifResult<Term<'env>> {
@@ -30,11 +29,8 @@ fn to_ssz_rs<'env>(env: Env<'env>, map: Term, schema: Atom, config: Atom) -> Nif
         .get(SCHEMA_PREFIX_SIZE..)
         .ok_or(rustler::Error::BadArg)?;
     let config = config.to_term(env).atom_to_string()?;
-    let config = config
-        .get(ELIXIR_PREFIX_SIZE..)
-        .ok_or(rustler::Error::BadArg)?;
 
-    let serialized = schema_match!(schema, config, encode_ssz, (map));
+    let serialized = schema_match!(schema, config.as_str(), encode_ssz, (map));
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 
@@ -50,11 +46,8 @@ fn from_ssz_rs<'env>(
         .get(SCHEMA_PREFIX_SIZE..)
         .ok_or(rustler::Error::BadArg)?;
     let config = config.to_term(env).atom_to_string()?;
-    let config = config
-        .get(ELIXIR_PREFIX_SIZE..)
-        .ok_or(rustler::Error::BadArg)?;
 
-    let res = schema_match!(schema, config, decode_ssz, (&bytes, env))?;
+    let res = schema_match!(schema, config.as_str(), decode_ssz, (&bytes, env))?;
     Ok((atoms::ok(), res).encode(env))
 }
 
@@ -70,11 +63,8 @@ fn list_from_ssz_rs<'env>(
         .get(SCHEMA_PREFIX_SIZE..)
         .ok_or(rustler::Error::BadArg)?;
     let config = config.to_term(env).atom_to_string()?;
-    let config = config
-        .get(ELIXIR_PREFIX_SIZE..)
-        .ok_or(rustler::Error::BadArg)?;
 
-    let res = schema_match!(schema, config, list_decode_ssz, (&bytes, env))?;
+    let res = schema_match!(schema, config.as_str(), list_decode_ssz, (&bytes, env))?;
     Ok((atoms::ok(), res).encode(env))
 }
 
@@ -90,11 +80,8 @@ fn hash_tree_root_rs<'env>(
         .get(SCHEMA_PREFIX_SIZE..)
         .ok_or(rustler::Error::BadArg)?;
     let config = config.to_term(env).atom_to_string()?;
-    let config = config
-        .get(ELIXIR_PREFIX_SIZE..)
-        .ok_or(rustler::Error::BadArg)?;
 
-    let serialized = schema_match!(schema, config, hash_tree_root, (map));
+    let serialized = schema_match!(schema, config.as_str(), hash_tree_root, (map));
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 
@@ -111,11 +98,13 @@ fn hash_tree_root_list_rs<'env>(
         .get(SCHEMA_PREFIX_SIZE..)
         .ok_or(rustler::Error::BadArg)?;
     let config = config.to_term(env).atom_to_string()?;
-    let config = config
-        .get(ELIXIR_PREFIX_SIZE..)
-        .ok_or(rustler::Error::BadArg)?;
 
-    let serialized = schema_match!(schema, config, hash_list_tree_root, (list, max_size));
+    let serialized = schema_match!(
+        schema,
+        config.as_str(),
+        hash_list_tree_root,
+        (list, max_size)
+    );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 
@@ -132,11 +121,13 @@ fn hash_tree_root_vector_rs<'env>(
         .get(SCHEMA_PREFIX_SIZE..)
         .ok_or(rustler::Error::BadArg)?;
     let config = config.to_term(env).atom_to_string()?;
-    let config = config
-        .get(ELIXIR_PREFIX_SIZE..)
-        .ok_or(rustler::Error::BadArg)?;
 
-    let serialized = schema_match!(schema, config, hash_vector_tree_root, (list, max_size));
+    let serialized = schema_match!(
+        schema,
+        config.as_str(),
+        hash_vector_tree_root,
+        (list, max_size)
+    );
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 

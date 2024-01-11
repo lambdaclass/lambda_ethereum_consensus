@@ -118,6 +118,10 @@ iex: compile-all
 checkpoint-sync: compile-all
 	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
 
+#▶️ sepolia: @ Run an interactive terminal using sepolia network
+sepolia: compile-all
+	iex -S mix run -- --checkpoint-sync https://sepolia.beaconstate.info --network sepolia
+
 #🔴 test: @ Run tests
 test: compile-all
 	mix test --no-start --exclude spectest
