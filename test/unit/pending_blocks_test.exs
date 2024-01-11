@@ -1,7 +1,7 @@
 defmodule Unit.PendingBlocks do
   @moduledoc false
 
-  use ExUnit.Case, async: true
+  use ExUnit.Case
   use Patch
 
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
