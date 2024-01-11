@@ -111,7 +111,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @impl GenServer
   def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
-    Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
     slot = signed_block.message.slot
 
     with {:ok, new_store} <- Handlers.on_block(state, signed_block),
