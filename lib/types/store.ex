@@ -2,6 +2,14 @@ defmodule Types.Store do
   @moduledoc """
     The Store struct is used to track information required for the fork choice algorithm.
   """
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias Types.BeaconState
+  alias Types.Checkpoint
+  alias Types.SignedBeaconBlock
+  alias Types.StoreImpl
+  alias Types.StoreImpl.InMemory
+
   defstruct [
     :time,
     :genesis_time,
@@ -34,14 +42,6 @@ defmodule Types.Store do
           # This defines where data is stored
           impl: StoreImpl.t()
         }
-
-  alias Types.StoreImpl
-  alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Misc
-  alias Types.BeaconState
-  alias Types.Checkpoint
-  alias Types.SignedBeaconBlock
-  alias Types.StoreImpl.InMemory
 
   def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
     # NOTE: this assumes GENESIS_SLOT == 0
