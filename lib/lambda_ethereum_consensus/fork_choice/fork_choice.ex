@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias Types.Attestation
@@ -120,6 +121,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       Map.fetch!(new_store.block_states, block_root) |> StateStore.store_state()
       :telemetry.execute([:sync, :on_block], %{slot: slot})
       Logger.info("[Fork choice] Block #{slot} added to the store.")
+
+      Task.async(__MODULE__, :recompute_head, [new_store])
       {:reply, :ok, new_store}
     else
       {:error, reason} ->
@@ -187,5 +190,20 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       x, {:ok, st} -> {:cont, handler.(st, x)}
       _, {:error, _} = err -> {:halt, err}
     end)
+  end
+
+  @spec recompute_head(Types.Store.t()) :: :ok
+  def recompute_head(store) do
+    {:ok, head_root} = Helpers.get_head(store)
+    head_block = Map.get(store.blocks, head_root)
+
+    BeaconChain.update_fork_choice_cache(
+      head_root,
+      head_block.slot,
+      store.finalized_checkpoint.root,
+      store.finalized_checkpoint.epoch
+    )
+
+    :ok
   end
 end
