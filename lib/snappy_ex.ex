@@ -77,7 +77,6 @@ defmodule SnappyEx do
       data
 
     with {:ok, decompressed_data} <- :snappyer.decompress(compressed_data) do
-      # the crc32 checksum of the uncompressed data is masked before inserted into the frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
       masked_computed_checksum =
         masked_checksum(decompressed_data)
 
@@ -99,7 +98,6 @@ defmodule SnappyEx do
     # process uncompressed data
     <<masked_checksum::little-size(32), uncompressed_data::binary>> = data
 
-    # the crc32 checksum of the uncompressed data is masked before inserted into the frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
     masked_computed_checksum =
       masked_checksum(uncompressed_data)
 
@@ -114,6 +112,8 @@ defmodule SnappyEx do
   defp masked_checksum(data) do
     checksum = Crc32c.calc!(data)
 
+    # the crc32 checksum of the uncompressed data is masked before inserted into the
+    # frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
     checksum_mask =
       (checksum >>> 15 |||
          (checksum <<< 17 &&& @bit_mask_32)) +
