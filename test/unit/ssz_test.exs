@@ -1,5 +1,10 @@
 defmodule Unit.SSZTests do
+  alias LambdaEthereumConsensus.Utils.BitVector
   use ExUnit.Case
+
+  setup_all do
+    Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: MainnetConfig)
+  end
 
   def assert_roundtrip(hex_serialized, %type{} = deserialized) do
     serialized = Base.decode16!(hex_serialized)
@@ -117,8 +122,8 @@ defmodule Unit.SSZTests do
       "E1ED6200000000009989AFAE2372EC4C07",
       %Types.Metadata{
         seq_number: 6_483_425,
-        attnets: Base.decode16!("9989AFAE2372EC4C"),
-        syncnets: Base.decode16!("07")
+        attnets: Base.decode16!("9989AFAE2372EC4C") |> BitVector.new(64),
+        syncnets: Base.decode16!("07") |> BitVector.new(4)
       }
     )
   end
