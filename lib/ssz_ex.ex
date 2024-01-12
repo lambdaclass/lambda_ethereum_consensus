@@ -126,14 +126,14 @@ defmodule LambdaEthereumConsensus.SszEx do
           children_index = focus_len - 2 * @bytes_per_chunk
           children = focus |> :binary.part(children_index, focus_len - children_index)
 
-          <<left::bitstring-size(@bytes_per_chunk * @bits_per_byte),
-            right::bitstring-size(@bytes_per_chunk * @bits_per_byte)>> = children
+          <<left::binary-size(@bytes_per_chunk),
+            right::binary-size(@bytes_per_chunk)>> = children
 
           parent = hash_nodes(left, right)
           replace_chunk(acc_buffer, start, parent)
         end)
 
-      <<root::bitstring-size(@bytes_per_chunk * @bits_per_byte), _::bitstring>> = new_buffer
+      <<root::binary-size(@bytes_per_chunk), _::binary>> = new_buffer
       root
     end
   end
@@ -649,10 +649,10 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   defp replace_chunk(chunks, start, new_chunk) do
-    <<left::bitstring-size(start * @bits_per_byte), _::size(@bytes_per_chunk * @bits_per_byte),
-      right::bitstring>> =
+    <<left::binary-size(start), _::size(@bits_per_chunk),
+      right::binary>> =
       chunks
 
-    <<left::bitstring, new_chunk::bitstring, right::bitstring>>
+    <<left::binary, new_chunk::binary, right::binary>>
   end
 end
