@@ -114,6 +114,16 @@ defmodule SszGenericTestRunner do
     catch_error(SszEx.encode(real_serialized, schema))
   end
 
+  defp get_vec_schema(rest) do
+    case String.split(rest, "_") do
+      ["bool", max_size | _] ->
+        {:vector, :bool, String.to_integer(max_size)}
+
+      ["uint" <> size, max_size | _] ->
+        {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
+    end
+  end
+
   defp parse_type(%SpecTestCase{handler: handler, case: cse}) do
     case handler do
       "boolean" ->
@@ -134,13 +144,7 @@ defmodule SszGenericTestRunner do
       "basic_vector" ->
         case cse do
           "vec_" <> rest ->
-            case String.split(rest, "_") do
-              ["bool", max_size | _] ->
-                {:vector, :bool, String.to_integer(max_size)}
-
-              ["uint" <> size, max_size | _] ->
-                {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
-            end
+            get_vec_schema(rest)
         end
 
         #
