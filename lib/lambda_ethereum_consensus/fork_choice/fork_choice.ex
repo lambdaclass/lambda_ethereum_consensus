@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.ForkChoice.Store do
+defmodule LambdaEthereumConsensus.ForkChoice do
   @moduledoc """
     The Store is responsible for tracking information required for the fork choice algorithm.
   """
@@ -31,22 +31,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
     {:ok, finalized_checkpoint}
   end
 
-  @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
-  def get_current_status_message do
-    # TODO: un-hardcode when get_head is optimized and/or cached
-    # GenServer.call(__MODULE__, :get_current_status_message, @default_timeout)
-
-    # hardcoded response from random peer
-    {:ok,
-     %Types.StatusMessage{
-       fork_digest: Base.decode16!("BBA4DA96"),
-       finalized_root:
-         Base.decode16!("7715794499C07D9954DD223EC2C6B846D3BAB27956D093000FADC1B8219F74D4"),
-       finalized_epoch: 228_168,
-       head_root:
-         Base.decode16!("D62A74AE0F933224133C5E6E1827A2835A1E705F0CDFEE3AD25808DDEA5572DB"),
-       head_slot: 7_301_450
-     }}
+  @spec get_justified_checkpoint() :: {:ok, Types.Checkpoint.t()}
+  def get_justified_checkpoint do
+    [justified_checkpoint] = get_store_attrs([:justified_checkpoint])
+    {:ok, justified_checkpoint}
   end
 
   @spec has_block?(Types.root()) :: boolean()
@@ -123,7 +111,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Store do
 
   @impl GenServer
   def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
-    Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
     slot = signed_block.message.slot
 
     with {:ok, new_store} <- Handlers.on_block(state, signed_block),

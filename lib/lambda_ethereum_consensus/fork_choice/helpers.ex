@@ -2,7 +2,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @moduledoc """
     Utility functions for the fork choice.
   """
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
+  alias LambdaEthereumConsensus.Store.BlockStore
+  alias Plug.Session.Store
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
@@ -207,4 +211,67 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     current_epoch = Misc.compute_epoch_at_slot(current_slot)
     store.justified_checkpoint.epoch + 1 == current_epoch
   end
+
+  @type block_tag() :: :genesis | :justified | :finalized | :head
+  @type block_id() :: block_tag() | :invalid_id | Types.slot() | Types.root()
+  @type block_info() ::
+          {Types.root(), execution_optimistic? :: boolean(), finalized? :: boolean()}
+
+  @spec root_by_id(block_id()) :: {:ok, block_info()} | {:error, String.t()} | :not_found
+  def root_by_id(:head) do
+    with {:ok, current_status} <- BeaconChain.get_current_status_message() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {current_status.head_root, execution_optimistic, false}}
+    end
+  end
+
+  def root_by_id(:genesis), do: :not_found
+
+  def root_by_id(:justified) do
+    with {:ok, justified_checkpoint} <- ForkChoice.get_justified_checkpoint() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {justified_checkpoint.root, execution_optimistic, false}}
+    end
+  end
+
+  def root_by_id(:finalized) do
+    with {:ok, finalized_checkpoint} <- ForkChoice.get_finalized_checkpoint() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
+    end
+  end
+
+  def root_by_id(:invalid_id), do: :invalid_id
+
+  def root_by_id(hex_root) when is_binary(hex_root) do
+    # TODO compute is_optimistic_or_invalid() and is_finalized()
+    execution_optimistic = true
+    finalized = false
+    {:ok, {hex_root, execution_optimistic, finalized}}
+  end
+
+  def root_by_id(slot) when is_integer(slot) do
+    with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
+         {:ok, root} <- BlockStore.get_block_root_by_slot(slot) do
+      # TODO compute is_optimistic_or_invalid() and is_finalized()
+      execution_optimistic = true
+      finalized = false
+      {:ok, {root, execution_optimistic, finalized}}
+    end
+  end
+
+  @spec get_state_root(Types.root()) :: {:ok, Types.root()} | {:error, String.t()} | :not_found
+  def get_state_root(root) do
+    with {:ok, signed_block} <- BlockStore.get_block(root) do
+      {:ok, signed_block.message.state_root}
+    end
+  end
+
+  defp check_valid_slot(slot, current_slot) when slot < current_slot, do: :ok
+
+  defp check_valid_slot(slot, _current_slot),
+    do: {:error, "slot #{slot} cannot be greater than current slot"}
 end
