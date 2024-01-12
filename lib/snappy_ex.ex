@@ -81,9 +81,6 @@ defmodule SnappyEx do
       masked_computed_checksum =
         masked_checksum(decompressed_data)
 
-      IO.inspect(masked_checksum, label: "masked_checksum compressed")
-      IO.inspect(masked_computed_checksum, label: "masked_computed_checksum compressed")
-
       if masked_computed_checksum == masked_checksum do
         acc = <<acc::binary, decompressed_data::binary>>
         {:ok, acc}
@@ -106,9 +103,6 @@ defmodule SnappyEx do
     masked_computed_checksum =
       masked_checksum(uncompressed_data)
 
-    IO.inspect(masked_checksum, label: "masked_checksum uncompressed")
-    IO.inspect(masked_computed_checksum, label: "masked_computed_checksum uncompressed")
-
     if masked_computed_checksum == masked_checksum do
       acc = <<acc::binary, uncompressed_data::binary>>
       {:ok, acc}
@@ -117,8 +111,8 @@ defmodule SnappyEx do
     end
   end
 
-  defp masked_checksum(checksum) do
-    checksum = Crc32c.calc!(uncompressed_data)
+  defp masked_checksum(data) do
+    checksum = Crc32c.calc!(data)
 
     checksum_mask =
       (checksum >>> 15 |||
