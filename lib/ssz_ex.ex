@@ -2,6 +2,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   @moduledoc """
     SSZ library in Elixir
   """
+  alias LambdaEthereumConsensus.Utils.BitVector
+  import alias LambdaEthereumConsensus.Utils.BitVector
 
   #################
   ### Public API
@@ -23,6 +25,15 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def encode(value, {:bytes, _}), do: {:ok, value}
 
+  def encode(value, {:bitlist, max_size}) when is_bitstring(value),
+    do: encode_bitlist(value, max_size)
+
+  def encode(value, {:bitlist, max_size}) when is_integer(value),
+    do: encode_bitlist(:binary.encode_unsigned(value), max_size)
+
+  def encode(value, {:bitvector, size}) when is_bitvector(value),
+    do: encode_bitvector(value, size)
+
   def encode(container, module) when is_map(container),
     do: encode_container(container, module.schema())
 
@@ -36,12 +47,18 @@ defmodule LambdaEthereumConsensus.SszEx do
       else: decode_list(binary, basic_type, size)
   end
 
+  def decode(value, {:bitlist, max_size}) when is_bitstring(value),
+    do: decode_bitlist(value, max_size)
+
+  def decode(value, {:bitvector, size}) when is_bitstring(value),
+    do: decode_bitvector(value, size)
+
   def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
 
-  @spec hash_tree_root!(boolean, atom) :: SszTypes.root()
+  @spec hash_tree_root!(boolean, atom) :: Types.root()
   def hash_tree_root!(value, :bool), do: pack(value)
 
-  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: SszTypes.root()
+  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
   def hash_tree_root!(value, {:int, size}), do: pack(value, size)
 
   #################
@@ -71,6 +88,23 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.map(&encode(&1, basic_type))
     |> flatten_results_by(&Enum.join/1)
   end
+
+  defp encode_bitlist(bit_list, max_size) do
+    len = bit_size(bit_list)
+
+    if len > max_size do
+      {:error, "excess bits"}
+    else
+      r = rem(len, @bits_per_byte)
+      <<pre::bitstring-size(len - r), post::bitstring-size(r)>> = bit_list
+      {:ok, <<pre::bitstring, 1::size(@bits_per_byte - r), post::bitstring>>}
+    end
+  end
+
+  defp encode_bitvector(bit_vector, size) when bit_vector_size(bit_vector) == size,
+    do: {:ok, BitVector.to_bytes(bit_vector)}
+
+  defp encode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
 
   defp encode_variable_size_list(list, _basic_type, max_size) when length(list) > max_size,
     do: {:error, "invalid max_size of list"}
@@ -113,6 +147,33 @@ defmodule LambdaEthereumConsensus.SszEx do
       {:ok, {Enum.reverse(encoded_list), Enum.reverse(byte_size_list), total_byte_size}}
     end
   end
+
+  defp decode_bitlist(bit_list, max_size) do
+    num_bytes = byte_size(bit_list)
+    num_bits = bit_size(bit_list)
+    len = length_of_bitlist(bit_list)
+    <<pre::size(num_bits - 8), last_byte::8>> = bit_list
+    decoded = <<pre::size(num_bits - 8), remove_trailing_bit(<<last_byte>>)::bitstring>>
+
+    cond do
+      len < 0 ->
+        {:error, "missing length information"}
+
+      div(len, @bits_per_byte) + 1 != num_bytes ->
+        {:error, "invalid byte count"}
+
+      len > max_size ->
+        {:error, "out of bounds"}
+
+      true ->
+        {:ok, decoded}
+    end
+  end
+
+  defp decode_bitvector(bit_vector, size) when bit_size(bit_vector) == size,
+    do: {:ok, BitVector.new(bit_vector, size)}
+
+  defp decode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
 
   defp decode_list(binary, basic_type, size) do
     fixed_size = get_fixed_size(basic_type)
@@ -406,6 +467,33 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.map(fn {_, schema} -> variable_size?(schema) end)
     |> Enum.any?()
   end
+
+  def length_of_bitlist(bitlist) when is_binary(bitlist) do
+    bit_size = bit_size(bitlist)
+    <<_::size(bit_size - 8), last_byte>> = bitlist
+    bit_size - leading_zeros(<<last_byte>>) - 1
+  end
+
+  defp leading_zeros(<<1::1, _::7>>), do: 0
+  defp leading_zeros(<<0::1, 1::1, _::6>>), do: 1
+  defp leading_zeros(<<0::2, 1::1, _::5>>), do: 2
+  defp leading_zeros(<<0::3, 1::1, _::4>>), do: 3
+  defp leading_zeros(<<0::4, 1::1, _::3>>), do: 4
+  defp leading_zeros(<<0::5, 1::1, _::2>>), do: 5
+  defp leading_zeros(<<0::6, 1::1, _::1>>), do: 6
+  defp leading_zeros(<<0::7, 1::1>>), do: 7
+  defp leading_zeros(<<0::8>>), do: 8
+
+  @spec remove_trailing_bit(binary()) :: bitstring()
+  defp remove_trailing_bit(<<1::1, rest::7>>), do: <<rest::7>>
+  defp remove_trailing_bit(<<0::1, 1::1, rest::6>>), do: <<rest::6>>
+  defp remove_trailing_bit(<<0::2, 1::1, rest::5>>), do: <<rest::5>>
+  defp remove_trailing_bit(<<0::3, 1::1, rest::4>>), do: <<rest::4>>
+  defp remove_trailing_bit(<<0::4, 1::1, rest::3>>), do: <<rest::3>>
+  defp remove_trailing_bit(<<0::5, 1::1, rest::2>>), do: <<rest::2>>
+  defp remove_trailing_bit(<<0::6, 1::1, rest::1>>), do: <<rest::1>>
+  defp remove_trailing_bit(<<0::7, 1::1>>), do: <<0::0>>
+  defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 
   defp pack(value, size) when is_integer(value) and value >= 0 do
     pad = @bits_per_chunk - size

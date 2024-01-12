@@ -1,13 +1,43 @@
 defmodule LambdaEthereumConsensus.Utils.BitVector do
   @moduledoc """
   Set of utilities to interact with bit vectors, represented as bitstrings.
-  The vector is indexed with little endian bit notation. That is, the 0th bit
-  is the less significant bit of the corresponding byte.
+  SSZ BitVectors use little-endian-bit-indexing. That means that if we think
+  the vector as representing a number, the bit indexed at 0 is the numbers
+  least significant bit. If we're representing the number 11, (in binary, 1011, or 0xA),
+  the bit vector is, conceptually, [1, 1, 0, 1]. That means that:
+  - bv = BitVector(11)
+  - set?(bv, 1) == 1
+  - set?(bv, 2) == 0
+
+  However, when serialized using SSZ, the vectors use the little endian byte notation
+  and are 0 padded. So for instance, for the same number 11, it's serialized as
+  1011. Little endian bit notation and little endian byte notation are similar,
+  but each of the bytes is individually reversed.
+
+  ## Implementation details
+
+  From the user point of view, the internal representation of this module is not important
+  We document it here for possible refactors.
+
+  One of the simplest ways to represent a bitvector in elixir is a bitstring, as it holds
+  the exact amount of bits the bitvector would. This has many great properties, but is
+  specially important for shifting, and it saves us from representing the length separately.
+
+  With little-endian byte order we can't use bitstrings, as we'll need full bytes, so we need
+  to either use little-endian bit order or big-endian order. We are choosing the latter as an
+  internal representation as it's very simple to only swap bytes instead of bits.
+
+  This means that when "new" is called over a bytestring, it is assumed that it's in little
+  endian representation.
   """
 
   # The internal representation is a bitstring, but we could evaluate
   # turning it into an integer to use bitwise operations instead.
   @type t :: bitstring
+
+  defguard is_bitvector(value) when is_bitstring(value)
+
+  defguard bit_vector_size(value) when bit_size(value)
 
   @doc """
   Creates a new bit_vector from an integer or a bitstring.
@@ -17,8 +47,17 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
 
   @spec new(bitstring, non_neg_integer) :: t
   def new(bitstring, size) when is_bitstring(bitstring) do
-    <<_::size(bit_size(bitstring) - size), b::bitstring>> = bitstring
-    b
+    # Change the byte order from little endian to big endian (reverse bytes).
+    encoded_size = bit_size(bitstring)
+    <<num::integer-little-size(encoded_size)>> = bitstring
+    <<num::integer-size(size)>>
+  end
+
+  @spec to_bytes(t) :: bitstring
+  def to_bytes(bit_vector) do
+    # Change the byte order from big endian to little endian (reverse bytes).
+    <<num::integer-size(bit_size(bit_vector))>> = bit_vector
+    <<num::integer-little-size(byte_size(bit_vector) * 8)>>
   end
 
   @doc """

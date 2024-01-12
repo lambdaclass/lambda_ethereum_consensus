@@ -1,13 +1,19 @@
 defmodule Unit.Libp2pPortTest do
   use ExUnit.Case
+  use Patch
+
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
 
-  @bootnodes Application.compile_env(
-               :lambda_ethereum_consensus,
-               :discovery
-             )[:bootnodes]
-
   doctest Libp2pPort
+
+  setup do
+    patch(BeaconChain, :init, fn _ -> {:ok, nil} end)
+    patch(BeaconChain, :get_fork_digest, fn -> <<71, 235, 114, 179>> end)
+
+    start_supervised!({BeaconChain, nil})
+    :ok
+  end
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
     start_link_supervised!({Libp2pPort, [opts: [name: name]] ++ init_args}, id: name)
@@ -64,10 +70,12 @@ defmodule Unit.Libp2pPortTest do
   end
 
   test "start discovery service and discover one peer" do
+    bootnodes = YamlElixir.read_from_file!("config/networks/mainnet/bootnodes.yaml")
+
     start_port(:discoverer,
       enable_discovery: true,
       discovery_addr: "0.0.0.0:25101",
-      bootnodes: @bootnodes,
+      bootnodes: bootnodes,
       new_peer_handler: self()
     )
 

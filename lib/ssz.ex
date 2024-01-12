@@ -12,7 +12,7 @@ defmodule Ssz do
 
   def to_ssz([]) do
     # Type isn't used in this case
-    to_ssz_rs([], SszTypes.ForkData)
+    to_ssz_rs([], Types.ForkData)
   end
 
   def to_ssz([%name{} | _tail] = list) do
@@ -40,19 +40,19 @@ defmodule Ssz do
     end
   end
 
-  @spec hash_tree_root!(struct) :: SszTypes.root()
+  @spec hash_tree_root!(struct) :: Types.root()
   def hash_tree_root!(map) do
     {:ok, root} = hash_tree_root(map)
     root
   end
 
-  @spec hash_tree_root!(term, module) :: SszTypes.root()
+  @spec hash_tree_root!(term, module) :: Types.root()
   def hash_tree_root!(value, schema) do
     {:ok, root} = hash_tree_root(value, schema)
     root
   end
 
-  @spec hash_tree_root(struct) :: {:ok, SszTypes.root()} | {:error, String.t()}
+  @spec hash_tree_root(struct) :: {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(map)
 
   def hash_tree_root(%name{} = map) do
@@ -61,7 +61,7 @@ defmodule Ssz do
     |> hash_tree_root_rs(name)
   end
 
-  @spec hash_tree_root(term, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
+  @spec hash_tree_root(term, module) :: {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(value, schema) do
     value
     |> encode()
@@ -69,12 +69,12 @@ defmodule Ssz do
   end
 
   @spec hash_list_tree_root(list(struct), integer) ::
-          {:ok, SszTypes.root()} | {:error, String.t()}
+          {:ok, Types.root()} | {:error, String.t()}
   def hash_list_tree_root(list, max_size)
 
   def hash_list_tree_root([], max_size) do
     # Type isn't used in this case
-    hash_tree_root_list_rs([], max_size, SszTypes.ForkData)
+    hash_tree_root_list_rs([], max_size, Types.ForkData)
   end
 
   def hash_list_tree_root([%name{} | _tail] = list, max_size) do
@@ -99,25 +99,25 @@ defmodule Ssz do
 
   ##### Rust-side function stubs
   @spec to_ssz_rs(map | list, module, module) :: {:ok, binary} | {:error, String.t()}
-  def to_ssz_rs(_term, _schema, _config \\ ChainSpec.get_config()), do: error()
+  def to_ssz_rs(_term, _schema, _config \\ ChainSpec.get_preset()), do: error()
 
   @spec from_ssz_rs(binary, module, module) :: {:ok, struct} | {:error, String.t()}
-  def from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_config()), do: error()
+  def from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_preset()), do: error()
 
   @spec list_from_ssz_rs(binary, module, module) :: {:ok, list(struct)} | {:error, String.t()}
-  def list_from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_config()), do: error()
+  def list_from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_preset()), do: error()
 
-  @spec hash_tree_root_rs(map, module, module) :: {:ok, SszTypes.root()} | {:error, String.t()}
-  def hash_tree_root_rs(_map, _schema, _config \\ ChainSpec.get_config()), do: error()
+  @spec hash_tree_root_rs(map, module, module) :: {:ok, Types.root()} | {:error, String.t()}
+  def hash_tree_root_rs(_map, _schema, _config \\ ChainSpec.get_preset()), do: error()
 
   @spec hash_tree_root_list_rs(list, integer, module, module) ::
-          {:ok, SszTypes.root()} | {:error, String.t()}
-  def hash_tree_root_list_rs(_list, _max_size, _schema, _config \\ ChainSpec.get_config()),
+          {:ok, Types.root()} | {:error, String.t()}
+  def hash_tree_root_list_rs(_list, _max_size, _schema, _config \\ ChainSpec.get_preset()),
     do: error()
 
   @spec hash_tree_root_vector_rs(list, integer, module, module) ::
-          {:ok, SszTypes.root()} | {:error, String.t()}
-  def hash_tree_root_vector_rs(_vector, _max_size, _schema, _config \\ ChainSpec.get_config()),
+          {:ok, Types.root()} | {:error, String.t()}
+  def hash_tree_root_vector_rs(_vector, _max_size, _schema, _config \\ ChainSpec.get_preset()),
     do: error()
 
   ##### Utils

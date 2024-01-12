@@ -5,15 +5,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
-  alias SszTypes.BeaconState
-  alias SszTypes.Validator
+  alias Types.BeaconState
+  alias Types.Validator
 
   import Bitwise
 
   @doc """
   Check if ``validator`` is active.
   """
-  @spec is_active_validator(Validator.t(), SszTypes.epoch()) :: boolean
+  @spec is_active_validator(Validator.t(), Types.epoch()) :: boolean
   def is_active_validator(
         %Validator{activation_epoch: activation_epoch, exit_epoch: exit_epoch},
         epoch
@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @doc """
   Check if ``validator`` is eligible for rewards and penalties.
   """
-  @spec is_eligible_validator(Validator.t(), SszTypes.epoch()) :: boolean
+  @spec is_eligible_validator(Validator.t(), Types.epoch()) :: boolean
   def is_eligible_validator(%Validator{} = validator, previous_epoch) do
     is_active_validator(validator, previous_epoch) ||
       (validator.slashed && previous_epoch + 1 < validator.withdrawable_epoch)
@@ -67,16 +67,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @doc """
   Return whether ``flags`` has ``flag_index`` set.
   """
-  @spec has_flag(SszTypes.participation_flags(), integer) :: boolean
+  @spec has_flag(Types.participation_flags(), integer) :: boolean
   def has_flag(participation_flags, flag_index) do
-    flag = 2 ** flag_index
+    flag = 1 <<< flag_index
     (participation_flags &&& flag) === flag
   end
 
   @doc """
   Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG rules.
   """
-  @spec is_slashable_attestation_data(SszTypes.AttestationData.t(), SszTypes.AttestationData.t()) ::
+  @spec is_slashable_attestation_data(Types.AttestationData.t(), Types.AttestationData.t()) ::
           boolean
   def is_slashable_attestation_data(data_1, data_2) do
     (data_1 != data_2 and data_1.target.epoch == data_2.target.epoch) or
@@ -86,7 +86,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @doc """
   Check if ``validator`` is slashable.
   """
-  @spec is_slashable_validator(Validator.t(), SszTypes.epoch()) :: boolean
+  @spec is_slashable_validator(Validator.t(), Types.epoch()) :: boolean
   def is_slashable_validator(validator, epoch) do
     not validator.slashed and
       (validator.activation_epoch <= epoch and epoch < validator.withdrawable_epoch)
@@ -95,7 +95,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @doc """
   Check if slashing attestation indices are in range of validators.
   """
-  @spec is_indices_available(any(), list(SszTypes.validator_index())) :: boolean
+  @spec is_indices_available(any(), list(Types.validator_index())) :: boolean
   def is_indices_available(validators, indices) do
     is_indices_available(validators, indices, true)
   end
@@ -116,11 +116,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Check if merkle branch is valid
   """
   @spec is_valid_merkle_branch?(
-          SszTypes.bytes32(),
-          list(SszTypes.bytes32()),
-          SszTypes.uint64(),
-          SszTypes.uint64(),
-          SszTypes.root()
+          Types.bytes32(),
+          list(Types.bytes32()),
+          Types.uint64(),
+          Types.uint64(),
+          Types.root()
         ) :: boolean
   def is_valid_merkle_branch?(leaf, branch, depth, index, root) do
     root == generate_merkle_proof(leaf, branch, depth, index)
@@ -144,7 +144,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @doc """
   Check if ``indexed_attestation`` is not empty, has sorted and unique indices and has a valid aggregate signature.
   """
-  @spec is_valid_indexed_attestation(BeaconState.t(), SszTypes.IndexedAttestation.t()) :: boolean
+  @spec is_valid_indexed_attestation(BeaconState.t(), Types.IndexedAttestation.t()) :: boolean
   def is_valid_indexed_attestation(state, indexed_attestation) do
     indices = indexed_attestation.attesting_indices
 
@@ -158,22 +158,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
         Accessors.get_domain(state, domain_type, epoch)
         |> then(&Misc.compute_signing_root(indexed_attestation.data, &1))
 
-      state.validators
-      |> Stream.with_index()
-      |> Enum.flat_map_reduce(
-        indices,
-        fn
-          {%Validator{pubkey: p}, i}, [i | acc] -> {[p], acc}
-          _, acc -> {[], acc}
-        end
-      )
-      |> then(fn
-        {pks, []} -> pks |> Bls.fast_aggregate_verify(signing_root, indexed_attestation.signature)
-        {_, _} -> {:error, "invalid indices"}
+      indices
+      |> Stream.map(&state.validators[&1])
+      |> Enum.map_reduce(true, fn
+        nil, _ -> {nil, false}
+        v, b -> {v.pubkey, b}
       end)
-      |> then(fn
-        {:ok, b} -> b
-        {:error, _} -> false
+      |> then(fn {pks, b} ->
+        b and Bls.fast_aggregate_valid?(pks, signing_root, indexed_attestation.signature)
       end)
     end
   end

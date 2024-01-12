@@ -2,23 +2,20 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @moduledoc """
   This module requests blocks from peers.
   """
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
   require Logger
 
   @blocks_by_range_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
   @blocks_by_root_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_root/2/ssz_snappy"
 
-  # This is the `ForkDigest` for mainnet in the capella fork
-  # TODO: compute this at runtime
-  @fork_context "BBA4DA96" |> Base.decode16!()
-
   # Requests to peers might fail for various reasons,
   # for example they might not support the protocol or might not reply
   # so we want to try again with a different peer
   @default_retries 5
 
-  @spec request_blocks_by_slot(SszTypes.slot(), integer(), integer()) ::
-          {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, any()}
+  @spec request_blocks_by_slot(Types.slot(), integer(), integer()) ::
+          {:ok, [Types.SignedBeaconBlock.t()]} | {:error, any()}
   def request_blocks_by_slot(slot, count, retries \\ @default_retries) do
     Logger.debug("requesting block for slot #{slot}")
 
@@ -26,7 +23,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     peer_id = get_some_peer()
 
     payload =
-      %SszTypes.BeaconBlocksByRangeRequest{
+      %Types.BeaconBlocksByRangeRequest{
         start_slot: slot,
         # TODO: we need to refactor the Snappy library to return
         # the remaining buffer when decompressing
@@ -72,16 +69,16 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     end
   end
 
-  @spec request_block_by_root(SszTypes.root(), integer()) ::
-          {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, binary()}
+  @spec request_block_by_root(Types.root(), integer()) ::
+          {:ok, Types.SignedBeaconBlock.t()} | {:error, binary()}
   def request_block_by_root(root, retries \\ @default_retries) do
     with {:ok, [block]} <- request_blocks_by_root([root], retries) do
       {:ok, block}
     end
   end
 
-  @spec request_blocks_by_root([SszTypes.root()], integer()) ::
-          {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, binary()}
+  @spec request_blocks_by_root([Types.root()], integer()) ::
+          {:ok, [Types.SignedBeaconBlock.t()]} | {:error, binary()}
   def request_blocks_by_root(roots, retries \\ @default_retries) do
     Logger.debug("requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
 
@@ -132,7 +129,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @spec parse_response(binary) ::
           {:ok, [binary()]} | {:error, binary()}
   def parse_response(response_chunk) do
-    fork_context = @fork_context
+    fork_context = BeaconChain.get_fork_digest()
 
     case response_chunk do
       <<>> ->
@@ -165,7 +162,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     end
   end
 
-  @spec decode_chunks([binary()]) :: {:ok, [SszTypes.SignedBeaconBlock.t()]} | {:error, binary()}
+  @spec decode_chunks([binary()]) :: {:ok, [Types.SignedBeaconBlock.t()]} | {:error, binary()}
   defp decode_chunks(chunks) do
     blocks =
       chunks
@@ -186,14 +183,14 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     end
   end
 
-  @spec decode_chunk(binary()) :: {:ok, SszTypes.SignedBeaconBlock.t()} | {:error, binary()}
+  @spec decode_chunk(binary()) :: {:ok, Types.SignedBeaconBlock.t()} | {:error, binary()}
   defp decode_chunk(chunk) do
     {_size, rest} = P2P.Utils.decode_varint(chunk)
 
     with {:ok, decompressed} <- Snappy.decompress(rest),
          {:ok, signed_block} <-
            decompressed
-           |> Ssz.from_ssz(SszTypes.SignedBeaconBlock) do
+           |> Ssz.from_ssz(Types.SignedBeaconBlock) do
       {:ok, signed_block}
     end
   end

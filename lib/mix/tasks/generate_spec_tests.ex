@@ -66,6 +66,10 @@ defmodule Mix.Tasks.GenerateSpecTests do
       setup_all do
         Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: #{chain_spec_config(config)})
       end
+
+      setup do
+        LambdaEthereumConsensus.StateTransition.Cache.initialize_cache()
+      end
     """
 
     footer = """

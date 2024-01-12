@@ -17,13 +17,13 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
     call("engine_exchangeCapabilities", [@supported_methods])
   end
 
-  @spec new_payload_v1(SszTypes.ExecutionPayload.t()) ::
+  @spec new_payload_v1(Types.ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
   def new_payload_v1(execution_payload) do
     call("engine_newPayloadV2", [execution_payload])
   end
 
-  @spec forkchoice_updated(map, map) :: {:ok, any} | {:error, any}
+  @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes) do
     forkchoice_state =
       forkchoice_state

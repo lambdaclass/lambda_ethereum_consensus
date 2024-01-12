@@ -2,9 +2,11 @@ defmodule SszStaticTestRunner do
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
+  alias LambdaEthereumConsensus.Utils.Diff
 
   use ExUnit.CaseTemplate
   use TestRunner
+  import Aja
 
   @disabled [
     "ContributionAndProof",
@@ -49,7 +51,7 @@ defmodule SszStaticTestRunner do
     {:ok, deserialized} = Ssz.from_ssz(real_serialized, schema)
     real_deserialized = to_struct_checked(deserialized, real_deserialized)
 
-    assert deserialized == real_deserialized
+    assert Diff.diff(deserialized, real_deserialized) == :unchanged
 
     {:ok, serialized} = Ssz.to_ssz(real_deserialized)
     assert serialized == real_serialized
@@ -59,8 +61,14 @@ defmodule SszStaticTestRunner do
   end
 
   defp to_struct_checked(actual, expected) when is_list(actual) and is_list(expected) do
-    Stream.zip(actual, expected)
-    |> Enum.map(fn {a, e} -> to_struct_checked(a, e) end)
+    Stream.zip(actual, expected) |> Enum.map(fn {a, e} -> to_struct_checked(a, e) end)
+  end
+
+  defp to_struct_checked(vec(_) = actual, vec(_) = expected) do
+    actual
+    |> Aja.Enum.to_list()
+    |> to_struct_checked(Aja.Enum.to_list(expected))
+    |> Aja.Vector.new()
   end
 
   defp to_struct_checked(%name{} = actual, %{} = expected) do
@@ -70,11 +78,9 @@ defmodule SszStaticTestRunner do
     |> then(&struct!(name, &1))
   end
 
-  defp to_struct_checked(_actual, expected) do
-    expected
-  end
+  defp to_struct_checked(_actual, expected), do: expected
 
   defp parse_type(%SpecTestCase{handler: handler}) do
-    Module.concat(SszTypes, handler)
+    Module.concat(Types, handler)
   end
 end

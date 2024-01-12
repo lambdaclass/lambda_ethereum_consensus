@@ -3,15 +3,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   This module handles Req/Resp domain requests.
   """
 
-  alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
 
   require Logger
-
-  # This is the `ForkDigest` for mainnet in the capella fork
-  # TODO: compute this at runtime
-  @fork_context "BBA4DA96" |> Base.decode16!()
 
   # This is the `Resource Unavailable` error message
   # TODO: compute this and other messages at runtime
@@ -20,21 +16,23 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   # TODO: compute this and other messages at runtime
   @error_message_server_error "Server Error"
 
+  @spec handle(String.t(), String.t(), binary()) :: any()
   def handle(name, message_id, message) do
     case handle_req(name, message_id, message) do
       :ok -> :ok
-      :not_implemented -> :ok
       {:error, error} -> Logger.error("[#{name}] Request error: #{inspect(error)}")
     end
   end
 
   @spec handle_req(String.t(), String.t(), binary()) ::
-          :ok | :not_implemented | {:error, binary()}
+          :ok | {:error, String.t()}
+  defp handle_req(protocol_name, message_id, message)
+
   defp handle_req("status/1/ssz_snappy", message_id, message) do
-    with <<84, snappy_status::binary>> <- message,
-         {:ok, current_status} <- ForkChoice.Store.get_current_status_message(),
+    with {:ok, snappy_status} <- decode_size_header(84, message),
+         {:ok, current_status} <- BeaconChain.get_current_status_message(),
          {:ok, ssz_status} <- Snappy.decompress(snappy_status),
-         {:ok, status} <- Ssz.from_ssz(ssz_status, SszTypes.StatusMessage),
+         {:ok, status} <- Ssz.from_ssz(ssz_status, Types.StatusMessage),
          status
          |> inspect(limit: :infinity)
          |> then(&"[Status] '#{&1}'")
@@ -46,7 +44,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
-    with <<8, snappy_code_le::binary>> <- message,
+    with {:ok, snappy_code_le} <- decode_size_header(8, message),
          {:ok, code_le} <- Snappy.decompress(snappy_code_le),
          :ok <-
            code_le
@@ -65,12 +63,15 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       "" ->
         Logger.debug("[Goodbye] empty message")
         :ok
+
+      err ->
+        err
     end
   end
 
   defp handle_req("ping/1/ssz_snappy", message_id, message) do
     # Values are hardcoded
-    with <<8, seq_number_le::binary>> <- message,
+    with {:ok, seq_number_le} <- decode_size_header(8, message),
          {:ok, decompressed} <-
            Snappy.decompress(seq_number_le),
          decompressed
@@ -94,12 +95,12 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
-    with <<24, snappy_blocks_by_range_request::binary>> <- message,
+    with {:ok, snappy_blocks_by_range_request} <- decode_size_header(24, message),
          {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
          {:ok, blocks_by_range_request} <-
-           Ssz.from_ssz(ssz_blocks_by_range_request, SszTypes.BeaconBlocksByRangeRequest) do
+           Ssz.from_ssz(ssz_blocks_by_range_request, Types.BeaconBlocksByRangeRequest) do
       ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
-      %SszTypes.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
+      %Types.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
         blocks_by_range_request
 
       "[Received BlocksByRange Request] requested slots #{start_slot} to #{start_slot + count - 1}"
@@ -130,12 +131,14 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp create_block_response_chunk({:ok, block}) do
     with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
          {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
+      fork_context = BeaconChain.get_fork_digest_for_slot(block.message.slot)
+
       size_header =
         ssz_signed_block
         |> byte_size()
         |> P2P.Utils.encode_varint()
 
-      <<0>> <> @fork_context <> size_header <> snappy_ssz_signed_block
+      <<0>> <> fork_context <> size_header <> snappy_ssz_signed_block
     else
       {:error, _} ->
         ## TODO: Add SSZ encoding
@@ -172,4 +175,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp create_block_response_chunk(:empty_slot), do: <<>>
+
+  defp decode_size_header(header, <<header, rest::binary>>), do: {:ok, rest}
+  defp decode_size_header(_, ""), do: {:error, "empty message"}
+  defp decode_size_header(_, _), do: {:error, "invalid message"}
 end
