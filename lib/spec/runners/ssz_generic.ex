@@ -80,7 +80,7 @@ defmodule SszGenericTestRunner do
 
   defp assert_ssz(
          "valid",
-         {:vector, basic_type, size} = schema,
+         {:vector, _basic_type, _size} = schema,
          real_serialized,
          real_deserialized,
          _expected_hash_tree_root
