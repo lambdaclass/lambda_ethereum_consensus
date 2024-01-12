@@ -28,8 +28,7 @@ defmodule Unit.SnappyExTest do
   end
 
   test "test uncompressed stream" do
-
-    #Uncompressed chunks
+    # Uncompressed chunks
     msg = "0011FF060000734E6150705901150000F1D17CFF0008000000000000FFFFFFFFFFFFFFFF0F"
 
     # status <> length <> ...
@@ -43,7 +42,6 @@ defmodule Unit.SnappyExTest do
     expected = Base.decode16!("3A03000000000000FFFFFFFFFFFFFFFF0F")
 
     assert_snappy_decompress_frames(compressed_payload, expected)
-
   end
 
   test "test compressed stream" do
