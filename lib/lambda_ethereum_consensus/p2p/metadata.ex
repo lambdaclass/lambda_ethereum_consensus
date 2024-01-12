@@ -58,7 +58,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   @impl true
   def handle_call(:get_metadata, _from, metadata) do
-    {:reply, metadata}
+    {:reply, metadata, metadata}
   end
 
   @impl true
