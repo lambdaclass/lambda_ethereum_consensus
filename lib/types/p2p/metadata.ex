@@ -20,6 +20,12 @@ defmodule Types.Metadata do
           syncnets: Types.bitvector()
         }
 
+  def empty do
+    attnets = ChainSpec.get("ATTESTATION_SUBNET_COUNT") |> BitVector.new()
+    syncnets = Constants.sync_committee_subnet_count() |> BitVector.new()
+    %__MODULE__{seq_number: 0, attnets: attnets, syncnets: syncnets}
+  end
+
   def encode(%__MODULE__{} = map) do
     # NOTE: we do this because the SSZ NIF cannot decode bitstrings
     # TODO: remove when migrating to the new SSZ lib
