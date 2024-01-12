@@ -4,8 +4,9 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   """
   use Supervisor
 
-  alias LambdaEthereumConsensus.P2P.GossipConsumer
-  alias LambdaEthereumConsensus.P2P.GossipHandler
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.P2P.Gossip.Consumer
+  alias LambdaEthereumConsensus.P2P.Gossip.Handler
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -14,8 +15,9 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   @impl true
   def init(_opts) do
     topics = [
-      {"beacon_block", Types.SignedBeaconBlock},
-      {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof}
+      {"beacon_block", Types.SignedBeaconBlock, &Handler.handle_beacon_block/1},
+      {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof,
+       &Handler.handle_beacon_aggregate_and_proof/1}
       # {"beacon_attestation_0", Types.Attestation},
       # {"voluntary_exit", Types.SignedVoluntaryExit},
       # {"proposer_slashing", Types.ProposerSlashing},
@@ -25,10 +27,12 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
       # {"sync_committee_0", Types.SyncCommitteeMessage}
     ]
 
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+
     children =
-      for {topic_msg, ssz_type} <- topics do
-        topic = "/eth2/bba4da96/#{topic_msg}/ssz_snappy"
-        {GossipConsumer, %{topic: topic, ssz_type: ssz_type, handler: GossipHandler}}
+      for {topic_msg, ssz_type, handler} <- topics do
+        topic = "/eth2/#{fork_context}/#{topic_msg}/ssz_snappy"
+        {Consumer, %{topic: topic, ssz_type: ssz_type, handler: handler}}
       end
 
     Supervisor.init(children, strategy: :one_for_one)

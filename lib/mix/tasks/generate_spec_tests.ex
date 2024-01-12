@@ -68,7 +68,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
       end
 
       setup do
-        LambdaEthereumConsensus.StateTransition.Cache.initialize_tables()
+        LambdaEthereumConsensus.StateTransition.Cache.initialize_cache()
       end
     """
 

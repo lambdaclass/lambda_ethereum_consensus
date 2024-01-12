@@ -2,7 +2,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @moduledoc """
     Utility functions for the fork choice.
   """
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
+  alias LambdaEthereumConsensus.Store.BlockStore
+  alias Plug.Session.Store
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
@@ -33,12 +37,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     if anchor_block.state_root == anchor_state_root do
       anchor_epoch = Accessors.get_current_epoch(anchor_state)
 
-      finalized_checkpoint = %Checkpoint{
-        epoch: anchor_epoch,
-        root: anchor_block_root
-      }
-
-      justified_checkpoint = %Checkpoint{
+      anchor_checkpoint = %Checkpoint{
         epoch: anchor_epoch,
         root: anchor_block_root
       }
@@ -49,17 +48,17 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
        %Store{
          time: time,
          genesis_time: anchor_state.genesis_time,
-         justified_checkpoint: justified_checkpoint,
-         finalized_checkpoint: finalized_checkpoint,
-         unrealized_justified_checkpoint: justified_checkpoint,
-         unrealized_finalized_checkpoint: finalized_checkpoint,
+         justified_checkpoint: anchor_checkpoint,
+         finalized_checkpoint: anchor_checkpoint,
+         unrealized_justified_checkpoint: anchor_checkpoint,
+         unrealized_finalized_checkpoint: anchor_checkpoint,
          proposer_boost_root: <<0::256>>,
          equivocating_indices: MapSet.new(),
          blocks: %{anchor_block_root => anchor_block},
          block_states: %{anchor_block_root => anchor_state},
-         checkpoint_states: %{justified_checkpoint => anchor_state},
+         checkpoint_states: %{anchor_checkpoint => anchor_state},
          latest_messages: %{},
-         unrealized_justifications: %{anchor_block_root => justified_checkpoint}
+         unrealized_justifications: %{anchor_block_root => anchor_checkpoint}
        }}
     else
       {:error, "Anchor block state root does not match anchor state root"}
@@ -89,7 +88,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   defp get_weight(%Store{} = store, root) do
-    state = store.checkpoint_states[store.justified_checkpoint]
+    state = Map.fetch!(store.checkpoint_states, store.justified_checkpoint)
 
     # PERF: use ``Aja.Vector.foldl``
     attestation_score =
@@ -212,4 +211,63 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     current_epoch = Misc.compute_epoch_at_slot(current_slot)
     store.justified_checkpoint.epoch + 1 == current_epoch
   end
+
+  @spec root_by_id(atom() | Types.root() | Types.slot()) ::
+          {:ok, {Types.root(), boolean(), boolean()}} | {:error, String.t()} | atom()
+  def root_by_id(:head) do
+    with {:ok, current_status} <- BeaconChain.get_current_status_message() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {current_status.head_root, execution_optimistic, false}}
+    end
+  end
+
+  def root_by_id(:genesis), do: :not_found
+
+  def root_by_id(:justified) do
+    with {:ok, justified_checkpoint} <- ForkChoice.get_justified_checkpoint() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, justified_checkpoint.root, execution_optimistic, false}
+    end
+  end
+
+  def root_by_id(:finalized) do
+    with {:ok, finalized_checkpoint} <- ForkChoice.get_finalized_checkpoint() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, finalized_checkpoint.root, execution_optimistic, true}
+    end
+  end
+
+  def root_by_id(:invalid_id), do: :invalid_id
+
+  def root_by_id(hex_root) when is_binary(hex_root) do
+    # TODO compute is_optimistic_or_invalid() and is_finalized()
+    execution_optimistic = true
+    finalized = false
+    {:ok, {hex_root, execution_optimistic, finalized}}
+  end
+
+  def root_by_id(slot) when is_integer(slot) do
+    with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
+         {:ok, root} <- BlockStore.get_block_root_by_slot(slot) do
+      # TODO compute is_optimistic_or_invalid() and is_finalized()
+      execution_optimistic = true
+      finalized = false
+      {:ok, root, execution_optimistic, finalized}
+    end
+  end
+
+  @spec get_state_root(Types.root()) :: {:ok, Types.root()} | {:error, String.t()} | :not_found
+  def get_state_root(root) do
+    with {:ok, signed_block} <- BlockStore.get_block(root) do
+      {:ok, signed_block.message.state_root}
+    end
+  end
+
+  defp check_valid_slot(slot, current_slot) when slot < current_slot, do: :ok
+
+  defp check_valid_slot(slot, _current_slot),
+    do: {:error, "slot #{slot} cannot be greater than current slot"}
 end

@@ -47,11 +47,12 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_metrics_prometheus, "~> 1.1.0"},
+      {:ex2ms, "~> 1.6", runtime: false},
       {:eflambe, "~> 0.3.1"},
       {:patch, "~> 0.12.0", only: [:test]},
       {:stream_data, "~> 0.5", only: [:test]},
       {:benchee, "~> 1.2", only: [:dev]},
-      {:aja, "~> 0.6.2"},
+      {:aja, "~> 0.6"},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-to-29"}
