@@ -30,8 +30,8 @@ defmodule Types.Metadata do
     # NOTE: we do this because the SSZ NIF cannot decode bitstrings
     # TODO: remove when migrating to the new SSZ lib
     map
-    |> Map.update!(:attnets, &bitstring_to_binary/1)
-    |> Map.update!(:syncnets, &bitstring_to_binary/1)
+    |> Map.update!(:attnets, &BitVector.to_bytes/1)
+    |> Map.update!(:syncnets, &BitVector.to_bytes/1)
   end
 
   def decode(%__MODULE__{} = map) do
@@ -42,10 +42,5 @@ defmodule Types.Metadata do
     map
     |> Map.update!(:attnets, &BitVector.new(&1, subnet_count))
     |> Map.update!(:syncnets, &BitVector.new(&1, syncnet_count))
-  end
-
-  defp bitstring_to_binary(bs) do
-    padding = byte_size(bs) * 8 - bit_size(bs)
-    <<bs::bitstring, 0::size(padding)>>
   end
 end
