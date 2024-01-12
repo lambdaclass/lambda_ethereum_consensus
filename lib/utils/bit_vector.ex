@@ -42,6 +42,9 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   @doc """
   Creates a new bit_vector from an integer or a bitstring.
   """
+  @spec new(non_neg_integer) :: t
+  def new(size) when size >= 0, do: <<0::size(size)>>
+
   @spec new(integer, non_neg_integer) :: t
   def new(number, size) when is_integer(number), do: <<number::size(size)>>
 
