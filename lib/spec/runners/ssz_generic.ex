@@ -92,6 +92,8 @@ defmodule SszGenericTestRunner do
 
     assert serialized == real_serialized
 
+    # TODO
+
     # actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
 
     # assert actual_hash_tree_root == expected_hash_tree_root
@@ -140,14 +142,12 @@ defmodule SszGenericTestRunner do
         [name] = Regex.run(~r/^[^_]+(?=_)/, cse)
         {:container, Module.concat(Helpers.SszStaticContainers, name)}
 
-      # TODO enable when basic_vector and bitlist tests are enable
       "basic_vector" ->
         case cse do
           "vec_" <> rest ->
             get_vec_schema(rest)
         end
 
-        #
         # "bitlist" ->
         #   case cse do
         #     "bitlist_" <> rest ->
