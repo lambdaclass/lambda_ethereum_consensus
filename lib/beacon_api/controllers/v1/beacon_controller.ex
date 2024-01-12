@@ -6,12 +6,11 @@ defmodule BeaconApi.V1.BeaconController do
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_state_root(conn, %{"state_id" => state_id}) do
-    case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.root_by_id() do
-      {:ok, {root, execution_optimistic, finalized}} ->
-        with {:ok, state_root} <- ForkChoice.Helpers.get_state_root(root) do
-          conn |> root_response(state_root, execution_optimistic, finalized)
-        end
-
+    with {:ok, {root, execution_optimistic, finalized}} <-
+           BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.root_by_id(),
+         {:ok, state_root} <- ForkChoice.Helpers.get_state_root(root) do
+      conn |> root_response(state_root, execution_optimistic, finalized)
+    else
       {:error, error_msg} ->
         conn |> ErrorController.internal_error("Error: #{inspect(error_msg)}")
 

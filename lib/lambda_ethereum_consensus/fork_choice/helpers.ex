@@ -212,8 +212,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     store.justified_checkpoint.epoch + 1 == current_epoch
   end
 
-  @spec root_by_id(atom() | Types.root() | Types.slot()) ::
-          {:ok, {Types.root(), boolean(), boolean()}} | {:error, String.t()} | atom()
+  @type block_tag() :: :genesis | :justified | :finalized | :head
+  @type block_id() :: block_tag() | :invalid_id | Types.slot() | Types.root()
+  @type block_info() ::
+          {Types.root(), execution_optimistic? :: boolean(), finalized? :: boolean()}
+
+  @spec root_by_id(block_id()) :: {:ok, block_info()} | {:error, String.t()} | :not_found
   def root_by_id(:head) do
     with {:ok, current_status} <- BeaconChain.get_current_status_message() do
       # TODO compute is_optimistic_or_invalid
@@ -228,7 +232,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     with {:ok, justified_checkpoint} <- ForkChoice.get_justified_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, justified_checkpoint.root, execution_optimistic, false}
+      {:ok, {justified_checkpoint.root, execution_optimistic, false}}
     end
   end
 
@@ -236,7 +240,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     with {:ok, finalized_checkpoint} <- ForkChoice.get_finalized_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, finalized_checkpoint.root, execution_optimistic, true}
+      {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
     end
   end
 
@@ -255,7 +259,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       # TODO compute is_optimistic_or_invalid() and is_finalized()
       execution_optimistic = true
       finalized = false
-      {:ok, root, execution_optimistic, finalized}
+      {:ok, {root, execution_optimistic, finalized}}
     end
   end
 
