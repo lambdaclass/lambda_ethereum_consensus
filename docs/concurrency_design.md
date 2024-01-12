@@ -150,7 +150,7 @@ There are some tasks that, of course, will require interaction with the outside 
 
 - When a parent is missing, we need to download it. The block processor may pause until it receives a notification that the parent was downloaded and transitioned. After that, it may continue with its own state transition.
 - When validating it will need to interact with the global fork choice store. This just requires validating a few parameters like the epoch/slot, which is a fast process, so it’s a relatively simple call without passing the full block and without changing the store state.
-- The final step is updating the store, which still doesn’t need to pass around big state and is fast. If additional validations are performed or repeated, it doesn’t represent a big performance hit.
+- The final step is updating the store/beacon chain state, which still doesn’t need to pass around big state and is fast. If additional validations are performed or repeated, it doesn’t represent a big performance hit.
 
 ### Happy path diagram
 
@@ -159,7 +159,7 @@ sequenceDiagram
 
 participant port as LibP2P Port <br> (Genserver)
 participant bp as Block Processor (Genserver)
-participant store as Fork Choice Store <br> (Genserver)
+participant store as Fork Choice <br> (Genserver)
 participant db as Persistent Store <br> (DB/Cache)
 
 port ->> bp: gossip(block)
@@ -216,3 +216,9 @@ This is a simplified sequence diagram highlighting the differences when the pare
 - The store will then notify the child block processor that it can now proceed with its own state transition.
 
 Note that the persistent store here is a simplified structure. Internally, it will contain the fork tree and the cache. The fork tree will contain the relationship between blocks (the tree structure), which will enable to get a block’s children without iterating through the DB.
+
+### Conclusions
+
+Benefits of this approach:
+- Parallelizes state transitions when different forks appear, and other tasks not related to having multiple forks, like deserialization or decompression of incoming requests.
+- Removes the blocking pipeline. `Pending blocks` won't block while it waits for a state transition to happen. The store or beacon chain won't block either. Because of this, we can process all of the incoming gossip continuously, and discard the ones that are not valid early, without their validation depending on other blocks being processed. This also reduces the size of the processes mailbox.
