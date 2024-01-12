@@ -23,6 +23,9 @@ defmodule LambdaEthereumConsensus.SszEx do
       else: encode_fixed_size_list(list, basic_type, size)
   end
 
+  def encode(vector, {:vector, basic_type, size}),
+    do: encode_fixed_size_list(vector, basic_type, size)
+
   def encode(value, {:bytes, _}), do: {:ok, value}
 
   def encode(value, {:bitlist, max_size}) when is_bitstring(value),
@@ -46,6 +49,8 @@ defmodule LambdaEthereumConsensus.SszEx do
       do: decode_variable_list(binary, basic_type, size),
       else: decode_list(binary, basic_type, size)
   end
+
+  def decode(binary, {:vector, basic_type, size}), do: decode_list(binary, basic_type, size)
 
   def decode(value, {:bitlist, max_size}) when is_bitstring(value),
     do: decode_bitlist(value, max_size)
