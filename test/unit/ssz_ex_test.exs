@@ -12,6 +12,153 @@ defmodule Unit.SSZExTest do
     assert {:error, ^error_message} = SszEx.decode(serialized, schema)
   end
 
+  test "packing a list of uints" do
+    list_1 = [1, 2, 3, 4, 5]
+
+    expected_1 =
+      <<1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0>>
+
+    actual_1 = SszEx.pack(list_1, {:list, {:int, 8}, 5})
+    assert expected_1 == actual_1
+
+    list_2 = [
+      18_446_744_073_709_551_595,
+      18_446_744_073_709_551_596,
+      18_446_744_073_709_551_597,
+      18_446_744_073_709_551_598,
+      18_446_744_073_709_551_599,
+      18_446_744_073_709_551_600,
+      18_446_744_073_709_551_601,
+      18_446_744_073_709_551_603,
+      18_446_744_073_709_551_604,
+      18_446_744_073_709_551_605,
+      18_446_744_073_709_551_606,
+      18_446_744_073_709_551_607,
+      18_446_744_073_709_551_608,
+      18_446_744_073_709_551_609,
+      18_446_744_073_709_551_610,
+      18_446_744_073_709_551_611,
+      18_446_744_073_709_551_612,
+      18_446_744_073_709_551_613,
+      18_446_744_073_709_551_614,
+      18_446_744_073_709_551_615
+    ]
+
+    expected_2 =
+      <<235, 255, 255, 255, 255, 255, 255, 255, 236, 255, 255, 255, 255, 255, 255, 255, 237, 255,
+        255, 255, 255, 255, 255, 255, 238, 255, 255, 255, 255, 255, 255, 255, 239, 255, 255, 255,
+        255, 255, 255, 255, 240, 255, 255, 255, 255, 255, 255, 255, 241, 255, 255, 255, 255, 255,
+        255, 255, 243, 255, 255, 255, 255, 255, 255, 255, 244, 255, 255, 255, 255, 255, 255, 255,
+        245, 255, 255, 255, 255, 255, 255, 255, 246, 255, 255, 255, 255, 255, 255, 255, 247, 255,
+        255, 255, 255, 255, 255, 255, 248, 255, 255, 255, 255, 255, 255, 255, 249, 255, 255, 255,
+        255, 255, 255, 255, 250, 255, 255, 255, 255, 255, 255, 255, 251, 255, 255, 255, 255, 255,
+        255, 255, 252, 255, 255, 255, 255, 255, 255, 255, 253, 255, 255, 255, 255, 255, 255, 255,
+        254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255>>
+
+    actual_2 = SszEx.pack(list_2, {:list, {:int, 64}, 15})
+    assert expected_2 == actual_2
+  end
+
+  test "packing a list of booleans" do
+    list = [true, false, true, false, true]
+
+    expected =
+      <<1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0>>
+
+    actual = SszEx.pack(list, {:list, :bool, 5})
+    assert expected == actual
+  end
+
+  test "merklelization of chunks" do
+    ## Reference:  https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L371
+    ##            https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L416
+    zero = <<0::256>>
+
+    chunks = zero
+    root = SszEx.merkleize_chunks(chunks)
+    expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = zero <> zero
+    root = chunks |> SszEx.merkleize_chunks(2)
+    expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    ones = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<1>> <> acc end)
+
+    chunks = ones <> ones
+    root = chunks |> SszEx.merkleize_chunks(2)
+    expected_value = "7c8975e1e60a5c8337f28edf8c33c3b180360b7279644a9bc1af3c51e6220bf5"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = zero <> zero <> zero <> zero
+    root = chunks |> SszEx.merkleize_chunks(4)
+    expected_value = "db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = zero <> zero <> zero <> zero <> zero <> zero <> zero <> zero
+    root = chunks |> SszEx.merkleize_chunks(8)
+    expected_value = "c78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = ones
+    root = chunks |> SszEx.merkleize_chunks(4)
+    expected_value = "29797eded0e83376b70f2bf034cc0811ae7f1414653b1d720dfd18f74cf13309"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    twos = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<2>> <> acc end)
+
+    chunks = twos
+    root = chunks |> SszEx.merkleize_chunks(8)
+    expected_value = "fa4cf775712aa8a2fe5dcb5a517d19b2e9effcf58ff311b9fd8e4a7d308e6d00"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = ones <> ones <> ones
+    root = chunks |> SszEx.merkleize_chunks(4)
+    expected_value = "65aa94f2b59e517abd400cab655f42821374e433e41b8fe599f6bb15484adcec"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = ones <> ones <> ones <> ones <> ones
+    root = chunks |> SszEx.merkleize_chunks(8)
+    expected_value = "0ae67e34cba4ad2bbfea5dc39e6679b444021522d861fab00f05063c54341289"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = ones <> ones <> ones <> ones <> ones <> ones
+    root = chunks |> SszEx.merkleize_chunks(8)
+    expected_value = "0ef7df63c204ef203d76145627b8083c49aa7c55ebdee2967556f55a4f65a238"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    ## Large Leaf Count
+
+    chunks = ones <> ones <> ones <> ones <> ones
+    root = chunks |> SszEx.merkleize_chunks(2 ** 10)
+    expected_value = "2647cb9e26bd83eeb0982814b2ac4d6cc4a65d0d98637f1a73a4c06d3db0e6ce"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    ## TOO HEAVY COMPUTATION!
+    # chunks = 1..70 |> Enum.reduce(<<>>, fn _, acc -> acc <> ones end)
+    # leaf_count = 9_223_372_036_854_775_808 # 2 ** 63
+    # root = chunks |> SszEx.merkleize_chunks(leaf_count)
+    # expected_value = "9317695d95b5a3b46e976b5a9cbfcfccb600accaddeda9ac867cc9669b862979"
+    # assert root |> Base.encode16(case: :lower) == expected_value
+  end
+
+  test "hash tree root of list" do
+    ## reference: https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L459
+
+    list = Stream.cycle([65_535]) |> Enum.take(316)
+    {:ok, root} = list |> SszEx.hash_tree_root({:list, {:int, 16}, 1024})
+    expected_value = "d20d2246e1438d88de46f6f41c7b041f92b673845e51f2de93b944bf599e63b1"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    ## hash tree root of empty list
+    {:ok, root} = [] |> SszEx.hash_tree_root({:list, {:int, 16}, 1024})
+    expected_value = "c9eece3e14d3c3db45c38bbf69a4cb7464981e2506d8424a0ba450dad9b9af30"
+    assert root |> Base.encode16(case: :lower) == expected_value
+  end
+
   test "serialize and deserialize uint" do
     assert_roundtrip(<<5>>, 5, {:int, 8})
     assert_roundtrip(<<5, 0>>, 5, {:int, 16})

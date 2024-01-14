@@ -14,14 +14,18 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   @impl true
   def init([nil]) do
-    case StateStore.get_latest_state() do
-      {:ok, anchor_state} ->
-        {:ok, anchor_block} = fetch_anchor_block(anchor_state)
-        init_children(anchor_state, anchor_block)
+    with {:ok, anchor_state} <- StateStore.get_latest_state(),
+         {:ok, anchor_block} <- fetch_anchor_block(anchor_state) do
+      init_children(anchor_state, anchor_block)
+    else
+      {:error, reason} ->
+        Logger.error("[Sync] Fetching from the database failed with: #{inspect(reason)}")
+
+        System.stop(1)
 
       :not_found ->
         Logger.error(
-          "[Sync] No initial state found. Please specify the URL to fetch it from via the --checkpoint-sync flag."
+          "[Sync] No initial state or block found. Please specify the URL to fetch them from via the --checkpoint-sync flag."
         )
 
         System.stop(1)
@@ -86,14 +90,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   defp fetch_anchor_block(%Types.BeaconState{} = anchor_state) do
     block_root = get_latest_block_hash(anchor_state)
-
-    case BlockStore.get_block(block_root) do
-      {:ok, anchor_block} ->
-        {:ok, anchor_block}
-
-      :not_found ->
-        Logger.info("[Sync] Current block not found")
-        {:error, :not_found}
-    end
+    BlockStore.get_block(block_root)
   end
 end
