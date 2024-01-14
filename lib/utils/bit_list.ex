@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
   @moduledoc """
     Set of utilities to interact with bit list, represented as {bitstring, len}.
   """
+  alias LambdaEthereumConsensus.Utils.BitField
   @type t :: {bitstring, integer()}
   @bits_per_byte 8
 
@@ -17,7 +18,7 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
     <<pre::integer-little-size(num_bits - 8), last_byte::integer-little-size(@bits_per_byte)>> =
       bitstring
 
-    decoded = <<pre::integer-size(num_bits - 8), remove_trailing_bit(<<last_byte>>)::bitstring>>
+    decoded = <<remove_trailing_bit(<<last_byte>>)::bitstring, pre::integer-size(num_bits - 8)>>
     {decoded, len}
   end
 
@@ -25,10 +26,13 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
   def to_bytes({bit_list, len}) do
     # Change the byte order from big endian to little endian (reverse bytes).
     r = rem(len, @bits_per_byte)
-    <<pre::integer-size(len - r), post::integer-size(r)>> = bit_list
+    <<rev_bit_list::integer-size(bit_size(bit_list))>> = bit_list
 
-    <<pre::integer-little-size(len - r), 1::integer-little-size(@bits_per_byte - r),
-      post::integer-little-size(r)>>
+    <<pre::integer-size(r), post::integer-size(len - r)>> =
+      <<rev_bit_list::integer-size(bit_size(bit_list))>>
+
+    <<post::integer-little-size(len - r), 1::integer-little-size(@bits_per_byte - r),
+      pre::integer-little-size(r)>>
   end
 
   @doc """
@@ -36,32 +40,21 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
   Equivalent to bit_list[index] == 1.
   """
   @spec set?(t, non_neg_integer) :: boolean
-  def set?({bit_list, _}, index) do
-    skip = bit_size(bit_list) - index - 1
-    match?(<<_::size(skip), 1::size(1), _::bitstring>>, bit_list)
-  end
+  def set?({bit_list, _}, index), do: BitField.set?(bit_list, index)
 
   @doc """
   Sets a bit (turns it to 1).
   Equivalent to bit_list[index] = 1.
   """
   @spec set(t, non_neg_integer) :: t
-  def set({bit_list, len}, index) do
-    skip = bit_size(bit_list) - index - 1
-    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_list
-    {<<pre::bitstring, 1::1, rest::bitstring>>, len}
-  end
+  def set({bit_list, len}, index), do: {BitField.set(bit_list, index), len}
 
   @doc """
   Clears a bit (turns it to 0).
   Equivalent to bit_list[index] = 0.
   """
   @spec clear(t, non_neg_integer) :: t
-  def clear({bit_list, len}, index) do
-    skip = bit_size(bit_list) - index - 1
-    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_list
-    {<<pre::bitstring, 0::1, rest::bitstring>>, len}
-  end
+  def clear({bit_list, len}, index), do: {BitField.clear(bit_list, index), len}
 
   def length_of_bitlist(bitlist) when is_binary(bitlist) do
     bit_size = bit_size(bitlist)
