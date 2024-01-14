@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.Utils.BitField do
   @moduledoc """
-    Set of utilities to interact with bit list
+    Internal representation used by BitList (after trailling bit remove) and BitVector
   """
 
   @type t :: bitstring
@@ -10,42 +10,42 @@ defmodule LambdaEthereumConsensus.Utils.BitField do
   Equivalent to bit_field[index] == 1.
   """
   @spec set?(binary, non_neg_integer) :: boolean
-  def set?(bit_vector, index) do
-    skip = bit_size(bit_vector) - index - 1
-    match?(<<_::size(skip), 1::size(1), _::bitstring>>, bit_vector)
+  def set?(bit_field, index) do
+    skip = bit_size(bit_field) - index - 1
+    match?(<<_::size(skip), 1::size(1), _::bitstring>>, bit_field)
   end
 
   @doc """
   True if all bits in the specified range are set to 1.
-  Equivalent to all(bit_vector[first..last]) in the specs.
+  Equivalent to all(bit_field[first..last]) in the specs.
   """
   @spec all?(t, Range.t()) :: boolean
-  def all?(bit_vector, first..last) do
-    skip = bit_size(bit_vector) - last
+  def all?(bit_field, first..last) do
+    skip = bit_size(bit_field) - last
     range_size = last - first
     target = 2 ** range_size - 1
-    match?(<<_::size(skip), ^target::size(range_size), _::bitstring>>, bit_vector)
+    match?(<<_::size(skip), ^target::size(range_size), _::bitstring>>, bit_field)
   end
 
   @doc """
   Sets a bit (turns it to 1).
-  Equivalent to bit_vector[index] = 1.
+  Equivalent to bit_field[index] = 1.
   """
   @spec set(t, non_neg_integer) :: t
-  def set(bit_vector, index) do
-    skip = bit_size(bit_vector) - index - 1
-    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_vector
+  def set(bit_field, index) do
+    skip = bit_size(bit_field) - index - 1
+    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_field
     <<pre::bitstring, 1::1, rest::bitstring>>
   end
 
   @doc """
   Clears a bit (turns it to 0).
-  Equivalent to bit_vector[index] = 0.
+  Equivalent to bit_field[index] = 0.
   """
   @spec clear(t, non_neg_integer) :: t
-  def clear(bit_vector, index) do
-    skip = bit_size(bit_vector) - index - 1
-    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_vector
+  def clear(bit_field, index) do
+    skip = bit_size(bit_field) - index - 1
+    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_field
     <<pre::bitstring, 0::1, rest::bitstring>>
   end
 
@@ -58,8 +58,8 @@ defmodule LambdaEthereumConsensus.Utils.BitField do
   Internally, this is a left shift, due to the little-endian bit indexing.
   """
   @spec shift_higher(t, non_neg_integer()) :: t
-  def shift_higher(bit_vector, steps) do
-    <<_::size(steps), remaining::bitstring>> = bit_vector
+  def shift_higher(bit_field, steps) do
+    <<_::size(steps), remaining::bitstring>> = bit_field
     <<remaining::bitstring, 0::size(steps)>>
   end
 
@@ -72,8 +72,8 @@ defmodule LambdaEthereumConsensus.Utils.BitField do
   Internally, this is a right shift, due to the little-endian bit indexing.
   """
   @spec shift_lower(t, non_neg_integer) :: t
-  def shift_lower(bit_vector, steps) do
-    <<remaining::size(bit_size(bit_vector) - steps)-bitstring, _::bitstring>> = bit_vector
+  def shift_lower(bit_field, steps) do
+    <<remaining::size(bit_size(bit_field) - steps)-bitstring, _::bitstring>> = bit_field
     <<0::size(steps), remaining::bitstring>>
   end
 
@@ -81,5 +81,5 @@ defmodule LambdaEthereumConsensus.Utils.BitField do
   Returns the amount of bits set.
   """
   @spec count(t) :: non_neg_integer()
-  def count(bit_vector), do: for(<<bit::1 <- bit_vector>>, do: bit) |> Enum.sum()
+  def count(bit_field), do: for(<<bit::1 <- bit_field>>, do: bit) |> Enum.sum()
 end

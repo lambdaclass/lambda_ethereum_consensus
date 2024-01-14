@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.Utils.BitList do
   @moduledoc """
-    Set of utilities to interact with bit list, represented as {bitstring, len}.
+    Set of utilities to interact with BitList, represented as {bitstring, len}.
   """
   alias LambdaEthereumConsensus.Utils.BitField
   @type t :: {bitstring, integer()}
