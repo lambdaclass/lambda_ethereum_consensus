@@ -41,6 +41,12 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   defguard bit_vector_size(value) when bit_size(value)
 
   @doc """
+  Creates a new zeroed bit_vector with the given size.
+  """
+  @spec new(non_neg_integer) :: t
+  def new(size) when size >= 0, do: <<0::size(size)>>
+
+  @doc """
   Creates a new bit_vector from an integer or a bitstring.
   """
   @spec new(integer, non_neg_integer) :: t
