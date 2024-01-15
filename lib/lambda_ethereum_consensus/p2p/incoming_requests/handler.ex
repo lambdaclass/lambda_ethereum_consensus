@@ -122,8 +122,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     end
   end
 
-  defp parse_message_size(<<24, request::binary>>), do: {:ok, request}
-  defp parse_message_size(_), do: {:error, "invalid request"}
 
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
     with {:ok, snappy_blocks_by_root_request} <- parse_message_size(message),
@@ -208,4 +206,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp decode_size_header(header, <<header, rest::binary>>), do: {:ok, rest}
   defp decode_size_header(_, ""), do: {:error, "empty message"}
   defp decode_size_header(_, _), do: {:error, "invalid message"}
+
+  defp parse_message_size(<<24, request::binary>>), do: {:ok, request}
+  defp parse_message_size(_), do: {:error, "invalid request"}
 end
