@@ -12,14 +12,14 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
     {:ok, ["engine_newPayloadV2"]}
   end
 
-  @spec new_payload(Types.ExecutionPayload.t()) ::
+  @spec new_payload_v1(Types.ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
-  def new_payload_v1(execution_payload) do
+  def new_payload_v1(_execution_payload) do
     {:ok, generic_response()}
   end
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
-  def forkchoice_updated(forkchoice_state, payload_attributes) do
+  def forkchoice_updated(_forkchoice_state, _payload_attributes) do
     {:ok, generic_response()}
   end
 
@@ -39,15 +39,15 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
     }
   end
 
-  # This will be used for logging
-  defp mock_call(method, params) do
-    config =
-      Application.fetch_env!(
-        :lambda_ethereum_consensus,
-        LambdaEthereumConsensus.Execution.EngineApi
-      )
+  # # This will be used for logging
+  # defp mock_call(method, params) do
+  #   config =
+  #     Application.fetch_env!(
+  #       :lambda_ethereum_consensus,
+  #       LambdaEthereumConsensus.Execution.EngineApi
+  #     )
 
-    endpoint = Keyword.fetch!(config, :endpoint)
-    version = Keyword.fetch!(config, :version)
-  end
+  #   endpoint = Keyword.fetch!(config, :endpoint)
+  #   version = Keyword.fetch!(config, :version)
+  # end
 end

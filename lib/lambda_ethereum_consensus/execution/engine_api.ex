@@ -3,9 +3,6 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   Execution Layer Engine API methods with routing
   """
 
-  alias LambdaEthereumConsensus.Execution.Auth
-  alias LambdaEthereumConsensus.Execution.RPC
-
   @doc """
   Using this method Execution and consensus layer client software may
   exchange with a list of supported Engine API methods.
