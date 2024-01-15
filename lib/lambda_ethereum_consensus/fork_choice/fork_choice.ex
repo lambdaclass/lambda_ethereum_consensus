@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
+  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
