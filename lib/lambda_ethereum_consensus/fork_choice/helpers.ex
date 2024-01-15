@@ -10,8 +10,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
-  alias Types.Store
   alias Types.SignedBeaconBlock
+  alias Types.Store
 
   @spec current_status_message(Store.t()) ::
           {:ok, Types.StatusMessage.t()} | {:error, any}
@@ -32,8 +32,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     end
   end
 
-  @spec get_forkchoice_store(BeaconState.t(), BeaconBlock.t(), boolean()) ::
-          {:ok, Store.t()} | {:error, any}
+  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
+          {:ok, Store.t()} | {:error, String.t()}
   def get_forkchoice_store(
         %BeaconState{} = anchor_state,
         %SignedBeaconBlock{message: anchor_block} = signed_block,
@@ -61,6 +61,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
         unrealized_finalized_checkpoint: anchor_checkpoint,
         proposer_boost_root: <<0::256>>,
         equivocating_indices: MapSet.new(),
+        blocks: %{},
+        block_states: %{},
         checkpoint_states: %{anchor_checkpoint => anchor_state},
         latest_messages: %{},
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint}

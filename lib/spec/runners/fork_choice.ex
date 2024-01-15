@@ -6,9 +6,9 @@ defmodule ForkChoiceTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-  alias Types.SignedBeaconBlock
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias Types.SignedBeaconBlock
   alias Types.Store
 
   @disabled_on_block_cases [
