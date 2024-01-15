@@ -15,38 +15,28 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
   @spec new_payload(Types.ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
   def new_payload_v1(execution_payload) do
-    {:ok,
-     %{
-       id: 1,
-       jsonrpc: "2.0",
-       result: %{
-         payloadId: nil,
-         payloadStatus: %{
-           status: "VALID",
-           latestValidHash: nil,
-           validationError: nil
-         }
-       },
-       error: ""
-     }}
+    {:ok, generic_response()}
   end
 
   @spec forkchoice_updated(map, map) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes) do
-    {:ok,
-     %{
-       id: 1,
-       jsonrpc: "2.0",
-       result: %{
-         payloadId: nil,
-         payloadStatus: %{
-           status: "VALID",
-           latestValidHash: nil,
-           validationError: nil
-         }
-       },
-       error: ""
-     }}
+    {:ok, generic_response()}
+  end
+
+  defp generic_response do
+    %{
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": %{
+        payloadId: nil,
+        payloadStatus: %{
+          status: "VALID",
+          latestValidHash: nil,
+          validationError: nil
+        }
+      },
+      error: ""
+    }
   end
 
   # This will be used for logging
