@@ -288,6 +288,9 @@
           }
         },
         "cellGap": 1,
+        "cellValues": {
+          "decimals": 0
+        },
         "color": {
           "exponent": 0.5,
           "fill": "dark-orange",
@@ -327,8 +330,11 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
+          "exemplar": false,
           "expr": "sum(increase(sync_on_block_stop_duration_bucket[$__interval])) by (le)",
+          "format": "heatmap",
           "instant": false,
+          "interval": "300",
           "legendFormat": "__auto",
           "range": true,
           "refId": "Block processing time"
@@ -1078,7 +1084,7 @@
           "useBackend": false
         }
       ],
-      "title": "Topics Activity",
+      "title": "PubSub topics joined",
       "type": "heatmap"
     },
     {
@@ -1355,7 +1361,7 @@
         "x": 0,
         "y": 42
       },
-      "id": 18,
+      "id": 21,
       "options": {
         "legend": {
           "calcs": [],
@@ -1377,18 +1383,43 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(network_pubsub_topics_reject_message_count{}[$__rate_interval])",
+          "expr": "sum(vm_message_queue_length{process!~\"LambdaEthereumConsensus.ForkChoice|LambdaEthereumConsensus.Beacon.PendingBlocks\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "interval": "",
-          "legendFormat": "{{topic}}",
+          "legendFormat": "total_message_queue_length",
           "range": true,
-          "refId": "A",
+          "refId": "Total",
           "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "vm_message_queue_length{process=\"LambdaEthereumConsensus.ForkChoice\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{process}}",
+          "range": true,
+          "refId": "ForkChoice"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "vm_message_queue_length{process=\"LambdaEthereumConsensus.Beacon.PendingBlocks\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{process}}",
+          "range": true,
+          "refId": "PendingBlocks"
         }
       ],
-      "title": "Reject Messages",
+      "title": "Message queue length",
       "type": "timeseries"
     },
     {
@@ -1557,7 +1588,7 @@
         "x": 0,
         "y": 48
       },
-      "id": 21,
+      "id": 20,
       "options": {
         "legend": {
           "calcs": [],
@@ -1579,43 +1610,18 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(vm_message_queue_length{process!~\"LambdaEthereumConsensus.ForkChoice|LambdaEthereumConsensus.Beacon.PendingBlocks\"})",
+          "expr": "rate(network_pubsub_topics_validate_message_count{}[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "total_message_queue_length",
+          "interval": "",
+          "legendFormat": "{{topic}}",
           "range": true,
-          "refId": "Total",
+          "refId": "A",
           "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "vm_message_queue_length{process=\"LambdaEthereumConsensus.ForkChoice\"}",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "{{process}}",
-          "range": true,
-          "refId": "ForkChoice"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "vm_message_queue_length{process=\"LambdaEthereumConsensus.Beacon.PendingBlocks\"}",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "{{process}}",
-          "range": true,
-          "refId": "PendingBlocks"
         }
       ],
-      "title": "Message queue length",
+      "title": "Validate Messages",
       "type": "timeseries"
     },
     {
@@ -1781,10 +1787,10 @@
       "gridPos": {
         "h": 6,
         "w": 12,
-        "x": 12,
+        "x": 0,
         "y": 54
       },
-      "id": 19,
+      "id": 18,
       "options": {
         "legend": {
           "calcs": [],
@@ -1806,7 +1812,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(network_pubsub_topics_un_deliverable_message_count{}[$__rate_interval])",
+          "expr": "rate(network_pubsub_topics_reject_message_count{}[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1817,7 +1823,7 @@
           "useBackend": false
         }
       ],
-      "title": "Undeliverable Messages",
+      "title": "Reject Messages",
       "type": "timeseries"
     },
     {
@@ -1883,9 +1889,9 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 60
+        "y": 54
       },
-      "id": 20,
+      "id": 19,
       "options": {
         "legend": {
           "calcs": [],
@@ -1907,7 +1913,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rate(network_pubsub_topics_validate_message_count{}[$__rate_interval])",
+          "expr": "rate(network_pubsub_topics_un_deliverable_message_count{}[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1918,7 +1924,7 @@
           "useBackend": false
         }
       ],
-      "title": "Validate Messages",
+      "title": "Undeliverable Messages",
       "type": "timeseries"
     }
   ],
@@ -1936,6 +1942,6 @@
   "timezone": "",
   "title": "Node",
   "uid": "90EXFQnIk",
-  "version": 1,
+  "version": 4,
   "weekStart": ""
 }

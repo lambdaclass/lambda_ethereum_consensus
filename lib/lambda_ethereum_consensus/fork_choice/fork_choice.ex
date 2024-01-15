@@ -114,12 +114,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     slot = signed_block.message.slot
 
     result =
-      :telemetry.span([:sync, :on_block], %{slot: slot}, fn ->
-        {process_block(block_root, signed_block, store), %{slot: slot}}
+      :telemetry.span([:sync, :on_block], %{}, fn ->
+        {process_block(block_root, signed_block, store), %{}}
       end)
 
     case result do
       {:ok, new_store} ->
+        :telemetry.execute([:sync, :on_block], %{slot: slot})
         Logger.info("[Fork choice] Block #{slot} added to the store.")
         {:reply, :ok, new_store}
 
