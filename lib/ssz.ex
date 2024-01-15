@@ -165,7 +165,7 @@ defmodule Ssz do
   end
 
   @spec encode_u256(Types.uint256()) :: Types.bytes32()
-  def encode_u256(num) when num < @max_u256, do: <<num::little-size(256)>>
+  def encode_u256(num) when num <= @max_u256, do: <<num::little-size(256)>>
 
   @spec decode_u256(Types.bytes32()) :: Types.uint256()
   def decode_u256(<<num::little-size(256)>>), do: num
