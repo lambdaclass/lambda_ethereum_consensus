@@ -4,6 +4,8 @@ defmodule Ssz do
   """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "ssz_nif"
 
+  @max_u256 2 ** 256 - 1
+
   ##### Functional wrappers
   @spec to_ssz(struct | list(struct)) :: {:ok, binary} | {:error, String.t()}
   def to_ssz(map)
@@ -163,12 +165,8 @@ defmodule Ssz do
   end
 
   @spec encode_u256(non_neg_integer) :: binary
-  def encode_u256(num) do
-    num
-    |> :binary.encode_unsigned(:little)
-    |> String.pad_trailing(32, <<0>>)
-  end
+  def encode_u256(num) when num < @max_u256, do: <<num::little-size(256)>>
 
   @spec decode_u256(binary) :: non_neg_integer
-  def decode_u256(num), do: :binary.decode_unsigned(num, :little)
+  def decode_u256(<<num::little-size(256)>>), do: num
 end
