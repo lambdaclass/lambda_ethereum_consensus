@@ -42,3 +42,13 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
   endpoint: execution_endpoint,
   jwt_secret: jwt_secret,
   version: "2.0"
+
+# Configures metrics
+block_time_ms =
+  case network do
+    "mainnet" -> 12_000
+    "sepolia" -> 100
+  end
+
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
+  block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms))

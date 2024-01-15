@@ -5,9 +5,6 @@ defmodule LambdaEthereumConsensus.Telemetry do
   use Supervisor
   import Telemetry.Metrics
 
-  @block_time_ms 12_000
-  @block_processing_buckets [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * @block_time_ms))
-
   def start_link(arg) do
     Supervisor.start_link(__MODULE__, arg, name: __MODULE__)
   end
@@ -27,6 +24,10 @@ defmodule LambdaEthereumConsensus.Telemetry do
   end
 
   def metrics do
+    buckets =
+      Application.get_env(:lambda_ethereum_consensus, __MODULE__)
+      |> Keyword.fetch!(:block_processing_buckets)
+
     [
       # Phoenix Metrics
       # summary("phoenix.endpoint.start.system_time",
@@ -78,11 +79,11 @@ defmodule LambdaEthereumConsensus.Telemetry do
       last_value("sync.store.slot"),
       last_value("sync.on_block.slot"),
       distribution("sync.on_block.stop.duration",
-        reporter_options: [buckets: @block_processing_buckets],
+        reporter_options: [buckets: buckets],
         unit: {:native, :millisecond}
       ),
       distribution("sync.on_block.exception.duration",
-        reporter_options: [buckets: @block_processing_buckets],
+        reporter_options: [buckets: buckets],
         unit: {:native, :millisecond}
       ),
 
