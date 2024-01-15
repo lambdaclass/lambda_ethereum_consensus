@@ -23,6 +23,6 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
       Application.get_env(
         __MODULE__,
         :implementation,
-        LambdaEthereumConsensus.Execution.EngineApi.Tesla
+        LambdaEthereumConsensus.Execution.EngineApi.Api
       )
 end
