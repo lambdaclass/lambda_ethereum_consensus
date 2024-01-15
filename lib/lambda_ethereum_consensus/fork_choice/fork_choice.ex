@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
-  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -182,7 +181,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end)
   end
 
-  defp process_block(block_root, %SignedBeaconBlock{} = signed_block, store) do
+  defp process_block(_block_root, %SignedBeaconBlock{} = signed_block, store) do
     with {:ok, new_store} <- Handlers.on_block(store, signed_block),
          # process block attestations
          {:ok, new_store} <-
@@ -192,8 +191,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
          {:ok, new_store} <-
            signed_block.message.body.attester_slashings
            |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
-      BlockStore.store_block(signed_block)
-      Map.fetch!(new_store.block_states, block_root) |> StateStore.store_state()
       {:ok, new_store}
     end
   end
