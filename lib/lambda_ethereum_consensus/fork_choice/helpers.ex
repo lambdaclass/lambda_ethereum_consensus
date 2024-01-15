@@ -6,8 +6,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.BlockStore
-  alias Plug.Session.Store
-  alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
   alias Types.SignedBeaconBlock
