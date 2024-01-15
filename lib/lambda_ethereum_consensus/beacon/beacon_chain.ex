@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   use GenServer
 
-  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
@@ -43,12 +42,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @spec update_fork_choice_cache(Types.root(), Types.slot(), Types.root(), Types.epoch()) :: :ok
   def update_fork_choice_cache(head_root, head_slot, finalized_root, finalized_epoch) do
-    ExecutionClient.notify_forkchoice_updated(
-      head_root,
-      finalized_root,
-      finalized_root
-    )
-
     GenServer.cast(
       __MODULE__,
       {:update_fork_choice_cache, head_root, head_slot, finalized_root, finalized_epoch}

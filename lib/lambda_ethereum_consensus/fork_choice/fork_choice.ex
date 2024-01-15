@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
@@ -200,13 +201,23 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec recompute_head(Types.Store.t()) :: :ok
   def recompute_head(store) do
     {:ok, head_root} = Helpers.get_head(store)
+
     head_block = Map.get(store.blocks, head_root)
+    finalized_checkpoint = store.finalized_checkpoint
+
+    # TODO: do someting with the result from the execution client
+    # TODO: compute safe block hash
+    ExecutionClient.notify_forkchoice_updated(
+      head_root,
+      finalized_checkpoint.root,
+      finalized_checkpoint.root
+    )
 
     BeaconChain.update_fork_choice_cache(
       head_root,
       head_block.slot,
-      store.finalized_checkpoint.root,
-      store.finalized_checkpoint.epoch
+      finalized_checkpoint.root,
+      finalized_checkpoint.epoch
     )
 
     :ok
