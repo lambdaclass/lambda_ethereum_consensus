@@ -31,6 +31,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     {:ok, finalized_checkpoint}
   end
 
+  @spec get_justified_checkpoint() :: {:ok, Types.Checkpoint.t()}
+  def get_justified_checkpoint do
+    [justified_checkpoint] = get_store_attrs([:justified_checkpoint])
+    {:ok, justified_checkpoint}
+  end
+
   @spec has_block?(Types.root()) :: boolean()
   def has_block?(block_root) do
     block = get_block(block_root)
@@ -105,7 +111,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @impl GenServer
   def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, state) do
-    Logger.info("[Fork choice] Adding block #{signed_block.message.slot} to the store.")
     slot = signed_block.message.slot
 
     with {:ok, new_store} <- Handlers.on_block(state, signed_block),

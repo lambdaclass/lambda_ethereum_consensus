@@ -9,6 +9,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
+
   alias Libp2pProto.{
     AddPeer,
     Command,
@@ -38,7 +40,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     listen_addr: [],
     enable_discovery: false,
     discovery_addr: "",
-    bootnodes: []
+    bootnodes: [],
+    fork_digest: <<>>
   ]
 
   @type init_arg ::
@@ -229,7 +232,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
-    args
+    (args ++ [fork_digest: BeaconChain.get_fork_digest()])
     |> parse_args()
     |> InitArgs.encode()
     |> then(&send_data(port, &1))

@@ -21,7 +21,8 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
 
 configs_per_network = %{
   "minimal" => MinimalConfig,
-  "mainnet" => MainnetConfig
+  "mainnet" => MainnetConfig,
+  "sepolia" => SepoliaConfig
 }
 
 config :lambda_ethereum_consensus, ChainSpec, config: configs_per_network |> Map.fetch!(network)

@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
           {:ok, any} | {:error, any}
   def new_payload_v1(execution_payload), do: impl().new_payload_v1(execution_payload)
 
-  @spec forkchoice_updated(map, map) :: {:ok, any} | {:error, any}
+  @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes),
     do: impl().forkchoice_updated(forkchoice_state, payload_attributes)
 

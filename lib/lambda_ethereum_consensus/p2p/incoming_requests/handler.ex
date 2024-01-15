@@ -2,10 +2,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   @moduledoc """
   This module handles Req/Resp domain requests.
   """
+  require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.Store.BlockStore
 
   require Logger
 
@@ -16,18 +17,20 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   # TODO: compute this and other messages at runtime
   @error_message_server_error "Server Error"
 
+  @spec handle(String.t(), String.t(), binary()) :: any()
   def handle(name, message_id, message) do
     case handle_req(name, message_id, message) do
       :ok -> :ok
-      :not_implemented -> :ok
       {:error, error} -> Logger.error("[#{name}] Request error: #{inspect(error)}")
     end
   end
 
   @spec handle_req(String.t(), String.t(), binary()) ::
-          :ok | :not_implemented | {:error, binary()}
+          :ok | {:error, String.t()}
+  defp handle_req(protocol_name, message_id, message)
+
   defp handle_req("status/1/ssz_snappy", message_id, message) do
-    with <<84, snappy_status::binary>> <- message,
+    with {:ok, snappy_status} <- decode_size_header(84, message),
          {:ok, current_status} <- BeaconChain.get_current_status_message(),
          {:ok, ssz_status} <- Snappy.decompress(snappy_status),
          {:ok, status} <- Ssz.from_ssz(ssz_status, Types.StatusMessage),
@@ -42,7 +45,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
-    with <<8, snappy_code_le::binary>> <- message,
+    with {:ok, snappy_code_le} <- decode_size_header(8, message),
          {:ok, code_le} <- Snappy.decompress(snappy_code_le),
          :ok <-
            code_le
@@ -61,12 +64,15 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       "" ->
         Logger.debug("[Goodbye] empty message")
         :ok
+
+      err ->
+        err
     end
   end
 
   defp handle_req("ping/1/ssz_snappy", message_id, message) do
     # Values are hardcoded
-    with <<8, seq_number_le::binary>> <- message,
+    with {:ok, seq_number_le} <- decode_size_header(8, message),
          {:ok, decompressed} <-
            Snappy.decompress(seq_number_le),
          decompressed
@@ -81,16 +87,15 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("metadata/2/ssz_snappy", message_id, _message) do
-    # Values are hardcoded
-    with {:ok, payload} <-
-           <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
-           |> Snappy.compress() do
+    with metadata <- P2P.Metadata.get_metadata(),
+         {:ok, metadata_ssz} <- Ssz.to_ssz(metadata),
+         {:ok, payload} <- Snappy.compress(metadata_ssz) do
       Libp2pPort.send_response(message_id, <<0, 17>> <> payload)
     end
   end
 
   defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
-    with <<24, snappy_blocks_by_range_request::binary>> <- message,
+    with {:ok, snappy_blocks_by_range_request} <- decode_size_header(24, message),
          {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
          {:ok, blocks_by_range_request} <-
            Ssz.from_ssz(ssz_blocks_by_range_request, Types.BeaconBlocksByRangeRequest) do
@@ -170,4 +175,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp create_block_response_chunk(:empty_slot), do: <<>>
+
+  defp decode_size_header(header, <<header, rest::binary>>), do: {:ok, rest}
+  defp decode_size_header(_, ""), do: {:error, "empty message"}
+  defp decode_size_header(_, _), do: {:error, "invalid message"}
 end

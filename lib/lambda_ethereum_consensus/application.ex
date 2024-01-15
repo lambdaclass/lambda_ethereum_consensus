@@ -13,23 +13,11 @@ defmodule LambdaEthereumConsensus.Application do
         :checkpoint_sync
       ]
 
-    config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
-    port = Keyword.fetch!(config, :port)
-    bootnodes = Keyword.fetch!(config, :bootnodes)
-
-    libp2p_opts = [
-      listen_addr: [],
-      enable_discovery: true,
-      discovery_addr: "0.0.0.0:#{port}",
-      bootnodes: bootnodes
-    ]
-
     children = [
       {LambdaEthereumConsensus.Telemetry, []},
-      {LambdaEthereumConsensus.Libp2pPort, libp2p_opts},
       {LambdaEthereumConsensus.Store.Db, []},
-      {LambdaEthereumConsensus.P2P.Peerbook, []},
       {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync]},
+      {LambdaEthereumConsensus.P2P.Metadata, []},
       {BeaconApi.Endpoint, []}
     ]
 
