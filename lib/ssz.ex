@@ -164,9 +164,9 @@ defmodule Ssz do
     function_exported?(module, function, arity)
   end
 
-  @spec encode_u256(non_neg_integer) :: binary
+  @spec encode_u256(Types.uint256()) :: Types.bytes32()
   def encode_u256(num) when num < @max_u256, do: <<num::little-size(256)>>
 
-  @spec decode_u256(binary) :: non_neg_integer
+  @spec decode_u256(Types.bytes32()) :: Types.uint256()
   def decode_u256(<<num::little-size(256)>>), do: num
 end
