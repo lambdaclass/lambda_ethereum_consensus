@@ -44,6 +44,7 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
   version: "2.0"
 
 # Configures metrics
+# TODO: we should set this dynamically
 block_time_ms =
   case network do
     "mainnet" -> 12_000
