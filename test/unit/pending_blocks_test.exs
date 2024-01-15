@@ -9,6 +9,8 @@ defmodule Unit.PendingBlocks do
   alias LambdaEthereumConsensus.Store.BlockStore
 
   setup do
+    Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: MainnetConfig)
+
     # Lets trigger the process_blocks manually
     patch(PendingBlocks, :schedule_blocks_processing, fn -> :ok end)
     patch(PendingBlocks, :schedule_blocks_download, fn -> :ok end)
