@@ -25,9 +25,9 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
 
   defp generic_response do
     %{
-      "id": 1,
-      "jsonrpc": "2.0",
-      "result": %{
+      id: 1,
+      jsonrpc: "2.0",
+      result: %{
         payloadId: nil,
         payloadStatus: %{
           status: "VALID",

@@ -21,7 +21,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   def forkchoice_updated(forkchoice_state, payload_attributes),
     do: impl().forkchoice_updated(forkchoice_state, payload_attributes)
 
-  defp impl(),
+  defp impl,
     do:
       Application.get_env(
         __MODULE__,
