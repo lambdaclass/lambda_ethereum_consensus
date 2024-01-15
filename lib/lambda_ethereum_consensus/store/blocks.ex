@@ -21,6 +21,9 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
 
   def get_block(block_root), do: lookup(block_root)
 
+  @spec clear() :: any()
+  def clear, do: :ets.delete_all_objects(@ets_block_by_hash)
+
   ##########################
   ### GenServer Callbacks
   ##########################
