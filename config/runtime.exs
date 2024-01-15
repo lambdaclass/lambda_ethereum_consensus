@@ -42,8 +42,8 @@ jwt_secret =
 
 implementation =
   if mock_execution,
-    do: LambdaEthereumConsensus.Execution.EngineApi.Debug,
-    else: LambdaEthereumConsensus.Execution.EngineApi.Tesla
+    do: LambdaEthereumConsensus.Execution.EngineApi.Mocked,
+    else: LambdaEthereumConsensus.Execution.EngineApi.Api
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
   endpoint: execution_endpoint,

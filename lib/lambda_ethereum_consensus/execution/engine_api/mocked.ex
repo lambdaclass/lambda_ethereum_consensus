@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
+defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
   @moduledoc """
   Mock Execution Layer Engine API methods
   """

@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Execution.EngineApi.Tesla do
+defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   @moduledoc """
   Execution Layer Engine API methods
   """
