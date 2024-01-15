@@ -6,6 +6,7 @@ defmodule ForkChoiceTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
+  alias Types.SignedBeaconBlock
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias Types.Store
@@ -102,7 +103,9 @@ defmodule ForkChoiceTestRunner do
     steps =
       YamlElixir.read_from_file!(case_dir <> "/steps.yaml") |> SpecTestUtils.sanitize_yaml()
 
-    {:ok, store} = Helpers.get_forkchoice_store(anchor_state, anchor_block)
+    signed_block = %SignedBeaconBlock{message: anchor_block, signature: <<0::768>>}
+
+    {:ok, store} = Helpers.get_forkchoice_store(anchor_state, signed_block, false)
 
     assert {:ok, _store} = apply_steps(case_dir, store, steps)
   end

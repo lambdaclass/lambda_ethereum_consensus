@@ -71,7 +71,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
+    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
       {:ok, %Store{} = store} ->
         Logger.info("[Fork choice] Initialized store.")
 
@@ -79,16 +79,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         :telemetry.execute([:sync, :store], %{slot: slot})
         :telemetry.execute([:sync, :on_block], %{slot: slot})
 
-        # TODO: solve this in a more elegant way
-        [anchor_block_root] = Map.keys(store.blocks)
-
-        store
-        |> Map.delete(:blocks)
-        |> Map.delete(:block_states)
-        |> Store.store_state(anchor_block_root, anchor_state)
-        |> Store.store_block(anchor_block_root, signed_anchor_block)
-        |> Handlers.on_tick(time)
-        |> then(&{:ok, &1})
+        {:ok, Handlers.on_tick(store, time)}
 
       {:error, error} ->
         {:stop, error}
