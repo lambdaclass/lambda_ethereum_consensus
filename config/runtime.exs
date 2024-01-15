@@ -6,7 +6,8 @@ import Config
       network: :string,
       checkpoint_sync: :string,
       execution_endpoint: :string,
-      execution_jwt: :string
+      execution_jwt: :string,
+      mock_execution: :boolean
     ]
   )
 
@@ -14,6 +15,7 @@ network = Keyword.get(args, :network, "mainnet")
 checkpoint_sync = Keyword.get(args, :checkpoint_sync)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
+mock_execution = Keyword.get(args, :mock_execution, false)
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync: checkpoint_sync
@@ -38,9 +40,15 @@ jwt_secret =
     nil
   end
 
+implementation =
+  if mock_execution,
+    do: LambdaEthereumConsensus.Execution.EngineApi.Mocked,
+    else: LambdaEthereumConsensus.Execution.EngineApi.Api
+
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
   endpoint: execution_endpoint,
   jwt_secret: jwt_secret,
+  implementation: implementation,
   version: "2.0"
 
 # Configures metrics
