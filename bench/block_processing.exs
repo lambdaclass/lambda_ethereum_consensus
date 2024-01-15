@@ -9,10 +9,11 @@ alias Types.{BeaconState, SignedBeaconBlock}
 
 {:ok, _} = Store.Db.start_link(nil)
 {:ok, _} = Store.Blocks.start_link(nil)
+{:ok, _} = Store.BlockStates.start_link(nil)
 Cache.initialize_cache()
 
 # NOTE: this slot must be at the beginning of an epoch (i.e. a multiple of 32)
-slot = 8_210_240
+slot = 8_210_368
 
 IO.puts("fetching blocks...")
 {:ok, %BeaconState{} = state} = StateStore.get_state_by_slot(slot)

@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.Application do
       LambdaEthereumConsensus.Telemetry,
       LambdaEthereumConsensus.Store.Db,
       LambdaEthereumConsensus.Store.Blocks,
+      LambdaEthereumConsensus.Store.BlockStates,
       {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync]},
       LambdaEthereumConsensus.P2P.Metadata,
       BeaconApi.Endpoint

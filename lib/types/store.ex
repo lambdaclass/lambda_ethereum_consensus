@@ -36,8 +36,8 @@ defmodule Types.Store do
 
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.BlockStore
-  alias LambdaEthereumConsensus.Store.StateStore
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
@@ -70,12 +70,7 @@ defmodule Types.Store do
   end
 
   @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
-  def get_state(%__MODULE__{}, block_root) do
-    case StateStore.get_state(block_root) do
-      {:ok, state} -> state
-      _ -> nil
-    end
-  end
+  def get_state(%__MODULE__{}, block_root), do: BlockStates.get_state(block_root)
 
   @spec get_state!(t(), Types.root()) :: BeaconState.t()
   def get_state!(store, block_root) do
@@ -94,7 +89,7 @@ defmodule Types.Store do
 
   @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
   def store_state(%__MODULE__{} = store, block_root, state) do
-    StateStore.store_state(state, block_root)
+    BlockStates.store_state(block_root, state)
     store
   end
 
