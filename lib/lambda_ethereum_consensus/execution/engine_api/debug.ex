@@ -3,26 +3,48 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
   Mock Execution Layer Engine API methods
   """
 
-  @supported_methods ["engine_forkchoiceUpdatedV2", "engine_getPayloadV2", "engine_newPayloadV2"]
-
   @doc """
   Using this method Execution and consensus layer client software may
   exchange with a list of supported Engine API methods.
   """
   @spec exchange_capabilities() :: {:ok, any} | {:error, any}
   def exchange_capabilities do
-    mock_call("engine_exchangeCapabilities", [@supported_methods])
+    {:ok, ["engine_newPayloadV2"]}
   end
 
   @spec new_payload(Types.ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
   def new_payload_v1(execution_payload) do
-    mock_call("engine_newPayloadV2", [execution_payload])
+    {:ok, %{
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": %{
+        payloadId: nil,
+        payloadStatus: %{
+          status: "VALID"
+          latestValidHash: nil,
+          validationError: nil
+        }
+      },
+      error: ""
+    }}
   end
 
   @spec forkchoice_updated(map, map) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes) do
-    mock_call("engine_forkchoiceUpdatedV2", [forkchoice_state, payload_attributes])
+    {:ok, %{
+      "id": 1,
+      "jsonrpc": "2.0",
+      "result": %{
+        payloadId: nil,
+        payloadStatus: %{
+          status: "VALID"
+          latestValidHash: nil,
+          validationError: nil
+        }
+      },
+      error: ""
+    }}
   end
 
   # This will be used for logging
@@ -37,3 +59,16 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
     version = Keyword.fetch!(config, :version)
   end
 end
+
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    payloadId: nil,
+    payloadStatus: {
+      status: "VALID"
+      latestValidHash: nil,
+      validationError: nil
+    }
+  }
+}
