@@ -18,7 +18,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Debug do
     {:ok, generic_response()}
   end
 
-  @spec forkchoice_updated(map, map) :: {:ok, any} | {:error, any}
+  @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes) do
     {:ok, generic_response()}
   end
