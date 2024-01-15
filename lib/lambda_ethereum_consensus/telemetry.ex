@@ -76,19 +76,15 @@ defmodule LambdaEthereumConsensus.Telemetry do
 
       # Sync metrics
       last_value("sync.store.slot"),
-      last_value("sync.on_block.stop.slot"),
-      # last_value("sync.on_block.start.system_time"),
-      # last_value("sync.on_block.start.monotonic_time"),
+      last_value("sync.on_block.slot"),
       distribution("sync.on_block.stop.duration",
         reporter_options: [buckets: @block_processing_buckets],
         unit: {:native, :millisecond}
       ),
-      # last_value("sync.on_block.stop.monotonic_time"),
       distribution("sync.on_block.exception.duration",
         reporter_options: [buckets: @block_processing_buckets],
         unit: {:native, :millisecond}
       ),
-      # last_value("sync.on_block.exception.monotonic_time"),
 
       # VM Metrics
       ## Memory
