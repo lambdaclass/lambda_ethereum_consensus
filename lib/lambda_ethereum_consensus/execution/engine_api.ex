@@ -27,9 +27,9 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   def forkchoice_updated(forkchoice_state, payload_attributes) do
     forkchoice_state =
       forkchoice_state
-      |> Map.update!("finalizedBlockHash", &RPC.encode_binary/1)
-      |> Map.update!("headBlockHash", &RPC.encode_binary/1)
-      |> Map.update!("safeBlockHash", &RPC.encode_binary/1)
+      |> Map.update!(:finalizedBlockHash, &RPC.encode_binary/1)
+      |> Map.update!(:headBlockHash, &RPC.encode_binary/1)
+      |> Map.update!(:safeBlockHash, &RPC.encode_binary/1)
 
     call("engine_forkchoiceUpdatedV2", [forkchoice_state, payload_attributes])
   end
