@@ -6,17 +6,16 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.BlockStore
-  alias Plug.Session.Store
-  alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
+  alias Types.SignedBeaconBlock
   alias Types.Store
 
   @spec current_status_message(Store.t()) ::
           {:ok, Types.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do
     with {:ok, head_root} <- get_head(store),
-         {:ok, state} <- Map.fetch(store.block_states, head_root) do
+         state when not is_nil(state) <- Store.get_state(store, head_root) do
       {:ok,
        %Types.StatusMessage{
          fork_digest:
@@ -26,11 +25,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
          head_root: head_root,
          head_slot: state.slot
        }}
+    else
+      nil -> {:error, "Head state not found"}
     end
   end
 
-  @spec get_forkchoice_store(BeaconState.t(), BeaconBlock.t()) :: {:ok, Store.t()} | {:error, any}
-  def get_forkchoice_store(%BeaconState{} = anchor_state, %BeaconBlock{} = anchor_block) do
+  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
+          {:ok, Store.t()} | {:error, String.t()}
+  def get_forkchoice_store(
+        %BeaconState{} = anchor_state,
+        %SignedBeaconBlock{message: anchor_block} = signed_block,
+        use_db
+      ) do
     anchor_state_root = Ssz.hash_tree_root!(anchor_state)
     anchor_block_root = Ssz.hash_tree_root!(anchor_block)
 
@@ -44,22 +50,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
       time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
 
-      {:ok,
-       %Store{
-         time: time,
-         genesis_time: anchor_state.genesis_time,
-         justified_checkpoint: anchor_checkpoint,
-         finalized_checkpoint: anchor_checkpoint,
-         unrealized_justified_checkpoint: anchor_checkpoint,
-         unrealized_finalized_checkpoint: anchor_checkpoint,
-         proposer_boost_root: <<0::256>>,
-         equivocating_indices: MapSet.new(),
-         blocks: %{anchor_block_root => anchor_block},
-         block_states: %{anchor_block_root => anchor_state},
-         checkpoint_states: %{anchor_checkpoint => anchor_state},
-         latest_messages: %{},
-         unrealized_justifications: %{anchor_block_root => anchor_checkpoint}
-       }}
+      %Store{
+        time: time,
+        genesis_time: anchor_state.genesis_time,
+        justified_checkpoint: anchor_checkpoint,
+        finalized_checkpoint: anchor_checkpoint,
+        unrealized_justified_checkpoint: anchor_checkpoint,
+        unrealized_finalized_checkpoint: anchor_checkpoint,
+        proposer_boost_root: <<0::256>>,
+        equivocating_indices: MapSet.new(),
+        blocks: %{},
+        block_states: %{},
+        checkpoint_states: %{anchor_checkpoint => anchor_state},
+        latest_messages: %{},
+        unrealized_justifications: %{anchor_block_root => anchor_checkpoint}
+      }
+      |> then(&if use_db, do: &1 |> Map.delete(:blocks) |> Map.delete(:block_states), else: &1)
+      |> Store.store_block(anchor_block_root, signed_block)
+      |> Store.store_state(anchor_block_root, anchor_state)
+      |> then(&{:ok, &1})
     else
       {:error, "Anchor block state root does not match anchor state root"}
     end
@@ -72,6 +81,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     # Execute the LMD-GHOST fork choice
     head = store.justified_checkpoint.root
 
+    # PERF: return just the parent root and the block root in `get_filtered_block_tree`
     Stream.cycle([nil])
     |> Enum.reduce_while(head, fn nil, head ->
       blocks
@@ -90,6 +100,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   defp get_weight(%Store{} = store, root) do
     state = Map.fetch!(store.checkpoint_states, store.justified_checkpoint)
 
+    block = Store.get_block!(store, root)
+
     # PERF: use ``Aja.Vector.foldl``
     attestation_score =
       Accessors.get_active_validator_indices(state, Accessors.get_current_epoch(state))
@@ -97,13 +109,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       |> Stream.filter(&Map.has_key?(store.latest_messages, &1))
       |> Stream.reject(&MapSet.member?(store.equivocating_indices, &1))
       |> Stream.filter(fn i ->
-        Store.get_ancestor(store, store.latest_messages[i].root, store.blocks[root].slot) == root
+        Store.get_ancestor(store, store.latest_messages[i].root, block.slot) == root
       end)
       |> Stream.map(&Aja.Vector.at!(state.validators, &1).effective_balance)
       |> Enum.sum()
 
     if store.proposer_boost_root == <<0::256>> or
-         Store.get_ancestor(store, store.proposer_boost_root, store.blocks[root].slot) != root do
+         Store.get_ancestor(store, store.proposer_boost_root, block.slot) != root do
       # Return only attestation score if ``proposer_boost_root`` is not set
       attestation_score
     else
@@ -127,10 +139,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   defp filter_block_tree(%Store{} = store, block_root, blocks) do
-    block = store.blocks[block_root]
+    block = Store.get_block!(store, block_root)
 
+    # TODO: this is highly inefficient. We should move to `ForkChoice.Tree` ASAP
     children =
-      store.blocks
+      Store.get_blocks(store)
       |> Stream.filter(fn {_, block} -> block.parent_root == block_root end)
       |> Enum.map(fn {root, _} -> root end)
 
@@ -192,7 +205,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   # Compute the voting source checkpoint in event that block with root ``block_root`` is the head block
   def get_voting_source(%Store{} = store, block_root) do
-    block = store.blocks[block_root]
+    block = Store.get_block!(store, block_root)
     current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
     block_epoch = Misc.compute_epoch_at_slot(block.slot)
 
@@ -201,7 +214,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       store.unrealized_justifications[block_root]
     else
       # The block is not from a prior epoch, therefore the voting source is not pulled up
-      head_state = store.block_states[block_root]
+      head_state = Store.get_state!(store, block_root)
       head_state.current_justified_checkpoint
     end
   end
