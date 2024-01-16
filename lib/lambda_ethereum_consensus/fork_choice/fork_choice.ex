@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
-  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -50,7 +49,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec on_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok | :error
   def on_block(signed_block, block_root) do
-    :ok = BlockStore.store_block(signed_block)
     GenServer.call(__MODULE__, {:on_block, block_root, signed_block}, @default_timeout)
   end
 
@@ -72,26 +70,19 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    result =
-      case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block.message) do
-        {:ok, store = %Store{}} ->
-          store = Handlers.on_tick(store, time)
-          Logger.info("[Fork choice] Initialized store.")
-          {:ok, store}
+    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
+      {:ok, %Store{} = store} ->
+        Logger.info("[Fork choice] Initialized store.")
 
-        {:error, error} ->
-          {:stop, error}
-      end
+        slot = signed_anchor_block.message.slot
+        :telemetry.execute([:sync, :store], %{slot: slot})
+        :telemetry.execute([:sync, :on_block], %{slot: slot})
 
-    # TODO: this should be done after validation
-    :ok = StateStore.store_state(anchor_state)
-    :ok = BlockStore.store_block(signed_anchor_block)
+        {:ok, Handlers.on_tick(store, time)}
 
-    slot = signed_anchor_block.message.slot
-    :telemetry.execute([:sync, :store], %{slot: slot})
-    :telemetry.execute([:sync, :on_block], %{slot: slot})
-
-    result
+      {:error, error} ->
+        {:stop, error}
+    end
   end
 
   @impl GenServer
@@ -106,7 +97,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   def handle_call({:get_block, block_root}, _from, state) do
-    {:reply, Map.get(state.blocks, block_root), state}
+    {:reply, Store.get_block(state, block_root), state}
   end
 
   @impl GenServer
@@ -190,7 +181,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end)
   end
 
-  defp process_block(block_root, %SignedBeaconBlock{} = signed_block, store) do
+  defp process_block(_block_root, %SignedBeaconBlock{} = signed_block, store) do
     with {:ok, new_store} <- Handlers.on_block(store, signed_block),
          # process block attestations
          {:ok, new_store} <-
@@ -200,8 +191,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
          {:ok, new_store} <-
            signed_block.message.body.attester_slashings
            |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
-      BlockStore.store_block(signed_block)
-      Map.fetch!(new_store.block_states, block_root) |> StateStore.store_state()
       {:ok, new_store}
     end
   end
