@@ -7,7 +7,7 @@ defmodule SszGenericTestRunner do
   use TestRunner
 
   @disabled [
-    "basic_vector",
+    # "basic_vector",
     "bitlist",
     "bitvector"
     # "boolean",
@@ -78,6 +78,27 @@ defmodule SszGenericTestRunner do
     assert serialized == real_serialized
   end
 
+  defp assert_ssz(
+         "valid",
+         {:vector, _basic_type, _size} = schema,
+         real_serialized,
+         real_deserialized,
+         _expected_hash_tree_root
+       ) do
+    {:ok, deserialized} = SszEx.decode(real_serialized, schema)
+    assert deserialized == real_deserialized
+
+    {:ok, serialized} = SszEx.encode(real_deserialized, schema)
+
+    assert serialized == real_serialized
+
+    # TODO
+
+    # actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
+
+    # assert actual_hash_tree_root == expected_hash_tree_root
+  end
+
   defp assert_ssz("valid", schema, real_serialized, real_deserialized, expected_hash_tree_root) do
     {:ok, deserialized} = SszEx.decode(real_serialized, schema)
     assert deserialized == real_deserialized
@@ -93,6 +114,16 @@ defmodule SszGenericTestRunner do
 
   defp assert_ssz("invalid", schema, real_serialized) do
     catch_error(SszEx.encode(real_serialized, schema))
+  end
+
+  defp get_vec_schema(rest) do
+    case String.split(rest, "_") do
+      ["bool", max_size | _] ->
+        {:vector, :bool, String.to_integer(max_size)}
+
+      ["uint" <> size, max_size | _] ->
+        {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
+    end
   end
 
   defp parse_type(%SpecTestCase{handler: handler, case: cse}) do
@@ -111,19 +142,12 @@ defmodule SszGenericTestRunner do
         [name] = Regex.run(~r/^[^_]+(?=_)/, cse)
         {:container, Module.concat(Helpers.SszStaticContainers, name)}
 
-        # TODO enable when basic_vector and bitlist tests are enable
-        # "basic_vector" ->
-        #   case cse do
-        #     "vec_" <> rest ->
-        #       case String.split(rest, "_") do
-        #         ["bool", max_size | _] ->
-        #           {:vector, :bool, String.to_integer(max_size)}
-        #
-        #         ["uint" <> size, max_size | _] ->
-        #           {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
-        #       end
-        #   end
-        #
+      "basic_vector" ->
+        case cse do
+          "vec_" <> rest ->
+            get_vec_schema(rest)
+        end
+
         # "bitlist" ->
         #   case cse do
         #     "bitlist_" <> rest ->
