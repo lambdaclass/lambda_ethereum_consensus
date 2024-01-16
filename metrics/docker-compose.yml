@@ -1,4 +1,4 @@
-version: '0.1'
+version: '3'
 name: 'lambda-ethereum-consensus-grafana'
 
 services:
@@ -12,10 +12,6 @@ services:
       - ./prometheus:/etc/prometheus
       - prometheus-data:/prometheus
     command: --web.enable-lifecycle  --config.file=/etc/prometheus/prometheus.yml
-    networks:
-      open:
-        aliases:
-          - prometheus
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -27,10 +23,23 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - grafana-data:/var/lib/grafana
-    networks:
-      open:
-        aliases:
-          - grafana
+
+  loki:
+    image: grafana/loki
+    container_name: loki
+    volumes:
+      - ./loki:/etc/loki
+      - loki-data:/var/lib/loki
+    command: --config.file=/etc/loki/loki.yml
+
+  promtail:
+    image: grafana/promtail
+    container_name: promtail
+    volumes:
+      - ./promtail:/etc/promtail
+      - ../logs:/var/log/consensus
+      - promtail-data:/tmp/promtail
+    command: --config.file=/etc/promtail/promtail.yml
 
 networks:
   open:
@@ -39,3 +48,5 @@ networks:
 volumes:
   prometheus-data:
   grafana-data:
+  loki-data:
+  promtail-data:
