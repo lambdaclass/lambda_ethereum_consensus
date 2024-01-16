@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @impl GenServer
   def init(_) do
     :ets.new(@ets_block_by_hash, [:set, :public, :named_table])
-    {:ok, %{}}
+    {:ok, nil}
   end
 
   @impl GenServer
@@ -46,10 +46,16 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   ##########################
 
   defp lookup(block_root) do
-    with nil <- :ets.lookup_element(@ets_block_by_hash, block_root, 2, nil),
-         block when not is_nil(block) <- fetch_block(block_root) do
-      cache_block(block_root, block)
-      block
+    case :ets.lookup_element(@ets_block_by_hash, block_root, 2, nil) do
+      nil -> cache_miss(block_root)
+      block -> block
+    end
+  end
+
+  defp cache_miss(block_root) do
+    case fetch_block(block_root) do
+      nil -> nil
+      block -> cache_block(block_root, block)
     end
   end
 
