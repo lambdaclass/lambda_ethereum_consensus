@@ -26,10 +26,8 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
   def to_bytes({bit_list, len}) do
     # Change the byte order from big endian to little endian (reverse bytes).
     r = rem(len, @bits_per_byte)
-    <<rev_bit_list::integer-size(bit_size(bit_list))>> = bit_list
 
-    <<pre::integer-size(r), post::integer-size(len - r)>> =
-      <<rev_bit_list::integer-size(bit_size(bit_list))>>
+    <<pre::integer-size(r), post::integer-size(len - r)>> = bit_list
 
     <<post::integer-little-size(len - r), 1::integer-little-size(@bits_per_byte - r),
       pre::integer-little-size(r)>>

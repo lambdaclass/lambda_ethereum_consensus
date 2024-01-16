@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.Utils.BitField do
   @moduledoc """
-    Internal representation used by BitList (after trailling bit remove) and BitVector
+  Internal representation used by BitList (after trailling bit remove) and BitVector
   """
 
   @type t :: bitstring
@@ -55,7 +55,7 @@ defmodule LambdaEthereumConsensus.Utils.BitField do
   1. vector[1:] = vector[:size-1]
   2. vector[0] = 0b0
 
-  Internally, this is a left shift, due to the little-endian bit indexing.
+  Internally, this is a left shift, due to the internal big-endian bit representation.
   """
   @spec shift_higher(t, non_neg_integer()) :: t
   def shift_higher(bit_field, steps) do
@@ -69,7 +69,7 @@ defmodule LambdaEthereumConsensus.Utils.BitField do
   1. vector[:size-1] = vector[1:]
   2. vector[size-1] = 0b0
 
-  Internally, this is a right shift, due to the little-endian bit indexing.
+  Internally, this is a left shift, due to the internal big-endian bit representation.
   """
   @spec shift_lower(t, non_neg_integer) :: t
   def shift_lower(bit_field, steps) do
