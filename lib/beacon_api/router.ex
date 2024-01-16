@@ -27,7 +27,7 @@ defmodule BeaconApi.Router do
 
   scope "/api" do
     pipe_through(:api)
-    get "/openapi", OpenApiSpex.Plug.RenderSpec, []
+    get("/openapi", OpenApiSpex.Plug.RenderSpec, [])
   end
 
   # Catch-all route outside of any scope
