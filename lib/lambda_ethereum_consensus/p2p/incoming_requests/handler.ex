@@ -122,7 +122,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     end
   end
 
-
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
     with {:ok, snappy_blocks_by_root_request} <- parse_message_size(message),
          {:ok, ssz_blocks_by_root_request} <- Snappy.decompress(snappy_blocks_by_root_request),
