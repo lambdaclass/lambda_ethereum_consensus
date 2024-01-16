@@ -100,7 +100,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           new_state = send_block_to_forkchoice(state, signed_block, block_root)
 
           # When on checkpoint sync, we might accumulate a couple of hundred blocks in the pending blocks queue.
-          # This can cause the ForkChoie to timeout on other call requests since it has to process all the
+          # This can cause the ForkChoice to timeout on other call requests since it has to process all the
           # pending blocks first.
           # TODO: find a better way to handle this
           Process.sleep(100)
@@ -117,7 +117,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @empty_mapset MapSet.new()
 
   @impl true
-  def handle_info(:download_blocks, %{blocks_to_download: @empty_mapset} = state) do
+  def handle_info(:download_blocks, %{blocks_to_download: to_download} = state)
+      when to_download == @empty_mapset do
     schedule_blocks_download()
     {:noreply, state}
   end
@@ -129,9 +130,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     downloaded_blocks =
       state.blocks_to_download
       |> MapSet.difference(blocks_in_store)
-      |> Enum.to_list()
-      # max 20 blocks per request
-      |> Enum.take(20)
+      |> Enum.take(16)
       |> BlockDownloader.request_blocks_by_root()
       |> case do
         {:ok, signed_blocks} ->

@@ -83,7 +83,7 @@ defmodule SszGenericTestRunner do
          {:vector, _basic_type, _size} = schema,
          real_serialized,
          real_deserialized,
-         _expected_hash_tree_root
+         expected_hash_tree_root
        ) do
     {:ok, deserialized} = SszEx.decode(real_serialized, schema)
     assert deserialized == real_deserialized
@@ -92,11 +92,9 @@ defmodule SszGenericTestRunner do
 
     assert serialized == real_serialized
 
-    # TODO
+    {:ok, actual_hash_tree_root} = SszEx.hash_tree_root(real_deserialized, schema)
 
-    # actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
-
-    # assert actual_hash_tree_root == expected_hash_tree_root
+    assert actual_hash_tree_root == expected_hash_tree_root
   end
 
   defp assert_ssz("valid", schema, real_serialized, real_deserialized, expected_hash_tree_root) do

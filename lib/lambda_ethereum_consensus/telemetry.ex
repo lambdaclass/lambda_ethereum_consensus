@@ -24,6 +24,10 @@ defmodule LambdaEthereumConsensus.Telemetry do
   end
 
   def metrics do
+    buckets =
+      Application.get_env(:lambda_ethereum_consensus, __MODULE__)
+      |> Keyword.fetch!(:block_processing_buckets)
+
     [
       # Phoenix Metrics
       # summary("phoenix.endpoint.start.system_time",
@@ -74,6 +78,14 @@ defmodule LambdaEthereumConsensus.Telemetry do
       # Sync metrics
       last_value("sync.store.slot"),
       last_value("sync.on_block.slot"),
+      distribution("sync.on_block.stop.duration",
+        reporter_options: [buckets: buckets],
+        unit: {:native, :millisecond}
+      ),
+      distribution("sync.on_block.exception.duration",
+        reporter_options: [buckets: buckets],
+        unit: {:native, :millisecond}
+      ),
 
       # VM Metrics
       ## Memory
