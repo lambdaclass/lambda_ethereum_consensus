@@ -7,7 +7,9 @@ services:
     container_name: prometheus
     hostname: prometheus
     volumes:
+      # prometheus configuration
       - ./prometheus:/etc/prometheus
+      # prometheus data
       - prometheus-data:/prometheus
     command: --web.enable-lifecycle  --config.file=/etc/prometheus/prometheus.yml
     networks:
@@ -23,7 +25,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # grafana configuration
       - ./grafana/provisioning:/etc/grafana/provisioning
+      # grafana data
       - grafana-data:/var/lib/grafana
     networks:
       grafana-prometheus:
@@ -37,7 +41,9 @@ services:
     image: grafana/loki
     container_name: loki
     volumes:
+      # loki configuration
       - ./loki:/etc/loki
+      # loki data
       - loki-data:/var/lib/loki
     command: --config.file=/etc/loki/loki.yml
     networks:
@@ -52,8 +58,11 @@ services:
     image: grafana/promtail
     container_name: promtail
     volumes:
+      # promtail configuration
       - ./promtail:/etc/promtail
+      # logs to scrape
       - ../logs:/var/log/consensus
+      # promtail data
       - promtail-data:/tmp/promtail
     command: --config.file=/etc/promtail/promtail.yml
     networks:
