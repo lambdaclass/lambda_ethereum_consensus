@@ -3,6 +3,7 @@ defmodule BeaconApi.Router do
 
   pipeline :api do
     plug(:accepts, ["json"])
+    plug(OpenApiSpex.Plug.PutApiSpec, module: BeaconApi.ApiSpec)
   end
 
   # Ethereum API Version 1
