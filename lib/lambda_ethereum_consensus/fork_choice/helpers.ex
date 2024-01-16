@@ -3,9 +3,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     Utility functions for the fork choice.
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
-  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.StateStore
   alias Plug.Session.Store
   alias Types.BeaconBlock
   alias Types.BeaconState
@@ -229,18 +228,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   def root_by_id(:genesis), do: :not_found
 
   def root_by_id(:justified) do
-    with {:ok, justified_checkpoint} <- ForkChoice.get_justified_checkpoint() do
+    with {:ok, justified_checkpoint} <-
+           StateStore.get_checkpoint_root_from_latest_state(:current_justified_checkpoint) do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, {justified_checkpoint.root, execution_optimistic, false}}
+      {:ok, {justified_checkpoint, execution_optimistic, false}}
     end
   end
 
   def root_by_id(:finalized) do
-    with {:ok, finalized_checkpoint} <- ForkChoice.get_finalized_checkpoint() do
+    with {:ok, finalized_checkpoint} <-
+           StateStore.get_checkpoint_root_from_latest_state(:finalized_checkpoint) do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
+      {:ok, {finalized_checkpoint, execution_optimistic, true}}
     end
   end
 
@@ -255,18 +256,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   def root_by_id(slot) when is_integer(slot) do
     with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
-         {:ok, root} <- BlockStore.get_block_root_by_slot(slot) do
+         {:ok, root} <- StateStore.get_state_root_by_slot(slot) do
       # TODO compute is_optimistic_or_invalid() and is_finalized()
       execution_optimistic = true
       finalized = false
       {:ok, {root, execution_optimistic, finalized}}
-    end
-  end
-
-  @spec get_state_root(Types.root()) :: {:ok, Types.root()} | {:error, String.t()} | :not_found
-  def get_state_root(root) do
-    with {:ok, signed_block} <- BlockStore.get_block(root) do
-      {:ok, signed_block.message.state_root}
     end
   end
 
