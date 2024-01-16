@@ -116,8 +116,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root_vector_basic_type(binary()) ::
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root_vector_basic_type(chunks) do
-    chunks_len = chunks |> get_chunks_len()
-    leaf_count = chunks_len |> next_pow_of_two()
+    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks(chunks, leaf_count)
     {:ok, root}
   end
