@@ -172,8 +172,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     <<value::size(size)-little>> |> pack_bytes()
   end
 
-  @spec pack(list(), {:list, any, non_neg_integer}) :: binary() | :error
-  def pack(list, {:list, schema, _size}) do
+  @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | :error
+  def pack(list, {type, schema, _}) when type in [:vector, :list] do
     if variable_size?(schema) do
       # TODO
       # pack_complex_type_list(list)
