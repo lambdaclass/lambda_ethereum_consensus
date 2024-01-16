@@ -1,19 +1,13 @@
 defmodule BeaconApi.ApiSpec do
   @moduledoc false
-  alias OpenApiSpex.{Info, OpenApi, Paths, Server}
-  alias BeaconApi.{Endpoint, Router}
+  alias OpenApiSpex.OpenApi
   @behaviour OpenApi
 
+  @ethspec "beacon-node-oapi.json"
+           |> File.read!()
+           |> Jason.decode!()
+           |> OpenApiSpex.OpenApi.Decode.decode()
+
   @impl OpenApi
-  def spec do
-    %OpenApi{
-      servers: [Server.from_endpoint(Endpoint)],
-      info: %Info{
-        title: "LambdaEthereumConsensus",
-        version: "0.0.1"
-      },
-      paths: Paths.from_router(Router)
-    }
-    |> OpenApiSpex.resolve_schema_modules()
-  end
+  def spec, do: @ethspec
 end

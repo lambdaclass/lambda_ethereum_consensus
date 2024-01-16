@@ -1,37 +1,19 @@
 defmodule BeaconApi.V1.BeaconController do
+  alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
-
-  alias BeaconApi.Schemas.{
-    InternalErrorStateRootResponse,
-    InvalidStateRootResponse,
-    StateNotFoundStateRootResponse,
-    SuccessStateRootResponse
-  }
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockStore
   use BeaconApi, :controller
-  use OpenApiSpex.ControllerSpecs
 
-  operation(:get_state_root,
-    summary: "Get state SSZ HashTreeRoot",
-    description:
-      "Calculates HashTreeRoot for state with given 'stateId'. If stateId is root, same value will be returned.",
-    parameters: [
-      state_id: [
-        in: :path,
-        type: :string,
-        description:
-          ~s(State identifier Can be one of: "head" \(canonical head in node's view\), "genesis", "finalized", "justified", <slot>, <hex encoded stateRoot with 0x prefix>.)
-      ]
-    ],
-    responses: %{
-      200 => {"Success", "application/json", SuccessStateRootResponse},
-      400 => {"Invalid state ID", "application/json", InvalidStateRootResponse},
-      404 => {"State not found", "application/json", StateNotFoundStateRootResponse},
-      500 => {"Beacon node internal error.", "application/json", InternalErrorStateRootResponse}
-    }
-  )
+  plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
+
+  def open_api_operation(action) do
+    apply(__MODULE__, :"#{action}_operation", [])
+  end
+
+  def get_state_root_operation(),
+    do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/root"].get
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_state_root(conn, %{"state_id" => state_id}) do
@@ -53,6 +35,9 @@ defmodule BeaconApi.V1.BeaconController do
         conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
     end
   end
+
+  def get_block_root_operation(),
+    do: ApiSpec.spec().paths["/eth/v1/beacon/blocks/{block_id}/root"].get
 
   @spec get_block_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_block_root(conn, %{"block_id" => "head"}) do
