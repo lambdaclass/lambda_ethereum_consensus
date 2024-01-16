@@ -6,12 +6,14 @@ services:
     image: prom/prometheus
     container_name: prometheus
     hostname: prometheus
-    ports:
-      - "9090:9090"
     volumes:
       - ./prometheus:/etc/prometheus
       - prometheus-data:/prometheus
     command: --web.enable-lifecycle  --config.file=/etc/prometheus/prometheus.yml
+    networks:
+      grafana-prometheus:
+        aliases:
+          - prometheus
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -23,6 +25,13 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - grafana-data:/var/lib/grafana
+    networks:
+      grafana-prometheus:
+        aliases:
+          - grafana
+      grafana-loki:
+        aliases:
+          - grafana
 
   loki:
     image: grafana/loki
@@ -31,6 +40,13 @@ services:
       - ./loki:/etc/loki
       - loki-data:/var/lib/loki
     command: --config.file=/etc/loki/loki.yml
+    networks:
+      grafana-loki:
+        aliases:
+          - loki
+      loki-promtail:
+        aliases:
+          - loki
 
   promtail:
     image: grafana/promtail
@@ -40,9 +56,17 @@ services:
       - ../logs:/var/log/consensus
       - promtail-data:/tmp/promtail
     command: --config.file=/etc/promtail/promtail.yml
+    networks:
+      loki-promtail:
+        aliases:
+          - promtail
 
 networks:
-  open:
+  grafana-prometheus:
+    driver: bridge
+  grafana-loki:
+    driver: bridge
+  loki-promtail:
     driver: bridge
 
 volumes:
