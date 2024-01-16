@@ -1,6 +1,6 @@
 defmodule ChainSpec.GenConfig do
   @moduledoc """
-  Config behaviour, for auto-implementing configs.
+  Generic config behaviour, for auto-implementing configs.
   """
 
   defmacro __using__(opts) do
@@ -8,9 +8,12 @@ defmodule ChainSpec.GenConfig do
     preset = Keyword.fetch!(opts, :preset)
 
     quote do
-      @external_resource unquote(file)
-      @__parsed_config ConfigUtils.load_config_from_file!(unquote(file))
-      @__unified Map.merge(unquote(preset).get_preset(), @__parsed_config)
+      file = unquote(file)
+      preset = unquote(preset)
+
+      @external_resource file
+      @__parsed_config ConfigUtils.load_config_from_file!(file)
+      @__unified Map.merge(preset.get_preset(), @__parsed_config)
 
       @behaviour unquote(__MODULE__)
 

@@ -7,9 +7,11 @@ defmodule ChainSpec.GenPreset do
     file = Keyword.fetch!(opts, :file)
 
     quote do
-      @external_resource unquote(file)
+      file = unquote(file)
 
-      @__parsed_preset ConfigUtils.load_preset_from_dir!(unquote(file))
+      @external_resource file
+
+      @__parsed_preset ConfigUtils.load_preset_from_dir!(file)
 
       @behaviour unquote(__MODULE__)
 
