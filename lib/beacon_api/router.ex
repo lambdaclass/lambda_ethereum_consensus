@@ -12,6 +12,7 @@ defmodule BeaconApi.Router do
     scope "/beacon" do
       get("/states/:state_id/root", BeaconController, :get_state_root)
       get("/blocks/:block_id/root", BeaconController, :get_block_root)
+      get("/headers/:block_id", BeaconController, :get_block_header)
     end
   end
 

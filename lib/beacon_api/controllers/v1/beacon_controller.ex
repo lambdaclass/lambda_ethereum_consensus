@@ -78,6 +78,7 @@ defmodule BeaconApi.V1.BeaconController do
     })
   end
 
+
   defp root_response(conn, root, execution_optimistic, finalized) do
     conn
     |> json(%{
@@ -85,6 +86,49 @@ defmodule BeaconApi.V1.BeaconController do
       finalized: finalized,
       data: %{
         root: "0x" <> Base.encode16(root, case: :lower)
+      }
+    })
+  end
+
+  @spec get_block_header(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def get_block_header(conn, %{"block_id" => block_id}) do
+    with {:ok, {root, execution_optimistic, finalized}} <-
+           BeaconApi.Utils.parse_id(block_id) |> ForkChoice.Helpers.root_by_id(),
+         {:ok, signed_block} <- BlockStore.get_block(root) do
+      conn |> header_response(root, signed_block, execution_optimistic, finalized)
+    else
+      {:error, error_msg} ->
+        conn |> ErrorController.internal_error("Error: #{inspect(error_msg)}")
+
+      :not_found ->
+        conn |> ErrorController.not_found(nil)
+
+      :empty_slot ->
+        conn |> ErrorController.not_found(nil)
+
+      :invalid_id ->
+        conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
+    end
+  end
+
+  defp header_response(conn, root, signed_block, execution_optimistic, finalized) do
+    conn
+    |> json(%{
+      execution_optimistic: execution_optimistic,
+      finalized: finalized,
+      data: %{
+        root: "0x" <> Base.encode16(root, case: :lower)
+        canonical: true,
+        header: {
+          message: {
+            slot: signed_block.message.slot,
+            proposer_index: signed_block.message.proposer_index,
+            parent_root: signed_block.message.parent_root,
+            state_root: signed_block.message.state_root,
+            body_root: root
+          },
+          signature: signed_block.signature
+        }
       }
     })
   end
