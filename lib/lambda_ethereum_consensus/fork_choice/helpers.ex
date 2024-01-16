@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     Utility functions for the fork choice.
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.StateStore
   alias Plug.Session.Store
@@ -228,20 +229,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   def root_by_id(:genesis), do: :not_found
 
   def root_by_id(:justified) do
-    with {:ok, justified_checkpoint} <-
-           StateStore.get_checkpoint_root_from_latest_state(:current_justified_checkpoint) do
+    with {:ok, justified_checkpoint} <- ForkChoice.get_justified_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, {justified_checkpoint, execution_optimistic, false}}
+      {:ok, {justified_checkpoint.root, execution_optimistic, false}}
     end
   end
 
   def root_by_id(:finalized) do
-    with {:ok, finalized_checkpoint} <-
-           StateStore.get_checkpoint_root_from_latest_state(:finalized_checkpoint) do
+    with {:ok, finalized_checkpoint} <- ForkChoice.get_finalized_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
-      {:ok, {finalized_checkpoint, execution_optimistic, true}}
+      {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
     end
   end
 

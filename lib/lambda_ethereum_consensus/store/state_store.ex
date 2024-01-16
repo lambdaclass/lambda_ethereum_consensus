@@ -61,15 +61,6 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
     end
   end
 
-  @spec get_checkpoint_root_from_latest_state(atom()) ::
-          {:ok, Types.root()} | {:error, String.t()} | :not_found
-  def get_checkpoint_root_from_latest_state(type) do
-    with {:ok, state} <- get_latest_state(),
-         {:ok, checkpoint} <- Map.fetch(state, type) do
-      {:ok, checkpoint.root}
-    end
-  end
-
   defp state_key(root), do: Utils.get_key(@state_prefix, root)
   defp root_by_slot_key(slot), do: Utils.get_key(@stateslot_prefix, slot)
 end
