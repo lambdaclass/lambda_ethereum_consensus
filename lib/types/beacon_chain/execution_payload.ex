@@ -32,14 +32,14 @@ defmodule Types.ExecutionPayload do
           state_root: Types.root(),
           receipts_root: Types.root(),
           # size BYTES_PER_LOGS_BLOOM
-          logs_bloom: list(Types.bytes1()),
+          logs_bloom: binary(),
           prev_randao: Types.bytes32(),
           block_number: Types.uint64(),
           gas_limit: Types.uint64(),
           gas_used: Types.uint64(),
           timestamp: Types.uint64(),
           # size MAX_EXTRA_DATA_BYTES
-          extra_data: list(Types.bytes1()),
+          extra_data: binary(),
           base_fee_per_gas: Types.uint256(),
           block_hash: Types.hash32(),
           # size MAX_TRANSACTIONS_PER_PAYLOAD
