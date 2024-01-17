@@ -241,8 +241,8 @@ defmodule Types.BeaconState do
       {:slot, TypeAliases.slot()},
       {:fork, Types.Fork},
       {:latest_block_header, Types.BeaconBlockHeader},
-      {:block_roots, {:list, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
-      {:state_roots, {:list, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
+      {:block_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
+      {:state_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
       {:historical_roots, {:list, TypeAliases.root(), ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}},
       {:eth1_data, Types.Eth1Data},
       {:eth1_data_votes,
@@ -258,7 +258,7 @@ defmodule Types.BeaconState do
        {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
       {:current_epoch_participation,
        {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
-      {:justification_bits, {:bitvector, 4}},
+      {:justification_bits, {:bitvector, ChainSpec.get("JUSTIFICATION_BITS_LENGTH")}},
       {:previous_justified_checkpoint, Types.Checkpoint},
       {:current_justified_checkpoint, Types.Checkpoint},
       {:finalized_checkpoint, Types.Checkpoint},
@@ -268,7 +268,7 @@ defmodule Types.BeaconState do
       {:next_sync_committee, Types.SyncCommittee},
       {:latest_execution_payload_header, Types.ExecutionPayloadHeader},
       {:next_withdrawal_index, TypeAliases.withdrawal_index()},
-      {:next_withdrawal_validator_index, TypeAliases.withdrawal_index()},
+      {:next_withdrawal_validator_index, TypeAliases.validator_index()},
       {:historical_summaries,
        {:list, Types.HistoricalSummary, ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}}
     ]

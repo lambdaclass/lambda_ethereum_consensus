@@ -18,7 +18,7 @@ defmodule Types.Withdrawal do
   @type t :: %__MODULE__{
           index: Types.withdrawal_index(),
           validator_index: Types.validator_index(),
-          address: Types.hash32(),
+          address: Types.execution_address(),
           amount: Types.gwei()
         }
 
@@ -27,7 +27,7 @@ defmodule Types.Withdrawal do
     [
       {:index, TypeAliases.withdrawal_index()},
       {:validator_index, TypeAliases.validator_index()},
-      {:address, TypeAliases.hash32()},
+      {:address, TypeAliases.execution_address()},
       {:amount, TypeAliases.gwei()}
     ]
   end

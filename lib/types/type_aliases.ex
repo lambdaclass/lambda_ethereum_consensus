@@ -20,4 +20,7 @@ defmodule TypeAliases do
   def uint64, do: {:int, 64}
   def hash32, do: {:bytes, 32}
   def uint256, do: {:int, 256}
+  def transaction, do: {:list, {:bytes, 8}, ChainSpec.get("MAX_BYTES_PER_TRANSACTION")}
+  def domain_type, do: {:bytes, 4}
+  def fork_digest, do: {:bytes, 4}
 end

@@ -45,7 +45,7 @@ defmodule Types.Deposit do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:proof, {:list, {:bytes, 32}, 33}},
+      {:proof, {:vector, TypeAliases.bytes32(), 33}},
       {:data, Types.DepositData}
     ]
   end
