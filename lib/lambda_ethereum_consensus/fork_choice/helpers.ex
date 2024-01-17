@@ -134,23 +134,23 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   # whose leaf state's justified/finalized info agrees with that in ``store``.
   defp get_filtered_block_tree(%Store{} = store) do
     base = store.justified_checkpoint.root
-    {_, blocks} = filter_block_tree(store, base, %{})
+    block = Store.get_block!(store, base)
+    {_, blocks} = filter_block_tree(store, base, block, %{})
     blocks
   end
 
-  defp filter_block_tree(%Store{} = store, block_root, blocks) do
-    block = Store.get_block!(store, block_root)
-
+  defp filter_block_tree(%Store{} = store, block_root, block, blocks) do
     # TODO: this is highly inefficient. We should move to `ForkChoice.Tree` ASAP
     children =
       Store.get_blocks(store)
-      |> Stream.filter(fn {_, block} -> block.parent_root == block_root end)
-      |> Enum.map(fn {root, _} -> root end)
+      |> Enum.filter(fn {_, block} -> block.parent_root == block_root end)
 
     # If any children branches contain expected finalized/justified checkpoints,
     # add to filtered block-tree and signal viability to parent.
     {filter_block_tree_result, new_blocks} =
-      Enum.map_reduce(children, blocks, fn root, acc -> filter_block_tree(store, root, acc) end)
+      Enum.map_reduce(children, blocks, fn {root, block}, acc ->
+        filter_block_tree(store, root, block, acc)
+      end)
 
     cond do
       Enum.any?(filter_block_tree_result) ->

@@ -2,12 +2,13 @@ alias LambdaEthereumConsensus.ForkChoice
 alias LambdaEthereumConsensus.ForkChoice.Handlers
 alias LambdaEthereumConsensus.ForkChoice.Helpers
 alias LambdaEthereumConsensus.StateTransition.Cache
+alias LambdaEthereumConsensus.Store
 alias LambdaEthereumConsensus.Store.BlockStore
-alias LambdaEthereumConsensus.Store.Db
 alias LambdaEthereumConsensus.Store.StateStore
 alias Types.{BeaconState, SignedBeaconBlock}
 
-{:ok, _} = Db.start_link(nil)
+{:ok, _} = Store.Db.start_link(nil)
+{:ok, _} = Store.Blocks.start_link(nil)
 Cache.initialize_cache()
 
 # NOTE: this slot must be at the beginning of an epoch (i.e. a multiple of 32)
