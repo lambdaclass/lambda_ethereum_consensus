@@ -1,6 +1,5 @@
 defmodule SnappyEx do
   import Bitwise
-  import Crc32c
 
   @moduledoc """
     SSZ library in Elixir
