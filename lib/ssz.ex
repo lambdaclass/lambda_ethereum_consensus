@@ -4,6 +4,8 @@ defmodule Ssz do
   """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "ssz_nif"
 
+  @max_u256 2 ** 256 - 1
+
   ##### Functional wrappers
   @spec to_ssz(struct | list(struct)) :: {:ok, binary} | {:error, String.t()}
   def to_ssz(map)
@@ -99,25 +101,25 @@ defmodule Ssz do
 
   ##### Rust-side function stubs
   @spec to_ssz_rs(map | list, module, module) :: {:ok, binary} | {:error, String.t()}
-  def to_ssz_rs(_term, _schema, _config \\ ChainSpec.get_config()), do: error()
+  def to_ssz_rs(_term, _schema, _config \\ ChainSpec.get_preset()), do: error()
 
   @spec from_ssz_rs(binary, module, module) :: {:ok, struct} | {:error, String.t()}
-  def from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_config()), do: error()
+  def from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_preset()), do: error()
 
   @spec list_from_ssz_rs(binary, module, module) :: {:ok, list(struct)} | {:error, String.t()}
-  def list_from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_config()), do: error()
+  def list_from_ssz_rs(_bin, _schema, _config \\ ChainSpec.get_preset()), do: error()
 
   @spec hash_tree_root_rs(map, module, module) :: {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root_rs(_map, _schema, _config \\ ChainSpec.get_config()), do: error()
+  def hash_tree_root_rs(_map, _schema, _config \\ ChainSpec.get_preset()), do: error()
 
   @spec hash_tree_root_list_rs(list, integer, module, module) ::
           {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root_list_rs(_list, _max_size, _schema, _config \\ ChainSpec.get_config()),
+  def hash_tree_root_list_rs(_list, _max_size, _schema, _config \\ ChainSpec.get_preset()),
     do: error()
 
   @spec hash_tree_root_vector_rs(list, integer, module, module) ::
           {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root_vector_rs(_vector, _max_size, _schema, _config \\ ChainSpec.get_config()),
+  def hash_tree_root_vector_rs(_vector, _max_size, _schema, _config \\ ChainSpec.get_preset()),
     do: error()
 
   ##### Utils
@@ -162,13 +164,9 @@ defmodule Ssz do
     function_exported?(module, function, arity)
   end
 
-  @spec encode_u256(non_neg_integer) :: binary
-  def encode_u256(num) do
-    num
-    |> :binary.encode_unsigned(:little)
-    |> String.pad_trailing(32, <<0>>)
-  end
+  @spec encode_u256(Types.uint256()) :: Types.bytes32()
+  def encode_u256(num) when num <= @max_u256, do: <<num::little-size(256)>>
 
-  @spec decode_u256(binary) :: non_neg_integer
-  def decode_u256(num), do: :binary.decode_unsigned(num, :little)
+  @spec decode_u256(Types.bytes32()) :: Types.uint256()
+  def decode_u256(<<num::little-size(256)>>), do: num
 end

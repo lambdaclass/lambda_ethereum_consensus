@@ -60,6 +60,12 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   end
 
   @impl true
+  def handle_info(:prune, peerbook) when map_size(peerbook) == 0 do
+    schedule_pruning()
+    {:noreply, peerbook}
+  end
+
+  @impl true
   def handle_info(:prune, peerbook) do
     len = map_size(peerbook)
 
