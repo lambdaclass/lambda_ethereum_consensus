@@ -7,7 +7,6 @@ defmodule BeaconApi.V2.BeaconController do
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
   def open_api_operation(action) do
-    IO.puts("action #{inspect(action)}")
     apply(__MODULE__, :"#{action}_operation", [])
   end
 
