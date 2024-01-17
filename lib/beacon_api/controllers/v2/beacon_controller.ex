@@ -14,7 +14,7 @@ defmodule BeaconApi.V2.BeaconController do
     do: ApiSpec.spec().paths["/eth/v2/beacon/blocks/{block_id}"].get
 
   @spec get_block(Plug.Conn.t(), any) :: Plug.Conn.t()
-  def get_block(conn, %{block_id:  "head"}) do
+  def get_block(conn, %{block_id: "head"}) do
     # TODO: determine head and return it
     conn |> block_not_found()
   end
