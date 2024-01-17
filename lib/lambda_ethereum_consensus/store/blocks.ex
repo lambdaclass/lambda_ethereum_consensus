@@ -70,5 +70,6 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
 
   defp cache_block(block_root, signed_block) do
     :ets.insert_new(@ets_block_by_hash, {block_root, signed_block})
+    signed_block
   end
 end
