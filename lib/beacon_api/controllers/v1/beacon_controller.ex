@@ -78,7 +78,6 @@ defmodule BeaconApi.V1.BeaconController do
     })
   end
 
-
   defp root_response(conn, root, execution_optimistic, finalized) do
     conn
     |> json(%{
@@ -111,16 +110,68 @@ defmodule BeaconApi.V1.BeaconController do
     end
   end
 
+  @spec get_block_headers(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def get_block_headers(conn, %{"slot" => slot, "parent_root" => parent_root} = params) do
+    with {:ok, block_id} <- get_block_id_from_slot_or_parent_root(slot, parent_root),
+         {:ok, {root, execution_optimistic, finalized}} <-
+           BeaconApi.Utils.parse_id(block_id) |> ForkChoice.Helpers.root_by_id(),
+         {:ok, signed_block} <-
+           BlockStore.get_block(root),
+         {:ok, signed_block} <-
+           validate_block_matches_with_optional_parent_root(signed_block, parent_root) do
+      conn |> header_response(root, signed_block, execution_optimistic, finalized)
+    else
+      {:error, error_msg} ->
+        conn |> ErrorController.internal_error("Error: #{inspect(error_msg)}")
+
+      :not_found ->
+        conn |> ErrorController.not_found(nil)
+
+      :empty_slot ->
+        conn |> ErrorController.not_found(nil)
+
+      :invalid_id ->
+        conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
+    end
+  end
+
+  defp get_block_id_from_parent_root_or_slot({slot, parent_root}) do
+    case {slot, parent_root} do
+      {nil, nil} ->
+        {:ok, "head"}
+
+      {nil, parent_root} ->
+        parent_block = BlockStore.get_block(parent_root)
+        parent_slot = parent_block.message.slot
+        # TODO: ignore any skip-slots immediatly following the parent
+        {:ok, parent_slot + 1}
+
+      {slot, _parent_block} ->
+        {:ok, slot}
+    end
+  end
+
+  defp validate_block_matches_with_optional_parent_root(signed_block, nil),
+    do: {:ok, signed_block}
+
+  defp validate_block_matches_with_optional_parent_root(signed_block, parent_root) do
+    if signed_block.message.parent_root == parent_root do
+      {:ok, signed_block}
+    else
+      {:error, "no canonical block at slot #{slot} with parent root #{parent_root}"}
+    end
+  end
+
   defp header_response(conn, root, signed_block, execution_optimistic, finalized) do
     conn
     |> json(%{
       execution_optimistic: execution_optimistic,
       finalized: finalized,
       data: %{
-        root: "0x" <> Base.encode16(root, case: :lower)
+        root: "0x" <> Base.encode16(root, case: :lower),
         canonical: true,
-        header: {
-          message: {
+        header: %{
+          message: %{
             slot: signed_block.message.slot,
             proposer_index: signed_block.message.proposer_index,
             parent_root: signed_block.message.parent_root,
