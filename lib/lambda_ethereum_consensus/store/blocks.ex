@@ -4,7 +4,10 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
 
   use GenServer
 
-  @ets_block_by_hash __MODULE__
+  @ets_block_by_hash :blocks_by_hash
+  @ets_ttl_data :"#{@ets_block_by_hash}_ttl_data"
+  @max_blocks 512
+  @batch_prune_size 32
 
   ##########################
   ### Public API
@@ -30,6 +33,15 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
 
   @impl GenServer
   def init(_) do
+    :ets.new(@ets_ttl_data, [
+      :ordered_set,
+      :private,
+      :named_table,
+      read_concurrency: false,
+      write_concurrency: false,
+      decentralized_counters: false
+    ])
+
     :ets.new(@ets_block_by_hash, [:set, :public, :named_table])
     {:ok, nil}
   end
@@ -37,7 +49,13 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @impl GenServer
   def handle_cast({:store_block, block_root, signed_block}, state) do
     BlockStore.store_block(signed_block, block_root)
-    # TODO: remove old blocks from cache
+    handle_cast({:touch_entry, block_root}, state)
+  end
+
+  @impl GenServer
+  def handle_cast({:touch_entry, block_root}, state) do
+    update_ttl(block_root)
+    prune_cache()
     {:noreply, state}
   end
 
@@ -47,8 +65,12 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
 
   defp lookup(block_root) do
     case :ets.lookup_element(@ets_block_by_hash, block_root, 2, nil) do
-      nil -> cache_miss(block_root)
-      block -> block
+      nil ->
+        cache_miss(block_root)
+
+      block ->
+        GenServer.cast(__MODULE__, {:touch_entry, block_root})
+        block
     end
   end
 
@@ -69,7 +91,36 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   end
 
   defp cache_block(block_root, signed_block) do
-    :ets.insert_new(@ets_block_by_hash, {block_root, signed_block})
+    :ets.insert_new(@ets_block_by_hash, {block_root, signed_block, nil})
+    GenServer.cast(__MODULE__, {:touch_entry, block_root})
     signed_block
+  end
+
+  defp update_ttl(block_root) do
+    delete_ttl(block_root)
+    uniq = :erlang.unique_integer([:monotonic])
+    :ets.insert_new(@ets_ttl_data, {uniq, block_root})
+  end
+
+  defp delete_ttl(block_root) do
+    case :ets.lookup_element(@ets_block_by_hash, block_root, 3, nil) do
+      nil -> nil
+      uniq -> :ets.delete(@ets_ttl_data, uniq)
+    end
+  end
+
+  defp prune_cache do
+    to_prune = :ets.info(@ets_block_by_hash, :size) - @max_blocks
+
+    if to_prune > 0 do
+      {elems, _cont} =
+        :ets.select(@ets_ttl_data, [{:_, [], [:"$_"]}], to_prune + @batch_prune_size)
+
+      elems
+      |> Enum.each(fn {uniq, root} ->
+        :ets.delete(@ets_ttl_data, uniq)
+        :ets.delete(@ets_block_by_hash, root)
+      end)
+    end
   end
 end
