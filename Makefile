@@ -2,7 +2,7 @@
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
-		clean-tests gen-spec compile-all
+		clean-tests gen-spec compile-all download-beacon-node-oapi
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -125,6 +125,17 @@ sepolia: compile-all
 #🔴 test: @ Run tests
 test: compile-all
 	mix test --no-start --exclude spectest
+
+#### BEACON NODE OAPI ####
+OAPI_NAME = beacon-node-oapi
+OAPI_VERSION := $(shell cat .oapi_version)
+$(OAPI_NAME).json:
+	curl -L -o "$@" \
+		"https://ethereum.github.io/beacon-APIs/releases/${OAPI_VERSION}/beacon-node-oapi.json"
+
+OPENAPI_JSON := $(OAPI_NAME).json 
+
+download-beacon-node-oapi: ${OPENAPI_JSON}
 
 ##### SPEC TEST VECTORS #####
 

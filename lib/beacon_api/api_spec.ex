@@ -3,7 +3,9 @@ defmodule BeaconApi.ApiSpec do
   alias OpenApiSpex.OpenApi
   @behaviour OpenApi
 
-  @ethspec "beacon-node-oapi.json"
+  file = "beacon-node-oapi.json"
+  @external_resource file
+  @ethspec file
            |> File.read!()
            |> Jason.decode!()
            |> OpenApiSpex.OpenApi.Decode.decode()
