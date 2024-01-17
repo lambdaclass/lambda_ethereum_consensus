@@ -21,7 +21,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
 
   def get_state(block_root), do: lookup(block_root)
 
-  @spec clear() :: :ok
+  @spec clear() :: any()
   def clear, do: :ets.delete_all_objects(@ets_state_by_block)
 
   ##########################
@@ -31,13 +31,13 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   @impl GenServer
   def init(_) do
     :ets.new(@ets_state_by_block, [:set, :public, :named_table])
-    {:ok, %{}}
+    {:ok, nil}
   end
 
   @impl GenServer
   def handle_cast({:store_state, block_root, beacon_state}, state) do
     StateStore.store_state(beacon_state, block_root)
-    # TODO: remove old blocks from cache
+    # TODO: remove old states from cache
     {:noreply, state}
   end
 
@@ -46,10 +46,16 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   ##########################
 
   defp lookup(block_root) do
-    with nil <- :ets.lookup_element(@ets_state_by_block, block_root, 2, nil),
-         state when not is_nil(state) <- fetch_state(block_root) do
-      cache_state(block_root, state)
-      state
+    case :ets.lookup_element(@ets_state_by_block, block_root, 2, nil) do
+      nil -> cache_miss(block_root)
+      state -> state
+    end
+  end
+
+  defp cache_miss(block_root) do
+    case fetch_state(block_root) do
+      nil -> nil
+      state -> cache_state(block_root, state)
     end
   end
 
