@@ -16,6 +16,11 @@ config :logger, level: :info, truncate: :infinity
 #     compress_on_rotate: true
 #   ]
 
+## TODO: we might want to enable this with a CLI flag
+config :logger, :default_formatter,
+  format: "[$date $time] $metadata level=$level $message\n",
+  metadata: [:mfa, :registered_name]
+
 # Configures the phoenix endpoint
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
   http: [port: 4000],
