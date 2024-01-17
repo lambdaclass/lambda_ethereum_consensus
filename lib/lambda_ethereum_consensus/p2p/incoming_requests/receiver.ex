@@ -22,6 +22,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Receiver do
       "goodbye/1",
       "ping/1",
       "beacon_blocks_by_range/2",
+      "beacon_blocks_by_root/2",
       "metadata/2"
     ]
     |> Stream.map(&Enum.join([@prefix, &1, "/ssz_snappy"]))
