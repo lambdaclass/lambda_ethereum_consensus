@@ -4,15 +4,6 @@ import Config
 # Configure logging
 config :logger, level: :info, truncate: :infinity
 
-# Configures the phoenix endpoint
-config :lambda_ethereum_consensus, BeaconApi.Endpoint,
-  http: [port: 4000],
-  url: [host: "localhost"],
-  render_errors: [
-    formats: [json: BeaconApi.ErrorJSON],
-    layout: false
-  ]
-
 ## TODO: we might want to enable this with a CLI flag
 ## Uncomment to log to a file
 # config :logger, :default_handler,
@@ -24,6 +15,15 @@ config :lambda_ethereum_consensus, BeaconApi.Endpoint,
 #     max_no_files: 5,
 #     compress_on_rotate: true
 #   ]
+
+# Configures the phoenix endpoint
+config :lambda_ethereum_consensus, BeaconApi.Endpoint,
+  http: [port: 4000],
+  url: [host: "localhost"],
+  render_errors: [
+    formats: [json: BeaconApi.ErrorJSON],
+    layout: false
+  ]
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry, enable: true
 
