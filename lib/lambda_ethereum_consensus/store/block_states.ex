@@ -1,5 +1,7 @@
 defmodule LambdaEthereumConsensus.Store.BlockStates do
-  @moduledoc false
+  @moduledoc """
+  DB cache for StateStore.
+  """
   alias LambdaEthereumConsensus.Store.StateStore
 
   use GenServer
