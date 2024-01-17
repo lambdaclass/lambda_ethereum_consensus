@@ -11,7 +11,7 @@ alias Types.{BeaconState, SignedBeaconBlock}
 Cache.initialize_cache()
 
 # NOTE: this slot must be at the beginning of an epoch (i.e. a multiple of 32)
-slot = 8_179_616
+slot = 8_210_240
 
 IO.puts("fetching blocks...")
 {:ok, %BeaconState{} = state} = StateStore.get_state_by_slot(slot)
@@ -19,8 +19,7 @@ IO.puts("fetching blocks...")
 {:ok, %SignedBeaconBlock{} = new_block} = BlockStore.get_block_by_slot(slot + 1)
 
 IO.puts("initializing store...")
-%SignedBeaconBlock{message: message} = block
-{:ok, store} = Helpers.get_forkchoice_store(state, message)
+{:ok, store} = Helpers.get_forkchoice_store(state, block, true)
 store = Handlers.on_tick(store, store.time + 30)
 
 attestations = new_block.message.body.attestations
