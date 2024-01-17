@@ -142,6 +142,10 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  def merkleize_chunks_with_virtual_padding(chunks, leaf_count \\ nil) do
+    <<>>
+  end
+
   @spec pack(boolean, :bool) :: binary()
   def pack(true, :bool), do: <<1::@bits_per_chunk-little>>
   def pack(false, :bool), do: @zero_chunk
@@ -160,6 +164,16 @@ defmodule LambdaEthereumConsensus.SszEx do
     else
       pack_basic_type_list(list, schema)
     end
+  end
+
+  def chunk_count({:list, {:int, size}, max_size}) do
+    size = size_of({:int, size})
+    (max_size * size + 31) |> div(32)
+  end
+
+  def chunk_count({:list, :bool, max_size}) do
+    size = size_of(:bool)
+    (max_size * size + 31) |> div(32)
   end
 
   #################
@@ -599,16 +613,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp size_of(:bool), do: @bytes_per_boolean
 
   defp size_of({:int, size}), do: size |> div(@bits_per_byte)
-
-  defp chunk_count({:list, {:int, size}, max_size}) do
-    size = size_of({:int, size})
-    (max_size * size + 31) |> div(32)
-  end
-
-  defp chunk_count({:list, :bool, max_size}) do
-    size = size_of(:bool)
-    (max_size * size + 31) |> div(32)
-  end
 
   defp pack_basic_type_list(list, schema) do
     list
