@@ -106,19 +106,23 @@ defmodule BeaconApi.V1.BeaconController do
         conn |> ErrorController.not_found(nil)
 
       :invalid_id ->
-        conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
+        conn |> ErrorController.bad_request("Invalid block ID: #{block_id}")
     end
   end
 
   @spec get_block_headers(Plug.Conn.t(), any) :: Plug.Conn.t()
-  def get_block_headers(conn, %{"slot" => slot, "parent_root" => parent_root} = params) do
-    with {:ok, block_id} <- get_block_id_from_slot_or_parent_root(slot, parent_root),
+  def get_block_headers(conn, %{"slot" => slot, "parent_root" => parent_root} = _params) do
+    with raw_block_id <- get_block_id_from_slot_or_parent_root(slot, parent_root),
          {:ok, {root, execution_optimistic, finalized}} <-
-           BeaconApi.Utils.parse_id(block_id) |> ForkChoice.Helpers.root_by_id(),
+           BeaconApi.Utils.parse_id(raw_block_id) |> ForkChoice.Helpers.root_by_id(),
          {:ok, signed_block} <-
            BlockStore.get_block(root),
          {:ok, signed_block} <-
-           validate_block_matches_with_optional_parent_root(signed_block, parent_root) do
+           validate_block_matches_with_optional_parent_root_and_slot(
+             signed_block,
+             parent_root,
+             raw_block_id
+           ) do
       conn |> header_response(root, signed_block, execution_optimistic, finalized)
     else
       {:error, error_msg} ->
@@ -129,32 +133,29 @@ defmodule BeaconApi.V1.BeaconController do
 
       :empty_slot ->
         conn |> ErrorController.not_found(nil)
-
-      :invalid_id ->
-        conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
     end
   end
 
-  defp get_block_id_from_parent_root_or_slot({slot, parent_root}) do
+  defp get_block_id_from_slot_or_parent_root(slot, parent_root) do
     case {slot, parent_root} do
       {nil, nil} ->
-        {:ok, "head"}
+        "head"
 
       {nil, parent_root} ->
         parent_block = BlockStore.get_block(parent_root)
         parent_slot = parent_block.message.slot
         # TODO: ignore any skip-slots immediatly following the parent
-        {:ok, parent_slot + 1}
+        parent_slot + 1
 
       {slot, _parent_block} ->
-        {:ok, slot}
+        slot
     end
   end
 
-  defp validate_block_matches_with_optional_parent_root(signed_block, nil),
+  defp validate_block_matches_with_optional_parent_root_and_slot(signed_block, nil, _slot),
     do: {:ok, signed_block}
 
-  defp validate_block_matches_with_optional_parent_root(signed_block, parent_root) do
+  defp validate_block_matches_with_optional_parent_root_and_slot(signed_block, parent_root, slot) do
     if signed_block.message.parent_root == parent_root do
       {:ok, signed_block}
     else
