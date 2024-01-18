@@ -3,7 +3,7 @@ defmodule Types.Store do
     The Store struct is used to track information required for the fork choice algorithm.
   """
 
-  alias LambdaEthereumConsensus.ForkChoice.Tree
+  alias LambdaEthereumConsensus.ForkChoice.Simple.Tree
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks

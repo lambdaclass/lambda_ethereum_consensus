@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.ForkChoice.OldTree do
+defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   @moduledoc """
   Fork tree. Nodes are represented as tuples. Usage:
 

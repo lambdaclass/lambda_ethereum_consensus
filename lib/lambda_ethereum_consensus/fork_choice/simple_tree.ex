@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.ForkChoice.Tree do
+defmodule LambdaEthereumConsensus.ForkChoice.Simple.Tree do
   @moduledoc false
 
   defmodule Node do
