@@ -14,14 +14,14 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       :genesis_time,
       :genesis_validators_root,
       :time,
-      :fork_choice
+      :cached_fork_choice
     ]
 
     @type t :: %__MODULE__{
             genesis_time: Types.uint64(),
             genesis_validators_root: Types.bytes32(),
             time: Types.uint64(),
-            fork_choice: %{
+            cached_fork_choice: %{
               head_root: Types.root(),
               head_slot: Types.slot(),
               finalized_root: Types.root(),
@@ -82,7 +82,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
      %BeaconChainState{
        genesis_time: anchor_state.genesis_time,
        genesis_validators_root: anchor_state.genesis_validators_root,
-       fork_choice: %{
+       cached_fork_choice: %{
          head_root: <<0::256>>,
          head_slot: anchor_state.slot,
          finalized_root: anchor_state.finalized_checkpoint.root,
@@ -147,7 +147,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       ) do
     {:noreply,
      state
-     |> Map.put(:fork_choice, %{
+     |> Map.put(:cached_fork_choice, %{
        head_root: head_root,
        head_slot: head_slot,
        finalized_root: finalized_root,
