@@ -47,11 +47,9 @@ jobs:
           sudo apt-get install -y protobuf-compiler
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           protoc --go_out=./native/libp2p_port proto/libp2p.proto
-      - name: Download Beacon Node oapi
-        run: make download-beacon-node-oapi
       - name: Compile native code
         if: steps.output-cache.outputs.cache-hit != 'true'
-        run: make compile-port compile-native
+        run: make download-beacon-node-oapi compile-port compile-native
 
   build:
     name: Build project
