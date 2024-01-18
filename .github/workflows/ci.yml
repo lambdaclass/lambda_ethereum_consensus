@@ -91,6 +91,12 @@ jobs:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
+    - name: Fetch beacon node oapi file
+      uses: actions/cache/restore@v3
+      with:
+        path: ./beacon-node-oapi.json
+        key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+        fail-on-cache-miss: true
     - name: Install dependencies
       run: |
         sudo apt-get install -y protobuf-compiler
