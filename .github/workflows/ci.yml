@@ -126,7 +126,7 @@ jobs:
 
   smoke:
     name: Start and stop the node
-    needs: compile-native
+    needs: [compile-native, download-beacon-node-oapi]
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
@@ -148,6 +148,12 @@ jobs:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
+    - name: Fetch beacon node oapi file
+      uses: actions/cache/restore@v3
+      with:
+        path: ./beacon-node-oapi.json
+        key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+        fail-on-cache-miss: true
     - name: Install dependencies
       run: |
         sudo apt-get install -y protobuf-compiler
@@ -167,7 +173,7 @@ jobs:
 
   test:
     name: Test
-    needs: compile-native
+    needs: [compile-native, download-beacon-node-oapi]
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
@@ -189,6 +195,12 @@ jobs:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
+    - name: Fetch beacon node oapi file
+      uses: actions/cache/restore@v3
+      with:
+        path: ./beacon-node-oapi.json
+        key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+        fail-on-cache-miss: true
     - name: Set up cargo cache
       uses: Swatinem/rust-cache@v2
       with:
@@ -245,7 +257,7 @@ jobs:
 
   spectests:
     name: Run spec-tests
-    needs: [compile-native, download-spectests]
+    needs: [compile-native, download-spectests, download-beacon-node-oapi]
     strategy:
       matrix:
         config: ["minimal", "general", "mainnet"]
@@ -275,6 +287,12 @@ jobs:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-
+      - name: Fetch beacon node oapi file
+        uses: actions/cache/restore@v3
+        with:
+          path: ./beacon-node-oapi.json
+          key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+          fail-on-cache-miss: true
       - name: Set up cargo cache
         uses: Swatinem/rust-cache@v2
         with:
