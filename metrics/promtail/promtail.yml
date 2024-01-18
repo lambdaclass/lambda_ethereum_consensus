@@ -16,3 +16,20 @@ scrape_configs:
         labels:
           job: lambda_ethereum_consensus
           __path__: /var/log/consensus/*log
+    pipeline_stages:
+      - logfmt:
+          mapping:
+            ts:
+            level:
+            msg:
+            mfa:
+            process: registered_name
+      - timestamp:
+          format: "2006-01-02T15:04:05.000"
+          source: ts
+      - labels:
+          level:
+          mfa:
+          process:
+      - output:
+          source: msg
