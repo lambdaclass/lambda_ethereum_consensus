@@ -49,7 +49,23 @@ jobs:
           protoc --go_out=./native/libp2p_port proto/libp2p.proto
       - name: Compile native code
         if: steps.output-cache.outputs.cache-hit != 'true'
-        run: make download-beacon-node-oapi compile-port compile-native
+        run: make compile-port compile-native
+
+  download-beacon-node-oapi:
+    name: Download Beacon Node OAPI
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache compressed spectests
+        id: output-cache
+        uses: actions/cache@v3
+        with:
+          path: ./beacon-node-oapi.json
+          key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+          lookup-only: true
+      - name: Download Beacon Node OAPI
+        if: steps.output-cache.outputs.cache-hit != 'true'
+        run: make download-beacon-node-oapi
 
   build:
     name: Build project
