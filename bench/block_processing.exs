@@ -25,6 +25,9 @@ store = Handlers.on_tick(store, store.time + 30)
 attestations = new_block.message.body.attestations
 attester_slashings = new_block.message.body.attester_slashings
 
+{:ok, root} = BlockStore.get_block_root_by_slot(slot)
+
+IO.puts("about to process block: #{slot + 1}, with root: #{Base.encode16(root)}...")
 IO.puts("#{length(attestations)} attestations ; #{length(attester_slashings)} attester slashings")
 IO.puts("")
 
