@@ -1,6 +1,5 @@
 alias LambdaEthereumConsensus.ForkChoice
 alias LambdaEthereumConsensus.ForkChoice.Handlers
-alias LambdaEthereumConsensus.ForkChoice.Helpers
 alias LambdaEthereumConsensus.StateTransition.Cache
 alias LambdaEthereumConsensus.Store
 alias LambdaEthereumConsensus.Store.BlockStore
@@ -20,7 +19,7 @@ IO.puts("fetching blocks...")
 {:ok, %SignedBeaconBlock{} = new_block} = BlockStore.get_block_by_slot(slot + 1)
 
 IO.puts("initializing store...")
-{:ok, store} = Helpers.get_forkchoice_store(state, block, true)
+{:ok, store} = Types.Store.get_forkchoice_store(state, block, true)
 store = Handlers.on_tick(store, store.time + 30)
 
 attestations = new_block.message.body.attestations
