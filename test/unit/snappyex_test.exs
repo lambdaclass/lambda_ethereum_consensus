@@ -4,8 +4,6 @@ defmodule Unit.SnappyExTest do
   alias SnappyEx
   doctest SnappyEx
 
-  def stream_identifier, do: <<0xFF, 0x06, 0x00, 0x00, 0x73, 0x4E, 0x61, 0x50, 0x70, 0x59>>
-
   def assert_snappy_decompress_frames(compressed, uncompressed) do
     {:ok, ^uncompressed} =
       compressed
