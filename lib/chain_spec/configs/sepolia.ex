@@ -2,5 +2,5 @@ defmodule SepoliaConfig do
   @moduledoc """
   Sepolia config constants.
   """
-  use ChainSpec.GenConfig, file: "config/networks/sepolia/config.yaml", preset: MainnetPreset
+  use ChainSpec.GenConfig, file: "config/networks/sepolia/config.yaml"
 end
