@@ -69,7 +69,7 @@ jobs:
 
   build:
     name: Build project
-    needs: compile-native
+    needs: [compile-native, download-beacon-node-oapi]
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
