@@ -13,16 +13,16 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   def verify_and_notify_new_payload(execution_payload) do
     result = EngineApi.new_payload(execution_payload)
 
-    Logger.info("#{inspect(result)}")
-
     case result do
       {:ok, %{"status" => "SYNCING"}} ->
         {:ok, true}
 
       {:ok, %{"status" => "VALID"}} ->
+        Logger.info("Block execution payload is valid")
         {:ok, true}
 
       {:ok, %{"status" => "INVALID"}} ->
+        Logger.error("Block execution payload is invalid")
         {:ok, false}
 
       {:error, error} ->
@@ -50,8 +50,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
       safe_block_hash: safe_block_hash
     }
 
-    result = EngineApi.forkchoice_updated(fork_choice_state, nil)
-    IO.inspect(result)
-    result
+    EngineApi.forkchoice_updated(fork_choice_state, nil)
   end
 end
