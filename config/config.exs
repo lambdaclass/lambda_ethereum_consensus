@@ -2,10 +2,10 @@
 import Config
 
 # Configure logging
-config :logger, level: :info, truncate: :infinity
+config :logger, level: :info, truncate: :infinity, utc_log: true
 
-## TODO: we might want to enable this with a CLI flag
-## Uncomment to log to a file
+# # Uncomment to log to a file
+# # TODO: we might want to enable this with a CLI flag
 # config :logger, :default_handler,
 #   config: [
 #     file: ~c"logs/system.log",
@@ -16,10 +16,18 @@ config :logger, level: :info, truncate: :infinity
 #     compress_on_rotate: true
 #   ]
 
-## TODO: we might want to enable this with a CLI flag
-config :logger, :default_formatter,
-  format: "[$date $time] $metadata level=$level $message\n",
-  metadata: [:mfa, :registered_name]
+# # NOTE: We want to log UTC timestamps, for convenience
+# config :logger, utc_log: true
+
+# config :logger, :default_formatter,
+#   format: {LogfmtEx, :format},
+#   colors: [enabled: false],
+#   metadata: [:mfa]
+
+# config :logfmt_ex, :opts,
+#   message_key: "msg",
+#   timestamp_key: "ts",
+#   timestamp_format: :iso8601
 
 # Configures the phoenix endpoint
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,

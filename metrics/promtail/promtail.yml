@@ -10,15 +10,26 @@ clients:
 
 scrape_configs:
   - job_name: system
-    pipeline_stages:
-      - regex:
-        expression: "^\\[(?P<timestamp>[\\w: -]+)\\] (?P<mfa>\\S+) (?P<user>\\S+) \\[(?P<timestamp>[\\w:/]+\\s[+\\-]\\d{4})\\] \"(?P<action>\\S+)\\s?(?P<path>\\S+)?\\s?(?P<protocol>\\S+)?\" (?P<status_code>\\d{3}|-) (?P<size>\\d+|-)\\s?\"?(?P<referer>[^\"]*)\"?\\s?\"?(?P<useragent>[^\"]*)?\"?$"
-      - labels:
-        timestamp:
-        status_code:
     static_configs:
       - targets:
           - localhost
         labels:
           job: lambda_ethereum_consensus
           __path__: /var/log/consensus/*log
+    pipeline_stages:
+      - logfmt:
+          mapping:
+            ts:
+            level:
+            msg:
+            mfa:
+            process: registered_name
+      - timestamp:
+          format: "2006-01-02T15:04:05.000"
+          source: ts
+      - labels:
+          level:
+          mfa:
+          process:
+      - output:
+          source: msg
