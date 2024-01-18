@@ -13,7 +13,6 @@ defmodule Unit.SnappyExTest do
       |> Base.decode16!()
       |> SnappyEx.decompress_frames()
 
-    # IO.inspect(value, label: "snappy value")
   end
 
   test "test valid stream identifier" do
