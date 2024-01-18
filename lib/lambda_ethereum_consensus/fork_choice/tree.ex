@@ -5,8 +5,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
     @moduledoc false
     defstruct [:parent_id, :id, :children_ids]
     @type id :: Types.root()
+    @type parent_id :: id() | :root
     @type t :: %__MODULE__{
-            parent_id: id | :root,
+            parent_id: parent_id(),
             id: id,
             children_ids: [id]
           }
@@ -21,8 +22,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   ### Public API
   ##########################
 
-  @spec new(Node.id()) :: GenServer.on_start()
-  def new(root) do
+  @spec new(Node.id()) :: t()
+  def new(root) when is_binary(root) do
     root_node = %Node{parent_id: :root, id: root, children_ids: []}
     %__MODULE__{root: root, nodes: %{root => root_node}}
   end
@@ -68,6 +69,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
       {:ok, new_tree} -> new_tree
     end
   end
+
+  @spec get_all_blocks(t()) :: [{Node.id(), Node.parent_id()}]
+  def get_all_blocks(%{nodes: nodes}),
+    do: nodes |> Enum.map(fn {id, %{parent_id: p_id}} -> {id, p_id} end)
 
   ##########################
   ### Private Functions
