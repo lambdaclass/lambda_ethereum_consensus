@@ -4,6 +4,7 @@ defmodule Types.BeaconState do
   Related definitions in `native/ssz_nif/src/types/`.
   """
   @behaviour LambdaEthereumConsensus.Container
+  alias LambdaEthereumConsensus.Utils.BitVector
 
   fields = [
     :genesis_time,
@@ -78,7 +79,7 @@ defmodule Types.BeaconState do
           current_epoch_participation: Aja.Vector.t(Types.participation_flags()),
           # Finality
           # Bit set for every recent justified epoch size 4
-          justification_bits: Types.bitvector(),
+          justification_bits: BitVector.t(),
           previous_justified_checkpoint: Types.Checkpoint.t(),
           current_justified_checkpoint: Types.Checkpoint.t(),
           finalized_checkpoint: Types.Checkpoint.t(),
@@ -252,8 +253,8 @@ defmodule Types.BeaconState do
       {:validators, {:list, Types.Validator, ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
       {:balances, {:list, TypeAliases.gwei(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
       {:randao_mixes,
-       {:list, TypeAliases.bytes32(), ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")}},
-      {:slashings, {:list, TypeAliases.gwei(), ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")}},
+       {:vector, TypeAliases.bytes32(), ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")}},
+      {:slashings, {:vector, TypeAliases.gwei(), ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")}},
       {:previous_epoch_participation,
        {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
       {:current_epoch_participation,
