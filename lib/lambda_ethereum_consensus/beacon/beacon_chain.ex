@@ -110,13 +110,15 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @impl true
+  @spec handle_call(:get_current_status_message, any, BeaconChainState.t()) ::
+          {:reply, Types.StatusMessage.t(), BeaconChainState.t()}
   def handle_call(:get_current_status_message, _from, state) do
     %{
       head_root: head_root,
       head_slot: head_slot,
       finalized_root: finalized_root,
       finalized_epoch: finalized_epoch
-    } = state.fork_choice
+    } = state.cached_fork_choice
 
     status_message = %Types.StatusMessage{
       fork_digest: compute_fork_digest(head_slot, state.genesis_validators_root),
