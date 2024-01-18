@@ -1,6 +1,7 @@
 defmodule LambdaEthereumConsensus.Store.Blocks do
   @moduledoc false
   alias LambdaEthereumConsensus.Store.BlockStore
+  alias Types.SignedBeaconBlock
 
   use GenServer
 
@@ -13,15 +14,18 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   ### Public API
   ##########################
 
+  @spec start_link(any()) :: GenServer.on_start()
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
+  @spec store_block(Types.root(), SignedBeaconBlock.t()) :: :ok
   def store_block(block_root, signed_block) do
     cache_block(block_root, signed_block)
     GenServer.cast(__MODULE__, {:store_block, block_root, signed_block})
   end
 
+  @spec get_block(Types.root()) :: SignedBeaconBlock.t() | nil
   def get_block(block_root), do: lookup(block_root)
 
   @spec clear() :: any()
