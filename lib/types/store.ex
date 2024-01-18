@@ -4,10 +4,10 @@ defmodule Types.Store do
   """
 
   alias LambdaEthereumConsensus.ForkChoice.Tree
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateStore
-  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
@@ -49,7 +49,7 @@ defmodule Types.Store do
         }
 
   @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
-          {:ok, Store.t()} | {:error, String.t()}
+          {:ok, t()} | {:error, String.t()}
   def get_forkchoice_store(
         %BeaconState{} = anchor_state,
         %SignedBeaconBlock{message: anchor_block} = signed_block,
@@ -171,20 +171,32 @@ defmodule Types.Store do
     end
   end
 
-  @spec get_blocks(t()) :: Enumerable.t(BeaconBlock.t())
-  def get_blocks(%__MODULE__{blocks: blocks}), do: blocks
-  def get_blocks(%__MODULE__{tree_cache: tree}), do: Tree.get_all_blocks(tree)
+  @spec get_children(t(), Types.root()) :: [BeaconBlock.t()]
+  def get_children(%__MODULE__{tree_cache: tree} = store, parent_root) do
+    Tree.get_children!(tree, parent_root)
+    |> Enum.map(&{&1, get_block!(store, &1)})
+  end
 
   @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
   def store_block(%__MODULE__{blocks: blocks} = store, block_root, %{message: block}) do
-    blocks
-    |> Map.put(block_root, block)
-    |> then(&%{store | blocks: &1})
+    new_store = update_tree(store, block_root, block.parent_root)
+    %{new_store | blocks: Map.put(blocks, block_root, block)}
   end
 
   @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
   def store_block(%__MODULE__{} = store, block_root, %SignedBeaconBlock{} = signed_block) do
     Blocks.store_block(block_root, signed_block)
-    store
+    update_tree(store, block_root, signed_block.message.parent_root)
+  end
+
+  defp update_tree(%__MODULE__{} = store, block_root, parent_root) do
+    # We expect the finalized block to be in the tree
+    tree = Tree.update_root!(store.tree_cache, store.finalized_checkpoint.root)
+
+    case Tree.add_block(tree, block_root, parent_root) do
+      {:ok, new_tree} -> %{store | tree_cache: new_tree}
+      # Block is older than current finalized block
+      {:error, :not_found} -> store
+    end
   end
 end

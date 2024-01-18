@@ -49,6 +49,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   end
 
   @spec update_root(t(), Node.id()) :: {:ok, t()} | {:error, :not_found}
+  def update_root(%__MODULE__{root: root} = tree, root), do: {:ok, tree}
+
   def update_root(%__MODULE__{nodes: nodes}, new_root) do
     case Map.get(nodes, new_root) do
       nil ->
@@ -68,9 +70,21 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
     end
   end
 
-  @spec get_all_blocks(t()) :: [{Node.id(), Node.parent_id()}]
-  def get_all_blocks(%__MODULE__{nodes: nodes}),
-    do: nodes |> Enum.map(fn {id, %{parent_id: p_id}} -> {id, p_id} end)
+  @spec get_children(t(), Node.id()) :: {:ok, [Node.id()]} | {:error, :not_found}
+  def get_children(%__MODULE__{nodes: nodes}, parent_id) do
+    case Map.get(nodes, parent_id) do
+      nil -> {:error, :not_found}
+      %{children_ids: ids} -> {:ok, ids}
+    end
+  end
+
+  @spec get_children!(t(), Node.id()) :: [Node.id()]
+  def get_children!(tree, parent_id) do
+    case get_children(tree, parent_id) do
+      {:error, :not_found} -> raise "Parent #{Base.encode16(parent_id)} not found in tree"
+      {:ok, res} -> res
+    end
+  end
 
   ##########################
   ### Private Functions

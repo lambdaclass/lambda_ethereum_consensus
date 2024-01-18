@@ -93,10 +93,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   defp filter_block_tree(%Store{} = store, block_root, block, blocks) do
-    # TODO: this is highly inefficient. We should move to `ForkChoice.Tree` ASAP
-    children =
-      Store.get_blocks(store)
-      |> Enum.filter(fn {_, block} -> block.parent_root == block_root end)
+    children = Store.get_children(store, block_root)
 
     # If any children branches contain expected finalized/justified checkpoints,
     # add to filtered block-tree and signal viability to parent.
