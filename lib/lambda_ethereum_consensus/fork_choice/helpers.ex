@@ -6,9 +6,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.BlockStore
-  alias Types.BeaconState
-  alias Types.Checkpoint
-  alias Types.SignedBeaconBlock
   alias Types.Store
 
   @spec current_status_message(Store.t()) ::
@@ -27,50 +24,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
        }}
     else
       nil -> {:error, "Head state not found"}
-    end
-  end
-
-  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
-          {:ok, Store.t()} | {:error, String.t()}
-  def get_forkchoice_store(
-        %BeaconState{} = anchor_state,
-        %SignedBeaconBlock{message: anchor_block} = signed_block,
-        use_db
-      ) do
-    anchor_state_root = Ssz.hash_tree_root!(anchor_state)
-    anchor_block_root = Ssz.hash_tree_root!(anchor_block)
-
-    if anchor_block.state_root == anchor_state_root do
-      anchor_epoch = Accessors.get_current_epoch(anchor_state)
-
-      anchor_checkpoint = %Checkpoint{
-        epoch: anchor_epoch,
-        root: anchor_block_root
-      }
-
-      time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
-
-      %Store{
-        time: time,
-        genesis_time: anchor_state.genesis_time,
-        justified_checkpoint: anchor_checkpoint,
-        finalized_checkpoint: anchor_checkpoint,
-        unrealized_justified_checkpoint: anchor_checkpoint,
-        unrealized_finalized_checkpoint: anchor_checkpoint,
-        proposer_boost_root: <<0::256>>,
-        equivocating_indices: MapSet.new(),
-        blocks: %{},
-        block_states: %{},
-        checkpoint_states: %{anchor_checkpoint => anchor_state},
-        latest_messages: %{},
-        unrealized_justifications: %{anchor_block_root => anchor_checkpoint}
-      }
-      |> then(&if use_db, do: &1 |> Map.delete(:blocks) |> Map.delete(:block_states), else: &1)
-      |> Store.store_block(anchor_block_root, signed_block)
-      |> Store.store_state(anchor_block_root, anchor_state)
-      |> then(&{:ok, &1})
-    else
-      {:error, "Anchor block state root does not match anchor state root"}
     end
   end
 

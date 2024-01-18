@@ -70,7 +70,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
+    case Store.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
       {:ok, %Store{} = store} ->
         Logger.info("[Fork choice] Initialized store.")
 
