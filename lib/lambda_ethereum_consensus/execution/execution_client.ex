@@ -8,10 +8,26 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   @doc """
   Verifies the validity of the data contained in the new payload and notifies the Execution client of a new payload
   """
-  @spec verify_and_notify_new_payload(Types.ExecutionPayload.t()) :: {:ok, any} | {:error, any}
-  def verify_and_notify_new_payload(_execution_payload) do
-    # TODO: call engine api
-    {:ok, true}
+  @spec verify_and_notify_new_payload(Types.ExecutionPayload.t()) ::
+          {:ok, boolean()} | {:error, any}
+  def verify_and_notify_new_payload(execution_payload) do
+    result = EngineApi.new_payload(execution_payload)
+
+    Logger.info("#{inspect(result)}")
+
+    case result do
+      {:ok, %{"status" => "SYNCING"}} ->
+        {:ok, true}
+
+      {:ok, %{"status" => "VALID"}} ->
+        {:ok, true}
+
+      {:ok, %{"status" => "INVALID"}} ->
+        {:ok, false}
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
   @doc """
@@ -29,11 +45,13 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
           {:ok, any} | {:error, any}
   def notify_forkchoice_updated(head_block_hash, safe_block_hash, finalized_block_hash) do
     fork_choice_state = %{
-      finalizedBlockHash: finalized_block_hash,
-      headBlockHash: head_block_hash,
-      safeBlockHash: safe_block_hash
+      finalized_block_hash: finalized_block_hash,
+      head_block_hash: head_block_hash,
+      safe_block_hash: safe_block_hash
     }
 
-    EngineApi.forkchoice_updated(fork_choice_state, nil)
+    result = EngineApi.forkchoice_updated(fork_choice_state, nil)
+    IO.inspect(result)
+    result
   end
 end

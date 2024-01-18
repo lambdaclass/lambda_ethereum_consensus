@@ -10,9 +10,9 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   @spec exchange_capabilities() :: {:ok, any} | {:error, any}
   def exchange_capabilities, do: impl().exchange_capabilities()
 
-  @spec new_payload_v1(Types.ExecutionPayload.t()) ::
+  @spec new_payload(Types.ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
-  def new_payload_v1(execution_payload), do: impl().new_payload_v1(execution_payload)
+  def new_payload(execution_payload), do: impl().new_payload(execution_payload)
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes),

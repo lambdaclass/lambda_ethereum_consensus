@@ -72,7 +72,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
+    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block, false) do
       {:ok, %Store{} = store} ->
         Logger.info("[Fork choice] Initialized store.")
 
@@ -208,15 +208,19 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def recompute_head(store) do
     {:ok, head_root} = Helpers.get_head(store)
 
-    head_block = Map.get(store.blocks, head_root)
+    head_block = Store.get_block!(store, head_root)
+    head_execution_hash = head_block.body.execution_payload.block_hash
+
     finalized_checkpoint = store.finalized_checkpoint
+    finalized_block = Store.get_block!(store, store.finalized_checkpoint.root)
+    finalized_execution_hash = finalized_block.body.execution_payload.block_hash
 
     # TODO: do someting with the result from the execution client
     # TODO: compute safe block hash
     ExecutionClient.notify_forkchoice_updated(
-      head_root,
-      finalized_checkpoint.root,
-      finalized_checkpoint.root
+      head_execution_hash,
+      finalized_execution_hash,
+      finalized_execution_hash
     )
 
     BeaconChain.update_fork_choice_cache(

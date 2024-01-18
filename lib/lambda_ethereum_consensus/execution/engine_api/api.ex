@@ -17,21 +17,18 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
     call("engine_exchangeCapabilities", [@supported_methods])
   end
 
-  @spec new_payload_v1(Types.ExecutionPayload.t()) ::
+  @spec new_payload(Types.ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
-  def new_payload_v1(execution_payload) do
-    call("engine_newPayloadV2", [execution_payload])
+  def new_payload(execution_payload) do
+    call("engine_newPayloadV2", [RPC.normalize(execution_payload)])
   end
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes) do
-    forkchoice_state =
-      forkchoice_state
-      |> Map.update!(:finalizedBlockHash, &RPC.encode_binary/1)
-      |> Map.update!(:headBlockHash, &RPC.encode_binary/1)
-      |> Map.update!(:safeBlockHash, &RPC.encode_binary/1)
-
-    call("engine_forkchoiceUpdatedV2", [forkchoice_state, payload_attributes])
+    call("engine_forkchoiceUpdatedV2", [
+      RPC.normalize(forkchoice_state),
+      RPC.normalize(payload_attributes)
+    ])
   end
 
   defp call(method, params) do

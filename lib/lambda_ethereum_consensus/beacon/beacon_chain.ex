@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
        genesis_validators_root: anchor_state.genesis_validators_root,
        fork_choice: %{
          head_root: <<0::256>>,
-         head_slot: 0,
+         head_slot: anchor_state.slot,
          finalized_root: anchor_state.finalized_checkpoint.root,
          finalized_epoch: anchor_state.finalized_checkpoint.epoch
        },
