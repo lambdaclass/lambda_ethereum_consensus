@@ -61,3 +61,6 @@ test/generated
 # profiling artifacts
 callgrind.out.*
 *-eflambe-output.bggg
+
+# beacon node oapi json file
+beacon-node-oapi.json

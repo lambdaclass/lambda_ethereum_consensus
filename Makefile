@@ -86,7 +86,7 @@ proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
-compile-all: compile-native $(PROTOBUF_EX_FILES)
+compile-all: compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
 	mix compile
 
 #🗑️ clean: @ Remove the build files.
@@ -129,7 +129,7 @@ test: compile-all
 #### BEACON NODE OAPI ####
 OAPI_NAME = beacon-node-oapi
 OAPI_VERSION := $(shell cat .oapi_version)
-$(OAPI_NAME).json:
+$(OAPI_NAME).json: .oapi_version
 	curl -L -o "$@" \
 		"https://ethereum.github.io/beacon-APIs/releases/${OAPI_VERSION}/beacon-node-oapi.json"
 
