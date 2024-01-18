@@ -6,10 +6,9 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.BeaconState
 
-  @state_prefix_by_block "beacon_state_by_block"
-  @state_prefix_by_state "beacon_state_by_state"
-  @stateslot_prefix_by_block @state_prefix_by_block <> "slot"
-  @stateslot_prefix_by_state @state_prefix_by_state <> "slot"
+  @state_prefix "beacon_state"
+  @state_block_prefix "beacon_state_by_state"
+  @stateslot_prefix @state_prefix <> "slot"
 
   @spec store_state(BeaconState.t()) :: :ok
   def store_state(%BeaconState{} = state) do
@@ -18,22 +17,30 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
     state_root = Ssz.hash_tree_root!(state)
     {:ok, encoded_state} = Ssz.to_ssz(state)
 
-    key_block = state_key(block_root, :block_root)
-    key_state = state_key(state_root, :state_root)
+    key_block = state_key(block_root)
+    key_state = block_key(state_root)
     Db.put(key_block, encoded_state)
-    Db.put(key_state, encoded_state)
+    Db.put(key_state, key_block)
 
     # WARN: this overrides any previous mapping for the same slot
-    slothash_key_block = root_by_slot_key(state.slot, :block_root)
-    slothash_key_state = root_by_slot_key(state.slot, :state_root)
+    slothash_key_block = root_by_slot_key(state.slot)
     Db.put(slothash_key_block, block_root)
-    Db.put(slothash_key_state, state_root)
+  end
+
+  defp get_block_root(root, type) do
+    if type == :state_root do
+      with {:ok, bin} <- root |> block_key() |> Db.get() do
+        bin
+      end
+    else
+      root
+    end
   end
 
   @spec get_state(Types.root(), :block_root | :state_root) ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
   def get_state(root, root_type) do
-    with {:ok, bin} <- root |> state_key(root_type) |> Db.get() do
+    with {:ok, bin} <- root |> get_block_root(root_type) |> state_key() |> Db.get() do
       Ssz.from_ssz(bin, BeaconState)
     end
   end
@@ -41,11 +48,11 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   @spec get_latest_state(:block_root | :state_root) ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
   def get_latest_state(root_type) do
-    last_key = root_by_slot_key(0xFFFFFFFFFFFFFFFF, root_type)
+    last_key = root_by_slot_key(0xFFFFFFFFFFFFFFFF)
 
     with {:ok, it} <- Db.iterate(),
          {:ok, _key, _value} <- Exleveldb.iterator_move(it, last_key),
-         {:ok, _key, root} <- Exleveldb.iterator_move(it, :prev) |> validate_key_type(root_type),
+         {:ok, @state_prefix <> _slot, root} <- Exleveldb.iterator_move(it, :prev),
          :ok <- Exleveldb.iterator_close(it) do
       get_state(root, root_type)
     else
@@ -54,32 +61,21 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
     end
   end
 
-  defp validate_key_type({:ok, key, root}, root_type) do
-    valid_prefix =
-      if root_type == :block_root,
-        do: @stateslot_prefix_by_block,
-        else: @stateslot_prefix_by_state
-
-    <<prefix::binary-size(byte_size(valid_prefix)), _::binary>> = key
-    if valid_prefix == prefix, do: {:ok, key, root}, else: {:error, :invalid_iterator}
-  end
-
-  @spec get_state_root_by_slot(Types.slot(), :block_root | :state_root) ::
+  @spec get_state_root_by_slot(Types.slot()) ::
           {:ok, Types.root()} | {:error, String.t()} | :not_found
-  def get_state_root_by_slot(slot, root_type),
-    do: slot |> root_by_slot_key(root_type) |> Db.get()
+  def get_state_root_by_slot(slot),
+    do: slot |> root_by_slot_key() |> Db.get()
 
-  @spec get_state_by_slot(Types.slot(), :block_root | :state_root) ::
+  @spec get_state_by_slot(Types.slot()) ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
-  def get_state_by_slot(slot, root_type) do
+  def get_state_by_slot(slot) do
     # WARN: this will return the latest state received for the given slot
-    with {:ok, root} <- get_state_root_by_slot(slot, root_type) do
-      get_state(root, root_type)
+    with {:ok, root} <- get_state_root_by_slot(slot) do
+      get_state(root, :block_root)
     end
   end
 
-  defp state_key(root, :block_root), do: Utils.get_key(@state_prefix_by_block, root)
-  defp state_key(root, :state_root), do: Utils.get_key(@state_prefix_by_state, root)
-  defp root_by_slot_key(slot, :block_root), do: Utils.get_key(@stateslot_prefix_by_block, slot)
-  defp root_by_slot_key(slot, :state_root), do: Utils.get_key(@stateslot_prefix_by_state, slot)
+  defp state_key(root), do: Utils.get_key(@state_prefix, root)
+  defp block_key(root), do: Utils.get_key(@state_block_prefix, root)
+  defp root_by_slot_key(slot), do: Utils.get_key(@stateslot_prefix, slot)
 end
