@@ -2,7 +2,7 @@
 import Config
 
 # Configure logging
-config :logger, level: :info, truncate: :infinity, utc_log: true
+config :logger, level: :info, truncate: :infinity
 
 # # Uncomment to log to a file
 # # TODO: we might want to enable this with a CLI flag
