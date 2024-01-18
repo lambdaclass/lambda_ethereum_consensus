@@ -8,6 +8,7 @@ defmodule ForkChoiceTestRunner do
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias Types.SignedBeaconBlock
   alias Types.Store
 
   @disabled_on_block_cases [
@@ -102,7 +103,9 @@ defmodule ForkChoiceTestRunner do
     steps =
       YamlElixir.read_from_file!(case_dir <> "/steps.yaml") |> SpecTestUtils.sanitize_yaml()
 
-    {:ok, store} = Helpers.get_forkchoice_store(anchor_state, anchor_block)
+    signed_block = %SignedBeaconBlock{message: anchor_block, signature: <<0::768>>}
+
+    {:ok, store} = Helpers.get_forkchoice_store(anchor_state, signed_block, false)
 
     assert {:ok, _store} = apply_steps(case_dir, store, steps)
   end
@@ -182,7 +185,7 @@ defmodule ForkChoiceTestRunner do
     if Map.has_key?(checks, :head) do
       {:ok, head_root} = Helpers.get_head(store)
       assert head_root == checks.head.root
-      assert store.blocks[head_root].slot == checks.head.slot
+      assert Store.get_block!(store, head_root).slot == checks.head.slot
     end
 
     if Map.has_key?(checks, :time) do

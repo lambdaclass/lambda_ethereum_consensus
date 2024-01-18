@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.Store.StateStore do
   @state_block_prefix "beacon_state_by_state"
   @stateslot_prefix @state_prefix <> "slot"
 
-  @spec store_state(BeaconState.t()) :: :ok
+  @spec store_state(BeaconState.t(), Types.root()) :: :ok
   def store_state(%BeaconState{} = state) do
     # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
     block_root = Ssz.hash_tree_root!(state.latest_block_header)

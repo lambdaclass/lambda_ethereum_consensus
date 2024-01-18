@@ -122,6 +122,32 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     end
   end
 
+  defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
+    with {:ok, snappy_blocks_by_root_request} <- parse_message_size(message),
+         {:ok, ssz_blocks_by_root_request} <- Snappy.decompress(snappy_blocks_by_root_request),
+         {:ok, blocks_by_root_request} <-
+           Ssz.from_ssz(ssz_blocks_by_root_request, Types.BeaconBlocksByRootRequest) do
+      ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
+      %Types.BeaconBlocksByRootRequest{body: body} =
+        blocks_by_root_request
+
+      count =
+        length(body)
+        |> min(ChainSpec.get("MAX_REQUEST_BLOCKS"))
+
+      "[Received BlocksByRoot Request] requested #{count} number of blocks"
+      |> Logger.info()
+
+      response_chunk =
+        body
+        |> Enum.slice(0..(count - 1))
+        |> Enum.map(&BlockStore.get_block/1)
+        |> Enum.map_join(&create_block_response_chunk/1)
+
+      Libp2pPort.send_response(message_id, response_chunk)
+    end
+  end
+
   defp handle_req(protocol, _message_id, _message) do
     # This should never happen, since Libp2p only accepts registered protocols
     Logger.error("Unsupported protocol: #{protocol}")
@@ -179,4 +205,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp decode_size_header(header, <<header, rest::binary>>), do: {:ok, rest}
   defp decode_size_header(_, ""), do: {:error, "empty message"}
   defp decode_size_header(_, _), do: {:error, "invalid message"}
+
+  defp parse_message_size(<<24, request::binary>>), do: {:ok, request}
+  defp parse_message_size(_), do: {:error, "invalid request"}
 end

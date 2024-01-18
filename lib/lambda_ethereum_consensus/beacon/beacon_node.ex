@@ -70,11 +70,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       {LambdaEthereumConsensus.Beacon.BeaconChain, {anchor_state, time}},
       {LambdaEthereumConsensus.ForkChoice, {anchor_state, anchor_block, time}},
       {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
-      {LambdaEthereumConsensus.P2P.Peerbook, []},
-      {LambdaEthereumConsensus.P2P.IncomingRequests, []},
-      {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
-      {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
-      {LambdaEthereumConsensus.P2P.GossipSub, []}
+      LambdaEthereumConsensus.P2P.Peerbook,
+      LambdaEthereumConsensus.P2P.IncomingRequests,
+      LambdaEthereumConsensus.Beacon.PendingBlocks,
+      LambdaEthereumConsensus.Beacon.SyncBlocks,
+      LambdaEthereumConsensus.P2P.GossipSub
     ]
 
     Supervisor.init(children, strategy: :one_for_all)

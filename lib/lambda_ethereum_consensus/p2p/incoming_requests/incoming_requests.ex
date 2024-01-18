@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests do
   def init(_opts) do
     children = [
       {Task.Supervisor, name: IncomingRequests.Handler},
-      {IncomingRequests.Receiver, []}
+      IncomingRequests.Receiver
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
