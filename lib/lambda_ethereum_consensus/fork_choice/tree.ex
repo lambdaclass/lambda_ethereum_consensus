@@ -8,7 +8,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
     @type parent_id :: id() | :root
     @type t :: %__MODULE__{
             parent_id: parent_id(),
-            id: id,
             children_ids: [id]
           }
   end
@@ -24,19 +23,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
 
   @spec new(Node.id()) :: t()
   def new(root) when is_binary(root) do
-    root_node = %Node{parent_id: :root, id: root, children_ids: []}
+    root_node = %Node{parent_id: :root, children_ids: []}
     %__MODULE__{root: root, nodes: %{root => root_node}}
   end
 
   @spec add_block(t(), Node.id(), Node.id()) :: {:ok, t()} | {:error, :not_found}
-  def add_block(%__MODULE__{} = tree, block_root, parent_root) do
+  def add_block(%__MODULE__{} = tree, block_root, parent_root)
+      when is_binary(block_root) and is_binary(parent_root) do
     node = %Node{
       parent_id: parent_root,
-      id: block_root,
       children_ids: []
     }
 
-    with {:ok, new_nodes} <- add_node_to_tree(tree.nodes, node) do
+    with {:ok, new_nodes} <- add_node_to_tree(tree.nodes, block_root, node) do
       {:ok, %{tree | nodes: new_nodes}}
     end
   end
@@ -56,8 +55,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
         {:error, :not_found}
 
       node ->
-        get_subtree(nodes, %{node | parent_id: :root})
-        |> Map.new(fn node -> {node.id, node} end)
+        get_subtree(nodes, new_root, %{node | parent_id: :root})
         |> then(&{:ok, %__MODULE__{root: new_root, nodes: &1}})
     end
   end
@@ -71,35 +69,35 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   end
 
   @spec get_all_blocks(t()) :: [{Node.id(), Node.parent_id()}]
-  def get_all_blocks(%{nodes: nodes}),
+  def get_all_blocks(%__MODULE__{nodes: nodes}),
     do: nodes |> Enum.map(fn {id, %{parent_id: p_id}} -> {id, p_id} end)
 
   ##########################
   ### Private Functions
   ##########################
 
-  defp add_node_to_tree(nodes, %Node{} = node) do
-    case Map.get(nodes, node.parent_id) do
+  defp add_node_to_tree(nodes, block_root, %Node{parent_id: parent_id} = node) do
+    case Map.get(nodes, parent_id) do
       nil ->
         {:error, :not_found}
 
       parent ->
         nodes
-        |> Map.put(node.id, node)
-        |> Map.replace!(parent.id, %{parent | children_ids: [node.id | parent.children_ids]})
+        |> Map.put(block_root, node)
+        |> Map.replace!(parent_id, %{parent | children_ids: [block_root | parent.children_ids]})
         |> then(&{:ok, &1})
     end
   end
 
   # Just for being explicit
-  defp get_subtree(_, %{children_ids: []} = node), do: %{node.id => node}
+  defp get_subtree(_, id, %{children_ids: []} = node), do: %{id => node}
 
-  defp get_subtree(nodes, node) do
+  defp get_subtree(nodes, id, node) do
     node.children_ids
-    |> Enum.reduce(%{node.id => node}, fn child_id, acc ->
+    |> Enum.reduce(%{id => node}, fn child_id, acc ->
       child = Map.fetch!(nodes, child_id)
 
-      get_subtree(nodes, child)
+      get_subtree(nodes, child_id, child)
       |> Map.merge(acc)
     end)
   end

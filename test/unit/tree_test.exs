@@ -2,63 +2,50 @@ defmodule Unit.TreeTest do
   use ExUnit.Case
 
   alias LambdaEthereumConsensus.ForkChoice.Tree
-  alias LambdaEthereumConsensus.ForkChoice.Tree.Node
 
-  @root %Node{
-    parent_id: :root,
-    self_weight: 1,
-    subtree_weight: 1,
-    id: "root",
-    children_ids: []
-  }
-
-  @node %Node{
-    parent_id: "root",
-    self_weight: 1,
-    subtree_weight: 1,
-    id: "node1",
-    children_ids: []
-  }
-
-  setup do
-    start_supervised!(Tree)
-    :ok
+  test "Create a tree" do
+    Tree.new("root")
   end
 
-  test "An empty tree returns a nil head" do
-    assert Tree.get_head() == nil
+  test "Add new blocks to the tree" do
+    blocks = [
+      {"root_child1", "root"},
+      {"root_child2", "root"},
+      {"root_child1_child", "root_child1"}
+    ]
+
+    tree_blocks =
+      blocks
+      |> Enum.reduce(Tree.new("root"), fn {block, parent}, tree ->
+        Tree.add_block!(tree, block, parent)
+      end)
+      |> Tree.get_all_blocks()
+
+    # We use MapSet to ignore the order of the blocks
+    expected_blocks = MapSet.new([{"root", :root} | blocks])
+    assert MapSet.equal?(MapSet.new(tree_blocks), expected_blocks)
   end
 
-  test "If there's just a root, it's the head" do
-    Tree.add_block(@root)
-    assert Tree.get_head() == @root
-  end
+  test "Update the tree's root" do
+    pruned_tree =
+      Tree.new("root")
+      |> Tree.add_block!("root_child1", "root")
+      |> Tree.add_block!("root_child2", "root")
+      |> Tree.add_block!("root_child1_child", "root_child1")
+      # Update tree's root and prune pre-root blocks
+      |> Tree.update_root!("root_child1")
 
-  test "If there's two nodes, the head is the child" do
-    Tree.add_block(@root)
-    Tree.add_block(@node)
-    assert Tree.get_head() == @node
-  end
+    expected_tree =
+      Tree.new("root_child1")
+      |> Tree.add_block!("root_child1_child", "root_child1")
 
-  test "If there's three nodes, the head is the child with the highest weight" do
-    heavy_node = @node |> Map.merge(%{self_weight: 2, id: "node 2", subtree_weight: 2})
-    Tree.add_block(@root)
-    Tree.add_block(@node)
-    Tree.add_block(heavy_node)
-    assert Tree.get_head() == heavy_node
-  end
+    assert pruned_tree == expected_tree
 
-  test "If there's a parent is light but the subtree is heavy, it's still chosen" do
-    heavy_node = @node |> Map.merge(%{self_weight: 2, id: "node 2", subtree_weight: 2})
+    expected_blocks =
+      MapSet.new([{"root_child1", :root}, {"root_child1_child", "root_child1"}])
 
-    head_node =
-      @node
-      |> Map.merge(%{self_weight: 10, subtree_weight: 10, id: "node 3", parent_id: @node.id})
+    blocks = pruned_tree |> Tree.get_all_blocks() |> MapSet.new()
 
-    Tree.add_block(@root)
-    Tree.add_block(@node)
-    Tree.add_block(heavy_node)
-    Tree.add_block(head_node)
-    assert Tree.get_head() == head_node
+    assert MapSet.equal?(blocks, expected_blocks)
   end
 end
