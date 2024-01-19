@@ -9,21 +9,19 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   Verifies the validity of the data contained in the new payload and notifies the Execution client of a new payload
   """
   @spec verify_and_notify_new_payload(Types.ExecutionPayload.t()) ::
-          {:ok, boolean()} | {:error, any}
+          {:ok, atom()} | {:error, String.t()}
   def verify_and_notify_new_payload(execution_payload) do
     result = EngineApi.new_payload(execution_payload)
 
     case result do
       {:ok, %{"status" => "SYNCING"}} ->
-        {:ok, true}
+        {:ok, :optimistic}
 
       {:ok, %{"status" => "VALID"}} ->
-        Logger.info("Block execution payload is valid")
-        {:ok, true}
+        {:ok, :valid}
 
       {:ok, %{"status" => "INVALID"}} ->
-        Logger.error("Block execution payload is invalid")
-        {:ok, false}
+        {:ok, :invalid}
 
       {:error, error} ->
         {:error, error}

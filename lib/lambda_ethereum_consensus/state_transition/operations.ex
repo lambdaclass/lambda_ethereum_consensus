@@ -234,13 +234,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->
         {:error, "Timestamp verification failed"}
 
-      # Verify the execution payload is valid if not mocked
-      verify_and_notify_new_payload.(payload) != {:ok, true} ->
-        {:error, "Invalid execution payload"}
-
       # Cache execution payload header
       true ->
-        with {:ok, transactions_root} <-
+        # TODO: store execution status in block db
+        with {:ok, _status} <-
+               verify_and_notify_new_payload.(payload) |> handle_verify_payload_result(),
+             {:ok, transactions_root} <-
                Ssz.hash_list_tree_root_typed(
                  payload.transactions,
                  ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD"),
@@ -952,4 +951,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:error, "deposits length mismatch"}
     end
   end
+
+  defp handle_verify_payload_result({:ok, :valid = status}), do: {:ok, status}
+  defp handle_verify_payload_result({:ok, :optimistic = status}), do: {:ok, status}
+  defp handle_verify_payload_result({:ok, :invalid}), do: {:error, "Invalid execution payload"}
+
+  defp handle_verify_payload_result({:error, error}),
+    do: {:error, "Error when calling execution client: #{error}"}
 end
