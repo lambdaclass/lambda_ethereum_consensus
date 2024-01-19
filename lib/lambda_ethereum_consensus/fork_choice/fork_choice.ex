@@ -200,7 +200,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
          {:ok, new_store} <-
            signed_block.message.body.attester_slashings
            |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
-      {:ok, new_store}
+      {:ok, Handlers.prune_checkpoint_states(new_store)}
     end
   end
 
