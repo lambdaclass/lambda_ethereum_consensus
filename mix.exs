@@ -39,6 +39,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:snappyer, "~> 1.2"},
       {:yaml_elixir, "~> 2.8"},
       {:timex, "~> 3.7"},
+      {:recase, "~> 0.5"},
       {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.12.0"},
