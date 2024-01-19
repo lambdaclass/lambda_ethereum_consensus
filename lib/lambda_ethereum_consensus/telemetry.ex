@@ -106,7 +106,8 @@ defmodule LambdaEthereumConsensus.Telemetry do
       last_value("vm.system_counts.process_count"),
       last_value("vm.system_counts.atom_count"),
       last_value("vm.system_counts.port_count"),
-      last_value("vm.message_queue.length", tags: [:process])
+      last_value("vm.message_queue.length", tags: [:process]),
+      last_value("vm.uptime.total", unit: :millisecond)
     ]
   end
 
@@ -114,8 +115,14 @@ defmodule LambdaEthereumConsensus.Telemetry do
     [
       # A module, function and arguments to be invoked periodically.
       # This function must call :telemetry.execute/3 and a metric must be added above.
-      {__MODULE__, :message_queue_lengths, []}
+      {__MODULE__, :message_queue_lengths, []},
+      {__MODULE__, :uptime, []}
     ]
+  end
+
+  def uptime do
+    {uptime, _} = :erlang.statistics(:wall_clock)
+    :telemetry.execute([:vm, :uptime], %{total: uptime})
   end
 
   defp register_queue_length(name, len) do
