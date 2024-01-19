@@ -206,3 +206,7 @@ fmt:
 	cd native/snappy_nif; cargo fmt
 	cd native/ssz_nif; cargo fmt
 	cd native/bls_nif; cargo fmt
+
+#✅ dialyzer: @ Run dialyzer (static analysis tool).
+dialyzer:
+	mix dialyzer
