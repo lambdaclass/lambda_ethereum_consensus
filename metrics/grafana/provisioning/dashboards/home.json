@@ -72,6 +72,7 @@
         "x": 0,
         "y": 0
       },
+      "hideTimeOverride": true,
       "id": 24,
       "options": {
         "colorMode": "value",
@@ -98,9 +99,10 @@
           "expr": "vm_uptime_total{}",
           "legendFormat": "Uptime",
           "range": true,
-          "refId": "A"
+          "refId": "Uptime"
         }
       ],
+      "timeFrom": "1s",
       "type": "stat"
     },
     {
@@ -2057,6 +2059,6 @@
   "timezone": "",
   "title": "Node",
   "uid": "90EXFQnIk",
-  "version": 14,
+  "version": 1,
   "weekStart": ""
 }
