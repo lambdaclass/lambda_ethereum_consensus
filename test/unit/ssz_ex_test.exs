@@ -145,6 +145,48 @@ defmodule Unit.SSZExTest do
     # assert root |> Base.encode16(case: :lower) == expected_value
   end
 
+  test "merklelization of chunks with virtual padding" do
+    chunks = <<0::248>>
+    root = SszEx.merkleize_chunks_with_virtual_padding(chunks)
+    expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
+    # assert root |> Base.encode16(case: :lower) == expected_value
+
+    zero = <<0::256>>
+    ones = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<1>> <> acc end)
+
+    # chunks = zero <> zero
+    # root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2)
+    # expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
+    # assert root |> Base.encode16(case: :lower) == expected_value
+
+    # ones = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<1>> <> acc end)
+
+    # chunks = ones <> ones
+    # root = chunks |> SszEx.merkleize_chunks(2)
+    # expected_value = "7c8975e1e60a5c8337f28edf8c33c3b180360b7279644a9bc1af3c51e6220bf5"
+    # assert root |> Base.encode16(case: :lower) == expected_value
+
+    # chunks = zero <> zero <> zero <> zero
+    # root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
+    # expected_value = "db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"
+    # assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = ones <> ones <> ones <> ones <> ones <> ones
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
+    # expected_value = "0ef7df63c204ef203d76145627b8083c49aa7c55ebdee2967556f55a4f65a238"
+    # assert root |> Base.encode16(case: :lower) == expected_value
+
+    # chunks = zero <> zero <> zero <> zero <> zero <> zero <> zero <> zero
+    # root = chunks |> SszEx.merkleize_chunks(8)
+    # expected_value = "c78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c"
+    # assert root |> Base.encode16(case: :lower) == expected_value
+
+    # chunks = ones
+    # root = chunks |> SszEx.merkleize_chunks(4)
+    # expected_value = "29797eded0e83376b70f2bf034cc0811ae7f1414653b1d720dfd18f74cf13309"
+    # assert root |> Base.encode16(case: :lower) == expected_value
+  end
+
   test "hash tree root of list" do
     ## reference: https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L459
 
