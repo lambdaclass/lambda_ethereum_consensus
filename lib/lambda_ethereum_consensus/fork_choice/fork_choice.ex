@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Store.StateStore
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
@@ -40,8 +41,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec has_block?(Types.root()) :: boolean()
   def has_block?(block_root) do
-    block = get_block(block_root)
-    block != nil
+    # NOTE: this doesn't work with in-memory storage
+    match?({:ok, _}, StateStore.get_state(block_root))
   end
 
   @spec on_tick(Types.uint64()) :: :ok
@@ -96,10 +97,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @impl GenServer
   def handle_call(:get_current_status_message, _from, state) do
     {:reply, Helpers.current_status_message(state), state}
-  end
-
-  def handle_call({:get_block, block_root}, _from, state) do
-    {:reply, Store.get_block(state, block_root), state}
   end
 
   @impl GenServer
@@ -170,11 +167,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ##########################
   ### Private Functions
   ##########################
-
-  @spec get_block(Types.root()) :: Types.SignedBeaconBlock.t() | nil
-  def get_block(block_root) do
-    GenServer.call(__MODULE__, {:get_block, block_root}, @default_timeout)
-  end
 
   @spec get_store_attrs([atom()]) :: [any()]
   defp get_store_attrs(attrs) do
