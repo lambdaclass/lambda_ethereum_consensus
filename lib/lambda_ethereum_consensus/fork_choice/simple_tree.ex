@@ -86,6 +86,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Simple.Tree do
     end
   end
 
+  @spec has_block?(t(), Node.id()) :: boolean()
+  def has_block?(tree, block_root), do: Map.has_key?(tree.nodes, block_root)
+
   ##########################
   ### Private Functions
   ##########################

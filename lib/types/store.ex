@@ -171,6 +171,11 @@ defmodule Types.Store do
     end
   end
 
+  @spec has_block?(t(), Types.root()) :: boolean()
+  def has_block?(%__MODULE__{tree_cache: tree}, block_root) do
+    Tree.has_block?(tree, block_root)
+  end
+
   @spec get_children(t(), Types.root()) :: [BeaconBlock.t()]
   def get_children(%__MODULE__{tree_cache: tree} = store, parent_root) do
     Tree.get_children!(tree, parent_root)

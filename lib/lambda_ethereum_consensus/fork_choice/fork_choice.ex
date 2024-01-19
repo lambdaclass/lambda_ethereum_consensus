@@ -40,8 +40,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec has_block?(Types.root()) :: boolean()
   def has_block?(block_root) do
-    block = get_block(block_root)
-    block != nil
+    GenServer.call(__MODULE__, {:has_block?, block_root}, @default_timeout)
   end
 
   @spec on_tick(Types.uint64()) :: :ok
@@ -98,8 +97,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     {:reply, Helpers.current_status_message(state), state}
   end
 
-  def handle_call({:get_block, block_root}, _from, state) do
-    {:reply, Store.get_block(state, block_root), state}
+  def handle_call({:has_block?, block_root}, _from, state) do
+    {:reply, Store.has_block?(state, block_root), state}
   end
 
   @impl GenServer
@@ -170,11 +169,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ##########################
   ### Private Functions
   ##########################
-
-  @spec get_block(Types.root()) :: Types.SignedBeaconBlock.t() | nil
-  def get_block(block_root) do
-    GenServer.call(__MODULE__, {:get_block, block_root}, @default_timeout)
-  end
 
   @spec get_store_attrs([atom()]) :: [any()]
   defp get_store_attrs(attrs) do
