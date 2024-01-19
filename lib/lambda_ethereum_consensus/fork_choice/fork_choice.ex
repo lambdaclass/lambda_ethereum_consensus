@@ -6,6 +6,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias Types.Attestation
   alias Types.BeaconState
@@ -70,7 +72,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
+    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block, false) do
       {:ok, %Store{} = store} ->
         Logger.info("[Fork choice] Initialized store.")
 
@@ -113,6 +115,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       {:ok, new_store} ->
         :telemetry.execute([:sync, :on_block], %{slot: slot})
         Logger.info("[Fork choice] Block #{slot} added to the store.")
+
+        Task.async(__MODULE__, :recompute_head, [new_store])
         {:reply, :ok, new_store}
 
       {:error, reason} ->
@@ -158,6 +162,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     {:noreply, new_store}
   end
 
+  @impl GenServer
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
+
   ##########################
   ### Private Functions
   ##########################
@@ -193,5 +202,34 @@ defmodule LambdaEthereumConsensus.ForkChoice do
            |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
       {:ok, Handlers.prune_checkpoint_states(new_store)}
     end
+  end
+
+  @spec recompute_head(Types.Store.t()) :: :ok
+  def recompute_head(store) do
+    {:ok, head_root} = Helpers.get_head(store)
+
+    head_block = Store.get_block!(store, head_root)
+    head_execution_hash = head_block.body.execution_payload.block_hash
+
+    finalized_checkpoint = store.finalized_checkpoint
+    finalized_block = Store.get_block!(store, store.finalized_checkpoint.root)
+    finalized_execution_hash = finalized_block.body.execution_payload.block_hash
+
+    # TODO: do someting with the result from the execution client
+    # TODO: compute safe block hash
+    ExecutionClient.notify_forkchoice_updated(
+      head_execution_hash,
+      finalized_execution_hash,
+      finalized_execution_hash
+    )
+
+    BeaconChain.update_fork_choice_cache(
+      head_root,
+      head_block.slot,
+      finalized_checkpoint.root,
+      finalized_checkpoint.epoch
+    )
+
+    :ok
   end
 end
