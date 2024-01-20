@@ -6,7 +6,10 @@ defmodule BeaconApi.V2.BeaconController do
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
-  def open_api_operation(action) do
+  @doc """
+  action is an atom that correspond to the controller action's function atoms declared on `BeaconApi.Router` 
+  """
+  def open_api_operation(action) when is_atom(action) do
     apply(__MODULE__, :"#{action}_operation", [])
   end
 
