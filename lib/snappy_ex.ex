@@ -113,11 +113,8 @@ defmodule SnappyEx do
 
     # the crc32 checksum of the uncompressed data is masked before inserted into the
     # frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
-    checksum_mask =
-      (checksum >>> 15 |||
-         (checksum <<< 17 &&& @bit_mask_32)) +
-        0xA282EAD8 &&& @bit_mask_32
-
-    checksum_mask
+    (checksum >>> 15 |||
+       (checksum <<< 17 &&& @bit_mask_32)) +
+      0xA282EAD8 &&& @bit_mask_32
   end
 end
