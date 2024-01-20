@@ -15,7 +15,7 @@ network = Keyword.get(args, :network, "mainnet")
 checkpoint_sync = Keyword.get(args, :checkpoint_sync)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
-mock_execution = Keyword.get(args, :mock_execution, false)
+mock_execution = Keyword.get(args, :mock_execution, config_env() == :test)
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync: checkpoint_sync
