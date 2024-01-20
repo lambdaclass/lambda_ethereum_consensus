@@ -1,0 +1,6 @@
+datasources:
+  - name: Loki
+    access: proxy
+    type: loki
+    url: http://loki:3100
+    isDefault: false
