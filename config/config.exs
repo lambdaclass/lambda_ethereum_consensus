@@ -4,6 +4,8 @@ import Config
 # Configure logging
 config :logger, level: :info, truncate: :infinity
 
+config :logger, :console, format: {ConsoleLogger, :format}, metadata: [:slot, :root]
+
 # # Uncomment to log to a file
 # # TODO: we might want to enable this with a CLI flag
 # config :logger, :default_handler,
