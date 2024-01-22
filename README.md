@@ -96,7 +96,7 @@ To run these checks locally:
 make test      # Runs tests
 make spec-test # Runs all spec-tests
 make lint      # Runs linter and format-checker
-mix dialyzer   # Runs type-checker
+make dialyzer  # Runs type-checker
 ```
 
 Source code can be formatted using `make fmt`.
