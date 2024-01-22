@@ -360,6 +360,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     end
   end
 
+  def prune_checkpoint_states(%Store{checkpoint_states: checkpoint_states} = store) do
+    finalized_epoch = store.finalized_checkpoint.epoch
+
+    checkpoint_states
+    |> Map.reject(fn {%{epoch: epoch}, _} -> epoch < finalized_epoch end)
+    |> then(&%{store | checkpoint_states: &1})
+  end
+
   def update_latest_messages(%Store{} = store, attesting_indices, %Attestation{data: data}) do
     %AttestationData{target: target, beacon_block_root: beacon_block_root} = data
     messages = store.latest_messages

@@ -39,6 +39,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:snappyer, "~> 1.2"},
       {:yaml_elixir, "~> 2.8"},
       {:timex, "~> 3.7"},
+      {:recase, "~> 0.5"},
       {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.12.0"},
@@ -55,7 +56,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:stream_data, "~> 0.5", only: [:test]},
       {:benchee, "~> 1.2", only: [:dev]},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:open_api_spex, "~> 3.18"}
     ]
   end
 

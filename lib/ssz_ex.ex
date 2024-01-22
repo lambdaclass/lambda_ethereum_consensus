@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @moduledoc """
     SSZ library in Elixir
   """
+  alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   import alias LambdaEthereumConsensus.Utils.BitVector
 
@@ -418,9 +419,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     if len > max_size do
       {:error, "excess bits"}
     else
-      r = rem(len, @bits_per_byte)
-      <<pre::bitstring-size(len - r), post::bitstring-size(r)>> = bit_list
-      {:ok, <<pre::bitstring, 1::size(@bits_per_byte - r), post::bitstring>>}
+      {:ok, BitList.to_bytes({bit_list, len})}
     end
   end
 
@@ -473,10 +472,7 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp decode_bitlist(bit_list, max_size) do
     num_bytes = byte_size(bit_list)
-    num_bits = bit_size(bit_list)
-    len = length_of_bitlist(bit_list)
-    <<pre::size(num_bits - 8), last_byte::8>> = bit_list
-    decoded = <<pre::size(num_bits - 8), remove_trailing_bit(<<last_byte>>)::bitstring>>
+    {decoded, len} = BitList.new(bit_list)
 
     cond do
       len < 0 ->
@@ -790,33 +786,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.map(fn {_, schema} -> variable_size?(schema) end)
     |> Enum.any?()
   end
-
-  def length_of_bitlist(bitlist) when is_binary(bitlist) do
-    bit_size = bit_size(bitlist)
-    <<_::size(bit_size - 8), last_byte>> = bitlist
-    bit_size - leading_zeros(<<last_byte>>) - 1
-  end
-
-  defp leading_zeros(<<1::1, _::7>>), do: 0
-  defp leading_zeros(<<0::1, 1::1, _::6>>), do: 1
-  defp leading_zeros(<<0::2, 1::1, _::5>>), do: 2
-  defp leading_zeros(<<0::3, 1::1, _::4>>), do: 3
-  defp leading_zeros(<<0::4, 1::1, _::3>>), do: 4
-  defp leading_zeros(<<0::5, 1::1, _::2>>), do: 5
-  defp leading_zeros(<<0::6, 1::1, _::1>>), do: 6
-  defp leading_zeros(<<0::7, 1::1>>), do: 7
-  defp leading_zeros(<<0::8>>), do: 8
-
-  @spec remove_trailing_bit(binary()) :: bitstring()
-  defp remove_trailing_bit(<<1::1, rest::7>>), do: <<rest::7>>
-  defp remove_trailing_bit(<<0::1, 1::1, rest::6>>), do: <<rest::6>>
-  defp remove_trailing_bit(<<0::2, 1::1, rest::5>>), do: <<rest::5>>
-  defp remove_trailing_bit(<<0::3, 1::1, rest::4>>), do: <<rest::4>>
-  defp remove_trailing_bit(<<0::4, 1::1, rest::3>>), do: <<rest::3>>
-  defp remove_trailing_bit(<<0::5, 1::1, rest::2>>), do: <<rest::2>>
-  defp remove_trailing_bit(<<0::6, 1::1, rest::1>>), do: <<rest::1>>
-  defp remove_trailing_bit(<<0::7, 1::1>>), do: <<0::0>>
-  defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 
   defp size_of(:bool), do: @bytes_per_boolean
 
