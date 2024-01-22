@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Math, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils
+  alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
 
   alias Types.{
@@ -851,7 +852,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_matching_aggregation_bits_length(attestation, beacon_committee) do
-    if SszEx.length_of_bitlist(attestation.aggregation_bits) == length(beacon_committee) do
+    if BitList.length_of_bitlist(attestation.aggregation_bits) == length(beacon_committee) do
       :ok
     else
       {:error, "Mismatched aggregation bits length"}
