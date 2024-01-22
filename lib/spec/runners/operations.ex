@@ -97,8 +97,10 @@ defmodule OperationsTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
+    status = if execution_valid, do: :valid, else: :invalid
+
     result =
-      Operations.process_execution_payload(pre, body, fn _payload -> {:ok, execution_valid} end)
+      Operations.process_execution_payload(pre, body, fn _payload -> {:ok, status} end)
 
     case post do
       nil ->
