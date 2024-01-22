@@ -12,42 +12,14 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
     {:ok, ["engine_newPayloadV2"]}
   end
 
-  @spec new_payload_v1(Types.ExecutionPayload.t()) ::
+  @spec new_payload(Types.ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
-  def new_payload_v1(_execution_payload) do
-    {:ok, generic_response()}
+  def new_payload(_execution_payload) do
+    {:ok, %{"status" => "SYNCING"}}
   end
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(_forkchoice_state, _payload_attributes) do
-    {:ok, generic_response()}
+    {:ok, %{"payload_id" => nil, payload_status: %{"status" => "SYNCING"}}}
   end
-
-  defp generic_response do
-    %{
-      id: 1,
-      jsonrpc: "2.0",
-      result: %{
-        payloadId: nil,
-        payloadStatus: %{
-          status: "VALID",
-          latestValidHash: nil,
-          validationError: nil
-        }
-      },
-      error: ""
-    }
-  end
-
-  # # This will be used for logging
-  # defp mock_call(method, params) do
-  #   config =
-  #     Application.fetch_env!(
-  #       :lambda_ethereum_consensus,
-  #       LambdaEthereumConsensus.Execution.EngineApi
-  #     )
-
-  #   endpoint = Keyword.fetch!(config, :endpoint)
-  #   version = Keyword.fetch!(config, :version)
-  # end
 end

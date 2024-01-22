@@ -1,0 +1,35 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/promtail/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: lambda_ethereum_consensus
+          __path__: /var/log/consensus/*log
+    pipeline_stages:
+      - logfmt:
+          mapping:
+            ts:
+            level:
+            msg:
+            mfa:
+            process: registered_name
+      - timestamp:
+          format: "2006-01-02T15:04:05.000"
+          source: ts
+      - labels:
+          level:
+          mfa:
+          process:
+      - output:
+          source: msg
