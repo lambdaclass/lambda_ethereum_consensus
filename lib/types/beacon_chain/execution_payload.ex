@@ -63,17 +63,16 @@ defmodule Types.ExecutionPayload do
       {:fee_recipient, TypeAliases.execution_address()},
       {:state_root, TypeAliases.root()},
       {:receipts_root, TypeAliases.root()},
-      {:logs_bloom, {:vector, {:bytes, 8}, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
+      {:logs_bloom, {:vector, {:int, 8}, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
       {:prev_randao, TypeAliases.bytes32()},
       {:block_number, TypeAliases.uint64()},
       {:gas_limit, TypeAliases.uint64()},
       {:gas_used, TypeAliases.uint64()},
       {:timestamp, TypeAliases.uint64()},
-      {:extra_data, {:list, {:bytes, 8}, ChainSpec.get("MAX_EXTRA_DATA_BYTES")}},
+      {:extra_data, TypeAliases.byte_list(ChainSpec.get("MAX_EXTRA_DATA_BYTES"))},
       {:base_fee_per_gas, TypeAliases.uint256()},
       {:block_hash, TypeAliases.hash32()},
-      {:transactions,
-       {:list, TypeAliases.transaction(), ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}},
+      {:transactions, TypeAliases.transaction()},
       {:withdrawals, {:list, Types.Withdrawal, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}}
     ]
   end
