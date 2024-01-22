@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   @impl true
   def init([nil]) do
-    with {:ok, anchor_state} <- StateStore.get_latest_state(:block_root),
+    with {:ok, anchor_state} <- StateStore.get_latest_state(),
          {:ok, anchor_block} <- fetch_anchor_block(anchor_state) do
       init_children(anchor_state, anchor_block)
     else

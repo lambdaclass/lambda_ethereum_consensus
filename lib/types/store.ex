@@ -71,7 +71,7 @@ defmodule Types.Store do
 
   @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
   def get_state(%__MODULE__{}, block_root) do
-    case StateStore.get_state(block_root) do
+    case StateStore.get_state_by_block_root(block_root) do
       {:ok, state} -> state
       _ -> nil
     end
