@@ -104,6 +104,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     delete_ttl(block_root)
     uniq = :erlang.unique_integer([:monotonic])
     :ets.insert_new(@ets_ttl_data, {uniq, block_root})
+    :ets.update_element(@ets_block_by_hash, block_root, {3, uniq})
   end
 
   defp delete_ttl(block_root) do
