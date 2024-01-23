@@ -72,8 +72,8 @@ defmodule Unit.SSZExTest do
   end
 
   test "merklelization of chunks" do
-    ## Reference:  https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L371
-    ##            https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L416
+    # Reference:  https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L371
+    #            https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L416
     zero = <<0::256>>
 
     chunks = zero
@@ -148,10 +148,10 @@ defmodule Unit.SSZExTest do
   test "merklelization of chunks with virtual padding" do
     zero = <<0::256>>
 
-    # chunks = zero
-    # root = SszEx.merkleize_chunks_with_virtual_padding(chunks)
-    # expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
-    # assert root |> Base.encode16(case: :lower) == expected_value
+    chunks = zero
+    root = SszEx.merkleize_chunks_with_virtual_padding(chunks, 1)
+    expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
+    assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero
     root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2)
