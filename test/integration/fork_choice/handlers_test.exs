@@ -16,7 +16,7 @@ defmodule Integration.ForkChoice.HandlersTest do
   test "on_block w/data from DB" do
     # NOTE: this test requires a DB with a state, and blocks for the state's slot and the next slot.
     # WARN: sometimes fails with "OffsetOutOfBounds" errors. Re-run the test in those cases.
-    {:ok, state} = StateStore.get_latest_state(:block_root)
+    {:ok, state} = StateStore.get_latest_state()
 
     {:ok, signed_block} = BlockStore.get_block_by_slot(state.slot)
     {:ok, new_signed_block} = BlockStore.get_block_by_slot(state.slot + 1)
