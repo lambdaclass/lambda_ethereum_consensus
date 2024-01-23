@@ -3,44 +3,51 @@ defmodule ConsoleLogger do
   Custom logger formatter for console output.
   """
 
-  def format(level, message, timestamp, metadata) do
-    pattern = Logger.Formatter.compile(" $time $message ")
+  @pattern Logger.Formatter.compile(" $time $message ")
 
-    formatted_metadata =
-      Enum.map_join(
-        metadata,
-        " ",
-        fn {key, value} ->
-          IO.ANSI.bright() <>
-            Atom.to_string(key) <> IO.ANSI.reset() <> "=" <> format_metadata(key, value)
-        end
-      )
+  def format(level, message, timestamp, metadata) do
+    formatted_metadata = format_metadata(metadata)
 
     [format_level(level)] ++
-      [Logger.Formatter.format(pattern, level, message, timestamp, [])] ++
+      [Logger.Formatter.format(@pattern, level, message, timestamp, [])] ++
       [formatted_metadata] ++ ["\n"]
   rescue
     err ->
       inspect(err)
   end
 
-  defp level_color(:info), do: IO.ANSI.green()
-  defp level_color(:warning), do: IO.ANSI.yellow()
-  defp level_color(:error), do: IO.ANSI.red()
-  defp level_color(_), do: IO.ANSI.default_color()
+  defp level_color(:info), do: :green
+  defp level_color(:warning), do: :yellow
+  defp level_color(:error), do: :red
+  defp level_color(_), do: :default
 
   defp format_level(level) do
     upcased = level |> Atom.to_string() |> String.upcase()
-    level_color(level) <> upcased <> IO.ANSI.reset()
+    IO.ANSI.format([level_color(level), upcased])
   end
 
-  def format_metadata(:root, root) do
+  def format_metadata(metadata) do
+    Enum.map_join(
+      metadata,
+      " ",
+      fn {key, value} ->
+        IO.ANSI.format([
+          :bright,
+          Atom.to_string(key),
+          :reset,
+          "=" <> format_metadata_value(key, value)
+        ])
+      end
+    )
+  end
+
+  def format_metadata_value(:root, root) do
     encoded = root |> Base.encode16(case: :lower)
     # get the first 3 and last 4 characters
     "0x#{String.slice(encoded, 0, 3)}..#{String.slice(encoded, -4, 4)}"
   end
 
-  def format_metadata(:slot, slot) do
+  def format_metadata_value(:slot, slot) do
     Integer.to_string(slot)
   end
 end
