@@ -16,7 +16,7 @@ defmodule LambdaEthereumConsensus.Application do
     children = [
       LambdaEthereumConsensus.Telemetry,
       LambdaEthereumConsensus.Store.Db,
-      LambdaEthereumConsensus.Store.Blocks,
+      LambdaEthereumConsensus.Store.Blocks.DbCache,
       {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync]},
       LambdaEthereumConsensus.P2P.Metadata,
       BeaconApi.Endpoint

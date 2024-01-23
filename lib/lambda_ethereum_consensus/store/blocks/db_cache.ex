@@ -3,6 +3,8 @@ defmodule LambdaEthereumConsensus.Store.Blocks.DbCache do
   alias LambdaEthereumConsensus.Store.BlockStore
   alias Types.SignedBeaconBlock
 
+  @behaviour LambdaEthereumConsensus.Store.BlocksImpl
+
   defstruct []
   @type t() :: %__MODULE__{}
 
@@ -24,14 +26,17 @@ defmodule LambdaEthereumConsensus.Store.Blocks.DbCache do
 
   def new, do: %__MODULE__{}
 
-  @spec store_block(Types.root(), SignedBeaconBlock.t()) :: :ok
-  def store_block(block_root, signed_block) do
+  @impl true
+  @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
+  def store_block(impl, block_root, signed_block) do
     cache_block(block_root, signed_block)
     GenServer.cast(__MODULE__, {:store_block, block_root, signed_block})
+    impl
   end
 
-  @spec get_block(Types.root()) :: SignedBeaconBlock.t() | nil
-  def get_block(block_root), do: lookup(block_root)
+  @impl true
+  @spec get_block(t(), Types.root()) :: SignedBeaconBlock.t() | nil
+  def get_block(_impl, block_root), do: lookup(block_root)
 
   @spec clear() :: any()
   def clear, do: :ets.delete_all_objects(@ets_block_by_hash)

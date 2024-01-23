@@ -7,7 +7,7 @@ alias LambdaEthereumConsensus.Store.StateStore
 alias Types.{BeaconState, SignedBeaconBlock}
 
 {:ok, _} = Store.Db.start_link(nil)
-{:ok, _} = Store.Blocks.start_link(nil)
+{:ok, _} = Store.Blocks.DbCache.start_link(nil)
 Cache.initialize_cache()
 
 # NOTE: this slot must be at the beginning of an epoch (i.e. a multiple of 32)

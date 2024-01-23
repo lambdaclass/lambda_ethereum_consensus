@@ -40,7 +40,7 @@ defmodule Types.Store do
           unrealized_finalized_checkpoint: Checkpoint.t() | nil,
           proposer_boost_root: Types.root() | nil,
           equivocating_indices: MapSet.t(Types.validator_index()),
-          blocks: %{Types.root() => BeaconBlock.t()},
+          blocks: Blocks.t(),
           block_states: %{Types.root() => BeaconState.t()},
           checkpoint_states: %{Checkpoint.t() => BeaconState.t()},
           latest_messages: %{Types.validator_index() => Checkpoint.t()},
@@ -53,7 +53,7 @@ defmodule Types.Store do
   def get_forkchoice_store(
         %BeaconState{} = anchor_state,
         %SignedBeaconBlock{message: anchor_block} = signed_block,
-        use_db
+        use_db \\ false
       ) do
     anchor_state_root = Ssz.hash_tree_root!(anchor_state)
     anchor_block_root = Ssz.hash_tree_root!(anchor_block)
@@ -68,6 +68,9 @@ defmodule Types.Store do
 
       time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
 
+      # TODO: receive as argument
+      blocks_impl = if(use_db, do: Blocks.persistent(), else: Blocks.in_memory())
+
       %__MODULE__{
         time: time,
         genesis_time: anchor_state.genesis_time,
@@ -77,14 +80,14 @@ defmodule Types.Store do
         unrealized_finalized_checkpoint: anchor_checkpoint,
         proposer_boost_root: <<0::256>>,
         equivocating_indices: MapSet.new(),
-        blocks: %{},
+        blocks: blocks_impl,
         block_states: %{},
         checkpoint_states: %{anchor_checkpoint => anchor_state},
         latest_messages: %{},
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
         tree_cache: Tree.new(anchor_block_root)
       }
-      |> then(&if use_db, do: &1 |> Map.delete(:blocks) |> Map.delete(:block_states), else: &1)
+      |> then(&if use_db, do: &1 |> Map.delete(:block_states), else: &1)
       |> store_block(anchor_block_root, signed_block)
       |> store_state(anchor_block_root, anchor_state)
       |> then(&{:ok, &1})
@@ -152,12 +155,7 @@ defmodule Types.Store do
 
   @spec get_block(t(), Types.root()) :: BeaconBlock.t() | nil
   def get_block(%__MODULE__{blocks: blocks}, block_root) do
-    Map.get(blocks, block_root)
-  end
-
-  @spec get_block(t(), Types.root()) :: BeaconBlock.t() | nil
-  def get_block(%__MODULE__{}, block_root) do
-    case Blocks.get_block(block_root) do
+    case Blocks.get_block(blocks, block_root) do
       nil -> nil
       signed_block -> signed_block.message
     end
@@ -183,15 +181,10 @@ defmodule Types.Store do
   end
 
   @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
-  def store_block(%__MODULE__{blocks: blocks} = store, block_root, %{message: block}) do
-    new_store = update_tree(store, block_root, block.parent_root)
-    %{new_store | blocks: Map.put(blocks, block_root, block)}
-  end
-
-  @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
-  def store_block(%__MODULE__{} = store, block_root, %SignedBeaconBlock{} = signed_block) do
-    Blocks.store_block(block_root, signed_block)
-    update_tree(store, block_root, signed_block.message.parent_root)
+  def store_block(%__MODULE__{blocks: blocks} = store, block_root, block) do
+    Blocks.store_block(blocks, block_root, block)
+    |> then(&%{store | blocks: &1})
+    |> update_tree(block_root, block.message.parent_root)
   end
 
   defp update_tree(%__MODULE__{} = store, block_root, parent_root) do
