@@ -12,9 +12,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   When requesting the head, a cached value will be returned instantly, according to the last
   calculated one.
   """
-
   use GenServer
-  require Logger
 
   defmodule Node do
     @moduledoc """
@@ -26,13 +24,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
     by the tree so manually assignment is not necessary.
     """
     defstruct [:parent_id, :id, :children_ids, :self_weight, :subtree_weight]
-    @type id :: String.t()
+    @type id :: Types.root()
     @type t :: %Node{
             parent_id: id | :root,
             id: id,
             children_ids: [id],
-            self_weight: integer(),
-            subtree_weight: integer()
+            self_weight: non_neg_integer(),
+            subtree_weight: non_neg_integer()
           }
   end
 
@@ -43,7 +41,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   ### Public API
   ##########################
 
-  @spec start_link(any) :: :ignore | {:error, any} | {:ok, pid}
+  @spec start_link(any()) :: GenServer.on_start()
   def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
 
   @doc """
@@ -61,7 +59,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   Gets the head node according to LMD GHOST. The values are pre-calculated when adding nodes,
   so this operation is O(1).
   """
-  @spec get_head :: Node.t()
+  @spec get_head() :: Node.t()
   def get_head, do: GenServer.call(__MODULE__, :get_head)
 
   ##########################
@@ -69,7 +67,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Tree do
   ##########################
 
   @impl GenServer
-  @spec init(any) :: {:ok, status()}
+  @spec init(any()) :: {:ok, status()}
   def init(_), do: {:ok, %{root: nil, tree: %{}, head: nil}}
 
   @impl GenServer

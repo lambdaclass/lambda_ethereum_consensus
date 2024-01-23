@@ -30,6 +30,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   This means that when "new" is called over a bytestring, it is assumed that it's in little
   endian representation.
   """
+  alias LambdaEthereumConsensus.Utils.BitField
 
   # The internal representation is a bitstring, but we could evaluate
   # turning it into an integer to use bitwise operations instead.
@@ -80,44 +81,28 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   Equivalent to bit_vector[index] == 1.
   """
   @spec set?(t, non_neg_integer) :: boolean
-  def set?(bit_vector, index) do
-    skip = bit_size(bit_vector) - index - 1
-    match?(<<_::size(skip), 1::size(1), _::bitstring>>, bit_vector)
-  end
+  def set?(bit_vector, index), do: BitField.set?(bit_vector, index)
 
   @doc """
   True if all bits in the specified range are set to 1.
   Equivalent to all(bit_vector[first..last]) in the specs.
   """
   @spec all?(t, Range.t()) :: boolean
-  def all?(bit_vector, first..last) do
-    skip = bit_size(bit_vector) - last
-    range_size = last - first
-    target = 2 ** range_size - 1
-    match?(<<_::size(skip), ^target::size(range_size), _::bitstring>>, bit_vector)
-  end
+  def all?(bit_vector, first..last), do: BitField.all?(bit_vector, first..last)
 
   @doc """
   Sets a bit (turns it to 1).
   Equivalent to bit_vector[index] = 1.
   """
   @spec set(t, non_neg_integer) :: t
-  def set(bit_vector, index) do
-    skip = bit_size(bit_vector) - index - 1
-    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_vector
-    <<pre::bitstring, 1::1, rest::bitstring>>
-  end
+  def set(bit_vector, index), do: BitField.set(bit_vector, index)
 
   @doc """
   Clears a bit (turns it to 0).
   Equivalent to bit_vector[index] = 0.
   """
   @spec clear(t, non_neg_integer) :: t
-  def clear(bit_vector, index) do
-    skip = bit_size(bit_vector) - index - 1
-    <<pre::bitstring-size(skip), _::size(1), rest::bitstring>> = bit_vector
-    <<pre::bitstring, 0::1, rest::bitstring>>
-  end
+  def clear(bit_vector, index), do: BitField.clear(bit_vector, index)
 
   @doc """
   Shifts a vector n steps to higher indices. For example, using shift_higher(vector, 1) is
@@ -128,10 +113,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   Internally, this is a left shift, due to the little-endian bit indexing.
   """
   @spec shift_higher(t, non_neg_integer()) :: t
-  def shift_higher(bit_vector, steps) do
-    <<_::size(steps), remaining::bitstring>> = bit_vector
-    <<remaining::bitstring, 0::size(steps)>>
-  end
+  def shift_higher(bit_vector, steps), do: BitField.shift_higher(bit_vector, steps)
 
   @doc """
   Shifts a vector n steps to the lower indices. For example, using left_shift(vector, 1) is
@@ -142,14 +124,11 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   Internally, this is a right shift, due to the little-endian bit indexing.
   """
   @spec shift_lower(t, non_neg_integer) :: t
-  def shift_lower(bit_vector, steps) do
-    <<remaining::size(bit_size(bit_vector) - steps)-bitstring, _::bitstring>> = bit_vector
-    <<0::size(steps), remaining::bitstring>>
-  end
+  def shift_lower(bit_vector, steps), do: BitField.shift_lower(bit_vector, steps)
 
   @doc """
   Returns the amount of bits set.
   """
   @spec count(t) :: non_neg_integer()
-  def count(bit_vector), do: for(<<bit::1 <- bit_vector>>, do: bit) |> Enum.sum()
+  def count(bit_vector), do: BitField.count(bit_vector)
 end

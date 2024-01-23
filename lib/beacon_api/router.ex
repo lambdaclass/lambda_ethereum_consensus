@@ -3,6 +3,7 @@ defmodule BeaconApi.Router do
 
   pipeline :api do
     plug(:accepts, ["json"])
+    plug(OpenApiSpex.Plug.PutApiSpec, module: BeaconApi.ApiSpec)
   end
 
   # Ethereum API Version 1
@@ -22,6 +23,11 @@ defmodule BeaconApi.Router do
     scope "/beacon" do
       get("/blocks/:block_id", BeaconController, :get_block)
     end
+  end
+
+  scope "/api" do
+    pipe_through(:api)
+    get("/openapi", OpenApiSpex.Plug.RenderSpec, [])
   end
 
   # Catch-all route outside of any scope
