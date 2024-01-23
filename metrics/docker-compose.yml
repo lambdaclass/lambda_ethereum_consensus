@@ -1,4 +1,4 @@
-version: '0.1'
+version: '3'
 name: 'lambda-ethereum-consensus-grafana'
 
 services:
@@ -6,14 +6,14 @@ services:
     image: prom/prometheus
     container_name: prometheus
     hostname: prometheus
-    ports:
-      - "9090:9090"
     volumes:
+      # prometheus configuration
       - ./prometheus:/etc/prometheus
+      # prometheus data
       - prometheus-data:/prometheus
     command: --web.enable-lifecycle  --config.file=/etc/prometheus/prometheus.yml
     networks:
-      open:
+      grafana-prometheus:
         aliases:
           - prometheus
     extra_hosts:
@@ -25,17 +25,79 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # grafana configuration
       - ./grafana/provisioning:/etc/grafana/provisioning
+      # grafana data
       - grafana-data:/var/lib/grafana
+    environment:
+      # WARNING: use this for same-machine access ONLY
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
     networks:
-      open:
+      grafana-prometheus:
+        aliases:
+          - grafana
+      grafana-loki:
         aliases:
           - grafana
 
+  # Since the Loki containers are running as user 10001 and the mounted data volume is owned by root,
+  # Loki would not have permissions to create the directories.
+  # Therefore the init container changes permissions of the mounted directory.
+  loki-init:
+    image: &lokiImage grafana/loki:2.9.2
+    user: root
+    entrypoint:
+      - "chown"
+      - "10001:10001"
+      - "/tmp/loki"
+    volumes:
+      - loki-data:/tmp/loki
+
+  loki:
+    image: *lokiImage
+    container_name: loki
+    volumes:
+      # loki configuration
+      - ./loki:/etc/loki
+      # loki data
+      - loki-data:/tmp/loki
+    command: --config.file=/etc/loki/loki.yml
+    networks:
+      grafana-loki:
+        aliases:
+          - loki
+      loki-promtail:
+        aliases:
+          - loki
+
+  promtail:
+    image: grafana/promtail
+    container_name: promtail
+    volumes:
+      # promtail configuration
+      - ./promtail:/etc/promtail
+      # logs to scrape
+      - ../logs:/var/log/consensus
+      # promtail data
+      - promtail-data:/tmp/promtail
+    command: --config.file=/etc/promtail/promtail.yml
+    networks:
+      loki-promtail:
+        aliases:
+          - promtail
+
 networks:
-  open:
+  grafana-prometheus:
+    driver: bridge
+  grafana-loki:
+    driver: bridge
+  loki-promtail:
     driver: bridge
 
 volumes:
   prometheus-data:
   grafana-data:
+  loki-data:
+  promtail-data:

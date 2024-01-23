@@ -51,9 +51,25 @@ jobs:
         if: steps.output-cache.outputs.cache-hit != 'true'
         run: make compile-port compile-native
 
+  download-beacon-node-oapi:
+    name: Download Beacon Node OAPI
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Beacon Node OAPI
+        id: output-cache
+        uses: actions/cache@v3
+        with:
+          path: ./beacon-node-oapi.json
+          key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+          lookup-only: true
+      - name: Download Beacon Node OAPI
+        if: steps.output-cache.outputs.cache-hit != 'true'
+        run: make download-beacon-node-oapi
+
   build:
     name: Build project
-    needs: compile-native
+    needs: [compile-native, download-beacon-node-oapi]
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
@@ -75,6 +91,12 @@ jobs:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
+    - name: Fetch beacon node oapi file
+      uses: actions/cache/restore@v3
+      with:
+        path: ./beacon-node-oapi.json
+        key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+        fail-on-cache-miss: true
     - name: Install dependencies
       run: |
         sudo apt-get install -y protobuf-compiler
@@ -104,7 +126,7 @@ jobs:
 
   smoke:
     name: Start and stop the node
-    needs: compile-native
+    needs: [compile-native, download-beacon-node-oapi]
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
@@ -126,6 +148,12 @@ jobs:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
+    - name: Fetch beacon node oapi file
+      uses: actions/cache/restore@v3
+      with:
+        path: ./beacon-node-oapi.json
+        key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+        fail-on-cache-miss: true
     - name: Install dependencies
       run: |
         sudo apt-get install -y protobuf-compiler
@@ -145,7 +173,7 @@ jobs:
 
   test:
     name: Test
-    needs: compile-native
+    needs: [compile-native, download-beacon-node-oapi]
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
@@ -167,6 +195,12 @@ jobs:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
+    - name: Fetch beacon node oapi file
+      uses: actions/cache/restore@v3
+      with:
+        path: ./beacon-node-oapi.json
+        key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+        fail-on-cache-miss: true
     - name: Set up cargo cache
       uses: Swatinem/rust-cache@v2
       with:
@@ -178,7 +212,7 @@ jobs:
         protoc --elixir_out=./lib proto/libp2p.proto
         mix deps.get
     - name: Run tests
-      run: mix test --no-start --trace --exclude spectest
+      run: mix test --no-start --warnings-as-errors --trace --exclude spectest
 
   lint:
     name: Lint
@@ -223,7 +257,7 @@ jobs:
 
   spectests:
     name: Run spec-tests
-    needs: [compile-native, download-spectests]
+    needs: [compile-native, download-spectests, download-beacon-node-oapi]
     strategy:
       matrix:
         config: ["minimal", "general", "mainnet"]
@@ -253,6 +287,12 @@ jobs:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-
+      - name: Fetch beacon node oapi file
+        uses: actions/cache/restore@v3
+        with:
+          path: ./beacon-node-oapi.json
+          key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
+          fail-on-cache-miss: true
       - name: Set up cargo cache
         uses: Swatinem/rust-cache@v2
         with:

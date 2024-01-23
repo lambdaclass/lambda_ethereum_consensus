@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @moduledoc """
     SSZ library in Elixir
   """
+  alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   import alias LambdaEthereumConsensus.Utils.BitVector
 
@@ -87,10 +88,23 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
+          {:ok, Types.root()} | {:error, String.t()}
+  def hash_tree_root(vector, {:vector, type, size}) do
+    if variable_size?(type) do
+      # TODO
+      # hash_tree_root_vector_complex_type(vector, {:vector, type, size}, limit)
+      {:error, "Not implemented"}
+    else
+      packed_chunks = pack(vector, {:list, type, size})
+      hash_tree_root_vector_basic_type(packed_chunks)
+    end
+  end
+
   @spec hash_tree_root_list_basic_type(binary(), non_neg_integer, non_neg_integer) ::
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root_list_basic_type(chunks, limit, len) do
-    chunks_len = chunks |> byte_size() |> div(@bytes_per_chunk)
+    chunks_len = chunks |> get_chunks_len()
 
     if chunks_len > limit do
       {:error, "chunk size exceeds limit"}
@@ -100,6 +114,14 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec hash_tree_root_vector_basic_type(binary()) ::
+          {:ok, Types.root()} | {:error, String.t()}
+  def hash_tree_root_vector_basic_type(chunks) do
+    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+    root = merkleize_chunks(chunks, leaf_count)
+    {:ok, root}
+  end
+
   @spec mix_in_length(Types.root(), non_neg_integer) :: Types.root()
   def mix_in_length(root, len) do
     {:ok, serialized_len} = encode_int(len, @bits_per_chunk)
@@ -107,7 +129,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def merkleize_chunks(chunks, leaf_count \\ nil) do
-    chunks_len = chunks |> byte_size() |> div(@bytes_per_chunk)
+    chunks_len = chunks |> get_chunks_len()
 
     if chunks_len == 1 and leaf_count == nil do
       chunks
@@ -151,8 +173,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     <<value::size(size)-little>> |> pack_bytes()
   end
 
-  @spec pack(list(), {:list, any, non_neg_integer}) :: binary() | :error
-  def pack(list, {:list, schema, _size}) do
+  @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | :error
+  def pack(list, {type, schema, _}) when type in [:vector, :list] do
     if variable_size?(schema) do
       # TODO
       # pack_complex_type_list(list)
@@ -196,9 +218,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     if len > max_size do
       {:error, "excess bits"}
     else
-      r = rem(len, @bits_per_byte)
-      <<pre::bitstring-size(len - r), post::bitstring-size(r)>> = bit_list
-      {:ok, <<pre::bitstring, 1::size(@bits_per_byte - r), post::bitstring>>}
+      {:ok, BitList.to_bytes({bit_list, len})}
     end
   end
 
@@ -251,10 +271,7 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp decode_bitlist(bit_list, max_size) do
     num_bytes = byte_size(bit_list)
-    num_bits = bit_size(bit_list)
-    len = length_of_bitlist(bit_list)
-    <<pre::size(num_bits - 8), last_byte::8>> = bit_list
-    decoded = <<pre::size(num_bits - 8), remove_trailing_bit(<<last_byte>>)::bitstring>>
+    {decoded, len} = BitList.new(bit_list)
 
     cond do
       len < 0 ->
@@ -569,33 +586,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.any?()
   end
 
-  def length_of_bitlist(bitlist) when is_binary(bitlist) do
-    bit_size = bit_size(bitlist)
-    <<_::size(bit_size - 8), last_byte>> = bitlist
-    bit_size - leading_zeros(<<last_byte>>) - 1
-  end
-
-  defp leading_zeros(<<1::1, _::7>>), do: 0
-  defp leading_zeros(<<0::1, 1::1, _::6>>), do: 1
-  defp leading_zeros(<<0::2, 1::1, _::5>>), do: 2
-  defp leading_zeros(<<0::3, 1::1, _::4>>), do: 3
-  defp leading_zeros(<<0::4, 1::1, _::3>>), do: 4
-  defp leading_zeros(<<0::5, 1::1, _::2>>), do: 5
-  defp leading_zeros(<<0::6, 1::1, _::1>>), do: 6
-  defp leading_zeros(<<0::7, 1::1>>), do: 7
-  defp leading_zeros(<<0::8>>), do: 8
-
-  @spec remove_trailing_bit(binary()) :: bitstring()
-  defp remove_trailing_bit(<<1::1, rest::7>>), do: <<rest::7>>
-  defp remove_trailing_bit(<<0::1, 1::1, rest::6>>), do: <<rest::6>>
-  defp remove_trailing_bit(<<0::2, 1::1, rest::5>>), do: <<rest::5>>
-  defp remove_trailing_bit(<<0::3, 1::1, rest::4>>), do: <<rest::4>>
-  defp remove_trailing_bit(<<0::4, 1::1, rest::3>>), do: <<rest::3>>
-  defp remove_trailing_bit(<<0::5, 1::1, rest::2>>), do: <<rest::2>>
-  defp remove_trailing_bit(<<0::6, 1::1, rest::1>>), do: <<rest::1>>
-  defp remove_trailing_bit(<<0::7, 1::1>>), do: <<0::0>>
-  defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
-
   defp size_of(:bool), do: @bytes_per_boolean
 
   defp size_of({:int, size}), do: size |> div(@bits_per_byte)
@@ -657,5 +647,9 @@ defmodule LambdaEthereumConsensus.SszEx do
       chunks
 
     <<left::binary, new_chunk::binary, right::binary>>
+  end
+
+  defp get_chunks_len(chunks) do
+    chunks |> byte_size() |> div(@bytes_per_chunk)
   end
 end
