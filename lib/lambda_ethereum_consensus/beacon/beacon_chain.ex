@@ -54,12 +54,18 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
   def get_finalized_checkpoint do
-    GenServer.call(__MODULE__, :get_finalized_checkpoint)
+    %{finalized_root: root, finalized_epoch: epoch} =
+      GenServer.call(__MODULE__, :get_fork_choice_cache)
+
+    %Checkpoint{root: root, epoch: epoch}
   end
 
   @spec get_justified_checkpoint() :: Types.Checkpoint.t()
   def get_justified_checkpoint do
-    GenServer.call(__MODULE__, :get_justified_checkpoint)
+    %{justified_root: root, justified_epoch: epoch} =
+      GenServer.call(__MODULE__, :get_fork_choice_cache)
+
+    %Checkpoint{root: root, epoch: epoch}
   end
 
   @spec get_current_epoch() :: integer()
@@ -92,17 +98,21 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   def init({anchor_state = %BeaconState{}, time}) do
     schedule_next_tick()
 
+    %{root: root, epoch: epoch} = anchor_state.finalized_checkpoint
+
     {:ok,
      %BeaconChainState{
        genesis_time: anchor_state.genesis_time,
        genesis_validators_root: anchor_state.genesis_validators_root,
+       time: time,
        cached_fork_choice: %{
          head_root: <<0::256>>,
          head_slot: anchor_state.slot,
-         finalized_root: anchor_state.finalized_checkpoint.root,
-         finalized_epoch: anchor_state.finalized_checkpoint.epoch
-       },
-       time: time
+         justified_root: root,
+         justified_epoch: epoch,
+         finalized_root: root,
+         finalized_epoch: epoch
+       }
      }}
   end
 
@@ -112,15 +122,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @impl true
-  def handle_call(:get_finalized_checkpoint, _from, state) do
-    %{finalized_root: root, finalized_epoch: epoch} = state.cached_fork_choice
-    {:reply, %Checkpoint{root: root, epoch: epoch}, state}
-  end
-
-  @impl true
-  def handle_call(:get_justified_checkpoint, _from, state) do
-    %{justified_root: root, justified_epoch: epoch} = state.cached_fork_choice
-    {:reply, %Checkpoint{root: root, epoch: epoch}, state}
+  def handle_call(:get_fork_choice_cache, _, %{cached_fork_choice: cached} = state) do
+    {:reply, cached, state}
   end
 
   @impl true
