@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   State transition logic.
   """
 
+  require Logger
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
@@ -59,6 +60,8 @@ defmodule LambdaEthereumConsensus.StateTransition do
   defp maybe_process_epoch(%BeaconState{} = state, _slot_in_epoch), do: {:ok, state}
 
   defp process_slot(%BeaconState{} = state) do
+    start_time = System.monotonic_time(:millisecond)
+
     # Cache state root
     previous_state_root = Ssz.hash_tree_root!(state)
     slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
@@ -82,10 +85,16 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Cache block root
     previous_block_root = Ssz.hash_tree_root!(state.latest_block_header)
     roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
+
+    end_time = System.monotonic_time(:millisecond)
+    Logger.debug("[Slot processing] took #{end_time - start_time} ms")
+
     {:ok, %BeaconState{state | block_roots: roots}}
   end
 
   defp process_epoch(%BeaconState{} = state) do
+    start_time = System.monotonic_time(:millisecond)
+
     state
     |> EpochProcessing.process_justification_and_finalization()
     |> map_ok(&EpochProcessing.process_inactivity_updates/1)
@@ -99,6 +108,10 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> map_ok(&EpochProcessing.process_historical_summaries_update/1)
     |> map_ok(&EpochProcessing.process_participation_flag_updates/1)
     |> map_ok(&EpochProcessing.process_sync_committee_updates/1)
+    |> tap(fn _ ->
+      end_time = System.monotonic_time(:millisecond)
+      Logger.debug("[Epoch processing] took #{end_time - start_time} ms")
+    end)
   end
 
   def block_signature_valid?(%BeaconState{} = state, %SignedBeaconBlock{} = signed_block) do
@@ -109,6 +122,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   end
 
   def process_block(state, block) do
+    start_time = System.monotonic_time(:millisecond)
     verify_and_notify_new_payload = &ExecutionClient.verify_and_notify_new_payload/1
 
     {:ok, state}
@@ -121,5 +135,9 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> map_ok(&Operations.process_eth1_data(&1, block.body))
     |> map_ok(&Operations.process_operations(&1, block.body))
     |> map_ok(&Operations.process_sync_aggregate(&1, block.body.sync_aggregate))
+    |> tap(fn _ ->
+      end_time = System.monotonic_time(:millisecond)
+      Logger.debug("[Block processing] took #{end_time - start_time} ms")
+    end)
   end
 end
