@@ -232,7 +232,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   @spec state_root_by_id(state_id()) :: {:ok, root_info()} | {:error, String.t()} | :not_found
-  def state_root_by_id(root) when is_binary(root) do
+  def state_root_by_id(hex_root) when is_binary(hex_root) do
     # TODO compute is_optimistic_or_invalid() and is_finalized()
     execution_optimistic = true
     finalized = false
