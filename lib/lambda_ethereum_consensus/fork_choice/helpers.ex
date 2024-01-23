@@ -191,19 +191,17 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   def root_by_id(:genesis), do: :not_found
 
   def root_by_id(:justified) do
-    with {:ok, justified_checkpoint} <- BeaconChain.get_justified_checkpoint() do
-      # TODO compute is_optimistic_or_invalid
-      execution_optimistic = true
-      {:ok, {justified_checkpoint.root, execution_optimistic, false}}
-    end
+    justified_checkpoint = BeaconChain.get_justified_checkpoint()
+    # TODO compute is_optimistic_or_invalid
+    execution_optimistic = true
+    {:ok, {justified_checkpoint.root, execution_optimistic, false}}
   end
 
   def root_by_id(:finalized) do
-    with {:ok, finalized_checkpoint} <- BeaconChain.get_finalized_checkpoint() do
-      # TODO compute is_optimistic_or_invalid
-      execution_optimistic = true
-      {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
-    end
+    finalized_checkpoint = BeaconChain.get_finalized_checkpoint()
+    # TODO compute is_optimistic_or_invalid
+    execution_optimistic = true
+    {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
   end
 
   def root_by_id(:invalid_id), do: :invalid_id
