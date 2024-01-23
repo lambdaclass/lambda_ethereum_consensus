@@ -33,9 +33,8 @@ defmodule Integration.ForkChoice.HandlersTest do
 
   @tag :skip
   test "multiple on_block w/data from DB" do
-    # NOTE: this test requires a DB with a state, and blocks for the state's slot and the next slot.
-    #  It also needs `slot` to be at the start of an epoch.
-    # WARN: sometimes fails with "OffsetOutOfBounds" errors. Re-run the test in those cases.
+    # NOTE: this test requires a DB with the initial state and all blocks in the given range.
+    #  It assumes missing blocks to be empty slots. It also needs `slot` to be at the start of an epoch.
     start_slot = 4_191_040
     count = 100
     end_slot = start_slot + count
