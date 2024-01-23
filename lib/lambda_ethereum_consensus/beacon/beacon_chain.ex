@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
+  alias Types.Checkpoint
 
   defmodule BeaconChainState do
     @moduledoc false
@@ -24,6 +25,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
             cached_fork_choice: %{
               head_root: Types.root(),
               head_slot: Types.slot(),
+              justified_root: Types.root(),
+              justified_epoch: Types.epoch(),
               finalized_root: Types.root(),
               finalized_epoch: Types.epoch()
             }
@@ -40,12 +43,23 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     GenServer.call(__MODULE__, :get_current_slot)
   end
 
-  @spec update_fork_choice_cache(Types.root(), Types.slot(), Types.root(), Types.epoch()) :: :ok
-  def update_fork_choice_cache(head_root, head_slot, finalized_root, finalized_epoch) do
+  @spec update_fork_choice_cache(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
+          :ok
+  def update_fork_choice_cache(head_root, head_slot, justified, finalized) do
     GenServer.cast(
       __MODULE__,
-      {:update_fork_choice_cache, head_root, head_slot, finalized_root, finalized_epoch}
+      {:update_fork_choice_cache, head_root, head_slot, justified, finalized}
     )
+  end
+
+  @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
+  def get_finalized_checkpoint do
+    GenServer.call(__MODULE__, :get_finalized_checkpoint)
+  end
+
+  @spec get_justified_checkpoint() :: Types.Checkpoint.t()
+  def get_justified_checkpoint do
+    GenServer.call(__MODULE__, :get_justified_checkpoint)
   end
 
   @spec get_current_epoch() :: integer()
@@ -98,6 +112,18 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @impl true
+  def handle_call(:get_finalized_checkpoint, _from, state) do
+    %{finalized_root: root, finalized_epoch: epoch} = state.cached_fork_choice
+    {:reply, %Checkpoint{root: root, epoch: epoch}, state}
+  end
+
+  @impl true
+  def handle_call(:get_justified_checkpoint, _from, state) do
+    %{justified_root: root, justified_epoch: epoch} = state.cached_fork_choice
+    {:reply, %Checkpoint{root: root, epoch: epoch}, state}
+  end
+
+  @impl true
   def handle_call({:get_fork_digest, slot}, _from, state) do
     fork_digest =
       case slot do
@@ -143,17 +169,16 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @impl true
-  def handle_cast(
-        {:update_fork_choice_cache, head_root, head_slot, finalized_root, finalized_epoch},
-        state
-      ) do
+  def handle_cast({:update_fork_choice_cache, head_root, head_slot, justified, finalized}, state) do
     {:noreply,
      state
      |> Map.put(:cached_fork_choice, %{
        head_root: head_root,
        head_slot: head_slot,
-       finalized_root: finalized_root,
-       finalized_epoch: finalized_epoch
+       justified_root: justified.root,
+       justified_epoch: justified.epoch,
+       finalized_root: finalized.root,
+       finalized_epoch: finalized.epoch
      })}
   end
 

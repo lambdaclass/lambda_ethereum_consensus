@@ -26,18 +26,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec get_finalized_checkpoint() :: {:ok, Types.Checkpoint.t()}
-  def get_finalized_checkpoint do
-    [finalized_checkpoint] = get_store_attrs([:finalized_checkpoint])
-    {:ok, finalized_checkpoint}
-  end
-
-  @spec get_justified_checkpoint() :: {:ok, Types.Checkpoint.t()}
-  def get_justified_checkpoint do
-    [justified_checkpoint] = get_store_attrs([:justified_checkpoint])
-    {:ok, justified_checkpoint}
-  end
-
   @spec has_block?(Types.root()) :: boolean()
   def has_block?(block_root) do
     GenServer.call(__MODULE__, {:has_block?, block_root}, @default_timeout)
@@ -90,11 +78,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def handle_call({:get_store_attrs, attrs}, _from, state) do
     values = Enum.map(attrs, &Map.fetch!(state, &1))
     {:reply, values, state}
-  end
-
-  @impl GenServer
-  def handle_call(:get_current_status_message, _from, state) do
-    {:reply, Helpers.current_status_message(state), state}
   end
 
   def handle_call({:has_block?, block_root}, _from, state) do
@@ -170,11 +153,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ### Private Functions
   ##########################
 
-  @spec get_store_attrs([atom()]) :: [any()]
-  defp get_store_attrs(attrs) do
-    GenServer.call(__MODULE__, {:get_store_attrs, attrs}, @default_timeout)
-  end
-
   @spec apply_handler(any(), any(), any()) :: any()
   def apply_handler(iter, state, handler) do
     iter
@@ -220,8 +198,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     BeaconChain.update_fork_choice_cache(
       head_root,
       head_block.slot,
-      finalized_checkpoint.root,
-      finalized_checkpoint.epoch
+      store.justified_checkpoint,
+      finalized_checkpoint
     )
 
     :ok
