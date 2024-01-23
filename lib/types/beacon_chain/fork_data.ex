@@ -4,6 +4,8 @@ defmodule Types.ForkData do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
+  @behaviour LambdaEthereumConsensus.Container
+
   fields = [
     :current_version,
     :genesis_validators_root
@@ -16,4 +18,12 @@ defmodule Types.ForkData do
           current_version: Types.version(),
           genesis_validators_root: Types.root()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:current_version, TypeAliases.version()},
+      {:genesis_validators_root, TypeAliases.root()}
+    ]
+  end
 end

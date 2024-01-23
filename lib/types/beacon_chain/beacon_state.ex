@@ -3,6 +3,8 @@ defmodule Types.BeaconState do
   Struct definition for `BeaconState`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
+  alias LambdaEthereumConsensus.Utils.BitVector
 
   fields = [
     :genesis_time,
@@ -46,32 +48,43 @@ defmodule Types.BeaconState do
           fork: Types.Fork.t(),
           # History
           latest_block_header: Types.BeaconBlockHeader.t(),
+          # size SLOTS_PER_HISTORICAL_ROOT 8192
           block_roots: list(Types.root()),
+          # size SLOTS_PER_HISTORICAL_ROOT 8192
           state_roots: list(Types.root()),
           # Frozen in Capella, replaced by historical_summaries
+          # size HISTORICAL_ROOTS_LIMIT 16777216
           historical_roots: list(Types.root()),
           # Eth1
           eth1_data: Types.Eth1Data.t(),
+          # size EPOCHS_PER_ETH1_VOTING_PERIOD (64) * SLOTS_PER_EPOCH (32) = 2048
           eth1_data_votes: list(Types.Eth1Data.t()),
           eth1_deposit_index: Types.uint64(),
           # Registry
+          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
           validators: Aja.Vector.t(Types.Validator.t()),
+          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
           balances: Aja.Vector.t(Types.gwei()),
           # Randomness
+          # size EPOCHS_PER_HISTORICAL_VECTOR 65_536
           randao_mixes: list(Types.bytes32()),
           # Slashings
           # Per-epoch sums of slashed effective balances
+          # size EPOCHS_PER_SLASHINGS_VECTOR 8192
           slashings: list(Types.gwei()),
           # Participation
+          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
           previous_epoch_participation: Aja.Vector.t(Types.participation_flags()),
+          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
           current_epoch_participation: Aja.Vector.t(Types.participation_flags()),
           # Finality
-          # Bit set for every recent justified epoch
-          justification_bits: Types.bitvector(),
+          # Bit set for every recent justified epoch size 4
+          justification_bits: BitVector.t(),
           previous_justified_checkpoint: Types.Checkpoint.t(),
           current_justified_checkpoint: Types.Checkpoint.t(),
           finalized_checkpoint: Types.Checkpoint.t(),
           # Inactivity
+          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
           inactivity_scores: list(Types.uint64()),
           # Sync
           current_sync_committee: Types.SyncCommittee.t(),
@@ -86,6 +99,7 @@ defmodule Types.BeaconState do
           next_withdrawal_validator_index: Types.withdrawal_index(),
           # Deep history valid from Capella onwards
           # [New in Capella]
+          # HISTORICAL_ROOTS_LIMIT
           historical_summaries: list(Types.HistoricalSummary.t())
         }
 
@@ -218,5 +232,46 @@ defmodule Types.BeaconState do
         0
       end
     end)
+  end
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:genesis_time, TypeAliases.uint64()},
+      {:genesis_validators_root, TypeAliases.root()},
+      {:slot, TypeAliases.slot()},
+      {:fork, Types.Fork},
+      {:latest_block_header, Types.BeaconBlockHeader},
+      {:block_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
+      {:state_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
+      {:historical_roots, {:list, TypeAliases.root(), ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}},
+      {:eth1_data, Types.Eth1Data},
+      {:eth1_data_votes,
+       {:list, Types.Eth1Data,
+        ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH")}},
+      {:eth1_deposit_index, TypeAliases.uint64()},
+      {:validators, {:list, Types.Validator, ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:balances, {:list, TypeAliases.gwei(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:randao_mixes,
+       {:vector, TypeAliases.bytes32(), ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")}},
+      {:slashings, {:vector, TypeAliases.gwei(), ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")}},
+      {:previous_epoch_participation,
+       {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:current_epoch_participation,
+       {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:justification_bits, {:bitvector, ChainSpec.get("JUSTIFICATION_BITS_LENGTH")}},
+      {:previous_justified_checkpoint, Types.Checkpoint},
+      {:current_justified_checkpoint, Types.Checkpoint},
+      {:finalized_checkpoint, Types.Checkpoint},
+      {:inactivity_scores,
+       {:list, TypeAliases.uint64(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:current_sync_committee, Types.SyncCommittee},
+      {:next_sync_committee, Types.SyncCommittee},
+      {:latest_execution_payload_header, Types.ExecutionPayloadHeader},
+      {:next_withdrawal_index, TypeAliases.withdrawal_index()},
+      {:next_withdrawal_validator_index, TypeAliases.validator_index()},
+      {:historical_summaries,
+       {:list, Types.HistoricalSummary, ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}}
+    ]
   end
 end
