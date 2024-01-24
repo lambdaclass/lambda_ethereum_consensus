@@ -23,7 +23,7 @@ defmodule BeaconApi.V1.BeaconController do
   def get_state_root(conn, %{state_id: state_id}) do
     with {:ok, {root, execution_optimistic, finalized}} <-
            BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.root_by_id(),
-         %{} = state_root <- ForkChoice.Helpers.get_state_root(root) do
+         state_root when not is_nil(state_root) <- ForkChoice.Helpers.get_state_root(root) do
       conn |> root_response(state_root, execution_optimistic, finalized)
     else
       {:error, error_msg} ->
