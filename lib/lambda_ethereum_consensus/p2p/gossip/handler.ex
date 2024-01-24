@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
     current_slot = BeaconChain.get_current_slot()
 
     if block.slot > current_slot - ChainSpec.get("SLOTS_PER_EPOCH") do
-      Logger.info("[Gossip] Block decoded for slot #{block.slot}")
+      Logger.info("[Gossip] Block decoded", slot: block.slot)
 
       PendingBlocks.add_block(signed_block)
     end
@@ -33,7 +33,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
     # Store.on_attestation(aggregate)
 
     Logger.debug(
-      "[Gossip] Aggregate decoded for slot #{slot}. Root: #{root}. Total attestations: #{votes}"
+      "[Gossip] Aggregate decoded. Total attestations: #{votes}",
+      slot: slot,
+      root: root
     )
   end
 end
