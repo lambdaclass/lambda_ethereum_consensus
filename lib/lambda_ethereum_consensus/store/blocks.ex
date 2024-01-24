@@ -28,6 +28,25 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @spec get_block(Types.root()) :: SignedBeaconBlock.t() | nil
   def get_block(block_root), do: lookup(block_root)
 
+  @spec get_block!(Types.root()) :: SignedBeaconBlock.t()
+  def get_block!(block_root) do
+    case lookup(block_root) do
+      nil -> raise "Block not found: 0x#{Base.encode16(block_root, case: :lower)}"
+      v -> v
+    end
+  end
+
+  @spec get_signed_block(Types.root()) :: SignedBeaconBlock.t() | nil
+  def get_signed_block(block_root), do: lookup(block_root)
+
+  @spec get_signed_block!(Types.root()) :: SignedBeaconBlock.t()
+  def get_signed_block!(block_root) do
+    case lookup(block_root) do
+      nil -> raise "Block not found: 0x#{Base.encode16(block_root, case: :lower)}"
+      v -> v
+    end
+  end
+
   @spec clear() :: any()
   def clear, do: :ets.delete_all_objects(@ets_block_by_hash)
 
