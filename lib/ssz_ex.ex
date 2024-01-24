@@ -779,18 +779,11 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp next_pow_of_two(len) when is_integer(len) and len >= 0 do
-    cond do
-      len == 0 ->
-        0
+  defp next_pow_of_two(len) when len == 0, do: 0
 
-      len == 1 ->
-        1
-
-      true ->
-        n = ((len <<< 1) - 1) |> :math.log2() |> trunc()
-        2 ** n
-    end
+  defp next_pow_of_two(len) when is_integer(len) and len > 0 do
+    n = ((len <<< 1) - 1) |> compute_pow()
+    2 ** n
   end
 
   defp replace_chunk(chunks, start, new_chunk) do
