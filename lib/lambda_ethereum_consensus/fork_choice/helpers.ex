@@ -224,10 +224,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     end
   end
 
-  @spec get_state_root(Types.root()) :: {:ok, Types.root()} | {:error, String.t()} | :not_found
+  @spec get_state_root(Types.root()) :: Types.root() | nil
   def get_state_root(root) do
-    with {:ok, block} <- Blocks.get_block(root) do
-      {:ok, block.state_root}
+    with %{} = block <- Blocks.get_block(root) do
+      block.state_root
     end
   end
 

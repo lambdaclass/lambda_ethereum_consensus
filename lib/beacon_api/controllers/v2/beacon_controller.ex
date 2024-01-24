@@ -40,10 +40,10 @@ defmodule BeaconApi.V2.BeaconController do
 
   def get_block(conn, %{block_id: "0x" <> hex_block_id}) do
     with {:ok, block_root} <- Base.decode16(hex_block_id, case: :mixed),
-         {:ok, block} <- Blocks.get_signed_block(block_root) do
+         %{} = block <- Blocks.get_signed_block(block_root) do
       conn |> block_response(block)
     else
-      :not_found -> conn |> block_not_found()
+      nil -> conn |> block_not_found()
       _ -> conn |> ErrorController.bad_request("Invalid block ID: 0x#{hex_block_id}")
     end
   end
