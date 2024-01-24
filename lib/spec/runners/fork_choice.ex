@@ -105,7 +105,7 @@ defmodule ForkChoiceTestRunner do
 
     signed_block = %SignedBeaconBlock{message: anchor_block, signature: <<0::768>>}
 
-    {:ok, store} = Store.get_forkchoice_store(anchor_state, signed_block, false)
+    {:ok, store} = Store.get_forkchoice_store(anchor_state, signed_block, true)
 
     assert {:ok, _store} = apply_steps(case_dir, store, steps)
   end
