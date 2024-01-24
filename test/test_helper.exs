@@ -1,5 +1,7 @@
 ExUnit.start()
-Application.ensure_all_started(:telemetry)
+Application.ensure_all_started([:telemetry, :logger])
+# NOTE: logger doesn't fetch configuration from `config/config.exs` in tests
+Logger.configure(level: :warning)
 
 # Load all modules as ExUnit tests (needed because we use .ex files)
 # Copied from https://github.com/elixir-lang/elixir/issues/10983#issuecomment-1133554155
