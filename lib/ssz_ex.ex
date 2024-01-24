@@ -817,39 +817,35 @@ defmodule LambdaEthereumConsensus.SszEx do
     end)
   end
 
-  defp get_nodes(parent_index, i, j, height, acc_layers, acc_last_index) do
-    nodes =
-      cond do
-        j < acc_last_index ->
-          start = parent_index * @bytes_per_chunk
-          stop = (j + 2) * @bytes_per_chunk
-          focus = acc_layers |> :binary.part(start, stop - start)
-          focus_len = focus |> byte_size()
-          children_index = focus_len - 2 * @bytes_per_chunk
-          <<_::binary-size(children_index), children::binary>> = focus
+  defp get_nodes(parent_index, _i, j, _height, acc_layers, acc_last_index)
+       when j < acc_last_index do
+    start = parent_index * @bytes_per_chunk
+    stop = (j + 2) * @bytes_per_chunk
+    focus = acc_layers |> :binary.part(start, stop - start)
+    focus_len = focus |> byte_size()
+    children_index = focus_len - 2 * @bytes_per_chunk
+    <<_::binary-size(children_index), children::binary>> = focus
 
-          <<left::binary-size(@bytes_per_chunk), right::binary-size(@bytes_per_chunk)>> =
-            children
+    <<left::binary-size(@bytes_per_chunk), right::binary-size(@bytes_per_chunk)>> =
+      children
 
-          {children_index, left, right}
-
-        j == acc_last_index ->
-          start = parent_index * @bytes_per_chunk
-          stop = (j + 1) * @bytes_per_chunk
-          focus = acc_layers |> :binary.part(start, stop - start)
-          focus_len = focus |> byte_size()
-          children_index = focus_len - @bytes_per_chunk
-          <<_::binary-size(children_index), left::binary>> = focus
-          depth = height - i - 1
-          right = get_zero_hash(depth)
-          {children_index, left, right}
-
-        true ->
-          :error
-      end
-
-    nodes
+    {children_index, left, right}
   end
+
+  defp get_nodes(parent_index, i, j, height, acc_layers, acc_last_index)
+       when j == acc_last_index do
+    start = parent_index * @bytes_per_chunk
+    stop = (j + 1) * @bytes_per_chunk
+    focus = acc_layers |> :binary.part(start, stop - start)
+    focus_len = focus |> byte_size()
+    children_index = focus_len - @bytes_per_chunk
+    <<_::binary-size(children_index), left::binary>> = focus
+    depth = height - i - 1
+    right = get_zero_hash(depth)
+    {children_index, left, right}
+  end
+
+  defp get_nodes(_, _, _, _, _, _), do: :error
 
   defp hash_nodes_and_replace(nodes, layers) do
     case nodes do
