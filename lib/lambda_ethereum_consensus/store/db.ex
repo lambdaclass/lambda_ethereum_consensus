@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Store.Db do
   @moduledoc """
   Module that handles the key-value store.
   """
+  require Logger
   # TODO: replace GenServer with :ets
   use GenServer
 
@@ -40,7 +41,9 @@ defmodule LambdaEthereumConsensus.Store.Db do
 
   @impl true
   def init(db_location) do
-    {:ok, ref} = Exleveldb.open(db_location, create_if_missing: true)
+    db_full_path = Path.join(File.cwd!(), db_location)
+    {:ok, ref} = Exleveldb.open(db_full_path, create_if_missing: true)
+    Logger.info("Opened database: #{db_full_path}")
     {:ok, %{ref: ref}}
   end
 
