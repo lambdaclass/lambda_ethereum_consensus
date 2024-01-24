@@ -25,10 +25,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
             cached_fork_choice: %{
               head_root: Types.root(),
               head_slot: Types.slot(),
-              justified_root: Types.root(),
-              justified_epoch: Types.epoch(),
-              finalized_root: Types.root(),
-              finalized_epoch: Types.epoch()
+              justified: Types.Checkpoint.t(),
+              finalized: Types.Checkpoint.t()
             }
           }
   end
@@ -54,18 +52,14 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
   def get_finalized_checkpoint do
-    %{finalized_root: root, finalized_epoch: epoch} =
-      GenServer.call(__MODULE__, :get_fork_choice_cache)
-
-    %Checkpoint{root: root, epoch: epoch}
+    %{finalized: finalized} = GenServer.call(__MODULE__, :get_fork_choice_cache)
+    finalized
   end
 
   @spec get_justified_checkpoint() :: Types.Checkpoint.t()
   def get_justified_checkpoint do
-    %{justified_root: root, justified_epoch: epoch} =
-      GenServer.call(__MODULE__, :get_fork_choice_cache)
-
-    %Checkpoint{root: root, epoch: epoch}
+    %{justified: justified} = GenServer.call(__MODULE__, :get_fork_choice_cache)
+    justified
   end
 
   @spec get_current_epoch() :: integer()
@@ -98,8 +92,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   def init({anchor_state = %BeaconState{}, time}) do
     schedule_next_tick()
 
-    %{root: root, epoch: epoch} = anchor_state.finalized_checkpoint
-
     {:ok,
      %BeaconChainState{
        genesis_time: anchor_state.genesis_time,
@@ -108,10 +100,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
        cached_fork_choice: %{
          head_root: <<0::256>>,
          head_slot: anchor_state.slot,
-         justified_root: root,
-         justified_epoch: epoch,
-         finalized_root: root,
-         finalized_epoch: epoch
+         justified: anchor_state.finalized_checkpoint,
+         finalized: anchor_state.finalized_checkpoint
        }
      }}
   end
@@ -145,8 +135,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     %{
       head_root: head_root,
       head_slot: head_slot,
-      finalized_root: finalized_root,
-      finalized_epoch: finalized_epoch
+      finalized: %{root: finalized_root, epoch: finalized_epoch}
     } = state.cached_fork_choice
 
     status_message = %Types.StatusMessage{
@@ -178,10 +167,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
      |> Map.put(:cached_fork_choice, %{
        head_root: head_root,
        head_slot: head_slot,
-       justified_root: justified.root,
-       justified_epoch: justified.epoch,
-       finalized_root: finalized.root,
-       finalized_epoch: finalized.epoch
+       justified: justified,
+       finalized: finalized
      })}
   end
 
@@ -196,12 +183,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   defp compute_fork_digest(slot, genesis_validators_root) do
-    current_fork_version =
-      slot |> Misc.compute_epoch_at_slot() |> ChainSpec.get_fork_version_for_epoch()
-
-    Misc.compute_fork_digest(
-      current_fork_version,
-      genesis_validators_root
-    )
+    Misc.compute_epoch_at_slot(slot)
+    |> ChainSpec.get_fork_version_for_epoch()
+    |> Misc.compute_fork_digest(genesis_validators_root)
   end
 end
