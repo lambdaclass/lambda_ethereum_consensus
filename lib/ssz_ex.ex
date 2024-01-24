@@ -333,13 +333,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  def chunk_count({:list, {:int, size}, max_size}) do
-    size = size_of({:int, size})
-    (max_size * size + 31) |> div(32)
-  end
-
-  def chunk_count({:list, :bool, max_size}) do
-    size = size_of(:bool)
+  def chunk_count({:list, type, max_size}) do
+    size = size_of(type)
     (max_size * size + 31) |> div(32)
   end
 
