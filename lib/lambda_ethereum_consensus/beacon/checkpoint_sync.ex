@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   def get_state(url) do
     with {:error, err} <-
            get_from_url(url, "/eth/v2/debug/beacon/states/finalized", Types.BeaconState) do
-      Logger.error("There has been an error retrieving the last finalized state.")
+      Logger.error("There has been an error retrieving the last finalized state")
       {:error, err}
     end
   end
@@ -49,7 +49,7 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   def get_block(url, id \\ "finalized") do
     with {:error, err} <-
            get_from_url(url, "/eth/v2/beacon/blocks/#{id}", Types.SignedBeaconBlock) do
-      Logger.error("There has been an error retrieving the last finalized block.")
+      Logger.error("There has been an error retrieving the last finalized block")
       {:error, err}
     end
   end

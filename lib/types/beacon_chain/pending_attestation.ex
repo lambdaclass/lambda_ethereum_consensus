@@ -3,6 +3,7 @@ defmodule Types.PendingAttestation do
   Struct definition for `PendingAttestation`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :aggregation_bits,
@@ -15,9 +16,20 @@ defmodule Types.PendingAttestation do
   defstruct fields
 
   @type t :: %__MODULE__{
+          # max size is MAX_VALIDATORS_PER_COMMITTEE
           aggregation_bits: Types.bitlist(),
           data: Types.AttestationData.t(),
           inclusion_delay: Types.slot(),
           proposer_index: Types.validator_index()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:aggregation_bits, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
+      {:data, Types.AttestationData},
+      {:inclusion_delay, TypeAliases.slot()},
+      {:proposer_index, TypeAliases.validator_index()}
+    ]
+  end
 end

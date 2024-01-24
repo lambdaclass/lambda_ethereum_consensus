@@ -61,7 +61,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
     case Store.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
       {:ok, %Store{} = store} ->
-        Logger.info("[Fork choice] Initialized store.")
+        Logger.info("[Fork choice] Initialized store")
 
         slot = signed_anchor_block.message.slot
         :telemetry.execute([:sync, :store], %{slot: slot})
@@ -96,13 +96,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     case result do
       {:ok, new_store} ->
         :telemetry.execute([:sync, :on_block], %{slot: slot})
-        Logger.info("[Fork choice] Block #{slot} added to the store.")
+        Logger.info("[Fork choice] New block added", slot: slot, root: block_root)
 
         Task.async(__MODULE__, :recompute_head, [new_store])
         {:reply, :ok, new_store}
 
       {:error, reason} ->
-        Logger.error("[Fork choice] Failed to add block #{slot} to the store: #{reason}")
+        Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot)
         {:reply, :error, store}
     end
   end
@@ -110,7 +110,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @impl GenServer
   def handle_cast({:on_attestation, %Attestation{} = attestation}, %Types.Store{} = state) do
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
-    Logger.debug("[Fork choice] Adding attestation #{id} to the store.")
+    Logger.debug("[Fork choice] Adding attestation #{id} to the store")
 
     state =
       case Handlers.on_attestation(state, attestation, false) do
@@ -123,7 +123,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @impl GenServer
   def handle_cast({:attester_slashing, attester_slashing}, state) do
-    Logger.info("[Fork choice] Adding attester slashing to the store.")
+    Logger.info("[Fork choice] Adding attester slashing to the store")
 
     state =
       case Handlers.on_attester_slashing(state, attester_slashing) do
@@ -131,7 +131,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
           new_state
 
         _ ->
-          Logger.error("[Fork choice] Failed to add attester slashing to the store.")
+          Logger.error("[Fork choice] Failed to add attester slashing to the store")
           state
       end
 
