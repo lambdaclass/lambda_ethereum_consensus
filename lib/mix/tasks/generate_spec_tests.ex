@@ -65,13 +65,13 @@ defmodule Mix.Tasks.GenerateSpecTests do
       use ExUnit.Case, async: false
 
       setup_all do
-        start_link_supervised!({LambdaEthereumConsensus.Store.Db, db_location: "test/generated/test_db"})
+        start_link_supervised!({LambdaEthereumConsensus.Store.Db, db_location: "test/generated/#{config}_#{fork}_#{runner}_test_db"})
         start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
         Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: #{chain_spec_config(config)})
       end
 
       setup do
-        LambdaEthereumConsensus.StateTransition.Cache.initialize_cache()
+        on_exit(fn -> LambdaEthereumConsensus.StateTransition.Cache.clear_cache() end)
       end
     """
 
