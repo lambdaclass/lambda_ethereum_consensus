@@ -59,6 +59,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
     module_name = "Elixir.#{c}.#{f}.#{r}Test" |> String.to_atom()
     runner_module = "Elixir.#{r}TestRunner" |> String.to_atom()
 
+    # TODO: we can isolate tests that use the DB from each other by using ExUnit's tmp_dir context option.
     header = """
     defmodule #{module_name} do
       use ExUnit.Case, async: false
