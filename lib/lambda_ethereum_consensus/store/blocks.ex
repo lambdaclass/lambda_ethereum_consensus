@@ -1,6 +1,7 @@
 defmodule LambdaEthereumConsensus.Store.Blocks do
   @moduledoc false
   alias LambdaEthereumConsensus.Store.BlockStore
+  alias Types.BeaconBlock
   alias Types.SignedBeaconBlock
 
   use GenServer
@@ -25,12 +26,17 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     GenServer.cast(__MODULE__, {:store_block, block_root, signed_block})
   end
 
-  @spec get_block(Types.root()) :: SignedBeaconBlock.t() | nil
-  def get_block(block_root), do: lookup(block_root)
-
-  @spec get_block!(Types.root()) :: SignedBeaconBlock.t()
-  def get_block!(block_root) do
+  @spec get_block(Types.root()) :: BeaconBlock.t() | nil
+  def get_block(block_root) do
     case lookup(block_root) do
+      nil -> nil
+      %{message: block} -> block
+    end
+  end
+
+  @spec get_block!(Types.root()) :: BeaconBlock.t()
+  def get_block!(block_root) do
+    case get_block(block_root) do
       nil -> raise "Block not found: 0x#{Base.encode16(block_root, case: :lower)}"
       v -> v
     end
@@ -41,7 +47,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
 
   @spec get_signed_block!(Types.root()) :: SignedBeaconBlock.t()
   def get_signed_block!(block_root) do
-    case lookup(block_root) do
+    case get_signed_block(block_root) do
       nil -> raise "Block not found: 0x#{Base.encode16(block_root, case: :lower)}"
       v -> v
     end

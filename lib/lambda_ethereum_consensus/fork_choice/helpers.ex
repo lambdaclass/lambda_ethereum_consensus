@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
-  alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStore
   alias Types.Store
 
   @spec current_status_message(Store.t()) ::
@@ -226,8 +226,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   @spec get_state_root(Types.root()) :: {:ok, Types.root()} | {:error, String.t()} | :not_found
   def get_state_root(root) do
-    with {:ok, signed_block} <- BlockStore.get_block(root) do
-      {:ok, signed_block.message.state_root}
+    with {:ok, block} <- Blocks.get_block(root) do
+      {:ok, block.state_root}
     end
   end
 

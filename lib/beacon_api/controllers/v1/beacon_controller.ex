@@ -3,13 +3,14 @@ defmodule BeaconApi.V1.BeaconController do
   alias BeaconApi.ErrorController
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStore
   use BeaconApi, :controller
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
   @doc """
-  action is an atom that correspond to the controller action's function atoms declared on `BeaconApi.Router` 
+  action is an atom that correspond to the controller action's function atoms declared on `BeaconApi.Router`
   """
   def open_api_operation(action) when is_atom(action) do
     apply(__MODULE__, :"#{action}_operation", [])
@@ -65,7 +66,7 @@ defmodule BeaconApi.V1.BeaconController do
 
   def get_block_root(conn, %{block_id: "0x" <> hex_block_id}) do
     with {:ok, block_root} <- Base.decode16(hex_block_id, case: :mixed),
-         {:ok, _signed_block} <- BlockStore.get_block(block_root) do
+         {:ok, _block} <- Blocks.get_block(block_root) do
       conn |> root_response(block_root, true, false)
     else
       :not_found -> conn |> block_not_found()

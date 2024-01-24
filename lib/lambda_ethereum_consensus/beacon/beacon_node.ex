@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.StateTransition.Cache
-  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
+  alias LambdaEthereumConsensus.Store.{Blocks, StateStore}
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -91,6 +91,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   defp fetch_anchor_block(%Types.BeaconState{} = anchor_state) do
     block_root = get_latest_block_hash(anchor_state)
-    BlockStore.get_block(block_root)
+    Blocks.get_block(block_root)
   end
 end
