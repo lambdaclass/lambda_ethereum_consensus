@@ -3,6 +3,7 @@ defmodule Types.SignedVoluntaryExit do
   Struct definition for `SignedVoluntaryExit`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :message,
@@ -16,4 +17,12 @@ defmodule Types.SignedVoluntaryExit do
           message: Types.VoluntaryExit.t(),
           signature: Types.bls_signature()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:message, Types.VoluntaryExit},
+      {:signature, TypeAliases.bls_signature()}
+    ]
+  end
 end

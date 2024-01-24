@@ -3,6 +3,7 @@ defmodule Types.ExecutionPayloadHeader do
   Struct definition for `ExecutionPayloadHeader`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   @default_execution_payload_header %{
     parent_hash: <<0::256>>,
@@ -48,13 +49,15 @@ defmodule Types.ExecutionPayloadHeader do
           fee_recipient: Types.execution_address(),
           state_root: Types.root(),
           receipts_root: Types.root(),
-          logs_bloom: binary(),
+          # size BYTES_PER_LOGS_BLOOM 256
+          logs_bloom: list(Types.uint8()),
           prev_randao: Types.bytes32(),
           block_number: Types.uint64(),
           gas_limit: Types.uint64(),
           gas_used: Types.uint64(),
           timestamp: Types.uint64(),
-          extra_data: binary(),
+          # size MAX_EXTRA_DATA_BYTES 32
+          extra_data: list(Types.bytes1()),
           base_fee_per_gas: Types.uint256(),
           block_hash: Types.hash32(),
           transactions_root: Types.root(),
@@ -71,5 +74,26 @@ defmodule Types.ExecutionPayloadHeader do
 
   def default do
     @default_execution_payload_header
+  end
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:parent_hash, TypeAliases.hash32()},
+      {:fee_recipient, TypeAliases.execution_address()},
+      {:state_root, TypeAliases.root()},
+      {:receipts_root, TypeAliases.root()},
+      {:logs_bloom, {:vector, {:int, 8}, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
+      {:prev_randao, TypeAliases.bytes32()},
+      {:block_number, TypeAliases.uint64()},
+      {:gas_limit, TypeAliases.uint64()},
+      {:gas_used, TypeAliases.uint64()},
+      {:timestamp, TypeAliases.uint64()},
+      {:extra_data, TypeAliases.byte_list(ChainSpec.get("MAX_EXTRA_DATA_BYTES"))},
+      {:base_fee_per_gas, TypeAliases.uint256()},
+      {:block_hash, TypeAliases.hash32()},
+      {:transactions_root, TypeAliases.root()},
+      {:withdrawals_root, TypeAliases.root()}
+    ]
   end
 end

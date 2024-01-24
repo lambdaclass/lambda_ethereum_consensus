@@ -1,5 +1,4 @@
 import Config
-require Logger
 
 {args, _remaining_args, _errors} =
   OptionParser.parse(System.argv(),
@@ -62,10 +61,3 @@ block_time_ms =
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
   block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms))
-
-if is_nil(jwt_secret) do
-  Logger.warning(
-    "[EngineAPI] A JWT secret is needed for communication with the execution engine. " <>
-      "Please specify the file to load it from with the --execution-jwt flag."
-  )
-end

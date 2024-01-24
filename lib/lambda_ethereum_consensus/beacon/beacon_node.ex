@@ -25,7 +25,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
       :not_found ->
         Logger.error(
-          "[Sync] No initial state or block found. Please specify the URL to fetch them from via the --checkpoint-sync flag."
+          "[Sync] No initial state or block found. Please specify the URL to fetch them from via the --checkpoint-sync flag"
         )
 
         System.stop(1)
@@ -33,18 +33,19 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   end
 
   def init([checkpoint_url]) do
-    Logger.info("[Checkpoint sync] Initiating checkpoint sync.")
+    Logger.info("[Checkpoint sync] Initiating checkpoint sync")
 
     case CheckpointSync.get_finalized_block_and_state(checkpoint_url) do
       {:ok, {anchor_state, anchor_block}} ->
         Logger.info(
-          "[Checkpoint sync] Received beacon state and block at slot #{anchor_state.slot}."
+          "[Checkpoint sync] Received beacon state and block",
+          slot: anchor_state.slot
         )
 
         init_children(anchor_state, anchor_block)
 
       _ ->
-        Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block.")
+        Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block")
 
         System.stop(1)
     end

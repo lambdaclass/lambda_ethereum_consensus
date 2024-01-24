@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @spec request_blocks_by_slot(Types.slot(), integer(), integer()) ::
           {:ok, [Types.SignedBeaconBlock.t()]} | {:error, any()}
   def request_blocks_by_slot(slot, count, retries \\ @default_retries) do
-    Logger.debug("requesting block for slot #{slot}")
+    Logger.debug("Requesting block", slot: slot)
 
     # TODO: handle no-peers asynchronously?
     peer_id = get_some_peer()
@@ -58,7 +58,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         tags = %{type: "by_slot", reason: parse_reason(reason)}
         P2P.Peerbook.penalize_peer(peer_id)
         :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
-        Logger.debug("Retrying request for block with slot #{slot}")
+        Logger.debug("Retrying request for block", slot: slot)
         request_blocks_by_slot(slot, count, retries - 1)
 
       {:error, reason} when retries == 0 ->
@@ -80,7 +80,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @spec request_blocks_by_root([Types.root()], integer()) ::
           {:ok, [Types.SignedBeaconBlock.t()]} | {:error, binary()}
   def request_blocks_by_root(roots, retries \\ @default_retries) do
-    Logger.debug("requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
+    Logger.debug("Requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
 
     peer_id = get_some_peer()
 

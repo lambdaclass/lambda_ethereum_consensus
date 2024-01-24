@@ -3,6 +3,7 @@ defmodule Types.AttesterSlashing do
   Struct definition for `AttesterSlashing`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :attestation_1,
@@ -16,4 +17,12 @@ defmodule Types.AttesterSlashing do
           attestation_1: Types.IndexedAttestation.t(),
           attestation_2: Types.IndexedAttestation.t()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:attestation_1, Types.IndexedAttestation},
+      {:attestation_2, Types.IndexedAttestation}
+    ]
+  end
 end

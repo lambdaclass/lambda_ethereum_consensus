@@ -212,7 +212,7 @@ jobs:
         protoc --elixir_out=./lib proto/libp2p.proto
         mix deps.get
     - name: Run tests
-      run: mix test --no-start --trace --exclude spectest
+      run: mix test --no-start --warnings-as-errors --trace --exclude spectest
 
   lint:
     name: Lint

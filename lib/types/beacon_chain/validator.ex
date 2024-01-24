@@ -71,14 +71,14 @@ defmodule Types.Validator do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:pubkey, {:bytes, 48}},
-      {:withdrawal_credentials, {:bytes, 32}},
-      {:effective_balance, {:int, 64}},
+      {:pubkey, TypeAliases.bls_pubkey()},
+      {:withdrawal_credentials, TypeAliases.bytes32()},
+      {:effective_balance, TypeAliases.gwei()},
       {:slashed, :bool},
-      {:activation_eligibility_epoch, {:int, 64}},
-      {:activation_epoch, {:int, 64}},
-      {:exit_epoch, {:int, 64}},
-      {:withdrawable_epoch, {:int, 64}}
+      {:activation_eligibility_epoch, TypeAliases.epoch()},
+      {:activation_epoch, TypeAliases.epoch()},
+      {:exit_epoch, TypeAliases.epoch()},
+      {:withdrawable_epoch, TypeAliases.epoch()}
     ]
   end
 end
