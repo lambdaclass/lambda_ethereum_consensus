@@ -3,23 +3,25 @@ defmodule SszGenericTestRunner do
   Runner for SSZ general test cases. `run_test_case/1` is the main entrypoint.
   """
   alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.Utils.BitList
+  alias LambdaEthereumConsensus.Utils.BitVector
   use ExUnit.CaseTemplate
   use TestRunner
 
   @disabled [
     # "basic_vector",
-    "bitlist",
-    "bitvector"
+    # "bitlist",
+    # "bitvector"
     # "boolean",
     # "containers"
     # "uints"
   ]
 
   @disabled_containers [
-    # "SingleFieldTestStruct",
-    # "SmallTestStruct",
-    # "FixedTestStruct",
-    # "VarTestStruct",
+    "SingleFieldTestStruct",
+    "SmallTestStruct",
+    "FixedTestStruct",
+    "VarTestStruct",
     "ComplexTestStruct",
     "BitsStruct"
   ]
@@ -97,6 +99,46 @@ defmodule SszGenericTestRunner do
     assert actual_hash_tree_root == expected_hash_tree_root
   end
 
+  defp assert_ssz(
+         "valid",
+         {:bitlist, _size} = schema,
+         real_serialized,
+         real_deserialized,
+         _expected_hash_tree_root
+       ) do
+    {:ok, deserialized_value} = SszEx.decode(real_deserialized, schema)
+    serialized_result = BitList.to_bytes({deserialized_value, bit_size(deserialized_value)})
+    assert real_serialized == serialized_result
+
+    {:ok, deserialized} = SszEx.decode(real_serialized, schema)
+    assert deserialized == deserialized_value
+
+    # TODO merkleization of bitlist
+    # {:ok, actual_hash_tree_root} = SszEx.hash_tree_root(real_deserialized, schema)
+    #
+    # assert actual_hash_tree_root == expected_hash_tree_root
+  end
+
+  defp assert_ssz(
+         "valid",
+         {:bitvector, _size} = schema,
+         real_serialized,
+         real_deserialized,
+         _expected_hash_tree_root
+       ) do
+    {:ok, deserialized_value} = SszEx.decode(real_deserialized, schema)
+    serialized_result = BitVector.to_bytes(deserialized_value)
+    assert real_serialized == serialized_result
+
+    {:ok, deserialized} = SszEx.decode(real_serialized, schema)
+    assert deserialized == deserialized_value
+
+    # TODO merkleization of bitlist
+    # {:ok, actual_hash_tree_root} = SszEx.hash_tree_root(real_deserialized, schema)
+    #
+    # assert actual_hash_tree_root == expected_hash_tree_root
+  end
+
   defp assert_ssz("valid", schema, real_serialized, real_deserialized, expected_hash_tree_root) do
     {:ok, deserialized} = SszEx.decode(real_serialized, schema)
     assert deserialized == real_deserialized
@@ -110,8 +152,16 @@ defmodule SszGenericTestRunner do
     assert actual_hash_tree_root == expected_hash_tree_root
   end
 
+  defp assert_ssz(
+         "invalid",
+         {:container, module},
+         real_serialized
+       ) do
+    assert {:error, _deserialized} = SszEx.decode(real_serialized, module)
+  end
+
   defp assert_ssz("invalid", schema, real_serialized) do
-    catch_error(SszEx.encode(real_serialized, schema))
+    assert {:error, _msg} = SszEx.decode(real_serialized, schema)
   end
 
   defp get_vec_schema(rest) do
@@ -121,6 +171,26 @@ defmodule SszGenericTestRunner do
 
       ["uint" <> size, max_size | _] ->
         {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
+    end
+  end
+
+  defp get_bit_list_schema(cse) do
+    case cse do
+      # Test format is inconsistent, pretend the limit is 32 (arbitrary)
+      "bitlist_" <> "no" <> _rest ->
+        {:bitlist, 32}
+
+      "bitlist_" <> rest ->
+        [size | _] = String.split(rest, "_")
+        {:bitlist, String.to_integer(size)}
+    end
+  end
+
+  def get_bit_vector_schema(cse) do
+    case cse do
+      "bitvec_" <> rest ->
+        [size | _] = String.split(rest, "_")
+        {:bitvector, String.to_integer(size)}
     end
   end
 
@@ -146,12 +216,11 @@ defmodule SszGenericTestRunner do
             get_vec_schema(rest)
         end
 
-        # "bitlist" ->
-        #   case cse do
-        #     "bitlist_" <> rest ->
-        #       [size | _] = String.split(rest, "_")
-        #       {:bitlist, String.to_integer(size)}
-        #   end
+      "bitlist" ->
+        get_bit_list_schema(cse)
+
+      "bitvector" ->
+        get_bit_vector_schema(cse)
     end
   end
 end
