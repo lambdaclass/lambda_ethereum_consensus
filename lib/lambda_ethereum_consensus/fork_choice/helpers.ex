@@ -5,7 +5,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
+
   alias Types.Store
 
   @spec current_status_message(Store.t()) ::
@@ -175,21 +176,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     store.justified_checkpoint.epoch + 1 == current_epoch
   end
 
-  @type block_tag() :: :genesis | :justified | :finalized | :head
-  @type block_id() :: block_tag() | :invalid_id | Types.slot() | Types.root()
-  @type block_info() ::
+  @type named_root() :: :genesis | :justified | :finalized | :head
+  @type block_id() :: named_root() | :invalid_id | Types.slot() | Types.root()
+  @type state_id() :: named_root() | :invalid_id | Types.slot() | Types.root()
+  @type root_info() ::
           {Types.root(), execution_optimistic? :: boolean(), finalized? :: boolean()}
-
-  @spec root_by_id(block_id()) :: {:ok, block_info()} | {:error, String.t()} | :not_found
-  def root_by_id(:head) do
-    with {:ok, current_status} <- BeaconChain.get_current_status_message() do
-      # TODO compute is_optimistic_or_invalid
-      execution_optimistic = true
-      {:ok, {current_status.head_root, execution_optimistic, false}}
-    end
-  end
-
-  def root_by_id(:genesis), do: :not_found
 
   def root_by_id(:justified) do
     justified_checkpoint = BeaconChain.get_justified_checkpoint()
@@ -205,8 +196,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
   end
 
-  def root_by_id(:invalid_id), do: :invalid_id
-
   def root_by_id(hex_root) when is_binary(hex_root) do
     # TODO compute is_optimistic_or_invalid() and is_finalized()
     execution_optimistic = true
@@ -214,13 +203,64 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     {:ok, {hex_root, execution_optimistic, finalized}}
   end
 
-  def root_by_id(slot) when is_integer(slot) do
+  @spec block_root_by_id(block_id()) ::
+          {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
+  def block_root_by_id(:head) do
+    with {:ok, current_status} <- BeaconChain.get_current_status_message() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {current_status.head_root, execution_optimistic, false}}
+    end
+  end
+
+  def block_root_by_id(:genesis), do: :not_found
+
+  def block_root_by_id(:justified) do
+    with justified_checkpoint <- BeaconChain.get_justified_checkpoint() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {justified_checkpoint.root, execution_optimistic, false}}
+    end
+  end
+
+  def block_root_by_id(:finalized) do
+    with finalized_checkpoint <- BeaconChain.get_finalized_checkpoint() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
+    end
+  end
+
+  def block_root_by_id(:invalid_id), do: :invalid_id
+
+  def block_root_by_id(slot) when is_integer(slot) do
     with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
          {:ok, root} <- BlockStore.get_block_root_by_slot(slot) do
       # TODO compute is_optimistic_or_invalid() and is_finalized()
       execution_optimistic = true
       finalized = false
       {:ok, {root, execution_optimistic, finalized}}
+    end
+  end
+
+  @spec state_root_by_id(state_id()) ::
+          {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
+  def state_root_by_id(hex_root) when is_binary(hex_root) do
+    # TODO compute is_optimistic_or_invalid() and is_finalized()
+    execution_optimistic = true
+    finalized = false
+
+    case StateStore.get_state_by_state_root(hex_root) do
+      {:ok, _state} -> {:ok, {hex_root, execution_optimistic, finalized}}
+      _ -> :not_found
+    end
+  end
+
+  def state_root_by_id(id) do
+    with {:ok, {block_root, optimistic, finalized}} <- block_root_by_id(id),
+         {:ok, block} <- BlockStore.get_block(block_root) do
+      %{message: %{state_root: state_root}} = block
+      {:ok, {state_root, optimistic, finalized}}
     end
   end
 

@@ -19,22 +19,24 @@ defmodule BeaconApi.V1.BeaconController do
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_state_root(conn, %{state_id: state_id}) do
-    with {:ok, {root, execution_optimistic, finalized}} <-
-           BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.root_by_id(),
-         state_root when not is_nil(state_root) <- ForkChoice.Helpers.get_state_root(root) do
-      conn |> root_response(state_root, execution_optimistic, finalized)
-    else
-      {:error, error_msg} ->
-        conn |> ErrorController.internal_error("Error: #{inspect(error_msg)}")
+    case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.state_root_by_id() do
+      {:ok, {root, execution_optimistic, finalized}} ->
+        conn |> root_response(root, execution_optimistic, finalized)
 
-      nil ->
-        conn |> ErrorController.not_found(nil)
+      err ->
+        case err do
+          {:error, error_msg} ->
+            conn |> ErrorController.internal_error("Error: #{inspect(error_msg)}")
 
-      :empty_slot ->
-        conn |> ErrorController.not_found(nil)
+          :not_found ->
+            conn |> ErrorController.not_found(nil)
 
-      :invalid_id ->
-        conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
+          :empty_slot ->
+            conn |> ErrorController.not_found(nil)
+
+          :invalid_id ->
+            conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
+        end
     end
   end
 
