@@ -7,9 +7,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias Plug.Session.Store
-  alias Types.BeaconBlock
-  alias Types.BeaconState
-  alias Types.Checkpoint
   alias Types.Store
 
   @spec current_status_message(Store.t()) ::
