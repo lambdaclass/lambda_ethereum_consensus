@@ -225,14 +225,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   @spec state_root_by_id(state_id()) :: {:ok, root_info()} | {:error, String.t()} | :not_found
-  def state_root_by_id(id) do
-    with {:ok, {block_root, optimistic, finalized}} <- block_root_by_id(id),
-         {:ok, block} <- BlockStore.get_block(block_root) do
-      %{message: %{state_root: state_root}} = block
-      {:ok, {state_root, optimistic, finalized}}
-    end
-  end
-
   def state_root_by_id(hex_root) when is_binary(hex_root) do
     # TODO compute is_optimistic_or_invalid() and is_finalized()
     execution_optimistic = true
@@ -251,6 +243,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           _ ->
             :not_found
         end
+    end
+  end
+
+  def state_root_by_id(id) do
+    with {:ok, {block_root, optimistic, finalized}} <- block_root_by_id(id),
+         {:ok, block} <- BlockStore.get_block(block_root) do
+      %{message: %{state_root: state_root}} = block
+      {:ok, {state_root, optimistic, finalized}}
     end
   end
 
