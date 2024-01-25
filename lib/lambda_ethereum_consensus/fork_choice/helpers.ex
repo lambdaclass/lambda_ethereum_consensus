@@ -182,7 +182,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @type root_info() ::
           {Types.root(), execution_optimistic? :: boolean(), finalized? :: boolean()}
 
-  @spec block_root_by_id(block_id()) :: {:ok, root_info()} | {:error, String.t()} | :not_found
+  @spec block_root_by_id(block_id()) ::
+          {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
   def block_root_by_id(:head) do
     with {:ok, current_status} <- BeaconChain.get_current_status_message() do
       # TODO compute is_optimistic_or_invalid
@@ -221,7 +222,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     end
   end
 
-  @spec state_root_by_id(state_id()) :: {:ok, root_info()} | {:error, String.t()} | :not_found
+  @spec state_root_by_id(state_id()) ::
+          {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
   def state_root_by_id(hex_root) when is_binary(hex_root) do
     # TODO compute is_optimistic_or_invalid() and is_finalized()
     execution_optimistic = true
