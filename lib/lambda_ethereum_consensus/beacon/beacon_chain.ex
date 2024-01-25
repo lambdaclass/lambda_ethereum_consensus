@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
+  alias Types.Checkpoint
 
   defmodule BeaconChainState do
     @moduledoc false
@@ -24,8 +25,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
             cached_fork_choice: %{
               head_root: Types.root(),
               head_slot: Types.slot(),
-              finalized_root: Types.root(),
-              finalized_epoch: Types.epoch()
+              justified: Types.Checkpoint.t(),
+              finalized: Types.Checkpoint.t()
             }
           }
   end
@@ -40,12 +41,25 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     GenServer.call(__MODULE__, :get_current_slot)
   end
 
-  @spec update_fork_choice_cache(Types.root(), Types.slot(), Types.root(), Types.epoch()) :: :ok
-  def update_fork_choice_cache(head_root, head_slot, finalized_root, finalized_epoch) do
+  @spec update_fork_choice_cache(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
+          :ok
+  def update_fork_choice_cache(head_root, head_slot, justified, finalized) do
     GenServer.cast(
       __MODULE__,
-      {:update_fork_choice_cache, head_root, head_slot, finalized_root, finalized_epoch}
+      {:update_fork_choice_cache, head_root, head_slot, justified, finalized}
     )
+  end
+
+  @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
+  def get_finalized_checkpoint do
+    %{finalized: finalized} = GenServer.call(__MODULE__, :get_fork_choice_cache)
+    finalized
+  end
+
+  @spec get_justified_checkpoint() :: Types.Checkpoint.t()
+  def get_justified_checkpoint do
+    %{justified: justified} = GenServer.call(__MODULE__, :get_fork_choice_cache)
+    justified
   end
 
   @spec get_current_epoch() :: integer()
@@ -82,19 +96,24 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
      %BeaconChainState{
        genesis_time: anchor_state.genesis_time,
        genesis_validators_root: anchor_state.genesis_validators_root,
+       time: time,
        cached_fork_choice: %{
          head_root: <<0::256>>,
          head_slot: anchor_state.slot,
-         finalized_root: anchor_state.finalized_checkpoint.root,
-         finalized_epoch: anchor_state.finalized_checkpoint.epoch
-       },
-       time: time
+         justified: anchor_state.finalized_checkpoint,
+         finalized: anchor_state.finalized_checkpoint
+       }
      }}
   end
 
   @impl true
   def handle_call(:get_current_slot, _from, state) do
     {:reply, compute_current_slot(state), state}
+  end
+
+  @impl true
+  def handle_call(:get_fork_choice_cache, _, %{cached_fork_choice: cached} = state) do
+    {:reply, cached, state}
   end
 
   @impl true
@@ -116,8 +135,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     %{
       head_root: head_root,
       head_slot: head_slot,
-      finalized_root: finalized_root,
-      finalized_epoch: finalized_epoch
+      finalized: %{root: finalized_root, epoch: finalized_epoch}
     } = state.cached_fork_choice
 
     status_message = %Types.StatusMessage{
@@ -143,17 +161,14 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @impl true
-  def handle_cast(
-        {:update_fork_choice_cache, head_root, head_slot, finalized_root, finalized_epoch},
-        state
-      ) do
+  def handle_cast({:update_fork_choice_cache, head_root, head_slot, justified, finalized}, state) do
     {:noreply,
      state
      |> Map.put(:cached_fork_choice, %{
        head_root: head_root,
        head_slot: head_slot,
-       finalized_root: finalized_root,
-       finalized_epoch: finalized_epoch
+       justified: justified,
+       finalized: finalized
      })}
   end
 
@@ -168,12 +183,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   defp compute_fork_digest(slot, genesis_validators_root) do
-    current_fork_version =
-      slot |> Misc.compute_epoch_at_slot() |> ChainSpec.get_fork_version_for_epoch()
-
-    Misc.compute_fork_digest(
-      current_fork_version,
-      genesis_validators_root
-    )
+    Misc.compute_epoch_at_slot(slot)
+    |> ChainSpec.get_fork_version_for_epoch()
+    |> Misc.compute_fork_digest(genesis_validators_root)
   end
 end
