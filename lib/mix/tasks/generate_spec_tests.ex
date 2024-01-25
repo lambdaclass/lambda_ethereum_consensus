@@ -41,7 +41,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
     cases = SpecTestUtils.cases_for(fork: fork, config: config, runner: runner)
 
     if cases != [] do
-      Logger.info("Generating tests for #{config}-#{fork}-#{runner}.")
+      Logger.info("Generating tests for #{config}-#{fork}-#{runner}")
 
       # Create the parent dir if not present.
       dirname = Path.join(["test", "generated", config, fork])
