@@ -61,6 +61,9 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 
 There are Makefile targets for these tasks.
 
+> [!TIP]
+> You can list the available targets with `make help`
+
 ```shell
 make deps # Installs dependencies
 make iex  # Runs a terminal with the application started
