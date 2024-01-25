@@ -243,7 +243,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
         {:ok, {signed_block.message.state_root, execution_optimistic, finalized}}
 
       _ ->
-        case BlockStore.get_block(root) do
+        case StateStore.get_state_by_state_root(root) do
           {:ok, state} ->
             state_root = Ssz.hash_tree_root!(state)
             {:ok, {state_root, execution_optimistic, finalized}}
