@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   """
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias LambdaEthereumConsensus.Utils.ZeroHashes
   import alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Utils.ZeroHashes
 
   #################
   ### Public API
