@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     Utility functions for the fork choice.
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
   alias Plug.Session.Store
@@ -208,6 +207,21 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       execution_optimistic = true
       {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
     end
+  end
+  
+  def root_by_id(:justified) do
+    justified_checkpoint = BeaconChain.get_justified_checkpoint()
+    # TODO compute is_optimistic_or_invalid
+    execution_optimistic = true
+    {:ok, {justified_checkpoint.root, execution_optimistic, false}}
+  end
+
+  def root_by_id(:finalized) do
+    finalized_checkpoint = BeaconChain.get_finalized_checkpoint()
+    # TODO compute is_optimistic_or_invalid
+    execution_optimistic = true
+    {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
+
   end
 
   def block_root_by_id(:invalid_id), do: :invalid_id
