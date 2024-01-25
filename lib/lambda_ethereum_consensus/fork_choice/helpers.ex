@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
+  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStore
   alias Types.Store
 
@@ -52,7 +53,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   defp get_weight(%Store{} = store, root) do
     state = Map.fetch!(store.checkpoint_states, store.justified_checkpoint)
 
-    block = Store.get_block!(store, root)
+    block = Blocks.get_block!(root)
 
     # PERF: use ``Aja.Vector.foldl``
     attestation_score =
@@ -86,7 +87,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   # whose leaf state's justified/finalized info agrees with that in ``store``.
   defp get_filtered_block_tree(%Store{} = store) do
     base = store.justified_checkpoint.root
-    block = Store.get_block!(store, base)
+    block = Blocks.get_block!(base)
     {_, blocks} = filter_block_tree(store, base, block, %{})
     blocks
   end
@@ -154,7 +155,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   # Compute the voting source checkpoint in event that block with root ``block_root`` is the head block
   def get_voting_source(%Store{} = store, block_root) do
-    block = Store.get_block!(store, block_root)
+    block = Blocks.get_block!(block_root)
     current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
     block_epoch = Misc.compute_epoch_at_slot(block.slot)
 
@@ -223,10 +224,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     end
   end
 
-  @spec get_state_root(Types.root()) :: {:ok, Types.root()} | {:error, String.t()} | :not_found
+  @spec get_state_root(Types.root()) :: Types.root() | nil
   def get_state_root(root) do
-    with {:ok, signed_block} <- BlockStore.get_block(root) do
-      {:ok, signed_block.message.state_root}
+    with %{} = block <- Blocks.get_block(root) do
+      block.state_root
     end
   end
 
