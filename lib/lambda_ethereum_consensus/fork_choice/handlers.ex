@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
 
   alias Types.{
     Attestation,
@@ -51,7 +52,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     finalized_slot =
       Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
 
-    base_state = Store.get_state(store, block.parent_root)
+    base_state = BlockStates.get_state(block.parent_root)
 
     cond do
       # Parent block must be known
@@ -133,7 +134,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           attestation_2: %IndexedAttestation{} = attestation_2
         }
       ) do
-    state = Store.get_state!(store, store.justified_checkpoint.root)
+    state = BlockStates.get_state!(store.justified_checkpoint.root)
 
     cond do
       not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
@@ -168,9 +169,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
       # Add new block and state to the store
+      BlockStates.store_state(block_root, state)
+
       store
       |> Store.store_block(block_root, signed_block)
-      |> Store.store_state(block_root, state)
       |> if_then_update(
         is_before_attesting_interval and Store.get_current_slot(store) == block.slot,
         &%Store{&1 | proposer_boost_root: block_root}
@@ -225,7 +227,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   # Pull up the post-state of the block to the next epoch boundary
   def compute_pulled_up_tip(%Store{} = store, block_root) do
     result =
-      Store.get_state!(store, block_root)
+      BlockStates.get_state!(block_root)
       |> EpochProcessing.process_justification_and_finalization()
 
     with {:ok, state} <- result do
@@ -348,7 +350,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     else
       target_slot = Misc.compute_start_slot_at_epoch(target.epoch)
 
-      Store.get_state!(store, target.root)
+      BlockStates.get_state!(target.root)
       |> then(
         &if(&1.slot < target_slot,
           do: StateTransition.process_slots(&1, target_slot),

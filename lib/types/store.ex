@@ -7,7 +7,7 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.StateStore
+  alias LambdaEthereumConsensus.Store.BlockStates
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
@@ -63,6 +63,8 @@ defmodule Types.Store do
 
       time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
 
+      BlockStates.store_state(anchor_block_root, anchor_state)
+
       %__MODULE__{
         time: time,
         genesis_time: anchor_state.genesis_time,
@@ -78,7 +80,6 @@ defmodule Types.Store do
         tree_cache: Tree.new(anchor_block_root)
       }
       |> store_block(anchor_block_root, signed_block)
-      |> store_state(anchor_block_root, anchor_state)
       |> then(&{:ok, &1})
     else
       {:error, "Anchor block state root does not match anchor state root"}
@@ -106,28 +107,6 @@ defmodule Types.Store do
   def get_checkpoint_block(%__MODULE__{} = store, root, epoch) do
     epoch_first_slot = Misc.compute_start_slot_at_epoch(epoch)
     get_ancestor(store, root, epoch_first_slot)
-  end
-
-  @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
-  def get_state(%__MODULE__{}, block_root) do
-    case StateStore.get_state_by_block_root(block_root) do
-      {:ok, state} -> state
-      _ -> nil
-    end
-  end
-
-  @spec get_state!(t(), Types.root()) :: BeaconState.t()
-  def get_state!(store, block_root) do
-    case get_state(store, block_root) do
-      nil -> raise "State not found for block #{block_root}"
-      v -> v
-    end
-  end
-
-  @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
-  def store_state(%__MODULE__{} = store, block_root, state) do
-    StateStore.store_state(state, block_root)
-    store
   end
 
   @spec has_block?(t(), Types.root()) :: boolean()
