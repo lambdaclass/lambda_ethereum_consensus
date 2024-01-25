@@ -214,7 +214,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   def block_root_by_id(:genesis), do: :not_found
 
   def block_root_by_id(:justified) do
-    with {:ok, justified_checkpoint} <- BeaconChain.get_justified_checkpoint() do
+    with justified_checkpoint <- BeaconChain.get_justified_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
       {:ok, {justified_checkpoint.root, execution_optimistic, false}}
@@ -222,7 +222,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   def block_root_by_id(:finalized) do
-    with {:ok, finalized_checkpoint} <- BeaconChain.get_finalized_checkpoint() do
+    with finalized_checkpoint <- BeaconChain.get_finalized_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
       {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
