@@ -214,13 +214,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   def block_root_by_id(:invalid_id), do: :invalid_id
 
-  def block_root_by_id(hex_root) when is_binary(hex_root) do
-    # TODO compute is_optimistic_or_invalid() and is_finalized()
-    execution_optimistic = true
-    finalized = false
-    {:ok, {hex_root, execution_optimistic, finalized}}
-  end
-
   def block_root_by_id(slot) when is_integer(slot) do
     with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
          {:ok, root} <- BlockStore.get_block_root_by_slot(slot) do
@@ -232,18 +225,32 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   @spec state_root_by_id(state_id()) :: {:ok, root_info()} | {:error, String.t()} | :not_found
-  def state_root_by_id(hex_root) when is_binary(hex_root) do
-    # TODO compute is_optimistic_or_invalid() and is_finalized()
-    execution_optimistic = true
-    finalized = false
-    {:ok, {hex_root, execution_optimistic, finalized}}
-  end
-
   def state_root_by_id(id) do
     with {:ok, {block_root, optimistic, finalized}} <- block_root_by_id(id),
          {:ok, block} <- BlockStore.get_block(block_root) do
       %{message: %{state_root: state_root}} = block
       {:ok, {state_root, optimistic, finalized}}
+    end
+  end
+
+  def state_root_by_id(hex_root) when is_binary(hex_root) do
+    # TODO compute is_optimistic_or_invalid() and is_finalized()
+    execution_optimistic = true
+    finalized = false
+
+    case BlockStore.get_block(root) do
+      {:ok, signed_block} ->
+        {:ok, {signed_block.message.state_root, execution_optimistic, finalized}}
+
+      _ ->
+        case BlockStore.get_block(root) do
+          {:ok, state} ->
+            state_root = Ssz.hash_tree_root!(state)
+            {:ok, {state_root, execution_optimistic, finalized}}
+
+          _ ->
+            :not_found
+        end
     end
   end
 
