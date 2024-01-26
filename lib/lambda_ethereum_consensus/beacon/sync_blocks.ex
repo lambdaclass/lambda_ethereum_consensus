@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     # Initial sleep for faster app start
     Process.sleep(1000)
     checkpoint = BeaconChain.get_finalized_checkpoint()
-    initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch)
+    initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch) + 1
     last_slot = BeaconChain.get_current_slot()
 
     chunks =
