@@ -7,7 +7,8 @@ import Config
       checkpoint_sync: :string,
       execution_endpoint: :string,
       execution_jwt: :string,
-      mock_execution: :boolean
+      mock_execution: :boolean,
+      db_only: :boolean
     ]
   )
 
@@ -15,7 +16,6 @@ network = Keyword.get(args, :network, "mainnet")
 checkpoint_sync = Keyword.get(args, :checkpoint_sync)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
-mock_execution = Keyword.get(args, :mock_execution, config_env() == :test or is_nil(jwt_path))
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync: checkpoint_sync
@@ -25,6 +25,17 @@ configs_per_network = %{
   "mainnet" => MainnetConfig,
   "sepolia" => SepoliaConfig
 }
+
+mode =
+  if Keyword.get(args, :db_only, false) do
+    :db_only
+  else
+    :full
+  end
+
+config :lambda_ethereum_consensus, LambdaEthereumConsensus, mode: mode
+
+mock_execution = Keyword.get(args, :mock_execution, mode == :db_only or is_nil(jwt_path))
 
 config :lambda_ethereum_consensus, ChainSpec, config: configs_per_network |> Map.fetch!(network)
 
