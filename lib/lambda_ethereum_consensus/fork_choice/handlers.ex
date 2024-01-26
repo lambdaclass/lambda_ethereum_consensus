@@ -2,7 +2,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   @moduledoc """
   Handlers that update the fork choice store.
   """
+  require Logger
 
+  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
   alias LambdaEthereumConsensus.Store.Blocks
@@ -158,7 +160,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   # Check the block is valid and compute the post-state.
   def compute_post_state(%Store{} = store, %SignedBeaconBlock{} = signed_block, state) do
     %{message: block} = signed_block
-    block_root = Ssz.hash_tree_root!(block)
+
+    payload_verification_task =
+      Task.async(fn ->
+        ExecutionClient.verify_and_notify_new_payload(block.body.execution_payload)
+        |> handle_verify_payload_result()
+      end)
 
     with {:ok, state} <- StateTransition.state_transition(state, signed_block, true) do
       seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
@@ -166,6 +173,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Add proposer score boost if the block is timely
       time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
       is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
+
+      block_root = Ssz.hash_tree_root!(block)
+
+      # TODO: store execution status in DB
+      {:ok, _execution_status} = Task.await(payload_verification_task)
 
       # Add new block and state to the store
       store
@@ -380,4 +392,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     |> Enum.reduce(messages, &Map.put(&2, &1, message))
     |> then(&{:ok, %Store{store | latest_messages: &1}})
   end
+
+  defp handle_verify_payload_result({:ok, :valid = status}), do: {:ok, status}
+  defp handle_verify_payload_result({:ok, :optimistic = status}), do: {:ok, status}
+  defp handle_verify_payload_result({:ok, :invalid}), do: {:error, "Invalid execution payload"}
+
+  defp handle_verify_payload_result({:error, error}),
+    do: {:error, "Error when calling execution client: #{error}"}
 end
