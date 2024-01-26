@@ -8,7 +8,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   use GenServer
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias Types.SignedBeaconBlock
@@ -29,12 +28,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @spec add_block(SignedBeaconBlock.t()) :: :ok
   def add_block(signed_block) do
-    # If block is older than checkpoint sync's genesis, we ignore it
-    if signed_block.message.slot > BeaconChain.get_anchor_slot() do
-      GenServer.cast(__MODULE__, {:add_block, signed_block})
-    else
-      :ok
-    end
+    GenServer.cast(__MODULE__, {:add_block, signed_block})
   end
 
   @spec is_pending_block(Types.root()) :: boolean()
