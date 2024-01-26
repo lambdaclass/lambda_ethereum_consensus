@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.Application do
     :ok
   end
 
-  defp get_children(:db_only) do
+  defp get_children(:db) do
     [
       LambdaEthereumConsensus.Telemetry,
       LambdaEthereumConsensus.Store.Db,
@@ -39,7 +39,7 @@ defmodule LambdaEthereumConsensus.Application do
   end
 
   defp get_children(:full) do
-    get_children(:db_only) ++
+    get_children(:db) ++
       [
         {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync_url()]},
         LambdaEthereumConsensus.P2P.Metadata,
@@ -57,7 +57,7 @@ defmodule LambdaEthereumConsensus.Application do
     |> Keyword.fetch!(:mode)
   end
 
-  defp check_jwt_secret(:db_only), do: nil
+  defp check_jwt_secret(:db), do: nil
 
   defp check_jwt_secret(:full) do
     jwt_secret =

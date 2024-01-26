@@ -8,7 +8,7 @@ import Config
       execution_endpoint: :string,
       execution_jwt: :string,
       mock_execution: :boolean,
-      db_only: :boolean
+      mode: :string
     ]
   )
 
@@ -31,16 +31,20 @@ configs_per_network = %{
   "sepolia" => SepoliaConfig
 }
 
+valid_modes = ["full", "db"]
+raw_mode = Keyword.get(args, :mode, "full")
+
 mode =
-  if Keyword.get(args, :db_only, false) do
-    :db_only
+  if raw_mode in valid_modes do
+    String.to_atom(raw_mode)
   else
-    :full
+    IO.puts("Invalid mode given. Valid modes are: #{Enum.join(valid_modes, ", ")}")
+    System.halt(2)
   end
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus, mode: mode
 
-mock_execution = Keyword.get(args, :mock_execution, mode == :db_only or is_nil(jwt_path))
+mock_execution = Keyword.get(args, :mock_execution, mode == :db or is_nil(jwt_path))
 
 config :lambda_ethereum_consensus, ChainSpec, config: configs_per_network |> Map.fetch!(network)
 
