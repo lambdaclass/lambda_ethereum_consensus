@@ -34,7 +34,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
   @spec put(atom(), key(), value()) :: :ok
   def put(table, key, value) do
     cache_value(table, key, value)
-    GenServer.cast(__MODULE__, {:put, key, value})
+    GenServer.cast(table, {:put, key, value})
   end
 
   @spec get(atom(), key(), (key() -> value() | nil)) :: value() | nil
@@ -93,7 +93,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
         cache_miss(table, key, fetch_func)
 
       v ->
-        GenServer.cast(__MODULE__, {:touch_entry, key})
+        :ok = GenServer.cast(table, {:touch_entry, key})
         v
     end
   end
@@ -107,7 +107,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
 
   defp cache_value(table, key, value) do
     :ets.insert_new(table, {key, value, nil})
-    GenServer.cast(__MODULE__, {:touch_entry, key})
+    GenServer.cast(table, {:touch_entry, key})
     value
   end
 
