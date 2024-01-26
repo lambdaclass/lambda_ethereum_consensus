@@ -1,7 +1,6 @@
 defmodule Integration.ForkChoice.HandlersTest do
   use ExUnit.Case
 
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
