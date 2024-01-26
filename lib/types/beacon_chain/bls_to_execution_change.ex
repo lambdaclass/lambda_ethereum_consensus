@@ -3,6 +3,7 @@ defmodule Types.BLSToExecutionChange do
   Struct definition for `BLSToExecutionChange`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :validator_index,
@@ -18,4 +19,13 @@ defmodule Types.BLSToExecutionChange do
           from_bls_pubkey: Types.bls_pubkey(),
           to_execution_address: Types.execution_address()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:validator_index, TypeAliases.validator_index()},
+      {:from_bls_pubkey, TypeAliases.bls_pubkey()},
+      {:to_execution_address, TypeAliases.execution_address()}
+    ]
+  end
 end

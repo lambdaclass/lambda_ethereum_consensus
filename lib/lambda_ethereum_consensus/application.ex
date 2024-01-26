@@ -13,10 +13,24 @@ defmodule LambdaEthereumConsensus.Application do
         :checkpoint_sync
       ]
 
+    jwt_secret =
+      Application.fetch_env!(
+        :lambda_ethereum_consensus,
+        LambdaEthereumConsensus.Execution.EngineApi
+      )[:jwt_secret]
+
+    if is_nil(jwt_secret) do
+      Logger.warning(
+        "[EngineAPI] A JWT secret is needed for communication with the execution engine. " <>
+          "Please specify the file to load it from with the --execution-jwt flag."
+      )
+    end
+
     children = [
       LambdaEthereumConsensus.Telemetry,
       LambdaEthereumConsensus.Store.Db,
       LambdaEthereumConsensus.Store.Blocks,
+      LambdaEthereumConsensus.Store.BlockStates,
       {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync]},
       LambdaEthereumConsensus.P2P.Metadata,
       BeaconApi.Endpoint

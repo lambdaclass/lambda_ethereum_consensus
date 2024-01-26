@@ -7,7 +7,7 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.StateStore
+  alias LambdaEthereumConsensus.Store.BlockStates
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
@@ -22,8 +22,6 @@ defmodule Types.Store do
     :unrealized_finalized_checkpoint,
     :proposer_boost_root,
     :equivocating_indices,
-    :blocks,
-    :block_states,
     :checkpoint_states,
     :latest_messages,
     :unrealized_justifications,
@@ -40,20 +38,17 @@ defmodule Types.Store do
           unrealized_finalized_checkpoint: Checkpoint.t() | nil,
           proposer_boost_root: Types.root() | nil,
           equivocating_indices: MapSet.t(Types.validator_index()),
-          blocks: %{Types.root() => BeaconBlock.t()},
-          block_states: %{Types.root() => BeaconState.t()},
           checkpoint_states: %{Checkpoint.t() => BeaconState.t()},
           latest_messages: %{Types.validator_index() => Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Checkpoint.t()},
           tree_cache: Tree.t()
         }
 
-  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
+  @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) ::
           {:ok, t()} | {:error, String.t()}
   def get_forkchoice_store(
         %BeaconState{} = anchor_state,
-        %SignedBeaconBlock{message: anchor_block} = signed_block,
-        use_db
+        %SignedBeaconBlock{message: anchor_block} = signed_block
       ) do
     anchor_state_root = Ssz.hash_tree_root!(anchor_state)
     anchor_block_root = Ssz.hash_tree_root!(anchor_block)
@@ -68,6 +63,8 @@ defmodule Types.Store do
 
       time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
 
+      BlockStates.store_state(anchor_block_root, anchor_state)
+
       %__MODULE__{
         time: time,
         genesis_time: anchor_state.genesis_time,
@@ -77,16 +74,12 @@ defmodule Types.Store do
         unrealized_finalized_checkpoint: anchor_checkpoint,
         proposer_boost_root: <<0::256>>,
         equivocating_indices: MapSet.new(),
-        blocks: %{},
-        block_states: %{},
         checkpoint_states: %{anchor_checkpoint => anchor_state},
         latest_messages: %{},
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
         tree_cache: Tree.new(anchor_block_root)
       }
-      |> then(&if use_db, do: &1 |> Map.delete(:blocks) |> Map.delete(:block_states), else: &1)
       |> store_block(anchor_block_root, signed_block)
-      |> store_state(anchor_block_root, anchor_state)
       |> then(&{:ok, &1})
     else
       {:error, "Anchor block state root does not match anchor state root"}
@@ -99,7 +92,7 @@ defmodule Types.Store do
   end
 
   def get_ancestor(%__MODULE__{} = store, root, slot) do
-    block = get_block!(store, root)
+    block = Blocks.get_block!(root)
 
     if block.slot > slot do
       get_ancestor(store, block.parent_root, slot)
@@ -116,76 +109,15 @@ defmodule Types.Store do
     get_ancestor(store, root, epoch_first_slot)
   end
 
-  @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
-  def get_state(%__MODULE__{block_states: states}, block_root) do
-    Map.get(states, block_root)
-  end
-
-  @spec get_state(t(), Types.root()) :: BeaconState.t() | nil
-  def get_state(%__MODULE__{}, block_root) do
-    case StateStore.get_state_by_block_root(block_root) do
-      {:ok, state} -> state
-      _ -> nil
-    end
-  end
-
-  @spec get_state!(t(), Types.root()) :: BeaconState.t()
-  def get_state!(store, block_root) do
-    case get_state(store, block_root) do
-      nil -> raise "State not found for block #{block_root}"
-      v -> v
-    end
-  end
-
-  @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
-  def store_state(%__MODULE__{block_states: states} = store, block_root, state) do
-    states
-    |> Map.put(block_root, state)
-    |> then(&%{store | block_states: &1})
-  end
-
-  @spec store_state(t(), Types.root(), BeaconState.t()) :: t()
-  def store_state(%__MODULE__{} = store, block_root, state) do
-    StateStore.store_state(state, block_root)
-    store
-  end
-
-  @spec get_block(t(), Types.root()) :: BeaconBlock.t() | nil
-  def get_block(%__MODULE__{blocks: blocks}, block_root) do
-    Map.get(blocks, block_root)
-  end
-
-  @spec get_block(t(), Types.root()) :: BeaconBlock.t() | nil
-  def get_block(%__MODULE__{}, block_root) do
-    case Blocks.get_block(block_root) do
-      nil -> nil
-      signed_block -> signed_block.message
-    end
-  end
-
-  @spec get_block!(t(), Types.root()) :: BeaconBlock.t()
-  def get_block!(store, block_root) do
-    case get_block(store, block_root) do
-      nil -> raise "Block not found: 0x#{Base.encode16(block_root)}"
-      v -> v
-    end
-  end
-
   @spec has_block?(t(), Types.root()) :: boolean()
   def has_block?(%__MODULE__{tree_cache: tree}, block_root) do
     Tree.has_block?(tree, block_root)
   end
 
   @spec get_children(t(), Types.root()) :: [BeaconBlock.t()]
-  def get_children(%__MODULE__{tree_cache: tree} = store, parent_root) do
+  def get_children(%__MODULE__{tree_cache: tree}, parent_root) do
     Tree.get_children!(tree, parent_root)
-    |> Enum.map(&{&1, get_block!(store, &1)})
-  end
-
-  @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
-  def store_block(%__MODULE__{blocks: blocks} = store, block_root, %{message: block}) do
-    new_store = update_tree(store, block_root, block.parent_root)
-    %{new_store | blocks: Map.put(blocks, block_root, block)}
+    |> Enum.map(&{&1, Blocks.get_block!(&1)})
   end
 
   @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()

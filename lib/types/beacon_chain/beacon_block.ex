@@ -3,6 +3,7 @@ defmodule Types.BeaconBlock do
   Struct definition for `BeaconBlock`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :slot,
@@ -22,4 +23,15 @@ defmodule Types.BeaconBlock do
           state_root: Types.root(),
           body: Types.BeaconBlockBody.t()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:slot, TypeAliases.slot()},
+      {:proposer_index, TypeAliases.validator_index()},
+      {:parent_root, TypeAliases.root()},
+      {:state_root, TypeAliases.root()},
+      {:body, Types.BeaconBlockBody}
+    ]
+  end
 end
