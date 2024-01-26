@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   use Supervisor
   require Logger
 
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
@@ -81,16 +82,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  defp get_latest_block_hash(anchor_state) do
-    state_root = Ssz.hash_tree_root!(anchor_state)
-    # The latest_block_header.state_root was zeroed out to avoid circular dependencies
-    anchor_state.latest_block_header
-    |> Map.put(:state_root, state_root)
-    |> Ssz.hash_tree_root!()
-  end
-
   defp fetch_anchor_block(%Types.BeaconState{} = anchor_state) do
-    block_root = get_latest_block_hash(anchor_state)
+    block_root = Misc.get_latest_block_hash(anchor_state)
     BlockStore.get_block(block_root)
   end
 end

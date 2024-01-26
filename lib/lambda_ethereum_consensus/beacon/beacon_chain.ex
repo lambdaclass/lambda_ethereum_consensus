@@ -91,7 +91,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     schedule_next_tick()
 
     anchor_checkpoint = %Checkpoint{
-      root: anchor_state.latest_block_header |> Ssz.hash_tree_root!(),
+      root: Misc.get_latest_block_hash(anchor_state),
       epoch: Misc.compute_epoch_at_slot(anchor_state.slot)
     }
 
