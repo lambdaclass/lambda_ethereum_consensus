@@ -55,7 +55,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
       |> Keyword.take([:max_entries, :batch_prune_size, :store_func])
       |> Map.new()
 
-    :ets.new(data_table, [
+    :ets.new(ttl_table, [
       :ordered_set,
       :private,
       :named_table,
@@ -64,7 +64,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
       decentralized_counters: false
     ])
 
-    :ets.new(ttl_table, [:set, :public, :named_table])
+    :ets.new(data_table, [:set, :public, :named_table])
 
     state = %{data_table: data_table, ttl_table: ttl_table}
     {:ok, Map.merge(state, opts)}

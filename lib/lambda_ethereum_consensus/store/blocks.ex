@@ -20,8 +20,16 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     LRUCache.start_link(
       table: @table,
       max_entries: @max_entries,
-      batch_prune_size: @batch_prune_size
+      batch_prune_size: @batch_prune_size,
+      store_func: &BlockStore.store_block(&2, &1)
     )
+  end
+
+  def child_spec(opts) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [opts]}
+    }
   end
 
   @spec store_block(Types.root(), SignedBeaconBlock.t()) :: :ok
