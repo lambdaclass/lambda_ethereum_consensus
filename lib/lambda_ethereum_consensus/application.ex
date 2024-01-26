@@ -33,7 +33,8 @@ defmodule LambdaEthereumConsensus.Application do
     [
       LambdaEthereumConsensus.Telemetry,
       LambdaEthereumConsensus.Store.Db,
-      LambdaEthereumConsensus.Store.Blocks
+      LambdaEthereumConsensus.Store.Blocks,
+      LambdaEthereumConsensus.Store.BlockStates
     ]
   end
 

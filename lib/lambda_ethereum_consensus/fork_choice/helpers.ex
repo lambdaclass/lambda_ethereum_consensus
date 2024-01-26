@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
 
   alias Types.Store
@@ -13,7 +14,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           {:ok, Types.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do
     with {:ok, head_root} <- get_head(store),
-         state when not is_nil(state) <- Store.get_state(store, head_root) do
+         state when not is_nil(state) <- BlockStates.get_state(head_root) do
       {:ok,
        %Types.StatusMessage{
          fork_digest:
@@ -165,7 +166,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       store.unrealized_justifications[block_root]
     else
       # The block is not from a prior epoch, therefore the voting source is not pulled up
-      head_state = Store.get_state!(store, block_root)
+      head_state = BlockStates.get_state!(block_root)
       head_state.current_justified_checkpoint
     end
   end
