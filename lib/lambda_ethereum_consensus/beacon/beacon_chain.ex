@@ -15,6 +15,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       :genesis_time,
       :genesis_validators_root,
       :time,
+      :anchor_slot,
       :cached_fork_choice
     ]
 
