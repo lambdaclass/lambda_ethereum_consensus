@@ -67,6 +67,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
       setup_all do
         start_link_supervised!({LambdaEthereumConsensus.Store.Db, db_location: "test/generated/#{config}_#{fork}_#{runner}_test_db"})
         start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
+        start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
         Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: #{chain_spec_config(config)})
       end
 
