@@ -15,7 +15,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       :genesis_time,
       :genesis_validators_root,
       :time,
-      :anchor_slot,
       :cached_fork_choice
     ]
 
@@ -39,9 +38,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @spec get_current_slot() :: Types.slot()
   def get_current_slot, do: GenServer.call(__MODULE__, :get_current_slot)
-
-  @spec get_anchor_slot() :: Types.slot()
-  def get_anchor_slot, do: GenServer.call(__MODULE__, :get_anchor_slot)
 
   @spec update_fork_choice_cache(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
           :ok
@@ -94,17 +90,21 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   def init({anchor_state = %BeaconState{}, time}) do
     schedule_next_tick()
 
+    anchor_checkpoint = %Checkpoint{
+      root: anchor_state.latest_block_header |> Ssz.hash_tree_root!(),
+      epoch: Misc.compute_epoch_at_slot(anchor_state.slot)
+    }
+
     {:ok,
      %BeaconChainState{
        genesis_time: anchor_state.genesis_time,
        genesis_validators_root: anchor_state.genesis_validators_root,
-       anchor_slot: anchor_state.slot,
        time: time,
        cached_fork_choice: %{
          head_root: <<0::256>>,
          head_slot: anchor_state.slot,
-         justified: anchor_state.finalized_checkpoint,
-         finalized: anchor_state.finalized_checkpoint
+         justified: anchor_checkpoint,
+         finalized: anchor_checkpoint
        }
      }}
   end
@@ -112,11 +112,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @impl true
   def handle_call(:get_current_slot, _from, state) do
     {:reply, compute_current_slot(state), state}
-  end
-
-  @impl true
-  def handle_call(:get_anchor_slot, _from, %{anchor_slot: slot} = state) do
-    {:reply, slot, state}
   end
 
   @impl true
