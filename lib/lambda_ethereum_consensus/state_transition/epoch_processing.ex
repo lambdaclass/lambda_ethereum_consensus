@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Utils.Randao
   alias Types.{BeaconState, HistoricalSummary, Validator}
 
   @spec process_sync_committee_updates(BeaconState.t()) ::
@@ -91,10 +92,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   def process_randao_mixes_reset(%BeaconState{randao_mixes: randao_mixes} = state) do
     current_epoch = Accessors.get_current_epoch(state)
     next_epoch = current_epoch + 1
-    epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
     randao_mix = Accessors.get_randao_mix(state, current_epoch)
-    index = rem(next_epoch, epochs_per_historical_vector)
-    new_randao_mixes = List.replace_at(randao_mixes, index, randao_mix)
+    new_randao_mixes = Randao.replace_randao_mix(randao_mixes, next_epoch, randao_mix)
     new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
     {:ok, new_state}
   end

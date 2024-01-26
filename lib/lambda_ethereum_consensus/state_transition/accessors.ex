@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Cache, Math, Misc, Predicates}
   alias LambdaEthereumConsensus.Utils
+  alias LambdaEthereumConsensus.Utils.Randao
   alias Types.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
   @max_random_byte 2 ** 8 - 1
@@ -178,9 +179,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Return the randao mix at a recent ``epoch``.
   """
   @spec get_randao_mix(BeaconState.t(), Types.epoch()) :: Types.bytes32()
+  @spec get_randao_mix(BeaconState.t(), Types.epoch()) :: Types.bytes32()
   def get_randao_mix(%BeaconState{randao_mixes: randao_mixes}, epoch) do
-    epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
-    Enum.fetch!(randao_mixes, rem(epoch, epochs_per_historical_vector))
+    index = Randao.get_randao_mix_index(epoch)
+    Aja.Vector.fetch!(randao_mixes, index)
   end
 
   @doc """

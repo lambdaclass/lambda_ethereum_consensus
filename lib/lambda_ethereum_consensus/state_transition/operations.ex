@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Utils.Randao
 
   alias Types.{
     Attestation,
@@ -772,12 +773,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         # Mix in RANDAO reveal
         mix = :crypto.exor(randao_mix, hash)
 
-        updated_randao_mixes =
-          List.replace_at(
-            state.randao_mixes,
-            rem(epoch, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")),
-            mix
-          )
+        updated_randao_mixes = Randao.replace_randao_mix(state.randao_mixes, epoch, mix)
 
         {:ok,
          %BeaconState{
