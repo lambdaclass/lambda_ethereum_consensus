@@ -1,8 +1,8 @@
 import Config
 
-{args, _remaining_args, _errors} =
-  OptionParser.parse(System.argv(),
-    switches: [
+{args, remaining_args} =
+  OptionParser.parse!(System.argv(),
+    strict: [
       network: :string,
       checkpoint_sync: :string,
       execution_endpoint: :string,
@@ -11,6 +11,11 @@ import Config
       db_only: :boolean
     ]
   )
+
+if not Enum.empty?(remaining_args) do
+  IO.puts("Unexpected argument received: #{Enum.take(remaining_args, 1)}")
+  System.halt(1)
+end
 
 network = Keyword.get(args, :network, "mainnet")
 checkpoint_sync = Keyword.get(args, :checkpoint_sync)
