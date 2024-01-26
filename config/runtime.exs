@@ -1,19 +1,24 @@
 import Config
 
-{args, remaining_args} =
-  OptionParser.parse!(System.argv(),
-    strict: [
-      network: :string,
-      checkpoint_sync: :string,
-      execution_endpoint: :string,
-      execution_jwt: :string,
-      mock_execution: :boolean,
-      mode: :string
-    ]
-  )
+switches = [
+  network: :string,
+  checkpoint_sync: :string,
+  execution_endpoint: :string,
+  execution_jwt: :string,
+  mock_execution: :boolean,
+  mode: :string
+]
 
-if not Enum.empty?(remaining_args) do
-  IO.puts("Unexpected argument received: #{Enum.take(remaining_args, 1)}")
+is_testing = Config.config_env() == :test
+
+# NOTE: we ignore invalid options because `mix test` passes us all test flags
+option = if is_testing, do: :switches, else: :strict
+
+{args, remaining_args} = OptionParser.parse!(System.argv(), [{option, switches}])
+
+if not is_testing and not Enum.empty?(remaining_args) do
+  invalid_arg = Enum.take(remaining_args, 1)
+  IO.puts("Unexpected argument received: #{invalid_arg}")
   System.halt(1)
 end
 
