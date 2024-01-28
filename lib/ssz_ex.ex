@@ -94,6 +94,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     root
   end
 
+  @spec hash_tree_root!(struct(), atom()) :: Types.root()
   def hash_tree_root!(container, module) when is_map(container) do
     chunks =
       module.schema()
