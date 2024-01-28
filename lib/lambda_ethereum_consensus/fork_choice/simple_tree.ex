@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Simple.Tree do
 
   defmodule Node do
     @moduledoc false
-    defstruct [:parent_id, :id, :children_ids]
+    defstruct [:parent_id, :children_ids]
     @type id :: Types.root()
     @type parent_id :: id() | :root
     @type t :: %__MODULE__{

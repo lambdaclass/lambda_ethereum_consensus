@@ -48,7 +48,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
              size_header <> compressed_payload
            ),
          {:ok, chunks} <- parse_response(response_chunk),
-         {:ok, blocks} <- decode_chunks(chunks) do
+         {:ok, blocks} <- decode_chunks(chunks),
+         :ok <- verify_batch(blocks, slot, count) do
       # TODO: handle cases where slot is empty
       tags = %{result: "success", type: "by_slot", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: count}, tags)
@@ -164,6 +165,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
   @spec decode_chunks([binary()]) :: {:ok, [Types.SignedBeaconBlock.t()]} | {:error, binary()}
   defp decode_chunks(chunks) do
+    # TODO: handle errors
     blocks =
       chunks
       |> Enum.map(&decode_chunk/1)
@@ -210,6 +212,18 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     case reason do
       "failed to dial" <> _ -> "failed to dial"
       res -> res
+    end
+  end
+
+  defp verify_batch(blocks, start_slot, count) do
+    end_slot = start_slot + count
+
+    if Enum.all?(blocks, fn %{message: %{slot: slot}} ->
+         start_slot <= slot and slot < end_slot
+       end) do
+      :ok
+    else
+      {:error, "block outside requested slot range"}
     end
   end
 end

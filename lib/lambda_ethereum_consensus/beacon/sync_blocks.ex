@@ -9,7 +9,6 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.StateTransition.Misc
 
@@ -24,9 +23,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   def run(_opts) do
     # Initial sleep for faster app start
     Process.sleep(1000)
-    {:ok, checkpoint} = ForkChoice.get_finalized_checkpoint()
-
-    initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch)
+    checkpoint = BeaconChain.get_finalized_checkpoint()
+    initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch) + 1
     last_slot = BeaconChain.get_current_slot()
 
     chunks =
