@@ -95,11 +95,14 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def hash_tree_root!(container, module) when is_map(container) do
-    chunks = module.schema() |> Enum.reduce(<<>>, fn {key, schema}, acc_root -> 
-      value = container |> Map.get(key)
-      root = hash_tree_root!(value, schema)
-      acc_root <> root
-    end)
+    chunks =
+      module.schema()
+      |> Enum.reduce(<<>>, fn {key, schema}, acc_root ->
+        value = container |> Map.get(key)
+        root = hash_tree_root!(value, schema)
+        acc_root <> root
+      end)
+
     leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
     root
