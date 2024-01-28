@@ -126,7 +126,7 @@ defmodule LambdaEthereumConsensus.Utils.ZeroHashes do
                  95, 57, 80, 203, 125, 62, 56, 66, 68, 111, 129, 164, 240, 223, 29, 245, 55, 206,
                  225, 57, 239, 100, 234, 152, 75, 217>>
 
-  def compute_zero_hashes() do
+  def compute_zero_hashes do
     buffer = <<0::size(@bytes_per_chunk * @max_merkle_tree_depth * @bits_per_byte)>>
 
     0..(@max_merkle_tree_depth - 2)
