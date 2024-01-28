@@ -3,7 +3,11 @@ defmodule LambdaEthereumConsensus.Utils.ZeroHashes do
   Precomputed zero hashes
   """
 
+  alias LambdaEthereumConsensus.SszEx
+
+  @bits_per_byte 8
   @bytes_per_chunk 32
+  @max_merkle_tree_depth 64
   @zero_hashes <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                  0, 0, 0, 0, 0, 245, 165, 253, 66, 209, 106, 32, 48, 39, 152, 239, 110, 211, 9,
                  151, 155, 67, 0, 61, 35, 32, 217, 240, 232, 234, 152, 49, 169, 39, 89, 251, 75,
@@ -121,6 +125,21 @@ defmodule LambdaEthereumConsensus.Utils.ZeroHashes do
                  134, 210, 26, 235, 139, 199, 174, 89, 225, 253, 33, 236, 197, 2, 201, 177, 20,
                  95, 57, 80, 203, 125, 62, 56, 66, 68, 111, 129, 164, 240, 223, 29, 245, 55, 206,
                  225, 57, 239, 100, 234, 152, 75, 217>>
+
+  def compute_zero_hashes() do
+    buffer = <<0::size(@bytes_per_chunk * @max_merkle_tree_depth * @bits_per_byte)>>
+
+    0..(@max_merkle_tree_depth - 2)
+    |> Enum.reduce(buffer, fn index, acc_buffer ->
+      start = index * @bytes_per_chunk
+      stop = (index + 2) * @bytes_per_chunk
+      focus = acc_buffer |> :binary.part(start, stop - start)
+      <<left::binary-size(@bytes_per_chunk), _::binary>> = focus
+      hash = SszEx.hash_nodes(left, left)
+      change_index = (index + 1) * @bytes_per_chunk
+      SszEx.replace_chunk(acc_buffer, change_index, hash)
+    end)
+  end
 
   def get_zero_hash(depth) do
     offset = (depth + 1) * @bytes_per_chunk - @bytes_per_chunk

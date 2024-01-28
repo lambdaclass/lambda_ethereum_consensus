@@ -258,6 +258,13 @@ defmodule LambdaEthereumConsensus.SszEx do
     (max_size * size + 31) |> div(32)
   end
 
+  def replace_chunk(chunks, start, new_chunk) do
+    <<left::binary-size(start), _::size(@bits_per_chunk), right::binary>> =
+      chunks
+
+    <<left::binary, new_chunk::binary, right::binary>>
+  end
+
   #################
   ### Private functions
   #################
@@ -704,13 +711,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp next_pow_of_two(len) when is_integer(len) and len > 0 do
     n = ((len <<< 1) - 1) |> compute_pow()
     2 ** n
-  end
-
-  defp replace_chunk(chunks, start, new_chunk) do
-    <<left::binary-size(start), _::size(@bits_per_chunk), right::binary>> =
-      chunks
-
-    <<left::binary, new_chunk::binary, right::binary>>
   end
 
   defp get_chunks_len(chunks) do
