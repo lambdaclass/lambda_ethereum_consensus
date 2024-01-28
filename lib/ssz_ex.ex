@@ -663,7 +663,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp next_pow_of_two(0) do: 0
+  defp next_pow_of_two(0), do: 0
 
   defp next_pow_of_two(len) when is_integer(len) and len > 0 do
     n = ((len <<< 1) - 1) |> compute_pow()
