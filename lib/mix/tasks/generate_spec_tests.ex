@@ -59,16 +59,20 @@ defmodule Mix.Tasks.GenerateSpecTests do
     module_name = "Elixir.#{c}.#{f}.#{r}Test" |> String.to_atom()
     runner_module = "Elixir.#{r}TestRunner" |> String.to_atom()
 
+    # TODO: we can isolate tests that use the DB from each other by using ExUnit's tmp_dir context option.
     header = """
     defmodule #{module_name} do
       use ExUnit.Case, async: false
 
       setup_all do
+        start_link_supervised!({LambdaEthereumConsensus.Store.Db, db_location: "test/generated/#{config}_#{fork}_#{runner}_test_db"})
+        start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
+        start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
         Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: #{chain_spec_config(config)})
       end
 
       setup do
-        LambdaEthereumConsensus.StateTransition.Cache.initialize_cache()
+        on_exit(fn -> LambdaEthereumConsensus.StateTransition.Cache.clear_cache() end)
       end
     """
 
