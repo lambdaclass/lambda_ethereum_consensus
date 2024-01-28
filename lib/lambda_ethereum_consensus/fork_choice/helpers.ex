@@ -3,16 +3,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     Utility functions for the fork choice.
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
-  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
+
   alias Types.Store
 
   @spec current_status_message(Store.t()) ::
           {:ok, Types.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do
     with {:ok, head_root} <- get_head(store),
-         state when not is_nil(state) <- Store.get_state(store, head_root) do
+         state when not is_nil(state) <- BlockStates.get_state(head_root) do
       {:ok,
        %Types.StatusMessage{
          fork_digest:
@@ -53,7 +55,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   defp get_weight(%Store{} = store, root) do
     state = Map.fetch!(store.checkpoint_states, store.justified_checkpoint)
 
-    block = Store.get_block!(store, root)
+    block = Blocks.get_block!(root)
 
     # PERF: use ``Aja.Vector.foldl``
     attestation_score =
@@ -87,7 +89,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   # whose leaf state's justified/finalized info agrees with that in ``store``.
   defp get_filtered_block_tree(%Store{} = store) do
     base = store.justified_checkpoint.root
-    block = Store.get_block!(store, base)
+    block = Blocks.get_block!(base)
     {_, blocks} = filter_block_tree(store, base, block, %{})
     blocks
   end
@@ -155,7 +157,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   # Compute the voting source checkpoint in event that block with root ``block_root`` is the head block
   def get_voting_source(%Store{} = store, block_root) do
-    block = Store.get_block!(store, block_root)
+    block = Blocks.get_block!(block_root)
     current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
     block_epoch = Misc.compute_epoch_at_slot(block.slot)
 
@@ -164,7 +166,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       store.unrealized_justifications[block_root]
     else
       # The block is not from a prior epoch, therefore the voting source is not pulled up
-      head_state = Store.get_state!(store, block_root)
+      head_state = BlockStates.get_state!(block_root)
       head_state.current_justified_checkpoint
     end
   end
@@ -175,39 +177,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     store.justified_checkpoint.epoch + 1 == current_epoch
   end
 
-  @type block_tag() :: :genesis | :justified | :finalized | :head
-  @type block_id() :: block_tag() | :invalid_id | Types.slot() | Types.root()
-  @type block_info() ::
+  @type named_root() :: :genesis | :justified | :finalized | :head
+  @type block_id() :: named_root() | :invalid_id | Types.slot() | Types.root()
+  @type state_id() :: named_root() | :invalid_id | Types.slot() | Types.root()
+  @type root_info() ::
           {Types.root(), execution_optimistic? :: boolean(), finalized? :: boolean()}
 
-  @spec root_by_id(block_id()) :: {:ok, block_info()} | {:error, String.t()} | :not_found
-  def root_by_id(:head) do
-    with {:ok, current_status} <- BeaconChain.get_current_status_message() do
-      # TODO compute is_optimistic_or_invalid
-      execution_optimistic = true
-      {:ok, {current_status.head_root, execution_optimistic, false}}
-    end
-  end
-
-  def root_by_id(:genesis), do: :not_found
-
   def root_by_id(:justified) do
-    with {:ok, justified_checkpoint} <- ForkChoice.get_justified_checkpoint() do
-      # TODO compute is_optimistic_or_invalid
-      execution_optimistic = true
-      {:ok, {justified_checkpoint.root, execution_optimistic, false}}
-    end
+    justified_checkpoint = BeaconChain.get_justified_checkpoint()
+    # TODO compute is_optimistic_or_invalid
+    execution_optimistic = true
+    {:ok, {justified_checkpoint.root, execution_optimistic, false}}
   end
 
   def root_by_id(:finalized) do
-    with {:ok, finalized_checkpoint} <- ForkChoice.get_finalized_checkpoint() do
-      # TODO compute is_optimistic_or_invalid
-      execution_optimistic = true
-      {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
-    end
+    finalized_checkpoint = BeaconChain.get_finalized_checkpoint()
+    # TODO compute is_optimistic_or_invalid
+    execution_optimistic = true
+    {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
   end
-
-  def root_by_id(:invalid_id), do: :invalid_id
 
   def root_by_id(hex_root) when is_binary(hex_root) do
     # TODO compute is_optimistic_or_invalid() and is_finalized()
@@ -216,7 +204,37 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     {:ok, {hex_root, execution_optimistic, finalized}}
   end
 
-  def root_by_id(slot) when is_integer(slot) do
+  @spec block_root_by_id(block_id()) ::
+          {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
+  def block_root_by_id(:head) do
+    with {:ok, current_status} <- BeaconChain.get_current_status_message() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {current_status.head_root, execution_optimistic, false}}
+    end
+  end
+
+  def block_root_by_id(:genesis), do: :not_found
+
+  def block_root_by_id(:justified) do
+    with justified_checkpoint <- BeaconChain.get_justified_checkpoint() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {justified_checkpoint.root, execution_optimistic, false}}
+    end
+  end
+
+  def block_root_by_id(:finalized) do
+    with finalized_checkpoint <- BeaconChain.get_finalized_checkpoint() do
+      # TODO compute is_optimistic_or_invalid
+      execution_optimistic = true
+      {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
+    end
+  end
+
+  def block_root_by_id(:invalid_id), do: :invalid_id
+
+  def block_root_by_id(slot) when is_integer(slot) do
     with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
          {:ok, root} <- BlockStore.get_block_root_by_slot(slot) do
       # TODO compute is_optimistic_or_invalid() and is_finalized()
@@ -226,10 +244,31 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     end
   end
 
-  @spec get_state_root(Types.root()) :: {:ok, Types.root()} | {:error, String.t()} | :not_found
+  @spec state_root_by_id(state_id()) ::
+          {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
+  def state_root_by_id(hex_root) when is_binary(hex_root) do
+    # TODO compute is_optimistic_or_invalid() and is_finalized()
+    execution_optimistic = true
+    finalized = false
+
+    case StateStore.get_state_by_state_root(hex_root) do
+      {:ok, _state} -> {:ok, {hex_root, execution_optimistic, finalized}}
+      _ -> :not_found
+    end
+  end
+
+  def state_root_by_id(id) do
+    with {:ok, {block_root, optimistic, finalized}} <- block_root_by_id(id),
+         {:ok, block} <- BlockStore.get_block(block_root) do
+      %{message: %{state_root: state_root}} = block
+      {:ok, {state_root, optimistic, finalized}}
+    end
+  end
+
+  @spec get_state_root(Types.root()) :: Types.root() | nil
   def get_state_root(root) do
-    with {:ok, signed_block} <- BlockStore.get_block(root) do
-      {:ok, signed_block.message.state_root}
+    with %{} = block <- Blocks.get_block(root) do
+      block.state_root
     end
   end
 
