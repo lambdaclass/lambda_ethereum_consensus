@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
+  alias LambdaEthereumConsensus.Store.Blocks
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -59,7 +60,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Store.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
+    case Store.get_forkchoice_store(anchor_state, signed_anchor_block) do
       {:ok, %Store{} = store} ->
         Logger.info("[Fork choice] Initialized store")
 
@@ -108,7 +109,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @impl GenServer
-  def handle_cast({:on_attestation, %Attestation{} = attestation}, %Types.Store{} = state) do
+  def handle_cast({:on_attestation, %Attestation{} = attestation}, %Store{} = state) do
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
     Logger.debug("[Fork choice] Adding attestation #{id} to the store")
 
@@ -176,15 +177,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end
   end
 
-  @spec recompute_head(Types.Store.t()) :: :ok
+  @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
     {:ok, head_root} = Helpers.get_head(store)
 
-    head_block = Store.get_block!(store, head_root)
+    head_block = Blocks.get_block!(head_root)
     head_execution_hash = head_block.body.execution_payload.block_hash
 
     finalized_checkpoint = store.finalized_checkpoint
-    finalized_block = Store.get_block!(store, store.finalized_checkpoint.root)
+    finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)
     finalized_execution_hash = finalized_block.body.execution_payload.block_hash
 
     # TODO: do someting with the result from the execution client

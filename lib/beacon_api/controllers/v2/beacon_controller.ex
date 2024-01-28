@@ -1,15 +1,14 @@
 defmodule BeaconApi.V2.BeaconController do
   alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
+  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStore
   use BeaconApi, :controller
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
-  @doc """
-  action is an atom that correspond to the controller action's function atoms declared on `BeaconApi.Router` 
-  """
   def open_api_operation(action) when is_atom(action) do
+    # NOTE: action can take a bounded amount of values
     apply(__MODULE__, :"#{action}_operation", [])
   end
 
@@ -39,10 +38,10 @@ defmodule BeaconApi.V2.BeaconController do
 
   def get_block(conn, %{block_id: "0x" <> hex_block_id}) do
     with {:ok, block_root} <- Base.decode16(hex_block_id, case: :mixed),
-         {:ok, block} <- BlockStore.get_block(block_root) do
+         %{} = block <- Blocks.get_signed_block(block_root) do
       conn |> block_response(block)
     else
-      :not_found -> conn |> block_not_found()
+      nil -> conn |> block_not_found()
       _ -> conn |> ErrorController.bad_request("Invalid block ID: 0x#{hex_block_id}")
     end
   end

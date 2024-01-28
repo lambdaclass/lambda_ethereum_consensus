@@ -261,4 +261,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     flag = :math.pow(2, flag_index) |> round
     bor(flags, flag)
   end
+
+  @spec get_latest_block_hash(BeaconState.t()) :: Types.root()
+  def get_latest_block_hash(anchor_state) do
+    state_root = Ssz.hash_tree_root!(anchor_state)
+    # The latest_block_header.state_root was zeroed out to avoid circular dependencies
+    anchor_state.latest_block_header
+    |> Map.put(:state_root, state_root)
+    |> Ssz.hash_tree_root!()
+  end
 end

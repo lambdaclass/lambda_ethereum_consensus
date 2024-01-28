@@ -36,10 +36,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec get_current_slot() :: integer()
-  def get_current_slot do
-    GenServer.call(__MODULE__, :get_current_slot)
-  end
+  @spec get_current_slot() :: Types.slot()
+  def get_current_slot, do: GenServer.call(__MODULE__, :get_current_slot)
 
   @spec update_fork_choice_cache(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
           :ok
@@ -92,6 +90,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   def init({anchor_state = %BeaconState{}, time}) do
     schedule_next_tick()
 
+    anchor_checkpoint = %Checkpoint{
+      root: Misc.get_latest_block_hash(anchor_state),
+      epoch: Misc.compute_epoch_at_slot(anchor_state.slot)
+    }
+
     {:ok,
      %BeaconChainState{
        genesis_time: anchor_state.genesis_time,
@@ -100,8 +103,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
        cached_fork_choice: %{
          head_root: <<0::256>>,
          head_slot: anchor_state.slot,
-         justified: anchor_state.finalized_checkpoint,
-         finalized: anchor_state.finalized_checkpoint
+         justified: anchor_checkpoint,
+         finalized: anchor_checkpoint
        }
      }}
   end
