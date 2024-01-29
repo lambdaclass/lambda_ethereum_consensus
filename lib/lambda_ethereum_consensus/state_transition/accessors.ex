@@ -182,7 +182,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_randao_mix(BeaconState.t(), Types.epoch()) :: Types.bytes32()
   def get_randao_mix(%BeaconState{randao_mixes: randao_mixes}, epoch) do
     index = Randao.get_randao_mix_index(epoch)
-    Aja.Vector.fetch!(randao_mixes, index)
+    Aja.Vector.at!(randao_mixes, index)
   end
 
   @doc """
