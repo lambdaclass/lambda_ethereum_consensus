@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     SSZ library in Elixir
   """
   alias LambdaEthereumConsensus.Utils.BitList
-  alias LambdaEthereumConsensus.Utils.BitVector
   import alias LambdaEthereumConsensus.Utils.BitVector
   import Bitwise
   alias LambdaEthereumConsensus.Utils.ZeroHashes
