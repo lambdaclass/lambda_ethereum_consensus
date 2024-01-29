@@ -136,13 +136,6 @@ defmodule Unit.SSZExTest do
     root = chunks |> SszEx.merkleize_chunks(2 ** 10)
     expected_value = "2647cb9e26bd83eeb0982814b2ac4d6cc4a65d0d98637f1a73a4c06d3db0e6ce"
     assert root |> Base.encode16(case: :lower) == expected_value
-
-    ## TOO HEAVY COMPUTATION!
-    # chunks = 1..70 |> Enum.reduce(<<>>, fn _, acc -> acc <> ones end)
-    # leaf_count = 9_223_372_036_854_775_808 # 2 ** 63
-    # root = chunks |> SszEx.merkleize_chunks(leaf_count)
-    # expected_value = "9317695d95b5a3b46e976b5a9cbfcfccb600accaddeda9ac867cc9669b862979"
-    # assert root |> Base.encode16(case: :lower) == expected_value
   end
 
   test "merklelization of chunks with virtual padding" do
@@ -208,13 +201,6 @@ defmodule Unit.SSZExTest do
     root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2 ** 10)
     expected_value = "2647cb9e26bd83eeb0982814b2ac4d6cc4a65d0d98637f1a73a4c06d3db0e6ce"
     assert root |> Base.encode16(case: :lower) == expected_value
-
-    ## TOO HEAVY COMPUTATION!
-    # chunks = 1..70 |> Enum.reduce(<<>>, fn _, acc -> acc <> ones end)
-    # leaf_count = 9_223_372_036_854_775_808 # 2 ** 63
-    # root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(leaf_count)
-    # expected_value = "9317695d95b5a3b46e976b5a9cbfcfccb600accaddeda9ac867cc9669b862979"
-    # assert root |> Base.encode16(case: :lower) == expected_value
   end
 
   test "hash tree root of list" do
