@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
+  alias LambdaEthereumConsensus.Store.Blocks
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -24,18 +25,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
           :ignore | {:error, any} | {:ok, pid}
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
-  @spec get_finalized_checkpoint() :: {:ok, Types.Checkpoint.t()}
-  def get_finalized_checkpoint do
-    [finalized_checkpoint] = get_store_attrs([:finalized_checkpoint])
-    {:ok, finalized_checkpoint}
-  end
-
-  @spec get_justified_checkpoint() :: {:ok, Types.Checkpoint.t()}
-  def get_justified_checkpoint do
-    [justified_checkpoint] = get_store_attrs([:justified_checkpoint])
-    {:ok, justified_checkpoint}
   end
 
   @spec has_block?(Types.root()) :: boolean()
@@ -71,7 +60,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Store.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
+    case Store.get_forkchoice_store(anchor_state, signed_anchor_block) do
       {:ok, %Store{} = store} ->
         Logger.info("[Fork choice] Initialized store")
 
@@ -90,11 +79,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def handle_call({:get_store_attrs, attrs}, _from, state) do
     values = Enum.map(attrs, &Map.fetch!(state, &1))
     {:reply, values, state}
-  end
-
-  @impl GenServer
-  def handle_call(:get_current_status_message, _from, state) do
-    {:reply, Helpers.current_status_message(state), state}
   end
 
   def handle_call({:has_block?, block_root}, _from, state) do
@@ -125,7 +109,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @impl GenServer
-  def handle_cast({:on_attestation, %Attestation{} = attestation}, %Types.Store{} = state) do
+  def handle_cast({:on_attestation, %Attestation{} = attestation}, %Store{} = state) do
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
     Logger.debug("[Fork choice] Adding attestation #{id} to the store")
 
@@ -170,11 +154,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ### Private Functions
   ##########################
 
-  @spec get_store_attrs([atom()]) :: [any()]
-  defp get_store_attrs(attrs) do
-    GenServer.call(__MODULE__, {:get_store_attrs, attrs}, @default_timeout)
-  end
-
   @spec apply_handler(any(), any(), any()) :: any()
   def apply_handler(iter, state, handler) do
     iter
@@ -198,15 +177,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end
   end
 
-  @spec recompute_head(Types.Store.t()) :: :ok
+  @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
     {:ok, head_root} = Helpers.get_head(store)
 
-    head_block = Store.get_block!(store, head_root)
+    head_block = Blocks.get_block!(head_root)
     head_execution_hash = head_block.body.execution_payload.block_hash
 
     finalized_checkpoint = store.finalized_checkpoint
-    finalized_block = Store.get_block!(store, store.finalized_checkpoint.root)
+    finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)
     finalized_execution_hash = finalized_block.body.execution_payload.block_hash
 
     # TODO: do someting with the result from the execution client
@@ -220,8 +199,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     BeaconChain.update_fork_choice_cache(
       head_root,
       head_block.slot,
-      finalized_checkpoint.root,
-      finalized_checkpoint.epoch
+      store.justified_checkpoint,
+      finalized_checkpoint
     )
 
     :ok

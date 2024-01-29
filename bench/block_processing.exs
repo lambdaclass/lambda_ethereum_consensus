@@ -6,12 +6,15 @@ alias LambdaEthereumConsensus.Store.BlockStore
 alias LambdaEthereumConsensus.Store.StateStore
 alias Types.{BeaconState, SignedBeaconBlock}
 
-{:ok, _} = Store.Db.start_link(nil)
-{:ok, _} = Store.Blocks.start_link(nil)
+Logger.configure(level: :warning)
+
+{:ok, _} = Store.Db.start_link([])
+{:ok, _} = Store.Blocks.start_link([])
+{:ok, _} = Store.BlockStates.start_link([])
 Cache.initialize_cache()
 
 # NOTE: this slot must be at the beginning of an epoch (i.e. a multiple of 32)
-slot = 8_210_240
+slot = 4_213_280
 
 IO.puts("fetching blocks...")
 {:ok, %BeaconState{} = state} = StateStore.get_state_by_slot(slot)
@@ -19,7 +22,7 @@ IO.puts("fetching blocks...")
 {:ok, %SignedBeaconBlock{} = new_block} = BlockStore.get_block_by_slot(slot + 1)
 
 IO.puts("initializing store...")
-{:ok, store} = Types.Store.get_forkchoice_store(state, block, true)
+{:ok, store} = Types.Store.get_forkchoice_store(state, block)
 store = Handlers.on_tick(store, store.time + 30)
 
 attestations = new_block.message.body.attestations
