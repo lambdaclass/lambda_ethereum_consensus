@@ -18,12 +18,12 @@ defmodule SszGenericTestRunner do
   ]
 
   @disabled_containers [
-    "SingleFieldTestStruct",
-    "SmallTestStruct",
-    "FixedTestStruct",
-    "VarTestStruct",
-    "ComplexTestStruct",
-    "BitsStruct"
+    # "SingleFieldTestStruct",
+    # "SmallTestStruct",
+    # "FixedTestStruct",
+    # "VarTestStruct",
+    # "ComplexTestStruct",
+    # "BitsStruct"
   ]
 
   @impl TestRunner
@@ -73,10 +73,12 @@ defmodule SszGenericTestRunner do
          real_deserialized,
          _hash_tree_root
        ) do
-    real_struct = struct!(module, real_deserialized)
+    real_struct = struct!(module, parse_complex_container(real_deserialized, module))
     {:ok, deserialized} = SszEx.decode(real_serialized, module)
+
     assert deserialized == real_struct
     {:ok, serialized} = SszEx.encode(real_struct, module)
+
     assert serialized == real_serialized
   end
 
@@ -193,6 +195,70 @@ defmodule SszGenericTestRunner do
         {:bitvector, String.to_integer(size)}
     end
   end
+
+  defp parse_complex_container(value, module)
+       when module == Helpers.SszStaticContainers.BitsStruct do
+    value
+    |> Enum.map(fn {key, value} ->
+      case key do
+        :A ->
+          {:ok, deserialized_value} = SszEx.decode(value, {:bitlist, 5})
+          {key, deserialized_value}
+
+        :B ->
+          {:ok, deserialized_value} = SszEx.decode(value, {:bitvector, 2})
+          {key, deserialized_value}
+
+        :C ->
+          {:ok, deserialized_value} = SszEx.decode(value, {:bitvector, 1})
+          {key, deserialized_value}
+
+        :D ->
+          {:ok, deserialized_value} = SszEx.decode(value, {:bitlist, 6})
+          {key, deserialized_value}
+
+        :E ->
+          {:ok, deserialized_value} = SszEx.decode(value, {:bitvector, 8})
+          {key, deserialized_value}
+      end
+    end)
+  end
+
+  defp parse_complex_container(value, module)
+       when module == Helpers.SszStaticContainers.ComplexTestStruct do
+    value
+    |> Enum.map(fn {key, value} ->
+      case key do
+        :A ->
+          {key, value}
+
+        :B ->
+          {key, value}
+
+        :C ->
+          {key, value}
+
+        :D when is_integer(value) ->
+          {key, []}
+
+        :D ->
+          {key, :binary.bin_to_list(value)}
+
+        :E ->
+          {key, struct!(Helpers.SszStaticContainers.VarTestStruct, value)}
+
+        :F ->
+          {key,
+           Enum.map(value, fn v -> struct!(Helpers.SszStaticContainers.FixedTestStruct, v) end)}
+
+        :G ->
+          {key,
+           Enum.map(value, fn v -> struct!(Helpers.SszStaticContainers.VarTestStruct, v) end)}
+      end
+    end)
+  end
+
+  defp parse_complex_container(value, _module), do: value
 
   defp parse_type(%SpecTestCase{handler: handler, case: cse}) do
     case handler do
