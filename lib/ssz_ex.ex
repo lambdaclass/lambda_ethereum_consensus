@@ -16,6 +16,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @bits_per_byte 8
   @bits_per_chunk @bytes_per_chunk * @bits_per_byte
   @zero_chunk <<0::size(@bits_per_chunk)>>
+  @zero_hashes ZeroHashes.compute_zero_hashes()
 
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
@@ -173,7 +174,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     cond do
       chunks_len == 0 ->
         depth = height - 1
-        ZeroHashes.get_zero_hash(depth)
+        get_zero_hash(depth)
 
       chunks_len == 1 and leaf_count == 1 ->
         chunks
@@ -220,13 +221,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   def chunk_count({:list, type, max_size}) do
     size = size_of(type)
     (max_size * size + 31) |> div(32)
-  end
-
-  def replace_chunk(chunks, start, new_chunk) do
-    <<left::binary-size(start), _::size(@bits_per_chunk), right::binary>> =
-      chunks
-
-    <<left::binary, new_chunk::binary, right::binary>>
   end
 
   #################
@@ -719,7 +713,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     children_index = focus_len - @bytes_per_chunk
     <<_::binary-size(children_index), left::binary>> = focus
     depth = height - i - 1
-    right = ZeroHashes.get_zero_hash(depth)
+    right = get_zero_hash(depth)
     {children_index, left, right}
   end
 
@@ -734,5 +728,18 @@ defmodule LambdaEthereumConsensus.SszEx do
         hash = hash_nodes(left, right)
         {:cont, replace_chunk(layers, index, hash)}
     end
+  end
+
+  defp replace_chunk(chunks, start, new_chunk) do
+    <<left::binary-size(start), _::size(@bits_per_chunk), right::binary>> =
+      chunks
+
+    <<left::binary, new_chunk::binary, right::binary>>
+  end
+
+  defp get_zero_hash(depth) do
+    offset = (depth + 1) * @bytes_per_chunk - @bytes_per_chunk
+    <<_::binary-size(offset), hash::binary-size(@bytes_per_chunk), _::binary>> = @zero_hashes
+    hash
   end
 end
