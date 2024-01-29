@@ -196,7 +196,6 @@ defmodule LambdaEthereumConsensus.SszEx do
         <<root::binary-size(@bytes_per_chunk), _::binary>> = final_layer
         root
     end
->>>>>>> 181ac771f8c72b8a8931ce8ccf6da25ed2d6485f
   end
 
   @spec pack(boolean, :bool) :: binary()
