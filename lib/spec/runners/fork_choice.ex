@@ -8,6 +8,7 @@ defmodule ForkChoiceTestRunner do
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
   alias Types.Store
 
@@ -105,7 +106,7 @@ defmodule ForkChoiceTestRunner do
 
     signed_block = %SignedBeaconBlock{message: anchor_block, signature: <<0::768>>}
 
-    {:ok, store} = Helpers.get_forkchoice_store(anchor_state, signed_block, false)
+    {:ok, store} = Store.get_forkchoice_store(anchor_state, signed_block)
 
     assert {:ok, _store} = apply_steps(case_dir, store, steps)
   end
@@ -185,7 +186,7 @@ defmodule ForkChoiceTestRunner do
     if Map.has_key?(checks, :head) do
       {:ok, head_root} = Helpers.get_head(store)
       assert head_root == checks.head.root
-      assert Store.get_block!(store, head_root).slot == checks.head.slot
+      assert Blocks.get_block!(head_root).slot == checks.head.slot
     end
 
     if Map.has_key?(checks, :time) do

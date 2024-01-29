@@ -18,10 +18,11 @@ defmodule Types.Checkpoint do
           root: Types.root()
         }
 
+  @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:epoch, {:int, 64}},
-      {:root, {:bytes, 32}}
+      {:epoch, TypeAliases.epoch()},
+      {:root, TypeAliases.root()}
     ]
   end
 end

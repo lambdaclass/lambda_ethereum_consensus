@@ -3,6 +3,7 @@ defmodule Types.SignedBeaconBlock do
   Struct definition for `SignedBeaconBlock`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :message,
@@ -16,4 +17,12 @@ defmodule Types.SignedBeaconBlock do
           message: Types.BeaconBlock.t(),
           signature: Types.bls_signature()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:message, Types.BeaconBlock},
+      {:signature, TypeAliases.bls_signature()}
+    ]
+  end
 end

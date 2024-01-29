@@ -3,6 +3,7 @@ defmodule Types.BeaconBlockBody do
   Struct definition for `BeaconBlockBody`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :randao_reveal,
@@ -25,13 +26,40 @@ defmodule Types.BeaconBlockBody do
           randao_reveal: Types.bls_signature(),
           eth1_data: Types.Eth1Data.t(),
           graffiti: Types.bytes32(),
+          # max MAX_PROPOSER_SLASHINGS
           proposer_slashings: list(Types.ProposerSlashing.t()),
+          # max MAX_ATTESTER_SLASHINGS
           attester_slashings: list(Types.AttesterSlashing.t()),
+          # max MAX_ATTESTATIONS
           attestations: list(Types.Attestation.t()),
+          # max MAX_DEPOSITS
           deposits: list(Types.Deposit.t()),
+          # max MAX_VOLUNTARY_EXITS
           voluntary_exits: list(Types.VoluntaryExit.t()),
           sync_aggregate: Types.SyncAggregate.t(),
           execution_payload: Types.ExecutionPayload.t(),
+          # max MAX_BLS_TO_EXECUTION_CHANGES
           bls_to_execution_changes: list(Types.BLSToExecutionChange.t())
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:randao_reveal, TypeAliases.bls_signature()},
+      {:eth1_data, Types.Eth1Data},
+      {:graffiti, TypeAliases.bytes32()},
+      {:proposer_slashings,
+       {:list, Types.ProposerSlashing, ChainSpec.get("MAX_PROPOSER_SLASHINGS")}},
+      {:attester_slashings,
+       {:list, Types.AttesterSlashing, ChainSpec.get("MAX_ATTESTER_SLASHINGS")}},
+      {:attestations, {:list, Types.Attestation, ChainSpec.get("MAX_ATTESTATIONS")}},
+      {:deposits, {:list, Types.Deposit, ChainSpec.get("MAX_DEPOSITS")}},
+      {:voluntary_exits,
+       {:list, Types.SignedVoluntaryExit, ChainSpec.get("MAX_VOLUNTARY_EXITS")}},
+      {:sync_aggregate, Types.SyncAggregate},
+      {:execution_payload, Types.ExecutionPayload},
+      {:bls_to_execution_changes,
+       {:list, Types.BLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")}}
+    ]
+  end
 end

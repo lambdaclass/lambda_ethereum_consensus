@@ -1,17 +1,20 @@
 alias LambdaEthereumConsensus.ForkChoice
 alias LambdaEthereumConsensus.ForkChoice.Handlers
-alias LambdaEthereumConsensus.ForkChoice.Helpers
 alias LambdaEthereumConsensus.StateTransition.Cache
+alias LambdaEthereumConsensus.Store
 alias LambdaEthereumConsensus.Store.BlockStore
-alias LambdaEthereumConsensus.Store.Db
 alias LambdaEthereumConsensus.Store.StateStore
 alias Types.{BeaconState, SignedBeaconBlock}
 
-{:ok, _} = Db.start_link(nil)
+Logger.configure(level: :warning)
+
+{:ok, _} = Store.Db.start_link([])
+{:ok, _} = Store.Blocks.start_link([])
+{:ok, _} = Store.BlockStates.start_link([])
 Cache.initialize_cache()
 
 # NOTE: this slot must be at the beginning of an epoch (i.e. a multiple of 32)
-slot = 8_210_240
+slot = 4_213_280
 
 IO.puts("fetching blocks...")
 {:ok, %BeaconState{} = state} = StateStore.get_state_by_slot(slot)
@@ -19,12 +22,15 @@ IO.puts("fetching blocks...")
 {:ok, %SignedBeaconBlock{} = new_block} = BlockStore.get_block_by_slot(slot + 1)
 
 IO.puts("initializing store...")
-{:ok, store} = Helpers.get_forkchoice_store(state, block, true)
+{:ok, store} = Types.Store.get_forkchoice_store(state, block)
 store = Handlers.on_tick(store, store.time + 30)
 
 attestations = new_block.message.body.attestations
 attester_slashings = new_block.message.body.attester_slashings
 
+{:ok, root} = BlockStore.get_block_root_by_slot(slot)
+
+IO.puts("about to process block: #{slot + 1}, with root: #{Base.encode16(root)}...")
 IO.puts("#{length(attestations)} attestations ; #{length(attester_slashings)} attester slashings")
 IO.puts("")
 

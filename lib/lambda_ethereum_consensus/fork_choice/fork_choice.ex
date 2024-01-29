@@ -6,7 +6,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
+  alias LambdaEthereumConsensus.Store.Blocks
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -24,22 +27,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec get_finalized_checkpoint() :: {:ok, Types.Checkpoint.t()}
-  def get_finalized_checkpoint do
-    [finalized_checkpoint] = get_store_attrs([:finalized_checkpoint])
-    {:ok, finalized_checkpoint}
-  end
-
-  @spec get_justified_checkpoint() :: {:ok, Types.Checkpoint.t()}
-  def get_justified_checkpoint do
-    [justified_checkpoint] = get_store_attrs([:justified_checkpoint])
-    {:ok, justified_checkpoint}
-  end
-
   @spec has_block?(Types.root()) :: boolean()
   def has_block?(block_root) do
-    block = get_block(block_root)
-    block != nil
+    GenServer.call(__MODULE__, {:has_block?, block_root}, @default_timeout)
   end
 
   @spec on_tick(Types.uint64()) :: :ok
@@ -70,9 +60,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
   def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Helpers.get_forkchoice_store(anchor_state, signed_anchor_block, true) do
+    case Store.get_forkchoice_store(anchor_state, signed_anchor_block) do
       {:ok, %Store{} = store} ->
-        Logger.info("[Fork choice] Initialized store.")
+        Logger.info("[Fork choice] Initialized store")
 
         slot = signed_anchor_block.message.slot
         :telemetry.execute([:sync, :store], %{slot: slot})
@@ -91,13 +81,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     {:reply, values, state}
   end
 
-  @impl GenServer
-  def handle_call(:get_current_status_message, _from, state) do
-    {:reply, Helpers.current_status_message(state), state}
-  end
-
-  def handle_call({:get_block, block_root}, _from, state) do
-    {:reply, Store.get_block(state, block_root), state}
+  def handle_call({:has_block?, block_root}, _from, state) do
+    {:reply, Store.has_block?(state, block_root), state}
   end
 
   @impl GenServer
@@ -112,19 +97,21 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     case result do
       {:ok, new_store} ->
         :telemetry.execute([:sync, :on_block], %{slot: slot})
-        Logger.info("[Fork choice] Block #{slot} added to the store.")
+        Logger.info("[Fork choice] New block added", slot: slot, root: block_root)
+
+        Task.async(__MODULE__, :recompute_head, [new_store])
         {:reply, :ok, new_store}
 
       {:error, reason} ->
-        Logger.error("[Fork choice] Failed to add block #{slot} to the store: #{reason}")
+        Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot)
         {:reply, :error, store}
     end
   end
 
   @impl GenServer
-  def handle_cast({:on_attestation, %Attestation{} = attestation}, %Types.Store{} = state) do
+  def handle_cast({:on_attestation, %Attestation{} = attestation}, %Store{} = state) do
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
-    Logger.debug("[Fork choice] Adding attestation #{id} to the store.")
+    Logger.debug("[Fork choice] Adding attestation #{id} to the store")
 
     state =
       case Handlers.on_attestation(state, attestation, false) do
@@ -137,7 +124,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @impl GenServer
   def handle_cast({:attester_slashing, attester_slashing}, state) do
-    Logger.info("[Fork choice] Adding attester slashing to the store.")
+    Logger.info("[Fork choice] Adding attester slashing to the store")
 
     state =
       case Handlers.on_attester_slashing(state, attester_slashing) do
@@ -145,7 +132,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
           new_state
 
         _ ->
-          Logger.error("[Fork choice] Failed to add attester slashing to the store.")
+          Logger.error("[Fork choice] Failed to add attester slashing to the store")
           state
       end
 
@@ -158,19 +145,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     {:noreply, new_store}
   end
 
+  @impl GenServer
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
+
   ##########################
   ### Private Functions
   ##########################
-
-  @spec get_block(Types.root()) :: Types.SignedBeaconBlock.t() | nil
-  def get_block(block_root) do
-    GenServer.call(__MODULE__, {:get_block, block_root}, @default_timeout)
-  end
-
-  @spec get_store_attrs([atom()]) :: [any()]
-  defp get_store_attrs(attrs) do
-    GenServer.call(__MODULE__, {:get_store_attrs, attrs}, @default_timeout)
-  end
 
   @spec apply_handler(any(), any(), any()) :: any()
   def apply_handler(iter, state, handler) do
@@ -191,7 +173,36 @@ defmodule LambdaEthereumConsensus.ForkChoice do
          {:ok, new_store} <-
            signed_block.message.body.attester_slashings
            |> apply_handler(new_store, &Handlers.on_attester_slashing/2) do
-      {:ok, new_store}
+      {:ok, Handlers.prune_checkpoint_states(new_store)}
     end
+  end
+
+  @spec recompute_head(Store.t()) :: :ok
+  def recompute_head(store) do
+    {:ok, head_root} = Helpers.get_head(store)
+
+    head_block = Blocks.get_block!(head_root)
+    head_execution_hash = head_block.body.execution_payload.block_hash
+
+    finalized_checkpoint = store.finalized_checkpoint
+    finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)
+    finalized_execution_hash = finalized_block.body.execution_payload.block_hash
+
+    # TODO: do someting with the result from the execution client
+    # TODO: compute safe block hash
+    ExecutionClient.notify_forkchoice_updated(
+      head_execution_hash,
+      finalized_execution_hash,
+      finalized_execution_hash
+    )
+
+    BeaconChain.update_fork_choice_cache(
+      head_root,
+      head_block.slot,
+      store.justified_checkpoint,
+      finalized_checkpoint
+    )
+
+    :ok
   end
 end

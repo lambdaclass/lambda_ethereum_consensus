@@ -3,6 +3,7 @@ defmodule Types.SyncAggregate do
   Struct definition for `SyncAggregate`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :sync_committee_bits,
@@ -13,7 +14,16 @@ defmodule Types.SyncAggregate do
   defstruct fields
 
   @type t :: %__MODULE__{
+          # max size SYNC_COMMITTEE_SIZE
           sync_committee_bits: Types.bitvector(),
           sync_committee_signature: Types.bls_signature()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:sync_committee_bits, {:bitvector, ChainSpec.get("SYNC_COMMITTEE_SIZE")}},
+      {:sync_committee_signature, TypeAliases.bls_signature()}
+    ]
+  end
 end

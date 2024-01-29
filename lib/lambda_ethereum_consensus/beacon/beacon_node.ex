@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.StateTransition.Cache
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
 
   def start_link(opts) do
@@ -25,7 +26,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
       :not_found ->
         Logger.error(
-          "[Sync] No initial state or block found. Please specify the URL to fetch them from via the --checkpoint-sync flag."
+          "[Sync] No initial state or block found. Please specify the URL to fetch them from via the --checkpoint-sync flag"
         )
 
         System.stop(1)
@@ -33,18 +34,19 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   end
 
   def init([checkpoint_url]) do
-    Logger.info("[Checkpoint sync] Initiating checkpoint sync.")
+    Logger.info("[Checkpoint sync] Initiating checkpoint sync")
 
     case CheckpointSync.get_finalized_block_and_state(checkpoint_url) do
       {:ok, {anchor_state, anchor_block}} ->
         Logger.info(
-          "[Checkpoint sync] Received beacon state and block at slot #{anchor_state.slot}."
+          "[Checkpoint sync] Received beacon state and block",
+          slot: anchor_state.slot
         )
 
         init_children(anchor_state, anchor_block)
 
       _ ->
-        Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block.")
+        Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block")
 
         System.stop(1)
     end
@@ -70,26 +72,18 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       {LambdaEthereumConsensus.Beacon.BeaconChain, {anchor_state, time}},
       {LambdaEthereumConsensus.ForkChoice, {anchor_state, anchor_block, time}},
       {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
-      {LambdaEthereumConsensus.P2P.Peerbook, []},
-      {LambdaEthereumConsensus.P2P.IncomingRequests, []},
-      {LambdaEthereumConsensus.Beacon.PendingBlocks, []},
-      {LambdaEthereumConsensus.Beacon.SyncBlocks, []},
-      {LambdaEthereumConsensus.P2P.GossipSub, []}
+      LambdaEthereumConsensus.P2P.Peerbook,
+      LambdaEthereumConsensus.P2P.IncomingRequests,
+      LambdaEthereumConsensus.Beacon.PendingBlocks,
+      LambdaEthereumConsensus.Beacon.SyncBlocks,
+      LambdaEthereumConsensus.P2P.GossipSub
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  defp get_latest_block_hash(anchor_state) do
-    state_root = Ssz.hash_tree_root!(anchor_state)
-    # The latest_block_header.state_root was zeroed out to avoid circular dependencies
-    anchor_state.latest_block_header
-    |> Map.put(:state_root, state_root)
-    |> Ssz.hash_tree_root!()
-  end
-
   defp fetch_anchor_block(%Types.BeaconState{} = anchor_state) do
-    block_root = get_latest_block_hash(anchor_state)
+    block_root = Misc.get_latest_block_hash(anchor_state)
     BlockStore.get_block(block_root)
   end
 end

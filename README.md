@@ -61,6 +61,9 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 
 There are Makefile targets for these tasks.
 
+> [!TIP]
+> You can list the available targets with `make help`
+
 ```shell
 make deps # Installs dependencies
 make iex  # Runs a terminal with the application started
@@ -96,7 +99,7 @@ To run these checks locally:
 make test      # Runs tests
 make spec-test # Runs all spec-tests
 make lint      # Runs linter and format-checker
-mix dialyzer   # Runs type-checker
+make dialyzer  # Runs type-checker
 ```
 
 Source code can be formatted using `make fmt`.

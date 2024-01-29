@@ -44,20 +44,24 @@ priv
 .vscode/
 
 # spec-test vectors
-test/spec/vectors
+/test/spec/vectors
 
-native/libp2p_port/libp2p_port
+/native/libp2p_port/libp2p_port
 
 # Proto generated code.
 *.pb.ex
 *.pb.go
 
 # local db.
-level_db
+/level_db
+/logs
 
 # Generated tests
-test/generated
+/test/generated
 
 # profiling artifacts
 callgrind.out.*
 *-eflambe-output.bggg
+
+# beacon node oapi json file
+beacon-node-oapi.json

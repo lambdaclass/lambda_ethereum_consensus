@@ -28,9 +28,9 @@ defmodule Types.AttestationData do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:slot, {:int, 64}},
-      {:index, {:int, 64}},
-      {:beacon_block_root, {:bytes, 32}},
+      {:slot, TypeAliases.slot()},
+      {:index, TypeAliases.commitee_index()},
+      {:beacon_block_root, TypeAliases.root()},
       {:source, Types.Checkpoint},
       {:target, Types.Checkpoint}
     ]
