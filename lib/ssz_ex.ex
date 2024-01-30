@@ -75,6 +75,41 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
   def hash_tree_root!(value, {:int, size}), do: pack(value, {:int, size})
 
+  @spec hash_tree_root!(binary, {:bytes, non_neg_integer}) :: Types.root()
+  def hash_tree_root!(value, {:bytes, size}) do
+    packed_chunks = pack(value, {:bytes, size})
+    leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
+    root = merkleize_chunks_with_virtual_padding(packed_chunks, leaf_count)
+    root
+  end
+
+  @spec hash_tree_root!(list(), {:list, any, non_neg_integer}) :: Types.root()
+  def hash_tree_root!(list, {:list, type, size}) do
+    {:ok, root} = hash_tree_root(list, {:list, type, size})
+    root
+  end
+
+  @spec hash_tree_root!(list(), {:vector, any, non_neg_integer}) :: Types.root()
+  def hash_tree_root!(vector, {:vector, type, size}) do
+    {:ok, root} = hash_tree_root(vector, {:vector, type, size})
+    root
+  end
+
+  @spec hash_tree_root!(struct(), atom()) :: Types.root()
+  def hash_tree_root!(container, module) when is_map(container) do
+    chunks =
+      module.schema()
+      |> Enum.reduce(<<>>, fn {key, schema}, acc_root ->
+        value = container |> Map.get(key)
+        root = hash_tree_root!(value, schema)
+        acc_root <> root
+      end)
+
+    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
+    root
+  end
+
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(list, {:list, type, size}) do
@@ -205,6 +240,11 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec pack(non_neg_integer, {:int, non_neg_integer}) :: binary()
   def pack(value, {:int, size}) do
     <<value::size(size)-little>> |> pack_bytes()
+  end
+
+  @spec pack(binary, {:bytes, non_neg_integer}) :: binary()
+  def pack(value, {:bytes, _size}) do
+    value |> pack_bytes()
   end
 
   @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | :error
