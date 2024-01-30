@@ -160,7 +160,7 @@ $(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
 	-rm -rf $@
 	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
 
-$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general test/spec/runners/*.ex lib/mix/tasks/generate_spec_tests.ex
+$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general test/spec/runners/*.ex test/spec/tasks/*.ex
 	mix generate_spec_tests
 
 #⬇️ download-vectors: @ Download the spec test vectors files.
