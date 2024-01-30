@@ -18,7 +18,12 @@ defmodule BeaconApiTest do
     }
 
     {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
-    patch(LambdaEthereumConsensus.ForkChoice.Helpers, :get_state_root, {:ok, root})
+
+    patch(
+      LambdaEthereumConsensus.ForkChoice.Helpers,
+      :state_root_by_id,
+      {:ok, {root, true, false}}
+    )
 
     conn =
       :get
