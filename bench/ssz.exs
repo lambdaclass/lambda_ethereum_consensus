@@ -34,3 +34,26 @@ Benchee.run(
   warmup: 2,
   time: 5
 )
+
+## Benchmark Merkleization 
+
+list = Stream.cycle([65_535]) |> Enum.take(316)
+schema = {:list, {:int, 16}, 1024}
+packed_chunks = SszEx.pack(list, schema)
+limit = SszEx.chunk_count(schema)
+
+Benchee.run(
+  %{
+    "SszEx.merkleize_chunks" => fn {chunks, leaf_count} ->
+      SszEx.merkleize_chunks(chunks, leaf_count)
+    end,
+    "SszEx.merkleize_chunks_with_virtual_padding" => fn {chunks, leaf_count} ->
+      SszEx.merkleize_chunks_with_virtual_padding(chunks, leaf_count)
+    end
+  },
+  inputs: %{
+    "args" => {packed_chunks, limit}
+  },
+  warmup: 2,
+  time: 5
+)

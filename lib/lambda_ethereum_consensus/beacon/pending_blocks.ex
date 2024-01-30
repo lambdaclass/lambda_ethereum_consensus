@@ -6,8 +6,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   """
 
   use GenServer
-
   require Logger
+
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias Types.SignedBeaconBlock
