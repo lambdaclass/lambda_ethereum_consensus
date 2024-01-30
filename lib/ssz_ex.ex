@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   import alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Utils.ZeroHashes
 
   #################
   ### Public API
@@ -15,6 +16,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @bits_per_byte 8
   @bits_per_chunk @bytes_per_chunk * @bits_per_byte
   @zero_chunk <<0::size(@bits_per_chunk)>>
+  @zero_hashes ZeroHashes.compute_zero_hashes()
 
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
@@ -73,6 +75,41 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
   def hash_tree_root!(value, {:int, size}), do: pack(value, {:int, size})
 
+  @spec hash_tree_root!(binary, {:bytes, non_neg_integer}) :: Types.root()
+  def hash_tree_root!(value, {:bytes, size}) do
+    packed_chunks = pack(value, {:bytes, size})
+    leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
+    root = merkleize_chunks_with_virtual_padding(packed_chunks, leaf_count)
+    root
+  end
+
+  @spec hash_tree_root!(list(), {:list, any, non_neg_integer}) :: Types.root()
+  def hash_tree_root!(list, {:list, type, size}) do
+    {:ok, root} = hash_tree_root(list, {:list, type, size})
+    root
+  end
+
+  @spec hash_tree_root!(list(), {:vector, any, non_neg_integer}) :: Types.root()
+  def hash_tree_root!(vector, {:vector, type, size}) do
+    {:ok, root} = hash_tree_root(vector, {:vector, type, size})
+    root
+  end
+
+  @spec hash_tree_root!(struct(), atom()) :: Types.root()
+  def hash_tree_root!(container, module) when is_map(container) do
+    chunks =
+      module.schema()
+      |> Enum.reduce(<<>>, fn {key, schema}, acc_root ->
+        value = container |> Map.get(key)
+        root = hash_tree_root!(value, schema)
+        acc_root <> root
+      end)
+
+    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
+    root
+  end
+
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(list, {:list, type, size}) do
@@ -109,7 +146,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     if chunks_len > limit do
       {:error, "chunk size exceeds limit"}
     else
-      root = merkleize_chunks(chunks, limit) |> mix_in_length(len)
+      root = merkleize_chunks_with_virtual_padding(chunks, limit) |> mix_in_length(len)
       {:ok, root}
     end
   end
@@ -118,7 +155,7 @@ defmodule LambdaEthereumConsensus.SszEx do
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root_vector_basic_type(chunks) do
     leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
-    root = merkleize_chunks(chunks, leaf_count)
+    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
     {:ok, root}
   end
 
@@ -164,6 +201,38 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  def merkleize_chunks_with_virtual_padding(chunks, leaf_count) do
+    chunks_len = chunks |> get_chunks_len()
+    power = leaf_count |> compute_pow()
+    height = power + 1
+
+    cond do
+      chunks_len == 0 ->
+        depth = height - 1
+        get_zero_hash(depth)
+
+      chunks_len == 1 and leaf_count == 1 ->
+        chunks
+
+      true ->
+        power = leaf_count |> compute_pow()
+        height = power + 1
+        layers = chunks
+        last_index = chunks_len - 1
+
+        {_, final_layer} =
+          1..(height - 1)
+          |> Enum.reverse()
+          |> Enum.reduce({last_index, layers}, fn i, {acc_last_index, acc_layers} ->
+            updated_layers = update_layers(i, height, acc_layers, acc_last_index)
+            {acc_last_index |> div(2), updated_layers}
+          end)
+
+        <<root::binary-size(@bytes_per_chunk), _::binary>> = final_layer
+        root
+    end
+  end
+
   @spec pack(boolean, :bool) :: binary()
   def pack(true, :bool), do: <<1::@bits_per_chunk-little>>
   def pack(false, :bool), do: @zero_chunk
@@ -171,6 +240,11 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec pack(non_neg_integer, {:int, non_neg_integer}) :: binary()
   def pack(value, {:int, size}) do
     <<value::size(size)-little>> |> pack_bytes()
+  end
+
+  @spec pack(binary, {:bytes, non_neg_integer}) :: binary()
+  def pack(value, {:bytes, _size}) do
+    value |> pack_bytes()
   end
 
   @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | :error
@@ -182,6 +256,11 @@ defmodule LambdaEthereumConsensus.SszEx do
     else
       pack_basic_type_list(list, schema)
     end
+  end
+
+  def chunk_count({:list, type, max_size}) do
+    size = size_of(type)
+    (max_size * size + 31) |> div(32)
   end
 
   #################
@@ -592,16 +671,6 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp size_of({:int, size}), do: size |> div(@bits_per_byte)
 
-  defp chunk_count({:list, {:int, size}, max_size}) do
-    size = size_of({:int, size})
-    (max_size * size + 31) |> div(32)
-  end
-
-  defp chunk_count({:list, :bool, max_size}) do
-    size = size_of(:bool)
-    (max_size * size + 31) |> div(32)
-  end
-
   defp pack_basic_type_list(list, schema) do
     list
     |> Enum.reduce(<<>>, fn x, acc ->
@@ -635,12 +704,69 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp next_pow_of_two(len) when is_integer(len) and len >= 0 do
-    if len == 0 do
-      0
-    else
-      n = ((len <<< 1) - 1) |> :math.log2() |> trunc()
-      2 ** n
+  defp next_pow_of_two(0), do: 0
+
+  defp next_pow_of_two(len) when is_integer(len) and len > 0 do
+    n = ((len <<< 1) - 1) |> compute_pow()
+    2 ** n
+  end
+
+  defp get_chunks_len(chunks) do
+    chunks |> byte_size() |> div(@bytes_per_chunk)
+  end
+
+  defp compute_pow(value) do
+    :math.log2(value) |> trunc()
+  end
+
+  defp update_layers(i, height, acc_layers, acc_last_index) do
+    0..(2 ** i - 1)
+    |> Enum.filter(fn x -> rem(x, 2) == 0 end)
+    |> Enum.reduce_while(acc_layers, fn j, acc_layers ->
+      parent_index = j |> div(2)
+      nodes = get_nodes(parent_index, i, j, height, acc_layers, acc_last_index)
+      hash_nodes_and_replace(nodes, acc_layers)
+    end)
+  end
+
+  defp get_nodes(parent_index, _i, j, _height, acc_layers, acc_last_index)
+       when j < acc_last_index do
+    start = parent_index * @bytes_per_chunk
+    stop = (j + 2) * @bytes_per_chunk
+    focus = acc_layers |> :binary.part(start, stop - start)
+    focus_len = focus |> byte_size()
+    children_index = focus_len - 2 * @bytes_per_chunk
+    <<_::binary-size(children_index), children::binary>> = focus
+
+    <<left::binary-size(@bytes_per_chunk), right::binary-size(@bytes_per_chunk)>> =
+      children
+
+    {children_index, left, right}
+  end
+
+  defp get_nodes(parent_index, i, j, height, acc_layers, acc_last_index)
+       when j == acc_last_index do
+    start = parent_index * @bytes_per_chunk
+    stop = (j + 1) * @bytes_per_chunk
+    focus = acc_layers |> :binary.part(start, stop - start)
+    focus_len = focus |> byte_size()
+    children_index = focus_len - @bytes_per_chunk
+    <<_::binary-size(children_index), left::binary>> = focus
+    depth = height - i - 1
+    right = get_zero_hash(depth)
+    {children_index, left, right}
+  end
+
+  defp get_nodes(_, _, _, _, _, _), do: :error
+
+  defp hash_nodes_and_replace(nodes, layers) do
+    case nodes do
+      :error ->
+        {:halt, layers}
+
+      {index, left, right} ->
+        hash = hash_nodes(left, right)
+        {:cont, replace_chunk(layers, index, hash)}
     end
   end
 
@@ -651,7 +777,9 @@ defmodule LambdaEthereumConsensus.SszEx do
     <<left::binary, new_chunk::binary, right::binary>>
   end
 
-  defp get_chunks_len(chunks) do
-    chunks |> byte_size() |> div(@bytes_per_chunk)
+  defp get_zero_hash(depth) do
+    offset = (depth + 1) * @bytes_per_chunk - @bytes_per_chunk
+    <<_::binary-size(offset), hash::binary-size(@bytes_per_chunk), _::binary>> = @zero_hashes
+    hash
   end
 end
