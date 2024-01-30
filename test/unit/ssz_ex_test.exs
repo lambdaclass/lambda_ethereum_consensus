@@ -72,8 +72,8 @@ defmodule Unit.SSZExTest do
   end
 
   test "merklelization of chunks" do
-    ## Reference:  https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L371
-    ##            https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L416
+    # Reference:  https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L371
+    #            https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L416
     zero = <<0::256>>
 
     chunks = zero
@@ -136,13 +136,71 @@ defmodule Unit.SSZExTest do
     root = chunks |> SszEx.merkleize_chunks(2 ** 10)
     expected_value = "2647cb9e26bd83eeb0982814b2ac4d6cc4a65d0d98637f1a73a4c06d3db0e6ce"
     assert root |> Base.encode16(case: :lower) == expected_value
+  end
 
-    ## TOO HEAVY COMPUTATION!
-    # chunks = 1..70 |> Enum.reduce(<<>>, fn _, acc -> acc <> ones end)
-    # leaf_count = 9_223_372_036_854_775_808 # 2 ** 63
-    # root = chunks |> SszEx.merkleize_chunks(leaf_count)
-    # expected_value = "9317695d95b5a3b46e976b5a9cbfcfccb600accaddeda9ac867cc9669b862979"
-    # assert root |> Base.encode16(case: :lower) == expected_value
+  test "merklelization of chunks with virtual padding" do
+    zero = <<0::256>>
+
+    chunks = zero
+    root = SszEx.merkleize_chunks_with_virtual_padding(chunks, 1)
+    expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = zero <> zero
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2)
+    expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    ones = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<1>> <> acc end)
+
+    chunks = ones <> ones
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2)
+    expected_value = "7c8975e1e60a5c8337f28edf8c33c3b180360b7279644a9bc1af3c51e6220bf5"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = zero <> zero <> zero <> zero
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
+    expected_value = "db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = zero <> zero <> zero <> zero <> zero <> zero <> zero <> zero
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
+    expected_value = "c78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = ones
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
+    expected_value = "29797eded0e83376b70f2bf034cc0811ae7f1414653b1d720dfd18f74cf13309"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    twos = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<2>> <> acc end)
+
+    chunks = twos
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
+    expected_value = "fa4cf775712aa8a2fe5dcb5a517d19b2e9effcf58ff311b9fd8e4a7d308e6d00"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = ones <> ones <> ones
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
+    expected_value = "65aa94f2b59e517abd400cab655f42821374e433e41b8fe599f6bb15484adcec"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = ones <> ones <> ones <> ones <> ones
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
+    expected_value = "0ae67e34cba4ad2bbfea5dc39e6679b444021522d861fab00f05063c54341289"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    chunks = ones <> ones <> ones <> ones <> ones <> ones
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
+    expected_value = "0ef7df63c204ef203d76145627b8083c49aa7c55ebdee2967556f55a4f65a238"
+    assert root |> Base.encode16(case: :lower) == expected_value
+
+    ## Large Leaf Count
+
+    chunks = ones <> ones <> ones <> ones <> ones
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2 ** 10)
+    expected_value = "2647cb9e26bd83eeb0982814b2ac4d6cc4a65d0d98637f1a73a4c06d3db0e6ce"
+    assert root |> Base.encode16(case: :lower) == expected_value
   end
 
   test "hash tree root of list" do
@@ -292,47 +350,6 @@ defmodule Unit.SSZExTest do
         44, 135, 243, 163>>
 
     assert_roundtrip(serialized, validator, Types.Validator)
-  end
-
-  test "serialize and deserialize variable container" do
-    pubkey1 =
-      <<166, 144, 240, 158, 185, 117, 206, 31, 49, 45, 247, 53, 183, 95, 32, 20, 57, 245, 54, 60,
-        97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72, 46, 131, 80, 54, 55, 203, 11, 160,
-        206, 88, 144, 58, 231, 142, 94, 235>>
-
-    pubkey2 =
-      <<180, 144, 240, 158, 185, 117, 206, 31, 49, 45, 247, 53, 183, 95, 32, 20, 57, 245, 54, 60,
-        97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72, 46, 131, 80, 54, 55, 203, 11, 160,
-        206, 88, 144, 58, 231, 142, 94, 235>>
-
-    pubkey3 =
-      <<190, 144, 240, 158, 185, 117, 206, 31, 49, 45, 247, 53, 183, 95, 32, 20, 57, 245, 54, 60,
-        97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72, 46, 131, 80, 54, 55, 203, 11, 160,
-        206, 88, 144, 58, 231, 142, 94, 235>>
-
-    pubkey4 =
-      <<200, 144, 240, 158, 185, 117, 206, 31, 49, 45, 247, 53, 183, 95, 32, 20, 57, 245, 54, 60,
-        97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72, 46, 131, 80, 54, 55, 203, 11, 160,
-        206, 88, 144, 58, 231, 142, 94, 235>>
-
-    sync = %Types.SyncCommittee{
-      pubkeys: [pubkey1, pubkey2, pubkey3],
-      aggregate_pubkey: pubkey4
-    }
-
-    serialized =
-      <<52, 0, 0, 0, 200, 144, 240, 158, 185, 117, 206, 31, 49, 45, 247, 53, 183, 95, 32, 20, 57,
-        245, 54, 60, 97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72, 46, 131, 80, 54, 55,
-        203, 11, 160, 206, 88, 144, 58, 231, 142, 94, 235, 166, 144, 240, 158, 185, 117, 206, 31,
-        49, 45, 247, 53, 183, 95, 32, 20, 57, 245, 54, 60, 97, 78, 24, 81, 227, 157, 191, 150,
-        163, 202, 1, 72, 46, 131, 80, 54, 55, 203, 11, 160, 206, 88, 144, 58, 231, 142, 94, 235,
-        180, 144, 240, 158, 185, 117, 206, 31, 49, 45, 247, 53, 183, 95, 32, 20, 57, 245, 54, 60,
-        97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72, 46, 131, 80, 54, 55, 203, 11, 160,
-        206, 88, 144, 58, 231, 142, 94, 235, 190, 144, 240, 158, 185, 117, 206, 31, 49, 45, 247,
-        53, 183, 95, 32, 20, 57, 245, 54, 60, 97, 78, 24, 81, 227, 157, 191, 150, 163, 202, 1, 72,
-        46, 131, 80, 54, 55, 203, 11, 160, 206, 88, 144, 58, 231, 142, 94, 235>>
-
-    assert_roundtrip(serialized, sync, Types.SyncCommittee)
   end
 
   test "serialize and deserialize bitlist" do

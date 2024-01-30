@@ -4,6 +4,8 @@ defmodule Types.Fork do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
+  @behaviour LambdaEthereumConsensus.Container
+
   fields = [
     :previous_version,
     :current_version,
@@ -18,4 +20,13 @@ defmodule Types.Fork do
           current_version: Types.version(),
           epoch: Types.epoch()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:previous_version, TypeAliases.version()},
+      {:current_version, TypeAliases.version()},
+      {:epoch, TypeAliases.epoch()}
+    ]
+  end
 end

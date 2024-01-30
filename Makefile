@@ -2,7 +2,7 @@
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
-		clean-tests gen-spec compile-all
+		clean-tests gen-spec compile-all download-beacon-node-oapi
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -86,7 +86,7 @@ proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
-compile-all: compile-native $(PROTOBUF_EX_FILES)
+compile-all: compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
 	mix compile
 
 #🗑️ clean: @ Remove the build files.
@@ -125,6 +125,17 @@ sepolia: compile-all
 #🔴 test: @ Run tests
 test: compile-all
 	mix test --no-start --exclude spectest
+
+#### BEACON NODE OAPI ####
+OAPI_NAME = beacon-node-oapi
+OAPI_VERSION := $(shell cat .oapi_version)
+$(OAPI_NAME).json: .oapi_version
+	curl -L -o "$@" \
+		"https://ethereum.github.io/beacon-APIs/releases/${OAPI_VERSION}/beacon-node-oapi.json"
+
+OPENAPI_JSON := $(OAPI_NAME).json 
+
+download-beacon-node-oapi: ${OPENAPI_JSON}
 
 ##### SPEC TEST VECTORS #####
 
