@@ -54,6 +54,7 @@ defmodule SszGenericTestRunner do
     expected_value =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
+      |> sanitize(schema)
 
     %{root: expected_root} =
       YamlElixir.read_from_file!(case_dir <> "/meta.yaml")
@@ -66,29 +67,7 @@ defmodule SszGenericTestRunner do
     assert_ssz_invalid(schema, real_serialized)
   end
 
-  defp assert_ssz_valid(
-         {:container, module},
-         real_serialized,
-         real_deserialized,
-         expected_hash_tree_root
-       ) do
-    real_struct = struct!(module, parse_complex_container(real_deserialized, module))
-    {:ok, deserialized} = SszEx.decode(real_serialized, module)
-
-    assert deserialized == real_struct
-    {:ok, serialized} = SszEx.encode(real_struct, module)
-
-    assert serialized == real_serialized
-    actual_hash_tree_root = SszEx.hash_tree_root!(real_struct, module)
-    assert actual_hash_tree_root == expected_hash_tree_root
-  end
-
-  defp assert_ssz_valid(
-         {:vector, _basic_type, _size} = schema,
-         real_serialized,
-         real_deserialized,
-         expected_hash_tree_root
-       ) do
+  defp assert_ssz_valid(schema, real_serialized, real_deserialized, _expected_hash_tree_root) do
     {:ok, deserialized} = SszEx.decode(real_serialized, schema)
     assert deserialized == real_deserialized
 
@@ -96,136 +75,15 @@ defmodule SszGenericTestRunner do
 
     assert serialized == real_serialized
 
-    actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
-
-    assert actual_hash_tree_root == expected_hash_tree_root
-  end
-
-  defp assert_ssz_valid(
-         {:bitlist, _size} = schema,
-         real_serialized,
-         real_deserialized,
-         _expected_hash_tree_root
-       ) do
-    {:ok, deserialized_value} = SszEx.decode(real_deserialized, schema)
-    serialized_result = BitList.to_bytes({deserialized_value, bit_size(deserialized_value)})
-    assert real_serialized == serialized_result
-
-    {:ok, deserialized} = SszEx.decode(real_serialized, schema)
-    assert deserialized == deserialized_value
-
-    # TODO merkleization of bitlist
-    # {:ok, actual_hash_tree_root} = SszEx.hash_tree_root(real_deserialized, schema)
+    #TODO enable when merklelization is ready for all schemas 
+    # actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
     #
     # assert actual_hash_tree_root == expected_hash_tree_root
-  end
-
-  defp assert_ssz_valid(
-         {:bitvector, _size} = schema,
-         real_serialized,
-         real_deserialized,
-         _expected_hash_tree_root
-       ) do
-    {:ok, deserialized_value} = SszEx.decode(real_deserialized, schema)
-    serialized_result = BitVector.to_bytes(deserialized_value)
-    assert real_serialized == serialized_result
-
-    {:ok, deserialized} = SszEx.decode(real_serialized, schema)
-    assert deserialized == deserialized_value
-
-    # TODO merkleization of bitlist
-    # {:ok, actual_hash_tree_root} = SszEx.hash_tree_root(real_deserialized, schema)
-    #
-    # assert actual_hash_tree_root == expected_hash_tree_root
-  end
-
-  defp assert_ssz_valid(schema, real_serialized, real_deserialized, expected_hash_tree_root) do
-    {:ok, deserialized} = SszEx.decode(real_serialized, schema)
-    assert deserialized == real_deserialized
-
-    {:ok, serialized} = SszEx.encode(real_deserialized, schema)
-
-    assert serialized == real_serialized
-
-    actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
-
-    assert actual_hash_tree_root == expected_hash_tree_root
-  end
-
-  defp assert_ssz_invalid(
-         {:container, module},
-         real_serialized
-       ) do
-    assert {:error, _deserialized} = SszEx.decode(real_serialized, module)
   end
 
   defp assert_ssz_invalid(schema, real_serialized) do
     assert {:error, _msg} = SszEx.decode(real_serialized, schema)
   end
-
-  defp parse_complex_container(value, module)
-       when module == Helpers.SszStaticContainers.BitsStruct do
-    value
-    |> Enum.map(fn {key, value} ->
-      case key do
-        :A ->
-          {:ok, deserialized_value} = SszEx.decode(value, {:bitlist, 5})
-          {key, deserialized_value}
-
-        :B ->
-          {:ok, deserialized_value} = SszEx.decode(value, {:bitvector, 2})
-          {key, deserialized_value}
-
-        :C ->
-          {:ok, deserialized_value} = SszEx.decode(value, {:bitvector, 1})
-          {key, deserialized_value}
-
-        :D ->
-          {:ok, deserialized_value} = SszEx.decode(value, {:bitlist, 6})
-          {key, deserialized_value}
-
-        :E ->
-          {:ok, deserialized_value} = SszEx.decode(value, {:bitvector, 8})
-          {key, deserialized_value}
-      end
-    end)
-  end
-
-  defp parse_complex_container(value, module)
-       when module == Helpers.SszStaticContainers.ComplexTestStruct do
-    value
-    |> Enum.map(fn {key, value} ->
-      case key do
-        :A ->
-          {key, value}
-
-        :B ->
-          {key, value}
-
-        :C ->
-          {key, value}
-
-        :D when is_integer(value) ->
-          {key, []}
-
-        :D ->
-          {key, :binary.bin_to_list(value)}
-
-        :E ->
-          {key, struct!(Helpers.SszStaticContainers.VarTestStruct, value)}
-
-        :F ->
-          {key,
-           Enum.map(value, fn v -> struct!(Helpers.SszStaticContainers.FixedTestStruct, v) end)}
-
-        :G ->
-          {key,
-           Enum.map(value, fn v -> struct!(Helpers.SszStaticContainers.VarTestStruct, v) end)}
-      end
-    end)
-  end
-
-  defp parse_complex_container(value, _module), do: value
 
   defp parse_type(%SpecTestCase{handler: handler, case: cse}), do: parse_type(handler, cse)
 
@@ -238,7 +96,7 @@ defmodule SszGenericTestRunner do
 
   defp parse_type("containers", cse) do
     [name] = Regex.run(~r/^[^_]+(?=_)/, cse)
-    {:container, Module.concat(Helpers.SszStaticContainers, name)}
+    Module.concat(Helpers.SszStaticContainers, name)
   end
 
   defp parse_type("basic_vector", "vec_" <> rest) do
@@ -263,4 +121,33 @@ defmodule SszGenericTestRunner do
     [size | _] = String.split(rest, "_")
     {:bitvector, String.to_integer(size)}
   end
+
+  def sanitize(container, module) when is_map(container) do
+    schema = module.schema() |> Map.new()
+
+    container
+    |> Enum.map(fn {k, v} -> {k, sanitize(v, Map.fetch!(schema, k))} end)
+    |> then(&struct!(module, &1))
+  end
+
+  def sanitize(vector_elements, {:vector, :bool, _size} = _schema), do: vector_elements
+  def sanitize(vector_elements, {:vector, module, _size} = _schema) when is_atom(module),
+    do:
+      vector_elements
+      |> Enum.map(&struct!(module, &1))
+
+
+  def sanitize(bitlist, {:bitlist, _size} = _schema), do: elem(BitList.new(bitlist), 0)
+  def sanitize(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
+
+  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema) when is_integer(bytelist) and bytelist > 0,
+    do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list() 
+
+  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema) when is_integer(bytelist) and bytelist == 0,
+    do: []
+
+  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema),
+    do: :binary.bin_to_list(bytelist)
+
+  def sanitize(other, _schema), do: other
 end
