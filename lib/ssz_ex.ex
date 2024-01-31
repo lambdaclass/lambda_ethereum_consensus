@@ -380,32 +380,24 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_bitlist(_bit_list, _max_size), do: {:error, "invalid bitlist"}
 
   defp decode_bitvector(bit_vector, size) do
-    mask = 255 >>> (8 - rem(size, 8) &&& 7)
     num_bytes = byte_size(bit_vector)
 
     cond do
-      size == 0 and num_bytes == 1 ->
-        <<bit::integer-size(1), _rest::bitstring>> = bit_vector
-
-        if bit == 0 do
-          {:ok, BitVector.new(bit_vector, size)}
-        else
-          {:error, "ExcessBits"}
-        end
-
-      size == 0 and num_bytes == 0 ->
+      bit_size(bit_vector) == 0 ->
         {:error, "ExcessBits"}
 
       num_bytes != max(1, div(size + 7, 8)) ->
         {:error, "InvalidByteCount"}
 
       true ->
-        <<_first::binary-size(num_bytes - 1), last::binary-size(1)>> = bit_vector
+        case bit_vector do
+          # Padding bits are clear
+          <<_first::binary-size(num_bytes - 1), 0::size(8 - rem(size, 8) &&& 7),
+            _rest::bitstring>> ->
+            {:ok, BitVector.new(bit_vector, size)}
 
-        if Bitwise.band(:binary.decode_unsigned(last), Bitwise.bnot(mask)) === 0 do
-          {:ok, BitVector.new(bit_vector, size)}
-        else
-          {:error, "ExcessBits"}
+          _else ->
+            {:error, "ExcessBits"}
         end
     end
   end
