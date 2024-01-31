@@ -163,36 +163,6 @@ defmodule SszGenericTestRunner do
     assert {:error, _msg} = SszEx.decode(real_serialized, schema)
   end
 
-  defp get_vec_schema(rest) do
-    case String.split(rest, "_") do
-      ["bool", max_size | _] ->
-        {:vector, :bool, String.to_integer(max_size)}
-
-      ["uint" <> size, max_size | _] ->
-        {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
-    end
-  end
-
-  defp get_bit_list_schema(cse) do
-    case cse do
-      # Test format is inconsistent, pretend the limit is 32 (arbitrary)
-      "bitlist_" <> "no" <> _rest ->
-        {:bitlist, 32}
-
-      "bitlist_" <> rest ->
-        [size | _] = String.split(rest, "_")
-        {:bitlist, String.to_integer(size)}
-    end
-  end
-
-  def get_bit_vector_schema(cse) do
-    case cse do
-      "bitvec_" <> rest ->
-        [size | _] = String.split(rest, "_")
-        {:bitvector, String.to_integer(size)}
-    end
-  end
-
   defp parse_complex_container(value, module)
        when module == Helpers.SszStaticContainers.BitsStruct do
     value
@@ -257,33 +227,40 @@ defmodule SszGenericTestRunner do
 
   defp parse_complex_container(value, _module), do: value
 
-  defp parse_type(%SpecTestCase{handler: handler, case: cse}) do
-    case handler do
-      "boolean" ->
-        :bool
+  defp parse_type(%SpecTestCase{handler: handler, case: cse}), do: parse_type(handler, cse)
 
-      "uints" ->
-        case cse do
-          "uint_" <> _rest ->
-            [_head, size] = Regex.run(~r/^.*?_(.*?)_.*$/, cse)
-            {:int, String.to_integer(size)}
-        end
+  defp parse_type("boolean", _cse), do: :bool
 
-      "containers" ->
-        [name] = Regex.run(~r/^[^_]+(?=_)/, cse)
-        {:container, Module.concat(Helpers.SszStaticContainers, name)}
+  defp parse_type("uints", "uint_" <> rest) do
+    [size | _] = String.split(rest, "_")
+    {:int, String.to_integer(size)}
+  end
 
-      "basic_vector" ->
-        case cse do
-          "vec_" <> rest ->
-            get_vec_schema(rest)
-        end
+  defp parse_type("containers", cse) do
+    [name] = Regex.run(~r/^[^_]+(?=_)/, cse)
+    {:container, Module.concat(Helpers.SszStaticContainers, name)}
+  end
 
-      "bitlist" ->
-        get_bit_list_schema(cse)
+  defp parse_type("basic_vector", "vec_" <> rest) do
+    case String.split(rest, "_") do
+      ["bool", max_size | _] ->
+        {:vector, :bool, String.to_integer(max_size)}
 
-      "bitvector" ->
-        get_bit_vector_schema(cse)
+      ["uint" <> size, max_size | _] ->
+        {:vector, {:int, String.to_integer(size)}, String.to_integer(max_size)}
     end
+  end
+
+  # Test format is inconsistent, pretend the limit is 32 (arbitrary)
+  defp parse_type("bitlist", "bitlist_" <> "no" <> _rest), do: {:bitlist, 32}
+
+  defp parse_type("bitlist", "bitlist_" <> rest) do
+    [size | _] = String.split(rest, "_")
+    {:bitlist, String.to_integer(size)}
+  end
+
+  defp parse_type("bitvector", "bitvec_" <> rest) do
+    [size | _] = String.split(rest, "_")
+    {:bitvector, String.to_integer(size)}
   end
 end
