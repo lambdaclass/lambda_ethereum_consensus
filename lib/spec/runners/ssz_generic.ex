@@ -59,15 +59,14 @@ defmodule SszGenericTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/meta.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    assert_ssz("valid", schema, real_serialized, expected_value, expected_root)
+    assert_ssz_valid(schema, real_serialized, expected_value, expected_root)
   end
 
   defp handle_case("invalid", schema, real_serialized, _testcase) do
-    assert_ssz("invalid", schema, real_serialized)
+    assert_ssz_invalid(schema, real_serialized)
   end
 
-  defp assert_ssz(
-         "valid",
+  defp assert_ssz_valid(
          {:container, module},
          real_serialized,
          real_deserialized,
@@ -84,8 +83,7 @@ defmodule SszGenericTestRunner do
     assert actual_hash_tree_root == expected_hash_tree_root
   end
 
-  defp assert_ssz(
-         "valid",
+  defp assert_ssz_valid(
          {:vector, _basic_type, _size} = schema,
          real_serialized,
          real_deserialized,
@@ -103,8 +101,7 @@ defmodule SszGenericTestRunner do
     assert actual_hash_tree_root == expected_hash_tree_root
   end
 
-  defp assert_ssz(
-         "valid",
+  defp assert_ssz_valid(
          {:bitlist, _size} = schema,
          real_serialized,
          real_deserialized,
@@ -123,8 +120,7 @@ defmodule SszGenericTestRunner do
     # assert actual_hash_tree_root == expected_hash_tree_root
   end
 
-  defp assert_ssz(
-         "valid",
+  defp assert_ssz_valid(
          {:bitvector, _size} = schema,
          real_serialized,
          real_deserialized,
@@ -143,7 +139,7 @@ defmodule SszGenericTestRunner do
     # assert actual_hash_tree_root == expected_hash_tree_root
   end
 
-  defp assert_ssz("valid", schema, real_serialized, real_deserialized, expected_hash_tree_root) do
+  defp assert_ssz_valid(schema, real_serialized, real_deserialized, expected_hash_tree_root) do
     {:ok, deserialized} = SszEx.decode(real_serialized, schema)
     assert deserialized == real_deserialized
 
@@ -156,15 +152,14 @@ defmodule SszGenericTestRunner do
     assert actual_hash_tree_root == expected_hash_tree_root
   end
 
-  defp assert_ssz(
-         "invalid",
+  defp assert_ssz_invalid(
          {:container, module},
          real_serialized
        ) do
     assert {:error, _deserialized} = SszEx.decode(real_serialized, module)
   end
 
-  defp assert_ssz("invalid", schema, real_serialized) do
+  defp assert_ssz_invalid(schema, real_serialized) do
     assert {:error, _msg} = SszEx.decode(real_serialized, schema)
   end
 
