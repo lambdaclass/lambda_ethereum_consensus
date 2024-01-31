@@ -75,7 +75,7 @@ defmodule SszGenericTestRunner do
 
     assert serialized == real_serialized
 
-    # TODO enable when merklelization is ready for all schemas 
+    # TODO enable when merklelization is ready for all schemas
     # actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
     #
     # assert actual_hash_tree_root == expected_hash_tree_root
