@@ -75,7 +75,7 @@ defmodule SszGenericTestRunner do
 
     assert serialized == real_serialized
 
-    #TODO enable when merklelization is ready for all schemas 
+    # TODO enable when merklelization is ready for all schemas 
     # actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
     #
     # assert actual_hash_tree_root == expected_hash_tree_root
@@ -131,20 +131,22 @@ defmodule SszGenericTestRunner do
   end
 
   def sanitize(vector_elements, {:vector, :bool, _size} = _schema), do: vector_elements
+
   def sanitize(vector_elements, {:vector, module, _size} = _schema) when is_atom(module),
     do:
       vector_elements
       |> Enum.map(&struct!(module, &1))
 
-
   def sanitize(bitlist, {:bitlist, _size} = _schema), do: elem(BitList.new(bitlist), 0)
   def sanitize(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
 
-  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema) when is_integer(bytelist) and bytelist > 0,
-    do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list() 
+  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema)
+      when is_integer(bytelist) and bytelist > 0,
+      do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list()
 
-  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema) when is_integer(bytelist) and bytelist == 0,
-    do: []
+  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema)
+      when is_integer(bytelist) and bytelist == 0,
+      do: []
 
   def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema),
     do: :binary.bin_to_list(bytelist)
