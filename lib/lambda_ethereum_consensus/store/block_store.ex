@@ -4,10 +4,12 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
   """
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
+  alias Types.BlockMetadata
   alias Types.SignedBeaconBlock
 
   @block_prefix "blockHash"
   @blockslot_prefix "blockSlot"
+  @blockmetadata_prefix "blockMetadata"
 
   @spec store_block(SignedBeaconBlock.t(), Types.root()) :: :ok
   def store_block(%SignedBeaconBlock{} = signed_block) do
@@ -19,6 +21,9 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
 
     key = block_key(block_root)
     Db.put(key, encoded_signed_block)
+
+    metadata_key = block_metadata_key(block_root)
+    Db.put(metadata_key, BlockMetadata.default() |> BlockMetadata.serialize())
 
     # WARN: this overrides any previous mapping for the same slot
     # TODO: this should apply fork-choice if not applied elsewhere
@@ -35,6 +40,23 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
     with {:ok, signed_block} <- Db.get(key) do
       Ssz.from_ssz(signed_block, SignedBeaconBlock)
     end
+  end
+
+  @spec get_block_metadata(Types.root()) ::
+          {:ok, BlockMetadata.t()} | {:error, String.t()} | :not_found
+  def get_block_metadata(block_root) do
+    key = block_metadata_key(block_root)
+
+    with {:ok, metadata} <- Db.get(key) do
+      {:ok, BlockMetadata.deserialize(metadata)}
+    end
+  end
+
+  @spec put_block_metadata(Types.root(), BlockMetadata.t()) ::
+          {:ok, :ok} | {:error, String.t()}
+  def put_block_metadata(block_root, %BlockMetadata{} = metadata) do
+    key = block_metadata_key(block_root)
+    Db.put(key, BlockMetadata.serialize(metadata))
   end
 
   @spec get_block_root_by_slot(Types.slot()) ::
@@ -118,6 +140,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStore do
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
   defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)
+  defp block_metadata_key(root), do: Utils.get_key(@blockmetadata_prefix, root)
 
   def stream_blocks do
     Stream.resource(
