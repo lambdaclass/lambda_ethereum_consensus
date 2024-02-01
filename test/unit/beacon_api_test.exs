@@ -3,11 +3,37 @@ defmodule BeaconApiTest do
   use Plug.Test
   use Patch
   alias BeaconApi.Router
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.Db
 
   @moduletag :beacon_api_case
 
   @opts Router.init([])
+
+  setup do
+    head_root =
+      <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0>>
+
+    status_message = %Types.StatusMessage{
+      fork_digest: Fixtures.Random.binary(4),
+      finalized_root: Fixtures.Random.root(),
+      finalized_epoch: Fixtures.Random.uint64(),
+      head_root: head_root,
+      head_slot: Fixtures.Random.uint64()
+    }
+
+    start_supervised!(Db)
+
+    patch(
+      LambdaEthereumConsensus.Beacon.BeaconChain,
+      :get_current_status_message,
+      {:ok, status_message}
+    )
+
+    :ok
+  end
 
   test "get state SSZ HashTreeRoot by head" do
     head_root =
