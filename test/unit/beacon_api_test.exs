@@ -2,6 +2,7 @@ defmodule BeaconApiTest do
   use ExUnit.Case
   use Plug.Test
   use Patch
+  alias LambdaEthereumConsensus.Store.BlockStore
   alias BeaconApi.Router
 
   @moduletag :beacon_api_case
@@ -9,21 +10,17 @@ defmodule BeaconApiTest do
   @opts Router.init([])
 
   test "get state SSZ HashTreeRoot by head" do
-    root = Fixtures.Random.root()
+    head_root =  <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
+    signedBlock = Fixtures.Block.signed_beacon_block()
+    BlockStore.store_block(signedBlock, head_root)
 
     resp_body = %{
-      data: %{root: "0x" <> Base.encode16(root, case: :lower)},
+      data: %{root: "0x" <> Base.encode16(signedBlock.message.state_root, case: :lower)},
       finalized: false,
       execution_optimistic: true
     }
 
     {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
-
-    patch(
-      LambdaEthereumConsensus.ForkChoice.Helpers,
-      :state_root_by_id,
-      {:ok, {root, true, false}}
-    )
 
     conn =
       :get
