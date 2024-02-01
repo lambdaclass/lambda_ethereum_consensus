@@ -16,7 +16,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
   @shortdoc "Generates tests for spec test files"
   @impl Mix.Task
   def run(_args) do
-    {:ok, file_names} = File.ls(Path.join(["lib", "spec", "runners"]))
+    {:ok, file_names} = File.ls(Path.join(["test", "spec", "runners"]))
     runners = Enum.map(file_names, &Path.basename(&1, ".ex"))
 
     # Generate all tests for Capella fork

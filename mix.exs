@@ -12,7 +12,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       elixirc_paths: compiler_paths(Mix.env()),
       warn_test_pattern: "_remove_warning.exs",
       preferred_cli_env: [
-        dialyzer: :test
+        dialyzer: :test,
+        generate_spec_tests: :test
       ]
     ]
   end
@@ -69,6 +70,8 @@ defmodule LambdaEthereumConsensus.MixProject do
     ]
   end
 
-  defp compiler_paths(:test), do: ["test/spec", "test/fixtures"] ++ compiler_paths(:prod)
+  defp compiler_paths(:test),
+    do: ["test/spec", "test/fixtures"] ++ compiler_paths(:prod)
+
   defp compiler_paths(_), do: ["lib", "proto"]
 end
