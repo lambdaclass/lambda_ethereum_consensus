@@ -209,10 +209,10 @@ bp ->>- bp: validation and state transition
 
 This is a simplified sequence diagram highlighting the differences when the parent block is not present, so it omits the interaction with fork choice GenServer. To summarize:
 
-- The block processor spawns a download task under a download supervisor.
-- When the download finishes it will start a block processor for the parent, repeating the whole process for the parent.
+- The block processor spawns another processor for the parent, at a `download stage` and exits.
+- When the download finishes, the parent processor will do as a normal one, decoding, deserializing, interacting with the db, etc.
 - When the parent finishes the state transition, it will have saved both the block and the state to the persistent store.
-- The store will then notify the child block processor that it can now proceed with its own state transition.
+- The parent process will then spawn a new block processor for the child, at a `transition stage`.
 
 Note that the persistent store here is a simplified structure. Internally, it will contain the fork tree and the cache. The fork tree will contain the relationship between blocks (the tree structure), which will enable to get a block’s children without iterating through the DB.
 
