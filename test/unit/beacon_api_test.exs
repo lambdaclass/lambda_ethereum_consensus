@@ -2,16 +2,19 @@ defmodule BeaconApiTest do
   use ExUnit.Case
   use Plug.Test
   use Patch
-  alias LambdaEthereumConsensus.Store.BlockStore
   alias BeaconApi.Router
+  alias LambdaEthereumConsensus.Store.BlockStore
 
   @moduletag :beacon_api_case
 
   @opts Router.init([])
 
   test "get state SSZ HashTreeRoot by head" do
-    head_root =  <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
-    signedBlock = Fixtures.Block.signed_beacon_block()
+    head_root =
+      <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0>>
+
+    signed_block = Fixtures.Block.signed_beacon_block()
     BlockStore.store_block(signedBlock, head_root)
 
     resp_body = %{
