@@ -15,10 +15,10 @@ defmodule BeaconApiTest do
         0, 0>>
 
     signed_block = Fixtures.Block.signed_beacon_block()
-    BlockStore.store_block(signedBlock, head_root)
+    BlockStore.store_block(signed_block, head_root)
 
     resp_body = %{
-      data: %{root: "0x" <> Base.encode16(signedBlock.message.state_root, case: :lower)},
+      data: %{root: "0x" <> Base.encode16(signed_block.message.state_root, case: :lower)},
       finalized: false,
       execution_optimistic: true
     }
