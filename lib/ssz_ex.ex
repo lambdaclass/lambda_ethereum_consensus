@@ -24,6 +24,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_nodes(binary(), binary()) :: binary()
   def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
 
+  def get_module(%module{} = _map), do: module
+
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
   def encode(value, {:bytes, _}), do: {:ok, value}
@@ -84,14 +86,14 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   @spec hash_tree_root!(list(), {:list, any, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(list, {:list, type, size}) do
-    {:ok, root} = hash_tree_root(list, {:list, type, size})
+  def hash_tree_root!(list, {:list, _type, _size} = schema) do
+    {:ok, root} = hash_tree_root(list, schema)
     root
   end
 
   @spec hash_tree_root!(list(), {:vector, any, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(vector, {:vector, type, size}) do
-    {:ok, root} = hash_tree_root(vector, {:vector, type, size})
+  def hash_tree_root!(vector, {:vector, _type, _size} = schema) do
+    {:ok, root} = hash_tree_root(vector, schema)
     root
   end
 
@@ -112,26 +114,27 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(list, {:list, type, size}) do
-    if variable_size?(type) do
-      hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
-    else
-      packed_chunks = pack(list, {:list, type, size})
-      limit = chunk_count({:list, type, size})
-      len = length(list)
+  def hash_tree_root(list, {:list, type, _size} = schema) do
+    limit = chunk_count(schema)
+    len = length(list)
+
+    if basic_type?(type) do
+      packed_chunks = pack(list, schema)
       hash_tree_root_list_basic_type(packed_chunks, limit, len)
+    else
+      hash_tree_root_list_composite_type(list, type, limit, len)
     end
   end
 
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(vector, {:vector, type, size}) do
+  def hash_tree_root(vector, {:vector, type, _size} = schema) do
     if variable_size?(type) do
       # TODO
       # hash_tree_root_vector_complex_type(vector, {:vector, type, size}, limit)
       {:error, "Not implemented"}
     else
-      packed_chunks = pack(vector, {:list, type, size})
+      packed_chunks = pack(vector, schema)
       hash_tree_root_vector_basic_type(packed_chunks)
     end
   end
@@ -149,9 +152,16 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  @spec hash_tree_root_list_complex_type(any)
-  def hash_tree_root_list_complex_type() do
-    
+  def hash_tree_root_list_composite_type(list, type, limit, len) do
+    root =
+      list
+      |> Enum.reduce(<<>>, fn value, acc_chunks ->
+        acc_chunks <> hash_tree_root!(value, type)
+      end)
+      |> merkleize_chunks_with_virtual_padding(limit)
+      |> mix_in_length(len)
+
+    {:ok, root}
   end
 
   @spec hash_tree_root_vector_basic_type(binary()) ::
@@ -252,22 +262,21 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | :error
   def pack(list, {type, schema, _}) when type in [:vector, :list] do
-    if variable_size?(schema) do
-      # TODO
-      # pack_complex_type_list(list)
-      :error
-    else
-      pack_basic_type_list(list, schema)
-    end
+    list
+    |> Enum.reduce(<<>>, fn x, acc ->
+      {:ok, encoded} = encode(x, schema)
+      acc <> encoded
+    end)
+    |> pack_bytes()
   end
 
   def chunk_count({:list, type, max_size}) do
-    size = size_of(type)
+    if basic_type?(type) do
+          size = size_of(type)
     (max_size * size + 31) |> div(32)
-  end
-
-  def chunk_count(container) when is_map(container) do
-    
+    else
+      max_size
+    end
   end
 
   #################
@@ -674,18 +683,18 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.any?()
   end
 
+  defp basic_type?({:int, _}), do: true
+  defp basic_type?(:bool), do: true
+  defp basic_type?({:bytes, _}), do: true
+  defp basic_type?({:list, _, _}), do: false
+  defp basic_type?({:vector, _, _}), do: false
+  defp basic_type?({:bitlist, _}), do: false
+  defp basic_type?({:bitvector, _}), do: false
+  defp basic_type?(module) when is_atom(module), do: false
+
   defp size_of(:bool), do: @bytes_per_boolean
 
   defp size_of({:int, size}), do: size |> div(@bits_per_byte)
-
-  defp pack_basic_type_list(list, schema) do
-    list
-    |> Enum.reduce(<<>>, fn x, acc ->
-      {:ok, encoded} = encode(x, schema)
-      acc <> encoded
-    end)
-    |> pack_bytes()
-  end
 
   defp pack_bytes(value) when is_binary(value) do
     incomplete_chunk_len = value |> bit_size() |> rem(@bits_per_chunk)

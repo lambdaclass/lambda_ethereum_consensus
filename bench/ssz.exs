@@ -57,5 +57,3 @@ Benchee.run(
   warmup: 2,
   time: 5
 )
-
-

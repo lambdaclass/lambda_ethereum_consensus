@@ -1,5 +1,6 @@
 defmodule Unit.SSZExTest do
   alias LambdaEthereumConsensus.SszEx
+  alias Types.Checkpoint
   use ExUnit.Case
 
   def assert_roundtrip(serialized, deserialized, schema) do
@@ -203,7 +204,7 @@ defmodule Unit.SSZExTest do
     assert root |> Base.encode16(case: :lower) == expected_value
   end
 
-  test "hash tree root of list" do
+  test "hash tree root of list of uints" do
     ## reference: https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L459
 
     list = Stream.cycle([65_535]) |> Enum.take(316)
@@ -215,6 +216,34 @@ defmodule Unit.SSZExTest do
     {:ok, root} = [] |> SszEx.hash_tree_root({:list, {:int, 16}, 1024})
     expected_value = "c9eece3e14d3c3db45c38bbf69a4cb7464981e2506d8424a0ba450dad9b9af30"
     assert root |> Base.encode16(case: :lower) == expected_value
+  end
+
+  test "hash tree root of list of composite objects" do
+    ## list of containers
+    checkpoint = %Checkpoint{
+      epoch: 12_345,
+      root: Base.decode16!("0100000000000000000000000000000000000000000000000000000000000001")
+    }
+
+    module = SszEx.get_module(checkpoint)
+
+    list = [checkpoint, checkpoint]
+    schema = {:list, module, 8}
+    root = SszEx.hash_tree_root!(list, schema)
+
+    ## list of lists
+    list1 = Stream.cycle([65_535]) |> Enum.take(316)
+    list2 = Stream.cycle([65_530]) |> Enum.take(316)
+    list = [list1, list2]
+    schema = {:list, {:list, {:int, 16}, 1024}, 1024}
+    root = SszEx.hash_tree_root!(list, schema)
+
+    ## list of vectors
+    list1 = Stream.cycle([65_535]) |> Enum.take(316)
+    list2 = Stream.cycle([65_530]) |> Enum.take(316)
+    list = [list1, list2]
+    schema = {:list, {:vector, {:int, 16}, 1024}, 1024}
+    root = SszEx.hash_tree_root!(list, schema)
   end
 
   test "serialize and deserialize uint" do
