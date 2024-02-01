@@ -114,9 +114,7 @@ defmodule LambdaEthereumConsensus.SszEx do
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(list, {:list, type, size}) do
     if variable_size?(type) do
-      # TODO
-      # hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
-      {:error, "Not implemented"}
+      hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
     else
       packed_chunks = pack(list, {:list, type, size})
       limit = chunk_count({:list, type, size})
@@ -149,6 +147,11 @@ defmodule LambdaEthereumConsensus.SszEx do
       root = merkleize_chunks_with_virtual_padding(chunks, limit) |> mix_in_length(len)
       {:ok, root}
     end
+  end
+
+  @spec hash_tree_root_list_complex_type(any)
+  def hash_tree_root_list_complex_type() do
+    
   end
 
   @spec hash_tree_root_vector_basic_type(binary()) ::
@@ -261,6 +264,10 @@ defmodule LambdaEthereumConsensus.SszEx do
   def chunk_count({:list, type, max_size}) do
     size = size_of(type)
     (max_size * size + 31) |> div(32)
+  end
+
+  def chunk_count(container) when is_map(container) do
+    
   end
 
   #################
