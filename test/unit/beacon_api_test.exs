@@ -3,7 +3,6 @@ defmodule BeaconApiTest do
   use Plug.Test
   use Patch
   alias BeaconApi.Router
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Store.BlockStore
   alias LambdaEthereumConsensus.Store.Db
 
@@ -12,6 +11,8 @@ defmodule BeaconApiTest do
   @opts Router.init([])
 
   setup do
+    Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: MainnetConfig)
+
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0>>
