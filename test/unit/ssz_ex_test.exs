@@ -257,21 +257,32 @@ defmodule Unit.SSZExTest do
 
     vector = [checkpoint, checkpoint]
     schema = {:vector, module, 2}
-    root = SszEx.hash_tree_root!(vector, schema)
+    SszEx.hash_tree_root!(vector, schema)
 
     ## vector of vectors
     vector1 = Stream.cycle([65_535]) |> Enum.take(316)
     vector2 = Stream.cycle([65_530]) |> Enum.take(316)
     vector = [vector1, vector2]
     schema = {:vector, {:vector, {:int, 16}, 316}, 2}
-    root = SszEx.hash_tree_root!(vector, schema)
+    SszEx.hash_tree_root!(vector, schema)
 
-    # ## vector of lists
+    ## vector of vector of vectors
+    vector1 = Stream.cycle([65_535]) |> Enum.take(316)
+    vector2 = Stream.cycle([65_530]) |> Enum.take(316)
+    vector3 = [vector1, vector2]
+    vector4 = [vector1, vector2]
+    vector = [vector3, vector4]
+    schema = {:vector, {:vector, {:vector, {:int, 16}, 316}, 2}, 2}
+    SszEx.hash_tree_root!(vector, schema)
+
+    # ## vector of vector of lists 
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
     list2 = Stream.cycle([65_530]) |> Enum.take(316)
-    vector = [list1, list2]
-    schema = {:vector, {:list, {:int, 16}, 1024}, 2}
-    root = SszEx.hash_tree_root!(vector, schema)
+    vector1 = [list1, list2]
+    vector2 = [list1, list2]
+    vector = [vector1, vector2]
+    schema = {:vector, {:vector, {:list, {:int, 16}, 1024}, 2}, 2}
+    SszEx.hash_tree_root!(vector, schema)
   end
 
   test "serialize and deserialize uint" do
