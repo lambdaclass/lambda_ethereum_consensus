@@ -264,6 +264,15 @@ defmodule Unit.SSZExTest do
     list = [list3, list4]
     schema = {:list, {:vector, {:list, {:int, 16}, 1024}, 2}, 32}
     SszEx.hash_tree_root!(list, schema)
+
+    ## list of vector of vector
+    vector1 = Stream.cycle([65_535]) |> Enum.take(316)
+    vector2 = Stream.cycle([65_530]) |> Enum.take(316)
+    vector3 = [vector1, vector2]
+    vector4 = [vector1, vector2]
+    list = [vector3, vector4]
+    schema = {:list, {:vector, {:vector, {:int, 16}, 316}, 2}, 32}
+    SszEx.hash_tree_root!(list, schema)
   end
 
   test "hash tree root of vector of composite objects" do
