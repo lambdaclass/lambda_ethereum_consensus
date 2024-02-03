@@ -272,8 +272,8 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def chunk_count({:list, type, max_size}) do
     if basic_type?(type) do
-          size = size_of(type)
-    (max_size * size + 31) |> div(32)
+      size = size_of(type)
+      (max_size * size + 31) |> div(32)
     else
       max_size
     end
