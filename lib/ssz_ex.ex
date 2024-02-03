@@ -163,9 +163,12 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def hash_tree_root_vector_composite_type(vector, inner_schema) do
-    chunks = vector |> Enum.reduce(<<>>, fn value, acc_roots -> 
-      acc_roots <> hash_tree_root!(value, inner_schema)
-    end )
+    chunks =
+      vector
+      |> Enum.reduce(<<>>, fn value, acc_roots ->
+        acc_roots <> hash_tree_root!(value, inner_schema)
+      end)
+
     leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
     {:ok, root}
@@ -279,8 +282,8 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def chunk_count({:list, type, max_size}) do
     if basic_type?(type) do
-          size = size_of(type)
-    (max_size * size + 31) |> div(32)
+      size = size_of(type)
+      (max_size * size + 31) |> div(32)
     else
       max_size
     end
