@@ -246,6 +246,34 @@ defmodule Unit.SSZExTest do
     root = SszEx.hash_tree_root!(list, schema)
   end
 
+  test "hash tree root of vector of composite objects" do
+    ## list of containers
+    checkpoint = %Checkpoint{
+      epoch: 12_345,
+      root: Base.decode16!("0100000000000000000000000000000000000000000000000000000000000001")
+    }
+
+    module = SszEx.get_module(checkpoint)
+
+    vector = [checkpoint, checkpoint]
+    schema = {:vector, module, 2}
+    root = SszEx.hash_tree_root!(vector, schema)
+
+    ## vector of vectors
+    vector1 = Stream.cycle([65_535]) |> Enum.take(316)
+    vector2 = Stream.cycle([65_530]) |> Enum.take(316)
+    vector = [vector1, vector2]
+    schema = {:vector, {:vector, {:int, 16}, 316}, 2}
+    root = SszEx.hash_tree_root!(vector, schema)
+
+    # ## vector of lists
+    list1 = Stream.cycle([65_535]) |> Enum.take(316)
+    list2 = Stream.cycle([65_530]) |> Enum.take(316)
+    vector = [list1, list2]
+    schema = {:vector, {:list, {:int, 16}, 1024}, 2}
+    root = SszEx.hash_tree_root!(vector, schema)
+  end
+
   test "serialize and deserialize uint" do
     assert_roundtrip(<<5>>, 5, {:int, 8})
     assert_roundtrip(<<5, 0>>, 5, {:int, 16})

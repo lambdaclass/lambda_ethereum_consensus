@@ -129,13 +129,11 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(vector, {:vector, type, _size} = schema) do
-    if variable_size?(type) do
-      # TODO
-      # hash_tree_root_vector_complex_type(vector, {:vector, type, size}, limit)
-      {:error, "Not implemented"}
-    else
+    if basic_type?(type) do
       packed_chunks = pack(vector, schema)
       hash_tree_root_vector_basic_type(packed_chunks)
+    else
+      hash_tree_root_vector_composite_type(vector, type)
     end
   end
 
@@ -152,15 +150,24 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  def hash_tree_root_list_composite_type(list, type, limit, len) do
+  def hash_tree_root_list_composite_type(list, inner_schema, limit, len) do
     root =
       list
-      |> Enum.reduce(<<>>, fn value, acc_chunks ->
-        acc_chunks <> hash_tree_root!(value, type)
+      |> Enum.reduce(<<>>, fn value, acc_roots ->
+        acc_roots <> hash_tree_root!(value, inner_schema)
       end)
       |> merkleize_chunks_with_virtual_padding(limit)
       |> mix_in_length(len)
 
+    {:ok, root}
+  end
+
+  def hash_tree_root_vector_composite_type(vector, inner_schema) do
+    chunks = vector |> Enum.reduce(<<>>, fn value, acc_roots -> 
+      acc_roots <> hash_tree_root!(value, inner_schema)
+    end )
+    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
     {:ok, root}
   end
 
