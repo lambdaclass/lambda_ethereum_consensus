@@ -229,21 +229,41 @@ defmodule Unit.SSZExTest do
 
     list = [checkpoint, checkpoint]
     schema = {:list, module, 8}
-    root = SszEx.hash_tree_root!(list, schema)
+    SszEx.hash_tree_root!(list, schema)
 
     ## list of lists
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
     list2 = Stream.cycle([65_530]) |> Enum.take(316)
     list = [list1, list2]
     schema = {:list, {:list, {:int, 16}, 1024}, 1024}
-    root = SszEx.hash_tree_root!(list, schema)
+    SszEx.hash_tree_root!(list, schema)
 
-    ## list of vectors
+    ## list of list of lists
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
     list2 = Stream.cycle([65_530]) |> Enum.take(316)
-    list = [list1, list2]
-    schema = {:list, {:vector, {:int, 16}, 1024}, 1024}
-    root = SszEx.hash_tree_root!(list, schema)
+    list3 = [list1, list2]
+    list4 = [list1, list2]
+    list = [list3, list4]
+    schema = {:list, {:list, {:list, {:int, 16}, 1024}, 1024}, 128}
+    SszEx.hash_tree_root!(list, schema)
+
+    ## list of list of vectors
+    list1 = Stream.cycle([65_535]) |> Enum.take(316)
+    list2 = Stream.cycle([65_530]) |> Enum.take(316)
+    list3 = [list1, list2]
+    list4 = [list1, list2]
+    list = [list3, list4]
+    schema = {:list, {:list, {:vector, {:int, 16}, 2}, 1024}, 136}
+    SszEx.hash_tree_root!(list, schema)
+
+    ## list of vector of lists
+    list1 = Stream.cycle([65_535]) |> Enum.take(316)
+    list2 = Stream.cycle([65_530]) |> Enum.take(316)
+    list3 = [list1, list2]
+    list4 = [list1, list2]
+    list = [list3, list4]
+    schema = {:list, {:vector, {:list, {:int, 16}, 1024}, 2}, 32}
+    SszEx.hash_tree_root!(list, schema)
   end
 
   test "serialize and deserialize uint" do
