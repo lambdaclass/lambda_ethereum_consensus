@@ -109,7 +109,7 @@ jobs:
       with:
         workspaces: ${{ env.RUST_WORKSPACES }}
     - name: Compile Elixir (Warnings as errors)
-      run: mix compile --warnings-as-errors
+      run: mix compile.elixir --warnings-as-errors
     - name: Retrieve PLT Cache
       uses: actions/cache@v3
       id: plt-cache
@@ -166,7 +166,7 @@ jobs:
       with:
         workspaces: ${{ env.RUST_WORKSPACES }}
     - name: Compile Elixir (Warnings as errors)
-      run: mix compile --warnings-as-errors
+      run: mix compile.elixir --warnings-as-errors
     - name: Run the node
       # NOTE: this starts and then stops the application. It should catch simple runtime errors
       run: mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
