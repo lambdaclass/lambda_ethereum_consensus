@@ -75,6 +75,15 @@ defmodule SszGenericTestRunner do
 
     assert serialized == real_serialized
 
+    case schema do
+      {:bitlist, size} ->
+        "Deserialized:" |> IO.inspect()
+        real_deserialized |> IO.inspect()
+        "Serialized:" |> IO.inspect()
+        real_serialized |> IO.inspect()
+      _ -> :error
+    end
+
     # TODO enable when merklelization is ready for all schemas
     # actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
     #
