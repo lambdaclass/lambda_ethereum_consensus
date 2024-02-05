@@ -31,10 +31,10 @@ defmodule Unit.PendingBlocks do
 
     PendingBlocks.add_block(signed_block)
 
-    assert PendingBlocks.is_pending_block(block_root)
+    assert PendingBlocks.pending_block?(block_root)
     send(PendingBlocks, :process_blocks)
 
     # If the block is not pending anymore, it means it was added to the fork choice
-    assert not PendingBlocks.is_pending_block(block_root)
+    assert not PendingBlocks.pending_block?(block_root)
   end
 end
