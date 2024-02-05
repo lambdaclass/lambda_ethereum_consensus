@@ -18,7 +18,10 @@ defmodule SnappyEx do
   @ids_reserved_unskippable_chunks 0x02..0x7F
   @ids_reserved_skippable_chunks 0x80..0xFD
 
+  @spec decompress(nonempty_binary()) :: {:ok, binary()} | {:error, String.t()}
   def decompress(<<@id_stream_identifier>> <> _ = chunks), do: decompress_frames(chunks, <<>>)
+
+  @spec decompress(<<>>) :: {:error, String.t()}
   def decompress(chunks) when is_binary(chunks), do: {:error, "no stream identifier at beginning"}
 
   defp decompress_frames("", acc), do: {:ok, acc}
@@ -43,12 +46,12 @@ defmodule SnappyEx do
     {:ok, {id, chunk, remaining_chunks}}
   end
 
-  # process stream identifier
-  # according to the specs, you just ignore it given the size and contents are correct
+  # Stream identifier
+  # NOTE: it can appear more than once, and must be validated each time
   defp parse_chunk(acc, @id_stream_identifier, @stream_identifier), do: {:ok, acc}
   defp parse_chunk(_, @id_stream_identifier, _), do: {:error, "invalid stream identifier"}
 
-  # Payload chunks
+  # Data-carrying chunks (compressed or uncompressed)
   defp parse_chunk(_acc, id, data)
        when id in @ids_payload_chunks and byte_size(data) > @chunk_size_limit,
        do: {:error, "chunk is bigger than limit"}
@@ -62,15 +65,17 @@ defmodule SnappyEx do
     end
   end
 
+  # Skippable chunks (padding or reserved)
   defp parse_chunk(acc, id, _data)
        when id == @id_padding or id in @ids_reserved_skippable_chunks,
        do: {:ok, acc}
 
+  # Reserved unskippable chunks
   defp parse_chunk(_acc, id, _data) when id in @ids_reserved_unskippable_chunks,
     do: {:error, "unskippable chunk of type: #{id}"}
 
   defp decompress_payload(@id_compressed_data, data), do: :snappyer.decompress(data)
-  defp decompress_payload(@id_uncompressed_data, data), do: data
+  defp decompress_payload(@id_uncompressed_data, data), do: {:ok, data}
 
   defp compute_checksum(data) when is_binary(data) do
     checksum = Crc32c.calc!(data)
