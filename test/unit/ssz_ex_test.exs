@@ -225,10 +225,8 @@ defmodule Unit.SSZExTest do
       root: Base.decode16!("0100000000000000000000000000000000000000000000000000000000000001")
     }
 
-    module = SszEx.get_module(checkpoint)
-
     list = [checkpoint, checkpoint]
-    schema = {:list, module, 8}
+    schema = {:list, Checkpoint, 8}
     SszEx.hash_tree_root!(list, schema)
 
     ## list of lists
@@ -282,10 +280,8 @@ defmodule Unit.SSZExTest do
       root: Base.decode16!("0100000000000000000000000000000000000000000000000000000000000001")
     }
 
-    module = SszEx.get_module(checkpoint)
-
     vector = [checkpoint, checkpoint]
-    schema = {:vector, module, 2}
+    schema = {:vector, Checkpoint, 2}
     SszEx.hash_tree_root!(vector, schema)
 
     ## vector of vectors
