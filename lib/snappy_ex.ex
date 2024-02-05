@@ -18,6 +18,10 @@ defmodule SnappyEx do
   @ids_reserved_unskippable_chunks 0x02..0x7F
   @ids_reserved_skippable_chunks 0x80..0xFD
 
+  ##########################
+  ### Public API
+  ##########################
+
   @doc """
   Compresses the given data.
   Returns the compressed data.
@@ -47,6 +51,19 @@ defmodule SnappyEx do
 
   @spec decompress(<<>>) :: {:error, String.t()}
   def decompress(chunks) when is_binary(chunks), do: {:error, "no stream identifier at beginning"}
+
+  @spec compute_checksum(binary()) :: Types.uint32()
+  def compute_checksum(data) when is_binary(data) do
+    checksum = Crc32c.calc!(data)
+
+    # the crc32c checksum of the uncompressed data is masked before inserted into the
+    # frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
+    (checksum >>> 15 ||| checksum <<< 17) + 0xA282EAD8 &&& @bit_mask_32
+  end
+
+  ##########################
+  ### Private Functions
+  ##########################
 
   defp decompress_frames("", acc), do: {:ok, acc}
 
@@ -100,14 +117,6 @@ defmodule SnappyEx do
 
   defp decompress_payload(@id_compressed_data, data), do: :snappyer.decompress(data)
   defp decompress_payload(@id_uncompressed_data, data), do: {:ok, data}
-
-  defp compute_checksum(data) when is_binary(data) do
-    checksum = Crc32c.calc!(data)
-
-    # the crc32c checksum of the uncompressed data is masked before inserted into the
-    # frame using masked_checksum = ((checksum >> 15) | (checksum << 17)) + 0xa282ead8
-    (checksum >>> 15 ||| checksum <<< 17) + 0xA282EAD8 &&& @bit_mask_32
-  end
 
   defp verify_checksum(data, checksum) do
     if checksum == compute_checksum(data),
