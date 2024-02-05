@@ -66,7 +66,7 @@ Improvements:
 ### Other issues
 
 - States aren't ever stored in the DB. This is not a concurrency issue, but we should fix it.
-- Low priority, but we should evaluate dropping the Subscriber genServer and broadway, and have one task per message under a supervisor.
+- Low priority, but we should evaluate dropping the Subscriber GenServer and Broadway, and have one task per message under a supervisor.
 
 ## State Diagram
 
