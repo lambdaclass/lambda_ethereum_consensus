@@ -15,8 +15,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
-  @default_timeout 100_000
-
   ##########################
   ### Public API
   ##########################
@@ -27,11 +25,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec has_block?(Types.root()) :: boolean()
-  def has_block?(block_root) do
-    GenServer.call(__MODULE__, {:has_block?, block_root}, @default_timeout)
-  end
-
   @spec on_tick(Types.uint64()) :: :ok
   def on_tick(time) do
     GenServer.cast(__MODULE__, {:on_tick, time})
@@ -39,7 +32,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec on_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok | :error
   def on_block(signed_block, block_root) do
-    GenServer.call(__MODULE__, {:on_block, block_root, signed_block}, @default_timeout)
+    GenServer.cast(__MODULE__, {:on_block, block_root, signed_block, self()})
   end
 
   @spec on_attestation(Types.Attestation.t()) :: :ok
@@ -76,17 +69,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @impl GenServer
-  def handle_call({:get_store_attrs, attrs}, _from, state) do
-    values = Enum.map(attrs, &Map.fetch!(state, &1))
-    {:reply, values, state}
-  end
-
-  def handle_call({:has_block?, block_root}, _from, state) do
-    {:reply, Store.has_block?(state, block_root), state}
-  end
-
-  @impl GenServer
-  def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, store) do
+  def handle_cast({:on_block, block_root, %SignedBeaconBlock{} = signed_block, from}, store) do
     slot = signed_block.message.slot
 
     result =
@@ -100,11 +83,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         Logger.info("[Fork choice] New block added", slot: slot, root: block_root)
 
         Task.async(__MODULE__, :recompute_head, [new_store])
-        {:reply, :ok, new_store}
+
+        GenServer.cast(from, {:block_processed, signed_block, block_root, true})
+        {:noreply, new_store}
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot)
-        {:reply, :error, store}
+        GenServer.cast(from, {:block_processed, signed_block, block_root, false})
+        {:noreply, store}
     end
   end
 

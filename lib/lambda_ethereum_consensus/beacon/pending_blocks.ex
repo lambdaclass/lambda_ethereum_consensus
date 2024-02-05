@@ -10,11 +10,13 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.BlockDownloader
+  alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
 
   @type state :: %{
           pending_blocks: %{Types.root() => SignedBeaconBlock.t()},
           invalid_blocks: %{Types.root() => map()},
+          processing_blocks: MapSet.t(Types.root()),
           blocks_to_download: MapSet.t(Types.root())
         }
 
@@ -45,7 +47,14 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def init(_opts) do
     schedule_blocks_processing()
     schedule_blocks_download()
-    {:ok, %{pending_blocks: %{}, invalid_blocks: %{}, blocks_to_download: MapSet.new()}}
+
+    {:ok,
+     %{
+       pending_blocks: %{},
+       invalid_blocks: %{},
+       blocks_to_download: MapSet.new(),
+       processing_blocks: MapSet.new()
+     }}
   end
 
   @impl true
@@ -53,6 +62,23 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     block_root = Ssz.hash_tree_root!(block)
     pending_blocks = Map.put(state.pending_blocks, block_root, signed_block)
     {:noreply, Map.put(state, :pending_blocks, pending_blocks)}
+  end
+
+  @impl true
+  def handle_cast({:block_processed, signed_block, block_root, is_valid?}, state) do
+    if is_valid? do
+      state |> Map.update!(:processing_blocks, &MapSet.delete(&1, block_root))
+    else
+      state
+      |> Map.update!(:processing_blocks, &MapSet.delete(&1, block_root))
+      |> Map.update!(
+        :invalid_blocks,
+        &Map.put(&1, block_root, signed_block.message |> Map.take([:slot, :parent_root]))
+      )
+    end
+    |> then(fn state ->
+      {:noreply, state}
+    end)
   end
 
   @impl true
@@ -83,29 +109,29 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             &Map.put(&1, block_root, signed_block.message |> Map.take([:slot, :parent_root]))
           )
 
+        # If parent is processing, block is pending
+        state.processing_blocks |> MapSet.member?(parent_root) ->
+          state
+
         # If parent is pending, block is pending
         state.pending_blocks |> Map.has_key?(parent_root) ->
           state
 
         # If already in fork choice, remove from pending
-        ForkChoice.has_block?(block_root) ->
+        Blocks.get_block(block_root) ->
           state |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
 
-        # If parent is not in fork choice, download parent
-        not ForkChoice.has_block?(parent_root) ->
+        # If parent is not in fork choice, download parentx
+        !Blocks.get_block(parent_root) ->
           state |> Map.update!(:blocks_to_download, &MapSet.put(&1, parent_root))
 
         # If all the other conditions are false, add block to fork choice
         true ->
-          new_state = send_block_to_forkchoice(state, signed_block, block_root)
+          ForkChoice.on_block(signed_block, block_root)
 
-          # When on checkpoint sync, we might accumulate a couple of hundred blocks in the pending blocks queue.
-          # This can cause the ForkChoice to timeout on other call requests since it has to process all the
-          # pending blocks first.
-          # TODO: find a better way to handle this
-          Process.sleep(100)
-
-          new_state
+          state
+          |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
+          |> Map.update!(:processing_blocks, &MapSet.put(&1, block_root))
       end
     end)
     |> then(fn state ->
@@ -125,7 +151,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @impl true
   def handle_info(:download_blocks, state) do
-    blocks_in_store = state.blocks_to_download |> MapSet.filter(&ForkChoice.has_block?/1)
+    blocks_in_store = state.blocks_to_download |> MapSet.filter(&Blocks.get_block/1)
 
     downloaded_blocks =
       state.blocks_to_download
@@ -158,22 +184,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   ##########################
   ### Private Functions
   ##########################
-
-  @spec send_block_to_forkchoice(state(), SignedBeaconBlock.t(), Types.root()) :: state()
-  defp send_block_to_forkchoice(state, signed_block, block_root) do
-    case ForkChoice.on_block(signed_block, block_root) do
-      :ok ->
-        state |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
-
-      :error ->
-        state
-        |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
-        |> Map.update!(
-          :invalid_blocks,
-          &Map.put(&1, block_root, signed_block.message |> Map.take([:slot, :parent_root]))
-        )
-    end
-  end
 
   def schedule_blocks_processing do
     Process.send_after(__MODULE__, :process_blocks, 3000)
