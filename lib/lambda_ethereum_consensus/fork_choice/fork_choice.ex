@@ -84,12 +84,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
         Task.async(__MODULE__, :recompute_head, [new_store])
 
-        GenServer.cast(from, {:block_processed, signed_block, block_root, true})
+        GenServer.cast(from, {:block_processed, block_root, true})
         {:noreply, new_store}
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot)
-        GenServer.cast(from, {:block_processed, signed_block, block_root, false})
+        GenServer.cast(from, {:block_processed, block_root, false})
         {:noreply, store}
     end
   end

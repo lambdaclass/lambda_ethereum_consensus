@@ -42,6 +42,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     {:ok, Map.new()}
   end
 
+  @spec handle_cast(any(), state()) :: {:noreply, state()}
+
   @impl true
   def handle_cast({:add_block, %SignedBeaconBlock{message: block} = signed_block}, state) do
     block_root = Ssz.hash_tree_root!(block)
@@ -49,12 +51,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @impl true
-  def handle_cast({:block_processed, signed_block, block_root, is_valid?}, state) do
+  def handle_cast({:block_processed, block_root, is_valid?}, state) do
     if is_valid? do
       state |> Map.delete(block_root)
     else
       state
-      |> Map.put(block_root, {signed_block, :invalid})
+      |> Map.put(block_root, {nil, :invalid})
     end
     |> then(fn state ->
       {:noreply, state}
@@ -83,7 +85,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
         # If parent is invalid, block is invalid
         get_block_status(state, parent_root) == :invalid ->
-          state |> Map.put(block_root, :invalid)
+          state |> Map.put(block_root, {nil, :invalid})
 
         # If parent is processing, block is pending
         get_block_status(state, parent_root) == :processing ->
