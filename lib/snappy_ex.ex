@@ -11,9 +11,12 @@ defmodule SnappyEx do
 
   @id_compressed_data 0x00
   @id_uncompressed_data 0x01
+  @id_padding 0xFE
   @id_stream_identifier 0xFF
 
   @ids_payload_chunks [@id_compressed_data, @id_uncompressed_data]
+  @ids_reserved_unskippable_chunks 0x02..0x7F
+  @ids_reserved_skippable_chunks 0x80..0xFD
 
   def decompress(<<@id_stream_identifier>> <> _ = chunks), do: decompress_frames(chunks, <<>>)
   def decompress(chunks) when is_binary(chunks), do: {:error, "no stream identifier at beginning"}
@@ -58,6 +61,13 @@ defmodule SnappyEx do
       {:ok, <<acc::binary, uncompressed_data::binary>>}
     end
   end
+
+  defp parse_chunk(acc, id, _data)
+       when id == @id_padding or id in @ids_reserved_skippable_chunks,
+       do: {:ok, acc}
+
+  defp parse_chunk(_acc, id, _data) when id in @ids_reserved_unskippable_chunks,
+    do: {:error, "unskippable chunk of type: #{id}"}
 
   defp decompress_payload(@id_compressed_data, data), do: :snappyer.decompress(data)
   defp decompress_payload(@id_uncompressed_data, data), do: data
