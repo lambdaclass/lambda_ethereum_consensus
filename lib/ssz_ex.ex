@@ -270,6 +270,10 @@ defmodule LambdaEthereumConsensus.SszEx do
     (max_size * size + 31) |> div(32)
   end
 
+  def chunk_count({identifier, size}) when identifier in [:bitlist, :bitvector] do
+    (size + 255) |> div(255)
+  end
+
   #################
   ### Private functions
   #################
