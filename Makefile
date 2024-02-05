@@ -2,7 +2,8 @@
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
-		clean-tests gen-spec compile-all download-beacon-node-oapi
+		clean-tests gen-spec compile-all download-beacon-node-oapi \
+		clean-artifacts prepare-artifacts
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -85,13 +86,17 @@ proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 #🔨 compile-native: @ Compile C and Go artifacts.
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
+prepare-artifacts: compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
+
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
-compile-all: compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
+compile-all:
 	mix compile
 
 #🗑️ clean: @ Remove the build files.
 clean:
 	-mix clean
+
+clean-artifacts:
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
 
 #📊 grafana-up: @ Start grafana server.
