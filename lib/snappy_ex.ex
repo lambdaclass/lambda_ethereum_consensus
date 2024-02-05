@@ -1,9 +1,9 @@
 defmodule SnappyEx do
-  import Bitwise
-
   @moduledoc """
     SSZ library in Elixir
   """
+  import Bitwise
+
   @bit_mask_32 2 ** 32 - 1
   @chunk_size_limit 65_540
 
@@ -108,7 +108,7 @@ defmodule SnappyEx do
     end
   end
 
-  defp masked_checksum(data) do
+  defp masked_checksum(data) when is_binary(data) do
     checksum = Crc32c.calc!(data)
 
     # the crc32 checksum of the uncompressed data is masked before inserted into the
