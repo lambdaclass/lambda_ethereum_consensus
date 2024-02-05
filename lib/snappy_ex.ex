@@ -14,7 +14,6 @@ defmodule SnappyEx do
   @id_stream_identifier 0xFF
 
   def decompress(<<@id_stream_identifier>> <> _ = chunks), do: decompress_frames(chunks, <<>>)
-
   def decompress(_chunks), do: {:error, "no stream identifier at beginning"}
 
   defp decompress_frames("", acc), do: {:ok, acc}

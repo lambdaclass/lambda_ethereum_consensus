@@ -54,7 +54,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:ex2ms, "~> 1.6", runtime: false},
       {:eflambe, "~> 0.3.1"},
       {:patch, "~> 0.12.0", only: [:test]},
-      {:stream_data, "~> 0.5", only: [:test]},
+      {:stream_data, "~> 0.6", only: [:test]},
       {:benchee, "~> 1.2", only: [:dev]},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

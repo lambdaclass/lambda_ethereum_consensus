@@ -65,4 +65,15 @@ defmodule Unit.SnappyExTest do
 
     assert_snappy_decompress(compressed_payload, "Failed to uncompress message")
   end
+
+  property "SnappyEx == Snappy: random stream" do
+    check all(stream <- binary(min_length: 1)) do
+      expected = Snappy.decompress(stream)
+
+      case SnappyEx.decompress(stream) do
+        {:ok, result} -> assert {:ok, ^result} = expected
+        {:error, reason} -> assert {:error, _} = expected, reason
+      end
+    end
+  end
 end
