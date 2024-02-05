@@ -13,12 +13,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
 
-  @type state :: %{
-          pending_blocks: %{Types.root() => SignedBeaconBlock.t()},
-          invalid_blocks: %{Types.root() => map()},
-          processing_blocks: MapSet.t(Types.root()),
-          blocks_to_download: MapSet.t(Types.root())
-        }
+  @type block_status :: :pending | :invalid | :processing | :download | :unknown
+  @type state :: %{Types.root() => {SignedBeaconBlock.t() | nil, block_status()}}
 
   ##########################
   ### Public API
@@ -33,11 +29,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     GenServer.cast(__MODULE__, {:add_block, signed_block})
   end
 
-  @spec is_pending_block(Types.root()) :: boolean()
-  def is_pending_block(block_root) do
-    GenServer.call(__MODULE__, {:is_pending_block, block_root})
-  end
-
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -48,42 +39,26 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     schedule_blocks_processing()
     schedule_blocks_download()
 
-    {:ok,
-     %{
-       pending_blocks: %{},
-       invalid_blocks: %{},
-       blocks_to_download: MapSet.new(),
-       processing_blocks: MapSet.new()
-     }}
+    {:ok, Map.new()}
   end
 
   @impl true
   def handle_cast({:add_block, %SignedBeaconBlock{message: block} = signed_block}, state) do
     block_root = Ssz.hash_tree_root!(block)
-    pending_blocks = Map.put(state.pending_blocks, block_root, signed_block)
-    {:noreply, Map.put(state, :pending_blocks, pending_blocks)}
+    {:noreply, Map.put(state, block_root, {signed_block, :pending})}
   end
 
   @impl true
   def handle_cast({:block_processed, signed_block, block_root, is_valid?}, state) do
     if is_valid? do
-      state |> Map.update!(:processing_blocks, &MapSet.delete(&1, block_root))
+      state |> Map.delete(block_root)
     else
       state
-      |> Map.update!(:processing_blocks, &MapSet.delete(&1, block_root))
-      |> Map.update!(
-        :invalid_blocks,
-        &Map.put(&1, block_root, signed_block.message |> Map.take([:slot, :parent_root]))
-      )
+      |> Map.put(block_root, {signed_block, :invalid})
     end
     |> then(fn state ->
       {:noreply, state}
     end)
-  end
-
-  @impl true
-  def handle_call({:is_pending_block, block_root}, _from, state) do
-    {:reply, Map.has_key?(state.pending_blocks, block_root), state}
   end
 
   @spec handle_info(any(), state()) :: {:noreply, state()}
@@ -94,44 +69,39 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @impl true
   @spec handle_info(atom(), state()) :: {:noreply, state()}
   def handle_info(:process_blocks, state) do
-    state.pending_blocks
+    state
+    |> Map.filter(fn {_, {_, s}} -> s == :pending end)
+    |> Enum.map(fn {root, {block, _}} -> {root, block} end)
     |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
     |> Enum.reduce(state, fn {block_root, signed_block}, state ->
       parent_root = signed_block.message.parent_root
 
       cond do
+        # If already processed, remove it
+        Blocks.get_block(block_root) ->
+          state |> Map.delete(block_root)
+
         # If parent is invalid, block is invalid
-        state.invalid_blocks |> Map.has_key?(parent_root) ->
-          state
-          |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
-          |> Map.update!(
-            :invalid_blocks,
-            &Map.put(&1, block_root, signed_block.message |> Map.take([:slot, :parent_root]))
-          )
+        get_block_status(state, parent_root) == :invalid ->
+          state |> Map.put(block_root, :invalid)
 
         # If parent is processing, block is pending
-        state.processing_blocks |> MapSet.member?(parent_root) ->
+        get_block_status(state, parent_root) == :processing ->
           state
 
         # If parent is pending, block is pending
-        state.pending_blocks |> Map.has_key?(parent_root) ->
+        get_block_status(state, parent_root) == :pending ->
           state
 
-        # If already in fork choice, remove from pending
-        Blocks.get_block(block_root) ->
-          state |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
-
-        # If parent is not in fork choice, download parentx
+        # If parent is not in fork choice, download parent
         !Blocks.get_block(parent_root) ->
-          state |> Map.update!(:blocks_to_download, &MapSet.put(&1, parent_root))
+          state |> Map.put(parent_root, {nil, :download})
 
         # If all the other conditions are false, add block to fork choice
         true ->
+          Logger.info("Adding block to fork choice: ", root: block_root)
           ForkChoice.on_block(signed_block, block_root)
-
-          state
-          |> Map.update!(:pending_blocks, &Map.delete(&1, block_root))
-          |> Map.update!(:processing_blocks, &MapSet.put(&1, block_root))
+          state |> Map.put(block_root, {signed_block, :processing})
       end
     end)
     |> then(fn state ->
@@ -140,50 +110,46 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end)
   end
 
-  @empty_mapset MapSet.new()
-
-  @impl true
-  def handle_info(:download_blocks, %{blocks_to_download: to_download} = state)
-      when to_download == @empty_mapset do
-    schedule_blocks_download()
-    {:noreply, state}
-  end
-
   @impl true
   def handle_info(:download_blocks, state) do
-    blocks_in_store = state.blocks_to_download |> MapSet.filter(&Blocks.get_block/1)
+    blocks_to_download = state |> Map.filter(fn {_, {_, s}} -> s == :download end) |> Map.keys()
 
     downloaded_blocks =
-      state.blocks_to_download
-      |> MapSet.difference(blocks_in_store)
-      |> Enum.take(16)
-      |> BlockDownloader.request_blocks_by_root()
-      |> case do
-        {:ok, signed_blocks} ->
-          signed_blocks
+      if Enum.empty?(blocks_to_download) do
+        []
+      else
+        blocks_to_download
+        |> Enum.take(16)
+        |> BlockDownloader.request_blocks_by_root()
+        |> case do
+          {:ok, signed_blocks} ->
+            signed_blocks
 
-        {:error, reason} ->
-          Logger.debug("Block download failed: '#{reason}'")
-          []
+          {:error, reason} ->
+            Logger.debug("Block download failed: '#{reason}'")
+            []
+        end
       end
 
-    for signed_block <- downloaded_blocks do
-      add_block(signed_block)
-    end
-
-    roots_to_remove =
+    new_state =
       downloaded_blocks
-      |> Enum.map(&Ssz.hash_tree_root!(&1.message))
-      |> MapSet.new()
-      |> MapSet.union(blocks_in_store)
+      |> Enum.reduce(state, fn signed_block, state ->
+        block_root = Ssz.hash_tree_root!(signed_block.message)
+        state |> Map.put(block_root, {signed_block, :pending})
+      end)
 
     schedule_blocks_download()
-    {:noreply, Map.update!(state, :blocks_to_download, &MapSet.difference(&1, roots_to_remove))}
+    {:noreply, new_state}
   end
 
   ##########################
   ### Private Functions
   ##########################
+
+  @spec get_block_status(state(), Types.root()) :: block_status()
+  defp get_block_status(state, block_root) do
+    state |> Map.get(block_root, {nil, :unknown}) |> elem(1)
+  end
 
   def schedule_blocks_processing do
     Process.send_after(__MODULE__, :process_blocks, 3000)
