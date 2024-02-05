@@ -1,6 +1,6 @@
 defmodule SnappyEx do
   @moduledoc """
-    SSZ library in Elixir
+    Encoder/decoder implementation for the [Snappy framing format](https://github.com/google/snappy/blob/main/framing_format.txt)
   """
   import Bitwise
 
@@ -18,6 +18,30 @@ defmodule SnappyEx do
   @ids_reserved_unskippable_chunks 0x02..0x7F
   @ids_reserved_skippable_chunks 0x80..0xFD
 
+  @doc """
+  Compresses the given data.
+  Returns the compressed data.
+
+  ## Examples
+
+      iex> SnappyEx.compress("")
+      <<0xFF, 6::little-size(24)>> <> "sNaPpY"
+  """
+  @spec compress(binary()) :: binary()
+  def compress(data) when is_binary(data) do
+    # TODO: implement
+    <<@id_stream_identifier, 6::little-size(24)>> <> @stream_identifier
+  end
+
+  @doc """
+  Uncompresses a given stream.
+  Returns a result tuple with the uncompressed data or an error message.
+
+  ## Examples
+
+      iex> SnappyEx.decompress(<<0xFF, 6::little-size(24)>> <> "sNaPpY")
+      {:ok, ""}
+  """
   @spec decompress(nonempty_binary()) :: {:ok, binary()} | {:error, String.t()}
   def decompress(<<@id_stream_identifier>> <> _ = chunks), do: decompress_frames(chunks, <<>>)
 
