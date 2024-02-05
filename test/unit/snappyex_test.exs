@@ -76,4 +76,12 @@ defmodule Unit.SnappyExTest do
       end
     end
   end
+
+  property "SnappyEx == Snappy: random valid stream" do
+    check all(payload <- binary(min_length: 1)) do
+      {:ok, stream} = Snappy.compress(payload)
+
+      assert {:ok, ^payload} = SnappyEx.decompress(stream)
+    end
+  end
 end
