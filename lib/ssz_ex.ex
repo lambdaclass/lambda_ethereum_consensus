@@ -83,18 +83,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     root
   end
 
-  @spec hash_tree_root!(list(), {:list, any, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(list, {:list, _type, _size} = schema) do
-    {:ok, root} = hash_tree_root(list, schema)
-    root
-  end
-
-  @spec hash_tree_root!(list(), {:vector, any, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(vector, {:vector, _type, _size} = schema) do
-    {:ok, root} = hash_tree_root(vector, schema)
-    root
-  end
-
   @spec hash_tree_root!(struct(), atom()) :: Types.root()
   def hash_tree_root!(container, module) when is_map(container) do
     chunks =
@@ -107,6 +95,12 @@ defmodule LambdaEthereumConsensus.SszEx do
 
     leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
+    root
+  end
+
+  @spec hash_tree_root!(list(), {any, any, non_neg_integer}) :: Types.root()
+  def hash_tree_root!(list, schema) do
+    {:ok, root} = hash_tree_root(list, schema)
     root
   end
 
