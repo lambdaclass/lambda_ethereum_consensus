@@ -806,9 +806,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  def pack_bits() do
-  end
-
   defp convert_to_next_pow_of_two(chunks, leaf_count) do
     size = chunks |> byte_size() |> div(@bytes_per_chunk)
     next_pow = leaf_count |> next_pow_of_two()
