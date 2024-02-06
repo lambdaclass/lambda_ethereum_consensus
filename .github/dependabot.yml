@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: "mix"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "cargo"
+    directory: "/native/bls_nif"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "gomod"
+    directory: "/native/libp2p_port"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/" # Expands to `.github/workflows`
+    schedule:
+      interval: "weekly"
