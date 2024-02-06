@@ -31,9 +31,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     GenServer.cast(__MODULE__, {:add_block, signed_block})
   end
 
-  @spec is_pending_block(Types.root()) :: boolean()
-  def is_pending_block(block_root) do
-    GenServer.call(__MODULE__, {:is_pending_block, block_root})
+  @spec pending_block?(Types.root()) :: boolean()
+  def pending_block?(block_root) do
+    GenServer.call(__MODULE__, {:pending_block?, block_root})
   end
 
   ##########################
@@ -56,7 +56,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @impl true
-  def handle_call({:is_pending_block, block_root}, _from, state) do
+  def handle_call({:pending_block?, block_root}, _from, state) do
     {:reply, Map.has_key?(state.pending_blocks, block_root), state}
   end
 
