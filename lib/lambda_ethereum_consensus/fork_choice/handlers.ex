@@ -116,7 +116,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   defp check_valid_indexed_attestation(target_state, indexed_attestation) do
-    if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation),
+    if Predicates.valid_indexed_attestation?(target_state, indexed_attestation),
       do: :ok,
       else: {:error, "invalid indexed attestation"}
   end
@@ -137,13 +137,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     state = BlockStates.get_state!(store.justified_checkpoint.root)
 
     cond do
-      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
+      not Predicates.slashable_attestation_data?(attestation_1.data, attestation_2.data) ->
         {:error, "attestation is not slashable"}
 
-      not Predicates.is_valid_indexed_attestation(state, attestation_1) ->
+      not Predicates.valid_indexed_attestation?(state, attestation_1) ->
         {:error, "attestation 1 is not valid"}
 
-      not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
+      not Predicates.valid_indexed_attestation?(state, attestation_2) ->
         {:error, "attestation 2 is not valid"}
 
       true ->
