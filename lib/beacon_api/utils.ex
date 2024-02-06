@@ -4,14 +4,6 @@ defmodule BeaconApi.Utils do
   """
   alias LambdaEthereumConsensus.ForkChoice.Helpers
 
-  @doc """
-  Checks if the value is 32 bytes and starting with "0x"
-  """
-  @spec is_bytes32?(binary) :: boolean
-  def is_bytes32?(value) when is_binary(value) do
-    String.starts_with?(value, "0x") and byte_size(value) == 66
-  end
-
   @spec parse_id(binary) :: Helpers.block_id()
   def parse_id("genesis"), do: :genesis
   def parse_id("justified"), do: :justified
