@@ -229,7 +229,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         {:error, "Inconsistency in parent hash"}
 
       # Verify prev_randao
-      payload.prev_randao != Randao.get_randao_mix(state, Accessors.get_current_epoch(state)) ->
+      payload.prev_randao !=
+          Randao.get_randao_mix(state.randao_mixes, Accessors.get_current_epoch(state)) ->
         {:error, "Prev_randao verification failed"}
 
       # Verify timestamp
@@ -767,7 +768,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       signing_root = Misc.compute_signing_root(epoch, Types.Epoch, domain)
 
       if Bls.valid?(proposer.pubkey, signing_root, randao_reveal) do
-        randao_mix = Randao.get_randao_mix(state, epoch)
+        randao_mix = Randao.get_randao_mix(state.randao_mixes, epoch)
         hash = SszEx.hash(randao_reveal)
 
         # Mix in RANDAO reveal

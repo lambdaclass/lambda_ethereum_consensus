@@ -429,7 +429,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
         ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
 
-    mix = Randao.get_randao_mix(state, future_epoch)
+    mix = Randao.get_randao_mix(state.randao_mixes, future_epoch)
 
     SszEx.hash(domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
   end
