@@ -129,8 +129,8 @@ defmodule Types.BeaconState do
   @doc """
   Checks if state is pre or post merge
   """
-  @spec is_merge_transition_complete(t()) :: boolean()
-  def is_merge_transition_complete(state) do
+  @spec merge_transition_complete?(t()) :: boolean()
+  def merge_transition_complete?(state) do
     state.latest_execution_payload_header !=
       struct(Types.ExecutionPayload, Types.ExecutionPayloadHeader.default())
   end
@@ -182,7 +182,7 @@ defmodule Types.BeaconState do
       is_unslashed = MapSet.member?(unslashed_participating_indices, index)
 
       cond do
-        is_unslashed and Predicates.is_in_inactivity_leak(state) ->
+        is_unslashed and Predicates.in_inactivity_leak?(state) ->
           0
 
         is_unslashed ->
@@ -200,7 +200,7 @@ defmodule Types.BeaconState do
     state.validators
     |> Stream.with_index()
     |> Stream.map(fn {validator, index} ->
-      if Predicates.is_eligible_validator(validator, previous_epoch),
+      if Predicates.eligible_validator?(validator, previous_epoch),
         do: process_reward_and_penalty.(index),
         else: 0
     end)
@@ -226,7 +226,7 @@ defmodule Types.BeaconState do
     |> Stream.zip(state.inactivity_scores)
     |> Stream.with_index()
     |> Stream.map(fn {{validator, inactivity_score}, index} ->
-      if Predicates.is_eligible_validator(validator, previous_epoch) and
+      if Predicates.eligible_validator?(validator, previous_epoch) and
            not MapSet.member?(matching_target_indices, index) do
         penalty_numerator = validator.effective_balance * inactivity_score
         -div(penalty_numerator, penalty_denominator)

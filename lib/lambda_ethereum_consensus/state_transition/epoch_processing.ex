@@ -144,8 +144,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       validators
       |> Stream.with_index()
       |> Stream.map(fn {v, i} ->
-        {{v, i}, Predicates.is_eligible_for_activation_queue(v),
-         Predicates.is_active_validator(v, current_epoch) and
+        {{v, i}, Predicates.eligible_for_activation_queue?(v),
+         Predicates.active_validator?(v, current_epoch) and
            v.effective_balance <= ejection_balance}
       end)
       |> Stream.filter(&(elem(&1, 1) or elem(&1, 2)))
@@ -162,7 +162,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     with {:ok, new_state} <- result do
       new_state.validators
       |> Stream.with_index()
-      |> Stream.filter(fn {v, _} -> Predicates.is_eligible_for_activation(state, v) end)
+      |> Stream.filter(fn {v, _} -> Predicates.eligible_for_activation?(state, v) end)
       |> Enum.sort_by(fn {%{activation_eligibility_epoch: ep}, i} -> {ep, i} end)
       |> Enum.slice(0..(churn_limit - 1))
       |> Enum.reduce(new_state.validators, fn {v, i}, acc ->
@@ -222,13 +222,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     {:ok, unslashed_participating_indices} =
       Accessors.get_unslashed_participating_indices(state, timely_target_index, previous_epoch)
 
-    state_is_in_inactivity_leak = Predicates.is_in_inactivity_leak(state)
+    state_in_inactivity_leak? = Predicates.in_inactivity_leak?(state)
 
     state.inactivity_scores
     |> Stream.zip(state.validators)
     |> Stream.with_index()
     |> Enum.map(fn {{inactivity_score, validator}, index} ->
-      if Predicates.is_eligible_validator(validator, previous_epoch) do
+      if Predicates.eligible_validator?(validator, previous_epoch) do
         inactivity_score
         |> Misc.increase_inactivity_score(
           index,
@@ -236,7 +236,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           inactivity_score_bias
         )
         |> Misc.decrease_inactivity_score(
-          state_is_in_inactivity_leak,
+          state_in_inactivity_leak?,
           inactivity_score_recovery_rate
         )
       else
@@ -322,7 +322,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     state.validators
     |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
-      {not v.slashed and Predicates.is_active_validator(v, epoch) and
+      {not v.slashed and Predicates.active_validator?(v, epoch) and
          Predicates.has_flag(participation, flag_index), v.effective_balance}
     end)
     |> Aja.Vector.filter(&elem(&1, 0))
