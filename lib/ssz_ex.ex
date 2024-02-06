@@ -470,7 +470,7 @@ defmodule LambdaEthereumConsensus.SszEx do
          first_offset < @bytes_per_length_offset do
       {:error, "InvalidListFixedBytesLen"}
     else
-      with {:ok, first_offset} <-
+      with :ok <-
              sanitize_offset(first_offset, nil, byte_size(binary), first_offset) do
         decode_variable_list_elements(
           num_elements,
@@ -511,7 +511,7 @@ defmodule LambdaEthereumConsensus.SszEx do
        ) do
     <<next_offset::integer-32-little, rest_bytes::bitstring>> = acc_rest_bytes
 
-    with {:ok, next_offset} <-
+    with :ok <-
            sanitize_offset(next_offset, offset, byte_size(binary), first_offset) do
       part = :binary.part(binary, offset, next_offset - offset)
 
@@ -591,7 +591,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     schemas = module.schema()
     fixed_length = get_fixed_length(schemas)
 
-    with {:ok, fixed_length} <- sanitize_offset(fixed_length, nil, byte_size(binary), nil),
+    with :ok <- sanitize_offset(fixed_length, nil, byte_size(binary), nil),
          <<fixed_binary::binary-size(fixed_length), variable_binary::bitstring>> = binary,
          {:ok, fixed_parts, offsets, items_index} <-
            decode_fixed_section(fixed_binary, schemas, fixed_length),
@@ -633,7 +633,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.reduce_while({binary, []}, fn
       [{offset, {key, schema}}, {next_offset, _}], {rest_bytes, acc_variable_parts} ->
         case sanitize_offset(next_offset, offset, byte_size(full_binary), nil) do
-          {:ok, next_offset} ->
+          :ok ->
             size = next_offset - offset
             <<chunk::binary-size(size), rest::bitstring>> = rest_bytes
             {:cont, {rest, [{key, decode(chunk, schema)} | acc_variable_parts]}}
@@ -693,7 +693,7 @@ defmodule LambdaEthereumConsensus.SszEx do
         {:error, "OffsetsAreDecreasing"}
 
       true ->
-        {:ok, offset}
+        :ok
     end
   end
 
@@ -706,7 +706,7 @@ defmodule LambdaEthereumConsensus.SszEx do
         {:error, "OffsetSkipsVariableBytes"}
 
       true ->
-        {:ok, offset}
+        :ok
     end
   end
 
