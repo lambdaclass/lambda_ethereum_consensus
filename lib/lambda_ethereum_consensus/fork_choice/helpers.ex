@@ -128,7 +128,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     # If the previous epoch is justified, the block should be pulled-up. In this case, check that unrealized
     # justification is higher than the store and that the voting source is not more than two epochs ago
     correct_justified =
-      if not correct_justified and is_previous_epoch_justified(store) do
+      if not correct_justified and previous_epoch_justified?(store) do
         store.unrealized_justifications[block_root].epoch >= store.justified_checkpoint.epoch and
           voting_source.epoch + 2 >= current_epoch
       else
@@ -171,7 +171,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     end
   end
 
-  def is_previous_epoch_justified(%Store{} = store) do
+  def previous_epoch_justified?(%Store{} = store) do
     current_slot = Store.get_current_slot(store)
     current_epoch = Misc.compute_epoch_at_slot(current_slot)
     store.justified_checkpoint.epoch + 1 == current_epoch
