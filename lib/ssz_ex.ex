@@ -74,7 +74,11 @@ defmodule LambdaEthereumConsensus.SszEx do
   def decode(value, {:bitvector, size}) when is_bitstring(value),
     do: decode_bitvector(value, size)
 
-  def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
+  def decode(binary, module) when is_atom(module) do
+    if variable_size?(module),
+      do: decode_variable_container(binary, module),
+      else: decode_fixed_container(binary, module)
+  end
 
   @spec hash_tree_root!(boolean, atom) :: Types.root()
   def hash_tree_root!(value, :bool), do: pack(value, :bool)
@@ -583,25 +587,28 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp replace_offset(element, {acc_fixed_list, acc_offsets_list}),
     do: {[element | acc_fixed_list], acc_offsets_list}
 
-  defp decode_container(binary, module) do
+  defp decode_variable_container(binary, module) do
     schemas = module.schema()
     fixed_length = get_fixed_length(schemas)
 
-    if variable_size?(module) do
-      with {:ok, fixed_length} <- sanitize_offset(fixed_length, nil, byte_size(binary), nil),
-           <<fixed_binary::binary-size(fixed_length), variable_binary::bitstring>> = binary,
-           {:ok, fixed_parts, offsets, items_index} <-
-             decode_fixed_section(fixed_binary, schemas, fixed_length),
-           :ok <- check_first_offset(offsets, items_index, byte_size(binary)),
-           {:ok, variable_parts} <- decode_variable_section(binary, variable_binary, offsets) do
-        {:ok, struct!(module, fixed_parts ++ variable_parts)}
-      end
-    else
-      with {:ok, fixed_parts, _offsets, items_index} <-
-             decode_fixed_section(binary, schemas, fixed_length),
-           :ok <- check_byte_len(items_index, byte_size(binary)) do
-        {:ok, struct!(module, fixed_parts)}
-      end
+    with {:ok, fixed_length} <- sanitize_offset(fixed_length, nil, byte_size(binary), nil),
+         <<fixed_binary::binary-size(fixed_length), variable_binary::bitstring>> = binary,
+         {:ok, fixed_parts, offsets, items_index} <-
+           decode_fixed_section(fixed_binary, schemas, fixed_length),
+         :ok <- check_first_offset(offsets, items_index, byte_size(binary)),
+         {:ok, variable_parts} <- decode_variable_section(binary, variable_binary, offsets) do
+      {:ok, struct!(module, fixed_parts ++ variable_parts)}
+    end
+  end
+
+  defp decode_fixed_container(binary, module) do
+    schemas = module.schema()
+    fixed_length = get_fixed_length(schemas)
+
+    with {:ok, fixed_parts, _offsets, items_index} <-
+           decode_fixed_section(binary, schemas, fixed_length),
+         :ok <- check_byte_len(items_index, byte_size(binary)) do
+      {:ok, struct!(module, fixed_parts)}
     end
   end
 
