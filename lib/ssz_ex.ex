@@ -56,16 +56,16 @@ defmodule LambdaEthereumConsensus.SszEx do
   def decode(binary, {:int, size}), do: decode_uint(binary, size)
   def decode(value, {:bytes, _}), do: {:ok, value}
 
-  def decode(binary, {:list, basic_type, size} = schema) do
+  def decode(binary, {:list, basic_type, size}) do
     if variable_size?(basic_type),
       do: decode_variable_list(binary, basic_type, size),
-      else: decode_list(binary, basic_type, size, schema)
+      else: decode_fixed_list(binary, basic_type, size)
   end
 
-  def decode(binary, {:vector, basic_type, size} = schema) do
+  def decode(binary, {:vector, basic_type, size}) do
     if variable_size?(basic_type),
       do: decode_variable_list(binary, basic_type, size),
-      else: decode_list(binary, basic_type, size, schema)
+      else: decode_fixed_vector(binary, basic_type, size)
   end
 
   def decode(value, {:bitlist, max_size}) when is_bitstring(value),
@@ -402,40 +402,48 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp decode_list(binary, basic_type, size, schema) do
+  defp decode_fixed_list(binary, basic_type, size) do
     fixed_size = get_fixed_size(basic_type)
 
-    if check_valid_list_size_prev_decode(schema, fixed_size, size, binary) do
-      with {:ok, decoded_list} = result <-
-             binary
-             |> decode_chunk(fixed_size, basic_type)
-             |> flatten_results(),
-           :ok <- check_valid_list_size(schema, size, length(decoded_list)) do
-        result
-      end
-    else
-      {:error, "invalid list binary size"}
+    with {:ok, decoded_list} = result <-
+           binary
+           |> decode_chunk(fixed_size, basic_type)
+           |> flatten_results(),
+         :ok <- check_valid_list_size_after_decode(size, length(decoded_list)) do
+      result
     end
   end
 
-  def check_valid_list_size_prev_decode({:vector, _, _}, fixed_size, size, binary)
+  defp decode_fixed_vector(binary, basic_type, size) do
+    fixed_size = get_fixed_size(basic_type)
+
+    with :ok <- check_valid_vector_size_prev_decode(fixed_size, size, binary),
+         {:ok, decoded_list} = result <-
+           binary
+           |> decode_chunk(fixed_size, basic_type)
+           |> flatten_results(),
+         :ok <- check_valid_vector_size_after_decode(size, length(decoded_list)) do
+      result
+    end
+  end
+
+  def check_valid_vector_size_prev_decode(fixed_size, size, binary)
       when fixed_size * size == byte_size(binary),
-      do: true
+      do: :ok
 
-  def check_valid_list_size_prev_decode({:vector, _, _}, _fixed_size, _size, _binary), do: false
+  def check_valid_vector_size_prev_decode(_fixed_size, _size, _binary),
+    do: {:error, "Invalid vector size"}
 
-  def check_valid_list_size_prev_decode({:list, _, _}, _fixed_size, _size, _binary), do: true
-
-  def check_valid_list_size({:vector, _, _}, size, decoded_size)
+  def check_valid_vector_size_after_decode(size, decoded_size)
       when decoded_size == size and decoded_size > 0,
       do: :ok
 
-  def check_valid_list_size({:vector, _, _}, _size, _decoded_size),
+  def check_valid_vector_size_after_decode(_size, _decoded_size),
     do: {:error, "invalid vector decoded size"}
 
-  def check_valid_list_size({:list, _, _}, size, decoded_size) when decoded_size <= size, do: :ok
+  def check_valid_list_size_after_decode(size, decoded_size) when decoded_size <= size, do: :ok
 
-  def check_valid_list_size({:list, _, _}, _size, _decoded_size),
+  def check_valid_list_size_after_decode(_size, _decoded_size),
     do: {:error, "invalid max_size of list"}
 
   defp decode_variable_list(binary, _, _) when byte_size(binary) == 0 do
@@ -702,7 +710,6 @@ defmodule LambdaEthereumConsensus.SszEx do
         {:ok, offset}
     end
   end
-
 
   defp decode_chunk(binary, chunk_size, basic_type) do
     decode_chunk(binary, chunk_size, basic_type, [])
