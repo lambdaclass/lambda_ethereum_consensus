@@ -44,9 +44,9 @@ defmodule Types.Validator do
   @doc """
     Check if ``validator`` is fully withdrawable.
   """
-  @spec is_fully_withdrawable_validator(t(), Types.gwei(), Types.epoch()) ::
+  @spec fully_withdrawable_validator?(t(), Types.gwei(), Types.epoch()) ::
           boolean
-  def is_fully_withdrawable_validator(
+  def fully_withdrawable_validator?(
         %{withdrawable_epoch: withdrawable_epoch} = validator,
         balance,
         epoch
@@ -57,8 +57,8 @@ defmodule Types.Validator do
   @doc """
     Check if ``validator`` is partially withdrawable.
   """
-  @spec is_partially_withdrawable_validator(t(), Types.gwei()) :: boolean
-  def is_partially_withdrawable_validator(
+  @spec partially_withdrawable_validator?(t(), Types.gwei()) :: boolean
+  def partially_withdrawable_validator?(
         %{effective_balance: effective_balance} = validator,
         balance
       ) do

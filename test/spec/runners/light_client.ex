@@ -39,7 +39,7 @@ defmodule LightClientTestRunner do
       |> SpecTestUtils.sanitize_yaml()
 
     res =
-      Predicates.is_valid_merkle_branch?(
+      Predicates.valid_merkle_branch?(
         leaf,
         branch,
         Constants.deposit_contract_tree_depth() + 1,
