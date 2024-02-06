@@ -12,4 +12,3 @@ crate-type = ["cdylib"]
 [dependencies]
 rustler = "0.30.0"
 bls = { git = "https://github.com/sigp/lighthouse", package = "bls" }
-hex = "0.4.3"

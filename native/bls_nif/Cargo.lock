@@ -61,7 +61,6 @@ name = "bls_nif"
 version = "0.1.0"
 dependencies = [
  "bls",
- "hex",
  "rustler",
 ]
 
