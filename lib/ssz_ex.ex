@@ -677,8 +677,20 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   # https://notes.ethereum.org/ruKvDXl6QOW3gnqVYb8ezA?view
-  defp sanitize_offset(offset, previous_offset, _num_bytes, num_fixed_bytes)
-       when num_fixed_bytes != nil do
+  defp sanitize_offset(offset, previous_offset, num_bytes, nil) do
+    cond do
+      offset > num_bytes ->
+        {:error, "OffsetOutOfBounds"}
+
+      previous_offset != nil && previous_offset > offset ->
+        {:error, "OffsetsAreDecreasing"}
+
+      true ->
+        {:ok, offset}
+    end
+  end
+
+  defp sanitize_offset(offset, previous_offset, _num_bytes, num_fixed_bytes) do
     cond do
       offset < num_fixed_bytes ->
         {:error, "OffsetIntoFixedPortion"}
@@ -691,18 +703,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp sanitize_offset(offset, previous_offset, num_bytes, _num_fixed_bytes) do
-    cond do
-      offset > num_bytes ->
-        {:error, "OffsetOutOfBounds"}
-
-      previous_offset != nil && previous_offset > offset ->
-        {:error, "OffsetsAreDecreasing"}
-
-      true ->
-        {:ok, offset}
-    end
-  end
 
   defp decode_chunk(binary, chunk_size, basic_type) do
     decode_chunk(binary, chunk_size, basic_type, [])
