@@ -117,27 +117,31 @@ defmodule LambdaEthereumConsensus.SszEx do
     len = length(list)
 
     if basic_type?(type) do
-      packed_chunks = pack(list, schema)
-      hash_tree_root_list_basic_type(packed_chunks, limit, len)
+      pack(list, schema)
     else
-      hash_tree_root_list_composite_type(list, type, limit, len)
+      list_hash_tree_root(list, type)
     end
+    |> hash_tree_root_list(limit, len)
   end
 
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(vector, {:vector, type, _size} = schema) do
     if basic_type?(type) do
-      packed_chunks = pack(vector, schema)
-      hash_tree_root_vector_basic_type(packed_chunks)
+      pack(vector, schema)
     else
-      hash_tree_root_vector_composite_type(vector, type)
+      list_hash_tree_root(vector, type)
     end
+    |> hash_tree_root_vector()
   end
 
-  @spec hash_tree_root_list_basic_type(binary(), non_neg_integer, non_neg_integer) ::
-          {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root_list_basic_type(chunks, limit, len) do
+  def hash_tree_root_vector(chunks) do
+    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
+    {:ok, root}
+  end
+
+  def hash_tree_root_list(chunks, limit, len) do
     chunks_len = chunks |> get_chunks_len()
 
     if chunks_len > limit do
@@ -146,30 +150,6 @@ defmodule LambdaEthereumConsensus.SszEx do
       root = merkleize_chunks_with_virtual_padding(chunks, limit) |> mix_in_length(len)
       {:ok, root}
     end
-  end
-
-  @spec hash_tree_root_vector_basic_type(binary()) ::
-          {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root_vector_basic_type(chunks) do
-    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
-    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
-    {:ok, root}
-  end
-
-  def hash_tree_root_list_composite_type(list, inner_schema, limit, len) do
-    root =
-      list_hash_tree_root(list, inner_schema)
-      |> merkleize_chunks_with_virtual_padding(limit)
-      |> mix_in_length(len)
-
-    {:ok, root}
-  end
-
-  def hash_tree_root_vector_composite_type(vector, inner_schema) do
-    chunks = list_hash_tree_root(vector, inner_schema)
-    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
-    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
-    {:ok, root}
   end
 
   @spec mix_in_length(Types.root(), non_neg_integer) :: Types.root()
