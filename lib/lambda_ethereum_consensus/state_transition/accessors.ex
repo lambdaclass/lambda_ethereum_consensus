@@ -110,7 +110,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     compute_fn = fn ->
       validators
       |> Aja.Vector.with_index()
-      |> Aja.Vector.filter(fn {v, _} -> Predicates.is_active_validator(v, epoch) end)
+      |> Aja.Vector.filter(fn {v, _} -> Predicates.active_validator?(v, epoch) end)
       |> Aja.Vector.map(fn {_, index} -> index end)
     end
 
@@ -160,7 +160,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       participating_indices =
         state.validators
         |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
-          not v.slashed and Predicates.is_active_validator(v, epoch) and
+          not v.slashed and Predicates.active_validator?(v, epoch) and
             Predicates.has_flag(participation, flag_index)
         end)
         |> Aja.Vector.with_index()
@@ -194,7 +194,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     Cache.lazily_compute(:total_active_balance, {epoch, root}, fn ->
       state.validators
-      |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
+      |> Stream.filter(&Predicates.active_validator?(&1, epoch))
       |> Stream.map(fn %Validator{effective_balance: effective_balance} -> effective_balance end)
       |> Enum.sum()
       |> max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
@@ -232,7 +232,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     validators
     |> Stream.with_index()
     |> Stream.filter(fn {validator, _index} ->
-      Predicates.is_eligible_validator(validator, previous_epoch)
+      Predicates.eligible_validator?(validator, previous_epoch)
     end)
     |> Stream.map(fn {_validator, index} -> index end)
     |> Enum.to_list()
@@ -284,7 +284,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_active_validator_count(BeaconState.t(), Types.epoch()) :: Types.uint64()
   def get_active_validator_count(%BeaconState{} = state, epoch) do
     Cache.lazily_compute(:active_validator_count, {epoch, get_state_epoch_root(state)}, fn ->
-      Aja.Enum.count(state.validators, &Predicates.is_active_validator(&1, epoch))
+      Aja.Enum.count(state.validators, &Predicates.active_validator?(&1, epoch))
     end)
   end
 
