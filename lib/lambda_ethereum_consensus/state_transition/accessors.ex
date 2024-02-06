@@ -176,16 +176,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
-  Return the randao mix at a recent ``epoch``.
-  """
-  @spec get_randao_mix(BeaconState.t(), Types.epoch()) :: Types.bytes32()
-  @spec get_randao_mix(BeaconState.t(), Types.epoch()) :: Types.bytes32()
-  def get_randao_mix(%BeaconState{randao_mixes: randao_mixes}, epoch) do
-    index = Randao.get_randao_mix_index(epoch)
-    Aja.Vector.at!(randao_mixes, index)
-  end
-
-  @doc """
   Return the combined effective balance of the active validators.
   Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   """
@@ -439,7 +429,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
         ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
 
-    mix = get_randao_mix(state, future_epoch)
+    mix = Randao.get_randao_mix(state, future_epoch)
 
     SszEx.hash(domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
   end

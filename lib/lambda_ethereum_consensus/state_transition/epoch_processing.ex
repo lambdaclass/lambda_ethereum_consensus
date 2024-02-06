@@ -92,7 +92,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   def process_randao_mixes_reset(%BeaconState{randao_mixes: randao_mixes} = state) do
     current_epoch = Accessors.get_current_epoch(state)
     next_epoch = current_epoch + 1
-    randao_mix = Accessors.get_randao_mix(state, current_epoch)
+    randao_mix = Randao.get_randao_mix(state, current_epoch)
     new_randao_mixes = Randao.replace_randao_mix(randao_mixes, next_epoch, randao_mix)
     new_state = %BeaconState{state | randao_mixes: new_randao_mixes}
     {:ok, new_state}
