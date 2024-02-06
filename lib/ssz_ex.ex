@@ -148,12 +148,17 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec hash_tree_root_vector_basic_type(binary()) ::
+          {:ok, Types.root()} | {:error, String.t()}
+  def hash_tree_root_vector_basic_type(chunks) do
+    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
+    {:ok, root}
+  end
+
   def hash_tree_root_list_composite_type(list, inner_schema, limit, len) do
     root =
-      list
-      |> Enum.reduce(<<>>, fn value, acc_roots ->
-        acc_roots <> hash_tree_root!(value, inner_schema)
-      end)
+      list_hash_tree_root(list, inner_schema)
       |> merkleize_chunks_with_virtual_padding(limit)
       |> mix_in_length(len)
 
@@ -161,20 +166,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def hash_tree_root_vector_composite_type(vector, inner_schema) do
-    chunks =
-      vector
-      |> Enum.reduce(<<>>, fn value, acc_roots ->
-        acc_roots <> hash_tree_root!(value, inner_schema)
-      end)
-
-    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
-    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
-    {:ok, root}
-  end
-
-  @spec hash_tree_root_vector_basic_type(binary()) ::
-          {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root_vector_basic_type(chunks) do
+    chunks = list_hash_tree_root(vector, inner_schema)
     leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
     {:ok, root}
@@ -805,5 +797,12 @@ defmodule LambdaEthereumConsensus.SszEx do
     offset = (depth + 1) * @bytes_per_chunk - @bytes_per_chunk
     <<_::binary-size(offset), hash::binary-size(@bytes_per_chunk), _::binary>> = @zero_hashes
     hash
+  end
+
+  def list_hash_tree_root(list, inner_schema) do
+    list
+    |> Enum.reduce(<<>>, fn value, acc_roots ->
+      acc_roots <> hash_tree_root!(value, inner_schema)
+    end)
   end
 end
