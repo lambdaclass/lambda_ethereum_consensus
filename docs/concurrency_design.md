@@ -7,7 +7,7 @@ The following is a sequence diagram on the lifecycle of a block, from the moment
 ```mermaid
 sequenceDiagram
 
-participant port as LibP2P Port <br> (Genserver)
+participant port as LibP2P Port <br> (GenServer)
 participant sub as Subscriber <br> (GenStage)
 participant consumer as GossipConsumer <br> (broadway)
 participant pending as Pending Blocks <br> (GenServer)
@@ -66,7 +66,7 @@ Improvements:
 ### Other issues
 
 - States aren't ever stored in the DB. This is not a concurrency issue, but we should fix it.
-- Low priority, but we should evaluate dropping the Subscriber genserver and broadway, and have one task per message under a supervisor.
+- Low priority, but we should evaluate dropping the Subscriber GenServer and Broadway, and have one task per message under a supervisor.
 
 ## State Diagram
 
@@ -99,11 +99,11 @@ stateDiagram-v2
 
 ```mermaid
 sequenceDiagram
-  participant port as LibP2P Port <br> (Genserver)
+  participant port as LibP2P Port <br> (GenServer)
   participant decoder as Decoder <br> (Supervised task)
 	participant tracker as Block Tracker <br> (GenServer)
 	participant down as Downloader <br> (Supervised task)
-	participant store as Fork Choice Store <br> (Genserver)
+	participant store as Fork Choice Store <br> (GenServer)
 	participant state_t as State Transition Task <br> (Supervised task)
 	participant DB as KV Store
 	
@@ -148,7 +148,7 @@ With this strategy in mind, the block won’t need to be passed around during it
 
 There are some tasks that, of course, will require interaction with the outside world:
 
-- When a parent is missing, we need to download it. The block processor may pause until it receives a notification that the parent was downloaded and transitioned. After that, it may continue with its own state transition.
+- When a parent is missing, we need to download it. The block processor may exit and be re-spawned after the parent is downloaded and transitioned. After that, it may continue with its own state transition.
 - When validating it will need to interact with the global fork choice store. This just requires validating a few parameters like the epoch/slot, which is a fast process, so it’s a relatively simple call without passing the full block and without changing the store state.
 - The final step is updating the store/beacon chain state, which still doesn’t need to pass around big state and is fast. If additional validations are performed or repeated, it doesn’t represent a big performance hit.
 
@@ -157,9 +157,9 @@ There are some tasks that, of course, will require interaction with the outside 
 ```mermaid
 sequenceDiagram
 
-participant port as LibP2P Port <br> (Genserver)
-participant bp as Block Processor (Genserver)
-participant store as Fork Choice <br> (Genserver)
+participant port as LibP2P Port <br> (GenServer)
+participant bp as Block Processor (GenServer)
+participant store as Fork Choice <br> (GenServer)
 participant db as Persistent Store <br> (DB/Cache)
 
 port ->> bp: gossip(block)
@@ -187,33 +187,32 @@ We can see here that:
 ```mermaid
 sequenceDiagram
 
-participant bp as Block Processor (Genserver)
+participant bp as Block Processor (GenServer)
 participant db as Persistent Store <br> (DB/Cache)
-participant dt as Download Task
-participant bpp as Parent Block Processor (Genserver)
+participant bpp as Parent Block Processor (GenServer)
 
 bp ->>+ db: parent_present?(block_root)
 activate bp
 db -->>- bp: false
-bp ->>+ dt: spawn(parent_root)
+bp ->>+ bpp: spawn(parent_root)
+bp ->> bp: exit()
 deactivate bp
-dt ->> dt: download(parent_root)
-dt ->>- bpp: spawn(parent)
-activate bpp
+bpp ->> bpp: download(parent_root) 
+bpp ->> bpp: decompress <br> ssz decode
 bpp ->> db: store_block_if_not_present(block)
 bpp ->> bpp: validation and state transition
-bpp ->> db: put_state(new_parent_state)
-deactivate bpp
-db ->>+ bp: parent_ready()
+bpp ->>- db: put_state(new_parent_state)
+bpp ->>+ bp: spawn(block_root)
 bp ->>- bp: validation and state transition
 ```
 
-This is a simplified sequence diagram highlighting the differences when the parent block is not present. To summarize:
 
-- The block processor spawns a download task under a download supervisor.
-- When the download finishes it will start a block processor for the parent, repeating the whole process for the parent.
+This is a simplified sequence diagram highlighting the differences when the parent block is not present, so it omits the interaction with fork choice GenServer. To summarize:
+
+- The block processor spawns another processor for the parent, at a `download stage` and exits.
+- When the download finishes, the parent processor will do as a normal one, decoding, deserializing, interacting with the db, etc.
 - When the parent finishes the state transition, it will have saved both the block and the state to the persistent store.
-- The store will then notify the child block processor that it can now proceed with its own state transition.
+- The parent process will then spawn a new block processor for the child, at a `transition stage`.
 
 Note that the persistent store here is a simplified structure. Internally, it will contain the fork tree and the cache. The fork tree will contain the relationship between blocks (the tree structure), which will enable to get a block’s children without iterating through the DB.
 
