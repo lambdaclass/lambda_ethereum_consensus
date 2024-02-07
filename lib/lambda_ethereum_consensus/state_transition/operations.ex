@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Utils.Randao
 
   alias Types.{
     Attestation,
@@ -228,7 +229,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         {:error, "Inconsistency in parent hash"}
 
       # Verify prev_randao
-      payload.prev_randao != Accessors.get_randao_mix(state, Accessors.get_current_epoch(state)) ->
+      payload.prev_randao !=
+          Randao.get_randao_mix(state.randao_mixes, Accessors.get_current_epoch(state)) ->
         {:error, "Prev_randao verification failed"}
 
       # Verify timestamp
@@ -766,18 +768,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       signing_root = Misc.compute_signing_root(epoch, Types.Epoch, domain)
 
       if Bls.valid?(proposer.pubkey, signing_root, randao_reveal) do
-        randao_mix = Accessors.get_randao_mix(state, epoch)
+        randao_mix = Randao.get_randao_mix(state.randao_mixes, epoch)
         hash = SszEx.hash(randao_reveal)
 
         # Mix in RANDAO reveal
         mix = :crypto.exor(randao_mix, hash)
 
-        updated_randao_mixes =
-          List.replace_at(
-            state.randao_mixes,
-            rem(epoch, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")),
-            mix
-          )
+        updated_randao_mixes = Randao.replace_randao_mix(state.randao_mixes, epoch, mix)
 
         {:ok,
          %BeaconState{

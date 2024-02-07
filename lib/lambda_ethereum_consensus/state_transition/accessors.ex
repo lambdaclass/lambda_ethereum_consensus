@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Cache, Math, Misc, Predicates}
   alias LambdaEthereumConsensus.Utils
+  alias LambdaEthereumConsensus.Utils.Randao
   alias Types.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
   @max_random_byte 2 ** 8 - 1
@@ -172,15 +173,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     else
       {:error, "epoch is not current or previous epochs"}
     end
-  end
-
-  @doc """
-  Return the randao mix at a recent ``epoch``.
-  """
-  @spec get_randao_mix(BeaconState.t(), Types.epoch()) :: Types.bytes32()
-  def get_randao_mix(%BeaconState{randao_mixes: randao_mixes}, epoch) do
-    epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
-    Enum.fetch!(randao_mixes, rem(epoch, epochs_per_historical_vector))
   end
 
   @doc """
@@ -437,7 +429,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
         ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
 
-    mix = get_randao_mix(state, future_epoch)
+    mix = Randao.get_randao_mix(state.randao_mixes, future_epoch)
 
     SszEx.hash(domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
   end
