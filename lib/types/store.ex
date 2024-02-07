@@ -8,6 +8,7 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Store.Db
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
@@ -136,5 +137,13 @@ defmodule Types.Store do
       # Block is older than current finalized block
       {:error, :not_found} -> store
     end
+  end
+
+  def fetch_store do
+    Db.get("store") |> :erlang.binary_to_term([:safe])
+  end
+
+  def persist_store(%__MODULE__{} = store) do
+    Db.put("store", :erlang.term_to_binary(store))
   end
 end

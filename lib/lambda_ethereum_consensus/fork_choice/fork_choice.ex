@@ -58,20 +58,17 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @impl GenServer
   @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
           {:ok, Store.t()} | {:stop, any}
-  def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Store.get_forkchoice_store(anchor_state, signed_anchor_block) do
-      {:ok, %Store{} = store} ->
-        Logger.info("[Fork choice] Initialized store")
+  def init({%Store{} = store, head_slot, time}) do
+    Logger.info("[Fork choice] Initialized store")
 
-        slot = signed_anchor_block.message.slot
-        :telemetry.execute([:sync, :store], %{slot: slot})
-        :telemetry.execute([:sync, :on_block], %{slot: slot})
+    store = Handlers.on_tick(store, time)
 
-        {:ok, Handlers.on_tick(store, time)}
+    :telemetry.execute([:sync, :store], %{slot: Store.get_current_slot(store)})
+    :telemetry.execute([:sync, :on_block], %{slot: head_slot})
 
-      {:error, error} ->
-        {:stop, error}
-    end
+    Store.persist_store(store)
+
+    {:ok, store}
   end
 
   @impl GenServer
@@ -178,6 +175,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
+    Store.persist_store(store)
     {:ok, head_root} = Helpers.get_head(store)
     head_block = Blocks.get_block!(head_root)
 
