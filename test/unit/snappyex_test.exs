@@ -5,7 +5,7 @@ defmodule Unit.SnappyExTest do
 
   @empty_stream <<0xFF, 6::little-size(24)>> <> "sNaPpY"
 
-  def assert_snappy_decompress(compressed, uncompressed) do
+  defp assert_snappy_decompress(compressed, uncompressed) do
     assert compressed |> Base.decode16!() |> SnappyEx.decompress() == {:ok, uncompressed}
   end
 
