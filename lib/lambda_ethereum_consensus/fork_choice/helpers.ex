@@ -182,6 +182,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @type state_id() :: named_root() | :invalid_id | Types.slot() | Types.root()
   @type root_info() ::
           {Types.root(), execution_optimistic? :: boolean(), finalized? :: boolean()}
+  @type finality_info() ::
+          {Types.Checkpoint.t(), Types.Checkpoint.t(), Types.Checkpoint.t(),
+           execution_optimistic? :: boolean(), finalized? :: boolean()}
 
   def root_by_id(:justified) do
     justified_checkpoint = BeaconChain.get_justified_checkpoint()
@@ -266,7 +269,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   @spec finality_checkpoins_by_id(state_id()) ::
-          {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
+          {:ok, finality_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
   def finality_checkpoins_by_id(hex_root) when is_binary(hex_root) do
     # TODO compute is_optimistic_or_invalid() and is_finalized()
     execution_optimistic = true
@@ -274,9 +277,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
     case StateStore.get_state_by_state_root(hex_root) do
       {:ok, state} ->
+        %{
+          previous_justified_checkpoint: previous_justified_checkpoint,
+          current_justified_checkpoint: current_justified_checkpoint,
+          finalized_checkpoint: finalized_checkpoint
+        } = state
+
         {:ok,
-         {execution_optimistic, finalized, state.previous_justified_checkpoint,
-          state.current_justified_checkpoint, state.finalized_checkpoint}}
+         {previous_justified_checkpoint, current_justified_checkpoint, finalized_checkpoint,
+          execution_optimistic, finalized}}
 
       _ ->
         :not_found
@@ -285,18 +294,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   def finality_checkpoins_by_id(id) do
     with {:ok, {block_root, optimistic, finalized}} <- block_root_by_id(id),
-         {:ok, block} <- BlockStore.get_block(block_root) do
+         {:ok, %Types.SignedBeaconBlock{message: %{state_root: state_root}} = _block} <-
+           BlockStore.get_block(block_root),
+         {:ok, state} <- StateStore.get_state_by_state_root(state_root) do
       %{
-        message: %{
-          previous_justified_checkpoint: previous_justified_checkpoint,
-          current_justified_checkpoint: current_justified_checkpoint,
-          finalized_checkpoint: finalized_checkpoint
-        }
-      } = block
+        previous_justified_checkpoint: previous_justified_checkpoint,
+        current_justified_checkpoint: current_justified_checkpoint,
+        finalized_checkpoint: finalized_checkpoint
+      } = state
 
       {:ok,
-       {optimistic, finalized, previous_justified_checkpoint, current_justified_checkpoint,
-        finalized_checkpoint}}
+       {previous_justified_checkpoint, current_justified_checkpoint, finalized_checkpoint,
+        optimistic, finalized}}
     end
   end
 

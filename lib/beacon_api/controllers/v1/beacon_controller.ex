@@ -91,15 +91,15 @@ defmodule BeaconApi.V1.BeaconController do
   def get_finality_checkpoints(conn, %{state_id: state_id}) do
     case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.finality_checkpoins_by_id() do
       {:ok,
-       {execution_optimistic, finalized, previous_justified_checkpoint,
-        current_justified_checkpoint, finalized_checkpoint}} ->
+       {previous_justified_checkpoint, current_justified_checkpoint, finalized_checkpoint,
+        execution_optimistic, finalized}} ->
         conn
         |> finality_checkpoints_response(
-          execution_optimistic,
-          finalized,
           previous_justified_checkpoint,
           current_justified_checkpoint,
-          finalized_checkpoint
+          finalized_checkpoint,
+          execution_optimistic,
+          finalized
         )
 
       err ->
