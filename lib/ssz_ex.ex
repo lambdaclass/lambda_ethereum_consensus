@@ -69,39 +69,48 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def decode(binary, module) when is_atom(module), do: decode_container(binary, module)
 
-  @spec hash_tree_root!(boolean, atom) :: Types.root()
-  def hash_tree_root!(value, :bool), do: pack(value, :bool)
+  @spec hash_tree_root!(any, any) :: Types.root()
+  def hash_tree_root!(value, schema) do
+    {:ok, root} = hash_tree_root(value, schema)
+    root
+  end
 
-  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(value, {:int, size}), do: pack(value, {:int, size})
+  @spec hash_tree_root(boolean, atom) :: Types.root()
+  def hash_tree_root(value, :bool), do: {:ok, pack(value, :bool)}
 
-  @spec hash_tree_root!(binary, {:bytes, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(value, {:bytes, size}) do
+  @spec hash_tree_root(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
+  def hash_tree_root(value, {:int, size}), do: {:ok, pack(value, {:int, size})}
+
+  @spec hash_tree_root(binary, {:bytes, non_neg_integer}) :: Types.root()
+  def hash_tree_root(value, {:bytes, size}) do
     packed_chunks = pack(value, {:bytes, size})
     leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(packed_chunks, leaf_count)
-    root
+    {:ok, root}
   end
 
-  @spec hash_tree_root!(struct(), atom()) :: Types.root()
-  def hash_tree_root!(container, module) when is_map(container) do
-    chunks =
+  @spec hash_tree_root(struct(), atom()) :: Types.root()
+  def hash_tree_root(container, module) when is_map(container) do
+    value =
       module.schema()
-      |> Enum.reduce(<<>>, fn {key, schema}, acc_root ->
+      |> Enum.reduce({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
         value = container |> Map.get(key)
-        root = hash_tree_root!(value, schema)
-        acc_root <> root
+
+        case hash_tree_root(value, schema) do
+          {:ok, root} -> {:cont, {:ok, acc_root <> root}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
       end)
 
-    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
-    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
-    root
-  end
+    case value do
+      {:ok, chunks} ->
+        leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+        root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
+        {:ok, root}
 
-  @spec hash_tree_root!(list(), {any, any, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(list, schema) do
-    {:ok, root} = hash_tree_root(list, schema)
-    root
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
@@ -110,12 +119,18 @@ defmodule LambdaEthereumConsensus.SszEx do
     limit = chunk_count(schema)
     len = length(list)
 
-    if basic_type?(type) do
-      pack(list, schema)
-    else
-      list_hash_tree_root(list, type)
+    value =
+      if basic_type?(type) do
+        pack(list, schema)
+      else
+        list_hash_tree_root(list, type)
+      end
+
+    case value do
+      {:ok, chunks} -> chunks |> hash_tree_root_list(limit, len)
+      {:error, reason} -> {:error, reason}
+      chunks -> chunks |> hash_tree_root_list(limit, len)
     end
-    |> hash_tree_root_list(limit, len)
   end
 
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
@@ -124,12 +139,18 @@ defmodule LambdaEthereumConsensus.SszEx do
     do: {:error, "invalid size"}
 
   def hash_tree_root(vector, {:vector, type, _size} = schema) do
-    if basic_type?(type) do
-      pack(vector, schema)
-    else
-      list_hash_tree_root(vector, type)
+    value =
+      if basic_type?(type) do
+        pack(vector, schema)
+      else
+        list_hash_tree_root(vector, type)
+      end
+
+    case value do
+      {:ok, chunks} -> chunks |> hash_tree_root_vector()
+      {:error, reason} -> {:error, reason}
+      chunks -> chunks |> hash_tree_root_vector()
     end
-    |> hash_tree_root_vector()
   end
 
   def hash_tree_root_vector(chunks) do
@@ -778,8 +799,11 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def list_hash_tree_root(list, inner_schema) do
     list
-    |> Enum.reduce(<<>>, fn value, acc_roots ->
-      acc_roots <> hash_tree_root!(value, inner_schema)
+    |> Enum.reduce_while({:ok, <<>>}, fn value, {_, acc_roots} ->
+      case hash_tree_root(value, inner_schema) do
+        {:ok, root} -> {:cont, {:ok, acc_roots <> root}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
     end)
   end
 end

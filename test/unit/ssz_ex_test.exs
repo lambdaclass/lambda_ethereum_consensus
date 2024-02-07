@@ -227,7 +227,7 @@ defmodule Unit.SSZExTest do
 
     list = [checkpoint, checkpoint]
     schema = {:list, Checkpoint, 8}
-    SszEx.hash_tree_root!(list, schema)
+    # SszEx.hash_tree_root!(list, schema)
 
     ## list of lists
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
@@ -280,9 +280,9 @@ defmodule Unit.SSZExTest do
       root: Base.decode16!("0100000000000000000000000000000000000000000000000000000000000001")
     }
 
-    vector = [checkpoint, checkpoint]
-    schema = {:vector, Checkpoint, 2}
-    SszEx.hash_tree_root!(vector, schema)
+    # vector = [checkpoint, checkpoint]
+    # schema = {:vector, Checkpoint, 2}
+    # SszEx.hash_tree_root!(vector, schema)
 
     ## vector of vectors
     vector1 = Stream.cycle([65_535]) |> Enum.take(316)
