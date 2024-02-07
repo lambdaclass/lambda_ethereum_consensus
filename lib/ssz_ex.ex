@@ -80,78 +80,97 @@ defmodule LambdaEthereumConsensus.SszEx do
       else: decode_fixed_container(binary, module)
   end
 
-  @spec hash_tree_root!(boolean, atom) :: Types.root()
-  def hash_tree_root!(value, :bool), do: pack(value, :bool)
+  @spec hash_tree_root!(any, any) :: Types.root()
+  def hash_tree_root!(value, schema) do
+    {:ok, root} = hash_tree_root(value, schema)
+    root
+  end
 
-  @spec hash_tree_root!(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(value, {:int, size}), do: pack(value, {:int, size})
+  @spec hash_tree_root(boolean, atom) :: Types.root()
+  def hash_tree_root(value, :bool), do: {:ok, pack(value, :bool)}
 
-  @spec hash_tree_root!(binary, {:bytes, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(value, {:bytes, size}) do
+  @spec hash_tree_root(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
+  def hash_tree_root(value, {:int, size}), do: {:ok, pack(value, {:int, size})}
+
+  @spec hash_tree_root(binary, {:bytes, non_neg_integer}) :: Types.root()
+  def hash_tree_root(value, {:bytes, size}) do
     packed_chunks = pack(value, {:bytes, size})
     leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(packed_chunks, leaf_count)
-    root
+    {:ok, root}
   end
 
-  @spec hash_tree_root!(list(), {:list, any, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(list, {:list, type, size}) do
-    {:ok, root} = hash_tree_root(list, {:list, type, size})
-    root
-  end
-
-  @spec hash_tree_root!(list(), {:vector, any, non_neg_integer}) :: Types.root()
-  def hash_tree_root!(vector, {:vector, type, size}) do
-    {:ok, root} = hash_tree_root(vector, {:vector, type, size})
-    root
-  end
-
-  @spec hash_tree_root!(struct(), atom()) :: Types.root()
-  def hash_tree_root!(container, module) when is_map(container) do
-    chunks =
+  @spec hash_tree_root(struct(), atom()) :: Types.root()
+  def hash_tree_root(container, module) when is_map(container) do
+    value =
       module.schema()
-      |> Enum.reduce(<<>>, fn {key, schema}, acc_root ->
+      |> Enum.reduce_while({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
         value = container |> Map.get(key)
-        root = hash_tree_root!(value, schema)
-        acc_root <> root
+
+        case hash_tree_root(value, schema) do
+          {:ok, root} -> {:cont, {:ok, acc_root <> root}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
       end)
 
-    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
-    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
-    root
+    case value do
+      {:ok, chunks} ->
+        leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+        root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
+        {:ok, root}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(list, {:list, type, size}) do
-    if variable_size?(type) do
-      # TODO
-      # hash_tree_root_list_complex_type(list, {:list, type, size}, limit)
-      {:error, "Not implemented"}
-    else
-      packed_chunks = pack(list, {:list, type, size})
-      limit = chunk_count({:list, type, size})
-      len = length(list)
-      hash_tree_root_list_basic_type(packed_chunks, limit, len)
+  def hash_tree_root(list, {:list, type, _size} = schema) do
+    limit = chunk_count(schema)
+    len = length(list)
+
+    value =
+      if basic_type?(type) do
+        pack(list, schema)
+      else
+        list_hash_tree_root(list, type)
+      end
+
+    case value do
+      {:ok, chunks} -> chunks |> hash_tree_root_list(limit, len)
+      {:error, reason} -> {:error, reason}
+      chunks -> chunks |> hash_tree_root_list(limit, len)
     end
   end
 
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(vector, {:vector, type, size}) do
-    if variable_size?(type) do
-      # TODO
-      # hash_tree_root_vector_complex_type(vector, {:vector, type, size}, limit)
-      {:error, "Not implemented"}
-    else
-      packed_chunks = pack(vector, {:list, type, size})
-      hash_tree_root_vector_basic_type(packed_chunks)
+  def hash_tree_root(vector, {:vector, _type, size}) when length(vector) != size,
+    do: {:error, "invalid size"}
+
+  def hash_tree_root(vector, {:vector, type, _size} = schema) do
+    value =
+      if basic_type?(type) do
+        pack(vector, schema)
+      else
+        list_hash_tree_root(vector, type)
+      end
+
+    case value do
+      {:ok, chunks} -> chunks |> hash_tree_root_vector()
+      {:error, reason} -> {:error, reason}
+      chunks -> chunks |> hash_tree_root_vector()
     end
   end
 
-  @spec hash_tree_root_list_basic_type(binary(), non_neg_integer, non_neg_integer) ::
-          {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root_list_basic_type(chunks, limit, len) do
+  def hash_tree_root_vector(chunks) do
+    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
+    {:ok, root}
+  end
+
+  def hash_tree_root_list(chunks, limit, len) do
     chunks_len = chunks |> get_chunks_len()
 
     if chunks_len > limit do
@@ -160,14 +179,6 @@ defmodule LambdaEthereumConsensus.SszEx do
       root = merkleize_chunks_with_virtual_padding(chunks, limit) |> mix_in_length(len)
       {:ok, root}
     end
-  end
-
-  @spec hash_tree_root_vector_basic_type(binary()) ::
-          {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root_vector_basic_type(chunks) do
-    leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
-    root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
-    {:ok, root}
   end
 
   @spec mix_in_length(Types.root(), non_neg_integer) :: Types.root()
@@ -260,18 +271,21 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | :error
   def pack(list, {type, schema, _}) when type in [:vector, :list] do
-    if variable_size?(schema) do
-      # TODO
-      # pack_complex_type_list(list)
-      :error
-    else
-      pack_basic_type_list(list, schema)
-    end
+    list
+    |> Enum.reduce(<<>>, fn x, acc ->
+      {:ok, encoded} = encode(x, schema)
+      acc <> encoded
+    end)
+    |> pack_bytes()
   end
 
   def chunk_count({:list, type, max_size}) do
-    size = size_of(type)
-    (max_size * size + 31) |> div(32)
+    if basic_type?(type) do
+      size = size_of(type)
+      (max_size * size + 31) |> div(32)
+    else
+      max_size
+    end
   end
 
   #################
@@ -779,18 +793,18 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> Enum.any?()
   end
 
+  defp basic_type?({:int, _}), do: true
+  defp basic_type?(:bool), do: true
+  defp basic_type?({:bytes, _}), do: true
+  defp basic_type?({:list, _, _}), do: false
+  defp basic_type?({:vector, _, _}), do: false
+  defp basic_type?({:bitlist, _}), do: false
+  defp basic_type?({:bitvector, _}), do: false
+  defp basic_type?(module) when is_atom(module), do: false
+
   defp size_of(:bool), do: @bytes_per_boolean
 
   defp size_of({:int, size}), do: size |> div(@bits_per_byte)
-
-  defp pack_basic_type_list(list, schema) do
-    list
-    |> Enum.reduce(<<>>, fn x, acc ->
-      {:ok, encoded} = encode(x, schema)
-      acc <> encoded
-    end)
-    |> pack_bytes()
-  end
 
   defp pack_bytes(value) when is_binary(value) do
     incomplete_chunk_len = value |> bit_size() |> rem(@bits_per_chunk)
@@ -893,5 +907,15 @@ defmodule LambdaEthereumConsensus.SszEx do
     offset = (depth + 1) * @bytes_per_chunk - @bytes_per_chunk
     <<_::binary-size(offset), hash::binary-size(@bytes_per_chunk), _::binary>> = @zero_hashes
     hash
+  end
+
+  def list_hash_tree_root(list, inner_schema) do
+    list
+    |> Enum.reduce_while({:ok, <<>>}, fn value, {_, acc_roots} ->
+      case hash_tree_root(value, inner_schema) do
+        {:ok, root} -> {:cont, {:ok, acc_roots <> root}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 end
