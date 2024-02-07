@@ -246,20 +246,20 @@ defmodule Unit.SSZExTest do
     SszEx.hash_tree_root!(list, schema)
 
     ## list of list of vectors
-    list1 = Stream.cycle([65_535]) |> Enum.take(316)
-    list2 = Stream.cycle([65_530]) |> Enum.take(316)
-    list3 = [list1, list2]
-    list4 = [list1, list2]
-    list = [list3, list4]
-    schema = {:list, {:list, {:vector, {:int, 16}, 2}, 1024}, 136}
+    vector1 = Stream.cycle([65_535]) |> Enum.take(316)
+    vector2 = Stream.cycle([65_530]) |> Enum.take(316)
+    list1 = [vector1, vector2]
+    list2 = [vector1, vector2]
+    list = [list1, list2]
+    schema = {:list, {:list, {:vector, {:int, 16}, 316}, 1024}, 136}
     SszEx.hash_tree_root!(list, schema)
 
     ## list of vector of lists
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
     list2 = Stream.cycle([65_530]) |> Enum.take(316)
-    list3 = [list1, list2]
-    list4 = [list1, list2]
-    list = [list3, list4]
+    vector1 = [list1, list2]
+    vector2 = [list1, list2]
+    list = [vector1, vector2]
     schema = {:list, {:vector, {:list, {:int, 16}, 1024}, 2}, 32}
     SszEx.hash_tree_root!(list, schema)
 

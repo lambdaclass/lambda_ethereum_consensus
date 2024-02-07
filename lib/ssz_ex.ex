@@ -120,6 +120,9 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
+  def hash_tree_root(vector, {:vector, _type, size}) when length(vector) != size,
+    do: {:error, "invalid size"}
+
   def hash_tree_root(vector, {:vector, type, _size} = schema) do
     if basic_type?(type) do
       pack(vector, schema)
