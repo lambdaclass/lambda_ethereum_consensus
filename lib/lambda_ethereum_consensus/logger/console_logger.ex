@@ -19,7 +19,7 @@ defmodule ConsoleLogger do
   defp level_color(:info), do: :green
   defp level_color(:warning), do: :yellow
   defp level_color(:error), do: :red
-  defp level_color(_), do: :default
+  defp level_color(_), do: :default_color
 
   defp format_level(level) do
     upcased = level |> Atom.to_string() |> String.upcase()
