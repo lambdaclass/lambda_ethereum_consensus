@@ -104,7 +104,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   def hash_tree_root(container, module) when is_map(container) do
     value =
       module.schema()
-      |> Enum.reduce({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
+      |> Enum.reduce_while({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
         value = container |> Map.get(key)
 
         case hash_tree_root(value, schema) do
