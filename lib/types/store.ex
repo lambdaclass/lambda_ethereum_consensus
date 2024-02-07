@@ -140,7 +140,9 @@ defmodule Types.Store do
   end
 
   def fetch_store do
-    Db.get("store") |> :erlang.binary_to_term([:safe])
+    with {:ok, encoded_store} <- Db.get("store") do
+      {:ok, :erlang.binary_to_term(encoded_store)}
+    end
   end
 
   def persist_store(%__MODULE__{} = store) do

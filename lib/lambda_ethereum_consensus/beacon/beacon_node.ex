@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     genesis_validators_root = ChainSpec.get_genesis_validators_root()
 
-    case CheckpointSync.get_finalized_block_and_state(checkpoint_url) do
+    case CheckpointSync.get_finalized_block_and_state(checkpoint_url, genesis_validators_root) do
       {:ok, {anchor_state, anchor_block}} ->
         Logger.info(
           "[Checkpoint sync] Received beacon state and block",
