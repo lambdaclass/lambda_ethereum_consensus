@@ -75,7 +75,7 @@ defmodule SszGenericTestRunner do
 
     assert serialized == real_serialized
 
-    ## TODO: To be removed when bitlist and bitvector is implemented
+    ## TODO: To be removed when hash_tree_root for bitlist and bitvector is implemented
     case schema do
       {:bitlist, _} ->
         ## TODO
