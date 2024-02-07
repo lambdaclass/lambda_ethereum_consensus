@@ -419,7 +419,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     fixed_size = get_fixed_size(basic_type)
 
     with :ok <- check_valid_vector_size_prev_decode(fixed_size, size, binary),
-         {:ok, decoded_vector} = result <- decode_fixed_collection(binary, fixed_size, basic_type),
+         {:ok, decoded_vector} = result <-
+           decode_fixed_collection(binary, fixed_size, basic_type),
          :ok <- check_valid_vector_size_after_decode(size, length(decoded_vector)) do
       result
     end
