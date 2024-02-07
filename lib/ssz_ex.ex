@@ -409,10 +409,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_fixed_list(binary, basic_type, size) do
     fixed_size = get_fixed_size(basic_type)
 
-    with {:ok, decoded_list} = result <-
-           binary
-           |> decode_chunk(fixed_size, basic_type)
-           |> flatten_results(),
+    with {:ok, decoded_list} = result <- decode_fixed_collection(binary, fixed_size, basic_type),
          :ok <- check_valid_list_size_after_decode(size, length(decoded_list)) do
       result
     end
@@ -422,11 +419,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     fixed_size = get_fixed_size(basic_type)
 
     with :ok <- check_valid_vector_size_prev_decode(fixed_size, size, binary),
-         {:ok, decoded_list} = result <-
-           binary
-           |> decode_chunk(fixed_size, basic_type)
-           |> flatten_results(),
-         :ok <- check_valid_vector_size_after_decode(size, length(decoded_list)) do
+         {:ok, decoded_vector} = result <- decode_fixed_collection(binary, fixed_size, basic_type),
+         :ok <- check_valid_vector_size_after_decode(size, length(decoded_vector)) do
       result
     end
   end
@@ -710,19 +704,21 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp decode_chunk(binary, chunk_size, basic_type) do
-    decode_chunk(binary, chunk_size, basic_type, [])
+  defp decode_fixed_collection(binary, chunk_size, basic_type) do
+    decode_fixed_collection(binary, chunk_size, basic_type, [])
     |> Enum.reverse()
+    |> flatten_results()
   end
 
-  defp decode_chunk(<<>>, _chunk_size, _basic_type, results), do: results
+  defp decode_fixed_collection(<<>>, _chunk_size, _basic_type, results), do: results
 
-  defp decode_chunk(binary, chunk_size, _basic_type, results) when byte_size(binary) < chunk_size,
-    do: [{:error, "InvalidByteLength"} | results]
+  defp decode_fixed_collection(binary, chunk_size, _basic_type, results)
+       when byte_size(binary) < chunk_size,
+       do: [{:error, "InvalidByteLength"} | results]
 
-  defp decode_chunk(binary, chunk_size, basic_type, results) do
+  defp decode_fixed_collection(binary, chunk_size, basic_type, results) do
     <<element::binary-size(chunk_size), rest::bitstring>> = binary
-    decode_chunk(rest, chunk_size, basic_type, [decode(element, basic_type) | results])
+    decode_fixed_collection(rest, chunk_size, basic_type, [decode(element, basic_type) | results])
   end
 
   defp flatten_results(results) do
