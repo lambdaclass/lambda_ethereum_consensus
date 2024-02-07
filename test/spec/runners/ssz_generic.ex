@@ -10,8 +10,8 @@ defmodule SszGenericTestRunner do
 
   @disabled [
     # "basic_vector",
-    # "bitlist",
-    # "bitvector"
+    "bitlist",
+    "bitvector"
     # "boolean",
     # "containers"
     # "uints"
@@ -75,20 +75,8 @@ defmodule SszGenericTestRunner do
 
     assert serialized == real_serialized
 
-    ## TODO: To be removed when bitlist and bitvector is implemented
-    case schema do
-      {:bitlist, _} ->
-        ## TODO
-        nil
-
-      {:bitvector, _} ->
-        ## TODO
-        nil
-
-      _ ->
-        actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
-        assert actual_hash_tree_root == expected_hash_tree_root
-    end
+    actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
+    assert actual_hash_tree_root == expected_hash_tree_root
   end
 
   defp assert_ssz_invalid(schema, real_serialized) do
