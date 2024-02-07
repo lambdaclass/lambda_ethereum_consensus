@@ -21,7 +21,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       {:ok, %Store{} = store} ->
         Logger.info("[Sync] Old state found.")
 
-        init_children(store, get_genesis_validators_root())
+        init_children(store, ChainSpec.get_genesis_validators_root())
 
       :not_found ->
         Logger.error(
@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   def init([checkpoint_url]) do
     Logger.info("[Checkpoint sync] Initiating checkpoint sync")
 
-    genesis_validators_root = get_genesis_validators_root()
+    genesis_validators_root = ChainSpec.get_genesis_validators_root()
 
     case CheckpointSync.get_finalized_block_and_state(checkpoint_url) do
       {:ok, {anchor_state, anchor_block}} ->
@@ -94,10 +94,5 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
-  end
-
-  defp get_genesis_validators_root do
-    Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)
-    |> Keyword.fetch!(:genesis_validators_root)
   end
 end
