@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Utils.Randao
 
   alias Types.{
     Attestation,
@@ -223,12 +224,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       ) do
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
-      Types.BeaconState.is_merge_transition_complete(state) and
+      Types.BeaconState.merge_transition_complete?(state) and
           payload.parent_hash != state.latest_execution_payload_header.block_hash ->
         {:error, "Inconsistency in parent hash"}
 
       # Verify prev_randao
-      payload.prev_randao != Accessors.get_randao_mix(state, Accessors.get_current_epoch(state)) ->
+      payload.prev_randao !=
+          Randao.get_randao_mix(state.randao_mixes, Accessors.get_current_epoch(state)) ->
         {:error, "Prev_randao verification failed"}
 
       # Verify timestamp
@@ -364,10 +366,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     |> Stream.take(bound)
     |> Stream.map(fn {{validator, balance}, index} ->
       cond do
-        Validator.is_fully_withdrawable_validator(validator, balance, epoch) ->
+        Validator.fully_withdrawable_validator?(validator, balance, epoch) ->
           {validator, balance, index}
 
-        Validator.is_partially_withdrawable_validator(validator, balance) ->
+        Validator.partially_withdrawable_validator?(validator, balance) ->
           {validator, balance - max_effective_balance, index}
 
         true ->
@@ -400,7 +402,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     proposer = state.validators[header_1.proposer_index]
 
     cond do
-      not Predicates.is_indices_available(validators_size, [header_1.proposer_index]) ->
+      not Predicates.indices_available?(validators_size, [header_1.proposer_index]) ->
         {:error, "Too high index"}
 
       not (header_1.slot == header_2.slot) ->
@@ -412,7 +414,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       not (header_1 != header_2) ->
         {:error, "Headers are same"}
 
-      not Predicates.is_slashable_validator(proposer, Accessors.get_current_epoch(state)) ->
+      not Predicates.slashable_validator?(proposer, Accessors.get_current_epoch(state)) ->
         {:error, "Proposer is not slashable"}
 
       not ([proposer_slashing.signed_header_1, proposer_slashing.signed_header_2]
@@ -458,7 +460,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_deposit(state, deposit) do
     with {:ok, deposit_data_root} <- Ssz.hash_tree_root(deposit.data) do
-      if Predicates.is_valid_merkle_branch?(
+      if Predicates.valid_merkle_branch?(
            deposit_data_root,
            deposit.proof,
            Constants.deposit_contract_tree_depth() + 1,
@@ -487,19 +489,19 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     validator_size = Aja.Vector.size(state.validators)
 
     cond do
-      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
+      not Predicates.slashable_attestation_data?(attestation_1.data, attestation_2.data) ->
         {:error, "Attestation data is not slashable"}
 
-      not Predicates.is_valid_indexed_attestation(state, attestation_1) ->
+      not Predicates.valid_indexed_attestation?(state, attestation_1) ->
         {:error, "Attestation 1 is not valid"}
 
-      not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
+      not Predicates.valid_indexed_attestation?(state, attestation_2) ->
         {:error, "Attestation 2 is not valid"}
 
-      not Predicates.is_indices_available(validator_size, attestation_1.attesting_indices) ->
+      not Predicates.indices_available?(validator_size, attestation_1.attesting_indices) ->
         {:error, "Index too high attestation 1"}
 
-      not Predicates.is_indices_available(validator_size, attestation_2.attesting_indices) ->
+      not Predicates.indices_available?(validator_size, attestation_2.attesting_indices) ->
         {:error, "Index too high attestation 2"}
 
       true ->
@@ -521,7 +523,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   defp slash_validator(slashed_any, state, i) do
     if Aja.Vector.at!(state.validators, i)
-       |> Predicates.is_slashable_validator(Accessors.get_current_epoch(state)) do
+       |> Predicates.slashable_validator?(Accessors.get_current_epoch(state)) do
       case Mutators.slash_validator(state, i) do
         {:ok, state} -> {:cont, {true, state}}
         {:error, _msg} -> {:halt, {false, nil}}
@@ -542,10 +544,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     validator = state.validators[validator_index]
 
     cond do
-      not Predicates.is_indices_available(Aja.Vector.size(state.validators), [validator_index]) ->
+      not Predicates.indices_available?(Aja.Vector.size(state.validators), [validator_index]) ->
         {:error, "Too high index"}
 
-      not Predicates.is_active_validator(validator, Accessors.get_current_epoch(state)) ->
+      not Predicates.active_validator?(validator, Accessors.get_current_epoch(state)) ->
         {:error, "Validator isn't active"}
 
       validator.exit_epoch != Constants.far_future_epoch() ->
@@ -766,18 +768,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       signing_root = Misc.compute_signing_root(epoch, Types.Epoch, domain)
 
       if Bls.valid?(proposer.pubkey, signing_root, randao_reveal) do
-        randao_mix = Accessors.get_randao_mix(state, epoch)
+        randao_mix = Randao.get_randao_mix(state.randao_mixes, epoch)
         hash = SszEx.hash(randao_reveal)
 
         # Mix in RANDAO reveal
         mix = :crypto.exor(randao_mix, hash)
 
-        updated_randao_mixes =
-          List.replace_at(
-            state.randao_mixes,
-            rem(epoch, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")),
-            mix
-          )
+        updated_randao_mixes = Randao.replace_randao_mix(state.randao_mixes, epoch, mix)
 
         {:ok,
          %BeaconState{
@@ -860,7 +857,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_valid_indexed_attestation(state, indexed_attestation) do
-    if Predicates.is_valid_indexed_attestation(state, indexed_attestation) do
+    if Predicates.valid_indexed_attestation?(state, indexed_attestation) do
       :ok
     else
       {:error, "Invalid signature"}

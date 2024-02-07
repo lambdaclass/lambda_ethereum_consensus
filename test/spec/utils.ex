@@ -8,6 +8,7 @@ defmodule SpecTestUtils do
   @vector_keys [
     "validators",
     "balances",
+    "randao_mixes",
     "previous_epoch_participation",
     "current_epoch_participation"
   ]

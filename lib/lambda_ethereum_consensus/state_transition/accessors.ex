@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Cache, Math, Misc, Predicates}
   alias LambdaEthereumConsensus.Utils
+  alias LambdaEthereumConsensus.Utils.Randao
   alias Types.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
   @max_random_byte 2 ** 8 - 1
@@ -110,7 +111,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     compute_fn = fn ->
       validators
       |> Aja.Vector.with_index()
-      |> Aja.Vector.filter(fn {v, _} -> Predicates.is_active_validator(v, epoch) end)
+      |> Aja.Vector.filter(fn {v, _} -> Predicates.active_validator?(v, epoch) end)
       |> Aja.Vector.map(fn {_, index} -> index end)
     end
 
@@ -160,7 +161,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       participating_indices =
         state.validators
         |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
-          not v.slashed and Predicates.is_active_validator(v, epoch) and
+          not v.slashed and Predicates.active_validator?(v, epoch) and
             Predicates.has_flag(participation, flag_index)
         end)
         |> Aja.Vector.with_index()
@@ -175,15 +176,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
-  Return the randao mix at a recent ``epoch``.
-  """
-  @spec get_randao_mix(BeaconState.t(), Types.epoch()) :: Types.bytes32()
-  def get_randao_mix(%BeaconState{randao_mixes: randao_mixes}, epoch) do
-    epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
-    Enum.fetch!(randao_mixes, rem(epoch, epochs_per_historical_vector))
-  end
-
-  @doc """
   Return the combined effective balance of the active validators.
   Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   """
@@ -194,7 +186,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     Cache.lazily_compute(:total_active_balance, {epoch, root}, fn ->
       state.validators
-      |> Stream.filter(&Predicates.is_active_validator(&1, epoch))
+      |> Stream.filter(&Predicates.active_validator?(&1, epoch))
       |> Stream.map(fn %Validator{effective_balance: effective_balance} -> effective_balance end)
       |> Enum.sum()
       |> max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
@@ -232,7 +224,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     validators
     |> Stream.with_index()
     |> Stream.filter(fn {validator, _index} ->
-      Predicates.is_eligible_validator(validator, previous_epoch)
+      Predicates.eligible_validator?(validator, previous_epoch)
     end)
     |> Stream.map(fn {_validator, index} -> index end)
     |> Enum.to_list()
@@ -284,7 +276,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_active_validator_count(BeaconState.t(), Types.epoch()) :: Types.uint64()
   def get_active_validator_count(%BeaconState{} = state, epoch) do
     Cache.lazily_compute(:active_validator_count, {epoch, get_state_epoch_root(state)}, fn ->
-      Aja.Enum.count(state.validators, &Predicates.is_active_validator(&1, epoch))
+      Aja.Enum.count(state.validators, &Predicates.active_validator?(&1, epoch))
     end)
   end
 
@@ -437,7 +429,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       epoch + ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR") -
         ChainSpec.get("MIN_SEED_LOOKAHEAD") - 1
 
-    mix = get_randao_mix(state, future_epoch)
+    mix = Randao.get_randao_mix(state.randao_mixes, future_epoch)
 
     SszEx.hash(domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
   end
