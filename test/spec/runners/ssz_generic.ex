@@ -67,7 +67,7 @@ defmodule SszGenericTestRunner do
     assert_ssz_invalid(schema, real_serialized)
   end
 
-  defp assert_ssz_valid(schema, real_serialized, real_deserialized, _expected_hash_tree_root) do
+  defp assert_ssz_valid(schema, real_serialized, real_deserialized, expected_hash_tree_root) do
     {:ok, deserialized} = SszEx.decode(real_serialized, schema)
     assert deserialized == real_deserialized
 
@@ -75,19 +75,24 @@ defmodule SszGenericTestRunner do
 
     assert serialized == real_serialized
 
+    ## TODO: To be removed when hash_tree_root for bitlist and bitvector is implemented
     case schema do
-      {:bitlist, size} ->
-        "Deserialized:" |> IO.inspect()
-        real_deserialized |> IO.inspect()
-        "Serialized:" |> IO.inspect()
-        real_serialized |> IO.inspect()
-      _ -> :error
-    end
+      {:bitlist, _} ->
+        ## TODO
+        nil
 
-    # TODO enable when merklelization is ready for all schemas
-    # actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
-    #
-    # assert actual_hash_tree_root == expected_hash_tree_root
+      {:bitvector, _} ->
+        ## TODO
+        nil
+
+      module when is_atom(module) ->
+        ## TODO
+        nil
+
+      _ ->
+        actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
+        assert actual_hash_tree_root == expected_hash_tree_root
+    end
   end
 
   defp assert_ssz_invalid(schema, real_serialized) do

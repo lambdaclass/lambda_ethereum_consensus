@@ -67,7 +67,7 @@ defmodule Types.BeaconState do
           balances: Aja.Vector.t(Types.gwei()),
           # Randomness
           # size EPOCHS_PER_HISTORICAL_VECTOR 65_536
-          randao_mixes: list(Types.bytes32()),
+          randao_mixes: Aja.Vector.t(Types.bytes32()),
           # Slashings
           # Per-epoch sums of slashed effective balances
           # size EPOCHS_PER_SLASHINGS_VECTOR 8192
@@ -110,6 +110,7 @@ defmodule Types.BeaconState do
     map
     |> Map.update!(:validators, &Aja.Vector.to_list/1)
     |> Map.update!(:balances, &Aja.Vector.to_list/1)
+    |> Map.update!(:randao_mixes, &Aja.Vector.to_list/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
@@ -119,6 +120,7 @@ defmodule Types.BeaconState do
     map
     |> Map.update!(:validators, &Aja.Vector.new/1)
     |> Map.update!(:balances, &Aja.Vector.new/1)
+    |> Map.update!(:randao_mixes, &Aja.Vector.new/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
