@@ -179,10 +179,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
     {:ok, head_root} = Helpers.get_head(store)
-
-    Handlers.notify_forkchoice_update(store, head_root)
-
     head_block = Blocks.get_block!(head_root)
+
+    Handlers.notify_forkchoice_update(store, head_block)
+
     finalized_checkpoint = store.finalized_checkpoint
 
     BeaconChain.update_fork_choice_cache(

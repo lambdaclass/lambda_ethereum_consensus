@@ -185,8 +185,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     end
   end
 
-  def notify_forkchoice_update(store, new_head_root) do
-    head_block = Blocks.get_block!(new_head_root)
+  def notify_forkchoice_update(store, head_block) do
     head_execution_hash = head_block.body.execution_payload.block_hash
 
     finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)

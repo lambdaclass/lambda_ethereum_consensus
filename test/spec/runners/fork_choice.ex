@@ -158,8 +158,10 @@ defmodule ForkChoiceTestRunner do
              x, {:ok, st} -> {:cont, Handlers.on_attestation(st, x, true)}
              _, {:error, _} = err -> {:halt, err}
            end) do
-      {:ok, head} = Helpers.get_head(new_store)
-      {:ok, _} = Handlers.notify_forkchoice_update(new_store, head)
+      {:ok, head_root} = Helpers.get_head(new_store)
+      head_block = Blocks.get_block!(head_root)
+
+      {:ok, _} = Handlers.notify_forkchoice_update(new_store, head_block)
       {:ok, new_store}
     end
   end
