@@ -265,6 +265,41 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     end
   end
 
+  @spec finality_checkpoins_by_id(state_id()) ::
+          {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
+  def finality_checkpoins_by_id(hex_root) when is_binary(hex_root) do
+    # TODO compute is_optimistic_or_invalid() and is_finalized()
+    execution_optimistic = true
+    finalized = false
+
+    case StateStore.get_state_by_state_root(hex_root) do
+      {:ok, state} ->
+        {:ok,
+         {execution_optimistic, finalized, state.previous_justified_checkpoint,
+          state.current_justified_checkpoint, state.finalized_checkpoint}}
+
+      _ ->
+        :not_found
+    end
+  end
+
+  def finality_checkpoins_by_id(id) do
+    with {:ok, {block_root, optimistic, finalized}} <- block_root_by_id(id),
+         {:ok, block} <- BlockStore.get_block(block_root) do
+      %{
+        message: %{
+          previous_justified_checkpoint: previous_justified_checkpoint,
+          current_justified_checkpoint: current_justified_checkpoint,
+          finalized_checkpoint: finalized_checkpoint
+        }
+      } = block
+
+      {:ok,
+       {optimistic, finalized, previous_justified_checkpoint, current_justified_checkpoint,
+        finalized_checkpoint}}
+    end
+  end
+
   @spec get_state_root(Types.root()) :: Types.root() | nil
   def get_state_root(root) do
     with %{} = block <- Blocks.get_block(root) do
