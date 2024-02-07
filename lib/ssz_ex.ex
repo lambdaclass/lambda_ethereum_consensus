@@ -18,6 +18,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @zero_chunk <<0::size(@bits_per_chunk)>>
   @zero_hashes ZeroHashes.compute_zero_hashes()
 
+  @compile {:inline, hash: 1}
   @spec hash(iodata()) :: binary()
   def hash(data), do: :crypto.hash(:sha256, data)
 
