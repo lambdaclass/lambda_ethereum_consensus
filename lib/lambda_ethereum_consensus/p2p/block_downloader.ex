@@ -79,7 +79,13 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
   @spec request_blocks_by_root([Types.root()], integer()) ::
           {:ok, [Types.SignedBeaconBlock.t()]} | {:error, binary()}
-  def request_blocks_by_root(roots, retries \\ @default_retries) do
+  def request_blocks_by_root(roots, retries \\ @default_retries)
+
+  def request_blocks_by_root([], _retries) do
+    {:ok, []}
+  end
+
+  def request_blocks_by_root(roots, retries) do
     Logger.debug("Requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
 
     peer_id = get_some_peer()
