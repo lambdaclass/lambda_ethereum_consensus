@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.Attestation
@@ -166,21 +165,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
     {:ok, head_root} = Helpers.get_head(store)
-
     head_block = Blocks.get_block!(head_root)
-    head_execution_hash = head_block.body.execution_payload.block_hash
+
+    Handlers.notify_forkchoice_update(store, head_block)
 
     finalized_checkpoint = store.finalized_checkpoint
-    finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)
-    finalized_execution_hash = finalized_block.body.execution_payload.block_hash
-
-    # TODO: do someting with the result from the execution client
-    # TODO: compute safe block hash
-    ExecutionClient.notify_forkchoice_updated(
-      head_execution_hash,
-      finalized_execution_hash,
-      finalized_execution_hash
-    )
 
     BeaconChain.update_fork_choice_cache(
       head_root,

@@ -39,6 +39,7 @@ defmodule Types.Store do
           proposer_boost_root: Types.root() | nil,
           equivocating_indices: MapSet.t(Types.validator_index()),
           checkpoint_states: %{Checkpoint.t() => BeaconState.t()},
+          # NOTE: the `Checkpoint` values in latest_messages are `LatestMessage`s
           latest_messages: %{Types.validator_index() => Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Checkpoint.t()},
           tree_cache: Tree.t()
