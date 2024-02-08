@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.Store.Db do
   use GenServer
 
   @registered_name __MODULE__
-  @default_db_location "level_db"
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: @registered_name)
@@ -41,8 +40,8 @@ defmodule LambdaEthereumConsensus.Store.Db do
 
   @impl true
   def init(opts) do
-    db_location = Keyword.get(opts, :db_location, @default_db_location)
-    db_full_path = Path.expand(db_location)
+    db_dir = Keyword.get(opts, :dir, get_dir())
+    db_full_path = Path.expand(db_dir)
     {:ok, ref} = Exleveldb.open(db_full_path, create_if_missing: true)
     Logger.info("Opened database in '#{db_full_path}'")
     {:ok, %{ref: ref}}
@@ -56,4 +55,9 @@ defmodule LambdaEthereumConsensus.Store.Db do
   # NOTE: LevelDB database ref usage is thread-safe
   @impl true
   def handle_call(:get_ref, _from, %{ref: ref} = state), do: {:reply, ref, state}
+
+  defp get_dir do
+    Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)
+    |> Keyword.fetch!(:dir)
+  end
 end

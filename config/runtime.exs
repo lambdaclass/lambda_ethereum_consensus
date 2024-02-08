@@ -48,6 +48,7 @@ mode =
   end
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus, mode: mode
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: "level_db/#{network}"
 
 mock_execution = Keyword.get(args, :mock_execution, mode == :db or is_nil(jwt_path))
 
