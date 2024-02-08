@@ -81,7 +81,7 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
 # TODO: we should set this dynamically
 block_time_ms =
   case network do
-    "gnosis" -> 3000
+    "gnosis" -> 6000
     "mainnet" -> 12_000
     "sepolia" -> 100
   end
