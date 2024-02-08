@@ -42,6 +42,7 @@ defmodule LambdaEthereumConsensus.Store.Db do
   def init(opts) do
     db_dir = Keyword.get(opts, :dir, get_dir())
     db_full_path = Path.expand(db_dir)
+    File.mkdir_p!(db_full_path)
     {:ok, ref} = Exleveldb.open(db_full_path, create_if_missing: true)
     Logger.info("Opened database in '#{db_full_path}'")
     {:ok, %{ref: ref}}
