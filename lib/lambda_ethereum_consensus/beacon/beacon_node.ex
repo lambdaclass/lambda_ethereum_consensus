@@ -21,7 +21,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         "[Sync] No initial state found. Please specify the URL to fetch them from via the --checkpoint-sync-url flag"
       )
 
-      System.stop(1)
+      System.halt(1)
     end
   end
 
@@ -77,6 +77,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     Supervisor.init(children, strategy: :one_for_all)
   end
 
+  @spec restore_state_from_db() :: {:ok, Store.t()} | nil
   defp restore_state_from_db do
     # Try to fetch the old store from the database
     case Store.fetch_store() do
@@ -90,6 +91,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     end
   end
 
+  @spec restore_state_from_db() :: {:ok, Store.t()} | no_return()
   defp fetch_state_from_url(url) do
     Logger.info("[Checkpoint sync] Initiating checkpoint sync")
 
@@ -109,7 +111,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       _ ->
         Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block")
 
-        System.stop(1)
+        System.halt(1)
     end
   end
 end

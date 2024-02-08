@@ -56,8 +56,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ##########################
 
   @impl GenServer
-  @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
-          {:ok, Store.t()} | {:stop, any}
+  @spec init({Store.t(), Types.slot(), Types.uint64()}) :: {:ok, Store.t()} | {:stop, any}
   def init({%Store{} = store, head_slot, time}) do
     Logger.info("[Fork choice] Initialized store.", slot: head_slot)
 

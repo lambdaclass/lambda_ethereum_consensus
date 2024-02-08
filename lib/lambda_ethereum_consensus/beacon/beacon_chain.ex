@@ -18,16 +18,18 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       :cached_fork_choice
     ]
 
+    @type fork_choice_data :: %{
+            head_root: Types.root(),
+            head_slot: Types.slot(),
+            justified: Types.Checkpoint.t(),
+            finalized: Types.Checkpoint.t()
+          }
+
     @type t :: %__MODULE__{
             genesis_time: Types.uint64(),
             genesis_validators_root: Types.bytes32(),
             time: Types.uint64(),
-            cached_fork_choice: %{
-              head_root: Types.root(),
-              head_slot: Types.slot(),
-              justified: Types.Checkpoint.t(),
-              finalized: Types.Checkpoint.t()
-            }
+            cached_fork_choice: fork_choice_data()
           }
   end
 
@@ -86,7 +88,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   ##########################
 
   @impl GenServer
-  @spec init({BeaconState.t(), Types.uint64()}) :: {:ok, BeaconChainState.t()} | {:stop, any}
+  @spec init({Types.uint64(), Types.root(), BeaconChainState.fork_choice_data(), Types.uint64()}) ::
+          {:ok, BeaconChainState.t()} | {:stop, any}
   def init({genesis_time, genesis_validators_root, fork_choice_data, time}) do
     schedule_next_tick()
 
