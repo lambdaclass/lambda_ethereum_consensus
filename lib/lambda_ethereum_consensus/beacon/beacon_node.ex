@@ -16,42 +16,23 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   @impl true
   def init([nil]) do
-    # Try to fetch the old store from the database
-    case Store.fetch_store() do
-      {:ok, %Store{} = store} ->
-        Logger.info("[Sync] Old state found.")
+    with nil <- restore_state_from_db() do
+      Logger.error(
+        "[Sync] No initial state found. Please specify the URL to fetch them from via the --checkpoint-sync-url flag"
+      )
 
-        init_children(store, ChainSpec.get_genesis_validators_root())
-
-      :not_found ->
-        Logger.error(
-          "[Sync] No initial state found. Please specify the URL to fetch them from via the --checkpoint-sync-url flag"
-        )
-
-        System.stop(1)
+      System.stop(1)
     end
   end
 
   def init([checkpoint_url]) do
-    Logger.info("[Checkpoint sync] Initiating checkpoint sync")
+    case restore_state_from_db() do
+      {:ok, _} = res ->
+        Logger.warning("[Checkpoint sync] Old state found. Ignoring the checkpoint URL.")
+        res
 
-    genesis_validators_root = ChainSpec.get_genesis_validators_root()
-
-    case CheckpointSync.get_finalized_block_and_state(checkpoint_url, genesis_validators_root) do
-      {:ok, {anchor_state, anchor_block}} ->
-        Logger.info(
-          "[Checkpoint sync] Received beacon state and block",
-          slot: anchor_state.slot
-        )
-
-        # We already checked block and state match
-        {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
-        init_children(store, genesis_validators_root)
-
-      _ ->
-        Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block")
-
-        System.stop(1)
+      nil ->
+        fetch_state_from_url(checkpoint_url)
     end
   end
 
@@ -94,5 +75,41 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
+  end
+
+  defp restore_state_from_db do
+    # Try to fetch the old store from the database
+    case Store.fetch_store() do
+      {:ok, %Store{} = store} ->
+        Logger.info("[Sync] Old state found.")
+
+        init_children(store, ChainSpec.get_genesis_validators_root())
+
+      :not_found ->
+        nil
+    end
+  end
+
+  defp fetch_state_from_url(url) do
+    Logger.info("[Checkpoint sync] Initiating checkpoint sync")
+
+    genesis_validators_root = ChainSpec.get_genesis_validators_root()
+
+    case CheckpointSync.get_finalized_block_and_state(url, genesis_validators_root) do
+      {:ok, {anchor_state, anchor_block}} ->
+        Logger.info(
+          "[Checkpoint sync] Received beacon state and block",
+          slot: anchor_state.slot
+        )
+
+        # We already checked block and state match
+        {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
+        init_children(store, genesis_validators_root)
+
+      _ ->
+        Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block")
+
+        System.stop(1)
+    end
   end
 end
