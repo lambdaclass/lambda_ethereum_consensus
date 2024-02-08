@@ -8,7 +8,6 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Store.Db
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
