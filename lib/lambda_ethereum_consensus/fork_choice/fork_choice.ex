@@ -65,8 +65,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     :telemetry.execute([:sync, :store], %{slot: Store.get_current_slot(store)})
     :telemetry.execute([:sync, :on_block], %{slot: head_slot})
 
-    Store.persist_store(store)
-
     {:ok, store}
   end
 
@@ -174,7 +172,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
-    Store.persist_store(store)
+    Task.async(Store, :persist_store, [store])
     {:ok, head_root} = Helpers.get_head(store)
     head_block = Blocks.get_block!(head_root)
 

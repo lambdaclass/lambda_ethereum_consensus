@@ -106,6 +106,10 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
         # We already checked block and state match
         {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
+
+        # Save store in DB
+        Store.persist_store(store)
+
         init_children(store, genesis_validators_root)
 
       _ ->
