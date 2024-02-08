@@ -162,13 +162,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def compute_post_state(%Store{} = store, %SignedBeaconBlock{} = signed_block, state) do
     %{message: block} = signed_block
 
+    # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
       Task.async(fn ->
         ExecutionClient.verify_and_notify_new_payload(block.body.execution_payload)
         |> handle_verify_payload_result()
       end)
 
-    with {:ok, state} <- StateTransition.state_transition(state, signed_block, true) do
+    with {:ok, state} <- StateTransition.state_transition(state, signed_block, true),
+         {:ok, _execution_status} <- Task.await(payload_verification_task) do
       seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
       intervals_per_slot = Constants.intervals_per_slot()
       # Add proposer score boost if the block is timely
@@ -176,9 +178,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
       block_root = Ssz.hash_tree_root!(block)
-
-      # TODO: store execution status in DB
-      {:ok, _execution_status} = Task.await(payload_verification_task)
 
       # Add new block and state to the store
       BlockStates.store_state(block_root, state)
