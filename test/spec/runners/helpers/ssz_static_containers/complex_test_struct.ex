@@ -35,7 +35,7 @@ defmodule Helpers.SszStaticContainers.ComplexTestStruct do
       {:A, {:int, 16}},
       {:B, {:list, {:int, 16}, 1024}},
       {:C, {:int, 8}},
-      {:D, {:bitlist, 256}},
+      {:D, {:list, {:int, 8}, 256}},
       {:E, VarTestStruct},
       {:F, {:vector, FixedTestStruct, 4}},
       {:G, {:vector, VarTestStruct, 2}}

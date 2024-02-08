@@ -12,7 +12,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       elixirc_paths: compiler_paths(Mix.env()),
       warn_test_pattern: "_remove_warning.exs",
       preferred_cli_env: [
-        dialyzer: :test
+        dialyzer: :test,
+        generate_spec_tests: :test
       ]
     ]
   end
@@ -39,7 +40,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:snappyer, "~> 1.2"},
       {:yaml_elixir, "~> 2.8"},
       {:timex, "~> 3.7"},
-      {:recase, "~> 0.5"},
+      {:recase, "~> 0.7"},
       {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.12.0"},
@@ -52,12 +53,13 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:logfmt_ex, "~> 0.4.2"},
       {:ex2ms, "~> 1.6", runtime: false},
       {:eflambe, "~> 0.3.1"},
-      {:patch, "~> 0.12.0", only: [:test]},
-      {:stream_data, "~> 0.5", only: [:test]},
+      {:patch, "~> 0.13.0", only: [:test]},
+      {:stream_data, "~> 0.6", only: [:test]},
       {:benchee, "~> 1.2", only: [:dev]},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:open_api_spex, "~> 3.18"}
+      {:open_api_spex, "~> 3.18"},
+      {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-to-29"}
     ]
   end
 
@@ -69,6 +71,8 @@ defmodule LambdaEthereumConsensus.MixProject do
     ]
   end
 
-  defp compiler_paths(:test), do: ["test/spec", "test/fixtures"] ++ compiler_paths(:prod)
+  defp compiler_paths(:test),
+    do: ["test/spec", "test/fixtures"] ++ compiler_paths(:prod)
+
   defp compiler_paths(_), do: ["lib", "proto"]
 end

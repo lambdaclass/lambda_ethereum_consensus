@@ -1,30 +1,55 @@
 import Config
 
-{args, _remaining_args, _errors} =
-  OptionParser.parse(System.argv(),
-    switches: [
-      network: :string,
-      checkpoint_sync: :string,
-      execution_endpoint: :string,
-      execution_jwt: :string,
-      mock_execution: :boolean
-    ]
-  )
+switches = [
+  network: :string,
+  checkpoint_sync_url: :string,
+  execution_endpoint: :string,
+  execution_jwt: :string,
+  mock_execution: :boolean,
+  mode: :string
+]
+
+is_testing = Config.config_env() == :test
+
+# NOTE: we ignore invalid options because `mix test` passes us all test flags
+option = if is_testing, do: :switches, else: :strict
+
+{args, remaining_args} = OptionParser.parse!(System.argv(), [{option, switches}])
+
+if not is_testing and not Enum.empty?(remaining_args) do
+  invalid_arg = Enum.take(remaining_args, 1)
+  IO.puts("Unexpected argument received: #{invalid_arg}")
+  System.halt(1)
+end
 
 network = Keyword.get(args, :network, "mainnet")
-checkpoint_sync = Keyword.get(args, :checkpoint_sync)
+checkpoint_sync_url = Keyword.get(args, :checkpoint_sync_url)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
-mock_execution = Keyword.get(args, :mock_execution, config_env() == :test or is_nil(jwt_path))
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
-  checkpoint_sync: checkpoint_sync
+  checkpoint_sync_url: checkpoint_sync_url
 
 configs_per_network = %{
   "minimal" => MinimalConfig,
   "mainnet" => MainnetConfig,
   "sepolia" => SepoliaConfig
 }
+
+valid_modes = ["full", "db"]
+raw_mode = Keyword.get(args, :mode, "full")
+
+mode =
+  if raw_mode in valid_modes do
+    String.to_atom(raw_mode)
+  else
+    IO.puts("Invalid mode given. Valid modes are: #{Enum.join(valid_modes, ", ")}")
+    System.halt(2)
+  end
+
+config :lambda_ethereum_consensus, LambdaEthereumConsensus, mode: mode
+
+mock_execution = Keyword.get(args, :mock_execution, mode == :db or is_nil(jwt_path))
 
 config :lambda_ethereum_consensus, ChainSpec, config: configs_per_network |> Map.fetch!(network)
 

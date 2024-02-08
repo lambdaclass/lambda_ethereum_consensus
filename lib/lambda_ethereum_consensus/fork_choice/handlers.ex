@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
 
   alias Types.{
     Attestation,
@@ -53,7 +54,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     finalized_slot =
       Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
 
-    base_state = Store.get_state(store, block.parent_root)
+    base_state = BlockStates.get_state(block.parent_root)
 
     cond do
       # Parent block must be known
@@ -117,7 +118,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   defp check_valid_indexed_attestation(target_state, indexed_attestation) do
-    if Predicates.is_valid_indexed_attestation(target_state, indexed_attestation),
+    if Predicates.valid_indexed_attestation?(target_state, indexed_attestation),
       do: :ok,
       else: {:error, "invalid indexed attestation"}
   end
@@ -135,16 +136,16 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           attestation_2: %IndexedAttestation{} = attestation_2
         }
       ) do
-    state = Store.get_state!(store, store.justified_checkpoint.root)
+    state = BlockStates.get_state!(store.justified_checkpoint.root)
 
     cond do
-      not Predicates.is_slashable_attestation_data(attestation_1.data, attestation_2.data) ->
+      not Predicates.slashable_attestation_data?(attestation_1.data, attestation_2.data) ->
         {:error, "attestation is not slashable"}
 
-      not Predicates.is_valid_indexed_attestation(state, attestation_1) ->
+      not Predicates.valid_indexed_attestation?(state, attestation_1) ->
         {:error, "attestation 1 is not valid"}
 
-      not Predicates.is_valid_indexed_attestation(state, attestation_2) ->
+      not Predicates.valid_indexed_attestation?(state, attestation_2) ->
         {:error, "attestation 2 is not valid"}
 
       true ->
@@ -180,9 +181,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       {:ok, _execution_status} = Task.await(payload_verification_task)
 
       # Add new block and state to the store
+      BlockStates.store_state(block_root, state)
+
       store
       |> Store.store_block(block_root, signed_block)
-      |> Store.store_state(block_root, state)
       |> if_then_update(
         is_before_attesting_interval and Store.get_current_slot(store) == block.slot,
         &%Store{&1 | proposer_boost_root: block_root}
@@ -192,6 +194,21 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Eagerly compute unrealized justification and finality
       |> compute_pulled_up_tip(block_root)
     end
+  end
+
+  def notify_forkchoice_update(store, head_block) do
+    head_execution_hash = head_block.body.execution_payload.block_hash
+
+    finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)
+    finalized_execution_hash = finalized_block.body.execution_payload.block_hash
+
+    # TODO: do someting with the result from the execution client
+    # TODO: compute safe block hash
+    ExecutionClient.notify_forkchoice_updated(
+      head_execution_hash,
+      finalized_execution_hash,
+      finalized_execution_hash
+    )
   end
 
   ### Private functions ###
@@ -237,7 +254,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   # Pull up the post-state of the block to the next epoch boundary
   def compute_pulled_up_tip(%Store{} = store, block_root) do
     result =
-      Store.get_state!(store, block_root)
+      BlockStates.get_state!(block_root)
       |> EpochProcessing.process_justification_and_finalization()
 
     with {:ok, state} <- result do
@@ -360,7 +377,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     else
       target_slot = Misc.compute_start_slot_at_epoch(target.epoch)
 
-      Store.get_state!(store, target.root)
+      BlockStates.get_state!(target.root)
       |> then(
         &if(&1.slot < target_slot,
           do: StateTransition.process_slots(&1, target_slot),

@@ -37,7 +37,7 @@ jobs:
             native/libp2p_port/go.sum
       - name: Cache output artifacts
         id: output-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: priv/native/*
           key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Cache Beacon Node OAPI
         id: output-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ./beacon-node-oapi.json
           key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
@@ -80,19 +80,19 @@ jobs:
         version-file: .tool-versions
     - name: Fetch native libraries
       id: output-cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: priv/native/*
         key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
         fail-on-cache-miss: true
     - name: Restore dependencies cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
     - name: Fetch beacon node oapi file
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: ./beacon-node-oapi.json
         key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
@@ -111,7 +111,7 @@ jobs:
     - name: Compile Elixir (Warnings as errors)
       run: mix compile --warnings-as-errors
     - name: Retrieve PLT Cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       id: plt-cache
       with:
         path: priv/plts
@@ -137,19 +137,19 @@ jobs:
         version-file: .tool-versions
     - name: Fetch native libraries
       id: output-cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: priv/native/*
         key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
         fail-on-cache-miss: true
     - name: Restore dependencies cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
     - name: Fetch beacon node oapi file
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: ./beacon-node-oapi.json
         key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
@@ -169,7 +169,7 @@ jobs:
       run: mix compile --warnings-as-errors
     - name: Run the node
       # NOTE: this starts and then stops the application. It should catch simple runtime errors
-      run: mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
+      run: mix run -- --checkpoint-sync-url https://sync-mainnet.beaconcha.in/
 
   test:
     name: Test
@@ -184,19 +184,19 @@ jobs:
         version-file: .tool-versions
     - name: Fetch native libraries
       id: output-cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: priv/native/*
         key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
         fail-on-cache-miss: true
     - name: Restore dependencies cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
     - name: Fetch beacon node oapi file
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: ./beacon-node-oapi.json
         key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}
@@ -225,7 +225,7 @@ jobs:
         version-type: strict
         version-file: .tool-versions
     - name: Restore dependencies cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: deps
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
@@ -246,7 +246,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Cache compressed spectests
         id: output-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ./*.tar.gz
           key: ${{ runner.os }}-spectest-${{ hashFiles('.spectest_version') }}
@@ -270,25 +270,25 @@ jobs:
           version-type: strict
           version-file: .tool-versions
       - name: Fetch native libraries
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: priv/native/*
           key: ${{ runner.os }}-native-${{ hashFiles('native/**') }}
           fail-on-cache-miss: true
       - name: Fetch spectest vectors
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: ./*.tar.gz
           key: ${{ runner.os }}-spectest-${{ hashFiles('.spectest_version') }}
           fail-on-cache-miss: true
       - name: Restore dependencies cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-
       - name: Fetch beacon node oapi file
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v4
         with:
           path: ./beacon-node-oapi.json
           key: ${{ runner.os }}-beacon-node-oapi-${{ hashFiles('.oapi_version') }}

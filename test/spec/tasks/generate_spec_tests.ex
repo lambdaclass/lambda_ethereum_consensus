@@ -16,7 +16,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
   @shortdoc "Generates tests for spec test files"
   @impl Mix.Task
   def run(_args) do
-    {:ok, file_names} = File.ls(Path.join(["lib", "spec", "runners"]))
+    {:ok, file_names} = File.ls(Path.join(["test", "spec", "runners"]))
     runners = Enum.map(file_names, &Path.basename(&1, ".ex"))
 
     # Generate all tests for Capella fork
@@ -67,6 +67,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
       setup_all do
         start_link_supervised!({LambdaEthereumConsensus.Store.Db, db_location: "test/generated/#{config}_#{fork}_#{runner}_test_db"})
         start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
+        start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
         Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: #{chain_spec_config(config)})
       end
 

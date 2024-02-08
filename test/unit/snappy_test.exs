@@ -3,7 +3,7 @@ defmodule Unit.SnappyTest do
   use ExUnitProperties
   doctest Snappy
 
-  def assert_snappy_decompress(compressed, uncompressed) do
+  defp assert_snappy_decompress(compressed, uncompressed) do
     {:ok, ^uncompressed} =
       compressed
       |> Base.decode16!()

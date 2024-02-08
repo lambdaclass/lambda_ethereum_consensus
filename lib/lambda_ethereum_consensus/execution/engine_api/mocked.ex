@@ -20,6 +20,6 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(_forkchoice_state, _payload_attributes) do
-    {:ok, %{"payload_id" => nil, payload_status: %{"status" => "VALID"}}}
+    {:ok, %{"payload_id" => nil, "payload_status" => %{"status" => "VALID"}}}
   end
 end

@@ -116,11 +116,11 @@ iex: compile-all
 
 #▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync.
 checkpoint-sync: compile-all
-	iex -S mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
+	iex -S mix run -- --checkpoint-sync-url https://sync-mainnet.beaconcha.in/
 
 #▶️ sepolia: @ Run an interactive terminal using sepolia network
 sepolia: compile-all
-	iex -S mix run -- --checkpoint-sync https://sepolia.beaconstate.info --network sepolia
+	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia
 
 #🔴 test: @ Run tests
 test: compile-all
@@ -160,7 +160,7 @@ $(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
 	-rm -rf $@
 	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
 
-$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general lib/spec/runners/*.ex lib/mix/tasks/generate_spec_tests.ex
+$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general test/spec/runners/*.ex test/spec/tasks/*.ex
 	mix generate_spec_tests
 
 #⬇️ download-vectors: @ Download the spec test vectors files.

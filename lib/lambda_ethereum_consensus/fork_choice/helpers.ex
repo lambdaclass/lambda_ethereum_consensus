@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
 
   alias Types.Store
@@ -13,7 +14,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           {:ok, Types.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do
     with {:ok, head_root} <- get_head(store),
-         state when not is_nil(state) <- Store.get_state(store, head_root) do
+         state when not is_nil(state) <- BlockStates.get_state(head_root) do
       {:ok,
        %Types.StatusMessage{
          fork_digest:
@@ -127,7 +128,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     # If the previous epoch is justified, the block should be pulled-up. In this case, check that unrealized
     # justification is higher than the store and that the voting source is not more than two epochs ago
     correct_justified =
-      if not correct_justified and is_previous_epoch_justified(store) do
+      if not correct_justified and previous_epoch_justified?(store) do
         store.unrealized_justifications[block_root].epoch >= store.justified_checkpoint.epoch and
           voting_source.epoch + 2 >= current_epoch
       else
@@ -165,12 +166,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
       store.unrealized_justifications[block_root]
     else
       # The block is not from a prior epoch, therefore the voting source is not pulled up
-      head_state = Store.get_state!(store, block_root)
+      head_state = BlockStates.get_state!(block_root)
       head_state.current_justified_checkpoint
     end
   end
 
-  def is_previous_epoch_justified(%Store{} = store) do
+  def previous_epoch_justified?(%Store{} = store) do
     current_slot = Store.get_current_slot(store)
     current_epoch = Misc.compute_epoch_at_slot(current_slot)
     store.justified_checkpoint.epoch + 1 == current_epoch
