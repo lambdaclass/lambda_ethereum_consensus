@@ -146,6 +146,7 @@ defmodule Types.Store do
   end
 
   def persist_store(%__MODULE__{} = store) do
-    Db.put("store", :erlang.term_to_binary(store))
+    # Compress the store before storing it. This doubles the time it takes to dump, but reduces size by 5 times.
+    Db.put("store", :erlang.term_to_binary(store, [{:compressed, 1}]))
   end
 end

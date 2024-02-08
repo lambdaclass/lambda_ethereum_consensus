@@ -91,7 +91,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     end
   end
 
-  @spec restore_state_from_db() :: {:ok, Store.t()} | no_return()
+  @spec fetch_state_from_url(String.t()) :: {:ok, Store.t()} | no_return()
   defp fetch_state_from_url(url) do
     Logger.info("[Checkpoint sync] Initiating checkpoint sync")
 
