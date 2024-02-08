@@ -47,7 +47,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @impl true
   def handle_cast({:add_block, %SignedBeaconBlock{message: block} = signed_block}, state) do
     block_root = Ssz.hash_tree_root!(block)
-    {:noreply, Map.put(state, block_root, {signed_block, :pending})}
+
+    if state |> Map.get(block_root) do
+      {:noreply, state}
+    else
+      {:noreply, state |> Map.put(block_root, {signed_block, :pending})}
+    end
   end
 
   @impl true
@@ -77,6 +82,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
     |> Enum.reduce(state, fn {block_root, signed_block}, state ->
       parent_root = signed_block.message.parent_root
+      parent_status = get_block_status(state, parent_root)
 
       cond do
         # If already processed, remove it
@@ -84,15 +90,15 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           state |> Map.delete(block_root)
 
         # If parent is invalid, block is invalid
-        get_block_status(state, parent_root) == :invalid ->
+        parent_status == :invalid ->
           state |> Map.put(block_root, {nil, :invalid})
 
         # If parent is processing, block is pending
-        get_block_status(state, parent_root) == :processing ->
+        parent_status == :processing ->
           state
 
         # If parent is pending, block is pending
-        get_block_status(state, parent_root) == :pending ->
+        parent_status == :pending ->
           state
 
         # If parent is not in fork choice, download parent
@@ -117,20 +123,16 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     blocks_to_download = state |> Map.filter(fn {_, {_, s}} -> s == :download end) |> Map.keys()
 
     downloaded_blocks =
-      if Enum.empty?(blocks_to_download) do
-        []
-      else
-        blocks_to_download
-        |> Enum.take(16)
-        |> BlockDownloader.request_blocks_by_root()
-        |> case do
-          {:ok, signed_blocks} ->
-            signed_blocks
+      blocks_to_download
+      |> Enum.take(16)
+      |> BlockDownloader.request_blocks_by_root()
+      |> case do
+        {:ok, signed_blocks} ->
+          signed_blocks
 
-          {:error, reason} ->
-            Logger.debug("Block download failed: '#{reason}'")
-            []
-        end
+        {:error, reason} ->
+          Logger.debug("Block download failed: '#{reason}'")
+          []
       end
 
     new_state =
