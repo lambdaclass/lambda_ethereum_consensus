@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.StoreStorage
+  alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -183,7 +183,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     pruned_store = Map.put(store, :checkpoint_states, %{})
 
     Task.async(fn ->
-      StoreStorage.persist_store(pruned_store)
+      StoreDb.persist_store(pruned_store)
       Logger.debug("[Fork choice] Store persisted")
     end)
   end

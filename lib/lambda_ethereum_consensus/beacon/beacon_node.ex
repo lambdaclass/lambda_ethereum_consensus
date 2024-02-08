@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.StoreStorage
+  alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Store
 
   def start_link(opts) do
@@ -80,7 +80,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   defp restore_state_from_db do
     # Try to fetch the old store from the database
-    case StoreStorage.fetch_store() do
+    case StoreDb.fetch_store() do
       {:ok, %Store{} = store} ->
         Logger.info("[Sync] Old state found.")
 
@@ -107,7 +107,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
 
         # Save store in DB
-        StoreStorage.persist_store(store)
+        StoreDb.persist_store(store)
 
         init_children(store, genesis_validators_root)
 
