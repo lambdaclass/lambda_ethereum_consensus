@@ -172,7 +172,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
-    Task.async(Store, :persist_store, [store])
+    persist_store(store)
     {:ok, head_root} = Helpers.get_head(store)
     head_block = Blocks.get_block!(head_root)
 
@@ -187,6 +187,17 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       finalized_checkpoint
     )
 
+    Logger.debug("[Fork choice] Updated fork choice cache", slot: head_block.slot)
+
     :ok
+  end
+
+  def persist_store(store) do
+    pruned_store = Map.put(store, :checkpoint_states, %{})
+
+    Task.async(fn ->
+      Store.persist_store(pruned_store)
+      Logger.debug("[Fork choice] Store persisted")
+    end)
   end
 end
