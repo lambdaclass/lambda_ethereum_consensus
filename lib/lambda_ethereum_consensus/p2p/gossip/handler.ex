@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
     current_slot = BeaconChain.get_current_slot()
 
     if block.slot > current_slot - ChainSpec.get("SLOTS_PER_EPOCH") do
-      Logger.info("[Gossip] Block decoded", slot: block.slot)
+      Logger.info("[Gossip] Block received", slot: block.slot)
 
       PendingBlocks.add_block(signed_block)
     end
