@@ -97,6 +97,8 @@ defmodule OperationsTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
+    # We're skipping the tests where execution_valid is false since we make the execution client call
+    # outside of the `process_execution_payload` function for performance reasons.
     if execution_valid do
       result =
         Operations.process_execution_payload(pre, body)
