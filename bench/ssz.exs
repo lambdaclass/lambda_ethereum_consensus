@@ -35,7 +35,7 @@ Benchee.run(
   time: 5
 )
 
-## Benchmark Merkleization 
+## Benchmark Merkleization
 
 list = Stream.cycle([65_535]) |> Enum.take(316)
 schema = {:list, {:int, 16}, 1024}

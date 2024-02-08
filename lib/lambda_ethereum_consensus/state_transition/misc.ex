@@ -170,7 +170,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     first_8_bytes
   end
 
-  @spec uint_to_bytes(non_neg_integer(), 8 | 32 | 64) :: binary()
+  @spec uint_to_bytes(non_neg_integer(), 8 | 16 | 32 | 64) :: binary()
   def uint_to_bytes(value, size) do
     # Converts an unsigned integer value to a bytes value
     <<value::unsigned-integer-little-size(size)>>
