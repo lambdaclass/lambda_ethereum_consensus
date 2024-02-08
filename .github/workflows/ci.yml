@@ -169,7 +169,7 @@ jobs:
       run: mix compile --warnings-as-errors
     - name: Run the node
       # NOTE: this starts and then stops the application. It should catch simple runtime errors
-      run: mix run -- --checkpoint-sync-url https://sync-mainnet.beaconcha.in/
+      run: mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/
 
   test:
     name: Test
