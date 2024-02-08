@@ -26,7 +26,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
       :not_found ->
         Logger.error(
-          "[Sync] No initial state or block found. Please specify the URL to fetch them from via the --checkpoint-sync flag"
+          "[Sync] No initial state or block found. Please specify the URL to fetch them from via the --checkpoint-sync-url flag"
         )
 
         System.stop(1)
