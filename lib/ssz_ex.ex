@@ -100,6 +100,13 @@ defmodule LambdaEthereumConsensus.SszEx do
     {:ok, root}
   end
 
+  def hash_tree_root(value, {type, _size} = schema) when type in [:bitlist, :bitvector] do
+    chunks = value |> pack_bits(schema)
+    limit = schema |> chunk_count()
+    root = chunks |> merkleize_chunks_with_virtual_padding(limit)
+    {:ok, root}
+  end
+
   @spec hash_tree_root(struct(), atom()) :: Types.root()
   def hash_tree_root(container, module) when is_map(container) do
     value =
@@ -277,6 +284,13 @@ defmodule LambdaEthereumConsensus.SszEx do
       acc <> encoded
     end)
     |> pack_bytes()
+  end
+
+  def pack_bits(value, {type, _size} = schema) when type in [:bitlist, :bitvector] do
+    case encode(value, schema) do
+      {:ok, bytes} -> bytes |> pack_bytes()
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   def chunk_count({:list, type, max_size}) do
