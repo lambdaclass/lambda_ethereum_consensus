@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   use Supervisor
   require Logger
 
+  alias LambdaEthereumConsensus.Store.StoreStorage
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.StateTransition.Cache
@@ -79,7 +80,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   defp restore_state_from_db do
     # Try to fetch the old store from the database
-    case Store.fetch_store() do
+    case StoreStorage.fetch_store() do
       {:ok, %Store{} = store} ->
         Logger.info("[Sync] Old state found.")
 
@@ -106,7 +107,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
 
         # Save store in DB
-        Store.persist_store(store)
+        StoreStorage.persist_store(store)
 
         init_children(store, genesis_validators_root)
 

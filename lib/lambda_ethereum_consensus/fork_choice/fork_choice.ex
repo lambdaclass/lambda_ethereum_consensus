@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Store.StoreStorage
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.Blocks
@@ -182,7 +183,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     pruned_store = Map.put(store, :checkpoint_states, %{})
 
     Task.async(fn ->
-      Store.persist_store(pruned_store)
+      StoreStorage.persist_store(pruned_store)
       Logger.debug("[Fork choice] Store persisted")
     end)
   end
