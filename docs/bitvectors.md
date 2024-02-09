@@ -70,7 +70,7 @@ So, if we want to represent that the validators with indices 0, 1, and 8 atteste
 [true, true, false, false, false, false, false, false, true]
 ```
 
-Which means that the validators with index 0, 1 and 8 attested, this would be represented as follows conceptually:
+Conceptually, this would be represented as the following string of bits:
 
 ```
 110000001
