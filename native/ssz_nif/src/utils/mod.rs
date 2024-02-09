@@ -78,12 +78,16 @@ macro_rules! config_match {
                 elx_types::$t,
                 ssz_types::$t<$crate::ssz_types::config::Minimal>,
             >($args),
+            "gnosis" => $crate::utils::helpers::$fun::<
+                elx_types::$t,
+                ssz_types::$t<$crate::ssz_types::config::Gnosis>,
+            >($args),
             _ => Err(rustler::Error::BadArg),
         }
     };
     ($config:expr, $fun:ident, $args:tt, $t:ident) => {
         match $config {
-            "mainnet" | "minimal" => {
+            "mainnet" | "minimal" | "gnosis" => {
                 $crate::utils::helpers::$fun::<elx_types::$t, ssz_types::$t>($args)
             }
             _ => Err(rustler::Error::BadArg),
