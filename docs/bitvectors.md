@@ -172,7 +172,7 @@ This means that the sentinel bit is, effectively, adding a new full byte. After 
 00000011 00000001
 ```
 
-When parsing this, we still take care about the last byte, but we will realize that it's comprised of 7 trailing 0s and a sentinel bit, so we'll discard it fully. 
+When parsing this, we still take care of the last byte, but we will realize that it's comprised of 7 trailing 0s and a sentinel bit, so we'll discard it fully. 
 
 This also shows the importance of the sentinel bit: if it wasn't for it it wouldn't be obvious to the parser that `00000011` represented 8 elements: it could be a set of two validators where both voted.
 
