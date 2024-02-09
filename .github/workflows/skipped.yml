@@ -16,6 +16,7 @@ jobs:
   compile-native:
     name: Build native libraries
     runs-on: ubuntu-22.04
+    if: false
     steps:
       - name: Skipped
         run: echo "Skipped"
