@@ -4,7 +4,7 @@
 
 Everything in a computer, be it in memory, or disc, or when sent over the network, needs to eventually be represented in binary form. There's two classical ways to do so:
 
-### Big endian byte order
+### Big-endian byte order
 
 Big-endian can be thought of as "you represent it as you read it". For example, let's represent the number 259 in big-endian. To represent it as a binary we decompose it into powers of two:
 
