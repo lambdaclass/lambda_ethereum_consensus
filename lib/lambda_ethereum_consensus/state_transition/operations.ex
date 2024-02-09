@@ -215,12 +215,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @doc """
   State transition function managing the processing & validation of the `ExecutionPayload`
   """
-  @spec process_execution_payload(BeaconState.t(), BeaconBlockBody.t(), fun()) ::
+  @spec process_execution_payload(BeaconState.t(), BeaconBlockBody.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_execution_payload(
         state,
-        %BeaconBlockBody{execution_payload: payload},
-        verify_and_notify_new_payload
+        %BeaconBlockBody{execution_payload: payload}
       ) do
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
@@ -239,10 +238,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       # Cache execution payload header
       true ->
-        # TODO: store execution status in block db
-        with {:ok, _status} <-
-               verify_and_notify_new_payload.(payload) |> handle_verify_payload_result(),
-             {:ok, transactions_root} <-
+        with {:ok, transactions_root} <-
                Ssz.hash_list_tree_root_typed(
                  payload.transactions,
                  ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD"),
@@ -949,11 +945,4 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:error, "deposits length mismatch"}
     end
   end
-
-  defp handle_verify_payload_result({:ok, :valid = status}), do: {:ok, status}
-  defp handle_verify_payload_result({:ok, :optimistic = status}), do: {:ok, status}
-  defp handle_verify_payload_result({:ok, :invalid}), do: {:error, "Invalid execution payload"}
-
-  defp handle_verify_payload_result({:error, error}),
-    do: {:error, "Error when calling execution client: #{error}"}
 end

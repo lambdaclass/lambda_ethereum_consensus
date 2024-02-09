@@ -15,11 +15,11 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
   @spec new_payload(Types.ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
   def new_payload(_execution_payload) do
-    {:ok, %{"status" => "SYNCING"}}
+    {:ok, %{"status" => "VALID"}}
   end
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(_forkchoice_state, _payload_attributes) do
-    {:ok, %{"payload_id" => nil, "payload_status" => %{"status" => "SYNCING"}}}
+    {:ok, %{"payload_id" => nil, "payload_status" => %{"status" => "VALID"}}}
   end
 end
