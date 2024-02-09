@@ -178,7 +178,7 @@ This also shows the importance of the sentinel bit: if it wasn't for it it would
 
 ### Internal representation
 
-For bitlists, in this client we do the same as with bitvectors. We represent them using big endian, for the same reasons. That is, the first thing we do is reverse the bytes, and then remove the first zeroes of the first byte. The code doing that is the following:
+For bitlists, in this client we do the same as with bitvectors, and for the same reasons: we represent them using big-endian. That is, the first thing we do is reverse the bytes, and then remove the first zeroes of the first byte. The code doing that is the following:
 
 ```elixir
 def new(bitstring) when is_bitstring(bitstring) do
