@@ -6,7 +6,7 @@ Everything in a computer, be it in memory, or disc, or when sent over the networ
 
 ### Big endian byte order
 
-Big endian can be thought of as "you represent it as you read it". For example, let's represent the number 254 in big endian. To represent it as a binary we decompose it powers of two:
+Big-endian can be thought of as "you represent it as you read it". For example, let's represent the number 259 in big-endian. To represent it as a binary we decompose it into powers of two:
 
 $$259 = 256 + 2 + 1 = 2^{8} + 2^{1} + 2^0$$
 
