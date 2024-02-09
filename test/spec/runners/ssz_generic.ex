@@ -79,7 +79,8 @@ defmodule SszGenericTestRunner do
     case schema do
       {:bitlist, _} ->
         ## TODO
-        nil
+        actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
+        assert actual_hash_tree_root == expected_hash_tree_root
 
       module when is_atom(module) ->
         ## TODO
