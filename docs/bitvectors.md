@@ -166,7 +166,7 @@ When adding the trailing bit and padding, it will look like this:
 11000000 10000000
 ```
 
-This means that the sentinel bit is, effectively, adding a full new byte. After reversing the bits:
+This means that the sentinel bit is, effectively, adding a new full byte. After reversing the bits:
 
 ```
 00000011 00000001
