@@ -22,7 +22,7 @@ Note that this we need two bytes to represent it. This is most CPUs can address 
 
 We can also think about this number as the byte array `be = [1, 3]`. Here, the least significant byte is the one with the highest index `be[1] = 3` and the most significant byte is the one with the lowest index `be[0] = 1`.
 
-### Little endian byte order
+### Little-endian byte order
 
 In this representation, we reverse the bytes around. 259 is represented like follows:
 
