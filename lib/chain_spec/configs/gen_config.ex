@@ -26,6 +26,7 @@ defmodule ChainSpec.GenConfig do
 
   defp parse_preset("mainnet"), do: MainnetPreset
   defp parse_preset("minimal"), do: MinimalPreset
+  defp parse_preset("gnosis"), do: GnosisPreset
   defp parse_preset(other), do: raise("Unknown preset: #{other}")
 
   @doc """
