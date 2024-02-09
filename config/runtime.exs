@@ -2,7 +2,7 @@ import Config
 
 switches = [
   network: :string,
-  checkpoint_sync: :string,
+  checkpoint_sync_url: :string,
   execution_endpoint: :string,
   execution_jwt: :string,
   mock_execution: :boolean,
@@ -23,12 +23,12 @@ if not is_testing and not Enum.empty?(remaining_args) do
 end
 
 network = Keyword.get(args, :network, "mainnet")
-checkpoint_sync = Keyword.get(args, :checkpoint_sync)
+checkpoint_sync_url = Keyword.get(args, :checkpoint_sync_url)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
-  checkpoint_sync: checkpoint_sync
+  checkpoint_sync_url: checkpoint_sync_url
 
 configs_per_network = %{
   "minimal" => MinimalConfig,

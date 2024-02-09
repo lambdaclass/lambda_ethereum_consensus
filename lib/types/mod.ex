@@ -7,6 +7,7 @@ defmodule Types do
   ## Integer types
   @type uint8 :: 0..unquote(2 ** 8 - 1)
   @type uint16 :: 0..unquote(2 ** 16 - 1)
+  @type uint32 :: 0..unquote(2 ** 32 - 1)
   @type uint64 :: 0..unquote(2 ** 64 - 1)
   @type uint256 :: 0..unquote(2 ** 256 - 1)
 
