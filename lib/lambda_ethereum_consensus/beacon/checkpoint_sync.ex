@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   @doc """
   Safely retrieves the last finalized state and block
   """
-  @spec get_state(String.t()) ::
+  @spec get_finalized_block_and_state(String.t()) ::
           {:ok, {Types.BeaconState.t(), Types.SignedBeaconBlock.t()}} | {:error, any()}
   def get_finalized_block_and_state(url) do
     tasks = [Task.async(__MODULE__, :get_state, [url]), Task.async(__MODULE__, :get_block, [url])]
