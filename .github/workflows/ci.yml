@@ -5,6 +5,12 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ '*' ]
+    paths-ignore:
+      - 'docs/**'
+      - '.all-contributorsrc'
+      - 'README.md'
+      - 'LICENSE'
+      - 'metrics/**'
 
 env:
   MIX_ENV: test
