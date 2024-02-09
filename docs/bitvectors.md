@@ -36,7 +36,7 @@ Representing it as a byte array, we get `le = [3, 1]`. The lowest index, `le[0] 
 
 ### Little-endian bit order
 
-Why would we need a third representation? Let's first pose the problem. We want to represent a set of booleans. Imagine we have a fixed amount of validators, equal to 9, and we want to represent wether they attested in a block or not. We may represent this as follows:
+Why would we need a third representation? Let's first pose the problem. We want to represent a set of booleans. Imagine we have a fixed amount of validators, equal to 9, and we want to represent whether they attested in a block or not. We may represent this as follows:
 
 ```
 [true, true, false, false, false, false, false, false, true]
