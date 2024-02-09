@@ -2,25 +2,35 @@
 
 ## Representing integers
 
-Everything in a computer, be it in memory, or disc, or when sent over the network, needs to eventually be represented in binary form. There's two classical ways to do so:
+Computers use transistors to store data. These electrical components only have two possible states: `clear` or `set`. Numerically, we represent the clear state as a `0` and and the set state as `1`. Using 1s and 0s, we can represent any integer number using the binary system, the same way we use the decimal system in our daily lives.
+
+As an example, let's take the number 259. For its decimal representation, we use the digits 2, 5 and 9, because each digit, or coefficient, represents a power of 10:
+
+$$ 259 = 200 + 50 + 9 = 2*10^2 + 5*10^1 + 9*10^0 $$
+
+If we wanted to do the same the binary binary, we would use powers of two, and each individual symbol (or bit) can only be 0 or 1.
+
+$$ 259 = 256 + 2 + 1 = 1*2^{8} + 1*2^{1} + 1*2^0 $$
+
+All other bits are 0. This results in the following binary number:
+
+```
+100000011
+```
+
+In written form, similar to our decimal system of representation, the symbols "to the left" represent the most significant digits, and the ones to the right, the least significant ones.
 
 ### Big-endian byte order
 
-Big-endian can be thought of as "you represent it as you read it". For example, let's represent the number 259 in big-endian. To represent it as a binary we decompose it into powers of two:
-
-$$259 = 256 + 2 + 1 = 2^{8} + 2^{1} + 2^0$$
-
-That means that we'll have the bits representing the power of 0, the power of 1 and the power of 8 set to 1. The rest, will be clear (value = 0).
+Most CPUs can only address bits in groups of 8, called bytes. That is, when we refer to an address in memory, we refer to the whole byte, and the next address corresponds to the next byte. This means that to represent this number, we'll need two bytes, organized as follows:
 
 ```
-0000001 00000011
+00000001 00000011
 ```
 
-Similar to our decimal system of representation, the symbols to the left represent the most significant values, and the ones to the right, the least significant ones.
+We can also think about this as the byte array `bytes = [1, 3]`. Here, the least significant byte is the one with the highest index `bytes[1] = 3` and the most significant byte is the one with the lowest index `bytes[0] = 1`.
 
-Note that we need two bytes to represent this number. Most CPUs can address bytes, but not individual bits. That is, when we refer to an address in memory, we refer to the whole byte, and the next address corresponds to the next byte.
-
-We can also think about this number as the byte array `be = [1, 3]`. Here, the least significant byte is the one with the highest index `be[1] = 3` and the most significant byte is the one with the lowest index `be[0] = 1`.
+This ordering of bytes, which is similar to the written form, is called `big-endian`.
 
 ### Little-endian byte order
 
@@ -30,19 +40,17 @@ In this representation, we reverse the bytes around. 259 is represented as follo
 00000011 00000001
 ```
 
-Representing it as a byte array, we get `le = [3, 1]`. The lowest index, `le[0] = 3` means the lowest significant byte, and the highest index, `le[1] = 1` is the most significant byte. So, while little-endian is less readable, it is frequently used to represent integers as binaries because of this property.
-
-## Bit vectors
+Representing it as a byte array, we get `bytes = [3, 1]`. The lowest index, `bytes[0] = 3` means the lowest significant byte, and the highest index, `bytes[1] = 1` is the most significant byte. So, while little-endian is less readable, it is frequently used to represent integers as binaries because of this property.
 
 ### Little-endian bit order
 
-Why would we need a third representation? Let's first pose the problem. We want to represent a set of booleans. Imagine we have a fixed amount of validators, equal to 9, and we want to represent whether they attested in a block or not. We may represent this as follows:
+Why would we need a third representation? Let's first pose the problem. Imagine we have a fixed amount of validators, equal to 9, and we want to represent whether they attested in a block or not. If the validators 0, 1 and 8 attested, we may represent this with a boolean array, as follows:
 
 ```
 [true, true, false, false, false, false, false, false, true]
 ```
 
-However, this representation has a problem: each boolean takes one full byte. For a million validators, which is in the order of magnitude of the validator set of mainnet, that mean a total attestation size of 64KB per block, which is half their size. We can instead use the fact that a boolean and a bit both have two states and represent this as a binary instead:
+However, this representation has a problem: each boolean takes up one full byte. For a million validators, which is in the order of magnitude of the validator set of mainnet, that means a total attestation size of 64KB per block, which is half its size. We can instead use the fact that a boolean and a bit both have two states and represent this as a binary instead:
 
 ```
 11000000 10000000
@@ -50,21 +58,36 @@ However, this representation has a problem: each boolean takes one full byte. Fo
 
 This way we reduce the amount of bytes needed by a factor of 8. In this case, we completed the second byte because if we send this over the network we always need to send full bytes, but this effect is diluted when dealing with thousands of bytes.
 
-If we wanted to represent a number with this, as we're addressing by bits instead of bytes, we'd say that the least significant bit is the one with the lowest index, thus why this is called little-endian-*bit*-order. That is, in general:
+If we wanted to represent a number with this, as we're addressing by bits instead of bytes, we'd follow the convention that the least significant bit is the one with the lowest index, thus why this is called little-endian-*bit*-order. That is, in general:
 
-$$\sum_{i} arr[i]*2^i = 2^0 + 2^1 + 2^8 = 259$$
+$$ \sum_{i} arr[i]*2^i = 2^0 + 2^1 + 2^8 = 259 $$
 
-If you look closely, this is the same number we used in the examples for the classical byte orders! The same way that little-endian byte order was big endian but reversing the bytes, little-endian bit order is big endian but reversing bit by bit.
+If you look closely, this is the same number we used in the examples for the classical byte orders!
 
-### Serialization
+Summarizing all representations:
 
-The way SSZ represents bit vectors is as follows:
+```
+00000001 00000011: big-endian
+00000011 00000001: little-endian byte order
+11000000 10000000: little-endian bit order
+```
 
-1. Conceptually, a set is represented in little-endian bit ordering.
-2. Padding is added so we have full bytes.
-3. When serializing, we convert from little-endian bit ordering to little-endian byte ordering.
+If we want to convert from each order to each other:
 
-So, if we want to represent that the validators with indices 0, 1, and 8 attested, we can use the following array:
+- Little-endian byte order to big-endian: reverse the bytes.
+- Little-endian bit order to big-endian: reverse the bits of the whole number.
+- Little-endian bit order to little-endian byte order: reverse the bits of each individual byte. This is equivalent to reversing all bits (converting to big-endian) and then reversing the bytes (big-endian to little-endian byte order) but in a single step.
+
+## Bit vectors
+
+### Serialization (SSZ)
+
+`bitvectors` are exactly that: a set of booleans with fixed size. SSZ represents bit vectors as follows:
+
+- Conceptually, a set is represented in little-endian bit ordering, padded with 0s at the end to get full bytes.
+- When serializing, we convert from little-endian bit ordering to little-endian byte ordering.
+
+If we want to represent that the validators with indices 0, 1, and 8 attested, we can use the following array:
 
 ```
 [true, true, false, false, false, false, false, false, true]
@@ -88,11 +111,11 @@ Moving it to little-endian byte order (we go byte by byte and reverse the bits):
 00000011 00000001
 ```
 
-Which is what SSZ calls `bitvectors`, and what nodes send over the network: a binary representing an array of booleans of constant size. We know that this array is of size 9 beforehand, so we know what bits are padding and should be ignored. For variable-sized bit arrays we'll use `bitlists`, which we'll talk about later.
+This is how nodes send `bitvectors` over the network. We know that this array is of size 9 beforehand, so we know what bits are padding and should be ignored. For variable-sized bit arrays we'll use `bitlists`, which we'll talk about later.
 
 ### Internal representation
 
-There's a trick here: SSZ doesn't specify how to store this in memory after deserializing. We could, theoretically, read the serialized data, transform it from little-endian byte order to little-endian bit order, and use bit addressing (which elixir supports) to get individual values. This would imply, however, going through each byte and reversing the bits, which is a costly operation. If we stuck with little-endian byte order, addressing individual bits would be more complicated, and shifting (moving every bit to the left or right) would be tricky.
+There's a trick here: SSZ doesn't specify how to store a `bitvector` in memory after deserializing. We could, theoretically, read the serialized data, transform it from little-endian byte order to little-endian bit order, and use bit addressing (which elixir supports) to get individual values. This would imply, however, going through each byte and reversing the bits, which is a costly operation. If we stuck with little-endian byte order without transforming it, addressing individual bits would be more complicated, and shifting (moving every bit to the left or right) would be tricky.
 
 For this reason, we represent bitvectors in our node as big-endian binaries. That means that we reverse the bytes (a relatively cheap operation) and, for bit addressing, we just use the complementary index. An example:
 
@@ -103,9 +126,9 @@ If we are still representing the number 259 (validators with index 0, 1 and 8 at
 100000011 -> big-endian
 ```
 
-If we watch closely, we confirm something we said before: these are bit-mirrored representations. That means that if I want to know if the validator 0 voted, in the little-endian bit order, we address `bitvector[i]`, and in the other case, we just use `bitvector[N-i]`, where `N=9` as it is the size of the vector.
+If we watch closely, we confirm something we said before: these are bit-mirrored representations. That means that if I want to know if the validator i voted, in the little-endian bit order, we address `bitvector[i]`, and in the big-endian order, we just use `bitvector[N-i]`, where `N=9` as it's the size of the vector.
 
-This is the code that performs that:
+This is the code that performs this conversion:
 
 ```elixir
 def new(bitstring, size) when is_bitstring(bitstring) do
@@ -116,7 +139,7 @@ def new(bitstring, size) when is_bitstring(bitstring) do
 end
 ```
 
-It reads the input as a little-endian number, and then represents it as big-endian.
+It reads the input as a little-endian number, and then constructs a big-endian binary representation of it.
 
 Instead of using Elixir's bitstrings, a possible optimization (we'd need to benchmark it) would be to represent the array as the number 259 directly, and use bitwise operations to address bits or shift.
 
@@ -124,7 +147,7 @@ Instead of using Elixir's bitstrings, a possible optimization (we'd need to benc
 
 ### Sentinel bits
 
-In reality, there's not a fixed amount of validators, if someone deposits 32ETH in the deposit contract, a new validator will join the set. `bitlists` are used to represent boolean arrays of variable size like this one. Conceptually, they use the little-endian bit order too, but they use a strategy called `sentinel bit` to mark where it ends. Let's imagine, again, that we're representing the same set of 9 validators as before. We start with the following 9 bits:
+In reality, there isn't a fixed amount of validators. If someone deposits 32ETH in the deposit contract, a new validator will join the set. `bitlists` are used to represent boolean arrays of variable size like this one. Conceptually, they use the little-endian bit order too, but they use a strategy called `sentinel bit` to mark where it ends. Let's imagine, again, that we're representing the same set of 9 validators as before. We start with the following 9 bits:
 
 ```
 110000001
@@ -132,19 +155,19 @@ In reality, there's not a fixed amount of validators, if someone deposits 32ETH 
 
 To serialize this and send it over the network, we do the following:
 
-1. Add an extra bit = 1:
+1. Add an extra (sentinel) bit, equal to 1:
 
 ```
 1100000011
 ```
 
-2. Add padding to complete the full bytes:
+2. Add padding to complete the full byte:
 
 ```
 11000000 11000000
 ```
 
-3. Move to little-endian byte order (reverse bits within each byte):
+3. Transform to little-endian byte order (reverse bits within each byte):
 
 ```
 00000011 00000011
@@ -154,7 +177,7 @@ When deserializing, we'll look closely at the last byte, realize that there are 
 
 ### Edge case: already a multiple of 8
 
-We need to take into account that it might be the case that we already have a multiple of 8 as the number of booleans we're representing. For instance, let's suppose that we have 8 validators and only the first and the second one attested. In little-endian bit ordering, that is:
+It might be the case that we already have a multiple of 8 as the number of booleans we're representing. For instance, let's suppose that we have 8 validators and only the first and the second one attested. In little-endian bit order, that is:
 
 ```
 11000000
@@ -166,19 +189,19 @@ When adding the trailing bit and padding, it will look like this:
 11000000 10000000
 ```
 
-This means that the sentinel bit is, effectively, adding a new full byte. After reversing the bits:
+This means that the sentinel bit is, effectively, adding a new full byte. After serializing:
 
 ```
 00000011 00000001
 ```
 
-When parsing this, we still take care of the last byte, but we will realize that it's comprised of 7 trailing 0s and a sentinel bit, so we'll discard it fully. 
+When parsing this, we still pay attention to the last byte, but we will realize that it's comprised of 7 trailing 0s and a sentinel bit, so we'll discard it entirely.
 
-This also shows the importance of the sentinel bit: if it wasn't for it it wouldn't be obvious to the parser that `00000011` represented 8 elements: it could be a set of two validators where both voted.
+This also shows the importance of the sentinel bit: if it wasn't for it it wouldn't be obvious to the parser that `00000011` represents 8 elements: it could be a set of two validators where both voted (`11`).
 
 ### Internal representation
 
-For bitlists, in this client we do the same as with bitvectors, and for the same reasons: we represent them using big-endian. That is, the first thing we do is reverse the bytes, and then remove the first zeroes of the first byte. The code doing that is the following:
+For `bitlists`, in this client we do the same as with `bitvectors`, and for the same reasons: we represent them using big-endian. The code doing that is the following:
 
 ```elixir
 def new(bitstring) when is_bitstring(bitstring) do
@@ -208,7 +231,7 @@ defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 # have a sentinel bit.
 ```
 
-We see that we perform two things at the same time:
+We see that the code performs two things at the same time:
 
-1. We read as a little-endian and then represent it as big-endian.
-2. we remove the trailing bits of the last byte, which after reversing, is the first one.
+1. It parses the little-endian byte ordered binary and then represents it as big-endian.
+2. It removes the trailing bits and sentinel of the last byte, which after reversing, is the first one.
