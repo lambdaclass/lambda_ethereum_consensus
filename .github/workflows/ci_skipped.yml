@@ -16,34 +16,32 @@ jobs:
   compile-native:
     name: Build native libraries
     runs-on: ubuntu-22.04
+    if: false
+    steps: [run: true]
 
   build:
     name: Build project
     runs-on: ubuntu-22.04
-    steps:
-      - name: Skipped
-        run: echo "Skipped"
+    if: false
+    steps: [run: true]
 
   smoke:
     name: Start and stop the node
     runs-on: ubuntu-22.04
-    steps:
-      - name: Skipped
-        run: echo "Skipped"
+    if: false
+    steps: [run: true]
 
   test:
     name: Test
     runs-on: ubuntu-22.04
-    steps:
-      - name: Skipped
-        run: echo "Skipped"
+    if: false
+    steps: [run: true]
 
   lint:
     name: Lint
     runs-on: ubuntu-22.04
-    steps:
-        - name: Skipped
-          run: echo "Skipped"
+    if: false
+    steps: [run: true]
 
   spectests:
     name: Run spec-tests
@@ -51,6 +49,5 @@ jobs:
       matrix:
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-22.04
-    steps:
-        - name: Skipped
-          run: echo "Skipped"
+    if: false
+    steps: [run: true]
