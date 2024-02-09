@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [ '*' ]
     paths-ignore:
+      - '.github/**'
       - 'docs/**'
       - '.all-contributorsrc'
       - 'README.md'
