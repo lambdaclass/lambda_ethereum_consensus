@@ -1,0 +1,59 @@
+# Workaround to skip the "required" check when jobs are skipped
+name: '*CI Skipped*'
+
+on:
+  pull_request:
+    branches: [ '*' ]
+    paths:
+        - '.github/**'
+        - 'docs/**'
+        - '.all-contributorsrc'
+        - 'README.md'
+        - 'LICENSE'
+        - 'metrics/**'
+
+jobs:
+  compile-native:
+    name: Build native libraries
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Skipped
+        run: echo "Skipped"
+
+  build:
+    name: Build project
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Skipped
+        run: echo "Skipped"
+
+  smoke:
+    name: Start and stop the node
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Skipped
+        run: echo "Skipped"
+
+  test:
+    name: Test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Skipped
+        run: echo "Skipped"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    steps:
+        - name: Skipped
+          run: echo "Skipped"
+
+  spectests:
+    name: Run spec-tests
+    strategy:
+      matrix:
+        config: ["minimal", "general", "mainnet"]
+    runs-on: ubuntu-22.04
+    steps:
+        - name: Skipped
+          run: echo "Skipped"
