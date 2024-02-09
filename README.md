@@ -78,10 +78,10 @@ The iex terminal can be closed by pressing ctrl+c two times.
 ### Checkpoint Sync
 
 You can also sync from a checkpoint given by a trusted third-party.
-For that, get the URL that serves the checkpoint, and pass it to the node with the "--checkpoint-sync" flag:
+You can specify a URL to fetch it from with the "--checkpoint-sync-url" flag:
 
 ```shell
-iex -S mix run -- --checkpoint-sync <your_url_here>
+iex -S mix run -- --checkpoint-sync-url <your_url_here>
 ```
 
 Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/).
