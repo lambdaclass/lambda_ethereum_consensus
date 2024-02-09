@@ -32,6 +32,7 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync_url: checkpoint_sync_url
 
 configs_per_network = %{
+  "gnosis" => GnosisConfig,
   "minimal" => MinimalConfig,
   "mainnet" => MainnetConfig,
   "sepolia" => SepoliaConfig
@@ -49,6 +50,7 @@ mode =
   end
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus, mode: mode
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: "level_db/#{network}"
 
 mock_execution = Keyword.get(args, :mock_execution, mode == :db or is_nil(jwt_path))
 
@@ -81,6 +83,7 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
 # TODO: we should set this dynamically
 block_time_ms =
   case network do
+    "gnosis" -> 6000
     "mainnet" -> 12_000
     "sepolia" -> 100
   end
