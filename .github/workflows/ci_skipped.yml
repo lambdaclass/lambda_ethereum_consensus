@@ -43,11 +43,11 @@ jobs:
     if: false
     steps: [run: true]
 
+  # NOTE: matrix jobs aren't expanded if skipped
   spectests:
     name: Run spec-tests
     strategy:
       matrix:
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-22.04
-    if: false
     steps: [run: true]
