@@ -48,7 +48,7 @@ However, this representation has a problem: each boolean takes one full byte. Fo
 11000000 10000000
 ```
 
-So this way we reduce the amount of bytes needed by a factor of 8. In this case we completed the second byte because if we send this over the network we always need to send full bytes, but this effect is diluted when dealing with thousands of bytes.
+This way we reduce the amount of bytes needed by a factor of 8. In this case, we completed the second byte because if we send this over the network we always need to send full bytes, but this effect is diluted when dealing with thousands of bytes.
 
 If we wanted to represent a number with this, as we're addressing by bits instead of bytes, we'd say that the least significant bit is the one with the lowest index, thus why this is called little-endian-*bit*-order. That is, in general:
 
