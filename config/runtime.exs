@@ -88,36 +88,36 @@ block_time_ms =
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
   block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms))
 
-log_file = Keyword.get(args, :log_file)
+case Keyword.get(args, :log_file) do
+  nil ->
+    # Use custom formatter for prettier logs
+    config :logger, :default_formatter, format: {ConsoleLogger, :format}, metadata: [:slot, :root]
 
-if is_nil(log_file) do
-  # Use custom formatter for prettier logs
-  config :logger, :default_formatter, format: {ConsoleLogger, :format}, metadata: [:slot, :root]
-else
-  # Log to file
-  file = Path.expand(log_file)
-  file |> Path.dirname() |> File.mkdir_p!()
+  log_file ->
+    # Log to file
+    file = Path.expand(log_file)
+    file |> Path.dirname() |> File.mkdir_p!()
 
-  config :logger, :default_handler,
-    config: [
-      file: to_charlist(file),
-      filesync_repeat_interval: 5000,
-      file_check: 5000,
-      max_no_bytes: 10_000_000,
-      max_no_files: 5,
-      compress_on_rotate: true
-    ]
+    config :logger, :default_handler,
+      config: [
+        file: to_charlist(file),
+        filesync_repeat_interval: 5000,
+        file_check: 5000,
+        max_no_bytes: 10_000_000,
+        max_no_files: 5,
+        compress_on_rotate: true
+      ]
 
-  # NOTE: We want to log UTC timestamps, for convenience
-  config :logger, utc_log: true
+    # NOTE: We want to log UTC timestamps, for convenience
+    config :logger, utc_log: true
 
-  config :logger, :default_formatter,
-    format: {LogfmtEx, :format},
-    colors: [enabled: false],
-    metadata: [:mfa]
+    config :logger, :default_formatter,
+      format: {LogfmtEx, :format},
+      colors: [enabled: false],
+      metadata: [:mfa]
 
-  config :logfmt_ex, :opts,
-    message_key: "msg",
-    timestamp_key: "ts",
-    timestamp_format: :iso8601
+    config :logfmt_ex, :opts,
+      message_key: "msg",
+      timestamp_key: "ts",
+      timestamp_format: :iso8601
 end
