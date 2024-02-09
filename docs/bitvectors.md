@@ -24,7 +24,7 @@ We can also think about this number as the byte array `be = [1, 3]`. Here, the l
 
 ### Little-endian byte order
 
-In this representation, we reverse the bytes around. 259 is represented like follows:
+In this representation, we reverse the bytes around. 259 is represented as follows:
 
 ```
 00000011 00000001
