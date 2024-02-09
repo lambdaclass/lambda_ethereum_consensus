@@ -299,7 +299,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def chunk_count({identifier, size}) when identifier in [:bitlist, :bitvector] do
-    (size + 255) |> div(@bits_per_chunk)
+    (size + @bits_per_chunk - 1) |> div(@bits_per_chunk)
   end
 
   #################
