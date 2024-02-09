@@ -30,7 +30,7 @@ In this representation, we reverse the bytes around. 259 is represented as follo
 00000011 00000001
 ```
 
-In this representation, thinking of it as a byte array, we get `le = [3, 1]`. The lowest index, `le[0] = 3` means the lowest significant byte, and the highest index, `le[1] = 1` is the most significant byte. So while little endian is less readable, it is frequently used to represent integers as binaries because of this property.
+Representing it as a byte array, we get `le = [3, 1]`. The lowest index, `le[0] = 3` means the lowest significant byte, and the highest index, `le[1] = 1` is the most significant byte. So, while little-endian is less readable, it is frequently used to represent integers as binaries because of this property.
 
 ## Bit vectors
 
