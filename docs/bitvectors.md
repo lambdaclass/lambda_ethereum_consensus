@@ -210,5 +210,5 @@ defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 
 We see that we perform two things at the same time:
 
-1. We read as a little endian and then represent it as big endian.
+1. We read as a little-endian and then represent it as big-endian.
 2. we remove the trailing bits of the last byte, which after reversing, is the first one.
