@@ -101,9 +101,9 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def hash_tree_root(value, {type, _size} = schema) when type in [:bitlist, :bitvector] do
-    chunks = value |> pack_bits(schema)
-    limit = schema |> chunk_count()
-    root = chunks |> merkleize_chunks_with_virtual_padding(limit)
+    chunks = value |> pack_bits(type)
+    leaf_count = chunk_count(schema) |> next_pow_of_two()
+    root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
     {:ok, root}
   end
 
@@ -244,8 +244,6 @@ defmodule LambdaEthereumConsensus.SszEx do
         chunks
 
       true ->
-        power = leaf_count |> compute_pow()
-        height = power + 1
         layers = chunks
         last_index = chunks_len - 1
 
@@ -286,11 +284,8 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> pack_bytes()
   end
 
-  def pack_bits(value, {type, _size} = schema) when type in [:bitlist, :bitvector] do
-    case encode(value, schema) do
-      {:ok, bytes} -> bytes |> pack_bytes()
-      {:error, reason} -> {:error, reason}
-    end
+  def pack_bits(value, :bitvector) do
+    BitVector.to_bytes(value) |> pack_bytes()
   end
 
   def chunk_count({:list, type, max_size}) do
@@ -303,7 +298,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def chunk_count({identifier, size}) when identifier in [:bitlist, :bitvector] do
-    (size + 255) |> div(255)
+    (size + 255) |> div(@bits_per_chunk)
   end
 
   #################
