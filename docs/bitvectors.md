@@ -16,9 +16,9 @@ That means that we'll have the bits representing the power of 0, the power of 1 
 0000001 00000011
 ```
 
-Similar to our decimal system of representation, the symbols to the left represent the most significant values, and the ones to the left, the least significant ones.
+Similar to our decimal system of representation, the symbols to the left represent the most significant values, and the ones to the right, the least significant ones.
 
-Note that this we need two bytes to represent it. This is most CPUs can address bytes, but not bits. That is, when we refer to an address in memory, we refer to the whole byte, and the next address corresponds to the next byte.
+Note that we need two bytes to represent this number. Most CPUs can address bytes, but not individual bits. That is, when we refer to an address in memory, we refer to the whole byte, and the next address corresponds to the next byte.
 
 We can also think about this number as the byte array `be = [1, 3]`. Here, the least significant byte is the one with the highest index `be[1] = 3` and the most significant byte is the one with the lowest index `be[0] = 1`.
 
@@ -42,7 +42,7 @@ Why would we need a third representation? Let's first pose the problem. We want 
 [true, true, false, false, false, false, false, false, true]
 ```
 
-However, this representation has a problem: each boolean takes one full byte. For a million validators, which is the order of magnitude of the validator set in mainnet, that would take around 1MB, just for to track attestations on a single slot. We may benefit from the fact that a boolean and a bit both have two states and represent this as a binary instead:
+However, this representation has a problem: each boolean takes one full byte. For a million validators, which is in the order of magnitude of the validator set of mainnet, that mean a total attestation size of 64KB per block, which is half their size. We can instead use the fact that a boolean and a bit both have two states and represent this as a binary instead:
 
 ```
 11000000 10000000
@@ -82,13 +82,13 @@ Adding padding:
 11000000 10000000
 ```
 
-Moving it to little endian byte order (we go byte by byte and reverse the bits):
+Moving it to little-endian byte order (we go byte by byte and reverse the bits):
 
 ```
 00000011 00000001
 ```
 
-Which is what I'll send over the network. This is what SSZ calls `bitvectors`, which is a binary representing an array of booleans of constant size. We know that this array is of size 9 beforehand, so we know what bits are padding and should be ignored. For variable sized bit arrays we'll use `bitlists`, which we'll talk about later.
+Which is what SSZ calls `bitvectors`, and what nodes send over the network: a binary representing an array of booleans of constant size. We know that this array is of size 9 beforehand, so we know what bits are padding and should be ignored. For variable-sized bit arrays we'll use `bitlists`, which we'll talk about later.
 
 ### Internal representation
 
@@ -103,9 +103,7 @@ If we are still representing the number 259 (validators with index 0, 1 and 8 at
 100000011 -> big-endian
 ```
 
-If we watch closely, we confirm something we said before: this are bit-mirrored representations. That means that if I want to know if the validator 0 voted, in the little-endian bit order we address `bitvector[i]`, and in the other case, we just use `bitvector[N-i]`, where `N=9` as it is the size of the vector.
-
-A possible optimization (we'd need to benchmark it) would be to represent the array as the number 259 directly, and use bitwise operations to address bits or shift.
+If we watch closely, we confirm something we said before: these are bit-mirrored representations. That means that if I want to know if the validator 0 voted, in the little-endian bit order, we address `bitvector[i]`, and in the other case, we just use `bitvector[N-i]`, where `N=9` as it is the size of the vector.
 
 This is the code that performs that:
 
@@ -120,6 +118,8 @@ end
 
 It reads the input as a little-endian number, and then represents it as big-endian.
 
+Instead of using Elixir's bitstrings, a possible optimization (we'd need to benchmark it) would be to represent the array as the number 259 directly, and use bitwise operations to address bits or shift.
+
 ## Bitlists
 
 ### Sentinel bits
@@ -130,7 +130,7 @@ In reality, there's not a fixed amount of validators, if someone deposits 32ETH 
 110000001
 ```
 
-To serialize this and send it over the network, I do the following:
+To serialize this and send it over the network, we do the following:
 
 1. Add an extra bit = 1:
 
@@ -138,7 +138,7 @@ To serialize this and send it over the network, I do the following:
 1100000011
 ```
 
-2. Add padding to complete the full bytes
+2. Add padding to complete the full bytes:
 
 ```
 11000000 11000000
@@ -150,7 +150,7 @@ To serialize this and send it over the network, I do the following:
 00000011 00000011
 ```
 
-When deserializing, we'll look closely at the last byte, and realize that there's 6 trailing 0s (padding), and discard those and the 7th bit (the sentinel 1).
+When deserializing, we'll look closely at the last byte, realize that there are 6 trailing 0s (padding), and discard those along with the 7th bit (the sentinel 1).
 
 ### Edge case: already a multiple of 8
 
