@@ -5,8 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ '*' ]
+    # NOTE: these paths should be the same as the ones in ci_skipped.yml
     paths-ignore:
-      - '.github/**'
       - 'docs/**'
       - '.all-contributorsrc'
       - 'README.md'
