@@ -64,7 +64,7 @@ The way SSZ represents bit vectors is as follows:
 2. Padding is added so we have full bytes.
 3. When serializing, we convert from little-endian bit ordering to little-endian byte ordering.
 
-So if we want to represent the following array:
+So, if we want to represent that the validators with indices 0, 1, and 8 attested, we can use the following array:
 
 ```
 [true, true, false, false, false, false, false, false, true]
