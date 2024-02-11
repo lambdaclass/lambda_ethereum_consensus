@@ -19,7 +19,7 @@ defmodule BeaconApi.V1.BeaconController do
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_state_root(conn, %{state_id: state_id}) do
-    case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.state_root_by_id() do
+    case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.state_root_by_state_id() do
       {:ok, {root, execution_optimistic, finalized}} ->
         conn |> root_response(root, execution_optimistic, finalized)
 
@@ -87,9 +87,12 @@ defmodule BeaconApi.V1.BeaconController do
     end
   end
 
+  def get_finality_checkpoints_operation,
+    do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/finality_checkpoints"].get
+
   @spec get_finality_checkpoints(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_finality_checkpoints(conn, %{state_id: state_id}) do
-    case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.finality_checkpoins_by_id() do
+    case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.finality_checkpoint_by_id() do
       {:ok,
        {previous_justified_checkpoint, current_justified_checkpoint, finalized_checkpoint,
         execution_optimistic, finalized}} ->
@@ -102,20 +105,17 @@ defmodule BeaconApi.V1.BeaconController do
           finalized
         )
 
-      err ->
-        case err do
-          {:error, error_msg} ->
-            conn |> ErrorController.internal_error("Error: #{inspect(error_msg)}")
+      {:error, error_msg} ->
+        conn |> ErrorController.internal_error("Error: #{inspect(error_msg)}")
 
-          :not_found ->
-            conn |> ErrorController.not_found(nil)
+      :not_found ->
+        conn |> ErrorController.not_found(nil)
 
-          :empty_slot ->
-            conn |> ErrorController.not_found(nil)
+      :empty_slot ->
+        conn |> ErrorController.not_found(nil)
 
-          :invalid_id ->
-            conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
-        end
+      :invalid_id ->
+        conn |> ErrorController.bad_request("Invalid state ID: #{state_id}")
     end
   end
 
