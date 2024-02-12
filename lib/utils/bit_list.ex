@@ -17,10 +17,14 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
     num_bits = bit_size(bitstring)
     len = length_of_bitlist(bitstring)
 
-    <<pre::integer-little-size(num_bits - @bits_per_byte), last_byte::integer-little-size(@bits_per_byte)>> =
+    <<pre::integer-little-size(num_bits - @bits_per_byte),
+      last_byte::integer-little-size(@bits_per_byte)>> =
       bitstring
 
-    decoded = <<remove_trailing_bit(<<last_byte>>)::bitstring, pre::integer-size(num_bits - @bits_per_byte)>>
+    decoded =
+      <<remove_trailing_bit(<<last_byte>>)::bitstring,
+        pre::integer-size(num_bits - @bits_per_byte)>>
+
     {decoded, len}
   end
 
@@ -74,12 +78,25 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
 
   @spec remove_trailing_bit(binary()) :: bitstring()
   defp remove_trailing_bit(<<@sentinel_bit::@bits_in_sentinel_bit, rest::7>>), do: <<rest::7>>
-  defp remove_trailing_bit(<<0::1, @sentinel_bit::@bits_in_sentinel_bit, rest::6>>), do: <<rest::6>>
-  defp remove_trailing_bit(<<0::2, @sentinel_bit::@bits_in_sentinel_bit, rest::5>>), do: <<rest::5>>
-  defp remove_trailing_bit(<<0::3, @sentinel_bit::@bits_in_sentinel_bit, rest::4>>), do: <<rest::4>>
-  defp remove_trailing_bit(<<0::4, @sentinel_bit::@bits_in_sentinel_bit, rest::3>>), do: <<rest::3>>
-  defp remove_trailing_bit(<<0::5, @sentinel_bit::@bits_in_sentinel_bit, rest::2>>), do: <<rest::2>>
-  defp remove_trailing_bit(<<0::6, @sentinel_bit::@bits_in_sentinel_bit, rest::1>>), do: <<rest::1>>
+
+  defp remove_trailing_bit(<<0::1, @sentinel_bit::@bits_in_sentinel_bit, rest::6>>),
+    do: <<rest::6>>
+
+  defp remove_trailing_bit(<<0::2, @sentinel_bit::@bits_in_sentinel_bit, rest::5>>),
+    do: <<rest::5>>
+
+  defp remove_trailing_bit(<<0::3, @sentinel_bit::@bits_in_sentinel_bit, rest::4>>),
+    do: <<rest::4>>
+
+  defp remove_trailing_bit(<<0::4, @sentinel_bit::@bits_in_sentinel_bit, rest::3>>),
+    do: <<rest::3>>
+
+  defp remove_trailing_bit(<<0::5, @sentinel_bit::@bits_in_sentinel_bit, rest::2>>),
+    do: <<rest::2>>
+
+  defp remove_trailing_bit(<<0::6, @sentinel_bit::@bits_in_sentinel_bit, rest::1>>),
+    do: <<rest::1>>
+
   defp remove_trailing_bit(<<0::7, @sentinel_bit::@bits_in_sentinel_bit>>), do: <<0::0>>
   defp remove_trailing_bit(<<0::8>>), do: <<0::0>>
 end

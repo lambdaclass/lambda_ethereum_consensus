@@ -113,6 +113,7 @@ defmodule LambdaEthereumConsensus.SszEx do
       else
         root
       end
+
     {:ok, root}
   end
 
