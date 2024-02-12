@@ -102,14 +102,15 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   @spec hash_tree_root(binary, {:bitlist | :bitvector, non_neg_integer}) :: {:ok, Types.root()}
-  def hash_tree_root(value, {type, size} = schema) when type in [:bitlist, :bitvector] do
-    chunks = value |> pack_bits(schema)
+  def hash_tree_root(value, {type, _size} = schema) when type in [:bitlist, :bitvector] do
+    chunks = value |> pack_bits(type)
     leaf_count = chunk_count(schema) |> next_pow_of_two()
     root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
 
     root =
       if type == :bitlist do
-        root |> mix_in_length(size)
+        len = value |> bit_size()
+        root |> mix_in_length(len)
       else
         root
       end
@@ -294,12 +295,13 @@ defmodule LambdaEthereumConsensus.SszEx do
     |> pack_bytes()
   end
 
-  def pack_bits(value, {:bitvector, _size}) do
+  def pack_bits(value, :bitvector) do
     BitVector.to_bytes(value) |> pack_bytes()
   end
 
-  def pack_bits(value, {:bitlist, size}) do
-    BitList.to_bytes({value, size}) |> pack_bytes()
+  def pack_bits(value, :bitlist) do
+    len = value |> bit_size()
+    {value, len} |> BitList.to_packed_bytes() |> pack_bytes()
   end
 
   def chunk_count({:list, type, max_size}) do

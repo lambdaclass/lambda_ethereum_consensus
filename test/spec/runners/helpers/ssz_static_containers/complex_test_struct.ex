@@ -23,7 +23,7 @@ defmodule Helpers.SszStaticContainers.ComplexTestStruct do
           A: Types.uint16(),
           B: list(Types.uint16()),
           C: Types.uint8(),
-          D: Types.bitlist(),
+          D: list(Types.uint8()),
           E: VarTestStruct,
           F: list(FixedTestStruct),
           G: list(VarTestStruct)

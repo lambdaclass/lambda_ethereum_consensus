@@ -39,6 +39,17 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
       pre::integer-little-size(r)>>
   end
 
+  @spec to_packed_bytes(t) :: bitstring
+  def to_packed_bytes({bit_list, len}) do
+    # Change the byte order from big endian to little endian (reverse bytes).
+    r = rem(len, @bits_per_byte)
+
+    <<pre::integer-size(r), post::integer-size(len - r)>> = bit_list
+
+    <<post::integer-little-size(len - r), 0::integer-little-size(@bits_per_byte - r),
+      pre::integer-little-size(r)>>
+  end
+
   @doc """
   True if a single bit is set to 1.
   Equivalent to bit_list[index] == 1.

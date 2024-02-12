@@ -22,7 +22,7 @@ defmodule SszGenericTestRunner do
     # "SmallTestStruct",
     # "FixedTestStruct",
     # "VarTestStruct",
-    # "ComplexTestStruct",
+    "ComplexTestStruct"
     # "BitsStruct"
   ]
 
@@ -51,7 +51,7 @@ defmodule SszGenericTestRunner do
   defp handle_case("valid", schema, real_serialized, testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    expected_value =
+    real_deserialized =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
       |> sanitize(schema)
@@ -60,7 +60,7 @@ defmodule SszGenericTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/meta.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    assert_ssz_valid(schema, real_serialized, expected_value, expected_root)
+    assert_ssz_valid(schema, real_serialized, real_deserialized, expected_root)
   end
 
   defp handle_case("invalid", schema, real_serialized, _testcase) do
@@ -74,22 +74,8 @@ defmodule SszGenericTestRunner do
     {:ok, serialized} = SszEx.encode(real_deserialized, schema)
 
     assert serialized == real_serialized
-
-    ## TODO: To be removed when hash_tree_root for bitlist and bitvector is implemented
-    case schema do
-      {:bitlist, _} ->
-        ## TODO
-        actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
-        assert actual_hash_tree_root == expected_hash_tree_root
-
-      module when is_atom(module) ->
-        ## TODO
-        nil
-
-      _ ->
-        actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
-        assert actual_hash_tree_root == expected_hash_tree_root
-    end
+    actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
+    assert actual_hash_tree_root == expected_hash_tree_root
   end
 
   defp assert_ssz_invalid(schema, real_serialized) do
