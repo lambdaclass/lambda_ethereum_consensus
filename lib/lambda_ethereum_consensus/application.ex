@@ -49,7 +49,7 @@ defmodule LambdaEthereumConsensus.Application do
 
   def checkpoint_sync_url do
     Application.fetch_env!(:lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice)
-    |> Keyword.fetch!(:checkpoint_sync)
+    |> Keyword.fetch!(:checkpoint_sync_url)
   end
 
   defp get_operation_mode do

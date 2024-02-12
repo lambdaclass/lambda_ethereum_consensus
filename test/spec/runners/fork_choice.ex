@@ -151,12 +151,18 @@ defmodule ForkChoiceTestRunner do
 
     assert Ssz.hash_tree_root!(block) == Base.decode16!(hash, case: :mixed)
 
-    with {:ok, new_store} <- Handlers.on_block(store, block) do
-      block.message.body.attestations
-      |> Enum.reduce_while({:ok, new_store}, fn
-        x, {:ok, st} -> {:cont, Handlers.on_attestation(st, x, true)}
-        _, {:error, _} = err -> {:halt, err}
-      end)
+    with {:ok, new_store} <- Handlers.on_block(store, block),
+         {:ok, new_store} <-
+           block.message.body.attestations
+           |> Enum.reduce_while({:ok, new_store}, fn
+             x, {:ok, st} -> {:cont, Handlers.on_attestation(st, x, true)}
+             _, {:error, _} = err -> {:halt, err}
+           end) do
+      {:ok, head_root} = Helpers.get_head(new_store)
+      head_block = Blocks.get_block!(head_root)
+
+      {:ok, _} = Handlers.notify_forkchoice_update(new_store, head_block)
+      {:ok, new_store}
     end
   end
 
@@ -180,6 +186,28 @@ defmodule ForkChoiceTestRunner do
 
     assert Ssz.hash_tree_root!(attester_slashing) == Base.decode16!(hash, case: :mixed)
     Handlers.on_attester_slashing(store, attester_slashing)
+  end
+
+  defp apply_step(_case_dir, store, %{block_hash: block_hash, payload_status: payload_status}) do
+    # Convert keys to strings
+    normalized_payload_status =
+      Enum.reduce(payload_status, %{}, fn {k, v}, acc ->
+        Map.put(acc, Atom.to_string(k), v)
+      end)
+
+    :ok =
+      SyncTestRunner.EngineApiMock.add_new_payload_response(
+        block_hash,
+        normalized_payload_status
+      )
+
+    :ok =
+      SyncTestRunner.EngineApiMock.add_forkchoice_updated_response(
+        block_hash,
+        normalized_payload_status
+      )
+
+    {:ok, store}
   end
 
   defp apply_step(_case_dir, store, %{checks: checks}) do
