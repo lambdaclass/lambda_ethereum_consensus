@@ -88,8 +88,8 @@ func DuplicateMessageNotification(topic string) proto_defs.Notification {
 	return proto_defs.Notification{N: &proto_defs.Notification_Tracer{Tracer: tracer}}
 }
 
-func GossipNotification(topic string, handler, msgId, message []byte) proto_defs.Notification {
-	gossipSubNotification := &proto_defs.GossipSub{Topic: []byte(topic), Handler: handler, MsgId: msgId, Message: message}
+func GossipNotification(topic string, msgId, message []byte) proto_defs.Notification {
+	gossipSubNotification := &proto_defs.GossipSub{Topic: []byte(topic), MsgId: msgId, Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Gossip{Gossip: gossipSubNotification}}
 }
 
@@ -98,23 +98,23 @@ func NewPeerNotification(id []byte) proto_defs.Notification {
 	return proto_defs.Notification{N: &proto_defs.Notification_NewPeer{NewPeer: newPeerNotification}}
 }
 
-func RequestNotification(protocolId string, handler []byte, requestId string, message []byte) proto_defs.Notification {
-	requestNotification := &proto_defs.Request{ProtocolId: []byte(protocolId), Handler: handler, RequestId: []byte(requestId), Message: message}
+func RequestNotification(protocolId string, requestId string, message []byte) proto_defs.Notification {
+	requestNotification := &proto_defs.Request{ProtocolId: []byte(protocolId), RequestId: []byte(requestId), Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Request{Request: requestNotification}}
 }
 
-func ResultNotification(from []byte, result []byte, err error) *proto_defs.Notification {
+func ResultNotification(result []byte, err error) *proto_defs.Notification {
 	var responseNotification *proto_defs.Result
 	if err != nil {
 		resultError := &proto_defs.Result_Error{Error: &proto_defs.ResultMessage{Message: [][]byte{[]byte(err.Error())}}}
-		responseNotification = &proto_defs.Result{From: from, Result: resultError}
+		responseNotification = &proto_defs.Result{Result: resultError}
 	} else {
 		message := [][]byte{}
 		if result != nil {
 			message = [][]byte{result}
 		}
 		resultOk := &proto_defs.Result_Ok{Ok: &proto_defs.ResultMessage{Message: message}}
-		responseNotification = &proto_defs.Result{From: from, Result: resultOk}
+		responseNotification = &proto_defs.Result{Result: resultOk}
 	}
 	return &proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
 }

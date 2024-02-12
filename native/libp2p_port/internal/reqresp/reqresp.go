@@ -73,13 +73,13 @@ func (l *Listener) AddPeerWithAddrInfo(addrInfo peer.AddrInfo, ttl int64) {
 	l.port.SendNotification(&notification)
 }
 
-func (l *Listener) SendRequest(from, peerId []byte, protocolId string, message []byte) {
-	go sendAsyncRequest(l.hostHandle, *l.port, from, peer.ID(peerId), protocol.ID(protocolId), message)
+func (l *Listener) SendRequest(peerId []byte, protocolId string, message []byte) {
+	go sendAsyncRequest(l.hostHandle, *l.port, peer.ID(peerId), protocol.ID(protocolId), message)
 }
 
-func sendAsyncRequest(h host.Host, p port.Port, from []byte, peerId peer.ID, protocolId protocol.ID, message []byte) {
+func sendAsyncRequest(h host.Host, p port.Port, peerId peer.ID, protocolId protocol.ID, message []byte) {
 	response, err := sendRequest(h, peerId, protocolId, message)
-	result := proto_helpers.ResultNotification([]byte(from), response, err)
+	result := proto_helpers.ResultNotification(response, err)
 	p.SendNotification(result)
 }
 
@@ -109,7 +109,7 @@ func (l *Listener) SendResponse(requestId string, message []byte) {
 	value.(responseChannel) <- message
 }
 
-func (l *Listener) SetHandler(protocolId string, handler []byte) {
+func (l *Listener) SetHandler(protocolId string) {
 	l.hostHandle.SetStreamHandler(protocol.ID(protocolId), func(stream network.Stream) {
 		defer stream.Close()
 		id := string(stream.Protocol())
@@ -121,7 +121,7 @@ func (l *Listener) SetHandler(protocolId string, handler []byte) {
 		requestId := stream.ID()
 		responseChan := make(chan []byte)
 		l.pendingMessages.Store(requestId, responseChan)
-		notification := proto_helpers.RequestNotification(id, handler, requestId, request)
+		notification := proto_helpers.RequestNotification(id, requestId, request)
 		l.port.SendNotification(&notification)
 		response := <-responseChan
 		_, err = stream.Write(response)

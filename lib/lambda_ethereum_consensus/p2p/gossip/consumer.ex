@@ -7,6 +7,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Consumer do
 
   def start_link(%{topic: topic_name, ssz_type: _, handler: _} = opts)
       when is_binary(topic_name) do
+    LambdaEthereumConsensus.Libp2pPort.add_consumer(%{topic: topic_name, pid: self()})
+
     Broadway.start_link(__MODULE__,
       name: get_id(topic_name),
       context: opts,

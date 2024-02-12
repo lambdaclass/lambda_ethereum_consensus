@@ -15,19 +15,19 @@ import (
 func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber) *proto_defs.Notification {
 	switch c := command.C.(type) {
 	case *proto_defs.Command_GetId:
-		return proto_helpers.ResultNotification(command.From, []byte(listener.HostId()), nil)
+		return proto_helpers.ResultNotification([]byte(listener.HostId()), nil)
 	case *proto_defs.Command_AddPeer:
 		listener.AddPeer(c.AddPeer.Id, c.AddPeer.Addrs, c.AddPeer.Ttl)
 	case *proto_defs.Command_SendRequest:
-		listener.SendRequest(command.From, c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
+		listener.SendRequest(c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
 		return nil // No response
 	case *proto_defs.Command_SendResponse:
 		listener.SendResponse(c.SendResponse.RequestId, c.SendResponse.Message)
 	case *proto_defs.Command_SetHandler:
-		listener.SetHandler(c.SetHandler.ProtocolId, command.From)
+		listener.SetHandler(c.SetHandler.ProtocolId)
 	case *proto_defs.Command_Subscribe:
-		err := subscriber.Subscribe(c.Subscribe.Name, command.From)
-		return proto_helpers.ResultNotification(command.From, nil, err)
+		err := subscriber.Subscribe(c.Subscribe.Name)
+		return proto_helpers.ResultNotification(nil, err)
 	case *proto_defs.Command_Unsubscribe:
 		subscriber.Unsubscribe(c.Unsubscribe.Name)
 	case *proto_defs.Command_ValidateMessage:
@@ -35,10 +35,10 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	case *proto_defs.Command_Publish:
 		subscriber.Publish(c.Publish.Topic, c.Publish.Message)
 	default:
-		return proto_helpers.ResultNotification(command.From, nil, errors.New("invalid command"))
+		return proto_helpers.ResultNotification(nil, errors.New("invalid command"))
 	}
 	// Default, OK empty response
-	return proto_helpers.ResultNotification(command.From, nil, nil)
+	return proto_helpers.ResultNotification(nil, nil)
 }
 
 func commandServer() {

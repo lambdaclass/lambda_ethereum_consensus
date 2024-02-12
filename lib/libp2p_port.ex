@@ -41,7 +41,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     enable_discovery: false,
     discovery_addr: "",
     bootnodes: [],
-    fork_digest: <<>>
+    fork_digest: <<>>,
+    consumers: %{}
   ]
 
   @type init_arg ::
@@ -80,10 +81,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Gets the unique ID of the LibP2P node. This ID is used by peers to
   identify and connect to it.
   """
-  @spec get_id(GenServer.server()) :: binary()
-  def get_id(pid \\ __MODULE__) do
+  @spec get_id() :: binary()
+  def get_id do
     :telemetry.execute([:port, :message], %{}, %{function: "get_id", direction: "elixir->"})
-    {:ok, id} = call_command(pid, {:get_id, %GetId{}})
+    {:ok, id} = call_command({:get_id, %GetId{}})
     id
   end
 
@@ -92,34 +93,34 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   peer requests are sent to the current process' mailbox. To handle them,
   use `handle_request/0`.
   """
-  @spec set_handler(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
-  def set_handler(pid \\ __MODULE__, protocol_id) do
+  @spec set_handler(String.t()) :: :ok | {:error, String.t()}
+  def set_handler(protocol_id) do
     :telemetry.execute([:port, :message], %{}, %{function: "set_handler", direction: "elixir->"})
-    call_command(pid, {:set_handler, %SetHandler{protocol_id: protocol_id}})
+    call_command({:set_handler, %SetHandler{protocol_id: protocol_id}})
   end
 
   @doc """
   Adds a LibP2P peer with the given ID and registers the given addresses.
   After TTL nanoseconds, the addresses are removed.
   """
-  @spec add_peer(GenServer.server(), binary(), [String.t()], integer()) ::
+  @spec add_peer(binary(), [String.t()], integer()) ::
           :ok | {:error, String.t()}
-  def add_peer(pid \\ __MODULE__, id, addrs, ttl) do
+  def add_peer(id, addrs, ttl) do
     :telemetry.execute([:port, :message], %{}, %{function: "add_peer", direction: "elixir->"})
     c = %AddPeer{id: id, addrs: addrs, ttl: ttl}
-    call_command(pid, {:add_peer, c})
+    call_command({:add_peer, c})
   end
 
   @doc """
   Sends a request and receives a response. The request is sent
   to the given peer and protocol.
   """
-  @spec send_request(GenServer.server(), binary(), String.t(), binary()) ::
+  @spec send_request(binary(), String.t(), binary()) ::
           {:ok, binary()} | {:error, String.t()}
-  def send_request(pid \\ __MODULE__, peer_id, protocol_id, message) do
+  def send_request(peer_id, protocol_id, message) do
     :telemetry.execute([:port, :message], %{}, %{function: "send_request", direction: "elixir->"})
     c = %SendRequest{id: peer_id, protocol_id: protocol_id, message: message}
-    call_command(pid, {:send_request, c})
+    call_command({:send_request, c})
   end
 
   @doc """
@@ -136,27 +137,27 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @doc """
   Sends a response for the request with the given message ID.
   """
-  @spec send_response(GenServer.server(), String.t(), binary()) ::
+  @spec send_response(String.t(), binary()) ::
           :ok | {:error, String.t()}
-  def send_response(pid \\ __MODULE__, request_id, response) do
+  def send_response(request_id, response) do
     :telemetry.execute([:port, :message], %{}, %{function: "send_response", direction: "elixir->"})
 
     c = %SendResponse{request_id: request_id, message: response}
-    call_command(pid, {:send_response, c})
+    call_command({:send_response, c})
   end
 
   @doc """
   Subscribes to the given topic. After this, messages published to the topic
   will be received by `self()`.
   """
-  @spec subscribe_to_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
-  def subscribe_to_topic(pid \\ __MODULE__, topic_name) do
+  @spec subscribe_to_topic(String.t()) :: :ok | {:error, String.t()}
+  def subscribe_to_topic(topic_name) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "subscribe_to_topic",
       direction: "elixir->"
     })
 
-    call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
+    call_command({:subscribe, %SubscribeToTopic{name: topic_name}})
   end
 
   @doc """
@@ -173,23 +174,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @doc """
   Publishes a message in the given topic.
   """
-  @spec publish(GenServer.server(), String.t(), binary()) :: :ok | {:error, String.t()}
-  def publish(pid \\ __MODULE__, topic_name, message) do
+  @spec publish(String.t(), binary()) :: :ok | {:error, String.t()}
+  def publish(topic_name, message) do
     :telemetry.execute([:port, :message], %{}, %{function: "publish", direction: "elixir->"})
-    call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
+    call_command({:publish, %Publish{topic: topic_name, message: message}})
   end
 
   @doc """
   Unsubscribes from the given topic.
   """
-  @spec unsubscribe_from_topic(GenServer.server(), String.t()) :: :ok
-  def unsubscribe_from_topic(pid \\ __MODULE__, topic_name) do
+  @spec unsubscribe_from_topic(String.t()) :: :ok
+  def unsubscribe_from_topic(topic_name) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "unsubscribe_from_topic",
       direction: "elixir->"
     })
 
-    cast_command(pid, {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}})
+    cast_command({:unsubscribe, %UnsubscribeFromTopic{name: topic_name}})
   end
 
   @doc """
@@ -206,20 +207,29 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.cast(pid, {:set_new_peer_handler, handler})
   end
 
+  @type consumer :: %{topic_name: String.t(), pid: pid()}
+  @doc """
+  Adds a new consumer -> pid to consumers map
+  """
+  @spec add_consumer(consumer()) :: :ok
+  def add_consumer(consumer) do
+    GenServer.cast(__MODULE__, {:add_consumer, consumer})
+  end
+
   @doc """
   Marks the message with a validation result. The result can be `:accept`, `:reject` or `:ignore`:
     * `:accept` - the message is valid and should be propagated.
     * `:reject` - the message is invalid, mustn't be propagated, and its sender should be penalized.
     * `:ignore` - the message is invalid, mustn't be propagated, but its sender shouldn't be penalized.
   """
-  @spec validate_message(GenServer.server(), binary(), :accept | :reject | :ignore) :: :ok
-  def validate_message(pid \\ __MODULE__, msg_id, result) do
+  @spec validate_message(binary(), :accept | :reject | :ignore) :: :ok
+  def validate_message(msg_id, result) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "validate_message",
       direction: "elixir->"
     })
 
-    cast_command(pid, {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
+    cast_command({:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
   end
 
   ########################
@@ -249,6 +259,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def handle_cast({:set_new_peer_handler, new_peer_handler}, state) do
     {:noreply, %{state | new_peer_handler: new_peer_handler}}
+  end
+
+  @impl GenServer
+  def handle_cast({:add_consumer, %{topic: topic, pid: pid}}, state) do
+    updated_consumers = Map.put(state.consumers, String.to_atom(topic), pid)
+    {:noreply, %{state | consumers: updated_consumers}}
   end
 
   @impl GenServer
@@ -383,18 +399,19 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp send_data(port, data), do: Port.command(port, data)
 
-  defp send_protobuf(pid, %mod{} = protobuf) do
+  defp send_protobuf(%mod{} = protobuf) do
     data = mod.encode(protobuf)
-    GenServer.cast(pid, {:send, data})
+    GenServer.cast(__MODULE__, {:send, data})
   end
 
-  defp cast_command(pid, c) do
-    send_protobuf(pid, %Command{c: c})
+  #
+  defp cast_command(c) do
+    send_protobuf(%Command{c: c})
   end
 
-  defp call_command(pid, c) do
-    self_serialized = :erlang.term_to_binary(self())
-    send_protobuf(pid, %Command{from: self_serialized, c: c})
+  defp call_command(c) do
+    # self_serialized = :erlang.term_to_binary(self())
+    send_protobuf(%Command{c: c})
     receive_response()
   end
 

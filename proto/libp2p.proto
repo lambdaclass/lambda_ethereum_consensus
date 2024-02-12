@@ -105,7 +105,6 @@ message ValidateMessage {
 }
 
 message Command {
-    bytes from = 1;
     oneof c {
         SetHandler set_handler = 2;
         SubscribeToTopic subscribe = 3;

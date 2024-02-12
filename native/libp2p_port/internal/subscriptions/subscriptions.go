@@ -163,7 +163,7 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 	}
 }
 
-func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
+func (s *Subscriber) Subscribe(topicName string) error {
 	sub := s.getSubscription(topicName)
 	if sub.Cancel != nil {
 		return errors.New("already subscribed")
@@ -171,7 +171,7 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	port := s.port
 	validator := func(ctx context.Context, p peer.ID, msg *pubsub.Message) pubsub.ValidationResult {
 		id := []byte(msg.ID)
-		notification := proto_helpers.GossipNotification(topicName, handler, id, msg.Data)
+		notification := proto_helpers.GossipNotification(topicName, id, msg.Data)
 		port.SendNotification(&notification)
 		ch := make(chan pubsub.ValidationResult)
 		// NOTE: we use strings because []byte is mutable
