@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.StateTransition do
   """
 
   require Logger
-  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
   alias Types.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
@@ -123,14 +122,11 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   def process_block(state, block) do
     start_time = System.monotonic_time(:millisecond)
-    verify_and_notify_new_payload = &ExecutionClient.verify_and_notify_new_payload/1
 
     {:ok, state}
     |> map_ok(&Operations.process_block_header(&1, block))
     |> map_ok(&Operations.process_withdrawals(&1, block.body.execution_payload))
-    |> map_ok(
-      &Operations.process_execution_payload(&1, block.body, verify_and_notify_new_payload)
-    )
+    |> map_ok(&Operations.process_execution_payload(&1, block.body))
     |> map_ok(&Operations.process_randao(&1, block.body))
     |> map_ok(&Operations.process_eth1_data(&1, block.body))
     |> map_ok(&Operations.process_operations(&1, block.body))
