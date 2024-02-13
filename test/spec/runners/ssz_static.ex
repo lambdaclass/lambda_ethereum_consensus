@@ -98,5 +98,4 @@ defmodule SszStaticTestRunner do
   defp parse_type(%SpecTestCase{handler: handler}) do
     Module.concat(Types, handler)
   end
-
 end

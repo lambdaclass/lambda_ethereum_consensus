@@ -140,7 +140,9 @@ defmodule SpecTestUtils do
   def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema) when is_integer(bytelist),
     do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list()
 
-  # this clause is called when an element of a container is a bytelist that is parsed as a binary and not as a list of bytes
+  @doc """
+  this clause is called when an element of a container is a bytelist that is parsed as a binary and not as a list of bytes
+  """
   def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema),
     do: :binary.bin_to_list(bytelist)
 
