@@ -22,7 +22,7 @@ defmodule SszGenericTestRunner do
     # "SmallTestStruct",
     # "FixedTestStruct",
     # "VarTestStruct",
-    "ComplexTestStruct"
+    # "ComplexTestStruct"
     # "BitsStruct"
   ]
 
