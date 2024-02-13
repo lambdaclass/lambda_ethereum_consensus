@@ -8,9 +8,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   @doc """
   Verifies the validity of the data contained in the new payload and notifies the Execution client of a new payload
   """
-  @spec verify_and_notify_new_payload(Types.ExecutionPayload.t()) ::
+  @spec notify_new_payload(Types.ExecutionPayload.t()) ::
           {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
-  def verify_and_notify_new_payload(execution_payload) do
+  def notify_new_payload(execution_payload) do
     result = EngineApi.new_payload(execution_payload)
 
     case result do
