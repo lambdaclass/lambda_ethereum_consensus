@@ -62,21 +62,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
       Enum.reduce(0..(mirror - 1)//1, {source, byte_v, input}, fn i, {source, byte_v, input} ->
         j = pivot - i
 
-        source =
-          if (j &&& 0xFF) == 0xFF do
-            (seed <> round_bytes <> position_bytes(j >>> 8)) |> SszEx.hash()
-          else
-            source
-          end
-
-        byte_v =
-          if (j &&& 0x07) == 0x07 do
-            :binary.at(source, (j &&& 0xFF) >>> 3)
-          else
-            byte_v
-          end
-
-        bit_v = byte_v >>> (j &&& 0x07) &&& 0x01
+        source = source(seed, round_bytes, j, source)
+        byte_v = byte_v(source, j, byte_v)
+        bit_v = bit_v(byte_v, j)
 
         input =
           if bit_v == 1 do
@@ -100,21 +88,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
         loop_iter = i - (pivot + 1)
         j = list_end - loop_iter
 
-        source =
-          if (j &&& 0xFF) == 0xFF do
-            (seed <> round_bytes <> position_bytes(j >>> 8)) |> SszEx.hash()
-          else
-            source
-          end
-
-        byte_v =
-          if (j &&& 0x07) == 0x07 do
-            :binary.at(source, (j &&& 0xFF) >>> 3)
-          else
-            byte_v
-          end
-
-        bit_v = byte_v >>> (j &&& 0x07) &&& 0x01
+        source = source(seed, round_bytes, j, source)
+        byte_v = byte_v(source, j, byte_v)
+        bit_v = bit_v(byte_v, j)
 
         input =
           if bit_v == 1 do
@@ -134,6 +110,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
     :binary.encode_unsigned(position, :little)
     |> pad_binary(@position_size)
     |> binary_part(0, @position_size)
+  end
+
+  defp source(seed, round_bytes, j, previous_source) do
+    if (j &&& 0xFF) == 0xFF do
+      (seed <> round_bytes <> position_bytes(j >>> 8)) |> SszEx.hash()
+    else
+      previous_source
+    end
+  end
+
+  defp byte_v(source, j, previous_byte_v) do
+    if (j &&& 0x07) == 0x07 do
+      :binary.at(source, (j &&& 0xFF) >>> 3)
+    else
+      previous_byte_v
+    end
+  end
+
+  defp bit_v(byte_v, j) do
+    byte_v >>> (j &&& 0x07) &&& 0x01
   end
 
   defp pad_binary(binary, n) do
