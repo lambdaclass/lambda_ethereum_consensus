@@ -3,8 +3,6 @@ defmodule SszStaticTestRunner do
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.Utils.BitList
-  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Diff
 
   use ExUnit.CaseTemplate
@@ -12,49 +10,49 @@ defmodule SszStaticTestRunner do
 
   @disabled [
     # "DepositData",
-    "DepositMessage",
-    "Eth1Block",
-    "Eth1Data",
+    # "DepositMessage",
+    # "Eth1Data",
+    # "ProposerSlashing",
+    # "SignedBeaconBlockHeader",
+    # "SignedVoluntaryExit",
+    # "Validator",
+    # "VoluntaryExit",
+    # "Attestation",
+    # "AttestationData",
+    # "BLSToExecutionChange",
+    # "BeaconBlockHeader",
+    # "Checkpoint",
+    # "Deposit",
+    # "SignedBLSToExecutionChange",
+    # "SigningData",
+    # "SyncCommittee",
+    # "Withdrawal",
+    # "AttesterSlashing",
+    # "HistoricalSummary",
+    # "PendingAttestation",
+    # "Fork",
+    # "ForkData",
+    # "HistoricalBatch",
+    # "IndexedAttestation",
     "ExecutionPayload",
     "ExecutionPayloadHeader",
-    "Fork",
-    "ForkData",
-    "HistoricalBatch",
-    "IndexedAttestation",
+    "SignedBeaconBlock",
+    "SyncAggregate",
+    "AggregateAndProof",
+    "BeaconBlock",
+    "BeaconBlockBody",
+    "BeaconState",
+    "SignedAggregateAndProof",
+    # -- not defined yet
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
+    "Eth1Block",
     "PowBlock",
-    "ProposerSlashing",
-    "SignedBeaconBlock",
-    "SignedBeaconBlockHeader",
     "SignedContributionAndProof",
-    "SignedVoluntaryExit",
     "SignedData",
-    "SyncAggregate",
     "SyncAggregatorSelectionData",
-    "SyncCommitte",
     "SyncCommitteeContribution",
-    "Validator",
-    "VoluntaryExit",
-    "AggregateAndProof",
-    "Attestation",
-    "AttestationData",
-    "BLSToExecutionChange",
-    "BeaconBlock",
-    "BeaconBlockBody",
-    "BeaconBlockHeader",
-    "BeaconState",
-    "Checkpoint",
-    "Deposit",
-    "SignedAggregateAndProof",
-    "SignedBLSToExecutionChange",
-    "SigningData",
-    "SyncCommittee",
-    "Withdrawal",
-    "AttesterSlashing",
-    "HistoricalSummary",
-    "PendingAttestation",
     "ContributionAndProof",
     "LightClientFinalityUpdate",
     "LightClientHeader",
@@ -78,7 +76,7 @@ defmodule SszStaticTestRunner do
     expected =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
-      |> sanitize(schema)
+      |> SpecTestUtils.sanitize_ssz(schema)
 
     %{"root" => expected_root} = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
     expected_root = expected_root |> SpecTestUtils.sanitize_yaml()
@@ -101,34 +99,4 @@ defmodule SszStaticTestRunner do
     Module.concat(Types, handler)
   end
 
-  def sanitize(container, module) when is_map(container) do
-    schema = module.schema() |> Map.new()
-
-    container
-    |> Enum.map(fn {k, v} -> {k, sanitize(v, Map.fetch!(schema, k))} end)
-    |> then(&struct!(module, &1))
-  end
-
-  def sanitize(vector_elements, {:vector, :bool, _size} = _schema), do: vector_elements
-
-  def sanitize(vector_elements, {:vector, module, _size} = _schema) when is_atom(module),
-    do:
-      vector_elements
-      |> Enum.map(&struct!(module, &1))
-
-  def sanitize(bitlist, {:bitlist, _size} = _schema), do: elem(BitList.new(bitlist), 0)
-  def sanitize(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
-
-  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema)
-      when is_integer(bytelist) and bytelist > 0,
-      do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list()
-
-  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema)
-      when is_integer(bytelist) and bytelist == 0,
-      do: []
-
-  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema),
-    do: :binary.bin_to_list(bytelist)
-
-  def sanitize(other, _schema), do: other
 end
