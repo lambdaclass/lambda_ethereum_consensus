@@ -279,45 +279,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           | :not_found
           | :empty_slot
           | :invalid_id
-  def block_by_block_id(:head) do
-    with {:ok, current_status} <- BeaconChain.get_current_status_message(),
-         {:ok, block} <- BlockStore.get_block(current_status.head_root) do
-      # TODO compute is_optimistic_or_invalid
-      execution_optimistic = true
-      {:ok, {block, execution_optimistic, false}}
-    end
-  end
-
-  def block_by_block_id(:genesis), do: :not_found
-
-  def block_by_block_id(:justified) do
-    with justified_checkpoint <- BeaconChain.get_justified_checkpoint(),
-         {:ok, block} <- BlockStore.get_block(justified_checkpoint.root) do
-      # TODO compute is_optimistic_or_invalid
-      execution_optimistic = true
-      {:ok, {block, execution_optimistic, false}}
-    end
-  end
-
-  def block_by_block_id(:finalized) do
-    with finalized_checkpoint <- BeaconChain.get_finalized_checkpoint(),
-         {:ok, block} <- BlockStore.get_block(finalized_checkpoint.root) do
-      # TODO compute is_optimistic_or_invalid
-      execution_optimistic = true
-      {:ok, {block, execution_optimistic, true}}
-    end
-  end
-
-  def block_by_block_id(:invalid_id), do: :invalid_id
-
-  def block_by_block_id(slot) when is_integer(slot) do
-    with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
-         {:ok, root} <- BlockStore.get_block_root_by_slot(slot),
+  def block_by_block_id(block_id) do
+    with {:ok, {root, optimistic, finalized}} <- block_root_by_block_id(block_id),
          {:ok, block} <- BlockStore.get_block(root) do
-      # TODO compute is_optimistic_or_invalid() and is_finalized()
-      execution_optimistic = true
-      finalized = false
-      {:ok, {block, execution_optimistic, finalized}}
+      {:ok, {block, optimistic, finalized}}
     end
   end
 
@@ -349,22 +314,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   @spec finality_checkpoint_by_id(state_id()) ::
           {:ok, finality_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
-  def finality_checkpoint_by_id(hex_root) when is_binary(hex_root) do
-    # TODO compute is_optimistic_or_invalid() and is_finalized()
-    execution_optimistic = true
-    finalized = false
-
-    case StateStore.get_state_by_state_root(hex_root) do
-      {:ok, state} ->
-        {:ok,
-         {state.previous_justified_checkpoint, state.current_justified_checkpoint,
-          state.finalized_checkpoint, execution_optimistic, finalized}}
-
-      _ ->
-        :not_found
-    end
-  end
-
   def finality_checkpoint_by_id(id) do
     with {:ok, {state, optimistic, finalized}} <- state_by_state_id(id) do
       {:ok,
