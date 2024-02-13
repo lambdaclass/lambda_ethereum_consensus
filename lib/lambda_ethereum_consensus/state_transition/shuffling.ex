@@ -33,12 +33,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
 
   def shuffle_list(input, seed) do
     rounds = ChainSpec.get("SHUFFLE_ROUND_COUNT")
-    shuffle_round(input, rounds - 1, seed)
+    shuffle_list(input, rounds - 1, seed)
   end
 
-  @spec shuffle_round(Aja.Vector.t(), non_neg_integer(), binary()) ::
+  @spec shuffle_list(Aja.Vector.t(), non_neg_integer(), binary()) ::
           Aja.Vector.t()
-  def shuffle_round(input, round, seed) do
+
+  defp shuffle_list(input, round, _seed) when round < 0, do: input
+
+  defp shuffle_list(input, round, seed) do
     input_size = Aja.Enum.count(input)
 
     round_bytes =
@@ -123,11 +126,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
         {source, byte_v, input}
       end)
 
-    if round > 0 do
-      shuffle_round(input, round - 1, seed)
-    else
-      input
-    end
+    shuffle_list(input, round - 1, seed)
   end
 
   @spec position_bytes(integer()) :: binary()
