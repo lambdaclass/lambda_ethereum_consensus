@@ -5,6 +5,18 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ '*' ]
+    # NOTE: these paths should be the same as the ones in ci_skipped.yml
+    paths-ignore:
+      - 'docs/**'
+      - '.all-contributorsrc'
+      - 'README.md'
+      - 'LICENSE'
+      - 'metrics/**'
+
+# Cancel old runs on the same branch (except on main)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   MIX_ENV: test

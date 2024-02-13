@@ -1,0 +1,52 @@
+# Workaround to skip the "required" check when jobs are skipped
+name: '*CI Skipped*'
+
+on:
+  pull_request:
+    branches: [ '*' ]
+    paths:
+        - 'docs/**'
+        - '.all-contributorsrc'
+        - 'README.md'
+        - 'LICENSE'
+        - 'metrics/**'
+
+jobs:
+  compile-native:
+    name: Build native libraries
+    runs-on: ubuntu-22.04
+    if: false
+    steps: [run: true]
+
+  build:
+    name: Build project
+    runs-on: ubuntu-22.04
+    if: false
+    steps: [run: true]
+
+  smoke:
+    name: Start and stop the node
+    runs-on: ubuntu-22.04
+    if: false
+    steps: [run: true]
+
+  test:
+    name: Test
+    runs-on: ubuntu-22.04
+    if: false
+    steps: [run: true]
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    if: false
+    steps: [run: true]
+
+  # NOTE: matrix jobs aren't expanded if skipped
+  spectests:
+    name: Run spec-tests
+    strategy:
+      matrix:
+        config: ["minimal", "general", "mainnet"]
+    runs-on: ubuntu-22.04
+    steps: [run: true]
