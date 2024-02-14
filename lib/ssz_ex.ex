@@ -106,6 +106,15 @@ defmodule LambdaEthereumConsensus.SszEx do
     chunks = value |> pack_bits(type)
     leaf_count = chunk_count(schema) |> next_pow_of_two()
     root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
+
+    root =
+      if type == :bitlist do
+        len = value |> bit_size()
+        root |> mix_in_length(len)
+      else
+        root
+      end
+
     {:ok, root}
   end
 
@@ -288,6 +297,11 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   def pack_bits(value, :bitvector) do
     BitVector.to_bytes(value) |> pack_bytes()
+  end
+
+  def pack_bits(value, :bitlist) do
+    len = value |> bit_size()
+    {value, len} |> BitList.to_packed_bytes() |> pack_bytes()
   end
 
   def chunk_count({:list, type, max_size}) do
