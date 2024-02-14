@@ -10,21 +10,29 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   @doc """
   Safely retrieves the last finalized state and block
   """
-  @spec get_finalized_block_and_state(String.t()) ::
+  @spec get_finalized_block_and_state(String.t(), Types.root()) ::
           {:ok, {Types.BeaconState.t(), Types.SignedBeaconBlock.t()}} | {:error, any()}
-  def get_finalized_block_and_state(url) do
+  def get_finalized_block_and_state(url, genesis_validators_root) do
     tasks = [Task.async(__MODULE__, :get_state, [url]), Task.async(__MODULE__, :get_block, [url])]
 
     case Task.await_many(tasks, 60_000) do
-      [{:ok, state}, {:ok, block}] -> validate_finalized(url, state, block)
-      res -> Enum.find(res, fn {:error, _} -> true end)
+      [{:ok, state}, {:ok, block}] ->
+        if state.genesis_validators_root == genesis_validators_root do
+          check_match(url, state, block)
+        else
+          Logger.error("The fetched state's genesis validators root differs from the network's")
+          {:error, "wrong genesis validators root"}
+        end
+
+      res ->
+        Enum.find(res, fn {:error, _} -> true end)
     end
   end
 
-  defp validate_finalized(_, state, block) when state.slot == block.message.slot,
+  defp check_match(_, state, block) when state.slot == block.message.slot,
     do: {:ok, {state, block}}
 
-  defp validate_finalized(url, state, _block) do
+  defp check_match(url, state, _block) do
     with {:ok, new_block} <- get_block(url, state.slot) do
       {:ok, {state, new_block}}
     end

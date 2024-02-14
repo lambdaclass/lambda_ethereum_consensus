@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -49,22 +50,16 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ##########################
 
   @impl GenServer
-  @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
-          {:ok, Store.t()} | {:stop, any}
-  def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Store.get_forkchoice_store(anchor_state, signed_anchor_block) do
-      {:ok, %Store{} = store} ->
-        Logger.info("[Fork choice] Initialized store")
+  @spec init({Store.t(), Types.slot(), Types.uint64()}) :: {:ok, Store.t()} | {:stop, any}
+  def init({%Store{} = store, head_slot, time}) do
+    Logger.info("[Fork choice] Initialized store.", slot: head_slot)
 
-        slot = signed_anchor_block.message.slot
-        :telemetry.execute([:sync, :store], %{slot: slot})
-        :telemetry.execute([:sync, :on_block], %{slot: slot})
+    store = Handlers.on_tick(store, time)
 
-        {:ok, Handlers.on_tick(store, time)}
+    :telemetry.execute([:sync, :store], %{slot: Store.get_current_slot(store)})
+    :telemetry.execute([:sync, :on_block], %{slot: head_slot})
 
-      {:error, error} ->
-        {:stop, error}
-    end
+    {:ok, store}
   end
 
   @impl GenServer
@@ -164,6 +159,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
+    persist_store(store)
     {:ok, head_root} = Helpers.get_head(store)
     head_block = Blocks.get_block!(head_root)
 
@@ -178,6 +174,17 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       finalized_checkpoint
     )
 
+    Logger.debug("[Fork choice] Updated fork choice cache", slot: head_block.slot)
+
     :ok
+  end
+
+  def persist_store(store) do
+    pruned_store = Map.put(store, :checkpoint_states, %{})
+
+    Task.async(fn ->
+      StoreDb.persist_store(pruned_store)
+      Logger.debug("[Fork choice] Store persisted")
+    end)
   end
 end

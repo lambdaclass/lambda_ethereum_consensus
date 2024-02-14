@@ -116,7 +116,7 @@ iex: compile-all
 
 #▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync.
 checkpoint-sync: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://sync-mainnet.beaconcha.in/
+	iex -S mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/
 
 #▶️ sepolia: @ Run an interactive terminal using sepolia network
 sepolia: compile-all
