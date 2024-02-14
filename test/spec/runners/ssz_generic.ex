@@ -81,10 +81,6 @@ defmodule SszGenericTestRunner do
         ## TODO
         nil
 
-      {:bitvector, _} ->
-        ## TODO
-        nil
-
       module when is_atom(module) ->
         ## TODO
         nil
