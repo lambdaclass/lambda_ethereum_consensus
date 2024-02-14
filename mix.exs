@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:exleveldb, "~> 0.14"},
       {:jason, ">= 1.0.0"},
       {:joken, "~> 2.6"},
-      {:rustler, "~> 0.30.0"},
+      {:rustler, "~> 0.31"},
       {:broadway, "~> 1.0"},
       {:snappyer, "~> 1.2"},
       {:yaml_elixir, "~> 2.8"},
