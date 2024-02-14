@@ -23,7 +23,7 @@ defmodule Helpers.SszStaticContainers.ComplexTestStruct do
           A: Types.uint16(),
           B: list(Types.uint16()),
           C: Types.uint8(),
-          D: Types.bitlist(),
+          D: list(Types.uint8()),
           E: VarTestStruct,
           F: list(FixedTestStruct),
           G: list(VarTestStruct)
@@ -33,7 +33,7 @@ defmodule Helpers.SszStaticContainers.ComplexTestStruct do
   def schema do
     [
       {:A, {:int, 16}},
-      {:B, {:list, {:int, 16}, 1024}},
+      {:B, {:list, {:int, 16}, 128}},
       {:C, {:int, 8}},
       {:D, {:list, {:int, 8}, 256}},
       {:E, VarTestStruct},
