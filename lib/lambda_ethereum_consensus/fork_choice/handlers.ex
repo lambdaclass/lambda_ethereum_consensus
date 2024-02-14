@@ -165,7 +165,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
       Task.async(fn ->
-        ExecutionClient.verify_and_notify_new_payload(block.body.execution_payload)
+        ExecutionClient.notify_new_payload(block.body.execution_payload)
         |> handle_verify_payload_result()
       end)
 
