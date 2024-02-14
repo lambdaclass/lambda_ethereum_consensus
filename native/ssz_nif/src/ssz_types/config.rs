@@ -127,3 +127,42 @@ impl Config for Minimal {
         MaxBlsToExecutionChanges
     });
 }
+
+pub(crate) struct Gnosis;
+
+impl Config for Gnosis {
+    type JustificationBitsLength = U4;
+    type SubnetBitfieldLength = U64;
+    type MaxValidatorsPerCommittee = U2048;
+    type GenesisEpoch = U0;
+    type SlotsPerEpoch = U16;
+    type EpochsPerEth1VotingPeriod = U64;
+    type SlotsPerHistoricalRoot = U8192;
+    type EpochsPerHistoricalVector = U65536;
+    type EpochsPerSlashingsVector = U8192;
+    type HistoricalRootsLimit = U16777216;
+    type ValidatorRegistryLimit = U1099511627776;
+    type MaxProposerSlashings = U16;
+    type MaxAttesterSlashings = U2;
+    type MaxAttestations = U128;
+    type MaxDeposits = U16;
+    type MaxVoluntaryExits = U16;
+    type SyncCommitteeSize = U512;
+    type SyncCommitteeSubnetCount = U4;
+    type AttestationSubnetCount = U64;
+    type MaxBytesPerTransaction = U1073741824; // 1,073,741,824
+    type MaxTransactionsPerPayload = U1048576; // 1,048,576
+    type BytesPerLogsBloom = U256;
+    type GasLimitDenominator = U1024;
+    type MinGasLimit = U5000;
+    type MaxExtraDataBytes = U32;
+    type MaxBlsToExecutionChanges = U16;
+    type MaxWithdrawalsPerPayload = U8;
+
+    // Derived constants. Ideally, this would be trait defaults.
+    type SyncSubcommitteeSize =
+        typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 512 committee size / 4 sync committee subnet count
+    type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 32 slots per epoch
+    type SlotsPerEth1VotingPeriod =
+        typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 64 epochs * 32 slots per epoch
+}
