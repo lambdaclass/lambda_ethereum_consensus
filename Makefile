@@ -122,6 +122,10 @@ checkpoint-sync: compile-all
 sepolia: compile-all
 	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia
 
+#▶️ gnosis: @ Run an interactive terminal using gnosis network
+gnosis: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint.gnosischain.com --network gnosis
+
 #🔴 test: @ Run tests
 test: compile-all
 	mix test --no-start --exclude spectest
