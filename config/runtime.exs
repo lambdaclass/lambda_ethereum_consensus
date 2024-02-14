@@ -38,6 +38,12 @@ configs_per_network = %{
   "sepolia" => SepoliaConfig
 }
 
+genesis_validators_root_per_network = %{
+  "minimal" => <<0::256>>,
+  "mainnet" => Base.decode16!("4B363DB94E286120D76EB905340FDD4E54BFE9F06BF33FF6CF5AD27F511BFE95"),
+  "sepolia" => Base.decode16!("D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078")
+}
+
 valid_modes = ["full", "db"]
 raw_mode = Keyword.get(args, :mode, "full")
 
@@ -54,7 +60,9 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: "level
 
 mock_execution = Keyword.get(args, :mock_execution, mode == :db or is_nil(jwt_path))
 
-config :lambda_ethereum_consensus, ChainSpec, config: configs_per_network |> Map.fetch!(network)
+config :lambda_ethereum_consensus, ChainSpec,
+  config: configs_per_network |> Map.fetch!(network),
+  genesis_validators_root: genesis_validators_root_per_network |> Map.fetch!(network)
 
 bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/bootnodes.yaml")
 

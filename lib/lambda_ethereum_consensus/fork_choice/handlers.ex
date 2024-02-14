@@ -191,7 +191,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Update checkpoints in store if necessary
       |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
       # Eagerly compute unrealized justification and finality
-      |> compute_pulled_up_tip(block_root)
+      |> compute_pulled_up_tip(block_root, signed_block.message, state)
     end
   end
 
@@ -251,13 +251,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Pull up the post-state of the block to the next epoch boundary
-  def compute_pulled_up_tip(%Store{} = store, block_root) do
-    result =
-      BlockStates.get_state!(block_root)
-      |> EpochProcessing.process_justification_and_finalization()
-
-    with {:ok, state} <- result do
-      block = Blocks.get_block!(block_root)
+  def compute_pulled_up_tip(%Store{} = store, block_root, block, state) do
+    with {:ok, state} <- EpochProcessing.process_justification_and_finalization(state) do
       block_epoch = Misc.compute_epoch_at_slot(block.slot)
       current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
 
