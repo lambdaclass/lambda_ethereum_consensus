@@ -3,7 +3,8 @@ defmodule ChainSpec do
   Single entrypoint for fetching chain-specific constants.
   """
 
-  def get_config, do: Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)[:config]
+  def get_config,
+    do: Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__) |> Keyword.fetch!(:config)
 
   def get_preset, do: get_config().get("PRESET_BASE") |> String.to_atom()
 
@@ -20,4 +21,9 @@ defmodule ChainSpec do
 
   # NOTE: this only works correctly for Capella
   def get(name), do: get_config().get(name)
+
+  def get_genesis_validators_root do
+    Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)
+    |> Keyword.fetch!(:genesis_validators_root)
+  end
 end
