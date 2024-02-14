@@ -59,7 +59,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:open_api_spex, "~> 3.18"},
-      {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-to-29"}
+      {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-31"}
     ]
   end
 
