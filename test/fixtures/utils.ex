@@ -37,4 +37,9 @@ defmodule Fixtures.Random do
   def uint64 do
     :rand.uniform(2 ** 64 - 1)
   end
+
+  @spec uint256 :: pos_integer
+  def uint256 do
+    :rand.uniform(2 ** 256 - 1)
+  end
 end
