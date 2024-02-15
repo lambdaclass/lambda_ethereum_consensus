@@ -1,0 +1,10 @@
+jobs: 4
+
+matrix:
+  - name: "Markdown"
+    sources:
+      - "docs/*.md"
+    aspell:
+      lang: en
+      d: en_US
+      mode: markdown
