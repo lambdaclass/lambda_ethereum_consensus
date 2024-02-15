@@ -261,7 +261,7 @@ defmodule Types.BeaconState do
        {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
       {:current_epoch_participation,
        {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
-      {:justification_bits, {:bitvector, ChainSpec.get("JUSTIFICATION_BITS_LENGTH")}},
+      {:justification_bits, {:bitvector, Constants.justification_bits_length()}},
       {:previous_justified_checkpoint, Types.Checkpoint},
       {:current_justified_checkpoint, Types.Checkpoint},
       {:finalized_checkpoint, Types.Checkpoint},

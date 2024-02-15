@@ -123,7 +123,13 @@ defmodule SpecTestUtils do
     schema = module.schema() |> Map.new()
 
     container
-    |> Enum.map(fn {k, v} -> {k, sanitize_ssz(v, Map.fetch!(schema, k))} end)
+    |> Enum.map(fn {k, v} ->
+      if Atom.to_string(k) in @vector_keys do
+        {k, sanitize_ssz(Aja.Enum.to_list(v), Map.fetch!(schema, k))}
+      else
+        {k, sanitize_ssz(v, Map.fetch!(schema, k))}
+      end
+    end)
     |> then(&struct!(module, &1))
   end
 
@@ -135,16 +141,35 @@ defmodule SpecTestUtils do
   def sanitize_ssz(bitlist, {:bitlist, _size} = _schema), do: elem(BitList.new(bitlist), 0)
   def sanitize_ssz(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
 
+  def sanitize_ssz(
+        list_of_bytelist,
+        {:list, {:list, {:int, 8}, _inner_size} = inner_schema, _size} = _schema
+      ),
+      do: Enum.map(list_of_bytelist, fn elm -> sanitize_ssz(elm, inner_schema) end)
+
+  def sanitize_ssz(list_elements, {:list, module, _size} = _schema) when is_atom(module),
+    do: Enum.map(list_elements, fn element -> sanitize_ssz(element, module) end)
+
   def sanitize_ssz(0, {:list, {:int, 8}, _size} = _schema), do: []
 
   def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema) when is_integer(bytelist),
     do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list()
+
+  def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema) when is_list(bytelist),
+    do: bytelist
 
   @doc """
   this clause is called when an element of a container is a bytelist that is parsed as a binary and not as a list of bytes
   """
   def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema),
     do: :binary.bin_to_list(bytelist)
+
+  # ssz_generic/basic_vector yaml files have these values already as lists but containers as binary
+  def sanitize_ssz(bytevector, {:vector, {:int, 8}, _size} = _schema) when is_list(bytevector),
+    do: bytevector
+
+  def sanitize_ssz(bytevector, {:vector, {:int, 8}, _size} = _schema),
+    do: :binary.bin_to_list(bytevector)
 
   def sanitize_ssz(other, _schema), do: other
 end

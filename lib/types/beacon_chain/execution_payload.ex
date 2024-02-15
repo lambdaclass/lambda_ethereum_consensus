@@ -32,14 +32,14 @@ defmodule Types.ExecutionPayload do
           state_root: Types.root(),
           receipts_root: Types.root(),
           # size BYTES_PER_LOGS_BLOOM
-          logs_bloom: binary(),
+          logs_bloom: list(Types.uint8()),
           prev_randao: Types.bytes32(),
           block_number: Types.uint64(),
           gas_limit: Types.uint64(),
           gas_used: Types.uint64(),
           timestamp: Types.uint64(),
           # size MAX_EXTRA_DATA_BYTES
-          extra_data: binary(),
+          extra_data: list(Types.bytes1()),
           base_fee_per_gas: Types.uint256(),
           block_hash: Types.hash32(),
           # size MAX_TRANSACTIONS_PER_PAYLOAD
@@ -72,7 +72,7 @@ defmodule Types.ExecutionPayload do
       {:extra_data, TypeAliases.byte_list(ChainSpec.get("MAX_EXTRA_DATA_BYTES"))},
       {:base_fee_per_gas, TypeAliases.uint256()},
       {:block_hash, TypeAliases.hash32()},
-      {:transactions, TypeAliases.transaction()},
+      {:transactions, TypeAliases.transactions()},
       {:withdrawals, {:list, Types.Withdrawal, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}}
     ]
   end

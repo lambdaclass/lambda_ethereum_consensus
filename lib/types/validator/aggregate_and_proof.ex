@@ -3,6 +3,7 @@ defmodule Types.AggregateAndProof do
   Struct definition for `AggregateAndProof`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :aggregator_index,
@@ -18,4 +19,13 @@ defmodule Types.AggregateAndProof do
           aggregate: Types.Attestation.t(),
           selection_proof: Types.bls_signature()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:aggregator_index, TypeAliases.validator_index()},
+      {:aggregate, Types.Attestation},
+      {:selection_proof, TypeAliases.bls_signature()}
+    ]
+  end
 end
