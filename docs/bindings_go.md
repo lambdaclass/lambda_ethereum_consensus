@@ -6,7 +6,7 @@ The bindings are used to interact with the *go-libp2p* and *go-ethereum/p2p* lib
 As we couldn't find a way to communicate the two languages directly, we used some **C** code to communicate the two sides.
 However, as Go is a garbage-collected language, this brings some issues.
 
-<!-- TODO: add explanation about general bindings usage -->
+<!-- TODO: add an explanation about general bindings usage -->
 <!-- TODO: explain the callback -> message translation -->
 
 ## References and handles
@@ -57,7 +57,7 @@ func SumAndConsumeArray(arrayHandle C.uintptr_t) uint {
 
 What we have until now allows us to create long-living references, but we still need to free them manually (otherwise we leak memory).
 To fix this, we can treat them as native objects with Erlang's [*Resource objects*](https://www.erlang.org/doc/man/erl_nif.html#functionality).
-By treating them as resources with an associated type and destructor, we can let Erlang's garbage-collector manage the reference's lifetime.
+By treating them as resources with an associated type and destructor, we can let Erlang's garbage collector manage the reference's lifetime.
 It works as follows:
 
 <!-- TODO: add code examples -->
