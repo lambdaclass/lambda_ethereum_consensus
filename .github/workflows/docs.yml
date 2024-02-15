@@ -6,9 +6,9 @@ on:
   pull_request:
     branches: [ '*' ]
     # NOTE: these paths should be the same as the ones in docs_skipped.yml
-    paths:
-      - 'docs/**'
-      - 'README.md'
+    # paths:
+    #   - 'docs/**'
+    #   - 'README.md'
 
 # Cancel old runs on the same branch (except on main)
 concurrency:
