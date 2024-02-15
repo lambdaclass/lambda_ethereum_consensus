@@ -1,5 +1,3 @@
-jobs: 4
-
 matrix:
   - name: "Markdown"
     sources:
@@ -7,4 +5,5 @@ matrix:
     aspell:
       lang: en
       d: en_US
-      mode: markdown
+    pipeline:
+      - pyspelling.filters.markdown:
