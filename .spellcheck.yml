@@ -7,3 +7,6 @@ matrix:
       d: en_US
     pipeline:
       - pyspelling.filters.markdown:
+    dictionary:
+      wordlists:
+        - ".github/.wordlist.txt"

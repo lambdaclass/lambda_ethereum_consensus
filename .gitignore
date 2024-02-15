@@ -43,6 +43,9 @@ priv
 # VSCode configuration dir.
 .vscode/
 
+# Spellchecker dictionary
+dictionary.dic
+
 # spec-test vectors
 /test/spec/vectors
 
