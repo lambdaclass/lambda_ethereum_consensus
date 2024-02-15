@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Store.BlockStore do
+defmodule LambdaEthereumConsensus.Store.BlockDb do
   @moduledoc """
   Storage and retrieval of blocks.
   """

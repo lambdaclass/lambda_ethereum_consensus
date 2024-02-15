@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Store.StateStore do
+defmodule LambdaEthereumConsensus.Store.StateDb do
   @moduledoc """
   Beacon node state storage.
   """
