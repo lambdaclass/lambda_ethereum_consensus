@@ -42,7 +42,7 @@ In this representation, we reverse the bytes around. 259 is represented as follo
 
 Representing it as a byte array, we get `bytes = [3, 1]`. The lowest index, `bytes[0] = 3` means the lowest significant byte, and the highest index, `bytes[1] = 1` is the most significant byte. So, while little-endian is less readable, it is frequently used to represent integers as binaries because of this property.
 
-### Little-endian bit order
+### "Little-endian bit order"
 
 Why would we need a third representation? Let's first pose the problem. Imagine we have a fixed amount of validators, equal to 9, and we want to represent whether they attested in a block or not. If the validators 0, 1 and 8 attested, we may represent this with a boolean array, as follows:
 
