@@ -92,6 +92,7 @@ compile-all: compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
 #🗑️ clean: @ Remove the build files.
 clean:
 	-mix clean
+	-rm -rf test/generated
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
 
 #📊 grafana-up: @ Start grafana server.
@@ -160,7 +161,7 @@ $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz:
 	curl -L -o "$@" \
 		"https://github.com/ethereum/consensus-spec-tests/releases/download/${SPECTEST_VERSION}/$*.tar.gz"
 
-$(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz
+$(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz .spectest_version
 	-rm -rf $@
 	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
 
