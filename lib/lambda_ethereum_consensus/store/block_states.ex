@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   Interface to `Store.block_states`.
   """
   alias LambdaEthereumConsensus.Store.LRUCache
-  alias LambdaEthereumConsensus.Store.StateStore
+  alias LambdaEthereumConsensus.Store.StateDb
   alias Types.BeaconState
 
   @table :states_by_block_hash
@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
       table: @table,
       max_entries: @max_entries,
       batch_prune_size: @batch_prune_size,
-      store_func: &StateStore.store_state(&2, &1)
+      store_func: &StateDb.store_state(&2, &1)
     )
   end
 
@@ -50,7 +50,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   ##########################
 
   defp fetch_state(key) do
-    case StateStore.get_state_by_block_root(key) do
+    case StateDb.get_state_by_block_root(key) do
       {:ok, value} -> value
       :not_found -> nil
       # TODO: handle this somehow?
