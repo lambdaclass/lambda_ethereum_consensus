@@ -2,7 +2,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @moduledoc """
   Interface to `Store.blocks`.
   """
-  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.LRUCache
   alias Types.BeaconBlock
   alias Types.SignedBeaconBlock
@@ -21,7 +21,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
       table: @table,
       max_entries: @max_entries,
       batch_prune_size: @batch_prune_size,
-      store_func: &BlockStore.store_block(&2, &1)
+      store_func: &BlockDb.store_block(&2, &1)
     )
   end
 
@@ -66,7 +66,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   ##########################
 
   defp fetch_block(key) do
-    case BlockStore.get_block(key) do
+    case BlockDb.get_block(key) do
       {:ok, value} -> value
       :not_found -> nil
       # TODO: handle this somehow?
