@@ -79,4 +79,53 @@ defmodule BeaconApiTest do
     assert conn.status == 400
     assert conn.resp_body == encoded_resp_body_json
   end
+
+  test "get finality checkpoints by head" do
+    head_root =
+      <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0>>
+
+    signed_block = Fixtures.Block.signed_beacon_block()
+    BlockStore.store_block(signed_block, head_root)
+    beacon_state = Fixtures.Block.beacon_state()
+
+    patch(
+      LambdaEthereumConsensus.Store.StateStore,
+      :get_state_by_state_root,
+      {:ok, beacon_state}
+    )
+
+    #
+    resp_body = %{
+      finalized: false,
+      execution_optimistic: true,
+      data: %{
+        previous_justified: %{
+          epoch: beacon_state.previous_justified_checkpoint.epoch,
+          root:
+            "0x" <> Base.encode16(beacon_state.previous_justified_checkpoint.root, case: :lower)
+        },
+        current_justified: %{
+          epoch: beacon_state.current_justified_checkpoint.epoch,
+          root:
+            "0x" <> Base.encode16(beacon_state.current_justified_checkpoint.root, case: :lower)
+        },
+        finalized: %{
+          epoch: beacon_state.finalized_checkpoint.epoch,
+          root: "0x" <> Base.encode16(beacon_state.finalized_checkpoint.root, case: :lower)
+        }
+      }
+    }
+
+    {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
+
+    conn =
+      :get
+      |> conn("/eth/v1/beacon/states/head/finality_checkpoints", nil)
+      |> Router.call(@opts)
+
+    assert conn.state == :sent
+    assert conn.status == 200
+    assert conn.resp_body == encoded_resp_body_json
+  end
 end

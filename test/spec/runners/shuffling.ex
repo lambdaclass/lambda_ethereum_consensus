@@ -7,6 +7,7 @@ defmodule ShufflingTestRunner do
   use TestRunner
 
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Shuffling
 
   # Remove handler from here once you implement the corresponding functions
   @disabled_handlers [
@@ -34,27 +35,17 @@ defmodule ShufflingTestRunner do
     for index <- 0..(index_count - 1) do
       result = Misc.compute_shuffled_index(index, index_count, seed)
 
-      case result do
-        {:ok, value} ->
-          assert value == Enum.fetch!(indices, index)
-
-        {:error, _} ->
-          assert index >= index_count or index_count == 0
+      if index >= index_count or index_count == 0 do
+        assert result == {:error, "invalid index_count"}
+      else
+        assert result == {:ok, Enum.fetch!(indices, index)}
       end
     end
 
-    # Testing the reverse lookup; implemented by running the shuffling rounds in reverse, from (index_count - 1) to 0
-    # NOTE: this is the same as before, but the test-format specs suggest including this check
-    for index <- (index_count - 1)..0 do
-      result = Misc.compute_shuffled_index(index, index_count, seed)
+    shuffled_list =
+      Shuffling.shuffle_list(0..(index_count - 1)//1 |> Aja.Vector.new(), seed)
+      |> Aja.Enum.to_list()
 
-      case result do
-        {:ok, value} ->
-          assert value == Enum.fetch!(indices, index)
-
-        {:error, _} ->
-          assert index >= index_count or index_count == 0
-      end
-    end
+    assert shuffled_list == indices
   end
 end

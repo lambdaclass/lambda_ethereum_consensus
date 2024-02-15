@@ -1,8 +1,7 @@
 use std::io::Write;
 
-use bls::{AggregatePublicKey, AggregateSignature, PublicKey, SecretKey, Signature};
+use bls::{AggregatePublicKey, AggregateSignature, Hash256, PublicKey, SecretKey, Signature};
 use rustler::{Binary, Env, NewBinary};
-use types::Hash256;
 
 pub(crate) fn bytes_to_binary<'env>(env: Env<'env>, bytes: &[u8]) -> Binary<'env> {
     let mut binary = NewBinary::new(env, bytes.len());

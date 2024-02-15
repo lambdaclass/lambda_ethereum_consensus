@@ -5,6 +5,18 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ '*' ]
+    # NOTE: these paths should be the same as the ones in ci_skipped.yml
+    paths-ignore:
+      - 'docs/**'
+      - '.all-contributorsrc'
+      - 'README.md'
+      - 'LICENSE'
+      - 'metrics/**'
+
+# Cancel old runs on the same branch (except on main)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   MIX_ENV: test
@@ -169,7 +181,7 @@ jobs:
       run: mix compile --warnings-as-errors
     - name: Run the node
       # NOTE: this starts and then stops the application. It should catch simple runtime errors
-      run: mix run -- --checkpoint-sync https://sync-mainnet.beaconcha.in/
+      run: mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/
 
   test:
     name: Test

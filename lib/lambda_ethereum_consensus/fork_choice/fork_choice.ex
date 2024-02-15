@@ -9,12 +9,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
   alias Types.Store
-
-  @default_timeout 100_000
 
   ##########################
   ### Public API
@@ -26,11 +25,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec has_block?(Types.root()) :: boolean()
-  def has_block?(block_root) do
-    GenServer.call(__MODULE__, {:has_block?, block_root}, @default_timeout)
-  end
-
   @spec on_tick(Types.uint64()) :: :ok
   def on_tick(time) do
     GenServer.cast(__MODULE__, {:on_tick, time})
@@ -38,7 +32,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec on_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok | :error
   def on_block(signed_block, block_root) do
-    GenServer.call(__MODULE__, {:on_block, block_root, signed_block}, @default_timeout)
+    GenServer.cast(__MODULE__, {:on_block, block_root, signed_block, self()})
   end
 
   @spec on_attestation(Types.Attestation.t()) :: :ok
@@ -56,36 +50,20 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ##########################
 
   @impl GenServer
-  @spec init({BeaconState.t(), SignedBeaconBlock.t(), Types.uint64()}) ::
-          {:ok, Store.t()} | {:stop, any}
-  def init({anchor_state = %BeaconState{}, signed_anchor_block = %SignedBeaconBlock{}, time}) do
-    case Store.get_forkchoice_store(anchor_state, signed_anchor_block) do
-      {:ok, %Store{} = store} ->
-        Logger.info("[Fork choice] Initialized store")
+  @spec init({Store.t(), Types.slot(), Types.uint64()}) :: {:ok, Store.t()} | {:stop, any}
+  def init({%Store{} = store, head_slot, time}) do
+    Logger.info("[Fork choice] Initialized store.", slot: head_slot)
 
-        slot = signed_anchor_block.message.slot
-        :telemetry.execute([:sync, :store], %{slot: slot})
-        :telemetry.execute([:sync, :on_block], %{slot: slot})
+    store = Handlers.on_tick(store, time)
 
-        {:ok, Handlers.on_tick(store, time)}
+    :telemetry.execute([:sync, :store], %{slot: Store.get_current_slot(store)})
+    :telemetry.execute([:sync, :on_block], %{slot: head_slot})
 
-      {:error, error} ->
-        {:stop, error}
-    end
+    {:ok, store}
   end
 
   @impl GenServer
-  def handle_call({:get_store_attrs, attrs}, _from, state) do
-    values = Enum.map(attrs, &Map.fetch!(state, &1))
-    {:reply, values, state}
-  end
-
-  def handle_call({:has_block?, block_root}, _from, state) do
-    {:reply, Store.has_block?(state, block_root), state}
-  end
-
-  @impl GenServer
-  def handle_call({:on_block, block_root, %SignedBeaconBlock{} = signed_block}, _from, store) do
+  def handle_cast({:on_block, block_root, %SignedBeaconBlock{} = signed_block, from}, store) do
     slot = signed_block.message.slot
 
     result =
@@ -99,11 +77,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         Logger.info("[Fork choice] New block added", slot: slot, root: block_root)
 
         Task.async(__MODULE__, :recompute_head, [new_store])
-        {:reply, :ok, new_store}
+
+        GenServer.cast(from, {:block_processed, block_root, true})
+        {:noreply, new_store}
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot)
-        {:reply, :error, store}
+        GenServer.cast(from, {:block_processed, block_root, false})
+        {:noreply, store}
     end
   end
 
@@ -178,6 +159,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
+    persist_store(store)
     {:ok, head_root} = Helpers.get_head(store)
     head_block = Blocks.get_block!(head_root)
 
@@ -192,6 +174,17 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       finalized_checkpoint
     )
 
+    Logger.debug("[Fork choice] Updated fork choice cache", slot: head_block.slot)
+
     :ok
+  end
+
+  def persist_store(store) do
+    pruned_store = Map.put(store, :checkpoint_states, %{})
+
+    Task.async(fn ->
+      StoreDb.persist_store(pruned_store)
+      Logger.debug("[Fork choice] Store persisted")
+    end)
   end
 end

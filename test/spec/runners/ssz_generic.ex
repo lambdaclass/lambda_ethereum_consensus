@@ -3,8 +3,6 @@ defmodule SszGenericTestRunner do
   Runner for SSZ general test cases. `run_test_case/1` is the main entrypoint.
   """
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.Utils.BitList
-  alias LambdaEthereumConsensus.Utils.BitVector
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -22,7 +20,7 @@ defmodule SszGenericTestRunner do
     # "SmallTestStruct",
     # "FixedTestStruct",
     # "VarTestStruct",
-    # "ComplexTestStruct",
+    # "ComplexTestStruct"
     # "BitsStruct"
   ]
 
@@ -51,16 +49,16 @@ defmodule SszGenericTestRunner do
   defp handle_case("valid", schema, real_serialized, testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    expected_value =
+    real_deserialized =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
-      |> sanitize(schema)
+      |> SpecTestUtils.sanitize_ssz(schema)
 
     %{root: expected_root} =
       YamlElixir.read_from_file!(case_dir <> "/meta.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    assert_ssz_valid(schema, real_serialized, expected_value, expected_root)
+    assert_ssz_valid(schema, real_serialized, real_deserialized, expected_root)
   end
 
   defp handle_case("invalid", schema, real_serialized, _testcase) do
@@ -74,25 +72,8 @@ defmodule SszGenericTestRunner do
     {:ok, serialized} = SszEx.encode(real_deserialized, schema)
 
     assert serialized == real_serialized
-
-    ## TODO: To be removed when hash_tree_root for bitlist and bitvector is implemented
-    case schema do
-      {:bitlist, _} ->
-        ## TODO
-        nil
-
-      {:bitvector, _} ->
-        ## TODO
-        nil
-
-      module when is_atom(module) ->
-        ## TODO
-        nil
-
-      _ ->
-        actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
-        assert actual_hash_tree_root == expected_hash_tree_root
-    end
+    actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
+    assert actual_hash_tree_root == expected_hash_tree_root
   end
 
   defp assert_ssz_invalid(schema, real_serialized) do
@@ -135,35 +116,4 @@ defmodule SszGenericTestRunner do
     [size | _] = String.split(rest, "_")
     {:bitvector, String.to_integer(size)}
   end
-
-  def sanitize(container, module) when is_map(container) do
-    schema = module.schema() |> Map.new()
-
-    container
-    |> Enum.map(fn {k, v} -> {k, sanitize(v, Map.fetch!(schema, k))} end)
-    |> then(&struct!(module, &1))
-  end
-
-  def sanitize(vector_elements, {:vector, :bool, _size} = _schema), do: vector_elements
-
-  def sanitize(vector_elements, {:vector, module, _size} = _schema) when is_atom(module),
-    do:
-      vector_elements
-      |> Enum.map(&struct!(module, &1))
-
-  def sanitize(bitlist, {:bitlist, _size} = _schema), do: elem(BitList.new(bitlist), 0)
-  def sanitize(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
-
-  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema)
-      when is_integer(bytelist) and bytelist > 0,
-      do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list()
-
-  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema)
-      when is_integer(bytelist) and bytelist == 0,
-      do: []
-
-  def sanitize(bytelist, {:list, {:int, 8}, _size} = _schema),
-    do: :binary.bin_to_list(bytelist)
-
-  def sanitize(other, _schema), do: other
 end
