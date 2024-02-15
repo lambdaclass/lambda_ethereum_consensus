@@ -1,0 +1,24 @@
+name: Docs
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '*' ]
+    # NOTE: these paths should be the same as the ones in docs_skipped.yml
+    paths:
+      - 'docs/**'
+      - 'README.md'
+
+# Cancel old runs on the same branch (except on main)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  spellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Spellcheck
+        uses: igsekor/pyspelling-any@v1.0.4
