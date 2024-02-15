@@ -3,6 +3,8 @@ defmodule SpecTestUtils do
   Utilities for spec tests.
   """
   alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.Utils.BitList
+  alias LambdaEthereumConsensus.Utils.BitVector
 
   @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
   @vector_keys [
@@ -116,4 +118,33 @@ defmodule SpecTestUtils do
       name -> name
     end
   end
+
+  def sanitize_ssz(container, module) when is_map(container) do
+    schema = module.schema() |> Map.new()
+
+    container
+    |> Enum.map(fn {k, v} -> {k, sanitize_ssz(v, Map.fetch!(schema, k))} end)
+    |> then(&struct!(module, &1))
+  end
+
+  def sanitize_ssz(vector_elements, {:vector, :bool, _size} = _schema), do: vector_elements
+
+  def sanitize_ssz(vector_elements, {:vector, module, _size} = _schema) when is_atom(module),
+    do: Enum.map(vector_elements, &struct!(module, &1))
+
+  def sanitize_ssz(bitlist, {:bitlist, _size} = _schema), do: elem(BitList.new(bitlist), 0)
+  def sanitize_ssz(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
+
+  def sanitize_ssz(0, {:list, {:int, 8}, _size} = _schema), do: []
+
+  def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema) when is_integer(bytelist),
+    do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list()
+
+  @doc """
+  this clause is called when an element of a container is a bytelist that is parsed as a binary and not as a list of bytes
+  """
+  def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema),
+    do: :binary.bin_to_list(bytelist)
+
+  def sanitize_ssz(other, _schema), do: other
 end
