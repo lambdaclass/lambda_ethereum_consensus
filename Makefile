@@ -92,6 +92,7 @@ compile-all: compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
 #🗑️ clean: @ Remove the build files.
 clean:
 	-mix clean
+	-rm -rf test/generated
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
 
 #📊 grafana-up: @ Start grafana server.

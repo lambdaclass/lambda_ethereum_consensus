@@ -16,8 +16,13 @@ defmodule Mix.Tasks.GenerateSpecTests do
   @shortdoc "Generates tests for spec test files"
   @impl Mix.Task
   def run(_args) do
-    {:ok, file_names} = File.ls(Path.join(["test", "spec", "runners"]))
+    generated_folder = Path.join(["test", "generated"])
+    {:ok, file_names} = Path.join(["test", "spec", "runners"]) |> File.ls()
     runners = Enum.map(file_names, &Path.basename(&1, ".ex"))
+
+    # Empty test folder
+    File.rm_rf!(generated_folder)
+    File.mkdir_p!(generated_folder)
 
     # Generate all tests for Capella fork
     for config <- @configs, runner <- runners do
@@ -34,7 +39,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
       generate_test(config, fork, "shuffling")
     end
 
-    File.touch(Path.join(["test", "generated"]))
+    File.touch(generated_folder)
   end
 
   defp generate_test(config, fork, runner) do
