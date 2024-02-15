@@ -2,7 +2,7 @@ defmodule ConfigUtils do
   @moduledoc """
   Utilities for parsing configs and presets.
   """
-  @forks ["phase0", "altair", "bellatrix", "capella"]
+  @forks ["phase0", "altair", "bellatrix", "capella", "deneb"]
 
   def load_config_from_file!(path) do
     path
