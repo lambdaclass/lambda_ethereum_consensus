@@ -2,24 +2,60 @@ defmodule SszStaticTestRunner do
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.Diff
 
   use ExUnit.CaseTemplate
   use TestRunner
-  import Aja
 
   @disabled [
-    "ContributionAndProof",
-    "Eth1Block",
+    # "DepositData",
+    # "DepositMessage",
+    # "Eth1Data",
+    # "ProposerSlashing",
+    # "SignedBeaconBlockHeader",
+    # "SignedVoluntaryExit",
+    # "Validator",
+    # "VoluntaryExit",
+    # "Attestation",
+    # "AttestationData",
+    # "BLSToExecutionChange",
+    # "BeaconBlockHeader",
+    # "Checkpoint",
+    # "Deposit",
+    # "SignedBLSToExecutionChange",
+    # "SigningData",
+    # "SyncCommittee",
+    # "Withdrawal",
+    # "AttesterSlashing",
+    # "HistoricalSummary",
+    # "PendingAttestation",
+    # "Fork",
+    # "ForkData",
+    # "HistoricalBatch",
+    # "IndexedAttestation",
+    "ExecutionPayload",
+    "ExecutionPayloadHeader",
+    "SignedBeaconBlock",
+    "SyncAggregate",
+    "AggregateAndProof",
+    "BeaconBlock",
+    "BeaconBlockBody",
+    "BeaconState",
+    "SignedAggregateAndProof",
+    # -- not defined yet
     "LightClientBootstrap",
-    "LightClientFinalityUpdate",
-    "LightClientHeader",
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
+    "Eth1Block",
     "PowBlock",
     "SignedContributionAndProof",
+    "SignedData",
     "SyncAggregatorSelectionData",
     "SyncCommitteeContribution",
+    "ContributionAndProof",
+    "LightClientFinalityUpdate",
+    "LightClientHeader",
     "SyncCommitteeMessage"
   ]
 
@@ -40,6 +76,7 @@ defmodule SszStaticTestRunner do
     expected =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
+      |> SpecTestUtils.sanitize_ssz(schema)
 
     %{"root" => expected_root} = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
     expected_root = expected_root |> SpecTestUtils.sanitize_yaml()
@@ -48,37 +85,14 @@ defmodule SszStaticTestRunner do
   end
 
   defp assert_ssz(schema, real_serialized, real_deserialized, expected_root) do
-    {:ok, deserialized} = Ssz.from_ssz(real_serialized, schema)
-    real_deserialized = to_struct_checked(deserialized, real_deserialized)
-
+    {:ok, deserialized} = SszEx.decode(real_serialized, schema)
     assert Diff.diff(deserialized, real_deserialized) == :unchanged
-
-    {:ok, serialized} = Ssz.to_ssz(real_deserialized)
+    {:ok, serialized} = SszEx.encode(real_deserialized, schema)
     assert serialized == real_serialized
 
-    root = Ssz.hash_tree_root!(real_deserialized)
+    root = SszEx.hash_tree_root!(real_deserialized, schema)
     assert root == expected_root
   end
-
-  defp to_struct_checked(actual, expected) when is_list(actual) and is_list(expected) do
-    Stream.zip(actual, expected) |> Enum.map(fn {a, e} -> to_struct_checked(a, e) end)
-  end
-
-  defp to_struct_checked(vec(_) = actual, vec(_) = expected) do
-    actual
-    |> Aja.Enum.to_list()
-    |> to_struct_checked(Aja.Enum.to_list(expected))
-    |> Aja.Vector.new()
-  end
-
-  defp to_struct_checked(%name{} = actual, %{} = expected) do
-    expected
-    |> Stream.map(fn {k, v} -> {k, to_struct_checked(Map.get(actual, k), v)} end)
-    |> Map.new()
-    |> then(&struct!(name, &1))
-  end
-
-  defp to_struct_checked(_actual, expected), do: expected
 
   defp parse_type(%SpecTestCase{handler: handler}) do
     Module.concat(Types, handler)
