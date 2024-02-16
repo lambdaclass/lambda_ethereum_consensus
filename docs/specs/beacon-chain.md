@@ -2035,6 +2035,8 @@ def process_slot(state: BeaconState) -> None:
 
 ### Epoch processing
 
+*Note*: The function `process_historical_summaries_update` replaces `process_historical_roots_update` in Capella.
+
 ```python
 def process_epoch(state: BeaconState) -> None:
     process_justification_and_finalization(state)
