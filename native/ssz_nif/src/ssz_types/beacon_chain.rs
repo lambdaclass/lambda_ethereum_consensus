@@ -232,6 +232,27 @@ pub(crate) struct ExecutionPayload<C: Config> {
 }
 
 #[derive(Encode, Decode, TreeHash)]
+pub(crate) struct ExecutionPayloadDeneb<C: Config> {
+    pub(crate) parent_hash: Hash32,
+    pub(crate) fee_recipient: ExecutionAddress,
+    pub(crate) state_root: Root,
+    pub(crate) receipts_root: Root,
+    pub(crate) logs_bloom: FixedVector<u8, C::BytesPerLogsBloom>,
+    pub(crate) prev_randao: Bytes32,
+    pub(crate) block_number: u64,
+    pub(crate) gas_limit: u64,
+    pub(crate) gas_used: u64,
+    pub(crate) timestamp: u64,
+    pub(crate) extra_data: VariableList<u8, C::MaxExtraDataBytes>,
+    pub(crate) base_fee_per_gas: Uint256,
+    pub(crate) block_hash: Hash32,
+    pub(crate) transactions: VariableList<Transaction, C::MaxTransactionsPerPayload>,
+    pub(crate) withdrawals: VariableList<Withdrawal, C::MaxWithdrawalsPerPayload>,
+    pub(crate) blob_gas_used: u64,
+    pub(crate) excess_blob_gas: u64,
+}
+
+#[derive(Encode, Decode, TreeHash)]
 pub(crate) struct SyncCommittee<C: Config> {
     pub(crate) pubkeys: FixedVector<BLSPubkey, C::SyncCommitteeSize>,
     pub(crate) aggregate_pubkey: BLSPubkey,
@@ -251,6 +272,23 @@ pub(crate) struct BeaconBlockBody<C: Config> {
     pub(crate) execution_payload: ExecutionPayload<C>,
     pub(crate) bls_to_execution_changes:
         VariableList<SignedBLSToExecutionChange, C::MaxBlsToExecutionChanges>,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct BeaconBlockBodyDeneb<C: Config> {
+    pub(crate) randao_reveal: BLSSignature,
+    pub(crate) eth1_data: Eth1Data,
+    pub(crate) graffiti: Bytes32,
+    pub(crate) proposer_slashings: VariableList<ProposerSlashing, C::MaxProposerSlashings>,
+    pub(crate) attester_slashings: VariableList<AttesterSlashing<C>, C::MaxAttesterSlashings>,
+    pub(crate) attestations: VariableList<Attestation<C>, C::MaxAttestations>,
+    pub(crate) deposits: VariableList<Deposit, C::MaxDeposits>,
+    pub(crate) voluntary_exits: VariableList<SignedVoluntaryExit, C::MaxVoluntaryExits>,
+    pub(crate) sync_aggregate: SyncAggregate<C>,
+    pub(crate) execution_payload: ExecutionPayloadDeneb<C>,
+    pub(crate) bls_to_execution_changes:
+        VariableList<SignedBLSToExecutionChange, C::MaxBlsToExecutionChanges>,
+    pub(crate) blob_kzg_commitments: VariableList<KZGCommitment, C::MaxBlobCommitmentsPerBlock>,
 }
 
 #[derive(Encode, Decode, TreeHash)]

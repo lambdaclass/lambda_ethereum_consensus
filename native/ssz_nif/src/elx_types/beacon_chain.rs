@@ -318,6 +318,30 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
+    #[module = "Types.ExecutionPayloadDeneb"]
+    pub(crate) struct ExecutionPayloadDeneb<'a> {
+        parent_hash: Hash32<'a>,
+        fee_recipient: ExecutionAddress<'a>,
+        state_root: Root<'a>,
+        receipts_root: Root<'a>,
+        logs_bloom: Binary<'a>,
+        prev_randao: Bytes32<'a>,
+        block_number: u64,
+        gas_limit: u64,
+        gas_used: u64,
+        timestamp: u64,
+        extra_data: Binary<'a>,
+        base_fee_per_gas: Uint256<'a>,
+        block_hash: Hash32<'a>,
+        transactions: Vec<Transaction<'a>>,
+        withdrawals: Vec<Withdrawal<'a>>,
+        blob_gas_used: u64,
+        excess_blob_gas: u64,
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
     #[module = "Types.SyncCommittee"]
     pub(crate) struct SyncCommittee<'a> {
         pubkeys: Vec<BLSPubkey<'a>>,
@@ -375,8 +399,8 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "Types.BeaconBlockBody"]
-    pub(crate) struct BeaconBlockBody<'a> {
+    #[module = "Types.BeaconBlockBodyDeneb"]
+    pub(crate) struct BeaconBlockBodyDeneb<'a> {
         randao_reveal: BLSSignature<'a>,
         eth1_data: Eth1Data<'a>,
         graffiti: Bytes32<'a>,
@@ -386,7 +410,8 @@ gen_struct_with_config!(
         deposits: Vec<Deposit<'a>>,
         voluntary_exits: Vec<SignedVoluntaryExit<'a>>,
         sync_aggregate: SyncAggregate<'a>,
-        execution_payload: ExecutionPayload<'a>,
+        execution_payload: ExecutionPayloadDeneb<'a>,
         bls_to_execution_changes: Vec<SignedBLSToExecutionChange<'a>>,
+        blob_kzg_commitments: Vec<KZGCommitment<'a>>,
     }
 );
