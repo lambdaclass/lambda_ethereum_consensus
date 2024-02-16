@@ -182,10 +182,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Add new block and state to the store
       BlockStates.store_state(block_root, state)
 
+      is_first_block = store.proposer_boost_root == <<0::256>>
+      # TODO: store block timeliness data?
+      is_timely = Store.get_current_slot(store) == block.slot and is_before_attesting_interval
+
       store
       |> Store.store_block(block_root, signed_block)
       |> if_then_update(
-        is_before_attesting_interval and Store.get_current_slot(store) == block.slot,
+        is_timely and is_first_block,
         &%Store{&1 | proposer_boost_root: block_root}
       )
       # Update checkpoints in store if necessary
