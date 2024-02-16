@@ -117,13 +117,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   defp filter_leaf_block(%Store{} = store, block_root, block, blocks) do
-    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+    current_epoch = Store.get_current_epoch(store)
     voting_source = get_voting_source(store, block_root)
 
     # The voting source should be at the same height as the store's justified checkpoint
     correct_justified =
       store.justified_checkpoint.epoch == Constants.genesis_epoch() or
-        voting_source.epoch == store.justified_checkpoint.epoch
+        voting_source.epoch == store.justified_checkpoint.epoch or
+        voting_source.epoch + 2 >= current_epoch
 
     # If the previous epoch is justified, the block should be pulled-up. In this case, check that unrealized
     # justification is higher than the store and that the voting source is not more than two epochs ago
@@ -158,7 +159,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   # Compute the voting source checkpoint in event that block with root ``block_root`` is the head block
   def get_voting_source(%Store{} = store, block_root) do
     block = Blocks.get_block!(block_root)
-    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+    current_epoch = Store.get_current_epoch(store)
     block_epoch = Misc.compute_epoch_at_slot(block.slot)
 
     if current_epoch > block_epoch do
@@ -172,8 +173,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   def previous_epoch_justified?(%Store{} = store) do
-    current_slot = Store.get_current_slot(store)
-    current_epoch = Misc.compute_epoch_at_slot(current_slot)
+    current_epoch = Store.get_current_epoch(store)
     store.justified_checkpoint.epoch + 1 == current_epoch
   end
 

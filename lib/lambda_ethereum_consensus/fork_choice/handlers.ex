@@ -258,7 +258,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def compute_pulled_up_tip(%Store{} = store, block_root, block, state) do
     with {:ok, state} <- EpochProcessing.process_justification_and_finalization(state) do
       block_epoch = Misc.compute_epoch_at_slot(block.slot)
-      current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+      current_epoch = Store.get_current_epoch(store)
 
       unrealized_justifications =
         Map.put(store.unrealized_justifications, block_root, state.current_justified_checkpoint)
@@ -359,7 +359,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     target = attestation.data.target
 
     # Attestations must be from the current or previous epoch
-    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+    current_epoch = Store.get_current_epoch(store)
     # Use GENESIS_EPOCH for previous when genesis to avoid underflow
     previous_epoch = max(current_epoch - 1, Constants.genesis_epoch())
 

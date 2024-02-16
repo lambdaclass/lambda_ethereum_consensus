@@ -92,6 +92,10 @@ defmodule Types.Store do
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
   end
 
+  def get_current_epoch(store) do
+    store |> get_current_slot() |> Misc.compute_epoch_at_slot()
+  end
+
   def get_ancestor(%__MODULE__{} = store, root, slot) do
     block = Blocks.get_block!(root)
 
