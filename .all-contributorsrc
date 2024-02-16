@@ -131,6 +131,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "manojkgorle",
+      "name": "Manoj",
+      "avatar_url": "https://avatars.githubusercontent.com/u/65953961?v=4",
+      "profile": "https://github.com/manojkgorle",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "commitType": "docs",
