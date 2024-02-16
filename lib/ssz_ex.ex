@@ -28,6 +28,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
   def encode(value, {:bytes, _}), do: {:ok, value}
+  def encode(value, {:byte_list, _}), do: {:ok, value}
 
   def encode(list, {:list, basic_type, size}) do
     if variable_size?(basic_type),
@@ -56,6 +57,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   def decode(binary, :bool), do: decode_bool(binary)
   def decode(binary, {:int, size}), do: decode_uint(binary, size)
   def decode(value, {:bytes, _}), do: {:ok, value}
+  def decode(value, {:byte_list, _}), do: {:ok, value}
 
   def decode(binary, {:list, basic_type, size}) do
     if variable_size?(basic_type),
@@ -342,6 +344,10 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp encode_fixed_size_list(list, _basic_type, max_size) when length(list) > max_size,
     do: {:error, "invalid max_size of list"}
 
+  defp encode_fixed_size_list(binary, :bytes, _size) when is_binary(binary) do
+    {:ok, binary}
+  end
+
   defp encode_fixed_size_list(list, basic_type, _size) when is_list(list) do
     list
     |> Enum.map(&encode(&1, basic_type))
@@ -449,12 +455,24 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  defp decode_fixed_list(binary, :bytes, size) do
+    with :ok <- check_valid_list_size_after_decode(size, byte_size(binary)) do
+      {:ok, binary}
+    end
+  end
+
   defp decode_fixed_list(binary, basic_type, size) do
     fixed_size = get_fixed_size(basic_type)
 
     with {:ok, decoded_list} = result <- decode_fixed_collection(binary, fixed_size, basic_type),
          :ok <- check_valid_list_size_after_decode(size, length(decoded_list)) do
       result
+    end
+  end
+
+  defp decode_fixed_vector(binary, :bytes, size) do
+    with :ok <- check_valid_list_size_after_decode(size, byte_size(binary)) do
+      {:ok, binary}
     end
   end
 
@@ -797,6 +815,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp get_fixed_size(:bool), do: 1
   defp get_fixed_size({:int, size}), do: div(size, @bits_per_byte)
   defp get_fixed_size({:bytes, size}), do: size
+  defp get_fixed_size({:vector, :bytes, size}), do: size
   defp get_fixed_size({:vector, basic_type, size}), do: size * get_fixed_size(basic_type)
 
   defp get_fixed_size({:bitvector, size}),
@@ -812,10 +831,13 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp variable_size?({:list, _, _}), do: true
   defp variable_size?(:bool), do: false
+  defp variable_size?({:byte_list, _}), do: true
+  defp variable_size?(:bytes), do: false
   defp variable_size?({:int, _}), do: false
   defp variable_size?({:bytes, _}), do: false
   defp variable_size?({:bitlist, _}), do: true
   defp variable_size?({:bitvector, _}), do: false
+  defp variable_size?({:vector, :bytes, _}), do: false
   defp variable_size?({:vector, basic_type, _}), do: variable_size?(basic_type)
 
   defp variable_size?(module) when is_atom(module) do

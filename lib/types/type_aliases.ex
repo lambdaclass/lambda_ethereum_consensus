@@ -23,11 +23,9 @@ defmodule TypeAliases do
 
   def transactions,
     do:
-      {:list, byte_list(ChainSpec.get("MAX_BYTES_PER_TRANSACTION")),
+      {:list, {:byte_list, ChainSpec.get("MAX_BYTES_PER_TRANSACTION")},
        ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}
 
   def domain_type, do: {:bytes, 4}
   def fork_digest, do: {:bytes, 4}
-
-  def byte_list(n), do: {:list, {:int, 8}, n}
 end

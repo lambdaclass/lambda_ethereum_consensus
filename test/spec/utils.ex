@@ -135,23 +135,21 @@ defmodule SpecTestUtils do
 
   def sanitize_ssz(vector_elements, {:vector, :bool, _size} = _schema), do: vector_elements
 
+  def sanitize_ssz(binary, {:vector, :bytes, _size} = _schema), do: binary
+
   def sanitize_ssz(vector_elements, {:vector, module, _size} = _schema) when is_atom(module),
     do: Enum.map(vector_elements, &struct!(module, &1))
 
   def sanitize_ssz(bitlist, {:bitlist, _size} = _schema), do: elem(BitList.new(bitlist), 0)
   def sanitize_ssz(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
 
-  def sanitize_ssz(
-        list_of_bytelist,
-        {:list, {:list, {:int, 8}, _inner_size} = inner_schema, _size} = _schema
-      ),
-      do: Enum.map(list_of_bytelist, fn elm -> sanitize_ssz(elm, inner_schema) end)
+  def sanitize_ssz(binary, {:list, :bytes, _size} = _schema), do: binary
 
   def sanitize_ssz(list_elements, {:list, module, _size} = _schema) when is_atom(module),
     do: Enum.map(list_elements, fn element -> sanitize_ssz(element, module) end)
 
   def sanitize_ssz(0, {:list, {:int, 8}, _size} = _schema), do: []
-
+  #
   def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema) when is_integer(bytelist),
     do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list()
 
