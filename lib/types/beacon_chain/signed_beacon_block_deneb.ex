@@ -1,6 +1,6 @@
-defmodule Types.SignedBeaconBlockHeaderDeneb do
+defmodule Types.SignedBeaconBlockDeneb do
   @moduledoc """
-  Struct definition for `SignedBeaconBlockHeader`.
+  Struct definition for `SignedBeaconBlock`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
   @behaviour LambdaEthereumConsensus.Container
@@ -14,14 +14,14 @@ defmodule Types.SignedBeaconBlockHeaderDeneb do
   defstruct fields
 
   @type t :: %__MODULE__{
-          message: Types.BeaconBlockHeaderDeneb.t(),
+          message: Types.BeaconBlockDeneb.t(),
           signature: Types.bls_signature()
         }
 
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:message, Types.BeaconBlockHeaderDeneb},
+      {:message, Types.BeaconBlockDeneb},
       {:signature, TypeAliases.bls_signature()}
     ]
   end

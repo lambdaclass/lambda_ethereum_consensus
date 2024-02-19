@@ -122,6 +122,15 @@ pub(crate) struct BeaconBlock<C: Config> {
 }
 
 #[derive(Encode, Decode, TreeHash)]
+pub(crate) struct BeaconBlockDeneb<C: Config> {
+    pub(crate) slot: Slot,
+    pub(crate) proposer_index: ValidatorIndex,
+    pub(crate) parent_root: Root,
+    pub(crate) state_root: Root,
+    pub(crate) body: BeaconBlockBodyDeneb<C>,
+}
+
+#[derive(Encode, Decode, TreeHash)]
 pub(crate) struct BeaconBlockHeader {
     pub(crate) slot: Slot,
     pub(crate) proposer_index: ValidatorIndex,
@@ -133,6 +142,12 @@ pub(crate) struct BeaconBlockHeader {
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct SignedBeaconBlock<C: Config> {
     pub(crate) message: BeaconBlock<C>,
+    pub(crate) signature: BLSSignature,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct SignedBeaconBlockDeneb<C: Config> {
+    pub(crate) message: BeaconBlockDeneb<C>,
     pub(crate) signature: BLSSignature,
 }
 
@@ -210,6 +225,27 @@ pub(crate) struct ExecutionPayloadHeader<C: Config> {
     pub(crate) block_hash: Hash32,
     pub(crate) transactions_root: Root,
     pub(crate) withdrawals_root: Root,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct ExecutionPayloadHeaderDeneb<C: Config> {
+    pub(crate) parent_hash: Hash32,
+    pub(crate) fee_recipient: ExecutionAddress,
+    pub(crate) state_root: Root,
+    pub(crate) receipts_root: Root,
+    pub(crate) logs_bloom: FixedVector<u8, C::BytesPerLogsBloom>,
+    pub(crate) prev_randao: Bytes32,
+    pub(crate) block_number: u64,
+    pub(crate) gas_limit: u64,
+    pub(crate) gas_used: u64,
+    pub(crate) timestamp: u64,
+    pub(crate) extra_data: VariableList<u8, C::MaxExtraDataBytes>,
+    pub(crate) base_fee_per_gas: Uint256,
+    pub(crate) block_hash: Hash32,
+    pub(crate) transactions_root: Root,
+    pub(crate) withdrawals_root: Root,
+    pub(crate) blob_gas_used: u64,
+    pub(crate) excess_blob_gas: u64,
 }
 
 #[derive(Encode, Decode, TreeHash)]
