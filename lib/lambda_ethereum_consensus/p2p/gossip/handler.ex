@@ -5,12 +5,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.Store.BlobDb
-  alias Types.BlobSidecar
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Utils.BitField
-  alias Types.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
+  alias Types.{AggregateAndProof, BlobSidecar, SignedAggregateAndProof, SignedBeaconBlock}
 
   def handle_beacon_block(%SignedBeaconBlock{message: block} = signed_block) do
     current_slot = BeaconChain.get_current_slot()
