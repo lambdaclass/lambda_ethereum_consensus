@@ -248,7 +248,10 @@ defmodule Unit.SSZTests do
         Types.BeaconBlockBodyDeneb,
         random_block.message.body
         |> Map.from_struct()
-        |> Map.merge(%{execution_payload: execution_payload, blob_kzg_commitments: []})
+        |> Map.merge(%{
+          execution_payload: execution_payload,
+          blob_kzg_commitments: [<<125_125::48*8>>]
+        })
       )
 
     deneb_block = %Types.SignedBeaconBlockDeneb{
