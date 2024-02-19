@@ -1,6 +1,5 @@
 defmodule Unit.SSZTests do
   alias Fixtures.Block
-  alias Fixtures.Random
   alias LambdaEthereumConsensus.Utils.BitVector
   use ExUnit.Case
 
