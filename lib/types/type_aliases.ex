@@ -16,13 +16,23 @@ defmodule TypeAliases do
   def execution_address, do: {:bytes, 20}
   def version, do: {:bytes, 4}
   def domain, do: {:bytes, 32}
+  def transaction, do: byte_list(ChainSpec.get("MAX_BYTES_PER_TRANSACTION"))
+  def domain_type, do: {:bytes, 4}
+  def fork_digest, do: {:bytes, 4}
+  def blob_index, do: uint64()
+
+  def blob do
+    byte_vector(Constants.bytes_per_field_element() * ChainSpec.get("FIELD_ELEMENTS_PER_BLOB"))
+  end
+
+  def kzg_commitment, do: {:bytes, 48}
+  def kzg_proof, do: {:bytes, 48}
+
   def bytes32, do: {:bytes, 32}
   def uint64, do: {:int, 64}
   def hash32, do: {:bytes, 32}
   def uint256, do: {:int, 256}
-  def transaction, do: byte_list(ChainSpec.get("MAX_BYTES_PER_TRANSACTION"))
-  def domain_type, do: {:bytes, 4}
-  def fork_digest, do: {:bytes, 4}
 
   def byte_list(n), do: {:list, {:int, 8}, n}
+  def byte_vector(n), do: {:list, {:int, 8}, n}
 end

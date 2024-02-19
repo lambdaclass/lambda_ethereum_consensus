@@ -50,6 +50,8 @@ macro_rules! schema_match {
                 Metadata<C>,
                 Root,
                 Epoch,
+                BlobSidecar<C>,
+                BlobIdentifier,
             }
         )
     };
