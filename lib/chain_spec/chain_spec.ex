@@ -9,13 +9,10 @@ defmodule ChainSpec do
   def get_preset, do: get_config().get("PRESET_BASE") |> String.to_atom()
 
   def get_fork_version_for_epoch(epoch) do
-    capella_version = get("CAPELLA_FORK_VERSION")
-    cappella_epoch = get("CAPELLA_FORK_EPOCH")
-
-    if epoch >= cappella_epoch do
-      capella_version
-    else
-      raise "Forks before Capella are not supported"
+    cond do
+      epoch >= get("DENEB_FORK_EPOCH") -> get("DENEB_FORK_VERSION")
+      epoch >= get("CAPELLA_FORK_EPOCH") -> get("CAPELLA_FORK_VERSION")
+      true -> raise "Forks before Capella are not supported"
     end
   end
 

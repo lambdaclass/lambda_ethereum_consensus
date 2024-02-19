@@ -3,7 +3,7 @@ defmodule BeaconApiTest do
   use Plug.Test
   use Patch
   alias BeaconApi.Router
-  alias LambdaEthereumConsensus.Store.BlockStore
+  alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Db
 
   @moduletag :beacon_api_case
@@ -42,7 +42,7 @@ defmodule BeaconApiTest do
         0, 0>>
 
     signed_block = Fixtures.Block.signed_beacon_block()
-    BlockStore.store_block(signed_block, head_root)
+    BlockDb.store_block(signed_block, head_root)
 
     resp_body = %{
       data: %{root: "0x" <> Base.encode16(signed_block.message.state_root, case: :lower)},
@@ -86,11 +86,11 @@ defmodule BeaconApiTest do
         0, 0>>
 
     signed_block = Fixtures.Block.signed_beacon_block()
-    BlockStore.store_block(signed_block, head_root)
+    BlockDb.store_block(signed_block, head_root)
     beacon_state = Fixtures.Block.beacon_state()
 
     patch(
-      LambdaEthereumConsensus.Store.StateStore,
+      LambdaEthereumConsensus.Store.StateDb,
       :get_state_by_state_root,
       {:ok, beacon_state}
     )

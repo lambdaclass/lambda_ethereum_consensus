@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Store.{BlockStore, StateStore}
+  alias LambdaEthereumConsensus.Store.{BlockDb, StateDb}
 
   alias Types.Store
 
@@ -117,13 +117,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   defp filter_leaf_block(%Store{} = store, block_root, block, blocks) do
-    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+    current_epoch = Store.get_current_epoch(store)
     voting_source = get_voting_source(store, block_root)
 
     # The voting source should be at the same height as the store's justified checkpoint
     correct_justified =
       store.justified_checkpoint.epoch == Constants.genesis_epoch() or
-        voting_source.epoch == store.justified_checkpoint.epoch
+        voting_source.epoch == store.justified_checkpoint.epoch or
+        voting_source.epoch + 2 >= current_epoch
 
     # If the previous epoch is justified, the block should be pulled-up. In this case, check that unrealized
     # justification is higher than the store and that the voting source is not more than two epochs ago
@@ -158,7 +159,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   # Compute the voting source checkpoint in event that block with root ``block_root`` is the head block
   def get_voting_source(%Store{} = store, block_root) do
     block = Blocks.get_block!(block_root)
-    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+    current_epoch = Store.get_current_epoch(store)
     block_epoch = Misc.compute_epoch_at_slot(block.slot)
 
     if current_epoch > block_epoch do
@@ -172,8 +173,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   def previous_epoch_justified?(%Store{} = store) do
-    current_slot = Store.get_current_slot(store)
-    current_epoch = Misc.compute_epoch_at_slot(current_slot)
+    current_epoch = Store.get_current_epoch(store)
     store.justified_checkpoint.epoch + 1 == current_epoch
   end
 
@@ -244,7 +244,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   def block_root_by_block_id(slot) when is_integer(slot) do
     with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
-         {:ok, root} <- BlockStore.get_block_root_by_slot(slot) do
+         {:ok, root} <- BlockDb.get_block_root_by_slot(slot) do
       # TODO compute is_optimistic_or_invalid() and is_finalized()
       execution_optimistic = true
       finalized = false
@@ -259,7 +259,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     execution_optimistic = true
     finalized = false
 
-    case StateStore.get_state_by_state_root(hex_root) do
+    case StateDb.get_state_by_state_root(hex_root) do
       {:ok, _state} -> {:ok, {hex_root, execution_optimistic, finalized}}
       _ -> :not_found
     end
@@ -267,7 +267,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
 
   def state_root_by_state_id(id) do
     with {:ok, {block_root, optimistic, finalized}} <- block_root_by_block_id(id),
-         {:ok, block} <- BlockStore.get_block(block_root) do
+         {:ok, block} <- BlockDb.get_block(block_root) do
       %{message: %{state_root: state_root}} = block
       {:ok, {state_root, optimistic, finalized}}
     end
@@ -281,7 +281,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
           | :invalid_id
   def block_by_block_id(block_id) do
     with {:ok, {root, optimistic, finalized}} <- block_root_by_block_id(block_id),
-         {:ok, block} <- BlockStore.get_block(root) do
+         {:ok, block} <- BlockDb.get_block(root) do
       {:ok, {block, optimistic, finalized}}
     end
   end
@@ -297,7 +297,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     execution_optimistic = true
     finalized = false
 
-    case StateStore.get_state_by_state_root(hex_root) do
+    case StateDb.get_state_by_state_root(hex_root) do
       {:ok, state} -> {:ok, {state, execution_optimistic, finalized}}
       _ -> :not_found
     end
@@ -307,7 +307,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     with {:ok, {%{message: %{state_root: state_root}}, optimistic, finalized}} <-
            block_by_block_id(id),
          {:ok, state} <-
-           StateStore.get_state_by_state_root(state_root) do
+           StateDb.get_state_by_state_root(state_root) do
       {:ok, {state, optimistic, finalized}}
     end
   end
