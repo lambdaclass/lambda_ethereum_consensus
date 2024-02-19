@@ -98,8 +98,8 @@ defmodule Types.ExecutionPayloadHeaderDeneb do
       {:block_hash, TypeAliases.hash32()},
       {:transactions_root, TypeAliases.root()},
       {:withdrawals_root, TypeAliases.root()},
-      {:blob_gas_used, TypesAliases.uint64()},
-      {:excess_blob_gas, TypesAliases.uint64()}
+      {:blob_gas_used, TypeAliases.uint64()},
+      {:excess_blob_gas, TypeAliases.uint64()}
     ]
   end
 end

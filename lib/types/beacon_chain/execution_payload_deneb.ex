@@ -78,8 +78,8 @@ defmodule Types.ExecutionPayloadDeneb do
       {:block_hash, TypeAliases.hash32()},
       {:transactions, TypeAliases.transaction()},
       {:withdrawals, {:list, Types.Withdrawal, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}},
-      {:blob_gas_used, TypesAliases.uint64()},
-      {:excess_blob_gas, TypesAliases.uint64()}
+      {:blob_gas_used, TypeAliases.uint64()},
+      {:excess_blob_gas, TypeAliases.uint64()}
     ]
   end
 end
