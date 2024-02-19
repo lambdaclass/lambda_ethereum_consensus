@@ -5,6 +5,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   """
   require Logger
 
+  alias LambdaEthereumConsensus.Store.BlobDb
+  alias Types.BlobSidecar
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Utils.BitField
@@ -39,6 +41,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
     )
   end
 
-  def handle_blob_sidecar(blob, blob_index) do
+  def handle_blob_sidecar(%BlobSidecar{index: blob_index} = blob, blob_index) do
+    BlobDb.store_blob(blob)
+    Logger.debug("[Gossip] Blob sidecar received, with index #{blob_index}")
   end
+
+  # Ignore blobs with mismatched indices
+  def handle_blob_sidecar(_, _), do: :ok
 end
