@@ -457,7 +457,6 @@ gen_struct_with_config!(
         sync_aggregate: SyncAggregate<'a>,
         execution_payload: ExecutionPayload<'a>,
         bls_to_execution_changes: Vec<SignedBLSToExecutionChange<'a>>,
-        blob_kzg_commitments: Vec<KZGCommitment<'a>>,
     }
 );
 
