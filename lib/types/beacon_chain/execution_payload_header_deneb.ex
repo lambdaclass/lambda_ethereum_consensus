@@ -20,7 +20,9 @@ defmodule Types.ExecutionPayloadHeaderDeneb do
     base_fee_per_gas: 0,
     block_hash: <<0::256>>,
     transactions_root: <<0::256>>,
-    withdrawals_root: <<0::256>>
+    withdrawals_root: <<0::256>>,
+    blob_gas_used: 0,
+    excess_blob_gas: 0
   }
 
   fields = [
