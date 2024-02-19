@@ -38,4 +38,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
       root: root
     )
   end
+
+  def handle_blob_sidecar(blob, blob_index) do
+  end
 end

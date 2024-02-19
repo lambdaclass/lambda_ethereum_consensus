@@ -27,6 +27,13 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
       # {"sync_committee_0", Types.SyncCommitteeMessage}
     ]
 
+    topics =
+      topics ++
+        (0..5
+         |> Enum.map(fn i ->
+           {"blob_sidecar_#{i}", Types.BlobSidecar, &Handler.handle_blob_sidecar(&1, i)}
+         end))
+
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
     children =
