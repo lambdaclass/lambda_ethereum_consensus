@@ -2,7 +2,6 @@
 
 ## Representing integers
 
-
 Computers use transistors to store data. These electrical components only have two possible states: `clear` or `set`. Numerically, we represent the clear state as a `0` and the set state as `1`. Using 1s and 0s, we can represent any integer number using the binary system, the same way we use the decimal system in our daily lives.
 
 As an example, let's take the number 259. For its decimal representation, we use the digits 2, 5, and 9, because each digit, or coefficient, represents a power of 10:
