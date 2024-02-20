@@ -93,12 +93,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         parent_status == :invalid ->
           state |> Map.put(block_root, {nil, :invalid})
 
-        # If parent is processing, block is pending
-        parent_status == :processing ->
-          state
-
-        # If parent is pending, block is pending
-        parent_status == :pending ->
+        # If parent isn't processed, block is pending
+        parent_status in [:processing, :pending, :download] ->
           state
 
         # If parent is not in fork choice, download parent
