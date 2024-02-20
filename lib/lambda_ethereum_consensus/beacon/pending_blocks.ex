@@ -51,7 +51,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     block_root = Ssz.hash_tree_root!(block)
 
     # If already processing or processed, ignore it
-    if state |> Map.get(block_root) or Blocks.has_block?(block_root) do
+    if Map.has_key?(state, block_root) or Blocks.has_block?(block_root) do
       {:noreply, state}
     else
       {:noreply, state |> Map.put(block_root, {signed_block, :pending})}
