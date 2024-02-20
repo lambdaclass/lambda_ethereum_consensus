@@ -354,7 +354,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     if len > max_size do
       {:error, "excess bits"}
     else
-      {:ok, BitList.to_bytes({bit_list, len})}
+      {:ok, BitList.to_bytes(bit_list)}
     end
   end
 
@@ -407,7 +407,8 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp decode_bitlist(bit_list, max_size) when bit_size(bit_list) > 0 do
     num_bytes = byte_size(bit_list)
-    {decoded, len} = BitList.new(bit_list)
+    decoded = BitList.new(bit_list)
+    len = BitList.length(bit_list)
 
     cond do
       len < 0 ->

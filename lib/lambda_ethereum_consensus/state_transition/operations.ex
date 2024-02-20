@@ -845,7 +845,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_matching_aggregation_bits_length(attestation, beacon_committee) do
-    if BitList.length_of_bitlist(attestation.aggregation_bits) == length(beacon_committee) do
+    if BitList.length(attestation.aggregation_bits) == length(beacon_committee) do
       :ok
     else
       {:error, "Mismatched aggregation bits length"}

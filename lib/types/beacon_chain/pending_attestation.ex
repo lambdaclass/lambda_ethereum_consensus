@@ -3,6 +3,8 @@ defmodule Types.PendingAttestation do
   Struct definition for `PendingAttestation`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  alias LambdaEthereumConsensus.Utils.BitList
+
   @behaviour LambdaEthereumConsensus.Container
 
   fields = [
@@ -31,5 +33,13 @@ defmodule Types.PendingAttestation do
       {:inclusion_delay, TypeAliases.slot()},
       {:proposer_index, TypeAliases.validator_index()}
     ]
+  end
+
+  def encode(%__MODULE__{} = map) do
+    Map.update!(map, :aggregation_bits, &BitList.to_bytes/1)
+  end
+
+  def decode(%__MODULE__{} = map) do
+    Map.update!(map, :aggregation_bits, &BitList.new/1)
   end
 end
