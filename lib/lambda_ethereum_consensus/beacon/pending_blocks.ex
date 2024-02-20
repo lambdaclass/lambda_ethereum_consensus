@@ -56,16 +56,15 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @impl true
-  def handle_cast({:block_processed, block_root, is_valid?}, state) do
-    if is_valid? do
-      state |> Map.delete(block_root)
-    else
-      state
-      |> Map.put(block_root, {nil, :invalid})
-    end
-    |> then(fn state ->
-      {:noreply, state}
-    end)
+  def handle_cast({:block_processed, block_root, true}, state) do
+    # Block is valid
+    {:noreply, state |> Map.delete(block_root)}
+  end
+
+  @impl true
+  def handle_cast({:block_processed, block_root, false}, state) do
+    # Block is invalid
+    {:noreply, state |> Map.put(block_root, {nil, :invalid})}
   end
 
   @spec handle_info(any(), state()) :: {:noreply, state()}
