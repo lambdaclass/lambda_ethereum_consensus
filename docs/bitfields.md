@@ -119,7 +119,7 @@ There's a trick here: SSZ doesn't specify how to store a `bitvector` in memory a
 
 For this reason, we represent bitvectors in our node as big-endian binaries. That means that we reverse the bytes (a relatively cheap operation) and, for bit addressing, we just use the complementary index. An example:
 
-If we are still representing the number 259 (validators with index 0, 1, and 8 attested) we'll have the two following representations (note, elixir has a `bitstring` type that lets you address bit by bit and store several bits that's not a multiple of 8):
+If we are still representing the number 259 (validators with index 0, 1, and 8 attested) we'll have the two following representations (note, elixir has a `bitstring` type that lets you address bit by bit and store a number of bits that's not a multiple of 8):
 
 ```
 110000001 -> little-endian bit order

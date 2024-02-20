@@ -57,7 +57,7 @@ $$W_N = B_N + \sum_i^{i \in \text{children}[N]}W_i$$
 
 In the previous scheme, there are two rewards:
 
-- Proposer rewards, are given to a proposer when their block is included in the chain. This also adds an incentive for them to try to predict the most likely branch to be the canonical one.
+- Proposer rewards are given to a proposer when their block is included in the chain. This also adds an incentive for them to try to predict the most likely branch to be the canonical one.
 - Attester rewards, given if the blocks they attest to are included. They are smaller than proposer rewards.
 
 These incentives, however, are not enough. To maximize their likelihood of getting rewards, they may misbehave:

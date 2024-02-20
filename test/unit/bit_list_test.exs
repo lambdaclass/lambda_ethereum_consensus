@@ -1,25 +1,24 @@
 defmodule BitListTest do
   use ExUnit.Case
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.BitList
 
   describe "Sub-byte BitList" do
     test "build from binary" do
-      input_encoded = <<237, 7>>
-      {:ok, decoded} = SszEx.decode(input_encoded, {:bitlist, 10})
-      assert BitList.set?({decoded, 10}, 0) == true
-      assert BitList.set?({decoded, 10}, 1) == false
-      assert BitList.set?({decoded, 10}, 4) == false
-      assert BitList.set?({decoded, 10}, 9) == true
+      decoded = BitList.new(<<237, 7>>)
 
-      {updated_bitlist, _} =
-        {decoded, 10}
+      assert BitList.set?(decoded, 0) == true
+      assert BitList.set?(decoded, 1) == false
+      assert BitList.set?(decoded, 4) == false
+      assert BitList.set?(decoded, 9) == true
+
+      updated_bitlist =
+        decoded
         |> BitList.set(1)
         |> BitList.set(4)
         |> BitList.clear(0)
         |> BitList.clear(9)
 
-      {:ok, <<254, 5>>} = SszEx.encode(updated_bitlist, {:bitlist, 10})
+      <<254, 5>> = BitList.to_bytes(updated_bitlist)
     end
 
     test "sets a single bit" do
