@@ -14,7 +14,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias Types.SignedBeaconBlock
 
   @type block_status :: :pending | :invalid | :processing | :download | :unknown
-  @type state :: %{Types.root() => {SignedBeaconBlock.t() | nil, block_status()}}
+  @type block_info ::
+          {SignedBeaconBlock.t(), :pending} | {nil, :invalid | :processing | :download}
+  @type state :: %{Types.root() => block_info()}
 
   ##########################
   ### Public API
