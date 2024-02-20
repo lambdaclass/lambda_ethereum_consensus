@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
-  alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Utils.BitField
   alias Types.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
 
   def handle_beacon_block(%SignedBeaconBlock{message: block} = signed_block) do
