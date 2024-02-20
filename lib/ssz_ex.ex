@@ -407,9 +407,12 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_bitlist(bit_list, max_size) when bit_size(bit_list) > 0 do
     num_bytes = byte_size(bit_list)
     decoded = BitList.new(bit_list)
-    len = BitList.length(bit_list)
+    len = BitList.length(decoded)
 
     cond do
+      match?(<<_::binary-size(num_bytes - 1), 0>>, bit_list) ->
+        {:error, "BitList has no length information."}
+
       div(len, @bits_per_byte) + 1 != num_bytes ->
         {:error, "invalid byte count"}
 

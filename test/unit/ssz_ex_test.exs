@@ -465,8 +465,8 @@ defmodule Unit.SSZExTest do
 
   test "serialize and deserialize bitlist" do
     encoded_bytes = <<160, 92, 1>>
-    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 16})
-    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 16})
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 30})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 30})
 
     encoded_bytes = <<255, 1>>
     assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 16})
