@@ -117,13 +117,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     # Verify sync committee aggregate signature signing over the previous slot block root
     committee_pubkeys = state.current_sync_committee.pubkeys
 
-    sync_committee_bits =
-      BitVector.new(aggregate.sync_committee_bits, ChainSpec.get("SYNC_COMMITTEE_SIZE"))
-
     participant_pubkeys =
       committee_pubkeys
       |> Enum.with_index()
-      |> Enum.filter(fn {_, index} -> BitVector.set?(sync_committee_bits, index) end)
+      |> Enum.filter(fn {_, index} -> BitVector.set?(aggregate.sync_committee_bits, index) end)
       |> Enum.map(fn {public_key, _} -> public_key end)
 
     previous_slot = max(state.slot, 1) - 1
@@ -138,7 +135,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       # Compute participant and proposer rewards
       {participant_reward, proposer_reward} = compute_sync_aggregate_rewards(state)
 
-      total_proposer_reward = BitVector.count(sync_committee_bits) * proposer_reward
+      total_proposer_reward = BitVector.count(aggregate.sync_committee_bits) * proposer_reward
 
       # PERF: make Map with committee_index by pubkey, then
       # Enum.map validators -> new balance all in place, without map_reduce
@@ -146,7 +143,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       |> get_sync_committee_indices(committee_pubkeys)
       |> Stream.with_index()
       |> Stream.map(fn {validator_index, committee_index} ->
-        if BitVector.set?(sync_committee_bits, committee_index),
+        if BitVector.set?(aggregate.sync_committee_bits, committee_index),
           do: {validator_index, participant_reward},
           else: {validator_index, -participant_reward}
       end)
@@ -845,7 +842,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_matching_aggregation_bits_length(attestation, beacon_committee) do
-    if BitList.length_of_bitlist(attestation.aggregation_bits) == length(beacon_committee) do
+    if BitList.length(attestation.aggregation_bits) == length(beacon_committee) do
       :ok
     else
       {:error, "Mismatched aggregation bits length"}

@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.{Cache, Math, Misc, Predicates}
   alias LambdaEthereumConsensus.Utils
+  alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.Randao
   alias Types.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
@@ -510,13 +511,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     |> Enum.sort()
   end
 
-  defp participated?(bits, index) do
-    # The bit order inside the byte is reversed (e.g. bits[0] is the 8th bit).
-    # Here we keep the byte index the same, but reverse the bit index.
-    bit_index = index + 7 - 2 * rem(index, 8)
-    <<_::size(bit_index), flag::1, _::bits>> = bits
-    flag == 1
-  end
+  defp participated?(bits, index), do: BitList.set?(bits, index)
 
   @doc """
   Return the combined effective balance of the ``indices``.
