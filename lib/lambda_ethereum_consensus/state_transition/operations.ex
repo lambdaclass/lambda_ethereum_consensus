@@ -535,28 +535,28 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     voluntary_exit = signed_voluntary_exit.message
     validator_index = voluntary_exit.validator_index
     validator = state.validators[validator_index]
+    current_epoch = Accessors.get_current_epoch(state)
 
     cond do
       not Predicates.indices_available?(Aja.Vector.size(state.validators), [validator_index]) ->
-        {:error, "Too high index"}
+        {:error, "invalid index"}
 
-      not Predicates.active_validator?(validator, Accessors.get_current_epoch(state)) ->
-        {:error, "Validator isn't active"}
+      not Predicates.active_validator?(validator, current_epoch) ->
+        {:error, "validator not active"}
 
       validator.exit_epoch != Constants.far_future_epoch() ->
-        {:error, "Validator has already initiated exit"}
+        {:error, "validator already exiting"}
 
-      Accessors.get_current_epoch(state) < voluntary_exit.epoch ->
-        {:error, "Exit must specify an epoch when they become valid"}
+      current_epoch < voluntary_exit.epoch ->
+        {:error, "exit not valid yet"}
 
-      Accessors.get_current_epoch(state) <
-          validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
-        {:error, "Exit must specify an epoch when they become valid"}
+      current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
+        {:error, "validator cannot exit yet"}
 
       not (Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
            |> then(&Misc.compute_signing_root(voluntary_exit, &1))
            |> then(&Bls.valid?(validator.pubkey, &1, signed_voluntary_exit.signature))) ->
-        {:error, "Signature not valid"}
+        {:error, "invalid signature"}
 
       true ->
         with {:ok, validator} <- Mutators.initiate_validator_exit(state, validator_index) do
