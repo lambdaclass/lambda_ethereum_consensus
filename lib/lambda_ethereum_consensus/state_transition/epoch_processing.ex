@@ -358,16 +358,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   defp update_first_bit(state) do
-    bits =
-      state.justification_bits
-      |> BitVector.new(4)
-      |> BitVector.shift_higher(1)
-      |> BitVector.to_bytes()
-
     %BeaconState{
       state
       | previous_justified_checkpoint: state.current_justified_checkpoint,
-        justification_bits: bits
+        justification_bits: BitVector.shift_higher(state.justification_bits, 1)
     }
   end
 
@@ -377,13 +371,11 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     with {:ok, block_root} <- Accessors.get_block_root(state, epoch) do
       new_checkpoint = %Types.Checkpoint{epoch: epoch, root: block_root}
 
-      bits =
-        state.justification_bits
-        |> BitVector.new(4)
-        |> BitVector.set(index)
-        |> BitVector.to_bytes()
-
-      %{state | current_justified_checkpoint: new_checkpoint, justification_bits: bits}
+      %{
+        state
+        | current_justified_checkpoint: new_checkpoint,
+          justification_bits: BitVector.set(state.justification_bits, index)
+      }
       |> then(&{:ok, &1})
     end
   end
@@ -395,10 +387,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
          range,
          offset
        ) do
-    bits_set =
-      state.justification_bits
-      |> BitVector.new(4)
-      |> BitVector.all?(range)
+    bits_set = BitVector.all?(state.justification_bits, range)
 
     if bits_set and old_justified_checkpoint.epoch + offset == current_epoch do
       %BeaconState{state | finalized_checkpoint: old_justified_checkpoint}
