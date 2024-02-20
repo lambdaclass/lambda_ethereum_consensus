@@ -25,7 +25,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   def handle_beacon_aggregate_and_proof(%SignedAggregateAndProof{
         message: %AggregateAndProof{aggregate: aggregate}
       }) do
-    votes = BitVector.count(aggregate.aggregation_bits)
+    votes = BitField.count(aggregate.aggregation_bits)
     slot = aggregate.data.slot
     root = aggregate.data.beacon_block_root |> Base.encode16()
 
