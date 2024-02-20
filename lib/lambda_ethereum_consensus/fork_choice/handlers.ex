@@ -182,10 +182,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Add new block and state to the store
       BlockStates.store_state(block_root, state)
 
+      is_first_block = store.proposer_boost_root == <<0::256>>
+      # TODO: store block timeliness data?
+      is_timely = Store.get_current_slot(store) == block.slot and is_before_attesting_interval
+
       store
       |> Store.store_block(block_root, signed_block)
       |> if_then_update(
-        is_before_attesting_interval and Store.get_current_slot(store) == block.slot,
+        is_timely and is_first_block,
         &%Store{&1 | proposer_boost_root: block_root}
       )
       # Update checkpoints in store if necessary
@@ -254,7 +258,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def compute_pulled_up_tip(%Store{} = store, block_root, block, state) do
     with {:ok, state} <- EpochProcessing.process_justification_and_finalization(state) do
       block_epoch = Misc.compute_epoch_at_slot(block.slot)
-      current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+      current_epoch = Store.get_current_epoch(store)
 
       unrealized_justifications =
         Map.put(store.unrealized_justifications, block_root, state.current_justified_checkpoint)
@@ -355,7 +359,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     target = attestation.data.target
 
     # Attestations must be from the current or previous epoch
-    current_epoch = store |> Store.get_current_slot() |> Misc.compute_epoch_at_slot()
+    current_epoch = Store.get_current_epoch(store)
     # Use GENESIS_EPOCH for previous when genesis to avoid underflow
     previous_epoch = max(current_epoch - 1, Constants.genesis_epoch())
 

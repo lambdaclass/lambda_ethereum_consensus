@@ -825,7 +825,7 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp basic_type?({:int, _}), do: true
   defp basic_type?(:bool), do: true
-  defp basic_type?({:bytes, _}), do: true
+  defp basic_type?({:bytes, _}), do: false
   defp basic_type?({:list, _, _}), do: false
   defp basic_type?({:vector, _, _}), do: false
   defp basic_type?({:bitlist, _}), do: false

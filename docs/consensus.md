@@ -16,15 +16,15 @@ A classical approach to representing a distributed state is to store all changes
 
 Storing the log is useful because each state change is immutable, and agreeing on them is easier than agreeing on the current state, which is always changing.
 
-Agreeing on the log is agreeing on the current state. How do we do that? We need two things: sybil resistence and consensus algorithms.
+Agreeing on the log is agreeing on the current state. How do we do that? We need two things: Sybil resistance and consensus algorithms.
 
-## Sybil resistence
+## Sybil resistance
 
 In a byzantine, trustless environment, we need to take several measures to make the network safe:
 
 - Cryptographic signatures validate the authority of transactions.
 - Transactions are batched in blocks so the overhead of consensus is reduced.
-- Verifying the integrity of blocks needs to be easy. For this reason, each block is linked to its parent, each block has a hash of its own contents, and part of each block's content is its parent hash. That means that changing any block in history will cause noticeable changes in the block's hash. **This makes the log a block chain**.
+- Verifying the integrity of blocks needs to be easy. For this reason, each block is linked to its parent, each block has a hash of its own contents, and part of each block's content is its parent hash. That means that changing any block in history will cause noticeable changes in the block's hash. **This makes the log a blockchain**.
 - We need nodes to pay a price for participating in consensus, or they can create millions of virtual nodes to vote/spam the network. Proof of work makes nodes solve very hard puzzles that take a lot of computational time and power so they can propose new blocks. Proof of stake does this more directly, with money: to propose a new block, you need to have 32 ETH staked and wait for your predetermined turn. If you do something invalid, other nodes will notice and punish you.
 
 ## Consensus algorithms
@@ -66,6 +66,6 @@ graph LR
 In post-merge Ethereum, consensus is reached by two combined fork-related algorithms:
 
 - LMD GHOST: a fork-choice algorithm based on votes (attestations). If a majority of nodes follow this algorithm, they will tend to converge to the same canonical chain. We expand more on it on [this document](fork_choice.md).
-- Casper FFG: provides some level of safety by defining a finalization criterion. It takes a fork tree and defines a strategy to prune it (make branches inaccessible). Once a block is tagged as "final", blocks that aren't either parents (which are also final) or descendants of it, are not valid blocks. This prevents long reorganizations, which might make users vulnerable to double spends. We expand on it in [this document](finality.md).
+- Casper FFG: provides some level of safety by defining a finalization criterion. It takes a fork tree and defines a strategy to prune it (make branches inaccessible). Once a block is tagged as "final", blocks that aren't either parents (which are also final) or descendants of it, are not valid blocks. This prevents long reorganizations, which might make users vulnerable to double-spends. We expand on it in [this document](finality.md).
 
-The recommended next read is the [clients document](clients.md), which explains, at a high level, how ethereum nodes interact with each other.
+The recommended next read is the [clients document](clients.md), which explains, at a high level, how Ethereum nodes interact with each other.

@@ -3,8 +3,8 @@ defmodule BeaconApi.V1.BeaconController do
   alias BeaconApi.ErrorController
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.BlockStore
   use BeaconApi, :controller
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
@@ -76,7 +76,7 @@ defmodule BeaconApi.V1.BeaconController do
 
   def get_block_root(conn, %{block_id: block_id}) do
     with {slot, ""} when slot >= 0 <- Integer.parse(block_id),
-         {:ok, block_root} <- BlockStore.get_block_root_by_slot(slot) do
+         {:ok, block_root} <- BlockDb.get_block_root_by_slot(slot) do
       conn |> root_response(block_root, true, false)
     else
       :not_found ->
