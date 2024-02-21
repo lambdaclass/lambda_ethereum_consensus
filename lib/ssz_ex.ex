@@ -3,10 +3,12 @@ defmodule LambdaEthereumConsensus.SszEx do
     SSZ library in Elixir
   """
   alias LambdaEthereumConsensus.Utils.BitList
-  import alias LambdaEthereumConsensus.Utils.BitVector
-  import Bitwise
-  import Aja
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.ZeroHashes
+
+  import Aja
+  import BitVector
+  import Bitwise
 
   @type schema() ::
           :bool
