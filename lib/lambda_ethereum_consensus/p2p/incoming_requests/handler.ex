@@ -35,19 +35,16 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     with {:ok, request} <- decode_request(message, Types.StatusMessage, 84),
          Logger.debug("[Status] '#{inspect(request)}'"),
          {:ok, current_status} <- BeaconChain.get_current_status_message(),
-         {:ok, payload} <- Ssz.to_ssz(current_status),
-         {:ok, payload} <- Snappy.compress(payload) do
-      Libp2pPort.send_response(message_id, <<0, 84>> <> payload)
+         {:ok, payload} <- encode_response(current_status) do
+      Libp2pPort.send_response(message_id, payload)
     end
   end
 
   defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
     with {:ok, goodbye_reason} <- decode_request(message, TypeAliases.uint64(), 8),
          Logger.debug("[Goodbye] reason: #{goodbye_reason}"),
-         {:ok, payload} <-
-           <<0, 0, 0, 0, 0, 0, 0, 0>>
-           |> Snappy.compress() do
-      Libp2pPort.send_response(message_id, <<0, 8>> <> payload)
+         {:ok, payload} <- encode_response(0, TypeAliases.uint64()) do
+      Libp2pPort.send_response(message_id, payload)
     else
       # Ignore read errors, since some peers eagerly disconnect.
       {:error, "failed to read"} ->
@@ -67,19 +64,15 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     # Values are hardcoded
     with {:ok, seq_num} <- decode_request(message, TypeAliases.uint64(), 8),
          Logger.debug("[Ping] seq_number: #{seq_num}"),
-         {:ok, payload} <-
-           <<0, 0, 0, 0, 0, 0, 0, 0>>
-           |> Snappy.compress() do
-      Libp2pPort.send_response(message_id, <<0, 8>> <> payload)
+         {:ok, payload} <- P2P.Metadata.get_seq_number() |> encode_response(TypeAliases.uint64()) do
+      Libp2pPort.send_response(message_id, payload)
     end
   end
 
   defp handle_req("metadata/2/ssz_snappy", message_id, _message) do
     # NOTE: there's no request content so we just ignore it
-    with metadata <- P2P.Metadata.get_metadata(),
-         {:ok, metadata_ssz} <- Ssz.to_ssz(metadata),
-         {:ok, payload} <- Snappy.compress(metadata_ssz) do
-      Libp2pPort.send_response(message_id, <<0, 17>> <> payload)
+    with {:ok, payload} <- P2P.Metadata.get_metadata() |> encode_response() do
+      Libp2pPort.send_response(message_id, payload)
     end
   end
 
@@ -138,6 +131,16 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     with {:ok, ssz_snappy_request} <- decode_size_header(decoded_size, bytes),
          {:ok, ssz_request} <- Snappy.decompress(ssz_snappy_request) do
       SszEx.decode(ssz_request, ssz_schema)
+    end
+  end
+
+  defp encode_response(%ssz_schema{} = response), do: encode_response(response, ssz_schema)
+
+  defp encode_response(response, ssz_schema) do
+    with {:ok, ssz_response} <- SszEx.encode(response, ssz_schema),
+         size_header = byte_size(ssz_response) |> P2P.Utils.encode_varint(),
+         {:ok, ssz_snappy_response} <- Snappy.compress(ssz_response) do
+      Enum.join([<<0>>, size_header, ssz_snappy_response])
     end
   end
 
