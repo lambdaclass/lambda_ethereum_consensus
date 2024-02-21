@@ -71,6 +71,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   def encode(container, module) when is_map(container),
     do: encode_container(container, module.schema())
 
+  @spec decode(binary(), schema()) :: {:ok, any()} | {:error, String.t()}
   def decode(binary, :bool), do: decode_bool(binary)
   def decode(binary, {:int, size}), do: decode_uint(binary, size)
   def decode(value, {:bytes, _}), do: {:ok, value}
