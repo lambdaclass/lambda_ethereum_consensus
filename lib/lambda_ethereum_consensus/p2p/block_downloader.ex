@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.SszEx
   require Logger
 
   @blocks_by_range_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
@@ -16,37 +17,20 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
   @spec request_blocks_by_slot(Types.slot(), integer(), integer()) ::
           {:ok, [Types.SignedBeaconBlock.t()]} | {:error, any()}
-  def request_blocks_by_slot(slot, count, retries \\ @default_retries) do
+  def request_blocks_by_slot(slot, count, retries \\ @default_retries)
+
+  def request_blocks_by_slot(_slot, 0, _retries), do: {:ok, []}
+
+  def request_blocks_by_slot(slot, count, retries) do
     Logger.debug("Requesting block", slot: slot)
 
     # TODO: handle no-peers asynchronously?
     peer_id = get_some_peer()
 
-    payload =
-      %Types.BeaconBlocksByRangeRequest{
-        start_slot: slot,
-        # TODO: we need to refactor the Snappy library to return
-        # the remaining buffer when decompressing
-        count: count
-      }
-
-    # This should never fail
-    {:ok, encoded_payload} = payload |> Ssz.to_ssz()
-
-    size_header =
-      encoded_payload
-      |> byte_size()
-      |> P2P.Utils.encode_varint()
-
-    # This should never fail
-    {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
+    request = encode_request(%Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count})
 
     with {:ok, response_chunk} <-
-           Libp2pPort.send_request(
-             peer_id,
-             @blocks_by_range_protocol_id,
-             size_header <> compressed_payload
-           ),
+           Libp2pPort.send_request(peer_id, @blocks_by_range_protocol_id, request),
          {:ok, chunks} <- parse_response(response_chunk),
          {:ok, blocks} <- decode_chunks(chunks),
          :ok <- verify_batch(blocks, slot, count) do
@@ -81,32 +65,17 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
           {:ok, [Types.SignedBeaconBlock.t()]} | {:error, binary()}
   def request_blocks_by_root(roots, retries \\ @default_retries)
 
-  def request_blocks_by_root([], _retries) do
-    {:ok, []}
-  end
+  def request_blocks_by_root([], _retries), do: {:ok, []}
 
   def request_blocks_by_root(roots, retries) do
     Logger.debug("Requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
 
     peer_id = get_some_peer()
 
-    # TODO ssz encode array of roots
-    # {:ok, encoded_payload} = payload |> Ssz.to_ssz()
-    encoded_payload = Enum.join(roots)
-
-    size_header =
-      encoded_payload
-      |> byte_size()
-      |> P2P.Utils.encode_varint()
-
-    {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
+    request = encode_request(roots, {:list, TypeAliases.root(), 999_999})
 
     with {:ok, response_chunk} <-
-           Libp2pPort.send_request(
-             peer_id,
-             @blocks_by_root_protocol_id,
-             size_header <> compressed_payload
-           ),
+           Libp2pPort.send_request(peer_id, @blocks_by_root_protocol_id, request),
          {:ok, chunks} <- parse_response(response_chunk),
          {:ok, blocks} <- decode_chunks(chunks) do
       tags = %{result: "success", type: "by_root", reason: "success"}
@@ -151,6 +120,21 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       <<code>> <> message ->
         error_response(code, message)
     end
+  end
+
+  defp encode_request(%ssz_schema{} = payload), do: encode_request(payload, ssz_schema)
+
+  defp encode_request(payload, ssz_schema) do
+    {:ok, encoded_payload} = payload |> SszEx.encode(ssz_schema)
+
+    size_header =
+      encoded_payload
+      |> byte_size()
+      |> P2P.Utils.encode_varint()
+
+    {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
+
+    size_header <> compressed_payload
   end
 
   defp error_response(error_code, ""), do: {:error, "error code: #{error_code}"}
