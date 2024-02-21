@@ -35,4 +35,6 @@ defmodule TypeAliases do
     transaction = {:byte_list, ChainSpec.get("MAX_BYTES_PER_TRANSACTION")}
     {:list, transaction, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}
   end
+
+  def error_message, do: byte_list(256)
 end
