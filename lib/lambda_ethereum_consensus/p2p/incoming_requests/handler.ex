@@ -73,8 +73,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     with {:ok, request} <- decode_request(message, Types.BeaconBlocksByRangeRequest, 24) do
       %{start_slot: start_slot, count: count} = request
 
-      "[Received BlocksByRange Request] requested slots #{start_slot} to #{start_slot + count - 1}"
-      |> Logger.info()
+      Logger.info("[BlocksByRange] requested #{count} slots, starting from #{start_slot}")
 
       truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
@@ -83,7 +82,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       response_chunk =
         start_slot..end_slot
         |> Enum.map(&BlockDb.get_block_by_slot/1)
-        |> Enum.map_join(&create_block_response_chunk/1)
+        |> Enum.map(&map_block_result/1)
+        |> Enum.reject(&(&1 == :skip))
+        |> encode_response_chunks()
 
       Libp2pPort.send_response(message_id, response_chunk)
     end
@@ -92,14 +93,16 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
     with {:ok, %{body: body}} <- decode_request(message, Types.BeaconBlocksByRootRequest, 24) do
       count = length(body)
-      Logger.info("[Received BlocksByRoot Request] requested #{count} number of blocks")
+      Logger.info("[BlocksByRoot] requested #{count} number of blocks")
       truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
       response_chunk =
         body
         |> Enum.take(truncated_count)
         |> Enum.map(&Blocks.get_signed_block/1)
-        |> Enum.map_join(&create_block_response_chunk/1)
+        |> Enum.map(&map_block_result/1)
+        |> Enum.reject(&(&1 == :skip))
+        |> encode_response_chunks()
 
       Libp2pPort.send_response(message_id, response_chunk)
     end
@@ -122,6 +125,13 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp decode_size_header(header, <<header, rest::binary>>), do: {:ok, rest}
   defp decode_size_header(_, ""), do: {:error, "empty message"}
   defp decode_size_header(_, _), do: {:error, "invalid message"}
+
+  defp encode_response_chunks(responses) do
+    Enum.map_join(responses, fn
+      {:ok, {response, context_bytes}} -> encode_response(response, context_bytes)
+      {:error, {code, message}} -> encode_error_response(code, message)
+    end)
+  end
 
   @spec encode_response({any(), SszEx.schema()} | struct(), binary()) ::
           {:ok, binary()} | {:error, String.t()}
@@ -146,21 +156,10 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     <<status_code>> <> size_header <> snappy_message
   end
 
-  # TODO: respond this on invalid request
-  def invalid_request, do: encode_error_response(1, "Invalid Request")
-  def server_error, do: encode_error_response(2, "Server Error")
-  def resource_unavailable, do: encode_error_response(3, "Resource Unavailable")
+  defp map_block_result({:ok, block}),
+    do: {:ok, {block, BeaconChain.get_fork_digest_for_slot(block.message.slot)}}
 
-  defp create_block_response_chunk({:ok, block}) do
-    fork_context = BeaconChain.get_fork_digest_for_slot(block.message.slot)
-
-    case encode_response(block, fork_context) do
-      {:ok, chunk} -> chunk
-      {:error, _} -> server_error()
-    end
-  end
-
-  defp create_block_response_chunk({:error, _}), do: server_error()
-  defp create_block_response_chunk(:not_found), do: resource_unavailable()
-  defp create_block_response_chunk(:empty_slot), do: <<>>
+  defp map_block_result({:error, _}), do: {:error, {2, "Server Error"}}
+  defp map_block_result(:not_found), do: {:error, {3, "Resource Unavailable"}}
+  defp map_block_result(:empty_slot), do: :skip
 end
