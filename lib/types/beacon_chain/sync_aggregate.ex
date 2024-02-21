@@ -20,6 +20,16 @@ defmodule Types.SyncAggregate do
           sync_committee_signature: Types.bls_signature()
         }
 
+  def encode(%__MODULE__{} = map) do
+    Map.update!(map, :sync_committee_bits, &BitVector.to_bytes/1)
+  end
+
+  def decode(%__MODULE__{} = map) do
+    Map.update!(map, :sync_committee_bits, fn bits ->
+      BitVector.new(bits, ChainSpec.get("SYNC_COMMITTEE_SIZE"))
+    end)
+  end
+
   @impl LambdaEthereumConsensus.Container
   def schema do
     [

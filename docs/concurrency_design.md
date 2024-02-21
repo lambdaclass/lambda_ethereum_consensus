@@ -2,7 +2,7 @@
 
 ## Current situation
 
-The following is a sequence diagram on the lifecycle of a block, from the moment its notification arrives in the LibP2P port and until it's processed and saved. Each lane is a separate process and may encompass many different modules.
+The following is a sequence diagram of the lifecycle of a block, from the moment its notification arrives in the LibP2P port until it's processed and saved. Each lane is a separate process and may encompass many different modules.
 
 ```mermaid
 sequenceDiagram
@@ -33,14 +33,14 @@ Let's look at the main issues and some improvements that may help with them.
 
 ### Blocking Calls
 
-`Store.on_block(block)` (write operation) is blocking. This operation is particularly big, as it performs the state transition. These causes some issues:
+`Store.on_block(block)` (write operation) is blocking. This operation is particularly big, as it performs the state transition, causing some issues:
 
 - It's a call, so the calling process (in our case the pending blocks processor) will be blocked until the state transition is finished. No further blocks will be downloaded while this happens.
 - Any other store call (adding an attestation, checking if a block is present) will be blocked. 
 
 Improvements:
 
-- Making it a `cast`. The caller doesn't immediately need to know what's the result of the state transition. We can do that an async operation.
+- Making it a `cast`. The caller doesn't immediately need to know what's the result of the state transition. We can do that with an async operation.
 - Making the state transition be calculated in an async way, so the store can take other work like adding attestations while the cast happens.
 
 ### Concurrent downloads
@@ -55,12 +55,12 @@ Improvements:
 
 ### Big Objects in Mailboxes
 
-Blocks are pretty big objects and they are passed around in process mailboxes even for simple calls like `Store.has_block(block)`. We should minimize this kind of interactions as putting big structures in mailboxes slows their processing down.
+Blocks are pretty big objects and they are passed around in process mailboxes even for simple calls like `Store.has_block(block)`. We should minimize these kinds of interactions as putting big structures in mailboxes slows their processing down.
 
 Improvements:
 
 - We could store the blocks in the DB immediately after downloading them.
-- Checking if a block is present could be done directly with the DB, without need to check the store.
+- Checking if a block is present could be done directly with the DB, without the need to check the store.
 - If we want faster access for blocks, we can build an ETS block cache.
 
 ### Other issues
@@ -76,23 +76,23 @@ These are the states that a block may have:
 - Pending: no parent.
 - Child. Parent is present and downloaded.
 - BlockChild: Parent is a valid block.
-- StateChild: Parent’s state transition is calculated.
+- StateChild: Parent’s state transition was calculated.
 - Included: we calculated the state transition for this block and the state is available. It's now part of the fork tree.
 
 The block diagram looks something like this:
 
 ```mermaid
 stateDiagram-v2
-	[*] --> New: Download, decompress, decode
-	New --> Child: Parent is present
-	New --> Pending: Parent is not present
-	Pending --> Child: Parent is downloaded
-	Child --> BlockChild: Parent is a valid block (but not a state)
-	Child --> Invalid: Parent is Invalid
-	BlockChild --> Invalid: store validation fails
-	BlockChild --> StateChild: Parent state is present
-	StateChild --> NewState: state transition calculated
-	StateChild --> Invalid: state transition fails
+    [*] --> New: Download, decompress, decode
+    New --> Child: Parent is present
+    New --> Pending: Parent is not present
+    Pending --> Child: Parent is downloaded
+    Child --> BlockChild: Parent is a valid block (but not a state)
+    Child --> Invalid: Parent is Invalid
+    BlockChild --> Invalid: store validation fails
+    BlockChild --> StateChild: Parent state is present
+    StateChild --> NewState: state transition calculated
+    StateChild --> Invalid: state transition fails
 ```
 
 ### A possible new design
@@ -101,29 +101,29 @@ stateDiagram-v2
 sequenceDiagram
   participant port as LibP2P Port <br> (GenServer)
   participant decoder as Decoder <br> (Supervised task)
-	participant tracker as Block Tracker <br> (GenServer)
-	participant down as Downloader <br> (Supervised task)
-	participant store as Fork Choice Store <br> (GenServer)
-	participant state_t as State Transition Task <br> (Supervised task)
-	participant DB as KV Store
-	
-	port ->> decoder: gossip(id)
-	decoder ->> port: accept(id)
-	decoder ->> decoder: decompress <br> decode <br> call handler
-	decoder ->> DB: store_block_if_not_present(block)
-	decoder ->> tracker: new_block(root)
-	tracker ->> DB: present?(parent_root)
-	DB -->> tracker: false
-	tracker ->> down: download(parent_root) 
-	down ->> DB: store_block_if_not_present(parent_root)
-	down ->> tracker: downloaded(parent_root)
-	tracker ->> store: on_block(root)
-	store ->> DB: get_block(root)
-	store ->> store: validate block
-	store ->> state_t: state_transition(block)
-	state_t ->> DB: store_state(new_state)
-	state_t ->> store: on_state(new_state)
-	state_t ->> tracker: on_state(new_state)
+    participant tracker as Block Tracker <br> (GenServer)
+    participant down as Downloader <br> (Supervised task)
+    participant store as Fork Choice Store <br> (GenServer)
+    participant state_t as State Transition Task <br> (Supervised task)
+    participant DB as KV Store
+    
+    port ->> decoder: gossip(id)
+    decoder ->> port: accept(id)
+    decoder ->> decoder: decompress <br> decode <br> call handler
+    decoder ->> DB: store_block_if_not_present(block)
+    decoder ->> tracker: new_block(root)
+    tracker ->> DB: present?(parent_root)
+    DB -->> tracker: false
+    tracker ->> down: download(parent_root) 
+    down ->> DB: store_block_if_not_present(parent_root)
+    down ->> tracker: downloaded(parent_root)
+    tracker ->> store: on_block(root)
+    store ->> DB: get_block(root)
+    store ->> store: validate block
+    store ->> state_t: state_transition(block)
+    state_t ->> DB: store_state(new_state)
+    state_t ->> store: on_state(new_state)
+    state_t ->> tracker: on_state(new_state)
 ```
 
 Some pending definitions:
@@ -134,7 +134,7 @@ Some pending definitions:
 
 Conceptually, the core concurrency issue of the current design is that we use processes to represent steps instead of them representing independent pieces of computation/data. Most of the inter-process communication is call-based and sequential, effectively blocking processes while still adding the overhead of message passing and mailboxes with big objects like blocks and states.
 
-What we need is to have one process per independent task. In our case, our independent unit for is **the block processing**. We need to have a **single process per block**, that takes care of:
+What we need is to have one process per independent task. In our case, our independent unit is **the block processing**. We need to have a **single process per block**, that takes care of:
 
 - Decompressing
 - Deserializing
@@ -148,7 +148,7 @@ With this strategy in mind, the block won’t need to be passed around during it
 
 There are some tasks that, of course, will require interaction with the outside world:
 
-- When a parent is missing, we need to download it. The block processor may exit and be re-spawned after the parent is downloaded and transitioned. After that, it may continue with its own state transition.
+- When a parent is missing, we need to download it. The block processor may exit and be re-spawned after the parent is downloaded and transitioned. After that, it may continue with its state transition.
 - When validating it will need to interact with the global fork choice store. This just requires validating a few parameters like the epoch/slot, which is a fast process, so it’s a relatively simple call without passing the full block and without changing the store state.
 - The final step is updating the store/beacon chain state, which still doesn’t need to pass around big state and is fast. If additional validations are performed or repeated, it doesn’t represent a big performance hit.
 
@@ -179,7 +179,7 @@ bp ->> store: new_state(block_root,<br> block_slot,<br>state_justified_checkpoin
 
 We can see here that:
 
-1. We don’t need to send full blocks or states anywhere except to/from the db/cache.
+1. We don’t need to send full blocks or states anywhere except to/from the DB/cache.
 2. Most operations are independent and the interactions (e.g. the validation or the new_state) are cheap.
 
 ### Missing Parent diagram
@@ -210,7 +210,7 @@ bp ->>- bp: validation and state transition
 This is a simplified sequence diagram highlighting the differences when the parent block is not present, so it omits the interaction with fork choice GenServer. To summarize:
 
 - The block processor spawns another processor for the parent, at a `download stage` and exits.
-- When the download finishes, the parent processor will do as a normal one, decoding, deserializing, interacting with the db, etc.
+- When the download finishes, the parent processor will do as a normal one, decoding, deserializing, interacting with the DB, etc.
 - When the parent finishes the state transition, it will have saved both the block and the state to the persistent store.
 - The parent process will then spawn a new block processor for the child, at a `transition stage`.
 
@@ -220,4 +220,4 @@ Note that the persistent store here is a simplified structure. Internally, it wi
 
 Benefits of this approach:
 - Parallelizes state transitions when different forks appear, and other tasks not related to having multiple forks, like deserialization or decompression of incoming requests.
-- Removes the blocking pipeline. `Pending blocks` won't block while it waits for a state transition to happen. The store or beacon chain won't block either. Because of this, we can process all of the incoming gossip continuously, and discard the ones that are not valid early, without their validation depending on other blocks being processed. This also reduces the size of the processes mailbox.
+- Removes the blocking pipeline. `Pending blocks` won't block while it waits for a state transition to happen. The store or beacon chain won't block either. Because of this, we can process all of the incoming gossip continuously, and discard the ones that are not valid early, without their validation depending on other blocks being processed. This also reduces the size of the process mailbox.

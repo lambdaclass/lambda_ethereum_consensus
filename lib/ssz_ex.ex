@@ -302,8 +302,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   def pack_bits(value, :bitlist) do
-    len = value |> bit_size()
-    {value, len} |> BitList.to_packed_bytes() |> pack_bytes()
+    value |> BitList.to_packed_bytes() |> pack_bytes()
   end
 
   def chunk_count({:list, type, max_size}) do
@@ -360,7 +359,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     if len > max_size do
       {:error, "excess bits"}
     else
-      {:ok, BitList.to_bytes({bit_list, len})}
+      {:ok, BitList.to_bytes(bit_list)}
     end
   end
 
@@ -413,11 +412,12 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp decode_bitlist(bit_list, max_size) when bit_size(bit_list) > 0 do
     num_bytes = byte_size(bit_list)
-    {decoded, len} = BitList.new(bit_list)
+    decoded = BitList.new(bit_list)
+    len = BitList.length(decoded)
 
     cond do
-      len < 0 ->
-        {:error, "missing length information"}
+      match?(<<_::binary-size(num_bytes - 1), 0>>, bit_list) ->
+        {:error, "BitList has no length information."}
 
       div(len, @bits_per_byte) + 1 != num_bytes ->
         {:error, "invalid byte count"}
@@ -670,7 +670,7 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp check_first_offset([{offset, _} | _rest], items_index, _binary_size) do
     cond do
-      offset < items_index -> {:error, "OffsetIntoFixedPortion"}
+      offset < items_index -> {:error, "OffsetIntoFixedPortion (#{offset})"}
       offset > items_index -> {:error, "OffsetSkipsVariableBytes"}
       true -> :ok
     end
@@ -756,7 +756,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp sanitize_offset(offset, previous_offset, _num_bytes, num_fixed_bytes) do
     cond do
       offset < num_fixed_bytes ->
-        {:error, "OffsetIntoFixedPortion"}
+        {:error, "OffsetIntoFixedPortion #{offset}"}
 
       previous_offset == nil && offset != num_fixed_bytes ->
         {:error, "OffsetSkipsVariableBytes"}

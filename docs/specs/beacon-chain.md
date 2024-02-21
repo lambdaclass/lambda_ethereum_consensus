@@ -184,6 +184,7 @@ The following values are (non-configurable) constants used throughout the specif
 
 | Name | Value |
 | - | - |
+| `UINT64_MAX` | `uint64(2**64 - 1)` |
 | `GENESIS_SLOT` | `Slot(0)` |
 | `GENESIS_EPOCH` | `Epoch(0)` |
 | `FAR_FUTURE_EPOCH` | `Epoch(2**64 - 1)` |
@@ -921,6 +922,8 @@ def integer_squareroot(n: uint64) -> uint64:
     """
     Return the largest integer ``x`` such that ``x**2 <= n``.
     """
+    if n == UINT64_MAX:
+        return uint64(4294967295)
     x = n
     y = (x + 1) // 2
     while y < x:
@@ -2031,6 +2034,8 @@ def process_slot(state: BeaconState) -> None:
 ```
 
 ### Epoch processing
+
+*Note*: The function `process_historical_summaries_update` replaces `process_historical_roots_update` in Capella.
 
 ```python
 def process_epoch(state: BeaconState) -> None:
