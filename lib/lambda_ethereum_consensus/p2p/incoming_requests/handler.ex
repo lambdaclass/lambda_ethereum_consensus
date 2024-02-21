@@ -83,16 +83,13 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       "[Received BlocksByRange Request] requested slots #{start_slot} to #{start_slot + count - 1}"
       |> Logger.info()
 
-      count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
+      truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
-      slot_coverage = start_slot + (count - 1)
-
-      blocks =
-        start_slot..slot_coverage
-        |> Enum.map(&BlockDb.get_block_by_slot/1)
+      end_slot = start_slot + (truncated_count - 1)
 
       response_chunk =
-        blocks
+        start_slot..end_slot
+        |> Enum.map(&BlockDb.get_block_by_slot/1)
         |> Enum.map_join(&create_block_response_chunk/1)
 
       Libp2pPort.send_response(message_id, response_chunk)
@@ -100,19 +97,13 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
-    with {:ok, request} <- decode_request(message, Types.BeaconBlocksByRootRequest, 24) do
-      %{body: body} = request
-
-      count =
-        length(body)
-        |> min(ChainSpec.get("MAX_REQUEST_BLOCKS"))
-
-      "[Received BlocksByRoot Request] requested #{count} number of blocks"
-      |> Logger.info()
+    with {:ok, %{body: body}} <- decode_request(message, Types.BeaconBlocksByRootRequest, 24) do
+      count = length(body) |> min(ChainSpec.get("MAX_REQUEST_BLOCKS"))
+      Logger.info("[Received BlocksByRoot Request] requested #{count} number of blocks")
 
       response_chunk =
         body
-        |> Enum.slice(0..(count - 1))
+        |> Enum.take(count)
         |> Enum.map(&Blocks.get_signed_block/1)
         |> Enum.map_join(&create_block_response_chunk/1)
 
