@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     peer_id = get_some_peer()
 
     request =
-      ReqResp.encode_request(%Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count})
+      ReqResp.encode_ok(%Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count})
 
     with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blocks_by_range_protocol_id, request),
@@ -74,7 +74,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     peer_id = get_some_peer()
 
     schema = {:list, TypeAliases.root(), ChainSpec.get("MAX_REQUEST_BLOCKS")}
-    request = ReqResp.encode_request({roots, schema})
+    request = ReqResp.encode_ok({roots, schema})
 
     with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blocks_by_root_protocol_id, request),

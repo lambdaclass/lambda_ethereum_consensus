@@ -25,4 +25,6 @@ defmodule TypeAliases do
   def fork_digest, do: {:bytes, 4}
 
   def byte_list(n), do: {:list, {:int, 8}, n}
+
+  def error_message, do: byte_list(256)
 end

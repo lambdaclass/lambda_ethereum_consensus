@@ -1,8 +1,49 @@
 defmodule LambdaEthereumConsensus.P2P.ReqResp do
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.SszEx
   alias Types.SignedBeaconBlock
-  alias LambdaEthereumConsensus.P2P
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+
+  ## ReqResp encoding
+
+  @type context_bytes :: binary()
+  @type encodable :: {any(), SszEx.schema()} | struct()
+  @type error_code :: 1..255
+  @type error_message :: String.t()
+
+  @type response_payload ::
+          {:ok, {encodable(), context_bytes()}}
+          | {:error, {error_code(), error_message()}}
+
+  @spec encode_response_chunks([response_payload()]) :: binary()
+  def encode_response_chunks(responses) do
+    Enum.map_join(responses, fn
+      {:ok, {response, context_bytes}} -> encode_ok(response, context_bytes)
+      {:error, {code, message}} -> encode_error(code, message)
+    end)
+  end
+
+  @spec encode_ok(encodable(), context_bytes()) ::
+          {:ok, binary()} | {:error, String.t()}
+  def encode_ok(response, context_bytes \\ <<>>)
+
+  def encode_ok(%ssz_schema{} = response, context_bytes),
+    do: encode_chunk(0, context_bytes, {response, ssz_schema})
+
+  def encode_ok({response, ssz_schema}, context_bytes),
+    do: encode_chunk(0, context_bytes, {response, ssz_schema})
+
+  @spec encode_error(error_code(), error_message()) :: binary()
+  def encode_error(status_code, error_message),
+    do: encode_chunk(status_code, <<>>, {error_message, TypeAliases.error_message()})
+
+  defp encode_chunk(result, context_bytes, {response, ssz_schema}) do
+    {:ok, ssz_response} = SszEx.encode(response, ssz_schema)
+    size_header = byte_size(ssz_response) |> P2P.Utils.encode_varint()
+    {:ok, ssz_snappy_response} = Snappy.compress(ssz_response)
+    Enum.join([<<result>>, context_bytes, size_header, ssz_snappy_response])
+  end
+
   ## Request decoding
 
   # TODO: header size can be retrieved from the schema
@@ -16,67 +57,6 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   defp decode_size_header(header, <<header, rest::binary>>), do: {:ok, rest}
   defp decode_size_header(_, ""), do: {:error, "empty message"}
   defp decode_size_header(_, _), do: {:error, "invalid message"}
-
-  ## Response encoding
-
-  @type context_bytes :: binary()
-  @type encodable_response :: {any(), SszEx.schema()} | struct()
-  @type error_code :: 1..255
-  @type error_message :: String.t()
-
-  @type response_payload ::
-          {:ok, {encodable_response(), context_bytes()}}
-          | {:error, {error_code(), error_message()}}
-
-  @spec encode_response_chunks([response_payload()]) :: binary()
-  def encode_response_chunks(responses) do
-    Enum.map_join(responses, fn
-      {:ok, {response, context_bytes}} -> encode_response(response, context_bytes)
-      {:error, {code, message}} -> encode_error_response(code, message)
-    end)
-  end
-
-  @spec encode_response(encodable_response(), context_bytes()) ::
-          {:ok, binary()} | {:error, String.t()}
-  def encode_response(response, context_bytes \\ <<>>)
-
-  def encode_response(%ssz_schema{} = response, context_bytes),
-    do: encode_response({response, ssz_schema}, context_bytes)
-
-  def encode_response({response, ssz_schema}, context_bytes) do
-    with {:ok, ssz_response} <- SszEx.encode(response, ssz_schema),
-         size_header = byte_size(ssz_response) |> P2P.Utils.encode_varint(),
-         {:ok, ssz_snappy_response} <- Snappy.compress(ssz_response) do
-      {:ok, Enum.join([<<0>>, context_bytes, size_header, ssz_snappy_response])}
-    end
-  end
-
-  @spec encode_error_response(error_code(), error_message()) :: binary()
-  def encode_error_response(status_code, error_message) do
-    # NOTE: error_message == SszEx.encode(error_message) in this case, so we skip it
-    size_header = error_message |> byte_size() |> P2P.Utils.encode_varint()
-    {:ok, snappy_message} = Snappy.compress(error_message)
-    <<status_code>> <> size_header <> snappy_message
-  end
-
-  ## Request encoding
-
-  @spec encode_request(encodable_response()) ::
-          {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
-  def encode_request(%ssz_schema{} = payload), do: encode_request({payload, ssz_schema})
-
-  def encode_request({payload, ssz_schema}) do
-    {:ok, encoded_payload} = payload |> SszEx.encode(ssz_schema)
-
-    size_header =
-      encoded_payload
-      |> byte_size()
-      |> P2P.Utils.encode_varint()
-
-    {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
-
-    size_header <> compressed_payload
-  end
 
   ## Response decoding
 
