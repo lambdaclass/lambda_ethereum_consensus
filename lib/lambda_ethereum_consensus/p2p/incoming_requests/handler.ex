@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   """
   require Logger
 
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
   alias LambdaEthereumConsensus.Store.BlockDb
@@ -31,14 +32,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp handle_req(protocol_name, message_id, message)
 
   defp handle_req("status/1/ssz_snappy", message_id, message) do
-    with {:ok, snappy_status} <- decode_size_header(84, message),
+    with {:ok, request} <- decode_request(message, Types.StatusMessage, 84),
+         Logger.debug("[Status] '#{inspect(request)}'"),
          {:ok, current_status} <- BeaconChain.get_current_status_message(),
-         {:ok, ssz_status} <- Snappy.decompress(snappy_status),
-         {:ok, status} <- Ssz.from_ssz(ssz_status, Types.StatusMessage),
-         status
-         |> inspect(limit: :infinity)
-         |> then(&"[Status] '#{&1}'")
-         |> Logger.debug(),
          {:ok, payload} <- Ssz.to_ssz(current_status),
          {:ok, payload} <- Snappy.compress(payload) do
       Libp2pPort.send_response(message_id, <<0, 84>> <> payload)
@@ -46,12 +42,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
-    with {:ok, snappy_code_le} <- decode_size_header(8, message),
-         {:ok, code_le} <- Snappy.decompress(snappy_code_le),
-         :ok <-
-           code_le
-           |> :binary.decode_unsigned(:little)
-           |> then(&Logger.debug("[Goodbye] reason: #{&1}")),
+    with {:ok, goodbye_reason} <- decode_request(message, TypeAliases.uint64(), 8),
+         Logger.debug("[Goodbye] reason: #{goodbye_reason}"),
          {:ok, payload} <-
            <<0, 0, 0, 0, 0, 0, 0, 0>>
            |> Snappy.compress() do
@@ -73,13 +65,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
   defp handle_req("ping/1/ssz_snappy", message_id, message) do
     # Values are hardcoded
-    with {:ok, seq_number_le} <- decode_size_header(8, message),
-         {:ok, decompressed} <-
-           Snappy.decompress(seq_number_le),
-         decompressed
-         |> :binary.decode_unsigned(:little)
-         |> then(&"[Ping] seq_number: #{&1}")
-         |> Logger.debug(),
+    with {:ok, seq_num} <- decode_request(message, TypeAliases.uint64(), 8),
+         Logger.debug("[Ping] seq_number: #{seq_num}"),
          {:ok, payload} <-
            <<0, 0, 0, 0, 0, 0, 0, 0>>
            |> Snappy.compress() do
@@ -88,6 +75,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("metadata/2/ssz_snappy", message_id, _message) do
+    # NOTE: there's no request content so we just ignore it
     with metadata <- P2P.Metadata.get_metadata(),
          {:ok, metadata_ssz} <- Ssz.to_ssz(metadata),
          {:ok, payload} <- Snappy.compress(metadata_ssz) do
@@ -96,13 +84,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
-    with {:ok, snappy_blocks_by_range_request} <- decode_size_header(24, message),
-         {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
-         {:ok, blocks_by_range_request} <-
-           Ssz.from_ssz(ssz_blocks_by_range_request, Types.BeaconBlocksByRangeRequest) do
-      ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
-      %Types.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
-        blocks_by_range_request
+    with {:ok, request} <- decode_request(message, Types.BeaconBlocksByRangeRequest, 24) do
+      %{start_slot: start_slot, count: count} = request
 
       "[Received BlocksByRange Request] requested slots #{start_slot} to #{start_slot + count - 1}"
       |> Logger.info()
@@ -124,13 +107,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
-    with {:ok, snappy_blocks_by_root_request} <- parse_message_size(message),
-         {:ok, ssz_blocks_by_root_request} <- Snappy.decompress(snappy_blocks_by_root_request),
-         {:ok, blocks_by_root_request} <-
-           Ssz.from_ssz(ssz_blocks_by_root_request, Types.BeaconBlocksByRootRequest) do
-      ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
-      %Types.BeaconBlocksByRootRequest{body: body} =
-        blocks_by_root_request
+    with {:ok, request} <- decode_request(message, Types.BeaconBlocksByRootRequest, 24) do
+      %{body: body} = request
 
       count =
         length(body)
@@ -153,6 +131,14 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     # This should never happen, since Libp2p only accepts registered protocols
     Logger.error("Unsupported protocol: #{protocol}")
     :ok
+  end
+
+  # TODO: header size can be retrieved from the schema
+  defp decode_request(bytes, ssz_schema, decoded_size) do
+    with {:ok, ssz_snappy_request} <- decode_size_header(decoded_size, bytes),
+         {:ok, ssz_request} <- Snappy.decompress(ssz_snappy_request) do
+      SszEx.decode(ssz_request, ssz_schema)
+    end
   end
 
   defp create_block_response_chunk({:ok, block}) do
@@ -206,7 +192,4 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp decode_size_header(header, <<header, rest::binary>>), do: {:ok, rest}
   defp decode_size_header(_, ""), do: {:error, "empty message"}
   defp decode_size_header(_, _), do: {:error, "invalid message"}
-
-  defp parse_message_size(<<24, request::binary>>), do: {:ok, request}
-  defp parse_message_size(_), do: {:error, "invalid request"}
 end
