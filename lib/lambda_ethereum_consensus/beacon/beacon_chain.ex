@@ -81,10 +81,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
-  def get_current_status_message do
-    status_message = GenServer.call(__MODULE__, :get_current_status_message)
-    {:ok, status_message}
-  end
+  def get_current_status_message, do: GenServer.call(__MODULE__, :get_current_status_message)
 
   ##########################
   ### GenServer Callbacks

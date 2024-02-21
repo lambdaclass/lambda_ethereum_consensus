@@ -1,4 +1,8 @@
 defmodule LambdaEthereumConsensus.P2P.ReqResp do
+  @moduledoc """
+  Functions for encoding and decoding Req/Resp domain messages.
+  """
+
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.SszEx
@@ -23,8 +27,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
     end)
   end
 
-  @spec encode_ok(encodable(), context_bytes()) ::
-          {:ok, binary()} | {:error, String.t()}
+  @spec encode_ok(encodable(), context_bytes()) :: binary()
   def encode_ok(response, context_bytes \\ <<>>)
 
   def encode_ok(%ssz_schema{} = response, context_bytes),
