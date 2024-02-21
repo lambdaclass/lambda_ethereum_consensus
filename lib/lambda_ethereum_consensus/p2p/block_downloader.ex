@@ -169,9 +169,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     {_size, rest} = P2P.Utils.decode_varint(chunk)
 
     with {:ok, decompressed} <- Snappy.decompress(rest),
-         {:ok, signed_block} <-
-           decompressed
-           |> Ssz.from_ssz(Types.SignedBeaconBlock) do
+         {:ok, signed_block} <- Ssz.from_ssz(decompressed, Types.SignedBeaconBlock) do
       {:ok, signed_block}
     end
   end
