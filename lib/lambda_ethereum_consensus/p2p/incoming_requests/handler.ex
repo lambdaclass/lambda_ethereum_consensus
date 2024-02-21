@@ -4,20 +4,13 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
 
   require Logger
-
-  # This is the `Resource Unavailable` error message
-  # TODO: compute this and other messages at runtime
-  @error_message_resource_unavailable "Resource Unavailable"
-  # This is the `Server Error` error message
-  # TODO: compute this and other messages at runtime
-  @error_message_server_error "Server Error"
 
   @spec handle(String.t(), String.t(), binary()) :: any()
   def handle(name, message_id, message) do
@@ -43,7 +36,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
     with {:ok, goodbye_reason} <- decode_request(message, TypeAliases.uint64(), 8),
          Logger.debug("[Goodbye] reason: #{goodbye_reason}"),
-         {:ok, payload} <- encode_response(0, TypeAliases.uint64()) do
+         {:ok, payload} <- encode_response({0, TypeAliases.uint64()}) do
       Libp2pPort.send_response(message_id, payload)
     else
       # Ignore read errors, since some peers eagerly disconnect.
@@ -64,7 +57,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     # Values are hardcoded
     with {:ok, seq_num} <- decode_request(message, TypeAliases.uint64(), 8),
          Logger.debug("[Ping] seq_number: #{seq_num}"),
-         {:ok, payload} <- P2P.Metadata.get_seq_number() |> encode_response(TypeAliases.uint64()) do
+         {:ok, payload} <- encode_response({P2P.Metadata.get_seq_number(), TypeAliases.uint64()}) do
       Libp2pPort.send_response(message_id, payload)
     end
   end
@@ -126,65 +119,48 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     end
   end
 
-  defp encode_response(%ssz_schema{} = response), do: encode_response(response, ssz_schema)
-
-  defp encode_response(response, ssz_schema) do
-    with {:ok, ssz_response} <- SszEx.encode(response, ssz_schema),
-         size_header = byte_size(ssz_response) |> P2P.Utils.encode_varint(),
-         {:ok, ssz_snappy_response} <- Snappy.compress(ssz_response) do
-      Enum.join([<<0>>, size_header, ssz_snappy_response])
-    end
-  end
-
-  defp create_block_response_chunk({:ok, block}) do
-    with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
-         {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
-      fork_context = BeaconChain.get_fork_digest_for_slot(block.message.slot)
-
-      size_header =
-        ssz_signed_block
-        |> byte_size()
-        |> P2P.Utils.encode_varint()
-
-      <<0>> <> fork_context <> size_header <> snappy_ssz_signed_block
-    else
-      {:error, _} ->
-        ## TODO: Add SSZ encoding
-        size_header =
-          @error_message_server_error
-          |> byte_size()
-          |> P2P.Utils.encode_varint()
-
-        {:ok, snappy_message} = Snappy.compress(@error_message_server_error)
-        <<2>> <> size_header <> snappy_message
-    end
-  end
-
-  defp create_block_response_chunk({:error, _}) do
-    ## TODO: Add SSZ encoding
-    size_header =
-      @error_message_resource_unavailable
-      |> byte_size()
-      |> P2P.Utils.encode_varint()
-
-    {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
-    <<3>> <> size_header <> snappy_message
-  end
-
-  defp create_block_response_chunk(:not_found) do
-    ## TODO: Add SSZ encoding
-    size_header =
-      @error_message_resource_unavailable
-      |> byte_size()
-      |> P2P.Utils.encode_varint()
-
-    {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
-    <<3>> <> size_header <> snappy_message
-  end
-
-  defp create_block_response_chunk(:empty_slot), do: <<>>
-
   defp decode_size_header(header, <<header, rest::binary>>), do: {:ok, rest}
   defp decode_size_header(_, ""), do: {:error, "empty message"}
   defp decode_size_header(_, _), do: {:error, "invalid message"}
+
+  @spec encode_response({any(), SszEx.schema()} | struct(), binary()) ::
+          {:ok, binary()} | {:error, String.t()}
+  defp encode_response(response, context_bytes \\ <<>>)
+
+  defp encode_response(%ssz_schema{} = response, context_bytes),
+    do: encode_response({response, ssz_schema}, context_bytes)
+
+  defp encode_response({response, ssz_schema}, context_bytes) do
+    with {:ok, ssz_response} <- SszEx.encode(response, ssz_schema),
+         size_header = byte_size(ssz_response) |> P2P.Utils.encode_varint(),
+         {:ok, ssz_snappy_response} <- Snappy.compress(ssz_response) do
+      {:ok, Enum.join([<<0>>, context_bytes, size_header, ssz_snappy_response])}
+    end
+  end
+
+  @spec encode_error_response(1..255, String.t()) :: binary()
+  def encode_error_response(status_code, error_message) do
+    # NOTE: error_message == SszEx.encode(error_message) in this case, so we skip it
+    size_header = error_message |> byte_size() |> P2P.Utils.encode_varint()
+    {:ok, snappy_message} = Snappy.compress(error_message)
+    <<status_code>> <> size_header <> snappy_message
+  end
+
+  # TODO: respond this on invalid request
+  def invalid_request, do: encode_error_response(1, "Invalid Request")
+  def server_error, do: encode_error_response(2, "Server Error")
+  def resource_unavailable, do: encode_error_response(3, "Resource Unavailable")
+
+  defp create_block_response_chunk({:ok, block}) do
+    fork_context = BeaconChain.get_fork_digest_for_slot(block.message.slot)
+
+    case encode_response(block, fork_context) do
+      {:ok, chunk} -> chunk
+      {:error, _} -> server_error()
+    end
+  end
+
+  defp create_block_response_chunk({:error, _}), do: server_error()
+  defp create_block_response_chunk(:not_found), do: resource_unavailable()
+  defp create_block_response_chunk(:empty_slot), do: <<>>
 end
