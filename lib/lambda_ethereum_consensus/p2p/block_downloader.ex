@@ -2,10 +2,11 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   @moduledoc """
   This module requests blocks from peers.
   """
+  require Logger
+
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
   alias LambdaEthereumConsensus.SszEx
-  require Logger
 
   @blocks_by_range_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
   @blocks_by_root_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_root/2/ssz_snappy"
@@ -37,18 +38,18 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       :telemetry.execute([:network, :request], %{blocks: count}, tags)
       {:ok, blocks}
     else
-      {:error, reason} when retries > 0 ->
+      {:error, reason} ->
         tags = %{type: "by_slot", reason: parse_reason(reason)}
         P2P.Peerbook.penalize_peer(peer_id)
-        :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
-        Logger.debug("Retrying request for block", slot: slot)
-        request_blocks_by_slot(slot, count, retries - 1)
 
-      {:error, reason} when retries == 0 ->
-        P2P.Peerbook.penalize_peer(peer_id)
-        tags = %{type: "by_slot", reason: parse_reason(reason)}
-        :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
-        {:error, reason}
+        if retries > 0 do
+          :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
+          Logger.debug("Retrying request for #{count} blocks", slot: slot)
+          request_blocks_by_slot(slot, count, retries - 1)
+        else
+          :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
+          {:error, reason}
+        end
     end
   end
 
@@ -86,11 +87,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
         if retries > 0 do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
-
-          Logger.debug(
-            "Retrying request for blocks with roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}"
-          )
-
+          pretty_roots = Enum.map_join(roots, ", ", &Base.encode16/1)
+          Logger.debug("Retrying request for blocks with roots #{pretty_roots}")
           request_blocks_by_root(roots, retries - 1)
         else
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
