@@ -13,7 +13,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   @type context_bytes :: binary()
   @type encodable :: {any(), SszEx.schema()} | struct()
   @type error_code :: 1..255
-  @type error_message :: String.t()
+  @type error_message :: binary()
 
   @type response_payload ::
           {:ok, {encodable(), context_bytes()}}
@@ -84,21 +84,12 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
       <<0, wrong_context::binary-size(4)>> <> _ ->
         {:error, "wrong context: #{Base.encode16(wrong_context)}"}
 
-      error_response ->
-        decode_error(error_response)
+      <<error_code>> <> error_message ->
+        {:error, {error_code, decode_error_message(error_message)}}
     end
   end
 
-  defp decode_error(<<error_code>> <> error_message) do
-    case decode(error_message, TypeAliases.error_message()) do
-      {:ok, message} ->
-        {:error, "error code: #{error_code}, with message: #{message}"}
-
-      {:error, _reason} ->
-        message = error_message |> Base.encode16()
-        {:error, "error code: #{error_code}, with raw message: '#{message}'"}
-    end
-  end
+  defp decode_error_message(error_message), do: decode(error_message, TypeAliases.error_message())
 
   @spec decode(binary(), SszEx.schema()) :: {:ok, any()} | {:error, String.t()}
   def decode(chunk, ssz_schema) do
@@ -110,4 +101,12 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
       {:ok, decoded}
     end
   end
+
+  @spec decode_result(binary(), SszEx.schema()) ::
+          {:ok, any()}
+          | {:error, String.t()}
+          | {:error, {error_code(), {:ok, error_message()}}}
+          | {:error, {error_code(), {:error, String.t()}}}
+  def decode_result(<<0>> <> chunk, ssz_schema), do: decode(chunk, ssz_schema)
+  def decode_result(<<code>> <> message, _), do: {:error, {code, decode_error_message(message)}}
 end
