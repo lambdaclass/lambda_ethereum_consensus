@@ -4,9 +4,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
-  alias LambdaEthereumConsensus.SszEx
   alias Types.SignedBeaconBlock
 
   @blocks_by_range_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
@@ -29,11 +28,12 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     # TODO: handle no-peers asynchronously?
     peer_id = get_some_peer()
 
-    request = encode_request(%Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count})
+    request =
+      ReqResp.encode_request(%Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count})
 
     with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blocks_by_range_protocol_id, request),
-         {:ok, blocks} <- decode_response_chunks(response),
+         {:ok, blocks} <- ReqResp.decode_response_chunks(response),
          :ok <- verify_batch(blocks, slot, count) do
       tags = %{result: "success", type: "by_slot", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: count}, tags)
@@ -73,11 +73,12 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
     peer_id = get_some_peer()
 
-    request = encode_request({roots, {:list, TypeAliases.root(), 999_999}})
+    schema = {:list, TypeAliases.root(), ChainSpec.get("MAX_REQUEST_BLOCKS")}
+    request = ReqResp.encode_request({roots, schema})
 
     with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blocks_by_root_protocol_id, request),
-         {:ok, blocks} <- decode_response_chunks(response) do
+         {:ok, blocks} <- ReqResp.decode_response_chunks(response) do
       tags = %{result: "success", type: "by_root", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: length(roots)}, tags)
       {:ok, blocks}
@@ -125,93 +126,6 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       :ok
     else
       {:error, "block outside requested slot range"}
-    end
-  end
-
-  ## Request encoding
-
-  @type encodable_response :: {any(), SszEx.schema()} | struct()
-
-  @spec encode_request(encodable_response()) ::
-          {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
-  def encode_request(%ssz_schema{} = payload), do: encode_request({payload, ssz_schema})
-
-  def encode_request({payload, ssz_schema}) do
-    {:ok, encoded_payload} = payload |> SszEx.encode(ssz_schema)
-
-    size_header =
-      encoded_payload
-      |> byte_size()
-      |> P2P.Utils.encode_varint()
-
-    {:ok, compressed_payload} = encoded_payload |> Snappy.compress()
-
-    size_header <> compressed_payload
-  end
-
-  ## Response decoding
-
-  @spec decode_response_chunks(binary()) :: {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
-  def decode_response_chunks(response_chunk) do
-    with {:ok, chunks} <- split_response(response_chunk) do
-      # TODO: handle errors
-      chunks
-      |> Enum.map(&decode_chunk/1)
-      |> Enum.map(fn
-        {:ok, block} -> block
-        {:error, _reason} -> nil
-      end)
-      |> Enum.filter(&(&1 != nil))
-      |> then(fn
-        [] -> {:error, "all blocks decoding failed"}
-        blocks -> {:ok, blocks}
-      end)
-    end
-  end
-
-  @spec split_response(binary) :: {:ok, [binary()]} | {:error, String.t()}
-  def split_response(response_chunk) do
-    fork_context = BeaconChain.get_fork_digest()
-
-    case response_chunk do
-      <<>> ->
-        {:error, "unexpected EOF"}
-
-      # TODO: take into account multiple chunks with intermixed errors
-      <<0, ^fork_context::binary-size(4)>> <> rest ->
-        chunks = rest |> :binary.split(<<0, fork_context::binary-size(4)>>, [:global])
-        {:ok, chunks}
-
-      <<0, wrong_context::binary-size(4)>> <> _ ->
-        {:error, "wrong context: #{Base.encode16(wrong_context)}"}
-
-      <<code>> <> message ->
-        decode_error_response(code, message)
-    end
-  end
-
-  defp decode_error_response(error_code, ""), do: {:error, "error code: #{error_code}"}
-
-  defp decode_error_response(error_code, error_message) do
-    {_size, rest} = P2P.Utils.decode_varint(error_message)
-
-    case rest |> Snappy.decompress() do
-      {:ok, message} ->
-        {:error, "error code: #{error_code}, with message: #{message}"}
-
-      {:error, _reason} ->
-        message = error_message |> Base.encode16()
-        {:error, "error code: #{error_code}, with raw message: '#{message}'"}
-    end
-  end
-
-  @spec decode_chunk(binary()) :: {:ok, SignedBeaconBlock.t()} | {:error, binary()}
-  defp decode_chunk(chunk) do
-    {_size, rest} = P2P.Utils.decode_varint(chunk)
-
-    with {:ok, decompressed} <- Snappy.decompress(rest),
-         {:ok, signed_block} <- Ssz.from_ssz(decompressed, SignedBeaconBlock) do
-      {:ok, signed_block}
     end
   end
 end
