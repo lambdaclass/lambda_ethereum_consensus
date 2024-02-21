@@ -29,10 +29,9 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
     request = encode_request(%Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count})
 
-    with {:ok, response_chunk} <-
+    with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blocks_by_range_protocol_id, request),
-         {:ok, chunks} <- parse_response(response_chunk),
-         {:ok, blocks} <- decode_chunks(chunks),
+         {:ok, blocks} <- decode_response(response),
          :ok <- verify_batch(blocks, slot, count) do
       tags = %{result: "success", type: "by_slot", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: count}, tags)
@@ -74,10 +73,9 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
     request = encode_request(roots, {:list, TypeAliases.root(), 999_999})
 
-    with {:ok, response_chunk} <-
+    with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blocks_by_root_protocol_id, request),
-         {:ok, chunks} <- parse_response(response_chunk),
-         {:ok, blocks} <- decode_chunks(chunks) do
+         {:ok, blocks} <- decode_response(response) do
       tags = %{result: "success", type: "by_root", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: length(roots)}, tags)
       {:ok, blocks}
@@ -101,8 +99,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     end
   end
 
-  @spec parse_response(binary) ::
-          {:ok, [binary()]} | {:error, binary()}
+  @spec parse_response(binary) :: {:ok, [binary()]} | {:error, String.t()}
   def parse_response(response_chunk) do
     fork_context = BeaconChain.get_fork_digest()
 
@@ -137,6 +134,23 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     size_header <> compressed_payload
   end
 
+  defp decode_response(response_chunk) do
+    with {:ok, chunks} <- parse_response(response_chunk) do
+      # TODO: handle errors
+      chunks
+      |> Enum.map(&decode_chunk/1)
+      |> Enum.map(fn
+        {:ok, block} -> block
+        {:error, _reason} -> nil
+      end)
+      |> Enum.filter(&(&1 != nil))
+      |> then(fn
+        [] -> {:error, "all blocks decoding failed"}
+        blocks -> {:ok, blocks}
+      end)
+    end
+  end
+
   defp error_response(error_code, ""), do: {:error, "error code: #{error_code}"}
 
   defp error_response(error_code, error_message) do
@@ -149,28 +163,6 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       {:error, _reason} ->
         message = error_message |> Base.encode16()
         {:error, "error code: #{error_code}, with raw message: '#{message}'"}
-    end
-  end
-
-  @spec decode_chunks([binary()]) :: {:ok, [Types.SignedBeaconBlock.t()]} | {:error, binary()}
-  defp decode_chunks(chunks) do
-    # TODO: handle errors
-    blocks =
-      chunks
-      |> Enum.map(&decode_chunk/1)
-      |> Enum.map(fn
-        {:ok, block} -> block
-        {:error, _reason} -> nil
-      end)
-      |> Enum.filter(&(&1 != nil))
-
-    case blocks do
-      [] ->
-        Logger.error("All blocks decoding failed")
-        {:error, "all blocks decoding failed"}
-
-      blocks ->
-        {:ok, blocks}
     end
   end
 
