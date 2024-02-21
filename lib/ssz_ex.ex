@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   """
   alias LambdaEthereumConsensus.Utils.BitList
   import alias LambdaEthereumConsensus.Utils.BitVector
-  import Bitwise
   alias LambdaEthereumConsensus.Utils.ZeroHashes
 
   # TODO: specify possible values

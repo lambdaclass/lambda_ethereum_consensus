@@ -26,5 +26,6 @@ defmodule TypeAliases do
 
   def byte_list(n), do: {:list, {:int, 8}, n}
 
-  def error_message, do: byte_list(256)
+  # TODO: this should be byte_list(256)
+  def error_message, do: {:bytes, 256}
 end
