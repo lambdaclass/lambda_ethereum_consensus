@@ -3,6 +3,7 @@ defmodule Types.StatusMessage do
   Struct definition for `StatusMessage`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :fork_digest,
@@ -22,4 +23,15 @@ defmodule Types.StatusMessage do
           head_root: Types.root(),
           head_slot: Types.slot()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      fork_digest: TypeAliases.fork_digest(),
+      finalized_root: TypeAliases.root(),
+      finalized_epoch: TypeAliases.epoch(),
+      head_root: TypeAliases.root(),
+      head_slot: TypeAliases.slot()
+    ]
+  end
 end
