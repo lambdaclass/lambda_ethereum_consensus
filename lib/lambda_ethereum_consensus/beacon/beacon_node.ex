@@ -7,9 +7,12 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.StateTransition.Cache
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Store
+
+  @max_epochs_before_stale 8
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -19,7 +22,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   def init([nil]) do
     with nil <- restore_state_from_db() do
       Logger.error(
-        "[Sync] No initial state found. Please specify the URL to fetch them from via the --checkpoint-sync-url flag"
+        "[Sync] No recent state found. Please specify the URL to fetch them from via the --checkpoint-sync-url flag"
       )
 
       System.halt(1)
@@ -29,7 +32,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   def init([checkpoint_url]) do
     case restore_state_from_db() do
       {:ok, _} = res ->
-        Logger.warning("[Checkpoint sync] Old state found. Ignoring the checkpoint URL.")
+        Logger.warning("[Checkpoint sync] Recent state found. Ignoring the checkpoint URL.")
         res
 
       nil ->
@@ -81,10 +84,14 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   defp restore_state_from_db do
     # Try to fetch the old store from the database
     case StoreDb.fetch_store() do
-      {:ok, %Store{} = store} ->
-        Logger.info("[Sync] Old state found.")
-
-        init_children(store, ChainSpec.get_genesis_validators_root())
+      {:ok, %Store{finalized_checkpoint: %{epoch: finalized_epoch}} = store} ->
+        if get_current_epoch(store) - finalized_epoch > @max_epochs_before_stale do
+          Logger.info("[Sync] Found old state in DB. Ignoring...")
+          nil
+        else
+          Logger.info("[Sync] Found recent state in DB. Restoring...")
+          init_children(store, ChainSpec.get_genesis_validators_root())
+        end
 
       :not_found ->
         nil
@@ -116,5 +123,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
         System.halt(1)
     end
+  end
+
+  defp get_current_epoch(store) do
+    (:os.system_time(:second) - store.genesis_time)
+    |> div(ChainSpec.get("SECONDS_PER_SLOT"))
+    |> Misc.compute_epoch_at_slot()
   end
 end
