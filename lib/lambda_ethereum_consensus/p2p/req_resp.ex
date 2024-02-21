@@ -28,16 +28,16 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   def encode_ok(response, context_bytes \\ <<>>)
 
   def encode_ok(%ssz_schema{} = response, context_bytes),
-    do: encode_chunk(0, context_bytes, {response, ssz_schema})
+    do: encode(0, context_bytes, {response, ssz_schema})
 
   def encode_ok({response, ssz_schema}, context_bytes),
-    do: encode_chunk(0, context_bytes, {response, ssz_schema})
+    do: encode(0, context_bytes, {response, ssz_schema})
 
   @spec encode_error(error_code(), error_message()) :: binary()
   def encode_error(status_code, error_message),
-    do: encode_chunk(status_code, <<>>, {error_message, TypeAliases.error_message()})
+    do: encode(status_code, <<>>, {error_message, TypeAliases.error_message()})
 
-  defp encode_chunk(result, context_bytes, {response, ssz_schema}) do
+  defp encode(result, context_bytes, {response, ssz_schema}) do
     {:ok, ssz_response} = SszEx.encode(response, ssz_schema)
     size_header = byte_size(ssz_response) |> P2P.Utils.encode_varint()
     {:ok, ssz_snappy_response} = Snappy.compress(ssz_response)
@@ -87,9 +87,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   end
 
   defp decode_error(<<error_code>> <> error_message) do
-    {_size, rest} = P2P.Utils.decode_varint(error_message)
-
-    case decode_payload(rest, TypeAliases.error_message()) do
+    case decode(error_message, TypeAliases.error_message()) do
       {:ok, message} ->
         {:error, "error code: #{error_code}, with message: #{message}"}
 
@@ -103,11 +101,8 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   def decode(chunk, ssz_schema) do
     # TODO: limit size
     {_size, rest} = P2P.Utils.decode_varint(chunk)
-    decode_payload(rest, ssz_schema)
-  end
 
-  defp decode_payload(payload, ssz_schema) do
-    with {:ok, decompressed} <- Snappy.decompress(payload),
+    with {:ok, decompressed} <- Snappy.decompress(rest),
          {:ok, decoded} <- SszEx.decode(decompressed, ssz_schema) do
       {:ok, decoded}
     end
