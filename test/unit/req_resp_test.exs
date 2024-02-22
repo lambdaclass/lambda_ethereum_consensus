@@ -98,7 +98,7 @@ defmodule Unit.ReqRespTest do
 
     blocks = Enum.map(1..count, fn _ -> {:ok, {Block.signed_beacon_block(), context_bytes}} end)
 
-    response = ReqResp.encode_response_chunks(blocks) |> ReqResp.decode_response()
+    response = ReqResp.encode_response(blocks) |> ReqResp.decode_response()
 
     assert response == {:ok, blocks}
   end

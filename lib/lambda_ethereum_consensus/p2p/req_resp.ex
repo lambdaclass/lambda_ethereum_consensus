@@ -19,8 +19,8 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
           {:ok, {encodable(), context_bytes()}}
           | {:error, {error_code(), error_message()}}
 
-  @spec encode_response_chunks([response_payload()]) :: binary()
-  def encode_response_chunks(responses) do
+  @spec encode_response([response_payload()]) :: binary()
+  def encode_response(responses) do
     Enum.map_join(responses, fn
       {:ok, {response, context_bytes}} -> encode_ok(response, context_bytes)
       {:error, {code, message}} -> encode_error(code, message)
