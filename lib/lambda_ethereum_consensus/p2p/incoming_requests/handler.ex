@@ -26,7 +26,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp handle_req(protocol_name, message_id, message)
 
   defp handle_req("status/1/ssz_snappy", message_id, message) do
-    with {:ok, request} <- ReqResp.decode(message, Types.StatusMessage) do
+    with {:ok, request} <- ReqResp.decode_request(message, Types.StatusMessage) do
       Logger.debug("[Status] '#{inspect(request)}'")
       payload = BeaconChain.get_current_status_message() |> ReqResp.encode_ok()
       Libp2pPort.send_response(message_id, payload)
@@ -39,7 +39,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
-    case ReqResp.decode(message, TypeAliases.uint64()) do
+    case ReqResp.decode_request(message, TypeAliases.uint64()) do
       {:ok, goodbye_reason} ->
         Logger.debug("[Goodbye] reason: #{goodbye_reason}")
         payload = ReqResp.encode_ok({0, TypeAliases.uint64()})
@@ -57,7 +57,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
   defp handle_req("ping/1/ssz_snappy", message_id, message) do
     # Values are hardcoded
-    with {:ok, seq_num} <- ReqResp.decode(message, TypeAliases.uint64()) do
+    with {:ok, seq_num} <- ReqResp.decode_request(message, TypeAliases.uint64()) do
       Logger.debug("[Ping] seq_number: #{seq_num}")
       seq_number = Metadata.get_seq_number()
       payload = ReqResp.encode_ok({seq_number, TypeAliases.uint64()})
@@ -72,7 +72,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
-    with {:ok, request} <- ReqResp.decode(message, Types.BeaconBlocksByRangeRequest) do
+    with {:ok, request} <- ReqResp.decode_request(message, Types.BeaconBlocksByRangeRequest) do
       %{start_slot: start_slot, count: count} = request
 
       Logger.info("[BlocksByRange] requested #{count} slots, starting from #{start_slot}")
@@ -93,7 +93,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
-    with {:ok, %{body: body}} <- ReqResp.decode(message, Types.BeaconBlocksByRootRequest) do
+    with {:ok, %{body: body}} <- ReqResp.decode_request(message, Types.BeaconBlocksByRootRequest) do
       count = length(body)
       Logger.info("[BlocksByRoot] requested #{count} number of blocks")
       truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
