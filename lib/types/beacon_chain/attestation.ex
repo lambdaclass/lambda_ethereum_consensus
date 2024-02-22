@@ -3,6 +3,8 @@ defmodule Types.Attestation do
   Struct definition for `AttestationMainnet`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  alias LambdaEthereumConsensus.Utils.BitList
+
   @behaviour LambdaEthereumConsensus.Container
 
   fields = [
@@ -28,5 +30,13 @@ defmodule Types.Attestation do
       {:data, Types.AttestationData},
       {:signature, TypeAliases.bls_signature()}
     ]
+  end
+
+  def encode(%__MODULE__{} = map) do
+    Map.update!(map, :aggregation_bits, &BitList.to_bytes/1)
+  end
+
+  def decode(%__MODULE__{} = map) do
+    Map.update!(map, :aggregation_bits, &BitList.new/1)
   end
 end

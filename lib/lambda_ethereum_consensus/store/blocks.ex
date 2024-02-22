@@ -53,6 +53,9 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     end
   end
 
+  @spec has_block?(Types.root()) :: boolean()
+  def has_block?(block_root), do: not (get_signed_block(block_root) |> is_nil())
+
   @spec get_block!(Types.root()) :: BeaconBlock.t()
   def get_block!(block_root) do
     case get_block(block_root) do

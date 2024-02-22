@@ -3,8 +3,9 @@ defmodule Types.BeaconState do
   Struct definition for `BeaconState`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
   alias LambdaEthereumConsensus.Utils.BitVector
+
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :genesis_time,
@@ -114,6 +115,7 @@ defmodule Types.BeaconState do
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
+    |> Map.update!(:justification_bits, &BitVector.to_bytes/1)
   end
 
   def decode(%__MODULE__{} = map) do
@@ -124,6 +126,9 @@ defmodule Types.BeaconState do
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
+    |> Map.update!(:justification_bits, fn bits ->
+      BitVector.new(bits, Constants.justification_bits_length())
+    end)
   end
 
   @doc """
@@ -261,7 +266,7 @@ defmodule Types.BeaconState do
        {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
       {:current_epoch_participation,
        {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
-      {:justification_bits, {:bitvector, ChainSpec.get("JUSTIFICATION_BITS_LENGTH")}},
+      {:justification_bits, {:bitvector, Constants.justification_bits_length()}},
       {:previous_justified_checkpoint, Types.Checkpoint},
       {:current_justified_checkpoint, Types.Checkpoint},
       {:finalized_checkpoint, Types.Checkpoint},
