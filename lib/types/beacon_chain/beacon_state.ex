@@ -131,6 +131,19 @@ defmodule Types.BeaconState do
     end)
   end
 
+  def decode_ex(%__MODULE__{} = map) do
+    map
+    |> Map.update!(:validators, &Aja.Vector.new/1)
+    |> Map.update!(:balances, &Aja.Vector.new/1)
+    |> Map.update!(:randao_mixes, &Aja.Vector.new/1)
+    |> Map.update!(:previous_epoch_participation, &Aja.Vector.new/1)
+    |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
+    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
+    |> Map.update!(:justification_bits, fn bits ->
+      BitVector.new(bits, Constants.justification_bits_length())
+    end)
+  end
+
   @doc """
   Checks if state is pre or post merge
   """

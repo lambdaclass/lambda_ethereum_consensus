@@ -5,6 +5,7 @@ defmodule SpecTestUtils do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
+  import Aja
 
   @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
   @vector_keys [
@@ -119,16 +120,17 @@ defmodule SpecTestUtils do
     end
   end
 
+  def sanitize_ssz(vec(_) = other, {:list, module, _size} = _schema) when is_atom(module),
+    do: Aja.Vector.map(other, fn elem -> struct!(module, elem) end)
+
+  def sanitize_ssz(vec(_) = other, _schema), do: other
+
   def sanitize_ssz(container, module) when is_map(container) do
     schema = module.schema() |> Map.new()
 
     container
     |> Enum.map(fn {k, v} ->
-      if Atom.to_string(k) in @vector_keys do
-        {k, sanitize_ssz(Aja.Enum.to_list(v), Map.fetch!(schema, k))}
-      else
-        {k, sanitize_ssz(v, Map.fetch!(schema, k))}
-      end
+      {k, sanitize_ssz(v, Map.fetch!(schema, k))}
     end)
     |> then(&struct!(module, &1))
   end

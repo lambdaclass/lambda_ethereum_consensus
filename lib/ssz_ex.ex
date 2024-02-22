@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   alias LambdaEthereumConsensus.Utils.BitList
   import alias LambdaEthereumConsensus.Utils.BitVector
   import Bitwise
+  import Aja
   alias LambdaEthereumConsensus.Utils.ZeroHashes
 
   #################
@@ -78,9 +79,17 @@ defmodule LambdaEthereumConsensus.SszEx do
     do: decode_bitvector(value, size)
 
   def decode(binary, module) when is_atom(module) do
-    if variable_size?(module),
-      do: decode_variable_container(binary, module),
-      else: decode_fixed_container(binary, module)
+    with {:ok, result} <-
+           if(variable_size?(module),
+             do: decode_variable_container(binary, module),
+             else: decode_fixed_container(binary, module)
+           ) do
+      if exported?(module, :decode_ex, 1) do
+        {:ok, module.decode(result)}
+      else
+        {:ok, result}
+      end
+    end
   end
 
   @spec hash_tree_root!(any, any) :: Types.root()
@@ -340,6 +349,10 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_bool("\x00"), do: {:ok, false}
   defp decode_bool(_), do: {:error, "invalid bool value"}
 
+  defp encode_fixed_size_list(vec(_) = list, basic_type, size) do
+    encode_fixed_size_list(Aja.Vector.to_list(list), basic_type, size)
+  end
+
   defp encode_fixed_size_list(list, _basic_type, max_size) when length(list) > max_size,
     do: {:error, "invalid max_size of list"}
 
@@ -367,6 +380,10 @@ defmodule LambdaEthereumConsensus.SszEx do
     do: {:ok, BitVector.to_bytes(bit_vector)}
 
   defp encode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
+
+  defp encode_variable_size_list(vec(_) = list, basic_type, max_size) do
+    encode_variable_size_list(Aja.Vector.to_list(list), basic_type, max_size)
+  end
 
   defp encode_variable_size_list(list, _basic_type, max_size) when length(list) > max_size,
     do: {:error, "invalid max_size of list"}
@@ -970,5 +987,10 @@ defmodule LambdaEthereumConsensus.SszEx do
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
+  end
+
+  defp exported?(module, function, arity) do
+    Code.ensure_loaded!(module)
+    function_exported?(module, function, arity)
   end
 end
