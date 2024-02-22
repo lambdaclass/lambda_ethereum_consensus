@@ -49,12 +49,12 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
 
   ## Decoding
 
-  @spec decode_response_chunks(binary()) :: {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
-  def decode_response_chunks(response_chunk) do
+  @spec decode_response(binary()) :: {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
+  def decode_response(response_chunk) do
     with {:ok, chunks} <- split_response(response_chunk) do
       # TODO: handle errors
       chunks
-      |> Enum.map(&decode(&1, SignedBeaconBlock))
+      |> Enum.map(&decode_request(&1, SignedBeaconBlock))
       |> Enum.map(fn
         {:ok, block} -> block
         {:error, _reason} -> nil
@@ -89,10 +89,14 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
     end
   end
 
-  defp decode_error_message(error_message), do: decode(error_message, TypeAliases.error_message())
+  defp decode_error_message(error_message),
+    do: decode_request(error_message, TypeAliases.error_message())
 
-  @spec decode(binary(), SszEx.schema()) :: {:ok, any()} | {:error, String.t()}
-  def decode(chunk, ssz_schema) do
+  @doc """
+  Decodes a `request` according to an SSZ schema.
+  """
+  @spec decode_request(binary(), SszEx.schema()) :: {:ok, any()} | {:error, String.t()}
+  def decode_request(chunk, ssz_schema) do
     # TODO: limit size
     {_size, rest} = P2P.Utils.decode_varint(chunk)
 
@@ -102,11 +106,16 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
     end
   end
 
-  @spec decode_result(binary(), SszEx.schema()) ::
+  @doc """
+  Decodes a `response_chunk` (which includes a status code) according to an SSZ schema.
+  """
+  @spec decode_response_chunk(binary(), SszEx.schema()) ::
           {:ok, any()}
           | {:error, String.t()}
           | {:error, {error_code(), {:ok, error_message()}}}
           | {:error, {error_code(), {:error, String.t()}}}
-  def decode_result(<<0>> <> chunk, ssz_schema), do: decode(chunk, ssz_schema)
-  def decode_result(<<code>> <> message, _), do: {:error, {code, decode_error_message(message)}}
+  def decode_response_chunk(<<0>> <> chunk, ssz_schema), do: decode_request(chunk, ssz_schema)
+
+  def decode_response_chunk(<<code>> <> message, _),
+    do: {:error, {code, decode_error_message(message)}}
 end

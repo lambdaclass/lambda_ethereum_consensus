@@ -8,7 +8,9 @@ defmodule Unit.ReqRespTest do
 
   defp assert_decode_equals(message, ssz_schema, expected) do
     request = Base.decode16!(message)
-    assert ReqResp.decode_result(request, ssz_schema) == {:ok, expected}
+    assert ReqResp.decode_response_chunk(request, ssz_schema) == {:ok, expected}
+    <<0>> <> rest = message
+    assert ReqResp.decode_request()
   end
 
   defp assert_u64(message, expected),
@@ -36,7 +38,7 @@ defmodule Unit.ReqRespTest do
 
     expected_result = {:error, {1, {:ok, "Failed to uncompress message"}}}
 
-    assert ReqResp.decode_result(msg, TypeAliases.uint64()) == expected_result
+    assert ReqResp.decode_response_chunk(msg, TypeAliases.uint64()) == expected_result
   end
 
   test "GetMetadata 0" do
