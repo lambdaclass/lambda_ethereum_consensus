@@ -67,7 +67,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     Misc.compute_epoch_at_slot(get_current_slot())
   end
 
-  @spec get_fork_digest() :: TypeAliases.fork_digest()
+  @spec get_fork_digest() :: Types.fork_digest()
   def get_fork_digest do
     GenServer.call(__MODULE__, :get_fork_digest)
   end
