@@ -53,8 +53,8 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
 
   ## Decoding
 
-  @spec decode_response(binary()) :: {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
-  def decode_response(response_chunk) do
+  @spec decode_response(binary(), SszEx.schema()) :: {:ok, [any()]} | {:error, String.t()}
+  def decode_response(response_chunk, ssz_schema) do
     with {:ok, chunks} <- split_response(response_chunk) do
       # TODO: handle errors
       chunks
