@@ -1,11 +1,10 @@
 defmodule Unit.ReqRespTest do
-  alias Types.BeaconBlocksByRootRequest
   alias Fixtures.Block
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.BeaconBlocksByRangeRequest
-  alias Types.SignedBeaconBlock
+  alias Types.BeaconBlocksByRootRequest
 
   use ExUnit.Case
   # TODO: try not to use patch
