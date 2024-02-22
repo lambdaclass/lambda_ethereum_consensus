@@ -86,7 +86,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
         |> Enum.map(&BlockDb.get_block_by_slot/1)
         |> Enum.map(&map_block_result/1)
         |> Enum.reject(&(&1 == :skip))
-        |> ReqResp.encode_response_chunks()
+        |> ReqResp.encode_response()
 
       Libp2pPort.send_response(message_id, response_chunk)
     end
@@ -104,7 +104,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
         |> Enum.map(&Blocks.get_signed_block/1)
         |> Enum.map(&map_block_result/1)
         |> Enum.reject(&(&1 == :skip))
-        |> ReqResp.encode_response_chunks()
+        |> ReqResp.encode_response()
 
       Libp2pPort.send_response(message_id, response_chunk)
     end
