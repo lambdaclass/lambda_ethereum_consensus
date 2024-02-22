@@ -835,8 +835,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp get_fixed_size({:vector, :bytes, size}), do: size
   defp get_fixed_size({:vector, basic_type, size}), do: size * get_fixed_size(basic_type)
 
-  defp get_fixed_size({:bitvector, size}),
-    do: if(size < 8, do: 1, else: div(size, @bits_per_byte))
+  defp get_fixed_size({:bitvector, size}), do: ceil(size / 8)
 
   defp get_fixed_size(module) when is_atom(module) do
     schemas = module.schema()
