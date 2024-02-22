@@ -31,21 +31,25 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   def encode_ok(response, context_bytes \\ <<>>)
 
   def encode_ok(%ssz_schema{} = response, context_bytes),
-    do: encode(0, context_bytes, {response, ssz_schema})
+    do: encode(<<0>>, context_bytes, {response, ssz_schema})
 
   def encode_ok({response, ssz_schema}, context_bytes),
-    do: encode(0, context_bytes, {response, ssz_schema})
+    do: encode(<<0>>, context_bytes, {response, ssz_schema})
 
   @spec encode_error(error_code(), error_message()) :: binary()
   def encode_error(status_code, error_message),
-    do: encode(status_code, <<>>, {error_message, TypeAliases.error_message()})
+    do: encode(<<status_code>>, <<>>, {error_message, TypeAliases.error_message()})
 
   defp encode(result, context_bytes, {response, ssz_schema}) do
     {:ok, ssz_response} = SszEx.encode(response, ssz_schema)
     size_header = byte_size(ssz_response) |> P2P.Utils.encode_varint()
     {:ok, ssz_snappy_response} = Snappy.compress(ssz_response)
-    Enum.join([<<result>>, context_bytes, size_header, ssz_snappy_response])
+    Enum.join([result, context_bytes, size_header, ssz_snappy_response])
   end
+
+  @spec encode_request(encodable()) :: binary()
+  def encode_request(%ssz_schema{} = request), do: encode_request({request, ssz_schema})
+  def encode_request({request, ssz_schema}), do: encode(<<>>, <<>>, {request, ssz_schema})
 
   ## Decoding
 

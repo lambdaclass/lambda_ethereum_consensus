@@ -1,16 +1,21 @@
 defmodule Unit.ReqRespTest do
+  alias Fixtures.Block
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.BeaconBlocksByRangeRequest
+  alias Types.SignedBeaconBlock
 
   use ExUnit.Case
+  # TODO: try not to use patch
+  use Patch
   doctest ReqResp
 
   defp assert_decode_equals(message, ssz_schema, expected) do
     request = Base.decode16!(message)
     assert ReqResp.decode_response_chunk(request, ssz_schema) == {:ok, expected}
-    <<0>> <> rest = message
-    assert ReqResp.decode_request()
+    <<0>> <> rest = request
+    assert ReqResp.decode_request(rest, ssz_schema) == {:ok, expected}
   end
 
   defp assert_u64(message, expected),
@@ -72,5 +77,29 @@ defmodule Unit.ReqRespTest do
         syncnets: BitVector.new(0, 4)
       }
     )
+  end
+
+  # TODO: fix this
+  @tag :skip
+  test "BeaconBlocksByRange round trip" do
+    count = 5
+    request = %BeaconBlocksByRangeRequest{start_slot: 15_125, count: count}
+
+    result =
+      request
+      |> ReqResp.encode_request()
+      |> ReqResp.decode_request(BeaconBlocksByRangeRequest)
+
+    assert result == {:ok, request}
+
+    context_bytes = "abcd"
+
+    patch(BeaconChain, :get_fork_digest, "abcd")
+
+    blocks = Enum.map(1..count, fn _ -> {:ok, {Block.signed_beacon_block(), context_bytes}} end)
+
+    response = ReqResp.encode_response_chunks(blocks) |> ReqResp.decode_response()
+
+    assert response == {:ok, blocks}
   end
 end
