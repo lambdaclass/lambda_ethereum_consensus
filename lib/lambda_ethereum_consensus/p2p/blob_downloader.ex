@@ -101,13 +101,6 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
     end
   end
 
-  defp parse_reason(reason) do
-    case reason do
-      "failed to dial" <> _ -> "failed to dial"
-      res -> res
-    end
-  end
-
   defp verify_batch(blocks, start_slot, count) do
     end_slot = start_slot + count
 
