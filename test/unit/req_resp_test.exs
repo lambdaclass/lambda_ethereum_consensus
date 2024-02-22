@@ -1,4 +1,5 @@
 defmodule Unit.ReqRespTest do
+  alias Types.BeaconBlocksByRootRequest
   alias Fixtures.Block
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.ReqResp
@@ -84,19 +85,35 @@ defmodule Unit.ReqRespTest do
   test "BeaconBlocksByRange round trip" do
     count = 5
     request = %BeaconBlocksByRangeRequest{start_slot: 15_125, count: count}
+    context_bytes = "abcd"
+    patch(BeaconChain, :get_fork_digest, context_bytes)
+    blocks = Enum.map(1..count, fn _ -> {:ok, {Block.signed_beacon_block(), context_bytes}} end)
 
     result =
-      request
-      |> ReqResp.encode_request()
+      ReqResp.encode_request(request)
       |> ReqResp.decode_request(BeaconBlocksByRangeRequest)
 
     assert result == {:ok, request}
 
+    response = ReqResp.encode_response(blocks) |> ReqResp.decode_response()
+
+    assert response == {:ok, blocks}
+  end
+
+  # TODO: fix this
+  @tag :skip
+  test "BeaconBlocksByRoot round trip" do
+    count = 5
+    request = %BeaconBlocksByRootRequest{body: Enum.map(1..count, &<<&1::256>>)}
     context_bytes = "abcd"
-
-    patch(BeaconChain, :get_fork_digest, "abcd")
-
+    patch(BeaconChain, :get_fork_digest, context_bytes)
     blocks = Enum.map(1..count, fn _ -> {:ok, {Block.signed_beacon_block(), context_bytes}} end)
+
+    result =
+      ReqResp.encode_request(request)
+      |> ReqResp.decode_request(BeaconBlocksByRootRequest)
+
+    assert result == {:ok, request}
 
     response = ReqResp.encode_response(blocks) |> ReqResp.decode_response()
 
