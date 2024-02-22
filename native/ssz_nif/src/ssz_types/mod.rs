@@ -15,6 +15,8 @@ pub(crate) mod config;
 use ssz_derive::{Decode, Encode};
 use ssz_types::{typenum, FixedVector, VariableList};
 
+use self::config::Config;
+
 type Bytes4 = [u8; 4];
 type Bytes20 = FixedVector<u8, typenum::U20>;
 type Bytes32 = [u8; 32];
@@ -42,6 +44,10 @@ pub(crate) type Transaction =
     VariableList<u8, /* `MAX_BYTES_PER_TRANSACTION` */ typenum::U1073741824>;
 type ExecutionAddress = Bytes20;
 type WithdrawalIndex = u64;
+type KZGCommitment = Bytes48;
+type KZGProof = Bytes48;
+type BlobIndex = u64;
+type Blob<C> = FixedVector<u8, <C as Config>::BytesPerBlob>;
 
 // This type is a little-endian encoded uint256.
 // We use this to because of Erlang's NIF limitations.

@@ -43,4 +43,9 @@ defmodule Types do
   @type execution_address :: bytes20
   @type withdrawal_index :: uint64
   @type payload_id :: bytes8
+  @type blob_index :: uint64
+  # Max size: BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB
+  @type blob :: binary
+  @type kzg_commitment :: bytes48
+  @type kzg_proof :: bytes48
 end
