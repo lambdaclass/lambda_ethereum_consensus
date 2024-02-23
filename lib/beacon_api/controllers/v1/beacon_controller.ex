@@ -1,12 +1,13 @@
 defmodule BeaconApi.V1.BeaconController do
+  use BeaconApi, :controller
+
   alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
   alias BeaconApi.Utils
-
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
-  use BeaconApi, :controller
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
@@ -17,6 +18,22 @@ defmodule BeaconApi.V1.BeaconController do
 
   def open_api_operation(:get_state_root),
     do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/root"].get
+
+  def open_api_operation(:get_block_root),
+    do: ApiSpec.spec().paths["/eth/v1/beacon/blocks/{block_id}/root"].get
+
+  @spec get_genesis(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def get_genesis(conn, _params) do
+    conn
+    |> json(%{
+      "data" => %{
+        "genesis_time" => BeaconChain.get_genesis_time(),
+        "genesis_validators_root" =>
+          ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
+        "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
+      }
+    })
+  end
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_state_root(conn, %{state_id: state_id}) do

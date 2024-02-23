@@ -1,9 +1,10 @@
 defmodule BeaconApi.V2.BeaconController do
+  use BeaconApi, :controller
+
   alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
-  use BeaconApi, :controller
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
