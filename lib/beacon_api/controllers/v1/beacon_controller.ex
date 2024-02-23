@@ -22,6 +22,9 @@ defmodule BeaconApi.V1.BeaconController do
   def open_api_operation(:get_block_root),
     do: ApiSpec.spec().paths["/eth/v1/beacon/blocks/{block_id}/root"].get
 
+  def open_api_operation(:get_finality_checkpoints),
+    do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/finality_checkpoints"].get
+
   @spec get_genesis(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_genesis(conn, _params) do
     conn
@@ -101,9 +104,6 @@ defmodule BeaconApi.V1.BeaconController do
         conn |> ErrorController.bad_request("Invalid block ID: #{block_id}")
     end
   end
-
-  def get_finality_checkpoints_operation,
-    do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/finality_checkpoints"].get
 
   @spec get_finality_checkpoints(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_finality_checkpoints(conn, %{state_id: state_id}) do
