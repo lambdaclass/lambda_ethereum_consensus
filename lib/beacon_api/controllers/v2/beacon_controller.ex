@@ -7,12 +7,7 @@ defmodule BeaconApi.V2.BeaconController do
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
-  def open_api_operation(action) when is_atom(action) do
-    # NOTE: action can take a bounded amount of values
-    apply(__MODULE__, :"#{action}_operation", [])
-  end
-
-  def get_block_operation,
+  def open_api_operation(:get_block),
     do: ApiSpec.spec().paths["/eth/v2/beacon/blocks/{block_id}"].get
 
   @spec get_block(Plug.Conn.t(), any) :: Plug.Conn.t()
