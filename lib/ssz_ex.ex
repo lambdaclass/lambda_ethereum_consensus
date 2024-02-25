@@ -85,7 +85,7 @@ defmodule LambdaEthereumConsensus.SszEx do
              else: decode_fixed_container(binary, module)
            ) do
       if exported?(module, :decode_ex, 1) do
-        {:ok, module.decode(result)}
+        {:ok, module.decode_ex(result)}
       else
         {:ok, result}
       end

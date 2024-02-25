@@ -120,8 +120,8 @@ defmodule SpecTestUtils do
     end
   end
 
-  def sanitize_ssz(vec(_) = other, {:list, module, _size} = _schema) when is_atom(module),
-    do: Aja.Vector.map(other, fn elem -> struct!(module, elem) end)
+  def sanitize_ssz(vec(_) = vector, {:list, module, _size} = _schema) when is_atom(module),
+    do: Aja.Vector.map(vector, fn elem -> struct!(module, elem) end)
 
   def sanitize_ssz(vec(_) = other, _schema), do: other
 

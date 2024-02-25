@@ -99,11 +99,11 @@ defmodule SszStaticTestRunner do
     {:ok, deserialized_by_nif} = Ssz.from_ssz(real_serialized, schema)
     assert Diff.diff(deserialized_by_ssz_ex, deserialized_by_nif) == :unchanged
 
-    {:ok, serializede_by_ssz_ex} = SszEx.encode(real_deserialized, schema)
-    assert serializede_by_ssz_ex == real_serialized
+    {:ok, serialized_by_ssz_ex} = SszEx.encode(real_deserialized, schema)
+    assert serialized_by_ssz_ex == real_serialized
 
     {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
-    assert Diff.diff(serializede_by_ssz_ex, serialized_by_nif) == :unchanged
+    assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
   end
 
   defp parse_type(%SpecTestCase{handler: handler}) do
