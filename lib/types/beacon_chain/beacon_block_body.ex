@@ -39,7 +39,7 @@ defmodule Types.BeaconBlockBody do
           sync_aggregate: Types.SyncAggregate.t(),
           execution_payload: Types.ExecutionPayload.t(),
           # max MAX_BLS_TO_EXECUTION_CHANGES
-          bls_to_execution_changes: list(Types.BLSToExecutionChange.t())
+          bls_to_execution_changes: list(Types.SignedBLSToExecutionChange.t())
         }
 
   @impl LambdaEthereumConsensus.Container
@@ -59,7 +59,7 @@ defmodule Types.BeaconBlockBody do
       {:sync_aggregate, Types.SyncAggregate},
       {:execution_payload, Types.ExecutionPayload},
       {:bls_to_execution_changes,
-       {:list, Types.BLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")}}
+       {:list, Types.SignedBLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")}}
     ]
   end
 end
