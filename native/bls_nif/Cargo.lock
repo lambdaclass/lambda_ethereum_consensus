@@ -50,7 +50,7 @@ dependencies = [
 [[package]]
 name = "bls"
 version = "0.2.0"
-source = "git+https://github.com/sigp/lighthouse#c7e5dd1098a145c0d2174dc65bd23faeb5074249"
+source = "git+https://github.com/sigp/lighthouse#b5bae6e7a2f52310617a3b93ab7579f3dc9d7880"
 dependencies = [
  "arbitrary",
  "blst",
