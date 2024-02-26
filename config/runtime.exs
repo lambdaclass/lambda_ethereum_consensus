@@ -7,6 +7,7 @@ switches = [
   execution_jwt: :string,
   mock_execution: :boolean,
   mode: :string,
+  datadir: :string,
   log_file: :string
 ]
 
@@ -56,7 +57,10 @@ mode =
   end
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus, mode: mode
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: "level_db/#{network}"
+
+datadir = Keyword.get(args, :datadir, "level_db/#{network}")
+File.mkdir_p!(datadir)
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadir
 
 mock_execution = Keyword.get(args, :mock_execution, mode == :db or is_nil(jwt_path))
 
