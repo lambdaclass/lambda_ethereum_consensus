@@ -4,12 +4,12 @@ defmodule Kzg do
   """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "kzg_nif"
 
-  @spec blob_to_kzg_commitment(binary()) :: {:ok, Types.kzg_commitment()} | {:error, binary()}
+  @spec blob_to_kzg_commitment(Types.blob()) :: {:ok, Types.kzg_commitment()} | {:error, binary()}
   def blob_to_kzg_commitment(_blob) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  @spec compute_kzg_proof(any(), Types.bytes32()) ::
+  @spec compute_kzg_proof(Types.blob(), Types.bytes32()) ::
           {:ok, {Types.kzg_proof(), Types.bytes32()}} | {:error, binary()}
   def compute_kzg_proof(_blob, _z) do
     :erlang.nif_error(:nif_not_loaded)
@@ -26,20 +26,20 @@ defmodule Kzg do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  @spec compute_blob_kzg_proof(any(), Types.kzg_commitment()) ::
+  @spec compute_blob_kzg_proof(Types.blob(), Types.kzg_commitment()) ::
           {:ok, Types.kzg_proof()} | {:error, binary()}
   def compute_blob_kzg_proof(_blob, _kzg_commitment) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  @spec verify_blob_kzg_proof(any(), Types.kzg_commitment(), Types.kzg_proof()) ::
+  @spec verify_blob_kzg_proof(Types.blob(), Types.kzg_commitment(), Types.kzg_proof()) ::
           {:ok, boolean} | {:error, binary()}
   def verify_blob_kzg_proof(_blob, _kzg_commitment, _kzg_proof) do
     :erlang.nif_error(:nif_not_loaded)
   end
 
   @spec verify_blob_kzg_proof_batch(
-          list(any()),
+          list(Types.blob()),
           list(Types.kzg_commitment()),
           list(Types.kzg_proof())
         ) ::
