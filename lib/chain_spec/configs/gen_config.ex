@@ -24,10 +24,10 @@ defmodule ChainSpec.GenConfig do
     end
   end
 
-  defp parse_preset("mainnet"), do: MainnetPreset
-  defp parse_preset("minimal"), do: MinimalPreset
-  defp parse_preset("gnosis"), do: GnosisPreset
-  defp parse_preset(other), do: raise("Unknown preset: #{other}")
+  def parse_preset("mainnet"), do: MainnetPreset
+  def parse_preset("minimal"), do: MinimalPreset
+  def parse_preset("gnosis"), do: GnosisPreset
+  def parse_preset(other), do: raise("Unknown preset: #{other}")
 
   @doc """
   Fetches a value from config.
