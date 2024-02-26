@@ -8,6 +8,7 @@ switches = [
   mock_execution: :boolean,
   mode: :string,
   datadir: :string,
+  testnet_dir: :string,
   log_file: :string
 ]
 
@@ -28,22 +29,10 @@ network = Keyword.get(args, :network, "mainnet")
 checkpoint_sync_url = Keyword.get(args, :checkpoint_sync_url)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
+testnet_dir = Keyword.get(args, :testnet_dir)
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync_url: checkpoint_sync_url
-
-configs_per_network = %{
-  "gnosis" => GnosisConfig,
-  "minimal" => MinimalConfig,
-  "mainnet" => MainnetConfig,
-  "sepolia" => SepoliaConfig
-}
-
-genesis_validators_root_per_network = %{
-  "minimal" => <<0::256>>,
-  "mainnet" => Base.decode16!("4B363DB94E286120D76EB905340FDD4E54BFE9F06BF33FF6CF5AD27F511BFE95"),
-  "sepolia" => Base.decode16!("D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078")
-}
 
 valid_modes = ["full", "db"]
 raw_mode = Keyword.get(args, :mode, "full")
@@ -62,34 +51,72 @@ datadir = Keyword.get(args, :datadir, "level_db/#{network}")
 File.mkdir_p!(datadir)
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadir
 
-mock_execution = Keyword.get(args, :mock_execution, mode == :db or is_nil(jwt_path))
+chain_config =
+  case testnet_dir do
+    nil ->
+      configs_per_network = %{
+        "gnosis" => GnosisConfig,
+        "minimal" => MinimalConfig,
+        "mainnet" => MainnetConfig,
+        "sepolia" => SepoliaConfig
+      }
 
-config :lambda_ethereum_consensus, ChainSpec,
-  config: configs_per_network |> Map.fetch!(network),
-  genesis_validators_root: genesis_validators_root_per_network |> Map.fetch!(network)
+      # TODO: we should move this to the respective *Config modules
+      genesis_validators_root_per_network = %{
+        "minimal" => <<0::256>>,
+        "mainnet" =>
+          Base.decode16!("4B363DB94E286120D76EB905340FDD4E54BFE9F06BF33FF6CF5AD27F511BFE95"),
+        "sepolia" =>
+          Base.decode16!("D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078")
+      }
 
-bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/boot_enr.yaml")
+      bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/boot_enr.yaml")
 
-# Configures peer discovery
-config :lambda_ethereum_consensus, :discovery, port: 9000, bootnodes: bootnodes
+      %{
+        config: configs_per_network |> Map.fetch!(network),
+        genesis_validators_root: genesis_validators_root_per_network |> Map.fetch!(network),
+        bootnodes: bootnodes
+      }
 
-jwt_secret =
-  if jwt_path do
-    File.read!(jwt_path)
-  else
-    nil
+    testnet_dir ->
+      Path.join(testnet_dir, "config.yaml") |> CustomConfig.load_from_file!()
+
+      # TODO: compute this from the genesis block
+      genesis_validators_root = <<0::256>>
+
+      bootnodes = Path.join(testnet_dir, "boot_enr.yaml") |> YamlElixir.read_from_file!()
+
+      %{
+        config: CustomConfig,
+        genesis_validators_root: genesis_validators_root,
+        bootnodes: bootnodes
+      }
   end
 
-implementation =
-  if mock_execution,
-    do: LambdaEthereumConsensus.Execution.EngineApi.Mocked,
-    else: LambdaEthereumConsensus.Execution.EngineApi.Api
+config :lambda_ethereum_consensus, ChainSpec,
+  config: Enum.fetch!(chain_config, :config),
+  genesis_validators_root: Enum.fetch!(chain_config, :genesis_validators_root)
 
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.Execution.EngineApi,
+# Configures peer discovery
+bootnodes = Enum.fetch!(chain_config, :bootnodes)
+config :lambda_ethereum_consensus, :discovery, port: 9000, bootnodes: bootnodes
+
+# Engine API
+
+alias LambdaEthereumConsensus.Execution.EngineApi
+
+mock_execution = Keyword.get(args, :mock_execution, mode == :db or is_nil(jwt_path))
+
+implementation = if mock_execution, do: EngineApi.Mocked, else: EngineApi.Api
+jwt_secret = if jwt_path, do: File.read!(jwt_path)
+
+config :lambda_ethereum_consensus, EngineApi,
   endpoint: execution_endpoint,
   jwt_secret: jwt_secret,
   implementation: implementation,
   version: "2.0"
+
+# Metrics
 
 # Configures metrics
 # TODO: we should set this dynamically
@@ -102,6 +129,8 @@ block_time_ms =
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
   block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms))
+
+# Logging
 
 case Keyword.get(args, :log_file) do
   nil ->

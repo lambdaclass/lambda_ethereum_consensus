@@ -5,8 +5,8 @@ defmodule CustomConfig do
   alias ChainSpec.GenConfig
   @behaviour GenConfig
 
-  def load_config(path) do
-    config = Path.join(path, "config.yaml") |> ConfigUtils.load_config_from_file!()
+  def load_from_file!(path) do
+    config = ConfigUtils.load_config_from_file!(path)
     preset = Map.fetch!(config, "PRESET_BASE") |> GenConfig.parse_preset()
     merged_config = Map.merge(preset.get_preset(), config)
     Application.put_env(:lambda_ethereum_consensus, __MODULE__, merged: merged_config)
