@@ -5,6 +5,7 @@ defmodule SpecTestUtils do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
+  import Aja
 
   @vectors_dir Path.join(["test", "spec", "vectors", "tests"])
   @vector_keys [
@@ -119,15 +120,24 @@ defmodule SpecTestUtils do
     end
   end
 
+  def sanitize_ssz(vec(_) = vector, {:list, module, _size} = _schema) when is_atom(module),
+    do: Aja.Vector.map(vector, fn elem -> struct!(module, elem) end)
+
+  def sanitize_ssz(vec(_) = other, _schema), do: other
+
   def sanitize_ssz(container, module) when is_map(container) do
     schema = module.schema() |> Map.new()
 
     container
-    |> Enum.map(fn {k, v} -> {k, sanitize_ssz(v, Map.fetch!(schema, k))} end)
+    |> Enum.map(fn {k, v} ->
+      {k, sanitize_ssz(v, Map.fetch!(schema, k))}
+    end)
     |> then(&struct!(module, &1))
   end
 
   def sanitize_ssz(vector_elements, {:vector, :bool, _size} = _schema), do: vector_elements
+
+  def sanitize_ssz(binary, {:vector, :bytes, _size} = _schema), do: binary
 
   def sanitize_ssz(vector_elements, {:vector, module, _size} = _schema) when is_atom(module),
     do: Enum.map(vector_elements, &struct!(module, &1))
@@ -135,16 +145,31 @@ defmodule SpecTestUtils do
   def sanitize_ssz(bitlist, {:bitlist, _size} = _schema), do: BitList.new(bitlist)
   def sanitize_ssz(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
 
-  def sanitize_ssz(0, {:list, {:int, 8}, _size} = _schema), do: []
+  def sanitize_ssz(binary, {:list, :bytes, _size} = _schema), do: binary
 
+  def sanitize_ssz(list_elements, {:list, module, _size} = _schema) when is_atom(module),
+    do: Enum.map(list_elements, fn element -> sanitize_ssz(element, module) end)
+
+  def sanitize_ssz(0, {:list, {:int, 8}, _size} = _schema), do: []
+  #
   def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema) when is_integer(bytelist),
     do: :binary.encode_unsigned(bytelist) |> :binary.bin_to_list()
+
+  def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema) when is_list(bytelist),
+    do: bytelist
 
   @doc """
   this clause is called when an element of a container is a bytelist that is parsed as a binary and not as a list of bytes
   """
   def sanitize_ssz(bytelist, {:list, {:int, 8}, _size} = _schema),
     do: :binary.bin_to_list(bytelist)
+
+  # ssz_generic/basic_vector yaml files have these values already as lists but containers as binary
+  def sanitize_ssz(bytevector, {:vector, {:int, 8}, _size} = _schema) when is_list(bytevector),
+    do: bytevector
+
+  def sanitize_ssz(bytevector, {:vector, {:int, 8}, _size} = _schema),
+    do: :binary.bin_to_list(bytevector)
 
   def sanitize_ssz(other, _schema), do: other
 end

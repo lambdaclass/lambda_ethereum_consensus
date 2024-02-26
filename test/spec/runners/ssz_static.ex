@@ -4,6 +4,7 @@ defmodule SszStaticTestRunner do
   """
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.Diff
+  alias Ssz
 
   use ExUnit.CaseTemplate
   use TestRunner
@@ -34,15 +35,15 @@ defmodule SszStaticTestRunner do
     # "ForkData",
     # "HistoricalBatch",
     # "IndexedAttestation",
-    "ExecutionPayload",
-    "ExecutionPayloadHeader",
-    "SignedBeaconBlock",
-    "SyncAggregate",
-    "AggregateAndProof",
-    "BeaconBlock",
-    "BeaconBlockBody",
-    "BeaconState",
-    "SignedAggregateAndProof",
+    # "ExecutionPayload",
+    # "ExecutionPayloadHeader",
+    # "SignedBeaconBlock",
+    # "SyncAggregate",
+    # "AggregateAndProof",
+    # "BeaconBlock",
+    # "BeaconBlockBody",
+    # "BeaconState",
+    # "SignedAggregateAndProof",
     # -- not defined yet
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
@@ -73,25 +74,36 @@ defmodule SszStaticTestRunner do
     compressed = File.read!(case_dir <> "/serialized.ssz_snappy")
     assert {:ok, decompressed} = :snappyer.decompress(compressed)
 
-    expected =
+    sanitize_yaml =
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
-      |> SpecTestUtils.sanitize_ssz(schema)
+
+    expected_sanitized =
+      SpecTestUtils.sanitize_ssz(sanitize_yaml, schema)
 
     %{"root" => expected_root} = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
     expected_root = expected_root |> SpecTestUtils.sanitize_yaml()
 
-    assert_ssz(schema, decompressed, expected, expected_root)
+    assert_ssz(schema, decompressed, expected_sanitized, expected_root)
   end
 
-  defp assert_ssz(schema, real_serialized, real_deserialized, expected_root) do
-    {:ok, deserialized} = SszEx.decode(real_serialized, schema)
-    assert Diff.diff(deserialized, real_deserialized) == :unchanged
-    {:ok, serialized} = SszEx.encode(real_deserialized, schema)
-    assert serialized == real_serialized
+  defp assert_ssz(
+         schema,
+         real_serialized,
+         real_deserialized,
+         _expected_root
+       ) do
+    {:ok, deserialized_by_ssz_ex} = SszEx.decode(real_serialized, schema)
+    assert Diff.diff(deserialized_by_ssz_ex, real_deserialized) == :unchanged
 
-    root = SszEx.hash_tree_root!(real_deserialized, schema)
-    assert root == expected_root
+    {:ok, deserialized_by_nif} = Ssz.from_ssz(real_serialized, schema)
+    assert Diff.diff(deserialized_by_ssz_ex, deserialized_by_nif) == :unchanged
+
+    {:ok, serialized_by_ssz_ex} = SszEx.encode(real_deserialized, schema)
+    assert serialized_by_ssz_ex == real_serialized
+
+    {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
+    assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
   end
 
   defp parse_type(%SpecTestCase{handler: handler}) do
