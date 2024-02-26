@@ -3,9 +3,6 @@ defmodule Types do
   Lists some types used in SSZ structs.
   """
 
-  @bytes_per_field_element 32
-  @field_elements_per_blob 4096
-
   # Primitive types
   ## Integer types
   @type uint8 :: 0..unquote(2 ** 8 - 1)
@@ -48,5 +45,6 @@ defmodule Types do
   @type payload_id :: bytes8
   @type kzg_commitment :: bytes48
   @type kzg_proof :: bytes48
-  @type blob :: <<_::@bytes_per_field_element*@field_elements_per_blob>>
+  ## 131072 is FIELD_ELEMENTS_PER_BLOB(i.e 4096) * BYTES_PER_FIELD_ELEMENT(i.e 32)
+  @type blob :: <<_::131_072>>
 end
