@@ -64,7 +64,7 @@ config :lambda_ethereum_consensus, ChainSpec,
   config: configs_per_network |> Map.fetch!(network),
   genesis_validators_root: genesis_validators_root_per_network |> Map.fetch!(network)
 
-bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/bootnodes.yaml")
+bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/boot_enr.yaml")
 
 # Configures peer discovery
 config :lambda_ethereum_consensus, :discovery, port: 9000, bootnodes: bootnodes
