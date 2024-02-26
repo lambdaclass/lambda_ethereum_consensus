@@ -11,16 +11,18 @@ defmodule LambdaEthereumConsensus.SszEx do
   @type schema() ::
           :bool
           | uint_schema()
-          | bytes_schema()
+          | byte_list_schema()
           | list_schema()
+          | bytes_schema()
           | vector_schema()
           | bitlist_schema()
           | bitvector_schema()
           | container_schema()
 
   @type uint_schema() :: {:int, 8 | 16 | 32 | 64 | 128 | 256}
-  @type bytes_schema() :: {:bytes, non_neg_integer}
+  @type byte_list_schema() :: {:byte_list, max_size :: non_neg_integer}
   @type list_schema() :: {:list, schema(), max_size :: non_neg_integer}
+  @type bytes_schema() :: {:bytes, size :: non_neg_integer}
   @type vector_schema() :: {:vector, schema(), size :: non_neg_integer}
   @type bitlist_schema() :: {:bitlist, max_size :: non_neg_integer}
   @type bitvector_schema() :: {:bitvector, size :: non_neg_integer}
