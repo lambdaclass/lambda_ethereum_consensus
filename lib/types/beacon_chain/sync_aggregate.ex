@@ -4,7 +4,6 @@ defmodule Types.SyncAggregate do
   Related definitions in `native/ssz_nif/src/types/`.
   """
   alias LambdaEthereumConsensus.Utils.BitVector
-
   @behaviour LambdaEthereumConsensus.Container
 
   fields = [
@@ -21,14 +20,6 @@ defmodule Types.SyncAggregate do
           sync_committee_signature: Types.bls_signature()
         }
 
-  @impl LambdaEthereumConsensus.Container
-  def schema do
-    [
-      {:sync_committee_bits, {:bitvector, ChainSpec.get("SYNC_COMMITTEE_SIZE")}},
-      {:sync_committee_signature, TypeAliases.bls_signature()}
-    ]
-  end
-
   def encode(%__MODULE__{} = map) do
     Map.update!(map, :sync_committee_bits, &BitVector.to_bytes/1)
   end
@@ -37,5 +28,13 @@ defmodule Types.SyncAggregate do
     Map.update!(map, :sync_committee_bits, fn bits ->
       BitVector.new(bits, ChainSpec.get("SYNC_COMMITTEE_SIZE"))
     end)
+  end
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:sync_committee_bits, {:bitvector, ChainSpec.get("SYNC_COMMITTEE_SIZE")}},
+      {:sync_committee_signature, TypeAliases.bls_signature()}
+    ]
   end
 end
