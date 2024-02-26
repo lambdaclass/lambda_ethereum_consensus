@@ -54,27 +54,12 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadi
 chain_config =
   case testnet_dir do
     nil ->
-      configs_per_network = %{
-        "gnosis" => GnosisConfig,
-        "minimal" => MinimalConfig,
-        "mainnet" => MainnetConfig,
-        "sepolia" => SepoliaConfig
-      }
-
-      # TODO: we should move this to the respective *Config modules
-      genesis_validators_root_per_network = %{
-        "minimal" => <<0::256>>,
-        "mainnet" =>
-          Base.decode16!("4B363DB94E286120D76EB905340FDD4E54BFE9F06BF33FF6CF5AD27F511BFE95"),
-        "sepolia" =>
-          Base.decode16!("D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078")
-      }
-
-      bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/boot_enr.yaml")
+      config = ConfigUtils.parse_config(network)
+      bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/bootnodes.yaml")
 
       %{
-        config: configs_per_network |> Map.fetch!(network),
-        genesis_validators_root: genesis_validators_root_per_network |> Map.fetch!(network),
+        config: config,
+        genesis_validators_root: config.genesis_validators_root(),
         bootnodes: bootnodes
       }
 
@@ -94,11 +79,11 @@ chain_config =
   end
 
 config :lambda_ethereum_consensus, ChainSpec,
-  config: Enum.fetch!(chain_config, :config),
-  genesis_validators_root: Enum.fetch!(chain_config, :genesis_validators_root)
+  config: Map.fetch!(chain_config, :config),
+  genesis_validators_root: Map.fetch!(chain_config, :genesis_validators_root)
 
 # Configures peer discovery
-bootnodes = Enum.fetch!(chain_config, :bootnodes)
+bootnodes = Map.fetch!(chain_config, :bootnodes)
 config :lambda_ethereum_consensus, :discovery, port: 9000, bootnodes: bootnodes
 
 # Engine API

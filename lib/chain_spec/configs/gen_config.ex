@@ -6,7 +6,7 @@ defmodule ChainSpec.GenConfig do
   defmacro __using__(opts) do
     file = Keyword.fetch!(opts, :file)
     config = ConfigUtils.load_config_from_file!(file)
-    preset = Map.fetch!(config, "PRESET_BASE") |> parse_preset()
+    preset = Map.fetch!(config, "PRESET_BASE") |> ConfigUtils.parse_preset()
 
     quote do
       file = unquote(file)
@@ -23,11 +23,6 @@ defmodule ChainSpec.GenConfig do
       def get(key), do: Map.fetch!(@__unified, key)
     end
   end
-
-  def parse_preset("mainnet"), do: MainnetPreset
-  def parse_preset("minimal"), do: MinimalPreset
-  def parse_preset("gnosis"), do: GnosisPreset
-  def parse_preset(other), do: raise("Unknown preset: #{other}")
 
   @doc """
   Fetches a value from config.

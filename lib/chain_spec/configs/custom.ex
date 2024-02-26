@@ -7,7 +7,7 @@ defmodule CustomConfig do
 
   def load_from_file!(path) do
     config = ConfigUtils.load_config_from_file!(path)
-    preset = Map.fetch!(config, "PRESET_BASE") |> GenConfig.parse_preset()
+    preset = Map.fetch!(config, "PRESET_BASE") |> ConfigUtils.parse_preset()
     merged_config = Map.merge(preset.get_preset(), config)
     Application.put_env(:lambda_ethereum_consensus, __MODULE__, merged: merged_config)
   end
