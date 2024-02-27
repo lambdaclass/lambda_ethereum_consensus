@@ -4,12 +4,18 @@ import (
 	proto_defs "libp2p_port/internal/proto"
 )
 
+type Enr struct {
+	Eth2     []byte
+	Attnets  []byte
+	Syncnets []byte
+}
+
 type Config struct {
 	ListenAddr      []string
 	EnableDiscovery bool
 	DiscoveryAddr   string
 	Bootnodes       []string
-	ForkDigest      []byte
+	InitialEnr      Enr
 }
 
 func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
@@ -18,8 +24,12 @@ func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 		EnableDiscovery: initArgs.EnableDiscovery,
 		DiscoveryAddr:   initArgs.DiscoveryAddr,
 		Bootnodes:       initArgs.Bootnodes,
-		ForkDigest:      initArgs.ForkDigest,
+		InitialEnr:      LoadEnr(initArgs.InitialEnr),
 	}
+}
+
+func LoadEnr(enr *proto_defs.Enr) Enr {
+	return Enr{Eth2: enr.Eth2, Attnets: enr.Attnets, Syncnets: enr.Syncnets}
 }
 
 func AddPeerNotification() proto_defs.Notification {
