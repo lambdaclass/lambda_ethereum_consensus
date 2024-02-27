@@ -553,11 +553,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
         {:error, "validator cannot exit yet"}
 
-      not (Misc.compute_domain(
-             Constants.domain_voluntary_exit(),
-             fork_version: ChainSpec.get("CAPELLA_FORK_VERSION"),
-             genesis_validators_root: state.genesis_validators_root
-           )
+      not (Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
            |> then(&Misc.compute_signing_root(voluntary_exit, &1))
            |> then(&Bls.valid?(validator.pubkey, &1, signed_voluntary_exit.signature))) ->
         {:error, "invalid signature"}
