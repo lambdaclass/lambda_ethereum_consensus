@@ -10,10 +10,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.Utils.BitVector
 
   alias Libp2pProto.{
     AddPeer,
     Command,
+    Enr,
     GetId,
     GossipSub,
     InitArgs,
@@ -220,6 +223,19 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     })
 
     cast_command(pid, {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
+  end
+
+  @doc """
+  Updates the "eth2", "attnets", and "syncnets" ENR entries for the node.
+  """
+  @spec update_enr(GenServer.server(), Types.EnrForkId.t(), BitVector.t(), BitVector.t()) :: :ok
+  def update_enr(pid \\ __MODULE__, enr_fork_id, attnets_bv, syncnets_bv) do
+    :telemetry.execute([:port, :message], %{}, %{function: "update_enr", direction: "elixir->"})
+    # TODO: maybe move encoding to caller
+    eth2 = SszEx.encode(enr_fork_id, Types.EnrForkId)
+    attnets = SszEx.encode(attnets_bv, {:bitvector, ChainSpec.get("ATTESTATION_SUBNET_COUNT")})
+    syncnets = SszEx.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
+    cast_command(pid, {:update_enr, %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets}})
   end
 
   ########################
