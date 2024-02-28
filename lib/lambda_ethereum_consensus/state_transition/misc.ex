@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
 
   import Bitwise
-
   require Aja
+
   alias LambdaEthereumConsensus.SszEx
   alias Types.BeaconState
 

@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.Blocks
@@ -165,13 +166,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Handlers.notify_forkchoice_update(store, head_block)
 
-    finalized_checkpoint = store.finalized_checkpoint
+    Validator.notify_new_slot(head_block.slot, head_root)
 
     BeaconChain.update_fork_choice_cache(
       head_root,
       head_block.slot,
       store.justified_checkpoint,
-      finalized_checkpoint
+      store.finalized_checkpoint
     )
 
     Logger.debug("[Fork choice] Updated fork choice cache", slot: head_block.slot)
@@ -179,7 +180,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     :ok
   end
 
-  def persist_store(store) do
+  defp persist_store(store) do
     pruned_store = Map.put(store, :checkpoint_states, %{})
 
     Task.async(fn ->

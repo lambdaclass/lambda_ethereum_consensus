@@ -42,8 +42,9 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   defp compute_duties(state, slot, validator_index, committee_index) do
     case Accessors.get_beacon_committee(state, slot, committee_index) do
       {:ok, committee} ->
-        if Enum.member?(committee, validator_index) do
-          {committee, committee_index, slot}
+        case Enum.find_index(committee, validator_index) do
+          nil -> nil
+          index -> {index, committee_index, slot}
         end
 
       {:error, _} ->
