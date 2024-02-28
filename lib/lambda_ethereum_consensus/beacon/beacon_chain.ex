@@ -77,6 +77,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     GenServer.call(__MODULE__, {:get_fork_digest, slot})
   end
 
+  @spec get_fork_version() :: Types.version()
+  def get_fork_version, do: GenServer.call(__MODULE__, :get_fork_version)
+
   @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
   def get_current_status_message do
     status_message = GenServer.call(__MODULE__, :get_current_status_message)
@@ -122,6 +125,16 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       |> compute_fork_digest(state.genesis_validators_root)
 
     {:reply, fork_digest, state}
+  end
+
+  @impl true
+  def handle_call(:get_fork_version, _from, state) do
+    fork_version =
+      compute_current_slot(state)
+      |> Misc.compute_epoch_at_slot()
+      |> ChainSpec.get_fork_version_for_epoch()
+
+    {:reply, fork_version, state}
   end
 
   @impl true

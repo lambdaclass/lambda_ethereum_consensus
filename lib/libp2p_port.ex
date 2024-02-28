@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
+  alias Types.EnrForkId
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.BitVector
@@ -232,10 +233,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def update_enr(pid \\ __MODULE__, enr_fork_id, attnets_bv, syncnets_bv) do
     :telemetry.execute([:port, :message], %{}, %{function: "update_enr", direction: "elixir->"})
     # TODO: maybe move encoding to caller
-    eth2 = SszEx.encode(enr_fork_id, Types.EnrForkId)
-    attnets = SszEx.encode(attnets_bv, {:bitvector, ChainSpec.get("ATTESTATION_SUBNET_COUNT")})
-    syncnets = SszEx.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
-    cast_command(pid, {:update_enr, %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets}})
+    enr = encode_enr(enr_fork_id, attnets_bv, syncnets_bv)
+    cast_command(pid, {:update_enr, enr})
   end
 
   ########################
@@ -248,7 +247,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
-    (args ++ [fork_digest: BeaconChain.get_fork_digest()])
+    ([initial_enr: compute_initial_enr()] ++ args)
     |> parse_args()
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
@@ -426,5 +425,31 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       {:ok, name} -> name
       :error -> topic
     end
+  end
+
+  defp encode_enr(enr_fork_id, attnets_bv, syncnets_bv) do
+    {:ok, eth2} = SszEx.encode(enr_fork_id, Types.EnrForkId)
+
+    {:ok, attnets} =
+      SszEx.encode(attnets_bv, {:bitvector, ChainSpec.get("ATTESTATION_SUBNET_COUNT")})
+
+    {:ok, syncnets} =
+      SszEx.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
+
+    %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets}
+  end
+
+  defp compute_initial_enr do
+    fork_digest = BeaconChain.get_fork_digest()
+    current_version = BeaconChain.get_fork_version()
+    attnets = BitVector.new(ChainSpec.get("ATTESTATION_SUBNET_COUNT"))
+    syncnets = BitVector.new(Constants.sync_committee_subnet_count())
+
+    %EnrForkId{
+      fork_digest: fork_digest,
+      next_fork_version: current_version,
+      next_fork_epoch: Constants.far_future_epoch()
+    }
+    |> encode_enr(attnets, syncnets)
   end
 end
