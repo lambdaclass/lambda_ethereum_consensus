@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Validator do
+defmodule LambdaEthereumConsensus.Validator.Utils do
   @moduledoc """
   Functions for performing validator duties.
   """
