@@ -31,19 +31,11 @@ defmodule LambdaEthereumConsensus.Validator do
       |> Stream.map(fn slot ->
         0..(committee_count_per_slot - 1)
         |> Stream.map(&compute_duties(state, slot, validator_index, &1))
-        |> first_not_nil()
+        |> Enum.find(&(not is_nil(&1)))
       end)
-      |> first_not_nil()
+      |> Enum.find(&(not is_nil(&1)))
       |> then(&{:ok, &1})
     end
-  end
-
-  defp first_not_nil(stream) do
-    stream
-    |> Stream.reject(&is_nil/1)
-    |> Stream.take(1)
-    |> Enum.to_list()
-    |> List.first()
   end
 
   defp compute_duties(state, slot, validator_index, committee_index) do
