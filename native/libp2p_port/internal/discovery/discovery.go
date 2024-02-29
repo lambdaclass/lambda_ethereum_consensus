@@ -64,7 +64,7 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 	discv5_service, err := discover.ListenV5(conn, localNode, cfg)
 	utils.PanicIfError(err)
 
-	forkUpdates := make(chan [4]byte)
+	forkUpdates := make(chan [4]byte, 1)
 	forkUpdates <- [4]byte(config.InitialEnr.Eth2[:4])
 
 	go lookForPeers(discv5_service.RandomNodes(), listener, forkUpdates)
