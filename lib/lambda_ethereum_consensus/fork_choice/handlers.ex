@@ -14,6 +14,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     Attestation,
     AttestationData,
     AttesterSlashing,
+    BeaconState,
     Checkpoint,
     IndexedAttestation,
     SignedBeaconBlock,

@@ -54,7 +54,7 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   @doc """
     Compute the correct subnet for an attestation.
   """
-  @spec compute_subnet_for_attestation(Types.uint64(), Types.slot(), Types.committee_index()) ::
+  @spec compute_subnet_for_attestation(Types.uint64(), Types.slot(), Types.uint64()) ::
           Types.uint64()
   def compute_subnet_for_attestation(committees_per_slot, slot, committee_index) do
     slots_since_epoch_start = rem(slot, ChainSpec.get("SLOTS_PER_EPOCH"))
