@@ -1,6 +1,25 @@
 defmodule LambdaEthereumConsensus.SszEx do
   @moduledoc """
-    SSZ library in Elixir
+    # SSZ library in Elixir
+    - {:int, size} 
+    A basic type of N-bit unsigned integer 
+    size is in [8, 16, 32, 64, 128, 256]
+    - :bool 
+    A basic type. True or False 
+    - {:bytes, size} 
+    A basic type that represents a binary
+    - {:byte_list, size} 
+    A composite type that represents a dinamic list of variable bytes
+    - {:list, basic_type, size} 
+    A composite type of ordered homogeneous elements, limited to a defined `size`
+    Depending of the `basic_type` internal elements of the list could be variable-size or fixed-size 
+    - {:vector, basic_type, size} 
+    A composite type of ordered homogeneous elements with a exact `size` of number of elements.
+    Depending of the `basic_type` internal elements of the vector could be variable-size or fixed-size 
+    - {:bitlist, max_size} 
+    A composite type of variable-length boolean elements, limited to a `max_size` of bits
+    - {:bitvector, size} 
+    A composite type of fixed-length boolean elements, with a exact `size` of bits.
   """
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
