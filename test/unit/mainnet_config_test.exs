@@ -2,7 +2,9 @@ defmodule Unit.MainnetConfigSmokeTest do
   use ExUnit.Case
 
   setup_all do
-    Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: MainnetConfig)
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.put(:config, MainnetConfig)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
   end
 
   test "in mainnet, SLOTS_PER_EPOCH == 32" do

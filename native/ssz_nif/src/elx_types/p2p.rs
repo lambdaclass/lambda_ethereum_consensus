@@ -59,3 +59,25 @@ gen_struct_with_config!(
         syncnets: Binary<'a>,
     }
 );
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "Types.BlobSidecar"]
+    pub(crate) struct BlobSidecar<'a> {
+        index: BlobIndex,
+        blob: Blob<'a>,
+        kzg_commitment: KZGCommitment<'a>,
+        kzg_proof: KZGProof<'a>,
+        signed_block_header: SignedBeaconBlockHeader<'a>,
+        kzg_commitment_inclusion_proof: Vec<Bytes32<'a>>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.BlobIdentifier"]
+    pub(crate) struct BlobIdentifier<'a> {
+        block_root: Root<'a>,
+        index: BlobIndex,
+    }
+);

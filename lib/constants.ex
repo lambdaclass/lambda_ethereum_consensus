@@ -120,4 +120,7 @@ defmodule Constants do
 
   @spec sync_committee_subnet_count() :: non_neg_integer()
   def sync_committee_subnet_count, do: 4
+
+  @spec bytes_per_field_element() :: Types.uint64()
+  def bytes_per_field_element, do: 32
 end

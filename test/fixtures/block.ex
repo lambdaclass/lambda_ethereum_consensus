@@ -90,6 +90,14 @@ defmodule Fixtures.Block do
   end
 
   @spec beacon_block_header :: Types.BeaconBlockHeader.t()
+  def signed_beacon_block_header do
+    %Types.SignedBeaconBlockHeader{
+      message: beacon_block_header(),
+      signature: Random.bls_signature()
+    }
+  end
+
+  @spec beacon_block_header :: Types.BeaconBlockHeader.t()
   def beacon_block_header do
     %Types.BeaconBlockHeader{
       slot: Random.uint64(),
