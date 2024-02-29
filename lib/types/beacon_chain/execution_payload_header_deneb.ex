@@ -93,7 +93,7 @@ defmodule Types.ExecutionPayloadHeaderDeneb do
       {:gas_limit, TypeAliases.uint64()},
       {:gas_used, TypeAliases.uint64()},
       {:timestamp, TypeAliases.uint64()},
-      {:extra_data, TypeAliases.byte_list(ChainSpec.get("MAX_EXTRA_DATA_BYTES"))},
+      {:extra_data, {:list, :bytes, ChainSpec.get("MAX_EXTRA_DATA_BYTES")}},
       {:base_fee_per_gas, TypeAliases.uint256()},
       {:block_hash, TypeAliases.hash32()},
       {:transactions_root, TypeAliases.root()},
