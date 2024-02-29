@@ -43,7 +43,6 @@ defmodule LambdaEthereumConsensus.Application do
       [
         {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync_url()]},
         LambdaEthereumConsensus.P2P.Metadata,
-        LambdaEthereumConsensus.Validator,
         BeaconApi.Endpoint
       ]
   end
