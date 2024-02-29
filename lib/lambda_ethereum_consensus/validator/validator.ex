@@ -20,6 +20,7 @@ defmodule LambdaEthereumConsensus.Validator do
       slot: slot,
       root: head_root,
       duties: {:not_computed, :not_computed},
+      # TODO: get validator from config
       validator: 150_112
     }
 
