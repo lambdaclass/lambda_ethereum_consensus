@@ -3,8 +3,8 @@ defmodule LambdaEthereumConsensus.Validator do
   GenServer that performs validator duties.
   """
   use GenServer
-
   require Logger
+
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator.Utils

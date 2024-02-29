@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias Types.AttestationData
   alias Types.BeaconState
 
   @doc """
@@ -49,23 +48,5 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
       {:error, _} ->
         nil
     end
-  end
-
-  @doc """
-    Compute the correct subnet for an attestation.
-  """
-  @spec compute_subnet_for_attestation(Types.uint64(), Types.slot(), Types.uint64()) ::
-          Types.uint64()
-  def compute_subnet_for_attestation(committees_per_slot, slot, committee_index) do
-    slots_since_epoch_start = rem(slot, ChainSpec.get("SLOTS_PER_EPOCH"))
-    committees_since_epoch_start = committees_per_slot * slots_since_epoch_start
-
-    rem(committees_since_epoch_start + committee_index, ChainSpec.get("ATTESTATION_SUBNET_COUNT"))
-  end
-
-  @spec compute_attestation_subnet(BeaconState.t(), AttestationData.t()) :: Types.uint64()
-  def compute_attestation_subnet(%BeaconState{} = state, %AttestationData{} = data) do
-    Accessors.get_committee_count_per_slot(state, data.target.epoch)
-    |> compute_subnet_for_attestation(data.slot, data.index)
   end
 end
