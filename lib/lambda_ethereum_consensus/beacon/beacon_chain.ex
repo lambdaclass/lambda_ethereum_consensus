@@ -41,6 +41,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @spec get_current_slot() :: Types.slot()
   def get_current_slot, do: GenServer.call(__MODULE__, :get_current_slot)
 
+  @spec get_genesis_time() :: Types.uint64()
+  def get_genesis_time, do: GenServer.call(__MODULE__, :get_genesis_time)
+
   @spec update_fork_choice_cache(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
           :ok
   def update_fork_choice_cache(head_root, head_slot, justified, finalized) do
@@ -108,6 +111,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @impl true
   def handle_call(:get_current_slot, _from, state) do
     {:reply, compute_current_slot(state), state}
+  end
+
+  @impl true
+  def handle_call(:get_genesis_time, _from, state) do
+    {:reply, state.genesis_time, state}
   end
 
   @impl true

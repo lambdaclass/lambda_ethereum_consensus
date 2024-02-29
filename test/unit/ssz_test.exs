@@ -1,9 +1,12 @@
 defmodule Unit.SSZTests do
+  alias Fixtures.Block
   alias LambdaEthereumConsensus.Utils.BitVector
   use ExUnit.Case
 
   setup_all do
-    Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: MainnetConfig)
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.put(:config, MainnetConfig)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
   end
 
   def assert_roundtrip(hex_serialized, %type{} = deserialized) do
@@ -192,5 +195,36 @@ defmodule Unit.SSZTests do
 
   test "serialize and hash epoch" do
     assert {:ok, _hash} = Ssz.hash_tree_root(10_991_501_063_301_624_660, Types.Epoch)
+  end
+
+  test "BlobIdentifier" do
+    identifier = %Types.BlobIdentifier{
+      block_root:
+        Base.decode16!("2372E5421A2D08538F385A4BC98DBCF5763E71092E8290F611FFE996FCA2E8E4"),
+      index: 1
+    }
+
+    assert {:ok, _hash} = Ssz.hash_tree_root(identifier)
+    {:ok, encoded} = Ssz.to_ssz(identifier)
+    assert {:ok, ^identifier} = Ssz.from_ssz(encoded, Types.BlobIdentifier)
+  end
+
+  test "BlobSidecar" do
+    # seed RNG
+    :rand.seed(:default, 0)
+    header = Block.signed_beacon_block_header()
+
+    sidecar = %Types.BlobSidecar{
+      index: 1,
+      blob: <<152_521_252::(4096*32)*8>>,
+      kzg_commitment: <<57_888::48*8>>,
+      kzg_proof: <<6122::48*8>>,
+      signed_block_header: header,
+      kzg_commitment_inclusion_proof: [<<1551::32*8>>] |> Stream.cycle() |> Enum.take(17)
+    }
+
+    assert {:ok, _hash} = Ssz.hash_tree_root(sidecar)
+    {:ok, encoded} = Ssz.to_ssz(sidecar)
+    assert {:ok, ^sidecar} = Ssz.from_ssz(encoded, Types.BlobSidecar)
   end
 end

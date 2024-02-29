@@ -2,7 +2,7 @@ defmodule Integration.Libp2pTest do
   use ExUnit.Case
 
   setup_all do
-    bootnodes = YamlElixir.read_from_file!("config/networks/mainnet/bootnodes.yaml")
+    bootnodes = YamlElixir.read_from_file!("config/networks/mainnet/boot_enr.yaml")
     {:ok, bootnodes}
   end
 
