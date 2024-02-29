@@ -55,7 +55,7 @@ chain_config =
   case testnet_dir do
     nil ->
       config = ConfigUtils.parse_config(network)
-      bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/bootnodes.yaml")
+      bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/boot_enr.yaml")
 
       %{
         config: config,
