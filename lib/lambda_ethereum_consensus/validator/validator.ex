@@ -35,9 +35,14 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @impl true
-  def handle_cast({:new_slot, slot, head_root}, state) do
+  def handle_cast({:new_slot, slot, head_root}, %{validator: validator} = state) do
     new_state = update_state(state, slot, head_root)
-    Logger.warning("Updated duties: #{new_state.duties}")
+    {index, committee_index, slot} = new_state.duties
+
+    Logger.warning(
+      "Updated duties. Validator #{validator} has to attest in committee #{committee_index} of slot #{slot} with index #{index}"
+    )
+
     {:noreply, new_state}
   end
 

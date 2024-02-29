@@ -10,14 +10,13 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   @doc """
     Return the committee assignment in the ``epoch`` for ``validator_index``.
     ``assignment`` returned is a tuple of the following form:
-        * ``assignment[0]`` is the list of validators in the committee
+        * ``assignment[0]`` is the index of the validator in the committee
         * ``assignment[1]`` is the index to which the committee is assigned
         * ``assignment[2]`` is the slot at which the committee is assigned
     Return `nil` if no assignment.
   """
   @spec get_committee_assignment(BeaconState.t(), Types.epoch(), Types.validator_index()) ::
-          {:ok, nil | {[Types.validator_index()], Types.uint64(), Types.slot()}}
-          | {:error, String.t()}
+          {:ok, nil | {Types.uint64(), Types.uint64(), Types.slot()}} | {:error, String.t()}
   def get_committee_assignment(%BeaconState{} = state, epoch, validator_index) do
     next_epoch = Accessors.get_current_epoch(state) + 1
 
@@ -42,7 +41,7 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   defp compute_duties(state, slot, validator_index, committee_index) do
     case Accessors.get_beacon_committee(state, slot, committee_index) do
       {:ok, committee} ->
-        case Enum.find_index(committee, validator_index) do
+        case Enum.find_index(committee, &(&1 == validator_index)) do
           nil -> nil
           index -> {index, committee_index, slot}
         end
