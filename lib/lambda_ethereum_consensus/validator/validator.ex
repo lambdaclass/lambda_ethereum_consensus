@@ -41,7 +41,8 @@ defmodule LambdaEthereumConsensus.Validator do
     {{i0, ci0, slot0}, {i1, ci1, slot1}} = new_state.duties
 
     Logger.warning(
-      "Updated duties. Validator #{validator} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}, and in committee #{ci1} of slot #{slot1} with index #{i1}"
+      "Validator #{validator} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
+        " and in committee #{ci1} of slot #{slot1} with index #{i1}"
     )
 
     {:noreply, new_state}
