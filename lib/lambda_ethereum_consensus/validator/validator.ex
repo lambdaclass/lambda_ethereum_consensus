@@ -30,19 +30,26 @@ defmodule LambdaEthereumConsensus.Validator do
       |> Stream.map(fn slot ->
         0..(committee_count_per_slot - 1)
         |> Stream.map(&compute_duties(state, slot, validator_index, &1))
-        |> Enum.reject(&is_nil/1)
-        |> List.first()
+        |> first_not_nil()
       end)
-      |> Enum.reject(&is_nil/1)
-      |> then(&{:ok, List.first(&1)})
+      |> first_not_nil()
+      |> then(&{:ok, &1})
     end
   end
 
-  defp compute_duties(state, slot, validator_index, index) do
-    case Accessors.get_beacon_committee(state, slot, index) do
+  defp first_not_nil(stream) do
+    stream
+    |> Stream.reject(&is_nil/1)
+    |> Stream.take(1)
+    |> Enum.to_list()
+    |> List.first()
+  end
+
+  defp compute_duties(state, slot, validator_index, committee_index) do
+    case Accessors.get_beacon_committee(state, slot, committee_index) do
       {:ok, committee} ->
         if Enum.member?(committee, validator_index) do
-          {committee, index, slot}
+          {committee, committee_index, slot}
         end
 
       {:error, _} ->
