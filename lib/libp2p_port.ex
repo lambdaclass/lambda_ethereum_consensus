@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
 
@@ -45,7 +46,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     enable_discovery: false,
     discovery_addr: "",
     bootnodes: [],
-    fork_digest: <<>>
+    initial_enr: %Enr{eth2: <<0::128>>, attnets: <<0::64>>, syncnets: <<0::8>>}
   ]
 
   @type init_arg ::
@@ -247,7 +248,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
-    ([initial_enr: compute_initial_enr()] ++ args)
+    current_version = BeaconChain.get_fork_version()
+
+    ([initial_enr: compute_initial_enr(current_version)] ++ args)
     |> parse_args()
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
@@ -439,9 +442,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets}
   end
 
-  defp compute_initial_enr do
-    fork_digest = BeaconChain.get_fork_digest()
-    current_version = BeaconChain.get_fork_version()
+  defp compute_initial_enr(current_version) do
+    fork_digest =
+      Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())
+
     attnets = BitVector.new(ChainSpec.get("ATTESTATION_SUBNET_COUNT"))
     syncnets = BitVector.new(Constants.sync_committee_subnet_count())
 
