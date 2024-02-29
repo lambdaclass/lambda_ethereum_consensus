@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias Types.AttestationData
   alias Types.BeaconState
 
   @doc """
