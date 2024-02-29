@@ -6,11 +6,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   use GenServer
   require Logger
 
-  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb
+  alias LambdaEthereumConsensus.Validator
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
