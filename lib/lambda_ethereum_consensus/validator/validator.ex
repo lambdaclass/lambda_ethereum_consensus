@@ -12,10 +12,11 @@ defmodule LambdaEthereumConsensus.Validator do
         * ``assignment[0]`` is the list of validators in the committee
         * ``assignment[1]`` is the index to which the committee is assigned
         * ``assignment[2]`` is the slot at which the committee is assigned
-    Return None if no assignment.
+    Return `nil` if no assignment.
   """
   @spec get_committee_assignment(BeaconState.t(), Types.epoch(), Types.validator_index()) ::
-          {:ok, {[Types.validator_index()], Types.uint64(), Types.slot()}} | {:error, String.t()}
+          {:ok, nil | {[Types.validator_index()], Types.uint64(), Types.slot()}}
+          | {:error, String.t()}
   def get_committee_assignment(%BeaconState{} = state, epoch, validator_index) do
     next_epoch = Accessors.get_current_epoch(state) + 1
 
