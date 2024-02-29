@@ -43,3 +43,20 @@ pub(crate) struct Metadata<C: Config> {
     pub(crate) attnets: BitVector<C::AttestationSubnetCount>,
     pub(crate) syncnets: BitVector<C::SyncCommitteeSubnetCount>,
 }
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct BlobSidecar<C: Config> {
+    pub(crate) index: BlobIndex,
+    pub(crate) blob: Blob<C>,
+    pub(crate) kzg_commitment: KZGCommitment,
+    pub(crate) kzg_proof: KZGProof,
+    pub(crate) signed_block_header: SignedBeaconBlockHeader,
+    pub(crate) kzg_commitment_inclusion_proof:
+        FixedVector<Bytes32, C::KzgCommitmentInclusionProofDepth>,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct BlobIdentifier {
+    pub(crate) block_root: Root,
+    pub(crate) index: BlobIndex,
+}

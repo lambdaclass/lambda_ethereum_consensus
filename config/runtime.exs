@@ -7,6 +7,7 @@ switches = [
   execution_jwt: :string,
   mock_execution: :boolean,
   mode: :string,
+  datadir: :string,
   log_file: :string
 ]
 
@@ -56,7 +57,10 @@ mode =
   end
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus, mode: mode
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: "level_db/#{network}"
+
+datadir = Keyword.get(args, :datadir, "level_db/#{network}")
+File.mkdir_p!(datadir)
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadir
 
 mock_execution = Keyword.get(args, :mock_execution, mode == :db or is_nil(jwt_path))
 
@@ -64,7 +68,7 @@ config :lambda_ethereum_consensus, ChainSpec,
   config: configs_per_network |> Map.fetch!(network),
   genesis_validators_root: genesis_validators_root_per_network |> Map.fetch!(network)
 
-bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/bootnodes.yaml")
+bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/boot_enr.yaml")
 
 # Configures peer discovery
 config :lambda_ethereum_consensus, :discovery, port: 9000, bootnodes: bootnodes

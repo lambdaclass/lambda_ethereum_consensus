@@ -40,11 +40,20 @@ pub(crate) trait Config {
     type MaxExtraDataBytes: Unsigned;
     type MaxBlsToExecutionChanges: Unsigned;
     type MaxWithdrawalsPerPayload: Unsigned;
+    /*
+     * New in Deneb
+     */
+    type MaxBlobsPerBlock: Unsigned;
+    type MaxBlobCommitmentsPerBlock: Unsigned;
+    type FieldElementsPerBlob: Unsigned;
+    type BytesPerFieldElement: Unsigned;
+    type KzgCommitmentInclusionProofDepth: Unsigned;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize: Unsigned; // SYNC_COMMITTEE_SIZE / SYNC_COMMITTEE_SUBNET_COUNT
     type MaxPendingAttestations: Unsigned; // MAX_ATTESTATIONS * SLOTS_PER_EPOCH
     type SlotsPerEth1VotingPeriod: Unsigned; // EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
+    type BytesPerBlob: Unsigned; // FIELD_ELEMENTS_PER_BLOB * BYTES_PER_FIELD_ELEMENT
 }
 
 pub(crate) struct Mainnet;
@@ -77,6 +86,11 @@ impl Config for Mainnet {
     type MaxExtraDataBytes = U32;
     type MaxBlsToExecutionChanges = U16;
     type MaxWithdrawalsPerPayload = U16;
+    type MaxBlobsPerBlock = U6;
+    type MaxBlobCommitmentsPerBlock = U4096;
+    type FieldElementsPerBlob = U4096;
+    type BytesPerFieldElement = U32;
+    type KzgCommitmentInclusionProofDepth = U17;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
@@ -84,6 +98,7 @@ impl Config for Mainnet {
     type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 32 slots per epoch
     type SlotsPerEth1VotingPeriod =
         typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 64 epochs * 32 slots per epoch
+    type BytesPerBlob = typenum::Prod<Self::FieldElementsPerBlob, Self::BytesPerFieldElement>;
 }
 
 pub(crate) struct Minimal;
@@ -96,6 +111,9 @@ impl Config for Minimal {
     type EpochsPerSlashingsVector = U64;
     type SyncCommitteeSize = U32;
     type MaxWithdrawalsPerPayload = U4;
+    type FieldElementsPerBlob = U4096;
+    type MaxBlobCommitmentsPerBlock = U16;
+    type KzgCommitmentInclusionProofDepth = U9;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
@@ -103,6 +121,7 @@ impl Config for Minimal {
     type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 8 slots per epoch
     type SlotsPerEth1VotingPeriod =
         typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 4 epochs * 8 slots per epoch
+    type BytesPerBlob = typenum::Prod<Self::FieldElementsPerBlob, Self::BytesPerFieldElement>;
 
     inherit_from!(Mainnet {
         JustificationBitsLength,
@@ -124,7 +143,9 @@ impl Config for Minimal {
         GasLimitDenominator,
         MinGasLimit,
         MaxExtraDataBytes,
-        MaxBlsToExecutionChanges
+        MaxBlsToExecutionChanges,
+        MaxBlobsPerBlock,
+        BytesPerFieldElement
     });
 }
 
@@ -158,6 +179,11 @@ impl Config for Gnosis {
     type MaxExtraDataBytes = U32;
     type MaxBlsToExecutionChanges = U16;
     type MaxWithdrawalsPerPayload = U8;
+    type MaxBlobsPerBlock = U6;
+    type MaxBlobCommitmentsPerBlock = U4096;
+    type FieldElementsPerBlob = U4096;
+    type BytesPerFieldElement = U32;
+    type KzgCommitmentInclusionProofDepth = U17;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
@@ -165,4 +191,5 @@ impl Config for Gnosis {
     type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 32 slots per epoch
     type SlotsPerEth1VotingPeriod =
         typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 64 epochs * 32 slots per epoch
+    type BytesPerBlob = typenum::Prod<Self::FieldElementsPerBlob, Self::BytesPerFieldElement>;
 }

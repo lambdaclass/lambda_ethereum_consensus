@@ -25,4 +25,8 @@ defmodule BeaconApi.Utils do
       _ -> :invalid_id
     end
   end
+
+  def hex_encode(binary) when is_binary(binary) do
+    "0x" <> Base.encode16(binary, case: :lower)
+  end
 end

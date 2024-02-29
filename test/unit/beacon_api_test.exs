@@ -2,7 +2,10 @@ defmodule BeaconApiTest do
   use ExUnit.Case
   use Plug.Test
   use Patch
+
   alias BeaconApi.Router
+  alias BeaconApi.Utils
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Db
 
@@ -11,7 +14,9 @@ defmodule BeaconApiTest do
   @opts Router.init([])
 
   setup do
-    Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: MainnetConfig)
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.merge(config: MainnetConfig, genesis_validators_root: <<42::256>>)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
 
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -27,11 +32,8 @@ defmodule BeaconApiTest do
 
     start_supervised!(Db)
 
-    patch(
-      LambdaEthereumConsensus.Beacon.BeaconChain,
-      :get_current_status_message,
-      {:ok, status_message}
-    )
+    patch(BeaconChain, :get_current_status_message, {:ok, status_message})
+    patch(BeaconChain, :get_genesis_time, 42)
 
     :ok
   end
@@ -45,7 +47,7 @@ defmodule BeaconApiTest do
     BlockDb.store_block(signed_block, head_root)
 
     resp_body = %{
-      data: %{root: "0x" <> Base.encode16(signed_block.message.state_root, case: :lower)},
+      data: %{root: Utils.hex_encode(signed_block.message.state_root)},
       finalized: false,
       execution_optimistic: true
     }
@@ -53,8 +55,7 @@ defmodule BeaconApiTest do
     {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
 
     conn =
-      :get
-      |> conn("/eth/v1/beacon/states/head/root", nil)
+      conn(:get, "/eth/v1/beacon/states/head/root", nil)
       |> Router.call(@opts)
 
     assert conn.state == :sent
@@ -71,8 +72,7 @@ defmodule BeaconApiTest do
     {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
 
     conn =
-      :get
-      |> conn("/eth/v1/beacon/states/unknown_state/root", nil)
+      conn(:get, "/eth/v1/beacon/states/unknown_state/root", nil)
       |> Router.call(@opts)
 
     assert conn.state == :sent
@@ -95,24 +95,21 @@ defmodule BeaconApiTest do
       {:ok, beacon_state}
     )
 
-    #
     resp_body = %{
       finalized: false,
       execution_optimistic: true,
       data: %{
         previous_justified: %{
           epoch: beacon_state.previous_justified_checkpoint.epoch,
-          root:
-            "0x" <> Base.encode16(beacon_state.previous_justified_checkpoint.root, case: :lower)
+          root: Utils.hex_encode(beacon_state.previous_justified_checkpoint.root)
         },
         current_justified: %{
           epoch: beacon_state.current_justified_checkpoint.epoch,
-          root:
-            "0x" <> Base.encode16(beacon_state.current_justified_checkpoint.root, case: :lower)
+          root: Utils.hex_encode(beacon_state.current_justified_checkpoint.root)
         },
         finalized: %{
           epoch: beacon_state.finalized_checkpoint.epoch,
-          root: "0x" <> Base.encode16(beacon_state.finalized_checkpoint.root, case: :lower)
+          root: Utils.hex_encode(beacon_state.finalized_checkpoint.root)
         }
       }
     }
@@ -127,5 +124,23 @@ defmodule BeaconApiTest do
     assert conn.state == :sent
     assert conn.status == 200
     assert conn.resp_body == encoded_resp_body_json
+  end
+
+  test "get genesis data" do
+    {:ok, expected_body} =
+      Jason.encode(%{
+        "data" => %{
+          "genesis_time" => BeaconChain.get_genesis_time(),
+          "genesis_validators_root" =>
+            ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
+          "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
+        }
+      })
+
+    conn = conn(:get, "/eth/v1/beacon/genesis", nil) |> Router.call(@opts)
+
+    assert conn.state == :sent
+    assert conn.status == 200
+    assert conn.resp_body == expected_body
   end
 end
