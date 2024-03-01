@@ -130,18 +130,18 @@ defmodule LambdaEthereumConsensus.Validator do
     Utils.compute_subnet_for_attestation(committees_per_slot, slot, committee_index)
   end
 
-  defp join([]), do: :ok
-
   defp join(subnets) do
-    Logger.info("Joining subnets: #{Enum.join(subnets, ", ")}")
-    Enum.each(subnets, &Gossip.Attestation.join/1)
+    if not Enum.empty?(subnets) do
+      Logger.info("Joining subnets: #{Enum.join(subnets, ", ")}")
+      Enum.each(subnets, &Gossip.Attestation.join/1)
+    end
   end
 
-  defp leave([]), do: :ok
-
   defp leave(subnets) do
-    Logger.info("Leaving subnets: #{Enum.join(subnets, ", ")}")
-    Enum.each(subnets, &Gossip.Attestation.leave/1)
+    if not Enum.empty?(subnets) do
+      Logger.info("Leaving subnets: #{Enum.join(subnets, ", ")}")
+      Enum.each(subnets, &Gossip.Attestation.leave/1)
+    end
   end
 
   defp log_duties({{i0, ci0, slot0}, {i1, ci1, slot1}}, validator) do
