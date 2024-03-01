@@ -34,7 +34,7 @@ defmodule Types.BlobSidecar do
       blob: TypeAliases.blob(),
       kzg_commitment: TypeAliases.kzg_commitment(),
       kzg_proof: TypeAliases.kzg_proof(),
-      signed_block_header: Types.SignedBeaconBlockHeaderDeneb,
+      signed_block_header: Types.SignedBeaconBlockHeader,
       kzg_commitment_inclusion_proof:
         {:vector, TypeAliases.bytes32(), ChainSpec.get("KZG_COMMITMENT_INCLUSION_PROOF_DEPTH")}
     ]
