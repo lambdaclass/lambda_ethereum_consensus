@@ -73,7 +73,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
 
     peer_id = get_some_peer()
 
-    request = ReqResp.encode_ok({roots, Types.BeaconBlocksByRootRequest})
+    request = ReqResp.encode_ok(%Types.BeaconBlocksByRootRequest{body: roots})
 
     with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blocks_by_root_protocol_id, request),
