@@ -11,6 +11,12 @@ defmodule Unit.ReqRespTest do
   use Patch
   doctest ReqResp
 
+  setup do
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.merge(config: MainnetConfig)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
+  end
+
   defp assert_decode_equals(message, ssz_schema, expected) do
     request = Base.decode16!(message)
     assert ReqResp.decode_response_chunk(request, ssz_schema) == {:ok, expected}
