@@ -43,6 +43,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
         {Consumer, %{topic: topic, ssz_type: ssz_type, handler: handler}}
       end
 
+    children = [LambdaEthereumConsensus.P2P.Gossip.Attestation] ++ children
+
     Supervisor.init(children, strategy: :one_for_one)
   end
 end
