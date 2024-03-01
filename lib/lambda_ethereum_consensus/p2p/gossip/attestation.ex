@@ -17,12 +17,14 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   def join(subnet_id) do
     topic = get_topic_name(subnet_id)
+    # TODO: update ENR
     Libp2pPort.join_topic(topic)
     P2P.Metadata.set_attestation_subnet(subnet_id, true)
   end
 
   def leave(subnet_id) do
     topic = get_topic_name(subnet_id)
+    # TODO: update ENR
     Libp2pPort.leave_topic(topic)
     P2P.Metadata.set_attestation_subnet(subnet_id, false)
   end
