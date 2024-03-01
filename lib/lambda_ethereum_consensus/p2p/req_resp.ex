@@ -58,12 +58,11 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
     with {:ok, chunks} <- split_response(response_chunk) do
       # TODO: handle errors
       chunks
-      |> Enum.map(&decode_request(&1, SignedBeaconBlock))
-      |> Enum.map(fn
-        {:ok, block} -> block
-        {:error, _reason} -> nil
+      |> Stream.map(&decode_request(&1, SignedBeaconBlock))
+      |> Enum.flat_map(fn
+        {:ok, block} -> [block]
+        {:error, _reason} -> []
       end)
-      |> Enum.filter(&(&1 != nil))
       |> then(fn
         [] -> {:error, "all blocks decoding failed"}
         blocks -> {:ok, blocks}
