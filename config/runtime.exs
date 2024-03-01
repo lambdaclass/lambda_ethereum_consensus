@@ -8,15 +8,28 @@ switches = [
   mock_execution: :boolean,
   mode: :string,
   datadir: :string,
+  metrics: :string,
   log_file: :string
 ]
 
 is_testing = Config.config_env() == :test
 
-# NOTE: we ignore invalid options because `mix test` passes us all test flags
-option = if is_testing, do: :switches, else: :strict
+{args, remaining_args, invalid} = OptionParser.parse(System.argv(), [{:strict, switches}])
 
-{args, remaining_args} = OptionParser.parse!(System.argv(), [{option, switches}])
+args =
+  args ++
+    Enum.map(invalid, fn
+      {"--metrics", nil} ->
+        {:metrics, 9568}
+
+      {flag, nil} ->
+        IO.puts("Invalid argument received: #{flag}")
+        System.halt(1)
+
+      {flag, value} ->
+        IO.puts("Invalid argument received: #{flag} #{value}")
+        System.halt(1)
+    end)
 
 if not is_testing and not Enum.empty?(remaining_args) do
   invalid_arg = Enum.take(remaining_args, 1)
@@ -28,6 +41,7 @@ network = Keyword.get(args, :network, "mainnet")
 checkpoint_sync_url = Keyword.get(args, :checkpoint_sync_url)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
+metrics_port = Keyword.get(args, :metrics)
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync_url: checkpoint_sync_url
@@ -101,7 +115,8 @@ block_time_ms =
   end
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
-  block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms))
+  block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms)),
+  port: metrics_port
 
 case Keyword.get(args, :log_file) do
   nil ->
