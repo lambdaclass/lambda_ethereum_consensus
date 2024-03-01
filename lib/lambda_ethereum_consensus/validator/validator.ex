@@ -35,20 +35,14 @@ defmodule LambdaEthereumConsensus.Validator do
     beacon = fetch_target_state(epoch, root)
     duties = maybe_update_duties(state.duties, beacon, epoch, state.validator)
     join_subnets_for_duties(duties, beacon, epoch)
+    log_duties(duties, state.validator)
     {:noreply, %{state | duties: duties}}
   end
 
   @impl true
-  def handle_cast({:new_slot, slot, head_root}, %{validator: validator} = state) do
+  def handle_cast({:new_slot, slot, head_root}, state) do
     # TODO: this doesn't take into account reorgs
     new_state = update_state(state, slot, head_root)
-    {{i0, ci0, slot0}, {i1, ci1, slot1}} = new_state.duties
-
-    Logger.warning(
-      "Validator #{validator} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
-        " and in committee #{ci1} of slot #{slot1} with index #{i1}"
-    )
-
     {:noreply, new_state}
   end
 
@@ -69,6 +63,7 @@ defmodule LambdaEthereumConsensus.Validator do
         |> maybe_update_duties(new_beacon, epoch, state.validator)
 
       move_subnets(state.duties, new_duties, new_beacon, epoch)
+      log_duties(new_duties, state.validator)
 
       %{state | slot: slot, root: head_root, duties: new_duties}
     end
@@ -114,19 +109,16 @@ defmodule LambdaEthereumConsensus.Validator do
     new_subnets = MapSet.new([new_subnet0, new_subnet1])
 
     # leave old subnets (except for recurring ones)
-    MapSet.difference(old_subnets, new_subnets)
-    |> Enum.each(&Gossip.Attestation.leave/1)
+    MapSet.difference(old_subnets, new_subnets) |> leave()
 
     # join new subnets (except for recurring ones)
-    MapSet.difference(new_subnets, old_subnets)
-    |> Enum.each(&Gossip.Attestation.join/1)
+    MapSet.difference(new_subnets, old_subnets) |> join()
   end
 
   defp join_subnets_for_duties({ep0, ep1}, beacon_state, epoch) do
     [subnet0] = compute_subnet_ids_for_duties([ep0], beacon_state, epoch)
     [subnet1] = compute_subnet_ids_for_duties([ep1], beacon_state, epoch + 1)
-    Gossip.Attestation.join(subnet0)
-    Gossip.Attestation.join(subnet1)
+    join([subnet0, subnet1])
   end
 
   defp compute_subnet_ids_for_duties(duties, beacon_state, epoch) do
@@ -136,5 +128,22 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp compute_subnet_id_for_duty({_, committee_index, slot}, committees_per_slot) do
     Utils.compute_subnet_for_attestation(committees_per_slot, slot, committee_index)
+  end
+
+  defp join(subnets) do
+    Logger.info("Joining subnets: #{Enum.join(subnets, ", ")}")
+    Enum.each(subnets, &Gossip.Attestation.join/1)
+  end
+
+  defp leave(subnets) do
+    Logger.info("Leaving subnets: #{Enum.join(subnets, ", ")}")
+    Enum.each(subnets, &Gossip.Attestation.leave/1)
+  end
+
+  defp log_duties({{i0, ci0, slot0}, {i1, ci1, slot1}}, validator) do
+    Logger.info(
+      "Validator #{validator} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
+        " and in committee #{ci1} of slot #{slot1} with index #{i1}"
+    )
   end
 end
