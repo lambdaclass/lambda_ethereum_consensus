@@ -9,6 +9,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
+  alias Libp2pProto.LeaveTopic
+  alias Libp2pProto.JoinTopic
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -22,6 +24,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GetId,
     GossipSub,
     InitArgs,
+    JoinTopic,
+    LeaveTopic,
     NewPeer,
     Notification,
     Publish,
@@ -33,7 +37,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     SetHandler,
     SubscribeToTopic,
     Tracer,
-    UnsubscribeFromTopic,
     ValidateMessage
   }
 
@@ -151,6 +154,28 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
+  Joins the given topic. This also starts receiving messages for the topic.
+  """
+  @spec join_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
+  def join_topic(pid \\ __MODULE__, topic_name) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "join_topic",
+      direction: "elixir->"
+    })
+
+    call_command(pid, {:join, %JoinTopic{name: topic_name}})
+  end
+
+  @doc """
+  Publishes a message in the given topic.
+  """
+  @spec publish(GenServer.server(), String.t(), binary()) :: :ok | {:error, String.t()}
+  def publish(pid \\ __MODULE__, topic_name, message) do
+    :telemetry.execute([:port, :message], %{}, %{function: "publish", direction: "elixir->"})
+    call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
+  end
+
+  @doc """
   Subscribes to the given topic. After this, messages published to the topic
   will be received by `self()`.
   """
@@ -176,25 +201,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Publishes a message in the given topic.
+  Leaves the given topic, unsubscribing if possible.
   """
-  @spec publish(GenServer.server(), String.t(), binary()) :: :ok | {:error, String.t()}
-  def publish(pid \\ __MODULE__, topic_name, message) do
-    :telemetry.execute([:port, :message], %{}, %{function: "publish", direction: "elixir->"})
-    call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
-  end
-
-  @doc """
-  Unsubscribes from the given topic.
-  """
-  @spec unsubscribe_from_topic(GenServer.server(), String.t()) :: :ok
-  def unsubscribe_from_topic(pid \\ __MODULE__, topic_name) do
+  @spec leave_topic(GenServer.server(), String.t()) :: :ok
+  def leave_topic(pid \\ __MODULE__, topic_name) do
     :telemetry.execute([:port, :message], %{}, %{
-      function: "unsubscribe_from_topic",
+      function: "leave_topic",
       direction: "elixir->"
     })
 
-    cast_command(pid, {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}})
+    cast_command(pid, {:unsubscribe, %LeaveTopic{name: topic_name}})
   end
 
   @doc """

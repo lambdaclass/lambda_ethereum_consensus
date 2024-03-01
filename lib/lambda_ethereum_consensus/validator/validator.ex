@@ -37,6 +37,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @impl true
   def handle_cast({:new_slot, slot, head_root}, %{validator: validator} = state) do
+    # TODO: this doesn't take into account reorgs
     new_state = update_state(state, slot, head_root)
     {{i0, ci0, slot0}, {i1, ci1, slot1}} = new_state.duties
 
