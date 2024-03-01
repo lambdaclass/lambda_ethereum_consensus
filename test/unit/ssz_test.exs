@@ -227,4 +227,46 @@ defmodule Unit.SSZTests do
     {:ok, encoded} = Ssz.to_ssz(sidecar)
     assert {:ok, ^sidecar} = Ssz.from_ssz(encoded, Types.BlobSidecar)
   end
+
+  test "SignedBeaconBlockDeneb" do
+    # seed RNG
+    :rand.seed(:default, 0)
+    random_block = Block.signed_beacon_block()
+
+    random_payload = Block.execution_payload()
+
+    execution_payload =
+      struct!(
+        Types.ExecutionPayloadDeneb,
+        random_payload
+        |> Map.from_struct()
+        |> Map.merge(%{blob_gas_used: 1, excess_blob_gas: 1})
+      )
+
+    new_body =
+      struct!(
+        Types.BeaconBlockBodyDeneb,
+        random_block.message.body
+        |> Map.from_struct()
+        |> Map.merge(%{
+          execution_payload: execution_payload,
+          blob_kzg_commitments: [<<125_125::48*8>>]
+        })
+      )
+
+    deneb_block = %Types.SignedBeaconBlockDeneb{
+      message:
+        struct!(
+          Types.BeaconBlockDeneb,
+          random_block.message
+          |> Map.from_struct()
+          |> Map.merge(%{body: new_body})
+        ),
+      signature: random_block.signature
+    }
+
+    assert {:ok, _hash} = Ssz.hash_tree_root(deneb_block)
+    {:ok, encoded} = Ssz.to_ssz(deneb_block)
+    assert {:ok, ^deneb_block} = Ssz.from_ssz(encoded, Types.SignedBeaconBlockDeneb)
+  end
 end
