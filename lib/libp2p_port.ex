@@ -9,8 +9,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
-  alias Libp2pProto.LeaveTopic
-  alias Libp2pProto.JoinTopic
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Misc

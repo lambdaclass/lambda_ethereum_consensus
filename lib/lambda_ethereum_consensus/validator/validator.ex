@@ -6,6 +6,8 @@ defmodule LambdaEthereumConsensus.Validator do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
+  alias LambdaEthereumConsensus.P2P.Gossip
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator.Utils
 
@@ -32,6 +34,7 @@ defmodule LambdaEthereumConsensus.Validator do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state(epoch, root)
     duties = maybe_update_duties(state.duties, beacon, epoch, state.validator)
+    join_subnets_for_duties(duties, beacon, epoch)
     {:noreply, %{state | duties: duties}}
   end
 
@@ -65,6 +68,8 @@ defmodule LambdaEthereumConsensus.Validator do
         shift_duties(state.duties, epoch, last_epoch)
         |> maybe_update_duties(new_beacon, epoch, state.validator)
 
+      move_subnets(state.duties, new_duties, new_beacon, epoch)
+
       %{state | slot: slot, root: head_root, duties: new_duties}
     end
   end
@@ -96,5 +101,40 @@ defmodule LambdaEthereumConsensus.Validator do
     # Can't fail
     {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch + index, validator)
     put_elem(duties, index, duty)
+  end
+
+  defp move_subnets({old_ep0, old_ep1}, {ep0, ep1}, beacon_state, epoch) do
+    [old_subnet0, new_subnet0] =
+      compute_subnet_ids_for_duties([old_ep0, ep0], beacon_state, epoch)
+
+    [old_subnet1, new_subnet1] =
+      compute_subnet_ids_for_duties([old_ep1, ep1], beacon_state, epoch + 1)
+
+    old_subnets = MapSet.new([old_subnet0, old_subnet1])
+    new_subnets = MapSet.new([new_subnet0, new_subnet1])
+
+    # leave old subnets (except for recurring ones)
+    MapSet.difference(old_subnets, new_subnets)
+    |> Enum.each(&Gossip.Attestation.leave/1)
+
+    # join new subnets (except for recurring ones)
+    MapSet.difference(new_subnets, old_subnets)
+    |> Enum.each(&Gossip.Attestation.join/1)
+  end
+
+  defp join_subnets_for_duties({ep0, ep1}, beacon_state, epoch) do
+    [subnet0] = compute_subnet_ids_for_duties([ep0], beacon_state, epoch)
+    [subnet1] = compute_subnet_ids_for_duties([ep1], beacon_state, epoch + 1)
+    Gossip.Attestation.join(subnet0)
+    Gossip.Attestation.join(subnet1)
+  end
+
+  defp compute_subnet_ids_for_duties(duties, beacon_state, epoch) do
+    committees_per_slot = Accessors.get_committee_count_per_slot(beacon_state, epoch)
+    Enum.map(duties, &compute_subnet_id_for_duty(&1, committees_per_slot))
+  end
+
+  defp compute_subnet_id_for_duty({_, committee_index, slot}, committees_per_slot) do
+    Utils.compute_subnet_for_attestation(committees_per_slot, slot, committee_index)
   end
 end
