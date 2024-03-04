@@ -61,10 +61,13 @@ func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
 	for _, addr := range addrs {
 		maddr, err := ma.NewMultiaddr(addr)
 		// TODO: return error to caller
-		utils.PanicIfError(err)
-		addrInfo.Addrs = append(addrInfo.Addrs, maddr)
+		if err == nil {
+			addrInfo.Addrs = append(addrInfo.Addrs, maddr)
+		}
 	}
-	l.AddPeerWithAddrInfo(addrInfo, ttl)
+	if len(addrInfo.Addrs) != 0 {
+		l.AddPeerWithAddrInfo(addrInfo, ttl)
+	}
 }
 
 func (l *Listener) AddPeerWithAddrInfo(addrInfo peer.AddrInfo, ttl int64) {
