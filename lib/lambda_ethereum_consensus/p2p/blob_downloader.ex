@@ -30,7 +30,8 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
 
     # NOTE: BeaconBlocksByRangeRequest == BlobSidecarsByRangeRequest
     request =
-      ReqResp.encode_ok(%Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count})
+      %Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count}
+      |> ReqResp.encode_request()
 
     with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blobs_by_range_protocol_id, request),
@@ -71,7 +72,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
 
     request =
       %Types.BlobSidecarsByRootRequest{body: identifiers}
-      |> ReqResp.encode_ok()
+      |> ReqResp.encode_request()
 
     with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blobs_by_root_protocol_id, request),
