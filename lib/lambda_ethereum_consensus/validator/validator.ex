@@ -164,6 +164,8 @@ defmodule LambdaEthereumConsensus.Validator do
   defp attest(state) do
     {current_duty, _} = state.duties
     produce_attestation(current_duty, state.root, state.privkey)
+    # TODO: propagate attestation
+    :ok
   end
 
   defp produce_attestation(duty, head_root, privkey) do
