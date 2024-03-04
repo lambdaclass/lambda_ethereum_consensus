@@ -7,14 +7,18 @@ defmodule LambdaEthereumConsensus.Validator do
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.P2P.Gossip
+  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Validator.Utils
+  alias Types.Attestation
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
-  def notify_new_slot(slot, head_root),
-    do: GenServer.cast(__MODULE__, {:new_slot, slot, head_root})
+  def notify_new_block(slot, head_root),
+    do: GenServer.cast(__MODULE__, {:new_block, slot, head_root})
 
   @impl true
   def init({slot, head_root}) do
@@ -23,7 +27,8 @@ defmodule LambdaEthereumConsensus.Validator do
       root: head_root,
       duties: {:not_computed, :not_computed},
       # TODO: get validator from config
-      validator: 150_112
+      validator: 150_112,
+      privkey: <<0::256>>
     }
 
     {:ok, state, {:continue, nil}}
@@ -40,9 +45,12 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @impl true
-  def handle_cast({:new_slot, slot, head_root}, state) do
-    # TODO: this doesn't take into account reorgs
+  def handle_cast({:new_block, slot, head_root}, state) do
+    # TODO: this doesn't take into account reorgs or empty slots
     new_state = update_state(state, slot, head_root)
+
+    if should_attest?(state, slot), do: attest(state)
+
     {:noreply, new_state}
   end
 
@@ -126,7 +134,7 @@ defmodule LambdaEthereumConsensus.Validator do
     Enum.map(duties, &compute_subnet_id_for_duty(&1, committees_per_slot))
   end
 
-  defp compute_subnet_id_for_duty({_, committee_index, slot}, committees_per_slot) do
+  defp compute_subnet_id_for_duty({_, _, committee_index, slot}, committees_per_slot) do
     Utils.compute_subnet_for_attestation(committees_per_slot, slot, committee_index)
   end
 
@@ -144,10 +152,49 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp log_duties({{i0, ci0, slot0}, {i1, ci1, slot1}}, validator) do
+  defp log_duties({{i0, _, ci0, slot0}, {i1, _, ci1, slot1}}, validator) do
     Logger.info(
       "Validator #{validator} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
         " and in committee #{ci1} of slot #{slot1} with index #{i1}"
     )
+  end
+
+  defp should_attest?(%{duties: {{_, _, _, duty_slot}, _}}, slot), do: duty_slot == slot
+
+  defp attest(state) do
+    {current_duty, _} = state.duties
+    produce_attestation(current_duty, state.root, state.privkey)
+  end
+
+  defp produce_attestation(duty, head_root, privkey) do
+    {index_in_committee, committee_length, committee_index, slot} = duty
+    head_state = BlockStates.get_state!(head_root) |> StateTransition.process_slots(slot)
+    head_epoch = Misc.compute_epoch_at_slot(slot)
+
+    epoch_boundary_block_root =
+      if Misc.compute_start_slot_at_epoch(head_epoch) == slot do
+        head_root
+      else
+        # Can't fail as long as slot isn't ancient for attestation purposes
+        {:ok, root} = Accessors.get_block_root(head_state, head_epoch)
+        root
+      end
+
+    attestation_data = %Types.AttestationData{
+      slot: slot,
+      index: committee_index,
+      beacon_block_root: head_root,
+      source: head_state.current_justified_checkpoint,
+      target: %Types.Checkpoint{
+        epoch: head_epoch,
+        root: epoch_boundary_block_root
+      }
+    }
+
+    bits = BitList.default(committee_length) |> BitList.set(index_in_committee)
+
+    signature = Utils.get_attestation_signature(head_state, attestation_data, privkey)
+
+    %Attestation{data: attestation_data, aggregation_bits: bits, signature: signature}
   end
 end
