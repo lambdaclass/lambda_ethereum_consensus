@@ -1,3 +1,6 @@
+fork = Application.compile_env!(:lambda_ethereum_consensus, :fork)
+is_deneb = fork == :deneb
+
 defmodule Types.BeaconBlockBody do
   @moduledoc """
   Struct definition for `BeaconBlockBody`.
@@ -5,42 +8,67 @@ defmodule Types.BeaconBlockBody do
   """
   @behaviour LambdaEthereumConsensus.Container
 
-  fields = [
-    :randao_reveal,
-    :eth1_data,
-    :graffiti,
-    :proposer_slashings,
-    :attester_slashings,
-    :attestations,
-    :deposits,
-    :voluntary_exits,
-    :sync_aggregate,
-    :execution_payload,
-    :bls_to_execution_changes
-  ]
+  fields =
+    [
+      :randao_reveal,
+      :eth1_data,
+      :graffiti,
+      :proposer_slashings,
+      :attester_slashings,
+      :attestations,
+      :deposits,
+      :voluntary_exits,
+      :sync_aggregate,
+      :execution_payload,
+      :bls_to_execution_changes
+    ] ++ if is_deneb, do: [:blob_kzg_commitments], else: []
 
   @enforce_keys fields
   defstruct fields
 
-  @type t :: %__MODULE__{
-          randao_reveal: Types.bls_signature(),
-          eth1_data: Types.Eth1Data.t(),
-          graffiti: Types.bytes32(),
-          # max MAX_PROPOSER_SLASHINGS
-          proposer_slashings: list(Types.ProposerSlashing.t()),
-          # max MAX_ATTESTER_SLASHINGS
-          attester_slashings: list(Types.AttesterSlashing.t()),
-          # max MAX_ATTESTATIONS
-          attestations: list(Types.Attestation.t()),
-          # max MAX_DEPOSITS
-          deposits: list(Types.Deposit.t()),
-          # max MAX_VOLUNTARY_EXITS
-          voluntary_exits: list(Types.VoluntaryExit.t()),
-          sync_aggregate: Types.SyncAggregate.t(),
-          execution_payload: Types.ExecutionPayload.t(),
-          # max MAX_BLS_TO_EXECUTION_CHANGES
-          bls_to_execution_changes: list(Types.SignedBLSToExecutionChange.t())
-        }
+  if is_deneb do
+    @type t :: %__MODULE__{
+            randao_reveal: Types.bls_signature(),
+            eth1_data: Types.Eth1Data.t(),
+            graffiti: Types.bytes32(),
+            # max MAX_PROPOSER_SLASHINGS
+            proposer_slashings: list(Types.ProposerSlashing.t()),
+            # max MAX_ATTESTER_SLASHINGS
+            attester_slashings: list(Types.AttesterSlashing.t()),
+            # max MAX_ATTESTATIONS
+            attestations: list(Types.Attestation.t()),
+            # max MAX_DEPOSITS
+            deposits: list(Types.Deposit.t()),
+            # max MAX_VOLUNTARY_EXITS
+            voluntary_exits: list(Types.VoluntaryExit.t()),
+            sync_aggregate: Types.SyncAggregate.t(),
+            execution_payload: Types.ExecutionPayloadDeneb.t(),
+            # max MAX_BLS_TO_EXECUTION_CHANGES
+            bls_to_execution_changes: list(Types.BLSToExecutionChange.t()),
+            # max MAX_BLOB_COMMITMENTS_PER_BLOCK
+            blob_kzg_commitments: list(Types.kzg_commitment())
+          }
+  else
+    @type t :: %__MODULE__{
+            randao_reveal: Types.bls_signature(),
+            eth1_data: Types.Eth1Data.t(),
+            graffiti: Types.bytes32(),
+            # max MAX_PROPOSER_SLASHINGS
+            proposer_slashings: list(Types.ProposerSlashing.t()),
+            # max MAX_ATTESTER_SLASHINGS
+            attester_slashings: list(Types.AttesterSlashing.t()),
+            # max MAX_ATTESTATIONS
+            attestations: list(Types.Attestation.t()),
+            # max MAX_DEPOSITS
+            deposits: list(Types.Deposit.t()),
+            # max MAX_VOLUNTARY_EXITS
+            voluntary_exits: list(Types.VoluntaryExit.t()),
+            sync_aggregate: Types.SyncAggregate.t(),
+            execution_payload: Types.ExecutionPayload.t(),
+            # max MAX_BLS_TO_EXECUTION_CHANGES
+            bls_to_execution_changes: list(Types.SignedBLSToExecutionChange.t())
+          }
+  end
 
   @impl LambdaEthereumConsensus.Container
   def schema do
@@ -60,6 +88,9 @@ defmodule Types.BeaconBlockBody do
       {:execution_payload, Types.ExecutionPayload},
       {:bls_to_execution_changes,
        {:list, Types.SignedBLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")}}
-    ]
+    ] ++
+      if unquote(is_deneb),
+        do: [{:blob_kzg_commitments, {:list, TypeAliases.kzg_commitment()}}],
+        else: []
   end
 end
