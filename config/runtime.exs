@@ -18,17 +18,20 @@ is_testing = Config.config_env() == :test
 
 args =
   args ++
-    Enum.map(invalid, fn
+    Enum.flat_map(invalid, fn
       {"--metrics", nil} ->
-        {:metrics, 9568}
+        [{:metrics, 9568}]
 
-      {flag, nil} ->
+      {flag, nil} when not is_testing ->
         IO.puts("Invalid argument received: #{flag}")
         System.halt(1)
 
-      {flag, value} ->
+      {flag, value} when not is_testing ->
         IO.puts("Invalid argument received: #{flag} #{value}")
         System.halt(1)
+
+      _ ->
+        []
     end)
 
 if not is_testing and not Enum.empty?(remaining_args) do
