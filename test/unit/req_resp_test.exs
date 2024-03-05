@@ -5,6 +5,8 @@ defmodule Unit.ReqRespTest do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.BeaconBlocksByRangeRequest
   alias Types.BeaconBlocksByRootRequest
+  alias Types.BlobIdentifier
+  alias Types.BlobSidecarsByRootRequest
 
   use ExUnit.Case
   # TODO: try not to use patch
@@ -85,45 +87,73 @@ defmodule Unit.ReqRespTest do
     )
   end
 
+  defp assert_complex_request_roundtrip(%request_type{} = request, response) do
+    [%response_type{} | _] = response
+    context_bytes = "abcd"
+    patch(BeaconChain, :get_fork_digest, context_bytes)
+    payloads = Enum.map(response, fn x -> {:ok, {x, context_bytes}} end)
+
+    decoded_request = ReqResp.encode_request(request) |> ReqResp.decode_request(request_type)
+    assert decoded_request == {:ok, request}
+
+    decoded_response = ReqResp.encode_response(payloads) |> ReqResp.decode_response(response_type)
+    assert decoded_response == {:ok, response}
+  end
+
   test "BeaconBlocksByRange round trip" do
     count = 5
     request = %BeaconBlocksByRangeRequest{start_slot: 15_125, count: count}
-    context_bytes = "abcd"
-    patch(BeaconChain, :get_fork_digest, context_bytes)
-    blocks = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
-
-    result =
-      ReqResp.encode_request(request)
-      |> ReqResp.decode_request(BeaconBlocksByRangeRequest)
-
-    assert result == {:ok, request}
-
-    response =
-      Enum.map(blocks, &{:ok, {&1, context_bytes}})
-      |> ReqResp.encode_response()
-      |> ReqResp.decode_response()
-
-    assert response == {:ok, blocks}
+    response = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
+    assert_complex_request_roundtrip(request, response)
   end
 
   test "BeaconBlocksByRoot round trip" do
     count = 5
     request = %BeaconBlocksByRootRequest{body: Enum.map(1..count, &<<&1::256>>)}
-    context_bytes = "abcd"
-    patch(BeaconChain, :get_fork_digest, context_bytes)
-    blocks = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
+    response = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
+    assert_complex_request_roundtrip(request, response)
+  end
 
-    result =
-      ReqResp.encode_request(request)
-      |> ReqResp.decode_request(BeaconBlocksByRootRequest)
+  test "BlobSidecarsByRange round trip" do
+    count = 1
+    request = %BeaconBlocksByRangeRequest{start_slot: 15_125, count: count}
 
-    assert result == {:ok, request}
-
+    # TODO: generate randomly
     response =
-      Enum.map(blocks, &{:ok, {&1, context_bytes}})
-      |> ReqResp.encode_response()
-      |> ReqResp.decode_response()
+      [
+        %Types.BlobSidecar{
+          index: 1,
+          blob: <<152_521_252::(4096*32)*8>>,
+          kzg_commitment: <<57_888::48*8>>,
+          kzg_proof: <<6122::48*8>>,
+          signed_block_header: Block.signed_beacon_block_header(),
+          kzg_commitment_inclusion_proof: [<<1551::32*8>>] |> Stream.cycle() |> Enum.take(17)
+        }
+      ]
 
-    assert response == {:ok, blocks}
+    assert_complex_request_roundtrip(request, response)
+  end
+
+  test "BlobSidecarsByRoot round trip" do
+    count = 1
+
+    request = %BlobSidecarsByRootRequest{
+      body: Enum.map(1..count, &%BlobIdentifier{block_root: <<&1::256>>, index: &1})
+    }
+
+    # TODO: generate randomly
+    response =
+      [
+        %Types.BlobSidecar{
+          index: 1,
+          blob: <<152_521_252::(4096*32)*8>>,
+          kzg_commitment: <<57_888::48*8>>,
+          kzg_proof: <<6122::48*8>>,
+          signed_block_header: Block.signed_beacon_block_header(),
+          kzg_commitment_inclusion_proof: [<<1551::32*8>>] |> Stream.cycle() |> Enum.take(17)
+        }
+      ]
+
+    assert_complex_request_roundtrip(request, response)
   end
 end

@@ -20,7 +20,9 @@ defmodule Types.ExecutionPayloadHeaderDeneb do
     base_fee_per_gas: 0,
     block_hash: <<0::256>>,
     transactions_root: <<0::256>>,
-    withdrawals_root: <<0::256>>
+    withdrawals_root: <<0::256>>,
+    blob_gas_used: 0,
+    excess_blob_gas: 0
   }
 
   fields = [
@@ -52,14 +54,14 @@ defmodule Types.ExecutionPayloadHeaderDeneb do
           state_root: Types.root(),
           receipts_root: Types.root(),
           # size BYTES_PER_LOGS_BLOOM 256
-          logs_bloom: list(Types.uint8()),
+          logs_bloom: binary(),
           prev_randao: Types.bytes32(),
           block_number: Types.uint64(),
           gas_limit: Types.uint64(),
           gas_used: Types.uint64(),
           timestamp: Types.uint64(),
           # size MAX_EXTRA_DATA_BYTES 32
-          extra_data: list(Types.bytes1()),
+          extra_data: binary(),
           base_fee_per_gas: Types.uint256(),
           block_hash: Types.hash32(),
           transactions_root: Types.root(),
@@ -76,9 +78,7 @@ defmodule Types.ExecutionPayloadHeaderDeneb do
     Map.update!(map, :base_fee_per_gas, &Ssz.decode_u256/1)
   end
 
-  def default do
-    @default_execution_payload_header
-  end
+  def default, do: @default_execution_payload_header
 
   @impl LambdaEthereumConsensus.Container
   def schema do
@@ -87,7 +87,7 @@ defmodule Types.ExecutionPayloadHeaderDeneb do
       {:fee_recipient, TypeAliases.execution_address()},
       {:state_root, TypeAliases.root()},
       {:receipts_root, TypeAliases.root()},
-      {:logs_bloom, {:vector, {:int, 8}, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
+      {:logs_bloom, {:vector, :bytes, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
       {:prev_randao, TypeAliases.bytes32()},
       {:block_number, TypeAliases.uint64()},
       {:gas_limit, TypeAliases.uint64()},
