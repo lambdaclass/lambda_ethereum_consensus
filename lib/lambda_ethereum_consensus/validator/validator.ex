@@ -1,52 +1,99 @@
 defmodule LambdaEthereumConsensus.Validator do
   @moduledoc """
-  Functions for performing validator duties.
+  GenServer that performs validator duties.
   """
-  alias LambdaEthereumConsensus.StateTransition.Accessors
+  use GenServer
+  require Logger
+
+  alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias Types.BeaconState
+  alias LambdaEthereumConsensus.Validator.Utils
 
-  @doc """
-    Return the committee assignment in the ``epoch`` for ``validator_index``.
-    ``assignment`` returned is a tuple of the following form:
-        * ``assignment[0]`` is the list of validators in the committee
-        * ``assignment[1]`` is the index to which the committee is assigned
-        * ``assignment[2]`` is the slot at which the committee is assigned
-    Return `nil` if no assignment.
-  """
-  @spec get_committee_assignment(BeaconState.t(), Types.epoch(), Types.validator_index()) ::
-          {:ok, nil | {[Types.validator_index()], Types.uint64(), Types.slot()}}
-          | {:error, String.t()}
-  def get_committee_assignment(%BeaconState{} = state, epoch, validator_index) do
-    next_epoch = Accessors.get_current_epoch(state) + 1
+  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
-    if epoch > next_epoch do
-      {:error, "epoch must be <= next_epoch"}
+  def notify_new_slot(slot, head_root),
+    do: GenServer.cast(__MODULE__, {:new_slot, slot, head_root})
+
+  @impl true
+  def init({slot, head_root}) do
+    state = %{
+      slot: slot,
+      root: head_root,
+      duties: {:not_computed, :not_computed},
+      # TODO: get validator from config
+      validator: 150_112
+    }
+
+    {:ok, state, {:continue, nil}}
+  end
+
+  @impl true
+  def handle_continue(nil, %{slot: slot, root: root} = state) do
+    epoch = Misc.compute_epoch_at_slot(slot)
+    beacon = fetch_target_state(epoch, root)
+    duties = maybe_update_duties(state.duties, beacon, epoch, state.validator)
+    {:noreply, %{state | duties: duties}}
+  end
+
+  @impl true
+  def handle_cast({:new_slot, slot, head_root}, %{validator: validator} = state) do
+    new_state = update_state(state, slot, head_root)
+    {{i0, ci0, slot0}, {i1, ci1, slot1}} = new_state.duties
+
+    Logger.warning(
+      "Validator #{validator} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
+        " and in committee #{ci1} of slot #{slot1} with index #{i1}"
+    )
+
+    {:noreply, new_state}
+  end
+
+  defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do
+    last_epoch = Misc.compute_epoch_at_slot(last_slot)
+    epoch = Misc.compute_epoch_at_slot(slot)
+
+    if last_epoch == epoch do
+      state
     else
-      start_slot = Misc.compute_start_slot_at_epoch(epoch)
-      committee_count_per_slot = Accessors.get_committee_count_per_slot(state, epoch)
-      end_slot = start_slot + ChainSpec.get("SLOTS_PER_EPOCH")
+      target_root =
+        if slot == Misc.compute_start_slot_at_epoch(epoch), do: head_root, else: last_root
 
-      start_slot..end_slot
-      |> Stream.map(fn slot ->
-        0..(committee_count_per_slot - 1)
-        |> Stream.map(&compute_duties(state, slot, validator_index, &1))
-        |> Enum.find(&(not is_nil(&1)))
-      end)
-      |> Enum.find(&(not is_nil(&1)))
-      |> then(&{:ok, &1})
+      new_beacon = fetch_target_state(epoch, target_root)
+
+      new_duties =
+        shift_duties(state.duties, epoch, last_epoch)
+        |> maybe_update_duties(new_beacon, epoch, state.validator)
+
+      %{state | slot: slot, root: head_root, duties: new_duties}
     end
   end
 
-  defp compute_duties(state, slot, validator_index, committee_index) do
-    case Accessors.get_beacon_committee(state, slot, committee_index) do
-      {:ok, committee} ->
-        if Enum.member?(committee, validator_index) do
-          {committee, committee_index, slot}
-        end
+  defp fetch_target_state(epoch, root) do
+    {:ok, state} = Handlers.compute_target_checkpoint_state(epoch, root)
+    state
+  end
 
-      {:error, _} ->
-        nil
-    end
+  defp shift_duties({_, ep1}, epoch, current_epoch) when epoch + 1 == current_epoch do
+    {ep1, :not_computed}
+  end
+
+  defp shift_duties(_, _, _), do: {:not_computed, :not_computed}
+
+  defp maybe_update_duties({:not_computed, _} = duties, beacon_state, epoch, validator) do
+    compute_duty(duties, 0, beacon_state, epoch, validator)
+    |> maybe_update_duties(beacon_state, epoch, validator)
+  end
+
+  defp maybe_update_duties({_, :not_computed} = duties, beacon_state, epoch, validator) do
+    compute_duty(duties, 1, beacon_state, epoch, validator)
+    |> maybe_update_duties(beacon_state, epoch, validator)
+  end
+
+  defp maybe_update_duties(duties, _, _, _), do: duties
+
+  defp compute_duty(duties, index, beacon_state, epoch, validator) when index in 0..1 do
+    # Can't fail
+    {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch + index, validator)
+    put_elem(duties, index, duty)
   end
 end

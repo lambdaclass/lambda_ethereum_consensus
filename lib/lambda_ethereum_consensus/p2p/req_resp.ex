@@ -6,7 +6,6 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.SszEx
-  alias Types.SignedBeaconBlock
 
   defmodule Error do
     @moduledoc """
@@ -75,13 +74,13 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
 
   ## Decoding
 
-  @spec decode_response(binary()) ::
-          {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()} | {:error, Error.t()}
-  def decode_response(response_chunk) do
+  @spec decode_response(binary(), SszEx.schema()) ::
+          {:ok, [any()]} | {:error, String.t()} | {:error, Error.t()}
+  def decode_response(response_chunk, ssz_schema) do
     with {:ok, chunks} <- split_response(response_chunk) do
       # TODO: handle errors
       chunks
-      |> Stream.map(&decode_request(&1, SignedBeaconBlock))
+      |> Stream.map(&decode_request(&1, ssz_schema))
       |> Enum.flat_map(fn
         {:ok, block} -> [block]
         {:error, _reason} -> []

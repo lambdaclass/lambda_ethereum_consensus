@@ -23,21 +23,6 @@ pub(crate) struct BeaconBlocksByRangeRequest {
 }
 
 #[derive(Encode, Decode, TreeHash)]
-pub(crate) struct BeaconBlocksByRangeResponse<C: Config> {
-    pub(crate) body: VariableList<SignedBeaconBlock<C>, MaxRequestBlocks>,
-}
-
-#[derive(Encode, Decode, TreeHash)]
-pub(crate) struct BeaconBlocksByRootRequest {
-    pub(crate) body: VariableList<Root, MaxRequestBlocks>,
-}
-
-#[derive(Encode, Decode, TreeHash)]
-pub(crate) struct BeaconBlocksByRootResponse<C: Config> {
-    pub(crate) body: VariableList<SignedBeaconBlock<C>, MaxRequestBlocks>,
-}
-
-#[derive(Encode, Decode, TreeHash)]
 pub(crate) struct Metadata<C: Config> {
     pub(crate) seq_number: u64,
     pub(crate) attnets: BitVector<C::AttestationSubnetCount>,

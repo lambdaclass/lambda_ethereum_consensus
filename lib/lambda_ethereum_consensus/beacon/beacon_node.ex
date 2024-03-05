@@ -79,7 +79,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       LambdaEthereumConsensus.P2P.IncomingRequests,
       LambdaEthereumConsensus.Beacon.PendingBlocks,
       LambdaEthereumConsensus.Beacon.SyncBlocks,
-      LambdaEthereumConsensus.P2P.GossipSub
+      LambdaEthereumConsensus.P2P.GossipSub,
+      # TODO: move checkpoint sync outside and move this to application.ex
+      {LambdaEthereumConsensus.Validator, {head_slot, head_root}}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
