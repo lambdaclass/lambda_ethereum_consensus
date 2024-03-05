@@ -10,10 +10,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Utils.BitVector
+  alias Types.EnrForkId
 
   alias Libp2pProto.{
     AddPeer,
     Command,
+    Enr,
     GetId,
     GossipSub,
     InitArgs,
@@ -41,7 +46,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     enable_discovery: false,
     discovery_addr: "",
     bootnodes: [],
-    fork_digest: <<>>
+    initial_enr: %Enr{eth2: <<0::128>>, attnets: <<0::64>>, syncnets: <<0::8>>}
   ]
 
   @type init_arg ::
@@ -222,6 +227,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
   end
 
+  @doc """
+  Updates the "eth2", "attnets", and "syncnets" ENR entries for the node.
+  """
+  @spec update_enr(GenServer.server(), Types.EnrForkId.t(), BitVector.t(), BitVector.t()) :: :ok
+  def update_enr(pid \\ __MODULE__, enr_fork_id, attnets_bv, syncnets_bv) do
+    :telemetry.execute([:port, :message], %{}, %{function: "update_enr", direction: "elixir->"})
+    # TODO: maybe move encoding to caller
+    enr = encode_enr(enr_fork_id, attnets_bv, syncnets_bv)
+    cast_command(pid, {:update_enr, enr})
+  end
+
   ########################
   ### GenServer Callbacks
   ########################
@@ -232,7 +248,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
-    (args ++ [fork_digest: BeaconChain.get_fork_digest()])
+    current_version = BeaconChain.get_fork_version()
+
+    ([initial_enr: compute_initial_enr(current_version)] ++ args)
     |> parse_args()
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
@@ -410,5 +428,32 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       {:ok, name} -> name
       :error -> topic
     end
+  end
+
+  defp encode_enr(enr_fork_id, attnets_bv, syncnets_bv) do
+    {:ok, eth2} = SszEx.encode(enr_fork_id, Types.EnrForkId)
+
+    {:ok, attnets} =
+      SszEx.encode(attnets_bv, {:bitvector, ChainSpec.get("ATTESTATION_SUBNET_COUNT")})
+
+    {:ok, syncnets} =
+      SszEx.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
+
+    %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets}
+  end
+
+  defp compute_initial_enr(current_version) do
+    fork_digest =
+      Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())
+
+    attnets = BitVector.new(ChainSpec.get("ATTESTATION_SUBNET_COUNT"))
+    syncnets = BitVector.new(Constants.sync_committee_subnet_count())
+
+    %EnrForkId{
+      fork_digest: fork_digest,
+      next_fork_version: current_version,
+      next_fork_epoch: Constants.far_future_epoch()
+    }
+    |> encode_enr(attnets, syncnets)
   end
 end
