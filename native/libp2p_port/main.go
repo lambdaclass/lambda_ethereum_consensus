@@ -12,7 +12,7 @@ import (
 	gossipsub "libp2p_port/internal/subscriptions"
 )
 
-func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber) *proto_defs.Notification {
+func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber, discoverer *discovery.Discoverer) *proto_defs.Notification {
 	switch c := command.C.(type) {
 	case *proto_defs.Command_GetId:
 		return proto_helpers.ResultNotification(command.From, []byte(listener.HostId()), nil)
@@ -34,6 +34,8 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 		subscriber.Validate(c.ValidateMessage.MsgId, int(c.ValidateMessage.Result))
 	case *proto_defs.Command_Publish:
 		subscriber.Publish(c.Publish.Topic, c.Publish.Message)
+	case *proto_defs.Command_UpdateEnr:
+		discoverer.UpdateEnr(proto_helpers.LoadEnr(c.UpdateEnr))
 	default:
 		return proto_helpers.ResultNotification(command.From, nil, errors.New("invalid command"))
 	}
@@ -51,8 +53,11 @@ func commandServer() {
 	config := proto_helpers.ConfigFromInitArgs(&initArgs)
 
 	listener := reqresp.NewListener(portInst, &config)
+
+	var discoverer *discovery.Discoverer
 	if config.EnableDiscovery {
-		discovery.NewDiscoverer(portInst, &listener, &config)
+		tmp := discovery.NewDiscoverer(portInst, &listener, &config)
+		discoverer = &tmp
 	}
 	subscriber := gossipsub.NewSubscriber(portInst, listener.Host())
 	command := proto_defs.Command{}
@@ -61,7 +66,7 @@ func commandServer() {
 		if err == io.EOF {
 			break
 		}
-		reply := handleCommand(&command, &listener, &subscriber)
+		reply := handleCommand(&command, &listener, &subscriber, discoverer)
 		portInst.SendNotification(reply)
 	}
 }
