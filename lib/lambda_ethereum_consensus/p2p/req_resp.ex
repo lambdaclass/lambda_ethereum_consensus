@@ -75,7 +75,8 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
 
   ## Decoding
 
-  @spec decode_response(binary()) :: {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
+  @spec decode_response(binary()) ::
+          {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()} | {:error, Error.t()}
   def decode_response(response_chunk) do
     with {:ok, chunks} <- split_response(response_chunk) do
       # TODO: handle errors
@@ -92,7 +93,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
     end
   end
 
-  @spec split_response(binary) :: {:ok, [binary()]} | {:error, String.t()}
+  @spec split_response(binary) :: {:ok, [binary()]} | {:error, String.t()} | {:error, Error.t()}
   def split_response(response_chunk) do
     # TODO: the fork_context should be computed depending on the block's slot
     fork_context = BeaconChain.get_fork_digest()
@@ -109,8 +110,8 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
       <<0, wrong_context::binary-size(4)>> <> _ ->
         {:error, "wrong context: #{Base.encode16(wrong_context)}"}
 
-      <<error_code>> <> error_message ->
-        {:error, {error_code, decode_error_message(error_message)}}
+      <<error_code>> <> message ->
+        decode_error(error_code, message)
     end
   end
 
@@ -140,8 +141,11 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
           | {:error, Error.t()}
   def decode_response_chunk(<<0>> <> chunk, ssz_schema), do: decode_request(chunk, ssz_schema)
 
-  def decode_response_chunk(<<code>> <> message, _) do
-    with {:ok, error_message} <- decode_error_message(message) do
+  def decode_response_chunk(<<code>> <> message, _), do: decode_error(code, message)
+
+  @spec decode_error(1..255, binary()) :: {:error, String.t()} | {:error, Error.t()}
+  defp decode_error(code, encoded_message) do
+    with {:ok, error_message} <- decode_error_message(encoded_message) do
       {:error, %Error{code: code, message: error_message}}
     end
   end
