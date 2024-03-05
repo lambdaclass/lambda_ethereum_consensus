@@ -27,6 +27,14 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
       # {"sync_committee_0", Types.SyncCommitteeMessage}
     ]
 
+    # Add blob sidecar topics
+    # NOTE: there's one per blob index in Deneb (6 blobs per block)
+    topics =
+      topics ++
+        Enum.map(0..5, fn i ->
+          {"blob_sidecar_#{i}", Types.BlobSidecar, &Handler.handle_blob_sidecar(&1, i)}
+        end)
+
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
     children =

@@ -3,6 +3,7 @@ defmodule Types.BeaconBlocksByRangeRequest do
   Struct definition for `BeaconBlocksByRangeRequest`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   @enforce_keys [:start_slot, :count]
   defstruct [
@@ -17,4 +18,13 @@ defmodule Types.BeaconBlocksByRangeRequest do
           # Deprecated, must be set to 1
           step: Types.uint64()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      start_slot: TypeAliases.slot(),
+      count: TypeAliases.uint64(),
+      step: TypeAliases.uint64()
+    ]
+  end
 end
