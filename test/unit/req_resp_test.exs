@@ -4,9 +4,7 @@ defmodule Unit.ReqRespTest do
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.BeaconBlocksByRangeRequest
-  alias Types.BeaconBlocksByRootRequest
   alias Types.BlobIdentifier
-  alias Types.BlobSidecarsByRootRequest
 
   use ExUnit.Case
   # TODO: try not to use patch
@@ -87,13 +85,15 @@ defmodule Unit.ReqRespTest do
     )
   end
 
-  defp assert_complex_request_roundtrip(%request_type{} = request, response) do
+  defp assert_complex_request_roundtrip(request, request_type, response) do
     [%response_type{} | _] = response
     context_bytes = "abcd"
     patch(BeaconChain, :get_fork_digest, context_bytes)
     payloads = Enum.map(response, fn x -> {:ok, {x, context_bytes}} end)
 
-    decoded_request = ReqResp.encode_request(request) |> ReqResp.decode_request(request_type)
+    decoded_request =
+      ReqResp.encode_request({request, request_type}) |> ReqResp.decode_request(request_type)
+
     assert decoded_request == {:ok, request}
 
     decoded_response = ReqResp.encode_response(payloads) |> ReqResp.decode_response(response_type)
@@ -104,14 +104,19 @@ defmodule Unit.ReqRespTest do
     count = 5
     request = %BeaconBlocksByRangeRequest{start_slot: 15_125, count: count}
     response = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
-    assert_complex_request_roundtrip(request, response)
+    assert_complex_request_roundtrip(request, BeaconBlocksByRangeRequest, response)
   end
 
   test "BeaconBlocksByRoot round trip" do
     count = 5
-    request = %BeaconBlocksByRootRequest{body: Enum.map(1..count, &<<&1::256>>)}
+    request = Enum.map(1..count, &<<&1::256>>)
     response = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
-    assert_complex_request_roundtrip(request, response)
+
+    assert_complex_request_roundtrip(
+      request,
+      TypeAliases.beacon_blocks_by_root_request(),
+      response
+    )
   end
 
   test "BlobSidecarsByRange round trip" do
@@ -131,15 +136,13 @@ defmodule Unit.ReqRespTest do
         }
       ]
 
-    assert_complex_request_roundtrip(request, response)
+    assert_complex_request_roundtrip(request, BeaconBlocksByRangeRequest, response)
   end
 
   test "BlobSidecarsByRoot round trip" do
     count = 1
 
-    request = %BlobSidecarsByRootRequest{
-      body: Enum.map(1..count, &%BlobIdentifier{block_root: <<&1::256>>, index: &1})
-    }
+    request = Enum.map(1..count, &%BlobIdentifier{block_root: <<&1::256>>, index: &1})
 
     # TODO: generate randomly
     response =
@@ -154,6 +157,10 @@ defmodule Unit.ReqRespTest do
         }
       ]
 
-    assert_complex_request_roundtrip(request, response)
+    assert_complex_request_roundtrip(
+      request,
+      TypeAliases.blob_sidecars_by_root_request(),
+      response
+    )
   end
 end
