@@ -14,6 +14,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     Attestation,
     AttestationData,
     AttesterSlashing,
+    BeaconState,
     Checkpoint,
     IndexedAttestation,
     SignedBeaconBlock,
@@ -369,22 +370,27 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Store target checkpoint state if not yet seen
-  def store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
+  defp store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
     if Map.has_key?(store.checkpoint_states, target) do
       {:ok, store}
     else
-      target_slot = Misc.compute_start_slot_at_epoch(target.epoch)
-
-      BlockStates.get_state!(target.root)
-      |> then(
-        &if(&1.slot < target_slot,
-          do: StateTransition.process_slots(&1, target_slot),
-          else: {:ok, &1}
-        )
-      )
+      compute_target_checkpoint_state(target.epoch, target.root)
       |> map_ok(
         &{:ok, %Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)}}
       )
+    end
+  end
+
+  @spec compute_target_checkpoint_state(Types.epoch(), Types.root()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def compute_target_checkpoint_state(target_epoch, target_root) do
+    target_slot = Misc.compute_start_slot_at_epoch(target_epoch)
+    state = BlockStates.get_state!(target_root)
+
+    if state.slot < target_slot do
+      StateTransition.process_slots(state, target_slot)
+    else
+      {:ok, state}
     end
   end
 
