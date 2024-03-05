@@ -28,11 +28,6 @@ pub(crate) struct BeaconBlocksByRangeResponse<C: Config> {
 }
 
 #[derive(Encode, Decode, TreeHash)]
-pub(crate) struct BeaconBlocksByRootRequest {
-    pub(crate) body: VariableList<Root, MaxRequestBlocks>,
-}
-
-#[derive(Encode, Decode, TreeHash)]
 pub(crate) struct BeaconBlocksByRootResponse<C: Config> {
     pub(crate) body: VariableList<SignedBeaconBlock<C>, MaxRequestBlocks>,
 }

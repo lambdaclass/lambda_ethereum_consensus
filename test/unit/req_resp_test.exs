@@ -4,7 +4,6 @@ defmodule Unit.ReqRespTest do
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.BeaconBlocksByRangeRequest
-  alias Types.BeaconBlocksByRootRequest
 
   use ExUnit.Case
   # TODO: try not to use patch
@@ -108,14 +107,14 @@ defmodule Unit.ReqRespTest do
 
   test "BeaconBlocksByRoot round trip" do
     count = 5
-    request = %BeaconBlocksByRootRequest{body: Enum.map(1..count, &<<&1::256>>)}
+    request = Enum.map(1..count, &<<&1::256>>)
     context_bytes = "abcd"
     patch(BeaconChain, :get_fork_digest, context_bytes)
     blocks = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
 
     result =
-      ReqResp.encode_request(request)
-      |> ReqResp.decode_request(BeaconBlocksByRootRequest)
+      ReqResp.encode_request({request, TypeAliases.beacon_blocks_by_root_request()})
+      |> ReqResp.decode_request(TypeAliases.beacon_blocks_by_root_request())
 
     assert result == {:ok, request}
 

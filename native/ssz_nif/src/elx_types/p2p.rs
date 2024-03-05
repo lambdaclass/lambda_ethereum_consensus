@@ -34,14 +34,6 @@ gen_struct_with_config!(
     }
 );
 
-gen_struct!(
-    #[derive(NifStruct)]
-    #[module = "Types.BeaconBlocksByRootRequest"]
-    pub(crate) struct BeaconBlocksByRootRequest<'a> {
-        body: Vec<Root<'a>>,
-    }
-);
-
 gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "Types.BeaconBlocksByRootResponse"]
