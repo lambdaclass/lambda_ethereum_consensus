@@ -8,31 +8,17 @@ switches = [
   mock_execution: :boolean,
   mode: :string,
   datadir: :string,
-  metrics: :string,
+  metrics: :boolean,
+  metrics_port: :integer,
   log_file: :string
 ]
 
 is_testing = Config.config_env() == :test
 
-{args, remaining_args, invalid} = OptionParser.parse(System.argv(), [{:strict, switches}])
+# NOTE: we ignore invalid options because `mix test` passes us all test flags
+option = if is_testing, do: :switches, else: :strict
 
-args =
-  args ++
-    Enum.flat_map(invalid, fn
-      {"--metrics", nil} ->
-        [{:metrics, 9568}]
-
-      {flag, nil} when not is_testing ->
-        IO.puts("Invalid argument received: #{flag}")
-        System.halt(1)
-
-      {flag, value} when not is_testing ->
-        IO.puts("Invalid argument received: #{flag} #{value}")
-        System.halt(1)
-
-      _ ->
-        []
-    end)
+{args, remaining_args} = OptionParser.parse!(System.argv(), [{option, switches}])
 
 if not is_testing and not Enum.empty?(remaining_args) do
   invalid_arg = Enum.take(remaining_args, 1)
@@ -44,7 +30,8 @@ network = Keyword.get(args, :network, "mainnet")
 checkpoint_sync_url = Keyword.get(args, :checkpoint_sync_url)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
-metrics_port = Keyword.get(args, :metrics)
+enable_metrics = Keyword.get(args, :metrics, false)
+metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync_url: checkpoint_sync_url
