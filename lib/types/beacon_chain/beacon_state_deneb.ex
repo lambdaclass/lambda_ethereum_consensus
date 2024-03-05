@@ -1,10 +1,10 @@
-defmodule Types.BeaconStateDeneb do
+defmodule Types.BeaconState do
   @moduledoc """
   Struct definition for `BeaconState`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias Types.ExecutionPayloadHeader
+  alias Types.ExecutionPayloadHeaderDeneb
 
   @behaviour LambdaEthereumConsensus.Container
 
@@ -93,7 +93,7 @@ defmodule Types.BeaconStateDeneb do
           next_sync_committee: Types.SyncCommittee.t(),
           # Execution
           # [Modified in Capella]
-          latest_execution_payload_header: Types.ExecutionPayloadHeader.t(),
+          latest_execution_payload_header: ExecutionPayloadHeaderDeneb.t(),
           # Withdrawals
           # [New in Capella]
           next_withdrawal_index: Types.withdrawal_index(),
@@ -115,7 +115,7 @@ defmodule Types.BeaconStateDeneb do
     |> Map.update!(:randao_mixes, &Aja.Vector.to_list/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.to_list/1)
-    |> Map.update!(:latest_execution_payload_header, &ExecutionPayloadHeader.encode/1)
+    |> Map.update!(:latest_execution_payload_header, &ExecutionPayloadHeaderDeneb.encode/1)
     |> Map.update!(:justification_bits, &BitVector.to_bytes/1)
   end
 
@@ -126,7 +126,7 @@ defmodule Types.BeaconStateDeneb do
     |> Map.update!(:randao_mixes, &Aja.Vector.new/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
-    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
+    |> Map.update!(:latest_execution_payload_header, &ExecutionPayloadHeaderDeneb.decode/1)
     |> Map.update!(:justification_bits, fn bits ->
       BitVector.new(bits, Constants.justification_bits_length())
     end)
@@ -147,7 +147,7 @@ defmodule Types.BeaconStateDeneb do
   @spec merge_transition_complete?(t()) :: boolean()
   def merge_transition_complete?(state) do
     state.latest_execution_payload_header !=
-      struct(Types.ExecutionPayload, Types.ExecutionPayloadHeader.default())
+      struct(Types.ExecutionPayload, ExecutionPayloadHeaderDeneb.default())
   end
 
   @doc """
@@ -284,7 +284,7 @@ defmodule Types.BeaconStateDeneb do
        {:list, TypeAliases.uint64(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
       {:current_sync_committee, Types.SyncCommittee},
       {:next_sync_committee, Types.SyncCommittee},
-      {:latest_execution_payload_header, Types.ExecutionPayloadHeader},
+      {:latest_execution_payload_header, ExecutionPayloadHeaderDeneb},
       {:next_withdrawal_index, TypeAliases.withdrawal_index()},
       {:next_withdrawal_validator_index, TypeAliases.validator_index()},
       {:historical_summaries,

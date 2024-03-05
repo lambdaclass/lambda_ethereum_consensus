@@ -249,27 +249,34 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                  payload.withdrawals,
                  ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
                ) do
-          {:ok,
-           %BeaconState{
-             state
-             | latest_execution_payload_header: %ExecutionPayloadHeader{
-                 parent_hash: payload.parent_hash,
-                 fee_recipient: payload.fee_recipient,
-                 state_root: payload.state_root,
-                 receipts_root: payload.receipts_root,
-                 logs_bloom: payload.logs_bloom,
-                 prev_randao: payload.prev_randao,
-                 block_number: payload.block_number,
-                 gas_limit: payload.gas_limit,
-                 gas_used: payload.gas_used,
-                 timestamp: payload.timestamp,
-                 extra_data: payload.extra_data,
-                 base_fee_per_gas: payload.base_fee_per_gas,
-                 block_hash: payload.block_hash,
-                 transactions_root: transactions_root,
-                 withdrawals_root: withdrawals_root
-               }
-           }}
+          fields =
+            [
+              parent_hash: payload.parent_hash,
+              fee_recipient: payload.fee_recipient,
+              state_root: payload.state_root,
+              receipts_root: payload.receipts_root,
+              logs_bloom: payload.logs_bloom,
+              prev_randao: payload.prev_randao,
+              block_number: payload.block_number,
+              gas_limit: payload.gas_limit,
+              gas_used: payload.gas_used,
+              timestamp: payload.timestamp,
+              extra_data: payload.extra_data,
+              base_fee_per_gas: payload.base_fee_per_gas,
+              block_hash: payload.block_hash,
+              transactions_root: transactions_root,
+              withdrawals_root: withdrawals_root
+            ] ++
+              if HardForkAliasInjection.is_deneb(),
+                do: [
+                  blob_gas_used: payload.blob_gas_used,
+                  excess_blob_gas: payload.excess_blob_gas
+                ],
+                else: []
+
+          header = struct!(ExecutionPayloadHeader, fields)
+
+          {:ok, %BeaconState{state | latest_execution_payload_header: header}}
         end
     end
   end

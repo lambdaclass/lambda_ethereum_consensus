@@ -3,7 +3,7 @@ import Config
 
 # Configure fork
 # Available: :capella, :deneb
-config :lambda_ethereum_consensus, :fork, :capella
+config :lambda_ethereum_consensus, :fork, :deneb
 
 # Configure logging
 config :logger, level: :info, truncate: :infinity
