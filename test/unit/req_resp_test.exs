@@ -47,7 +47,7 @@ defmodule Unit.ReqRespTest do
       "011CFF060000734E6150705900220000EF99F84B1C6C4661696C656420746F20756E636F6D7072657373206D657373616765"
       |> Base.decode16!()
 
-    expected_result = {:error, {1, {:ok, "Failed to uncompress message"}}}
+    expected_result = {:error, %ReqResp.Error{code: 1, message: "Failed to uncompress message"}}
 
     assert ReqResp.decode_response_chunk(msg, TypeAliases.uint64()) == expected_result
   end
