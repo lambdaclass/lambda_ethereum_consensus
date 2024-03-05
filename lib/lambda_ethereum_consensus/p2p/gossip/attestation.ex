@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.SszEx
 
   def join(subnet_id) do
     topic = get_topic_name(subnet_id)
@@ -21,6 +22,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     P2P.Metadata.clear_attnet(subnet_id)
     # NOTE: this depends on the metadata being updated
     update_enr()
+  end
+
+  def publish(subnet_id, %Types.Attestation{} = attestation) do
+    topic = get_topic_name(subnet_id)
+    {:ok, encoded} = SszEx.encode(attestation, Types.Attestation)
+    {:ok, message} = :snappyer.compress(encoded)
+    Libp2pPort.publish(topic, message)
   end
 
   defp get_topic_name(subnet_id) do

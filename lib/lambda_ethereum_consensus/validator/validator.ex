@@ -163,8 +163,9 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp attest(state) do
     {current_duty, _} = state.duties
-    produce_attestation(current_duty, state.root, state.privkey)
-    # TODO: propagate attestation
+    {subnet_id, attestation} = produce_attestation(current_duty, state.root, state.privkey)
+    Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
+    Gossip.Attestation.publish(subnet_id, attestation)
     :ok
   end
 
@@ -197,6 +198,13 @@ defmodule LambdaEthereumConsensus.Validator do
 
     signature = Utils.get_attestation_signature(head_state, attestation_data, privkey)
 
-    %Attestation{data: attestation_data, aggregation_bits: bits, signature: signature}
+    attestation = %Attestation{
+      data: attestation_data,
+      aggregation_bits: bits,
+      signature: signature
+    }
+
+    subnet_id = compute_subnet_ids_for_duties([duty], head_state, head_epoch)
+    {subnet_id, attestation}
   end
 end
