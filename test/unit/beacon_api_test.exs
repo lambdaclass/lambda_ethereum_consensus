@@ -15,7 +15,7 @@ defmodule BeaconApiTest do
 
   setup do
     Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
-    |> Keyword.merge(config: MainnetConfig, genesis_validators_root: <<42::256>>)
+    |> Keyword.merge(config: MainnetConfig)
     |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
 
     head_root =
