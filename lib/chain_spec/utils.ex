@@ -24,4 +24,15 @@ defmodule ConfigUtils do
     # The order is to ensure that the later forks override the earlier ones.
     |> Enum.reduce(&Map.merge(&2, &1))
   end
+
+  def parse_config("mainnet"), do: MainnetConfig
+  def parse_config("sepolia"), do: SepoliaConfig
+  def parse_config("minimal"), do: MinimalConfig
+  def parse_config("gnosis"), do: GnosisConfig
+  def parse_config(other), do: raise("Unknown config: #{other}")
+
+  def parse_preset("mainnet"), do: MainnetPreset
+  def parse_preset("minimal"), do: MinimalPreset
+  def parse_preset("gnosis"), do: GnosisPreset
+  def parse_preset(other), do: raise("Unknown preset: #{other}")
 end

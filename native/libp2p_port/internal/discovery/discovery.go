@@ -23,6 +23,7 @@ import (
 type Discoverer struct {
 	port           *port.Port
 	discv5_service *discover.UDPv5
+	forkUpdates    chan [4]byte
 }
 
 func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpers.Config) Discoverer {
@@ -35,7 +36,6 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 	privKey, err := utils.ConvertFromInterfacePrivKey(intPrivKey)
 	utils.PanicIfError(err)
 
-	currentForkDigest := config.ForkDigest
 	bootnodes := make([]*enode.Node, 0, len(config.Bootnodes))
 
 	for _, strBootnode := range config.Bootnodes {
@@ -59,26 +59,25 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 	localNode.SetFallbackIP(udpAddr.IP)
 	localNode.SetFallbackUDP(udpAddr.Port)
 
-	// TODO: these values shouldn't be hardcoded
-	nextFork := []byte{255, 255, 255, 255, 255, 255, 255, 255}
-	enrForkID := append(currentForkDigest, currentForkDigest...)
-	enrForkID = append(enrForkID, nextFork...)
-	localNode.Set(enr.WithEntry("eth2", enrForkID))
-	localNode.Set(enr.WithEntry("attnets", []byte{0, 0, 0, 0, 0, 0, 0, 0}))
-	localNode.Set(enr.WithEntry("syncnets", []byte{0}))
+	updateEnr(localNode, config.InitialEnr)
 
 	discv5_service, err := discover.ListenV5(conn, localNode, cfg)
 	utils.PanicIfError(err)
 
-	go lookForPeers(discv5_service.RandomNodes(), listener, currentForkDigest)
+	forkUpdates := make(chan [4]byte, 1)
+	forkUpdates <- [4]byte(config.InitialEnr.Eth2[:4])
 
-	return Discoverer{port: p, discv5_service: discv5_service}
+	go lookForPeers(discv5_service.RandomNodes(), listener, forkUpdates)
+
+	return Discoverer{port: p, discv5_service: discv5_service, forkUpdates: forkUpdates}
 }
 
-func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, currentForkDigest []byte) {
+func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, forkUpdates chan [4]byte) {
+	currentForkDigest := <-forkUpdates
 	for iter.Next() {
 		node := iter.Node()
-		if !filterPeer(node, currentForkDigest) {
+		updateForkDigest(currentForkDigest[:], forkUpdates)
+		if !filterPeer(node, currentForkDigest[:]) {
 			continue
 		}
 		var addrArr []string
@@ -105,6 +104,15 @@ func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, currentForkDi
 	}
 }
 
+func updateForkDigest(currentForkDigest []byte, forkUpdates chan [4]byte) {
+	select {
+	case newForkDigest := <-forkUpdates:
+		copy(currentForkDigest, newForkDigest[:])
+	default:
+		return
+	}
+}
+
 // Taken from Prysm: https://github.com/prysmaticlabs/prysm/blob/d5057cfb42fe501e4381177aaa4f45ac6086651f/beacon-chain/p2p/discovery.go#L267
 
 // filterPeer validates each node that we retrieve from our dht. We
@@ -113,9 +121,9 @@ func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, currentForkDi
 //  1. The local node is still actively looking for peers to
 //     connect to.
 //  2. Peer has a valid IP and TCP port set in their enr.
-//  3. Peer hasn't been marked as 'bad'
-//  4. Peer is not currently active or connected.
-//  5. Peer is ready to receive incoming connections.
+//  3. ~Peer hasn't been marked as 'bad'~
+//  4. ~Peer is not currently active or connected.~
+//  5. ~Peer is ready to receive incoming connections.~
 //  6. Peer's fork digest in their ENR matches that of
 //     our localnodes.
 func filterPeer(node *enode.Node, currentForkDigest []byte) bool {
@@ -138,10 +146,22 @@ func filterPeer(node *enode.Node, currentForkDigest []byte) bool {
 	entry := enr.WithEntry("eth2", &sszEncodedForkEntry)
 	nodeENR.Load(entry)
 	forkDigest := sszEncodedForkEntry[:4]
-	if !bytes.Equal(currentForkDigest, forkDigest) {
-		return false
+	return bytes.Equal(currentForkDigest, forkDigest)
+}
+
+func (d *Discoverer) UpdateEnr(enr proto_helpers.Enr) {
+	if d == nil {
+		return
 	}
-	return true
+	localNode := d.discv5_service.LocalNode()
+	updateEnr(localNode, enr)
+	d.forkUpdates <- [4]byte(enr.Eth2[:4])
+}
+
+func updateEnr(localNode *enode.LocalNode, e proto_helpers.Enr) {
+	localNode.Set(enr.WithEntry("eth2", e.Eth2))
+	localNode.Set(enr.WithEntry("attnets", e.Attnets))
+	localNode.Set(enr.WithEntry("syncnets", e.Syncnets))
 }
 
 func convertToAddrInfo(node *enode.Node) (*peer.AddrInfo, ma.Multiaddr, error) {
