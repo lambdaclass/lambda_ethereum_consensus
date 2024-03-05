@@ -6,6 +6,8 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
 
+  use HardForkAliasInjection
+
   @doc """
     Return the committee assignment in the ``epoch`` for ``validator_index``.
     ``assignment`` returned is a tuple of the following form:

@@ -8,7 +8,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.{BlockDb, StateDb}
 
+  alias Types.BeaconState
+  alias Types.SignedBeaconBlock
   alias Types.Store
+
+  use HardForkAliasInjection
 
   @spec current_status_message(Store.t()) ::
           {:ok, Types.StatusMessage.t()} | {:error, any}
@@ -181,10 +185,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   @type block_id() :: named_root() | :invalid_id | Types.slot() | Types.root()
   @type state_id() :: named_root() | :invalid_id | Types.slot() | Types.root()
   @type block_info() ::
-          {Types.SignedBeaconBlock.t(), execution_optimistic? :: boolean(),
-           finalized? :: boolean()}
+          {SignedBeaconBlock.t(), execution_optimistic? :: boolean(), finalized? :: boolean()}
   @type state_info() ::
-          {Types.BeaconState.t(), execution_optimistic? :: boolean(), finalized? :: boolean()}
+          {BeaconState.t(), execution_optimistic? :: boolean(), finalized? :: boolean()}
   @type root_info() ::
           {Types.root(), execution_optimistic? :: boolean(), finalized? :: boolean()}
   @type finality_info() ::

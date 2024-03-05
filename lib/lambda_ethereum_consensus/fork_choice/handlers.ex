@@ -21,6 +21,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     Store
   }
 
+  use HardForkAliasInjection
+
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
 
   ### Public API ###

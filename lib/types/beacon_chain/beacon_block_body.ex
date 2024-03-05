@@ -5,6 +5,8 @@ defmodule Types.BeaconBlockBody do
   """
   @behaviour LambdaEthereumConsensus.Container
 
+  use HardForkAliasInjection
+
   fields = [
     :randao_reveal,
     :eth1_data,

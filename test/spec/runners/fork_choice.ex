@@ -12,6 +12,8 @@ defmodule ForkChoiceTestRunner do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
+  use HardForkAliasInjection
+
   @disabled_on_block_cases [
     # "basic",
     # "incompatible_justification_update_end_of_epoch",

@@ -17,10 +17,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     BeaconBlockHeader,
     BeaconState,
     ExecutionPayload,
+    ExecutionPayloadHeader,
     SyncAggregate,
     Validator,
     Withdrawal
   }
+
+  use HardForkAliasInjection
 
   @spec process_block_header(BeaconState.t(), BeaconBlock.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
@@ -220,7 +223,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       ) do
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
-      Types.BeaconState.merge_transition_complete?(state) and
+      BeaconState.merge_transition_complete?(state) and
           payload.parent_hash != state.latest_execution_payload_header.block_hash ->
         {:error, "Inconsistency in parent hash"}
 
@@ -249,7 +252,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           {:ok,
            %BeaconState{
              state
-             | latest_execution_payload_header: %Types.ExecutionPayloadHeader{
+             | latest_execution_payload_header: %ExecutionPayloadHeader{
                  parent_hash: payload.parent_hash,
                  fee_recipient: payload.fee_recipient,
                  state_root: payload.state_root,

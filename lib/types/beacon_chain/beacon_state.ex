@@ -4,6 +4,9 @@ defmodule Types.BeaconState do
   Related definitions in `native/ssz_nif/src/types/`.
   """
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias Types.ExecutionPayloadHeader
+
+  use HardForkAliasInjection
 
   @behaviour LambdaEthereumConsensus.Container
 
@@ -114,7 +117,7 @@ defmodule Types.BeaconState do
     |> Map.update!(:randao_mixes, &Aja.Vector.to_list/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.to_list/1)
-    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
+    |> Map.update!(:latest_execution_payload_header, &ExecutionPayloadHeader.encode/1)
     |> Map.update!(:justification_bits, &BitVector.to_bytes/1)
   end
 
