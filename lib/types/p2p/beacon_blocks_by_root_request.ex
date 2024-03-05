@@ -3,6 +3,7 @@ defmodule Types.BeaconBlocksByRootRequest do
   Struct definition for `BeaconBlocksByRootRequest`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  @behaviour LambdaEthereumConsensus.Container
 
   fields = [
     :body
@@ -14,4 +15,7 @@ defmodule Types.BeaconBlocksByRootRequest do
   @type t :: %__MODULE__{
           body: list(Types.root())
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema, do: [body: {:list, TypeAliases.root(), ChainSpec.get("MAX_REQUEST_BLOCKS")}]
 end

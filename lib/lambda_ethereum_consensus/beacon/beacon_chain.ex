@@ -70,24 +70,21 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     Misc.compute_epoch_at_slot(get_current_slot())
   end
 
-  @spec get_fork_digest() :: binary()
+  @spec get_fork_digest() :: Types.fork_digest()
   def get_fork_digest do
-    GenServer.call(__MODULE__, {:get_fork_digest, nil})
+    GenServer.call(__MODULE__, :get_fork_digest)
   end
 
   @spec get_fork_digest_for_slot(Types.slot()) :: binary()
   def get_fork_digest_for_slot(slot) do
-    GenServer.call(__MODULE__, {:get_fork_digest, slot})
+    compute_fork_digest(slot, ChainSpec.get_genesis_validators_root())
   end
 
   @spec get_fork_version() :: Types.version()
   def get_fork_version, do: GenServer.call(__MODULE__, :get_fork_version)
 
   @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
-  def get_current_status_message do
-    status_message = GenServer.call(__MODULE__, :get_current_status_message)
-    {:ok, status_message}
-  end
+  def get_current_status_message, do: GenServer.call(__MODULE__, :get_current_status_message)
 
   ##########################
   ### GenServer Callbacks
@@ -124,13 +121,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @impl true
-  def handle_call({:get_fork_digest, slot}, _from, state) do
+  def handle_call(:get_fork_digest, _from, state) do
     fork_digest =
-      case slot do
-        nil -> compute_current_slot(state)
-        _ -> slot
-      end
-      |> compute_fork_digest(state.genesis_validators_root)
+      compute_current_slot(state) |> compute_fork_digest(state.genesis_validators_root)
 
     {:reply, fork_digest, state}
   end

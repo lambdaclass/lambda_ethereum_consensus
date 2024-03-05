@@ -67,7 +67,7 @@ defmodule Types.ExecutionPayloadDeneb do
       {:fee_recipient, TypeAliases.execution_address()},
       {:state_root, TypeAliases.root()},
       {:receipts_root, TypeAliases.root()},
-      {:logs_bloom, {:vector, {:int, 8}, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
+      {:logs_bloom, {:vector, :bytes, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
       {:prev_randao, TypeAliases.bytes32()},
       {:block_number, TypeAliases.uint64()},
       {:gas_limit, TypeAliases.uint64()},

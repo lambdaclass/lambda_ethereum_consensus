@@ -13,6 +13,7 @@ defmodule LambdaEthereumConsensus.P2P.Utils do
 
   @spec decode_varint(binary()) :: {non_neg_integer(), binary()}
   # PERF: use `Protobuf.Wire.Varint.defdecoderp` macro for this
+  # TODO: limit amount of recursive calls
   def decode_varint(bin), do: decode_varint(bin, 0, 0)
 
   defp decode_varint("", acc, _), do: {acc, ""}
