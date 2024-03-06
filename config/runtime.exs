@@ -9,6 +9,8 @@ switches = [
   mode: :string,
   datadir: :string,
   testnet_dir: :string,
+  metrics: :boolean,
+  metrics_port: :integer,
   log_file: :string
 ]
 
@@ -30,6 +32,8 @@ checkpoint_sync_url = Keyword.get(args, :checkpoint_sync_url)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
 testnet_dir = Keyword.get(args, :testnet_dir)
+enable_metrics = Keyword.get(args, :metrics, false)
+metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync_url: checkpoint_sync_url
@@ -113,7 +117,8 @@ block_time_ms =
   end
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
-  block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms))
+  block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms)),
+  port: metrics_port
 
 # Logging
 
