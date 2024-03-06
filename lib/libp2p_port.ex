@@ -208,7 +208,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "elixir->"
     })
 
-    cast_command(pid, {:unsubscribe, %LeaveTopic{name: topic_name}})
+    cast_command(pid, {:leave, %LeaveTopic{name: topic_name}})
   end
 
   @doc """
