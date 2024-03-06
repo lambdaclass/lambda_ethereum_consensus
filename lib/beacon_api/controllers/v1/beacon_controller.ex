@@ -1,21 +1,42 @@
 defmodule BeaconApi.V1.BeaconController do
+  use BeaconApi, :controller
+
   alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
-
+  alias BeaconApi.Utils
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
-  use BeaconApi, :controller
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
-  def open_api_operation(action) when is_atom(action) do
-    # NOTE: action can take a bounded amount of values
-    apply(__MODULE__, :"#{action}_operation", [])
-  end
+  # NOTE: this function is required by OpenApiSpex, and should return the information
+  #  of each specific endpoint. We just return the specific entry from the parsed spec.
+  def open_api_operation(:get_genesis),
+    do: ApiSpec.spec().paths["/eth/v1/beacon/genesis"].get
 
-  def get_state_root_operation,
+  def open_api_operation(:get_state_root),
     do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/root"].get
+
+  def open_api_operation(:get_block_root),
+    do: ApiSpec.spec().paths["/eth/v1/beacon/blocks/{block_id}/root"].get
+
+  def open_api_operation(:get_finality_checkpoints),
+    do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/finality_checkpoints"].get
+
+  @spec get_genesis(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def get_genesis(conn, _params) do
+    conn
+    |> json(%{
+      "data" => %{
+        "genesis_time" => BeaconChain.get_genesis_time(),
+        "genesis_validators_root" =>
+          ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
+        "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
+      }
+    })
+  end
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_state_root(conn, %{state_id: state_id}) do
@@ -39,9 +60,6 @@ defmodule BeaconApi.V1.BeaconController do
         end
     end
   end
-
-  def get_block_root_operation,
-    do: ApiSpec.spec().paths["/eth/v1/beacon/blocks/{block_id}/root"].get
 
   @spec get_block_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_block_root(conn, %{block_id: "head"}) do
@@ -86,9 +104,6 @@ defmodule BeaconApi.V1.BeaconController do
         conn |> ErrorController.bad_request("Invalid block ID: #{block_id}")
     end
   end
-
-  def get_finality_checkpoints_operation,
-    do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/finality_checkpoints"].get
 
   @spec get_finality_checkpoints(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_finality_checkpoints(conn, %{state_id: state_id}) do
@@ -154,15 +169,15 @@ defmodule BeaconApi.V1.BeaconController do
       data: %{
         previous_justified: %{
           epoch: previous_justified_checkpoint.epoch,
-          root: "0x" <> Base.encode16(previous_justified_checkpoint.root, case: :lower)
+          root: Utils.hex_encode(previous_justified_checkpoint.root)
         },
         current_justified: %{
           epoch: current_justified_checkpoint.epoch,
-          root: "0x" <> Base.encode16(current_justified_checkpoint.root, case: :lower)
+          root: Utils.hex_encode(current_justified_checkpoint.root)
         },
         finalized: %{
           epoch: finalized_checkpoint.epoch,
-          root: "0x" <> Base.encode16(finalized_checkpoint.root, case: :lower)
+          root: Utils.hex_encode(finalized_checkpoint.root)
         }
       }
     })

@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
   Telemetry module for the consensus node.
   """
   use Supervisor
+  require Logger
   import Telemetry.Metrics
 
   def start_link(arg) do
@@ -11,22 +12,32 @@ defmodule LambdaEthereumConsensus.Telemetry do
 
   @impl true
   def init(_arg) do
+    opts = Application.get_env(:lambda_ethereum_consensus, __MODULE__)
+
+    case Keyword.get(opts, :port) do
+      nil -> :ignore
+      _ -> start_app(opts)
+    end
+  end
+
+  defp start_app(opts) do
+    port = Keyword.get(opts, :port, 9568)
+    Logger.info("Serving metrics on port #{port}")
+
     children = [
       # Telemetry poller will execute the given period measurements
       # every 10_000ms. Learn more here: https://hexdocs.pm/telemetry_metrics
       {:telemetry_poller, measurements: periodic_measurements(), period: 15_000},
       # Add reporters as children of your supervision tree.
       # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()},
-      {TelemetryMetricsPrometheus, [metrics: metrics()]}
+      {TelemetryMetricsPrometheus, [metrics: metrics(opts), port: port]}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  def metrics do
-    buckets =
-      Application.get_env(:lambda_ethereum_consensus, __MODULE__)
-      |> Keyword.fetch!(:block_processing_buckets)
+  def metrics(opts) do
+    buckets = Keyword.fetch!(opts, :block_processing_buckets)
 
     [
       # Phoenix Metrics

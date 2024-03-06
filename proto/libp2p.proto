@@ -10,7 +10,7 @@ message InitArgs {
     bool enable_discovery = 2;
     string discovery_addr = 3;
     repeated string bootnodes = 4;
-    bytes fork_digest = 5;
+    Enr initial_enr = 5;
 }
 
 message SetHandler {
@@ -86,6 +86,12 @@ message SendResponse {
     bytes message = 2;
 }
 
+message Enr {
+    bytes eth2 = 1;
+    bytes attnets = 2;
+    bytes syncnets = 3;
+}
+
 message GetId {}
 
 message Publish {
@@ -116,6 +122,7 @@ message Command {
         GetId get_id = 8;
         Publish publish = 9;
         ValidateMessage validate_message = 10;
+        Enr update_enr = 11;
     }
 }
 

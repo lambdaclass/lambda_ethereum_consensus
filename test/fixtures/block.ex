@@ -90,6 +90,14 @@ defmodule Fixtures.Block do
   end
 
   @spec beacon_block_header :: Types.BeaconBlockHeader.t()
+  def signed_beacon_block_header do
+    %Types.SignedBeaconBlockHeader{
+      message: beacon_block_header(),
+      signature: Random.bls_signature()
+    }
+  end
+
+  @spec beacon_block_header :: Types.BeaconBlockHeader.t()
   def beacon_block_header do
     %Types.BeaconBlockHeader{
       slot: Random.uint64(),
@@ -123,13 +131,13 @@ defmodule Fixtures.Block do
       fee_recipient: Random.binary(20),
       state_root: Random.root(),
       receipts_root: Random.root(),
-      logs_bloom: [],
+      logs_bloom: Random.binary(256),
       prev_randao: Random.binary(32),
       block_number: Random.uint64(),
       gas_limit: Random.uint64(),
       gas_used: Random.uint64(),
       timestamp: Random.uint64(),
-      extra_data: [],
+      extra_data: Random.binary(30),
       base_fee_per_gas: Random.uint256(),
       block_hash: Random.binary(32),
       transactions_root: Random.root(),

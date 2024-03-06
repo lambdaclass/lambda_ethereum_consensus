@@ -16,13 +16,31 @@ defmodule TypeAliases do
   def execution_address, do: {:bytes, 20}
   def version, do: {:bytes, 4}
   def domain, do: {:bytes, 32}
+  def domain_type, do: {:bytes, 4}
+  def fork_digest, do: {:bytes, 4}
+  def blob_index, do: uint64()
+
+  def blob,
+    do: {:bytes, Constants.bytes_per_field_element() * ChainSpec.get("FIELD_ELEMENTS_PER_BLOB")}
+
+  def kzg_commitment, do: {:bytes, 48}
+  def kzg_proof, do: {:bytes, 48}
+
   def bytes32, do: {:bytes, 32}
   def uint64, do: {:int, 64}
   def hash32, do: {:bytes, 32}
   def uint256, do: {:int, 256}
-  def transaction, do: byte_list(ChainSpec.get("MAX_BYTES_PER_TRANSACTION"))
-  def domain_type, do: {:bytes, 4}
-  def fork_digest, do: {:bytes, 4}
 
-  def byte_list(n), do: {:list, {:int, 8}, n}
+  def transactions do
+    transaction = {:byte_list, ChainSpec.get("MAX_BYTES_PER_TRANSACTION")}
+    {:list, transaction, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}
+  end
+
+  def beacon_blocks_by_root_request,
+    do: {:list, TypeAliases.root(), ChainSpec.get("MAX_REQUEST_BLOCKS")}
+
+  def blob_sidecars_by_root_request,
+    do: {:list, Types.BlobIdentifier, ChainSpec.get("MAX_REQUEST_BLOB_SIDECARS")}
+
+  def error_message, do: {:bytes, 256}
 end

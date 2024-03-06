@@ -28,34 +28,32 @@ gen_struct!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "Types.BeaconBlocksByRangeResponse"]
-    pub(crate) struct BeaconBlocksByRangeResponse<'a> {
-        body: Vec<SignedBeaconBlock<'a>>,
-    }
-);
-
-gen_struct!(
-    #[derive(NifStruct)]
-    #[module = "Types.BeaconBlocksByRootRequest"]
-    pub(crate) struct BeaconBlocksByRootRequest<'a> {
-        body: Vec<Root<'a>>,
-    }
-);
-
-gen_struct_with_config!(
-    #[derive(NifStruct)]
-    #[module = "Types.BeaconBlocksByRootResponse"]
-    pub(crate) struct BeaconBlocksByRootResponse<'a> {
-        body: Vec<SignedBeaconBlock<'a>>,
-    }
-);
-
-gen_struct_with_config!(
-    #[derive(NifStruct)]
     #[module = "Types.Metadata"]
     pub(crate) struct Metadata<'a> {
         seq_number: u64,
         attnets: Binary<'a>,
         syncnets: Binary<'a>,
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "Types.BlobSidecar"]
+    pub(crate) struct BlobSidecar<'a> {
+        index: BlobIndex,
+        blob: Blob<'a>,
+        kzg_commitment: KZGCommitment<'a>,
+        kzg_proof: KZGProof<'a>,
+        signed_block_header: SignedBeaconBlockHeader<'a>,
+        kzg_commitment_inclusion_proof: Vec<Bytes32<'a>>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.BlobIdentifier"]
+    pub(crate) struct BlobIdentifier<'a> {
+        block_root: Root<'a>,
+        index: BlobIndex,
     }
 );

@@ -3,9 +3,32 @@ defmodule LambdaEthereumConsensus.SszEx do
     SSZ library in Elixir
   """
   alias LambdaEthereumConsensus.Utils.BitList
-  import alias LambdaEthereumConsensus.Utils.BitVector
-  import Bitwise
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.ZeroHashes
+
+  import Aja
+  import BitVector
+  import Bitwise
+
+  @type schema() ::
+          :bool
+          | uint_schema()
+          | byte_list_schema()
+          | list_schema()
+          | bytes_schema()
+          | vector_schema()
+          | bitlist_schema()
+          | bitvector_schema()
+          | container_schema()
+
+  @type uint_schema() :: {:int, 8 | 16 | 32 | 64 | 128 | 256}
+  @type byte_list_schema() :: {:byte_list, max_size :: non_neg_integer}
+  @type list_schema() :: {:list, schema(), max_size :: non_neg_integer}
+  @type bytes_schema() :: {:bytes, size :: non_neg_integer}
+  @type vector_schema() :: {:vector, schema(), size :: non_neg_integer}
+  @type bitlist_schema() :: {:bitlist, max_size :: non_neg_integer}
+  @type bitvector_schema() :: {:bitvector, size :: non_neg_integer}
+  @type container_schema() :: module()
 
   #################
   ### Public API
@@ -25,9 +48,11 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_nodes(binary(), binary()) :: binary()
   def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
 
+  @spec encode(any(), schema()) :: {:ok, binary()} | {:error, String.t()}
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
   def encode(value, {:bytes, _}), do: {:ok, value}
+  def encode(value, {:byte_list, _}), do: {:ok, value}
 
   def encode(list, {:list, basic_type, size}) do
     if variable_size?(basic_type),
@@ -53,9 +78,11 @@ defmodule LambdaEthereumConsensus.SszEx do
   def encode(container, module) when is_map(container),
     do: encode_container(container, module.schema())
 
+  @spec decode(binary(), schema()) :: {:ok, any()} | {:error, String.t()}
   def decode(binary, :bool), do: decode_bool(binary)
   def decode(binary, {:int, size}), do: decode_uint(binary, size)
   def decode(value, {:bytes, _}), do: {:ok, value}
+  def decode(value, {:byte_list, _}), do: {:ok, value}
 
   def decode(binary, {:list, basic_type, size}) do
     if variable_size?(basic_type),
@@ -76,9 +103,17 @@ defmodule LambdaEthereumConsensus.SszEx do
     do: decode_bitvector(value, size)
 
   def decode(binary, module) when is_atom(module) do
-    if variable_size?(module),
-      do: decode_variable_container(binary, module),
-      else: decode_fixed_container(binary, module)
+    with {:ok, result} <-
+           if(variable_size?(module),
+             do: decode_variable_container(binary, module),
+             else: decode_fixed_container(binary, module)
+           ) do
+      if exported?(module, :decode_ex, 1) do
+        {:ok, module.decode_ex(result)}
+      else
+        {:ok, result}
+      end
+    end
   end
 
   @spec hash_tree_root!(any, any) :: Types.root()
@@ -338,8 +373,16 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_bool("\x00"), do: {:ok, false}
   defp decode_bool(_), do: {:error, "invalid bool value"}
 
+  defp encode_fixed_size_list(vec(_) = list, basic_type, size) do
+    encode_fixed_size_list(Aja.Vector.to_list(list), basic_type, size)
+  end
+
   defp encode_fixed_size_list(list, _basic_type, max_size) when length(list) > max_size,
     do: {:error, "invalid max_size of list"}
+
+  defp encode_fixed_size_list(binary, :bytes, _size) when is_binary(binary) do
+    {:ok, binary}
+  end
 
   defp encode_fixed_size_list(list, basic_type, _size) when is_list(list) do
     list
@@ -361,6 +404,10 @@ defmodule LambdaEthereumConsensus.SszEx do
     do: {:ok, BitVector.to_bytes(bit_vector)}
 
   defp encode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
+
+  defp encode_variable_size_list(vec(_) = list, basic_type, max_size) do
+    encode_variable_size_list(Aja.Vector.to_list(list), basic_type, max_size)
+  end
 
   defp encode_variable_size_list(list, _basic_type, max_size) when length(list) > max_size,
     do: {:error, "invalid max_size of list"}
@@ -449,12 +496,24 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  defp decode_fixed_list(binary, :bytes, size) do
+    with :ok <- check_valid_list_size_after_decode(size, byte_size(binary)) do
+      {:ok, binary}
+    end
+  end
+
   defp decode_fixed_list(binary, basic_type, size) do
     fixed_size = get_fixed_size(basic_type)
 
     with {:ok, decoded_list} = result <- decode_fixed_collection(binary, fixed_size, basic_type),
          :ok <- check_valid_list_size_after_decode(size, length(decoded_list)) do
       result
+    end
+  end
+
+  defp decode_fixed_vector(binary, :bytes, size) do
+    with :ok <- check_valid_list_size_after_decode(size, byte_size(binary)) do
+      {:ok, binary}
     end
   end
 
@@ -797,8 +856,9 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp get_fixed_size(:bool), do: 1
   defp get_fixed_size({:int, size}), do: div(size, @bits_per_byte)
   defp get_fixed_size({:bytes, size}), do: size
+  defp get_fixed_size({:vector, :bytes, size}), do: size
   defp get_fixed_size({:vector, basic_type, size}), do: size * get_fixed_size(basic_type)
-  defp get_fixed_size({:bitvector, _}), do: 1
+  defp get_fixed_size({:bitvector, size}), do: div(size + 7, 8)
 
   defp get_fixed_size(module) when is_atom(module) do
     schemas = module.schema()
@@ -810,10 +870,13 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp variable_size?({:list, _, _}), do: true
   defp variable_size?(:bool), do: false
+  defp variable_size?({:byte_list, _}), do: true
+  defp variable_size?(:bytes), do: false
   defp variable_size?({:int, _}), do: false
   defp variable_size?({:bytes, _}), do: false
   defp variable_size?({:bitlist, _}), do: true
   defp variable_size?({:bitvector, _}), do: false
+  defp variable_size?({:vector, :bytes, _}), do: false
   defp variable_size?({:vector, basic_type, _}), do: variable_size?(basic_type)
 
   defp variable_size?(module) when is_atom(module) do
@@ -946,5 +1009,10 @@ defmodule LambdaEthereumConsensus.SszEx do
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
+  end
+
+  defp exported?(module, function, arity) do
+    Code.ensure_loaded!(module)
+    function_exported?(module, function, arity)
   end
 end

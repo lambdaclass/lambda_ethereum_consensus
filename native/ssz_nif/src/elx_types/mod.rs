@@ -40,6 +40,10 @@ type ParticipationFlags = u8;
 pub(crate) type Transaction<'a> = Binary<'a>; // max size: 1073741824
 type ExecutionAddress<'a> = Bytes20<'a>;
 type WithdrawalIndex = u64;
+type KZGCommitment<'a> = Bytes48<'a>;
+type KZGProof<'a> = Bytes48<'a>;
+type BlobIndex = u64;
+type Blob<'a> = Binary<'a>;
 
 // This type should be a little-endian encoded uint256.
 type Uint256<'a> = Binary<'a>;
