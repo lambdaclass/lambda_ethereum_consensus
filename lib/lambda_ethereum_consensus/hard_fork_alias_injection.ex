@@ -5,8 +5,8 @@ defmodule HardForkAliasInjection do
   defmacro __using__(_opts) do
     if unquote(is_deneb) do
       quote do
-        alias Types.BeaconBlockDeneb, as: BeaconBlock
         alias Types.BeaconBlockBodyDeneb, as: BeaconBlockBody
+        alias Types.BeaconBlockDeneb, as: BeaconBlock
         alias Types.BeaconStateDeneb, as: BeaconState
         alias Types.ExecutionPayloadDeneb, as: ExecutionPayload
         alias Types.ExecutionPayloadHeaderDeneb, as: ExecutionPayloadHeader
@@ -24,5 +24,5 @@ defmodule HardForkAliasInjection do
     end
   end
 
-  defmacro is_deneb, do: unquote(is_deneb)
+  def is_deneb, do: unquote(is_deneb)
 end

@@ -3,9 +3,6 @@ use ssz_derive::{Decode, Encode};
 use ssz_types::BitVector;
 use tree_hash_derive::TreeHash;
 
-// MAX_REQUEST_BLOCKS
-type MaxRequestBlocks = typenum::U1024;
-
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct StatusMessage {
     pub(crate) fork_digest: ForkDigest,
