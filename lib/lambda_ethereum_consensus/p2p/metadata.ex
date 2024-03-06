@@ -32,7 +32,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   def clear_attnet(i), do: GenServer.cast(__MODULE__, {:set_attestation_subnet, i, false})
 
   @spec set_syncnet(non_neg_integer()) :: :ok
-  def set_syncnet(i, set), do: GenServer.cast(__MODULE__, {:set_sync_committee, i, true})
+  def set_syncnet(i), do: GenServer.cast(__MODULE__, {:set_sync_committee, i, true})
   @spec clear_syncnet(non_neg_integer()) :: :ok
   def clear_syncnet(i), do: GenServer.cast(__MODULE__, {:set_sync_committee, i, false})
 
@@ -54,13 +54,13 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   def handle_call(:get_metadata, _, metadata), do: {:reply, metadata, metadata}
 
   @impl true
-  def handle_cast({:set_attestation_subnet, i, set}, %{seq_number: seq_number} = metadata) do
+  def handle_cast({:set_attestation_subnet, i, set}, metadata) do
     attnets = set_or_clear(metadata.attnets, i, set)
     {:noreply, %{metadata | attnets: attnets} |> increment_seqnum()}
   end
 
   @impl true
-  def handle_cast({:set_sync_committee, i, set}, %{seq_number: seq_number} = metadata) do
+  def handle_cast({:set_sync_committee, i, set}, metadata) do
     syncnets = set_or_clear(metadata.syncnets, i, set)
     {:noreply, %{metadata | syncnets: syncnets} |> increment_seqnum()}
   end
