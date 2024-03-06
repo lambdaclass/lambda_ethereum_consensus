@@ -5,8 +5,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P
-  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.StateTransition.Misc
 
   def join(subnet_id) do
     topic = get_topic_name(subnet_id)
