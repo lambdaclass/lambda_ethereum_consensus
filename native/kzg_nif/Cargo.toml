@@ -10,4 +10,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 rustler = "0.31.0"
-c-kzg = { git = "https://github.com/ethereum/c-kzg-4844", rev = "748283cced543c486145d5f3f38684becdfe3e1b"}
+c-kzg = "0.4.2"
