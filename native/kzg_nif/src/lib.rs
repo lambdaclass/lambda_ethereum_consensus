@@ -18,7 +18,7 @@ fn get_trusted_setup() -> KzgSettings {
     let main_path = src_path.parent().unwrap();
     let trusted_setup_path = main_path.join("native/kzg_nif/official_trusted_setup.txt");
     let trusted_setup_file: &Path = trusted_setup_path.as_path();
-    assert!(trusted_setup_file.exists());
+    debug_assert!(trusted_setup_file.exists(), "Missing trusted setup file");
     KzgSettings::load_trusted_setup_file(trusted_setup_file).unwrap()
 }
 
