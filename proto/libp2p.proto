@@ -18,13 +18,18 @@ message SetHandler {
     string protocol_id = 1;
 }
 
+message JoinTopic {
+    // Name of the topic to join.
+    string name = 1;
+}
+
 message SubscribeToTopic {
     // Name of the topic to subscribe to.
     string name = 1;
 }
 
-message UnsubscribeFromTopic {
-    // Name of the topic to subscribe to.
+message LeaveTopic {
+    // Name of the topic to leave.
     string name = 1;
 }
 
@@ -115,7 +120,7 @@ message Command {
     oneof c {
         SetHandler set_handler = 2;
         SubscribeToTopic subscribe = 3;
-        UnsubscribeFromTopic unsubscribe = 4;
+        LeaveTopic leave = 4;
         AddPeer add_peer = 5;
         SendRequest send_request = 6;
         SendResponse send_response = 7;
@@ -123,6 +128,7 @@ message Command {
         Publish publish = 9;
         ValidateMessage validate_message = 10;
         Enr update_enr = 11;
+        JoinTopic join = 12;
     }
 }
 

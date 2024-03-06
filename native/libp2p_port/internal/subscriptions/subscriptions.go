@@ -163,6 +163,11 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 	}
 }
 
+func (s *Subscriber) Join(topicName string) {
+	// NOTE: this joins the topic if not already joined
+	s.getSubscription(topicName)
+}
+
 func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	sub := s.getSubscription(topicName)
 	if sub.Cancel != nil {
@@ -188,13 +193,15 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	return nil
 }
 
-func (s *Subscriber) Unsubscribe(topicName string) {
+func (s *Subscriber) Leave(topicName string) {
 	sub, isSubscribed := s.subscriptions[topicName]
 	if !isSubscribed {
 		return
 	}
 	delete(s.subscriptions, topicName)
-	sub.Cancel()
+	if sub.Cancel != nil {
+		sub.Cancel()
+	}
 	sub.Topic.Close()
 }
 
