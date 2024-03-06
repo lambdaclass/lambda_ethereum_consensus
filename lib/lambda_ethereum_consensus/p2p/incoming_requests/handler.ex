@@ -93,14 +93,14 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
-    with {:ok, %{body: body}} <-
+    with {:ok, roots} <-
            ReqResp.decode_request(message, TypeAliases.beacon_blocks_by_root_request()) do
-      count = length(body)
+      count = length(roots)
       Logger.info("[BlocksByRoot] requested #{count} number of blocks")
       truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
       response_chunk =
-        body
+        roots
         |> Enum.take(truncated_count)
         |> Enum.map(&Blocks.get_signed_block/1)
         |> Enum.map(&map_block_result/1)
