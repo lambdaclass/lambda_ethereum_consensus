@@ -267,7 +267,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
               transactions_root: transactions_root,
               withdrawals_root: withdrawals_root
             ] ++
-              if HardForkAliasInjection.is_deneb(),
+              if HardForkAliasInjection.deneb?(),
                 do: [
                   blob_gas_used: payload.blob_gas_used,
                   excess_blob_gas: payload.excess_blob_gas

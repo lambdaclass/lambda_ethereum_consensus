@@ -24,5 +24,5 @@ defmodule HardForkAliasInjection do
     end
   end
 
-  def is_deneb, do: unquote(is_deneb)
+  def deneb?, do: unquote(is_deneb)
 end

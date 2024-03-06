@@ -136,7 +136,7 @@ defmodule Types.BeaconState do
     |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
   end
 
-  unless HardForkAliasInjection.is_deneb() do
+  unless HardForkAliasInjection.deneb?() do
     @behaviour LambdaEthereumConsensus.Container
 
     alias LambdaEthereumConsensus.StateTransition.Accessors, warn: false
