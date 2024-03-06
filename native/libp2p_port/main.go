@@ -28,14 +28,16 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	case *proto_defs.Command_Subscribe:
 		err := subscriber.Subscribe(c.Subscribe.Name, command.From)
 		return proto_helpers.ResultNotification(command.From, nil, err)
-	case *proto_defs.Command_Unsubscribe:
-		subscriber.Unsubscribe(c.Unsubscribe.Name)
+	case *proto_defs.Command_Leave:
+		subscriber.Leave(c.Leave.Name)
 	case *proto_defs.Command_ValidateMessage:
 		subscriber.Validate(c.ValidateMessage.MsgId, int(c.ValidateMessage.Result))
 	case *proto_defs.Command_Publish:
 		subscriber.Publish(c.Publish.Topic, c.Publish.Message)
 	case *proto_defs.Command_UpdateEnr:
 		discoverer.UpdateEnr(proto_helpers.LoadEnr(c.UpdateEnr))
+	case *proto_defs.Command_Join:
+		subscriber.Join(c.Join.Name)
 	default:
 		return proto_helpers.ResultNotification(command.From, nil, errors.New("invalid command"))
 	}

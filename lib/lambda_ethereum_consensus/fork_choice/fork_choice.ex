@@ -168,7 +168,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Handlers.notify_forkchoice_update(store, head_block)
 
-    Validator.notify_new_slot(head_block.slot, head_root)
+    Validator.notify_new_block(head_block.slot, head_root)
 
     BeaconChain.update_fork_choice_cache(
       head_root,
