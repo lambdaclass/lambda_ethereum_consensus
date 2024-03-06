@@ -117,10 +117,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     :ok
   end
 
-  defp map_block_result({:ok, block}),
-    do: {:ok, {block, BeaconChain.get_fork_digest_for_slot(block.message.slot)}}
-
-  defp map_block_result({:error, _}), do: {:error, {2, "Server Error"}}
-  defp map_block_result(:not_found), do: {:error, {3, "Resource Unavailable"}}
+  defp map_block_result(nil), do: {:error, {3, "Resource Unavailable"}}
   defp map_block_result(:empty_slot), do: :skip
+
+  defp map_block_result(block),
+    do: {:ok, {block, BeaconChain.get_fork_digest_for_slot(block.message.slot)}}
 end
