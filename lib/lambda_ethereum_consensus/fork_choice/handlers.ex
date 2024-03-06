@@ -372,7 +372,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Store target checkpoint state if not yet seen
-  defp store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
+  def store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
     if Map.has_key?(store.checkpoint_states, target) do
       {:ok, store}
     else

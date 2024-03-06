@@ -70,9 +70,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
 
     peer_id = get_some_peer()
 
-    request =
-      %Types.BlobSidecarsByRootRequest{body: identifiers}
-      |> ReqResp.encode_request()
+    request = ReqResp.encode_request({identifiers, TypeAliases.blob_sidecars_by_root_request()})
 
     with {:ok, response} <-
            Libp2pPort.send_request(peer_id, @blobs_by_root_protocol_id, request),

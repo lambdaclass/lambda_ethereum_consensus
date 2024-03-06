@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
     Utility functions for the fork choice.
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
@@ -57,21 +58,34 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   end
 
   defp get_weight(%Store{} = store, root) do
+    {:ok, store} = Handlers.store_target_checkpoint_state(store, store.justified_checkpoint)
     state = Map.fetch!(store.checkpoint_states, store.justified_checkpoint)
 
     block = Blocks.get_block!(root)
 
     # PERF: use ``Aja.Vector.foldl``
-    attestation_score =
+    {attestation_score, _} =
       Accessors.get_active_validator_indices(state, Accessors.get_current_epoch(state))
       |> Stream.reject(&Aja.Vector.at!(state.validators, &1).slashed)
       |> Stream.filter(&Map.has_key?(store.latest_messages, &1))
       |> Stream.reject(&MapSet.member?(store.equivocating_indices, &1))
-      |> Stream.filter(fn i ->
-        Store.get_ancestor(store, store.latest_messages[i].root, block.slot) == root
+      |> Enum.reduce({0, %{}}, fn i, {acc, ancestors} ->
+        vote_root = store.latest_messages[i].root
+
+        ancestors =
+          Map.put_new_lazy(ancestors, vote_root, fn ->
+            Store.get_ancestor(store, vote_root, block.slot)
+          end)
+
+        delta =
+          if Map.fetch!(ancestors, vote_root) == root do
+            Aja.Vector.at!(state.validators, i).effective_balance
+          else
+            0
+          end
+
+        {acc + delta, ancestors}
       end)
-      |> Stream.map(&Aja.Vector.at!(state.validators, &1).effective_balance)
-      |> Enum.sum()
 
     if store.proposer_boost_root == <<0::256>> or
          Store.get_ancestor(store, store.proposer_boost_root, block.slot) != root do
