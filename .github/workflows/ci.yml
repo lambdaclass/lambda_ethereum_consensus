@@ -319,7 +319,8 @@ jobs:
       - name: Uncompress vectors
         run: make test/spec/vectors/tests/${{ matrix.config }}
       - name: Generate tests
-        run: make gen-spec
+        # NOTE: we need to set FORK because this compiles the whole project
+        run: FORK=${{ matrix.fork }} make gen-spec
       - name: Run tests
         run: |
           if [[ "${{ matrix.config }}" == "general" ]] ; then
