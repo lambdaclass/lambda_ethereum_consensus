@@ -91,7 +91,7 @@ defmodule SszStaticTestRunner do
          schema,
          real_serialized,
          real_deserialized,
-         _expected_root
+         expected_root
        ) do
     {:ok, deserialized_by_ssz_ex} = SszEx.decode(real_serialized, schema)
     assert Diff.diff(deserialized_by_ssz_ex, real_deserialized) == :unchanged
@@ -104,6 +104,12 @@ defmodule SszStaticTestRunner do
 
     {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
     assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
+
+    {:ok, root_by_nif} = Ssz.hash_tree_root(real_deserialized)
+    assert root_by_nif == expected_root
+
+    {:ok, root_by_ssz_ex} = SszEx.hash_tree_root(real_deserialized, schema)
+    assert root_by_ssz_ex == expected_root
   end
 
   defp parse_type(%SpecTestCase{handler: handler}) do

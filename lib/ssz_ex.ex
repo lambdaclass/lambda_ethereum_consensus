@@ -128,13 +128,17 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
   def hash_tree_root(value, {:int, size}), do: {:ok, pack(value, {:int, size})}
 
-  @spec hash_tree_root(binary, {:bytes, non_neg_integer}) :: Types.root()
-  def hash_tree_root(value, {:bytes, size}) do
-    packed_chunks = pack(value, {:bytes, size})
-    leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
-    root = merkleize_chunks_with_virtual_padding(packed_chunks, leaf_count)
-    {:ok, root}
-  end
+  # @spec hash_tree_root(binary, {:bytes, non_neg_integer}) :: Types.root()
+  # def hash_tree_root(value, {:bytes, size}) do
+  #   chunks = value |> pack_bytes()
+  #   hash_tree_root_vector(chunks)
+  # end
+
+  # @spec hash_tree_root(binary, {:byte_list, non_neg_integer}) :: Types.root()
+  # def hash_tree_root(value, {:byte_list, size}) do
+  #   chunks = value |> pack_bytes()
+  #   hash_tree_root_list(chunks, size, value |> byte_size())
+  # end
 
   @spec hash_tree_root(binary, {:bitlist | :bitvector, non_neg_integer}) :: {:ok, Types.root()}
   def hash_tree_root(value, {type, _size} = schema) when type in [:bitlist, :bitvector] do
@@ -153,28 +157,10 @@ defmodule LambdaEthereumConsensus.SszEx do
     {:ok, root}
   end
 
-  @spec hash_tree_root(struct(), atom()) :: Types.root()
-  def hash_tree_root(container, module) when is_map(container) do
-    value =
-      module.schema()
-      |> Enum.reduce_while({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
-        value = container |> Map.get(key)
-
-        case hash_tree_root(value, schema) do
-          {:ok, root} -> {:cont, {:ok, acc_root <> root}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case value do
-      {:ok, chunks} ->
-        leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
-        root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
-        {:ok, root}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+  def hash_tree_root(vec(_) = list, {:list, _any, _non_neg_integer} = schema) do
+    list
+    |> Aja.Vector.to_list()
+    |> hash_tree_root(schema)
   end
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
@@ -214,6 +200,30 @@ defmodule LambdaEthereumConsensus.SszEx do
       {:ok, chunks} -> chunks |> hash_tree_root_vector()
       {:error, reason} -> {:error, reason}
       chunks -> chunks |> hash_tree_root_vector()
+    end
+  end
+
+  @spec hash_tree_root(struct(), atom()) :: Types.root()
+  def hash_tree_root(container, module) when is_map(container) do
+    value =
+      module.schema()
+      |> Enum.reduce_while({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
+        value = container |> Map.get(key)
+
+        case hash_tree_root(value, schema) do
+          {:ok, root} -> {:cont, {:ok, acc_root <> root}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+
+    case value do
+      {:ok, chunks} ->
+        leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+        root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
+        {:ok, root}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -856,7 +866,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp get_fixed_size(:bool), do: 1
   defp get_fixed_size({:int, size}), do: div(size, @bits_per_byte)
   defp get_fixed_size({:bytes, size}), do: size
-  defp get_fixed_size({:vector, :bytes, size}), do: size
   defp get_fixed_size({:vector, basic_type, size}), do: size * get_fixed_size(basic_type)
   defp get_fixed_size({:bitvector, size}), do: div(size + 7, 8)
 
@@ -876,7 +885,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp variable_size?({:bytes, _}), do: false
   defp variable_size?({:bitlist, _}), do: true
   defp variable_size?({:bitvector, _}), do: false
-  defp variable_size?({:vector, :bytes, _}), do: false
   defp variable_size?({:vector, basic_type, _}), do: variable_size?(basic_type)
 
   defp variable_size?(module) when is_atom(module) do
