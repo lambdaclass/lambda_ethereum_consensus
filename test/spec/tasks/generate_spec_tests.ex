@@ -24,12 +24,12 @@ defmodule Mix.Tasks.GenerateSpecTests do
     File.rm_rf!(generated_folder)
     File.mkdir_p!(generated_folder)
 
-    # Generate all tests for Capella fork
+    # Generate all tests for the Capella fork
     for config <- @configs, runner <- runners do
       generate_test(config, "capella", runner)
     end
 
-    # Generate all tests for Deneb fork
+    # Generate all tests for the Deneb fork
     for config <- @configs, runner <- runners do
       generate_test(config, "deneb", runner)
     end

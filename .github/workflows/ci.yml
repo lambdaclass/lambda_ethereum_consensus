@@ -272,6 +272,7 @@ jobs:
     needs: [compile-native, download-spectests, download-beacon-node-oapi]
     strategy:
       matrix:
+        fork: ["capella", "deneb"]
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-22.04
     steps:
@@ -318,6 +319,6 @@ jobs:
       - name: Uncompress vectors
         run: make test/spec/vectors/tests/${{ matrix.config }}
       - name: Generate tests
-        run: make gen-spec
+        run: FORK=${{ matrix.fork }} make gen-spec
       - name: Run tests
-        run: mix test --no-start test/generated/${{ matrix.config }}/*/*
+        run: FORK=${{ matrix.fork }} mix test --no-start test/generated/${{ matrix.config }}/*/*
