@@ -3,6 +3,10 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
   Mock Execution Layer Engine API methods
   """
 
+  alias Types.ExecutionPayload
+
+  use HardForkAliasInjection
+
   @doc """
   Using this method Execution and consensus layer client software may
   exchange with a list of supported Engine API methods.
@@ -12,7 +16,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
     {:ok, ["engine_newPayloadV2"]}
   end
 
-  @spec new_payload(Types.ExecutionPayload.t()) ::
+  @spec new_payload(ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
   def new_payload(_execution_payload) do
     {:ok, %{"status" => "VALID"}}

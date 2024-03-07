@@ -16,6 +16,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
+  use HardForkAliasInjection
+
   ##########################
   ### Public API
   ##########################
@@ -31,7 +33,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     GenServer.cast(__MODULE__, {:on_tick, time})
   end
 
-  @spec on_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok | :error
+  @spec on_block(SignedBeaconBlock.t(), Types.root()) :: :ok | :error
   def on_block(signed_block, block_root) do
     GenServer.cast(__MODULE__, {:on_block, block_root, signed_block, self()})
   end
