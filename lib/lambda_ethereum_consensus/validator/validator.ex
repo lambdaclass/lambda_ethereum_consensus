@@ -28,7 +28,7 @@ defmodule LambdaEthereumConsensus.Validator do
       duties: {:not_computed, :not_computed},
       # TODO: get validator from config
       validator: 150_112,
-      privkey: <<0::256>>
+      privkey: <<652_916_760::256>>
     }
 
     {:ok, state, {:continue, nil}}
