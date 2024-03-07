@@ -7,6 +7,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   alias Types.BeaconState
   alias Types.Validator
 
+  use HardForkAliasInjection
+
   @doc """
   Initiate the exit of the validator with index ``index``.
   """
