@@ -211,7 +211,7 @@ defmodule LambdaEthereumConsensus.Validator do
   defp process_slots(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
 
   defp process_slots(state, slot) do
-    {:ok, st} = StateTransition.process_slots(slot)
+    {:ok, st} = StateTransition.process_slots(state, slot)
     st
   end
 end
