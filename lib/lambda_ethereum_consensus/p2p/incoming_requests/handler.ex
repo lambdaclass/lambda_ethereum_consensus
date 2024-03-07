@@ -81,6 +81,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
       end_slot = start_slot + (truncated_count - 1)
 
+      # TODO: extend cache to support slots as keys
       response_chunk =
         start_slot..end_slot
         |> Enum.map(&BlockDb.get_block_by_slot/1)
@@ -93,14 +94,14 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   end
 
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
-    with {:ok, %{body: body}} <-
+    with {:ok, roots} <-
            ReqResp.decode_request(message, TypeAliases.beacon_blocks_by_root_request()) do
-      count = length(body)
+      count = length(roots)
       Logger.info("[BlocksByRoot] requested #{count} number of blocks")
       truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
       response_chunk =
-        body
+        roots
         |> Enum.take(truncated_count)
         |> Enum.map(&Blocks.get_signed_block/1)
         |> Enum.map(&map_block_result/1)
@@ -117,10 +118,12 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     :ok
   end
 
-  defp map_block_result({:ok, block}),
-    do: {:ok, {block, BeaconChain.get_fork_digest_for_slot(block.message.slot)}}
-
-  defp map_block_result({:error, _}), do: {:error, {2, "Server Error"}}
-  defp map_block_result(:not_found), do: {:error, {3, "Resource Unavailable"}}
+  defp map_block_result(:not_found), do: map_block_result(nil)
+  defp map_block_result(nil), do: {:error, {3, "Resource Unavailable"}}
   defp map_block_result(:empty_slot), do: :skip
+  defp map_block_result({:ok, block}), do: map_block_result(block)
+  defp map_block_result({:error, _}), do: {:error, {2, "Server Error"}}
+
+  defp map_block_result(block),
+    do: {:ok, {block, BeaconChain.get_fork_digest_for_slot(block.message.slot)}}
 end
