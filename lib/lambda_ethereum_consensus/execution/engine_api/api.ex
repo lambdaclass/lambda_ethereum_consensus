@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
 
   alias LambdaEthereumConsensus.Execution.Auth
   alias LambdaEthereumConsensus.Execution.RPC
+  alias Types.ExecutionPayload
 
   @supported_methods ["engine_newPayloadV2"]
 
@@ -17,7 +18,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
     call("engine_exchangeCapabilities", [@supported_methods])
   end
 
-  @spec new_payload(Types.ExecutionPayload.t()) ::
+  @spec new_payload(ExecutionPayload.t()) ::
           {:ok, any} | {:error, any}
   def new_payload(execution_payload) do
     call("engine_newPayloadV2", [RPC.normalize(execution_payload)])
