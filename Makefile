@@ -190,27 +190,27 @@ clean-tests:
 	-rm -r test/generated
 
 #🔴 spec-test: @ Run all spec tests
-spec-test: compile-all $(SPECTEST_GENERATED_ROOTDIR)
+spec-test: $(SPECTEST_GENERATED_ROOTDIR) compile-all
 	mix test --no-start test/generated/*/*/*
 
 #🔴 spec-test-config-%: @ Run all spec tests for a specific config (e.g. mainnet)
-spec-test-config-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-config-%: $(SPECTEST_GENERATED_ROOTDIR) compile-all
 	mix test --no-start test/generated/$*/*/*
 
 #🔴 spec-test-runner-%: @ Run all spec tests for a specific runner (e.g. epoch_processing)
-spec-test-runner-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-runner-%: $(SPECTEST_GENERATED_ROOTDIR) compile-all
 	mix test --no-start test/generated/*/*/$*.exs
 
 #🔴 spec-test-mainnet-%: @ Run spec tests for mainnet config, for the specified runner.
-spec-test-mainnet-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-mainnet-%: $(SPECTEST_GENERATED_ROOTDIR) compile-all
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 #🔴 spec-test-minimal-%: @ Run spec tests for minimal config, for the specified runner.
-spec-test-minimal-%:  compile-all $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-minimal-%: $(SPECTEST_GENERATED_ROOTDIR) compile-all
 	mix test --no-start test/generated/minimal/*/$*.exs
 
 #🔴 spec-test-general-%: @ Run spec tests for general config, for the specified runner.
-spec-test-general-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-general-%: $(SPECTEST_GENERATED_ROOTDIR) compile-all
 	mix test --no-start test/generated/general/*/$*.exs
 
 #✅ lint: @ Check formatting and linting.
