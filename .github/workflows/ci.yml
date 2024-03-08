@@ -335,6 +335,12 @@ jobs:
     name: All spec-tests passed
     needs: spectests-matrix
     runs-on: ubuntu-22.04
+    if: always()
     steps:
-      - name: All spectests passed
-        run: echo "All spec-tests passed!"
+      - if: needs.spectests-matrix.result == 'success'
+        name: All spectests passed
+        run: exit 0
+
+      - if: needs.spectests-matrix.result != 'success'
+        name: Some spectests failed
+        run: exit 1
