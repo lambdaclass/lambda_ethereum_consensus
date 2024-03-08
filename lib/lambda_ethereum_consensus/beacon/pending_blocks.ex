@@ -13,6 +13,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
 
+  use HardForkAliasInjection
+
   @type block_status :: :pending | :invalid | :processing | :download | :unknown
   @type block_info ::
           {SignedBeaconBlock.t(), :pending} | {nil, :invalid | :processing | :download}

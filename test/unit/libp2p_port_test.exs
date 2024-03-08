@@ -8,10 +8,7 @@ defmodule Unit.Libp2pPortTest do
   doctest Libp2pPort
 
   setup do
-    patch(BeaconChain, :init, fn _ -> {:ok, nil} end)
-    patch(BeaconChain, :get_fork_digest, fn -> <<71, 235, 114, 179>> end)
-
-    start_supervised!({BeaconChain, nil})
+    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("CAPELLA_FORK_VERSION") end)
     :ok
   end
 
@@ -70,7 +67,7 @@ defmodule Unit.Libp2pPortTest do
   end
 
   test "start discovery service and discover one peer" do
-    bootnodes = YamlElixir.read_from_file!("config/networks/mainnet/bootnodes.yaml")
+    bootnodes = YamlElixir.read_from_file!("config/networks/mainnet/boot_enr.yaml")
 
     start_port(:discoverer,
       enable_discovery: true,

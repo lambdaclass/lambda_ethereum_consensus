@@ -3,10 +3,32 @@ defmodule LambdaEthereumConsensus.SszEx do
     SSZ library in Elixir
   """
   alias LambdaEthereumConsensus.Utils.BitList
-  import alias LambdaEthereumConsensus.Utils.BitVector
-  import Bitwise
-  import Aja
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.ZeroHashes
+
+  import Aja
+  import BitVector
+  import Bitwise
+
+  @type schema() ::
+          :bool
+          | uint_schema()
+          | byte_list_schema()
+          | list_schema()
+          | bytes_schema()
+          | vector_schema()
+          | bitlist_schema()
+          | bitvector_schema()
+          | container_schema()
+
+  @type uint_schema() :: {:int, 8 | 16 | 32 | 64 | 128 | 256}
+  @type byte_list_schema() :: {:byte_list, max_size :: non_neg_integer}
+  @type list_schema() :: {:list, schema(), max_size :: non_neg_integer}
+  @type bytes_schema() :: {:bytes, size :: non_neg_integer}
+  @type vector_schema() :: {:vector, schema(), size :: non_neg_integer}
+  @type bitlist_schema() :: {:bitlist, max_size :: non_neg_integer}
+  @type bitvector_schema() :: {:bitvector, size :: non_neg_integer}
+  @type container_schema() :: module()
 
   #################
   ### Public API
@@ -26,6 +48,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_nodes(binary(), binary()) :: binary()
   def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
 
+  @spec encode(any(), schema()) :: {:ok, binary()} | {:error, String.t()}
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
   def encode(value, {:bytes, _}), do: {:ok, value}
@@ -55,6 +78,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   def encode(container, module) when is_map(container),
     do: encode_container(container, module.schema())
 
+  @spec decode(binary(), schema()) :: {:ok, any()} | {:error, String.t()}
   def decode(binary, :bool), do: decode_bool(binary)
   def decode(binary, {:int, size}), do: decode_uint(binary, size)
   def decode(value, {:bytes, _}), do: {:ok, value}
@@ -834,7 +858,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp get_fixed_size({:bytes, size}), do: size
   defp get_fixed_size({:vector, :bytes, size}), do: size
   defp get_fixed_size({:vector, basic_type, size}), do: size * get_fixed_size(basic_type)
-
   defp get_fixed_size({:bitvector, size}), do: div(size + 7, 8)
 
   defp get_fixed_size(module) when is_atom(module) do

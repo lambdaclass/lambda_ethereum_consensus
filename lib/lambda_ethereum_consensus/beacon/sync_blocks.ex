@@ -11,6 +11,9 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias Types.SignedBeaconBlock
+
+  use HardForkAliasInjection
 
   @blocks_per_chunk 16
 
@@ -78,9 +81,9 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   end
 
   @spec fetch_blocks_by_slot(Types.slot(), non_neg_integer()) ::
-          {:ok, [Types.SignedBeaconBlock.t()]} | {:error, String.t()}
+          {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
   def fetch_blocks_by_slot(from, count) do
-    case BlockDownloader.request_blocks_by_slot(from, count, 0) do
+    case BlockDownloader.request_blocks_by_range(from, count, 0) do
       {:ok, blocks} ->
         {:ok, blocks}
 

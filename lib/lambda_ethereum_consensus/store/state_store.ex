@@ -6,6 +6,8 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.BeaconState
 
+  use HardForkAliasInjection
+
   @state_prefix "beacon_state"
   @state_block_prefix "beacon_state_by_state"
   @stateslot_prefix @state_prefix <> "slot"

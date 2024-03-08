@@ -224,5 +224,5 @@ fmt:
 	cd native/bls_nif; cargo fmt
 
 #✅ dialyzer: @ Run dialyzer (static analysis tool).
-dialyzer:
+dialyzer: compile-all
 	mix dialyzer

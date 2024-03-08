@@ -3,9 +3,6 @@ use ssz_derive::{Decode, Encode};
 use ssz_types::BitVector;
 use tree_hash_derive::TreeHash;
 
-// MAX_REQUEST_BLOCKS
-type MaxRequestBlocks = typenum::U1024;
-
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct StatusMessage {
     pub(crate) fork_digest: ForkDigest,
@@ -23,23 +20,25 @@ pub(crate) struct BeaconBlocksByRangeRequest {
 }
 
 #[derive(Encode, Decode, TreeHash)]
-pub(crate) struct BeaconBlocksByRangeResponse<C: Config> {
-    pub(crate) body: VariableList<SignedBeaconBlock<C>, MaxRequestBlocks>,
-}
-
-#[derive(Encode, Decode, TreeHash)]
-pub(crate) struct BeaconBlocksByRootRequest {
-    pub(crate) body: VariableList<Root, MaxRequestBlocks>,
-}
-
-#[derive(Encode, Decode, TreeHash)]
-pub(crate) struct BeaconBlocksByRootResponse<C: Config> {
-    pub(crate) body: VariableList<SignedBeaconBlock<C>, MaxRequestBlocks>,
-}
-
-#[derive(Encode, Decode, TreeHash)]
 pub(crate) struct Metadata<C: Config> {
     pub(crate) seq_number: u64,
     pub(crate) attnets: BitVector<C::AttestationSubnetCount>,
     pub(crate) syncnets: BitVector<C::SyncCommitteeSubnetCount>,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct BlobSidecar<C: Config> {
+    pub(crate) index: BlobIndex,
+    pub(crate) blob: Blob<C>,
+    pub(crate) kzg_commitment: KZGCommitment,
+    pub(crate) kzg_proof: KZGProof,
+    pub(crate) signed_block_header: SignedBeaconBlockHeader,
+    pub(crate) kzg_commitment_inclusion_proof:
+        FixedVector<Bytes32, C::KzgCommitmentInclusionProofDepth>,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct BlobIdentifier {
+    pub(crate) block_root: Root,
+    pub(crate) index: BlobIndex,
 }

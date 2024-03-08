@@ -4,10 +4,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
 
   import Bitwise
-
   require Aja
+
   alias LambdaEthereumConsensus.SszEx
   alias Types.BeaconState
+
+  use HardForkAliasInjection
 
   @max_random_byte 2 ** 8 - 1
 

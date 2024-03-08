@@ -29,6 +29,11 @@ defmodule Mix.Tasks.GenerateSpecTests do
       generate_test(config, "capella", runner)
     end
 
+    # Generate all tests for Deneb fork
+    for config <- @configs, runner <- runners do
+      generate_test(config, "deneb", runner)
+    end
+
     # Generate tests for all forks in general preset
     for fork <- @forks, runner <- runners do
       generate_test("general", fork, runner)
@@ -73,7 +78,9 @@ defmodule Mix.Tasks.GenerateSpecTests do
         start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: "tmp/#{config}_#{fork}_#{runner}_test_db"})
         start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
         start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
-        Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: #{chain_spec_config(config)})
+        Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+        |> Keyword.put(:config, #{chain_spec_config(config)})
+        |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
       end
 
       setup do

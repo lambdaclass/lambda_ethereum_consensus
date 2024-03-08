@@ -7,9 +7,12 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.StateTransition.Cache
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Store
+
+  @max_epochs_before_stale 8
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -17,22 +20,26 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   @impl true
   def init([nil]) do
-    with nil <- restore_state_from_db() do
-      Logger.error(
-        "[Sync] No initial state found. Please specify the URL to fetch them from via the --checkpoint-sync-url flag"
-      )
+    case restore_state_from_db() do
+      nil ->
+        Logger.error(
+          "[Sync] No recent state found. Please specify the URL to fetch them from via the --checkpoint-sync-url flag"
+        )
 
-      System.halt(1)
+        System.halt(1)
+
+      {_, {store, root}} ->
+        init_children(store, root)
     end
   end
 
   def init([checkpoint_url]) do
     case restore_state_from_db() do
-      {:ok, _} = res ->
-        Logger.warning("[Checkpoint sync] Old state found. Ignoring the checkpoint URL.")
-        res
+      {:ok, {store, root}} ->
+        Logger.warning("[Checkpoint sync] Recent state found. Ignoring the checkpoint URL.")
+        init_children(store, root)
 
-      nil ->
+      _ ->
         fetch_state_from_url(checkpoint_url)
     end
   end
@@ -72,7 +79,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       LambdaEthereumConsensus.P2P.IncomingRequests,
       LambdaEthereumConsensus.Beacon.PendingBlocks,
       LambdaEthereumConsensus.Beacon.SyncBlocks,
-      LambdaEthereumConsensus.P2P.GossipSub
+      LambdaEthereumConsensus.P2P.GossipSub,
+      # TODO: move checkpoint sync outside and move this to application.ex
+      {LambdaEthereumConsensus.Validator, {head_slot, head_root}}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
@@ -81,10 +90,16 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   defp restore_state_from_db do
     # Try to fetch the old store from the database
     case StoreDb.fetch_store() do
-      {:ok, %Store{} = store} ->
-        Logger.info("[Sync] Old state found.")
+      {:ok, %Store{finalized_checkpoint: %{epoch: finalized_epoch}} = store} ->
+        res = {store, ChainSpec.get_genesis_validators_root()}
 
-        init_children(store, ChainSpec.get_genesis_validators_root())
+        if get_current_epoch(store) - finalized_epoch > @max_epochs_before_stale do
+          Logger.info("[Sync] Found old state in DB.")
+          {:old_state, res}
+        else
+          Logger.info("[Sync] Found recent state in DB.")
+          {:ok, res}
+        end
 
       :not_found ->
         nil
@@ -116,5 +131,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
         System.halt(1)
     end
+  end
+
+  defp get_current_epoch(store) do
+    (:os.system_time(:second) - store.genesis_time)
+    |> div(ChainSpec.get("SECONDS_PER_SLOT"))
+    |> Misc.compute_epoch_at_slot()
   end
 end

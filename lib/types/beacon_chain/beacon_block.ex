@@ -5,6 +5,8 @@ defmodule Types.BeaconBlock do
   """
   @behaviour LambdaEthereumConsensus.Container
 
+  alias Types.BeaconBlockBody
+
   fields = [
     :slot,
     :proposer_index,
@@ -21,7 +23,7 @@ defmodule Types.BeaconBlock do
           proposer_index: Types.validator_index(),
           parent_root: Types.root(),
           state_root: Types.root(),
-          body: Types.BeaconBlockBody.t()
+          body: BeaconBlockBody.t()
         }
 
   @impl LambdaEthereumConsensus.Container
@@ -31,7 +33,7 @@ defmodule Types.BeaconBlock do
       {:proposer_index, TypeAliases.validator_index()},
       {:parent_root, TypeAliases.root()},
       {:state_root, TypeAliases.root()},
-      {:body, Types.BeaconBlockBody}
+      {:body, BeaconBlockBody}
     ]
   end
 end

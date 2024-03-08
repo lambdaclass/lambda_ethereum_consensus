@@ -14,8 +14,13 @@ defmodule SyncTestRunner do
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{} = testcase) do
+  def skip?(%SpecTestCase{fork: "capella"} = testcase) do
     Enum.member?(@disabled_cases, testcase.case)
+  end
+
+  @impl TestRunner
+  def skip?(_testcase) do
+    true
   end
 
   @impl TestRunner
@@ -33,6 +38,7 @@ defmodule SyncTestRunner do
 
     ForkChoiceTestRunner.run_test_case(testcase)
 
+    # TODO: we should do this cleanup even if the test crashes/fails
     Application.put_env(
       :lambda_ethereum_consensus,
       EngineApi,

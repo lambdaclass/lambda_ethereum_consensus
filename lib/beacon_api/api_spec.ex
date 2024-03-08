@@ -5,8 +5,7 @@ defmodule BeaconApi.ApiSpec do
 
   file = "beacon-node-oapi.json"
   @external_resource file
-  @ethspec file
-           |> File.read!()
+  @ethspec File.read!(file)
            |> Jason.decode!()
            |> OpenApiSpex.OpenApi.Decode.decode()
 
