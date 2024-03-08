@@ -89,7 +89,6 @@ defmodule ForkChoiceTestRunner do
 
   @impl TestRunner
   def run_test_case(testcase) do
-    assert false
     case_dir = SpecTestCase.dir(testcase)
 
     anchor_state =
