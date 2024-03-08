@@ -12,6 +12,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
 
   @configs ["mainnet", "minimal", "general"]
   @forks ["phase0", "altair", "bellatrix", "capella", "deneb"]
+  @current_fork Application.compile_env!(:lambda_ethereum_consensus, :fork) |> Atom.to_string()
 
   @shortdoc "Generates tests for spec test files"
   @impl Mix.Task
@@ -24,14 +25,9 @@ defmodule Mix.Tasks.GenerateSpecTests do
     File.rm_rf!(generated_folder)
     File.mkdir_p!(generated_folder)
 
-    # Generate all tests for Capella fork
+    # Generate all tests for current fork
     for config <- @configs, runner <- runners do
-      generate_test(config, "capella", runner)
-    end
-
-    # Generate all tests for Deneb fork
-    for config <- @configs, runner <- runners do
-      generate_test(config, "deneb", runner)
+      generate_test(config, @current_fork, runner)
     end
 
     # Generate tests for all forks in general preset

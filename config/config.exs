@@ -4,7 +4,8 @@ import Config
 # Configure fork
 # Available: "capella", "deneb"
 # Used only for testing
-fork_raw = System.get_env("FORK", "capella")
+
+fork_raw = File.read!(".fork_version") |> String.trim()
 
 fork =
   case fork_raw do
