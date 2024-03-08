@@ -267,10 +267,11 @@ jobs:
         if: steps.output-cache.outputs.cache-hit != 'true'
         run: make download-vectors
 
-  spectests:
+  spectests-matrix:
     name: Run spec-tests
     needs: [compile-native, download-spectests, download-beacon-node-oapi]
     strategy:
+      fail-fast: false
       matrix:
         fork: ["capella", "deneb"]
         config: ["minimal", "general", "mainnet"]
@@ -328,3 +329,11 @@ jobs:
           else
             FORK=${{ matrix.fork }} mix test --no-start test/generated/${{ matrix.config }}/${{ matrix.fork }}/*
           fi
+
+  spectests-success:
+    name: All spec-tests passed
+    needs: spectests-matrix
+    runs-on: ubuntu-22.04
+    steps:
+      - name: All spectests passed
+        run: echo "All spec-tests passed!"
