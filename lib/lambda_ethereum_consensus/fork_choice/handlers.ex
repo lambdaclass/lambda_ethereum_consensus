@@ -165,10 +165,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def compute_post_state(%Store{} = store, %SignedBeaconBlock{} = signed_block, state) do
     %{message: block} = signed_block
 
+    payload = block.body.execution_payload
+
     # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
       Task.async(fn ->
-        ExecutionClient.notify_new_payload(block.body.execution_payload)
+        %NewPayloadRequest{execution_payload: payload}
+        |> ExecutionClient.verify_and_notify_new_payload()
         |> handle_verify_payload_result()
       end)
 

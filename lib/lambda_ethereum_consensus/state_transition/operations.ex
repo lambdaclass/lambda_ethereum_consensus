@@ -217,7 +217,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
   @spec process_execution_payload(BeaconState.t(), BeaconBlockBody.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_execution_payload(state, %BeaconBlockBody{execution_payload: payload}) do
+  def process_execution_payload(state, %BeaconBlockBody{execution_payload: payload} = body) do
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
       BeaconState.merge_transition_complete?(state) and

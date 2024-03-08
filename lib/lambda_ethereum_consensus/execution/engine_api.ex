@@ -13,20 +13,12 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   @spec exchange_capabilities() :: {:ok, any} | {:error, any}
   def exchange_capabilities, do: impl().exchange_capabilities()
 
-  @spec new_payload(ExecutionPayload.t()) ::
-          {:ok, any} | {:error, any}
+  @spec new_payload(ExecutionPayload.t()) :: {:ok, any} | {:error, any}
   def new_payload(execution_payload), do: impl().new_payload(execution_payload)
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes),
     do: impl().forkchoice_updated(forkchoice_state, payload_attributes)
 
-  defp impl do
-    Application.fetch_env!(
-      :lambda_ethereum_consensus,
-      __MODULE__
-    )[
-      :implementation
-    ]
-  end
+  defp impl, do: Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)[:implementation]
 end

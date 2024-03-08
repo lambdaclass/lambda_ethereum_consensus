@@ -276,6 +276,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   @spec kzg_commitment_to_versioned_hash(Types.kzg_commitment()) :: Types.bytes32()
   def kzg_commitment_to_versioned_hash(kzg_commitment) do
     hash = SszEx.hash(kzg_commitment) |> binary_slice(1..31)
-    <<Constants.versioned_hash_version_kzg(), hash::binary(31)>>
+    <<Constants.versioned_hash_version_kzg(), hash::binary-size(31)>>
   end
 end

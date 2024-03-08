@@ -53,4 +53,24 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
 
     EngineApi.forkchoice_updated(fork_choice_state, nil)
   end
+
+  @doc """
+  Equivalent to is_valid_block_hash from the spec.
+  Return ``true`` if and only if ``execution_payload.block_hash`` is computed correctly.
+  """
+  @spec valid_block_hash?(ExecutionPayload.t()) ::
+          {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
+  # TODO: Implement this function
+  def valid_block_hash?(_execution_payload), do: {:ok, :valid}
+
+  @doc """
+  Same as `notify_new_payload`, but with additional checks.
+  """
+  @spec verify_and_notify_new_payload(NewPayloadRequest.t()) ::
+          {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
+  def verify_and_notify_new_payload(%NewPayloadRequest{} = new_payload_request) do
+    with {:ok, :valid} <- valid_block_hash?(new_payload_request.execution_payload) do
+      notify_new_payload(new_payload_request.execution_payload)
+    end
+  end
 end

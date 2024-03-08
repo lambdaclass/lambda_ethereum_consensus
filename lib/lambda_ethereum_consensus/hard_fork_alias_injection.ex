@@ -24,5 +24,6 @@ defmodule HardForkAliasInjection do
     end
   end
 
+  @compile {:inline, deneb?: 0}
   def deneb?, do: unquote(is_deneb)
 end
