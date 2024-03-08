@@ -217,10 +217,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
   @spec process_execution_payload(BeaconState.t(), BeaconBlockBody.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_execution_payload(
-        state,
-        %BeaconBlockBody{execution_payload: payload}
-      ) do
+  def process_execution_payload(state, %BeaconBlockBody{execution_payload: payload}) do
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
       BeaconState.merge_transition_complete?(state) and
@@ -235,6 +232,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       # Verify timestamp
       payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->
         {:error, "Timestamp verification failed"}
+
+      HardForkAliasInjection.deneb?() and
+          length(body.blob_kzg_commitments) > ChainSpec.get("MAX_BLOBS_PER_BLOCK") ->
+        {:error, "Too many commitments"}
 
       # Cache execution payload header
       true ->
