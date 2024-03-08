@@ -22,10 +22,12 @@ defmodule LambdaEthereumConsensus.SszEx do
     A composite type of fixed-length boolean elements, with a exact `size` of bits.
   """
   alias LambdaEthereumConsensus.Utils.BitList
-  import alias LambdaEthereumConsensus.Utils.BitVector
-  import Bitwise
-  import Aja
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.ZeroHashes
+
+  import Aja
+  import BitVector
+  import Bitwise
 
   @type schema() ::
           :bool
@@ -65,6 +67,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_nodes(binary(), binary()) :: binary()
   def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
 
+  @spec encode(any(), schema()) :: {:ok, binary()} | {:error, String.t()}
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
   def encode(value, {:bytes, _}), do: {:ok, value}
@@ -874,7 +877,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp get_fixed_size({:bytes, size}), do: size
   defp get_fixed_size({:vector, :bytes, size}), do: size
   defp get_fixed_size({:vector, basic_type, size}), do: size * get_fixed_size(basic_type)
-
   defp get_fixed_size({:bitvector, size}), do: div(size + 7, 8)
 
   defp get_fixed_size(module) when is_atom(module) do

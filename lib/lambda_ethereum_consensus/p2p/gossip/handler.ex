@@ -7,8 +7,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Utils.BitField
-  alias Types.{AggregateAndProof, SignedAggregateAndProof, SignedBeaconBlock}
+  alias Types.{AggregateAndProof, BlobSidecar, SignedAggregateAndProof, SignedBeaconBlock}
+
+  use HardForkAliasInjection
 
   def handle_beacon_block(%SignedBeaconBlock{message: block} = signed_block) do
     current_slot = BeaconChain.get_current_slot()
@@ -38,4 +41,12 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
       root: root
     )
   end
+
+  def handle_blob_sidecar(%BlobSidecar{index: blob_index} = blob, blob_index) do
+    BlobDb.store_blob(blob)
+    Logger.debug("[Gossip] Blob sidecar received, with index #{blob_index}")
+  end
+
+  # Ignore blobs with mismatched indices
+  def handle_blob_sidecar(_, _), do: :ok
 end

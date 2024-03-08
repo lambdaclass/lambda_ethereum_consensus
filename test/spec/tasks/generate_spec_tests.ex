@@ -29,6 +29,11 @@ defmodule Mix.Tasks.GenerateSpecTests do
       generate_test(config, "capella", runner)
     end
 
+    # Generate all tests for Deneb fork
+    for config <- @configs, runner <- runners do
+      generate_test(config, "deneb", runner)
+    end
+
     # Generate tests for all forks in general preset
     for fork <- @forks, runner <- runners do
       generate_test("general", fork, runner)

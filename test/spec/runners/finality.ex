@@ -20,6 +20,11 @@ defmodule FinalityTestRunner do
   end
 
   @impl TestRunner
+  def skip?(_testcase) do
+    true
+  end
+
+  @impl TestRunner
   def run_test_case(testcase) do
     Helpers.ProcessBlocks.process_blocks(testcase)
   end

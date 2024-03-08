@@ -13,6 +13,8 @@ defmodule Types.Store do
   alias Types.Checkpoint
   alias Types.SignedBeaconBlock
 
+  use HardForkAliasInjection
+
   defstruct [
     :time,
     :genesis_time,

@@ -35,4 +35,12 @@ defmodule TypeAliases do
     transaction = {:byte_list, ChainSpec.get("MAX_BYTES_PER_TRANSACTION")}
     {:list, transaction, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}
   end
+
+  def beacon_blocks_by_root_request,
+    do: {:list, TypeAliases.root(), ChainSpec.get("MAX_REQUEST_BLOCKS")}
+
+  def blob_sidecars_by_root_request,
+    do: {:list, Types.BlobIdentifier, ChainSpec.get("MAX_REQUEST_BLOB_SIDECARS")}
+
+  def error_message, do: {:bytes, 256}
 end

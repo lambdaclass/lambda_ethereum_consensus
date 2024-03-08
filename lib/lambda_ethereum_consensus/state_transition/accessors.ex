@@ -10,6 +10,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.Utils.Randao
   alias Types.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
+  use HardForkAliasInjection
+
   @max_random_byte 2 ** 8 - 1
 
   @doc """

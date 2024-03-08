@@ -5,18 +5,13 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.P2P.Metadata
+  alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
 
   require Logger
-
-  # This is the `Resource Unavailable` error message
-  # TODO: compute this and other messages at runtime
-  @error_message_resource_unavailable "Resource Unavailable"
-  # This is the `Server Error` error message
-  # TODO: compute this and other messages at runtime
-  @error_message_server_error "Server Error"
 
   @spec handle(String.t(), String.t(), binary()) :: any()
   def handle(name, message_id, message) do
@@ -31,39 +26,28 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp handle_req(protocol_name, message_id, message)
 
   defp handle_req("status/1/ssz_snappy", message_id, message) do
-    with {:ok, snappy_status} <- decode_size_header(84, message),
-         {:ok, current_status} <- BeaconChain.get_current_status_message(),
-         {:ok, ssz_status} <- Snappy.decompress(snappy_status),
-         {:ok, status} <- Ssz.from_ssz(ssz_status, Types.StatusMessage),
-         status
-         |> inspect(limit: :infinity)
-         |> then(&"[Status] '#{&1}'")
-         |> Logger.debug(),
-         {:ok, payload} <- Ssz.to_ssz(current_status),
-         {:ok, payload} <- Snappy.compress(payload) do
-      Libp2pPort.send_response(message_id, <<0, 84>> <> payload)
+    with {:ok, request} <- ReqResp.decode_request(message, Types.StatusMessage) do
+      Logger.debug("[Status] '#{inspect(request)}'")
+      payload = BeaconChain.get_current_status_message() |> ReqResp.encode_ok()
+      Libp2pPort.send_response(message_id, payload)
     end
   end
 
+  defp handle_req("goodbye/1/ssz_snappy", _, "") do
+    # ignore empty messages
+    Logger.debug("[Goodbye] empty message")
+  end
+
   defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
-    with {:ok, snappy_code_le} <- decode_size_header(8, message),
-         {:ok, code_le} <- Snappy.decompress(snappy_code_le),
-         :ok <-
-           code_le
-           |> :binary.decode_unsigned(:little)
-           |> then(&Logger.debug("[Goodbye] reason: #{&1}")),
-         {:ok, payload} <-
-           <<0, 0, 0, 0, 0, 0, 0, 0>>
-           |> Snappy.compress() do
-      Libp2pPort.send_response(message_id, <<0, 8>> <> payload)
-    else
+    case ReqResp.decode_request(message, TypeAliases.uint64()) do
+      {:ok, goodbye_reason} ->
+        Logger.debug("[Goodbye] reason: #{goodbye_reason}")
+        payload = ReqResp.encode_ok({0, TypeAliases.uint64()})
+        Libp2pPort.send_response(message_id, payload)
+
       # Ignore read errors, since some peers eagerly disconnect.
       {:error, "failed to read"} ->
         Logger.debug("[Goodbye] failed to read")
-        :ok
-
-      "" ->
-        Logger.debug("[Goodbye] empty message")
         :ok
 
       err ->
@@ -73,77 +57,56 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
   defp handle_req("ping/1/ssz_snappy", message_id, message) do
     # Values are hardcoded
-    with {:ok, seq_number_le} <- decode_size_header(8, message),
-         {:ok, decompressed} <-
-           Snappy.decompress(seq_number_le),
-         decompressed
-         |> :binary.decode_unsigned(:little)
-         |> then(&"[Ping] seq_number: #{&1}")
-         |> Logger.debug(),
-         {:ok, payload} <-
-           <<0, 0, 0, 0, 0, 0, 0, 0>>
-           |> Snappy.compress() do
-      Libp2pPort.send_response(message_id, <<0, 8>> <> payload)
+    with {:ok, seq_num} <- ReqResp.decode_request(message, TypeAliases.uint64()) do
+      Logger.debug("[Ping] seq_number: #{seq_num}")
+      seq_number = Metadata.get_seq_number()
+      payload = ReqResp.encode_ok({seq_number, TypeAliases.uint64()})
+      Libp2pPort.send_response(message_id, payload)
     end
   end
 
   defp handle_req("metadata/2/ssz_snappy", message_id, _message) do
-    with metadata <- P2P.Metadata.get_metadata(),
-         {:ok, metadata_ssz} <- Ssz.to_ssz(metadata),
-         {:ok, payload} <- Snappy.compress(metadata_ssz) do
-      Libp2pPort.send_response(message_id, <<0, 17>> <> payload)
-    end
+    # NOTE: there's no request content so we just ignore it
+    payload = Metadata.get_metadata() |> ReqResp.encode_ok()
+    Libp2pPort.send_response(message_id, payload)
   end
 
   defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
-    with {:ok, snappy_blocks_by_range_request} <- decode_size_header(24, message),
-         {:ok, ssz_blocks_by_range_request} <- Snappy.decompress(snappy_blocks_by_range_request),
-         {:ok, blocks_by_range_request} <-
-           Ssz.from_ssz(ssz_blocks_by_range_request, Types.BeaconBlocksByRangeRequest) do
-      ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
-      %Types.BeaconBlocksByRangeRequest{start_slot: start_slot, count: count} =
-        blocks_by_range_request
+    with {:ok, request} <- ReqResp.decode_request(message, Types.BeaconBlocksByRangeRequest) do
+      %{start_slot: start_slot, count: count} = request
 
-      "[Received BlocksByRange Request] requested slots #{start_slot} to #{start_slot + count - 1}"
-      |> Logger.info()
+      Logger.info("[BlocksByRange] requested #{count} slots, starting from #{start_slot}")
 
-      count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
+      truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
-      slot_coverage = start_slot + (count - 1)
+      end_slot = start_slot + (truncated_count - 1)
 
-      blocks =
-        start_slot..slot_coverage
-        |> Enum.map(&BlockDb.get_block_by_slot/1)
-
+      # TODO: extend cache to support slots as keys
       response_chunk =
-        blocks
-        |> Enum.map_join(&create_block_response_chunk/1)
+        start_slot..end_slot
+        |> Enum.map(&BlockDb.get_block_by_slot/1)
+        |> Enum.map(&map_block_result/1)
+        |> Enum.reject(&(&1 == :skip))
+        |> ReqResp.encode_response()
 
       Libp2pPort.send_response(message_id, response_chunk)
     end
   end
 
   defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
-    with {:ok, snappy_blocks_by_root_request} <- parse_message_size(message),
-         {:ok, ssz_blocks_by_root_request} <- Snappy.decompress(snappy_blocks_by_root_request),
-         {:ok, blocks_by_root_request} <-
-           Ssz.from_ssz(ssz_blocks_by_root_request, Types.BeaconBlocksByRootRequest) do
-      ## TODO: there should be check that the `start_slot` is not older than the `oldest_slot_with_block`
-      %Types.BeaconBlocksByRootRequest{body: body} =
-        blocks_by_root_request
-
-      count =
-        length(body)
-        |> min(ChainSpec.get("MAX_REQUEST_BLOCKS"))
-
-      "[Received BlocksByRoot Request] requested #{count} number of blocks"
-      |> Logger.info()
+    with {:ok, roots} <-
+           ReqResp.decode_request(message, TypeAliases.beacon_blocks_by_root_request()) do
+      count = length(roots)
+      Logger.info("[BlocksByRoot] requested #{count} number of blocks")
+      truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
       response_chunk =
-        body
-        |> Enum.slice(0..(count - 1))
+        roots
+        |> Enum.take(truncated_count)
         |> Enum.map(&Blocks.get_signed_block/1)
-        |> Enum.map_join(&create_block_response_chunk/1)
+        |> Enum.map(&map_block_result/1)
+        |> Enum.reject(&(&1 == :skip))
+        |> ReqResp.encode_response()
 
       Libp2pPort.send_response(message_id, response_chunk)
     end
@@ -155,58 +118,12 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     :ok
   end
 
-  defp create_block_response_chunk({:ok, block}) do
-    with {:ok, ssz_signed_block} <- Ssz.to_ssz(block),
-         {:ok, snappy_ssz_signed_block} <- Snappy.compress(ssz_signed_block) do
-      fork_context = BeaconChain.get_fork_digest_for_slot(block.message.slot)
+  defp map_block_result(:not_found), do: map_block_result(nil)
+  defp map_block_result(nil), do: {:error, {3, "Resource Unavailable"}}
+  defp map_block_result(:empty_slot), do: :skip
+  defp map_block_result({:ok, block}), do: map_block_result(block)
+  defp map_block_result({:error, _}), do: {:error, {2, "Server Error"}}
 
-      size_header =
-        ssz_signed_block
-        |> byte_size()
-        |> P2P.Utils.encode_varint()
-
-      <<0>> <> fork_context <> size_header <> snappy_ssz_signed_block
-    else
-      {:error, _} ->
-        ## TODO: Add SSZ encoding
-        size_header =
-          @error_message_server_error
-          |> byte_size()
-          |> P2P.Utils.encode_varint()
-
-        {:ok, snappy_message} = Snappy.compress(@error_message_server_error)
-        <<2>> <> size_header <> snappy_message
-    end
-  end
-
-  defp create_block_response_chunk({:error, _}) do
-    ## TODO: Add SSZ encoding
-    size_header =
-      @error_message_resource_unavailable
-      |> byte_size()
-      |> P2P.Utils.encode_varint()
-
-    {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
-    <<3>> <> size_header <> snappy_message
-  end
-
-  defp create_block_response_chunk(:not_found) do
-    ## TODO: Add SSZ encoding
-    size_header =
-      @error_message_resource_unavailable
-      |> byte_size()
-      |> P2P.Utils.encode_varint()
-
-    {:ok, snappy_message} = Snappy.compress(@error_message_resource_unavailable)
-    <<3>> <> size_header <> snappy_message
-  end
-
-  defp create_block_response_chunk(:empty_slot), do: <<>>
-
-  defp decode_size_header(header, <<header, rest::binary>>), do: {:ok, rest}
-  defp decode_size_header(_, ""), do: {:error, "empty message"}
-  defp decode_size_header(_, _), do: {:error, "invalid message"}
-
-  defp parse_message_size(<<24, request::binary>>), do: {:ok, request}
-  defp parse_message_size(_), do: {:error, "invalid request"}
+  defp map_block_result(block),
+    do: {:ok, {block, BeaconChain.get_fork_digest_for_slot(block.message.slot)}}
 end

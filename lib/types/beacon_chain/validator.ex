@@ -25,7 +25,7 @@ defmodule Types.Validator do
           pubkey: Types.bls_pubkey(),
           withdrawal_credentials: Types.bytes32(),
           effective_balance: Types.gwei(),
-          slashed: boolean,
+          slashed: boolean(),
           activation_eligibility_epoch: Types.epoch(),
           activation_epoch: Types.epoch(),
           exit_epoch: Types.epoch(),
