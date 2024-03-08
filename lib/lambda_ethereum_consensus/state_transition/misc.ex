@@ -272,4 +272,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     |> Map.put(:state_root, state_root)
     |> Ssz.hash_tree_root!()
   end
+
+  @spec kzg_commitment_to_versioned_hash(Types.kzg_commitment()) :: Types.bytes32()
+  def kzg_commitment_to_versioned_hash(kzg_commitment) do
+    hash = SszEx.hash(kzg_commitment) |> binary_slice(1..31)
+    <<Constants.versioned_hash_version_kzg(), hash::binary(31)>>
+  end
 end
