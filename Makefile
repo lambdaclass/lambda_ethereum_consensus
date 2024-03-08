@@ -86,7 +86,7 @@ proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
-compile-all: $(SPECTEST_GENERATED_ROOTDIR) compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
+compile-all: $(CONFIG_FILE) compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
 	mix compile
 
 #🗑️ clean: @ Remove the build files.
@@ -190,27 +190,27 @@ clean-tests:
 	-rm -r test/generated
 
 #🔴 spec-test: @ Run all spec tests
-spec-test: compile-all
+spec-test: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/*
 
 #🔴 spec-test-config-%: @ Run all spec tests for a specific config (e.g. mainnet)
-spec-test-config-%: compile-all
+spec-test-config-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/$*/*/*
 
 #🔴 spec-test-runner-%: @ Run all spec tests for a specific runner (e.g. epoch_processing)
-spec-test-runner-%: compile-all
+spec-test-runner-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/$*.exs
 
 #🔴 spec-test-mainnet-%: @ Run spec tests for mainnet config, for the specified runner.
-spec-test-mainnet-%: compile-all
+spec-test-mainnet-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 #🔴 spec-test-minimal-%: @ Run spec tests for minimal config, for the specified runner.
-spec-test-minimal-%:  compile-all
+spec-test-minimal-%:  compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/minimal/*/$*.exs
 
 #🔴 spec-test-general-%: @ Run spec tests for general config, for the specified runner.
-spec-test-general-%: compile-all 
+spec-test-general-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/general/*/$*.exs
 
 #✅ lint: @ Check formatting and linting.
