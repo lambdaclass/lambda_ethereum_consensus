@@ -12,28 +12,30 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   @doc """
   Verifies the validity of the data contained in the new payload and notifies the Execution client of a new payload
   """
-  @spec notify_new_payload(ExecutionPayload.t()) ::
+  @spec notify_new_payload(NewPayloadRequest.t()) ::
           {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
-  def notify_new_payload(execution_payload) do
-    result = EngineApi.new_payload(execution_payload)
-
-    case result do
-      {:ok, %{"status" => "SYNCING"}} ->
-        {:ok, :optimistic}
-
-      {:ok, %{"status" => "VALID"}} ->
-        {:ok, :valid}
-
-      {:ok, %{"status" => "INVALID"}} ->
-        {:ok, :invalid}
-
-      {:error, error} ->
-        {:error, error}
-    end
+  # CAPELLA
+  def notify_new_payload(%NewPayloadRequest{
+        execution_payload: execution_payload,
+        versioned_hashes: nil,
+        parent_beacon_block_root: nil
+      }) do
+    EngineApi.new_payload(execution_payload) |> parse_rpc_result()
   end
 
-  # TODO: implement
-  def notify_new_payload(_execution_payload, _parent_beacon_block_root), do: {:ok, :valid}
+  def notify_new_payload(%NewPayloadRequest{
+        execution_payload: execution_payload,
+        versioned_hashes: versioned_hashes,
+        parent_beacon_block_root: parent_beacon_block_root
+      }) do
+    EngineApi.new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)
+    |> parse_rpc_result()
+  end
+
+  defp parse_rpc_result({:ok, %{"status" => "SYNCING"}}), do: {:ok, :optimistic}
+  defp parse_rpc_result({:ok, %{"status" => "VALID"}}), do: {:ok, :valid}
+  defp parse_rpc_result({:ok, %{"status" => "INVALID"}}), do: {:ok, :invalid}
+  defp parse_rpc_result({:error, _} = err), do: err
 
   @doc """
   This function performs three actions *atomically*:
@@ -59,7 +61,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   end
 
   @doc """
-  Equivalent to is_valid_block_hash from the spec.
+  Equivalent to `is_valid_block_hash` from the spec.
   Return ``true`` if and only if ``execution_payload.block_hash`` is computed correctly.
   """
   @spec valid_block_hash?(ExecutionPayload.t()) ::
@@ -102,7 +104,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
       ) do
     with {:ok, :valid} <- valid_block_hash?(execution_payload, parent_beacon_block_root),
          {:ok, :valid} <- valid_versioned_hashes?(new_payload_request) do
-      notify_new_payload(execution_payload, parent_beacon_block_root)
+      notify_new_payload(new_payload_request)
     end
   end
 end
