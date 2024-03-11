@@ -123,4 +123,7 @@ defmodule Constants do
 
   @spec bytes_per_field_element() :: Types.uint64()
   def bytes_per_field_element, do: 32
+
+  @spec versioned_hash_version_kzg() :: <<_::8>>
+  def versioned_hash_version_kzg, do: <<1>>
 end

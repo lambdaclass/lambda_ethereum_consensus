@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   """
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias Types.ExecutionPayload
+  alias Types.NewPayloadRequest
   require Logger
 
   use HardForkAliasInjection
@@ -31,6 +32,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     end
   end
 
+  # TODO: implement
+  def notify_new_payload(_execution_payload, _parent_beacon_block_root), do: {:ok, :valid}
+
   @doc """
   This function performs three actions *atomically*:
   * Re-organizes the execution payload chain and corresponding state to make `head_block_hash` the head.
@@ -52,5 +56,53 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     }
 
     EngineApi.forkchoice_updated(fork_choice_state, nil)
+  end
+
+  @doc """
+  Equivalent to is_valid_block_hash from the spec.
+  Return ``true`` if and only if ``execution_payload.block_hash`` is computed correctly.
+  """
+  @spec valid_block_hash?(ExecutionPayload.t()) ::
+          {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
+  # TODO: implement
+  def valid_block_hash?(_execution_payload), do: {:ok, :valid}
+  def valid_block_hash?(_execution_payload, _parent_beacon_block_root), do: {:ok, :valid}
+
+  @doc """
+  Return ``true`` if and only if the version hashes computed by the blob transactions of
+  ``new_payload_request.execution_payload`` matches ``new_payload_request.version_hashes``.
+  """
+  @spec valid_versioned_hashes?(NewPayloadRequest.t()) ::
+          {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
+  # TODO: implement
+  def valid_versioned_hashes?(_new_payload_request), do: {:ok, :valid}
+
+  @doc """
+  Same as `notify_new_payload`, but with additional checks.
+  """
+  # CAPELLA
+  def verify_and_notify_new_payload(%NewPayloadRequest{
+        execution_payload: execution_payload,
+        parent_beacon_block_root: nil,
+        versioned_hashes: nil
+      }) do
+    with {:ok, :valid} <- valid_block_hash?(execution_payload) do
+      notify_new_payload(execution_payload)
+    end
+  end
+
+  # DENEB
+  @spec verify_and_notify_new_payload(NewPayloadRequest.t()) ::
+          {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
+  def verify_and_notify_new_payload(
+        %NewPayloadRequest{
+          execution_payload: execution_payload,
+          parent_beacon_block_root: parent_beacon_block_root
+        } = new_payload_request
+      ) do
+    with {:ok, :valid} <- valid_block_hash?(execution_payload, parent_beacon_block_root),
+         {:ok, :valid} <- valid_versioned_hashes?(new_payload_request) do
+      notify_new_payload(execution_payload, parent_beacon_block_root)
+    end
   end
 end

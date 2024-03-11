@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     BeaconState,
     Checkpoint,
     IndexedAttestation,
+    NewPayloadRequest,
     SignedBeaconBlock,
     Store
   }
@@ -165,10 +166,26 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def compute_post_state(%Store{} = store, %SignedBeaconBlock{} = signed_block, state) do
     %{message: block} = signed_block
 
+    payload = block.body.execution_payload
+    parent_beacon_block_root = state.latest_block_header.parent_root
+
     # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
       Task.async(fn ->
-        ExecutionClient.notify_new_payload(block.body.execution_payload)
+        if HardForkAliasInjection.deneb?() do
+          versioned_hashes =
+            block.body.blob_kzg_commitments
+            |> Enum.map(&Misc.kzg_commitment_to_versioned_hash/1)
+
+          %NewPayloadRequest{
+            execution_payload: payload,
+            parent_beacon_block_root: parent_beacon_block_root,
+            versioned_hashes: versioned_hashes
+          }
+        else
+          %NewPayloadRequest{execution_payload: payload}
+        end
+        |> ExecutionClient.verify_and_notify_new_payload()
         |> handle_verify_payload_result()
       end)
 
