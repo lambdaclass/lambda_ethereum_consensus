@@ -13,7 +13,7 @@ defmodule Types.NewPayloadRequest do
           execution_payload: ExecutionPayload.t(),
 
           # Deneb-only
-          versioned_hashes: list(Types.bytes32()),
-          parent_beacon_block_root: Types.root()
+          versioned_hashes: list(Types.bytes32()) | nil,
+          parent_beacon_block_root: Types.root() | nil
         }
 end

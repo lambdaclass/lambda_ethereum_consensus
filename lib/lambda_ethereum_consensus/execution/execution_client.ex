@@ -72,7 +72,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   Return ``true`` if and only if the version hashes computed by the blob transactions of
   ``new_payload_request.execution_payload`` matches ``new_payload_request.version_hashes``.
   """
-  @spec valid_versioned_hashes?(ExecutionPayload.t()) ::
+  @spec valid_versioned_hashes?(NewPayloadRequest.t()) ::
           {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
   # TODO: implement
   def valid_versioned_hashes?(_new_payload_request), do: {:ok, :valid}

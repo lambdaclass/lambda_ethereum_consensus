@@ -235,10 +235,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->
         {:error, "Timestamp verification failed"}
 
-      HardForkAliasInjection.on_deneb(
-        length(body.blob_kzg_commitments) > ChainSpec.get("MAX_BLOBS_PER_BLOCK"),
-        false
-      ) ->
+      HardForkAliasInjection.on_deneb(body.blob_kzg_commitments |> length(), -1) >
+          ChainSpec.get("MAX_BLOBS_PER_BLOCK") ->
         {:error, "Too many commitments"}
 
       # Cache execution payload header
