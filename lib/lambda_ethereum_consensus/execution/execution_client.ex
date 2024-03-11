@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   """
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias Types.ExecutionPayload
+  alias Types.NewPayloadRequest
   require Logger
 
   use HardForkAliasInjection
@@ -79,6 +80,17 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   @doc """
   Same as `notify_new_payload`, but with additional checks.
   """
+  # CAPELLA
+  def verify_and_notify_new_payload(%NewPayloadRequest{
+        execution_payload: execution_payload,
+        parent_beacon_block_root: nil,
+        versioned_hashes: nil
+      }) do
+    with {:ok, :valid} <- valid_block_hash?(execution_payload) do
+      notify_new_payload(execution_payload)
+    end
+  end
+
   # DENEB
   @spec verify_and_notify_new_payload(NewPayloadRequest.t()) ::
           {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
@@ -91,13 +103,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     with {:ok, :valid} <- valid_block_hash?(execution_payload, parent_beacon_block_root),
          {:ok, :valid} <- valid_versioned_hashes?(new_payload_request) do
       notify_new_payload(execution_payload, parent_beacon_block_root)
-    end
-  end
-
-  # CAPELLA
-  def verify_and_notify_new_payload(%NewPayloadRequest{execution_payload: execution_payload}) do
-    with {:ok, :valid} <- valid_block_hash?(execution_payload) do
-      notify_new_payload(execution_payload)
     end
   end
 end

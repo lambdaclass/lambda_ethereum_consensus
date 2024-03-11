@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     BeaconState,
     Checkpoint,
     IndexedAttestation,
+    NewPayloadRequest,
     SignedBeaconBlock,
     Store
   }
@@ -181,13 +182,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
             parent_beacon_block_root: parent_beacon_block_root,
             versioned_hashes: versioned_hashes
           }
-          |> ExecutionClient.verify_and_notify_new_payload()
-          |> handle_verify_payload_result()
         else
           %NewPayloadRequest{execution_payload: payload}
-          |> ExecutionClient.verify_and_notify_new_payload()
-          |> handle_verify_payload_result()
         end
+        |> ExecutionClient.verify_and_notify_new_payload()
+        |> handle_verify_payload_result()
       end)
 
     with {:ok, state} <- StateTransition.state_transition(state, signed_block, true),
