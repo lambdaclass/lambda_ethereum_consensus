@@ -83,13 +83,15 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   Same as `notify_new_payload`, but with additional checks.
   """
   # CAPELLA
-  def verify_and_notify_new_payload(%NewPayloadRequest{
-        execution_payload: execution_payload,
-        parent_beacon_block_root: nil,
-        versioned_hashes: nil
-      }) do
+  def verify_and_notify_new_payload(
+        %NewPayloadRequest{
+          execution_payload: execution_payload,
+          parent_beacon_block_root: nil,
+          versioned_hashes: nil
+        } = request
+      ) do
     with {:ok, :valid} <- valid_block_hash?(execution_payload) do
-      notify_new_payload(execution_payload)
+      notify_new_payload(request)
     end
   end
 

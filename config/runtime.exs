@@ -100,7 +100,7 @@ implementation = if mock_execution, do: EngineApi.Mocked, else: EngineApi.Api
 jwt_secret = if jwt_path, do: File.read!(jwt_path)
 
 # Check that jwt secret is valid
-LambdaEthereumConsensus.Execution.Auth.generate_token(jwt_secret)
+if jwt_secret, do: LambdaEthereumConsensus.Execution.Auth.generate_token(jwt_secret)
 
 config :lambda_ethereum_consensus, EngineApi,
   endpoint: execution_endpoint,
