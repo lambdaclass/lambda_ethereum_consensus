@@ -48,7 +48,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
     version = Keyword.fetch!(config, :version)
     jwt_secret = Keyword.fetch!(config, :jwt_secret)
 
-    {:ok, jwt, _} = Auth.generate_token(jwt_secret)
+    jwt = Auth.generate_token(jwt_secret)
     RPC.rpc_call(endpoint, jwt, version, method, params)
   end
 end
