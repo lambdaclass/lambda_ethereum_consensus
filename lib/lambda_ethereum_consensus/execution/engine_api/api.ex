@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   alias Types.ExecutionPayload
   alias Types.ExecutionPayloadDeneb
 
-  @supported_methods ["engine_newPayloadV2"]
+  @supported_methods ["engine_newPayloadV2", "engine_newPayloadV2"]
 
   @doc """
   Using this method Execution and consensus layer client software may
@@ -29,16 +29,16 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   @spec new_payload(ExecutionPayloadDeneb.t(), [list(Types.root())], Types.root()) ::
           {:ok, any} | {:error, any}
   # DENEB
-  def new_payload(_execution_payload, _versioned_hashes, _parent_beacon_block_root) do
-    {:ok, %{"status" => "VALID"}}
+  def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root) do
+    call(
+      "engine_newPayloadV3",
+      RPC.normalize([execution_payload, versioned_hashes, parent_beacon_block_root])
+    )
   end
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes) do
-    call("engine_forkchoiceUpdatedV2", [
-      RPC.normalize(forkchoice_state),
-      RPC.normalize(payload_attributes)
-    ])
+    call("engine_forkchoiceUpdatedV2", RPC.normalize([forkchoice_state, payload_attributes]))
   end
 
   defp call(method, params) do
