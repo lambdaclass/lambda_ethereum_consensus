@@ -7,11 +7,16 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   use Tesla
   plug(Tesla.Middleware.JSON)
 
+  alias Types.BeaconState
+  alias Types.SignedBeaconBlock
+
+  use HardForkAliasInjection
+
   @doc """
   Safely retrieves the last finalized state and block
   """
   @spec get_finalized_block_and_state(String.t(), Types.root()) ::
-          {:ok, {Types.BeaconState.t(), Types.SignedBeaconBlock.t()}} | {:error, any()}
+          {:ok, {BeaconState.t(), SignedBeaconBlock.t()}} | {:error, any()}
   def get_finalized_block_and_state(url, genesis_validators_root) do
     tasks = [Task.async(__MODULE__, :get_state, [url]), Task.async(__MODULE__, :get_block, [url])]
 
@@ -41,10 +46,10 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   @doc """
   Retrieves the last finalized state
   """
-  @spec get_state(String.t()) :: {:ok, Types.BeaconState.t()} | {:error, any()}
+  @spec get_state(String.t()) :: {:ok, BeaconState.t()} | {:error, any()}
   def get_state(url) do
     with {:error, err} <-
-           get_from_url(url, "/eth/v2/debug/beacon/states/finalized", Types.BeaconState) do
+           get_from_url(url, "/eth/v2/debug/beacon/states/finalized", BeaconState) do
       Logger.error("There has been an error retrieving the last finalized state")
       {:error, err}
     end
@@ -53,10 +58,10 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   @doc """
   Retrieves the last finalized block
   """
-  @spec get_block(String.t()) :: {:ok, Types.SignedBeaconBlock.t()} | {:error, any()}
+  @spec get_block(String.t()) :: {:ok, SignedBeaconBlock.t()} | {:error, any()}
   def get_block(url, id \\ "finalized") do
     with {:error, err} <-
-           get_from_url(url, "/eth/v2/beacon/blocks/#{id}", Types.SignedBeaconBlock) do
+           get_from_url(url, "/eth/v2/beacon/blocks/#{id}", SignedBeaconBlock) do
       Logger.error("There has been an error retrieving the last finalized block")
       {:error, err}
     end

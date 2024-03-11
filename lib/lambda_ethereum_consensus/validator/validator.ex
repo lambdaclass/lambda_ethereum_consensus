@@ -28,7 +28,7 @@ defmodule LambdaEthereumConsensus.Validator do
       duties: {:not_computed, :not_computed},
       # TODO: get validator from config
       validator: 150_112,
-      privkey: <<0::256>>
+      privkey: <<652_916_760::256>>
     }
 
     {:ok, state, {:continue, nil}}
@@ -171,7 +171,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp produce_attestation(duty, head_root, privkey) do
     {index_in_committee, committee_length, committee_index, slot} = duty
-    head_state = BlockStates.get_state!(head_root) |> StateTransition.process_slots(slot)
+    head_state = BlockStates.get_state!(head_root) |> process_slots(slot)
     head_epoch = Misc.compute_epoch_at_slot(slot)
 
     epoch_boundary_block_root =
@@ -206,5 +206,12 @@ defmodule LambdaEthereumConsensus.Validator do
 
     subnet_id = compute_subnet_ids_for_duties([duty], head_state, head_epoch)
     {subnet_id, attestation}
+  end
+
+  defp process_slots(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
+
+  defp process_slots(state, slot) do
+    {:ok, st} = StateTransition.process_slots(state, slot)
+    st
   end
 end

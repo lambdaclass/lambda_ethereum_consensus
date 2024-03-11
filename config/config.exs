@@ -1,6 +1,23 @@
 # General application configuration
 import Config
 
+# Configure fork
+# Available: "capella", "deneb"
+# Used only for testing
+
+fork_raw = File.read!(".fork_version") |> String.trim()
+
+fork =
+  case fork_raw do
+    "capella" -> :capella
+    "deneb" -> :deneb
+    v -> raise "Invalid fork specified: #{v}"
+  end
+
+IO.puts("compilation done for fork: #{fork_raw}")
+
+config :lambda_ethereum_consensus, :fork, fork
+
 # Configure logging
 config :logger, level: :info, truncate: :infinity
 

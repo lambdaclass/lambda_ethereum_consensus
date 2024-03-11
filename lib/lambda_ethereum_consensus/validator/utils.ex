@@ -7,6 +7,8 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   alias Types.AttestationData
   alias Types.BeaconState
 
+  use HardForkAliasInjection
+
   @type duty() ::
           {index_in_committee :: Types.uint64(), committee_length :: Types.uint64(),
            committee_index :: Types.uint64(), slot :: Types.slot()}
@@ -70,7 +72,7 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   @spec get_attestation_signature(BeaconState.t(), AttestationData.t(), Bls.privkey()) ::
           Types.bls_signature()
   def get_attestation_signature(%BeaconState{} = state, attestation_data, privkey) do
-    domain_beacon_attester = ChainSpec.get("DOMAIN_BEACON_ATTESTER")
+    domain_beacon_attester = Constants.domain_beacon_attester()
     domain = Accessors.get_domain(state, domain_beacon_attester, attestation_data.target.epoch)
     signing_root = Misc.compute_signing_root(attestation_data, domain)
     # Can't fail, unless privkey is invalid

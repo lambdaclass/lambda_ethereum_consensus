@@ -3,12 +3,15 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   Execution Layer Engine API methods
   """
   alias LambdaEthereumConsensus.Execution.EngineApi
+  alias Types.ExecutionPayload
   require Logger
+
+  use HardForkAliasInjection
 
   @doc """
   Verifies the validity of the data contained in the new payload and notifies the Execution client of a new payload
   """
-  @spec notify_new_payload(Types.ExecutionPayload.t()) ::
+  @spec notify_new_payload(ExecutionPayload.t()) ::
           {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
   def notify_new_payload(execution_payload) do
     result = EngineApi.new_payload(execution_payload)

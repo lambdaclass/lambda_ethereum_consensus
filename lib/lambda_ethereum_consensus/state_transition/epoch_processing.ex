@@ -8,6 +8,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias LambdaEthereumConsensus.Utils.Randao
   alias Types.{BeaconState, HistoricalSummary, Validator}
 
+  use HardForkAliasInjection
+
   @spec process_sync_committee_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_sync_committee_updates(
