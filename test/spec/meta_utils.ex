@@ -32,12 +32,38 @@ defmodule Spec.MetaUtils do
     |> Enum.map(&SpecTestCase.new/1)
   end
 
-  def check_enabled() do
+  @doc """
+  Module (represented as an atom) for the ExUnit test that will be run for a single
+  combination of config, fork and runner.
+  """
+  def test_module(config, fork, runner) do
+    c = Macro.camelize(config)
+    f = Macro.camelize(fork)
+    r = Macro.camelize(runner)
+    "Elixir.#{c}.#{f}.#{r}Test" |> String.to_atom()
+  end
+
+  @doc """
+  Module that implements the runner behavior for a single runner, regardless of the config
+  or fork.
+  """
+  def runner_module(runner_name) do
+    "Elixir.#{Macro.camelize(runner_name)}TestRunner" |> String.to_atom()
+  end
+
+  @doc """
+  Returns a hierarchical map of which spec tests are enabled or which ones are skipped.
+  For any folder, a map will be built with the keys ":full_run", ":full_skip" or "partial",
+  depending on the results of its sub_folders/tests. Full runs and full skips will not show
+  details, only the number of tests that are run or skipped. Partial directories are more
+  interesting, as they might have unimplemented cases by oversight.
+  """
+  def check_enabled do
     {_status, "tests", res} = check_enabled(@vectors_dir, ["root" | @vector_sub_dirs])
     res
   end
 
-  def check_enabled(current_dir, ["runner" | _rest]) do
+  defp check_enabled(current_dir, ["runner" | _rest]) do
     # Get the test cases for this runner.
     [config, fork, runner | _rest] = current_dir |> Path.relative_to(@vectors_dir) |> Path.split()
     runner_name = current_dir |> Path.basename()
@@ -62,7 +88,7 @@ defmodule Spec.MetaUtils do
     end
   end
 
-  def check_enabled(current_dir, [_dir_category | rest]) do
+  defp check_enabled(current_dir, [_dir_category | rest]) do
     File.ls!(current_dir)
     |> Enum.map(fn child -> Path.join(current_dir, child) |> check_enabled(rest) end)
     |> Enum.group_by(fn {status, _, _} -> status end, fn {_, name, data} -> {name, data} end)
@@ -87,17 +113,4 @@ defmodule Spec.MetaUtils do
   end
 
   defp names(cases), do: Enum.map(cases, &Path.join([&1.handler, &1.suite, &1.case]))
-
-  defguard all_enabled?(parsed_dir) when parsed_dir.s == 0
-
-  def test_module(config, fork, runner) do
-    c = Macro.camelize(config)
-    f = Macro.camelize(fork)
-    r = Macro.camelize(runner)
-    "Elixir.#{c}.#{f}.#{r}Test" |> String.to_atom()
-  end
-
-  def runner_module(runner_name) do
-    "Elixir.#{Macro.camelize(runner_name)}TestRunner" |> String.to_atom()
-  end
 end

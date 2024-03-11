@@ -65,3 +65,4 @@ callgrind.out.*
 
 # beacon node oapi json file
 beacon-node-oapi.json
+reports/
