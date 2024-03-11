@@ -42,6 +42,7 @@ macro_rules! schema_match {
                 SyncAggregate<C>,
                 SyncCommittee<C>,
                 BeaconState<C>,
+                BeaconStateDeneb<C>,
                 BeaconBlockBody<C>,
                 BeaconBlockBodyDeneb<C>,
                 StatusMessage,
