@@ -7,6 +7,9 @@
 # Delete current file when command fails
 .DELETE_ON_ERROR:
 
+FORK_VERSION_FILE = .fork_version
+CONFIG_FILE = config/config.exs
+
 ##### NATIVE COMPILATION #####
 
 ### NIF
@@ -155,9 +158,6 @@ $(info $(shell mkdir -p $(SPECTEST_ROOTDIR)))
 SPECTEST_DIRS := $(patsubst %,$(SPECTEST_ROOTDIR)/tests/%,$(SPECTEST_CONFIGS))
 SPECTEST_GENERATED := $(patsubst %,$(SPECTEST_GENERATED_ROOTDIR)/%,$(SPECTEST_CONFIGS))
 SPECTEST_TARS := $(patsubst %,$(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
-
-FORK_VERSION_FILE = .fork_version
-CONFIG_FILE = config/config.exs
 
 # update config file to force re-compilation when fork changes
 $(CONFIG_FILE): $(FORK_VERSION_FILE)
