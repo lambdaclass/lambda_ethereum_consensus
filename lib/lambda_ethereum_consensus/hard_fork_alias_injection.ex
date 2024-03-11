@@ -26,4 +26,22 @@ defmodule HardForkAliasInjection do
 
   @compile {:inline, deneb?: 0}
   def deneb?, do: unquote(is_deneb)
+
+  @doc """
+  Compiles to the first argument if on deneb, otherwise to the second argument.
+
+  ## Examples
+
+      iex> HardForkAliasInjection.on_deneb(true, false)
+      #{is_deneb}
+  """
+  if is_deneb do
+    defmacro on_deneb(code, _default) do
+      code
+    end
+  else
+    defmacro on_deneb(_code, default) do
+      default
+    end
+  end
 end
