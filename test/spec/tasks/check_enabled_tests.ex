@@ -22,9 +22,9 @@ defmodule Mix.Tasks.CheckEnabledTests do
     :ok
   end
 
-  defp filename() do
+  defp filename do
     Path.join([@output_dir, "spec_test_report_#{timestamp_now()}.exs"])
   end
 
-  defp timestamp_now(), do: DateTime.utc_now() |> Timex.format!("{YYYY}-{0M}-{0D}_{h24}-{m}-{s}")
+  defp timestamp_now, do: DateTime.utc_now() |> Timex.format!("{YYYY}-{0M}-{0D}_{h24}-{m}-{s}")
 end
