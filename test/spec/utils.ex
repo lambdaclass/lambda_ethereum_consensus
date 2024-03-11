@@ -107,8 +107,8 @@ defmodule SpecTestUtils do
   @spec resolve_type_from_handler(String.t(), map()) :: module()
   def resolve_type_from_handler(handler, map) do
     case Map.get(map, handler) do
-      nil -> raise "Unknown case #{handler}"
-      type -> Module.concat(Types, type)
+      nil -> raise "Unknown case \"#{handler}\""
+      type -> type
     end
   end
 
