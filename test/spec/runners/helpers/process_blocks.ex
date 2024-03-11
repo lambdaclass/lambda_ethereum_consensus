@@ -7,21 +7,15 @@ defmodule Helpers.ProcessBlocks do
 
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.Utils.Diff
+  alias Types.BeaconState
+
+  use HardForkAliasInjection
 
   def process_blocks(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    pre =
-      SpecTestUtils.read_ssz_from_file!(
-        case_dir <> "/pre.ssz_snappy",
-        Types.BeaconState
-      )
-
-    post =
-      SpecTestUtils.read_ssz_from_optional_file!(
-        case_dir <> "/post.ssz_snappy",
-        Types.BeaconState
-      )
+    pre = SpecTestUtils.read_ssz_from_file!(case_dir <> "/pre.ssz_snappy", BeaconState)
+    post = SpecTestUtils.read_ssz_from_optional_file!(case_dir <> "/post.ssz_snappy", BeaconState)
 
     meta =
       YamlElixir.read_from_file!(case_dir <> "/meta.yaml") |> SpecTestUtils.sanitize_yaml()

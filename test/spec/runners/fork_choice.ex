@@ -9,6 +9,8 @@ defmodule ForkChoiceTestRunner do
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.Store.Blocks
+  alias Types.BeaconBlock
+  alias Types.BeaconState
   alias Types.SignedBeaconBlock
   alias Types.Store
 
@@ -92,16 +94,10 @@ defmodule ForkChoiceTestRunner do
     case_dir = SpecTestCase.dir(testcase)
 
     anchor_state =
-      SpecTestUtils.read_ssz_from_file!(
-        case_dir <> "/anchor_state.ssz_snappy",
-        Types.BeaconState
-      )
+      SpecTestUtils.read_ssz_from_file!(case_dir <> "/anchor_state.ssz_snappy", BeaconState)
 
     anchor_block =
-      SpecTestUtils.read_ssz_from_file!(
-        case_dir <> "/anchor_block.ssz_snappy",
-        Types.BeaconBlock
-      )
+      SpecTestUtils.read_ssz_from_file!(case_dir <> "/anchor_block.ssz_snappy", BeaconBlock)
 
     steps =
       YamlElixir.read_from_file!(case_dir <> "/steps.yaml") |> SpecTestUtils.sanitize_yaml()
@@ -146,10 +142,7 @@ defmodule ForkChoiceTestRunner do
 
   defp apply_step(case_dir, store, %{block: "block_0x" <> hash = file}) do
     block =
-      SpecTestUtils.read_ssz_from_file!(
-        case_dir <> "/#{file}.ssz_snappy",
-        Types.SignedBeaconBlock
-      )
+      SpecTestUtils.read_ssz_from_file!(case_dir <> "/#{file}.ssz_snappy", SignedBeaconBlock)
 
     assert Ssz.hash_tree_root!(block) == Base.decode16!(hash, case: :mixed)
 

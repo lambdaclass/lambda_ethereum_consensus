@@ -210,6 +210,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
+  Return the validator activation churn limit for the current epoch.
+  """
+  @spec get_validator_activation_churn_limit(BeaconState.t()) :: Types.uint64()
+  def get_validator_activation_churn_limit(%BeaconState{} = state) do
+    max_per_epoch_activation_churn_limit = ChainSpec.get("MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT")
+    min(max_per_epoch_activation_churn_limit, get_validator_churn_limit(state))
+  end
+
+  @doc """
   Returns the number of epochs since the last finalised checkpoint (minus one).
   """
   @spec get_finality_delay(BeaconState.t()) :: Types.uint64()
