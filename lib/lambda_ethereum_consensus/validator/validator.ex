@@ -204,7 +204,7 @@ defmodule LambdaEthereumConsensus.Validator do
       signature: signature
     }
 
-    subnet_id = compute_subnet_ids_for_duties([duty], head_state, head_epoch)
+    [subnet_id] = compute_subnet_ids_for_duties([duty], head_state, head_epoch)
     {subnet_id, attestation}
   end
 
