@@ -3,9 +3,11 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   Execution Layer Engine API methods
   """
 
+  alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.Auth
   alias LambdaEthereumConsensus.Execution.RPC
   alias Types.ExecutionPayload
+  alias Types.ExecutionPayloadDeneb
 
   @supported_methods ["engine_newPayloadV2"]
 
@@ -18,10 +20,17 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
     call("engine_exchangeCapabilities", [@supported_methods])
   end
 
-  @spec new_payload(ExecutionPayload.t()) ::
-          {:ok, any} | {:error, any}
+  @spec new_payload(ExecutionPayload.t()) :: {:ok, any} | {:error, any}
+  # CAPELLA
   def new_payload(execution_payload) do
     call("engine_newPayloadV2", [RPC.normalize(execution_payload)])
+  end
+
+  @spec new_payload(ExecutionPayloadDeneb.t(), [list(Types.root())], Types.root()) ::
+          {:ok, any} | {:error, any}
+  # DENEB
+  def new_payload(_execution_payload, _versioned_hashes, _parent_beacon_block_root) do
+    {:ok, %{"status" => "VALID"}}
   end
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
@@ -33,11 +42,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   end
 
   defp call(method, params) do
-    config =
-      Application.fetch_env!(
-        :lambda_ethereum_consensus,
-        LambdaEthereumConsensus.Execution.EngineApi
-      )
+    config = Application.fetch_env!(:lambda_ethereum_consensus, EngineApi)
 
     endpoint = Keyword.fetch!(config, :endpoint)
     version = Keyword.fetch!(config, :version)
