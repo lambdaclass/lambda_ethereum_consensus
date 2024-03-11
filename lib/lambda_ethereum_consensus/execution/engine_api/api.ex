@@ -3,8 +3,8 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   Execution Layer Engine API methods
   """
 
-  alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.Auth
+  alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
   alias Types.ExecutionPayload
   alias Types.ExecutionPayloadDeneb
