@@ -166,13 +166,28 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     %{message: block} = signed_block
 
     payload = block.body.execution_payload
+    parent_beacon_block_root = state.latest_block_header.parent_root
 
     # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
       Task.async(fn ->
-        %NewPayloadRequest{execution_payload: payload}
-        |> ExecutionClient.verify_and_notify_new_payload()
-        |> handle_verify_payload_result()
+        if HardForkAliasInjection.deneb?() do
+          versioned_hashes =
+            block.body.blob_kzg_commitments
+            |> Enum.map(&Misc.kzg_commitment_to_versioned_hash/1)
+
+          %NewPayloadRequest{
+            execution_payload: payload,
+            parent_beacon_block_root: parent_beacon_block_root,
+            versioned_hashes: versioned_hashes
+          }
+          |> ExecutionClient.verify_and_notify_new_payload()
+          |> handle_verify_payload_result()
+        else
+          %NewPayloadRequest{execution_payload: payload}
+          |> ExecutionClient.verify_and_notify_new_payload()
+          |> handle_verify_payload_result()
+        end
       end)
 
     with {:ok, state} <- StateTransition.state_transition(state, signed_block, true),
