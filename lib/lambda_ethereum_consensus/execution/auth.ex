@@ -27,7 +27,6 @@ defmodule LambdaEthereumConsensus.Execution.Auth do
       |> Base.decode16!(case: :mixed)
 
     signer = Joken.Signer.create("HS256", jwt_secret)
-    claim = %{"iat" => Joken.current_time()}
-    generate_and_sign!(claim, signer)
+    generate_and_sign!(%{}, signer)
   end
 end
