@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   alias Types.ExecutionPayload
   alias Types.ExecutionPayloadDeneb
 
-  @supported_methods ["engine_newPayloadV2", "engine_newPayloadV2"]
+  @supported_methods ["engine_newPayloadV2", "engine_newPayloadV3"]
 
   @doc """
   Using this method Execution and consensus layer client software may
