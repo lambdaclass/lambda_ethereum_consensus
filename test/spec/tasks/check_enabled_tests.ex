@@ -5,22 +5,26 @@ defmodule Mix.Tasks.CheckEnabledTests do
 
   It traverses vector configs, forks and runners hierarchically.
 
-  Run with MIX_ENV=test mix check_enabled_tests
-  The output will be in a reports/spec_test_report.exs file, that can be formatted using mix format.
+  Run with `mix check_enabled_tests`
+  The output will be a hierarchical list of full runs (✅), partial implementations (🟡) and
+  skipped/unimplemented runners (❌).
   """
+
+  use Mix.Task
 
   require Logger
 
   alias Spec.MetaUtils
 
+  @impl Mix.Task
   def run(_args) do
     MetaUtils.check_enabled() |> print(0)
     :ok
   end
 
   defp print({name, report}, spaces) do
-    print_spaced(name, spaces)
-    new_spaces = spaces + String.length(name)
+    print_spaced("🟡 #{name}", spaces)
+    new_spaces = spaces + 3
     print(report, new_spaces)
   end
 
@@ -47,7 +51,7 @@ defmodule Mix.Tasks.CheckEnabledTests do
     for f <- run_list, do: print_full_skip(f, spaces)
   end
 
-  defp print_full_skip(name, spaces) when is_binary(name), do: print_full_skip({name, 1}, spaces)
+  defp print_full_skip(name, spaces) when is_binary(name), do: print_spaced("❌ #{name}", spaces)
   defp print_full_skip({name, number}, spaces), do: print_result(name, number, "❌", spaces)
 
   defp print_result(name, number, emoji, spaces) do

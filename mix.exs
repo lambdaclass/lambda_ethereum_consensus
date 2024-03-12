@@ -13,7 +13,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       warn_test_pattern: "_remove_warning.exs",
       preferred_cli_env: [
         dialyzer: :test,
-        generate_spec_tests: :test
+        generate_spec_tests: :test,
+        check_enabled_tests: :test
       ]
     ]
   end
