@@ -30,6 +30,11 @@ defmodule RandomTestRunner do
     Enum.member?(@disabled_cases, testcase)
   end
 
+  def skip?(%SpecTestCase{fork: "deneb", case: _testcase}) do
+    # TODO: all of them fail
+    true
+  end
+
   @impl TestRunner
   def skip?(_), do: true
 

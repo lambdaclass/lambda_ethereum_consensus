@@ -105,6 +105,11 @@ defmodule SanityTestRunner do
     Enum.member?(@disabled_slot_cases, testcase)
   end
 
+  def skip?(%SpecTestCase{fork: "deneb"}) do
+    # TODO: all of them fail
+    true
+  end
+
   def skip?(_), do: true
 
   @impl TestRunner

@@ -18,10 +18,12 @@ defmodule SyncTestRunner do
     Enum.member?(@disabled_cases, testcase.case)
   end
 
-  @impl TestRunner
-  def skip?(_testcase) do
+  def skip?(%SpecTestCase{fork: "deneb"} = testcase) do
+    # TODO: fix
     true
   end
+
+  def skip?(_testcase), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do

@@ -78,6 +78,7 @@ defmodule ForkChoiceTestRunner do
     # "withholding_attack_unviable_honest_chain"
   ]
 
+  # TODO: implement blob checks
   @disabled_deneb [
     "invalid_data_unavailable",
     "invalid_wrong_proofs_length",

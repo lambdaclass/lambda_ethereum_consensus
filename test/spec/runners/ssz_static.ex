@@ -61,9 +61,17 @@ defmodule SszStaticTestRunner do
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
-    fork != "capella" or Enum.member?(@disabled, handler)
+  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
+    Enum.member?(@disabled, handler)
   end
+
+  def skip?(%SpecTestCase{fork: "deneb", handler: handler}) do
+    # TODO: fix types
+    # Enum.member?(@disabled, handler)
+    true
+  end
+
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
