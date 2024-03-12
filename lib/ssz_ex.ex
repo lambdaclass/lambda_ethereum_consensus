@@ -48,6 +48,10 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_nodes(binary(), binary()) :: binary()
   def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
 
+  @spec validate_schema!(schema()) :: :ok
+  # TODO: implement
+  def validate_schema!(_schema), do: :ok
+
   @spec encode(any(), schema()) :: {:ok, binary()} | {:error, String.t()}
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
