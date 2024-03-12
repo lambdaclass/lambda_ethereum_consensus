@@ -39,6 +39,9 @@ jobs:
         with:
           version-type: strict
           version-file: .tool-versions
+          hexpm-mirrors: |
+            https://builds.hex.pm
+            https://repo.hex.pm
       - name: Set up Go
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v5
@@ -90,6 +93,9 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
+        hexpm-mirrors: |
+          https://builds.hex.pm
+          https://repo.hex.pm
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v4
@@ -147,6 +153,9 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
+        hexpm-mirrors: |
+          https://builds.hex.pm
+          https://repo.hex.pm
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v4
@@ -194,6 +203,9 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
+        hexpm-mirrors: |
+          https://builds.hex.pm
+          https://repo.hex.pm
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v4
@@ -236,6 +248,9 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
+        hexpm-mirrors: |
+          https://builds.hex.pm
+          https://repo.hex.pm
     - name: Restore dependencies cache
       uses: actions/cache@v4
       with:
