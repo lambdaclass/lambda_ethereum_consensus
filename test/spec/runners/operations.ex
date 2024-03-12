@@ -73,7 +73,7 @@ defmodule OperationsTestRunner do
     # "block_header",
     # "deposit",
     # "proposer_slashing",
-    "voluntary_exit"
+    # "voluntary_exit"
     # "sync_aggregate",
     # "execution_payload",
     # "withdrawals",
