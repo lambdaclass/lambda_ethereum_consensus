@@ -55,8 +55,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   """
   @spec on_block(Store.t(), SignedBeaconBlock.t()) :: {:ok, Store.t()} | {:error, String.t()}
   def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
-    finalized_slot =
-      Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
+    %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
+    finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
 
     base_state = BlockStates.get_state(block.parent_root)
 
@@ -76,12 +76,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block is prior to last finalized epoch"}
 
       # Check block is a descendant of the finalized block at the checkpoint finalized slot
-      store.finalized_checkpoint.root !=
-          Store.get_checkpoint_block(
-            store,
-            block.parent_root,
-            store.finalized_checkpoint.epoch
-          ) ->
+      finalized_root != Store.get_checkpoint_block(store, block.parent_root, finalized_epoch) ->
         {:error, "block isn't descendant of latest finalized block"}
 
       true ->
