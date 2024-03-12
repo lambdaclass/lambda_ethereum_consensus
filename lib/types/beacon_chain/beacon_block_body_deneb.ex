@@ -63,7 +63,8 @@ defmodule Types.BeaconBlockBodyDeneb do
       {:execution_payload, Types.ExecutionPayloadDeneb},
       {:bls_to_execution_changes,
        {:list, Types.BLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")}},
-      {:blob_kzg_commitments, {:list, TypeAliases.kzg_commitment()}}
+      {:blob_kzg_commitments,
+       {:list, TypeAliases.kzg_commitment(), ChainSpec.get("MAX_BLOB_COMMITMENTS_PER_BLOCK")}}
     ]
   end
 end
