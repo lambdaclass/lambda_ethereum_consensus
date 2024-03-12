@@ -79,9 +79,28 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       finalized_root != Store.get_checkpoint_block(store, block.parent_root, finalized_epoch) ->
         {:error, "block isn't descendant of latest finalized block"}
 
+      # Check blob data is available
+      not (Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)) ->
+        {:error, "blob data not available"}
+
       true ->
         compute_post_state(store, signed_block, base_state)
     end
+  end
+
+  @doc """
+  Equivalent to `is_data_available` from the spec.
+  Returns true if the blob's data is available from the network.
+  """
+  @spec data_available?(Types.root(), [Types.kzg_commitment()]) :: boolean()
+  def data_available?(_beacon_block_root, _blob_kzg_commitments) do
+    # TODO: the p2p network does not guarantee sidecar retrieval
+    # outside of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`. Should we
+    # handle that case somehow here?
+    # TODO: fetch blobs and proofs from the DB, and verify them
+    # blobs, proofs = retrieve_blobs_and_proofs(beacon_block_root)
+    # return verify_blob_kzg_proof_batch(blobs, blob_kzg_commitments, proofs)
+    true
   end
 
   @doc """
