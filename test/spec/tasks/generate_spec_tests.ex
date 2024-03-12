@@ -9,6 +9,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
 
   use Mix.Task
   require Logger
+  alias Spec.MetaUtils
 
   @configs ["mainnet", "minimal", "general"]
   @forks ["phase0", "altair", "bellatrix", "capella", "deneb"]
@@ -44,7 +45,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
   end
 
   defp generate_test(config, fork, runner) do
-    cases = SpecTestUtils.cases_for(fork: fork, config: config, runner: runner)
+    cases = MetaUtils.cases_for(fork: fork, config: config, runner: runner)
 
     if cases != [] do
       Logger.info("Generating tests for #{config}-#{fork}-#{runner}")
@@ -58,12 +59,8 @@ defmodule Mix.Tasks.GenerateSpecTests do
   end
 
   defp test_module(cases, config, fork, runner) do
-    c = Macro.camelize(config)
-    f = Macro.camelize(fork)
-    r = Macro.camelize(runner)
-
-    module_name = "Elixir.#{c}.#{f}.#{r}Test" |> String.to_atom()
-    runner_module = "Elixir.#{r}TestRunner" |> String.to_atom()
+    module_name = MetaUtils.test_module(config, fork, runner)
+    runner_module = MetaUtils.runner_module(runner)
 
     # TODO: we can isolate tests that use the DB from each other by using ExUnit's tmp_dir context option.
     header = """

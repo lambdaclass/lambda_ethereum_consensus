@@ -2,7 +2,7 @@
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
-		clean-tests gen-spec compile-all download-beacon-node-oapi
+		clean-tests gen-spec compile-all download-beacon-node-oapi test-iex
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -117,6 +117,10 @@ start: compile-all
 #▶️ iex: @ Runs an interactive terminal with the main supervisor setup.
 iex: compile-all
 	iex -S mix
+
+#▶️ test-iex: @ Runs an interactive terminal in the test environment. Useful to debug tests and tasks
+test-iex:
+	MIX_ENV=test iex -S mix run -- --mode db
 
 #▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync.
 checkpoint-sync: compile-all

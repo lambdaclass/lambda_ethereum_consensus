@@ -20,9 +20,7 @@ defmodule FinalityTestRunner do
   end
 
   @impl TestRunner
-  def skip?(_testcase) do
-    true
-  end
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(testcase) do
