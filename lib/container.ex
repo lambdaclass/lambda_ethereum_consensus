@@ -13,6 +13,12 @@ defmodule LambdaEthereumConsensus.Container do
   defmacro __using__(_opts) do
     quote do
       @behaviour unquote(__MODULE__)
+
+      @after_compile unquote(__MODULE__)
     end
+  end
+
+  def __after_compile__(env, _bytecode) do
+    SszEx.validate_schema!(env.module)
   end
 end
