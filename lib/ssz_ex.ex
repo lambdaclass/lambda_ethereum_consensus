@@ -35,6 +35,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   #################
   import Bitwise
 
+  @allowed_uints [8, 16, 32, 64, 128, 256]
   @bytes_per_chunk 32
   @bits_per_byte 8
   @bits_per_chunk @bytes_per_chunk * @bits_per_byte
@@ -49,8 +50,39 @@ defmodule LambdaEthereumConsensus.SszEx do
   def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
 
   @spec validate_schema!(schema()) :: :ok
-  # TODO: implement
-  def validate_schema!(_schema), do: :ok
+  def validate_schema!(:bool), do: :ok
+  def validate_schema!({:int, n}) when n in @allowed_uints, do: :ok
+  def validate_schema!({:bytes, size}) when size > 0, do: :ok
+  def validate_schema!({:byte_list, size}) when size > 0, do: :ok
+  def validate_schema!({:list, :bytes, size}) when size > 0, do: :ok
+  def validate_schema!({:vector, :bytes, size}) when size > 0, do: :ok
+  def validate_schema!({:list, sub, size}) when size > 0, do: validate_schema!(sub)
+  def validate_schema!({:vector, sub, size}) when size > 0, do: validate_schema!(sub)
+  def validate_schema!({:bitlist, size}) when size > 0, do: :ok
+  def validate_schema!({:bitvector, size}) when size > 0, do: :ok
+
+  def validate_schema!(module) when is_atom(module) do
+    schema = module.schema()
+    # validate each sub-schema
+    {fields, subschemas} = Enum.unzip(schema)
+    Enum.each(subschemas, &validate_schema!/1)
+
+    # check the struct field names match the schema keys
+    struct_fields =
+      module.__struct__() |> Map.keys() |> MapSet.new() |> MapSet.delete(:__struct__)
+
+    fields = MapSet.new(fields)
+
+    if MapSet.equal?(fields, struct_fields) do
+      :ok
+    else
+      missing =
+        MapSet.symmetric_difference(fields, struct_fields)
+        |> Enum.map_join(", ", &inspect/1)
+
+      raise "The struct and its schema differ by some fields: #{missing}"
+    end
+  end
 
   @spec encode(any(), schema()) :: {:ok, binary()} | {:error, String.t()}
   def encode(value, {:int, size}), do: encode_int(value, size)
