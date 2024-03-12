@@ -78,6 +78,13 @@ defmodule ForkChoiceTestRunner do
     # "withholding_attack_unviable_honest_chain"
   ]
 
+  @disabled_deneb [
+    "invalid_data_unavailable",
+    "invalid_wrong_proofs_length",
+    "invalid_incorrect_proof",
+    "invalid_wrong_blobs_length"
+  ]
+
   @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella", case: testcase}) do
     Enum.member?(@disabled_on_block_cases, testcase) or
@@ -85,6 +92,10 @@ defmodule ForkChoiceTestRunner do
       Enum.member?(@disabled_get_head_cases, testcase) or
       Enum.member?(@disabled_reorg_cases, testcase) or
       Enum.member?(@disabled_withholding_cases, testcase)
+  end
+
+  def skip?(%SpecTestCase{fork: "deneb", case: testcase}) do
+    Enum.member?(@disabled_deneb, testcase)
   end
 
   def skip?(_testcase), do: true
