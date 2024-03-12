@@ -4,6 +4,9 @@ defmodule LambdaEthereumConsensus.Execution.Auth do
   """
   use Joken.Config
 
+  # Set default expiry to 60s
+  def token_config, do: default_claims(default_exp: 60)
+
   # JWT Authentication is necessary for the EL <> CL communication through Engine API
   # Following the specs here: https://github.com/ethereum/execution-apis/blob/main/src/engine/authentication.md
   # 3 properties are required for the JWT to be valid:
@@ -16,22 +19,14 @@ defmodule LambdaEthereumConsensus.Execution.Auth do
   @doc """
   Generates a JWT token using HS256 algo and provided secret, additionaly adds an iat claim at current time.
   """
-  @spec generate_token(binary) ::
-          {:error, atom | keyword} | {:ok, binary, %{optional(binary) => any}}
-  def generate_token("0x" <> jwt_secret) do
-    claim = %{"iat" => Joken.current_time()}
-
+  @spec generate_token(String.t()) :: Joken.bearer_token()
+  def generate_token(hex_encoded_secret) do
     jwt_secret =
-      jwt_secret
-      |> String.upcase()
-      |> Base.decode16!()
+      hex_encoded_secret
+      |> String.trim_leading("0x")
+      |> Base.decode16!(case: :mixed)
 
-    signer =
-      Joken.Signer.create(
-        "HS256",
-        jwt_secret
-      )
-
-    generate_and_sign(claim, signer)
+    signer = Joken.Signer.create("HS256", jwt_secret)
+    generate_and_sign!(%{}, signer)
   end
 end

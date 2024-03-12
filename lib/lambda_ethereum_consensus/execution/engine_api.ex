@@ -3,8 +3,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   Execution Layer Engine API methods with routing
   """
   alias Types.ExecutionPayload
-
-  use HardForkAliasInjection
+  alias Types.ExecutionPayloadDeneb
 
   @doc """
   Using this method Execution and consensus layer client software may
@@ -15,6 +14,11 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
 
   @spec new_payload(ExecutionPayload.t()) :: {:ok, any} | {:error, any}
   def new_payload(execution_payload), do: impl().new_payload(execution_payload)
+
+  @spec new_payload(ExecutionPayloadDeneb.t(), [list(Types.root())], Types.root()) ::
+          {:ok, any} | {:error, any}
+  def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root),
+    do: impl().new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)
 
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes),
