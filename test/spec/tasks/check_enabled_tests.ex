@@ -47,10 +47,10 @@ defmodule Mix.Tasks.CheckEnabledTests do
     for f <- run_list, do: print_full_skip(f, spaces)
   end
 
+  defp print_full_skip(name, spaces) when is_binary(name), do: print_full_skip({name, 1}, spaces)
   defp print_full_skip({name, number}, spaces), do: print_result(name, number, "❌", spaces)
-  defp print_full_skip(name, spaces), do: print_result(name, "❌", spaces)
 
-  defp print_result(name, number \\ 1, emoji, spaces) do
+  defp print_result(name, number, emoji, spaces) do
     print_spaced("#{emoji} #{name} (#{number})", spaces)
   end
 
