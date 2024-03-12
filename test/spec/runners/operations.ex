@@ -68,16 +68,16 @@ defmodule OperationsTestRunner do
   ]
 
   @disabled_handlers_deneb [
-    "attester_slashing",
-    "attestation",
-    "block_header",
-    "deposit",
-    "proposer_slashing",
-    "voluntary_exit",
-    "sync_aggregate",
+    # "attester_slashing",
+    # "attestation",
+    # "block_header",
+    # "deposit",
+    # "proposer_slashing",
+    "voluntary_exit"
+    # "sync_aggregate",
     # "execution_payload",
-    "withdrawals",
-    "bls_to_execution_change"
+    # "withdrawals",
+    # "bls_to_execution_change"
   ]
 
   @impl TestRunner
