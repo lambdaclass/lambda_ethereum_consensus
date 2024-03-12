@@ -19,7 +19,8 @@ defmodule SyncTestRunner do
   end
 
   def skip?(%SpecTestCase{fork: "deneb"} = testcase) do
-    # TODO: fix
+    # TODO: update `EngineApiMock` to support the new `new_payload/3` function,
+    #  and the runner to load the block's blobs if on deneb
     true
   end
 
