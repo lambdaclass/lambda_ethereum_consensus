@@ -19,6 +19,11 @@ defmodule SyncTestRunner do
   end
 
   @impl TestRunner
+  def skip?(%SpecTestCase{fork: "deneb"}) do
+    true
+  end
+
+  @impl TestRunner
   def skip?(_testcase) do
     true
   end

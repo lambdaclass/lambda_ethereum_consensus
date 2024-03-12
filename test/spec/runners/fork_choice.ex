@@ -87,6 +87,11 @@ defmodule ForkChoiceTestRunner do
       Enum.member?(@disabled_withholding_cases, testcase)
   end
 
+  @impl TestRunner
+  def skip?(%SpecTestCase{fork: "deneb"}) do
+    true
+  end
+
   def skip?(_testcase), do: true
 
   @impl TestRunner
