@@ -3,7 +3,7 @@ defmodule Types.Eth1Data do
   Struct definition for `Eth1Data`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :deposit_root,

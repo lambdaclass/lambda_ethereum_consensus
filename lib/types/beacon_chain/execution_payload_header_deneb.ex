@@ -3,7 +3,7 @@ defmodule Types.ExecutionPayloadHeaderDeneb do
   Struct definition for `ExecutionPayloadHeader`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   @default_execution_payload_header %{
     parent_hash: <<0::256>>,

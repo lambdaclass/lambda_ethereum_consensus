@@ -3,7 +3,7 @@ defmodule Types.StatusMessage do
   Struct definition for `StatusMessage`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :fork_digest,

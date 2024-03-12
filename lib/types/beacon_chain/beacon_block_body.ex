@@ -3,7 +3,7 @@ defmodule Types.BeaconBlockBody do
   Struct definition for `BeaconBlockBody`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :randao_reveal,

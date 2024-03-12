@@ -3,7 +3,7 @@ defmodule Types.ExecutionPayloadDeneb do
   Struct definition for `ExecutionPayload`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :parent_hash,

@@ -3,7 +3,7 @@ defmodule Types.Withdrawal do
   Struct definition for `Withdrawal`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :index,
