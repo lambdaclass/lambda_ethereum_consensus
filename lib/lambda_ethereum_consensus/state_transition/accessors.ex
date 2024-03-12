@@ -392,11 +392,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   defp compute_target_indices(is_matching_target, inclusion_delay) do
-    max_delay = ChainSpec.get("SLOTS_PER_EPOCH")
+    if HardForkAliasInjection.deneb?() do
+      if is_matching_target,
+        do: [Constants.timely_target_flag_index()],
+        else: []
+    else
+      max_delay = ChainSpec.get("SLOTS_PER_EPOCH")
 
-    if is_matching_target and inclusion_delay <= max_delay,
-      do: [Constants.timely_target_flag_index()],
-      else: []
+      if is_matching_target and inclusion_delay <= max_delay,
+        do: [Constants.timely_target_flag_index()],
+        else: []
+    end
   end
 
   defp compute_head_indices(is_matching_head, inclusion_delay) do
