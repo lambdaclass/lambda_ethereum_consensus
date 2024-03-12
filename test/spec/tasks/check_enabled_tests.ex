@@ -12,19 +12,47 @@ defmodule Mix.Tasks.CheckEnabledTests do
   require Logger
 
   alias Spec.MetaUtils
-  @output_dir "reports"
 
   def run(_args) do
-    # TODO: pretty print.
-    res = MetaUtils.check_enabled() |> inspect(limit: :infinity)
-    File.mkdir_p!(@output_dir)
-    File.write!(filename(), res)
+    MetaUtils.check_enabled() |> print(0)
     :ok
   end
 
-  defp filename do
-    Path.join([@output_dir, "spec_test_report_#{timestamp_now()}.exs"])
+  defp print({name, report}, spaces) do
+    print_spaced(name, spaces)
+    new_spaces = spaces + String.length(name)
+    print(report, new_spaces)
   end
 
-  defp timestamp_now, do: DateTime.utc_now() |> Timex.format!("{YYYY}-{0M}-{0D}_{h24}-{m}-{s}")
+  defp print(report, spaces) when is_map(report) do
+    # This will be done later on.
+    report |> Map.get(:full_run, []) |> print_full_run(spaces)
+    report |> Map.get(:full_skip, []) |> print_full_skip(spaces)
+    for f <- Map.get(report, :partial, []), do: print(f, spaces)
+  end
+
+  defp print_full_run(run_list, spaces) when is_list(run_list) do
+    for f <- run_list, do: print_full_run(f, spaces)
+  end
+
+  defp print_full_run(number, spaces) when is_number(number) do
+    print_full_run({"enabled", number}, spaces)
+  end
+
+  defp print_full_run({name, number}, spaces) when is_number(number) do
+    print_result(name, number, "✅", spaces)
+  end
+
+  defp print_full_skip(run_list, spaces) when is_list(run_list) do
+    for f <- run_list, do: print_full_skip(f, spaces)
+  end
+
+  defp print_full_skip({name, number}, spaces), do: print_result(name, number, "❌", spaces)
+  defp print_full_skip(name, spaces), do: print_result(name, "❌", spaces)
+
+  defp print_result(name, number \\ 1, emoji, spaces) do
+    print_spaced("#{emoji} #{name} (#{number})", spaces)
+  end
+
+  defp print_spaced(text, spaces), do: IO.puts(String.duplicate(" ", spaces) <> text)
 end
