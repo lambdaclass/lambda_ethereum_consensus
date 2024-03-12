@@ -55,8 +55,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   """
   @spec on_block(Store.t(), SignedBeaconBlock.t()) :: {:ok, Store.t()} | {:error, String.t()}
   def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
-    finalized_slot =
-      Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
+    %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
+    finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
 
     base_state = BlockStates.get_state(block.parent_root)
 
@@ -76,17 +76,34 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block is prior to last finalized epoch"}
 
       # Check block is a descendant of the finalized block at the checkpoint finalized slot
-      store.finalized_checkpoint.root !=
-          Store.get_checkpoint_block(
-            store,
-            block.parent_root,
-            store.finalized_checkpoint.epoch
-          ) ->
+      finalized_root != Store.get_checkpoint_block(store, block.parent_root, finalized_epoch) ->
         {:error, "block isn't descendant of latest finalized block"}
+
+      # Check blob data is available
+      HardForkAliasInjection.deneb?() and
+          not (Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)) ->
+        {:error, "blob data not available"}
 
       true ->
         compute_post_state(store, signed_block, base_state)
     end
+  end
+
+  @doc """
+  Equivalent to `is_data_available` from the spec.
+  Returns true if the blob's data is available from the network.
+  """
+  # TODO: remove when implemented
+  @dialyzer {:no_match, on_block: 2}
+  @spec data_available?(Types.root(), [Types.kzg_commitment()]) :: boolean()
+  def data_available?(_beacon_block_root, _blob_kzg_commitments) do
+    # TODO: the p2p network does not guarantee sidecar retrieval
+    # outside of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`. Should we
+    # handle that case somehow here?
+    # TODO: fetch blobs and proofs from the DB, and verify them
+    # blobs, proofs = retrieve_blobs_and_proofs(beacon_block_root)
+    # return verify_blob_kzg_proof_batch(blobs, blob_kzg_commitments, proofs)
+    true
   end
 
   @doc """
