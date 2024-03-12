@@ -93,6 +93,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Equivalent to `is_data_available` from the spec.
   Returns true if the blob's data is available from the network.
   """
+  # TODO: remove when implemented
+  @dialyzer {:no_match, on_block: 2}
   @spec data_available?(Types.root(), [Types.kzg_commitment()]) :: boolean()
   def data_available?(_beacon_block_root, _blob_kzg_commitments) do
     # TODO: the p2p network does not guarantee sidecar retrieval
