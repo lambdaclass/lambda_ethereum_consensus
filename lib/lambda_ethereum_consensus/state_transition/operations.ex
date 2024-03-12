@@ -838,11 +838,19 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_valid_slot_range(data, state) do
-    if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot and
-         state.slot <= data.slot + ChainSpec.get("SLOTS_PER_EPOCH") do
-      :ok
+    if HardForkAliasInjection.deneb?() do
+      if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot do
+        :ok
+      else
+        {:error, "Invalid slot range"}
+      end
     else
-      {:error, "Invalid slot range"}
+      if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot and
+           state.slot <= data.slot + ChainSpec.get("SLOTS_PER_EPOCH") do
+        :ok
+      else
+        {:error, "Invalid slot range"}
+      end
     end
   end
 
