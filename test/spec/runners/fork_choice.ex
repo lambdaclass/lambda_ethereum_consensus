@@ -18,21 +18,9 @@ defmodule ForkChoiceTestRunner do
 
   use HardForkAliasInjection
 
-  # TODO: implement blob checks
-  @disabled_deneb [
-    "invalid_data_unavailable",
-    "invalid_wrong_proofs_length",
-    "invalid_incorrect_proof",
-    "invalid_wrong_blobs_length"
-  ]
-
   @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella"}), do: false
-
-  def skip?(%SpecTestCase{fork: "deneb", case: testcase}) do
-    Enum.member?(@disabled_deneb, testcase)
-  end
-
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
   def skip?(_testcase), do: true
 
   @impl TestRunner
@@ -183,19 +171,23 @@ defmodule ForkChoiceTestRunner do
     {:ok, store}
   end
 
+  # TODO: validate the filename's hash
   defp load_blob_data(case_dir, block, %{blobs: "blobs_0x" <> hash = blobs_file, proofs: proofs}) do
     schema = {:list, TypeAliases.blob(), ChainSpec.get("MAX_BLOBS_PER_BLOCK")}
 
     blobs =
       SpecTestUtils.read_ssz_ex_from_file!(case_dir <> "/#{blobs_file}.ssz_snappy", schema)
 
-    _block_root = Ssz.hash_tree_root!(block.message)
+    block_root = Ssz.hash_tree_root!(block.message)
 
     Stream.zip([proofs, blobs])
     |> Stream.with_index()
-    |> Enum.each(fn {{_proof, _blob}, _i} ->
-      # Store the blob
-      nil
+    |> Enum.each(fn {{proof, blob}, i} ->
+      BlobDb.store_blob_with_proof(block_root, i, blob, proof)
     end)
+  end
+
+  defp load_blob_data(_case_dir, block, %{}) do
+    assert Enum.empty?(block.message.body.blob_kzg_commitments)
   end
 end

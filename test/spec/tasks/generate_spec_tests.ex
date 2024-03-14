@@ -61,6 +61,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
   defp test_module(cases, config, fork, runner) do
     module_name = MetaUtils.test_module(config, fork, runner)
     runner_module = MetaUtils.runner_module(runner)
+    database_path = "tmp/#{config}_#{fork}_#{runner}_test_db"
 
     # TODO: we can isolate tests that use the DB from each other by using ExUnit's tmp_dir context option.
     header = """
@@ -68,9 +69,6 @@ defmodule Mix.Tasks.GenerateSpecTests do
       use ExUnit.Case, async: false
 
       setup_all do
-        start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: "tmp/#{config}_#{fork}_#{runner}_test_db"})
-        start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
-        start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
         Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
         |> Keyword.put(:config, #{chain_spec_config(config)})
         |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
@@ -78,6 +76,11 @@ defmodule Mix.Tasks.GenerateSpecTests do
 
       setup do
         on_exit(fn -> LambdaEthereumConsensus.StateTransition.Cache.clear_cache() end)
+        on_exit(fn -> File.rm_rf!("#{database_path}") end)
+        start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: "#{database_path}"})
+        start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
+        start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
+        :ok
       end
     """
 
