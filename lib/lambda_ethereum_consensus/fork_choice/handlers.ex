@@ -81,20 +81,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block isn't descendant of latest finalized block"}
 
       true ->
-        HardForkAliasInjection.on_deneb(
-          (
-            is_data_available =
-              Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)
+        HardForkAliasInjection.on_deneb do
+          is_data_available =
+            Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)
 
-            # Check blob data is available
-            if is_data_available do
-              compute_post_state(store, signed_block, base_state)
-            else
-              {:error, "blob data not available"}
-            end
-          ),
+          # Check blob data is available
+          if is_data_available do
+            compute_post_state(store, signed_block, base_state)
+          else
+            {:error, "blob data not available"}
+          end
+        else
           compute_post_state(store, signed_block, base_state)
-        )
+        end
     end
   end
 

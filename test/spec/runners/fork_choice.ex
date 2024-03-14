@@ -8,6 +8,8 @@ defmodule ForkChoiceTestRunner do
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BeaconBlock
   alias Types.BeaconState
@@ -84,11 +86,15 @@ defmodule ForkChoiceTestRunner do
     {:ok, new_store}
   end
 
-  defp apply_step(case_dir, store, %{block: "block_0x" <> hash = file}) do
+  defp apply_step(case_dir, store, %{block: "block_0x" <> hash = file} = step) do
     block =
       SpecTestUtils.read_ssz_from_file!(case_dir <> "/#{file}.ssz_snappy", SignedBeaconBlock)
 
     assert Ssz.hash_tree_root!(block) == Base.decode16!(hash, case: :mixed)
+
+    HardForkAliasInjection.on_deneb do
+      load_blob_data(case_dir, block, step)
+    end
 
     with {:ok, new_store} <- Handlers.on_block(store, block),
          {:ok, new_store} <-
@@ -175,5 +181,21 @@ defmodule ForkChoiceTestRunner do
     end
 
     {:ok, store}
+  end
+
+  defp load_blob_data(case_dir, block, %{blobs: "blobs_0x" <> hash = blobs_file, proofs: proofs}) do
+    schema = {:list, TypeAliases.blob(), ChainSpec.get("MAX_BLOBS_PER_BLOCK")}
+
+    blobs =
+      SpecTestUtils.read_ssz_ex_from_file!(case_dir <> "/#{blobs_file}.ssz_snappy", schema)
+
+    _block_root = Ssz.hash_tree_root!(block.message)
+
+    Stream.zip([proofs, blobs])
+    |> Stream.with_index()
+    |> Enum.each(fn {{_proof, _blob}, _i} ->
+      # Store the blob
+      nil
+    end)
   end
 end
