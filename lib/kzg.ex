@@ -47,4 +47,20 @@ defmodule Kzg do
   def verify_blob_kzg_proof_batch(_blobs, _kzg_commitments, _kzg_proofs) do
     :erlang.nif_error(:nif_not_loaded)
   end
+
+  ################
+  ### Wrappers ###
+  ################
+
+  @spec blob_kzg_proof_batch_valid?(
+          list(Types.blob()),
+          list(Types.kzg_commitment()),
+          list(Types.kzg_proof())
+        ) :: boolean()
+  def blob_kzg_proof_batch_valid?(blobs, kzg_commitments, kzg_proofs) do
+    case verify_blob_kzg_proof_batch(blobs, kzg_commitments, kzg_proofs) do
+      {:ok, result} -> result
+      {:error, _} -> false
+    end
+  end
 end

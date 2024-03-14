@@ -102,12 +102,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Returns true if the blob's data is available from the network.
   """
   @spec data_available?(Types.root(), [Types.kzg_commitment()]) :: boolean()
+  def data_available?(_beacon_block_root, []), do: true
+
   def data_available?(beacon_block_root, blob_kzg_commitments) do
     # TODO: the p2p network does not guarantee sidecar retrieval
     # outside of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`. Should we
     # handle that case somehow here?
     blobs =
-      0..(length(blob_kzg_commitments) - 1)
+      0..(length(blob_kzg_commitments) - 1)//1
       |> Enum.map(&BlobDb.get_blob_with_proof(beacon_block_root, &1))
 
     if Enum.all?(blobs, &match?({:ok, _}, &1)) do
@@ -115,7 +117,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         Stream.map(blobs, fn {:ok, {blob, proof}} -> {blob, proof} end)
         |> Enum.unzip()
 
-      Kzg.verify_blob_kzg_proof_batch(blobs, blob_kzg_commitments, proofs)
+      Kzg.blob_kzg_proof_batch_valid?(blobs, blob_kzg_commitments, proofs)
     else
       false
     end
