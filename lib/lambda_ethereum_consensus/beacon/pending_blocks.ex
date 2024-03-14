@@ -202,7 +202,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     Enum.flat_map(blocks, fn {block_root,
                               %{message: %{body: %{blob_kzg_commitments: commitments}}}} ->
       0..(length(commitments) - 1)
-      |> Enum.reject(&match?({:ok, _}, BlobDb.get_blob(block_root, &1)))
+      |> Enum.reject(&match?({:ok, _}, BlobDb.get_blob_with_proof(block_root, &1)))
       |> Enum.map(&%Types.BlobIdentifier{block_root: block_root, index: &1})
     end)
   end

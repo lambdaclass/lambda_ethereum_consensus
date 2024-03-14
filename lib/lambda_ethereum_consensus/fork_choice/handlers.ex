@@ -108,11 +108,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     # handle that case somehow here?
     blobs =
       0..(length(blob_kzg_commitments) - 1)
-      |> Enum.map(&BlobDb.get_blob(beacon_block_root, &1))
+      |> Enum.map(&BlobDb.get_blob_with_proof(beacon_block_root, &1))
 
     if Enum.all?(blobs, &match?({:ok, _}, &1)) do
       {blobs, proofs} =
-        Stream.map(blobs, fn {:ok, %{blob: blob, kzg_proof: proof}} -> {blob, proof} end)
+        Stream.map(blobs, fn {:ok, {blob, proof}} -> {blob, proof} end)
         |> Enum.unzip()
 
       Kzg.verify_blob_kzg_proof_batch(blobs, blob_kzg_commitments, proofs)
