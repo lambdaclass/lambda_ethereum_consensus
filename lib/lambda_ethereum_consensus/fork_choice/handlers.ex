@@ -189,7 +189,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
       Task.async(fn ->
-        if HardForkAliasInjection.deneb?() do
+        HardForkAliasInjection.on_deneb do
           versioned_hashes =
             block.body.blob_kzg_commitments
             |> Enum.map(&Misc.kzg_commitment_to_versioned_hash/1)
