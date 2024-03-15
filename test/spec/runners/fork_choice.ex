@@ -8,7 +8,6 @@ defmodule ForkChoiceTestRunner do
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Helpers
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BeaconBlock
@@ -172,7 +171,7 @@ defmodule ForkChoiceTestRunner do
   end
 
   # TODO: validate the filename's hash
-  defp load_blob_data(case_dir, block, %{blobs: "blobs_0x" <> hash = blobs_file, proofs: proofs}) do
+  defp load_blob_data(case_dir, block, %{blobs: "blobs_0x" <> _hash = blobs_file, proofs: proofs}) do
     schema = {:list, TypeAliases.blob(), ChainSpec.get("MAX_BLOBS_PER_BLOCK")}
 
     blobs =
