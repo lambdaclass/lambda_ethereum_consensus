@@ -392,7 +392,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   defp compute_target_indices(is_matching_target, inclusion_delay) do
-    if HardForkAliasInjection.deneb?() do
+    HardForkAliasInjection.on_deneb do
+      _ = inclusion_delay
+
       if is_matching_target,
         do: [Constants.timely_target_flag_index()],
         else: []

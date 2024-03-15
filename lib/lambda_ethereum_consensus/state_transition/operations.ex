@@ -235,7 +235,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->
         {:error, "Timestamp verification failed"}
 
-      HardForkAliasInjection.on_deneb(body.blob_kzg_commitments |> length(), -1) >
+      HardForkAliasInjection.on_deneb(do: body.blob_kzg_commitments |> length(), else: -1) >
           ChainSpec.get("MAX_BLOBS_PER_BLOCK") ->
         {:error, "Too many commitments"}
 
@@ -270,12 +270,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
               transactions_root: transactions_root,
               withdrawals_root: withdrawals_root
             ] ++
-              if HardForkAliasInjection.deneb?(),
+              HardForkAliasInjection.on_deneb(
                 do: [
                   blob_gas_used: payload.blob_gas_used,
                   excess_blob_gas: payload.excess_blob_gas
                 ],
                 else: []
+              )
 
           header = struct!(ExecutionPayloadHeader, fields)
 
@@ -566,7 +567,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
         {:error, "validator cannot exit yet"}
 
-      not ((if HardForkAliasInjection.deneb?() do
+      not ((HardForkAliasInjection.on_deneb do
               Misc.compute_domain(
                 Constants.domain_voluntary_exit(),
                 fork_version: ChainSpec.get("CAPELLA_FORK_VERSION"),
@@ -846,7 +847,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_valid_slot_range(data, state) do
-    if HardForkAliasInjection.deneb?() do
+    HardForkAliasInjection.on_deneb do
       if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot do
         :ok
       else

@@ -9,15 +9,18 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.P2P.BlockDownloader
+  alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
 
   use HardForkAliasInjection
 
-  @type block_status :: :pending | :invalid | :processing | :download | :unknown
+  @type block_status :: :pending | :invalid | :processing | :download | :download_blobs | :unknown
   @type block_info ::
-          {SignedBeaconBlock.t(), :pending} | {nil, :invalid | :processing | :download}
+          {SignedBeaconBlock.t(), :pending | :download_blobs}
+          | {nil, :invalid | :processing | :download}
   @type state :: %{Types.root() => block_info()}
 
   ##########################
@@ -42,6 +45,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def init(_opts) do
     schedule_blocks_processing()
     schedule_blocks_download()
+
+    HardForkAliasInjection.on_deneb do
+      schedule_blobs_download()
+    end
 
     {:ok, Map.new()}
   end
@@ -94,7 +101,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           state |> Map.put(block_root, {nil, :invalid})
 
         # If parent isn't processed, block is pending
-        parent_status in [:processing, :pending, :download] ->
+        parent_status in [:processing, :pending, :download, :download_blobs] ->
           state
 
         # If parent is not in fork choice, download parent
@@ -135,10 +142,50 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       downloaded_blocks
       |> Enum.reduce(state, fn signed_block, state ->
         block_root = Ssz.hash_tree_root!(signed_block.message)
-        state |> Map.put(block_root, {signed_block, :pending})
+        new_block_state = HardForkAliasInjection.on_deneb(do: :download_blobs, else: :pending)
+        state |> Map.put(block_root, {signed_block, new_block_state})
       end)
 
     schedule_blocks_download()
+    {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_info(:download_blobs, state) do
+    blocks_with_blobs =
+      Enum.filter(state, fn {_, {_, s}} -> s == :download_blobs end)
+      |> Enum.map(fn {root, {block, _}} -> {root, block} end)
+
+    blobs_to_download =
+      blocks_with_blobs
+      |> Enum.take(16)
+      |> blocks_to_missing_blobs()
+
+    downloaded_blobs =
+      blobs_to_download
+      |> BlobDownloader.request_blobs_by_root()
+      |> case do
+        {:ok, blobs} ->
+          blobs
+
+        {:error, reason} ->
+          Logger.debug("Blob download failed: '#{reason}'")
+          []
+      end
+
+    Enum.each(downloaded_blobs, &BlobDb.store_blob/1)
+
+    new_state =
+      if length(downloaded_blobs) == length(blobs_to_download) do
+        blocks_with_blobs
+        |> Enum.reduce(state, fn {block_root, signed_block}, state ->
+          state |> Map.put(block_root, {signed_block, :pending})
+        end)
+      else
+        state
+      end
+
+    schedule_blobs_download()
     {:noreply, new_state}
   end
 
@@ -151,8 +198,21 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     state |> Map.get(block_root, {nil, :unknown}) |> elem(1)
   end
 
+  defp blocks_to_missing_blobs(blocks) do
+    Enum.flat_map(blocks, fn {block_root,
+                              %{message: %{body: %{blob_kzg_commitments: commitments}}}} ->
+      0..(length(commitments) - 1)
+      |> Enum.reject(&match?({:ok, _}, BlobDb.get_blob(block_root, &1)))
+      |> Enum.map(&%Types.BlobIdentifier{block_root: block_root, index: &1})
+    end)
+  end
+
   def schedule_blocks_processing do
     Process.send_after(__MODULE__, :process_blocks, 3000)
+  end
+
+  def schedule_blobs_download do
+    Process.send_after(__MODULE__, :download_blobs, 500)
   end
 
   def schedule_blocks_download do

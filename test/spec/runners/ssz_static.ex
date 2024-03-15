@@ -5,6 +5,14 @@ defmodule SszStaticTestRunner do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.Diff
   alias Ssz
+  alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
+  alias Types.BeaconState
+  alias Types.ExecutionPayload
+  alias Types.ExecutionPayloadHeader
+  alias Types.SignedBeaconBlock
+
+  use HardForkAliasInjection
 
   use ExUnit.CaseTemplate
   use TestRunner
@@ -60,10 +68,26 @@ defmodule SszStaticTestRunner do
     "SyncCommitteeMessage"
   ]
 
+  @type_map %{
+    "BeaconBlock" => BeaconBlock,
+    "BeaconBlockBody" => BeaconBlockBody,
+    "BeaconState" => BeaconState,
+    "ExecutionPayload" => ExecutionPayload,
+    "ExecutionPayloadHeader" => ExecutionPayloadHeader,
+    "SignedBeaconBlock" => SignedBeaconBlock
+  }
+
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
-    fork != "capella" or Enum.member?(@disabled, handler)
+  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
+    Enum.member?(@disabled, handler)
   end
+
+  def skip?(%SpecTestCase{fork: "deneb", handler: handler}) do
+    # TODO: fix types
+    Enum.member?(@disabled, handler)
+  end
+
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
@@ -107,6 +131,6 @@ defmodule SszStaticTestRunner do
   end
 
   defp parse_type(%SpecTestCase{handler: handler}) do
-    Module.concat(Types, handler)
+    Map.get(@type_map, handler, Module.concat(Types, handler))
   end
 end

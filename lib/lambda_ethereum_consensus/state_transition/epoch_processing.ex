@@ -142,9 +142,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     activation_exit_epoch = Misc.compute_activation_exit_epoch(current_epoch)
 
     churn_limit =
-      if HardForkAliasInjection.deneb?(),
+      HardForkAliasInjection.on_deneb(
         do: Accessors.get_validator_activation_churn_limit(state),
         else: Accessors.get_validator_churn_limit(state)
+      )
 
     result =
       validators
