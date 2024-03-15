@@ -59,12 +59,18 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def handle_cast({:add_block, %SignedBeaconBlock{message: block} = signed_block}, state) do
     block_root = Ssz.hash_tree_root!(block)
 
-    # If already processing or processed, ignore it
-    if Map.has_key?(state, block_root) or Blocks.has_block?(block_root) do
-      {:noreply, state}
-    else
-      {:noreply, state |> Map.put(block_root, {signed_block, :pending})}
+    cond do
+      # If already processing or processed, ignore it
+      Map.has_key?(state, block_root) or Blocks.has_block?(block_root) ->
+        state
+
+      blocks_to_missing_blobs([{block_root, signed_block}]) |> Enum.empty?() ->
+        state |> Map.put(block_root, {signed_block, :pending})
+
+      true ->
+        state |> Map.put(block_root, {signed_block, :download_blobs})
     end
+    |> then(&{:noreply, &1})
   end
 
   @impl true
@@ -153,13 +159,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @impl true
   def handle_info(:download_blobs, state) do
     blocks_with_blobs =
-      Enum.filter(state, fn {_, {_, s}} -> s == :download_blobs end)
-      |> Enum.map(fn {root, {block, _}} -> {root, block} end)
-
-    blobs_to_download =
-      blocks_with_blobs
+      Stream.filter(state, fn {_, {_, s}} -> s == :download_blobs end)
+      |> Enum.sort_by(fn {_, {signed_block, _}} -> signed_block.message.slot end)
+      |> Stream.map(fn {root, {block, _}} -> {root, block} end)
       |> Enum.take(16)
-      |> blocks_to_missing_blobs()
+
+    blobs_to_download = blocks_to_missing_blobs(blocks_with_blobs)
 
     downloaded_blobs =
       blobs_to_download
@@ -201,10 +206,20 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   defp blocks_to_missing_blobs(blocks) do
     Enum.flat_map(blocks, fn {block_root,
                               %{message: %{body: %{blob_kzg_commitments: commitments}}}} ->
-      0..(length(commitments) - 1)
-      |> Enum.reject(&match?({:ok, _}, BlobDb.get_blob_with_proof(block_root, &1)))
-      |> Enum.map(&%Types.BlobIdentifier{block_root: block_root, index: &1})
+      Stream.with_index(commitments)
+      |> Enum.filter(&blob_needs_download?(&1, block_root))
+      |> Enum.map(&%Types.BlobIdentifier{block_root: block_root, index: elem(&1, 1)})
     end)
+  end
+
+  defp blob_needs_download?({commitment, index}, block_root) do
+    case BlobDb.get_blob_sidecar(block_root, index) do
+      {:ok, %{kzg_commitment: ^commitment}} ->
+        false
+
+      _ ->
+        true
+    end
   end
 
   def schedule_blocks_processing do
