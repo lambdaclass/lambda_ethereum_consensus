@@ -18,10 +18,13 @@ defmodule SyncTestRunner do
     Enum.member?(@disabled_cases, testcase.case)
   end
 
-  @impl TestRunner
-  def skip?(_testcase) do
+  def skip?(%SpecTestCase{fork: "deneb"}) do
+    # TODO: update `EngineApiMock` to support the new `new_payload/3` function,
+    #  and the runner to load the block's blobs if on deneb
     true
   end
+
+  def skip?(_testcase), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
