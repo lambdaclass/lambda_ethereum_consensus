@@ -3,7 +3,7 @@ defmodule Types.HistoricalBatch do
   Struct definition for `HistoricalBatch`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :block_roots,

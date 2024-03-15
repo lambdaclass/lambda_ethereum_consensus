@@ -137,7 +137,7 @@ defmodule Types.BeaconStateDeneb do
   end
 
   if HardForkAliasInjection.deneb?() do
-    @behaviour LambdaEthereumConsensus.Container
+    use LambdaEthereumConsensus.Container
 
     alias LambdaEthereumConsensus.StateTransition.Accessors, warn: false
     alias LambdaEthereumConsensus.StateTransition.Predicates, warn: false

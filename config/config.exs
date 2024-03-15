@@ -34,3 +34,8 @@ config :lambda_ethereum_consensus, BeaconApi.Endpoint,
     formats: [json: BeaconApi.ErrorJSON],
     layout: false
   ]
+
+# Load minimal config by default, to allow schema checking
+config :lambda_ethereum_consensus, ChainSpec,
+  config: MinimalConfig,
+  genesis_validators_root: <<0::256>>

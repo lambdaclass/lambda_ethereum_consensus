@@ -3,8 +3,7 @@ defmodule Types.EnrForkId do
   Struct definition for `ENRForkID`.
   """
   alias LambdaEthereumConsensus.Container
-
-  @behaviour Container
+  use Container
 
   fields = [
     :fork_digest,

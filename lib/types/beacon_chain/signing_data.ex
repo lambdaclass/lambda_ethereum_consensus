@@ -3,7 +3,7 @@ defmodule Types.SigningData do
   Struct definition for `SigningData`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :object_root,

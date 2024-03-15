@@ -87,7 +87,7 @@ defmodule Deltas do
   @moduledoc """
   Struct definition for `Deltas`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :rewards,

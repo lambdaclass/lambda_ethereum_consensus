@@ -2,7 +2,7 @@ defmodule Helpers.SszStaticContainers.BitsStruct do
   @moduledoc """
   Struct definition for `BitsStruct`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :A,
