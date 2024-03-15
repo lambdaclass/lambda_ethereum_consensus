@@ -65,7 +65,7 @@ defmodule SpecTestUtils do
     end
   end
 
-  @spec read_ssz_ex_from_optional_file!(binary, module) :: any() | nil
+  @spec read_ssz_ex_from_optional_file!(binary, SszEx.schema()) :: any() | nil
   def read_ssz_ex_from_optional_file!(file_path, ssz_type) do
     if File.exists?(file_path) do
       compressed = File.read!(file_path)
@@ -85,7 +85,7 @@ defmodule SpecTestUtils do
     end
   end
 
-  @spec read_ssz_ex_from_file!(binary, module) :: any()
+  @spec read_ssz_ex_from_file!(binary, SszEx.schema()) :: any()
   def read_ssz_ex_from_file!(file_path, ssz_type) do
     case read_ssz_ex_from_optional_file!(file_path, ssz_type) do
       nil -> raise "File not found: #{file_path}"
