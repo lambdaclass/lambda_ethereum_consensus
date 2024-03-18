@@ -39,3 +39,18 @@ config :lambda_ethereum_consensus, BeaconApi.Endpoint,
 config :lambda_ethereum_consensus, ChainSpec,
   config: MinimalConfig,
   genesis_validators_root: <<0::256>>
+
+# Configure sentry logger handler
+# To enable sentry, set the SENTRY_DSN environment variable to the DSN of your sentry project
+config :sentry,
+  dsn: System.get_env("SENTRY_DSN"),
+  environment_name: Mix.env(),
+  enable_source_code_context: true,
+  root_source_code_paths: [File.cwd!()]
+
+config :lambda_ethereum_consensus, :logger, [
+  {:handler, :sentry_handler, Sentry.LoggerHandler,
+   %{
+     config: %{metadata: [:file, :line]}
+   }}
+]

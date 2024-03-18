@@ -8,6 +8,8 @@ defmodule LambdaEthereumConsensus.Application do
 
   @impl true
   def start(_type, _args) do
+    # Configure sentry logger handler
+    Logger.add_handlers(:lambda_ethereum_consensus)
     mode = get_operation_mode()
 
     check_jwt_secret(mode)
