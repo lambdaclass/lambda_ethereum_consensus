@@ -33,6 +33,9 @@ defmodule Constants do
   def participation_flag_weights,
     do: [timely_source_weight(), timely_target_weight(), timely_head_weight()]
 
+  @spec target_aggregators_per_committee() :: non_neg_integer()
+  def target_aggregators_per_committee, do: 16
+
   ### Withdrawal prefixes
 
   @spec bls_withdrawal_prefix() :: Types.bytes1()

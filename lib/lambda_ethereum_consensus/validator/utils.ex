@@ -106,7 +106,7 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   # `is_aggregator` equivalent
   @spec aggregator?(Types.bls_signature(), Types.commitee_index()) :: boolean()
   def aggregator?(slot_signature, committee_length) do
-    target = ChainSpec.get("TARGET_AGGREGATORS_PER_COMMITTEE")
+    target = Constants.target_aggregators_per_committee()
     modulo = committee_length |> div(target) |> max(1)
 
     SszEx.hash(slot_signature)
