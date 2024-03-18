@@ -65,8 +65,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     }
   end
 
-  def collect(subnet_id) do
-    GenServer.call(__MODULE__, {:collect, subnet_id})
+  def collect(subnet_id, attestation_data) do
+    GenServer.call(__MODULE__, {:collect, subnet_id, attestation_data})
     join(subnet_id)
   end
 
@@ -77,20 +77,20 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def init(_init_arg) do
-    {:ok, %{attnets: MapSet.new(), attestations: %{}}}
+    {:ok, %{attnets: %{}, attestations: %{}}}
   end
 
   @impl true
-  def handle_call({:collect, subnet_id}, _from, state) do
-    new_state = %{state | attnets: MapSet.put(state.attnets, subnet_id)}
+  def handle_call({:collect, subnet_id, attestation_data}, _from, state) do
+    new_state = %{state | attnets: Map.put(state.attnets, subnet_id, attestation_data)}
     {:reply, :ok, new_state}
   end
 
   def handle_call({:stop_collecting, subnet_id}, _from, state) do
-    if MapSet.member?(state.attnets, subnet_id) do
+    if Map.has_key?(state.attnets, subnet_id) do
       {collected, atts} = Map.pop(state.attestations, subnet_id, [])
       flush_remaining(subnet_id)
-      new_state = %{state | attnets: MapSet.delete(state.attnets, subnet_id), attestations: atts}
+      new_state = %{state | attnets: Map.delete(state.attnets, subnet_id), attestations: atts}
       {:reply, {:ok, collected}, new_state}
     else
       {:reply, {:error, "subnet not joined"}, state}
@@ -117,6 +117,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   defp store_attestation(subnet_id, %{attestations: attestations} = state, attestation) do
+    # TODO: compare attestation with attestation_data
     if Map.has_key?(attestation, subnet_id) do
       attestations = Map.update(attestations, subnet_id, [], &[attestation | &1])
       %{state | attestations: attestations}
