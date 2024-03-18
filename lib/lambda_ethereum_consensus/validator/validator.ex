@@ -180,7 +180,10 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp attest(state) do
     {current_duty, _} = state.duties.attester
-    {subnet_id, attestation} = produce_attestation(current_duty, state.root, state.privkey)
+
+    {subnet_id, attestation} =
+      produce_attestation(current_duty, state.root, state.validator.privkey)
+
     Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
     Gossip.Attestation.publish(subnet_id, attestation)
     :ok
