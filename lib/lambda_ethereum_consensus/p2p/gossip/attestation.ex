@@ -116,12 +116,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   defp store_attestation(subnet_id, %{attestations: attestations} = state, attestation) do
-    # TODO: compare attestation with attestation_data
-    if Map.has_key?(attestation, subnet_id) do
-      attestations = Map.update(attestations, subnet_id, [], &[attestation | &1])
-      %{state | attestations: attestations}
-    else
-      state
+    case Map.get(attestation, subnet_id) do
+      data when data !== attestation.data ->
+        state
+
+      _ ->
+        attestations = Map.update(attestations, subnet_id, [], &[attestation | &1])
+        %{state | attestations: attestations}
     end
   end
 end
