@@ -181,13 +181,26 @@ class SyncAggregatorSelectionData(Container):
     subcommittee_index: uint64
 ```
 
+### `BlobsBundle`
+
+*[New in Deneb:EIP4844]*
+
+```python
+@dataclass
+class BlobsBundle(object):
+    commitments: Sequence[KZGCommitment]
+    proofs: Sequence[KZGProof]
+    blobs: Sequence[Blob]
+```
+
 ### `GetPayloadResponse`
 
 ```python
 @dataclass
-class A(object):
+class GetPayloadResponse(object):
     execution_payload: ExecutionPayload
-    block_value: uint256  # [New in Capella]
+    block_value: uint256
+    blobs_bundle: BlobsBundle  # [New in Deneb:EIP4844]
 ```
 
 ## Helpers
@@ -245,7 +258,7 @@ the execution payload that has been built since the corresponding call to `notif
 ```python
 def get_payload(self: ExecutionEngine, payload_id: PayloadId) -> GetPayloadResponse:
     """
-    Return ``GetPayloadResponse`` object.
+    Return ExecutionPayload, uint256, BlobsBundle objects.
     """
     ...
 ```
@@ -452,7 +465,7 @@ A validator has two primary responsibilities to the beacon chain: [proposing blo
 
 *Note*: A validator must not propose on or attest to a block that isn't deemed valid, i.e. hasn't yet passed the beacon chain state transition and execution validations. In future upgrades, an "execution Proof-of-Custody" will be integrated to prevent outsourcing of execution payload validations.
 
-### Block proposal
+### Block and sidecar proposal
 
 A validator is expected to propose a [`SignedBeaconBlock`](./beacon-chain.md#signedbeaconblock) at
 the beginning of any `slot` during which `is_proposer(state, validator_index)` returns `True`.
@@ -656,26 +669,8 @@ def prepare_execution_payload(state: BeaconState,
                               safe_block_hash: Hash32,
                               finalized_block_hash: Hash32,
                               suggested_fee_recipient: ExecutionAddress,
-                              execution_engine: ExecutionEngine,
-                              pow_chain: Optional[Dict[Hash32, PowBlock]]=None) -> Optional[PayloadId]:
-    # [Modified in Capella] Removed `is_merge_transition_complete` check in Capella
-    # if not is_merge_transition_complete(state):
-    #     assert pow_chain is not None
-    #     is_terminal_block_hash_set = TERMINAL_BLOCK_HASH != Hash32()
-    #     is_activation_epoch_reached = get_current_epoch(state) >= TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH
-    #     if is_terminal_block_hash_set and not is_activation_epoch_reached:
-    #         # Terminal block hash is set but activation epoch is not yet reached, no prepare payload call is needed
-    #         return None
-
-    #     terminal_pow_block = get_terminal_pow_block(pow_chain)
-    #     if terminal_pow_block is None:
-    #         # Pre-merge, no prepare payload call is needed
-    #         return None
-    #     # Signify merge via producing on top of the terminal PoW block
-    #     parent_hash = terminal_pow_block.block_hash
-    # else:
-    #     # Post-merge, normal payload
-    #     parent_hash = state.latest_execution_payload_header.block_hash
+                              execution_engine: ExecutionEngine) -> Optional[PayloadId]:
+    # Verify consistency of the parent hash with respect to the previous execution payload header
     parent_hash = state.latest_execution_payload_header.block_hash
 
     # Set the forkchoice head and initiate the payload build process
@@ -683,7 +678,8 @@ def prepare_execution_payload(state: BeaconState,
         timestamp=compute_timestamp_at_slot(state, state.slot),
         prev_randao=get_randao_mix(state, get_current_epoch(state)),
         suggested_fee_recipient=suggested_fee_recipient,
-        withdrawals=get_expected_withdrawals(state),  # [New in Capella]
+        withdrawals=get_expected_withdrawals(state),
+        parent_beacon_block_root=hash_tree_root(state.latest_block_header),  # [New in Deneb:EIP4788]
     )
     return execution_engine.notify_forkchoice_updated(
         head_block_hash=parent_hash,
@@ -707,9 +703,72 @@ def get_execution_payload(payload_id: Optional[PayloadId], execution_engine: Exe
 *Note*: It is recommended for a validator to call `prepare_execution_payload` as soon as input parameters become known,
 and make subsequent calls to this function when any of these parameters gets updated.
 
+##### Blob KZG commitments
+
+*[New in Deneb:EIP4844]*
+
+1. The execution payload is obtained from the execution engine as defined above using `payload_id`. The response also includes a `blobs_bundle` entry containing the corresponding `blobs`, `commitments`, and `proofs`.
+2. Set `block.body.blob_kzg_commitments = commitments`.
+
 ##### BLS to execution changes
 
 Up to `MAX_BLS_TO_EXECUTION_CHANGES`, [`BLSToExecutionChange`](./beacon-chain.md#blstoexecutionchange) objects can be included in the `block`. The BLS to execution changes must satisfy the verification conditions found in [BLS to execution change processing](./beacon-chain.md#new-process_bls_to_execution_change).
+
+#### Constructing the `BlobSidecar`s
+
+*[New in Deneb:EIP4844]*
+
+To construct a `BlobSidecar`, a `blob_sidecar` is defined with the necessary context for block and sidecar proposal.
+
+##### Sidecar
+
+Blobs associated with a block are packaged into sidecar objects for distribution to the associated sidecar topic, the `blob_sidecar_{subnet_id}` pubsub topic.
+
+Each `sidecar` is obtained from:
+```python
+def get_blob_sidecars(signed_block: SignedBeaconBlock,
+                      blobs: Sequence[Blob],
+                      blob_kzg_proofs: Sequence[KZGProof]) -> Sequence[BlobSidecar]:
+    block = signed_block.message
+    block_header = BeaconBlockHeader(
+        slot=block.slot,
+        proposer_index=block.proposer_index,
+        parent_root=block.parent_root,
+        state_root=block.state_root,
+        body_root=hash_tree_root(block.body),
+    )
+    signed_block_header = SignedBeaconBlockHeader(message=block_header, signature=signed_block.signature)
+    return [
+        BlobSidecar(
+            index=index,
+            blob=blob,
+            kzg_commitment=block.body.blob_kzg_commitments[index],
+            kzg_proof=blob_kzg_proofs[index],
+            signed_block_header=signed_block_header,
+            kzg_commitment_inclusion_proof=compute_merkle_proof(
+                block.body,
+                get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments', index),
+            ),
+        )
+        for index, blob in enumerate(blobs)
+    ]
+```
+
+The `subnet_id` for the `blob_sidecar` is calculated with:
+- Let `blob_index = blob_sidecar.index`.
+- Let `subnet_id = compute_subnet_for_blob_sidecar(blob_index)`.
+
+```python
+def compute_subnet_for_blob_sidecar(blob_index: BlobIndex) -> SubnetID:
+    return SubnetID(blob_index % BLOB_SIDECAR_SUBNET_COUNT)
+```
+
+After publishing the peers on the network may request the sidecar through sync-requests, or a local user may be interested.
+
+The validator MUST hold on to sidecars for `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epochs and serve when capable,
+to ensure the data-availability of these blobs throughout the network.
+
+After `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` nodes MAY prune the sidecars and/or stop serving them.
 
 ### Changing from BLS to execution withdrawal credentials
 
