@@ -185,12 +185,18 @@ defmodule LambdaEthereumConsensus.Validator do
   # TODO: we should publish it two-thirds of the way through the slot
   def maybe_publish_aggregate(%{duties: %{attester: {duty, _}}, validator: validator}, slot)
       when duty.slot == slot + 1 and duty.is_aggregator do
-    {:ok, attestations} = Gossip.Attestation.stop_collecting(duty.subnet_id)
+    case Gossip.Attestation.stop_collecting(duty.subnet_id) do
+      {:ok, attestations} ->
+        Logger.info("[Validator] Publishing aggregate of slot #{slot}")
 
-    aggregate_attestations(attestations)
-    |> append_proof(duty.selection_proof, validator)
-    |> append_signature(duty.signing_domain, validator)
-    |> Gossip.Attestation.publish_aggregate()
+        aggregate_attestations(attestations)
+        |> append_proof(duty.selection_proof, validator)
+        |> append_signature(duty.signing_domain, validator)
+        |> Gossip.Attestation.publish_aggregate()
+
+      _ ->
+        Logger.error("[Validator] Failed to publish aggregate")
+    end
   end
 
   def maybe_publish_aggregate(_, _), do: :ok
