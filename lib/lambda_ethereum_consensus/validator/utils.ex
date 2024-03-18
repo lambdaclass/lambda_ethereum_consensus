@@ -10,9 +10,12 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
 
   use HardForkAliasInjection
 
-  @type duty() ::
-          {index_in_committee :: Types.uint64(), committee_length :: Types.uint64(),
-           committee_index :: Types.uint64(), slot :: Types.slot()}
+  @type duty() :: %{
+          index_in_committee: Types.uint64(),
+          committee_length: Types.uint64(),
+          committee_index: Types.uint64(),
+          slot: Types.slot()
+        }
 
   @doc """
     Return the committee assignment in the ``epoch`` for ``validator_index``.
@@ -49,8 +52,16 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     case Accessors.get_beacon_committee(state, slot, committee_index) do
       {:ok, committee} ->
         case Enum.find_index(committee, &(&1 == validator_index)) do
-          nil -> nil
-          index -> {index, length(committee), committee_index, slot}
+          nil ->
+            nil
+
+          index ->
+            %{
+              index_in_committee: index,
+              committee_length: length(committee),
+              committee_index: committee_index,
+              slot: slot
+            }
         end
 
       {:error, _} ->
@@ -93,12 +104,10 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   end
 
   # `is_aggregator` equivalent
-  @spec aggregator?(BeaconState.t(), Types.slot(), Types.commitee_index(), Types.bls_signature()) ::
-          boolean()
-  def aggregator?(%BeaconState{} = state, slot, committee_index, slot_signature) do
+  @spec aggregator?(Types.bls_signature(), Types.commitee_index()) :: boolean()
+  def aggregator?(slot_signature, committee_length) do
     target = ChainSpec.get("TARGET_AGGREGATORS_PER_COMMITTEE")
-    {:ok, committee} = Accessors.get_beacon_committee(state, slot, committee_index)
-    modulo = length(committee) |> div(target) |> max(1)
+    modulo = committee_length |> div(target) |> max(1)
 
     SszEx.hash(slot_signature)
     |> binary_part(0, 8)

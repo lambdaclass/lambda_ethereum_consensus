@@ -145,7 +145,10 @@ defmodule LambdaEthereumConsensus.Validator do
     Enum.map(duties, &compute_subnet_id_for_duty(&1, committees_per_slot))
   end
 
-  defp compute_subnet_id_for_duty({_, _, committee_index, slot}, committees_per_slot) do
+  defp compute_subnet_id_for_duty(
+         %{committee_index: committee_index, slot: slot},
+         committees_per_slot
+       ) do
     Utils.compute_subnet_for_attestation(committees_per_slot, slot, committee_index)
   end
 
@@ -163,14 +166,17 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp log_duties(%{attester: {{i0, _, ci0, slot0}, {i1, _, ci1, slot1}}}, validator) do
+  defp log_duties(%{attester: attester_duties}, validator) do
+    {%{index_in_committee: i0, committee_index: ci0, slot: slot0},
+     %{index_in_committee: i1, committee_index: ci1, slot: slot1}} = attester_duties
+
     Logger.info(
       "Validator #{validator} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
         " and in committee #{ci1} of slot #{slot1} with index #{i1}"
     )
   end
 
-  defp should_attest?(%{duties: %{attester: {{_, _, _, duty_slot}, _}}}, slot),
+  defp should_attest?(%{duties: %{attester: {%{slot: duty_slot}, _}}}, slot),
     do: duty_slot == slot
 
   defp attest(state) do
@@ -182,7 +188,13 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp produce_attestation(duty, head_root, privkey) do
-    {index_in_committee, committee_length, committee_index, slot} = duty
+    %{
+      index_in_committee: index_in_committee,
+      committee_length: committee_length,
+      committee_index: committee_index,
+      slot: slot
+    } = duty
+
     head_state = BlockStates.get_state!(head_root) |> process_slots(slot)
     head_epoch = Misc.compute_epoch_at_slot(slot)
 
