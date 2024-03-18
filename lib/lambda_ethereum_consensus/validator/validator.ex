@@ -25,7 +25,10 @@ defmodule LambdaEthereumConsensus.Validator do
     state = %{
       slot: slot,
       root: head_root,
-      duties: {:not_computed, :not_computed},
+      duties: %{
+        attester: {:not_computed, :not_computed},
+        aggregator: {:not_computed, :not_computed}
+      },
       # TODO: get validator from config
       validator: 150_112,
       privkey: <<652_916_760::256>>
@@ -82,31 +85,39 @@ defmodule LambdaEthereumConsensus.Validator do
     state
   end
 
-  defp shift_duties({_, ep1}, epoch, current_epoch) when epoch + 1 == current_epoch do
-    {ep1, :not_computed}
+  defp shift_duties(%{attester: {_, ep1}} = duties, epoch, current_epoch)
+       when epoch + 1 == current_epoch do
+    %{duties | attester: {ep1, :not_computed}}
   end
 
-  defp shift_duties(_, _, _), do: {:not_computed, :not_computed}
+  defp shift_duties(duties, _, _), do: %{duties | attester: {:not_computed, :not_computed}}
 
-  defp maybe_update_duties({:not_computed, _} = duties, beacon_state, epoch, validator) do
-    compute_duty(duties, 0, beacon_state, epoch, validator)
-    |> maybe_update_duties(beacon_state, epoch, validator)
+  defp maybe_update_duties(duties, beacon_state, epoch, validator) do
+    attester_duties =
+      maybe_update_attester_duties(duties.attester, beacon_state, epoch, validator)
+
+    %{duties | attester: attester_duties}
   end
 
-  defp maybe_update_duties({_, :not_computed} = duties, beacon_state, epoch, validator) do
-    compute_duty(duties, 1, beacon_state, epoch, validator)
-    |> maybe_update_duties(beacon_state, epoch, validator)
+  defp maybe_update_attester_duties({:not_computed, _} = duties, beacon_state, epoch, validator) do
+    compute_attester_duty(duties, 0, beacon_state, epoch, validator)
+    |> maybe_update_attester_duties(beacon_state, epoch, validator)
   end
 
-  defp maybe_update_duties(duties, _, _, _), do: duties
+  defp maybe_update_attester_duties({_, :not_computed} = duties, beacon_state, epoch, validator) do
+    compute_attester_duty(duties, 1, beacon_state, epoch, validator)
+    |> maybe_update_attester_duties(beacon_state, epoch, validator)
+  end
 
-  defp compute_duty(duties, index, beacon_state, epoch, validator) when index in 0..1 do
+  defp maybe_update_attester_duties(duties, _, _, _), do: duties
+
+  defp compute_attester_duty(duties, index, beacon_state, epoch, validator) when index in 0..1 do
     # Can't fail
     {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch + index, validator)
     put_elem(duties, index, duty)
   end
 
-  defp move_subnets({old_ep0, old_ep1}, {ep0, ep1}, beacon_state, epoch) do
+  defp move_subnets(%{attester: {old_ep0, old_ep1}}, {ep0, ep1}, beacon_state, epoch) do
     [old_subnet0, new_subnet0] =
       compute_subnet_ids_for_duties([old_ep0, ep0], beacon_state, epoch)
 
@@ -123,7 +134,7 @@ defmodule LambdaEthereumConsensus.Validator do
     MapSet.difference(new_subnets, old_subnets) |> join()
   end
 
-  defp join_subnets_for_duties({ep0, ep1}, beacon_state, epoch) do
+  defp join_subnets_for_duties(%{attester: {ep0, ep1}}, beacon_state, epoch) do
     [subnet0] = compute_subnet_ids_for_duties([ep0], beacon_state, epoch)
     [subnet1] = compute_subnet_ids_for_duties([ep1], beacon_state, epoch + 1)
     join([subnet0, subnet1])
@@ -152,17 +163,18 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp log_duties({{i0, _, ci0, slot0}, {i1, _, ci1, slot1}}, validator) do
+  defp log_duties(%{attester: {{i0, _, ci0, slot0}, {i1, _, ci1, slot1}}}, validator) do
     Logger.info(
       "Validator #{validator} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
         " and in committee #{ci1} of slot #{slot1} with index #{i1}"
     )
   end
 
-  defp should_attest?(%{duties: {{_, _, _, duty_slot}, _}}, slot), do: duty_slot == slot
+  defp should_attest?(%{duties: %{attester: {{_, _, _, duty_slot}, _}}}, slot),
+    do: duty_slot == slot
 
   defp attest(state) do
-    {current_duty, _} = state.duties
+    {current_duty, _} = state.duties.attester
     {subnet_id, attestation} = produce_attestation(current_duty, state.root, state.privkey)
     Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
     Gossip.Attestation.publish(subnet_id, attestation)
