@@ -26,12 +26,10 @@ defmodule LambdaEthereumConsensus.Validator do
       slot: slot,
       root: head_root,
       duties: %{
-        attester: {:not_computed, :not_computed},
-        aggregator: {:not_computed, :not_computed}
+        attester: {:not_computed, :not_computed}
       },
       # TODO: get validator from config
-      validator: 150_112,
-      privkey: <<652_916_760::256>>
+      validator: %{index: 150_112, privkey: <<652_916_760::256>>}
     }
 
     {:ok, state, {:continue, nil}}
@@ -43,7 +41,7 @@ defmodule LambdaEthereumConsensus.Validator do
     beacon = fetch_target_state(epoch, root)
     duties = maybe_update_duties(state.duties, beacon, epoch, state.validator)
     join_subnets_for_duties(duties, beacon, epoch)
-    log_duties(duties, state.validator)
+    log_duties(duties, state.validator.index)
     {:noreply, %{state | duties: duties}}
   end
 
@@ -74,7 +72,7 @@ defmodule LambdaEthereumConsensus.Validator do
         |> maybe_update_duties(new_beacon, epoch, state.validator)
 
       move_subnets(state.duties, new_duties, new_beacon, epoch)
-      log_duties(new_duties, state.validator)
+      log_duties(new_duties, state.validator.index)
 
       %{state | slot: slot, root: head_root, duties: new_duties}
     end
@@ -113,7 +111,8 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp compute_attester_duty(duties, index, beacon_state, epoch, validator) when index in 0..1 do
     # Can't fail
-    {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch + index, validator)
+    {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch + index, validator.index)
+    duty = update_with_aggregation_duty(duty, beacon_state, validator.privkey)
     put_elem(duties, index, duty)
   end
 
@@ -166,12 +165,12 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp log_duties(%{attester: attester_duties}, validator) do
+  defp log_duties(%{attester: attester_duties}, validator_index) do
     {%{index_in_committee: i0, committee_index: ci0, slot: slot0},
      %{index_in_committee: i1, committee_index: ci1, slot: slot1}} = attester_duties
 
     Logger.info(
-      "Validator #{validator} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
+      "Validator #{validator_index} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
         " and in committee #{ci1} of slot #{slot1} with index #{i1}"
     )
   end
@@ -237,5 +236,11 @@ defmodule LambdaEthereumConsensus.Validator do
   defp process_slots(state, slot) do
     {:ok, st} = StateTransition.process_slots(state, slot)
     st
+  end
+
+  defp update_with_aggregation_duty(duty, beacon_state, privkey) do
+    Utils.get_slot_signature(beacon_state, duty.slot, privkey)
+    |> Utils.aggregator?(duty.committee_length)
+    |> then(&Map.put(duty, :is_aggregator, &1))
   end
 end
