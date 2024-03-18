@@ -82,4 +82,10 @@ defmodule LambdaEthereumConsensus.Utils.BitField do
   """
   @spec count(t) :: non_neg_integer()
   def count(bit_field), do: for(<<bit::1 <- bit_field>>, do: bit) |> Enum.sum()
+
+  @doc """
+  Receives two bitfields and returns the OR of both.
+  """
+  @spec bitwise_or(t, t) :: t
+  def bitwise_or(left, right) when bit_size(left) == bit_size(right), do: Bitwise.bor(left, right)
 end

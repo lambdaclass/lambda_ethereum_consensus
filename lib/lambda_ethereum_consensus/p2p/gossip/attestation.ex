@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
 
+  @spec join(non_neg_integer()) :: :ok
   def join(subnet_id) do
     topic = get_topic_name(subnet_id)
     Libp2pPort.join_topic(topic)
@@ -25,6 +26,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     update_enr()
   end
 
+  @spec leave(non_neg_integer()) :: :ok
   def leave(subnet_id) do
     topic = get_topic_name(subnet_id)
     Libp2pPort.leave_topic(topic)
@@ -33,11 +35,33 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     update_enr()
   end
 
+  @spec publish(non_neg_integer(), Types.Attestation) :: :ok
   def publish(subnet_id, %Types.Attestation{} = attestation) do
     topic = get_topic_name(subnet_id)
     {:ok, encoded} = SszEx.encode(attestation, Types.Attestation)
     {:ok, message} = :snappyer.compress(encoded)
     Libp2pPort.publish(topic, message)
+  end
+
+  def publish_aggregate(%Types.SignedAggregateAndProof{} = signed_aggregate) do
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    topic = "/eth2/#{fork_context}/beacon_aggregate_and_proof/ssz_snappy"
+    {:ok, encoded} = SszEx.encode(signed_aggregate, Types.SignedAggregateAndProof)
+    {:ok, message} = :snappyer.compress(encoded)
+    Libp2pPort.publish(topic, message)
+  end
+
+  @spec collect(non_neg_integer(), Types.AttestationData) :: :ok
+  def collect(subnet_id, attestation_data) do
+    GenServer.call(__MODULE__, {:collect, subnet_id, attestation_data})
+    join(subnet_id)
+  end
+
+  @spec stop_collecting(non_neg_integer()) ::
+          {:ok, list(Types.Attestation)} | {:error, String.t()}
+  def stop_collecting(subnet_id) do
+    leave(subnet_id)
+    GenServer.call(__MODULE__, {:stop_collecting, subnet_id})
   end
 
   defp get_topic_name(subnet_id) do
@@ -65,16 +89,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     }
   end
 
-  def collect(subnet_id, attestation_data) do
-    GenServer.call(__MODULE__, {:collect, subnet_id, attestation_data})
-    join(subnet_id)
-  end
-
-  def stop_collecting(subnet_id) do
-    leave(subnet_id)
-    GenServer.call(__MODULE__, {:stop_collecting, subnet_id})
-  end
-
   @impl true
   def init(_init_arg) do
     {:ok, %{attnets: %{}, attestations: %{}}}
@@ -82,7 +96,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def handle_call({:collect, subnet_id, attestation_data}, _from, state) do
-    new_state = %{state | attnets: Map.put(state.attnets, subnet_id, attestation_data)}
+    attestations = Map.put(state.attestations, subnet_id, [attestation_data])
+    attnets = Map.put(state.attnets, subnet_id, attestation_data)
+    new_state = %{state | attnets: attnets, attestations: attestations}
     {:reply, :ok, new_state}
   end
 

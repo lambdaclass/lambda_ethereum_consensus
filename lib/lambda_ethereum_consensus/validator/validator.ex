@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition
@@ -180,16 +181,44 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  def maybe_publish_aggregate(
-        %{duties: %{attester: {%{slot: duty_slot, is_aggregator: true} = duty, _}}},
-        slot
-      )
-      when duty_slot == slot + 1 do
-    # TODO: generate aggregate and publish
-    _ = Gossip.Attestation.stop_collecting(duty.subnet_id)
+  # We publish our aggregate on the next slot, and when we're an aggregator
+  # TODO: we should publish it two-thirds of the way through the slot
+  def maybe_publish_aggregate(%{duties: %{attester: {duty, _}}, validator: validator}, slot)
+      when duty.slot == slot + 1 and duty.is_aggregator do
+    {:ok, attestations} = Gossip.Attestation.stop_collecting(duty.subnet_id)
+
+    aggregate_attestations(attestations)
+    |> append_proof(duty.selection_proof, validator)
+    |> append_signature(duty.signing_domain, validator)
+    |> Gossip.Attestation.publish_aggregate()
   end
 
   def maybe_publish_aggregate(_, _), do: :ok
+
+  defp aggregate_attestations(attestations) do
+    aggregation_bits =
+      attestations
+      |> Stream.map(&Map.fetch!(&1, :aggregation_bits))
+      |> Enum.reduce(&BitField.bitwise_or/2)
+
+    {:ok, signature} = attestations |> Enum.map(&Map.fetch!(&1, :signature)) |> Bls.aggregate()
+
+    %{List.first(attestations) | aggregation_bits: aggregation_bits, signature: signature}
+  end
+
+  defp append_proof(aggregate, proof, validator) do
+    %Types.AggregateAndProof{
+      aggregator_index: validator.index,
+      aggregate: aggregate,
+      selection_proof: proof
+    }
+  end
+
+  defp append_signature(aggregate_and_proof, signing_domain, %{privkey: privkey}) do
+    signing_root = Misc.compute_signing_root(aggregate_and_proof, signing_domain)
+    signature = Bls.sign(privkey, signing_root)
+    %Types.SignedAggregateAndProof{message: aggregate_and_proof, signature: signature}
+  end
 
   defp produce_attestation(duty, head_root, privkey) do
     %{
@@ -243,9 +272,18 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp update_with_aggregation_duty(duty, beacon_state, privkey) do
-    Utils.get_slot_signature(beacon_state, duty.slot, privkey)
-    |> Utils.aggregator?(duty.committee_length)
-    |> then(&Map.put(duty, :is_aggregator, &1))
+    proof = Utils.get_slot_signature(beacon_state, duty.slot, privkey)
+
+    if Utils.aggregator?(proof, duty.committee_length) do
+      epoch = Misc.compute_epoch_at_slot(duty.slot)
+      domain = Accessors.get_domain(beacon_state, Constants.domain_aggregate_and_proof(), epoch)
+
+      Map.put(duty, :is_aggregator, true)
+      |> Map.put(:selection_proof, proof)
+      |> Map.put(:signing_domain, domain)
+    else
+      Map.put(duty, :is_aggregator, false)
+    end
   end
 
   defp update_with_subnet_id(duty, beacon_state, epoch) do
