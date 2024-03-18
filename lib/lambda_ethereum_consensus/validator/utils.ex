@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   @moduledoc """
   Functions for performing validator duties.
   """
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.AttestationData
@@ -9,9 +10,12 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
 
   use HardForkAliasInjection
 
-  @type duty() ::
-          {index_in_committee :: Types.uint64(), committee_length :: Types.uint64(),
-           committee_index :: Types.uint64(), slot :: Types.slot()}
+  @type duty() :: %{
+          index_in_committee: Types.uint64(),
+          committee_length: Types.uint64(),
+          committee_index: Types.uint64(),
+          slot: Types.slot()
+        }
 
   @doc """
     Return the committee assignment in the ``epoch`` for ``validator_index``.
@@ -48,8 +52,16 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     case Accessors.get_beacon_committee(state, slot, committee_index) do
       {:ok, committee} ->
         case Enum.find_index(committee, &(&1 == validator_index)) do
-          nil -> nil
-          index -> {index, length(committee), committee_index, slot}
+          nil ->
+            nil
+
+          index ->
+            %{
+              index_in_committee: index,
+              committee_length: length(committee),
+              committee_index: committee_index,
+              slot: slot
+            }
         end
 
       {:error, _} ->
@@ -78,5 +90,28 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     # Can't fail, unless privkey is invalid
     {:ok, signature} = Bls.sign(privkey, signing_root)
     signature
+  end
+
+  @spec get_slot_signature(BeaconState.t(), Types.slot(), Bls.privkey()) ::
+          Types.bls_signature()
+  def get_slot_signature(%BeaconState{} = state, slot, privkey) do
+    domain_selection_proof = Constants.domain_selection_proof()
+    epoch = Misc.compute_epoch_at_slot(slot)
+    domain = Accessors.get_domain(state, domain_selection_proof, epoch)
+    signing_root = Misc.compute_signing_root(slot, TypeAliases.slot(), domain)
+    {:ok, signature} = Bls.sign(privkey, signing_root)
+    signature
+  end
+
+  # `is_aggregator` equivalent
+  @spec aggregator?(Types.bls_signature(), Types.commitee_index()) :: boolean()
+  def aggregator?(slot_signature, committee_length) do
+    target = Constants.target_aggregators_per_committee()
+    modulo = committee_length |> div(target) |> max(1)
+
+    SszEx.hash(slot_signature)
+    |> binary_part(0, 8)
+    |> :binary.decode_unsigned(:little)
+    |> rem(modulo) == 0
   end
 end
