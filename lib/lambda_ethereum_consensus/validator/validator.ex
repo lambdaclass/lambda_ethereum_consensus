@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.Validator do
         attester: {:not_computed, :not_computed}
       },
       # TODO: get validator from config
-      validator: %{index: 150_112, privkey: <<652_916_760::256>>}
+      validator: %{index: 55, privkey: <<652_916_760::256>>}
     }
 
     {:ok, state, {:continue, nil}}
@@ -116,7 +116,7 @@ defmodule LambdaEthereumConsensus.Validator do
     put_elem(duties, index, duty)
   end
 
-  defp move_subnets(%{attester: {old_ep0, old_ep1}}, {ep0, ep1}, beacon_state, epoch) do
+  defp move_subnets(%{attester: {old_ep0, old_ep1}}, %{attester: {ep0, ep1}}, beacon_state, epoch) do
     [old_subnet0, new_subnet0] =
       compute_subnet_ids_for_duties([old_ep0, ep0], beacon_state, epoch)
 
