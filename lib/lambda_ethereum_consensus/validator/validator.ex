@@ -125,7 +125,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp move_subnets(%{attester: {old_ep0, old_ep1}}, %{attester: {ep0, ep1}}) do
     old_subnets = MapSet.new([old_ep0.subnet_id, old_ep1.subnet_id])
-    new_subnets = MapSet.new([new_ep0.subnet_id, new_ep1.subnet_id])
+    new_subnets = MapSet.new([ep0.subnet_id, ep1.subnet_id])
 
     # leave old subnets (except for recurring ones)
     MapSet.difference(old_subnets, new_subnets) |> leave()

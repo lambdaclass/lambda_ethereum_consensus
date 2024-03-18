@@ -89,7 +89,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   def handle_call({:stop_collecting, subnet_id}, _from, state) do
     if Map.has_key?(state.attnets, subnet_id) do
       {collected, atts} = Map.pop(state.attestations, subnet_id, [])
-      flush_remaining(subnet_id)
       new_state = %{state | attnets: Map.delete(state.attnets, subnet_id), attestations: atts}
       {:reply, {:ok, collected}, new_state}
     else
