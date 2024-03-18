@@ -171,15 +171,13 @@ defmodule LambdaEthereumConsensus.Validator do
     {subnet_id, attestation} =
       produce_attestation(current_duty, state.root, state.validator.privkey)
 
-    if current_duty.is_aggregator do
-      Logger.info("[Validator] Aggregating on subnet #{subnet_id}")
-      Gossip.Attestation.collect(subnet_id, attestation)
-    else
-      Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
-      Gossip.Attestation.publish(subnet_id, attestation)
-    end
+    Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
+    Gossip.Attestation.publish(subnet_id, attestation)
 
-    :ok
+    if current_duty.is_aggregator do
+      Logger.info("[Validator] Collecting messages for future aggregation...")
+      Gossip.Attestation.collect(subnet_id, attestation)
+    end
   end
 
   def maybe_publish_aggregate(
