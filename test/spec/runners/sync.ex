@@ -9,7 +9,6 @@ defmodule SyncTestRunner do
   alias LambdaEthereumConsensus.Execution.EngineApi
 
   @disabled_cases [
-    # TODO: we have to support https://github.com/ethereum/consensus-specs/blob/dev/tests/formats/fork_choice/README.md#on_payload_info-execution-step
     # "from_syncing_to_invalid"
   ]
 
@@ -19,9 +18,7 @@ defmodule SyncTestRunner do
   end
 
   def skip?(%SpecTestCase{fork: "deneb"}) do
-    # TODO: update `EngineApiMock` to support the new `new_payload/3` function,
-    #  and the runner to load the block's blobs if on deneb
-    true
+    false
   end
 
   def skip?(_testcase), do: true
@@ -76,7 +73,21 @@ defmodule SyncTestRunner.EngineApiMock do
     end)
   end
 
+  # CAPELLA
   def new_payload(payload) do
+    Agent.get(__MODULE__, fn state ->
+      payload_status = Map.get(state.new_payload, payload.block_hash)
+
+      if payload_status do
+        {:ok, payload_status}
+      else
+        {:error, "Unknown block hash when calling new_payload"}
+      end
+    end)
+  end
+
+  # DENEB
+  def new_payload(payload, _versioned_hashes, _parent_beacon_block_root) do
     Agent.get(__MODULE__, fn state ->
       payload_status = Map.get(state.new_payload, payload.block_hash)
 
