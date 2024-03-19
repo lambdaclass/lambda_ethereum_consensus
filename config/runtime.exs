@@ -117,7 +117,7 @@ block_time_ms =
     "gnosis" -> 6000
     "mainnet" -> 12_000
     "sepolia" -> 100
-    "holesky" -> 36_000
+    "holesky" -> 24_000
   end
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
