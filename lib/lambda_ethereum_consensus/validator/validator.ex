@@ -23,30 +23,51 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @impl true
   def init({slot, head_root}) do
+    config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
+
+    validator =
+      case {Keyword.get(config, :pubkey), Keyword.get(config, :privkey)} do
+        {nil, nil} -> nil
+        {pubkey, privkey} -> %{index: nil, privkey: privkey, pubkey: pubkey}
+      end
+
     state = %{
       slot: slot,
       root: head_root,
       duties: %{
         attester: {:not_computed, :not_computed}
       },
-      # TODO: get validator from config
-      validator: %{index: 55, privkey: <<652_916_760::256>>}
+      validator: validator
     }
 
     {:ok, state, {:continue, nil}}
   end
 
   @impl true
+  def handle_continue(nil, %{validator: nil} = state), do: {:noreply, state}
+
   def handle_continue(nil, %{slot: slot, root: root} = state) do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state(epoch, root)
-    duties = maybe_update_duties(state.duties, beacon, epoch, state.validator)
-    join_subnets_for_duties(duties)
-    log_duties(duties, state.validator.index)
-    {:noreply, %{state | duties: duties}}
+
+    case fetch_validator_index(beacon, state.validator) do
+      nil ->
+        Logger.error("[Validator] Public key not found in the validator set")
+        {:noreply, %{state | validator: nil}}
+
+      validator_index ->
+        Logger.info("[Validator] Setup for validator number #{validator_index} complete")
+        validator = %{state.validator | index: validator_index}
+        duties = maybe_update_duties(state.duties, beacon, epoch, validator)
+        join_subnets_for_duties(duties)
+        log_duties(duties, validator_index)
+        {:noreply, %{state | duties: duties, validator: validator}}
+    end
   end
 
   @impl true
+  def handle_cast(_, %{validator: nil} = state), do: {:noreply, state}
+
   def handle_cast({:new_block, slot, head_root}, state) do
     # TODO: this doesn't take into account reorgs or empty slots
     new_state = update_state(state, slot, head_root)
@@ -277,6 +298,8 @@ defmodule LambdaEthereumConsensus.Validator do
     st
   end
 
+  defp update_with_aggregation_duty(nil, _beacon_state, _privkey), do: nil
+
   defp update_with_aggregation_duty(duty, beacon_state, privkey) do
     proof = Utils.get_slot_signature(beacon_state, duty.slot, privkey)
 
@@ -299,5 +322,9 @@ defmodule LambdaEthereumConsensus.Validator do
       Utils.compute_subnet_for_attestation(committees_per_slot, duty.slot, duty.committee_index)
 
     Map.put(duty, :subnet_id, subnet_id)
+  end
+
+  defp fetch_validator_index(beacon, %{index: nil, pubkey: pk}) do
+    beacon.validators |> Enum.find_index(&(&1.pubkey == pk))
   end
 end
