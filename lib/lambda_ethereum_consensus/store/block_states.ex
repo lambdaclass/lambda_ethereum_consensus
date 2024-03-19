@@ -6,8 +6,6 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   alias LambdaEthereumConsensus.Store.StateDb
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   @table :states_by_block_hash
   @max_entries 128
   @batch_prune_size 16

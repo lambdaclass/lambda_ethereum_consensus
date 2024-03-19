@@ -73,20 +73,6 @@ defmodule SyncTestRunner.EngineApiMock do
     end)
   end
 
-  # CAPELLA
-  def new_payload(payload) do
-    Agent.get(__MODULE__, fn state ->
-      payload_status = Map.get(state.new_payload, payload.block_hash)
-
-      if payload_status do
-        {:ok, payload_status}
-      else
-        {:error, "Unknown block hash when calling new_payload"}
-      end
-    end)
-  end
-
-  # DENEB
   def new_payload(payload, _versioned_hashes, _parent_beacon_block_root) do
     Agent.get(__MODULE__, fn state ->
       payload_status = Map.get(state.new_payload, payload.block_hash)

@@ -10,8 +10,6 @@ defmodule Helpers.ProcessBlocks do
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
-  use HardForkAliasInjection
-
   def process_blocks(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 

@@ -13,8 +13,6 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.SignedBeaconBlock
 
-  use HardForkAliasInjection
-
   @blocks_per_chunk 16
 
   @type chunk :: %{from: Types.slot(), count: integer()}

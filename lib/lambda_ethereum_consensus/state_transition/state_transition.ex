@@ -8,8 +8,6 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
   alias Types.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
 
-  use HardForkAliasInjection
-
   import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
 
   @spec state_transition(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::

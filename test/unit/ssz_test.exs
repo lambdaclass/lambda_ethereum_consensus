@@ -228,7 +228,7 @@ defmodule Unit.SSZTests do
     assert {:ok, ^sidecar} = Ssz.from_ssz(encoded, Types.BlobSidecar)
   end
 
-  test "SignedBeaconBlockDeneb" do
+  test "SignedBeaconBlock" do
     # seed RNG
     :rand.seed(:default, 0)
     random_block = Block.signed_beacon_block()
@@ -237,7 +237,7 @@ defmodule Unit.SSZTests do
 
     execution_payload =
       struct!(
-        Types.ExecutionPayloadDeneb,
+        Types.ExecutionPayload,
         random_payload
         |> Map.from_struct()
         |> Map.merge(%{blob_gas_used: 1, excess_blob_gas: 1})
@@ -245,7 +245,7 @@ defmodule Unit.SSZTests do
 
     new_body =
       struct!(
-        Types.BeaconBlockBodyDeneb,
+        Types.BeaconBlockBody,
         random_block.message.body
         |> Map.from_struct()
         |> Map.merge(%{
@@ -254,10 +254,10 @@ defmodule Unit.SSZTests do
         })
       )
 
-    deneb_block = %Types.SignedBeaconBlockDeneb{
+    deneb_block = %Types.SignedBeaconBlock{
       message:
         struct!(
-          Types.BeaconBlockDeneb,
+          Types.BeaconBlock,
           random_block.message
           |> Map.from_struct()
           |> Map.merge(%{body: new_body})
@@ -267,6 +267,6 @@ defmodule Unit.SSZTests do
 
     assert {:ok, _hash} = Ssz.hash_tree_root(deneb_block)
     {:ok, encoded} = Ssz.to_ssz(deneb_block)
-    assert {:ok, ^deneb_block} = Ssz.from_ssz(encoded, Types.SignedBeaconBlockDeneb)
+    assert {:ok, ^deneb_block} = Ssz.from_ssz(encoded, Types.SignedBeaconBlock)
   end
 end

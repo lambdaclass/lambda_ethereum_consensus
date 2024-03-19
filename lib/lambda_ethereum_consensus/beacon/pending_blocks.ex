@@ -15,8 +15,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
 
-  use HardForkAliasInjection
-
   @type block_status :: :pending | :invalid | :processing | :download | :download_blobs | :unknown
   @type block_info ::
           {SignedBeaconBlock.t(), :pending | :download_blobs}
@@ -45,10 +43,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def init(_opts) do
     schedule_blocks_processing()
     schedule_blocks_download()
-
-    HardForkAliasInjection.on_deneb do
-      schedule_blobs_download()
-    end
+    schedule_blobs_download()
 
     {:ok, Map.new()}
   end
@@ -148,8 +143,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       downloaded_blocks
       |> Enum.reduce(state, fn signed_block, state ->
         block_root = Ssz.hash_tree_root!(signed_block.message)
-        new_block_state = HardForkAliasInjection.on_deneb(do: :download_blobs, else: :pending)
-        state |> Map.put(block_root, {signed_block, new_block_state})
+        state |> Map.put(block_root, {signed_block, :download_blobs})
       end)
 
     schedule_blocks_download()

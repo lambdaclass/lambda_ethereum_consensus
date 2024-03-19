@@ -91,7 +91,7 @@ defmodule Types.BeaconState do
           next_sync_committee: Types.SyncCommittee.t(),
           # Execution
           # [Modified in Capella]
-          latest_execution_payload_header: Types.ExecutionPayloadHeader.t(),
+          latest_execution_payload_header: ExecutionPayloadHeader.t(),
           # Withdrawals
           # [New in Capella]
           next_withdrawal_index: Types.withdrawal_index(),
@@ -121,7 +121,7 @@ defmodule Types.BeaconState do
     |> Map.update!(:randao_mixes, &Aja.Vector.new/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
-    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
+    |> Map.update!(:latest_execution_payload_header, &ExecutionPayloadHeader.decode/1)
     |> Map.update!(:justification_bits, fn bits ->
       BitVector.new(bits, Constants.justification_bits_length())
     end)
@@ -136,7 +136,7 @@ defmodule Types.BeaconState do
     |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
   end
 
-  unless HardForkAliasInjection.deneb?() do
+  if HardForkAliasInjection.deneb?() do
     use LambdaEthereumConsensus.Container
 
     alias LambdaEthereumConsensus.StateTransition.Accessors, warn: false
@@ -148,7 +148,7 @@ defmodule Types.BeaconState do
     @spec merge_transition_complete?(t()) :: boolean()
     def merge_transition_complete?(state) do
       state.latest_execution_payload_header !=
-        struct(Types.ExecutionPayload, Types.ExecutionPayloadHeader.default())
+        struct(Types.ExecutionPayload, ExecutionPayloadHeader.default())
     end
 
     @doc """
@@ -285,7 +285,7 @@ defmodule Types.BeaconState do
          {:list, TypeAliases.uint64(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
         {:current_sync_committee, Types.SyncCommittee},
         {:next_sync_committee, Types.SyncCommittee},
-        {:latest_execution_payload_header, Types.ExecutionPayloadHeader},
+        {:latest_execution_payload_header, ExecutionPayloadHeader},
         {:next_withdrawal_index, TypeAliases.withdrawal_index()},
         {:next_withdrawal_validator_index, TypeAliases.validator_index()},
         {:historical_summaries,

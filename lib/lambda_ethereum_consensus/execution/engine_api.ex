@@ -2,8 +2,8 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   @moduledoc """
   Execution Layer Engine API methods with routing
   """
+
   alias Types.ExecutionPayload
-  alias Types.ExecutionPayloadDeneb
 
   @doc """
   Using this method Execution and consensus layer client software may
@@ -15,7 +15,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   @spec new_payload(ExecutionPayload.t()) :: {:ok, any} | {:error, any}
   def new_payload(execution_payload), do: impl().new_payload(execution_payload)
 
-  @spec new_payload(ExecutionPayloadDeneb.t(), [list(Types.root())], Types.root()) ::
+  @spec new_payload(ExecutionPayload.t(), [list(Types.root())], Types.root()) ::
           {:ok, any} | {:error, any}
   def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root),
     do: impl().new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)

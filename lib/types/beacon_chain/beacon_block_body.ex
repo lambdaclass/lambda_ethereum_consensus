@@ -16,7 +16,8 @@ defmodule Types.BeaconBlockBody do
     :voluntary_exits,
     :sync_aggregate,
     :execution_payload,
-    :bls_to_execution_changes
+    :bls_to_execution_changes,
+    :blob_kzg_commitments
   ]
 
   @enforce_keys fields
@@ -39,7 +40,9 @@ defmodule Types.BeaconBlockBody do
           sync_aggregate: Types.SyncAggregate.t(),
           execution_payload: Types.ExecutionPayload.t(),
           # max MAX_BLS_TO_EXECUTION_CHANGES
-          bls_to_execution_changes: list(Types.SignedBLSToExecutionChange.t())
+          bls_to_execution_changes: list(Types.BLSToExecutionChange.t()),
+          # max MAX_BLOB_COMMITMENTS_PER_BLOCK
+          blob_kzg_commitments: list(Types.kzg_commitment())
         }
 
   @impl LambdaEthereumConsensus.Container
@@ -59,7 +62,9 @@ defmodule Types.BeaconBlockBody do
       {:sync_aggregate, Types.SyncAggregate},
       {:execution_payload, Types.ExecutionPayload},
       {:bls_to_execution_changes,
-       {:list, Types.SignedBLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")}}
+       {:list, Types.SignedBLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")}},
+      {:blob_kzg_commitments,
+       {:list, TypeAliases.kzg_commitment(), ChainSpec.get("MAX_BLOB_COMMITMENTS_PER_BLOCK")}}
     ]
   end
 end

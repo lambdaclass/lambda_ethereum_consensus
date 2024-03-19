@@ -23,8 +23,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     Withdrawal
   }
 
-  use HardForkAliasInjection
-
   @spec process_block_header(BeaconState.t(), BeaconBlock.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_block_header(
@@ -235,8 +233,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->
         {:error, "Timestamp verification failed"}
 
-      HardForkAliasInjection.on_deneb(do: body.blob_kzg_commitments |> length(), else: -1) >
-          ChainSpec.get("MAX_BLOBS_PER_BLOCK") ->
+      body.blob_kzg_commitments |> length() > ChainSpec.get("MAX_BLOBS_PER_BLOCK") ->
         {:error, "Too many commitments"}
 
       # Cache execution payload header
@@ -268,15 +265,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
               base_fee_per_gas: payload.base_fee_per_gas,
               block_hash: payload.block_hash,
               transactions_root: transactions_root,
-              withdrawals_root: withdrawals_root
-            ] ++
-              HardForkAliasInjection.on_deneb(
-                do: [
-                  blob_gas_used: payload.blob_gas_used,
-                  excess_blob_gas: payload.excess_blob_gas
-                ],
-                else: []
-              )
+              withdrawals_root: withdrawals_root,
+              blob_gas_used: payload.blob_gas_used,
+              excess_blob_gas: payload.excess_blob_gas
+            ]
 
           header = struct!(ExecutionPayloadHeader, fields)
 
@@ -567,15 +559,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
         {:error, "validator cannot exit yet"}
 
-      not ((HardForkAliasInjection.on_deneb do
-              Misc.compute_domain(
-                Constants.domain_voluntary_exit(),
-                fork_version: ChainSpec.get("CAPELLA_FORK_VERSION"),
-                genesis_validators_root: state.genesis_validators_root
-              )
-            else
-              Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
-            end)
+      not (Misc.compute_domain(
+             Constants.domain_voluntary_exit(),
+             fork_version: ChainSpec.get("CAPELLA_FORK_VERSION"),
+             genesis_validators_root: state.genesis_validators_root
+           )
            |> then(&Misc.compute_signing_root(voluntary_exit, &1))
            |> then(&Bls.valid?(validator.pubkey, &1, signed_voluntary_exit.signature))) ->
         {:error, "invalid signature"}
@@ -847,19 +835,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_valid_slot_range(data, state) do
-    HardForkAliasInjection.on_deneb do
-      if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot do
-        :ok
-      else
-        {:error, "Invalid slot range"}
-      end
+    if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot do
+      :ok
     else
-      if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot and
-           state.slot <= data.slot + ChainSpec.get("SLOTS_PER_EPOCH") do
-        :ok
-      else
-        {:error, "Invalid slot range"}
-      end
+      {:error, "Invalid slot range"}
     end
   end
 

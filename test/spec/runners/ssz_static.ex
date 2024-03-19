@@ -12,8 +12,6 @@ defmodule SszStaticTestRunner do
   alias Types.ExecutionPayloadHeader
   alias Types.SignedBeaconBlock
 
-  use HardForkAliasInjection
-
   use ExUnit.CaseTemplate
   use TestRunner
 

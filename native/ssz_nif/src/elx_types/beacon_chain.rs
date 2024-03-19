@@ -167,18 +167,6 @@ gen_struct_with_config!(
     }
 );
 
-gen_struct_with_config!(
-    #[derive(NifStruct)]
-    #[module = "Types.BeaconBlockDeneb"]
-    pub(crate) struct BeaconBlockDeneb<'a> {
-        slot: Slot,
-        proposer_index: ValidatorIndex,
-        parent_root: Root<'a>,
-        state_root: Root<'a>,
-        body: BeaconBlockBodyDeneb<'a>,
-    }
-);
-
 gen_struct!(
     #[derive(NifStruct)]
     #[module = "Types.BeaconBlockHeader"]
@@ -214,15 +202,6 @@ gen_struct_with_config!(
     #[module = "Types.SignedBeaconBlock"]
     pub(crate) struct SignedBeaconBlock<'a> {
         message: BeaconBlock<'a>,
-        signature: BLSSignature<'a>,
-    }
-);
-
-gen_struct_with_config!(
-    #[derive(NifStruct)]
-    #[module = "Types.SignedBeaconBlockDeneb"]
-    pub(crate) struct SignedBeaconBlockDeneb<'a> {
-        message: BeaconBlockDeneb<'a>,
         signature: BLSSignature<'a>,
     }
 );
@@ -312,28 +291,6 @@ gen_struct_with_config!(
         block_hash: Hash32<'a>,
         transactions_root: Root<'a>,
         withdrawals_root: Root<'a>,
-    }
-);
-
-gen_struct_with_config!(
-    #[derive(NifStruct)]
-    #[module = "Types.ExecutionPayloadHeaderDeneb"]
-    pub(crate) struct ExecutionPayloadHeaderDeneb<'a> {
-        parent_hash: Hash32<'a>,
-        fee_recipient: ExecutionAddress<'a>,
-        state_root: Root<'a>,
-        receipts_root: Root<'a>,
-        logs_bloom: Binary<'a>,
-        prev_randao: Bytes32<'a>,
-        block_number: u64,
-        gas_limit: u64,
-        gas_used: u64,
-        timestamp: u64,
-        extra_data: Binary<'a>,
-        base_fee_per_gas: Uint256<'a>,
-        block_hash: Hash32<'a>,
-        transactions_root: Root<'a>,
-        withdrawals_root: Root<'a>,
         blob_gas_used: u64,
         excess_blob_gas: u64,
     }
@@ -343,28 +300,6 @@ gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "Types.ExecutionPayload"]
     pub(crate) struct ExecutionPayload<'a> {
-        parent_hash: Hash32<'a>,
-        fee_recipient: ExecutionAddress<'a>,
-        state_root: Root<'a>,
-        receipts_root: Root<'a>,
-        logs_bloom: Binary<'a>,
-        prev_randao: Bytes32<'a>,
-        block_number: u64,
-        gas_limit: u64,
-        gas_used: u64,
-        timestamp: u64,
-        extra_data: Binary<'a>,
-        base_fee_per_gas: Uint256<'a>,
-        block_hash: Hash32<'a>,
-        transactions: Vec<Transaction<'a>>,
-        withdrawals: Vec<Withdrawal<'a>>,
-    }
-);
-
-gen_struct_with_config!(
-    #[derive(NifStruct)]
-    #[module = "Types.ExecutionPayloadDeneb"]
-    pub(crate) struct ExecutionPayloadDeneb<'a> {
         parent_hash: Hash32<'a>,
         fee_recipient: ExecutionAddress<'a>,
         state_root: Root<'a>,
@@ -444,54 +379,6 @@ gen_struct_with_config!(
 
 gen_struct_with_config!(
     #[derive(NifStruct)]
-    #[module = "Types.BeaconStateDeneb"]
-    pub(crate) struct BeaconStateDeneb<'a> {
-        // Versioning
-        genesis_time: u64,
-        genesis_validators_root: Root<'a>,
-        slot: Slot,
-        fork: Fork<'a>,
-        // History
-        latest_block_header: BeaconBlockHeader<'a>,
-        block_roots: Vec<Root<'a>>,
-        state_roots: Vec<Root<'a>>,
-        historical_roots: Vec<Root<'a>>, // Frozen in Capella, replaced by historical_summaries
-        // Eth1
-        eth1_data: Eth1Data<'a>,
-        eth1_data_votes: Vec<Eth1Data<'a>>,
-        eth1_deposit_index: u64,
-        // Registry
-        validators: Vec<Validator<'a>>,
-        balances: Vec<Gwei>,
-        // Randomness
-        randao_mixes: Vec<Bytes32<'a>>,
-        // Slashings
-        slashings: Vec<Gwei>, // Per-epoch sums of slashed effective balances
-        // Participation
-        previous_epoch_participation: Vec<ParticipationFlags>,
-        current_epoch_participation: Vec<ParticipationFlags>,
-        // Finality
-        justification_bits: Binary<'a>, // Bit set for every recent justified epoch
-        previous_justified_checkpoint: Checkpoint<'a>,
-        current_justified_checkpoint: Checkpoint<'a>,
-        finalized_checkpoint: Checkpoint<'a>,
-        // Inactivity
-        inactivity_scores: Vec<u64>,
-        // Sync
-        current_sync_committee: SyncCommittee<'a>,
-        next_sync_committee: SyncCommittee<'a>,
-        // Execution
-        latest_execution_payload_header: ExecutionPayloadHeaderDeneb<'a>, // [Modified in Capella]
-        // Withdrawals
-        next_withdrawal_index: WithdrawalIndex, // [New in Capella]
-        next_withdrawal_validator_index: ValidatorIndex, // [New in Capella]
-        // Deep history valid from Capella onwards
-        historical_summaries: Vec<HistoricalSummary<'a>>, // [New in Capella]
-    }
-);
-
-gen_struct_with_config!(
-    #[derive(NifStruct)]
     #[module = "Types.BeaconBlockBody"]
     pub(crate) struct BeaconBlockBody<'a> {
         randao_reveal: BLSSignature<'a>,
@@ -504,24 +391,6 @@ gen_struct_with_config!(
         voluntary_exits: Vec<SignedVoluntaryExit<'a>>,
         sync_aggregate: SyncAggregate<'a>,
         execution_payload: ExecutionPayload<'a>,
-        bls_to_execution_changes: Vec<SignedBLSToExecutionChange<'a>>,
-    }
-);
-
-gen_struct_with_config!(
-    #[derive(NifStruct)]
-    #[module = "Types.BeaconBlockBodyDeneb"]
-    pub(crate) struct BeaconBlockBodyDeneb<'a> {
-        randao_reveal: BLSSignature<'a>,
-        eth1_data: Eth1Data<'a>,
-        graffiti: Bytes32<'a>,
-        proposer_slashings: Vec<ProposerSlashing<'a>>,
-        attester_slashings: Vec<AttesterSlashing<'a>>,
-        attestations: Vec<Attestation<'a>>,
-        deposits: Vec<Deposit<'a>>,
-        voluntary_exits: Vec<SignedVoluntaryExit<'a>>,
-        sync_aggregate: SyncAggregate<'a>,
-        execution_payload: ExecutionPayloadDeneb<'a>,
         bls_to_execution_changes: Vec<SignedBLSToExecutionChange<'a>>,
         blob_kzg_commitments: Vec<KZGCommitment<'a>>,
     }

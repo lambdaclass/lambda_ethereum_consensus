@@ -8,8 +8,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias LambdaEthereumConsensus.Utils.Randao
   alias Types.{BeaconState, HistoricalSummary, Validator}
 
-  use HardForkAliasInjection
-
   @spec process_sync_committee_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_sync_committee_updates(
@@ -141,11 +139,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     current_epoch = Accessors.get_current_epoch(state)
     activation_exit_epoch = Misc.compute_activation_exit_epoch(current_epoch)
 
-    churn_limit =
-      HardForkAliasInjection.on_deneb(
-        do: Accessors.get_validator_activation_churn_limit(state),
-        else: Accessors.get_validator_churn_limit(state)
-      )
+    churn_limit = Accessors.get_validator_activation_churn_limit(state)
 
     result =
       validators

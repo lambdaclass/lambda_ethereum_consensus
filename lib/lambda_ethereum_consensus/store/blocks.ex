@@ -7,8 +7,6 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   alias Types.BeaconBlock
   alias Types.SignedBeaconBlock
 
-  use HardForkAliasInjection
-
   @table :blocks_by_hash
   @max_entries 512
   @batch_prune_size 32

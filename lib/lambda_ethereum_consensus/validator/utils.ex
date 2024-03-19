@@ -8,8 +8,6 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   alias Types.AttestationData
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   @type duty() :: %{
           index_in_committee: Types.uint64(),
           committee_length: Types.uint64(),

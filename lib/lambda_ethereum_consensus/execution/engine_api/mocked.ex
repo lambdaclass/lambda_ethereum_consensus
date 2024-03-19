@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
   Mocked Execution Layer Engine API methods
   """
   alias Types.ExecutionPayload
-  alias Types.ExecutionPayloadDeneb
+  alias Types.ExecutionPayload
 
   @doc """
   Using this method Execution and consensus layer client software may
@@ -14,15 +14,8 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
     {:ok, ["engine_newPayloadV2", "engine_newPayloadV3"]}
   end
 
-  @spec new_payload(ExecutionPayload.t()) :: {:ok, any} | {:error, any}
-  # CAPELLA
-  def new_payload(_execution_payload) do
-    {:ok, %{"status" => "VALID"}}
-  end
-
-  @spec new_payload(ExecutionPayloadDeneb.t(), [list(Types.root())], Types.root()) ::
+  @spec new_payload(ExecutionPayload.t(), [list(Types.root())], Types.root()) ::
           {:ok, any} | {:error, any}
-  # DENEB
   def new_payload(_execution_payload, _versioned_hashes, _parent_beacon_block_root) do
     {:ok, %{"status" => "VALID"}}
   end

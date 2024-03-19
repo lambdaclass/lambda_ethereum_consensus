@@ -23,8 +23,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     Store
   }
 
-  use HardForkAliasInjection
-
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
 
   ### Public API ###
@@ -81,18 +79,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block isn't descendant of latest finalized block"}
 
       true ->
-        HardForkAliasInjection.on_deneb do
-          is_data_available =
-            Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)
+        is_data_available =
+          Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)
 
-          # Check blob data is available
-          if is_data_available do
-            compute_post_state(store, signed_block, base_state)
-          else
-            {:error, "blob data not available"}
-          end
-        else
+        # Check blob data is available
+        if is_data_available do
           compute_post_state(store, signed_block, base_state)
+        else
+          {:error, "blob data not available"}
         end
     end
   end
@@ -206,19 +200,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
       Task.async(fn ->
-        HardForkAliasInjection.on_deneb do
-          versioned_hashes =
-            block.body.blob_kzg_commitments
-            |> Enum.map(&Misc.kzg_commitment_to_versioned_hash/1)
+        versioned_hashes =
+          block.body.blob_kzg_commitments
+          |> Enum.map(&Misc.kzg_commitment_to_versioned_hash/1)
 
-          %NewPayloadRequest{
-            execution_payload: payload,
-            parent_beacon_block_root: parent_beacon_block_root,
-            versioned_hashes: versioned_hashes
-          }
-        else
-          %NewPayloadRequest{execution_payload: payload}
-        end
+        %NewPayloadRequest{
+          execution_payload: payload,
+          parent_beacon_block_root: parent_beacon_block_root,
+          versioned_hashes: versioned_hashes
+        }
         |> ExecutionClient.verify_and_notify_new_payload()
         |> handle_verify_payload_result()
       end)

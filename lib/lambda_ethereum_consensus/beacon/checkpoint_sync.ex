@@ -10,8 +10,6 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
-  use HardForkAliasInjection
-
   @doc """
   Safely retrieves the last finalized state and block
   """

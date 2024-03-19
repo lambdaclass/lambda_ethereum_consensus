@@ -8,7 +8,7 @@ defmodule Unit.Libp2pPortTest do
   doctest Libp2pPort
 
   setup do
-    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("CAPELLA_FORK_VERSION") end)
+    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
     :ok
   end
 

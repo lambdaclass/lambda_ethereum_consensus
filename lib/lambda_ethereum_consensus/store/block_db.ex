@@ -6,8 +6,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.SignedBeaconBlock
 
-  use HardForkAliasInjection
-
   @block_prefix "blockHash"
   @blockslot_prefix "blockSlot"
 
