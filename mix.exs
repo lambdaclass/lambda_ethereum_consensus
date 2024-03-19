@@ -34,7 +34,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:plug_cowboy, "~> 2.5"},
       {:tesla, "~> 1.4"},
       {:exleveldb, "~> 0.14"},
-      {:jason, ">= 1.0.0"},
+      {:jason, "~> 1.4"},
       {:joken, "~> 2.6"},
       {:rustler, "~> 0.31"},
       {:broadway, "~> 1.0"},
@@ -60,7 +60,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:open_api_spex, "~> 3.18"},
-      {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-31"}
+      {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-31"},
+      {:sentry, "~> 10.2.0"}
     ]
   end
 
