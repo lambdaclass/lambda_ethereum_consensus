@@ -258,7 +258,6 @@ pub(crate) struct BeaconBlockBody<C: Config> {
     pub(crate) blob_kzg_commitments: VariableList<KZGCommitment, C::MaxBlobCommitmentsPerBlock>,
 }
 
-
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct BeaconState<C: Config> {
     // Versioning
