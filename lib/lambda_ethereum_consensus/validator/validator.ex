@@ -47,13 +47,23 @@ defmodule LambdaEthereumConsensus.Validator do
   def handle_continue(nil, %{validator: nil} = state), do: {:noreply, state}
 
   def handle_continue(nil, %{slot: slot, root: root} = state) do
+    case try_setup_validator(state, slot, root) do
+      nil ->
+        Logger.error("[Validator] Public key not found in the validator set")
+        {:noreply, state}
+
+      new_state ->
+        {:noreply, new_state}
+    end
+  end
+
+  defp try_setup_validator(state, slot, root) do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state(epoch, root)
 
     case fetch_validator_index(beacon, state.validator) do
       nil ->
-        Logger.error("[Validator] Public key not found in the validator set")
-        {:noreply, %{state | validator: nil}}
+        nil
 
       validator_index ->
         Logger.info("[Validator] Setup for validator number #{validator_index} complete")
@@ -61,12 +71,20 @@ defmodule LambdaEthereumConsensus.Validator do
         duties = maybe_update_duties(state.duties, beacon, epoch, validator)
         join_subnets_for_duties(duties)
         log_duties(duties, validator_index)
-        {:noreply, %{state | duties: duties, validator: validator}}
+        %{state | duties: duties, validator: validator}
     end
   end
 
   @impl true
   def handle_cast(_, %{validator: nil} = state), do: {:noreply, state}
+
+  # If we couldn't find the validator before, we just try again
+  def handle_cast({:new_block, slot, head_root} = msg, %{validator: %{index: nil}} = state) do
+    case try_setup_validator(state, slot, head_root) do
+      nil -> {:noreply, state}
+      new_state -> handle_cast(msg, new_state)
+    end
+  end
 
   def handle_cast({:new_block, slot, head_root}, state) do
     # TODO: this doesn't take into account reorgs or empty slots
