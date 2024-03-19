@@ -111,16 +111,21 @@ config :lambda_ethereum_consensus, EngineApi,
   version: "2.0"
 
 # Validator
+#
+# `validator_file` should be a file with two non-empty lines, the first being
+# the public key and the second the private key, both hex-encoded
+# TODO: move to ERC-2335 keystores
 if validator_file do
-  # TODO: process this from ERC-2335 keystores
   [pubkey, privkey] =
     File.read!(validator_file)
     |> String.split("\n")
     |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&String.trim_leading(&1, "0x"))
+    |> Enum.map(&Base.decode16!(&1, case: :mixed))
 
   config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator,
-    pubkey: Base.decode16!(pubkey, case: :mixed),
-    privkey: Base.decode16!(privkey, case: :mixed)
+    pubkey: pubkey,
+    privkey: privkey
 end
 
 # Metrics
