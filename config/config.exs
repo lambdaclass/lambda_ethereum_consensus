@@ -51,6 +51,9 @@ config :sentry,
 config :lambda_ethereum_consensus, :logger, [
   {:handler, :sentry_handler, Sentry.LoggerHandler,
    %{
-     config: %{metadata: [:file, :line, :slot]}
+     config: %{
+       metadata: [:file, :line, :slot],
+       capture_log_messages: true
+     }
    }}
 ]
