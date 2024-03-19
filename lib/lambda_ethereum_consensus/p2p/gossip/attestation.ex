@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     update_enr()
   end
 
-  @spec publish(non_neg_integer(), Types.Attestation) :: :ok
+  @spec publish(non_neg_integer(), Types.Attestation.t()) :: :ok
   def publish(subnet_id, %Types.Attestation{} = attestation) do
     topic = get_topic_name(subnet_id)
     {:ok, encoded} = SszEx.encode(attestation, Types.Attestation)
@@ -51,14 +51,14 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     Libp2pPort.publish(topic, message)
   end
 
-  @spec collect(non_neg_integer(), Types.AttestationData) :: :ok
+  @spec collect(non_neg_integer(), Types.AttestationData.t()) :: :ok
   def collect(subnet_id, attestation_data) do
     GenServer.call(__MODULE__, {:collect, subnet_id, attestation_data})
     join(subnet_id)
   end
 
   @spec stop_collecting(non_neg_integer()) ::
-          {:ok, list(Types.Attestation)} | {:error, String.t()}
+          {:ok, list(Types.Attestation.t())} | {:error, String.t()}
   def stop_collecting(subnet_id) do
     leave(subnet_id)
     GenServer.call(__MODULE__, {:stop_collecting, subnet_id})

@@ -5,13 +5,13 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
-  alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
@@ -177,7 +177,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     if current_duty.is_aggregator do
       Logger.info("[Validator] Collecting messages for future aggregation...")
-      Gossip.Attestation.collect(subnet_id, attestation)
+      Gossip.Attestation.collect(subnet_id, attestation.data)
     end
   end
 
