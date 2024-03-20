@@ -28,6 +28,7 @@ config :phoenix, :json_library, Jason
 # Configures the phoenix endpoint
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
   http: [port: 4000],
+  server: true,
   url: [host: "localhost"],
   render_errors: [
     formats: [json: BeaconApi.ErrorJSON],
