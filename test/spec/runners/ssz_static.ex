@@ -127,7 +127,7 @@ defmodule SszStaticTestRunner do
       assert Diff.diff(deserialized_by_ssz_ex, deserialized_by_nif) == :unchanged
 
       {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
-      assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
+      assert serialized_by_ssz_ex == serialized_by_nif
     end
   end
 
