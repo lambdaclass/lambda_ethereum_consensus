@@ -11,7 +11,9 @@ switches = [
   testnet_dir: :string,
   metrics: :boolean,
   metrics_port: :integer,
-  log_file: :string
+  log_file: :string,
+  beacon_api_port: :integer,
+  no_halt: :boolean
 ]
 
 is_testing = Config.config_env() == :test
@@ -30,6 +32,7 @@ end
 network = Keyword.get(args, :network, "mainnet")
 checkpoint_sync_url = Keyword.get(args, :checkpoint_sync_url)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
+beacon_api_port = Keyword.get(args, :beacon_api_port, 4000)
 jwt_path = Keyword.get(args, :execution_jwt)
 testnet_dir = Keyword.get(args, :testnet_dir)
 enable_metrics = Keyword.get(args, :metrics, false)
@@ -107,6 +110,16 @@ config :lambda_ethereum_consensus, EngineApi,
   jwt_secret: jwt_secret,
   implementation: implementation,
   version: "2.0"
+
+# Beacon API
+alias BeaconApi
+config :lambda_ethereum_consensus, BeaconApi.Endpoint,
+  http: [port: beacon_api_port],
+  url: [host: "localhost"],
+  render_errors: [
+    formats: [json: BeaconApi.ErrorJSON],
+    layout: false
+  ]
 
 # Metrics
 
