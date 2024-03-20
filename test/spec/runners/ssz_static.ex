@@ -15,6 +15,8 @@ defmodule SszStaticTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
+  @only_ssz_ex [Types.Eth1Block, Types.SyncAggregatorSelectionData]
+
   @disabled [
     # "DepositData",
     # "DepositMessage",
@@ -50,19 +52,18 @@ defmodule SszStaticTestRunner do
     # "BeaconBlockBody",
     # "BeaconState",
     # "SignedAggregateAndProof",
+    # "Eth1Block",
+    # "SyncAggregatorSelectionData",
     # -- not defined yet
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
-    # "Eth1Block",
-    "PowBlock",
-    "SignedContributionAndProof",
-    "SignedData",
-    "SyncAggregatorSelectionData",
-    "SyncCommitteeContribution",
-    "ContributionAndProof",
     "LightClientFinalityUpdate",
     "LightClientHeader",
+    "PowBlock",
+    "SignedContributionAndProof",
+    "SyncCommitteeContribution",
+    "ContributionAndProof",
     "SyncCommitteeMessage"
   ]
 
@@ -120,7 +121,7 @@ defmodule SszStaticTestRunner do
     {:ok, serialized_by_ssz_ex} = SszEx.encode(real_deserialized, schema)
     assert serialized_by_ssz_ex == real_serialized
 
-    if schema not in [Types.Eth1Block] do
+    if schema not in @only_ssz_ex do
       {:ok, deserialized_by_nif} = Ssz.from_ssz(real_serialized, schema)
       assert Diff.diff(deserialized_by_ssz_ex, deserialized_by_nif) == :unchanged
 
