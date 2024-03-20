@@ -12,9 +12,6 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   @spec exchange_capabilities() :: {:ok, any} | {:error, any}
   def exchange_capabilities, do: impl().exchange_capabilities()
 
-  @spec new_payload(ExecutionPayload.t()) :: {:ok, any} | {:error, any}
-  def new_payload(execution_payload), do: impl().new_payload(execution_payload)
-
   @spec new_payload(ExecutionPayload.t(), [list(Types.root())], Types.root()) ::
           {:ok, any} | {:error, any}
   def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root),

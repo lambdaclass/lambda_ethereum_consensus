@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
   Mocked Execution Layer Engine API methods
   """
   alias Types.ExecutionPayload
-  alias Types.ExecutionPayload
 
   @doc """
   Using this method Execution and consensus layer client software may

@@ -78,16 +78,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       finalized_root != Store.get_checkpoint_block(store, block.parent_root, finalized_epoch) ->
         {:error, "block isn't descendant of latest finalized block"}
 
-      true ->
-        is_data_available =
-          Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)
+      not (Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)) ->
+        {:error, "blob data not available"}
 
-        # Check blob data is available
-        if is_data_available do
-          compute_post_state(store, signed_block, base_state)
-        else
-          {:error, "blob data not available"}
-        end
+      true ->
+        compute_post_state(store, signed_block, base_state)
     end
   end
 
