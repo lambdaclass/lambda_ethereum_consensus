@@ -11,6 +11,7 @@ switches = [
   testnet_dir: :string,
   metrics: :boolean,
   metrics_port: :integer,
+  validator_file: :string,
   log_file: :string
 ]
 
@@ -34,6 +35,7 @@ jwt_path = Keyword.get(args, :execution_jwt)
 testnet_dir = Keyword.get(args, :testnet_dir)
 enable_metrics = Keyword.get(args, :metrics, false)
 metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
+validator_file = Keyword.get(args, :validator_file)
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync_url: checkpoint_sync_url
@@ -107,6 +109,24 @@ config :lambda_ethereum_consensus, EngineApi,
   jwt_secret: jwt_secret,
   implementation: implementation,
   version: "2.0"
+
+# Validator
+#
+# `validator_file` should be a file with two non-empty lines, the first being
+# the public key and the second the private key, both hex-encoded
+# TODO: move to ERC-2335 keystores
+if validator_file do
+  [pubkey, privkey] =
+    File.read!(validator_file)
+    |> String.split("\n")
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&String.trim_leading(&1, "0x"))
+    |> Enum.map(&Base.decode16!(&1, case: :mixed))
+
+  config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator,
+    pubkey: pubkey,
+    privkey: privkey
+end
 
 # Metrics
 
