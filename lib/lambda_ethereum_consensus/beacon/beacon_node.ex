@@ -80,6 +80,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       LambdaEthereumConsensus.Beacon.PendingBlocks,
       LambdaEthereumConsensus.Beacon.SyncBlocks,
       LambdaEthereumConsensus.P2P.GossipSub,
+      LambdaEthereumConsensus.P2P.Gossip.Attestation,
       # TODO: move checkpoint sync outside and move this to application.ex
       {LambdaEthereumConsensus.Validator, {head_slot, head_root}}
     ]
