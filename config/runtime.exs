@@ -113,6 +113,7 @@ config :lambda_ethereum_consensus, EngineApi,
 
 # Beacon API
 alias BeaconApi
+
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
   http: [port: beacon_api_port],
   url: [host: "localhost"],
