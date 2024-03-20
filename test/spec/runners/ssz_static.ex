@@ -54,7 +54,7 @@ defmodule SszStaticTestRunner do
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
-    "Eth1Block",
+    # "Eth1Block",
     "PowBlock",
     "SignedContributionAndProof",
     "SignedData",
@@ -81,7 +81,6 @@ defmodule SszStaticTestRunner do
   end
 
   def skip?(%SpecTestCase{fork: "deneb", handler: handler}) do
-    # TODO: fix types
     Enum.member?(@disabled, handler)
   end
 
@@ -118,14 +117,16 @@ defmodule SszStaticTestRunner do
     {:ok, deserialized_by_ssz_ex} = SszEx.decode(real_serialized, schema)
     assert Diff.diff(deserialized_by_ssz_ex, real_deserialized) == :unchanged
 
-    {:ok, deserialized_by_nif} = Ssz.from_ssz(real_serialized, schema)
-    assert Diff.diff(deserialized_by_ssz_ex, deserialized_by_nif) == :unchanged
-
     {:ok, serialized_by_ssz_ex} = SszEx.encode(real_deserialized, schema)
     assert serialized_by_ssz_ex == real_serialized
 
-    {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
-    assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
+    if schema not in [Types.Eth1Block] do
+      {:ok, deserialized_by_nif} = Ssz.from_ssz(real_serialized, schema)
+      assert Diff.diff(deserialized_by_ssz_ex, deserialized_by_nif) == :unchanged
+
+      {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
+      assert serialized_by_ssz_ex == serialized_by_nif
+    end
   end
 
   defp parse_type(%SpecTestCase{handler: handler}) do
