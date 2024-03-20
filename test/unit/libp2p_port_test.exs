@@ -67,7 +67,7 @@ defmodule Unit.Libp2pPortTest do
   end
 
   # TODO: flaky test, fix
-  @skip
+  @tag :skip
   test "start discovery service and discover one peer" do
     bootnodes = YamlElixir.read_from_file!("config/networks/mainnet/boot_enr.yaml")
 
