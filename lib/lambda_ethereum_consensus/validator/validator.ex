@@ -94,6 +94,8 @@ defmodule LambdaEthereumConsensus.Validator do
     if should_attest?(state, slot), do: attest(state)
     maybe_publish_aggregate(state, slot)
 
+    if should_propose?(state, slot), do: propose(state)
+
     {:noreply, new_state}
   end
 
@@ -358,5 +360,12 @@ defmodule LambdaEthereumConsensus.Validator do
       {:ok, proposer_index} = Accessors.get_beacon_proposer_index(beacon_state, &1)
       if proposer_index == validator_index, do: [slot], else: []
     end)
+  end
+
+  # If we are the proposer for the next slot, we should propose a block now
+  defp should_propose?(%{proposer: slots}, slot), do: Enum.member?(slots, slot + 1)
+
+  defp propose(state) do
+    # TODO: implement block proposal
   end
 end
