@@ -58,13 +58,12 @@ defmodule SszStaticTestRunner do
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
-    "PowBlock",
-    "SignedContributionAndProof",
-    "SignedData",
-    "SyncCommitteeContribution",
-    "ContributionAndProof",
     "LightClientFinalityUpdate",
     "LightClientHeader",
+    "PowBlock",
+    "SignedContributionAndProof",
+    "SyncCommitteeContribution",
+    "ContributionAndProof",
     "SyncCommitteeMessage"
   ]
 
