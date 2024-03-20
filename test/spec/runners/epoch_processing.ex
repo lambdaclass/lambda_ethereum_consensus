@@ -6,8 +6,6 @@ defmodule EpochProcessingTestRunner do
   alias LambdaEthereumConsensus.Utils.Diff
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   use ExUnit.CaseTemplate
   use TestRunner
 

@@ -6,8 +6,6 @@ defmodule RewardsTestRunner do
   use TestRunner
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   @disabled [
     # "basic",
     # "leak",

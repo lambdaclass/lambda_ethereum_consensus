@@ -288,7 +288,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fork: ["capella", "deneb"]
+        fork: ["deneb"]
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-22.04
     steps:

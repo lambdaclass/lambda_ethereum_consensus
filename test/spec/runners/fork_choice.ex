@@ -15,8 +15,6 @@ defmodule ForkChoiceTestRunner do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
-  use HardForkAliasInjection
-
   @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella"}), do: false
   def skip?(%SpecTestCase{fork: "deneb"}), do: false
@@ -79,9 +77,7 @@ defmodule ForkChoiceTestRunner do
 
     assert Ssz.hash_tree_root!(block) == Base.decode16!(hash, case: :mixed)
 
-    HardForkAliasInjection.on_deneb do
-      load_blob_data(case_dir, block, step)
-    end
+    load_blob_data(case_dir, block, step)
 
     with {:ok, new_store} <- Handlers.on_block(store, block),
          {:ok, new_store} <-

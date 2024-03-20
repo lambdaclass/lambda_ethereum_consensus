@@ -58,7 +58,7 @@ defmodule BeaconApi.V2.BeaconController do
   defp block_response(conn, block) do
     conn
     |> json(%{
-      version: "capella",
+      version: "deneb",
       execution_optimistic: true,
       finalized: false,
       data: %{

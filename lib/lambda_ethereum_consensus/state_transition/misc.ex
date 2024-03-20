@@ -9,8 +9,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   alias LambdaEthereumConsensus.SszEx
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   @max_random_byte 2 ** 8 - 1
 
   @doc """

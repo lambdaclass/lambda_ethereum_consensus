@@ -12,7 +12,6 @@ defmodule Fixtures.Block do
   alias Types.ExecutionPayload
   alias Types.ExecutionPayloadHeader
   alias Types.SignedBeaconBlock
-  use HardForkAliasInjection
 
   @spec signed_beacon_block :: SignedBeaconBlock.t()
   def signed_beacon_block do
@@ -47,13 +46,9 @@ defmodule Fixtures.Block do
         voluntary_exits: [],
         sync_aggregate: sync_aggregate(),
         execution_payload: execution_payload(),
-        bls_to_execution_changes: []
-      ] ++
-        HardForkAliasInjection.on_deneb do
-          [blob_kzg_commitments: []]
-        else
-          []
-        end
+        bls_to_execution_changes: [],
+        blob_kzg_commitments: []
+      ]
 
     struct!(BeaconBlockBody, fields)
   end
@@ -93,13 +88,10 @@ defmodule Fixtures.Block do
         base_fee_per_gas: Random.uint64(),
         block_hash: Random.binary(32),
         transactions: [],
-        withdrawals: []
-      ] ++
-        HardForkAliasInjection.on_deneb do
-          [blob_gas_used: 0, excess_blob_gas: 0]
-        else
-          []
-        end
+        withdrawals: [],
+        blob_gas_used: 0,
+        excess_blob_gas: 0
+      ]
 
     struct!(ExecutionPayload, fields)
   end
@@ -166,13 +158,10 @@ defmodule Fixtures.Block do
         base_fee_per_gas: Random.uint256(),
         block_hash: Random.binary(32),
         transactions_root: Random.root(),
-        withdrawals_root: Random.root()
-      ] ++
-        HardForkAliasInjection.on_deneb do
-          [blob_gas_used: 0, excess_blob_gas: 0]
-        else
-          []
-        end
+        withdrawals_root: Random.root(),
+        blob_gas_used: 0,
+        excess_blob_gas: 0
+      ]
 
     struct!(ExecutionPayloadHeader, fields)
   end
