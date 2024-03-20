@@ -83,7 +83,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         {:noreply, new_store}
 
       {:error, reason} ->
-        Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot)
+        Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
         GenServer.cast(from, {:block_processed, block_root, false})
         {:noreply, store}
     end
