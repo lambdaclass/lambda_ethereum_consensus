@@ -35,7 +35,8 @@ defmodule LambdaEthereumConsensus.Validator do
       slot: slot,
       root: head_root,
       duties: %{
-        attester: {:not_computed, :not_computed}
+        attester: {:not_computed, :not_computed},
+        proposer: :not_computed
       },
       validator: validator
     }
@@ -135,7 +136,9 @@ defmodule LambdaEthereumConsensus.Validator do
     attester_duties =
       maybe_update_attester_duties(duties.attester, beacon_state, epoch, validator)
 
-    %{duties | attester: attester_duties}
+    proposer_duties = compute_proposer_duties(beacon_state, epoch, validator.index)
+
+    %{duties | attester: attester_duties, proposer: proposer_duties}
   end
 
   defp maybe_update_attester_duties({:not_computed, _} = duties, beacon_state, epoch, validator) do
@@ -344,5 +347,16 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp fetch_validator_index(beacon, %{index: nil, pubkey: pk}) do
     beacon.validators |> Enum.find_index(&(&1.pubkey == pk))
+  end
+
+  defp compute_proposer_duties(beacon_state, epoch, validator_index) do
+    start_slot = Misc.compute_start_slot_at_epoch(epoch)
+
+    start_slot..(start_slot + ChainSpec.get("SLOTS_PER_EPOCH") - 1)
+    |> Enum.flat_map(fn slot ->
+      # Can't fail
+      {:ok, proposer_index} = Accessors.get_beacon_proposer_index(beacon_state, &1)
+      if proposer_index == validator_index, do: [slot], else: []
+    end)
   end
 end
