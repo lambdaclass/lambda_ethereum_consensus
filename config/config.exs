@@ -25,15 +25,6 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry, enable: tr
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-# Configures the phoenix endpoint
-config :lambda_ethereum_consensus, BeaconApi.Endpoint,
-  http: [port: 4000],
-  url: [host: "localhost"],
-  render_errors: [
-    formats: [json: BeaconApi.ErrorJSON],
-    layout: false
-  ]
-
 # Load minimal config by default, to allow schema checking
 config :lambda_ethereum_consensus, ChainSpec,
   config: MinimalConfig,
