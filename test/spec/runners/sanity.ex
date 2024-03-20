@@ -10,8 +10,6 @@ defmodule SanityTestRunner do
   alias LambdaEthereumConsensus.Utils.Diff
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   @disabled_block_cases [
     # "activate_and_partial_withdrawal_max_effective_balance",
     # "activate_and_partial_withdrawal_overdeposit",

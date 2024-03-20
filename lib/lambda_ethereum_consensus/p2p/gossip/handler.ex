@@ -11,8 +11,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   alias LambdaEthereumConsensus.Utils.BitField
   alias Types.{AggregateAndProof, BlobSidecar, SignedAggregateAndProof, SignedBeaconBlock}
 
-  use HardForkAliasInjection
-
   def handle_beacon_block(%SignedBeaconBlock{message: block} = signed_block) do
     current_slot = BeaconChain.get_current_slot()
 

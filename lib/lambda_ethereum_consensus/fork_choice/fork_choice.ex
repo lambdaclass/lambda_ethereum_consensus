@@ -16,8 +16,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
-  use HardForkAliasInjection
-
   ##########################
   ### Public API
   ##########################

@@ -12,10 +12,10 @@ defmodule SszStaticTestRunner do
   alias Types.ExecutionPayloadHeader
   alias Types.SignedBeaconBlock
 
-  use HardForkAliasInjection
-
   use ExUnit.CaseTemplate
   use TestRunner
+
+  @only_ssz_ex [Types.Eth1Block, Types.SyncAggregatorSelectionData]
 
   @disabled [
     # "DepositData",
@@ -52,19 +52,18 @@ defmodule SszStaticTestRunner do
     # "BeaconBlockBody",
     # "BeaconState",
     # "SignedAggregateAndProof",
+    # "Eth1Block",
+    # "SyncAggregatorSelectionData",
     # -- not defined yet
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
-    "Eth1Block",
-    "PowBlock",
-    "SignedContributionAndProof",
-    "SignedData",
-    "SyncAggregatorSelectionData",
-    "SyncCommitteeContribution",
-    "ContributionAndProof",
     "LightClientFinalityUpdate",
     "LightClientHeader",
+    "PowBlock",
+    "SignedContributionAndProof",
+    "SyncCommitteeContribution",
+    "ContributionAndProof",
     "SyncCommitteeMessage"
   ]
 
@@ -83,7 +82,6 @@ defmodule SszStaticTestRunner do
   end
 
   def skip?(%SpecTestCase{fork: "deneb", handler: handler}) do
-    # TODO: fix types
     Enum.member?(@disabled, handler)
   end
 
@@ -120,14 +118,16 @@ defmodule SszStaticTestRunner do
     {:ok, deserialized_by_ssz_ex} = SszEx.decode(real_serialized, schema)
     assert Diff.diff(deserialized_by_ssz_ex, real_deserialized) == :unchanged
 
-    {:ok, deserialized_by_nif} = Ssz.from_ssz(real_serialized, schema)
-    assert Diff.diff(deserialized_by_ssz_ex, deserialized_by_nif) == :unchanged
-
     {:ok, serialized_by_ssz_ex} = SszEx.encode(real_deserialized, schema)
     assert serialized_by_ssz_ex == real_serialized
 
-    {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
-    assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
+    if schema not in @only_ssz_ex do
+      {:ok, deserialized_by_nif} = Ssz.from_ssz(real_serialized, schema)
+      assert Diff.diff(deserialized_by_ssz_ex, deserialized_by_nif) == :unchanged
+
+      {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
+      assert serialized_by_ssz_ex == serialized_by_nif
+    end
   end
 
   defp parse_type(%SpecTestCase{handler: handler}) do

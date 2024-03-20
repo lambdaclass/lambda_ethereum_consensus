@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
@@ -22,35 +23,75 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @impl true
   def init({slot, head_root}) do
+    config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
+
+    validator =
+      case {Keyword.get(config, :pubkey), Keyword.get(config, :privkey)} do
+        {nil, nil} -> nil
+        {pubkey, privkey} -> %{index: nil, privkey: privkey, pubkey: pubkey}
+      end
+
     state = %{
       slot: slot,
       root: head_root,
       duties: %{
         attester: {:not_computed, :not_computed}
       },
-      # TODO: get validator from config
-      validator: %{index: 55, privkey: <<652_916_760::256>>}
+      validator: validator
     }
 
     {:ok, state, {:continue, nil}}
   end
 
   @impl true
+  def handle_continue(nil, %{validator: nil} = state), do: {:noreply, state}
+
   def handle_continue(nil, %{slot: slot, root: root} = state) do
+    case try_setup_validator(state, slot, root) do
+      nil ->
+        Logger.error("[Validator] Public key not found in the validator set")
+        {:noreply, state}
+
+      new_state ->
+        {:noreply, new_state}
+    end
+  end
+
+  defp try_setup_validator(state, slot, root) do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state(epoch, root)
-    duties = maybe_update_duties(state.duties, beacon, epoch, state.validator)
-    join_subnets_for_duties(duties, beacon, epoch)
-    log_duties(duties, state.validator.index)
-    {:noreply, %{state | duties: duties}}
+
+    case fetch_validator_index(beacon, state.validator) do
+      nil ->
+        nil
+
+      validator_index ->
+        Logger.info("[Validator] Setup for validator number #{validator_index} complete")
+        validator = %{state.validator | index: validator_index}
+        duties = maybe_update_duties(state.duties, beacon, epoch, validator)
+        join_subnets_for_duties(duties)
+        log_duties(duties, validator_index)
+        %{state | duties: duties, validator: validator}
+    end
   end
 
   @impl true
+  def handle_cast(_, %{validator: nil} = state), do: {:noreply, state}
+
+  # If we couldn't find the validator before, we just try again
+  def handle_cast({:new_block, slot, head_root} = msg, %{validator: %{index: nil}} = state) do
+    case try_setup_validator(state, slot, head_root) do
+      nil -> {:noreply, state}
+      new_state -> handle_cast(msg, new_state)
+    end
+  end
+
   def handle_cast({:new_block, slot, head_root}, state) do
     # TODO: this doesn't take into account reorgs or empty slots
     new_state = update_state(state, slot, head_root)
 
     if should_attest?(state, slot), do: attest(state)
+    maybe_publish_aggregate(state, slot)
 
     {:noreply, new_state}
   end
@@ -71,7 +112,7 @@ defmodule LambdaEthereumConsensus.Validator do
         shift_duties(state.duties, epoch, last_epoch)
         |> maybe_update_duties(new_beacon, epoch, state.validator)
 
-      move_subnets(state.duties, new_duties, new_beacon, epoch)
+      move_subnets(state.duties, new_duties)
       log_duties(new_duties, state.validator.index)
 
       %{state | slot: slot, root: head_root, duties: new_duties}
@@ -109,22 +150,22 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp maybe_update_attester_duties(duties, _, _, _), do: duties
 
-  defp compute_attester_duty(duties, index, beacon_state, epoch, validator) when index in 0..1 do
+  defp compute_attester_duty(duties, index, beacon_state, base_epoch, validator)
+       when index in 0..1 do
+    epoch = base_epoch + index
     # Can't fail
-    {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch + index, validator.index)
-    duty = update_with_aggregation_duty(duty, beacon_state, validator.privkey)
+    {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch, validator.index)
+
+    duty =
+      update_with_aggregation_duty(duty, beacon_state, validator.privkey)
+      |> update_with_subnet_id(beacon_state, epoch)
+
     put_elem(duties, index, duty)
   end
 
-  defp move_subnets(%{attester: {old_ep0, old_ep1}}, %{attester: {ep0, ep1}}, beacon_state, epoch) do
-    [old_subnet0, new_subnet0] =
-      compute_subnet_ids_for_duties([old_ep0, ep0], beacon_state, epoch)
-
-    [old_subnet1, new_subnet1] =
-      compute_subnet_ids_for_duties([old_ep1, ep1], beacon_state, epoch + 1)
-
-    old_subnets = MapSet.new([old_subnet0, old_subnet1])
-    new_subnets = MapSet.new([new_subnet0, new_subnet1])
+  defp move_subnets(%{attester: {old_ep0, old_ep1}}, %{attester: {ep0, ep1}}) do
+    old_subnets = MapSet.new([old_ep0.subnet_id, old_ep1.subnet_id])
+    new_subnets = MapSet.new([ep0.subnet_id, ep1.subnet_id])
 
     # leave old subnets (except for recurring ones)
     MapSet.difference(old_subnets, new_subnets) |> leave()
@@ -133,22 +174,8 @@ defmodule LambdaEthereumConsensus.Validator do
     MapSet.difference(new_subnets, old_subnets) |> join()
   end
 
-  defp join_subnets_for_duties(%{attester: {ep0, ep1}}, beacon_state, epoch) do
-    [subnet0] = compute_subnet_ids_for_duties([ep0], beacon_state, epoch)
-    [subnet1] = compute_subnet_ids_for_duties([ep1], beacon_state, epoch + 1)
-    join([subnet0, subnet1])
-  end
-
-  defp compute_subnet_ids_for_duties(duties, beacon_state, epoch) do
-    committees_per_slot = Accessors.get_committee_count_per_slot(beacon_state, epoch)
-    Enum.map(duties, &compute_subnet_id_for_duty(&1, committees_per_slot))
-  end
-
-  defp compute_subnet_id_for_duty(
-         %{committee_index: committee_index, slot: slot},
-         committees_per_slot
-       ) do
-    Utils.compute_subnet_for_attestation(committees_per_slot, slot, committee_index)
+  defp join_subnets_for_duties(%{attester: {ep0, ep1}}) do
+    join([ep0.subnet_id, ep1.subnet_id])
   end
 
   defp join(subnets) do
@@ -186,7 +213,56 @@ defmodule LambdaEthereumConsensus.Validator do
 
     Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
     Gossip.Attestation.publish(subnet_id, attestation)
-    :ok
+
+    if current_duty.is_aggregator do
+      Logger.info("[Validator] Collecting messages for future aggregation...")
+      Gossip.Attestation.collect(subnet_id, attestation.data)
+    end
+  end
+
+  # We publish our aggregate on the next slot, and when we're an aggregator
+  # TODO: we should publish it two-thirds of the way through the slot
+  def maybe_publish_aggregate(%{duties: %{attester: {duty, _}}, validator: validator}, slot)
+      when duty.slot == slot + 1 and duty.is_aggregator do
+    case Gossip.Attestation.stop_collecting(duty.subnet_id) do
+      {:ok, attestations} ->
+        Logger.info("[Validator] Publishing aggregate of slot #{slot}")
+
+        aggregate_attestations(attestations)
+        |> append_proof(duty.selection_proof, validator)
+        |> append_signature(duty.signing_domain, validator)
+        |> Gossip.Attestation.publish_aggregate()
+
+      _ ->
+        Logger.error("[Validator] Failed to publish aggregate")
+    end
+  end
+
+  def maybe_publish_aggregate(_, _), do: :ok
+
+  defp aggregate_attestations(attestations) do
+    aggregation_bits =
+      attestations
+      |> Stream.map(&Map.fetch!(&1, :aggregation_bits))
+      |> Enum.reduce(&BitField.bitwise_or/2)
+
+    {:ok, signature} = attestations |> Enum.map(&Map.fetch!(&1, :signature)) |> Bls.aggregate()
+
+    %{List.first(attestations) | aggregation_bits: aggregation_bits, signature: signature}
+  end
+
+  defp append_proof(aggregate, proof, validator) do
+    %Types.AggregateAndProof{
+      aggregator_index: validator.index,
+      aggregate: aggregate,
+      selection_proof: proof
+    }
+  end
+
+  defp append_signature(aggregate_and_proof, signing_domain, %{privkey: privkey}) do
+    signing_root = Misc.compute_signing_root(aggregate_and_proof, signing_domain)
+    signature = Bls.sign(privkey, signing_root)
+    %Types.SignedAggregateAndProof{message: aggregate_and_proof, signature: signature}
   end
 
   defp produce_attestation(duty, head_root, privkey) do
@@ -230,8 +306,7 @@ defmodule LambdaEthereumConsensus.Validator do
       signature: signature
     }
 
-    [subnet_id] = compute_subnet_ids_for_duties([duty], head_state, head_epoch)
-    {subnet_id, attestation}
+    {duty.subnet_id, attestation}
   end
 
   defp process_slots(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
@@ -241,9 +316,33 @@ defmodule LambdaEthereumConsensus.Validator do
     st
   end
 
+  defp update_with_aggregation_duty(nil, _beacon_state, _privkey), do: nil
+
   defp update_with_aggregation_duty(duty, beacon_state, privkey) do
-    Utils.get_slot_signature(beacon_state, duty.slot, privkey)
-    |> Utils.aggregator?(duty.committee_length)
-    |> then(&Map.put(duty, :is_aggregator, &1))
+    proof = Utils.get_slot_signature(beacon_state, duty.slot, privkey)
+
+    if Utils.aggregator?(proof, duty.committee_length) do
+      epoch = Misc.compute_epoch_at_slot(duty.slot)
+      domain = Accessors.get_domain(beacon_state, Constants.domain_aggregate_and_proof(), epoch)
+
+      Map.put(duty, :is_aggregator, true)
+      |> Map.put(:selection_proof, proof)
+      |> Map.put(:signing_domain, domain)
+    else
+      Map.put(duty, :is_aggregator, false)
+    end
+  end
+
+  defp update_with_subnet_id(duty, beacon_state, epoch) do
+    committees_per_slot = Accessors.get_committee_count_per_slot(beacon_state, epoch)
+
+    subnet_id =
+      Utils.compute_subnet_for_attestation(committees_per_slot, duty.slot, duty.committee_index)
+
+    Map.put(duty, :subnet_id, subnet_id)
+  end
+
+  defp fetch_validator_index(beacon, %{index: nil, pubkey: pk}) do
+    beacon.validators |> Enum.find_index(&(&1.pubkey == pk))
   end
 end

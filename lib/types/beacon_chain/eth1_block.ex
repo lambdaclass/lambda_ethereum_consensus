@@ -1,31 +1,30 @@
-defmodule Types.Eth1Data do
+defmodule Types.Eth1Block do
   @moduledoc """
-  Struct definition for `Eth1Data`.
-  Related definitions in `native/ssz_nif/src/types/`.
+  Struct definition for `Eth1Block`.
   """
   use LambdaEthereumConsensus.Container
 
   fields = [
+    :timestamp,
     :deposit_root,
-    :deposit_count,
-    :block_hash
+    :deposit_count
   ]
 
   @enforce_keys fields
   defstruct fields
 
   @type t :: %__MODULE__{
+          timestamp: Types.uint64(),
           deposit_root: Types.root(),
-          deposit_count: Types.uint64(),
-          block_hash: Types.hash32()
+          deposit_count: Types.uint64()
         }
 
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
+      timestamp: TypeAliases.uint64(),
       deposit_root: TypeAliases.root(),
-      deposit_count: TypeAliases.uint64(),
-      block_hash: TypeAliases.hash32()
+      deposit_count: TypeAliases.uint64()
     ]
   end
 end

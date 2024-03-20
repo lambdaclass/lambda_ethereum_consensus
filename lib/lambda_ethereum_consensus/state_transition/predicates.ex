@@ -10,8 +10,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
   import Bitwise
 
-  use HardForkAliasInjection
-
   @doc """
   Check if ``validator`` is active.
   """
