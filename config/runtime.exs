@@ -12,7 +12,9 @@ switches = [
   metrics: :boolean,
   metrics_port: :integer,
   validator_file: :string,
-  log_file: :string
+  log_file: :string,
+  beacon_api: :boolean,
+  beacon_api_port: :integer
 ]
 
 is_testing = Config.config_env() == :test
@@ -36,6 +38,8 @@ testnet_dir = Keyword.get(args, :testnet_dir)
 enable_metrics = Keyword.get(args, :metrics, false)
 metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
 validator_file = Keyword.get(args, :validator_file)
+enable_beacon_api = Keyword.get(args, :beacon_api, false)
+beacon_api_port = Keyword.get(args, :beacon_api_port, 4000)
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
   checkpoint_sync_url: checkpoint_sync_url
@@ -109,6 +113,18 @@ config :lambda_ethereum_consensus, EngineApi,
   jwt_secret: jwt_secret,
   implementation: implementation,
   version: "2.0"
+
+# Beacon API
+alias BeaconApi
+
+config :lambda_ethereum_consensus, BeaconApi.Endpoint,
+  server: enable_beacon_api,
+  http: [port: beacon_api_port],
+  url: [host: "localhost"],
+  render_errors: [
+    formats: [json: BeaconApi.ErrorJSON],
+    layout: false
+  ]
 
 # Validator
 #
