@@ -169,9 +169,12 @@ defmodule LambdaEthereumConsensus.Validator do
     |> update_with_subnet_id(beacon_state, epoch)
   end
 
+  defp get_subnet_ids(duties),
+    do: duties |> Stream.reject(&(&1 == :not_computed)) |> Enum.map(& &1.subnet_id)
+
   defp move_subnets(%{attester: old_duties}, %{attester: new_duties}) do
-    old_subnets = MapSet.new(old_duties, & &1.subnet_id)
-    new_subnets = MapSet.new(new_duties, & &1.subnet_id)
+    old_subnets = old_duties |> get_subnet_ids() |> MapSet.new()
+    new_subnets = new_duties |> get_subnet_ids() |> MapSet.new()
 
     # leave old subnets (except for recurring ones)
     MapSet.difference(old_subnets, new_subnets) |> leave()
@@ -181,7 +184,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp join_subnets_for_duties(%{attester: duties}) do
-    Enum.map(duties, & &1.subnet_id) |> join()
+    duties |> get_subnet_ids() |> join()
   end
 
   defp join(subnets) do
