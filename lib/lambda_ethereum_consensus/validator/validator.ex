@@ -261,7 +261,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp append_signature(aggregate_and_proof, signing_domain, %{privkey: privkey}) do
     signing_root = Misc.compute_signing_root(aggregate_and_proof, signing_domain)
-    signature = Bls.sign(privkey, signing_root)
+    {:ok, signature} = Bls.sign(privkey, signing_root)
     %Types.SignedAggregateAndProof{message: aggregate_and_proof, signature: signature}
   end
 

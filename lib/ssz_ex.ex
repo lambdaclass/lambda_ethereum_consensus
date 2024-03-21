@@ -701,7 +701,7 @@ defmodule LambdaEthereumConsensus.SszEx do
          :ok <- check_length(fixed_length, variable_length),
          {:ok, fixed_parts} <-
            replace_offsets(fixed_size_values, offsets)
-           |> encode_schemas do
+           |> encode_schemas() do
       (fixed_parts ++ variable_parts)
       |> Enum.join()
       |> then(&{:ok, &1})
