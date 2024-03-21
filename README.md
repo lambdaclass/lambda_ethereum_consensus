@@ -437,6 +437,9 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/sm-stack"><img src="https://avatars.githubusercontent.com/u/94497407?v=4?s=100" width="100px;" alt="Seungmin Jeon"/><br /><sub><b>Seungmin Jeon</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=sm-stack" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/manojkgorle"><img src="https://avatars.githubusercontent.com/u/65953961?v=4?s=100" width="100px;" alt="Manoj"/><br /><sub><b>Manoj</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=manojkgorle" title="Code">💻</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/avilagaston9"><img src="https://avatars.githubusercontent.com/u/72628438?v=4?s=100" width="100px;" alt="Avila Gastón"/><br /><sub><b>Avila Gastón</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=avilagaston9" title="Code">💻</a></td>
+    </tr>
   </tbody>
 </table>
 
