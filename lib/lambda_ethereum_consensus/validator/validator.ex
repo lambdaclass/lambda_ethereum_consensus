@@ -216,7 +216,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     if current_duty.is_aggregator do
       Logger.info("[Validator] Collecting messages for future aggregation...")
-      Gossip.Attestation.collect(subnet_id, attestation.data)
+      Gossip.Attestation.collect(subnet_id, attestation)
     end
   end
 
