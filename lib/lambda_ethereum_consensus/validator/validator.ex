@@ -216,7 +216,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     if current_duty.is_aggregator do
       Logger.info("[Validator] Collecting messages for future aggregation...")
-      Gossip.Attestation.collect(subnet_id, attestation.data)
+      Gossip.Attestation.collect(subnet_id, attestation)
     end
   end
 
@@ -261,7 +261,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp append_signature(aggregate_and_proof, signing_domain, %{privkey: privkey}) do
     signing_root = Misc.compute_signing_root(aggregate_and_proof, signing_domain)
-    signature = Bls.sign(privkey, signing_root)
+    {:ok, signature} = Bls.sign(privkey, signing_root)
     %Types.SignedAggregateAndProof{message: aggregate_and_proof, signature: signature}
   end
 
