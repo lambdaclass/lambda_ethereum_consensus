@@ -169,9 +169,9 @@ defmodule LambdaEthereumConsensus.Validator do
     |> update_with_subnet_id(beacon_state, epoch)
   end
 
-  defp move_subnets(%{attester: [_, old_ep0, old_ep1]}, %{attester: [_, ep0, ep1]}) do
-    old_subnets = MapSet.new([old_ep0.subnet_id, old_ep1.subnet_id])
-    new_subnets = MapSet.new([ep0.subnet_id, ep1.subnet_id])
+  defp move_subnets(%{attester: old_duties}, %{attester: new_duties}) do
+    old_subnets = MapSet.new(old_duties, & &1.subnet_id)
+    new_subnets = MapSet.new(new_duties, & &1.subnet_id)
 
     # leave old subnets (except for recurring ones)
     MapSet.difference(old_subnets, new_subnets) |> leave()
