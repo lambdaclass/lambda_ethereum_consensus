@@ -268,7 +268,7 @@ defmodule LambdaEthereumConsensus.Validator do
         |> Gossip.Attestation.publish_aggregate()
 
       _ ->
-        Logger.error("[Validator] Failed to publish aggregate")
+        :ok
     end
   end
 
