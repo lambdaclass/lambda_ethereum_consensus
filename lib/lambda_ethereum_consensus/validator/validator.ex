@@ -180,8 +180,8 @@ defmodule LambdaEthereumConsensus.Validator do
     MapSet.difference(new_subnets, old_subnets) |> join()
   end
 
-  defp join_subnets_for_duties(%{attester: [_, ep0, ep1]}) do
-    join([ep0.subnet_id, ep1.subnet_id])
+  defp join_subnets_for_duties(%{attester: duties}) do
+    Enum.map(duties, & &1.subnet_id) |> join()
   end
 
   defp join(subnets) do
