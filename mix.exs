@@ -22,7 +22,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :observer],
+      extra_applications: [:logger, :observer, :prometheus_ex],
       mod: {LambdaEthereumConsensus.Application, []}
     ]
   end
@@ -61,7 +61,13 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:open_api_spex, "~> 3.18"},
       {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-31"},
-      {:sentry, "~> 10.2.0"}
+      {:sentry, "~> 10.2.0"},
+      {:prometheus_ex, "~> 3.1"},
+      {:prometheus_plugs, "~> 1.1"},
+      {:prometheus_process_collector,
+       git: "https://github.com/lambdaclass/prometheus_process_collector",
+       branch: "update-makefile-to-support-otp-26",
+       override: true}
     ]
   end
 
