@@ -35,7 +35,8 @@ defmodule LambdaEthereumConsensus.Validator do
       slot: slot,
       root: head_root,
       duties: %{
-        attester: {:not_computed, :not_computed},
+        # Order is: previous epoch, current epoch, next epoch
+        attester: [:not_computed, :not_computed, :not_computed],
         proposer: :not_computed
       },
       validator: validator
@@ -91,25 +92,30 @@ defmodule LambdaEthereumConsensus.Validator do
     # TODO: this doesn't take into account reorgs or empty slots
     new_state = update_state(state, slot, head_root)
 
-    if should_attest?(state, slot), do: attest(state)
-    maybe_publish_aggregate(state, slot)
+    case get_current_attester_duty(new_state, slot) do
+      nil -> :ok
+      duty -> attest(new_state, duty)
+    end
 
-    if should_propose?(state, slot), do: propose(state)
+    new_state = maybe_publish_aggregate(new_state, slot)
+
+    if should_propose?(new_state, slot), do: propose(new_state)
 
     {:noreply, new_state}
   end
 
   defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do
-    last_epoch = Misc.compute_epoch_at_slot(last_slot)
-    epoch = Misc.compute_epoch_at_slot(slot)
+    last_epoch = Misc.compute_epoch_at_slot(last_slot + 1)
+    epoch = Misc.compute_epoch_at_slot(slot + 1)
 
     if last_epoch == epoch do
       state
     else
-      target_root =
-        if slot == Misc.compute_start_slot_at_epoch(epoch), do: head_root, else: last_root
+      start_slot = Misc.compute_start_slot_at_epoch(epoch)
+      target_root = if slot == start_slot, do: head_root, else: last_root
 
-      new_beacon = fetch_target_state(epoch, target_root)
+      # Process the start of the new epoch
+      new_beacon = fetch_target_state(epoch, target_root) |> process_slots(start_slot)
 
       new_duties =
         shift_duties(state.duties, epoch, last_epoch)
@@ -127,12 +133,13 @@ defmodule LambdaEthereumConsensus.Validator do
     state
   end
 
-  defp shift_duties(%{attester: {_, ep1}} = duties, epoch, current_epoch)
-       when epoch + 1 == current_epoch do
-    %{duties | attester: {ep1, :not_computed}}
+  defp shift_duties(%{attester: [_ep0, ep1, ep2]} = duties, epoch, current_epoch) do
+    case current_epoch - epoch do
+      1 -> %{duties | attester: [ep1, ep2, :not_computed]}
+      2 -> %{duties | attester: [ep2, :not_computed, :not_computed]}
+      _ -> %{duties | attester: [:not_computed, :not_computed, :not_computed]}
+    end
   end
-
-  defp shift_duties(duties, _, _), do: %{duties | attester: {:not_computed, :not_computed}}
 
   defp maybe_update_duties(duties, beacon_state, epoch, validator) do
     attester_duties =
@@ -143,32 +150,26 @@ defmodule LambdaEthereumConsensus.Validator do
     %{duties | attester: attester_duties, proposer: proposer_duties}
   end
 
-  defp maybe_update_attester_duties({:not_computed, _} = duties, beacon_state, epoch, validator) do
-    compute_attester_duty(duties, 0, beacon_state, epoch, validator)
-    |> maybe_update_attester_duties(beacon_state, epoch, validator)
+  defp maybe_update_attester_duties([epp, ep0, ep1], beacon_state, epoch, validator) do
+    duties =
+      Stream.with_index([ep0, ep1])
+      |> Enum.map(fn
+        {:not_computed, i} -> compute_attester_duty(beacon_state, epoch + i, validator)
+        {d, _} -> d
+      end)
+
+    [epp | duties]
   end
 
-  defp maybe_update_attester_duties({_, :not_computed} = duties, beacon_state, epoch, validator) do
-    compute_attester_duty(duties, 1, beacon_state, epoch, validator)
-    |> maybe_update_attester_duties(beacon_state, epoch, validator)
-  end
-
-  defp maybe_update_attester_duties(duties, _, _, _), do: duties
-
-  defp compute_attester_duty(duties, index, beacon_state, base_epoch, validator)
-       when index in 0..1 do
-    epoch = base_epoch + index
+  defp compute_attester_duty(beacon_state, epoch, validator) do
     # Can't fail
     {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch, validator.index)
 
-    duty =
-      update_with_aggregation_duty(duty, beacon_state, validator.privkey)
-      |> update_with_subnet_id(beacon_state, epoch)
-
-    put_elem(duties, index, duty)
+    update_with_aggregation_duty(duty, beacon_state, validator.privkey)
+    |> update_with_subnet_id(beacon_state, epoch)
   end
 
-  defp move_subnets(%{attester: {old_ep0, old_ep1}}, %{attester: {ep0, ep1}}) do
+  defp move_subnets(%{attester: [_, old_ep0, old_ep1]}, %{attester: [_, ep0, ep1]}) do
     old_subnets = MapSet.new([old_ep0.subnet_id, old_ep1.subnet_id])
     new_subnets = MapSet.new([ep0.subnet_id, ep1.subnet_id])
 
@@ -179,7 +180,7 @@ defmodule LambdaEthereumConsensus.Validator do
     MapSet.difference(new_subnets, old_subnets) |> join()
   end
 
-  defp join_subnets_for_duties(%{attester: {ep0, ep1}}) do
+  defp join_subnets_for_duties(%{attester: [_, ep0, ep1]}) do
     join([ep0.subnet_id, ep1.subnet_id])
   end
 
@@ -197,29 +198,40 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp log_duties(%{attester: attester_duties}, validator_index) do
-    {%{index_in_committee: i0, committee_index: ci0, slot: slot0},
-     %{index_in_committee: i1, committee_index: ci1, slot: slot1}} = attester_duties
+  defp log_duties(%{attester: attester_duties, proposer: proposer_duties}, validator_index) do
+    attester_duties
+    # Drop the first element, which is the previous epoch's duty
+    |> Stream.drop(1)
+    |> Enum.each(fn %{index_in_committee: i, committee_index: ci, slot: slot} ->
+      Logger.info(
+        "[Validator] #{validator_index} has to attest in committee #{ci} of slot #{slot} with index #{i}"
+      )
+    end)
 
-    Logger.info(
-      "Validator #{validator_index} has to attest in committee #{ci0} of slot #{slot0} with index #{i0}," <>
-        " and in committee #{ci1} of slot #{slot1} with index #{i1}"
-    )
+    Enum.each(proposer_duties, fn slot ->
+      Logger.info("[Validator] #{validator_index} has to propose a block in slot #{slot}!")
+    end)
   end
 
-  defp should_attest?(%{duties: %{attester: {%{slot: duty_slot}, _}}}, slot),
-    do: duty_slot == slot
+  defp get_current_attester_duty(state, current_slot) do
+    find_attester_duty(state, &(&1.slot == current_slot))
+  end
 
-  defp attest(state) do
-    {current_duty, _} = state.duties.attester
+  defp find_attester_duty(%{duties: %{attester: attester_duties}}, search_fn) do
+    Enum.find(attester_duties, fn
+      :not_computed -> false
+      duty -> search_fn.(duty)
+    end)
+  end
 
+  defp attest(state, current_duty) do
     {subnet_id, attestation} =
       produce_attestation(current_duty, state.root, state.validator.privkey)
 
     Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
     Gossip.Attestation.publish(subnet_id, attestation)
 
-    if current_duty.is_aggregator do
+    if current_duty.should_aggregate? do
       Logger.info("[Validator] Collecting messages for future aggregation...")
       Gossip.Attestation.collect(subnet_id, attestation)
     end
@@ -227,11 +239,28 @@ defmodule LambdaEthereumConsensus.Validator do
 
   # We publish our aggregate on the next slot, and when we're an aggregator
   # TODO: we should publish it two-thirds of the way through the slot
-  def maybe_publish_aggregate(%{duties: %{attester: {duty, _}}, validator: validator}, slot)
-      when duty.slot == slot + 1 and duty.is_aggregator do
+  defp maybe_publish_aggregate(%{duties: duties, validator: validator} = state, slot) do
+    case find_attester_duty(state, &(&1.slot < slot and &1.should_aggregate?)) do
+      nil ->
+        state
+
+      duty ->
+        publish_aggregate(duty, validator)
+
+        attester_duties =
+          Enum.map(duties.attester, fn
+            ^duty -> %{duty | should_aggregate?: false}
+            d -> d
+          end)
+
+        %{state | duties: %{duties | attester: attester_duties}}
+    end
+  end
+
+  defp publish_aggregate(duty, validator) do
     case Gossip.Attestation.stop_collecting(duty.subnet_id) do
       {:ok, attestations} ->
-        Logger.info("[Validator] Publishing aggregate of slot #{slot}")
+        Logger.info("[Validator] Publishing aggregate of slot #{duty.slot}")
 
         aggregate_attestations(attestations)
         |> append_proof(duty.selection_proof, validator)
@@ -242,8 +271,6 @@ defmodule LambdaEthereumConsensus.Validator do
         Logger.error("[Validator] Failed to publish aggregate")
     end
   end
-
-  def maybe_publish_aggregate(_, _), do: :ok
 
   defp aggregate_attestations(attestations) do
     aggregation_bits =
@@ -330,11 +357,11 @@ defmodule LambdaEthereumConsensus.Validator do
       epoch = Misc.compute_epoch_at_slot(duty.slot)
       domain = Accessors.get_domain(beacon_state, Constants.domain_aggregate_and_proof(), epoch)
 
-      Map.put(duty, :is_aggregator, true)
+      Map.put(duty, :should_aggregate?, true)
       |> Map.put(:selection_proof, proof)
       |> Map.put(:signing_domain, domain)
     else
-      Map.put(duty, :is_aggregator, false)
+      Map.put(duty, :should_aggregate?, false)
     end
   end
 
@@ -357,15 +384,15 @@ defmodule LambdaEthereumConsensus.Validator do
     start_slot..(start_slot + ChainSpec.get("SLOTS_PER_EPOCH") - 1)
     |> Enum.flat_map(fn slot ->
       # Can't fail
-      {:ok, proposer_index} = Accessors.get_beacon_proposer_index(beacon_state, &1)
+      {:ok, proposer_index} = Accessors.get_beacon_proposer_index(beacon_state, slot)
       if proposer_index == validator_index, do: [slot], else: []
     end)
   end
 
   # If we are the proposer for the next slot, we should propose a block now
-  defp should_propose?(%{proposer: slots}, slot), do: Enum.member?(slots, slot + 1)
+  defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot + 1)
 
-  defp propose(state) do
+  defp propose(_state) do
     # TODO: implement block proposal
   end
 end
