@@ -73,9 +73,9 @@ This is an accompanying document to [The Beacon Chain](./beacon-chain.md), which
 
 ## Introduction
 
-This document represents the expected behavior of an "honest validator" with respect to Phase 0 of the Ethereum proof-of-stake protocol. This document does not distinguish between a "node" (i.e. the functionality of following and reading the beacon chain) and a "validator client" (i.e. the functionality of actively participating in consensus). The separation of concerns between these (potentially) two pieces of software is left as a design decision that is out of scope.
+This document represents the expected behavior of an "honest validator" of the Ethereum proof-of-stake protocol. This document does not distinguish between a "node" (i.e. the functionality of following and reading the beacon chain) and a "validator client" (i.e. the functionality of actively participating in consensus). The separation of concerns between these (potentially) two pieces of software is left as a design decision that is out of scope.
 
-A validator is an entity that participates in the consensus of the Ethereum proof-of-stake protocol. This is an optional role for users in which they can post ETH as collateral and verify and attest to the validity of blocks to seek financial returns in exchange for building and securing the protocol. This is similar to proof-of-work networks in which miners provide collateral in the form of hardware/hash-power to seek returns in exchange for building and securing the protocol.
+A validator is an entity that participates in the consensus of the Ethereum proof-of-stake protocol. This is an optional role for users in which they can post ETH as collateral and verify and attest to the validity of blocks to seek financial returns in exchange for building and securing the protocol. This is similar to execution networks in which miners provide collateral in the form of hardware/hash-power to seek returns in exchange for building and securing the protocol.
 
 Altair introduces a new type of committee: the sync committee. Sync committees are responsible for signing each block of the canonical chain and there exists an efficient algorithm for light clients to sync the chain using the output of the sync committees.
 See the [sync protocol](./light-client/sync-protocol.md) for further details on the light client sync.
@@ -84,7 +84,7 @@ Block proposers incorporate the (aggregated) sync committee signatures into each
 
 ## Prerequisites
 
-All terminology, constants, functions, and protocol mechanics defined in the [The Beacon Chain](./beacon-chain.md) and [Deposit Contract](./deposit-contract.md) doc are requisite for this document and used throughout. Please see the Phase 0 doc before continuing and use as a reference throughout.
+All terminology, constants, functions, and protocol mechanics defined in the [The Beacon Chain](./beacon-chain.md) and [Deposit Contract](./deposit-contract.md) doc are requisite for this document and used throughout.
 
 ## Constants
 
@@ -308,7 +308,7 @@ withdrawals to `eth1_withdrawal_address` will simply be increases to the account
 
 ### Submit deposit
 
-In Phase 0, all incoming validator deposits originate from the Ethereum proof-of-work chain defined by `DEPOSIT_CHAIN_ID` and `DEPOSIT_NETWORK_ID`. Deposits are made to the [deposit contract](./deposit-contract.md) located at `DEPOSIT_CONTRACT_ADDRESS`.
+Deposits are made to the [deposit contract](./deposit-contract.md) located at `DEPOSIT_CONTRACT_ADDRESS`.
 
 To submit a deposit:
 
@@ -320,13 +320,13 @@ To submit a deposit:
 - Let `deposit_message` be a `DepositMessage` with all the `DepositData` contents except the `signature`.
 - Let `signature` be the result of `bls.Sign` of the `compute_signing_root(deposit_message, domain)` with `domain=compute_domain(DOMAIN_DEPOSIT)`. (*Warning*: Deposits *must* be signed with `GENESIS_FORK_VERSION`, calling `compute_domain` without a second argument defaults to the correct version).
 - Let `deposit_data_root` be `hash_tree_root(deposit_data)`.
-- Send a transaction on the Ethereum proof-of-work chain to `DEPOSIT_CONTRACT_ADDRESS` executing `def deposit(pubkey: bytes[48], withdrawal_credentials: bytes[32], signature: bytes[96], deposit_data_root: bytes32)` along with a deposit of `amount` Gwei.
+- Send a transaction on the Ethereum execution chain to `DEPOSIT_CONTRACT_ADDRESS` executing `def deposit(pubkey: bytes[48], withdrawal_credentials: bytes[32], signature: bytes[96], deposit_data_root: bytes32)` along with a deposit of `amount` Gwei.
 
 *Note*: Deposits made for the same `pubkey` are treated as for the same validator. A singular `Validator` will be added to `state.validators` with each additional deposit amount added to the validator's balance. A validator can only be activated when total deposits for the validator pubkey meet or exceed `MAX_EFFECTIVE_BALANCE`.
 
 ### Process deposit
 
-Deposits cannot be processed into the beacon chain until the proof-of-work block in which they were deposited or any of its descendants is added to the beacon chain `state.eth1_data`. This takes *a minimum* of `ETH1_FOLLOW_DISTANCE` Eth1 blocks (~8 hours) plus `EPOCHS_PER_ETH1_VOTING_PERIOD` epochs (~6.8 hours). Once the requisite proof-of-work block data is added, the deposit will normally be added to a beacon chain block and processed into the `state.validators` within an epoch or two. The validator is then in a queue to be activated.
+Deposits cannot be processed into the beacon chain until the execution block in which they were deposited or any of its descendants is added to the beacon chain `state.eth1_data`. This takes *a minimum* of `ETH1_FOLLOW_DISTANCE` Eth1 blocks (~8 hours) plus `EPOCHS_PER_ETH1_VOTING_PERIOD` epochs (~6.8 hours). Once the requisite execution block data is added, the deposit will normally be added to a beacon chain block and processed into the `state.validators` within an epoch or two. The validator is then in a queue to be activated.
 
 ### Validator index
 
@@ -605,7 +605,7 @@ Up to `MAX_ATTESTATIONS`, aggregate attestations can be included in the `block`.
 
 If there are any unprocessed deposits for the existing `state.eth1_data` (i.e. `state.eth1_data.deposit_count > state.eth1_deposit_index`), then pending deposits *must* be added to the block. The expected number of deposits is exactly `min(MAX_DEPOSITS, eth1_data.deposit_count - state.eth1_deposit_index)`.  These [`deposits`](./beacon-chain.md#deposit) are constructed from the `Deposit` logs from the [deposit contract](./deposit-contract.md) and must be processed in sequential order. The deposits included in the `block` must satisfy the verification conditions found in [deposits processing](./beacon-chain.md#deposits).
 
-The `proof` for each deposit must be constructed against the deposit root contained in `state.eth1_data` rather than the deposit root at the time the deposit was initially logged from the proof-of-work chain. This entails storing a full deposit merkle tree locally and computing updated proofs against the `eth1_data.deposit_root` as needed. See [`minimal_merkle.py`](https://github.com/ethereum/research/blob/master/spec_pythonizer/utils/merkle_minimal.py) for a sample implementation.
+The `proof` for each deposit must be constructed against the deposit root contained in `state.eth1_data` rather than the deposit root at the time the deposit was initially logged from the execution chain. This entails storing a full deposit merkle tree locally and computing updated proofs against the `eth1_data.deposit_root` as needed. See [`minimal_merkle.py`](https://github.com/ethereum/research/blob/master/spec_pythonizer/utils/merkle_minimal.py) for a sample implementation.
 
 ##### Voluntary exits
 
@@ -1151,7 +1151,7 @@ def get_contribution_and_proof_signature(state: BeaconState,
 
 ## How to avoid slashing
 
-"Slashing" is the burning of some amount of validator funds and immediate ejection from the active validator set. In Phase 0, there are two ways in which funds can be slashed: [proposer slashing](#proposer-slashing) and [attester slashing](#attester-slashing). Although being slashed has serious repercussions, it is simple enough to avoid being slashed all together by remaining *consistent* with respect to the messages a validator has previously signed.
+"Slashing" is the burning of some amount of validator funds and immediate ejection from the active validator set. There are two ways in which funds can be slashed: [proposer slashing](#proposer-slashing) and [attester slashing](#attester-slashing). Although being slashed has serious repercussions, it is simple enough to avoid being slashed all together by remaining *consistent* with respect to the messages a validator has previously signed.
 
 *Note*: Signed data must be within a sequential `Fork` context to conflict. Messages cannot be slashed across diverging forks. If the previous fork version is 1 and the chain splits into fork 2 and 102, messages from 1 can be slashable against messages in forks 1, 2, and 102. Messages in 2 cannot be slashable against messages in 102, and vice versa.
 
