@@ -55,6 +55,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   def collect(subnet_id, attestation) do
     GenServer.call(__MODULE__, {:collect, subnet_id, attestation})
     join(subnet_id)
+    get_topic_name(subnet_id) |> Libp2pPort.subscribe_to_topic()
   end
 
   @spec stop_collecting(non_neg_integer()) ::
