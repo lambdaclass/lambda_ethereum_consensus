@@ -51,9 +51,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     Libp2pPort.publish(topic, message)
   end
 
-  @spec collect(non_neg_integer(), Types.AttestationData.t()) :: :ok
-  def collect(subnet_id, attestation_data) do
-    GenServer.call(__MODULE__, {:collect, subnet_id, attestation_data})
+  @spec collect(non_neg_integer(), Types.Attestation.t()) :: :ok
+  def collect(subnet_id, attestation) do
+    GenServer.call(__MODULE__, {:collect, subnet_id, attestation})
     join(subnet_id)
   end
 
@@ -95,9 +95,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   @impl true
-  def handle_call({:collect, subnet_id, attestation_data}, _from, state) do
-    attestations = Map.put(state.attestations, subnet_id, [attestation_data])
-    attnets = Map.put(state.attnets, subnet_id, attestation_data)
+  def handle_call({:collect, subnet_id, attestation}, _from, state) do
+    attestations = Map.put(state.attestations, subnet_id, [attestation])
+    attnets = Map.put(state.attnets, subnet_id, attestation.data)
     new_state = %{state | attnets: attnets, attestations: attestations}
     {:reply, :ok, new_state}
   end
