@@ -14,7 +14,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   def notify_new_block(%SignedBeaconBlock{} = block) do
-    GenServer.cast(__MODULE__, {:new_block, block})
+    operations = %{bls_to_execution_changes: block.message.body.bls_to_execution_changes}
+    GenServer.cast(__MODULE__, {:new_block, operations})
   end
 
   @impl GenServer
@@ -28,13 +29,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     {:noreply, %{state | bls_to_execution_change: new_msgs}}
   end
 
-  def handle_cast({:new_block, block}, state) do
-    {:noreply, filter_messages(state, block)}
+  def handle_cast({:new_block, operations}, state) do
+    {:noreply, filter_messages(state, operations)}
   end
 
-  defp filter_messages(state, block) do
+  defp filter_messages(state, operations) do
     indices =
-      block.message.body.bls_to_execution_changes
+      operations.bls_to_execution_changes
       |> MapSet.new(& &1.message.validator_index)
 
     bls_to_execution_changes =
