@@ -189,7 +189,8 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	sub.Cancel = func() {
 		cancel()
 		<-cancelChan
-		s.gsub.UnregisterTopicValidator(topicName)
+		err := s.gsub.UnregisterTopicValidator(topicName)
+		utils.PanicIfError(err)
 	}
 	go subscribeToTopic(sub.Topic, ctx, cancelChan)
 	return nil
@@ -242,6 +243,7 @@ func subscribeToTopic(topic *pubsub.Topic, ctx context.Context, cancelChan chan 
 			break
 		}
 	}
+	sub.Cancel()
 	cancelChan <- struct{}{}
 }
 

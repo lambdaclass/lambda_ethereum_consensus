@@ -60,7 +60,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   @spec stop_collecting(non_neg_integer()) ::
           {:ok, list(Types.Attestation.t())} | {:error, String.t()}
   def stop_collecting(subnet_id) do
-    leave(subnet_id)
+    # TODO: implement some way to unsubscribe without leaving the topic
+    topic = get_topic_name(subnet_id)
+    Libp2pPort.leave_topic(topic)
+    Libp2pPort.join_topic(topic)
     GenServer.call(__MODULE__, {:stop_collecting, subnet_id})
   end
 
