@@ -2,7 +2,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   @moduledoc """
   Module that stores the operations received from gossipsub.
   """
-  alias Types.SignedBeaconBlock
+  alias Types.BeaconBlock
   alias Types.SignedBLSToExecutionChange
 
   use GenServer
@@ -14,9 +14,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     GenServer.cast(__MODULE__, {:bls_to_execution_change, msg})
   end
 
-  @spec notify_new_block(SignedBeaconBlock.t()) :: :ok
-  def notify_new_block(%SignedBeaconBlock{} = block) do
-    operations = %{bls_to_execution_changes: block.message.body.bls_to_execution_changes}
+  @spec notify_new_block(BeaconBlock.t()) :: :ok
+  def notify_new_block(%BeaconBlock{} = block) do
+    operations = %{bls_to_execution_changes: block.body.bls_to_execution_changes}
     GenServer.cast(__MODULE__, {:new_block, operations})
   end
 
