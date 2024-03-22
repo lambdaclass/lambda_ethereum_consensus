@@ -2,8 +2,10 @@ defmodule BeaconApi.V2.BeaconController do
   use BeaconApi, :controller
 
   alias BeaconApi.ApiSpec
+  alias BeaconApi.Utils
   alias BeaconApi.ErrorController
   alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Store.Blocks
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
@@ -61,12 +63,29 @@ defmodule BeaconApi.V2.BeaconController do
       version: "deneb",
       execution_optimistic: true,
       finalized: false,
-      data: %{
-        # TODO: return block as JSON
-        message: inspect(block)
-      }
+      data: to_json(block)
     })
   end
+
+  @spec to_json(any()) :: any()
+  defp to_json(map) when is_map(map) do
+    map
+    |> Map.from_struct()
+    |> Stream.map(&to_json/1)
+    |> Map.new()
+  end
+
+  defp to_json(list) when is_list(list), do: Enum.map(list, &to_json/1)
+
+  defp to_json({:aggregation_bits, v}) do
+    case SszEx.encode(v, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}) do
+      {_, num} -> {"aggregation_bits", Utils.hex_encode(num)}
+    end
+  end
+
+  defp to_json({k, v}), do: {k, to_json(v)}
+  defp to_json(x) when is_binary(x), do: Utils.hex_encode(x)
+  defp to_json(v), do: inspect(v)
 
   defp block_not_found(conn) do
     conn
