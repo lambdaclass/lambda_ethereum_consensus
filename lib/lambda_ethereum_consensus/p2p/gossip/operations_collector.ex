@@ -9,10 +9,12 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
+  @spec notify_bls_to_execution_change_gossip(SignedBLSToExecutionChange.t()) :: :ok
   def notify_bls_to_execution_change_gossip(%SignedBLSToExecutionChange{} = msg) do
     GenServer.cast(__MODULE__, {:bls_to_execution_change, msg})
   end
 
+  @spec notify_new_block(SignedBeaconBlock.t()) :: :ok
   def notify_new_block(%SignedBeaconBlock{} = block) do
     operations = %{bls_to_execution_changes: block.message.body.bls_to_execution_changes}
     GenServer.cast(__MODULE__, {:new_block, operations})
