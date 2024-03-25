@@ -65,7 +65,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
 
   def handle_voluntary_exit(%SignedVoluntaryExit{} = message) do
     # TODO: validate message first
-    OperationsCollector.notify_proposer_slashing_gossip(message)
+    OperationsCollector.notify_voluntary_exit_gossip(message)
   end
 
   def handle_blob_sidecar(%BlobSidecar{index: blob_index} = blob, blob_index) do
