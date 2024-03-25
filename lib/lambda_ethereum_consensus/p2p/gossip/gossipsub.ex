@@ -20,8 +20,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
       {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof,
        &Handler.handle_beacon_aggregate_and_proof/1},
       # {"voluntary_exit", Types.SignedVoluntaryExit},
-      # {"proposer_slashing", Types.ProposerSlashing},
-      # {"attester_slashing", Types.AttesterSlashing},
+      {"proposer_slashing", Types.ProposerSlashing, &Handler.handle_proposer_slashing/1},
+      {"attester_slashing", Types.AttesterSlashing, &Handler.handle_attester_slashing/1},
       {"bls_to_execution_change", Types.SignedBLSToExecutionChange,
        &Handler.handle_bls_to_execution_change/1}
       # {"sync_committee_contribution_and_proof", Types.SignedContributionAndProof},

@@ -5,6 +5,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   """
   require Logger
 
+  alias Types.ProposerSlashing
+  alias Types.AttesterSlashing
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
@@ -51,6 +53,16 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   def handle_bls_to_execution_change(%SignedBLSToExecutionChange{} = message) do
     # TODO: validate message first
     OperationsCollector.notify_bls_to_execution_change_gossip(message)
+  end
+
+  def handle_attester_slashing(%AttesterSlashing{} = message) do
+    # TODO: validate message first
+    OperationsCollector.notify_attester_slashing_gossip(message)
+  end
+
+  def handle_proposer_slashing(%ProposerSlashing{} = message) do
+    # TODO: validate message first
+    OperationsCollector.notify_proposer_slashing_gossip(message)
   end
 
   def handle_blob_sidecar(%BlobSidecar{index: blob_index} = blob, blob_index) do
