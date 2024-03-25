@@ -195,3 +195,11 @@ case Keyword.get(args, :log_file) do
       timestamp_key: "ts",
       timestamp_format: :iso8601
 end
+
+# Sentry
+
+{git_sha, 0} = System.cmd("git", ["rev-parse", "--short", "HEAD"])
+
+config :sentry,
+  dsn: System.get_env("SENTRY_DSN"),
+  release: String.trim(git_sha)

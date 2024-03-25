@@ -132,4 +132,13 @@ defmodule Unit.Libp2pPortTest do
   test "start two hosts, and gossip about" do
     retry_test(&two_hosts_gossip/0, 5)
   end
+
+  test "subscrive, leave, and join topic" do
+    port = start_port(:some, listen_addr: ["/ip4/127.0.0.1/tcp/48790"])
+    topic = "test"
+
+    Libp2pPort.subscribe_to_topic(port, topic)
+    Libp2pPort.leave_topic(port, topic)
+    Libp2pPort.join_topic(port, topic)
+  end
 end
