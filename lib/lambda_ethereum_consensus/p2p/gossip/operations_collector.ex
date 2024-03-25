@@ -4,13 +4,20 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   """
   use GenServer
 
+  alias Types.Attestation
   alias Types.AttesterSlashing
   alias Types.BeaconBlock
   alias Types.ProposerSlashing
   alias Types.SignedBLSToExecutionChange
   alias Types.SignedVoluntaryExit
 
-  @operations [:bls_to_execution_change, :attester_slashing, :proposer_slashing, :voluntary_exit]
+  @operations [
+    :bls_to_execution_change,
+    :attester_slashing,
+    :proposer_slashing,
+    :voluntary_exit,
+    :attestation
+  ]
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -54,13 +61,24 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     GenServer.call(__MODULE__, {:get, :voluntary_exit, count})
   end
 
+  @spec notify_attestation_gossip(Attestation.t()) :: :ok
+  def notify_attestation_gossip(%Attestation{} = msg) do
+    GenServer.cast(__MODULE__, {:attestation, msg})
+  end
+
+  @spec get_attestations(non_neg_integer()) :: list(Attestation.t())
+  def get_attestations(count) do
+    GenServer.call(__MODULE__, {:get, :attestation, count})
+  end
+
   @spec notify_new_block(BeaconBlock.t()) :: :ok
   def notify_new_block(%BeaconBlock{} = block) do
     operations = %{
       bls_to_execution_changes: block.body.bls_to_execution_changes,
       attester_slashings: block.body.attester_slashings,
       proposer_slashings: block.body.proposer_slashings,
-      voluntary_exits: block.body.voluntary_exits
+      voluntary_exits: block.body.voluntary_exits,
+      attestations: block.body.attestations
     }
 
     GenServer.cast(__MODULE__, {:new_block, operations})
@@ -73,7 +91,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
        bls_to_execution_change: [],
        attester_slashing: [],
        proposer_slashing: [],
-       voluntary_exit: []
+       voluntary_exit: [],
+       attestation: []
      }}
   end
 
@@ -123,12 +142,16 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     voluntary_exits =
       state.voluntary_exit |> Enum.reject(&MapSet.member?(exited, &1.message.validator_index))
 
+    added_attestations = MapSet.new(operations.attestations)
+    attestations = state.attestation |> Enum.reject(&MapSet.member?(added_attestations, &1))
+
     %{
       state
       | bls_to_execution_change: bls_to_execution_changes,
         attester_slashing: attester_slashings,
         proposer_slashing: proposer_slashings,
-        voluntary_exit: voluntary_exits
+        voluntary_exit: voluntary_exits,
+        attestation: attestations
     }
   end
 end
