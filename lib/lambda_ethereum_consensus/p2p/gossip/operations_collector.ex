@@ -34,7 +34,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @spec notify_new_block(BeaconBlock.t()) :: :ok
   def notify_new_block(%BeaconBlock{} = block) do
-    operations = %{bls_to_execution_changes: block.body.bls_to_execution_changes}
+    operations = %{
+      bls_to_execution_changes: block.body.bls_to_execution_changes,
+      attester_slashings: block.body.attester_slashings
+    }
+
     GenServer.cast(__MODULE__, {:new_block, operations})
   end
 
@@ -71,6 +75,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
       state.bls_to_execution_change
       |> Enum.reject(&MapSet.member?(indices, &1.message.validator_index))
 
-    %{state | bls_to_execution_change: bls_to_execution_changes}
+    attester_slashings =
+      state.attester_slashing |> Enum.reject(&Enum.member?(operations.attester_slashings, &1))
+
+    %{
+      state
+      | bls_to_execution_change: bls_to_execution_changes,
+        attester_slashing: attester_slashings
+    }
   end
 end
