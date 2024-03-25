@@ -87,6 +87,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
       state.bls_to_execution_change
       |> Enum.reject(&MapSet.member?(indices, &1.message.validator_index))
 
+    # TODO: improve AttesterSlashing filtering
     attester_slashings =
       state.attester_slashing |> Enum.reject(&Enum.member?(operations.attester_slashings, &1))
 
