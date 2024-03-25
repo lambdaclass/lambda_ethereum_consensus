@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
+  alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb
   alias LambdaEthereumConsensus.Validator
@@ -166,6 +167,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Handlers.notify_forkchoice_update(store, head_block)
 
+    OperationsCollector.notify_new_block(head_block)
     Validator.notify_new_block(head_block.slot, head_root)
 
     BeaconChain.update_fork_choice_cache(

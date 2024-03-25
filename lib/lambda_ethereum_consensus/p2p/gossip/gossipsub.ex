@@ -18,12 +18,12 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
     topics = [
       {"beacon_block", SignedBeaconBlock, &Handler.handle_beacon_block/1},
       {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof,
-       &Handler.handle_beacon_aggregate_and_proof/1}
-      # {"beacon_attestation_0", Types.Attestation},
+       &Handler.handle_beacon_aggregate_and_proof/1},
       # {"voluntary_exit", Types.SignedVoluntaryExit},
       # {"proposer_slashing", Types.ProposerSlashing},
       # {"attester_slashing", Types.AttesterSlashing},
-      # {"bls_to_execution_change", Types.SignedBLSToExecutionChange},
+      {"bls_to_execution_change", Types.SignedBLSToExecutionChange,
+       &Handler.handle_bls_to_execution_change/1}
       # {"sync_committee_contribution_and_proof", Types.SignedContributionAndProof},
       # {"sync_committee_0", Types.SyncCommitteeMessage}
     ]
@@ -43,6 +43,8 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
         topic = "/eth2/#{fork_context}/#{topic_msg}/ssz_snappy"
         {Consumer, %{topic: topic, ssz_type: ssz_type, handler: handler}}
       end
+
+    children = children ++ [LambdaEthereumConsensus.P2P.Gossip.OperationsCollector]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
