@@ -36,7 +36,7 @@ defmodule BeaconApi.V2.BeaconController do
 
   def get_block(conn, %{block_id: "0x" <> hex_block_id}) do
     with {:ok, block_root} <- Base.decode16(hex_block_id, case: :mixed),
-         %{} = block <- Blocks.get_signed_block(block_root) do
+         block <- Blocks.get_signed_block(block_root) do
       conn |> block_response(block)
     else
       nil -> conn |> block_not_found()
@@ -86,6 +86,7 @@ defmodule BeaconApi.V2.BeaconController do
   def to_json({k, v}), do: {k, to_json(v)}
   def to_json(x) when is_binary(x), do: Utils.hex_encode(x)
   def to_json(v), do: inspect(v)
+
   def block_not_found(conn) do
     conn
     |> put_status(404)
