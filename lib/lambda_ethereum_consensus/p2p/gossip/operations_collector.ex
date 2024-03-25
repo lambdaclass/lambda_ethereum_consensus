@@ -14,6 +14,12 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     GenServer.cast(__MODULE__, {:bls_to_execution_change, msg})
   end
 
+  @spec notify_bls_to_execution_change_gossip(non_neg_integer()) ::
+          list(SignedBLSToExecutionChange.t())
+  def get_bls_to_execution_changes(count) do
+    GenServer.call(__MODULE__, {:get_bls_to_execution_change, count})
+  end
+
   @spec notify_new_block(BeaconBlock.t()) :: :ok
   def notify_new_block(%BeaconBlock{} = block) do
     operations = %{bls_to_execution_changes: block.body.bls_to_execution_changes}
@@ -23,6 +29,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   @impl GenServer
   def init(_init_arg) do
     {:ok, %{bls_to_execution_change: []}}
+  end
+
+  @impl GenServer
+  def handle_call({:get_bls_to_execution_change, count}, _from, state) do
+    # NOTE: we don't remove these from the state, since after a block is built
+    #  :new_block will be called
+    {:reply, Enum.take(state.bls_to_execution_change, count), state}
   end
 
   @impl GenServer
