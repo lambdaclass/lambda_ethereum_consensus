@@ -26,7 +26,8 @@ defmodule Types.Store do
     :latest_messages,
     :unrealized_justifications,
     # Stores block data on the current fork tree (~last two epochs)
-    :tree_cache
+    :tree_cache,
+    :deposit_tree
   ]
 
   @type t :: %__MODULE__{
@@ -42,7 +43,8 @@ defmodule Types.Store do
           # NOTE: the `Checkpoint` values in latest_messages are `LatestMessage`s
           latest_messages: %{Types.validator_index() => Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Checkpoint.t()},
-          tree_cache: Tree.t()
+          tree_cache: Tree.t(),
+          deposit_tree: Types.DepositTreeSnapshot.t()
         }
 
   @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) ::
@@ -85,6 +87,10 @@ defmodule Types.Store do
     else
       {:error, "Anchor block state root does not match anchor state root"}
     end
+  end
+
+  def init_deposit_tree(store, snapshot) do
+    %{store | deposit_tree: snapshot}
   end
 
   def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
