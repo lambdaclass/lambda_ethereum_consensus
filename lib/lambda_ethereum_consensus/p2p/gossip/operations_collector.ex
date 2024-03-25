@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   alias Types.SignedBLSToExecutionChange
   alias Types.SignedVoluntaryExit
 
-  @operations [:bls_to_execution_change, :attester_slashing, :proposer_slashing]
+  @operations [:bls_to_execution_change, :attester_slashing, :proposer_slashing, :voluntary_exit]
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
