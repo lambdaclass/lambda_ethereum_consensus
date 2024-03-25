@@ -1,5 +1,5 @@
-erlang 26.1
-elixir 1.15.6-otp-26
+erlang 26.2
+elixir 1.16.2-otp-26
 golang 1.21.3
 rust 1.71.1
 protoc 24.3
