@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   alias Types.BeaconBlock
   alias Types.ProposerSlashing
   alias Types.SignedBLSToExecutionChange
+  alias Types.SignedVoluntaryExit
 
   @operations [:bls_to_execution_change, :attester_slashing, :proposer_slashing]
 
@@ -43,12 +44,23 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     GenServer.call(__MODULE__, {:get, :proposer_slashing, count})
   end
 
+  @spec notify_voluntary_exit_gossip(SignedVoluntaryExit.t()) :: :ok
+  def notify_voluntary_exit_gossip(%SignedVoluntaryExit{} = msg) do
+    GenServer.cast(__MODULE__, {:voluntary_exit, msg})
+  end
+
+  @spec get_voluntary_exits(non_neg_integer()) :: list(SignedVoluntaryExit.t())
+  def get_voluntary_exits(count) do
+    GenServer.call(__MODULE__, {:get, :voluntary_exit, count})
+  end
+
   @spec notify_new_block(BeaconBlock.t()) :: :ok
   def notify_new_block(%BeaconBlock{} = block) do
     operations = %{
       bls_to_execution_changes: block.body.bls_to_execution_changes,
       attester_slashings: block.body.attester_slashings,
-      proposer_slashings: block.body.proposer_slashings
+      proposer_slashings: block.body.proposer_slashings,
+      voluntary_exits: block.body.voluntary_exits
     }
 
     GenServer.cast(__MODULE__, {:new_block, operations})
@@ -56,7 +68,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @impl GenServer
   def init(_init_arg) do
-    {:ok, %{bls_to_execution_change: [], attester_slashing: [], proposer_slashing: []}}
+    {:ok,
+     %{
+       bls_to_execution_change: [],
+       attester_slashing: [],
+       proposer_slashing: [],
+       voluntary_exit: []
+     }}
   end
 
   @impl GenServer
@@ -100,11 +118,17 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
         &MapSet.member?(slashed_proposers, &1.signed_header_1.message.proposer_index)
       )
 
+    exited = operations.voluntary_exits |> MapSet.new(& &1.message.validator_index)
+
+    voluntary_exits =
+      state.voluntary_exit |> Enum.reject(&MapSet.member?(exited, &1.message.validator_index))
+
     %{
       state
       | bls_to_execution_change: bls_to_execution_changes,
         attester_slashing: attester_slashings,
-        proposer_slashing: proposer_slashings
+        proposer_slashing: proposer_slashings,
+        voluntary_exit: voluntary_exits
     }
   end
 end

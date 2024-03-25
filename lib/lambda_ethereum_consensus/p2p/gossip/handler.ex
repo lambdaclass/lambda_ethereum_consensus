@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   """
   require Logger
 
+  alias Types.SignedVoluntaryExit
   alias Types.ProposerSlashing
   alias Types.AttesterSlashing
   alias LambdaEthereumConsensus.Beacon.BeaconChain
@@ -61,6 +62,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   end
 
   def handle_proposer_slashing(%ProposerSlashing{} = message) do
+    # TODO: validate message first
+    OperationsCollector.notify_proposer_slashing_gossip(message)
+  end
+
+  def handle_voluntary_exit(%SignedVoluntaryExit{} = message) do
     # TODO: validate message first
     OperationsCollector.notify_proposer_slashing_gossip(message)
   end
