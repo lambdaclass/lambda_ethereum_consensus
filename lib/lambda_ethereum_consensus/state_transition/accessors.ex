@@ -245,8 +245,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_beacon_proposer_index(BeaconState.t()) ::
           {:ok, Types.validator_index()} | {:error, String.t()}
-  def get_beacon_proposer_index(%BeaconState{slot: slot} = state) do
-    epoch = get_current_epoch(state)
+  def get_beacon_proposer_index(%BeaconState{slot: state_slot} = state, slot \\ nil) do
+    slot = if is_nil(slot), do: state_slot, else: slot
+    # NOTE: slot should be within the state's current epoch, otherwise the result can change
+    epoch = Misc.compute_epoch_at_slot(slot)
+
     {:ok, root} = get_epoch_root(state, epoch)
 
     Cache.lazily_compute(:beacon_proposer_index, {slot, root}, fn ->
