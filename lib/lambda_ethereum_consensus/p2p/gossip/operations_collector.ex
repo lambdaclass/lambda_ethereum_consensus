@@ -2,10 +2,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   @moduledoc """
   Module that stores the operations received from gossipsub.
   """
+  use GenServer
+
+  alias Types.AttesterSlashing
   alias Types.BeaconBlock
   alias Types.SignedBLSToExecutionChange
 
-  use GenServer
+  @operations [:bls_to_execution_change, :attester_slashing]
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -16,7 +19,17 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @spec get_bls_to_execution_changes(non_neg_integer()) :: list(SignedBLSToExecutionChange.t())
   def get_bls_to_execution_changes(count) do
-    GenServer.call(__MODULE__, {:get_bls_to_execution_changes, count})
+    GenServer.call(__MODULE__, {:get, :bls_to_execution_change, count})
+  end
+
+  @spec notify_attester_slashing_gossip(AttesterSlashing.t()) :: :ok
+  def notify_attester_slashing_gossip(%AttesterSlashing{} = msg) do
+    GenServer.cast(__MODULE__, {:attester_slashing, msg})
+  end
+
+  @spec get_attester_slashings(non_neg_integer()) :: list(AttesterSlashing.t())
+  def get_attester_slashings(count) do
+    GenServer.call(__MODULE__, {:get, :attester_slashing, count})
   end
 
   @spec notify_new_block(BeaconBlock.t()) :: :ok
@@ -27,20 +40,22 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @impl GenServer
   def init(_init_arg) do
-    {:ok, %{bls_to_execution_change: []}}
+    {:ok, %{bls_to_execution_change: [], attester_slashing: []}}
   end
 
   @impl GenServer
-  def handle_call({:get_bls_to_execution_changes, count}, _from, state) do
+  def handle_call({:get, operation, count}, _from, state) when operation in @operations do
     # NOTE: we don't remove these from the state, since after a block is built
-    #  :new_block will be called
-    {:reply, Enum.take(state.bls_to_execution_change, count), state}
+    #  :new_block will be called, and already added messages will be removed
+    {:reply, Map.fetch!(state, operation) |> Enum.take(count), state}
   end
 
   @impl GenServer
-  def handle_cast({:bls_to_execution_change, msg}, state) do
-    new_msgs = [msg | state.bls_to_execution_change]
-    {:noreply, %{state | bls_to_execution_change: new_msgs}}
+  # TODO: filter duplicates
+  def handle_cast({operation, msg}, state)
+      when operation in @operations do
+    new_msgs = [msg | Map.fetch!(state, operation)]
+    {:noreply, Map.replace!(state, operation, new_msgs)}
   end
 
   def handle_cast({:new_block, operations}, state) do
