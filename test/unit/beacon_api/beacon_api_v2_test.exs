@@ -1,4 +1,4 @@
-defmodule BeaconApiTest do
+defmodule Unit.BeaconApiTest.V2 do
   use ExUnit.Case
   use Plug.Test
   use Patch
@@ -13,8 +13,8 @@ defmodule BeaconApiTest do
   @opts Router.init([])
 
   setup do
-    start_supervised!(Db)
-    start_supervised(Blocks)
+    start_link_supervised!({Db, dir: "tmp/beacon_api_v2"})
+    start_supervised!(Blocks)
     :ok
   end
 

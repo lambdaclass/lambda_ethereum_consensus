@@ -1,4 +1,4 @@
-defmodule BeaconApiTest do
+defmodule Unit.BeaconApiTest.V1 do
   use ExUnit.Case
   use Plug.Test
   use Patch
