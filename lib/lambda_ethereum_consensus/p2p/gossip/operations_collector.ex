@@ -56,7 +56,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @impl GenServer
   def init(_init_arg) do
-    {:ok, %{bls_to_execution_change: [], attester_slashing: []}}
+    {:ok, %{bls_to_execution_change: [], attester_slashing: [], proposer_slashing: []}}
   end
 
   @impl GenServer
