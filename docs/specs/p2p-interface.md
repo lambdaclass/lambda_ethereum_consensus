@@ -840,7 +840,7 @@ Clients MUST treat as valid any byte sequences.
 The token of the negotiated protocol ID specifies the type of encoding to be used for the req/resp interaction.
 Only one value is possible at this time:
 
--  `ssz_snappy`: The contents are first [SSZ-encoded](../../ssz/simple-serialize.md)
+-  `ssz_snappy`: The contents are first SSZ-encoded
   and then compressed with [Snappy](https://github.com/google/snappy) frames compression.
   For objects containing a single field, only the field is SSZ-encoded not a container with a single field.
   For example, the `BeaconBlocksByRoot` request is an SSZ-encoded list of `Root`'s.
@@ -848,7 +848,7 @@ Only one value is possible at this time:
 
 ##### SSZ-snappy encoding strategy
 
-The [SimpleSerialize (SSZ) specification](../../ssz/simple-serialize.md) outlines how objects are SSZ-encoded.
+The SimpleSerialize (SSZ) specification outlines how objects are SSZ-encoded.
 
 To achieve snappy encoding on top of SSZ, we feed the serialized form of the object to the Snappy compressor on encoding.
 The inverse happens on decoding.
