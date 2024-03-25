@@ -89,6 +89,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up Elixir
+      id: setup-beam
       uses: erlef/setup-beam@v1
       with:
         version-type: strict
@@ -133,7 +134,7 @@ jobs:
       id: plt-cache
       with:
         path: priv/plts
-        key: ${{ runner.os }}-plts-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+        key: ${{ runner.os }}-plts-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('mix.lock') }}
     - name: Create PLTs
       if: steps.plt-cache.outputs.cache-hit != 'true'
       run: |
