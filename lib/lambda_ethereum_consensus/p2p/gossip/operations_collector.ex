@@ -14,8 +14,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     GenServer.cast(__MODULE__, {:bls_to_execution_change, msg})
   end
 
-  @spec notify_bls_to_execution_change_gossip(non_neg_integer()) ::
-          list(SignedBLSToExecutionChange.t())
+  @spec get_bls_to_execution_changes(non_neg_integer()) :: list(SignedBLSToExecutionChange.t())
   def get_bls_to_execution_changes(count) do
     GenServer.call(__MODULE__, {:get_bls_to_execution_change, count})
   end
