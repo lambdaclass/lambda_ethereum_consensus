@@ -143,7 +143,7 @@
 
 This document represents the specification for Phase 0 -- The Beacon Chain.
 
-At the core of Ethereum proof-of-stake is a system chain called the "beacon chain". The beacon chain stores and manages the registry of validators. In the initial deployment phases of proof-of-stake, the only mechanism to become a validator is to make a one-way ETH transaction to a deposit contract on the Ethereum proof-of-work chain. Activation as a validator happens when deposit receipts are processed by the beacon chain, the activation balance is reached, and a queuing process is completed. Exit is either voluntary or done forcibly as a penalty for misbehavior.
+At the core of Ethereum proof-of-stake is a system chain called the "beacon chain". The beacon chain stores and manages the registry of validators. In the initial deployment phases of proof-of-stake, the only mechanism to become a validator is to make a one-way ETH transaction to a deposit contract on the Ethereum execution chain. Activation as a validator happens when deposit receipts are processed by the beacon chain, the activation balance is reached, and a queuing process is completed. Exit is either voluntary or done forcibly as a penalty for misbehavior.
 The primary source of load on the beacon chain is "attestations". Attestations are simultaneously availability votes for a shard block (in a later upgrade) and proof-of-stake votes for a beacon block (Phase 0).
 
 ## Notation
@@ -253,7 +253,7 @@ The following values are (non-configurable) constants used throughout the specif
 
 *Note*: The below configuration is bundled as a preset: a bundle of configuration variables which are expected to differ
 between different modes of operation, e.g. testing, but not generally between different networks.
-Additional preset configurations can be found in the [`configs`](../../configs) directory.
+Additional preset configurations can be found in the `configs` directory.
 
 ### Misc
 
@@ -416,7 +416,7 @@ Testnets and other types of chain instances may use a different configuration.
 
 ## Containers
 
-The following types are [SimpleSerialize (SSZ)](../../ssz/simple-serialize.md) containers.
+The following types are SimpleSerialize (SSZ) containers.
 
 *Note*: The definitions are ordered topologically to facilitate execution of the spec.
 
@@ -993,7 +993,7 @@ def saturating_sub(a: int, b: int) -> int:
 
 #### `hash_tree_root`
 
-`def hash_tree_root(object: SSZSerializable) -> Root` is a function for hashing objects into a single root by utilizing a hash tree structure, as defined in the [SSZ spec](../../ssz/simple-serialize.md#merkleization).
+`def hash_tree_root(object: SSZSerializable) -> Root` is a function for hashing objects into a single root by utilizing a hash tree structure, as defined in the SSZ spec.
 
 #### BLS signatures
 
@@ -1860,13 +1860,13 @@ Modified in altair to use `MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX` instead of `
 
 ## Genesis
 
-Before the Ethereum beacon chain genesis has been triggered, and for every Ethereum proof-of-work block, let `candidate_state = initialize_beacon_state_from_eth1(eth1_block_hash, eth1_timestamp, deposits)` where:
+Before the Ethereum beacon chain genesis has been triggered, and for every Ethereum execution block, let `candidate_state = initialize_beacon_state_from_eth1(eth1_block_hash, eth1_timestamp, deposits)` where:
 
-- `eth1_block_hash` is the hash of the Ethereum proof-of-work block
+- `eth1_block_hash` is the hash of the Ethereum execution block
 - `eth1_timestamp` is the Unix timestamp corresponding to `eth1_block_hash`
 - `deposits` is the sequence of all deposits, ordered chronologically, up to (and including) the block with hash `eth1_block_hash`
 
-Proof-of-work blocks must only be considered once they are at least `SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE` seconds old (i.e. `eth1_timestamp + SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE <= current_unix_time`). Due to this constraint, if `GENESIS_DELAY < SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE`, then the `genesis_time` can happen before the time/state is first known. Values should be configured to avoid this case.
+execution blocks must only be considered once they are at least `SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE` seconds old (i.e. `eth1_timestamp + SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE <= current_unix_time`). Due to this constraint, if `GENESIS_DELAY < SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE`, then the `genesis_time` can happen before the time/state is first known. Values should be configured to avoid this case.
 
 ```python
 def initialize_beacon_state_from_eth1(eth1_block_hash: Hash32,
