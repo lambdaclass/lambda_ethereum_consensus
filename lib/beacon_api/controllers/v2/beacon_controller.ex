@@ -68,26 +68,25 @@ defmodule BeaconApi.V2.BeaconController do
   end
 
   @spec to_json(any()) :: any()
-  defp to_json(map) when is_map(map) do
+  def to_json(map) when is_map(map) do
     map
     |> Map.from_struct()
     |> Stream.map(&to_json/1)
     |> Map.new()
   end
 
-  defp to_json(list) when is_list(list), do: Enum.map(list, &to_json/1)
+  def to_json(list) when is_list(list), do: Enum.map(list, &to_json/1)
 
-  defp to_json({:aggregation_bits, v}) do
+  def to_json({:aggregation_bits, v}) do
     case SszEx.encode(v, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}) do
       {_, num} -> {"aggregation_bits", Utils.hex_encode(num)}
     end
   end
 
-  defp to_json({k, v}), do: {k, to_json(v)}
-  defp to_json(x) when is_binary(x), do: Utils.hex_encode(x)
-  defp to_json(v), do: inspect(v)
-
-  defp block_not_found(conn) do
+  def to_json({k, v}), do: {k, to_json(v)}
+  def to_json(x) when is_binary(x), do: Utils.hex_encode(x)
+  def to_json(v), do: inspect(v)
+  def block_not_found(conn) do
     conn
     |> put_status(404)
     |> json(%{
