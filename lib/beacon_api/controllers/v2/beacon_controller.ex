@@ -4,9 +4,10 @@ defmodule BeaconApi.V2.BeaconController do
   alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
   alias BeaconApi.Utils
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Utils.BitList
+  alias Types
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
@@ -67,22 +68,28 @@ defmodule BeaconApi.V2.BeaconController do
     })
   end
 
-  @spec to_json(any()) :: any()
-  def to_json(map) when is_map(map) do
-    map
-    |> Map.from_struct()
-    |> Stream.map(&to_json/1)
+  defp to_json(attribute, module) when is_struct(attribute) do
+    module.schema()
+    |> Enum.map(fn {k, schema} ->
+      {k, Map.fetch!(attribute, k) |> to_json(schema)}
+    end)
     |> Map.new()
   end
 
-  def to_json(list) when is_list(list), do: Enum.map(list, &to_json/1)
+  defp to_json(binary, {x, :bytes, _}) when x in [:list, :vector], do: to_json(binary)
 
-  def to_json({:aggregation_bits, v}) do
-    case SszEx.encode(v, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}) do
-      {_, num} -> {"aggregation_bits", Utils.hex_encode(num)}
-    end
+  defp to_json(list, {x, schema, _}) when x in [:list, :vector],
+    do: Enum.map(list, fn elem -> to_json(elem, schema) end)
+
+  defp to_json(bitlist, {:bitlist, _}) do
+    bitlist
+    |> BitList.to_bytes()
+    |> Utils.hex_encode()
   end
 
+  defp to_json(v, _schema), do: to_json(v)
+
+  def to_json(%name{} = v), do: to_json(v, name)
   def to_json({k, v}), do: {k, to_json(v)}
   def to_json(x) when is_binary(x), do: Utils.hex_encode(x)
   def to_json(v), do: inspect(v)

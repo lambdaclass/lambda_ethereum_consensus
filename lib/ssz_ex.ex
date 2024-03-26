@@ -17,10 +17,10 @@ defmodule LambdaEthereumConsensus.SszEx do
       Composite type of ordered homogeneous elements with an exact number of elements (`length`).
       `inner_type` is the schema of the inner elements. Depending on it, the vector could be
       variable-size or fixed-size.
-    - `{:byte_list, max_length}`
+    - `{:byte_list, max_length}` or `{:list, :bytes, max_length}`
       Same as `{:list, {:int, 8}, length}` (i.e. a list of bytes), but
       encodes-from/decodes-into an Elixir binary.
-    - `{:bytes, length}`
+    - `{:bytes, length}` or `{:vector, :bytes, length}`
       Same as `{:vector, {:int, 8}, length}` (i.e. a vector of bytes),
       but encodes-from/decodes-into an Elixir binary.
     - `{:bitlist, max_length}`

@@ -30,7 +30,7 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
       pre::integer-size(num_bits - @bits_per_byte)>>
   end
 
-  @spec to_bytes(t) :: bitstring
+  @spec to_bytes(t) :: binary
   def to_bytes(bit_list) do
     # Change the byte order from big endian to little endian (reverse bytes).
     len = bit_size(bit_list)
