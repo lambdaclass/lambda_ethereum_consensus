@@ -13,12 +13,13 @@ defmodule Unit.BeaconApiTest.V2 do
   @opts Router.init([])
 
   setup do
-    start_link_supervised!({Db, dir: "tmp/beacon_api_v2"})
     start_supervised!(Blocks)
     :ok
   end
 
   test "get block by id" do
+    start_link_supervised!({Db, dir: "tmp/beacon_api_v2/1"})
+
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0>>
@@ -46,6 +47,8 @@ defmodule Unit.BeaconApiTest.V2 do
   end
 
   test "get block by hex id" do
+    start_link_supervised!({Db, dir: "tmp/beacon_api_v2/2"})
+
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0>>
