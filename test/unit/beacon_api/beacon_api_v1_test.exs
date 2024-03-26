@@ -10,6 +10,7 @@ defmodule Unit.BeaconApiTest.V1 do
   alias LambdaEthereumConsensus.Store.Db
 
   @moduletag :beacon_api_case
+  @moduletag :tmp_dir
 
   @opts Router.init([])
 
@@ -38,7 +39,6 @@ defmodule Unit.BeaconApiTest.V1 do
     :ok
   end
 
-  @tag :tmp_dir
   test "get state SSZ HashTreeRoot by head" do
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -64,7 +64,6 @@ defmodule Unit.BeaconApiTest.V1 do
     assert conn.resp_body == encoded_resp_body_json
   end
 
-  @tag :tmp_dir
   test "get invalid state SSZ HashTreeRoot" do
     resp_body = %{
       code: 400,
@@ -82,7 +81,6 @@ defmodule Unit.BeaconApiTest.V1 do
     assert conn.resp_body == encoded_resp_body_json
   end
 
-  @tag :tmp_dir
   test "get finality checkpoints by head" do
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -129,7 +127,6 @@ defmodule Unit.BeaconApiTest.V1 do
     assert conn.resp_body == encoded_resp_body_json
   end
 
-  @tag :tmp_dir
   test "get genesis data" do
     {:ok, expected_body} =
       Jason.encode(%{

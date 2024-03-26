@@ -9,6 +9,7 @@ defmodule Unit.BeaconApiTest.V2 do
   alias LambdaEthereumConsensus.Store.Db
 
   @moduletag :beacon_api_case
+  @moduletag :tmp_dir
 
   @opts Router.init([])
 
@@ -18,7 +19,6 @@ defmodule Unit.BeaconApiTest.V2 do
     :ok
   end
 
-  @tag :tmp_dir
   test "get block by id" do
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -46,7 +46,6 @@ defmodule Unit.BeaconApiTest.V2 do
     assert conn.resp_body == encoded_resp_body_json
   end
 
-  @tag :tmp_dir
   test "get block by hex id" do
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
