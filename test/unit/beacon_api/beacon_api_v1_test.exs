@@ -13,7 +13,7 @@ defmodule Unit.BeaconApiTest.V1 do
 
   @opts Router.init([])
 
-  setup do
+  setup %{tmp_dir: tmp_dir} do
     Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
     |> Keyword.merge(config: MainnetConfig)
     |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
@@ -30,7 +30,7 @@ defmodule Unit.BeaconApiTest.V1 do
       head_slot: Fixtures.Random.uint64()
     }
 
-    start_supervised!(Db)
+    start_link_supervised!({Db, dir: tmp_dir})
 
     patch(BeaconChain, :get_current_status_message, {:ok, status_message})
     patch(BeaconChain, :get_genesis_time, 42)
@@ -38,6 +38,7 @@ defmodule Unit.BeaconApiTest.V1 do
     :ok
   end
 
+  @tag :tmp_dir
   test "get state SSZ HashTreeRoot by head" do
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -63,6 +64,7 @@ defmodule Unit.BeaconApiTest.V1 do
     assert conn.resp_body == encoded_resp_body_json
   end
 
+  @tag :tmp_dir
   test "get invalid state SSZ HashTreeRoot" do
     resp_body = %{
       code: 400,
@@ -80,6 +82,7 @@ defmodule Unit.BeaconApiTest.V1 do
     assert conn.resp_body == encoded_resp_body_json
   end
 
+  @tag :tmp_dir
   test "get finality checkpoints by head" do
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -126,6 +129,7 @@ defmodule Unit.BeaconApiTest.V1 do
     assert conn.resp_body == encoded_resp_body_json
   end
 
+  @tag :tmp_dir
   test "get genesis data" do
     {:ok, expected_body} =
       Jason.encode(%{

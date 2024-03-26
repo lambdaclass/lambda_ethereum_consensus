@@ -12,14 +12,14 @@ defmodule Unit.BeaconApiTest.V2 do
 
   @opts Router.init([])
 
-  setup do
+  setup %{tmp_dir: tmp_dir} do
+    start_link_supervised!({Db, dir: tmp_dir})
     start_supervised!(Blocks)
     :ok
   end
 
+  @tag :tmp_dir
   test "get block by id" do
-    start_link_supervised!({Db, dir: "tmp/beacon_api_v2/1"})
-
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0>>
@@ -46,9 +46,8 @@ defmodule Unit.BeaconApiTest.V2 do
     assert conn.resp_body == encoded_resp_body_json
   end
 
+  @tag :tmp_dir
   test "get block by hex id" do
-    start_link_supervised!({Db, dir: "tmp/beacon_api_v2/2"})
-
     head_root =
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0>>
