@@ -28,8 +28,10 @@ defmodule Types.DepositTree do
   ## Public API ##
   ################
 
+  @spec new() :: t()
   def new, do: %__MODULE__{}
 
+  @spec from_snapshot(DepositTreeSnapshot.t()) :: t()
   def from_snapshot(%DepositTreeSnapshot{} = snapshot) do
     inner_tree = from_snapshot_parts(snapshot.finalized, snapshot.deposit_count, @tree_depth)
     execution_info = {snapshot.execution_block_hash, snapshot.execution_block_height}
@@ -41,12 +43,15 @@ defmodule Types.DepositTree do
     }
   end
 
+  @spec finalize(t(), Eth1Data.t(), non_neg_integer()) :: t()
   def finalize(%__MODULE__{} = tree, %Eth1Data{} = eth1_data, execution_block_height) do
     finalized_block = {eth1_data.block_hash, execution_block_height}
     new_inner = finalize_tree(tree.inner, eth1_data.deposit_count, 2 ** @tree_depth)
     %{tree | inner: new_inner, finalized_execution_block: finalized_block}
   end
 
+  @spec get_proof(t(), non_neg_integer()) ::
+          {:ok, {Types.root(), [Types.root()]}} | {:error, String.t()}
   def get_proof(%__MODULE__{deposit_count: count}, _) when count <= 0,
     do: {:error, "no deposits in tree"}
 
@@ -58,9 +63,11 @@ defmodule Types.DepositTree do
     end
   end
 
+  @spec get_root(t()) :: Types.root()
   def get_root(%__MODULE__{inner: inner} = tree),
     do: SszEx.hash_nodes(get_node_root(inner), mix_in_length(tree))
 
+  @spec push_leaf(t(), DepositData.t()) :: t()
   def push_leaf(%__MODULE__{} = tree, %DepositData{} = deposit) do
     leaf = {SszEx.hash_tree_root!(deposit), deposit}
     new_inner = push_leaf_inner(tree.inner, leaf, @tree_depth)
