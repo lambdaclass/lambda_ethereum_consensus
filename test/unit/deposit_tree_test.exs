@@ -3,6 +3,7 @@ defmodule Unit.DepositTreeTest do
 
   use ExUnit.Case
 
+  alias Types.Eth1Data
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias Types.DepositData
@@ -36,6 +37,18 @@ defmodule Unit.DepositTreeTest do
       Base.decode16!(
         "B24D74BD23B52C41567305B6AECDC73DD53AEA59FA997C0D6205531CE70CC32282DBF9963DDE89297522FDC2C541EB0909472145805953A2298AA56160784C23B3905ED0EC17C4775B61CECB922A0D0E5241521387FC38184AFE735C2CE399AD"
       )
+  }
+
+  @snapshot_2 %DepositTreeSnapshot{
+    finalized: [
+      Base.decode16!("B6A04FB079B0153E6E555FD79BB89187C9386B2230F4020BD81558FECA702982")
+    ],
+    deposit_root:
+      Base.decode16!("072080F22BF66504D6AA2B978C581E34637912AC191442AF4F090DC5773D8936"),
+    deposit_count: 2,
+    execution_block_hash:
+      Base.decode16!("4E41A313CB3461E3154E76F87EC1BDA35A48876529EAF3B99E335F43280C8D66"),
+    execution_block_height: 3
   }
 
   test "initialize deposit tree from snapshot" do
@@ -76,5 +89,20 @@ defmodule Unit.DepositTreeTest do
     depth = Constants.deposit_contract_tree_depth() + 1
 
     assert Predicates.valid_merkle_branch?(data_root, proof, depth, index, deposit_root)
+  end
+
+  test "update and finalize tree equals new from snapshot" do
+    eth1_data = %Eth1Data{
+      deposit_root: @snapshot_2.deposit_root,
+      deposit_count: @snapshot_2.deposit_count,
+      block_hash: @snapshot_2.execution_block_hash
+    }
+
+    tree =
+      DepositTree.from_snapshot(@snapshot_1)
+      |> DepositTree.push_leaf(@deposit_data_2)
+      |> DepositTree.finalize(eth1_data, @snapshot_2.execution_block_height)
+
+    assert tree == DepositTree.from_snapshot(@snapshot_2)
   end
 end
