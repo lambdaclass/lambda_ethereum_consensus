@@ -1,6 +1,6 @@
 defmodule Types.DepositTreeSnapshot do
   @moduledoc """
-  Struct definition for a deposit snapshot, as defined in EIP 4881.
+  Struct definition for a deposit snapshot, as defined in EIP-4881.
   """
 
   fields = [
