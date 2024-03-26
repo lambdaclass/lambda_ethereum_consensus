@@ -93,7 +93,7 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
     full_url = concat_url(base_url, path)
 
     with {:ok, response} <- get(full_url) do
-      {:ok, response.body |> Map.fetch!("data")}
+      {:ok, response.body |> Map.fetch!("data") |> parse_json()}
     end
   end
 
@@ -116,4 +116,15 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
     |> URI.append_path(path)
     |> URI.to_string()
   end
+
+  defp parse_json(map) when is_map(map) do
+    Map.new(map, fn {k, v} -> {k, parse_json(v)} end)
+  end
+
+  defp parse_json(list) when is_list(list) do
+    Enum.map(list, &parse_json/1)
+  end
+
+  defp parse_json("0x" <> hex), do: Base.decode16!(hex, case: :mixed)
+  defp parse_json(int) when is_binary(int), do: String.to_integer(int, 10)
 end
