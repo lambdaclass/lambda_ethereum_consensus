@@ -4,7 +4,7 @@ defmodule Types.DepositTree do
   Implementation adapted from [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881).
   """
   alias LambdaEthereumConsensus.SszEx
-  alias Types.Deposit
+  alias Types.DepositData
   alias Types.DepositTreeSnapshot
   alias Types.Eth1Data
 
@@ -14,7 +14,7 @@ defmodule Types.DepositTree do
             deposit_count: 0,
             finalized_execution_block: nil
 
-  @type leaf :: {:leaf, {Types.hash32(), Deposit.t()}}
+  @type leaf :: {:leaf, {Types.hash32(), DepositData.t()}}
   @type summary :: {:zero, non_neg_integer()} | {:finalized, {Types.hash32(), non_neg_integer()}}
   @type tree_node :: leaf() | summary() | {:node, {tree_node(), tree_node()}}
 
@@ -52,17 +52,17 @@ defmodule Types.DepositTree do
 
   def get_proof(%__MODULE__{} = tree, index) do
     if index >= get_finalized(tree.inner) do
-      {:error, "deposit already finalized"}
-    else
       {:ok, generate_proof(tree.inner, index, @tree_depth, [mix_in_length(tree)])}
+    else
+      {:error, "deposit already finalized"}
     end
   end
 
   def get_root(%__MODULE__{inner: inner} = tree),
     do: SszEx.hash_nodes(get_node_root(inner), mix_in_length(tree))
 
-  def push_leaf(%__MODULE__{} = tree, %Deposit{} = deposit) do
-    leaf = {SszEx.hash(deposit), deposit}
+  def push_leaf(%__MODULE__{} = tree, %DepositData{} = deposit) do
+    leaf = {SszEx.hash_tree_root!(deposit), deposit}
     new_inner = push_leaf_inner(tree.inner, leaf, @tree_depth)
     %{tree | inner: new_inner, deposit_count: tree.deposit_count + 1}
   end
@@ -79,7 +79,7 @@ defmodule Types.DepositTree do
 
     cond do
       deposit_count == 2 ** level ->
-        {:finalized, {deposit_count, head}}
+        {:finalized, {head, deposit_count}}
 
       deposit_count <= left_subtree ->
         left = from_snapshot_parts(finalized, deposit_count, level - 1)
@@ -87,7 +87,7 @@ defmodule Types.DepositTree do
         {:node, {left, right}}
 
       true ->
-        left = {:finalized, {left_subtree, head}}
+        left = {:finalized, {head, left_subtree}}
         right = from_snapshot_parts(rest, deposit_count - left_subtree, level - 1)
         {:node, {left, right}}
     end
@@ -160,5 +160,6 @@ defmodule Types.DepositTree do
   defp get_finalized({:leaf, _}), do: 0
   defp get_finalized({:zero, _}), do: 0
 
-  defp mix_in_length(%__MODULE__{deposit_count: count}), do: <<count::unsigned-little-size(64)>>
+  defp mix_in_length(%__MODULE__{deposit_count: count}),
+    do: SszEx.hash_tree_root!(count, TypeAliases.uint64())
 end

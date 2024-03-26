@@ -187,6 +187,12 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec hash_tree_root!(struct()) :: Types.root()
+  def hash_tree_root!(%name{} = value) do
+    {:ok, root} = hash_tree_root(value, name)
+    root
+  end
+
   @spec hash_tree_root!(any, any) :: Types.root()
   def hash_tree_root!(value, schema) do
     {:ok, root} = hash_tree_root(value, schema)
