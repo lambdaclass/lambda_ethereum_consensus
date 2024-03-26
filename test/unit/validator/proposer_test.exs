@@ -1,4 +1,4 @@
-defmodule Unit.Validator.ProposerTest do
+defmodule Unit.Validator.ProposerTests do
   use ExUnit.Case
 
   alias LambdaEthereumConsensus.Validator.Proposer
@@ -14,13 +14,13 @@ defmodule Unit.Validator.ProposerTest do
   test "construct block" do
     pre_state =
       SpecTestUtils.read_ssz_from_file!(
-        "test/spec/vectors/tests/minimal/deneb/sanity/blocks/pyspec_tests/empty_block_transition/pre.ssz_snappy",
+        "test/fixtures/validator/proposer/beacon_state.ssz_snappy",
         BeaconState
       )
 
     spec_block =
       SpecTestUtils.read_ssz_from_file!(
-        "test/spec/vectors/tests/minimal/deneb/sanity/blocks/pyspec_tests/empty_block_transition/blocks_0.ssz_snappy",
+        "test/fixtures/validator/proposer/empty_block.ssz_snappy",
         SignedBeaconBlock
       )
 
