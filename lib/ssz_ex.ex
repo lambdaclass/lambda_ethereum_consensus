@@ -71,7 +71,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   @bits_per_byte 8
   @bits_per_chunk @bytes_per_chunk * @bits_per_byte
   @zero_chunk <<0::size(@bits_per_chunk)>>
-  @zero_hashes ZeroHashes.compute_zero_hashes()
 
   @compile {:inline, hash: 1}
   @spec hash(iodata()) :: binary()
@@ -79,6 +78,11 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @spec hash_nodes(binary(), binary()) :: binary()
   def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
+
+  @zero_hashes ZeroHashes.compute_zero_hashes()
+
+  @spec get_zero_hash(0..64) :: binary()
+  def get_zero_hash(depth), do: ZeroHashes.get_zero_hash(depth, @zero_hashes)
 
   @spec validate_schema!(schema()) :: :ok
   def validate_schema!(:bool), do: :ok
@@ -1060,12 +1064,6 @@ defmodule LambdaEthereumConsensus.SszEx do
       chunks
 
     <<left::binary, new_chunk::binary, right::binary>>
-  end
-
-  defp get_zero_hash(depth) do
-    offset = (depth + 1) * @bytes_per_chunk - @bytes_per_chunk
-    <<_::binary-size(offset), hash::binary-size(@bytes_per_chunk), _::binary>> = @zero_hashes
-    hash
   end
 
   def list_hash_tree_root(list, inner_schema) do
