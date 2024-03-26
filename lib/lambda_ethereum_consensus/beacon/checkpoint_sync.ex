@@ -77,13 +77,15 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
         {:error, err}
 
       {:ok, snapshot} ->
-        %DepositTreeSnapshot{
+        tree_snapshot = %DepositTreeSnapshot{
           finalized: Map.fetch!(snapshot, "finalized"),
           deposit_root: Map.fetch!(snapshot, "deposit_root"),
           deposit_count: Map.fetch!(snapshot, "deposit_count"),
           execution_block_hash: Map.fetch!(snapshot, "execution_block_hash"),
           execution_block_height: Map.fetch!(snapshot, "execution_block_height")
         }
+
+        {:ok, tree_snapshot}
     end
   end
 
@@ -91,7 +93,7 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
     full_url = concat_url(base_url, path)
 
     with {:ok, response} <- get(full_url) do
-      {:ok, response.body |> Map.fetch("data")}
+      {:ok, response.body |> Map.fetch!("data")}
     end
   end
 

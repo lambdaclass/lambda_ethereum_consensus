@@ -146,8 +146,12 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   defp fetch_deposit_snapshot(url) do
     case CheckpointSync.get_deposit_snapshot(url) do
-      {:ok, snapshot} -> snapshot
-      _ -> Logger.error("[Checkpoint sync] Failed to fetch the deposit snapshot")
+      {:ok, snapshot} ->
+        snapshot
+
+      _ ->
+        Logger.error("[Checkpoint sync] Failed to fetch the deposit snapshot")
+        System.halt(1)
     end
   end
 end

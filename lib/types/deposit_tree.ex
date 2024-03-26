@@ -21,7 +21,7 @@ defmodule Types.DepositTree do
   @type t :: %__MODULE__{
           inner: tree_node(),
           deposit_count: non_neg_integer(),
-          finalized_execution_block: {Types.hash32(), non_neg_integer()}
+          finalized_execution_block: {Types.hash32(), non_neg_integer()} | nil
         }
 
   ################

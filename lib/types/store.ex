@@ -29,7 +29,7 @@ defmodule Types.Store do
     :unrealized_justifications,
     # Stores block data on the current fork tree (~last two epochs)
     :tree_cache,
-    :deposit_tree
+    deposit_tree: nil
   ]
 
   @type t :: %__MODULE__{
@@ -46,7 +46,7 @@ defmodule Types.Store do
           latest_messages: %{Types.validator_index() => Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Checkpoint.t()},
           tree_cache: Tree.t(),
-          deposit_tree: DepositTree.t()
+          deposit_tree: DepositTree.t() | nil
         }
 
   @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) ::
@@ -151,6 +151,8 @@ defmodule Types.Store do
       {:error, :not_found} -> store
     end
   end
+
+  defp update_deposit_tree(%__MODULE__{deposit_tree: nil} = store, _), do: store
 
   defp update_deposit_tree(%__MODULE__{} = store, _deposits) do
     store
