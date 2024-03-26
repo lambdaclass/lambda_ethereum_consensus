@@ -122,6 +122,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         # We already checked block and state match
         {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
 
+        # TODO: integrate into CheckpointSync, and validate snapshot
         snapshot = fetch_deposit_snapshot(url)
         store = Store.init_deposit_tree(store, snapshot)
 
