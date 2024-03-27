@@ -14,6 +14,10 @@ defmodule Unit.BeaconApiTest.V2 do
   @opts Router.init([])
 
   setup %{tmp_dir: tmp_dir} do
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.merge(config: MainnetConfig)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
+
     start_link_supervised!({Db, dir: tmp_dir})
     start_supervised!(Blocks)
     :ok
