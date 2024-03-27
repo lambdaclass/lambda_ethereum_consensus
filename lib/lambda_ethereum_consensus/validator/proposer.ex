@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   Validator proposer duties.
   """
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
@@ -20,18 +21,17 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
         parent_root:
           <<123, 234, 141, 179, 46, 87, 30, 35, 136, 140, 35, 5, 42, 50, 198, 192, 151, 177, 18,
             239, 141, 142, 107, 105, 107, 140, 88, 112, 50, 69, 47, 228>>,
-        state_root:
-          <<173, 81, 100, 66, 197, 84, 137, 102, 200, 161, 182, 241, 222, 150, 201, 211, 80, 154,
-            64, 171, 115, 238, 58, 66, 103, 74, 220, 170, 8, 126, 22, 61>>,
+        state_root: <<0::256>>,
         body: construct_block_body(state, block_request, privkey)
       }
 
-      signed_block = %Types.SignedBeaconBlock{
-        message: block,
-        signature: get_block_signature(state, block, privkey)
-      }
-
-      {:ok, signed_block}
+      with {:ok, block_with_state_root} <- add_state_root(state, block) do
+        {:ok,
+         %Types.SignedBeaconBlock{
+           message: block_with_state_root,
+           signature: get_block_signature(state, block_with_state_root, privkey)
+         }}
+      end
     end
   end
 
@@ -72,6 +72,22 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
       sync_aggregate: get_sync_aggregate(),
       execution_payload: get_execution_payload()
     }
+  end
+
+  @spec add_state_root(BeaconState.t(), Types.BeaconBlock.t()) ::
+          {:ok, Types.BeaconBlock.t()}
+  defp add_state_root(pre_state, block) do
+    with {:ok, post_state} <-
+           StateTransition.state_transition(
+             pre_state,
+             %Types.SignedBeaconBlock{
+               message: block,
+               signature: <<0::768>>
+             },
+             false
+           ) do
+      {:ok, %Types.BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}}
+    end
   end
 
   @spec get_epoch_signature(BeaconState.t(), Types.slot(), Bls.privkey()) ::
