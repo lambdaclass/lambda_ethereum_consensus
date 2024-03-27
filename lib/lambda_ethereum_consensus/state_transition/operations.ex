@@ -767,7 +767,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     # Verify RANDAO reveal
     with {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
       proposer = Aja.Vector.at!(state.validators, proposer_index)
-      domain = Accessors.get_domain(state, Constants.domain_randao(), nil)
+      domain = Accessors.get_domain(state, Constants.domain_randao())
       signing_root = Misc.compute_signing_root(epoch, TypeAliases.epoch(), domain)
 
       if Bls.valid?(proposer.pubkey, signing_root, randao_reveal) do
