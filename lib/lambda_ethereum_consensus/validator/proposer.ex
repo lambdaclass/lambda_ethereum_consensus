@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   @moduledoc """
   Validator proposer duties.
   """
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
 
@@ -118,7 +119,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
 
   defp get_sync_aggregate do
     %Types.SyncAggregate{
-      sync_committee_bits: <<0, 0, 0, 0>>,
+      sync_committee_bits: ChainSpec.get("SYNC_COMMITTEE_SIZE") |> BitVector.new(),
       sync_committee_signature:
         <<192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
