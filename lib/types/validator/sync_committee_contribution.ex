@@ -33,7 +33,7 @@ defmodule Types.SyncCommitteeContribution do
       {:aggregation_bits,
        {:bitvector,
         div(
-          ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE"),
+          ChainSpec.get("SYNC_COMMITTEE_SIZE"),
           Constants.sync_committee_subnet_count()
         )}},
       {:signature, TypeAliases.bls_signature()}
