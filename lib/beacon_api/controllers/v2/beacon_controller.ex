@@ -67,7 +67,7 @@ defmodule BeaconApi.V2.BeaconController do
     })
   end
 
-  def block_not_found(conn) do
+  defp block_not_found(conn) do
     conn
     |> put_status(404)
     |> json(%{
