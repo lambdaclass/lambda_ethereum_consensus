@@ -408,11 +408,7 @@ defmodule LambdaEthereumConsensus.Validator do
     # TODO: handle errors if there are any
     {:ok, signed_block} =
       BlockStates.get_state!(head_root)
-      |> process_slots(proposed_slot)
-      |> Proposer.construct_block(index, privkey)
-
-    # TODO: remove this
-    ^proposed_slot = signed_block.message.slot
+      |> Proposer.construct_block(index, proposed_slot, privkey)
 
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)

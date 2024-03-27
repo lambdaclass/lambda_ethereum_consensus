@@ -8,12 +8,12 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
 
   alias Types.BeaconState
 
-  @spec construct_block(BeaconState.t(), Types.validator_index(), Bls.privkey()) ::
+  @spec construct_block(BeaconState.t(), Types.slot(), Types.validator_index(), Bls.privkey()) ::
           {:ok, Types.SignedBeaconBlock.t()}
-  def construct_block(%BeaconState{} = state, proposer_index, privkey) do
+  def construct_block(%BeaconState{} = state, slot, proposer_index, privkey) do
     # NOTE: the state is at the start of the block's slot
     block = %Types.BeaconBlock{
-      slot: state.slot,
+      slot: slot,
       proposer_index: proposer_index,
       parent_root:
         <<123, 234, 141, 179, 46, 87, 30, 35, 136, 140, 35, 5, 42, 50, 198, 192, 151, 177, 18,
@@ -22,7 +22,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
         <<173, 81, 100, 66, 197, 84, 137, 102, 200, 161, 182, 241, 222, 150, 201, 211, 80, 154,
           64, 171, 115, 238, 58, 66, 103, 74, 220, 170, 8, 126, 22, 61>>,
       body: %Types.BeaconBlockBody{
-        randao_reveal: get_epoch_signature(state, privkey),
+        randao_reveal: get_epoch_signature(state, slot, privkey),
         eth1_data: get_eth1_data(),
         graffiti:
           <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -47,10 +47,10 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     {:ok, signed_block}
   end
 
-  @spec get_epoch_signature(BeaconState.t(), Bls.privkey()) ::
+  @spec get_epoch_signature(BeaconState.t(), Types.slot(), Bls.privkey()) ::
           Types.bls_signature()
-  def get_epoch_signature(state, privkey) do
-    epoch = Misc.compute_epoch_at_slot(state.slot)
+  def get_epoch_signature(state, slot, privkey) do
+    epoch = Misc.compute_epoch_at_slot(slot)
     domain = Accessors.get_domain(state, Constants.domain_randao(), epoch)
     signing_root = Misc.compute_signing_root(epoch, TypeAliases.epoch(), domain)
     {:ok, signature} = Bls.sign(privkey, signing_root)
