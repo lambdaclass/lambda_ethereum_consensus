@@ -187,19 +187,25 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec hash_tree_root!(struct()) :: Types.root()
+  def hash_tree_root!(%name{} = value) do
+    {:ok, root} = hash_tree_root(value, name)
+    root
+  end
+
   @spec hash_tree_root!(any, any) :: Types.root()
   def hash_tree_root!(value, schema) do
     {:ok, root} = hash_tree_root(value, schema)
     root
   end
 
-  @spec hash_tree_root(boolean, atom) :: Types.root()
+  @spec hash_tree_root(boolean, atom) :: {:ok, Types.root()}
   def hash_tree_root(value, :bool), do: {:ok, pack(value, :bool)}
 
-  @spec hash_tree_root(non_neg_integer, {:int, non_neg_integer}) :: Types.root()
+  @spec hash_tree_root(non_neg_integer, {:int, non_neg_integer}) :: {:ok, Types.root()}
   def hash_tree_root(value, {:int, size}), do: {:ok, pack(value, {:int, size})}
 
-  @spec hash_tree_root(binary, {:bytes, non_neg_integer}) :: Types.root()
+  @spec hash_tree_root(binary, {:bytes, non_neg_integer}) :: {:ok, Types.root()}
   def hash_tree_root(value, {:bytes, size}) do
     packed_chunks = pack(value, {:bytes, size})
     leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
@@ -224,7 +230,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     {:ok, root}
   end
 
-  @spec hash_tree_root(struct(), atom()) :: Types.root()
+  @spec hash_tree_root(struct(), atom()) :: {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(container, module) when is_map(container) do
     value =
       module.schema()

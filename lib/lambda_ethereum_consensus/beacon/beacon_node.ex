@@ -122,6 +122,10 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         # We already checked block and state match
         {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
 
+        # TODO: integrate into CheckpointSync, and validate snapshot
+        snapshot = fetch_deposit_snapshot(url)
+        store = Store.init_deposit_tree(store, snapshot)
+
         # Save store in DB
         StoreDb.persist_store(store)
 
@@ -138,5 +142,16 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     (:os.system_time(:second) - store.genesis_time)
     |> div(ChainSpec.get("SECONDS_PER_SLOT"))
     |> Misc.compute_epoch_at_slot()
+  end
+
+  defp fetch_deposit_snapshot(url) do
+    case CheckpointSync.get_deposit_snapshot(url) do
+      {:ok, snapshot} ->
+        snapshot
+
+      _ ->
+        Logger.error("[Checkpoint sync] Failed to fetch the deposit snapshot")
+        System.halt(1)
+    end
   end
 end
