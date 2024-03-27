@@ -24,9 +24,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
       body: %Types.BeaconBlockBody{
         randao_reveal: get_epoch_signature(state, slot, privkey),
         eth1_data: get_eth1_data(),
-        graffiti:
-          <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0>>,
+        graffiti: compute_graffiti("lambda_ethereum_consensus"),
         proposer_slashings: [],
         attester_slashings: [],
         attestations: [],
@@ -76,6 +74,11 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
         <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 0>>
     }
+  end
+
+  defp compute_graffiti(graffiti_message) do
+    padding_len = 256 - bit_size(graffiti_message)
+    <<graffiti_message::binary, 0::size(padding_len)>>
   end
 
   defp get_execution_payload do
