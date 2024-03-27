@@ -55,16 +55,16 @@ defmodule SszStaticTestRunner do
     # "SignedAggregateAndProof",
     # "Eth1Block",
     # "SyncAggregatorSelectionData",
+    "SignedContributionAndProof",
+    # "SyncCommitteeContribution",
+    "ContributionAndProof",
     # -- not defined yet
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
     "LightClientFinalityUpdate",
     "LightClientHeader",
-    "PowBlock",
-    "SignedContributionAndProof",
-    "SyncCommitteeContribution",
-    "ContributionAndProof"
+    "PowBlock"
   ]
 
   @type_map %{

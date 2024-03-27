@@ -29,7 +29,7 @@ pub(crate) struct SyncCommitteeContribution<C: Config> {
     pub(crate) slot: Slot,
     pub(crate) beacon_block_root: Root,
     pub(crate) subcommittee_index: u64,
-    pub(crate) aggregation_bits: BitVector<C::SyncCommitteeSize>,
+    pub(crate) aggregation_bits: BitVector<C::SyncSubcommitteeSize>,
     pub(crate) signature: BLSSignature,
 }
 
