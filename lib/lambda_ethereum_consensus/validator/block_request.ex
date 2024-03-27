@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
   @enforce_keys enforced_keys
   defstruct enforced_keys ++ optional_keys
 
-  @type t() :: %{
+  @type t() :: %__MODULE__{
           slot: Types.slot(),
           proposer_index: Types.validator_index(),
           graffiti_message: binary()
