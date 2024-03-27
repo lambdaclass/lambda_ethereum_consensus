@@ -3,6 +3,7 @@ defmodule Unit.Validator.ProposerTests do
   use ExUnit.Case
 
   alias LambdaEthereumConsensus.StateTransition
+  alias LambdaEthereumConsensus.Validator.BlockRequest
   alias LambdaEthereumConsensus.Validator.Proposer
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -27,14 +28,15 @@ defmodule Unit.Validator.ProposerTests do
       )
 
     # This private key is taken from the spec test vectors
-    privkey =
-      <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 64>>
+    privkey = <<0::248, 64>>
 
-    validator_index = 63
+    block_request = %BlockRequest{
+      slot: pre_state.slot + 1,
+      proposer_index: 63,
+      graffiti_message: ""
+    }
 
-    {:ok, signed_block} =
-      Proposer.construct_block(pre_state, pre_state.slot + 1, validator_index, privkey)
+    {:ok, signed_block} = Proposer.construct_block(pre_state, block_request, privkey)
 
     assert signed_block.message.body.randao_reveal == spec_block.message.body.randao_reveal
     assert signed_block.signature == spec_block.signature
