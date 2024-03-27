@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   @moduledoc """
   Validator proposer duties.
   """
+  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -26,12 +27,15 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
         body: construct_block_body(state, block_request, privkey)
       }
 
-      signed_block = %Types.SignedBeaconBlock{
-        message: block,
-        signature: get_block_signature(state, block, privkey)
-      }
-
-      {:ok, signed_block}
+      with {:ok, block_with_state_root} <- add_state_root(state, block),
+           {:ok, block_signature} <-
+             get_block_signature(state, block_with_state_root, privkey) do
+        {:ok,
+         %Types.SignedBeaconBlock{
+           message: block_with_state_root,
+           signature: block_signature
+         }}
+      end
     end
   end
 
@@ -74,6 +78,23 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     }
   end
 
+  @spec add_state_root(BeaconState.t(), Types.BeaconBlock.t()) ::
+          {:ok, Types.BeaconBlock.t()}
+  defp add_state_root(pre_state, block) do
+    with {:ok, post_state} <-
+           StateTransition.state_transition(
+             pre_state,
+             %Types.SignedBeaconBlock{
+               message: block,
+               signature: <<0::768>>
+             },
+             false
+           ),
+         {:ok, state_root} <- Ssz.hash_tree_root(post_state) do
+      {:ok, %Types.BeaconBlock{block | state_root: state_root}}
+    end
+  end
+
   @spec get_epoch_signature(BeaconState.t(), Types.slot(), Bls.privkey()) ::
           Types.bls_signature()
   def get_epoch_signature(state, slot, privkey) do
@@ -85,12 +106,11 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   end
 
   @spec get_block_signature(BeaconState.t(), Types.BeaconBlock.t(), Bls.privkey()) ::
-          Types.bls_signature()
+          {:ok, Types.bls_signature()}
   def get_block_signature(state, block, privkey) do
     domain = Accessors.get_domain(state, Constants.domain_beacon_proposer())
     signing_root = Misc.compute_signing_root(block, domain)
-    {:ok, signature} = Bls.sign(privkey, signing_root)
-    signature
+    Bls.sign(privkey, signing_root)
   end
 
   defp get_eth1_data do
