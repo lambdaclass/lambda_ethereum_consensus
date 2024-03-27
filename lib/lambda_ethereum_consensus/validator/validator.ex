@@ -418,6 +418,8 @@ defmodule LambdaEthereumConsensus.Validator do
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
+    # TODO: we might want to send the block to ForkChoice
+
     case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
       :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
       _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
