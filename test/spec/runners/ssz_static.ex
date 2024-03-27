@@ -35,6 +35,7 @@ defmodule SszStaticTestRunner do
     # "SignedBLSToExecutionChange",
     # "SigningData",
     # "SyncCommittee",
+    # "SyncCommitteeMessage"
     # "Withdrawal",
     # "AttesterSlashing",
     # "HistoricalSummary",
@@ -63,8 +64,7 @@ defmodule SszStaticTestRunner do
     "PowBlock",
     "SignedContributionAndProof",
     "SyncCommitteeContribution",
-    "ContributionAndProof",
-    "SyncCommitteeMessage"
+    "ContributionAndProof"
   ]
 
   @type_map %{
