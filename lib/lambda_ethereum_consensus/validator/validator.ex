@@ -5,7 +5,9 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
+  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
@@ -13,6 +15,7 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
+  alias LambdaEthereumConsensus.Validator.Proposer
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
 
@@ -99,7 +102,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     new_state = maybe_publish_aggregate(new_state, slot)
 
-    if should_propose?(new_state, slot), do: propose(new_state)
+    if should_propose?(new_state, slot + 1), do: propose(new_state, slot)
 
     {:noreply, new_state}
   end
@@ -146,8 +149,14 @@ defmodule LambdaEthereumConsensus.Validator do
       maybe_update_attester_duties(duties.attester, beacon_state, epoch, validator)
 
     proposer_duties = compute_proposer_duties(beacon_state, epoch, validator.index)
+    # To avoid edge-cases
+    old_duty =
+      case duties.proposer do
+        :not_computed -> []
+        old -> old |> Enum.reverse() |> Enum.take(1)
+      end
 
-    %{duties | attester: attester_duties, proposer: proposer_duties}
+    %{duties | attester: attester_duties, proposer: old_duty ++ proposer_duties}
   end
 
   defp maybe_update_attester_duties([epp, ep0, ep1], beacon_state, epoch, validator) do
@@ -392,10 +401,24 @@ defmodule LambdaEthereumConsensus.Validator do
     end)
   end
 
-  # If we are the proposer for the next slot, we should propose a block now
-  defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot + 1)
+  # Returns true if the validator should propose a block for the given slot
+  defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
-  defp propose(_state) do
-    # TODO: implement block proposal
+  defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
+    # TODO: handle errors if there are any
+    {:ok, signed_block} =
+      BlockStates.get_state!(head_root)
+      |> Proposer.construct_block(index, proposed_slot, privkey)
+
+    {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
+    {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+
+    # TODO: we might want to send the block to ForkChoice
+
+    case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
+      :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
+      _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
+    end
   end
 end

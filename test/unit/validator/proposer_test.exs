@@ -1,6 +1,8 @@
 defmodule Unit.Validator.ProposerTests do
+  @moduledoc false
   use ExUnit.Case
 
+  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.Validator.Proposer
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -29,8 +31,14 @@ defmodule Unit.Validator.ProposerTests do
       <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 64>>
 
-    {:ok, signed_block} = Proposer.construct_block(pre_state, privkey)
+    validator_index = 63
+
+    {:ok, signed_block} =
+      Proposer.construct_block(pre_state, pre_state.slot + 1, validator_index, privkey)
+
     assert signed_block.message.body.randao_reveal == spec_block.message.body.randao_reveal
     assert signed_block.signature == spec_block.signature
+
+    assert {:ok, _} = StateTransition.state_transition(pre_state, signed_block, true)
   end
 end
