@@ -68,7 +68,8 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     }
   end
 
-  @spec seal_block(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) :: {:ok, BeaconBlock.t()}
+  @spec seal_block(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
+          {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
   defp seal_block(pre_state, block, privkey) do
     wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
 
