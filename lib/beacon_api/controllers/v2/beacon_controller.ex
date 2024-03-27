@@ -6,7 +6,6 @@ defmodule BeaconApi.V2.BeaconController do
   alias BeaconApi.Utils
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Utils.BitList
   alias Types
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
@@ -64,35 +63,9 @@ defmodule BeaconApi.V2.BeaconController do
       version: "deneb",
       execution_optimistic: true,
       finalized: false,
-      data: to_json(block)
+      data: Utils.to_json(block)
     })
   end
-
-  defp to_json(attribute, module) when is_struct(attribute) do
-    module.schema()
-    |> Enum.map(fn {k, schema} ->
-      {k, Map.fetch!(attribute, k) |> to_json(schema)}
-    end)
-    |> Map.new()
-  end
-
-  defp to_json(binary, {x, :bytes, _}) when x in [:list, :vector], do: to_json(binary)
-
-  defp to_json(list, {x, schema, _}) when x in [:list, :vector],
-    do: Enum.map(list, fn elem -> to_json(elem, schema) end)
-
-  defp to_json(bitlist, {:bitlist, _}) do
-    bitlist
-    |> BitList.to_bytes()
-    |> Utils.hex_encode()
-  end
-
-  defp to_json(v, _schema), do: to_json(v)
-
-  def to_json(%name{} = v), do: to_json(v, name)
-  def to_json({k, v}), do: {k, to_json(v)}
-  def to_json(x) when is_binary(x), do: Utils.hex_encode(x)
-  def to_json(v), do: inspect(v)
 
   def block_not_found(conn) do
     conn

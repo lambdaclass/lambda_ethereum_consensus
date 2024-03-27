@@ -32,7 +32,7 @@ defmodule Unit.BeaconApiTest.V2 do
       version: "deneb",
       execution_optimistic: true,
       finalized: false,
-      data: BeaconApi.V2.BeaconController.to_json(signed_block)
+      data: BeaconApi.Utils.to_json(signed_block)
     }
 
     {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
@@ -58,7 +58,7 @@ defmodule Unit.BeaconApiTest.V2 do
       version: "deneb",
       execution_optimistic: true,
       finalized: false,
-      data: BeaconApi.V2.BeaconController.to_json(signed_block)
+      data: BeaconApi.Utils.to_json(signed_block)
     }
 
     {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
