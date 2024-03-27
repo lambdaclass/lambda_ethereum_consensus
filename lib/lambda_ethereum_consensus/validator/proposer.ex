@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
       body: %Types.BeaconBlockBody{
         randao_reveal: get_epoch_signature(state, slot, privkey),
         eth1_data: get_eth1_data(),
-        graffiti: compute_graffiti("lambda_ethereum_consensus"),
+        graffiti: pad_graffiti_message(""),
         proposer_slashings: [],
         attester_slashings: [],
         attestations: [],
@@ -66,17 +66,13 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
 
   defp get_eth1_data do
     %Types.Eth1Data{
-      deposit_root:
-        <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0>>,
+      deposit_root: <<0::256>>,
       deposit_count: 64,
-      block_hash:
-        <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0>>
+      block_hash: <<0::256>>
     }
   end
 
-  defp compute_graffiti(graffiti_message) do
+  defp pad_graffiti_message(graffiti_message) do
     padding_len = 256 - bit_size(graffiti_message)
     <<graffiti_message::binary, 0::size(padding_len)>>
   end
@@ -86,21 +82,12 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
       parent_hash:
         <<212, 46, 177, 5, 71, 181, 49, 8, 203, 152, 49, 250, 205, 230, 188, 78, 249, 162, 232,
           114, 146, 86, 123, 101, 230, 11, 67, 235, 239, 164, 41, 159>>,
-      fee_recipient: <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>,
+      fee_recipient: <<0::160>>,
       state_root: "                                ",
       receipts_root:
         <<29, 204, 77, 232, 222, 199, 93, 122, 171, 133, 181, 103, 182, 204, 212, 26, 211, 18, 69,
           27, 148, 138, 116, 19, 240, 161, 66, 253, 64, 212, 147, 71>>,
-      logs_bloom:
-        <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>,
+      logs_bloom: <<0::2048>>,
       prev_randao:
         <<218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218,
           218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218>>,
@@ -123,11 +110,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   defp get_sync_aggregate do
     %Types.SyncAggregate{
       sync_committee_bits: ChainSpec.get("SYNC_COMMITTEE_SIZE") |> BitVector.new(),
-      sync_committee_signature:
-        <<192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0>>
+      sync_committee_signature: <<192, 0::760>>
     }
   end
 end
