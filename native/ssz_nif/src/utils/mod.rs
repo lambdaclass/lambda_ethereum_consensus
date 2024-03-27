@@ -37,6 +37,7 @@ macro_rules! schema_match {
                 SigningData,
                 SyncAggregate<C>,
                 SyncCommittee<C>,
+                SyncCommitteeMessage,
                 BeaconState<C>,
                 BeaconBlockBody<C>,
                 StatusMessage,
