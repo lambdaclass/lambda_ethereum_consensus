@@ -72,9 +72,12 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     }
   end
 
-  defp pad_graffiti_message(graffiti_message) do
-    padding_len = 256 - bit_size(graffiti_message)
-    <<graffiti_message::binary, 0::size(padding_len)>>
+  defp pad_graffiti_message(message) do
+    # Truncate to 32 bytes
+    message = binary_slice(message, 0, 32)
+    # Pad to 32 bytes
+    padding_len = 256 - bit_size(message)
+    <<message::binary, 0::size(padding_len)>>
   end
 
   defp get_execution_payload do
