@@ -48,23 +48,22 @@ defmodule Types.BeaconBlockBody do
   @impl LambdaEthereumConsensus.Container
   def schema do
     [
-      {:randao_reveal, TypeAliases.bls_signature()},
-      {:eth1_data, Types.Eth1Data},
-      {:graffiti, TypeAliases.bytes32()},
-      {:proposer_slashings,
-       {:list, Types.ProposerSlashing, ChainSpec.get("MAX_PROPOSER_SLASHINGS")}},
-      {:attester_slashings,
-       {:list, Types.AttesterSlashing, ChainSpec.get("MAX_ATTESTER_SLASHINGS")}},
-      {:attestations, {:list, Types.Attestation, ChainSpec.get("MAX_ATTESTATIONS")}},
-      {:deposits, {:list, Types.Deposit, ChainSpec.get("MAX_DEPOSITS")}},
-      {:voluntary_exits,
-       {:list, Types.SignedVoluntaryExit, ChainSpec.get("MAX_VOLUNTARY_EXITS")}},
-      {:sync_aggregate, Types.SyncAggregate},
-      {:execution_payload, Types.ExecutionPayload},
-      {:bls_to_execution_changes,
-       {:list, Types.SignedBLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")}},
-      {:blob_kzg_commitments,
-       {:list, TypeAliases.kzg_commitment(), ChainSpec.get("MAX_BLOB_COMMITMENTS_PER_BLOCK")}}
+      randao_reveal: TypeAliases.bls_signature(),
+      eth1_data: Types.Eth1Data,
+      graffiti: TypeAliases.bytes32(),
+      proposer_slashings:
+        {:list, Types.ProposerSlashing, ChainSpec.get("MAX_PROPOSER_SLASHINGS")},
+      attester_slashings:
+        {:list, Types.AttesterSlashing, ChainSpec.get("MAX_ATTESTER_SLASHINGS")},
+      attestations: {:list, Types.Attestation, ChainSpec.get("MAX_ATTESTATIONS")},
+      deposits: {:list, Types.Deposit, ChainSpec.get("MAX_DEPOSITS")},
+      voluntary_exits: {:list, Types.SignedVoluntaryExit, ChainSpec.get("MAX_VOLUNTARY_EXITS")},
+      sync_aggregate: Types.SyncAggregate,
+      execution_payload: Types.ExecutionPayload,
+      bls_to_execution_changes:
+        {:list, Types.SignedBLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")},
+      blob_kzg_commitments:
+        {:list, TypeAliases.kzg_commitment(), ChainSpec.get("MAX_BLOB_COMMITMENTS_PER_BLOCK")}
     ]
   end
 end
