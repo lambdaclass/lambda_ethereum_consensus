@@ -3,6 +3,7 @@ defmodule BeaconApi.Utils do
    Set of useful utilitary functions in the context of the Beacon API
   """
   alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.Utils.BitList
 
   @spec parse_id(binary) :: Helpers.block_id()
   def parse_id("genesis"), do: :genesis
@@ -29,4 +30,30 @@ defmodule BeaconApi.Utils do
   def hex_encode(binary) when is_binary(binary) do
     "0x" <> Base.encode16(binary, case: :lower)
   end
+
+  defp to_json(attribute, module) when is_struct(attribute) do
+    module.schema()
+    |> Enum.map(fn {k, schema} ->
+      {k, Map.fetch!(attribute, k) |> to_json(schema)}
+    end)
+    |> Map.new()
+  end
+
+  defp to_json(binary, {x, :bytes, _}) when x in [:list, :vector], do: to_json(binary)
+
+  defp to_json(list, {x, schema, _}) when x in [:list, :vector],
+    do: Enum.map(list, fn elem -> to_json(elem, schema) end)
+
+  defp to_json(bitlist, {:bitlist, _}) do
+    bitlist
+    |> BitList.to_bytes()
+    |> hex_encode()
+  end
+
+  defp to_json(v, _schema), do: to_json(v)
+
+  def to_json(%name{} = v), do: to_json(v, name)
+  def to_json({k, v}), do: {k, to_json(v)}
+  def to_json(x) when is_binary(x), do: hex_encode(x)
+  def to_json(v), do: inspect(v)
 end
