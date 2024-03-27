@@ -36,5 +36,16 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
   def validate(%__MODULE__{slot: slot}, %BeaconState{slot: state_slot}) when slot <= state_slot,
     do: {:error, "slot is older than the state"}
 
+  def validate(%__MODULE__{graffiti_message: message} = request, _) when byte_size(message) != 32,
+    do: {:ok, %{request | graffiti_message: pad_graffiti_message(message)}}
+
   def validate(%__MODULE__{} = request, _), do: {:ok, request}
+
+  defp pad_graffiti_message(message) do
+    # Truncate to 32 bytes
+    message = binary_slice(message, 0, 32)
+    # Pad to 32 bytes
+    padding_len = 256 - bit_size(message)
+    <<message::binary, 0::size(padding_len)>>
+  end
 end
