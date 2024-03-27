@@ -5,7 +5,6 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
-  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
@@ -13,6 +12,7 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
@@ -21,7 +21,7 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
 
-  @default_graffiti_message "lambda_ethereum_consensus"
+  @default_graffiti_message "Lambda: good, nice, gentle"
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
