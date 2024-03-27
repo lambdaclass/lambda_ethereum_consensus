@@ -2,8 +2,8 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   @moduledoc """
   Validator proposer duties.
   """
-  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
@@ -27,13 +27,11 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
         body: construct_block_body(state, block_request, privkey)
       }
 
-      with {:ok, block_with_state_root} <- add_state_root(state, block),
-           {:ok, block_signature} <-
-             get_block_signature(state, block_with_state_root, privkey) do
+      with {:ok, block_with_state_root} <- add_state_root(state, block) do
         {:ok,
          %Types.SignedBeaconBlock{
            message: block_with_state_root,
-           signature: block_signature
+           signature: get_block_signature(state, block_with_state_root, privkey)
          }}
       end
     end
@@ -89,9 +87,8 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
                signature: <<0::768>>
              },
              false
-           ),
-         {:ok, state_root} <- Ssz.hash_tree_root(post_state) do
-      {:ok, %Types.BeaconBlock{block | state_root: state_root}}
+           ) do
+      {:ok, %Types.BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}}
     end
   end
 
@@ -106,11 +103,12 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   end
 
   @spec get_block_signature(BeaconState.t(), Types.BeaconBlock.t(), Bls.privkey()) ::
-          {:ok, Types.bls_signature()}
+          Types.bls_signature()
   def get_block_signature(state, block, privkey) do
     domain = Accessors.get_domain(state, Constants.domain_beacon_proposer())
     signing_root = Misc.compute_signing_root(block, domain)
-    Bls.sign(privkey, signing_root)
+    {:ok, signature} = Bls.sign(privkey, signing_root)
+    signature
   end
 
   defp get_eth1_data do
