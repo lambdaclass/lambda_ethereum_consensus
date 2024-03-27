@@ -1,6 +1,8 @@
 defmodule LambdaEthereumConsensus.Validator.BlockRequest do
   @moduledoc """
   Struct that stores and validates data for block construction.
+  Most of the data is already validated when computing the state
+  transition, so this focuses on cheap validations.
   """
   alias Types.BeaconState
 
@@ -28,5 +30,5 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
   def validate(%__MODULE__{slot: slot}, %BeaconState{slot: state_slot}) when slot <= state_slot,
     do: {:error, "slot is older than the state"}
 
-  def validate(%__MODULE__{} = request, _), do: request
+  def validate(%__MODULE__{} = request, _), do: {:ok, request}
 end

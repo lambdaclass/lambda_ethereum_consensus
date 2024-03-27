@@ -10,13 +10,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
 
   alias Types.BeaconState
 
-  @type block_request() :: %{
-          slot: Types.slot(),
-          proposer_index: Types.validator_index(),
-          graffiti_message: binary()
-        }
-
-  @spec construct_block(BeaconState.t(), block_request(), Bls.privkey()) ::
+  @spec construct_block(BeaconState.t(), BlockRequest.t(), Bls.privkey()) ::
           {:ok, Types.SignedBeaconBlock.t()} | {:error, String.t()}
   def construct_block(%BeaconState{} = state, %BlockRequest{} = request, privkey) do
     with {:ok, block_request} <- BlockRequest.validate(request, state) do
@@ -41,6 +35,13 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     end
   end
 
+  @spec fetch_operations_for_block() :: %{
+          proposer_slashings: [Types.ProposerSlashing.t()],
+          attester_slashings: [Types.AttesterSlashing.t()],
+          attestations: [Types.Attestation.t()],
+          voluntary_exits: [Types.VoluntaryExit.t()],
+          bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()]
+        }
   def fetch_operations_for_block do
     %{
       proposer_slashings:

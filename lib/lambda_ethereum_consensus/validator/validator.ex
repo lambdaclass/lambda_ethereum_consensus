@@ -15,9 +15,12 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
+  alias LambdaEthereumConsensus.Validator.BlockRequest
   alias LambdaEthereumConsensus.Validator.Proposer
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
+
+  @default_graffiti_message "lambda_ethereum_consensus"
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -405,10 +408,18 @@ defmodule LambdaEthereumConsensus.Validator do
   defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
+    block_request =
+      %BlockRequest{
+        slot: proposed_slot,
+        proposer_index: index,
+        graffiti_message: @default_graffiti_message
+      }
+      |> Map.merge(Proposer.fetch_operations_for_block())
+
     # TODO: handle errors if there are any
     {:ok, signed_block} =
       BlockStates.get_state!(head_root)
-      |> Proposer.construct_block(index, proposed_slot, privkey)
+      |> Proposer.construct_block(block_request, privkey)
 
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
