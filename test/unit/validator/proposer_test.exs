@@ -33,10 +33,12 @@ defmodule Unit.Validator.ProposerTests do
 
     validator_index = 63
 
-    {:ok, state} = StateTransition.process_slots(pre_state, 1)
+    {:ok, pre} = StateTransition.process_slots(pre_state, 1)
 
-    {:ok, signed_block} = Proposer.construct_block(state, validator_index, privkey)
+    {:ok, signed_block} = Proposer.construct_block(pre, validator_index, privkey)
     assert signed_block.message.body.randao_reveal == spec_block.message.body.randao_reveal
     assert signed_block.signature == spec_block.signature
+
+    assert {:ok, _} = StateTransition.state_transition(pre_state, signed_block, true)
   end
 end
