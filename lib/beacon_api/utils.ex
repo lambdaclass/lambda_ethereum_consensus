@@ -47,7 +47,7 @@ defmodule BeaconApi.Utils do
   defp to_json(bitlist, {:bitlist, _}) do
     bitlist
     |> BitList.to_bytes()
-    |> Utils.hex_encode()
+    |> hex_encode()
   end
 
   defp to_json(v, _schema), do: to_json(v)
