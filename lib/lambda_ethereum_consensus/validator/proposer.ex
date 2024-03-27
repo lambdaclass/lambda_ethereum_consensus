@@ -2,9 +2,9 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   @moduledoc """
   Validator proposer duties.
   """
-  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Utils.BitVector
 
   alias Types.BeaconState
 
