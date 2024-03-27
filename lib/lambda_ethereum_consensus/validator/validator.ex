@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
@@ -408,11 +409,14 @@ defmodule LambdaEthereumConsensus.Validator do
   defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
+    last_eth1_data = Blocks.get_block!(head_root) |> get_in([:body, :eth1_data])
+
     block_request =
       %BlockRequest{
         slot: proposed_slot,
         proposer_index: index,
-        graffiti_message: @default_graffiti_message
+        graffiti_message: @default_graffiti_message,
+        eth1_data: last_eth1_data
       }
       |> Map.merge(Proposer.fetch_operations_for_block())
 

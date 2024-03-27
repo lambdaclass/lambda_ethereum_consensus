@@ -60,7 +60,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   defp construct_block_body(state, request, privkey) do
     %Types.BeaconBlockBody{
       randao_reveal: get_epoch_signature(state, request.slot, privkey),
-      eth1_data: get_eth1_data(),
+      eth1_data: request.eth1_data,
       graffiti: pad_graffiti_message(request.graffiti_message),
       proposer_slashings: request.proposer_slashings,
       attester_slashings: request.attester_slashings,
@@ -107,14 +107,6 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     signing_root = Misc.compute_signing_root(block, domain)
     {:ok, signature} = Bls.sign(privkey, signing_root)
     signature
-  end
-
-  defp get_eth1_data do
-    %Types.Eth1Data{
-      deposit_root: <<0::256>>,
-      deposit_count: 64,
-      block_hash: <<0::256>>
-    }
   end
 
   defp pad_graffiti_message(message) do
