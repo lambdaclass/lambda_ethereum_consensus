@@ -55,9 +55,9 @@ defmodule SszStaticTestRunner do
     # "SignedAggregateAndProof",
     # "Eth1Block",
     # "SyncAggregatorSelectionData",
-    "SignedContributionAndProof",
+    # "SignedContributionAndProof",
     # "SyncCommitteeContribution",
-    "ContributionAndProof",
+    # "ContributionAndProof",
     # -- not defined yet
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
