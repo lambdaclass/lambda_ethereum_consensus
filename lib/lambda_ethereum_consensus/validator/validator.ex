@@ -12,6 +12,7 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
@@ -20,7 +21,7 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
 
-  @default_graffiti_message "lambda_ethereum_consensus"
+  @default_graffiti_message "Lambda: good, nice, gentle"
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -408,11 +409,14 @@ defmodule LambdaEthereumConsensus.Validator do
   defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
+    last_eth1_data = Blocks.get_block!(head_root) |> get_in([:body, :eth1_data])
+
     block_request =
       %BlockRequest{
         slot: proposed_slot,
         proposer_index: index,
-        graffiti_message: @default_graffiti_message
+        graffiti_message: @default_graffiti_message,
+        eth1_data: last_eth1_data
       }
       |> Map.merge(Proposer.fetch_operations_for_block())
 

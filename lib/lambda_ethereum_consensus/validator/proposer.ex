@@ -9,29 +9,23 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Validator.BlockRequest
 
+  alias Types.BeaconBlock
   alias Types.BeaconState
+  alias Types.SignedBeaconBlock
 
   @spec construct_block(BeaconState.t(), BlockRequest.t(), Bls.privkey()) ::
-          {:ok, Types.SignedBeaconBlock.t()} | {:error, String.t()}
+          {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
   def construct_block(%BeaconState{} = state, %BlockRequest{} = request, privkey) do
     with {:ok, block_request} <- BlockRequest.validate(request, state) do
-      block = %Types.BeaconBlock{
+      block = %BeaconBlock{
         slot: block_request.slot,
         proposer_index: block_request.proposer_index,
-        parent_root:
-          <<123, 234, 141, 179, 46, 87, 30, 35, 136, 140, 35, 5, 42, 50, 198, 192, 151, 177, 18,
-            239, 141, 142, 107, 105, 107, 140, 88, 112, 50, 69, 47, 228>>,
+        parent_root: Misc.get_latest_block_hash(state),
         state_root: <<0::256>>,
         body: construct_block_body(state, block_request, privkey)
       }
 
-      with {:ok, block_with_state_root} <- add_state_root(state, block) do
-        {:ok,
-         %Types.SignedBeaconBlock{
-           message: block_with_state_root,
-           signature: get_block_signature(state, block_with_state_root, privkey)
-         }}
-      end
+      seal_block(state, block, privkey)
     end
   end
 
@@ -60,8 +54,8 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   defp construct_block_body(state, request, privkey) do
     %Types.BeaconBlockBody{
       randao_reveal: get_epoch_signature(state, request.slot, privkey),
-      eth1_data: get_eth1_data(),
-      graffiti: pad_graffiti_message(request.graffiti_message),
+      eth1_data: request.eth1_data,
+      graffiti: request.graffiti_message,
       proposer_slashings: request.proposer_slashings,
       attester_slashings: request.attester_slashings,
       attestations: request.attestations,
@@ -74,20 +68,21 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     }
   end
 
-  @spec add_state_root(BeaconState.t(), Types.BeaconBlock.t()) ::
-          {:ok, Types.BeaconBlock.t()}
-  defp add_state_root(pre_state, block) do
-    with {:ok, post_state} <-
-           StateTransition.state_transition(
-             pre_state,
-             %Types.SignedBeaconBlock{
-               message: block,
-               signature: <<0::768>>
-             },
-             false
-           ) do
-      {:ok, %Types.BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}}
+  @spec seal_block(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
+          {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
+  defp seal_block(pre_state, block, privkey) do
+    wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
+
+    with {:ok, post_state} <- StateTransition.state_transition(pre_state, wrapped_block, false) do
+      %BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}
+      |> sign_block(post_state, privkey)
+      |> then(&{:ok, &1})
     end
+  end
+
+  defp sign_block(block, state, privkey) do
+    signature = get_block_signature(state, block, privkey)
+    %SignedBeaconBlock{message: block, signature: signature}
   end
 
   @spec get_epoch_signature(BeaconState.t(), Types.slot(), Bls.privkey()) ::
@@ -100,29 +95,13 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     signature
   end
 
-  @spec get_block_signature(BeaconState.t(), Types.BeaconBlock.t(), Bls.privkey()) ::
+  @spec get_block_signature(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
           Types.bls_signature()
   def get_block_signature(state, block, privkey) do
     domain = Accessors.get_domain(state, Constants.domain_beacon_proposer())
     signing_root = Misc.compute_signing_root(block, domain)
     {:ok, signature} = Bls.sign(privkey, signing_root)
     signature
-  end
-
-  defp get_eth1_data do
-    %Types.Eth1Data{
-      deposit_root: <<0::256>>,
-      deposit_count: 64,
-      block_hash: <<0::256>>
-    }
-  end
-
-  defp pad_graffiti_message(message) do
-    # Truncate to 32 bytes
-    message = binary_slice(message, 0, 32)
-    # Pad to 32 bytes
-    padding_len = 256 - bit_size(message)
-    <<message::binary, 0::size(padding_len)>>
   end
 
   defp get_execution_payload do
