@@ -692,9 +692,11 @@ defmodule LambdaEthereumConsensus.SszEx do
          <<fixed_binary::binary-size(fixed_length), variable_binary::bitstring>> = binary,
          {:ok, fixed_parts, offsets, items_index} <-
            decode_fixed_section(fixed_binary, schemas, fixed_length),
-         :ok <- check_first_offset(offsets, items_index, byte_size(binary)),
+         :ok <- check_first_offset(offsets, items_index),
          {:ok, variable_parts} <- decode_variable_section(binary, variable_binary, offsets) do
       {:ok, struct!(module, fixed_parts ++ variable_parts)}
+    else
+      {:error, e} -> {:error, {:variable_container_error, module, e}}
     end
   end
 
@@ -709,10 +711,10 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp check_first_offset([{offset, _} | _rest], items_index, _binary_size) do
+  defp check_first_offset([{offset, _} | _rest], items_index) do
     cond do
-      offset < items_index -> {:error, "OffsetIntoFixedPortion (#{offset})"}
-      offset > items_index -> {:error, "OffsetSkipsVariableBytes"}
+      offset < items_index -> {:error, "OffsetIntoFixedPortion (#{offset} < #{items_index})"}
+      offset > items_index -> {:error, "OffsetSkipsVariableBytes (#{offset} > #{items_index})"}
       true -> :ok
     end
   end
