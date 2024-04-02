@@ -344,7 +344,7 @@ defmodule LambdaEthereumConsensus.Validator do
       }
     }
 
-    bits = BitList.default(committee_length) |> BitList.set(index_in_committee)
+    bits = BitList.zero(committee_length) |> BitList.set(index_in_committee)
 
     signature = Utils.get_attestation_signature(head_state, attestation_data, privkey)
 
