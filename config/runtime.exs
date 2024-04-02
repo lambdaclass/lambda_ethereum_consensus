@@ -110,7 +110,7 @@ genesis =
       {:ok, state} =
         Path.join(testnet_dir, "genesis.ssz")
         |> File.read!()
-        |> SszEx.decode(Types.BeaconStateDeneb)
+        |> SszEx.decode(Types.BeaconState)
 
       {:file, state}
   end
