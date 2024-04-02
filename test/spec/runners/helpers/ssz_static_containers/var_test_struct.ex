@@ -2,7 +2,7 @@ defmodule Helpers.SszStaticContainers.VarTestStruct do
   @moduledoc """
   Struct definition for `VarTestStruct`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :A,

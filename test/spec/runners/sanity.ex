@@ -10,8 +10,6 @@ defmodule SanityTestRunner do
   alias LambdaEthereumConsensus.Utils.Diff
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   @disabled_block_cases [
     # "activate_and_partial_withdrawal_max_effective_balance",
     # "activate_and_partial_withdrawal_overdeposit",
@@ -102,6 +100,14 @@ defmodule SanityTestRunner do
   end
 
   def skip?(%SpecTestCase{fork: "capella", handler: "slots", case: testcase}) do
+    Enum.member?(@disabled_slot_cases, testcase)
+  end
+
+  def skip?(%SpecTestCase{fork: "deneb", handler: "blocks", case: testcase}) do
+    Enum.member?(@disabled_block_cases, testcase)
+  end
+
+  def skip?(%SpecTestCase{fork: "deneb", handler: "slots", case: testcase}) do
     Enum.member?(@disabled_slot_cases, testcase)
   end
 

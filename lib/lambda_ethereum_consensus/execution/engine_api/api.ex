@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
   alias Types.ExecutionPayload
-  alias Types.ExecutionPayloadDeneb
 
   @supported_methods ["engine_newPayloadV2", "engine_newPayloadV3"]
 
@@ -20,15 +19,8 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
     call("engine_exchangeCapabilities", [@supported_methods])
   end
 
-  @spec new_payload(ExecutionPayload.t()) :: {:ok, any} | {:error, any}
-  # CAPELLA
-  def new_payload(execution_payload) do
-    call("engine_newPayloadV2", [RPC.normalize(execution_payload)])
-  end
-
-  @spec new_payload(ExecutionPayloadDeneb.t(), [list(Types.root())], Types.root()) ::
+  @spec new_payload(ExecutionPayload.t(), [list(Types.root())], Types.root()) ::
           {:ok, any} | {:error, any}
-  # DENEB
   def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root) do
     call(
       "engine_newPayloadV3",

@@ -2,7 +2,8 @@
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
-		clean-tests gen-spec compile-all download-beacon-node-oapi test-iex
+		clean-tests gen-spec compile-all download-beacon-node-oapi test-iex \
+		sepolia holesky gnosis
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -129,6 +130,10 @@ checkpoint-sync: compile-all
 #▶️ sepolia: @ Run an interactive terminal using sepolia network
 sepolia: compile-all
 	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia
+
+#▶️ holesky: @ Run an interactive terminal using holesky network
+holesky: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky
 
 #▶️ gnosis: @ Run an interactive terminal using gnosis network
 gnosis: compile-all

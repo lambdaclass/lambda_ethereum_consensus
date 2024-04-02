@@ -8,8 +8,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   alias Types.BeaconState
   alias Types.Checkpoint
 
-  use HardForkAliasInjection
-
   defmodule BeaconChainState do
     @moduledoc false
 

@@ -3,7 +3,7 @@ defmodule Types.ExecutionPayload do
   Struct definition for `ExecutionPayload`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :parent_hash,
@@ -20,7 +20,9 @@ defmodule Types.ExecutionPayload do
     :base_fee_per_gas,
     :block_hash,
     :transactions,
-    :withdrawals
+    :withdrawals,
+    :blob_gas_used,
+    :excess_blob_gas
   ]
 
   @enforce_keys fields
@@ -45,7 +47,9 @@ defmodule Types.ExecutionPayload do
           # size MAX_TRANSACTIONS_PER_PAYLOAD
           transactions: list(Types.transaction()),
           # size MAX_TRANSACTIONS_PER_PAYLOAD
-          withdrawals: list(Types.Withdrawal.t())
+          withdrawals: list(Types.Withdrawal.t()),
+          blob_gas_used: Types.uint64(),
+          excess_blob_gas: Types.uint64()
         }
 
   def encode(%__MODULE__{} = map) do
@@ -73,7 +77,9 @@ defmodule Types.ExecutionPayload do
       {:base_fee_per_gas, TypeAliases.uint256()},
       {:block_hash, TypeAliases.hash32()},
       {:transactions, TypeAliases.transactions()},
-      {:withdrawals, {:list, Types.Withdrawal, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}}
+      {:withdrawals, {:list, Types.Withdrawal, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}},
+      {:blob_gas_used, TypeAliases.uint64()},
+      {:excess_blob_gas, TypeAliases.uint64()}
     ]
   end
 end

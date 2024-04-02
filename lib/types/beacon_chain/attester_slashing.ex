@@ -3,7 +3,7 @@ defmodule Types.AttesterSlashing do
   Struct definition for `AttesterSlashing`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :attestation_1,

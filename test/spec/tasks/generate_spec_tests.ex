@@ -62,22 +62,22 @@ defmodule Mix.Tasks.GenerateSpecTests do
     module_name = MetaUtils.test_module(config, fork, runner)
     runner_module = MetaUtils.runner_module(runner)
 
-    # TODO: we can isolate tests that use the DB from each other by using ExUnit's tmp_dir context option.
     header = """
     defmodule #{module_name} do
       use ExUnit.Case, async: false
 
       setup_all do
-        start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: "tmp/#{config}_#{fork}_#{runner}_test_db"})
-        start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
-        start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
         Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
         |> Keyword.put(:config, #{chain_spec_config(config)})
         |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
       end
 
-      setup do
+      setup %{tmp_dir: tmp_dir} do
         on_exit(fn -> LambdaEthereumConsensus.StateTransition.Cache.clear_cache() end)
+        start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
+        start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
+        start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
+        :ok
       end
     """
 
@@ -92,6 +92,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
 
   defp generate_case(runner_module, testcase) do
     """
+      @tag :tmp_dir
       #{if runner_module.skip?(testcase), do: "\n@tag :skip", else: ""}
       test "#{SpecTestCase.name(testcase)}" do
         testcase = #{inspect(testcase)}

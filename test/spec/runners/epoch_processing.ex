@@ -6,8 +6,6 @@ defmodule EpochProcessingTestRunner do
   alias LambdaEthereumConsensus.Utils.Diff
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -38,9 +36,7 @@ defmodule EpochProcessingTestRunner do
   end
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "deneb"}) do
-    false
-  end
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
 
   @impl TestRunner
   def skip?(_), do: true

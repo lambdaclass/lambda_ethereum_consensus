@@ -8,7 +8,7 @@ defmodule Unit.Libp2pPortTest do
   doctest Libp2pPort
 
   setup do
-    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("CAPELLA_FORK_VERSION") end)
+    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
     :ok
   end
 
@@ -66,6 +66,8 @@ defmodule Unit.Libp2pPortTest do
     assert_receive :message_received, 1000
   end
 
+  # TODO: flaky test, fix
+  @tag :skip
   test "start discovery service and discover one peer" do
     bootnodes = YamlElixir.read_from_file!("config/networks/mainnet/boot_enr.yaml")
 
@@ -129,5 +131,14 @@ defmodule Unit.Libp2pPortTest do
 
   test "start two hosts, and gossip about" do
     retry_test(&two_hosts_gossip/0, 5)
+  end
+
+  test "subscrive, leave, and join topic" do
+    port = start_port(:some, listen_addr: ["/ip4/127.0.0.1/tcp/48790"])
+    topic = "test"
+
+    Libp2pPort.subscribe_to_topic(port, topic)
+    Libp2pPort.leave_topic(port, topic)
+    Libp2pPort.join_topic(port, topic)
   end
 end

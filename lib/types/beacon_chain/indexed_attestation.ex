@@ -3,7 +3,7 @@ defmodule Types.IndexedAttestation do
   Struct definition for `IndexedAttestation`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :attesting_indices,

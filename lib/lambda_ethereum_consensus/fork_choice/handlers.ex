@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
+  alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
 
@@ -21,8 +22,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     SignedBeaconBlock,
     Store
   }
-
-  use HardForkAliasInjection
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
 
@@ -79,9 +78,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       finalized_root != Store.get_checkpoint_block(store, block.parent_root, finalized_epoch) ->
         {:error, "block isn't descendant of latest finalized block"}
 
-      # Check blob data is available
-      HardForkAliasInjection.deneb?() and
-          not (Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)) ->
+      not (Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)) ->
         {:error, "blob data not available"}
 
       true ->
@@ -93,17 +90,26 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   Equivalent to `is_data_available` from the spec.
   Returns true if the blob's data is available from the network.
   """
-  # TODO: remove when implemented
-  @dialyzer {:no_match, on_block: 2}
   @spec data_available?(Types.root(), [Types.kzg_commitment()]) :: boolean()
-  def data_available?(_beacon_block_root, _blob_kzg_commitments) do
+  def data_available?(_beacon_block_root, []), do: true
+
+  def data_available?(beacon_block_root, blob_kzg_commitments) do
     # TODO: the p2p network does not guarantee sidecar retrieval
     # outside of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`. Should we
     # handle that case somehow here?
-    # TODO: fetch blobs and proofs from the DB, and verify them
-    # blobs, proofs = retrieve_blobs_and_proofs(beacon_block_root)
-    # return verify_blob_kzg_proof_batch(blobs, blob_kzg_commitments, proofs)
-    true
+    blobs =
+      0..(length(blob_kzg_commitments) - 1)//1
+      |> Enum.map(&BlobDb.get_blob_with_proof(beacon_block_root, &1))
+
+    if Enum.all?(blobs, &match?({:ok, _}, &1)) do
+      {blobs, proofs} =
+        Stream.map(blobs, fn {:ok, {blob, proof}} -> {blob, proof} end)
+        |> Enum.unzip()
+
+      Kzg.blob_kzg_proof_batch_valid?(blobs, blob_kzg_commitments, proofs)
+    else
+      false
+    end
   end
 
   @doc """
@@ -189,19 +195,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
       Task.async(fn ->
-        if HardForkAliasInjection.deneb?() do
-          versioned_hashes =
-            block.body.blob_kzg_commitments
-            |> Enum.map(&Misc.kzg_commitment_to_versioned_hash/1)
+        versioned_hashes =
+          block.body.blob_kzg_commitments
+          |> Enum.map(&Misc.kzg_commitment_to_versioned_hash/1)
 
-          %NewPayloadRequest{
-            execution_payload: payload,
-            parent_beacon_block_root: parent_beacon_block_root,
-            versioned_hashes: versioned_hashes
-          }
-        else
-          %NewPayloadRequest{execution_payload: payload}
-        end
+        %NewPayloadRequest{
+          execution_payload: payload,
+          parent_beacon_block_root: parent_beacon_block_root,
+          versioned_hashes: versioned_hashes
+        }
         |> ExecutionClient.verify_and_notify_new_payload()
         |> handle_verify_payload_result()
       end)

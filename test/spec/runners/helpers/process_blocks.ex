@@ -8,8 +8,7 @@ defmodule Helpers.ProcessBlocks do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.Utils.Diff
   alias Types.BeaconState
-
-  use HardForkAliasInjection
+  alias Types.SignedBeaconBlock
 
   def process_blocks(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
@@ -27,7 +26,7 @@ defmodule Helpers.ProcessBlocks do
       |> Enum.map(fn index ->
         SpecTestUtils.read_ssz_from_file!(
           case_dir <> "/blocks_#{index}.ssz_snappy",
-          Types.SignedBeaconBlock
+          SignedBeaconBlock
         )
       end)
 

@@ -7,11 +7,17 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Utils.BitField
-  alias Types.{AggregateAndProof, BlobSidecar, SignedAggregateAndProof, SignedBeaconBlock}
-
-  use HardForkAliasInjection
+  alias Types.AggregateAndProof
+  alias Types.AttesterSlashing
+  alias Types.BlobSidecar
+  alias Types.ProposerSlashing
+  alias Types.SignedAggregateAndProof
+  alias Types.SignedBeaconBlock
+  alias Types.SignedBLSToExecutionChange
+  alias Types.SignedVoluntaryExit
 
   def handle_beacon_block(%SignedBeaconBlock{message: block} = signed_block) do
     current_slot = BeaconChain.get_current_slot()
@@ -33,13 +39,34 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
     root = aggregate.data.beacon_block_root |> Base.encode16()
 
     # We are getting ~500 attestations in half a second. This is overwhelming the store GenServer at the moment.
-    # Store.on_attestation(aggregate)
+    # ForkChoice.on_attestation(aggregate)
+    OperationsCollector.notify_attestation_gossip(aggregate)
 
     Logger.debug(
       "[Gossip] Aggregate decoded. Total attestations: #{votes}",
       slot: slot,
       root: root
     )
+  end
+
+  def handle_bls_to_execution_change(%SignedBLSToExecutionChange{} = message) do
+    # TODO: validate message first
+    OperationsCollector.notify_bls_to_execution_change_gossip(message)
+  end
+
+  def handle_attester_slashing(%AttesterSlashing{} = message) do
+    # TODO: validate message first
+    OperationsCollector.notify_attester_slashing_gossip(message)
+  end
+
+  def handle_proposer_slashing(%ProposerSlashing{} = message) do
+    # TODO: validate message first
+    OperationsCollector.notify_proposer_slashing_gossip(message)
+  end
+
+  def handle_voluntary_exit(%SignedVoluntaryExit{} = message) do
+    # TODO: validate message first
+    OperationsCollector.notify_voluntary_exit_gossip(message)
   end
 
   def handle_blob_sidecar(%BlobSidecar{index: blob_index} = blob, blob_index) do

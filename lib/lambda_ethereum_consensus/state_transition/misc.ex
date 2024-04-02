@@ -9,8 +9,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   alias LambdaEthereumConsensus.SszEx
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   @max_random_byte 2 ** 8 - 1
 
   @doc """
@@ -250,9 +248,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     ssz_object |> Ssz.hash_tree_root!() |> compute_signing_root(domain)
   end
 
-  @spec compute_signing_root(any(), module(), Types.domain()) :: Types.root()
+  @spec compute_signing_root(any(), SszEx.schema(), Types.domain()) :: Types.root()
   def compute_signing_root(ssz_object, schema, domain) do
-    ssz_object |> Ssz.hash_tree_root!(schema) |> compute_signing_root(domain)
+    ssz_object |> SszEx.hash_tree_root!(schema) |> compute_signing_root(domain)
   end
 
   @doc """

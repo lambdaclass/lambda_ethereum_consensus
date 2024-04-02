@@ -4,7 +4,7 @@ defmodule Types.ForkData do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :current_version,

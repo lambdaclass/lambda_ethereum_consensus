@@ -143,7 +143,7 @@
 
 This document represents the specification for Phase 0 -- The Beacon Chain.
 
-At the core of Ethereum proof-of-stake is a system chain called the "beacon chain". The beacon chain stores and manages the registry of validators. In the initial deployment phases of proof-of-stake, the only mechanism to become a validator is to make a one-way ETH transaction to a deposit contract on the Ethereum proof-of-work chain. Activation as a validator happens when deposit receipts are processed by the beacon chain, the activation balance is reached, and a queuing process is completed. Exit is either voluntary or done forcibly as a penalty for misbehavior.
+At the core of Ethereum proof-of-stake is a system chain called the "beacon chain". The beacon chain stores and manages the registry of validators. In the initial deployment phases of proof-of-stake, the only mechanism to become a validator is to make a one-way ETH transaction to a deposit contract on the Ethereum execution chain. Activation as a validator happens when deposit receipts are processed by the beacon chain, the activation balance is reached, and a queuing process is completed. Exit is either voluntary or done forcibly as a penalty for misbehavior.
 The primary source of load on the beacon chain is "attestations". Attestations are simultaneously availability votes for a shard block (in a later upgrade) and proof-of-stake votes for a beacon block (Phase 0).
 
 ## Notation
@@ -173,6 +173,8 @@ We define the following Python custom types for type hinting and readability:
 | `Transaction` | `ByteList[MAX_BYTES_PER_TRANSACTION]` | either a [typed transaction envelope](https://eips.ethereum.org/EIPS/eip-2718#opaque-byte-array-rather-than-an-rlp-array) or a legacy transaction |
 | `ExecutionAddress` | `Bytes20` | Address of account on the execution layer |
 | `WithdrawalIndex` | `uint64` | an index of a `Withdrawal` |
+| `VersionedHash` | `Bytes32` | *[New in Deneb:EIP4844]* |
+| `BlobIndex` | `uint64` | *[New in Deneb:EIP4844]* |
 
 *Note*: The `Transaction` type is a stub which is not final.
 
@@ -241,11 +243,17 @@ The following values are (non-configurable) constants used throughout the specif
 
 *Note*: The sum of the weights equal `WEIGHT_DENOMINATOR`.
 
+### Blob
+
+| Name | Value |
+| - | - |
+| `VERSIONED_HASH_VERSION_KZG` | `Bytes1('0x01')` |
+
 ## Preset
 
 *Note*: The below configuration is bundled as a preset: a bundle of configuration variables which are expected to differ
 between different modes of operation, e.g. testing, but not generally between different networks.
-Additional preset configurations can be found in the [`configs`](../../configs) directory.
+Additional preset configurations can be found in the `configs` directory.
 
 ### Misc
 
@@ -345,6 +353,11 @@ Additional preset configurations can be found in the [`configs`](../../configs) 
 | `BYTES_PER_LOGS_BLOOM` | `uint64(2**8)` (= 256) |
 | `MAX_EXTRA_DATA_BYTES` | `2**5` (= 32) |
 | `MAX_WITHDRAWALS_PER_PAYLOAD` | `uint64(2**4)` (= 16) | Maximum amount of withdrawals allowed in each payload |
+| `MAX_BLOB_COMMITMENTS_PER_BLOCK` | `uint64(2**12)` (= 4096) | *[New in Deneb:EIP4844]* hardfork independent fixed theoretical limit same as `LIMIT_BLOBS_PER_TX` (see EIP 4844) |
+| `MAX_BLOBS_PER_BLOCK`            | `uint64(6)` | *[New in Deneb:EIP4844]* maximum number of blobs in a single block limited by `MAX_BLOB_COMMITMENTS_PER_BLOCK` |
+
+*Note*: The blob transactions are packed into the execution payload by the EL/builder with their corresponding blobs being independently transmitted
+and are limited by `MAX_BLOB_GAS_PER_BLOCK // GAS_PER_BLOB`. However the CL limit is independently defined by `MAX_BLOBS_PER_BLOCK`.
 
 ### Withdrawals processing
 
@@ -384,6 +397,7 @@ Testnets and other types of chain instances may use a different configuration.
 | `EJECTION_BALANCE` | `Gwei(2**4 * 10**9)` (= 16,000,000,000) |
 | `MIN_PER_EPOCH_CHURN_LIMIT` | `uint64(2**2)` (= 4) |
 | `CHURN_LIMIT_QUOTIENT` | `uint64(2**16)` (= 65,536) |
+| `MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT` | `uint64(2**3)` (= 8) |
 
 ### Inactivity penalties
 
@@ -402,7 +416,7 @@ Testnets and other types of chain instances may use a different configuration.
 
 ## Containers
 
-The following types are [SimpleSerialize (SSZ)](../../ssz/simple-serialize.md) containers.
+The following types are SimpleSerialize (SSZ) containers.
 
 *Note*: The definitions are ordered topologically to facilitate execution of the spec.
 
@@ -557,7 +571,9 @@ class ExecutionPayload(Container):
     # Extra payload fields
     block_hash: Hash32  # Hash of execution block
     transactions: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
-    withdrawals: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]  # [New in Capella]
+    withdrawals: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
+    blob_gas_used: uint64  # [New in Deneb:EIP4844]
+    excess_blob_gas: uint64  # [New in Deneb:EIP4844]
 ```
 
 #### `ExecutionPayloadHeader`
@@ -580,7 +596,9 @@ class ExecutionPayloadHeader(Container):
     # Extra payload fields
     block_hash: Hash32  # Hash of execution block
     transactions_root: Root
-    withdrawals_root: Root  # [New in Capella]
+    withdrawals_root: Root
+    blob_gas_used: uint64  # [New in Deneb:EIP4844]
+    excess_blob_gas: uint64  # [New in Deneb:EIP4844]
 ```
 
 #### `Withdrawal`
@@ -681,11 +699,12 @@ class BeaconBlockBody(Container):
     attestations: List[Attestation, MAX_ATTESTATIONS]
     deposits: List[Deposit, MAX_DEPOSITS]
     voluntary_exits: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
-    sync_aggregate: SyncAggregate  # [New in Altair]
+    sync_aggregate: SyncAggregate
     # Execution
-    execution_payload: ExecutionPayload  # [New in Bellatrix]
+    execution_payload: ExecutionPayload
     # Capella operations
-    bls_to_execution_changes: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+    bls_to_execution_changes: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]
+    blob_kzg_commitments: List[KZGCommitment, MAX_BLOB_COMMITMENTS_PER_BLOCK]  # [New in Deneb:EIP4844]
 ```
 
 #### `BeaconBlock`
@@ -974,7 +993,7 @@ def saturating_sub(a: int, b: int) -> int:
 
 #### `hash_tree_root`
 
-`def hash_tree_root(object: SSZSerializable) -> Root` is a function for hashing objects into a single root by utilizing a hash tree structure, as defined in the [SSZ spec](../../ssz/simple-serialize.md#merkleization).
+`def hash_tree_root(object: SSZSerializable) -> Root` is a function for hashing objects into a single root by utilizing a hash tree structure, as defined in the SSZ spec.
 
 #### BLS signatures
 
@@ -1146,6 +1165,13 @@ def is_partially_withdrawable_validator(validator: Validator, balance: Gwei) -> 
 ```
 
 ### Misc
+
+#### `kzg_commitment_to_versioned_hash`
+
+```python
+def kzg_commitment_to_versioned_hash(kzg_commitment: KZGCommitment) -> VersionedHash:
+    return VERSIONED_HASH_VERSION_KZG + hash(kzg_commitment)[1:]
+```
 
 #### `compute_shuffled_index`
 
@@ -1638,7 +1664,7 @@ def get_attestation_participation_flag_indices(state: BeaconState,
     participation_flag_indices = []
     if is_matching_source and inclusion_delay <= integer_squareroot(SLOTS_PER_EPOCH):
         participation_flag_indices.append(TIMELY_SOURCE_FLAG_INDEX)
-    if is_matching_target and inclusion_delay <= SLOTS_PER_EPOCH:
+    if is_matching_target:  # [Modified in Deneb:EIP7045]
         participation_flag_indices.append(TIMELY_TARGET_FLAG_INDEX)
     if is_matching_head and inclusion_delay == MIN_ATTESTATION_INCLUSION_DELAY:
         participation_flag_indices.append(TIMELY_HEAD_FLAG_INDEX)
@@ -1716,6 +1742,16 @@ def get_inactivity_penalty_deltas(state: BeaconState) -> Tuple[Sequence[Gwei], S
 ```
 
 Modified in Bellatrix to use `INACTIVITY_PENALTY_QUOTIENT_BELLATRIX` instead of `INACTIVITY_PENALTY_QUOTIENT_ALTAIR`
+
+#### New `get_validator_activation_churn_limit`
+
+```python
+def get_validator_activation_churn_limit(state: BeaconState) -> uint64:
+    """
+    Return the validator activation churn limit for the current epoch.
+    """
+    return min(MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT, get_validator_churn_limit(state))
+```
 
 ### Beacon state mutators
 
@@ -1824,13 +1860,13 @@ Modified in altair to use `MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX` instead of `
 
 ## Genesis
 
-Before the Ethereum beacon chain genesis has been triggered, and for every Ethereum proof-of-work block, let `candidate_state = initialize_beacon_state_from_eth1(eth1_block_hash, eth1_timestamp, deposits)` where:
+Before the Ethereum beacon chain genesis has been triggered, and for every Ethereum execution block, let `candidate_state = initialize_beacon_state_from_eth1(eth1_block_hash, eth1_timestamp, deposits)` where:
 
-- `eth1_block_hash` is the hash of the Ethereum proof-of-work block
+- `eth1_block_hash` is the hash of the Ethereum execution block
 - `eth1_timestamp` is the Unix timestamp corresponding to `eth1_block_hash`
 - `deposits` is the sequence of all deposits, ordered chronologically, up to (and including) the block with hash `eth1_block_hash`
 
-Proof-of-work blocks must only be considered once they are at least `SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE` seconds old (i.e. `eth1_timestamp + SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE <= current_unix_time`). Due to this constraint, if `GENESIS_DELAY < SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE`, then the `genesis_time` can happen before the time/state is first known. Values should be configured to avoid this case.
+execution blocks must only be considered once they are at least `SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE` seconds old (i.e. `eth1_timestamp + SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE <= current_unix_time`). Due to this constraint, if `GENESIS_DELAY < SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE`, then the `genesis_time` can happen before the time/state is first known. Values should be configured to avoid this case.
 
 ```python
 def initialize_beacon_state_from_eth1(eth1_block_hash: Hash32,
@@ -1965,6 +2001,62 @@ Modifications include:
 
 1. Use `CAPELLA_FORK_VERSION` as the previous and current fork version.
 2. Utilize the Capella `BeaconBlockBody` when constructing the initial `latest_block_header`.
+
+### Initialize state for pure Deneb testnets and test vectors
+
+*Note*: The function `initialize_beacon_state_from_eth1` is modified for pure Deneb testing only.
+
+The `BeaconState` initialization is unchanged, except for the use of the updated `deneb.BeaconBlockBody` type
+when initializing the first body-root.
+
+```python
+def initialize_beacon_state_from_eth1(eth1_block_hash: Hash32,
+                                      eth1_timestamp: uint64,
+                                      deposits: Sequence[Deposit],
+                                      execution_payload_header: ExecutionPayloadHeader=ExecutionPayloadHeader()
+                                      ) -> BeaconState:
+    fork = Fork(
+        previous_version=DENEB_FORK_VERSION,  # [Modified in Deneb] for testing only
+        current_version=DENEB_FORK_VERSION,  # [Modified in Deneb]
+        epoch=GENESIS_EPOCH,
+    )
+    state = BeaconState(
+        genesis_time=eth1_timestamp + GENESIS_DELAY,
+        fork=fork,
+        eth1_data=Eth1Data(block_hash=eth1_block_hash, deposit_count=uint64(len(deposits))),
+        latest_block_header=BeaconBlockHeader(body_root=hash_tree_root(BeaconBlockBody())),
+        randao_mixes=[eth1_block_hash] * EPOCHS_PER_HISTORICAL_VECTOR,  # Seed RANDAO with Eth1 entropy
+    )
+
+    # Process deposits
+    leaves = list(map(lambda deposit: deposit.data, deposits))
+    for index, deposit in enumerate(deposits):
+        deposit_data_list = List[DepositData, 2**DEPOSIT_CONTRACT_TREE_DEPTH](*leaves[:index + 1])
+        state.eth1_data.deposit_root = hash_tree_root(deposit_data_list)
+        process_deposit(state, deposit)
+
+    # Process activations
+    for index, validator in enumerate(state.validators):
+        balance = state.balances[index]
+        validator.effective_balance = min(balance - balance % EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+        if validator.effective_balance == MAX_EFFECTIVE_BALANCE:
+            validator.activation_eligibility_epoch = GENESIS_EPOCH
+            validator.activation_epoch = GENESIS_EPOCH
+
+    # Set genesis validators root for domain separation and chain versioning
+    state.genesis_validators_root = hash_tree_root(state.validators)
+
+    # Fill in sync committees
+    # Note: A duplicate committee is assigned for the current and next committee at genesis
+    state.current_sync_committee = get_next_sync_committee(state)
+    state.next_sync_committee = get_next_sync_committee(state)
+
+    # Initialize the execution payload header
+    # If empty, will initialize a chain that has not yet gone through the Merge transition
+    state.latest_execution_payload_header = execution_payload_header
+
+    return state
+```
 
 ### Genesis state
 
@@ -2460,8 +2552,9 @@ def process_registry_updates(state: BeaconState) -> None:
         if is_eligible_for_activation(state, validator)
         # Order by the sequence of activation_eligibility_epoch setting and then index
     ], key=lambda index: (state.validators[index].activation_eligibility_epoch, index))
-    # Dequeued validators for activation up to churn limit
-    for index in activation_queue[:get_validator_churn_limit(state)]:
+    # Dequeued validators for activation up to activation churn limit
+    # [Modified in Deneb:EIP7514]
+    for index in activation_queue[:get_validator_activation_churn_limit(state)]:
         validator = state.validators[index]
         validator.activation_epoch = compute_activation_exit_epoch(get_current_epoch(state))
 ```
@@ -2768,7 +2861,7 @@ def process_attestation(state: BeaconState, attestation: Attestation) -> None:
     data = attestation.data
     assert data.target.epoch in (get_previous_epoch(state), get_current_epoch(state))
     assert data.target.epoch == compute_epoch_at_slot(data.slot)
-    assert data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot <= data.slot + SLOTS_PER_EPOCH
+    assert data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= state.slot  # [Modified in Deneb:EIP7045]
     assert data.index < get_committee_count_per_slot(state, data.target.epoch)
 
     committee = get_beacon_committee(state, data.slot, data.index)
@@ -2787,7 +2880,7 @@ def process_attestation(state: BeaconState, attestation: Attestation) -> None:
         epoch_participation = state.previous_epoch_participation
 
     proposer_reward_numerator = 0
-    for index in get_attesting_indices(state, data, attestation.aggregation_bits):
+    for index in get_attesting_indices(state, attestation):
         for flag_index, weight in enumerate(PARTICIPATION_FLAG_WEIGHTS):
             if flag_index in participation_flag_indices and not has_flag(epoch_participation[index], flag_index):
                 epoch_participation[index] = add_flag(epoch_participation[index], flag_index)
@@ -2914,7 +3007,8 @@ def process_voluntary_exit(state: BeaconState, signed_voluntary_exit: SignedVolu
     # Verify the validator has been active long enough
     assert get_current_epoch(state) >= validator.activation_epoch + SHARD_COMMITTEE_PERIOD
     # Verify signature
-    domain = get_domain(state, DOMAIN_VOLUNTARY_EXIT, voluntary_exit.epoch)
+    # [Modified in Deneb:EIP7044]
+    domain = compute_domain(DOMAIN_VOLUNTARY_EXIT, CAPELLA_FORK_VERSION, state.genesis_validators_root)
     signing_root = compute_signing_root(voluntary_exit, domain)
     assert bls.Verify(validator.pubkey, signing_root, signed_voluntary_exit.signature)
     # Initiate exit
@@ -2988,14 +3082,27 @@ def process_execution_payload(state: BeaconState, body: BeaconBlockBody, executi
     payload = body.execution_payload
 
     # Verify consistency of the parent hash with respect to the previous execution payload header
-    if is_merge_transition_complete(state):  # [Modified in Capella] Removed `is_merge_transition_complete` check in Capella
-        assert payload.parent_hash == state.latest_execution_payload_header.block_hash
+    assert payload.parent_hash == state.latest_execution_payload_header.block_hash
     # Verify prev_randao
     assert payload.prev_randao == get_randao_mix(state, get_current_epoch(state))
     # Verify timestamp
     assert payload.timestamp == compute_timestamp_at_slot(state, state.slot)
+
+    # [New in Deneb:EIP4844] Verify commitments are under limit
+    assert len(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
+
     # Verify the execution payload is valid
-    assert execution_engine.verify_and_notify_new_payload(NewPayloadRequest(execution_payload=payload))
+    # [Modified in Deneb:EIP4844] Pass `versioned_hashes` to Execution Engine
+    # [Modified in Deneb:EIP4788] Pass `parent_beacon_block_root` to Execution Engine
+    versioned_hashes = [kzg_commitment_to_versioned_hash(commitment) for commitment in body.blob_kzg_commitments]
+    assert execution_engine.verify_and_notify_new_payload(
+        NewPayloadRequest(
+            execution_payload=payload,
+            versioned_hashes=versioned_hashes,
+            parent_beacon_block_root=state.latest_block_header.parent_root,
+        )
+    )
+
     # Cache execution payload header
     state.latest_execution_payload_header = ExecutionPayloadHeader(
         parent_hash=payload.parent_hash,
@@ -3012,7 +3119,9 @@ def process_execution_payload(state: BeaconState, body: BeaconBlockBody, executi
         base_fee_per_gas=payload.base_fee_per_gas,
         block_hash=payload.block_hash,
         transactions_root=hash_tree_root(payload.transactions),
-        withdrawals_root=hash_tree_root(payload.withdrawals),  # [New in Capella]
+        withdrawals_root=hash_tree_root(payload.withdrawals),
+        blob_gas_used=payload.blob_gas_used,  # [New in Deneb:EIP4844]
+        excess_blob_gas=payload.excess_blob_gas,  # [New in Deneb:EIP4844]
     )
 ```
 
@@ -3028,6 +3137,8 @@ def process_execution_payload(state: BeaconState, body: BeaconBlockBody, executi
 @dataclass
 class NewPayloadRequest(object):
     execution_payload: ExecutionPayload
+    versioned_hashes: Sequence[VersionedHash]
+    parent_beacon_block_root: Root
 ```
 
 #### Engine APIs
@@ -3045,7 +3156,9 @@ The Engine API may be used to implement this and similarly defined functions via
 `notify_new_payload` is a function accessed through the `EXECUTION_ENGINE` module which instantiates the `ExecutionEngine` protocol.
 
 ```python
-def notify_new_payload(self: ExecutionEngine, execution_payload: ExecutionPayload) -> bool:
+def notify_new_payload(self: ExecutionEngine,
+                       execution_payload: ExecutionPayload,
+                       parent_beacon_block_root: Root) -> bool:
     """
     Return ``True`` if and only if ``execution_payload`` is valid with respect to ``self.execution_state``.
     """
@@ -3055,9 +3168,22 @@ def notify_new_payload(self: ExecutionEngine, execution_payload: ExecutionPayloa
 #### `is_valid_block_hash`
 
 ```python
-def is_valid_block_hash(self: ExecutionEngine, execution_payload: ExecutionPayload) -> bool:
+def is_valid_block_hash(self: ExecutionEngine,
+                        execution_payload: ExecutionPayload,
+                        parent_beacon_block_root: Root) -> bool:
     """
     Return ``True`` if and only if ``execution_payload.block_hash`` is computed correctly.
+    """
+    ...
+```
+
+##### `is_valid_versioned_hashes`
+
+```python
+def is_valid_versioned_hashes(self: ExecutionEngine, new_payload_request: NewPayloadRequest) -> bool:
+    """
+    Return ``True`` if and only if the version hashes computed by the blob transactions of
+    ``new_payload_request.execution_payload`` matches ``new_payload_request.version_hashes``.
     """
     ...
 ```
@@ -3070,9 +3196,20 @@ def verify_and_notify_new_payload(self: ExecutionEngine,
     """
     Return ``True`` if and only if ``new_payload_request`` is valid with respect to ``self.execution_state``.
     """
-    if not self.is_valid_block_hash(new_payload_request.execution_payload):
+    execution_payload = new_payload_request.execution_payload
+    parent_beacon_block_root = new_payload_request.parent_beacon_block_root
+
+    # [Modified in Deneb:EIP4788]
+    if not self.is_valid_block_hash(execution_payload, parent_beacon_block_root):
         return False
-    if not self.notify_new_payload(new_payload_request.execution_payload):
+
+    # [New in Deneb:EIP4844]
+    if not self.is_valid_versioned_hashes(new_payload_request):
         return False
+
+    # [Modified in Deneb:EIP4788]
+    if not self.notify_new_payload(execution_payload, parent_beacon_block_root):
+        return False
+
     return True
 ```

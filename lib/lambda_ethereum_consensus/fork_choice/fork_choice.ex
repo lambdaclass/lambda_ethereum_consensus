@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
+  alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb
   alias LambdaEthereumConsensus.Validator
@@ -15,8 +16,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
   alias Types.Store
-
-  use HardForkAliasInjection
 
   ##########################
   ### Public API
@@ -85,7 +84,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         {:noreply, new_store}
 
       {:error, reason} ->
-        Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot)
+        Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
         GenServer.cast(from, {:block_processed, block_root, false})
         {:noreply, store}
     end
@@ -168,6 +167,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Handlers.notify_forkchoice_update(store, head_block)
 
+    OperationsCollector.notify_new_block(head_block)
     Validator.notify_new_block(head_block.slot, head_root)
 
     BeaconChain.update_fork_choice_cache(

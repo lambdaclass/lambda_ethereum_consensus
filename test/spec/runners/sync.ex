@@ -9,7 +9,6 @@ defmodule SyncTestRunner do
   alias LambdaEthereumConsensus.Execution.EngineApi
 
   @disabled_cases [
-    # TODO: we have to support https://github.com/ethereum/consensus-specs/blob/dev/tests/formats/fork_choice/README.md#on_payload_info-execution-step
     # "from_syncing_to_invalid"
   ]
 
@@ -18,10 +17,11 @@ defmodule SyncTestRunner do
     Enum.member?(@disabled_cases, testcase.case)
   end
 
-  @impl TestRunner
-  def skip?(_testcase) do
-    true
+  def skip?(%SpecTestCase{fork: "deneb"}) do
+    false
   end
+
+  def skip?(_testcase), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
@@ -73,7 +73,7 @@ defmodule SyncTestRunner.EngineApiMock do
     end)
   end
 
-  def new_payload(payload) do
+  def new_payload(payload, _versioned_hashes, _parent_beacon_block_root) do
     Agent.get(__MODULE__, fn state ->
       payload_status = Map.get(state.new_payload, payload.block_hash)
 

@@ -10,8 +10,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.Utils.Randao
   alias Types.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
 
-  use HardForkAliasInjection
-
   @max_random_byte 2 ** 8 - 1
 
   @doc """
@@ -247,8 +245,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_beacon_proposer_index(BeaconState.t()) ::
           {:ok, Types.validator_index()} | {:error, String.t()}
-  def get_beacon_proposer_index(%BeaconState{slot: slot} = state) do
-    epoch = get_current_epoch(state)
+  def get_beacon_proposer_index(%BeaconState{slot: state_slot} = state, slot \\ nil) do
+    slot = if is_nil(slot), do: state_slot, else: slot
+    # NOTE: slot should be within the state's current epoch, otherwise the result can change
+    epoch = Misc.compute_epoch_at_slot(slot)
+
     {:ok, root} = get_epoch_root(state, epoch)
 
     Cache.lazily_compute(:beacon_proposer_index, {slot, root}, fn ->
@@ -392,17 +393,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   defp compute_target_indices(is_matching_target, inclusion_delay) do
-    if HardForkAliasInjection.deneb?() do
-      if is_matching_target,
-        do: [Constants.timely_target_flag_index()],
-        else: []
-    else
-      max_delay = ChainSpec.get("SLOTS_PER_EPOCH")
+    _ = inclusion_delay
 
-      if is_matching_target and inclusion_delay <= max_delay,
-        do: [Constants.timely_target_flag_index()],
-        else: []
-    end
+    if is_matching_target,
+      do: [Constants.timely_target_flag_index()],
+      else: []
   end
 
   defp compute_head_indices(is_matching_head, inclusion_delay) do

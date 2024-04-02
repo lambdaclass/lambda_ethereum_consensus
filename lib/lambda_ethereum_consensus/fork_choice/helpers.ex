@@ -13,8 +13,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
-  use HardForkAliasInjection
-
   @spec current_status_message(Store.t()) ::
           {:ok, Types.StatusMessage.t()} | {:error, any}
   def current_status_message(store) do

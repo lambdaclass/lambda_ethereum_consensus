@@ -4,7 +4,7 @@ defmodule Types.Fork do
   Related definitions in `native/ssz_nif/src/types/`.
   """
 
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :previous_version,

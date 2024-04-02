@@ -6,8 +6,6 @@ defmodule RewardsTestRunner do
   use TestRunner
   alias Types.BeaconState
 
-  use HardForkAliasInjection
-
   @disabled [
     # "basic",
     # "leak",
@@ -15,9 +13,12 @@ defmodule RewardsTestRunner do
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
-    fork != "capella" or Enum.member?(@disabled, handler)
+  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
+    Enum.member?(@disabled, handler)
   end
+
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
@@ -84,7 +85,7 @@ defmodule Deltas do
   @moduledoc """
   Struct definition for `Deltas`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :rewards,

@@ -26,6 +26,7 @@ defmodule ConfigUtils do
 
   def parse_config("mainnet"), do: MainnetConfig
   def parse_config("sepolia"), do: SepoliaConfig
+  def parse_config("holesky"), do: HoleskyConfig
   def parse_config("minimal"), do: MinimalConfig
   def parse_config("gnosis"), do: GnosisConfig
   def parse_config(other), do: raise("Unknown config: #{other}")

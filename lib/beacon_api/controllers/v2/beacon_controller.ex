@@ -3,8 +3,10 @@ defmodule BeaconApi.V2.BeaconController do
 
   alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
+  alias BeaconApi.Utils
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias Types
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
@@ -34,7 +36,7 @@ defmodule BeaconApi.V2.BeaconController do
 
   def get_block(conn, %{block_id: "0x" <> hex_block_id}) do
     with {:ok, block_root} <- Base.decode16(hex_block_id, case: :mixed),
-         %{} = block <- Blocks.get_signed_block(block_root) do
+         block <- Blocks.get_signed_block(block_root) do
       conn |> block_response(block)
     else
       nil -> conn |> block_not_found()
@@ -58,13 +60,10 @@ defmodule BeaconApi.V2.BeaconController do
   defp block_response(conn, block) do
     conn
     |> json(%{
-      version: "capella",
+      version: "deneb",
       execution_optimistic: true,
       finalized: false,
-      data: %{
-        # TODO: return block as JSON
-        message: inspect(block)
-      }
+      data: Utils.to_json(block)
     })
   end
 

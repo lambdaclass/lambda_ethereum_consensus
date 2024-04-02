@@ -10,8 +10,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
   import Bitwise
 
-  use HardForkAliasInjection
-
   @doc """
   Check if ``validator`` is active.
   """
@@ -136,7 +134,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   defp hash_merkle_node(value_1, value_2, index, i) do
-    if rem(div(index, 2 ** i), 2) == 1 do
+    if div(index, 2 ** i) |> rem(2) == 1 do
       SszEx.hash(value_1 <> value_2)
     else
       SszEx.hash(value_2 <> value_1)

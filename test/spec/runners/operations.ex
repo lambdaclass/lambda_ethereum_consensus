@@ -10,14 +10,13 @@ defmodule OperationsTestRunner do
   alias Types.AttesterSlashing
   alias Types.BeaconBlock
   alias Types.BeaconBlockBody
+  alias Types.BeaconState
   alias Types.Deposit
   alias Types.ExecutionPayload
   alias Types.ProposerSlashing
   alias Types.SignedBLSToExecutionChange
   alias Types.SignedVoluntaryExit
   alias Types.SyncAggregate
-
-  use HardForkAliasInjection
 
   use ExUnit.CaseTemplate
   use TestRunner

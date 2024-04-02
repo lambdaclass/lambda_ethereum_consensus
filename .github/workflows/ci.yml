@@ -89,6 +89,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up Elixir
+      id: setup-beam
       uses: erlef/setup-beam@v1
       with:
         version-type: strict
@@ -133,7 +134,7 @@ jobs:
       id: plt-cache
       with:
         path: priv/plts
-        key: ${{ runner.os }}-plts-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+        key: ${{ runner.os }}-plts-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('mix.lock') }}
     - name: Create PLTs
       if: steps.plt-cache.outputs.cache-hit != 'true'
       run: |
@@ -275,7 +276,7 @@ jobs:
         id: output-cache
         uses: actions/cache@v4
         with:
-          path: ./*.tar.gz
+          path: ./test/spec/vectors/*.tar.gz
           key: ${{ runner.os }}-spectest-${{ hashFiles('.spectest_version') }}
           lookup-only: true
       - name: Download spectests
@@ -288,7 +289,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fork: ["capella", "deneb"]
+        fork: ["deneb"]
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-22.04
     steps:
@@ -307,7 +308,7 @@ jobs:
       - name: Fetch spectest vectors
         uses: actions/cache/restore@v4
         with:
-          path: ./*.tar.gz
+          path: ./test/spec/vectors/*.tar.gz
           key: ${{ runner.os }}-spectest-${{ hashFiles('.spectest_version') }}
           fail-on-cache-miss: true
       - name: Restore dependencies cache

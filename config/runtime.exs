@@ -13,7 +13,10 @@ switches = [
   testnet_dir: :string,
   metrics: :boolean,
   metrics_port: :integer,
-  log_file: :string
+  validator_file: :string,
+  log_file: :string,
+  beacon_api: :boolean,
+  beacon_api_port: :integer
 ]
 
 is_testing = Config.config_env() == :test
@@ -36,6 +39,9 @@ jwt_path = Keyword.get(args, :execution_jwt)
 testnet_dir = Keyword.get(args, :testnet_dir)
 enable_metrics = Keyword.get(args, :metrics, false)
 metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
+validator_file = Keyword.get(args, :validator_file)
+enable_beacon_api = Keyword.get(args, :beacon_api, false)
+beacon_api_port = Keyword.get(args, :beacon_api_port, 4000)
 
 if not is_nil(testnet_dir) and not is_nil(checkpoint_sync_url) do
   IO.puts("Both checkpoint sync and testnet url specified (only one should be specified).")
@@ -133,6 +139,36 @@ config :lambda_ethereum_consensus, EngineApi,
   implementation: implementation,
   version: "2.0"
 
+# Beacon API
+alias BeaconApi
+
+config :lambda_ethereum_consensus, BeaconApi.Endpoint,
+  server: enable_beacon_api,
+  http: [port: beacon_api_port],
+  url: [host: "localhost"],
+  render_errors: [
+    formats: [json: BeaconApi.ErrorJSON],
+    layout: false
+  ]
+
+# Validator
+#
+# `validator_file` should be a file with two non-empty lines, the first being
+# the public key and the second the private key, both hex-encoded
+# TODO: move to ERC-2335 keystores
+if validator_file do
+  [pubkey, privkey] =
+    File.read!(validator_file)
+    |> String.split("\n")
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&String.trim_leading(&1, "0x"))
+    |> Enum.map(&Base.decode16!(&1, case: :mixed))
+
+  config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator,
+    pubkey: pubkey,
+    privkey: privkey
+end
+
 # Metrics
 
 # Configures metrics
@@ -142,6 +178,7 @@ block_time_ms =
     "gnosis" -> 6000
     "mainnet" -> 12_000
     "sepolia" -> 100
+    "holesky" -> 24_000
   end
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
@@ -183,3 +220,11 @@ case Keyword.get(args, :log_file) do
       timestamp_key: "ts",
       timestamp_format: :iso8601
 end
+
+# Sentry
+
+{git_sha, 0} = System.cmd("git", ["rev-parse", "--short", "HEAD"])
+
+config :sentry,
+  dsn: System.get_env("SENTRY_DSN"),
+  release: String.trim(git_sha)
