@@ -1,4 +1,6 @@
 import Config
+alias LambdaEthereumConsensus.SszEx
+alias Types.BeaconStateDeneb
 
 switches = [
   network: :string,
@@ -35,8 +37,10 @@ testnet_dir = Keyword.get(args, :testnet_dir)
 enable_metrics = Keyword.get(args, :metrics, false)
 metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
 
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
-  checkpoint_sync_url: checkpoint_sync_url
+if not is_nil(testnet_dir) and not is_nil(checkpoint_sync_url) do
+  IO.puts("Both checkpoint sync and testnet url specified (only one should be specified).")
+  System.halt(2)
+end
 
 valid_modes = ["full", "db"]
 raw_mode = Keyword.get(args, :mode, "full")
@@ -82,9 +86,30 @@ chain_config =
       }
   end
 
-config :lambda_ethereum_consensus, ChainSpec,
+# We use put_env here as we need this immediately after to read the state.
+Application.put_env(:lambda_ethereum_consensus, ChainSpec,
   config: Map.fetch!(chain_config, :config),
   genesis_validators_root: Map.fetch!(chain_config, :genesis_validators_root)
+)
+
+genesis =
+  case {testnet_dir, checkpoint_sync_url} do
+    {nil, nil} ->
+      :db
+
+    {nil, url} when is_binary(url) ->
+      {:checkpoint_sync_url, url}
+
+    {dir, nil} when is_binary(dir) ->
+      {:ok, state} =
+        Path.join(testnet_dir, "genesis.ssz")
+        |> File.read!()
+        |> SszEx.decode(Types.BeaconStateDeneb)
+
+      {:file, state}
+  end
+
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice, genesis_state: genesis
 
 # Configures peer discovery
 bootnodes = Map.fetch!(chain_config, :bootnodes)
