@@ -9,10 +9,16 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
   @bits_in_sentinel_bit 1
 
   @doc """
-  Creates a new bit_list with the given size.
+  Creates a bit_list full of zeroes, with the given size.
   """
-  @spec default(non_neg_integer) :: t
-  def default(size), do: <<0::size(size)>>
+  @spec zero(non_neg_integer) :: t
+  def zero(size), do: <<0::size(size)>>
+
+  @doc """
+  Creates a default (empty/size 0) bit list.
+  """
+  @spec default :: t
+  def default, do: <<>>
 
   @doc """
   Creates a new bit_list from bitstring.

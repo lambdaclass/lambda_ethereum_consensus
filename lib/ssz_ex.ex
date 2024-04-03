@@ -428,6 +428,25 @@ defmodule LambdaEthereumConsensus.SszEx do
     (size + @bits_per_chunk - 1) |> div(@bits_per_chunk)
   end
 
+  @doc """
+  Returns the default value for a schema, which can be a basic or composite type.
+  """
+  def default({:int, _}), do: 0
+  def default(:bool), do: false
+  def default({:bytes, size}), do: <<0::size(size * 8)>>
+  def default({:list, :bytes, _size}), do: <<>>
+  def default({:list, _, _}), do: []
+  def default({:vector, :bytes, size}), do: <<0::size(size * 8)>>
+  def default({:vector, inner_type, size}), do: default(inner_type) |> List.duplicate(size)
+  def default({:bitlist, _}), do: BitList.default()
+  def default({:bitvector, size}), do: BitVector.new(size)
+
+  def default(module) when is_atom(module) do
+    module.schema()
+    |> Enum.map(fn {attr, schema} -> {attr, default(schema)} end)
+    |> then(&struct!(module, &1))
+  end
+
   #################
   ### Private functions
   #################
