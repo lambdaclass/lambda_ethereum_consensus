@@ -30,9 +30,11 @@ defmodule Genesis do
   """
 
   def get_state!({:file, anchor_state}) do
-    state_root = SszEx.hash_tree_root(anchor_state)
-    anchor_block = SszEx.default(anchor_state, BeaconBlock) |> Map.put(:state_root, state_root)
-    signed_anchor_block = %SignedBeaconBlock{message: anchor_block, signature: SszEx.default()}
+    signed_anchor_block = %SignedBeaconBlock{
+      message:
+        SszEx.default(BeaconBlock) |> Map.put(:state_root, SszEx.hash_tree_root(anchor_state)),
+      signature: SszEx.default()
+    }
 
     {Store.get_forkchoice_store(anchor_state, signed_anchor_block),
      ChainSpec.get_genesis_validators_root()}
