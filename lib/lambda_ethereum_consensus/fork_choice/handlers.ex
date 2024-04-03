@@ -190,7 +190,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     %{message: block} = signed_block
 
     payload = block.body.execution_payload
-    parent_beacon_block_root = state.latest_block_header.parent_root
+    parent_beacon_block_root = block.parent_root
 
     # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
