@@ -3,6 +3,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   Execution Layer Engine API methods
   """
   alias LambdaEthereumConsensus.Execution.EngineApi
+  alias LambdaEthereumConsensus.SszEx
+  alias Types.DepositData
   alias Types.ExecutionPayload
   alias Types.NewPayloadRequest
   require Logger
@@ -91,10 +93,23 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
         }
 
   @spec get_block_metadata(nil | Types.uint64() | Types.root()) ::
-          {:ok, block_metadata()} | {:error, any}
+          {:ok, block_metadata() | nil} | {:error, any}
   def get_block_metadata(block_id) do
     with {:ok, block} <- EngineApi.get_block_header(block_id) do
       parse_block_metadata(block)
+    end
+  end
+
+  @type deposit_log :: %{
+          data: DepositData.t(),
+          block_number: Types.uint64(),
+          index: Types.uint64()
+        }
+
+  @spec get_deposit_logs(Range.t()) :: {:ok, [deposit_log()]} | {:error, any}
+  def get_deposit_logs(from_block..to_block) do
+    with {:ok, raw_logs} <- EngineApi.get_deposit_logs(from_block..to_block) do
+      parse_raw_logs(raw_logs)
     end
   end
 
@@ -119,4 +134,34 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   end
 
   defp parse_block_metadata(_), do: {:error, "invalid block format"}
+
+  defp parse_raw_logs(raw_logs) do
+    Enum.map(raw_logs, &parse_raw_log/1)
+  end
+
+  @min_hex_data_byte_size 1104
+
+  defp parse_raw_log(%{"data" => "0x" <> hex_data, "blockNumber" => "0x" <> hex_block_number})
+       when byte_size(hex_data) >= @min_hex_data_byte_size do
+    # TODO: we might want to move this parsing behind the EngineApi module (and maybe rename it).
+    data = Base.decode16!(hex_data, case: :mixed)
+
+    # These magic numbers correspond to the start and length of each field in the deposit log data.
+    pubkey = binary_part(data, 192, 48)
+    withdrawal_credentials = binary_part(data, 288, 32)
+    amount = binary_part(data, 352, 8) |> SszEx.decode(TypeAliases.uint64())
+    signature = binary_part(data, 416, 96)
+    index = binary_part(data, 544, 8) |> SszEx.decode(TypeAliases.uint64())
+
+    block_number = String.to_integer(hex_block_number, 16)
+
+    deposit_data = %DepositData{
+      pubkey: pubkey,
+      withdrawal_credentials: withdrawal_credentials,
+      amount: amount,
+      signature: signature
+    }
+
+    {:ok, %{data: deposit_data, block_number: block_number, index: index}}
+  end
 end

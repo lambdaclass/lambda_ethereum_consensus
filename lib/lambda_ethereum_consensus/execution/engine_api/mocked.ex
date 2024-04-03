@@ -27,4 +27,8 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
   # TODO: should we mock this too?
   @spec get_block_header(nil | Types.uint64() | Types.root()) :: {:ok, any} | {:error, any}
   def get_block_header(_block_id), do: raise("not supported")
+
+  # TODO: should we mock this too?
+  @spec get_deposit_logs(Range.t()) :: {:ok, list(any)} | {:error, any}
+  def get_deposit_logs(_range), do: raise("not supported")
 end
