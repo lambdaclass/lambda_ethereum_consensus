@@ -15,7 +15,10 @@ defmodule Genesis do
   the beacon node.
   """
 
+  alias Types.SignedBeaconBlock
+  alias Types.BeaconBlock
   alias Types.Store
+  alias LambdaEthereumConsensus.SszEx
   require Logger
 
   @doc """
@@ -27,11 +30,11 @@ defmodule Genesis do
   """
 
   def get_state!({:file, anchor_state}) do
-    # TODO: Get default block, add state root, add empty signature.
-    anchor_block = nil
+    state_root = SszEx.hash_tree_root(anchor_state)
+    anchor_block = SszEx.default(anchor_state, BeaconBlock) |> Map.put(:state_root, state_root)
+    signed_anchor_block = %SignedBeaconBlock{message: anchor_block, signature: SszEx.default()}
 
-    # TODO: check if the genesis validators root is correct.
-    {Store.get_forkchoice_store(anchor_state, anchor_block),
+    {Store.get_forkchoice_store(anchor_state, signed_anchor_block),
      ChainSpec.get_genesis_validators_root()}
   end
 
