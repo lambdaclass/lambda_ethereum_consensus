@@ -10,4 +10,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 rustler = "0.32.1"
-c-kzg = "0.4.2"
+c-kzg = "1.0.0"
