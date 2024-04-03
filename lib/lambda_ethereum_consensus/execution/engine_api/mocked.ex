@@ -13,7 +13,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
     {:ok, ["engine_newPayloadV2", "engine_newPayloadV3"]}
   end
 
-  @spec new_payload(ExecutionPayload.t(), [list(Types.root())], Types.root()) ::
+  @spec new_payload(ExecutionPayload.t(), [Types.root()], Types.root()) ::
           {:ok, any} | {:error, any}
   def new_payload(_execution_payload, _versioned_hashes, _parent_beacon_block_root) do
     {:ok, %{"status" => "VALID"}}
@@ -23,4 +23,8 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
   def forkchoice_updated(_forkchoice_state, _payload_attributes) do
     {:ok, %{"payload_id" => nil, "payload_status" => %{"status" => "VALID"}}}
   end
+
+  # TODO: should we mock this too?
+  @spec get_block_header(nil | Types.uint64() | Types.root()) :: {:ok, any} | {:error, any}
+  def get_block_header(_block_id), do: raise("not supported")
 end
