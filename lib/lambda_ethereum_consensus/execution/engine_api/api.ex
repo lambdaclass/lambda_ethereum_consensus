@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   alias LambdaEthereumConsensus.Execution.RPC
   alias Types.ExecutionPayload
 
-  @supported_methods ["engine_newPayloadV2", "engine_newPayloadV3"]
+  @supported_methods ["engine_newPayloadV3", "engine_forkchoiceUpdatedV3"]
 
   @doc """
   Using this method Execution and consensus layer client software may
@@ -28,9 +28,13 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
     )
   end
 
-  @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
+  @spec forkchoice_updated(
+          Types.Execution.forkchoice_state_v3(),
+          Types.Execution.payload_attributes_v3() | nil
+        ) ::
+          {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes) do
-    call("engine_forkchoiceUpdatedV2", RPC.normalize([forkchoice_state, payload_attributes]))
+    call("engine_forkchoiceUpdatedV3", RPC.normalize([forkchoice_state, payload_attributes]))
   end
 
   # TODO: this is not part of the Engine API. Should we move it elsewhere?

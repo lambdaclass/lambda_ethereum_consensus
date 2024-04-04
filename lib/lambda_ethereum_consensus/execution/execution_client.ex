@@ -9,45 +9,53 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   alias Types.NewPayloadRequest
   require Logger
 
+  @type execution_status :: :optimistic | :valid | :invalid | :unknown
+
   @doc """
   Verifies the validity of the data contained in the new payload and notifies the Execution client of a new payload
   """
   @spec notify_new_payload(NewPayloadRequest.t()) ::
-          {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
+          {:ok, execution_status()} | {:error, String.t()}
   def notify_new_payload(%NewPayloadRequest{
         execution_payload: execution_payload,
         versioned_hashes: versioned_hashes,
         parent_beacon_block_root: parent_beacon_block_root
       }) do
-    EngineApi.new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)
-    |> parse_rpc_result()
+    case EngineApi.new_payload(execution_payload, versioned_hashes, parent_beacon_block_root) do
+      {:ok, %{"payload_status" => %{"status" => status}}} ->
+        {:ok, parse_status(status)}
+
+      {:error, reason} ->
+        Logger.warning("Error when calling notify new payload: #{inspect(reason)}")
+        {:error, reason}
+    end
   end
 
-  defp parse_rpc_result({:ok, %{"status" => "SYNCING"}}), do: {:ok, :optimistic}
-  defp parse_rpc_result({:ok, %{"status" => "VALID"}}), do: {:ok, :valid}
-  defp parse_rpc_result({:ok, %{"status" => "INVALID"}}), do: {:ok, :invalid}
-  defp parse_rpc_result({:error, _} = err), do: err
-
   @doc """
-  This function performs three actions *atomically*:
-  * Re-organizes the execution payload chain and corresponding state to make `head_block_hash` the head.
-  * Updates safe block hash with the value provided by `safe_block_hash` parameter.
-  * Applies finality to the execution state: it irreversibly persists the chain of all execution payloads
-  and corresponding state, up to and including `finalized_block_hash`.
-
-  Additionally, if `payload_attributes` is provided, this function sets in motion a payload build process on top of
+  If `payload_attributes` is provided, this function sets in motion a payload build process on top of
   `head_block_hash` and returns an identifier of initiated process.
   """
-  @spec notify_forkchoice_updated(Types.hash32(), Types.hash32(), Types.hash32()) ::
-          {:ok, any} | {:error, any}
-  def notify_forkchoice_updated(head_block_hash, safe_block_hash, finalized_block_hash) do
-    fork_choice_state = %{
-      finalized_block_hash: finalized_block_hash,
-      head_block_hash: head_block_hash,
-      safe_block_hash: safe_block_hash
-    }
+  @spec notify_forkchoice_updated(Types.EngineApi.forkchoice_state_v3()) ::
+          {:ok, execution_status()} | {:error, any}
 
-    EngineApi.forkchoice_updated(fork_choice_state, nil)
+  def notify_forkchoice_updated(fork_choice_state) do
+    case EngineApi.forkchoice_updated(fork_choice_state, nil) do
+      {:ok, %{"payload_status" => %{"status" => status}}} ->
+        {:ok, parse_status(status)}
+
+      {:error, reason} ->
+        Logger.warning("Error when calling notify forkchoice updated: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @spec notify_forkchoice_updated(
+          Types.Execution.forkchoice_state_v3(),
+          Types.Execution.payload_attributes_v3()
+        ) ::
+          {:ok, Types.Execution.forkchoice_updated_v3_result()} | {:error, any}
+  def notify_forkchoice_updated(fork_choice_state, payload_attributes) do
+    EngineApi.forkchoice_updated(fork_choice_state, payload_attributes)
   end
 
   @doc """
@@ -55,7 +63,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   Return ``true`` if and only if ``execution_payload.block_hash`` is computed correctly.
   """
   @spec valid_block_hash?(ExecutionPayload.t()) ::
-          {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
+          {:ok, execution_status()} | {:error, String.t()}
   # TODO: implement
   def valid_block_hash?(_execution_payload), do: {:ok, :valid}
   def valid_block_hash?(_execution_payload, _parent_beacon_block_root), do: {:ok, :valid}
@@ -65,7 +73,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   ``new_payload_request.execution_payload`` matches ``new_payload_request.version_hashes``.
   """
   @spec valid_versioned_hashes?(NewPayloadRequest.t()) ::
-          {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
+          {:ok, execution_status()} | {:error, String.t()}
   # TODO: implement
   def valid_versioned_hashes?(_new_payload_request), do: {:ok, :valid}
 
@@ -73,7 +81,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   Same as `notify_new_payload`, but with additional checks.
   """
   @spec verify_and_notify_new_payload(NewPayloadRequest.t()) ::
-          {:ok, :optimistic | :valid | :invalid} | {:error, String.t()}
+          {:ok, execution_status()} | {:error, String.t()}
   def verify_and_notify_new_payload(
         %NewPayloadRequest{
           execution_payload: execution_payload,
@@ -86,6 +94,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     end
   end
 
+<<<<<<< Updated upstream
   @type block_metadata :: %{
           block_hash: Types.root(),
           block_number: Types.uint64(),
@@ -164,4 +173,10 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
 
     %{data: deposit_data, block_number: block_number, index: index}
   end
+=======
+  defp parse_status("SYNCING"), do: :optimistic
+  defp parse_status("VALID"), do: :valid
+  defp parse_status("INVALID"), do: :invalid
+  defp parse_status(_status), do: :unknown
+>>>>>>> Stashed changes
 end

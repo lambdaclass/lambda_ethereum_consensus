@@ -17,7 +17,11 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root),
     do: impl().new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)
 
-  @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
+  @spec forkchoice_updated(
+          Types.Execution.forkchoice_state_v3(),
+          Types.Execution.payload_attributes_v3() | nil
+        ) ::
+          {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes),
     do: impl().forkchoice_updated(forkchoice_state, payload_attributes)
 

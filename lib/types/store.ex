@@ -141,6 +141,18 @@ defmodule Types.Store do
     |> update_tree(block_root, signed_block.message.parent_root)
   end
 
+  @spec get_safe_execution_payload_hash(t()) :: Types.hash32()
+  def get_safe_execution_payload_hash(%__MODULE__{} = store) do
+    safe_block_root = get_safe_beacon_block_root(store)
+    safe_block = Blocks.get_block!(safe_block_root)
+    safe_block.body.execution_payload.block_hash
+  end
+
+  @spec get_safe_beacon_block_root(t()) :: Types.root()
+  defp get_safe_beacon_block_root(%__MODULE__{} = store) do
+    store.finalized_checkpoint.root
+  end
+
   defp update_tree(%__MODULE__{} = store, block_root, parent_root) do
     # We expect the finalized block to be in the tree
     tree = Tree.update_root!(store.tree_cache, store.finalized_checkpoint.root)

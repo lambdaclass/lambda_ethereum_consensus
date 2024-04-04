@@ -89,7 +89,7 @@ defmodule ForkChoiceTestRunner do
       {:ok, head_root} = Helpers.get_head(new_store)
       head_block = Blocks.get_block!(head_root)
 
-      {:ok, _} = Handlers.notify_forkchoice_update(new_store, head_block)
+      {:ok, _result} = Handlers.notify_forkchoice_update(new_store, head_block)
       {:ok, new_store}
     end
   end
