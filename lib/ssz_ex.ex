@@ -209,6 +209,15 @@ defmodule LambdaEthereumConsensus.SszEx do
     packed_chunks = pack_bytes(value)
     leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(packed_chunks, leaf_count)
+
+    root =
+      if type == :byte_list do
+        len = value |> bit_size()
+        root |> mix_in_length(len)
+      else
+        root
+      end
+
     {:ok, root}
   end
 

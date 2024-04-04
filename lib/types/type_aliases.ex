@@ -44,5 +44,5 @@ defmodule TypeAliases do
   def blob_sidecars_by_root_request,
     do: {:list, Types.BlobIdentifier, ChainSpec.get("MAX_REQUEST_BLOB_SIDECARS")}
 
-  def error_message, do: {:byte_vector, 256}
+  def error_message, do: {:byte_list, 256}
 end
