@@ -126,7 +126,7 @@ defmodule SpecTestUtils do
 
   def sanitize_ssz(vector_elements, {:vector, :bool, _size} = _schema), do: vector_elements
 
-  def sanitize_ssz(binary, {:vector, :bytes, _size} = _schema), do: binary
+  def sanitize_ssz(binary, {:byte_vector, _size} = _schema), do: binary
 
   def sanitize_ssz(vector_elements, {:vector, module, _size} = _schema) when is_atom(module),
     do: Enum.map(vector_elements, &struct!(module, &1))
@@ -134,7 +134,7 @@ defmodule SpecTestUtils do
   def sanitize_ssz(bitlist, {:bitlist, _size} = _schema), do: BitList.new(bitlist)
   def sanitize_ssz(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
 
-  def sanitize_ssz(binary, {:list, :bytes, _size} = _schema), do: binary
+  def sanitize_ssz(binary, {:byte_list, _size} = _schema), do: binary
 
   def sanitize_ssz(list_elements, {:list, module, _size} = _schema) when is_atom(module),
     do: Enum.map(list_elements, fn element -> sanitize_ssz(element, module) end)
