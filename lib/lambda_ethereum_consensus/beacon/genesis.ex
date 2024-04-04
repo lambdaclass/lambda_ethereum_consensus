@@ -15,11 +15,16 @@ defmodule Genesis do
   the beacon node.
   """
 
+  alias LambdaEthereumConsensus.Beacon.CheckpointSync
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.SignedBeaconBlock
   alias Types.BeaconBlock
   alias Types.Store
   alias LambdaEthereumConsensus.SszEx
   require Logger
+
+  @max_epochs_before_stale 8
 
   @doc """
   Args:
@@ -30,17 +35,16 @@ defmodule Genesis do
   """
 
   def get_state!({:file, anchor_state}) do
-    signed_anchor_block = %SignedBeaconBlock{
-      message:
-        SszEx.default(BeaconBlock) |> Map.put(:state_root, SszEx.hash_tree_root(anchor_state)),
-      signature: SszEx.default()
+    signed_anchor_block = %{
+      SszEx.default(SignedBeaconBlock)
+      | message: %{SszEx.default(BeaconBlock) | state_root: SszEx.hash_tree_root!(anchor_state)}
     }
 
     {Store.get_forkchoice_store(anchor_state, signed_anchor_block),
      ChainSpec.get_genesis_validators_root()}
   end
 
-  def get_state!({:checkpoint_sync_url, url}) do
+  def get_state!({:checkpoint_sync_url, checkpoint_url}) do
     case restore_state_from_db() do
       {:ok, {store, root}} ->
         Logger.warning("[Checkpoint sync] Recent state found. Ignoring the checkpoint URL.")

@@ -4,15 +4,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   use Supervisor
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.StateTransition.Cache
-  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.StoreDb
-  alias Types.Store
-
-  @max_epochs_before_stale 8
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
