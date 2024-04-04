@@ -102,6 +102,9 @@ You can also specify a port with the "--beacon-api-port" flag:
 ```shell
 iex -S mix run -- --beacon-api --beacon-api-port <your_port_here>
 ```
+> [!WARNING]
+> In case checkpoint-sync is needed, following the instructions above will end immediately with an error (see [Checkpoint Sync](#checkpoint-sync)).
+>
 
 ### Tests, linting and formatting
 
