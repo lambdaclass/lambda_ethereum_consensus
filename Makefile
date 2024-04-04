@@ -113,7 +113,7 @@ grafana-clean:
 
 #▶️ start: @ Start application with Beacon API.
 start: compile-all
-	iex -S mix phx.server
+	iex -S mix run -- --beacon-api
 
 #▶️ iex: @ Runs an interactive terminal with the main supervisor setup.
 iex: compile-all
