@@ -22,7 +22,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
         parent_beacon_block_root: parent_beacon_block_root
       }) do
     case EngineApi.new_payload(execution_payload, versioned_hashes, parent_beacon_block_root) do
-      {:ok, %{"payload_status" => %{"status" => status}}} ->
+      {:ok, %{"status" => status}} ->
         {:ok, parse_status(status)}
 
       {:error, reason} ->
