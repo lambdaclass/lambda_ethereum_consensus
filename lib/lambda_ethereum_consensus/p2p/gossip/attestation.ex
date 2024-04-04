@@ -10,9 +10,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Misc
 
-  @subnet_id_start byte_size("/eth2/00000000/beacon_attestation_")
-  @subnet_id_end byte_size("/ssz_snappy")
-
   def start_link(init_arg) do
     GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
   end
@@ -131,8 +128,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     end
   end
 
-  defp extract_subnet_id(topic) do
-    String.slice(topic, @subnet_id_start..-(@subnet_id_end + 1)) |> String.to_integer()
+  @subnet_id_start byte_size("/eth2/00000000/beacon_attestation_")
+
+  defp extract_subnet_id(<<_::binary-size(@subnet_id_start)>> <> id_with_trailer) do
+    id_with_trailer |> String.trim_trailing("/ssz_snappy") |> String.to_integer()
   end
 
   defp store_attestation(subnet_id, %{attestations: attestations} = state, attestation) do
