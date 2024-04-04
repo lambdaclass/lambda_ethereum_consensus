@@ -35,13 +35,13 @@ defmodule Genesis do
   """
 
   def get_state!({:file, anchor_state}) do
-    signed_anchor_block = %{
+    anchor_block = %{
       SszEx.default(SignedBeaconBlock)
       | message: %{SszEx.default(BeaconBlock) | state_root: Ssz.hash_tree_root!(anchor_state)}
     }
 
-    {Store.get_forkchoice_store(anchor_state, signed_anchor_block),
-     ChainSpec.get_genesis_validators_root()}
+    {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
+    {store, ChainSpec.get_genesis_validators_root()}
   end
 
   def get_state!({:checkpoint_sync_url, checkpoint_url}) do
