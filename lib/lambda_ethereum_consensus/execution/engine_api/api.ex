@@ -35,17 +35,13 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
 
   # TODO: this is not part of the Engine API. Should we move it elsewhere?
   @spec get_block_header(nil | Types.uint64() | Types.root()) :: {:ok, any} | {:error, any}
-  def get_block_header(block_id) do
-    {method, first_qparam} =
-      cond do
-        is_nil(block_id) -> {"eth_getBlockByNumber", "latest"}
-        is_integer(block_id) -> {"eth_getBlockByNumber", RPC.normalize(block_id)}
-        is_binary(block_id) -> {"eth_getBlockByHash", RPC.normalize(block_id)}
-      end
+  def get_block_header(nil), do: call("eth_getBlockByNumber", ["latest", false])
 
-    # Don't return tx info
-    call(method, [first_qparam, false])
-  end
+  def get_block_header(block_id) when is_integer(block_id),
+    do: call("eth_getBlockByNumber", [RPC.normalize(block_id), false])
+
+  def get_block_header(block_id) when is_binary(block_id),
+    do: call("eth_getBlockByHash", [RPC.normalize(block_id), false])
 
   defp call(method, params) do
     config = Application.fetch_env!(:lambda_ethereum_consensus, EngineApi)
