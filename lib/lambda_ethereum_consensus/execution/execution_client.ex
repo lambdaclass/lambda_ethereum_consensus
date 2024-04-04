@@ -35,7 +35,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
 
   Additionally, if `payload_attributes` is provided, this function sets in motion a payload build process on top of
   `head_block_hash` and returns an identifier of initiated process.
-
   """
   @spec notify_forkchoice_updated(Types.hash32(), Types.hash32(), Types.hash32()) ::
           {:ok, any} | {:error, any}
@@ -84,4 +83,40 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
       notify_new_payload(new_payload_request)
     end
   end
+
+  @type block_metadata :: %{
+          block_hash: Types.root(),
+          block_number: Types.uint64(),
+          timestamp: Types.uint64()
+        }
+
+  @spec get_block_metadata(nil | Types.uint64() | Types.root()) ::
+          {:ok, block_metadata()} | {:error, any}
+  def get_block_metadata(block_id) do
+    with {:ok, block} <- EngineApi.get_block_header(block_id) do
+      parse_block_metadata(block)
+    end
+  end
+
+  defp parse_block_metadata(nil), do: {:ok, nil}
+
+  defp parse_block_metadata(%{
+         "hash" => "0x" <> hash,
+         "number" => "0x" <> number,
+         "timestamp" => "0x" <> timestamp
+       }) do
+    parsed_number = String.to_integer(number, 16)
+    parsed_timestamp = String.to_integer(timestamp, 16)
+
+    case Base.decode16(hash, case: :mixed) do
+      {:ok, parsed_hash} ->
+        {:ok,
+         %{block_hash: parsed_hash, block_number: parsed_number, timestamp: parsed_timestamp}}
+
+      :error ->
+        {:error, "invalid block hash"}
+    end
+  end
+
+  defp parse_block_metadata(_), do: {:error, "invalid block format"}
 end

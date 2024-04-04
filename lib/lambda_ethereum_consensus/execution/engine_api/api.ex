@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
     call("engine_exchangeCapabilities", [@supported_methods])
   end
 
-  @spec new_payload(ExecutionPayload.t(), [list(Types.root())], Types.root()) ::
+  @spec new_payload(ExecutionPayload.t(), [Types.root()], Types.root()) ::
           {:ok, any} | {:error, any}
   def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root) do
     call(
@@ -32,6 +32,16 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   def forkchoice_updated(forkchoice_state, payload_attributes) do
     call("engine_forkchoiceUpdatedV2", RPC.normalize([forkchoice_state, payload_attributes]))
   end
+
+  # TODO: this is not part of the Engine API. Should we move it elsewhere?
+  @spec get_block_header(nil | Types.uint64() | Types.root()) :: {:ok, any} | {:error, any}
+  def get_block_header(nil), do: call("eth_getBlockByNumber", ["latest", false])
+
+  def get_block_header(block_id) when is_integer(block_id),
+    do: call("eth_getBlockByNumber", [RPC.normalize(block_id), false])
+
+  def get_block_header(block_id) when is_binary(block_id),
+    do: call("eth_getBlockByHash", [RPC.normalize(block_id), false])
 
   defp call(method, params) do
     config = Application.fetch_env!(:lambda_ethereum_consensus, EngineApi)

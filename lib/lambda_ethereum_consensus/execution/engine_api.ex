@@ -12,7 +12,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   @spec exchange_capabilities() :: {:ok, any} | {:error, any}
   def exchange_capabilities, do: impl().exchange_capabilities()
 
-  @spec new_payload(ExecutionPayload.t(), [list(Types.root())], Types.root()) ::
+  @spec new_payload(ExecutionPayload.t(), [Types.root()], Types.root()) ::
           {:ok, any} | {:error, any}
   def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root),
     do: impl().new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)
@@ -20,6 +20,9 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   @spec forkchoice_updated(map, map | any) :: {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes),
     do: impl().forkchoice_updated(forkchoice_state, payload_attributes)
+
+  @spec get_block_header(nil | Types.uint64() | Types.root()) :: {:ok, any} | {:error, any}
+  def get_block_header(block_id), do: impl().get_block_header(block_id)
 
   defp impl, do: Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)[:implementation]
 end
