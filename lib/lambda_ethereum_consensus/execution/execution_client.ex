@@ -98,6 +98,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     end
   end
 
+  defp parse_block_metadata(nil), do: {:ok, nil}
+
   defp parse_block_metadata(%{
          "hash" => "0x" <> hash,
          "number" => "0x" <> number,

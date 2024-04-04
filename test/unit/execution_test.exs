@@ -43,4 +43,9 @@ defmodule Unit.ExecutionTest do
     assert block_info.block_number == 0
     assert block_info.timestamp == 1_633_267_481
   end
+
+  test "no block is OK" do
+    patch(EngineApi, :get_block_header, fn nil -> {:ok, nil} end)
+    assert {:ok, nil} = ExecutionClient.get_block_metadata(nil)
+  end
 end
