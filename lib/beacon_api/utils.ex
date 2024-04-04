@@ -39,7 +39,8 @@ defmodule BeaconApi.Utils do
     |> Map.new()
   end
 
-  defp to_json(binary, {x, :bytes, _}) when x in [:list, :vector], do: to_json(binary)
+  defp to_json(binary, {:byte_list, _}), do: to_json(binary)
+  defp to_json(binary, {:byte_vector, _}), do: to_json(binary)
 
   defp to_json(list, {x, schema, _}) when x in [:list, :vector],
     do: Enum.map(list, fn elem -> to_json(elem, schema) end)

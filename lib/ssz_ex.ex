@@ -17,10 +17,10 @@ defmodule LambdaEthereumConsensus.SszEx do
       Composite type of ordered homogeneous elements with an exact number of elements (`length`).
       `inner_type` is the schema of the inner elements. Depending on it, the vector could be
       variable-size or fixed-size.
-    - `{:byte_list, max_length}` or `{:list, :bytes, max_length}`
+    - `{:byte_list, max_length}`
       Same as `{:list, {:int, 8}, length}` (i.e. a list of bytes), but
       encodes-from/decodes-into an Elixir binary.
-    - `{:bytes, length}` or `{:vector, :bytes, length}`
+    - `{:byte_vector, length}`
       Same as `{:vector, {:int, 8}, length}` (i.e. a vector of bytes),
       but encodes-from/decodes-into an Elixir binary.
     - `{:bitlist, max_length}`
@@ -45,8 +45,8 @@ defmodule LambdaEthereumConsensus.SszEx do
           :bool
           | uint_schema()
           | byte_list_schema()
+          | byte_vector_schema()
           | list_schema()
-          | bytes_schema()
           | vector_schema()
           | bitlist_schema()
           | bitvector_schema()
@@ -54,8 +54,8 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @type uint_schema() :: {:int, 8 | 16 | 32 | 64 | 128 | 256}
   @type byte_list_schema() :: {:byte_list, max_size :: non_neg_integer}
+  @type byte_vector_schema() :: {:byte_vector, size :: non_neg_integer}
   @type list_schema() :: {:list, schema(), max_size :: non_neg_integer}
-  @type bytes_schema() :: {:bytes, size :: non_neg_integer}
   @type vector_schema() :: {:vector, schema(), size :: non_neg_integer}
   @type bitlist_schema() :: {:bitlist, max_size :: non_neg_integer}
   @type bitvector_schema() :: {:bitvector, size :: non_neg_integer}
@@ -87,10 +87,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec validate_schema!(schema()) :: :ok
   def validate_schema!(:bool), do: :ok
   def validate_schema!({:int, n}) when n in @allowed_uints, do: :ok
-  def validate_schema!({:bytes, size}) when size > 0, do: :ok
   def validate_schema!({:byte_list, size}) when size > 0, do: :ok
-  def validate_schema!({:list, :bytes, size}) when size > 0, do: :ok
-  def validate_schema!({:vector, :bytes, size}) when size > 0, do: :ok
+  def validate_schema!({:byte_vector, size}) when size > 0, do: :ok
   def validate_schema!({:list, sub, size}) when size > 0, do: validate_schema!(sub)
   def validate_schema!({:vector, sub, size}) when size > 0, do: validate_schema!(sub)
   def validate_schema!({:bitlist, size}) when size > 0, do: :ok
@@ -122,8 +120,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec encode(any(), schema()) :: {:ok, binary()} | {:error, String.t()}
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
-  def encode(value, {:bytes, _}), do: {:ok, value}
   def encode(value, {:byte_list, _}), do: {:ok, value}
+  def encode(value, {:byte_vector, _}), do: {:ok, value}
 
   def encode(list, {:list, inner_type, size}) do
     if variable_size?(inner_type),
@@ -152,8 +150,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec decode(binary(), schema()) :: {:ok, any()} | {:error, String.t()}
   def decode(binary, :bool), do: decode_bool(binary)
   def decode(binary, {:int, size}), do: decode_uint(binary, size)
-  def decode(value, {:bytes, _}), do: {:ok, value}
   def decode(value, {:byte_list, _}), do: {:ok, value}
+  def decode(value, {:byte_vector, _}), do: {:ok, value}
 
   def decode(binary, {:list, inner_type, size}) do
     if variable_size?(inner_type),
@@ -205,11 +203,21 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root(non_neg_integer, {:int, non_neg_integer}) :: {:ok, Types.root()}
   def hash_tree_root(value, {:int, size}), do: {:ok, pack(value, {:int, size})}
 
-  @spec hash_tree_root(binary, {:bytes, non_neg_integer}) :: {:ok, Types.root()}
-  def hash_tree_root(value, {:bytes, size}) do
-    packed_chunks = pack(value, {:bytes, size})
+  @spec hash_tree_root(binary, {:byte_list | :byte_vector, non_neg_integer}) ::
+          {:ok, Types.root()}
+  def hash_tree_root(value, {type, _size}) when type in [:byte_list, :byte_vector] do
+    packed_chunks = pack_bytes(value)
     leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(packed_chunks, leaf_count)
+
+    root =
+      if type == :byte_list do
+        len = value |> bit_size()
+        root |> mix_in_length(len)
+      else
+        root
+      end
+
     {:ok, root}
   end
 
@@ -392,11 +400,6 @@ defmodule LambdaEthereumConsensus.SszEx do
     <<value::size(size)-little>> |> pack_bytes()
   end
 
-  @spec pack(binary, {:bytes, non_neg_integer}) :: binary()
-  def pack(value, {:bytes, _size}) do
-    value |> pack_bytes()
-  end
-
   @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | :error
   def pack(list, {type, schema, _}) when type in [:vector, :list] do
     list
@@ -433,10 +436,9 @@ defmodule LambdaEthereumConsensus.SszEx do
   """
   def default({:int, _}), do: 0
   def default(:bool), do: false
-  def default({:bytes, size}), do: <<0::size(size * 8)>>
-  def default({:list, :bytes, _size}), do: <<>>
+  def default({:byte_list, _size}), do: <<>>
+  def default({:byte_vector, size}), do: <<0::size(size * 8)>>
   def default({:list, _, _}), do: []
-  def default({:vector, :bytes, size}), do: <<0::size(size * 8)>>
   def default({:vector, inner_type, size}), do: default(inner_type) |> List.duplicate(size)
   def default({:bitlist, _}), do: BitList.default()
   def default({:bitvector, size}), do: BitVector.new(size)
@@ -475,10 +477,6 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp encode_fixed_size_list(list, _inner_type, max_size) when length(list) > max_size,
     do: {:error, "invalid max_size of list"}
-
-  defp encode_fixed_size_list(binary, :bytes, _size) when is_binary(binary) do
-    {:ok, binary}
-  end
 
   defp encode_fixed_size_list(list, inner_type, _size) when is_list(list) do
     list
@@ -592,24 +590,12 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  defp decode_fixed_list(binary, :bytes, size) do
-    with :ok <- check_valid_list_size_after_decode(size, byte_size(binary)) do
-      {:ok, binary}
-    end
-  end
-
   defp decode_fixed_list(binary, inner_type, size) do
     fixed_size = get_fixed_size(inner_type)
 
     with {:ok, decoded_list} = result <- decode_fixed_collection(binary, fixed_size, inner_type),
          :ok <- check_valid_list_size_after_decode(size, length(decoded_list)) do
       result
-    end
-  end
-
-  defp decode_fixed_vector(binary, :bytes, size) do
-    with :ok <- check_valid_list_size_after_decode(size, byte_size(binary)) do
-      {:ok, binary}
     end
   end
 
@@ -951,8 +937,7 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp get_fixed_size(:bool), do: 1
   defp get_fixed_size({:int, size}), do: div(size, @bits_per_byte)
-  defp get_fixed_size({:bytes, size}), do: size
-  defp get_fixed_size({:vector, :bytes, size}), do: size
+  defp get_fixed_size({:byte_vector, size}), do: size
   defp get_fixed_size({:vector, inner_type, size}), do: size * get_fixed_size(inner_type)
   defp get_fixed_size({:bitvector, size}), do: div(size + 7, 8)
 
@@ -967,12 +952,10 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp variable_size?({:list, _, _}), do: true
   defp variable_size?(:bool), do: false
   defp variable_size?({:byte_list, _}), do: true
-  defp variable_size?(:bytes), do: false
+  defp variable_size?({:byte_vector, _}), do: false
   defp variable_size?({:int, _}), do: false
-  defp variable_size?({:bytes, _}), do: false
   defp variable_size?({:bitlist, _}), do: true
   defp variable_size?({:bitvector, _}), do: false
-  defp variable_size?({:vector, :bytes, _}), do: false
   defp variable_size?({:vector, inner_type, _}), do: variable_size?(inner_type)
 
   defp variable_size?(module) when is_atom(module) do
@@ -983,7 +966,6 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp basic_type?({:int, _}), do: true
   defp basic_type?(:bool), do: true
-  defp basic_type?({:bytes, _}), do: false
   defp basic_type?({:list, _, _}), do: false
   defp basic_type?({:vector, _, _}), do: false
   defp basic_type?({:bitlist, _}), do: false
