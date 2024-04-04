@@ -23,7 +23,7 @@ type subscription struct {
 }
 
 type Subscriber struct {
-	subscriptions   map[string]subscription
+	subscriptions   map[string]*subscription
 	pendingMessages sync.Map
 	gsub            *pubsub.PubSub
 	port            *port.Port
@@ -157,10 +157,15 @@ func NewSubscriber(p *port.Port, h host.Host) Subscriber {
 	utils.PanicIfError(err)
 
 	return Subscriber{
-		subscriptions: make(map[string]subscription),
+		subscriptions: make(map[string]*subscription),
 		gsub:          gsub,
 		port:          p,
 	}
+}
+
+func (s *Subscriber) Join(topicName string) {
+	// NOTE: this joins the topic if not already joined
+	s.getSubscription(topicName)
 }
 
 func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
@@ -180,22 +185,28 @@ func (s *Subscriber) Subscribe(topicName string, handler []byte) error {
 	}
 	s.gsub.RegisterTopicValidator(topicName, validator)
 	ctx, cancel := context.WithCancel(context.Background())
-	sub.Cancel = cancel
-	topicSub, err := sub.Topic.Subscribe()
-	utils.PanicIfError(err)
-	go subscribeToTopic(topicSub, ctx, s.gsub)
-	s.subscriptions[topicName] = sub
+	cancelChan := make(chan struct{})
+	sub.Cancel = func() {
+		cancel()
+		<-cancelChan
+		err := s.gsub.UnregisterTopicValidator(topicName)
+		utils.PanicIfError(err)
+	}
+	go subscribeToTopic(sub.Topic, ctx, cancelChan)
 	return nil
 }
 
-func (s *Subscriber) Unsubscribe(topicName string) {
+func (s *Subscriber) Leave(topicName string) {
 	sub, isSubscribed := s.subscriptions[topicName]
 	if !isSubscribed {
 		return
 	}
 	delete(s.subscriptions, topicName)
-	sub.Cancel()
-	sub.Topic.Close()
+	if sub.Cancel != nil {
+		sub.Cancel()
+	}
+	err := sub.Topic.Close()
+	utils.PanicIfError(err)
 }
 
 func (s *Subscriber) Validate(msgId []byte, intResult int) {
@@ -213,29 +224,35 @@ func (s *Subscriber) Validate(msgId []byte, intResult int) {
 
 func (s *Subscriber) Publish(topicName string, message []byte) {
 	sub := s.getSubscription(topicName)
-	err := sub.Topic.Publish(context.Background(), message)
-	utils.PanicIfError(err)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		err := sub.Topic.Publish(ctx, message)
+		utils.PanicIfError(err)
+	}()
 }
 
 // NOTE: we send the message to the port in the validator.
 // Here we just flush received messages and handle unsubscription.
-func subscribeToTopic(sub *pubsub.Subscription, ctx context.Context, gsub *pubsub.PubSub) {
-	topic := sub.Topic()
+func subscribeToTopic(topic *pubsub.Topic, ctx context.Context, cancelChan chan struct{}) {
+	sub, err := topic.Subscribe()
+	utils.PanicIfError(err)
 	for {
 		_, err := sub.Next(ctx)
 		if err == context.Canceled {
 			break
 		}
 	}
-	gsub.UnregisterTopicValidator(topic)
+	sub.Cancel()
+	cancelChan <- struct{}{}
 }
 
-func (s *Subscriber) getSubscription(topicName string) subscription {
+func (s *Subscriber) getSubscription(topicName string) *subscription {
 	sub, isSubscribed := s.subscriptions[topicName]
 	if !isSubscribed {
 		topic, err := s.gsub.Join(topicName)
 		utils.PanicIfError(err)
-		sub = subscription{
+		sub = &subscription{
 			Topic: topic,
 		}
 		s.subscriptions[topicName] = sub

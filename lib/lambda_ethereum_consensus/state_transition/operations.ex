@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     BeaconBlockHeader,
     BeaconState,
     ExecutionPayload,
+    ExecutionPayloadHeader,
     SyncAggregate,
     Validator,
     Withdrawal
@@ -214,13 +215,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
   @spec process_execution_payload(BeaconState.t(), BeaconBlockBody.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_execution_payload(
-        state,
-        %BeaconBlockBody{execution_payload: payload}
-      ) do
+  def process_execution_payload(state, %BeaconBlockBody{} = body) do
+    payload = body.execution_payload
+
     cond do
       # Verify consistency of the parent hash with respect to the previous execution payload header
-      Types.BeaconState.merge_transition_complete?(state) and
+      BeaconState.merge_transition_complete?(state) and
           payload.parent_hash != state.latest_execution_payload_header.block_hash ->
         {:error, "Inconsistency in parent hash"}
 
@@ -232,6 +232,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       # Verify timestamp
       payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->
         {:error, "Timestamp verification failed"}
+
+      body.blob_kzg_commitments |> length() > ChainSpec.get("MAX_BLOBS_PER_BLOCK") ->
+        {:error, "Too many commitments"}
 
       # Cache execution payload header
       true ->
@@ -246,27 +249,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
                  payload.withdrawals,
                  ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
                ) do
-          {:ok,
-           %BeaconState{
-             state
-             | latest_execution_payload_header: %Types.ExecutionPayloadHeader{
-                 parent_hash: payload.parent_hash,
-                 fee_recipient: payload.fee_recipient,
-                 state_root: payload.state_root,
-                 receipts_root: payload.receipts_root,
-                 logs_bloom: payload.logs_bloom,
-                 prev_randao: payload.prev_randao,
-                 block_number: payload.block_number,
-                 gas_limit: payload.gas_limit,
-                 gas_used: payload.gas_used,
-                 timestamp: payload.timestamp,
-                 extra_data: payload.extra_data,
-                 base_fee_per_gas: payload.base_fee_per_gas,
-                 block_hash: payload.block_hash,
-                 transactions_root: transactions_root,
-                 withdrawals_root: withdrawals_root
-               }
-           }}
+          fields =
+            [
+              parent_hash: payload.parent_hash,
+              fee_recipient: payload.fee_recipient,
+              state_root: payload.state_root,
+              receipts_root: payload.receipts_root,
+              logs_bloom: payload.logs_bloom,
+              prev_randao: payload.prev_randao,
+              block_number: payload.block_number,
+              gas_limit: payload.gas_limit,
+              gas_used: payload.gas_used,
+              timestamp: payload.timestamp,
+              extra_data: payload.extra_data,
+              base_fee_per_gas: payload.base_fee_per_gas,
+              block_hash: payload.block_hash,
+              transactions_root: transactions_root,
+              withdrawals_root: withdrawals_root,
+              blob_gas_used: payload.blob_gas_used,
+              excess_blob_gas: payload.excess_blob_gas
+            ]
+
+          header = struct!(ExecutionPayloadHeader, fields)
+
+          {:ok, %BeaconState{state | latest_execution_payload_header: header}}
         end
     end
   end
@@ -553,7 +559,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
         {:error, "validator cannot exit yet"}
 
-      not (Accessors.get_domain(state, Constants.domain_voluntary_exit(), voluntary_exit.epoch)
+      not (Misc.compute_domain(
+             Constants.domain_voluntary_exit(),
+             fork_version: ChainSpec.get("CAPELLA_FORK_VERSION"),
+             genesis_validators_root: state.genesis_validators_root
+           )
            |> then(&Misc.compute_signing_root(voluntary_exit, &1))
            |> then(&Bls.valid?(validator.pubkey, &1, signed_voluntary_exit.signature))) ->
         {:error, "invalid signature"}
@@ -757,8 +767,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     # Verify RANDAO reveal
     with {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
       proposer = Aja.Vector.at!(state.validators, proposer_index)
-      domain = Accessors.get_domain(state, Constants.domain_randao(), nil)
-      signing_root = Misc.compute_signing_root(epoch, Types.Epoch, domain)
+      domain = Accessors.get_domain(state, Constants.domain_randao())
+      signing_root = Misc.compute_signing_root(epoch, TypeAliases.epoch(), domain)
 
       if Bls.valid?(proposer.pubkey, signing_root, randao_reveal) do
         randao_mix = Randao.get_randao_mix(state.randao_mixes, epoch)
@@ -825,8 +835,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_valid_slot_range(data, state) do
-    if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot and
-         state.slot <= data.slot + ChainSpec.get("SLOTS_PER_EPOCH") do
+    if data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") <= state.slot do
       :ok
     else
       {:error, "Invalid slot range"}

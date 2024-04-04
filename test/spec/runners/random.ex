@@ -6,29 +6,10 @@ defmodule RandomTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-  @disabled_cases [
-    # "randomized_0",
-    # "randomized_1",
-    # "randomized_2",
-    # "randomized_3",
-    # "randomized_4",
-    # "randomized_5",
-    # "randomized_6",
-    # "randomized_7",
-    # "randomized_8",
-    # "randomized_9",
-    # "randomized_10",
-    # "randomized_11",
-    # "randomized_12",
-    # "randomized_13",
-    # "randomized_14",
-    # "randomized_15"
-  ]
-
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella", case: testcase}) do
-    Enum.member?(@disabled_cases, testcase)
-  end
+  def skip?(%SpecTestCase{fork: "capella"}), do: false
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(testcase) do

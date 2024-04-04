@@ -1,4 +1,5 @@
 defmodule BeaconApi.Endpoint do
+  use Sentry.PlugCapture
   use Phoenix.Endpoint, otp_app: :lambda_ethereum_consensus
 
   plug(Plug.Parsers,
@@ -7,5 +8,7 @@ defmodule BeaconApi.Endpoint do
     json_decoder: Phoenix.json_library()
   )
 
+  plug(BeaconApi.MetricsExporter)
   plug(BeaconApi.Router)
+  plug(Sentry.PlugContext)
 end

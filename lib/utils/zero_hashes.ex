@@ -3,32 +3,27 @@ defmodule LambdaEthereumConsensus.Utils.ZeroHashes do
   Precomputed zero hashes
   """
 
-  @bits_per_byte 8
   @bytes_per_chunk 32
-  @bits_per_chunk @bytes_per_chunk * @bits_per_byte
   @max_merkle_tree_depth 64
 
+  @doc """
+  Compute the roots of Merkle trees with all zero leaves and lengths from 0 to 64.
+  """
   def compute_zero_hashes do
-    buffer = <<0::size(@bytes_per_chunk * @max_merkle_tree_depth * @bits_per_byte)>>
-
-    0..(@max_merkle_tree_depth - 2)
-    |> Enum.reduce(buffer, fn index, acc_buffer ->
-      start = index * @bytes_per_chunk
-      stop = (index + 2) * @bytes_per_chunk
-      focus = acc_buffer |> :binary.part(start, stop - start)
-      <<left::binary-size(@bytes_per_chunk), _::binary>> = focus
-      hash = hash_nodes(left, left)
-      change_index = (index + 1) * @bytes_per_chunk
-      replace_chunk(acc_buffer, change_index, hash)
-    end)
+    Stream.iterate(<<0::size(8 * @bytes_per_chunk)>>, &hash_nodes(&1, &1))
+    |> Stream.take(@max_merkle_tree_depth + 1)
+    |> Enum.join()
   end
 
   defp hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
 
-  defp replace_chunk(chunks, start, new_chunk) do
-    <<left::binary-size(start), _::size(@bits_per_chunk), right::binary>> =
-      chunks
-
-    <<left::binary, new_chunk::binary, right::binary>>
+  @doc """
+  Given the output of `compute_zero_hashes` as second argument, return the root of
+  an all-zero Merkle tree of the given depth.
+  """
+  def get_zero_hash(depth, zero_hashes) when depth in 0..@max_merkle_tree_depth do
+    offset = (depth + 1) * @bytes_per_chunk - @bytes_per_chunk
+    <<_::binary-size(offset), hash::binary-size(@bytes_per_chunk), _::binary>> = zero_hashes
+    hash
   end
 end

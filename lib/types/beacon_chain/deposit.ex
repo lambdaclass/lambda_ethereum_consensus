@@ -3,7 +3,7 @@ defmodule Types.Deposit do
   Struct definition for `Deposit`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :proof,

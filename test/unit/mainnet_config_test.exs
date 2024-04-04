@@ -1,6 +1,8 @@
 defmodule Unit.MainnetConfigSmokeTest do
   use ExUnit.Case
 
+  doctest HardForkAliasInjection
+
   setup_all do
     Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
     |> Keyword.put(:config, MainnetConfig)

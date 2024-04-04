@@ -9,6 +9,18 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
   @bits_in_sentinel_bit 1
 
   @doc """
+  Creates a bit_list full of zeroes, with the given size.
+  """
+  @spec zero(non_neg_integer) :: t
+  def zero(size), do: <<0::size(size)>>
+
+  @doc """
+  Creates a default (empty/size 0) bit list.
+  """
+  @spec default :: t
+  def default, do: <<>>
+
+  @doc """
   Creates a new bit_list from bitstring.
   """
   @spec new(bitstring) :: t
@@ -24,7 +36,7 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
       pre::integer-size(num_bits - @bits_per_byte)>>
   end
 
-  @spec to_bytes(t) :: bitstring
+  @spec to_bytes(t) :: binary
   def to_bytes(bit_list) do
     # Change the byte order from big endian to little endian (reverse bytes).
     len = bit_size(bit_list)

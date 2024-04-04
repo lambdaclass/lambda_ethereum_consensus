@@ -18,17 +18,6 @@ defmodule SpecTestUtils do
 
   def vectors_dir, do: @vectors_dir
 
-  def cases_for(filter) do
-    [:config, :fork, :runner, :handler, :suite, :case]
-    |> Enum.map(fn key -> filter[key] || "*" end)
-    |> then(&[@vectors_dir | &1])
-    |> Path.join()
-    |> Path.wildcard()
-    |> Stream.map(&Path.relative_to(&1, SpecTestUtils.vectors_dir()))
-    |> Stream.map(&Path.split/1)
-    |> Enum.map(&SpecTestCase.new/1)
-  end
-
   @spec sanitize_yaml(any()) :: any()
   def sanitize_yaml(map) when is_map(map) do
     map
@@ -76,7 +65,7 @@ defmodule SpecTestUtils do
     end
   end
 
-  @spec read_ssz_ex_from_optional_file!(binary, module) :: any() | nil
+  @spec read_ssz_ex_from_optional_file!(binary, SszEx.schema()) :: any() | nil
   def read_ssz_ex_from_optional_file!(file_path, ssz_type) do
     if File.exists?(file_path) do
       compressed = File.read!(file_path)
@@ -96,7 +85,7 @@ defmodule SpecTestUtils do
     end
   end
 
-  @spec read_ssz_ex_from_file!(binary, module) :: any()
+  @spec read_ssz_ex_from_file!(binary, SszEx.schema()) :: any()
   def read_ssz_ex_from_file!(file_path, ssz_type) do
     case read_ssz_ex_from_optional_file!(file_path, ssz_type) do
       nil -> raise "File not found: #{file_path}"
@@ -107,8 +96,8 @@ defmodule SpecTestUtils do
   @spec resolve_type_from_handler(String.t(), map()) :: module()
   def resolve_type_from_handler(handler, map) do
     case Map.get(map, handler) do
-      nil -> raise "Unknown case #{handler}"
-      type -> Module.concat(Types, type)
+      nil -> raise "Unknown case \"#{handler}\""
+      type -> type
     end
   end
 
@@ -137,11 +126,15 @@ defmodule SpecTestUtils do
 
   def sanitize_ssz(vector_elements, {:vector, :bool, _size} = _schema), do: vector_elements
 
+  def sanitize_ssz(binary, {:byte_vector, _size} = _schema), do: binary
+
   def sanitize_ssz(vector_elements, {:vector, module, _size} = _schema) when is_atom(module),
     do: Enum.map(vector_elements, &struct!(module, &1))
 
   def sanitize_ssz(bitlist, {:bitlist, _size} = _schema), do: BitList.new(bitlist)
   def sanitize_ssz(bitvector, {:bitvector, size} = _schema), do: BitVector.new(bitvector, size)
+
+  def sanitize_ssz(binary, {:byte_list, _size} = _schema), do: binary
 
   def sanitize_ssz(list_elements, {:list, module, _size} = _schema) when is_atom(module),
     do: Enum.map(list_elements, fn element -> sanitize_ssz(element, module) end)

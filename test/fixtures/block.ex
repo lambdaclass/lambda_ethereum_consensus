@@ -6,17 +6,24 @@ defmodule Fixtures.Block do
   alias Fixtures.Random
   alias LambdaEthereumConsensus.Utils.BitVector
 
-  @spec signed_beacon_block :: Types.SignedBeaconBlock.t()
+  alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
+  alias Types.BeaconState
+  alias Types.ExecutionPayload
+  alias Types.ExecutionPayloadHeader
+  alias Types.SignedBeaconBlock
+
+  @spec signed_beacon_block :: SignedBeaconBlock.t()
   def signed_beacon_block do
-    %Types.SignedBeaconBlock{
+    %SignedBeaconBlock{
       message: beacon_block(),
       signature: Random.bls_signature()
     }
   end
 
-  @spec beacon_block :: Types.BeaconBlock.t()
+  @spec beacon_block :: BeaconBlock.t()
   def beacon_block do
-    %Types.BeaconBlock{
+    %BeaconBlock{
       parent_root: Random.root(),
       slot: Random.uint64(),
       proposer_index: Random.uint64(),
@@ -25,21 +32,25 @@ defmodule Fixtures.Block do
     }
   end
 
-  @spec beacon_block_body :: Types.BeaconBlockBody.t()
+  @spec beacon_block_body :: BeaconBlockBody.t()
   def beacon_block_body do
-    %Types.BeaconBlockBody{
-      randao_reveal: Random.bls_signature(),
-      eth1_data: eth1_data(),
-      graffiti: Random.hash32(),
-      proposer_slashings: [],
-      attester_slashings: [],
-      attestations: [],
-      deposits: [],
-      voluntary_exits: [],
-      sync_aggregate: sync_aggregate(),
-      execution_payload: execution_payload(),
-      bls_to_execution_changes: []
-    }
+    fields =
+      [
+        randao_reveal: Random.bls_signature(),
+        eth1_data: eth1_data(),
+        graffiti: Random.hash32(),
+        proposer_slashings: [],
+        attester_slashings: [],
+        attestations: [],
+        deposits: [],
+        voluntary_exits: [],
+        sync_aggregate: sync_aggregate(),
+        execution_payload: execution_payload(),
+        bls_to_execution_changes: [],
+        blob_kzg_commitments: []
+      ]
+
+    struct!(BeaconBlockBody, fields)
   end
 
   @spec eth1_data :: Types.Eth1Data.t()
@@ -59,25 +70,30 @@ defmodule Fixtures.Block do
     }
   end
 
-  @spec execution_payload :: Types.ExecutionPayload.t()
+  @spec execution_payload :: ExecutionPayload.t()
   def execution_payload do
-    %Types.ExecutionPayload{
-      parent_hash: Random.hash32(),
-      fee_recipient: Random.execution_address(),
-      state_root: Random.root(),
-      receipts_root: Random.root(),
-      logs_bloom: Random.binary(256),
-      prev_randao: Random.hash32(),
-      block_number: Random.uint64(),
-      gas_limit: Random.uint64(),
-      gas_used: Random.uint64(),
-      timestamp: Random.uint64(),
-      extra_data: Random.binary(30),
-      base_fee_per_gas: Random.uint64(),
-      block_hash: Random.binary(32),
-      transactions: [],
-      withdrawals: []
-    }
+    fields =
+      [
+        parent_hash: Random.hash32(),
+        fee_recipient: Random.execution_address(),
+        state_root: Random.root(),
+        receipts_root: Random.root(),
+        logs_bloom: Random.binary(256),
+        prev_randao: Random.hash32(),
+        block_number: Random.uint64(),
+        gas_limit: Random.uint64(),
+        gas_used: Random.uint64(),
+        timestamp: Random.uint64(),
+        extra_data: Random.binary(30),
+        base_fee_per_gas: Random.uint64(),
+        block_hash: Random.binary(32),
+        transactions: [],
+        withdrawals: [],
+        blob_gas_used: 0,
+        excess_blob_gas: 0
+      ]
+
+    struct!(ExecutionPayload, fields)
   end
 
   @spec fork :: Types.Fork.t()
@@ -124,30 +140,35 @@ defmodule Fixtures.Block do
     }
   end
 
-  @spec execution_payload_header :: Types.ExecutionPayloadHeader.t()
+  @spec execution_payload_header :: ExecutionPayloadHeader.t()
   def execution_payload_header do
-    %Types.ExecutionPayloadHeader{
-      parent_hash: Random.binary(32),
-      fee_recipient: Random.binary(20),
-      state_root: Random.root(),
-      receipts_root: Random.root(),
-      logs_bloom: Random.binary(256),
-      prev_randao: Random.binary(32),
-      block_number: Random.uint64(),
-      gas_limit: Random.uint64(),
-      gas_used: Random.uint64(),
-      timestamp: Random.uint64(),
-      extra_data: Random.binary(30),
-      base_fee_per_gas: Random.uint256(),
-      block_hash: Random.binary(32),
-      transactions_root: Random.root(),
-      withdrawals_root: Random.root()
-    }
+    fields =
+      [
+        parent_hash: Random.binary(32),
+        fee_recipient: Random.binary(20),
+        state_root: Random.root(),
+        receipts_root: Random.root(),
+        logs_bloom: Random.binary(256),
+        prev_randao: Random.binary(32),
+        block_number: Random.uint64(),
+        gas_limit: Random.uint64(),
+        gas_used: Random.uint64(),
+        timestamp: Random.uint64(),
+        extra_data: Random.binary(30),
+        base_fee_per_gas: Random.uint256(),
+        block_hash: Random.binary(32),
+        transactions_root: Random.root(),
+        withdrawals_root: Random.root(),
+        blob_gas_used: 0,
+        excess_blob_gas: 0
+      ]
+
+    struct!(ExecutionPayloadHeader, fields)
   end
 
-  @spec beacon_state :: Types.BeaconState.t()
+  @spec beacon_state :: BeaconState.t()
   def beacon_state do
-    %Types.BeaconState{
+    %BeaconState{
       genesis_time: Random.uint64(),
       genesis_validators_root: Random.root(),
       slot: Random.uint64(),

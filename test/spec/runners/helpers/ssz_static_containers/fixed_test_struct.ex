@@ -2,7 +2,7 @@ defmodule Helpers.SszStaticContainers.FixedTestStruct do
   @moduledoc """
   Struct definition for `FixedTestStruct`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :A,

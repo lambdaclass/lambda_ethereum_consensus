@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
 
   import Bitwise
-
   require Aja
+
   alias LambdaEthereumConsensus.SszEx
   alias Types.BeaconState
 
@@ -248,9 +248,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     ssz_object |> Ssz.hash_tree_root!() |> compute_signing_root(domain)
   end
 
-  @spec compute_signing_root(any(), module(), Types.domain()) :: Types.root()
+  @spec compute_signing_root(any(), SszEx.schema(), Types.domain()) :: Types.root()
   def compute_signing_root(ssz_object, schema, domain) do
-    ssz_object |> Ssz.hash_tree_root!(schema) |> compute_signing_root(domain)
+    ssz_object |> SszEx.hash_tree_root!(schema) |> compute_signing_root(domain)
   end
 
   @doc """
@@ -269,5 +269,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     anchor_state.latest_block_header
     |> Map.put(:state_root, state_root)
     |> Ssz.hash_tree_root!()
+  end
+
+  @spec kzg_commitment_to_versioned_hash(Types.kzg_commitment()) :: Types.bytes32()
+  def kzg_commitment_to_versioned_hash(kzg_commitment) do
+    hash = SszEx.hash(kzg_commitment) |> binary_slice(1..31)
+    <<Constants.versioned_hash_version_kzg()::binary-size(1), hash::binary-size(31)>>
   end
 end

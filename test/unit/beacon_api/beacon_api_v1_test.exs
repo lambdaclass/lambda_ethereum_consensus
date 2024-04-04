@@ -1,4 +1,4 @@
-defmodule BeaconApiTest do
+defmodule Unit.BeaconApiTest.V1 do
   use ExUnit.Case
   use Plug.Test
   use Patch
@@ -10,12 +10,13 @@ defmodule BeaconApiTest do
   alias LambdaEthereumConsensus.Store.Db
 
   @moduletag :beacon_api_case
+  @moduletag :tmp_dir
 
   @opts Router.init([])
 
-  setup do
+  setup %{tmp_dir: tmp_dir} do
     Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
-    |> Keyword.merge(config: MainnetConfig, genesis_validators_root: <<42::256>>)
+    |> Keyword.merge(config: MainnetConfig)
     |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
 
     head_root =
@@ -30,7 +31,7 @@ defmodule BeaconApiTest do
       head_slot: Fixtures.Random.uint64()
     }
 
-    start_supervised!(Db)
+    start_link_supervised!({Db, dir: tmp_dir})
 
     patch(BeaconChain, :get_current_status_message, {:ok, status_message})
     patch(BeaconChain, :get_genesis_time, 42)

@@ -1,6 +1,16 @@
 defmodule Unit.SSZExTest do
+  alias LambdaEthereumConsensus.Utils.Diff
+
+  alias Types.{
+    BeaconBlock,
+    BeaconBlockBody,
+    Checkpoint,
+    Eth1Data,
+    ExecutionPayload,
+    SyncAggregate
+  }
+
   alias LambdaEthereumConsensus.SszEx
-  alias Types.Checkpoint
   use ExUnit.Case
 
   def assert_roundtrip(serialized, deserialized, schema) do
@@ -461,6 +471,64 @@ defmodule Unit.SSZExTest do
         44, 135, 243, 163>>
 
     assert_roundtrip(serialized, validator, Types.Validator)
+  end
+
+  @root_size 32
+  @signature_size 96
+  @default_signature <<0::size(@signature_size * 8)>>
+  @default_root <<0::size(@root_size * 8)>>
+  @default_hash @default_root
+
+  test "default block" do
+    default = SszEx.default(BeaconBlock)
+
+    expected = %BeaconBlock{
+      slot: 0,
+      proposer_index: 0,
+      parent_root: @default_root,
+      state_root: @default_root,
+      body: %BeaconBlockBody{
+        randao_reveal: @default_signature,
+        eth1_data: %Eth1Data{
+          deposit_root: @default_root,
+          deposit_count: 0,
+          block_hash: @default_hash
+        },
+        graffiti: <<0::size(32 * 8)>>,
+        proposer_slashings: [],
+        attester_slashings: [],
+        attestations: [],
+        deposits: [],
+        voluntary_exits: [],
+        sync_aggregate: %SyncAggregate{
+          sync_committee_bits: <<0::size(ChainSpec.get("SYNC_COMMITTEE_SIZE"))>>,
+          sync_committee_signature: @default_signature
+        },
+        execution_payload: %ExecutionPayload{
+          parent_hash: @default_hash,
+          fee_recipient: <<0::size(20 * 8)>>,
+          state_root: @default_root,
+          receipts_root: @default_root,
+          logs_bloom: <<0::size(ChainSpec.get("BYTES_PER_LOGS_BLOOM") * 8)>>,
+          prev_randao: <<0::size(32 * 8)>>,
+          block_number: 0,
+          gas_limit: 0,
+          gas_used: 0,
+          timestamp: 0,
+          extra_data: <<>>,
+          base_fee_per_gas: 0,
+          block_hash: @default_hash,
+          transactions: [],
+          withdrawals: [],
+          blob_gas_used: 0,
+          excess_blob_gas: 0
+        },
+        bls_to_execution_changes: [],
+        blob_kzg_commitments: []
+      }
+    }
+
+    assert Diff.diff(default, expected) == :unchanged
   end
 
   test "serialize and deserialize bitlist" do

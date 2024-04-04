@@ -3,7 +3,7 @@ defmodule Types.SignedBeaconBlock do
   Struct definition for `SignedBeaconBlock`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :message,

@@ -208,6 +208,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
+  Return the validator activation churn limit for the current epoch.
+  """
+  @spec get_validator_activation_churn_limit(BeaconState.t()) :: Types.uint64()
+  def get_validator_activation_churn_limit(%BeaconState{} = state) do
+    max_per_epoch_activation_churn_limit = ChainSpec.get("MAX_PER_EPOCH_ACTIVATION_CHURN_LIMIT")
+    min(max_per_epoch_activation_churn_limit, get_validator_churn_limit(state))
+  end
+
+  @doc """
   Returns the number of epochs since the last finalised checkpoint (minus one).
   """
   @spec get_finality_delay(BeaconState.t()) :: Types.uint64()
@@ -236,8 +245,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_beacon_proposer_index(BeaconState.t()) ::
           {:ok, Types.validator_index()} | {:error, String.t()}
-  def get_beacon_proposer_index(%BeaconState{slot: slot} = state) do
-    epoch = get_current_epoch(state)
+  def get_beacon_proposer_index(%BeaconState{slot: state_slot} = state, slot \\ nil) do
+    slot = if is_nil(slot), do: state_slot, else: slot
+    # NOTE: slot should be within the state's current epoch, otherwise the result can change
+    epoch = Misc.compute_epoch_at_slot(slot)
+
     {:ok, root} = get_epoch_root(state, epoch)
 
     Cache.lazily_compute(:beacon_proposer_index, {slot, root}, fn ->
@@ -381,9 +393,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   defp compute_target_indices(is_matching_target, inclusion_delay) do
-    max_delay = ChainSpec.get("SLOTS_PER_EPOCH")
+    _ = inclusion_delay
 
-    if is_matching_target and inclusion_delay <= max_delay,
+    if is_matching_target,
       do: [Constants.timely_target_flag_index()],
       else: []
   end

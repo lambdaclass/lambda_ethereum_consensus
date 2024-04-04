@@ -4,7 +4,7 @@ defmodule Unit.ReqRespTest do
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.BeaconBlocksByRangeRequest
-  alias Types.BeaconBlocksByRootRequest
+  alias Types.BlobIdentifier
 
   use ExUnit.Case
   # TODO: try not to use patch
@@ -47,7 +47,7 @@ defmodule Unit.ReqRespTest do
       "011CFF060000734E6150705900220000EF99F84B1C6C4661696C656420746F20756E636F6D7072657373206D657373616765"
       |> Base.decode16!()
 
-    expected_result = {:error, {1, {:ok, "Failed to uncompress message"}}}
+    expected_result = {:error, %ReqResp.Error{code: 1, message: "Failed to uncompress message"}}
 
     assert ReqResp.decode_response_chunk(msg, TypeAliases.uint64()) == expected_result
   end
@@ -85,45 +85,82 @@ defmodule Unit.ReqRespTest do
     )
   end
 
+  defp assert_complex_request_roundtrip(request, request_type, response) do
+    [%response_type{} | _] = response
+    context_bytes = "abcd"
+    patch(BeaconChain, :get_fork_digest, context_bytes)
+    payloads = Enum.map(response, fn x -> {:ok, {x, context_bytes}} end)
+
+    decoded_request =
+      ReqResp.encode_request({request, request_type}) |> ReqResp.decode_request(request_type)
+
+    assert decoded_request == {:ok, request}
+
+    decoded_response = ReqResp.encode_response(payloads) |> ReqResp.decode_response(response_type)
+    assert decoded_response == {:ok, response}
+  end
+
   test "BeaconBlocksByRange round trip" do
     count = 5
     request = %BeaconBlocksByRangeRequest{start_slot: 15_125, count: count}
-    context_bytes = "abcd"
-    patch(BeaconChain, :get_fork_digest, context_bytes)
-    blocks = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
-
-    result =
-      ReqResp.encode_request(request)
-      |> ReqResp.decode_request(BeaconBlocksByRangeRequest)
-
-    assert result == {:ok, request}
-
-    response =
-      Enum.map(blocks, &{:ok, {&1, context_bytes}})
-      |> ReqResp.encode_response()
-      |> ReqResp.decode_response()
-
-    assert response == {:ok, blocks}
+    response = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
+    assert_complex_request_roundtrip(request, BeaconBlocksByRangeRequest, response)
   end
 
   test "BeaconBlocksByRoot round trip" do
     count = 5
-    request = %BeaconBlocksByRootRequest{body: Enum.map(1..count, &<<&1::256>>)}
-    context_bytes = "abcd"
-    patch(BeaconChain, :get_fork_digest, context_bytes)
-    blocks = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
+    request = Enum.map(1..count, &<<&1::256>>)
+    response = Enum.map(1..count, fn _ -> Block.signed_beacon_block() end)
 
-    result =
-      ReqResp.encode_request(request)
-      |> ReqResp.decode_request(BeaconBlocksByRootRequest)
+    assert_complex_request_roundtrip(
+      request,
+      TypeAliases.beacon_blocks_by_root_request(),
+      response
+    )
+  end
 
-    assert result == {:ok, request}
+  test "BlobSidecarsByRange round trip" do
+    count = 1
+    request = %BeaconBlocksByRangeRequest{start_slot: 15_125, count: count}
 
+    # TODO: generate randomly
     response =
-      Enum.map(blocks, &{:ok, {&1, context_bytes}})
-      |> ReqResp.encode_response()
-      |> ReqResp.decode_response()
+      [
+        %Types.BlobSidecar{
+          index: 1,
+          blob: <<152_521_252::(4096*32)*8>>,
+          kzg_commitment: <<57_888::48*8>>,
+          kzg_proof: <<6122::48*8>>,
+          signed_block_header: Block.signed_beacon_block_header(),
+          kzg_commitment_inclusion_proof: [<<1551::32*8>>] |> Stream.cycle() |> Enum.take(17)
+        }
+      ]
 
-    assert response == {:ok, blocks}
+    assert_complex_request_roundtrip(request, BeaconBlocksByRangeRequest, response)
+  end
+
+  test "BlobSidecarsByRoot round trip" do
+    count = 1
+
+    request = Enum.map(1..count, &%BlobIdentifier{block_root: <<&1::256>>, index: &1})
+
+    # TODO: generate randomly
+    response =
+      [
+        %Types.BlobSidecar{
+          index: 1,
+          blob: <<152_521_252::(4096*32)*8>>,
+          kzg_commitment: <<57_888::48*8>>,
+          kzg_proof: <<6122::48*8>>,
+          signed_block_header: Block.signed_beacon_block_header(),
+          kzg_commitment_inclusion_proof: [<<1551::32*8>>] |> Stream.cycle() |> Enum.take(17)
+        }
+      ]
+
+    assert_complex_request_roundtrip(
+      request,
+      TypeAliases.blob_sidecars_by_root_request(),
+      response
+    )
   end
 end

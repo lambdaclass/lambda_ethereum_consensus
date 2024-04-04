@@ -4,7 +4,7 @@ defmodule Helpers.SszStaticContainers.ComplexTestStruct do
   """
   alias Helpers.SszStaticContainers.FixedTestStruct
   alias Helpers.SszStaticContainers.VarTestStruct
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :A,

@@ -3,7 +3,7 @@ defmodule Types.BeaconBlockHeader do
   Struct definition for `BeaconBlockHeader`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :slot,

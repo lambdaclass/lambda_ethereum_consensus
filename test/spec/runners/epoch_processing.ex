@@ -4,6 +4,7 @@ defmodule EpochProcessingTestRunner do
   """
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.Utils.Diff
+  alias Types.BeaconState
 
   use ExUnit.CaseTemplate
   use TestRunner
@@ -30,25 +31,22 @@ defmodule EpochProcessingTestRunner do
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
-    fork != "capella" or Enum.member?(@disabled_handlers ++ @deprecated_handlers, handler)
+  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
+    Enum.member?(@disabled_handlers ++ @deprecated_handlers, handler)
   end
+
+  @impl TestRunner
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
+
+  @impl TestRunner
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
-    pre =
-      SpecTestUtils.read_ssz_from_file!(
-        case_dir <> "/pre.ssz_snappy",
-        Types.BeaconState
-      )
-
-    post =
-      SpecTestUtils.read_ssz_from_optional_file!(
-        case_dir <> "/post.ssz_snappy",
-        Types.BeaconState
-      )
+    pre = SpecTestUtils.read_ssz_from_file!(case_dir <> "/pre.ssz_snappy", BeaconState)
+    post = SpecTestUtils.read_ssz_from_optional_file!(case_dir <> "/post.ssz_snappy", BeaconState)
 
     handle_case(testcase.handler, pre, post)
   end

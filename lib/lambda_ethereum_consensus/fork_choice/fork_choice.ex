@@ -8,8 +8,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
+  alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb
+  alias LambdaEthereumConsensus.Validator
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -30,7 +32,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     GenServer.cast(__MODULE__, {:on_tick, time})
   end
 
-  @spec on_block(Types.SignedBeaconBlock.t(), Types.root()) :: :ok | :error
+  @spec on_block(SignedBeaconBlock.t(), Types.root()) :: :ok | :error
   def on_block(signed_block, block_root) do
     GenServer.cast(__MODULE__, {:on_block, block_root, signed_block, self()})
   end
@@ -82,7 +84,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         {:noreply, new_store}
 
       {:error, reason} ->
-        Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot)
+        Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
         GenServer.cast(from, {:block_processed, block_root, false})
         {:noreply, store}
     end
@@ -165,13 +167,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Handlers.notify_forkchoice_update(store, head_block)
 
-    finalized_checkpoint = store.finalized_checkpoint
+    OperationsCollector.notify_new_block(head_block)
+    Validator.notify_new_block(head_block.slot, head_root)
 
     BeaconChain.update_fork_choice_cache(
       head_root,
       head_block.slot,
       store.justified_checkpoint,
-      finalized_checkpoint
+      store.finalized_checkpoint
     )
 
     Logger.debug("[Fork choice] Updated fork choice cache", slot: head_block.slot)
@@ -179,7 +182,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     :ok
   end
 
-  def persist_store(store) do
+  defp persist_store(store) do
     pruned_store = Map.put(store, :checkpoint_states, %{})
 
     Task.async(fn ->

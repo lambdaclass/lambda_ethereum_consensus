@@ -40,9 +40,6 @@ pub(crate) trait Config {
     type MaxExtraDataBytes: Unsigned;
     type MaxBlsToExecutionChanges: Unsigned;
     type MaxWithdrawalsPerPayload: Unsigned;
-    /*
-     * New in Deneb
-     */
     type MaxBlobsPerBlock: Unsigned;
     type MaxBlobCommitmentsPerBlock: Unsigned;
     type FieldElementsPerBlob: Unsigned;

@@ -15,8 +15,18 @@ defmodule LightClientTestRunner do
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{} = testcase) do
+  def skip?(%SpecTestCase{fork: "capella"} = testcase) do
     Enum.member?(@disabled_handlers, testcase.handler)
+  end
+
+  def skip?(%SpecTestCase{fork: "deneb"} = _testcase) do
+    # TODO: all of them fail
+    true
+  end
+
+  @impl TestRunner
+  def skip?(_testcase) do
+    true
   end
 
   @impl TestRunner

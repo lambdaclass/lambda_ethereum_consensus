@@ -8,6 +8,7 @@ defmodule SanityTestRunner do
 
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.Utils.Diff
+  alias Types.BeaconState
 
   @disabled_block_cases [
     # "activate_and_partial_withdrawal_max_effective_balance",
@@ -102,6 +103,14 @@ defmodule SanityTestRunner do
     Enum.member?(@disabled_slot_cases, testcase)
   end
 
+  def skip?(%SpecTestCase{fork: "deneb", handler: "blocks", case: testcase}) do
+    Enum.member?(@disabled_block_cases, testcase)
+  end
+
+  def skip?(%SpecTestCase{fork: "deneb", handler: "slots", case: testcase}) do
+    Enum.member?(@disabled_slot_cases, testcase)
+  end
+
   def skip?(_), do: true
 
   @impl TestRunner
@@ -109,17 +118,8 @@ defmodule SanityTestRunner do
     # TODO process meta.yaml
     case_dir = SpecTestCase.dir(testcase)
 
-    pre =
-      SpecTestUtils.read_ssz_from_file!(
-        case_dir <> "/pre.ssz_snappy",
-        Types.BeaconState
-      )
-
-    post =
-      SpecTestUtils.read_ssz_from_optional_file!(
-        case_dir <> "/post.ssz_snappy",
-        Types.BeaconState
-      )
+    pre = SpecTestUtils.read_ssz_from_file!(case_dir <> "/pre.ssz_snappy", BeaconState)
+    post = SpecTestUtils.read_ssz_from_optional_file!(case_dir <> "/post.ssz_snappy", BeaconState)
 
     slots_to_process =
       YamlElixir.read_from_file!(case_dir <> "/slots.yaml") |> SpecTestUtils.sanitize_yaml()
