@@ -107,8 +107,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
         }
 
   @spec get_deposit_logs(Range.t()) :: {:ok, [deposit_log()]} | {:error, any}
-  def get_deposit_logs(from_block..to_block) do
-    with {:ok, raw_logs} <- EngineApi.get_deposit_logs(from_block..to_block) do
+  def get_deposit_logs(block_range) do
+    with {:ok, raw_logs} <- EngineApi.get_deposit_logs(block_range) do
       parse_raw_logs(raw_logs)
     end
   end
@@ -136,7 +136,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   defp parse_block_metadata(_), do: {:error, "invalid block format"}
 
   defp parse_raw_logs(raw_logs) do
-    Enum.map(raw_logs, &parse_raw_log/1)
+    {:ok, Enum.map(raw_logs, &parse_raw_log/1)}
   end
 
   @min_hex_data_byte_size 1104
@@ -149,9 +149,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     # These magic numbers correspond to the start and length of each field in the deposit log data.
     pubkey = binary_part(data, 192, 48)
     withdrawal_credentials = binary_part(data, 288, 32)
-    amount = binary_part(data, 352, 8) |> SszEx.decode(TypeAliases.uint64())
+    {:ok, amount} = binary_part(data, 352, 8) |> SszEx.decode(TypeAliases.uint64())
     signature = binary_part(data, 416, 96)
-    index = binary_part(data, 544, 8) |> SszEx.decode(TypeAliases.uint64())
+    {:ok, index} = binary_part(data, 544, 8) |> SszEx.decode(TypeAliases.uint64())
 
     block_number = String.to_integer(hex_block_number, 16)
 
@@ -162,6 +162,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
       signature: signature
     }
 
-    {:ok, %{data: deposit_data, block_number: block_number, index: index}}
+    %{data: deposit_data, block_number: block_number, index: index}
   end
 end
