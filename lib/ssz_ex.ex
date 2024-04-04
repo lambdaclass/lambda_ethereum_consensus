@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     - `{:byte_list, max_length}`
       Same as `{:list, {:int, 8}, length}` (i.e. a list of bytes), but
       encodes-from/decodes-into an Elixir binary.
-    - `{:bytes_vector, length}`
+    - `{:byte_vector, length}`
       Same as `{:vector, {:int, 8}, length}` (i.e. a vector of bytes),
       but encodes-from/decodes-into an Elixir binary.
     - `{:bitlist, max_length}`
