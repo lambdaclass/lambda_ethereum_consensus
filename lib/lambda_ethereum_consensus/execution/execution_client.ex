@@ -31,10 +31,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     end
   end
 
-  @doc """
-  If `payload_attributes` is provided, this function sets in motion a payload build process on top of
-  `head_block_hash` and returns an identifier of initiated process.
-  """
   @spec notify_forkchoice_updated(Types.EngineApi.forkchoice_state_v3()) ::
           {:ok, execution_status()} | {:error, any}
 
@@ -49,6 +45,10 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     end
   end
 
+  @doc """
+  This function sets in motion a payload build process on top of
+  `head_block_hash` and returns an identifier of initiated process.
+  """
   @spec notify_forkchoice_updated(
           Types.Execution.forkchoice_state_v3(),
           Types.Execution.payload_attributes_v3()
@@ -94,7 +94,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     end
   end
 
-<<<<<<< Updated upstream
   @type block_metadata :: %{
           block_hash: Types.root(),
           block_number: Types.uint64(),
@@ -173,10 +172,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
 
     %{data: deposit_data, block_number: block_number, index: index}
   end
-=======
+
   defp parse_status("SYNCING"), do: :optimistic
   defp parse_status("VALID"), do: :valid
   defp parse_status("INVALID"), do: :invalid
   defp parse_status(_status), do: :unknown
->>>>>>> Stashed changes
 end
