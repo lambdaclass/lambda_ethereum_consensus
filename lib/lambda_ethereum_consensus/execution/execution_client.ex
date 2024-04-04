@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     end
   end
 
-  @spec notify_forkchoice_updated(Types.EngineApi.forkchoice_state_v3()) ::
+  @spec notify_forkchoice_updated(Types.Execution.forkchoice_state_v3()) ::
           {:ok, execution_status()} | {:error, any}
 
   def notify_forkchoice_updated(fork_choice_state) do

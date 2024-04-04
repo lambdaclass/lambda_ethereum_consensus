@@ -1,4 +1,7 @@
 defmodule Types.Execution do
+  @moduledoc """
+  Execution Layer types
+  """
   @type forkchoice_state_v3 :: %{
           finalized_block_hash: Types.hash32(),
           head_block_hash: Types.hash32(),
