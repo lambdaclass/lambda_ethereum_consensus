@@ -37,7 +37,7 @@ defmodule Genesis do
   def get_state!({:file, anchor_state}) do
     signed_anchor_block = %{
       SszEx.default(SignedBeaconBlock)
-      | message: %{SszEx.default(BeaconBlock) | state_root: SszEx.hash_tree_root!(anchor_state)}
+      | message: %{SszEx.default(BeaconBlock) | state_root: Ssz.hash_tree_root!(anchor_state)}
     }
 
     {Store.get_forkchoice_store(anchor_state, signed_anchor_block),

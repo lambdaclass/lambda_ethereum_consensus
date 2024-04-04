@@ -12,8 +12,22 @@ defmodule CustomConfig do
     Application.put_env(:lambda_ethereum_consensus, __MODULE__, merged: merged_config)
   end
 
-  defp get_config,
-    do: Application.get_env(:lambda_ethereum_consensus, __MODULE__) |> Keyword.fetch!(:merged)
+  defp get_config do
+    Application.get_env(:lambda_ethereum_consensus, __MODULE__)
+    |> Keyword.fetch!(:merged)
+    |> Enum.map(fn {k, v} -> {k, parse_int(v)} end)
+    |> Map.new()
+  end
+
+  # Parses as integer if parsable. If not, returns original value.
+  defp parse_int(v) when is_binary(v) do
+    case Integer.parse(v) do
+      {i, ""} -> i
+      _ -> v
+    end
+  end
+
+  defp parse_int(v), do: v
 
   @impl GenConfig
   def get(key), do: get_config() |> Map.fetch!(key)
