@@ -24,5 +24,8 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   @spec get_block_header(nil | Types.uint64() | Types.root()) :: {:ok, any} | {:error, any}
   def get_block_header(block_id), do: impl().get_block_header(block_id)
 
+  @spec get_deposit_logs(Range.t()) :: {:ok, list(any)} | {:error, any}
+  def get_deposit_logs(block_number_range), do: impl().get_deposit_logs(block_number_range)
+
   defp impl, do: Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)[:implementation]
 end

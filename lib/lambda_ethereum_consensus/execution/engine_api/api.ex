@@ -43,6 +43,23 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   def get_block_header(block_id) when is_binary(block_id),
     do: call("eth_getBlockByHash", [RPC.normalize(block_id), false])
 
+  @spec get_deposit_logs(Range.t()) :: {:ok, list(any)} | {:error, any}
+  def get_deposit_logs(from_block..to_block) do
+    deposit_contract = ChainSpec.get("DEPOSIT_CONTRACT_ADDRESS")
+
+    # `keccak("DepositEvent(bytes,bytes,bytes,bytes,bytes)")`
+    deposit_event_topic = "0x649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5"
+
+    filter = %{
+      "address" => RPC.normalize(deposit_contract),
+      "fromBlock" => RPC.normalize(from_block),
+      "toBlock" => RPC.normalize(to_block),
+      "topics" => [deposit_event_topic]
+    }
+
+    call("eth_getLogs", [filter])
+  end
+
   defp call(method, params) do
     config = Application.fetch_env!(:lambda_ethereum_consensus, EngineApi)
 

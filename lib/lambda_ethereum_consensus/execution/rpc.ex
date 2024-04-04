@@ -64,6 +64,10 @@ defmodule LambdaEthereumConsensus.Execution.RPC do
     end)
   end
 
+  def normalize_response(response) when is_list(response) do
+    Enum.map(response, &normalize_response/1)
+  end
+
   def normalize_response(response) do
     response
   end
