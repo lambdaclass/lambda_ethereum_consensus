@@ -231,7 +231,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   end
 
   @spec hash_tree_root(struct(), atom()) :: {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(container, module) when is_map(container) do
+  def hash_tree_root(container, module) when is_map(container) and is_atom(module) do
     value =
       module.schema()
       |> Enum.reduce_while({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
@@ -252,6 +252,10 @@ defmodule LambdaEthereumConsensus.SszEx do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  def hash_tree_root(vec(_) = list, {:list, _type, _size} = schema) do
+    hash_tree_root(Aja.Vector.to_list(list), schema)
   end
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
@@ -276,10 +280,11 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(vector, {:vector, _type, size}) when length(vector) != size,
-    do: {:error, "invalid size"}
+  def hash_tree_root(vector, {:vector, _type, size})
+      when is_list(vector) and length(vector) != size,
+      do: {:error, "invalid size"}
 
-  def hash_tree_root(vector, {:vector, type, _size} = schema) do
+  def hash_tree_root(vector, {:vector, type, _size} = schema) when is_list(vector) do
     value =
       if basic_type?(type) do
         pack(vector, schema)

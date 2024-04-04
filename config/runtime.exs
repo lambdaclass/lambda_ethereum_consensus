@@ -1,6 +1,7 @@
 import Config
 alias LambdaEthereumConsensus.SszEx
 alias Types.BeaconStateDeneb
+alias LambdaEthereumConsensus.ForkChoice
 
 switches = [
   network: :string,
@@ -115,7 +116,7 @@ genesis =
       {:file, state}
   end
 
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice, genesis_state: genesis
+config :lambda_ethereum_consensus, ForkChoice, genesis_state: genesis
 
 # Configures peer discovery
 bootnodes = Map.fetch!(chain_config, :bootnodes)

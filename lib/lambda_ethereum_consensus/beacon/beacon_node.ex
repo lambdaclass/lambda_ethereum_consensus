@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
 
@@ -16,7 +17,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   def init(_) do
     {store, genesis_validators_root} =
       Application.get_env(:lambda_ethereum_consensus, ForkChoice)
-      |> Keyword.fetch!(:genesis)
+      |> Keyword.fetch!(:genesis_state)
       |> Genesis.get_state!()
 
     Cache.initialize_cache()
