@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
   """
   alias Types.BeaconState
 
-  enforced_keys = [:slot, :proposer_index, :eth1_data]
+  enforced_keys = [:slot, :proposer_index, :eth1_data, :execution_payload]
 
   optional_keys = [
     graffiti_message: "",
@@ -29,7 +29,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
           attester_slashings: [Types.AttesterSlashing.t()],
           attestations: [Types.Attestation.t()],
           voluntary_exits: [Types.SignedVoluntaryExit.t()],
-          bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()]
+          bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()],
+          execution_payload: Types.ExecutionPayload.t()
         }
 
   @spec validate(t(), BeaconState.t()) :: {:ok, t()} | {:error, String.t()}

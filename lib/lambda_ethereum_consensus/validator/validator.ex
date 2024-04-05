@@ -411,12 +411,17 @@ defmodule LambdaEthereumConsensus.Validator do
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
     head_state = BlockStates.get_state!(head_root)
 
+    # ExecutionClient.notify_forkchoice_updated()
+
+    execution_payload = Proposer.get_execution_payload()
+
     block_request =
       %BlockRequest{
         slot: proposed_slot,
         proposer_index: index,
         graffiti_message: @default_graffiti_message,
-        eth1_data: fetch_eth1_data(proposed_slot, head_state)
+        eth1_data: fetch_eth1_data(proposed_slot, head_state),
+        execution_payload: execution_payload
       }
       |> Map.merge(Proposer.fetch_operations_for_block())
 
