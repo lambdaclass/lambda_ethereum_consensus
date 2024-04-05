@@ -414,33 +414,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     # ExecutionClient.notify_forkchoice_updated()
 
-    execution_payload = %Types.ExecutionPayload{
-      parent_hash:
-        <<212, 46, 177, 5, 71, 181, 49, 8, 203, 152, 49, 250, 205, 230, 188, 78, 249, 162, 232,
-          114, 146, 86, 123, 101, 230, 11, 67, 235, 239, 164, 41, 159>>,
-      fee_recipient: <<0::160>>,
-      state_root: "                                ",
-      receipts_root:
-        <<29, 204, 77, 232, 222, 199, 93, 122, 171, 133, 181, 103, 182, 204, 212, 26, 211, 18, 69,
-          27, 148, 138, 116, 19, 240, 161, 66, 253, 64, 212, 147, 71>>,
-      logs_bloom: <<0::2048>>,
-      prev_randao:
-        <<218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218,
-          218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218>>,
-      block_number: 1,
-      gas_limit: 30_000_000,
-      gas_used: 0,
-      timestamp: 6,
-      extra_data: "",
-      base_fee_per_gas: 1_000_000_000,
-      block_hash:
-        <<140, 253, 138, 145, 253, 25, 211, 25, 133, 168, 106, 67, 9, 119, 177, 247, 197, 188, 20,
-          36, 18, 109, 135, 83, 175, 220, 222, 84, 168, 70, 6, 62>>,
-      transactions: [],
-      withdrawals: [],
-      blob_gas_used: 0,
-      excess_blob_gas: 0
-    }
+    execution_payload = Proposer.get_execution_payload()
 
     block_request =
       %BlockRequest{
