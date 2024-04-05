@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Execution.Eth1Chain
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
@@ -409,14 +410,12 @@ defmodule LambdaEthereumConsensus.Validator do
   defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
-    last_eth1_data = Blocks.get_block!(head_root) |> get_in([:body, :eth1_data])
-
     block_request =
       %BlockRequest{
         slot: proposed_slot,
         proposer_index: index,
         graffiti_message: @default_graffiti_message,
-        eth1_data: last_eth1_data
+        eth1_data: fetch_eth1_data(proposed_slot, head_root)
       }
       |> Map.merge(Proposer.fetch_operations_for_block())
 
@@ -434,6 +433,13 @@ defmodule LambdaEthereumConsensus.Validator do
     case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
       :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
       _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
+    end
+  end
+
+  defp fetch_eth1_data(slot, head_root) do
+    case Eth1Chain.get_eth1_vote(slot) do
+      nil -> Blocks.get_block!(head_root) |> get_in([:body, :eth1_data])
+      eth1_data -> eth1_data
     end
   end
 end
