@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   Polls the Execution Engine for the latest Eth1 block, and
   stores the canonical Eth1 chain for block proposing.
   """
+  alias Types.DepositTree
   alias Types.ExecutionPayload
   use GenServer
 
@@ -23,12 +24,13 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   @impl true
-  def init(genesis_time) do
+  def init({genesis_time, deposit_tree_snapshot}) do
     state = %{
       # PERF: we could use some kind of ordered map for storing votes
       eth1_data_votes: %{},
       eth1_chain: [],
       genesis_time: genesis_time,
+      deposit_tree: DepositTree.from_snapshot(deposit_tree_snapshot),
       last_period: 0
     }
 
