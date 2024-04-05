@@ -54,7 +54,7 @@ defmodule LambdaEthereumConsensus.Execution.Eth1Chain do
 
     if current_period > last_period do
       new_chain = drop_old_payloads(state.eth1_chain, genesis_time, slot)
-      %{state | eth1_data_votes: [], eth1_chain: new_chain, last_period: current_period}
+      %{state | eth1_data_votes: %{}, eth1_chain: new_chain, last_period: current_period}
     else
       state
     end
