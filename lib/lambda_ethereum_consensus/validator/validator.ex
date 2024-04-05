@@ -410,12 +410,14 @@ defmodule LambdaEthereumConsensus.Validator do
   defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
+    head_block = Blocks.get_block!(head_root)
+
     block_request =
       %BlockRequest{
         slot: proposed_slot,
         proposer_index: index,
         graffiti_message: @default_graffiti_message,
-        eth1_data: fetch_eth1_data(proposed_slot, head_root)
+        eth1_data: fetch_eth1_data(proposed_slot, head_block)
       }
       |> Map.merge(Proposer.fetch_operations_for_block())
 
@@ -436,9 +438,9 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp fetch_eth1_data(slot, head_root) do
+  defp fetch_eth1_data(slot, head_block) do
     case Eth1Chain.get_eth1_vote(slot) do
-      nil -> Blocks.get_block!(head_root) |> get_in([:body, :eth1_data])
+      nil -> head_block |> get_in([:body, :eth1_data])
       eth1_data -> eth1_data
     end
   end
