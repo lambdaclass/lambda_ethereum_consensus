@@ -409,14 +409,20 @@ defmodule LambdaEthereumConsensus.Validator do
   defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
-    last_eth1_data = Blocks.get_block!(head_root) |> get_in([:body, :eth1_data])
+    head_block = Blocks.get_block!(head_root)
+    last_eth1_data = head_block |> get_in([:body, :eth1_data])
+
+    # ExecutionClient.notify_forkchoice_updated()
+
+    execution_payload = Proposer.get_execution_payload()
 
     block_request =
       %BlockRequest{
         slot: proposed_slot,
         proposer_index: index,
         graffiti_message: @default_graffiti_message,
-        eth1_data: last_eth1_data
+        eth1_data: last_eth1_data,
+        execution_payload: execution_payload
       }
       |> Map.merge(Proposer.fetch_operations_for_block())
 
