@@ -111,7 +111,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     }
   end
 
-  def get_execution_payload() do
+  def get_execution_payload do
     %Types.ExecutionPayload{
       parent_hash:
         <<212, 46, 177, 5, 71, 181, 49, 8, 203, 152, 49, 250, 205, 230, 188, 78, 249, 162, 232,
