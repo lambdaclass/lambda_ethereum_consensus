@@ -95,7 +95,7 @@ defmodule LambdaEthereumConsensus.Execution.Eth1Chain do
       |> Stream.reject(&is_nil(elem(&1, 2)))
       |> Enum.max(
         fn {_, count1, index1}, {_, count2, index2} -> {count1, -index1} >= {count2, -index2} end,
-        nil
+        fn -> nil end
       )
 
     case result do

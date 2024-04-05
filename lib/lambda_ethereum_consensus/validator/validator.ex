@@ -5,8 +5,8 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
-  alias LambdaEthereumConsensus.Execution.Eth1Chain
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Execution.Eth1Chain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
