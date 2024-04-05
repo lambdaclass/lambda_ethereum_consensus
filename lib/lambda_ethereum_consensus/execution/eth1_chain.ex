@@ -24,8 +24,15 @@ defmodule LambdaEthereumConsensus.Execution.Eth1Chain do
 
   @impl true
   def init(genesis_time) do
-    # PERF: we could use some kind of ordered map for storing votes
-    {:ok, %{eth1_data_votes: Keyword.new(), eth1_chain: [], genesis_time: genesis_time}}
+    state = %{
+      # PERF: we could use some kind of ordered map for storing votes
+      eth1_data_votes: %{},
+      eth1_chain: [],
+      genesis_time: genesis_time,
+      last_period: 0
+    }
+
+    {:ok, state}
   end
 
   @impl true
@@ -38,7 +45,7 @@ defmodule LambdaEthereumConsensus.Execution.Eth1Chain do
     state
     |> prune_state(slot)
     |> update_state_with_payload(payload_info)
-    |> update_state_with_vote(eth1_data)
+    |> update_state_with_vote(eth1_data, slot)
     |> then(&{:noreply, &1})
   end
 
@@ -68,9 +75,13 @@ defmodule LambdaEthereumConsensus.Execution.Eth1Chain do
     Enum.take_while(eth1_chain, fn %{timestamp: timestamp} -> timestamp >= cutoff_time end)
   end
 
-  defp update_state_with_vote(state, eth1_data) do
-    # NOTE: votes are in order of appearance
-    eth1_data_votes = Keyword.update(state.eth1_data_votes, eth1_data, 0, &(&1 + 1))
+  defp update_state_with_vote(state, eth1_data, slot) do
+    votes = state.eth1_data_votes
+
+    # We append the negative slot so ties are broken by the order of appearance
+    eth1_data_votes =
+      Map.update(votes, eth1_data, {1, -slot}, fn {count, i} -> {count + 1, i} end)
+
     %{state | eth1_data_votes: eth1_data_votes}
   end
 
@@ -85,22 +96,18 @@ defmodule LambdaEthereumConsensus.Execution.Eth1Chain do
 
     # TODO: get the eth1 data (deposit_root, deposit_count) for each block
     blocks_to_consider =
-      Enum.filter(eth1_chain, &candidate_block?(&1.timestamp, period_start, follow_time))
+      Stream.filter(eth1_chain, &candidate_block?(&1.timestamp, period_start, follow_time))
+      |> Enum.map(fn %{block_hash: hash} -> hash end)
 
+    # Tiebreak by smallest distance to period start
     result =
       seen_votes
-      |> Stream.map(fn {%{block_hash: hash} = eth1_data, count} ->
-        {eth1_data, count, Enum.find_index(blocks_to_consider, &(hash == &1.block_hash))}
-      end)
-      |> Stream.reject(&is_nil(elem(&1, 2)))
-      |> Enum.max(
-        fn {_, count1, index1}, {_, count2, index2} -> {count1, -index1} >= {count2, -index2} end,
-        fn -> nil end
-      )
+      |> Stream.filter(fn {%{block_hash: hash}, _} -> Enum.member?(blocks_to_consider, hash) end)
+      |> Enum.max(fn {_, count1}, {_, count2} -> count1 >= count2 end, fn -> nil end)
 
     case result do
       nil -> nil
-      {eth1_data, _, _} -> eth1_data
+      {eth1_data, _} -> eth1_data
     end
   end
 
