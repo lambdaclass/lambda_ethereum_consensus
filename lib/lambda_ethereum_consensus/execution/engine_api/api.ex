@@ -2,11 +2,11 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   @moduledoc """
   Execution Layer Engine API methods
   """
+  @behaviour LambdaEthereumConsensus.Execution.EngineApi.Behaviour
 
   alias LambdaEthereumConsensus.Execution.Auth
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
-  alias Types.ExecutionPayload
 
   @supported_methods ["engine_newPayloadV3", "engine_forkchoiceUpdatedV3"]
 
@@ -14,13 +14,10 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   Using this method Execution and consensus layer client software may
   exchange with a list of supported Engine API methods.
   """
-  @spec exchange_capabilities() :: {:ok, any} | {:error, any}
   def exchange_capabilities do
     call("engine_exchangeCapabilities", [@supported_methods])
   end
 
-  @spec new_payload(ExecutionPayload.t(), [Types.root()], Types.root()) ::
-          {:ok, any} | {:error, any}
   def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root) do
     call(
       "engine_newPayloadV3",
@@ -28,17 +25,11 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
     )
   end
 
-  @spec forkchoice_updated(
-          Types.Execution.forkchoice_state_v3(),
-          Types.Execution.payload_attributes_v3() | nil
-        ) ::
-          {:ok, any} | {:error, any}
   def forkchoice_updated(forkchoice_state, payload_attributes) do
     call("engine_forkchoiceUpdatedV3", RPC.normalize([forkchoice_state, payload_attributes]))
   end
 
   # TODO: this is not part of the Engine API. Should we move it elsewhere?
-  @spec get_block_header(nil | Types.uint64() | Types.root()) :: {:ok, any} | {:error, any}
   def get_block_header(nil), do: call("eth_getBlockByNumber", ["latest", false])
 
   def get_block_header(block_id) when is_integer(block_id),
@@ -47,7 +38,6 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   def get_block_header(block_id) when is_binary(block_id),
     do: call("eth_getBlockByHash", [RPC.normalize(block_id), false])
 
-  @spec get_deposit_logs(Range.t()) :: {:ok, list(any)} | {:error, any}
   def get_deposit_logs(from_block..to_block) do
     deposit_contract = ChainSpec.get("DEPOSIT_CONTRACT_ADDRESS")
 

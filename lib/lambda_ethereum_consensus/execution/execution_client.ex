@@ -31,9 +31,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     end
   end
 
-  @spec notify_forkchoice_updated(Types.Execution.forkchoice_state_v3()) ::
-          {:ok, execution_status()} | {:error, any}
-
   def notify_forkchoice_updated(fork_choice_state) do
     case EngineApi.forkchoice_updated(fork_choice_state, nil) do
       {:ok, %{"payload_status" => %{"status" => status}}} ->
@@ -49,11 +46,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   This function sets in motion a payload build process on top of
   `head_block_hash` and returns an identifier of initiated process.
   """
-  @spec notify_forkchoice_updated(
-          Types.Execution.forkchoice_state_v3(),
-          Types.Execution.payload_attributes_v3()
-        ) ::
-          {:ok, Types.Execution.forkchoice_updated_v3_result()} | {:error, any}
   def notify_forkchoice_updated(fork_choice_state, payload_attributes) do
     EngineApi.forkchoice_updated(fork_choice_state, payload_attributes)
   end
