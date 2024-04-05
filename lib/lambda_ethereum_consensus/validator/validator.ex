@@ -6,13 +6,13 @@ defmodule LambdaEthereumConsensus.Validator do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
@@ -409,8 +409,7 @@ defmodule LambdaEthereumConsensus.Validator do
   defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
-    head_block = Blocks.get_block!(head_root)
-    last_eth1_data = head_block |> get_in([:body, :eth1_data])
+    head_state = BlockStates.get_state!(head_root)
 
     # ExecutionClient.notify_forkchoice_updated()
 
@@ -421,15 +420,13 @@ defmodule LambdaEthereumConsensus.Validator do
         slot: proposed_slot,
         proposer_index: index,
         graffiti_message: @default_graffiti_message,
-        eth1_data: last_eth1_data,
+        eth1_data: fetch_eth1_data(proposed_slot, head_state),
         execution_payload: execution_payload
       }
       |> Map.merge(Proposer.fetch_operations_for_block())
 
     # TODO: handle errors if there are any
-    {:ok, signed_block} =
-      BlockStates.get_state!(head_root)
-      |> Proposer.construct_block(block_request, privkey)
+    {:ok, signed_block} = Proposer.construct_block(head_state, block_request, privkey)
 
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
@@ -440,6 +437,13 @@ defmodule LambdaEthereumConsensus.Validator do
     case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
       :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
       _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
+    end
+  end
+
+  defp fetch_eth1_data(slot, head_state) do
+    case ExecutionChain.get_eth1_vote(slot) do
+      nil -> head_state.eth1_data
+      eth1_data -> eth1_data
     end
   end
 end
