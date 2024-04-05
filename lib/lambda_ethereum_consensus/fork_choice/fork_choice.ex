@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.Execution.Eth1Chain
+  alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Blocks
@@ -172,7 +172,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     OperationsCollector.notify_new_block(head_block)
     Validator.notify_new_block(slot, head_root)
-    Eth1Chain.notify_new_block(slot, body.eth1_data, body.execution_payload)
+    ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
 
     BeaconChain.update_fork_choice_cache(
       head_root,

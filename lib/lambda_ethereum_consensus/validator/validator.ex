@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Validator do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.Execution.Eth1Chain
+  alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
@@ -436,7 +436,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp fetch_eth1_data(slot, head_state) do
-    case Eth1Chain.get_eth1_vote(slot) do
+    case ExecutionChain.get_eth1_vote(slot) do
       nil -> head_state.eth1_data
       eth1_data -> eth1_data
     end

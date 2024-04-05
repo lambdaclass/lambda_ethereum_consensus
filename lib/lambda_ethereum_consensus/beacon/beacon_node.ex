@@ -83,7 +83,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       LambdaEthereumConsensus.P2P.Gossip.Attestation,
       # TODO: move checkpoint sync outside and move this to application.ex
       {LambdaEthereumConsensus.Validator, {head_slot, head_root}},
-      {LambdaEthereumConsensus.Execution.Eth1Chain, store.genesis_time}
+      {LambdaEthereumConsensus.Execution.ExecutionChain, store.genesis_time}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
