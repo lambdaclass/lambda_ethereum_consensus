@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
+  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.Execution.ExecutionClient
@@ -17,6 +18,7 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
+  alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BlockRequest
   alias LambdaEthereumConsensus.Validator.Proposer
   alias LambdaEthereumConsensus.Validator.Utils
