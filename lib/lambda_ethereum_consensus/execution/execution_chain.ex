@@ -40,10 +40,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
       last_period: 0
     }
 
-    # TODO: a. fetch deposits for each new payload
-    #       b. update deposit tree on eth1_data_votes reset
-    #       c. use deposit tree on compute_eth1_vote to validate blocks
-
     {:ok, state}
   end
 
@@ -124,37 +120,41 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     # TODO: fetch asynchronously
     with {:ok, new_deposits} <-
            ExecutionClient.get_deposit_logs(block_number_min..block_number_max) do
-      grouped_deposits = Enum.group_by(new_deposits, &Map.fetch!(&1, :block_number))
+      get_first_valid_vote(blocks_to_consider, seen_votes, deposit_tree, new_deposits)
+    end
+  end
 
-      {valid_votes, _last_tree} =
-        blocks_to_consider
-        |> Enum.reduce({MapSet.new(), deposit_tree}, fn block, {set, tree} ->
-          new_tree =
-            case grouped_deposits[block.block_number] do
-              nil -> tree
-              deposits -> update_tree_with_deposits(tree, deposits)
-            end
+  defp get_first_valid_vote(blocks_to_consider, seen_votes, deposit_tree, new_deposits) do
+    grouped_deposits = Enum.group_by(new_deposits, &Map.fetch!(&1, :block_number))
 
-          data = %Eth1Data{
-            deposit_root: DepositTree.get_root(new_tree),
-            deposit_count: DepositTree.get_deposit_count(new_tree),
-            block_hash: block.block_hash
-          }
+    {valid_votes, _last_tree} =
+      blocks_to_consider
+      |> Enum.reduce({MapSet.new(), deposit_tree}, fn block, {set, tree} ->
+        new_tree =
+          case grouped_deposits[block.block_number] do
+            nil -> tree
+            deposits -> update_tree_with_deposits(tree, deposits)
+          end
 
-          {MapSet.put(set, data), new_tree}
-        end)
+        data = %Eth1Data{
+          deposit_root: DepositTree.get_root(new_tree),
+          deposit_count: DepositTree.get_deposit_count(new_tree),
+          block_hash: block.block_hash
+        }
 
-      # Tiebreak by smallest distance to period start
-      result =
-        seen_votes
-        |> Stream.filter(&MapSet.member?(valid_votes, &1))
-        |> Enum.max(fn {_, count1}, {_, count2} -> count1 >= count2 end, fn -> nil end)
+        {MapSet.put(set, data), new_tree}
+      end)
 
-      case result do
-        nil -> {:ok, List.last(valid_votes)}
-        # Use the first vote if there is a tie
-        {eth1_data, _} -> {:ok, eth1_data}
-      end
+    # Tiebreak by smallest distance to period start
+    result =
+      seen_votes
+      |> Stream.filter(&MapSet.member?(valid_votes, &1))
+      |> Enum.max(fn {_, count1}, {_, count2} -> count1 >= count2 end, fn -> nil end)
+
+    case result do
+      # Use the first vote if there is a tie
+      nil -> {:ok, List.last(valid_votes)}
+      {eth1_data, _} -> {:ok, eth1_data}
     end
   end
 
