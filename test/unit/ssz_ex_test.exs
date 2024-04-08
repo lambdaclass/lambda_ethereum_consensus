@@ -563,6 +563,26 @@ defmodule Unit.SSZExTest do
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 16})
   end
 
+  test "hash tree root of byte lists" do
+    zero_chunk = <<0::size(32 * 8)-little>>
+    initial_list = <<5, 5, 5, 5>>
+    size = byte_size(initial_list)
+    pad = 32 - size
+    byte_list = initial_list <> <<0::size(pad * 8)>>
+
+    left = SszEx.hash(byte_list <> zero_chunk)
+    right = SszEx.hash(zero_chunk <> zero_chunk)
+    chunked_list = SszEx.hash(left <> right)
+
+    packed_size = <<64>> <> <<0::size(31 * 8)>>
+
+    manual_root = SszEx.hash(chunked_list <> packed_size)
+
+    {:ok, ssz_ex_root} = (byte_list <> zero_chunk) |> SszEx.hash_tree_root({:byte_list, 100})
+
+    assert ssz_ex_root == manual_root
+  end
+
   test "serialize and deserialize bitvector" do
     encoded_bytes = <<255, 255>>
     assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitvector, 16})

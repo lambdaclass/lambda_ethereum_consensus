@@ -203,32 +203,19 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root(non_neg_integer, {:int, non_neg_integer}) :: {:ok, Types.root()}
   def hash_tree_root(value, {:int, size}), do: {:ok, pack(value, {:int, size})}
 
-  # @spec hash_tree_root(binary, {:bytes, non_neg_integer}) :: Types.root()
-  # def hash_tree_root(value, {:bytes, size}) do
-  #   chunks = value |> pack_bytes()
-  #   hash_tree_root_vector(chunks)
-  # end
+  @spec hash_tree_root(binary, {:byte_list, non_neg_integer}) :: Types.root()
+  def hash_tree_root(value, {:byte_list, _size} = schema) do
+    chunks = value |> pack_bytes()
+    limit = chunk_count(schema)
+    hash_tree_root_list(chunks, limit, value |> byte_size())
+  end
 
-  # @spec hash_tree_root(binary, {:byte_list, non_neg_integer}) :: Types.root()
-  # def hash_tree_root(value, {:byte_list, size}) do
-  #   chunks = value |> pack_bytes()
-  #   hash_tree_root_list(chunks, size, value |> byte_size())
-  # end
-  @spec hash_tree_root(binary, {:byte_list | :byte_vector, non_neg_integer}) ::
+  @spec hash_tree_root(binary, {:byte_vector, non_neg_integer}) ::
           {:ok, Types.root()}
-  def hash_tree_root(value, {type, _size}) when type in [:byte_list, :byte_vector] do
+  def hash_tree_root(value, {:byte_vector, _size}) do
     packed_chunks = pack_bytes(value)
     leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(packed_chunks, leaf_count)
-
-    root =
-      if type == :byte_list do
-        len = value |> bit_size()
-        root |> mix_in_length(len)
-      else
-        root
-      end
-
     {:ok, root}
   end
 
@@ -443,6 +430,8 @@ defmodule LambdaEthereumConsensus.SszEx do
       max_size
     end
   end
+
+  def chunk_count({:byte_list, max_size}), do: (max_size + 31) |> div(32)
 
   def chunk_count({identifier, size}) when identifier in [:bitlist, :bitvector] do
     (size + @bits_per_chunk - 1) |> div(@bits_per_chunk)
@@ -987,6 +976,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp basic_type?({:vector, _, _}), do: false
   defp basic_type?({:bitlist, _}), do: false
   defp basic_type?({:bitvector, _}), do: false
+  defp basic_type?({:byte_list, _}), do: false
+  defp basic_type?({:byte_vector, _}), do: false
   defp basic_type?(module) when is_atom(module), do: false
 
   defp size_of(:bool), do: @bytes_per_boolean
