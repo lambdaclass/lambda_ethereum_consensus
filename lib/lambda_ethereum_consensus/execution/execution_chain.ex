@@ -90,7 +90,27 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     eth1_data_votes =
       Map.update(votes, eth1_data, {1, -slot}, fn {count, i} -> {count + 1, i} end)
 
-    %{state | eth1_data_votes: eth1_data_votes}
+    new_state = %{state | eth1_data_votes: eth1_data_votes}
+
+    if (eth1_data_votes |> Map.fetch!(eth1_data) |> elem(0)) * 2 > slots_per_eth1_voting_period() do
+      update_deposit_tree(new_state, eth1_data)
+    else
+      new_state
+    end
+  end
+
+  defp update_deposit_tree(state, %{block_hash: new_block} = eth1_data) do
+    old_eth1_data = state.current_eth1_data
+    old_block = old_eth1_data.block_hash
+
+    with {:ok, %{block_number: start_block}} <- ExecutionClient.get_block_metadata(old_block),
+         {:ok, %{block_number: end_block}} <- ExecutionClient.get_block_metadata(new_block),
+         {:ok, deposits} <- ExecutionClient.get_deposit_logs(start_block..end_block) do
+      # TODO: check if the result should be sorted by index
+      deposit_tree = DepositTree.finalize(state.deposit_tree, old_eth1_data, start_block)
+      new_tree = Enum.reduce(deposits, deposit_tree, &DepositTree.push_leaf(&2, &1))
+      %{state | deposit_tree: new_tree, current_eth1_data: eth1_data}
+    end
   end
 
   defp compute_eth1_vote(%{eth1_data_votes: []}, _), do: nil
