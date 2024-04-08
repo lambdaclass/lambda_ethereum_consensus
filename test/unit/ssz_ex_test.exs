@@ -563,6 +563,22 @@ defmodule Unit.SSZExTest do
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 16})
   end
 
+  test "serialize and deserialize bitvector" do
+    encoded_bytes = <<255, 255>>
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitvector, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitvector, 16})
+
+    encoded_bytes = <<0, 0>>
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitvector, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitvector, 16})
+
+    encoded_bytes = <<255, 255, 255, 255, 255, 1>>
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 33})
+
+    encoded_bytes = <<0>>
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 9})
+  end
+
   test "hash tree root of byte lists" do
     zero_chunk = <<0::size(32 * 8)-little>>
     initial_list = <<5, 5, 5, 5>>
@@ -581,21 +597,5 @@ defmodule Unit.SSZExTest do
     {:ok, ssz_ex_root} = (byte_list <> zero_chunk) |> SszEx.hash_tree_root({:byte_list, 100})
 
     assert ssz_ex_root == manual_root
-  end
-
-  test "serialize and deserialize bitvector" do
-    encoded_bytes = <<255, 255>>
-    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitvector, 16})
-    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitvector, 16})
-
-    encoded_bytes = <<0, 0>>
-    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitvector, 16})
-    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitvector, 16})
-
-    encoded_bytes = <<255, 255, 255, 255, 255, 1>>
-    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 33})
-
-    encoded_bytes = <<0>>
-    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 9})
   end
 end
