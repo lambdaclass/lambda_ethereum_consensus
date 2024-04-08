@@ -25,6 +25,10 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
     )
   end
 
+  def get_payload(payload_id) do
+    call("engine_getPayloadV3", [payload_id])
+  end
+
   def forkchoice_updated(forkchoice_state, payload_attributes) do
     call("engine_forkchoiceUpdatedV3", RPC.normalize([forkchoice_state, payload_attributes]))
   end

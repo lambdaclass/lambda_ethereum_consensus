@@ -81,6 +81,15 @@ defmodule LambdaEthereumConsensus.Execution.RPC do
     "0x" <> (Integer.to_string(integer, 16) |> String.downcase())
   end
 
+  def decode_binary("0x" <> binary) do
+    Base.decode16!(binary, case: :lower)
+  end
+
+  def decode_integer("0x" <> integer) do
+    {number, ""} = Integer.parse(integer, 16)
+    number
+  end
+
   defp to_camel_case(key) when is_atom(key) do
     Atom.to_string(key) |> to_camel_case()
   end

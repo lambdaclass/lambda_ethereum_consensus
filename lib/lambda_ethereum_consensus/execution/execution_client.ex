@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   Execution Layer Engine API methods
   """
   alias LambdaEthereumConsensus.Execution.EngineApi
+  alias LambdaEthereumConsensus.Execution.RPC
   alias LambdaEthereumConsensus.SszEx
   alias Types.DepositData
   alias Types.ExecutionPayload
@@ -10,6 +11,18 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   require Logger
 
   @type execution_status :: :optimistic | :valid | :invalid | :unknown
+
+  @spec get_payload(any()) :: {:error, any()} | {:ok, any()}
+  def get_payload(payload_id) do
+    case EngineApi.get_payload(payload_id) do
+      {:ok, %{"execution_payload" => raw_payload}} ->
+        {:ok, parse_raw_payload(raw_payload)}
+
+      {:error, reason} ->
+        Logger.warning("Error when calling get payload: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
 
   @doc """
   Verifies the validity of the data contained in the new payload and notifies the Execution client of a new payload
@@ -47,7 +60,17 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   `head_block_hash` and returns an identifier of initiated process.
   """
   def notify_forkchoice_updated(fork_choice_state, payload_attributes) do
-    EngineApi.forkchoice_updated(fork_choice_state, payload_attributes)
+    case EngineApi.forkchoice_updated(fork_choice_state, payload_attributes) do
+      {:ok, %{"payload_id" => nil, "payload_status" => %{"status" => status}}} ->
+        {:error, "No payload id, status is #{parse_status(status)}"}
+
+      {:ok, %{"payload_id" => payload_id, "payload_status" => %{"status" => "VALID"}}} ->
+        {:ok, payload_id}
+
+      {:error, reason} ->
+        Logger.warning("Error when calling notify forkchoice updated: #{inspect(reason)}")
+        {:error, reason}
+    end
   end
 
   @doc """
@@ -163,6 +186,49 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     }
 
     %{data: deposit_data, block_number: block_number, index: index}
+  end
+
+  defp parse_raw_payload(raw_payload) do
+    %{
+      "baseFeePerGas" => raw_base_fee_per_gas,
+      "blobGasUsed" => raw_blob_gas_used,
+      "blockHash" => raw_block_hash,
+      "blockNumber" => raw_block_number,
+      "excessBlobGas" => raw_excess_blob_gas,
+      "extraData" => raw_extra_data,
+      "feeRecipient" => raw_fee_recipient,
+      "gasLimit" => raw_gas_limit,
+      "gasUsed" => raw_gas_used,
+      "logsBloom" => raw_logs_bloom,
+      "parentHash" => raw_parent_hash,
+      "prevRandao" => raw_prev_randao,
+      "receiptsRoot" => raw_receipts_root,
+      "stateRoot" => raw_state_root,
+      "timestamp" => raw_timestamp,
+      "transactions" => raw_transactions,
+      "withdrawals" => _raw_withdrawals
+    } = raw_payload
+
+    %ExecutionPayload{
+      base_fee_per_gas: raw_base_fee_per_gas |> RPC.decode_integer(),
+      blob_gas_used: raw_blob_gas_used |> RPC.decode_integer(),
+      block_hash: raw_block_hash |> RPC.decode_binary(),
+      block_number: raw_block_number |> RPC.decode_integer(),
+      excess_blob_gas: raw_excess_blob_gas |> RPC.decode_integer(),
+      extra_data: raw_extra_data |> RPC.decode_binary(),
+      fee_recipient: raw_fee_recipient |> RPC.decode_binary(),
+      gas_limit: raw_gas_limit |> RPC.decode_integer(),
+      gas_used: raw_gas_used |> RPC.decode_integer(),
+      logs_bloom: raw_logs_bloom |> RPC.decode_binary(),
+      parent_hash: raw_parent_hash |> RPC.decode_binary(),
+      prev_randao: raw_prev_randao |> RPC.decode_binary(),
+      receipts_root: raw_receipts_root |> RPC.decode_binary(),
+      state_root: raw_state_root |> RPC.decode_binary(),
+      timestamp: raw_timestamp |> RPC.decode_integer(),
+      transactions: raw_transactions |> Enum.map(&RPC.decode_binary/1),
+      # TODO: parse withdrawals
+      withdrawals: []
+    }
   end
 
   defp parse_status("SYNCING"), do: :optimistic
