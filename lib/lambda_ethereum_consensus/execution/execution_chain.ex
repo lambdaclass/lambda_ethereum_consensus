@@ -3,16 +3,21 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   Polls the Execution Engine for the latest Eth1 block, and
   stores the canonical Eth1 chain for block proposing.
   """
-  alias Types.DepositTree
-  alias Types.ExecutionPayload
+  require Logger
   use GenServer
+
+  alias LambdaEthereumConsensus.Execution.ExecutionClient
+  alias Types.DepositTree
+  alias Types.DepositTreeSnapshot
+  alias Types.Eth1Data
+  alias Types.ExecutionPayload
 
   @spec start_link(Types.uint64()) :: GenServer.on_start()
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec get_eth1_vote(Types.slot()) :: Types.Eth1Data.t() | nil
+  @spec get_eth1_vote(Types.slot()) :: {:ok, Types.Eth1Data.t() | nil} | {:error, any}
   def get_eth1_vote(slot) do
     GenServer.call(__MODULE__, {:get_eth1_vote, slot})
   end
@@ -24,15 +29,20 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   @impl true
-  def init({genesis_time, deposit_tree_snapshot}) do
+  def init({genesis_time, %DepositTreeSnapshot{} = snapshot}) do
     state = %{
       # PERF: we could use some kind of ordered map for storing votes
       eth1_data_votes: %{},
       eth1_chain: [],
       genesis_time: genesis_time,
-      deposit_tree: DepositTree.from_snapshot(deposit_tree_snapshot),
+      current_eth1_data: DepositTreeSnapshot.get_eth1_data(snapshot),
+      deposit_tree: DepositTree.from_snapshot(snapshot),
       last_period: 0
     }
+
+    # TODO: a. fetch deposits for each new payload
+    #       b. update deposit tree on eth1_data_votes reset
+    #       c. use deposit tree on compute_eth1_vote to validate blocks
 
     {:ok, state}
   end
@@ -90,27 +100,68 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   defp compute_eth1_vote(%{eth1_data_votes: []}, _), do: nil
 
   defp compute_eth1_vote(
-         %{eth1_chain: eth1_chain, eth1_data_votes: seen_votes, genesis_time: genesis_time},
+         %{
+           eth1_chain: eth1_chain,
+           eth1_data_votes: seen_votes,
+           genesis_time: genesis_time,
+           deposit_tree: deposit_tree
+         },
          slot
        ) do
     period_start = voting_period_start_time(slot, genesis_time)
     follow_time = ChainSpec.get("SECONDS_PER_ETH1_BLOCK") * ChainSpec.get("ETH1_FOLLOW_DISTANCE")
 
-    # TODO: get the eth1 data (deposit_root, deposit_count) for each block
     blocks_to_consider =
-      Stream.filter(eth1_chain, &candidate_block?(&1.timestamp, period_start, follow_time))
-      |> Enum.map(fn %{block_hash: hash} -> hash end)
+      eth1_chain
+      |> Enum.filter(&candidate_block?(&1.timestamp, period_start, follow_time))
+      |> Enum.reverse()
 
-    # Tiebreak by smallest distance to period start
-    result =
-      seen_votes
-      |> Stream.filter(fn {%{block_hash: hash}, _} -> Enum.member?(blocks_to_consider, hash) end)
-      |> Enum.max(fn {_, count1}, {_, count2} -> count1 >= count2 end, fn -> nil end)
+    {block_number_min, block_number_max} =
+      blocks_to_consider
+      |> Stream.map(&Map.fetch!(&1, :block_number))
+      |> Enum.min_max(blocks_to_consider)
 
-    case result do
-      nil -> nil
-      {eth1_data, _} -> eth1_data
+    # TODO: fetch asynchronously
+    with {:ok, new_deposits} <-
+           ExecutionClient.get_deposit_logs(block_number_min..block_number_max) do
+      grouped_deposits = Enum.group_by(new_deposits, &Map.fetch!(&1, :block_number))
+
+      {valid_votes, _last_tree} =
+        blocks_to_consider
+        |> Enum.reduce({MapSet.new(), deposit_tree}, fn block, {set, tree} ->
+          new_tree =
+            case grouped_deposits[block.block_number] do
+              nil -> tree
+              deposits -> update_tree_with_deposits(tree, deposits)
+            end
+
+          data = %Eth1Data{
+            deposit_root: DepositTree.get_root(new_tree),
+            deposit_count: DepositTree.get_deposit_count(new_tree),
+            block_hash: block.block_hash
+          }
+
+          {MapSet.put(set, data), new_tree}
+        end)
+
+      # Tiebreak by smallest distance to period start
+      result =
+        seen_votes
+        |> Stream.filter(&MapSet.member?(valid_votes, &1))
+        |> Enum.max(fn {_, count1}, {_, count2} -> count1 >= count2 end, fn -> nil end)
+
+      case result do
+        nil -> {:ok, List.last(valid_votes)}
+        # Use the first vote if there is a tie
+        {eth1_data, _} -> {:ok, eth1_data}
+      end
     end
+  end
+
+  defp update_tree_with_deposits(tree, []), do: tree
+
+  defp update_tree_with_deposits(tree, [deposit | rest]) do
+    DepositTree.push_leaf(tree, deposit.data) |> update_tree_with_deposits(rest)
   end
 
   defp candidate_block?(timestamp, period_start, follow_time) do

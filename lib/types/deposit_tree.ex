@@ -67,6 +67,9 @@ defmodule Types.DepositTree do
   def get_root(%__MODULE__{inner: inner} = tree),
     do: SszEx.hash_nodes(get_node_root(inner), mix_in_length(tree))
 
+  @spec get_deposit_count(t()) :: non_neg_integer()
+  def get_deposit_count(%__MODULE__{deposit_count: count}), do: count
+
   @spec push_leaf(t(), DepositData.t()) :: t()
   def push_leaf(%__MODULE__{} = tree, %DepositData{} = deposit) do
     leaf = {SszEx.hash_tree_root!(deposit), deposit}
