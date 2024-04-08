@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
   """
   alias Types.BeaconState
 
-  enforced_keys = [:slot, :proposer_index, :eth1_data, :execution_payload]
+  enforced_keys = [:slot, :proposer_index, :eth1_data, :execution_payload, :parent_root]
 
   optional_keys = [
     graffiti_message: "",
