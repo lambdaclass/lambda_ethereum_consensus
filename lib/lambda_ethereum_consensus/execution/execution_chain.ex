@@ -133,6 +133,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
       |> Enum.filter(&candidate_block?(&1.timestamp, period_start, follow_time))
       |> Enum.reverse()
 
+    # TODO: backfill chain before doing this
     {block_number_min, block_number_max} =
       blocks_to_consider
       |> Stream.map(&Map.fetch!(&1, :block_number))
