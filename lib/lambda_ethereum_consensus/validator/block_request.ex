@@ -22,7 +22,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
 
   @type t() :: %__MODULE__{
           slot: Types.slot(),
-          parent_roqot: Types.root(),
+          parent_root: Types.root(),
           proposer_index: Types.validator_index(),
           graffiti_message: binary(),
           eth1_data: Types.Eth1Data.t(),
