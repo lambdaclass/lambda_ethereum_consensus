@@ -114,6 +114,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   defp compute_eth1_vote(%{eth1_data_votes: []}, _), do: nil
+  defp compute_eth1_vote(%{eth1_chain: []}, _), do: nil
 
   defp compute_eth1_vote(
          %{
@@ -135,7 +136,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     {block_number_min, block_number_max} =
       blocks_to_consider
       |> Stream.map(&Map.fetch!(&1, :block_number))
-      |> Enum.min_max(blocks_to_consider)
+      |> Enum.min_max()
 
     # TODO: fetch asynchronously
     with {:ok, new_deposits} <-
