@@ -2,16 +2,41 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   @moduledoc """
   Validator proposer duties.
   """
+
+  alias LambdaEthereumConsensus.Utils.Randao
+  alias LambdaEthereumConsensus.Execution.ExecutionChain
+  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Validator.BlockRequest
 
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
+
+  def build_block(%BlockRequest{} = request) do
+    parent_root = request.parent_root
+    proposed_slot = request.slot
+    pre_state = BlockStates.get_state!(parent_root)
+
+    with {:ok, execution_payload} <-
+           pre_state
+           |> StateTransition.process_slots(proposed_slot)
+           |> build_execution_block(parent_root) do
+      block_request =
+        request
+        |> Map.merge(fetch_operations_for_block())
+        |> Map.put(:eth1_data, fetch_eth1_data(proposed_slot, pre_state))
+        |> Map.put(:execution_payload, execution_payload)
+
+      construct_block(pre_state, block_request, request.privkey)
+    end
+  end
 
   @spec construct_block(BeaconState.t(), BlockRequest.t(), Bls.privkey()) ::
           {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
@@ -36,7 +61,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
           voluntary_exits: [Types.VoluntaryExit.t()],
           bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()]
         }
-  def fetch_operations_for_block do
+  defp fetch_operations_for_block do
     %{
       proposer_slashings:
         ChainSpec.get("MAX_PROPOSER_SLASHINGS") |> OperationsCollector.get_proposer_slashings(),
@@ -111,33 +136,47 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     }
   end
 
-  def get_execution_payload do
-    %Types.ExecutionPayload{
-      parent_hash:
-        <<212, 46, 177, 5, 71, 181, 49, 8, 203, 152, 49, 250, 205, 230, 188, 78, 249, 162, 232,
-          114, 146, 86, 123, 101, 230, 11, 67, 235, 239, 164, 41, 159>>,
-      fee_recipient: <<0::160>>,
-      state_root: "                                ",
-      receipts_root:
-        <<29, 204, 77, 232, 222, 199, 93, 122, 171, 133, 181, 103, 182, 204, 212, 26, 211, 18, 69,
-          27, 148, 138, 116, 19, 240, 161, 66, 253, 64, 212, 147, 71>>,
-      logs_bloom: <<0::2048>>,
-      prev_randao:
-        <<218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218,
-          218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218, 218>>,
-      block_number: 1,
-      gas_limit: 30_000_000,
-      gas_used: 0,
-      timestamp: 6,
-      extra_data: "",
-      base_fee_per_gas: 1_000_000_000,
-      block_hash:
-        <<140, 253, 138, 145, 253, 25, 211, 25, 133, 168, 106, 67, 9, 119, 177, 247, 197, 188, 20,
-          36, 18, 109, 135, 83, 175, 220, 222, 84, 168, 70, 6, 62>>,
-      transactions: [],
-      withdrawals: [],
-      blob_gas_used: 0,
-      excess_blob_gas: 0
+  @spec build_execution_block(BeaconState.t(), Types.root()) ::
+          {:error, any()} | {:ok, Types.ExecutionPayload.t()}
+  defp build_execution_block(state, head_root) do
+    head_block = Blocks.get_block!(head_root)
+    finalized_block = Blocks.get_block!(state.finalized_checkpoint.root)
+
+    forkchoice_state = %{
+      finalized_block_hash: finalized_block.body.execution_payload.block_hash,
+      head_block_hash: head_block.body.execution_payload.block_hash,
+      # TODO calculate safe block
+      safe_block_hash: finalized_block.body.execution_payload.block_hash
     }
+
+    payload_attributes = %{
+      timestamp: Misc.compute_timestamp_at_slot(state, state.slot),
+      prev_randao: Randao.get_randao_mix(state.randao_mixes, Accessors.get_current_epoch(state)),
+      suggested_fee_recipient: <<0::160>>,
+      # TODO: add withdrawals
+      withdrawals: [],
+      parent_beacon_block_root: head_root
+    }
+
+    with {:ok, payload_id} <-
+           ExecutionClient.notify_forkchoice_updated(
+             forkchoice_state,
+             payload_attributes
+           ),
+         # TODO: we need to balance a time that should be long enough to let the execution client
+         # pack as many transactions as possible (more fees for us) while giving enough time to propagate
+         # the block and have it included
+         :ok <- Process.sleep(3000),
+         {:ok, execution_payload} <-
+           ExecutionClient.get_payload(payload_id) do
+      {:ok, execution_payload}
+    end
+  end
+
+  defp fetch_eth1_data(slot, head_state) do
+    case ExecutionChain.get_eth1_vote(slot) do
+      nil -> head_state.eth1_data
+      eth1_data -> eth1_data
+    end
   end
 end
