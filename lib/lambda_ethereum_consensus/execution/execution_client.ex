@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
         {:ok, parse_raw_payload(raw_payload)}
 
       {:error, reason} ->
-        Logger.warning("Error when calling get payload: #{inspect(reason)}")
+        Logger.error("Error when calling get payload: #{inspect(reason)}")
         {:error, reason}
     end
   end

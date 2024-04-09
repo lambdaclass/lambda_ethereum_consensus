@@ -438,7 +438,8 @@ defmodule LambdaEthereumConsensus.Validator do
              forkchoice_state,
              payload_attributes
            ),
-         # TODO: find a better way
+         # TODO: we need to balance a time that should be long enough to let the execution client pack as many transactions
+         # as possible (more fees for us) while giving enough time to propagate the block and have it included
          :ok <- Process.sleep(3000),
          {:ok, execution_payload} <-
            ExecutionClient.get_payload(payload_id) do
@@ -450,7 +451,7 @@ defmodule LambdaEthereumConsensus.Validator do
     head_state = BlockStates.get_state!(head_root)
 
     with {:ok, execution_payload} <-
-           build_execution_block(head_state |> process_slots(proposed_slot), head_root) do
+           head_state |> process_slots(proposed_slot) |> build_execution_block(head_root) do
       block_request =
         %BlockRequest{
           slot: proposed_slot,
