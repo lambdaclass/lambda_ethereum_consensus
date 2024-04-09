@@ -297,7 +297,9 @@ defmodule LambdaEthereumConsensus.SszEx do
 
     case value do
       {:ok, chunks} ->
-        leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
+        leaf_count =
+          chunks |> get_chunks_len() |> next_pow_of_two()
+
         root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
         {:ok, root}
 
@@ -1023,55 +1025,35 @@ defmodule LambdaEthereumConsensus.SszEx do
     :math.log2(value) |> trunc()
   end
 
-  defp update_layers(i, height, acc_layers, acc_last_index) do
-    0..(2 ** i - 1)
+  defp update_layers(i, height, current_layer, current_last_index) do
+    0..current_last_index
     |> Enum.filter(fn x -> rem(x, 2) == 0 end)
-    |> Enum.reduce_while(acc_layers, fn j, acc_layers ->
-      parent_index = j |> div(2)
-      nodes = get_nodes(parent_index, i, j, height, acc_layers, acc_last_index)
-      hash_nodes_and_replace(nodes, acc_layers)
+    |> Enum.reduce(<<>>, fn j, acc_parent_layer ->
+      {left, right} = get_nodes(i, j, height, current_layer, current_last_index)
+      acc_parent_layer <> hash_nodes(left, right)
     end)
   end
 
-  defp get_nodes(parent_index, _i, j, _height, acc_layers, acc_last_index)
-       when j < acc_last_index do
-    start = parent_index * @bytes_per_chunk
-    stop = (j + 2) * @bytes_per_chunk
-    focus = acc_layers |> :binary.part(start, stop - start)
-    focus_len = focus |> byte_size()
-    children_index = focus_len - 2 * @bytes_per_chunk
-    <<_::binary-size(children_index), children::binary>> = focus
+  defp get_nodes(_i, left_children_index, _height, current_layer, current_last_index)
+       when left_children_index < current_last_index do
+    start = left_children_index * @bytes_per_chunk
+    stop = (left_children_index + 2) * @bytes_per_chunk
+    children = current_layer |> :binary.part(start, stop - start)
 
     <<left::binary-size(@bytes_per_chunk), right::binary-size(@bytes_per_chunk)>> =
       children
 
-    {children_index, left, right}
+    {left, right}
   end
 
-  defp get_nodes(parent_index, i, j, height, acc_layers, acc_last_index)
-       when j == acc_last_index do
-    start = parent_index * @bytes_per_chunk
-    stop = (j + 1) * @bytes_per_chunk
-    focus = acc_layers |> :binary.part(start, stop - start)
-    focus_len = focus |> byte_size()
-    children_index = focus_len - @bytes_per_chunk
-    <<_::binary-size(children_index), left::binary>> = focus
+  defp get_nodes(i, left_children_index, height, current_layer, current_last_index)
+       when left_children_index == current_last_index do
+    start = left_children_index * @bytes_per_chunk
+    stop = (left_children_index + 1) * @bytes_per_chunk
+    left = current_layer |> :binary.part(start, stop - start)
     depth = height - i - 1
     right = get_zero_hash(depth)
-    {children_index, left, right}
-  end
-
-  defp get_nodes(_, _, _, _, _, _), do: :error
-
-  defp hash_nodes_and_replace(nodes, layers) do
-    case nodes do
-      :error ->
-        {:halt, layers}
-
-      {index, left, right} ->
-        hash = hash_nodes(left, right)
-        {:cont, replace_chunk(layers, index, hash)}
-    end
+    {left, right}
   end
 
   defp replace_chunk(chunks, start, new_chunk) do

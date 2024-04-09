@@ -1,5 +1,6 @@
 defmodule Unit.SSZExTest do
   alias LambdaEthereumConsensus.Utils.Diff
+  alias LambdaEthereumConsensus.Utils.ZeroHashes
 
   alias Types.{
     BeaconBlock,
@@ -9,6 +10,8 @@ defmodule Unit.SSZExTest do
     ExecutionPayload,
     SyncAggregate
   }
+
+  @zero_hashes ZeroHashes.compute_zero_hashes()
 
   alias LambdaEthereumConsensus.SszEx
   use ExUnit.Case
@@ -579,7 +582,7 @@ defmodule Unit.SSZExTest do
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 9})
   end
 
-  test "hash tree root of byte lists" do
+  test "hash tree root of byte list" do
     zero_chunk = <<0::size(32 * 8)-little>>
     initial_list = <<5, 5, 5, 5>>
     size = byte_size(initial_list)
@@ -597,5 +600,140 @@ defmodule Unit.SSZExTest do
     {:ok, ssz_ex_root} = (byte_list <> zero_chunk) |> SszEx.hash_tree_root({:byte_list, 100})
 
     assert ssz_ex_root == manual_root
+  end
+
+  test "hash tree root of empty byte list" do
+    byte_list = <<>>
+    zero_chunk = <<0::size(32 * 8)-little>>
+
+    left = SszEx.hash(zero_chunk <> zero_chunk)
+    right = SszEx.hash(zero_chunk <> zero_chunk)
+    chunked_list = SszEx.hash(left <> right)
+
+    manual_root = SszEx.hash(chunked_list <> zero_chunk)
+
+    {:ok, ssz_ex_root} = byte_list |> SszEx.hash_tree_root({:byte_list, 100})
+
+    assert ssz_ex_root == manual_root
+  end
+
+  test "hash tree root of byte vector" do
+    zero_chunk = <<0::size(32 * 8)-little>>
+    initial_list = <<5, 5, 5, 5>>
+    size = byte_size(initial_list)
+    pad = 32 - size
+    byte_vector = initial_list <> <<0::size(pad * 8)>>
+
+    manual_root = SszEx.hash(byte_vector <> zero_chunk)
+
+    {:ok, ssz_ex_root} = (byte_vector <> zero_chunk) |> SszEx.hash_tree_root({:byte_vector, 64})
+
+    assert ssz_ex_root == manual_root
+  end
+
+  test "hash tree root of ExecutionPayload" do
+    execution_payload = %ExecutionPayload{
+      parent_hash: @default_hash,
+      fee_recipient: <<0::size(20 * 8)>>,
+      state_root: @default_root,
+      receipts_root: @default_root,
+      logs_bloom: <<0::size(ChainSpec.get("BYTES_PER_LOGS_BLOOM") * 8)>>,
+      prev_randao: <<0::size(32 * 8)>>,
+      block_number: 0,
+      gas_limit: 0,
+      gas_used: 0,
+      timestamp: 0,
+      extra_data: <<>>,
+      base_fee_per_gas: 0,
+      block_hash: @default_hash,
+      transactions: [],
+      withdrawals: [],
+      blob_gas_used: 0,
+      excess_blob_gas: 0
+    }
+
+    # 17 elements, 32 leaves, 6 layers
+
+    # LAYER 6
+    parent_hash = <<0::size(32 * 8)>>
+    fee_recipient = <<0::size(32 * 8)>>
+    state_root = <<0::size(32 * 8)>>
+    receipts_root = <<0::size(32 * 8)>>
+
+    logs_bloom =
+      <<199, 128, 9, 253, 240, 127, 197, 106, 17, 241, 34, 55, 6, 88, 163, 83, 170, 165, 66, 237,
+        99, 228, 76, 75, 193, 95, 244, 205, 16, 90, 179, 60>>
+
+    prev_randao = <<0::size(32 * 8)>>
+    block_number = <<0::size(32 * 8)>>
+    gas_limit = <<0::size(32 * 8)>>
+    gas_used = <<0::size(32 * 8)>>
+    timestamp = <<0::size(32 * 8)>>
+
+    extra_data =
+      <<245, 165, 253, 66, 209, 106, 32, 48, 39, 152, 239, 110, 211, 9, 151, 155, 67, 0, 61, 35,
+        32, 217, 240, 232, 234, 152, 49, 169, 39, 89, 251, 75>>
+
+    base_fee_per_gas = <<0::size(32 * 8)>>
+    block_hash = <<0::size(32 * 8)>>
+
+    transactions =
+      <<127, 254, 36, 30, 166, 1, 135, 253, 176, 24, 123, 250, 34, 222, 53, 209, 249, 190, 215,
+        171, 6, 29, 148, 1, 253, 71, 227, 74, 84, 251, 237, 225>>
+
+    withdrawals =
+      <<127, 254, 36, 30, 166, 1, 135, 253, 176, 24, 123, 250, 34, 222, 53, 209, 249, 190, 215,
+        171, 6, 29, 148, 1, 253, 71, 227, 74, 84, 251, 237, 225>>
+
+    blob_gas_used = <<0::size(32 * 8)>>
+    excess_blob_gas = <<0::size(32 * 8)>>
+
+    # LAYER 5
+    layer_5_chunk0 = SszEx.hash_nodes(parent_hash, fee_recipient)
+    layer_5_chunk1 = SszEx.hash_nodes(state_root, receipts_root)
+    layer_5_chunk2 = SszEx.hash_nodes(logs_bloom, prev_randao)
+    layer_5_chunk3 = SszEx.hash_nodes(block_number, gas_limit)
+    layer_5_chunk4 = SszEx.hash_nodes(gas_used, timestamp)
+    layer_5_chunk5 = SszEx.hash_nodes(extra_data, base_fee_per_gas)
+    layer_5_chunk6 = SszEx.hash_nodes(block_hash, transactions)
+    layer_5_chunk7 = SszEx.hash_nodes(withdrawals, blob_gas_used)
+    layer_5_chunk8 = SszEx.hash_nodes(excess_blob_gas, ZeroHashes.get_zero_hash(0, @zero_hashes))
+
+    # LAYER 4
+    layer_4_chunk0 = SszEx.hash_nodes(layer_5_chunk0, layer_5_chunk1)
+    layer_4_chunk1 = SszEx.hash_nodes(layer_5_chunk2, layer_5_chunk3)
+    layer_4_chunk2 = SszEx.hash_nodes(layer_5_chunk4, layer_5_chunk5)
+    layer_4_chunk3 = SszEx.hash_nodes(layer_5_chunk6, layer_5_chunk7)
+    layer_4_chunk4 = SszEx.hash_nodes(layer_5_chunk8, ZeroHashes.get_zero_hash(1, @zero_hashes))
+
+    # LAYER 3
+    layer_3_chunk0 = SszEx.hash_nodes(layer_4_chunk0, layer_4_chunk1)
+    layer_3_chunk1 = SszEx.hash_nodes(layer_4_chunk2, layer_4_chunk3)
+    layer_3_chunk2 = SszEx.hash_nodes(layer_4_chunk4, ZeroHashes.get_zero_hash(2, @zero_hashes))
+
+    # LAYER 2
+    layer_2_chunk0 = SszEx.hash_nodes(layer_3_chunk0, layer_3_chunk1)
+    layer_2_chunk1 = SszEx.hash_nodes(layer_3_chunk2, ZeroHashes.get_zero_hash(3, @zero_hashes))
+
+    # LAYER 1
+    layer_1_chunk0 = SszEx.hash_nodes(layer_2_chunk0, layer_2_chunk1)
+
+    # {:ok, ssz_root} = Ssz.hash_tree_root(execution_payload, ExecutionPayload)
+    {:ok, ssz_ex_root} = SszEx.hash_tree_root(execution_payload, ExecutionPayload)
+
+    assert layer_1_chunk0 == ssz_ex_root
+    # assert ssz_ex_root == ssz_root
+  end
+
+  test "zero_hashes" do
+    chunk0 = <<0::size(32 * 8)>>
+    chunk1 = SszEx.hash_nodes(chunk0, chunk0)
+    chunk2 = SszEx.hash_nodes(chunk1, chunk1)
+    chunk3 = SszEx.hash_nodes(chunk2, chunk2)
+
+    assert ZeroHashes.get_zero_hash(0, @zero_hashes) == chunk0
+    assert ZeroHashes.get_zero_hash(1, @zero_hashes) == chunk1
+    assert ZeroHashes.get_zero_hash(2, @zero_hashes) == chunk2
+    assert ZeroHashes.get_zero_hash(3, @zero_hashes) == chunk3
   end
 end

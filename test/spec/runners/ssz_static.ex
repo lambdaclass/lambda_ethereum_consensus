@@ -35,7 +35,7 @@ defmodule SszStaticTestRunner do
     # "SignedBLSToExecutionChange",
     # "SigningData",
     # "SyncCommittee",
-    # "SyncCommitteeMessage"
+    # "SyncCommitteeMessage",
     # "Withdrawal",
     # "AttesterSlashing",
     # "HistoricalSummary",
