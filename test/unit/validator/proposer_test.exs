@@ -32,6 +32,7 @@ defmodule Unit.Validator.ProposerTests do
 
     block_request = %BlockRequest{
       slot: pre_state.slot + 1,
+      parent_root: spec_block.message.parent_root,
       proposer_index: 63,
       graffiti_message: "",
       eth1_data: %Types.Eth1Data{

@@ -457,6 +457,7 @@ defmodule LambdaEthereumConsensus.Validator do
       block_request =
         %BlockRequest{
           slot: proposed_slot,
+          parent_root: head_root,
           proposer_index: index,
           graffiti_message: @default_graffiti_message,
           eth1_data: fetch_eth1_data(proposed_slot, head_state),
