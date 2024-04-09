@@ -223,7 +223,6 @@ spec-test-general-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/general/*/$*.exs
 
 #✅ lint: @ Check formatting and linting.
-# mix recode --no-autocorrect
 lint:
 	mix recode --no-autocorrect
 	mix format --check-formatted
