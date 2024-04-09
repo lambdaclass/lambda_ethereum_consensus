@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.P2P.ReqResp
   alias Types.BlobSidecar
 
   @blobs_by_range_protocol_id "/eth2/beacon_chain/req/blob_sidecars_by_range/1/ssz_snappy"

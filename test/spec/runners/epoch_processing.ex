@@ -22,6 +22,7 @@ defmodule EpochProcessingTestRunner do
     # "randao_mixes_reset",
     # "historical_summaries_update",
     "participation_record_updates"
+
     # "participation_flag_updates",
     # "sync_committee_updates"
   ]

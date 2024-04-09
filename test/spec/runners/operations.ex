@@ -33,6 +33,7 @@ defmodule OperationsTestRunner do
     "execution_payload" => BeaconBlockBody,
     "withdrawals" => ExecutionPayload,
     "bls_to_execution_change" => SignedBLSToExecutionChange
+
     # "deposit_receipt" => "DepositReceipt" Not yet implemented
   }
 
@@ -48,6 +49,7 @@ defmodule OperationsTestRunner do
     "execution_payload" => "body",
     "withdrawals" => "execution_payload",
     "bls_to_execution_change" => "address_change"
+
     # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
 

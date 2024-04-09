@@ -6,8 +6,8 @@ defmodule Types.BeaconState do
 
   use LambdaEthereumConsensus.Container
 
-  alias LambdaEthereumConsensus.StateTransition.Accessors, warn: false
-  alias LambdaEthereumConsensus.StateTransition.Predicates, warn: false
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.ExecutionPayloadHeader
 
