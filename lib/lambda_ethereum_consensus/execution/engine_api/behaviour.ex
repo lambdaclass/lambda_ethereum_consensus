@@ -31,6 +31,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Behaviour do
   @type forkchoice_updated_v3_result :: map()
 
   @callback exchange_capabilities() :: {:ok, any} | {:error, any}
+  @callback get_payload(Types.payload_id()) :: {:ok, any} | {:error, any}
   @callback new_payload(ExecutionPayload.t(), [Types.root()], Types.root()) ::
               {:ok, any} | {:error, any}
   @callback forkchoice_updated(forkchoice_state_v1(), payload_attributes_v3() | nil) ::
