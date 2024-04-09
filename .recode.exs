@@ -11,7 +11,7 @@
   # Can also be set/reset with `--verbose`/`--no-verbose`.
   verbose: false,
   # Can be overwritten by calling `mix recode "lib/**/*.ex"`.
-  inputs: ["{mix,.formatter}.exs", "{apps,config,lib,test}/**/*.{ex,exs}"],
+  inputs: ["{mix,.formatter}.exs", "{config,lib,bench,test}/**/*.{ex,exs}"],
   formatters: [Recode.CLIFormatter],
   tasks: [
     # Tasks could be added by a tuple of the tasks module name and an options

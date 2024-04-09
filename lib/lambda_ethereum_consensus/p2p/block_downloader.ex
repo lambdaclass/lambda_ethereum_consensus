@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.P2P.ReqResp
   alias Types.SignedBeaconBlock
 
   @blocks_by_range_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"

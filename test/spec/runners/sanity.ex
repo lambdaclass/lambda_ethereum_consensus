@@ -91,6 +91,7 @@ defmodule SanityTestRunner do
     # NOTE: too long to run in CI
     # TODO: optimize
     "historical_accumulator"
+
     # "double_empty_epoch"
   ]
 

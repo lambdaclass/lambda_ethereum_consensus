@@ -24,6 +24,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
       {"attester_slashing", Types.AttesterSlashing, &Handler.handle_attester_slashing/1},
       {"bls_to_execution_change", Types.SignedBLSToExecutionChange,
        &Handler.handle_bls_to_execution_change/1}
+
       # {"sync_committee_contribution_and_proof", Types.SignedContributionAndProof},
       # {"sync_committee_0", Types.SyncCommitteeMessage}
     ]
