@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   Validator proposer duties.
   """
 
-  alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
@@ -13,6 +12,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BlockRequest
 
   alias Types.BeaconBlock
