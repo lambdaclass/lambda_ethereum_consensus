@@ -258,7 +258,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
   @spec add_flag(Types.participation_flags(), integer) :: Types.participation_flags()
   def add_flag(flags, flag_index) do
-    flag = :math.pow(2, flag_index) |> round
+    flag = :math.pow(2, flag_index) |> round()
     bor(flags, flag)
   end
 

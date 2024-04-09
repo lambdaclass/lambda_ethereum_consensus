@@ -4,24 +4,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
 
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Math, Misc, Mutators, Predicates}
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Math
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Mutators
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
 
-  alias Types.{
-    Attestation,
-    BeaconBlock,
-    BeaconBlockBody,
-    BeaconBlockHeader,
-    BeaconState,
-    ExecutionPayload,
-    ExecutionPayloadHeader,
-    SyncAggregate,
-    Validator,
-    Withdrawal
-  }
+  alias Types.Attestation
+  alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
+  alias Types.BeaconBlockHeader
+  alias Types.BeaconState
+  alias Types.ExecutionPayload
+  alias Types.ExecutionPayloadHeader
+  alias Types.SyncAggregate
+  alias Types.Validator
+  alias Types.Withdrawal
 
   @spec process_block_header(BeaconState.t(), BeaconBlock.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}

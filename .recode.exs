@@ -17,14 +17,14 @@
     # Tasks could be added by a tuple of the tasks module name and an options
     # keyword list. A task can be deactivated by `active: false`. The execution of
     # a deactivated task can be forced by calling `mix recode --task ModuleName`.
-    # {Recode.Task.AliasExpansion, []},
-    {Recode.Task.AliasOrder, []}
+    {Recode.Task.AliasExpansion, []},
+    {Recode.Task.AliasOrder, []},
     # {Recode.Task.Dbg, [autocorrect: false]},
     # {Recode.Task.EnforceLineLength, [active: false]},
-    # {Recode.Task.FilterCount, []},
+    {Recode.Task.FilterCount, []},
     # {Recode.Task.IOInspect, [autocorrect: false]},
     # {Recode.Task.Nesting, []},
-    # {Recode.Task.PipeFunOne, []},
+    {Recode.Task.PipeFunOne, []},
     # {Recode.Task.SinglePipe, []},
     # {Recode.Task.Specs, [exclude: ["test/**/*.{ex,exs}", "mix.exs"], config: [only: :visible]]},
     # {Recode.Task.TagFIXME, [exit_code: 2]},
