@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
       block = %BeaconBlock{
         slot: block_request.slot,
         proposer_index: block_request.proposer_index,
-        parent_root: Misc.get_latest_block_hash(state),
+        parent_root: block_request.parent_root,
         state_root: <<0::256>>,
         body: construct_block_body(state, block_request, privkey)
       }

@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
   """
   alias Types.BeaconState
 
-  enforced_keys = [:slot, :proposer_index, :eth1_data, :execution_payload]
+  enforced_keys = [:slot, :proposer_index, :eth1_data, :execution_payload, :parent_root]
 
   optional_keys = [
     graffiti_message: "",
@@ -22,6 +22,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
 
   @type t() :: %__MODULE__{
           slot: Types.slot(),
+          parent_root: Types.root(),
           proposer_index: Types.validator_index(),
           graffiti_message: binary(),
           eth1_data: Types.Eth1Data.t(),
