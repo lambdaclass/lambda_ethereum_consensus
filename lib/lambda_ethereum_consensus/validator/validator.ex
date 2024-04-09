@@ -23,6 +23,7 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Validator.Proposer
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
+  alias Types.BeaconState
 
   @default_graffiti_message "Lambda, so gentle, so good"
 
