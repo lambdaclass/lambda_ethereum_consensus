@@ -964,7 +964,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp variable_size?({:int, _}), do: false
   defp variable_size?({:bitlist, _}), do: true
   defp variable_size?({:bitvector, _}), do: false
-  defp variable_size?({:vector, basic_type, _}), do: variable_size?(basic_type)
+  defp variable_size?({:vector, inner_type, _}), do: variable_size?(inner_type)
 
   defp variable_size?(module) when is_atom(module) do
     module.schema()
