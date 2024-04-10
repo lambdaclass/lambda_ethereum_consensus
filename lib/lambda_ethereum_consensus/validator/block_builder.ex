@@ -51,12 +51,12 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
           Eth1Data.t()
         ) ::
           {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
-  def construct_block(
-        %BeaconState{} = state,
-        %BuildBlockRequest{} = request,
-        %ExecutionPayload{} = execution_payload,
-        %Eth1Data{} = eth1_data
-      ) do
+  defp construct_block(
+         %BeaconState{} = state,
+         %BuildBlockRequest{} = request,
+         %ExecutionPayload{} = execution_payload,
+         %Eth1Data{} = eth1_data
+       ) do
     with {:ok, block_request} <- BuildBlockRequest.validate(request, state) do
       block = %BeaconBlock{
         slot: block_request.slot,
