@@ -113,8 +113,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     end
   end
 
-  defp compute_eth1_vote(%{eth1_data_votes: []}, _), do: nil
-  defp compute_eth1_vote(%{eth1_chain: []}, _), do: nil
+  defp compute_eth1_vote(%{eth1_data_votes: []}, _), do: {:ok, nil}
+  defp compute_eth1_vote(%{eth1_chain: []}, _), do: {:ok, nil}
 
   defp compute_eth1_vote(
          %{
