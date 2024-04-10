@@ -11,8 +11,6 @@ defmodule Types.Store do
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.Checkpoint
-  alias Types.DepositTree
-  alias Types.DepositTreeSnapshot
   alias Types.SignedBeaconBlock
 
   defstruct [
@@ -28,8 +26,7 @@ defmodule Types.Store do
     :latest_messages,
     :unrealized_justifications,
     # Stores block data on the current fork tree (~last two epochs)
-    :tree_cache,
-    deposit_tree: nil
+    :tree_cache
   ]
 
   @type t :: %__MODULE__{
@@ -45,8 +42,7 @@ defmodule Types.Store do
           # NOTE: the `Checkpoint` values in latest_messages are `LatestMessage`s
           latest_messages: %{Types.validator_index() => Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Checkpoint.t()},
-          tree_cache: Tree.t(),
-          deposit_tree: DepositTree.t() | nil
+          tree_cache: Tree.t()
         }
 
   @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) ::
@@ -91,10 +87,6 @@ defmodule Types.Store do
     end
   end
 
-  def init_deposit_tree(store, %DepositTreeSnapshot{} = snapshot) do
-    %{store | deposit_tree: DepositTree.from_snapshot(snapshot)}
-  end
-
   def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
     # NOTE: this assumes GENESIS_SLOT == 0
     div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
@@ -136,9 +128,7 @@ defmodule Types.Store do
   @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
   def store_block(%__MODULE__{} = store, block_root, %SignedBeaconBlock{} = signed_block) do
     Blocks.store_block(block_root, signed_block)
-
-    update_deposit_tree(store, signed_block.message.body.deposits)
-    |> update_tree(block_root, signed_block.message.parent_root)
+    update_tree(store, block_root, signed_block.message.parent_root)
   end
 
   @spec get_safe_execution_payload_hash(t()) :: Types.hash32()
@@ -162,11 +152,5 @@ defmodule Types.Store do
       # Block is older than current finalized block
       {:error, :not_found} -> store
     end
-  end
-
-  defp update_deposit_tree(%__MODULE__{deposit_tree: nil} = store, _), do: store
-
-  defp update_deposit_tree(%__MODULE__{} = store, _deposits) do
-    store
   end
 end

@@ -1,14 +1,12 @@
 defmodule Unit.SSZExTest do
   alias LambdaEthereumConsensus.Utils.Diff
 
-  alias Types.{
-    BeaconBlock,
-    BeaconBlockBody,
-    Checkpoint,
-    Eth1Data,
-    ExecutionPayload,
-    SyncAggregate
-  }
+  alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
+  alias Types.Checkpoint
+  alias Types.Eth1Data
+  alias Types.ExecutionPayload
+  alias Types.SyncAggregate
 
   alias LambdaEthereumConsensus.SszEx
   use ExUnit.Case

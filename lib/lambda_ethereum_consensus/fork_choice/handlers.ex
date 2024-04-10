@@ -6,23 +6,24 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.StateTransition
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.EpochProcessing
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
 
-  alias Types.{
-    Attestation,
-    AttestationData,
-    AttesterSlashing,
-    BeaconBlock,
-    BeaconState,
-    Checkpoint,
-    IndexedAttestation,
-    NewPayloadRequest,
-    SignedBeaconBlock,
-    Store
-  }
+  alias Types.Attestation
+  alias Types.AttestationData
+  alias Types.AttesterSlashing
+  alias Types.BeaconBlock
+  alias Types.BeaconState
+  alias Types.Checkpoint
+  alias Types.IndexedAttestation
+  alias Types.NewPayloadRequest
+  alias Types.SignedBeaconBlock
+  alias Types.Store
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
 

@@ -4,7 +4,8 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.{Libp2pPort, P2P}
+  alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias Types.BlobSidecar
 
