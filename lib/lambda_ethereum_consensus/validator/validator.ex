@@ -420,7 +420,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
-    fork_context = Base.encode16(BeaconChain.get_fork_digest(), case: :lower)
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
     # TODO: we might want to send the block to ForkChoice
     case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do

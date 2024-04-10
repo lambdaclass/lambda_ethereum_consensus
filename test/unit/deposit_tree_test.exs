@@ -81,14 +81,16 @@ defmodule Unit.DepositTreeTest do
 
     deposit_root = DepositTree.get_root(tree)
 
-    data_root = SszEx.hash_tree_root!(@deposit_data_2)
-
-    assert {:ok, {leaf, proof}} = DepositTree.get_proof(tree, index)
-    assert data_root == leaf
+    assert {:ok, %Deposit{} = deposit} = DepositTree.get_deposit(tree, index)
+    assert @deposit_data_2 == deposit.data
 
     depth = Constants.deposit_contract_tree_depth() + 1
 
-    assert Predicates.valid_merkle_branch?(data_root, proof, depth, index, deposit_root)
+    proof_is_valid =
+      SszEx.hash_tree_root!(@deposit_data_2)
+      |> Predicates.valid_merkle_branch?(deposit.proof, depth, index, deposit_root)
+
+    assert proof_is_valid
   end
 
   test "update and finalize tree equals new from snapshot" do

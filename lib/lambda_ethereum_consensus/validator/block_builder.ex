@@ -14,11 +14,10 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
-  alias Types.Eth1Data
-  alias Types.ExecutionPayload
-
   alias Types.BeaconBlock
   alias Types.BeaconState
+  alias Types.Eth1Data
+  alias Types.ExecutionPayload
   alias Types.SignedBeaconBlock
 
   require Logger
@@ -29,18 +28,23 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     parent_root = block_request.parent_root
     proposed_slot = block_request.slot
 
+    head_block = Blocks.get_block!(parent_root)
+    head_hash = head_block.body.execution_payload.block_hash
+
     pre_state = BlockStates.get_state!(parent_root)
 
-    with {:ok, execution_payload} <-
-           pre_state
-           |> StateTransition.process_slots(proposed_slot)
-           |> build_execution_block(parent_root) do
-      build_from_parts(
-        pre_state,
-        block_request |> Map.merge(fetch_operations_for_block()),
-        execution_payload,
-        fetch_eth1_data(proposed_slot, pre_state)
-      )
+    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
+         finalized_block = Blocks.get_block!(mid_state.finalized_checkpoint.root),
+         finalized_hash = finalized_block.body.execution_payload.block_hash,
+         {:ok, execution_payload} <-
+           build_execution_block(mid_state, parent_root, head_hash, finalized_hash) do
+      updated_block_request =
+        block_request
+        |> Map.merge(fetch_operations_for_block())
+        |> Map.put_new_lazy(:deposits, fn -> fetch_deposits(mid_state) end)
+
+      eth1_vote = fetch_eth1_data(proposed_slot, pre_state)
+      build_from_parts(pre_state, updated_block_request, execution_payload, eth1_vote)
     end
   end
 
@@ -90,6 +94,15 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
         ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")
         |> OperationsCollector.get_bls_to_execution_changes()
     }
+  end
+
+  defp fetch_deposits(state) do
+    %{eth1_data: eth1_data, eth1_deposit_index: range_start} = state
+
+    processable_deposits = eth1_data.deposit_count - range_start
+    range_end = min(processable_deposits, ChainSpec.get("MAX_DEPOSITS")) + range_start - 1
+
+    ExecutionChain.get_deposits(eth1_data, range_start..range_end)
   end
 
   defp construct_block_body(state, request, execution_payload, eth1_data) do
@@ -152,17 +165,14 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     }
   end
 
-  @spec build_execution_block(BeaconState.t(), Types.root()) ::
+  @spec build_execution_block(BeaconState.t(), Types.root(), Types.hash(), Types.hash()) ::
           {:error, any()} | {:ok, Types.ExecutionPayload.t()}
-  defp build_execution_block(state, head_root) do
-    head_block = Blocks.get_block!(head_root)
-    finalized_block = Blocks.get_block!(state.finalized_checkpoint.root)
-
+  defp build_execution_block(state, head_root, head_payload_hash, finalized_payload_hash) do
     forkchoice_state = %{
-      finalized_block_hash: finalized_block.body.execution_payload.block_hash,
-      head_block_hash: head_block.body.execution_payload.block_hash,
+      finalized_block_hash: finalized_payload_hash,
+      head_block_hash: head_payload_hash,
       # TODO calculate safe block
-      safe_block_hash: finalized_block.body.execution_payload.block_hash
+      safe_block_hash: finalized_payload_hash
     }
 
     payload_attributes = %{
