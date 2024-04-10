@@ -51,6 +51,8 @@ defmodule SyncTestRunner.EngineApiMock do
   @moduledoc """
   Mocked EngineApi for SyncTestRunner.
   """
+  @behaviour LambdaEthereumConsensus.Execution.EngineApi.Behaviour
+
   use Agent
 
   def start_link(_opts) do
@@ -96,4 +98,9 @@ defmodule SyncTestRunner.EngineApiMock do
       end
     end)
   end
+
+  def get_payload(_payload_id), do: raise("Not implemented")
+  def exchange_capabilities, do: raise("Not implemented")
+  def get_block_header(_block_id), do: raise("Not implemented")
+  def get_deposit_logs(_range), do: raise("Not implemented")
 end

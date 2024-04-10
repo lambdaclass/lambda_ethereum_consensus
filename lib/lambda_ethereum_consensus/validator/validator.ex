@@ -6,6 +6,8 @@ defmodule LambdaEthereumConsensus.Validator do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Execution.ExecutionChain
+  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
@@ -16,12 +18,14 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
+  alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BlockRequest
   alias LambdaEthereumConsensus.Validator.Proposer
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
+  alias Types.BeaconState
 
-  @default_graffiti_message "Lambda: good, nice, gentle"
+  @default_graffiti_message "Lambda, so gentle, so good"
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -408,32 +412,87 @@ defmodule LambdaEthereumConsensus.Validator do
   # Returns true if the validator should propose a block for the given slot
   defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
+  @spec build_execution_block(BeaconState.t(), Types.root()) ::
+          {:error, any()} | {:ok, Types.ExecutionPayload.t()}
+  def build_execution_block(state, head_root) do
+    head_block = Blocks.get_block!(head_root)
+    finalized_block = state.finalized_checkpoint.root |> Blocks.get_block!()
+
+    forkchoice_state = %{
+      finalized_block_hash: finalized_block.body.execution_payload.block_hash,
+      head_block_hash: head_block.body.execution_payload.block_hash,
+      # TODO calculate safe block
+      safe_block_hash: finalized_block.body.execution_payload.block_hash
+    }
+
+    payload_attributes = %{
+      timestamp: Misc.compute_timestamp_at_slot(state, state.slot),
+      prev_randao: Randao.get_randao_mix(state.randao_mixes, Accessors.get_current_epoch(state)),
+      suggested_fee_recipient: <<0::160>>,
+      # TODO: add withdrawals
+      withdrawals: [],
+      parent_beacon_block_root: head_root
+    }
+
+    with {:ok, payload_id} <-
+           ExecutionClient.notify_forkchoice_updated(
+             forkchoice_state,
+             payload_attributes
+           ),
+         # TODO: we need to balance a time that should be long enough to let the execution client
+         # pack as many transactions as possible (more fees for us) while giving enough time to propagate
+         # the block and have it included
+         :ok <- Process.sleep(3000),
+         {:ok, execution_payload} <-
+           ExecutionClient.get_payload(payload_id) do
+      {:ok, execution_payload}
+    end
+  end
+
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
-    last_eth1_data = Blocks.get_block!(head_root) |> get_in([:body, :eth1_data])
+    head_state = BlockStates.get_state!(head_root)
 
-    block_request =
-      %BlockRequest{
-        slot: proposed_slot,
-        proposer_index: index,
-        graffiti_message: @default_graffiti_message,
-        eth1_data: last_eth1_data
-      }
-      |> Map.merge(Proposer.fetch_operations_for_block())
+    with {:ok, execution_payload} <-
+           head_state |> process_slots(proposed_slot) |> build_execution_block(head_root) do
+      block_request =
+        %BlockRequest{
+          slot: proposed_slot,
+          parent_root: head_root,
+          proposer_index: index,
+          graffiti_message: @default_graffiti_message,
+          eth1_data: fetch_eth1_data(proposed_slot, head_state),
+          execution_payload: execution_payload
+        }
+        |> Map.merge(Proposer.fetch_operations_for_block())
 
-    # TODO: handle errors if there are any
-    {:ok, signed_block} =
-      BlockStates.get_state!(head_root)
-      |> Proposer.construct_block(block_request, privkey)
+      # TODO: handle errors if there are any
+      {:ok, signed_block} = Proposer.construct_block(head_state, block_request, privkey)
 
-    {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
-    {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+      {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
+      {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
+      fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
-    # TODO: we might want to send the block to ForkChoice
+      # TODO: we might want to send the block to ForkChoice
 
-    case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
-      :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
-      _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
+      case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
+        :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
+        _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
+      end
+    end
+  end
+
+  defp fetch_eth1_data(slot, head_state) do
+    case ExecutionChain.get_eth1_vote(slot) do
+      {:error, reason} ->
+        # Default to the last eth1 data on error
+        Logger.error("Failed to fetch eth1 vote: #{reason}")
+        head_state.eth1_data
+
+      {:ok, nil} ->
+        head_state.eth1_data
+
+      {:ok, eth1_data} ->
+        eth1_data
     end
   end
 end

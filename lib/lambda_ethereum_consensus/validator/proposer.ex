@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
       block = %BeaconBlock{
         slot: block_request.slot,
         proposer_index: block_request.proposer_index,
-        parent_root: Misc.get_latest_block_hash(state),
+        parent_root: block_request.parent_root,
         state_root: <<0::256>>,
         body: construct_block_body(state, block_request, privkey)
       }
@@ -64,7 +64,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
       bls_to_execution_changes: request.bls_to_execution_changes,
       blob_kzg_commitments: [],
       sync_aggregate: get_sync_aggregate(),
-      execution_payload: get_execution_payload()
+      execution_payload: request.execution_payload
     }
   end
 
@@ -104,7 +104,14 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     signature
   end
 
-  defp get_execution_payload do
+  defp get_sync_aggregate do
+    %Types.SyncAggregate{
+      sync_committee_bits: ChainSpec.get("SYNC_COMMITTEE_SIZE") |> BitVector.new(),
+      sync_committee_signature: <<192, 0::760>>
+    }
+  end
+
+  def get_execution_payload do
     %Types.ExecutionPayload{
       parent_hash:
         <<212, 46, 177, 5, 71, 181, 49, 8, 203, 152, 49, 250, 205, 230, 188, 78, 249, 162, 232,
@@ -131,13 +138,6 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
       withdrawals: [],
       blob_gas_used: 0,
       excess_blob_gas: 0
-    }
-  end
-
-  defp get_sync_aggregate do
-    %Types.SyncAggregate{
-      sync_committee_bits: ChainSpec.get("SYNC_COMMITTEE_SIZE") |> BitVector.new(),
-      sync_committee_signature: <<192, 0::760>>
     }
   end
 end

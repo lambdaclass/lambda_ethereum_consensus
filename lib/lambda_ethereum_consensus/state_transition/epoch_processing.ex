@@ -3,10 +3,15 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   This module contains utility functions for handling epoch processing
   """
 
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Mutators
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
-  alias Types.{BeaconState, HistoricalSummary, Validator}
+  alias Types.BeaconState
+  alias Types.HistoricalSummary
+  alias Types.Validator
 
   @spec process_sync_committee_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}

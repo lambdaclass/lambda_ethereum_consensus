@@ -4,24 +4,26 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   """
 
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Math, Misc, Mutators, Predicates}
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Math
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Mutators
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
 
-  alias Types.{
-    Attestation,
-    BeaconBlock,
-    BeaconBlockBody,
-    BeaconBlockHeader,
-    BeaconState,
-    ExecutionPayload,
-    ExecutionPayloadHeader,
-    SyncAggregate,
-    Validator,
-    Withdrawal
-  }
+  alias Types.Attestation
+  alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
+  alias Types.BeaconBlockHeader
+  alias Types.BeaconState
+  alias Types.ExecutionPayload
+  alias Types.ExecutionPayloadHeader
+  alias Types.SyncAggregate
+  alias Types.Validator
+  alias Types.Withdrawal
 
   @spec process_block_header(BeaconState.t(), BeaconBlock.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
@@ -797,21 +799,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         %BeaconBlockBody{eth1_data: eth1_data}
       ) do
     updated_eth1_data_votes = List.insert_at(state.eth1_data_votes, -1, eth1_data)
+    updated_state = %{state | eth1_data_votes: updated_eth1_data_votes}
 
-    if Enum.count(updated_eth1_data_votes, &(&1 == eth1_data)) * 2 >
-         ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH") do
-      {:ok,
-       %BeaconState{
-         state
-         | eth1_data: eth1_data,
-           eth1_data_votes: updated_eth1_data_votes
-       }}
+    slots_per_eth1_voting_period =
+      ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    if Enum.count(updated_eth1_data_votes, &(&1 == eth1_data)) * 2 > slots_per_eth1_voting_period do
+      {:ok, %{updated_state | eth1_data: eth1_data}}
     else
-      {:ok,
-       %BeaconState{
-         state
-         | eth1_data_votes: updated_eth1_data_votes
-       }}
+      {:ok, updated_state}
     end
   end
 

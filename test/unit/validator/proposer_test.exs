@@ -32,13 +32,15 @@ defmodule Unit.Validator.ProposerTests do
 
     block_request = %BlockRequest{
       slot: pre_state.slot + 1,
+      parent_root: spec_block.message.parent_root,
       proposer_index: 63,
       graffiti_message: "",
       eth1_data: %Types.Eth1Data{
         deposit_root: <<0::256>>,
         deposit_count: 64,
         block_hash: <<0::256>>
-      }
+      },
+      execution_payload: spec_block.message.body.execution_payload
     }
 
     {:ok, signed_block} = Proposer.construct_block(pre_state, block_request, privkey)

@@ -2,14 +2,12 @@ defmodule Unit.SSZExTest do
   alias LambdaEthereumConsensus.Utils.Diff
   alias LambdaEthereumConsensus.Utils.ZeroHashes
 
-  alias Types.{
-    BeaconBlock,
-    BeaconBlockBody,
-    Checkpoint,
-    Eth1Data,
-    ExecutionPayload,
-    SyncAggregate
-  }
+  alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
+  alias Types.Checkpoint
+  alias Types.Eth1Data
+  alias Types.ExecutionPayload
+  alias Types.SyncAggregate
 
   @zero_hashes ZeroHashes.compute_zero_hashes()
 
