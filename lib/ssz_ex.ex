@@ -203,7 +203,7 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root(non_neg_integer, {:int, non_neg_integer}) :: {:ok, Types.root()}
   def hash_tree_root(value, {:int, size}), do: {:ok, pack(value, {:int, size})}
 
-  @spec hash_tree_root(binary, {:byte_list, non_neg_integer}) :: Types.root()
+  @spec hash_tree_root(binary, {:byte_list, non_neg_integer}) :: {:ok, Types.root()}
   def hash_tree_root(value, {:byte_list, _size} = schema) do
     chunks = value |> pack_bytes()
     limit = chunk_count(schema)
@@ -282,7 +282,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
-  @spec hash_tree_root(struct(), atom()) :: Types.root()
+  @spec hash_tree_root(struct(), atom()) :: {:ok, Types.root()}
   def hash_tree_root(container, module) when is_map(container) do
     value =
       module.schema()
