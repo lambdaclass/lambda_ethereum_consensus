@@ -381,15 +381,15 @@ defmodule LambdaEthereumConsensus.SszEx do
         chunks
 
       true ->
-        layers = chunks
+        first_layer = chunks
         last_index = chunks_len - 1
 
         {_, final_layer} =
           1..(height - 1)
           |> Enum.reverse()
-          |> Enum.reduce({last_index, layers}, fn i, {acc_last_index, acc_layers} ->
-            updated_layers = update_layers(i, height, acc_layers, acc_last_index)
-            {acc_last_index |> div(2), updated_layers}
+          |> Enum.reduce({last_index, first_layer}, fn i, {current_last_index, current_layer} ->
+            parent_layers = get_parent_layer(i, height, current_layer, current_last_index)
+            {current_last_index |> div(2), parent_layers}
           end)
 
         <<root::binary-size(@bytes_per_chunk), _::binary>> = final_layer
@@ -1025,7 +1025,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     :math.log2(value) |> trunc()
   end
 
-  defp update_layers(i, height, current_layer, current_last_index) do
+  defp get_parent_layer(i, height, current_layer, current_last_index) do
     0..current_last_index
     |> Enum.filter(fn x -> rem(x, 2) == 0 end)
     |> Enum.reduce(<<>>, fn j, acc_parent_layer ->
