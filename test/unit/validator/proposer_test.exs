@@ -44,7 +44,7 @@ defmodule Unit.Validator.ProposerTests do
       privkey: privkey
     }
 
-    {:ok, signed_block} = Proposer.construct_block(pre_state, block_request, privkey)
+    {:ok, signed_block} = Proposer.construct_block(pre_state, block_request)
 
     assert signed_block.message.body.randao_reveal == spec_block.message.body.randao_reveal
     assert signed_block.signature == spec_block.signature

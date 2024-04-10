@@ -19,6 +19,8 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
+  require Logger
+
   def build_block(%BlockRequest{} = request) do
     parent_root = request.parent_root
     proposed_slot = request.slot
@@ -34,23 +36,23 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
         |> Map.put(:eth1_data, fetch_eth1_data(proposed_slot, pre_state))
         |> Map.put(:execution_payload, execution_payload)
 
-      construct_block(pre_state, block_request, request.privkey)
+      construct_block(pre_state, block_request)
     end
   end
 
-  @spec construct_block(BeaconState.t(), BlockRequest.t(), Bls.privkey()) ::
+  @spec construct_block(BeaconState.t(), BlockRequest.t()) ::
           {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
-  def construct_block(%BeaconState{} = state, %BlockRequest{} = request, privkey) do
+  def construct_block(%BeaconState{} = state, %BlockRequest{} = request) do
     with {:ok, block_request} <- BlockRequest.validate(request, state) do
       block = %BeaconBlock{
         slot: block_request.slot,
         proposer_index: block_request.proposer_index,
         parent_root: block_request.parent_root,
         state_root: <<0::256>>,
-        body: construct_block_body(state, block_request, privkey)
+        body: construct_block_body(state, block_request, block_request.privkey)
       }
 
-      seal_block(state, block, privkey)
+      seal_block(state, block, block_request.privkey)
     end
   end
 
@@ -177,9 +179,6 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     case ExecutionChain.get_eth1_vote(slot) do
       nil ->
         head_state.eth1_data
-
-      eth1_data ->
-        eth1_data
 
       {:error, reason} ->
         # Default to the last eth1 data on error
