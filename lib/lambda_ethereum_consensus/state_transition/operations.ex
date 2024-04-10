@@ -797,21 +797,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         %BeaconBlockBody{eth1_data: eth1_data}
       ) do
     updated_eth1_data_votes = List.insert_at(state.eth1_data_votes, -1, eth1_data)
+    updated_state = %{state | eth1_data_votes: updated_eth1_data_votes}
 
-    if Enum.count(updated_eth1_data_votes, &(&1 == eth1_data)) * 2 >
-         ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH") do
-      {:ok,
-       %BeaconState{
-         state
-         | eth1_data: eth1_data,
-           eth1_data_votes: updated_eth1_data_votes
-       }}
+    slots_per_eth1_voting_period =
+      ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    if Enum.count(updated_eth1_data_votes, &(&1 == eth1_data)) * 2 > slots_per_eth1_voting_period do
+      {:ok, %{updated_state | eth1_data: eth1_data}}
     else
-      {:ok,
-       %BeaconState{
-         state
-         | eth1_data_votes: updated_eth1_data_votes
-       }}
+      {:ok, updated_state}
     end
   end
 
