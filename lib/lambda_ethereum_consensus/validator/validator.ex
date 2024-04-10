@@ -15,8 +15,8 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
-  alias LambdaEthereumConsensus.Validator.BlockRequest
-  alias LambdaEthereumConsensus.Validator.Proposer
+  alias LambdaEthereumConsensus.Validator.BlockBuilder
+  alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
 
@@ -410,7 +410,7 @@ defmodule LambdaEthereumConsensus.Validator do
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
     # TODO: handle errors if there are any
     {:ok, signed_block} =
-      Proposer.build_block(%BlockRequest{
+      BlockBuilder.build_block(%BuildBlockRequest{
         slot: proposed_slot,
         parent_root: head_root,
         proposer_index: index,

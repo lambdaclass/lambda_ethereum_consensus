@@ -1,6 +1,6 @@
-defmodule LambdaEthereumConsensus.Validator.Proposer do
+defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   @moduledoc """
-  Validator proposer duties.
+  Module that constructs a block from head block.
   """
 
   alias LambdaEthereumConsensus.Execution.ExecutionChain
@@ -13,7 +13,7 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
-  alias LambdaEthereumConsensus.Validator.BlockRequest
+  alias LambdaEthereumConsensus.Validator.BuildBlockRequest
 
   alias Types.BeaconBlock
   alias Types.BeaconState
@@ -21,7 +21,9 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
 
   require Logger
 
-  def build_block(%BlockRequest{} = request) do
+  @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t()) ::
+          {:error, any()} | {:ok, Types.SignedBeaconBlock.t()}
+  def build_block(%BuildBlockRequest{} = request) do
     parent_root = request.parent_root
     proposed_slot = request.slot
     pre_state = BlockStates.get_state!(parent_root)
@@ -40,10 +42,10 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
     end
   end
 
-  @spec construct_block(BeaconState.t(), BlockRequest.t()) ::
+  @spec construct_block(BeaconState.t(), BuildBlockRequest.t()) ::
           {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
-  def construct_block(%BeaconState{} = state, %BlockRequest{} = request) do
-    with {:ok, block_request} <- BlockRequest.validate(request, state) do
+  def construct_block(%BeaconState{} = state, %BuildBlockRequest{} = request) do
+    with {:ok, block_request} <- BuildBlockRequest.validate(request, state) do
       block = %BeaconBlock{
         slot: block_request.slot,
         proposer_index: block_request.proposer_index,

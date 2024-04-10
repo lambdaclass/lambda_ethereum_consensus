@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Validator.BlockRequest do
+defmodule LambdaEthereumConsensus.Validator.BuildBlockRequest do
   @moduledoc """
   Struct that stores and validates data for block construction.
   Most of the data is already validated when computing the state
