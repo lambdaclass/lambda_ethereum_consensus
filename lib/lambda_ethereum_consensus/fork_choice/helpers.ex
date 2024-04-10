@@ -4,10 +4,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Helpers do
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
-  alias LambdaEthereumConsensus.Store.{BlockDb, StateDb}
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Store.StateDb
 
   alias Types.BeaconState
   alias Types.SignedBeaconBlock

@@ -4,11 +4,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
 
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.StateTransition.{Cache, Math, Misc, Predicates}
+  alias LambdaEthereumConsensus.StateTransition.Cache
+  alias LambdaEthereumConsensus.StateTransition.Math
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.Randao
-  alias Types.{Attestation, BeaconState, IndexedAttestation, SyncCommittee, Validator}
+  alias Types.Attestation
+  alias Types.BeaconState
+  alias Types.IndexedAttestation
+  alias Types.SyncCommittee
+  alias Types.Validator
 
   @max_random_byte 2 ** 8 - 1
 

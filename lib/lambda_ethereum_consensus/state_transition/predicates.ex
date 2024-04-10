@@ -4,7 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   """
 
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
   alias Types.Validator
 

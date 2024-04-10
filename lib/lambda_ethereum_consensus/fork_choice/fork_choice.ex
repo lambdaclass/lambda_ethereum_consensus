@@ -8,7 +8,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Execution.ExecutionChain
-  alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
+  alias LambdaEthereumConsensus.ForkChoice.Handlers
+  alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb

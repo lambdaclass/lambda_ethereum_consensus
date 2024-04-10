@@ -5,8 +5,11 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   require Logger
   alias LambdaEthereumConsensus.StateTransition
-  alias LambdaEthereumConsensus.StateTransition.{EpochProcessing, Operations}
-  alias Types.{BeaconBlockHeader, BeaconState, SignedBeaconBlock}
+  alias LambdaEthereumConsensus.StateTransition.EpochProcessing
+  alias LambdaEthereumConsensus.StateTransition.Operations
+  alias Types.BeaconBlockHeader
+  alias Types.BeaconState
+  alias Types.SignedBeaconBlock
 
   import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
 
