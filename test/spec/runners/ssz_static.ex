@@ -121,11 +121,13 @@ defmodule SszStaticTestRunner do
     {:ok, serialized_by_ssz_ex} = SszEx.encode(real_deserialized, schema)
     assert serialized_by_ssz_ex == real_serialized
 
-    {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
-    assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
+    if schema not in @only_ssz_ex do
+      {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
+      assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
 
-    {:ok, root_by_nif} = Ssz.hash_tree_root(real_deserialized)
-    assert root_by_nif == expected_root
+      {:ok, root_by_nif} = Ssz.hash_tree_root(real_deserialized)
+      assert root_by_nif == expected_root
+    end
 
     {:ok, root_by_ssz_ex} = SszEx.hash_tree_root(real_deserialized, schema)
     assert root_by_ssz_ex == expected_root
