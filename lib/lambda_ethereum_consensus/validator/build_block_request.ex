@@ -14,9 +14,7 @@ defmodule LambdaEthereumConsensus.Validator.BuildBlockRequest do
     attester_slashings: [],
     attestations: [],
     voluntary_exits: [],
-    bls_to_execution_changes: [],
-    eth1_data: nil,
-    execution_payload: nil
+    bls_to_execution_changes: []
   ]
 
   @enforce_keys enforced_keys

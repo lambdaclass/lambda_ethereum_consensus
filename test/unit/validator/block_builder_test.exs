@@ -35,16 +35,16 @@ defmodule Unit.Validator.BlockBuilderTest do
       parent_root: spec_block.message.parent_root,
       proposer_index: 63,
       graffiti_message: "",
-      eth1_data: %Types.Eth1Data{
-        deposit_root: <<0::256>>,
-        deposit_count: 64,
-        block_hash: <<0::256>>
-      },
-      execution_payload: spec_block.message.body.execution_payload,
       privkey: privkey
     }
 
-    {:ok, signed_block} = BlockBuilder.construct_block(pre_state, block_request)
+    {:ok, signed_block} =
+      BlockBuilder.construct_block(
+        pre_state,
+        block_request,
+        spec_block.message.body.execution_payload,
+        spec_block.message.body.eth1_data
+      )
 
     assert signed_block.message.body.randao_reveal == spec_block.message.body.randao_reveal
     assert signed_block.signature == spec_block.signature

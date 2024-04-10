@@ -14,6 +14,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
+  alias Types.Eth1Data
+  alias Types.ExecutionPayload
 
   alias Types.BeaconBlock
   alias Types.BeaconState
@@ -23,35 +25,45 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t()) ::
           {:error, any()} | {:ok, Types.SignedBeaconBlock.t()}
-  def build_block(%BuildBlockRequest{} = request) do
-    parent_root = request.parent_root
-    proposed_slot = request.slot
+  def build_block(%BuildBlockRequest{} = block_request) do
+    parent_root = block_request.parent_root
+    proposed_slot = block_request.slot
+
     pre_state = BlockStates.get_state!(parent_root)
 
     with {:ok, execution_payload} <-
            pre_state
            |> StateTransition.process_slots(proposed_slot)
            |> build_execution_block(parent_root) do
-      block_request =
-        request
-        |> Map.merge(fetch_operations_for_block())
-        |> Map.put(:eth1_data, fetch_eth1_data(proposed_slot, pre_state))
-        |> Map.put(:execution_payload, execution_payload)
-
-      construct_block(pre_state, block_request)
+      construct_block(
+        pre_state,
+        block_request |> Map.merge(fetch_operations_for_block()),
+        execution_payload,
+        fetch_eth1_data(proposed_slot, pre_state)
+      )
     end
   end
 
-  @spec construct_block(BeaconState.t(), BuildBlockRequest.t()) ::
+  @spec construct_block(
+          BeaconState.t(),
+          BuildBlockRequest.t(),
+          ExecutionPayload.t(),
+          Eth1Data.t()
+        ) ::
           {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
-  def construct_block(%BeaconState{} = state, %BuildBlockRequest{} = request) do
+  def construct_block(
+        %BeaconState{} = state,
+        %BuildBlockRequest{} = request,
+        %ExecutionPayload{} = execution_payload,
+        %Eth1Data{} = eth1_data
+      ) do
     with {:ok, block_request} <- BuildBlockRequest.validate(request, state) do
       block = %BeaconBlock{
         slot: block_request.slot,
         proposer_index: block_request.proposer_index,
         parent_root: block_request.parent_root,
         state_root: <<0::256>>,
-        body: construct_block_body(state, block_request, block_request.privkey)
+        body: construct_block_body(state, block_request, execution_payload, eth1_data)
       }
 
       seal_block(state, block, block_request.privkey)
@@ -80,10 +92,10 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     }
   end
 
-  defp construct_block_body(state, request, privkey) do
+  defp construct_block_body(state, request, execution_payload, eth1_data) do
     %Types.BeaconBlockBody{
-      randao_reveal: get_epoch_signature(state, request.slot, privkey),
-      eth1_data: request.eth1_data,
+      randao_reveal: get_epoch_signature(state, request.slot, request.privkey),
+      eth1_data: eth1_data,
       graffiti: request.graffiti_message,
       proposer_slashings: request.proposer_slashings,
       attester_slashings: request.attester_slashings,
@@ -93,7 +105,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       bls_to_execution_changes: request.bls_to_execution_changes,
       blob_kzg_commitments: [],
       sync_aggregate: get_sync_aggregate(),
-      execution_payload: request.execution_payload
+      execution_payload: execution_payload
     }
   end
 
