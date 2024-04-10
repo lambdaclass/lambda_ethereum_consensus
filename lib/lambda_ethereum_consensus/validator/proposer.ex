@@ -177,9 +177,6 @@ defmodule LambdaEthereumConsensus.Validator.Proposer do
 
   defp fetch_eth1_data(slot, head_state) do
     case ExecutionChain.get_eth1_vote(slot) do
-      nil ->
-        head_state.eth1_data
-
       {:error, reason} ->
         # Default to the last eth1 data on error
         Logger.error("Failed to fetch eth1 vote: #{reason}")
