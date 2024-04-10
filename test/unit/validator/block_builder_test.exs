@@ -8,7 +8,6 @@ defmodule Unit.Validator.BlockBuilderTest do
   alias Types.SignedBeaconBlock
 
   use ExUnit.Case
-  use Patch
 
   setup_all do
     Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
@@ -17,8 +16,6 @@ defmodule Unit.Validator.BlockBuilderTest do
   end
 
   test "construct block" do
-    expose(BlockBuilder, construct_block: 4)
-
     pre_state =
       SpecTestUtils.read_ssz_from_file!(
         "test/fixtures/validator/proposer/beacon_state.ssz_snappy",
@@ -43,13 +40,11 @@ defmodule Unit.Validator.BlockBuilderTest do
     }
 
     {:ok, signed_block} =
-      private(
-        BlockBuilder.construct_block(
-          pre_state,
-          block_request,
-          spec_block.message.body.execution_payload,
-          spec_block.message.body.eth1_data
-        )
+      BlockBuilder.build_from_parts(
+        pre_state,
+        block_request,
+        spec_block.message.body.execution_payload,
+        spec_block.message.body.eth1_data
       )
 
     assert signed_block.message.body.randao_reveal == spec_block.message.body.randao_reveal

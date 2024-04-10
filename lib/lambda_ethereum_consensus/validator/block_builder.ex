@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
            pre_state
            |> StateTransition.process_slots(proposed_slot)
            |> build_execution_block(parent_root) do
-      construct_block(
+      build_from_parts(
         pre_state,
         block_request |> Map.merge(fetch_operations_for_block()),
         execution_payload,
@@ -44,19 +44,19 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     end
   end
 
-  @spec construct_block(
+  @spec build_from_parts(
           BeaconState.t(),
           BuildBlockRequest.t(),
           ExecutionPayload.t(),
           Eth1Data.t()
         ) ::
           {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
-  defp construct_block(
-         %BeaconState{} = state,
-         %BuildBlockRequest{} = request,
-         %ExecutionPayload{} = execution_payload,
-         %Eth1Data{} = eth1_data
-       ) do
+  def build_from_parts(
+        %BeaconState{} = state,
+        %BuildBlockRequest{} = request,
+        %ExecutionPayload{} = execution_payload,
+        %Eth1Data{} = eth1_data
+      ) do
     with {:ok, block_request} <- BuildBlockRequest.validate(request, state) do
       block = %BeaconBlock{
         slot: block_request.slot,
