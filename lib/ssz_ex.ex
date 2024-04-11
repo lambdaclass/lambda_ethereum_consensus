@@ -37,7 +37,6 @@ defmodule LambdaEthereumConsensus.SszEx do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.ZeroHashes
 
-  import Aja
   import BitVector
   import Bitwise
 
@@ -236,17 +235,11 @@ defmodule LambdaEthereumConsensus.SszEx do
     {:ok, root}
   end
 
-  def hash_tree_root(vec(_) = list, {:list, _any, _non_neg_integer} = schema) do
-    list
-    |> Aja.Vector.to_list()
-    |> hash_tree_root(schema)
-  end
-
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root(list, {:list, type, _size} = schema) do
     limit = chunk_count(schema)
-    len = length(list)
+    len = Enum.count(list)
 
     value =
       if basic_type?(type) do
@@ -479,17 +472,14 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp decode_bool("\x00"), do: {:ok, false}
   defp decode_bool(_), do: {:error, "invalid bool value"}
 
-  defp encode_fixed_size_list(vec(_) = list, inner_type, size) do
-    encode_fixed_size_list(Aja.Vector.to_list(list), inner_type, size)
-  end
-
-  defp encode_fixed_size_list(list, _inner_type, max_size) when length(list) > max_size,
-    do: {:error, "invalid max_size of list"}
-
-  defp encode_fixed_size_list(list, inner_type, _size) when is_list(list) do
-    list
-    |> Enum.map(&encode(&1, inner_type))
-    |> flatten_results_by(&Enum.join/1)
+  defp encode_fixed_size_list(list, inner_type, max_size) do
+    if Enum.count(list) > max_size do
+      {:error, "invalid max_size of list"}
+    else
+      list
+      |> Enum.map(&encode(&1, inner_type))
+      |> flatten_results_by(&Enum.join/1)
+    end
   end
 
   defp encode_bitlist(bit_list, max_size) do
@@ -507,32 +497,29 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   defp encode_bitvector(_bit_vector, _size), do: {:error, "invalid bit_vector length"}
 
-  defp encode_variable_size_list(vec(_) = list, inner_type, max_size) do
-    encode_variable_size_list(Aja.Vector.to_list(list), inner_type, max_size)
-  end
+  defp encode_variable_size_list(list, inner_type, max_size) do
+    if Enum.count(list) > max_size do
+      {:error, "invalid max_size of list"}
+    else
+      fixed_lengths = @bytes_per_length_offset * length(list)
 
-  defp encode_variable_size_list(list, _inner_type, max_size) when length(list) > max_size,
-    do: {:error, "invalid max_size of list"}
-
-  defp encode_variable_size_list(list, inner_type, _size) when is_list(list) do
-    fixed_lengths = @bytes_per_length_offset * length(list)
-
-    with {:ok, {encoded_variable_parts, variable_offsets_list, total_byte_size}} <-
-           encode_variable_parts(list, inner_type),
-         :ok <- check_length(fixed_lengths, total_byte_size),
-         {variable_offsets, _} =
-           Enum.reduce(variable_offsets_list, {[], 0}, fn element, {res, acc} ->
-             sum = fixed_lengths + acc
-             {[sum | res], element + acc}
-           end),
-         {:ok, encoded_variable_offsets} <-
-           variable_offsets
-           |> Enum.reverse()
-           |> Enum.map(&encode(&1, {:int, 32}))
-           |> flatten_results() do
-      (encoded_variable_offsets ++ encoded_variable_parts)
-      |> :binary.list_to_bin()
-      |> then(&{:ok, &1})
+      with {:ok, {encoded_variable_parts, variable_offsets_list, total_byte_size}} <-
+             encode_variable_parts(list, inner_type),
+           :ok <- check_length(fixed_lengths, total_byte_size),
+           {variable_offsets, _} =
+             Enum.reduce(variable_offsets_list, {[], 0}, fn element, {res, acc} ->
+               sum = fixed_lengths + acc
+               {[sum | res], element + acc}
+             end),
+           {:ok, encoded_variable_offsets} <-
+             variable_offsets
+             |> Enum.reverse()
+             |> Enum.map(&encode(&1, {:int, 32}))
+             |> flatten_results() do
+        (encoded_variable_offsets ++ encoded_variable_parts)
+        |> :binary.list_to_bin()
+        |> then(&{:ok, &1})
+      end
     end
   end
 
