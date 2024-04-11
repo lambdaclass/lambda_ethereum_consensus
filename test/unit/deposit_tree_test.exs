@@ -81,7 +81,7 @@ defmodule Unit.DepositTreeTest do
 
     deposit_root = DepositTree.get_root(tree)
 
-    assert {:ok, %Deposit{} = deposit} = DepositTree.get_deposit(tree, index)
+    assert {:ok, %Types.Deposit{} = deposit} = DepositTree.get_deposit(tree, index)
     assert @deposit_data_2 == deposit.data
 
     depth = Constants.deposit_contract_tree_depth() + 1

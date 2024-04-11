@@ -166,7 +166,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     }
   end
 
-  @spec build_execution_block(BeaconState.t(), Types.root(), Types.hash(), Types.hash()) ::
+  @spec build_execution_block(BeaconState.t(), Types.root(), Types.hash32(), Types.hash32()) ::
           {:error, any()} | {:ok, Types.ExecutionPayload.t()}
   defp build_execution_block(state, head_root, head_payload_hash, finalized_payload_hash) do
     forkchoice_state = %{
