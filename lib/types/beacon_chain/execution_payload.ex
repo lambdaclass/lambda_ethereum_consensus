@@ -77,7 +77,7 @@ defmodule Types.ExecutionPayload do
       {:base_fee_per_gas, TypeAliases.uint256()},
       {:block_hash, TypeAliases.hash32()},
       {:transactions, TypeAliases.transactions()},
-      {:withdrawals, {:list, Types.Withdrawal, ChainSpec.get("MAX_TRANSACTIONS_PER_PAYLOAD")}},
+      {:withdrawals, {:list, Types.Withdrawal, ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")}},
       {:blob_gas_used, TypeAliases.uint64()},
       {:excess_blob_gas, TypeAliases.uint64()}
     ]
