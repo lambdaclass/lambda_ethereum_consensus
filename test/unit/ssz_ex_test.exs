@@ -656,6 +656,21 @@ defmodule Unit.SSZExTest do
     assert ssz_ex_root == ssz_root
   end
 
+  test "hash_tree_root of empty Aja.Vector as native list" do
+    vector = Aja.Vector.new()
+    expected_root = ZeroHashes.get_zero_hash(1, @zero_hashes)
+    {:ok, ssz_root} = SszEx.hash_tree_root(vector, {:list, {:int, 8}, 3})
+    assert expected_root == ssz_root
+  end
+
+  test "hash_tree_root of Aja.Vector as native list" do
+    vector = Aja.Vector.new([1, 2, 3])
+    size = <<3>> <> <<0::size(31 * 8)>>
+    expected_root = (<<1, 2, 3>> <> <<0::size(29 * 8)>>) |> SszEx.hash_nodes(size)
+    {:ok, ssz_root} = SszEx.hash_tree_root(vector, {:list, {:int, 8}, 3})
+    assert expected_root == ssz_root
+  end
+
   test "zero_hashes" do
     chunk0 = <<0::size(32 * 8)>>
     chunk1 = SszEx.hash_nodes(chunk0, chunk0)
