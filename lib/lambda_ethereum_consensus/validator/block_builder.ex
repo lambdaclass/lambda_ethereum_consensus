@@ -25,10 +25,9 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t()) ::
           {:error, any()} | {:ok, Types.SignedBeaconBlock.t()}
-  def build_block(%BuildBlockRequest{} = block_request) do
-    parent_root = block_request.parent_root
-    proposed_slot = block_request.slot
-
+  def build_block(
+        %BuildBlockRequest{parent_root: parent_root, slot: proposed_slot} = block_request
+      ) do
     head_block = Blocks.get_block!(parent_root)
     head_hash = head_block.body.execution_payload.block_hash
 

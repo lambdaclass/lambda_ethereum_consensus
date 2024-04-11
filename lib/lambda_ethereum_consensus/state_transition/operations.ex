@@ -333,7 +333,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     {:error, "expected withdrawals don't match the state withdrawals in length"}
   end
 
-  defp check_withdrawals(withdrawals, expected_withdrawals) do
+  def check_withdrawals(withdrawals, expected_withdrawals) do
     Stream.zip(expected_withdrawals, withdrawals)
     |> Enum.all?(fn {expected_withdrawal, withdrawal} ->
       expected_withdrawal == withdrawal
