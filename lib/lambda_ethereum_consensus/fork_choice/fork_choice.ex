@@ -70,10 +70,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def handle_cast({:on_block, block_root, %SignedBeaconBlock{} = signed_block, from}, store) do
     slot = signed_block.message.slot
 
-    Logger.info("[Fork choice] Adding new block ",
-      root: block_root,
-      slot: slot
-    )
+    Logger.info("[Fork choice] Adding new block", root: block_root, slot: slot)
 
     result =
       :telemetry.span([:sync, :on_block], %{}, fn ->
