@@ -8,6 +8,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   alias Types.DepositData
   alias Types.ExecutionPayload
   alias Types.NewPayloadRequest
+  alias Types.Withdrawal
+
   require Logger
 
   @type execution_status :: :optimistic | :valid | :invalid | :unknown
@@ -206,7 +208,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
       "stateRoot" => raw_state_root,
       "timestamp" => raw_timestamp,
       "transactions" => raw_transactions,
-      "withdrawals" => _raw_withdrawals
+      "withdrawals" => raw_withdrawals
     } = raw_payload
 
     %ExecutionPayload{
@@ -227,7 +229,16 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
       timestamp: raw_timestamp |> RPC.decode_integer(),
       transactions: raw_transactions |> Enum.map(&RPC.decode_binary/1),
       # TODO: parse withdrawals
-      withdrawals: []
+      withdrawals: raw_withdrawals |> Enum.map(&parse_withdrawal/1)
+    }
+  end
+
+  defp parse_withdrawal(raw_withdrawal) do
+    %Withdrawal{
+      index: raw_withdrawal["index"] |> RPC.decode_integer(),
+      validator_index: raw_withdrawal["validatorIndex"] |> RPC.decode_integer(),
+      address: raw_withdrawal["address"] |> RPC.decode_binary(),
+      amount: raw_withdrawal["amount"] |> RPC.decode_integer()
     }
   end
 
