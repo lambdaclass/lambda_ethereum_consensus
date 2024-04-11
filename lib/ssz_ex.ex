@@ -203,21 +203,19 @@ defmodule LambdaEthereumConsensus.SszEx do
   @spec hash_tree_root(non_neg_integer, {:int, non_neg_integer}) :: {:ok, Types.root()}
   def hash_tree_root(value, {:int, size}), do: {:ok, pack(value, {:int, size})}
 
-  @spec hash_tree_root(binary, {:byte_list | :byte_vector, non_neg_integer}) ::
+  @spec hash_tree_root(binary, {:byte_list, non_neg_integer}) :: {:ok, Types.root()}
+  def hash_tree_root(value, {:byte_list, _size} = schema) do
+    chunks = value |> pack_bytes()
+    limit = chunk_count(schema)
+    hash_tree_root_list(chunks, limit, value |> byte_size())
+  end
+
+  @spec hash_tree_root(binary, {:byte_vector, non_neg_integer}) ::
           {:ok, Types.root()}
-  def hash_tree_root(value, {type, _size}) when type in [:byte_list, :byte_vector] do
+  def hash_tree_root(value, {:byte_vector, _size}) do
     packed_chunks = pack_bytes(value)
     leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(packed_chunks, leaf_count)
-
-    root =
-      if type == :byte_list do
-        len = value |> bit_size()
-        root |> mix_in_length(len)
-      else
-        root
-      end
-
     {:ok, root}
   end
 
@@ -238,28 +236,10 @@ defmodule LambdaEthereumConsensus.SszEx do
     {:ok, root}
   end
 
-  @spec hash_tree_root(struct(), atom()) :: {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(container, module) when is_map(container) do
-    value =
-      module.schema()
-      |> Enum.reduce_while({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
-        value = container |> Map.get(key)
-
-        case hash_tree_root(value, schema) do
-          {:ok, root} -> {:cont, {:ok, acc_root <> root}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case value do
-      {:ok, chunks} ->
-        leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
-        root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
-        {:ok, root}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+  def hash_tree_root(vec(_) = list, {:list, _any, _non_neg_integer} = schema) do
+    list
+    |> Aja.Vector.to_list()
+    |> hash_tree_root(schema)
   end
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
@@ -299,6 +279,32 @@ defmodule LambdaEthereumConsensus.SszEx do
       {:ok, chunks} -> chunks |> hash_tree_root_vector()
       {:error, reason} -> {:error, reason}
       chunks -> chunks |> hash_tree_root_vector()
+    end
+  end
+
+  @spec hash_tree_root(struct(), atom()) :: {:ok, Types.root()}
+  def hash_tree_root(container, module) when is_map(container) do
+    value =
+      module.schema()
+      |> Enum.reduce_while({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
+        value = container |> Map.get(key)
+
+        case hash_tree_root(value, schema) do
+          {:ok, root} -> {:cont, {:ok, acc_root <> root}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+
+    case value do
+      {:ok, chunks} ->
+        leaf_count =
+          chunks |> get_chunks_len() |> next_pow_of_two()
+
+        root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
+        {:ok, root}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -375,15 +381,15 @@ defmodule LambdaEthereumConsensus.SszEx do
         chunks
 
       true ->
-        layers = chunks
+        first_layer = chunks
         last_index = chunks_len - 1
 
         {_, final_layer} =
           1..(height - 1)
           |> Enum.reverse()
-          |> Enum.reduce({last_index, layers}, fn i, {acc_last_index, acc_layers} ->
-            updated_layers = update_layers(i, height, acc_layers, acc_last_index)
-            {acc_last_index |> div(2), updated_layers}
+          |> Enum.reduce({last_index, first_layer}, fn i, {current_last_index, current_layer} ->
+            parent_layers = get_parent_layer(i, height, current_layer, current_last_index)
+            {current_last_index |> div(2), parent_layers}
           end)
 
         <<root::binary-size(@bytes_per_chunk), _::binary>> = final_layer
@@ -426,6 +432,8 @@ defmodule LambdaEthereumConsensus.SszEx do
       max_size
     end
   end
+
+  def chunk_count({:byte_list, max_size}), do: (max_size + 31) |> div(32)
 
   def chunk_count({identifier, size}) when identifier in [:bitlist, :bitvector] do
     (size + @bits_per_chunk - 1) |> div(@bits_per_chunk)
@@ -970,6 +978,8 @@ defmodule LambdaEthereumConsensus.SszEx do
   defp basic_type?({:vector, _, _}), do: false
   defp basic_type?({:bitlist, _}), do: false
   defp basic_type?({:bitvector, _}), do: false
+  defp basic_type?({:byte_list, _}), do: false
+  defp basic_type?({:byte_vector, _}), do: false
   defp basic_type?(module) when is_atom(module), do: false
 
   defp size_of(:bool), do: @bytes_per_boolean
@@ -1015,55 +1025,35 @@ defmodule LambdaEthereumConsensus.SszEx do
     :math.log2(value) |> trunc()
   end
 
-  defp update_layers(i, height, acc_layers, acc_last_index) do
-    0..(2 ** i - 1)
+  defp get_parent_layer(i, height, current_layer, current_last_index) do
+    0..current_last_index
     |> Enum.filter(fn x -> rem(x, 2) == 0 end)
-    |> Enum.reduce_while(acc_layers, fn j, acc_layers ->
-      parent_index = j |> div(2)
-      nodes = get_nodes(parent_index, i, j, height, acc_layers, acc_last_index)
-      hash_nodes_and_replace(nodes, acc_layers)
+    |> Enum.reduce(<<>>, fn j, acc_parent_layer ->
+      {left, right} = get_nodes(i, j, height, current_layer, current_last_index)
+      acc_parent_layer <> hash_nodes(left, right)
     end)
   end
 
-  defp get_nodes(parent_index, _i, j, _height, acc_layers, acc_last_index)
-       when j < acc_last_index do
-    start = parent_index * @bytes_per_chunk
-    stop = (j + 2) * @bytes_per_chunk
-    focus = acc_layers |> :binary.part(start, stop - start)
-    focus_len = focus |> byte_size()
-    children_index = focus_len - 2 * @bytes_per_chunk
-    <<_::binary-size(children_index), children::binary>> = focus
+  defp get_nodes(_i, left_children_index, _height, current_layer, current_last_index)
+       when left_children_index < current_last_index do
+    start = left_children_index * @bytes_per_chunk
+    stop = (left_children_index + 2) * @bytes_per_chunk
+    children = current_layer |> :binary.part(start, stop - start)
 
     <<left::binary-size(@bytes_per_chunk), right::binary-size(@bytes_per_chunk)>> =
       children
 
-    {children_index, left, right}
+    {left, right}
   end
 
-  defp get_nodes(parent_index, i, j, height, acc_layers, acc_last_index)
-       when j == acc_last_index do
-    start = parent_index * @bytes_per_chunk
-    stop = (j + 1) * @bytes_per_chunk
-    focus = acc_layers |> :binary.part(start, stop - start)
-    focus_len = focus |> byte_size()
-    children_index = focus_len - @bytes_per_chunk
-    <<_::binary-size(children_index), left::binary>> = focus
+  defp get_nodes(i, left_children_index, height, current_layer, current_last_index)
+       when left_children_index == current_last_index do
+    start = left_children_index * @bytes_per_chunk
+    stop = (left_children_index + 1) * @bytes_per_chunk
+    left = current_layer |> :binary.part(start, stop - start)
     depth = height - i - 1
     right = get_zero_hash(depth)
-    {children_index, left, right}
-  end
-
-  defp get_nodes(_, _, _, _, _, _), do: :error
-
-  defp hash_nodes_and_replace(nodes, layers) do
-    case nodes do
-      :error ->
-        {:halt, layers}
-
-      {index, left, right} ->
-        hash = hash_nodes(left, right)
-        {:cont, replace_chunk(layers, index, hash)}
-    end
+    {left, right}
   end
 
   defp replace_chunk(chunks, start, new_chunk) do

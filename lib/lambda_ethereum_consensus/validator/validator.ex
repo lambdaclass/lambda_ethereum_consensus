@@ -105,7 +105,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     new_state = maybe_publish_aggregate(new_state, slot)
 
-    if should_propose?(new_state, slot + 1), do: propose(new_state, slot)
+    if should_propose?(new_state, slot + 1), do: propose(new_state, slot + 1)
 
     {:noreply, new_state}
   end
@@ -121,7 +121,7 @@ defmodule LambdaEthereumConsensus.Validator do
       target_root = if slot == start_slot, do: head_root, else: last_root
 
       # Process the start of the new epoch
-      new_beacon = fetch_target_state(epoch, target_root) |> process_slots(start_slot)
+      new_beacon = fetch_target_state(epoch, target_root) |> go_to_slot(start_slot)
 
       new_duties =
         shift_duties(state.duties, epoch, last_epoch)
@@ -320,7 +320,7 @@ defmodule LambdaEthereumConsensus.Validator do
       slot: slot
     } = duty
 
-    head_state = BlockStates.get_state!(head_root) |> process_slots(slot)
+    head_state = BlockStates.get_state!(head_root) |> go_to_slot(slot)
     head_epoch = Misc.compute_epoch_at_slot(slot)
 
     epoch_boundary_block_root =
@@ -356,11 +356,15 @@ defmodule LambdaEthereumConsensus.Validator do
     {duty.subnet_id, attestation}
   end
 
-  defp process_slots(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
+  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
 
-  defp process_slots(state, slot) do
+  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot < slot do
     {:ok, st} = StateTransition.process_slots(state, slot)
     st
+  end
+
+  defp go_to_slot(%{latest_block_header: %{parent_root: parent_root}}, slot) do
+    BlockStates.get_state!(parent_root) |> go_to_slot(slot)
   end
 
   defp update_with_aggregation_duty(nil, _beacon_state, _privkey), do: nil
@@ -420,7 +424,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
-    fork_context = Base.encode16(BeaconChain.get_fork_digest(), case: :lower)
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
     # TODO: we might want to send the block to ForkChoice
     case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
