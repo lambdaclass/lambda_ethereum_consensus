@@ -328,12 +328,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec check_withdrawals(list(Withdrawal.t()), list(Withdrawal.t())) ::
           :ok | {:error, String.t()}
-  def check_withdrawals(withdrawals, expected_withdrawals)
-      when length(withdrawals) !== length(expected_withdrawals) do
+  defp check_withdrawals(withdrawals, expected_withdrawals)
+       when length(withdrawals) !== length(expected_withdrawals) do
     {:error, "expected withdrawals don't match the state withdrawals in length"}
   end
 
-  def check_withdrawals(withdrawals, expected_withdrawals) do
+  defp check_withdrawals(withdrawals, expected_withdrawals) do
     Stream.zip(expected_withdrawals, withdrawals)
     |> Enum.all?(fn {expected_withdrawal, withdrawal} ->
       expected_withdrawal == withdrawal
@@ -350,7 +350,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())
-  defp get_expected_withdrawals(%BeaconState{} = state) do
+  def get_expected_withdrawals(%BeaconState{} = state) do
     # Compute the next batch of withdrawals which should be included in a block.
     epoch = Accessors.get_current_epoch(state)
 
