@@ -4,6 +4,7 @@ defmodule Types.DepositTree do
   Implementation adapted from [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881).
   """
   alias LambdaEthereumConsensus.SszEx
+  alias Types.Deposit
   alias Types.DepositData
   alias Types.DepositTreeSnapshot
   alias Types.Eth1Data
@@ -17,6 +18,8 @@ defmodule Types.DepositTree do
   @type leaf :: {:leaf, {Types.hash32(), DepositData.t()}}
   @type summary :: {:zero, non_neg_integer()} | {:finalized, {Types.hash32(), non_neg_integer()}}
   @type tree_node :: leaf() | summary() | {:node, {tree_node(), tree_node()}}
+
+  @type proof :: [Types.root()]
 
   @type t :: %__MODULE__{
           inner: tree_node(),
@@ -50,16 +53,18 @@ defmodule Types.DepositTree do
     %{tree | inner: new_inner, finalized_execution_block: finalized_block}
   end
 
-  @spec get_proof(t(), non_neg_integer()) ::
-          {:ok, {Types.root(), [Types.root()]}} | {:error, String.t()}
-  def get_proof(%__MODULE__{deposit_count: count}, _) when count <= 0,
-    do: {:error, "no deposits in tree"}
+  @spec get_deposit(t(), non_neg_integer()) :: {:ok, Deposit.t()} | {:error, String.t()}
+  def get_deposit(%__MODULE__{} = tree, index) do
+    cond do
+      index < get_finalized(tree.inner) ->
+        {:error, "deposit already finalized"}
 
-  def get_proof(%__MODULE__{} = tree, index) do
-    if index >= get_finalized(tree.inner) do
-      {:ok, generate_proof(tree.inner, index, @tree_depth, [mix_in_length(tree)])}
-    else
-      {:error, "deposit already finalized"}
+      index >= tree.deposit_count ->
+        {:error, "deposit index out of bounds"}
+
+      true ->
+        {data, proof} = generate_proof(tree.inner, index, @tree_depth, [mix_in_length(tree)])
+        {:ok, %Deposit{proof: proof, data: data}}
     end
   end
 
@@ -129,7 +134,9 @@ defmodule Types.DepositTree do
     {:node, {new_left, new_right}}
   end
 
-  defp generate_proof(node, _, 0, proof), do: {get_node_root(node), proof}
+  @spec generate_proof(tree_node(), non_neg_integer(), non_neg_integer(), list()) ::
+          {DepositData.t(), proof()}
+  defp generate_proof({:leaf, {_, deposit_data}}, _, 0, proof), do: {deposit_data, proof}
 
   defp generate_proof({:node, {left, right}}, index, depth, proof) do
     ith_bit = Bitwise.bsr(index, depth - 1) |> Bitwise.band(0x1)

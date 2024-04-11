@@ -655,7 +655,7 @@ defmodule Unit.SSZExTest do
 
     assert ssz_ex_root == ssz_root
   end
-
+  
   test "hash_tree_root of empty Aja.Vector as native list" do
     vector = Aja.Vector.new()
     expected_root = ZeroHashes.get_zero_hash(1, @zero_hashes)

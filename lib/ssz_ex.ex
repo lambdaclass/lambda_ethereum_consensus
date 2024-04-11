@@ -302,6 +302,32 @@ defmodule LambdaEthereumConsensus.SszEx do
     end
   end
 
+  @spec hash_tree_root(struct(), atom()) :: {:ok, Types.root()}
+  def hash_tree_root(container, module) when is_map(container) do
+    value =
+      module.schema()
+      |> Enum.reduce_while({:ok, <<>>}, fn {key, schema}, {_, acc_root} ->
+        value = container |> Map.get(key)
+
+        case hash_tree_root(value, schema) do
+          {:ok, root} -> {:cont, {:ok, acc_root <> root}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+
+    case value do
+      {:ok, chunks} ->
+        leaf_count =
+          chunks |> get_chunks_len() |> next_pow_of_two()
+
+        root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
+        {:ok, root}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   def hash_tree_root_vector(chunks) do
     leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
