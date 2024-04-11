@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitVector
@@ -25,16 +26,14 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t()) ::
           {:error, any()} | {:ok, Types.SignedBeaconBlock.t()}
-  def build_block(%BuildBlockRequest{} = block_request) do
-    parent_root = block_request.parent_root
-    proposed_slot = block_request.slot
-
+  def build_block(
+        %BuildBlockRequest{parent_root: parent_root, slot: proposed_slot} = block_request
+      ) do
     pre_state = BlockStates.get_state!(parent_root)
 
-    with {:ok, execution_payload} <-
-           pre_state
-           |> StateTransition.process_slots(proposed_slot)
-           |> build_execution_block(parent_root) do
+    with {:ok, updated_state} <-
+           StateTransition.process_slots(pre_state, proposed_slot),
+         {:ok, execution_payload} <- build_execution_block(updated_state, parent_root) do
       build_from_parts(
         pre_state,
         block_request |> Map.merge(fetch_operations_for_block()),
@@ -169,8 +168,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       timestamp: Misc.compute_timestamp_at_slot(state, state.slot),
       prev_randao: Randao.get_randao_mix(state.randao_mixes, Accessors.get_current_epoch(state)),
       suggested_fee_recipient: <<0::160>>,
-      # TODO: add withdrawals
-      withdrawals: [],
+      withdrawals: Operations.get_expected_withdrawals(state),
       parent_beacon_block_root: head_root
     }
 

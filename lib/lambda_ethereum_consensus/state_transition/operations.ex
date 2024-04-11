@@ -328,8 +328,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec check_withdrawals(list(Withdrawal.t()), list(Withdrawal.t())) ::
           :ok | {:error, String.t()}
-  defp check_withdrawals(withdrawals, expected_withdrawals)
-       when length(withdrawals) !== length(expected_withdrawals) do
+  def check_withdrawals(withdrawals, expected_withdrawals)
+      when length(withdrawals) !== length(expected_withdrawals) do
     {:error, "expected withdrawals don't match the state withdrawals in length"}
   end
 
