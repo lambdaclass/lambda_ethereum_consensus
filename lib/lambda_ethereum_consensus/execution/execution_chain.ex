@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   use GenServer
 
   alias LambdaEthereumConsensus.Execution.ExecutionClient
+  alias Types.Deposit
   alias Types.DepositTree
   alias Types.DepositTreeSnapshot
   alias Types.Eth1Data
@@ -17,12 +18,18 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec get_eth1_vote(Types.slot()) :: {:ok, Types.Eth1Data.t() | nil} | {:error, any}
+  @spec get_eth1_vote(Types.slot()) :: {:ok, Eth1Data.t() | nil} | {:error, any}
   def get_eth1_vote(slot) do
     GenServer.call(__MODULE__, {:get_eth1_vote, slot})
   end
 
-  @spec notify_new_block(Types.slot(), Types.Eth1Data.t(), ExecutionPayload.t()) :: :ok
+  @spec get_deposits(Eth1Data.t(), Eth1Data.t(), Range.t()) ::
+          {:ok, [Deposit.t()] | nil} | {:error, any}
+  def get_deposits(current_eth1_data, eth1_vote, deposit_range) do
+    GenServer.call(__MODULE__, {:get_deposits, current_eth1_data, eth1_vote, deposit_range})
+  end
+
+  @spec notify_new_block(Types.slot(), Eth1Data.t(), ExecutionPayload.t()) :: :ok
   def notify_new_block(slot, eth1_data, %ExecutionPayload{} = execution_payload) do
     payload_info = Map.take(execution_payload, [:block_hash, :block_number, :timestamp])
     GenServer.cast(__MODULE__, {:new_block, slot, eth1_data, payload_info})
@@ -46,6 +53,15 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   @impl true
   def handle_call({:get_eth1_vote, slot}, _from, state) do
     {:reply, compute_eth1_vote(state, slot), state}
+  end
+
+  def handle_call({:get_deposits, current_eth1_data, eth1_vote, deposit_range}, _from, state) do
+    eth1_data =
+      if has_majority?(state.eth1_data_votes, eth1_vote),
+        do: eth1_vote,
+        else: current_eth1_data
+
+    {:reply, compute_deposits(state, eth1_data, deposit_range), state}
   end
 
   @impl true
@@ -92,14 +108,24 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
 
     new_state = %{state | eth1_data_votes: eth1_data_votes}
 
-    if (eth1_data_votes |> Map.fetch!(eth1_data) |> elem(0)) * 2 > slots_per_eth1_voting_period() do
-      update_deposit_tree(new_state, eth1_data)
+    if has_majority?(eth1_data_votes, eth1_data) do
+      case update_deposit_tree(new_state, eth1_data) do
+        {:ok, new_tree} -> %{state | deposit_tree: new_tree, current_eth1_data: eth1_data}
+        _ -> new_state
+      end
     else
       new_state
     end
   end
 
-  defp update_deposit_tree(state, %{block_hash: new_block} = eth1_data) do
+  defp has_majority?(eth1_data_votes, eth1_data) do
+    (eth1_data_votes |> Map.fetch!(eth1_data) |> elem(0)) * 2 > slots_per_eth1_voting_period()
+  end
+
+  defp update_deposit_tree(%{current_eth1_data: eth1_data, deposit_tree: tree}, eth1_data),
+    do: {:ok, tree}
+
+  defp update_deposit_tree(state, %{block_hash: new_block}) do
     old_eth1_data = state.current_eth1_data
     old_block = old_eth1_data.block_hash
 
@@ -108,10 +134,25 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
          {:ok, deposits} <- ExecutionClient.get_deposit_logs(start_block..end_block) do
       # TODO: check if the result should be sorted by index
       deposit_tree = DepositTree.finalize(state.deposit_tree, old_eth1_data, start_block)
-      new_tree = Enum.reduce(deposits, deposit_tree, &DepositTree.push_leaf(&2, &1))
-      %{state | deposit_tree: new_tree, current_eth1_data: eth1_data}
+      {:ok, update_tree_with_deposits(deposit_tree, deposits)}
     end
   end
+
+  defp compute_deposits(state, eth1_data, deposit_range) do
+    with :ok <- validate_range(eth1_data, deposit_range),
+         {:ok, updated_tree} <- update_deposit_tree(state, eth1_data) do
+      proofs =
+        Enum.map(deposit_range, fn i ->
+          {:ok, deposit} = DepositTree.get_deposit(updated_tree, i)
+          deposit
+        end)
+
+      {:ok, proofs}
+    end
+  end
+
+  defp validate_range(%{deposit_count: count}, _..deposit_end) when deposit_end >= count, do: :ok
+  defp validate_range(_, _), do: {:error, "deposit range out of bounds"}
 
   defp compute_eth1_vote(%{eth1_data_votes: []}, _), do: {:ok, nil}
   defp compute_eth1_vote(%{eth1_chain: []}, _), do: {:ok, nil}
