@@ -111,11 +111,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
         # If all the other conditions are false, add block to fork choice
         true ->
-          Logger.info("Adding block to fork choice: ",
-            root: block_root,
-            slot: signed_block.message.slot
-          )
-
           ForkChoice.on_block(signed_block, block_root)
           state |> Map.put(block_root, {signed_block, :processing})
       end

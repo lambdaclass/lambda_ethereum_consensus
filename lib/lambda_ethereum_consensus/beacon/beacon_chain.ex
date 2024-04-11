@@ -8,6 +8,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   alias Types.BeaconState
   alias Types.Checkpoint
 
+  require Logger
+
   defmodule BeaconChainState do
     @moduledoc false
 
@@ -165,9 +167,16 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     time = :os.system_time(:second)
     ForkChoice.on_tick(time)
 
-    :telemetry.execute([:sync, :store], %{slot: compute_current_slot(state)})
+    new_state = %BeaconChainState{state | time: time}
+    old_slot = compute_current_slot(state)
+    new_slot = compute_current_slot(new_state)
 
-    {:noreply, %BeaconChainState{state | time: time}}
+    if old_slot != new_slot do
+      :telemetry.execute([:sync, :store], %{slot: new_slot})
+      Logger.info("[BeaconChain] Slot transition", slot: new_slot)
+    end
+
+    {:noreply, new_state}
   end
 
   @impl true
