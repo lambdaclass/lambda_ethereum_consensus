@@ -125,7 +125,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   defp update_deposit_tree(%{current_eth1_data: eth1_data, deposit_tree: tree}, eth1_data),
     do: {:ok, tree}
 
-  defp update_deposit_tree(state, %{block_hash: new_block} = eth1_data) do
+  defp update_deposit_tree(state, %{block_hash: new_block}) do
     old_eth1_data = state.current_eth1_data
     old_block = old_eth1_data.block_hash
 
@@ -143,7 +143,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
          {:ok, updated_tree} <- update_deposit_tree(state, eth1_data) do
       proofs =
         Enum.map(deposit_range, fn i ->
-          {:ok, deposit} = DepositTree.get_deposit(tree, i)
+          {:ok, deposit} = DepositTree.get_deposit(updated_tree, i)
           deposit
         end)
 

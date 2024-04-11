@@ -38,12 +38,13 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          finalized_hash = finalized_block.body.execution_payload.block_hash,
          {:ok, execution_payload} <-
            build_execution_block(mid_state, parent_root, head_hash, finalized_hash) do
+      eth1_vote = fetch_eth1_data(proposed_slot, pre_state)
+
       updated_block_request =
         block_request
         |> Map.merge(fetch_operations_for_block())
-        |> Map.put_new_lazy(:deposits, fn -> fetch_deposits(mid_state) end)
+        |> Map.put_new_lazy(:deposits, fn -> fetch_deposits(mid_state, eth1_vote) end)
 
-      eth1_vote = fetch_eth1_data(proposed_slot, pre_state)
       build_from_parts(pre_state, updated_block_request, execution_payload, eth1_vote)
     end
   end
@@ -96,13 +97,13 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     }
   end
 
-  defp fetch_deposits(state) do
+  defp fetch_deposits(state, eth1_vote) do
     %{eth1_data: eth1_data, eth1_deposit_index: range_start} = state
 
     processable_deposits = eth1_data.deposit_count - range_start
     range_end = min(processable_deposits, ChainSpec.get("MAX_DEPOSITS")) + range_start - 1
 
-    ExecutionChain.get_deposits(eth1_data, range_start..range_end)
+    ExecutionChain.get_deposits(eth1_data, eth1_vote, range_start..range_end)
   end
 
   defp construct_block_body(state, request, execution_payload, eth1_data) do
