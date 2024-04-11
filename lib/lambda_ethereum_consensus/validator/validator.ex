@@ -105,7 +105,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     new_state = maybe_publish_aggregate(new_state, slot)
 
-    if should_propose?(new_state, slot + 1), do: propose(new_state, slot)
+    if should_propose?(new_state, slot + 1), do: propose(new_state, slot + 1)
 
     {:noreply, new_state}
   end
