@@ -26,15 +26,15 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
     GenServer.call(__MODULE__, :get_metadata)
   end
 
-  @spec set_attestation_subnet(non_neg_integer(), boolean()) :: :ok
-  def set_attestation_subnet(i, set) do
-    GenServer.cast(__MODULE__, {:set_attestation_subnet, i, set})
-  end
+  @spec set_attnet(non_neg_integer()) :: :ok
+  def set_attnet(i), do: GenServer.cast(__MODULE__, {:set_attestation_subnet, i, true})
+  @spec clear_attnet(non_neg_integer()) :: :ok
+  def clear_attnet(i), do: GenServer.cast(__MODULE__, {:set_attestation_subnet, i, false})
 
-  @spec set_sync_committee(non_neg_integer(), boolean()) :: :ok
-  def set_sync_committee(i, set) do
-    GenServer.cast(__MODULE__, {:set_sync_committee, i, set})
-  end
+  @spec set_syncnet(non_neg_integer()) :: :ok
+  def set_syncnet(i), do: GenServer.cast(__MODULE__, {:set_sync_committee, i, true})
+  @spec clear_syncnet(non_neg_integer()) :: :ok
+  def clear_syncnet(i), do: GenServer.cast(__MODULE__, {:set_sync_committee, i, false})
 
   ##########################
   ### GenServer Callbacks
@@ -51,20 +51,18 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   end
 
   @impl true
-  def handle_call(:get_metadata, _, metadata) do
-    {:reply, metadata, metadata}
-  end
+  def handle_call(:get_metadata, _, metadata), do: {:reply, metadata, metadata}
 
   @impl true
-  def handle_cast({:set_attestation_subnet, i, set}, %{seq_number: seq_number} = metadata) do
+  def handle_cast({:set_attestation_subnet, i, set}, metadata) do
     attnets = set_or_clear(metadata.attnets, i, set)
-    {:noreply, %{metadata | attnets: attnets, seq_number: seq_number + 1}}
+    {:noreply, %{metadata | attnets: attnets} |> increment_seqnum()}
   end
 
   @impl true
-  def handle_cast({:set_sync_committee, i, set}, %{seq_number: seq_number} = metadata) do
+  def handle_cast({:set_sync_committee, i, set}, metadata) do
     syncnets = set_or_clear(metadata.syncnets, i, set)
-    {:noreply, %{metadata | syncnets: syncnets, seq_number: seq_number + 1}}
+    {:noreply, %{metadata | syncnets: syncnets} |> increment_seqnum()}
   end
 
   ##########################
@@ -74,4 +72,6 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   @spec set_or_clear(BitVector.t(), non_neg_integer(), boolean()) :: BitVector.t()
   defp set_or_clear(bitvector, i, true), do: BitVector.set(bitvector, i)
   defp set_or_clear(bitvector, i, false), do: BitVector.clear(bitvector, i)
+
+  defp increment_seqnum(state), do: %{state | seq_number: state.seq_number + 1}
 end

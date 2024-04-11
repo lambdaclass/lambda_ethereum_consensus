@@ -3,7 +3,7 @@ defmodule Types.DepositData do
   Struct definition for `DepositData`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :pubkey,

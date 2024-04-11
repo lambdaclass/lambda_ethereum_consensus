@@ -73,7 +73,7 @@ This is an accompanying document to [The Beacon Chain](./beacon-chain.md), which
 
 ## Introduction
 
-This document represents the expected behavior of an "honest validator" with respect to Phase 0 of the Ethereum proof-of-stake protocol. This document does not distinguish between a "node" (i.e. the functionality of following and reading the beacon chain) and a "validator client" (i.e. the functionality of actively participating in consensus). The separation of concerns between these (potentially) two pieces of software is left as a design decision that is out of scope.
+This document represents the expected behavior of an "honest validator" of the Ethereum proof-of-stake protocol. This document does not distinguish between a "node" (i.e. the functionality of following and reading the beacon chain) and a "validator client" (i.e. the functionality of actively participating in consensus). The separation of concerns between these (potentially) two pieces of software is left as a design decision that is out of scope.
 
 A validator is an entity that participates in the consensus of the Ethereum proof-of-stake protocol. This is an optional role for users in which they can post ETH as collateral and verify and attest to the validity of blocks to seek financial returns in exchange for building and securing the protocol. This is similar to proof-of-work networks in which miners provide collateral in the form of hardware/hash-power to seek returns in exchange for building and securing the protocol.
 
@@ -84,7 +84,7 @@ Block proposers incorporate the (aggregated) sync committee signatures into each
 
 ## Prerequisites
 
-All terminology, constants, functions, and protocol mechanics defined in the [The Beacon Chain](./beacon-chain.md) and [Deposit Contract](./deposit-contract.md) doc are requisite for this document and used throughout. Please see the Phase 0 doc before continuing and use as a reference throughout.
+All terminology, constants, functions, and protocol mechanics defined in the [The Beacon Chain](./beacon-chain.md) and [Deposit Contract](./deposit-contract.md) doc are requisite for this document and used throughout.
 
 ## Constants
 
@@ -181,13 +181,26 @@ class SyncAggregatorSelectionData(Container):
     subcommittee_index: uint64
 ```
 
+### `BlobsBundle`
+
+*[New in Deneb:EIP4844]*
+
+```python
+@dataclass
+class BlobsBundle(object):
+    commitments: Sequence[KZGCommitment]
+    proofs: Sequence[KZGProof]
+    blobs: Sequence[Blob]
+```
+
 ### `GetPayloadResponse`
 
 ```python
 @dataclass
-class A(object):
+class GetPayloadResponse(object):
     execution_payload: ExecutionPayload
-    block_value: uint256  # [New in Capella]
+    block_value: uint256
+    blobs_bundle: BlobsBundle  # [New in Deneb:EIP4844]
 ```
 
 ## Helpers
@@ -245,7 +258,7 @@ the execution payload that has been built since the corresponding call to `notif
 ```python
 def get_payload(self: ExecutionEngine, payload_id: PayloadId) -> GetPayloadResponse:
     """
-    Return ``GetPayloadResponse`` object.
+    Return ExecutionPayload, uint256, BlobsBundle objects.
     """
     ...
 ```
@@ -295,7 +308,7 @@ withdrawals to `eth1_withdrawal_address` will simply be increases to the account
 
 ### Submit deposit
 
-In Phase 0, all incoming validator deposits originate from the Ethereum proof-of-work chain defined by `DEPOSIT_CHAIN_ID` and `DEPOSIT_NETWORK_ID`. Deposits are made to the [deposit contract](./deposit-contract.md) located at `DEPOSIT_CONTRACT_ADDRESS`.
+Deposits are made to the [deposit contract](./deposit-contract.md) located at `DEPOSIT_CONTRACT_ADDRESS`.
 
 To submit a deposit:
 
@@ -307,13 +320,13 @@ To submit a deposit:
 - Let `deposit_message` be a `DepositMessage` with all the `DepositData` contents except the `signature`.
 - Let `signature` be the result of `bls.Sign` of the `compute_signing_root(deposit_message, domain)` with `domain=compute_domain(DOMAIN_DEPOSIT)`. (*Warning*: Deposits *must* be signed with `GENESIS_FORK_VERSION`, calling `compute_domain` without a second argument defaults to the correct version).
 - Let `deposit_data_root` be `hash_tree_root(deposit_data)`.
-- Send a transaction on the Ethereum proof-of-work chain to `DEPOSIT_CONTRACT_ADDRESS` executing `def deposit(pubkey: bytes[48], withdrawal_credentials: bytes[32], signature: bytes[96], deposit_data_root: bytes32)` along with a deposit of `amount` Gwei.
+- Send a transaction on the Ethereum execution chain to `DEPOSIT_CONTRACT_ADDRESS` executing `def deposit(pubkey: bytes[48], withdrawal_credentials: bytes[32], signature: bytes[96], deposit_data_root: bytes32)` along with a deposit of `amount` Gwei.
 
 *Note*: Deposits made for the same `pubkey` are treated as for the same validator. A singular `Validator` will be added to `state.validators` with each additional deposit amount added to the validator's balance. A validator can only be activated when total deposits for the validator pubkey meet or exceed `MAX_EFFECTIVE_BALANCE`.
 
 ### Process deposit
 
-Deposits cannot be processed into the beacon chain until the proof-of-work block in which they were deposited or any of its descendants is added to the beacon chain `state.eth1_data`. This takes *a minimum* of `ETH1_FOLLOW_DISTANCE` Eth1 blocks (~8 hours) plus `EPOCHS_PER_ETH1_VOTING_PERIOD` epochs (~6.8 hours). Once the requisite proof-of-work block data is added, the deposit will normally be added to a beacon chain block and processed into the `state.validators` within an epoch or two. The validator is then in a queue to be activated.
+Deposits cannot be processed into the beacon chain until the execution block in which they were deposited or any of its descendants is added to the beacon chain `state.eth1_data`. This takes *a minimum* of `ETH1_FOLLOW_DISTANCE` Eth1 blocks (~8 hours) plus `EPOCHS_PER_ETH1_VOTING_PERIOD` epochs (~6.8 hours). Once the requisite execution block data is added, the deposit will normally be added to a beacon chain block and processed into the `state.validators` within an epoch or two. The validator is then in a queue to be activated.
 
 ### Validator index
 
@@ -452,7 +465,7 @@ A validator has two primary responsibilities to the beacon chain: [proposing blo
 
 *Note*: A validator must not propose on or attest to a block that isn't deemed valid, i.e. hasn't yet passed the beacon chain state transition and execution validations. In future upgrades, an "execution Proof-of-Custody" will be integrated to prevent outsourcing of execution payload validations.
 
-### Block proposal
+### Block and sidecar proposal
 
 A validator is expected to propose a [`SignedBeaconBlock`](./beacon-chain.md#signedbeaconblock) at
 the beginning of any `slot` during which `is_proposer(state, validator_index)` returns `True`.
@@ -592,7 +605,7 @@ Up to `MAX_ATTESTATIONS`, aggregate attestations can be included in the `block`.
 
 If there are any unprocessed deposits for the existing `state.eth1_data` (i.e. `state.eth1_data.deposit_count > state.eth1_deposit_index`), then pending deposits *must* be added to the block. The expected number of deposits is exactly `min(MAX_DEPOSITS, eth1_data.deposit_count - state.eth1_deposit_index)`.  These [`deposits`](./beacon-chain.md#deposit) are constructed from the `Deposit` logs from the [deposit contract](./deposit-contract.md) and must be processed in sequential order. The deposits included in the `block` must satisfy the verification conditions found in [deposits processing](./beacon-chain.md#deposits).
 
-The `proof` for each deposit must be constructed against the deposit root contained in `state.eth1_data` rather than the deposit root at the time the deposit was initially logged from the proof-of-work chain. This entails storing a full deposit merkle tree locally and computing updated proofs against the `eth1_data.deposit_root` as needed. See [`minimal_merkle.py`](https://github.com/ethereum/research/blob/master/spec_pythonizer/utils/merkle_minimal.py) for a sample implementation.
+The `proof` for each deposit must be constructed against the deposit root contained in `state.eth1_data` rather than the deposit root at the time the deposit was initially logged from the execution chain. This entails storing a full deposit merkle tree locally and computing updated proofs against the `eth1_data.deposit_root` as needed. See [`minimal_merkle.py`](https://github.com/ethereum/research/blob/master/spec_pythonizer/utils/merkle_minimal.py) for a sample implementation.
 
 ##### Voluntary exits
 
@@ -656,26 +669,8 @@ def prepare_execution_payload(state: BeaconState,
                               safe_block_hash: Hash32,
                               finalized_block_hash: Hash32,
                               suggested_fee_recipient: ExecutionAddress,
-                              execution_engine: ExecutionEngine,
-                              pow_chain: Optional[Dict[Hash32, PowBlock]]=None) -> Optional[PayloadId]:
-    # [Modified in Capella] Removed `is_merge_transition_complete` check in Capella
-    # if not is_merge_transition_complete(state):
-    #     assert pow_chain is not None
-    #     is_terminal_block_hash_set = TERMINAL_BLOCK_HASH != Hash32()
-    #     is_activation_epoch_reached = get_current_epoch(state) >= TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH
-    #     if is_terminal_block_hash_set and not is_activation_epoch_reached:
-    #         # Terminal block hash is set but activation epoch is not yet reached, no prepare payload call is needed
-    #         return None
-
-    #     terminal_pow_block = get_terminal_pow_block(pow_chain)
-    #     if terminal_pow_block is None:
-    #         # Pre-merge, no prepare payload call is needed
-    #         return None
-    #     # Signify merge via producing on top of the terminal PoW block
-    #     parent_hash = terminal_pow_block.block_hash
-    # else:
-    #     # Post-merge, normal payload
-    #     parent_hash = state.latest_execution_payload_header.block_hash
+                              execution_engine: ExecutionEngine) -> Optional[PayloadId]:
+    # Verify consistency of the parent hash with respect to the previous execution payload header
     parent_hash = state.latest_execution_payload_header.block_hash
 
     # Set the forkchoice head and initiate the payload build process
@@ -683,7 +678,8 @@ def prepare_execution_payload(state: BeaconState,
         timestamp=compute_timestamp_at_slot(state, state.slot),
         prev_randao=get_randao_mix(state, get_current_epoch(state)),
         suggested_fee_recipient=suggested_fee_recipient,
-        withdrawals=get_expected_withdrawals(state),  # [New in Capella]
+        withdrawals=get_expected_withdrawals(state),
+        parent_beacon_block_root=hash_tree_root(state.latest_block_header),  # [New in Deneb:EIP4788]
     )
     return execution_engine.notify_forkchoice_updated(
         head_block_hash=parent_hash,
@@ -707,9 +703,72 @@ def get_execution_payload(payload_id: Optional[PayloadId], execution_engine: Exe
 *Note*: It is recommended for a validator to call `prepare_execution_payload` as soon as input parameters become known,
 and make subsequent calls to this function when any of these parameters gets updated.
 
+##### Blob KZG commitments
+
+*[New in Deneb:EIP4844]*
+
+1. The execution payload is obtained from the execution engine as defined above using `payload_id`. The response also includes a `blobs_bundle` entry containing the corresponding `blobs`, `commitments`, and `proofs`.
+2. Set `block.body.blob_kzg_commitments = commitments`.
+
 ##### BLS to execution changes
 
 Up to `MAX_BLS_TO_EXECUTION_CHANGES`, [`BLSToExecutionChange`](./beacon-chain.md#blstoexecutionchange) objects can be included in the `block`. The BLS to execution changes must satisfy the verification conditions found in [BLS to execution change processing](./beacon-chain.md#new-process_bls_to_execution_change).
+
+#### Constructing the `BlobSidecar`s
+
+*[New in Deneb:EIP4844]*
+
+To construct a `BlobSidecar`, a `blob_sidecar` is defined with the necessary context for block and sidecar proposal.
+
+##### Sidecar
+
+Blobs associated with a block are packaged into sidecar objects for distribution to the associated sidecar topic, the `blob_sidecar_{subnet_id}` pubsub topic.
+
+Each `sidecar` is obtained from:
+```python
+def get_blob_sidecars(signed_block: SignedBeaconBlock,
+                      blobs: Sequence[Blob],
+                      blob_kzg_proofs: Sequence[KZGProof]) -> Sequence[BlobSidecar]:
+    block = signed_block.message
+    block_header = BeaconBlockHeader(
+        slot=block.slot,
+        proposer_index=block.proposer_index,
+        parent_root=block.parent_root,
+        state_root=block.state_root,
+        body_root=hash_tree_root(block.body),
+    )
+    signed_block_header = SignedBeaconBlockHeader(message=block_header, signature=signed_block.signature)
+    return [
+        BlobSidecar(
+            index=index,
+            blob=blob,
+            kzg_commitment=block.body.blob_kzg_commitments[index],
+            kzg_proof=blob_kzg_proofs[index],
+            signed_block_header=signed_block_header,
+            kzg_commitment_inclusion_proof=compute_merkle_proof(
+                block.body,
+                get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments', index),
+            ),
+        )
+        for index, blob in enumerate(blobs)
+    ]
+```
+
+The `subnet_id` for the `blob_sidecar` is calculated with:
+- Let `blob_index = blob_sidecar.index`.
+- Let `subnet_id = compute_subnet_for_blob_sidecar(blob_index)`.
+
+```python
+def compute_subnet_for_blob_sidecar(blob_index: BlobIndex) -> SubnetID:
+    return SubnetID(blob_index % BLOB_SIDECAR_SUBNET_COUNT)
+```
+
+After publishing the peers on the network may request the sidecar through sync-requests, or a local user may be interested.
+
+The validator MUST hold on to sidecars for `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epochs and serve when capable,
+to ensure the data-availability of these blobs throughout the network.
+
+After `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` nodes MAY prune the sidecars and/or stop serving them.
 
 ### Changing from BLS to execution withdrawal credentials
 
@@ -1092,7 +1151,7 @@ def get_contribution_and_proof_signature(state: BeaconState,
 
 ## How to avoid slashing
 
-"Slashing" is the burning of some amount of validator funds and immediate ejection from the active validator set. In Phase 0, there are two ways in which funds can be slashed: [proposer slashing](#proposer-slashing) and [attester slashing](#attester-slashing). Although being slashed has serious repercussions, it is simple enough to avoid being slashed all together by remaining *consistent* with respect to the messages a validator has previously signed.
+"Slashing" is the burning of some amount of validator funds and immediate ejection from the active validator set. There are two ways in which funds can be slashed: [proposer slashing](#proposer-slashing) and [attester slashing](#attester-slashing). Although being slashed has serious repercussions, it is simple enough to avoid being slashed all together by remaining *consistent* with respect to the messages a validator has previously signed.
 
 *Note*: Signed data must be within a sequential `Fork` context to conflict. Messages cannot be slashed across diverging forks. If the previous fork version is 1 and the chain splits into fork 2 and 102, messages from 1 can be slashable against messages in forks 1, 2, and 102. Messages in 2 cannot be slashable against messages in 102, and vice versa.
 

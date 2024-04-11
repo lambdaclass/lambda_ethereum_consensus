@@ -5,7 +5,7 @@ defmodule Types.PendingAttestation do
   """
   alias LambdaEthereumConsensus.Utils.BitList
 
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :aggregation_bits,

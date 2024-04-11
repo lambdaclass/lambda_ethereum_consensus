@@ -4,7 +4,8 @@ alias LambdaEthereumConsensus.StateTransition.Cache
 alias LambdaEthereumConsensus.Store
 alias LambdaEthereumConsensus.Store.BlockDb
 alias LambdaEthereumConsensus.Store.StateDb
-alias Types.{BeaconState, SignedBeaconBlock}
+alias Types.BeaconState
+alias Types.SignedBeaconBlock
 
 Logger.configure(level: :warning)
 

@@ -1,6 +1,17 @@
 defmodule Unit.SSZExTest do
-  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.Utils.Diff
+  alias LambdaEthereumConsensus.Utils.ZeroHashes
+
+  alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
   alias Types.Checkpoint
+  alias Types.Eth1Data
+  alias Types.ExecutionPayload
+  alias Types.SyncAggregate
+
+  @zero_hashes ZeroHashes.compute_zero_hashes()
+
+  alias LambdaEthereumConsensus.SszEx
   use ExUnit.Case
 
   def assert_roundtrip(serialized, deserialized, schema) do
@@ -463,6 +474,64 @@ defmodule Unit.SSZExTest do
     assert_roundtrip(serialized, validator, Types.Validator)
   end
 
+  @root_size 32
+  @signature_size 96
+  @default_signature <<0::size(@signature_size * 8)>>
+  @default_root <<0::size(@root_size * 8)>>
+  @default_hash @default_root
+
+  test "default block" do
+    default = SszEx.default(BeaconBlock)
+
+    expected = %BeaconBlock{
+      slot: 0,
+      proposer_index: 0,
+      parent_root: @default_root,
+      state_root: @default_root,
+      body: %BeaconBlockBody{
+        randao_reveal: @default_signature,
+        eth1_data: %Eth1Data{
+          deposit_root: @default_root,
+          deposit_count: 0,
+          block_hash: @default_hash
+        },
+        graffiti: <<0::size(32 * 8)>>,
+        proposer_slashings: [],
+        attester_slashings: [],
+        attestations: [],
+        deposits: [],
+        voluntary_exits: [],
+        sync_aggregate: %SyncAggregate{
+          sync_committee_bits: <<0::size(ChainSpec.get("SYNC_COMMITTEE_SIZE"))>>,
+          sync_committee_signature: @default_signature
+        },
+        execution_payload: %ExecutionPayload{
+          parent_hash: @default_hash,
+          fee_recipient: <<0::size(20 * 8)>>,
+          state_root: @default_root,
+          receipts_root: @default_root,
+          logs_bloom: <<0::size(ChainSpec.get("BYTES_PER_LOGS_BLOOM") * 8)>>,
+          prev_randao: <<0::size(32 * 8)>>,
+          block_number: 0,
+          gas_limit: 0,
+          gas_used: 0,
+          timestamp: 0,
+          extra_data: <<>>,
+          base_fee_per_gas: 0,
+          block_hash: @default_hash,
+          transactions: [],
+          withdrawals: [],
+          blob_gas_used: 0,
+          excess_blob_gas: 0
+        },
+        bls_to_execution_changes: [],
+        blob_kzg_commitments: []
+      }
+    }
+
+    assert Diff.diff(default, expected) == :unchanged
+  end
+
   test "serialize and deserialize bitlist" do
     encoded_bytes = <<160, 92, 1>>
     assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 16})
@@ -509,5 +578,93 @@ defmodule Unit.SSZExTest do
 
     encoded_bytes = <<0>>
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 9})
+  end
+
+  test "hash tree root of byte list" do
+    zero_chunk = <<0::size(32 * 8)-little>>
+    initial_list = <<5, 5, 5, 5>>
+    size = byte_size(initial_list)
+    pad = 32 - size
+    byte_list = initial_list <> <<0::size(pad * 8)>>
+
+    left = SszEx.hash(byte_list <> zero_chunk)
+    right = SszEx.hash(zero_chunk <> zero_chunk)
+    chunked_list = SszEx.hash(left <> right)
+
+    packed_size = <<64>> <> <<0::size(31 * 8)>>
+
+    manual_root = SszEx.hash(chunked_list <> packed_size)
+
+    {:ok, ssz_ex_root} = (byte_list <> zero_chunk) |> SszEx.hash_tree_root({:byte_list, 100})
+
+    assert ssz_ex_root == manual_root
+  end
+
+  test "hash tree root of empty byte list" do
+    byte_list = <<>>
+    zero_chunk = <<0::size(32 * 8)-little>>
+
+    left = SszEx.hash(zero_chunk <> zero_chunk)
+    right = SszEx.hash(zero_chunk <> zero_chunk)
+    chunked_list = SszEx.hash(left <> right)
+
+    manual_root = SszEx.hash(chunked_list <> zero_chunk)
+
+    {:ok, ssz_ex_root} = byte_list |> SszEx.hash_tree_root({:byte_list, 100})
+
+    assert ssz_ex_root == manual_root
+  end
+
+  test "hash tree root of byte vector" do
+    zero_chunk = <<0::size(32 * 8)-little>>
+    initial_list = <<5, 5, 5, 5>>
+    size = byte_size(initial_list)
+    pad = 32 - size
+    byte_vector = initial_list <> <<0::size(pad * 8)>>
+
+    manual_root = SszEx.hash(byte_vector <> zero_chunk)
+
+    {:ok, ssz_ex_root} = (byte_vector <> zero_chunk) |> SszEx.hash_tree_root({:byte_vector, 64})
+
+    assert ssz_ex_root == manual_root
+  end
+
+  test "hash tree root of ExecutionPayload" do
+    execution_payload = %ExecutionPayload{
+      parent_hash: @default_hash,
+      fee_recipient: <<0::size(20 * 8)>>,
+      state_root: @default_root,
+      receipts_root: @default_root,
+      logs_bloom: <<0::size(ChainSpec.get("BYTES_PER_LOGS_BLOOM") * 8)>>,
+      prev_randao: <<0::size(32 * 8)>>,
+      block_number: 0,
+      gas_limit: 0,
+      gas_used: 0,
+      timestamp: 0,
+      extra_data: <<>>,
+      base_fee_per_gas: 0,
+      block_hash: @default_hash,
+      transactions: [],
+      withdrawals: [],
+      blob_gas_used: 0,
+      excess_blob_gas: 0
+    }
+
+    {:ok, ssz_root} = Ssz.hash_tree_root(execution_payload, ExecutionPayload)
+    {:ok, ssz_ex_root} = SszEx.hash_tree_root(execution_payload, ExecutionPayload)
+
+    assert ssz_ex_root == ssz_root
+  end
+
+  test "zero_hashes" do
+    chunk0 = <<0::size(32 * 8)>>
+    chunk1 = SszEx.hash_nodes(chunk0, chunk0)
+    chunk2 = SszEx.hash_nodes(chunk1, chunk1)
+    chunk3 = SszEx.hash_nodes(chunk2, chunk2)
+
+    assert ZeroHashes.get_zero_hash(0, @zero_hashes) == chunk0
+    assert ZeroHashes.get_zero_hash(1, @zero_hashes) == chunk1
+    assert ZeroHashes.get_zero_hash(2, @zero_hashes) == chunk2
+    assert ZeroHashes.get_zero_hash(3, @zero_hashes) == chunk3
   end
 end

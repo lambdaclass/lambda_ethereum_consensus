@@ -4,7 +4,7 @@ defmodule Types.SyncAggregate do
   Related definitions in `native/ssz_nif/src/types/`.
   """
   alias LambdaEthereumConsensus.Utils.BitVector
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :sync_committee_bits,

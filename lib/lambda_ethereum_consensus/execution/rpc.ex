@@ -64,6 +64,10 @@ defmodule LambdaEthereumConsensus.Execution.RPC do
     end)
   end
 
+  def normalize_response(response) when is_list(response) do
+    Enum.map(response, &normalize_response/1)
+  end
+
   def normalize_response(response) do
     response
   end
@@ -74,7 +78,16 @@ defmodule LambdaEthereumConsensus.Execution.RPC do
   end
 
   def encode_integer(integer) do
-    "0x" <> Integer.to_string(integer, 16)
+    "0x" <> (Integer.to_string(integer, 16) |> String.downcase())
+  end
+
+  def decode_binary("0x" <> binary) do
+    Base.decode16!(binary, case: :lower)
+  end
+
+  def decode_integer("0x" <> integer) do
+    {number, ""} = Integer.parse(integer, 16)
+    number
   end
 
   defp to_camel_case(key) when is_atom(key) do

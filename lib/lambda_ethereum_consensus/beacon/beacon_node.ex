@@ -44,7 +44,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     end
   end
 
-  defp init_children(%Store{} = store, genesis_validators_root) do
+  defp init_children(%Store{} = store, genesis_validators_root, deposit_tree_snapshot \\ nil) do
     Cache.initialize_cache()
 
     config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
@@ -70,17 +70,22 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       finalized: store.finalized_checkpoint
     }
 
-    children = [
-      {LambdaEthereumConsensus.Beacon.BeaconChain,
-       {store.genesis_time, genesis_validators_root, fork_choice_data, time}},
-      {LambdaEthereumConsensus.ForkChoice, {store, head_slot, time}},
-      {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
-      LambdaEthereumConsensus.P2P.Peerbook,
-      LambdaEthereumConsensus.P2P.IncomingRequests,
-      LambdaEthereumConsensus.Beacon.PendingBlocks,
-      LambdaEthereumConsensus.Beacon.SyncBlocks,
-      LambdaEthereumConsensus.P2P.GossipSub
-    ]
+    validator_children =
+      get_validator_children(deposit_tree_snapshot, head_slot, head_root, store.genesis_time)
+
+    children =
+      [
+        {LambdaEthereumConsensus.Beacon.BeaconChain,
+         {store.genesis_time, genesis_validators_root, fork_choice_data, time}},
+        {LambdaEthereumConsensus.ForkChoice, {store, head_slot, time}},
+        {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
+        LambdaEthereumConsensus.P2P.Peerbook,
+        LambdaEthereumConsensus.P2P.IncomingRequests,
+        LambdaEthereumConsensus.Beacon.PendingBlocks,
+        LambdaEthereumConsensus.Beacon.SyncBlocks,
+        LambdaEthereumConsensus.P2P.GossipSub,
+        LambdaEthereumConsensus.P2P.Gossip.Attestation
+      ] ++ validator_children
 
     Supervisor.init(children, strategy: :one_for_all)
   end
@@ -119,10 +124,13 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         # We already checked block and state match
         {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
 
+        # TODO: integrate into CheckpointSync, and validate snapshot
+        snapshot = fetch_deposit_snapshot(url)
+
         # Save store in DB
         StoreDb.persist_store(store)
 
-        init_children(store, genesis_validators_root)
+        init_children(store, genesis_validators_root, snapshot)
 
       _ ->
         Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block")
@@ -135,5 +143,30 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     (:os.system_time(:second) - store.genesis_time)
     |> div(ChainSpec.get("SECONDS_PER_SLOT"))
     |> Misc.compute_epoch_at_slot()
+  end
+
+  defp fetch_deposit_snapshot(url) do
+    case CheckpointSync.get_deposit_snapshot(url) do
+      {:ok, snapshot} ->
+        snapshot
+
+      _ ->
+        Logger.error("[Checkpoint sync] Failed to fetch the deposit snapshot")
+        System.halt(1)
+    end
+  end
+
+  defp get_validator_children(nil, _, _, _) do
+    Logger.warning("[Checkpoint sync] To enable validator features, checkpoint-sync is required.")
+
+    []
+  end
+
+  defp get_validator_children(deposit_tree_snapshot, head_slot, head_root, genesis_time) do
+    # TODO: move checkpoint sync outside and move this to application.ex
+    [
+      {LambdaEthereumConsensus.Validator, {head_slot, head_root}},
+      {LambdaEthereumConsensus.Execution.ExecutionChain, {genesis_time, deposit_tree_snapshot}}
+    ]
   end
 end

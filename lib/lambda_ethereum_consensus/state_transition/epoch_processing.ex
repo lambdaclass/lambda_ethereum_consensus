@@ -3,10 +3,15 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   This module contains utility functions for handling epoch processing
   """
 
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc, Mutators, Predicates}
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Mutators
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
-  alias Types.{BeaconState, HistoricalSummary, Validator}
+  alias Types.BeaconState
+  alias Types.HistoricalSummary
+  alias Types.Validator
 
   @spec process_sync_committee_updates(BeaconState.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
@@ -136,9 +141,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   @spec process_registry_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, String.t()}
   def process_registry_updates(%BeaconState{validators: validators} = state) do
     ejection_balance = ChainSpec.get("EJECTION_BALANCE")
-    churn_limit = Accessors.get_validator_churn_limit(state)
     current_epoch = Accessors.get_current_epoch(state)
     activation_exit_epoch = Misc.compute_activation_exit_epoch(current_epoch)
+
+    churn_limit = Accessors.get_validator_activation_churn_limit(state)
 
     result =
       validators
@@ -164,7 +170,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       |> Stream.with_index()
       |> Stream.filter(fn {v, _} -> Predicates.eligible_for_activation?(state, v) end)
       |> Enum.sort_by(fn {%{activation_eligibility_epoch: ep}, i} -> {ep, i} end)
-      |> Enum.slice(0..(churn_limit - 1))
+      |> Enum.take(churn_limit)
       |> Enum.reduce(new_state.validators, fn {v, i}, acc ->
         %{v | activation_epoch: activation_exit_epoch}
         |> then(&Aja.Vector.replace_at!(acc, i, &1))

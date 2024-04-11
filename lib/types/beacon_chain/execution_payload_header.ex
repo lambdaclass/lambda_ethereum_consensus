@@ -3,7 +3,7 @@ defmodule Types.ExecutionPayloadHeader do
   Struct definition for `ExecutionPayloadHeader`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   @default_execution_payload_header %{
     parent_hash: <<0::256>>,
@@ -20,7 +20,9 @@ defmodule Types.ExecutionPayloadHeader do
     base_fee_per_gas: 0,
     block_hash: <<0::256>>,
     transactions_root: <<0::256>>,
-    withdrawals_root: <<0::256>>
+    withdrawals_root: <<0::256>>,
+    blob_gas_used: 0,
+    excess_blob_gas: 0
   }
 
   fields = [
@@ -38,7 +40,9 @@ defmodule Types.ExecutionPayloadHeader do
     :base_fee_per_gas,
     :block_hash,
     :transactions_root,
-    :withdrawals_root
+    :withdrawals_root,
+    :blob_gas_used,
+    :excess_blob_gas
   ]
 
   @enforce_keys fields
@@ -61,7 +65,9 @@ defmodule Types.ExecutionPayloadHeader do
           base_fee_per_gas: Types.uint256(),
           block_hash: Types.hash32(),
           transactions_root: Types.root(),
-          withdrawals_root: Types.root()
+          withdrawals_root: Types.root(),
+          blob_gas_used: Types.uint64(),
+          excess_blob_gas: Types.uint64()
         }
 
   def encode(%__MODULE__{} = map) do
@@ -81,17 +87,19 @@ defmodule Types.ExecutionPayloadHeader do
       {:fee_recipient, TypeAliases.execution_address()},
       {:state_root, TypeAliases.root()},
       {:receipts_root, TypeAliases.root()},
-      {:logs_bloom, {:vector, :bytes, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
+      {:logs_bloom, {:byte_vector, ChainSpec.get("BYTES_PER_LOGS_BLOOM")}},
       {:prev_randao, TypeAliases.bytes32()},
       {:block_number, TypeAliases.uint64()},
       {:gas_limit, TypeAliases.uint64()},
       {:gas_used, TypeAliases.uint64()},
       {:timestamp, TypeAliases.uint64()},
-      {:extra_data, {:list, :bytes, ChainSpec.get("MAX_EXTRA_DATA_BYTES")}},
+      {:extra_data, {:byte_list, ChainSpec.get("MAX_EXTRA_DATA_BYTES")}},
       {:base_fee_per_gas, TypeAliases.uint256()},
       {:block_hash, TypeAliases.hash32()},
       {:transactions_root, TypeAliases.root()},
-      {:withdrawals_root, TypeAliases.root()}
+      {:withdrawals_root, TypeAliases.root()},
+      {:blob_gas_used, TypeAliases.uint64()},
+      {:excess_blob_gas, TypeAliases.uint64()}
     ]
   end
 end

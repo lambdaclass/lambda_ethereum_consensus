@@ -6,19 +6,24 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.StateTransition
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, EpochProcessing, Misc, Predicates}
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.EpochProcessing
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Predicates
+  alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
 
-  alias Types.{
-    Attestation,
-    AttestationData,
-    AttesterSlashing,
-    Checkpoint,
-    IndexedAttestation,
-    SignedBeaconBlock,
-    Store
-  }
+  alias Types.Attestation
+  alias Types.AttestationData
+  alias Types.AttesterSlashing
+  alias Types.BeaconBlock
+  alias Types.BeaconState
+  alias Types.Checkpoint
+  alias Types.IndexedAttestation
+  alias Types.NewPayloadRequest
+  alias Types.SignedBeaconBlock
+  alias Types.Store
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
 
@@ -51,8 +56,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   """
   @spec on_block(Store.t(), SignedBeaconBlock.t()) :: {:ok, Store.t()} | {:error, String.t()}
   def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
-    finalized_slot =
-      Misc.compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)
+    %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
+    finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
 
     base_state = BlockStates.get_state(block.parent_root)
 
@@ -72,16 +77,40 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block is prior to last finalized epoch"}
 
       # Check block is a descendant of the finalized block at the checkpoint finalized slot
-      store.finalized_checkpoint.root !=
-          Store.get_checkpoint_block(
-            store,
-            block.parent_root,
-            store.finalized_checkpoint.epoch
-          ) ->
+      finalized_root != Store.get_checkpoint_block(store, block.parent_root, finalized_epoch) ->
         {:error, "block isn't descendant of latest finalized block"}
+
+      not (Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)) ->
+        {:error, "blob data not available"}
 
       true ->
         compute_post_state(store, signed_block, base_state)
+    end
+  end
+
+  @doc """
+  Equivalent to `is_data_available` from the spec.
+  Returns true if the blob's data is available from the network.
+  """
+  @spec data_available?(Types.root(), [Types.kzg_commitment()]) :: boolean()
+  def data_available?(_beacon_block_root, []), do: true
+
+  def data_available?(beacon_block_root, blob_kzg_commitments) do
+    # TODO: the p2p network does not guarantee sidecar retrieval
+    # outside of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`. Should we
+    # handle that case somehow here?
+    blobs =
+      0..(length(blob_kzg_commitments) - 1)//1
+      |> Enum.map(&BlobDb.get_blob_with_proof(beacon_block_root, &1))
+
+    if Enum.all?(blobs, &match?({:ok, _}, &1)) do
+      {blobs, proofs} =
+        Stream.map(blobs, fn {:ok, {blob, proof}} -> {blob, proof} end)
+        |> Enum.unzip()
+
+      Kzg.blob_kzg_proof_batch_valid?(blobs, blob_kzg_commitments, proofs)
+    else
+      false
     end
   end
 
@@ -162,10 +191,22 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def compute_post_state(%Store{} = store, %SignedBeaconBlock{} = signed_block, state) do
     %{message: block} = signed_block
 
+    payload = block.body.execution_payload
+    parent_beacon_block_root = block.parent_root
+
     # Make it a task so it runs concurrently with the state transition
     payload_verification_task =
       Task.async(fn ->
-        ExecutionClient.notify_new_payload(block.body.execution_payload)
+        versioned_hashes =
+          block.body.blob_kzg_commitments
+          |> Enum.map(&Misc.kzg_commitment_to_versioned_hash/1)
+
+        %NewPayloadRequest{
+          execution_payload: payload,
+          parent_beacon_block_root: parent_beacon_block_root,
+          versioned_hashes: versioned_hashes
+        }
+        |> ExecutionClient.verify_and_notify_new_payload()
         |> handle_verify_payload_result()
       end)
 
@@ -199,19 +240,16 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     end
   end
 
+  @spec notify_forkchoice_update(Store.t(), BeaconBlock.t()) :: {:ok, any()} | {:error, any()}
   def notify_forkchoice_update(store, head_block) do
-    head_execution_hash = head_block.body.execution_payload.block_hash
-
     finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)
-    finalized_execution_hash = finalized_block.body.execution_payload.block_hash
 
     # TODO: do someting with the result from the execution client
-    # TODO: compute safe block hash
-    ExecutionClient.notify_forkchoice_updated(
-      head_execution_hash,
-      finalized_execution_hash,
-      finalized_execution_hash
-    )
+    ExecutionClient.notify_forkchoice_updated(%{
+      finalized_block_hash: finalized_block.body.execution_payload.block_hash,
+      head_block_hash: head_block.body.execution_payload.block_hash,
+      safe_block_hash: Store.get_safe_execution_payload_hash(store)
+    })
   end
 
   ### Private functions ###
@@ -373,18 +411,23 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     if Map.has_key?(store.checkpoint_states, target) do
       {:ok, store}
     else
-      target_slot = Misc.compute_start_slot_at_epoch(target.epoch)
-
-      BlockStates.get_state!(target.root)
-      |> then(
-        &if(&1.slot < target_slot,
-          do: StateTransition.process_slots(&1, target_slot),
-          else: {:ok, &1}
-        )
-      )
+      compute_target_checkpoint_state(target.epoch, target.root)
       |> map_ok(
         &{:ok, %Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)}}
       )
+    end
+  end
+
+  @spec compute_target_checkpoint_state(Types.epoch(), Types.root()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def compute_target_checkpoint_state(target_epoch, target_root) do
+    target_slot = Misc.compute_start_slot_at_epoch(target_epoch)
+    state = BlockStates.get_state!(target_root)
+
+    if state.slot < target_slot do
+      StateTransition.process_slots(state, target_slot)
+    else
+      {:ok, state}
     end
   end
 

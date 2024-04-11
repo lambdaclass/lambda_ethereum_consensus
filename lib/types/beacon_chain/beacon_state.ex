@@ -3,9 +3,13 @@ defmodule Types.BeaconState do
   Struct definition for `BeaconState`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  alias LambdaEthereumConsensus.Utils.BitVector
 
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
+
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Predicates
+  alias LambdaEthereumConsensus.Utils.BitVector
+  alias Types.ExecutionPayloadHeader
 
   fields = [
     :genesis_time,
@@ -92,7 +96,7 @@ defmodule Types.BeaconState do
           next_sync_committee: Types.SyncCommittee.t(),
           # Execution
           # [Modified in Capella]
-          latest_execution_payload_header: Types.ExecutionPayloadHeader.t(),
+          latest_execution_payload_header: ExecutionPayloadHeader.t(),
           # Withdrawals
           # [New in Capella]
           next_withdrawal_index: Types.withdrawal_index(),
@@ -104,8 +108,46 @@ defmodule Types.BeaconState do
           historical_summaries: list(Types.HistoricalSummary.t())
         }
 
-  alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Predicates
+  @impl LambdaEthereumConsensus.Container
+  def schema do
+    [
+      {:genesis_time, TypeAliases.uint64()},
+      {:genesis_validators_root, TypeAliases.root()},
+      {:slot, TypeAliases.slot()},
+      {:fork, Types.Fork},
+      {:latest_block_header, Types.BeaconBlockHeader},
+      {:block_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
+      {:state_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
+      {:historical_roots, {:list, TypeAliases.root(), ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}},
+      {:eth1_data, Types.Eth1Data},
+      {:eth1_data_votes,
+       {:list, Types.Eth1Data,
+        ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH")}},
+      {:eth1_deposit_index, TypeAliases.uint64()},
+      {:validators, {:list, Types.Validator, ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:balances, {:list, TypeAliases.gwei(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:randao_mixes,
+       {:vector, TypeAliases.bytes32(), ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")}},
+      {:slashings, {:vector, TypeAliases.gwei(), ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")}},
+      {:previous_epoch_participation,
+       {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:current_epoch_participation,
+       {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:justification_bits, {:bitvector, Constants.justification_bits_length()}},
+      {:previous_justified_checkpoint, Types.Checkpoint},
+      {:current_justified_checkpoint, Types.Checkpoint},
+      {:finalized_checkpoint, Types.Checkpoint},
+      {:inactivity_scores,
+       {:list, TypeAliases.uint64(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
+      {:current_sync_committee, Types.SyncCommittee},
+      {:next_sync_committee, Types.SyncCommittee},
+      {:latest_execution_payload_header, ExecutionPayloadHeader},
+      {:next_withdrawal_index, TypeAliases.withdrawal_index()},
+      {:next_withdrawal_validator_index, TypeAliases.validator_index()},
+      {:historical_summaries,
+       {:list, Types.HistoricalSummary, ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}}
+    ]
+  end
 
   def encode(%__MODULE__{} = map) do
     map
@@ -114,7 +156,7 @@ defmodule Types.BeaconState do
     |> Map.update!(:randao_mixes, &Aja.Vector.to_list/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.to_list/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.to_list/1)
-    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
+    |> Map.update!(:latest_execution_payload_header, &ExecutionPayloadHeader.encode/1)
     |> Map.update!(:justification_bits, &BitVector.to_bytes/1)
   end
 
@@ -125,7 +167,7 @@ defmodule Types.BeaconState do
     |> Map.update!(:randao_mixes, &Aja.Vector.new/1)
     |> Map.update!(:previous_epoch_participation, &Aja.Vector.new/1)
     |> Map.update!(:current_epoch_participation, &Aja.Vector.new/1)
-    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.decode/1)
+    |> Map.update!(:latest_execution_payload_header, &ExecutionPayloadHeader.decode/1)
     |> Map.update!(:justification_bits, fn bits ->
       BitVector.new(bits, Constants.justification_bits_length())
     end)
@@ -146,7 +188,7 @@ defmodule Types.BeaconState do
   @spec merge_transition_complete?(t()) :: boolean()
   def merge_transition_complete?(state) do
     state.latest_execution_payload_header !=
-      struct(Types.ExecutionPayload, Types.ExecutionPayloadHeader.default())
+      struct(Types.ExecutionPayload, ExecutionPayloadHeader.default())
   end
 
   @doc """
@@ -248,46 +290,5 @@ defmodule Types.BeaconState do
         0
       end
     end)
-  end
-
-  @impl LambdaEthereumConsensus.Container
-  def schema do
-    [
-      {:genesis_time, TypeAliases.uint64()},
-      {:genesis_validators_root, TypeAliases.root()},
-      {:slot, TypeAliases.slot()},
-      {:fork, Types.Fork},
-      {:latest_block_header, Types.BeaconBlockHeader},
-      {:block_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
-      {:state_roots, {:vector, TypeAliases.root(), ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")}},
-      {:historical_roots, {:list, TypeAliases.root(), ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}},
-      {:eth1_data, Types.Eth1Data},
-      {:eth1_data_votes,
-       {:list, Types.Eth1Data,
-        ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH")}},
-      {:eth1_deposit_index, TypeAliases.uint64()},
-      {:validators, {:list, Types.Validator, ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
-      {:balances, {:list, TypeAliases.gwei(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
-      {:randao_mixes,
-       {:vector, TypeAliases.bytes32(), ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")}},
-      {:slashings, {:vector, TypeAliases.gwei(), ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")}},
-      {:previous_epoch_participation,
-       {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
-      {:current_epoch_participation,
-       {:list, TypeAliases.participation_flags(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
-      {:justification_bits, {:bitvector, Constants.justification_bits_length()}},
-      {:previous_justified_checkpoint, Types.Checkpoint},
-      {:current_justified_checkpoint, Types.Checkpoint},
-      {:finalized_checkpoint, Types.Checkpoint},
-      {:inactivity_scores,
-       {:list, TypeAliases.uint64(), ChainSpec.get("VALIDATOR_REGISTRY_LIMIT")}},
-      {:current_sync_committee, Types.SyncCommittee},
-      {:next_sync_committee, Types.SyncCommittee},
-      {:latest_execution_payload_header, Types.ExecutionPayloadHeader},
-      {:next_withdrawal_index, TypeAliases.withdrawal_index()},
-      {:next_withdrawal_validator_index, TypeAliases.validator_index()},
-      {:historical_summaries,
-       {:list, Types.HistoricalSummary, ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}}
-    ]
   end
 end

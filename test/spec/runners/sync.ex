@@ -9,14 +9,19 @@ defmodule SyncTestRunner do
   alias LambdaEthereumConsensus.Execution.EngineApi
 
   @disabled_cases [
-    # TODO: we have to support https://github.com/ethereum/consensus-specs/blob/dev/tests/formats/fork_choice/README.md#on_payload_info-execution-step
     # "from_syncing_to_invalid"
   ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{} = testcase) do
+  def skip?(%SpecTestCase{fork: "capella"} = testcase) do
     Enum.member?(@disabled_cases, testcase.case)
   end
+
+  def skip?(%SpecTestCase{fork: "deneb"}) do
+    false
+  end
+
+  def skip?(_testcase), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
@@ -33,6 +38,7 @@ defmodule SyncTestRunner do
 
     ForkChoiceTestRunner.run_test_case(testcase)
 
+    # TODO: we should do this cleanup even if the test crashes/fails
     Application.put_env(
       :lambda_ethereum_consensus,
       EngineApi,
@@ -45,6 +51,8 @@ defmodule SyncTestRunner.EngineApiMock do
   @moduledoc """
   Mocked EngineApi for SyncTestRunner.
   """
+  @behaviour LambdaEthereumConsensus.Execution.EngineApi.Behaviour
+
   use Agent
 
   def start_link(_opts) do
@@ -67,7 +75,7 @@ defmodule SyncTestRunner.EngineApiMock do
     end)
   end
 
-  def new_payload(payload) do
+  def new_payload(payload, _versioned_hashes, _parent_beacon_block_root) do
     Agent.get(__MODULE__, fn state ->
       payload_status = Map.get(state.new_payload, payload.block_hash)
 
@@ -90,4 +98,9 @@ defmodule SyncTestRunner.EngineApiMock do
       end
     end)
   end
+
+  def get_payload(_payload_id), do: raise("Not implemented")
+  def exchange_capabilities, do: raise("Not implemented")
+  def get_block_header(_block_id), do: raise("Not implemented")
+  def get_deposit_logs(_range), do: raise("Not implemented")
 end

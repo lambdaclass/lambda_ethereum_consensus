@@ -2,10 +2,14 @@
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
-		clean-tests gen-spec compile-all download-beacon-node-oapi
+		clean-tests gen-spec compile-all download-beacon-node-oapi test-iex \
+		sepolia holesky gnosis
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
+
+FORK_VERSION_FILE = .fork_version
+CONFIG_FILE = config/config.exs
 
 ##### NATIVE COMPILATION #####
 
@@ -86,8 +90,8 @@ proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
-compile-all: compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
-	mix compile
+compile-all: $(CONFIG_FILE) compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
+	mix compile --warnings-as-errors
 
 #🗑️ clean: @ Remove the build files.
 clean:
@@ -109,11 +113,15 @@ grafana-clean:
 
 #▶️ start: @ Start application with Beacon API.
 start: compile-all
-	iex -S mix phx.server
+	iex -S mix run -- --beacon-api
 
 #▶️ iex: @ Runs an interactive terminal with the main supervisor setup.
 iex: compile-all
 	iex -S mix
+
+#▶️ test-iex: @ Runs an interactive terminal in the test environment. Useful to debug tests and tasks
+test-iex:
+	MIX_ENV=test iex -S mix run -- --mode db
 
 #▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync.
 checkpoint-sync: compile-all
@@ -122,6 +130,10 @@ checkpoint-sync: compile-all
 #▶️ sepolia: @ Run an interactive terminal using sepolia network
 sepolia: compile-all
 	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia
+
+#▶️ holesky: @ Run an interactive terminal using holesky network
+holesky: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky
 
 #▶️ gnosis: @ Run an interactive terminal using gnosis network
 gnosis: compile-all
@@ -143,7 +155,6 @@ OPENAPI_JSON := $(OAPI_NAME).json
 download-beacon-node-oapi: ${OPENAPI_JSON}
 
 ##### SPEC TEST VECTORS #####
-
 SPECTEST_VERSION := $(shell cat .spectest_version)
 SPECTEST_CONFIGS = general minimal mainnet
 
@@ -157,6 +168,10 @@ SPECTEST_DIRS := $(patsubst %,$(SPECTEST_ROOTDIR)/tests/%,$(SPECTEST_CONFIGS))
 SPECTEST_GENERATED := $(patsubst %,$(SPECTEST_GENERATED_ROOTDIR)/%,$(SPECTEST_CONFIGS))
 SPECTEST_TARS := $(patsubst %,$(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz,$(SPECTEST_CONFIGS))
 
+# update config file to force re-compilation when fork changes
+$(CONFIG_FILE): $(FORK_VERSION_FILE)
+	touch $@
+
 $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz:
 	curl -L -o "$@" \
 		"https://github.com/ethereum/consensus-spec-tests/releases/download/${SPECTEST_VERSION}/$*.tar.gz"
@@ -165,7 +180,7 @@ $(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz .spectest_ver
 	-rm -rf $@
 	tar -xzmf "$<" -C $(SPECTEST_ROOTDIR)
 
-$(SPECTEST_GENERATED_ROOTDIR): $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general test/spec/runners/*.ex test/spec/tasks/*.ex
+$(SPECTEST_GENERATED_ROOTDIR): $(CONFIG_FILE) $(VECTORS_DIR)/mainnet $(VECTORS_DIR)/minimal $(VECTORS_DIR)/general test/spec/runners/*.ex test/spec/tasks/*.ex
 	mix generate_spec_tests
 
 #⬇️ download-vectors: @ Download the spec test vectors files.
@@ -179,38 +194,37 @@ clean-vectors:
 #📝 gen-spec: @ Generate the spec tests.
 gen-spec: $(SPECTEST_GENERATED_ROOTDIR)
 
-
 #🗑️ clean-tests: @ Remove the generated spec tests.
 clean-tests:
 	-rm -r test/generated
 
-
 #🔴 spec-test: @ Run all spec tests
-spec-test: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/*
 
 #🔴 spec-test-config-%: @ Run all spec tests for a specific config (e.g. mainnet)
-spec-test-config-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-config-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/$*/*/*
 
 #🔴 spec-test-runner-%: @ Run all spec tests for a specific runner (e.g. epoch_processing)
-spec-test-runner-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-runner-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/*/*/$*.exs
 
 #🔴 spec-test-mainnet-%: @ Run spec tests for mainnet config, for the specified runner.
-spec-test-mainnet-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-mainnet-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/mainnet/*/$*.exs
 
 #🔴 spec-test-minimal-%: @ Run spec tests for minimal config, for the specified runner.
-spec-test-minimal-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-minimal-%:  compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/minimal/*/$*.exs
 
 #🔴 spec-test-general-%: @ Run spec tests for general config, for the specified runner.
-spec-test-general-%: compile-all $(PROTOBUF_EX_FILES) $(SPECTEST_GENERATED_ROOTDIR)
+spec-test-general-%: compile-all $(SPECTEST_GENERATED_ROOTDIR)
 	mix test --no-start test/generated/general/*/$*.exs
 
 #✅ lint: @ Check formatting and linting.
 lint:
+	mix recode --no-autocorrect
 	mix format --check-formatted
 	mix credo --strict
 
@@ -224,5 +238,5 @@ fmt:
 	cd native/bls_nif; cargo fmt
 
 #✅ dialyzer: @ Run dialyzer (static analysis tool).
-dialyzer:
+dialyzer: compile-all
 	mix dialyzer

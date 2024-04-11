@@ -10,27 +10,31 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Utils.BitVector
+  alias Types.EnrForkId
 
-  alias Libp2pProto.{
-    AddPeer,
-    Command,
-    GetId,
-    GossipSub,
-    InitArgs,
-    NewPeer,
-    Notification,
-    Publish,
-    Request,
-    Result,
-    ResultMessage,
-    SendRequest,
-    SendResponse,
-    SetHandler,
-    SubscribeToTopic,
-    Tracer,
-    UnsubscribeFromTopic,
-    ValidateMessage
-  }
+  alias Libp2pProto.AddPeer
+  alias Libp2pProto.Command
+  alias Libp2pProto.Enr
+  alias Libp2pProto.GetId
+  alias Libp2pProto.GossipSub
+  alias Libp2pProto.InitArgs
+  alias Libp2pProto.JoinTopic
+  alias Libp2pProto.LeaveTopic
+  alias Libp2pProto.NewPeer
+  alias Libp2pProto.Notification
+  alias Libp2pProto.Publish
+  alias Libp2pProto.Request
+  alias Libp2pProto.Result
+  alias Libp2pProto.ResultMessage
+  alias Libp2pProto.SendRequest
+  alias Libp2pProto.SendResponse
+  alias Libp2pProto.SetHandler
+  alias Libp2pProto.SubscribeToTopic
+  alias Libp2pProto.Tracer
+  alias Libp2pProto.ValidateMessage
 
   require Logger
 
@@ -41,7 +45,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     enable_discovery: false,
     discovery_addr: "",
     bootnodes: [],
-    fork_digest: <<>>
+    initial_enr: %Enr{eth2: <<0::128>>, attnets: <<0::64>>, syncnets: <<0::8>>}
   ]
 
   @type init_arg ::
@@ -146,6 +150,28 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
+  Joins the given topic. This also starts receiving messages for the topic.
+  """
+  @spec join_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
+  def join_topic(pid \\ __MODULE__, topic_name) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "join_topic",
+      direction: "elixir->"
+    })
+
+    call_command(pid, {:join, %JoinTopic{name: topic_name}})
+  end
+
+  @doc """
+  Publishes a message in the given topic.
+  """
+  @spec publish(GenServer.server(), String.t(), binary()) :: :ok | {:error, String.t()}
+  def publish(pid \\ __MODULE__, topic_name, message) do
+    :telemetry.execute([:port, :message], %{}, %{function: "publish", direction: "elixir->"})
+    call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
+  end
+
+  @doc """
   Subscribes to the given topic. After this, messages published to the topic
   will be received by `self()`.
   """
@@ -171,25 +197,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Publishes a message in the given topic.
+  Leaves the given topic, unsubscribing if possible.
   """
-  @spec publish(GenServer.server(), String.t(), binary()) :: :ok | {:error, String.t()}
-  def publish(pid \\ __MODULE__, topic_name, message) do
-    :telemetry.execute([:port, :message], %{}, %{function: "publish", direction: "elixir->"})
-    call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
-  end
-
-  @doc """
-  Unsubscribes from the given topic.
-  """
-  @spec unsubscribe_from_topic(GenServer.server(), String.t()) :: :ok
-  def unsubscribe_from_topic(pid \\ __MODULE__, topic_name) do
+  @spec leave_topic(GenServer.server(), String.t()) :: :ok
+  def leave_topic(pid \\ __MODULE__, topic_name) do
     :telemetry.execute([:port, :message], %{}, %{
-      function: "unsubscribe_from_topic",
+      function: "leave_topic",
       direction: "elixir->"
     })
 
-    cast_command(pid, {:unsubscribe, %UnsubscribeFromTopic{name: topic_name}})
+    cast_command(pid, {:leave, %LeaveTopic{name: topic_name}})
   end
 
   @doc """
@@ -222,6 +239,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
   end
 
+  @doc """
+  Updates the "eth2", "attnets", and "syncnets" ENR entries for the node.
+  """
+  @spec update_enr(GenServer.server(), Types.EnrForkId.t(), BitVector.t(), BitVector.t()) :: :ok
+  def update_enr(pid \\ __MODULE__, enr_fork_id, attnets_bv, syncnets_bv) do
+    :telemetry.execute([:port, :message], %{}, %{function: "update_enr", direction: "elixir->"})
+    # TODO: maybe move encoding to caller
+    enr = encode_enr(enr_fork_id, attnets_bv, syncnets_bv)
+    cast_command(pid, {:update_enr, enr})
+  end
+
   ########################
   ### GenServer Callbacks
   ########################
@@ -232,7 +260,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
-    (args ++ [fork_digest: BeaconChain.get_fork_digest()])
+    current_version = BeaconChain.get_fork_version()
+
+    ([initial_enr: compute_initial_enr(current_version)] ++ args)
     |> parse_args()
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
@@ -410,5 +440,32 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       {:ok, name} -> name
       :error -> topic
     end
+  end
+
+  defp encode_enr(enr_fork_id, attnets_bv, syncnets_bv) do
+    {:ok, eth2} = SszEx.encode(enr_fork_id, Types.EnrForkId)
+
+    {:ok, attnets} =
+      SszEx.encode(attnets_bv, {:bitvector, ChainSpec.get("ATTESTATION_SUBNET_COUNT")})
+
+    {:ok, syncnets} =
+      SszEx.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
+
+    %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets}
+  end
+
+  defp compute_initial_enr(current_version) do
+    fork_digest =
+      Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())
+
+    attnets = BitVector.new(ChainSpec.get("ATTESTATION_SUBNET_COUNT"))
+    syncnets = BitVector.new(Constants.sync_committee_subnet_count())
+
+    %EnrForkId{
+      fork_digest: fork_digest,
+      next_fork_version: current_version,
+      next_fork_epoch: Constants.far_future_epoch()
+    }
+    |> encode_enr(attnets, syncnets)
   end
 end

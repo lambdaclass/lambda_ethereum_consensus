@@ -13,7 +13,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       warn_test_pattern: "_remove_warning.exs",
       preferred_cli_env: [
         dialyzer: :test,
-        generate_spec_tests: :test
+        generate_spec_tests: :test,
+        check_enabled_tests: :test
       ]
     ]
   end
@@ -21,7 +22,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :observer],
+      extra_applications: [:logger, :observer, :prometheus_ex],
       mod: {LambdaEthereumConsensus.Application, []}
     ]
   end
@@ -33,9 +34,9 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:plug_cowboy, "~> 2.5"},
       {:tesla, "~> 1.4"},
       {:exleveldb, "~> 0.14"},
-      {:jason, ">= 1.0.0"},
+      {:jason, "~> 1.4"},
       {:joken, "~> 2.6"},
-      {:rustler, "~> 0.31"},
+      {:rustler, "~> 0.32"},
       {:broadway, "~> 1.0"},
       {:snappyer, "~> 1.2"},
       {:yaml_elixir, "~> 2.8"},
@@ -44,7 +45,6 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.12.0"},
-      {:uuid, "~> 1.1"},
       {:telemetry, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:telemetry_metrics, "~> 0.6"},
@@ -59,7 +59,15 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:open_api_spex, "~> 3.18"},
-      {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-31"}
+      {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-32"},
+      {:recode, "~> 0.7", only: [:dev, :test]},
+      {:sentry, "~> 10.3.0"},
+      {:prometheus_ex, "~> 3.1"},
+      {:prometheus_plugs, "~> 1.1"},
+      {:prometheus_process_collector,
+       git: "https://github.com/lambdaclass/prometheus_process_collector",
+       branch: "update-makefile-to-support-otp-26",
+       override: true}
     ]
   end
 

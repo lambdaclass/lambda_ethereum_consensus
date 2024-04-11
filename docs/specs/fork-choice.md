@@ -80,7 +80,7 @@ Any of the above handlers that trigger an unhandled exception (e.g. a failed ass
 
 1) **Leap seconds**: Slots will last `SECONDS_PER_SLOT + 1` or `SECONDS_PER_SLOT - 1` seconds around leap seconds. This is automatically handled by [UNIX time](https://en.wikipedia.org/wiki/Unix_time).
 2) **Honest clocks**: Honest nodes are assumed to have clocks synchronized within `SECONDS_PER_SLOT` seconds of each other.
-3) **Eth1 data**: The large `ETH1_FOLLOW_DISTANCE` specified in the [honest validator document](./validator.md) should ensure that `state.latest_eth1_data` of the canonical beacon chain remains consistent with the canonical Ethereum proof-of-work chain. If not, emergency manual intervention will be required.
+3) **Eth1 data**: The large `ETH1_FOLLOW_DISTANCE` specified in the [honest validator document](./validator.md) should ensure that `state.latest_eth1_data` of the canonical beacon chain remains consistent with the canonical Ethereum execution chain. If not, emergency manual intervention will be required.
 4) **Manual forks**: Manual forks may arbitrarily change the fork choice rule but are expected to be enacted at epoch transitions, with the fork details reflected in `state.fork`.
 5) **Implementation**: The implementation found in this specification is constructed for ease of understanding rather than for optimization in computation, space, or any other resource. A number of optimized alternatives can be found [here](https://github.com/protolambda/lmd-ghost).
 
@@ -541,7 +541,8 @@ class PayloadAttributes(object):
     timestamp: uint64
     prev_randao: Bytes32
     suggested_fee_recipient: ExecutionAddress
-    withdrawals: Sequence[Withdrawal]  # [New in Capella]
+    withdrawals: Sequence[Withdrawal]
+    parent_beacon_block_root: Root  # [New in Deneb:EIP4788]
 ```
 
 ##### `PowBlock`
@@ -596,6 +597,28 @@ def validate_merge_block(block: BeaconBlock) -> None:
     assert pow_parent is not None
     # Check if `pow_block` is a valid terminal PoW block
     assert is_valid_terminal_pow_block(pow_block, pow_parent)
+```
+
+### `is_data_available`
+
+*[New in Deneb:EIP4844]*
+
+The implementation of `is_data_available` will become more sophisticated during later scaling upgrades.
+Initially, verification requires every verifying actor to retrieve all matching `Blob`s and `KZGProof`s, and validate them with `verify_blob_kzg_proof_batch`.
+
+The block MUST NOT be considered valid until all valid `Blob`s have been downloaded. Blocks that have been previously validated as available SHOULD be considered available even if the associated `Blob`s have subsequently been pruned.
+
+*Note*: Extraneous or invalid Blobs (in addition to KZG expected/referenced valid blobs) received on the p2p network MUST NOT invalidate a block that is otherwise valid and available.
+
+```python
+def is_data_available(beacon_block_root: Root, blob_kzg_commitments: Sequence[KZGCommitment]) -> bool:
+    # `retrieve_blobs_and_proofs` is implementation and context dependent
+    # It returns all the blobs for the given block root, and raises an exception if not available
+    # Note: the p2p network does not guarantee sidecar retrieval outside of
+    # `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`
+    blobs, proofs = retrieve_blobs_and_proofs(beacon_block_root)
+
+    return verify_blob_kzg_proof_batch(blobs, blob_kzg_commitments, proofs)
 ```
 
 #### Pull-up tip helpers
@@ -730,9 +753,6 @@ def on_tick(store: Store, time: uint64) -> None:
 def on_block(store: Store, signed_block: SignedBeaconBlock) -> None:
     """
     Run ``on_block`` upon receiving a new block.
-
-    A block that is asserted as invalid due to unavailable PoW block may be valid at a later time,
-    consider scheduling it for later processing in such case.
     """
     block = signed_block.message
     # Parent block must be known
@@ -753,14 +773,17 @@ def on_block(store: Store, signed_block: SignedBeaconBlock) -> None:
     )
     assert store.finalized_checkpoint.root == finalized_checkpoint_block
 
+    # [New in Deneb:EIP4844]
+    # Check if blob data is available
+    # If not, this block MAY be queued and subsequently considered when blob data becomes available
+    # *Note*: Extraneous or invalid Blobs (in addition to the expected/referenced valid blobs)
+    # received on the p2p network MUST NOT invalidate a block that is otherwise valid and available
+    assert is_data_available(hash_tree_root(block), block.body.blob_kzg_commitments)
+
     # Check the block is valid and compute the post-state
     state = pre_state.copy()
     block_root = hash_tree_root(block)
     state_transition(state, signed_block, True)
-
-    # [Added in Bellatrix; removed in Capella]
-    # if is_merge_transition_block(pre_state, block.body):
-        # validate_merge_block(block)
 
     # Add new block to the store
     store.blocks[block_root] = block
@@ -781,7 +804,7 @@ def on_block(store: Store, signed_block: SignedBeaconBlock) -> None:
     # Update checkpoints in store if necessary
     update_checkpoints(store, state.current_justified_checkpoint, state.finalized_checkpoint)
 
-    # Eagerly compute unrealized justification and finality
+    # Eagerly compute unrealized justification and finality.
     compute_pulled_up_tip(store, block_root)
 ```
 
@@ -869,7 +892,7 @@ As per EIP-3675, before a post-transition block is finalized, `notify_forkchoice
 ##### `safe_block_hash`
 
 The `safe_block_hash` parameter MUST be set to return value of
-[`get_safe_execution_payload_hash(store: Store)`](../../fork_choice/safe-block.md#get_safe_execution_payload_hash) function.
+`get_safe_execution_payload_hash(store: Store)` function.
 
 ##### `should_override_forkchoice_update`
 

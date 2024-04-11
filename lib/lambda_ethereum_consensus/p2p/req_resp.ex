@@ -6,18 +6,36 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.SszEx
-  alias Types.SignedBeaconBlock
+
+  defmodule Error do
+    @moduledoc """
+    Error messages for Req/Resp domain.
+    """
+    defstruct [:code, :message]
+    @type t :: %__MODULE__{code: 1..255, message: binary()}
+
+    defp parse_code(1), do: "InvalidRequest"
+    defp parse_code(2), do: "ServerError"
+    defp parse_code(3), do: "ResourceUnavailable"
+    defp parse_code(n), do: "#{n}"
+
+    def format(%Error{code: code, message: message}) do
+      "#{parse_code(code)}: #{message}"
+    end
+
+    defimpl String.Chars, for: __MODULE__ do
+      def to_string(error), do: Error.format(error)
+    end
+  end
 
   ## Encoding
 
   @type context_bytes :: binary()
   @type encodable :: {any(), SszEx.schema()} | struct()
-  @type error_code :: 1..255
-  @type error_message :: binary()
 
   @type response_payload ::
           {:ok, {encodable(), context_bytes()}}
-          | {:error, {error_code(), error_message()}}
+          | {:error, Error.t()}
 
   @spec encode_response([response_payload()]) :: binary()
   def encode_response(responses) do
@@ -36,7 +54,10 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   def encode_ok({response, ssz_schema}, context_bytes),
     do: encode(<<0>>, context_bytes, {response, ssz_schema})
 
-  @spec encode_error(error_code(), error_message()) :: binary()
+  @spec encode_error(Error.t()) :: binary()
+  def encode_error(%Error{code: code, message: message}), do: encode_error(code, message)
+
+  @spec encode_error(1..255, binary()) :: binary()
   def encode_error(status_code, error_message),
     do: encode(<<status_code>>, <<>>, {error_message, TypeAliases.error_message()})
 
@@ -53,12 +74,13 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
 
   ## Decoding
 
-  @spec decode_response(binary()) :: {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
-  def decode_response(response_chunk) do
+  @spec decode_response(binary(), SszEx.schema()) ::
+          {:ok, [any()]} | {:error, String.t()} | {:error, Error.t()}
+  def decode_response(response_chunk, ssz_schema) do
     with {:ok, chunks} <- split_response(response_chunk) do
       # TODO: handle errors
       chunks
-      |> Stream.map(&decode_request(&1, SignedBeaconBlock))
+      |> Stream.map(&decode_request(&1, ssz_schema))
       |> Enum.flat_map(fn
         {:ok, block} -> [block]
         {:error, _reason} -> []
@@ -70,7 +92,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
     end
   end
 
-  @spec split_response(binary) :: {:ok, [binary()]} | {:error, String.t()}
+  @spec split_response(binary) :: {:ok, [binary()]} | {:error, String.t()} | {:error, Error.t()}
   def split_response(response_chunk) do
     # TODO: the fork_context should be computed depending on the block's slot
     fork_context = BeaconChain.get_fork_digest()
@@ -87,8 +109,8 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
       <<0, wrong_context::binary-size(4)>> <> _ ->
         {:error, "wrong context: #{Base.encode16(wrong_context)}"}
 
-      <<error_code>> <> error_message ->
-        {:error, {error_code, decode_error_message(error_message)}}
+      <<error_code>> <> message ->
+        decode_error(error_code, message)
     end
   end
 
@@ -115,10 +137,15 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   @spec decode_response_chunk(binary(), SszEx.schema()) ::
           {:ok, any()}
           | {:error, String.t()}
-          | {:error, {error_code(), {:ok, error_message()}}}
-          | {:error, {error_code(), {:error, String.t()}}}
+          | {:error, Error.t()}
   def decode_response_chunk(<<0>> <> chunk, ssz_schema), do: decode_request(chunk, ssz_schema)
 
-  def decode_response_chunk(<<code>> <> message, _),
-    do: {:error, {code, decode_error_message(message)}}
+  def decode_response_chunk(<<code>> <> message, _), do: decode_error(code, message)
+
+  @spec decode_error(1..255, binary()) :: {:error, String.t()} | {:error, Error.t()}
+  defp decode_error(code, encoded_message) do
+    with {:ok, error_message} <- decode_error_message(encoded_message) do
+      {:error, %Error{code: code, message: error_message}}
+    end
+  end
 end

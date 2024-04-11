@@ -3,7 +3,7 @@ defmodule Types.BlobSidecar do
   Struct definition for `BlobSidecar`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :index,

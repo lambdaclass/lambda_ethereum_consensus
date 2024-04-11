@@ -5,9 +5,17 @@ defmodule SszStaticTestRunner do
   alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.Diff
   alias Ssz
+  alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
+  alias Types.BeaconState
+  alias Types.ExecutionPayload
+  alias Types.ExecutionPayloadHeader
+  alias Types.SignedBeaconBlock
 
   use ExUnit.CaseTemplate
   use TestRunner
+
+  @only_ssz_ex [Types.Eth1Block, Types.SyncAggregatorSelectionData]
 
   @disabled [
     # "DepositData",
@@ -27,6 +35,7 @@ defmodule SszStaticTestRunner do
     # "SignedBLSToExecutionChange",
     # "SigningData",
     # "SyncCommittee",
+    # "SyncCommitteeMessage",
     # "Withdrawal",
     # "AttesterSlashing",
     # "HistoricalSummary",
@@ -44,26 +53,39 @@ defmodule SszStaticTestRunner do
     # "BeaconBlockBody",
     # "BeaconState",
     # "SignedAggregateAndProof",
+    # "Eth1Block",
+    # "SyncAggregatorSelectionData",
+    # "SignedContributionAndProof",
+    # "SyncCommitteeContribution",
+    # "ContributionAndProof",
     # -- not defined yet
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
-    "Eth1Block",
-    "PowBlock",
-    "SignedContributionAndProof",
-    "SignedData",
-    "SyncAggregatorSelectionData",
-    "SyncCommitteeContribution",
-    "ContributionAndProof",
     "LightClientFinalityUpdate",
     "LightClientHeader",
-    "SyncCommitteeMessage"
+    "PowBlock"
   ]
 
+  @type_map %{
+    "BeaconBlock" => BeaconBlock,
+    "BeaconBlockBody" => BeaconBlockBody,
+    "BeaconState" => BeaconState,
+    "ExecutionPayload" => ExecutionPayload,
+    "ExecutionPayloadHeader" => ExecutionPayloadHeader,
+    "SignedBeaconBlock" => SignedBeaconBlock
+  }
+
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler}) do
-    fork != "capella" or Enum.member?(@disabled, handler)
+  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
+    Enum.member?(@disabled, handler)
   end
+
+  def skip?(%SpecTestCase{fork: "deneb", handler: handler}) do
+    Enum.member?(@disabled, handler)
+  end
+
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
@@ -91,22 +113,27 @@ defmodule SszStaticTestRunner do
          schema,
          real_serialized,
          real_deserialized,
-         _expected_root
+         expected_root
        ) do
     {:ok, deserialized_by_ssz_ex} = SszEx.decode(real_serialized, schema)
     assert Diff.diff(deserialized_by_ssz_ex, real_deserialized) == :unchanged
 
-    {:ok, deserialized_by_nif} = Ssz.from_ssz(real_serialized, schema)
-    assert Diff.diff(deserialized_by_ssz_ex, deserialized_by_nif) == :unchanged
-
     {:ok, serialized_by_ssz_ex} = SszEx.encode(real_deserialized, schema)
     assert serialized_by_ssz_ex == real_serialized
 
-    {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
-    assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
+    if schema not in @only_ssz_ex do
+      {:ok, serialized_by_nif} = Ssz.to_ssz(real_deserialized)
+      assert Diff.diff(serialized_by_ssz_ex, serialized_by_nif) == :unchanged
+
+      {:ok, root_by_nif} = Ssz.hash_tree_root(real_deserialized)
+      assert root_by_nif == expected_root
+    end
+
+    {:ok, root_by_ssz_ex} = SszEx.hash_tree_root(real_deserialized, schema)
+    assert root_by_ssz_ex == expected_root
   end
 
   defp parse_type(%SpecTestCase{handler: handler}) do
-    Module.concat(Types, handler)
+    Map.get(@type_map, handler, Module.concat(Types, handler))
   end
 end

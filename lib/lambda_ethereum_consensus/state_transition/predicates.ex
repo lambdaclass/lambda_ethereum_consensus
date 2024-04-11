@@ -4,7 +4,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   """
 
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.StateTransition.{Accessors, Misc}
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
   alias Types.Validator
 
@@ -134,7 +135,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   end
 
   defp hash_merkle_node(value_1, value_2, index, i) do
-    if rem(div(index, 2 ** i), 2) == 1 do
+    if div(index, 2 ** i) |> rem(2) == 1 do
       SszEx.hash(value_1 <> value_2)
     else
       SszEx.hash(value_2 <> value_1)

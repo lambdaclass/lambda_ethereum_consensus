@@ -6,23 +6,34 @@ defmodule OperationsTestRunner do
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Utils.Diff
 
+  alias Types.Attestation
+  alias Types.AttesterSlashing
+  alias Types.BeaconBlock
   alias Types.BeaconBlockBody
+  alias Types.BeaconState
+  alias Types.Deposit
+  alias Types.ExecutionPayload
+  alias Types.ProposerSlashing
+  alias Types.SignedBLSToExecutionChange
+  alias Types.SignedVoluntaryExit
+  alias Types.SyncAggregate
 
   use ExUnit.CaseTemplate
   use TestRunner
 
   # Map the operation-name to the associated operation-type
   @type_map %{
-    "attestation" => "Attestation",
-    "attester_slashing" => "AttesterSlashing",
-    "block_header" => "BeaconBlock",
-    "deposit" => "Deposit",
-    "proposer_slashing" => "ProposerSlashing",
-    "voluntary_exit" => "SignedVoluntaryExit",
-    "sync_aggregate" => "SyncAggregate",
-    "execution_payload" => "BeaconBlockBody",
-    "withdrawals" => "ExecutionPayload",
-    "bls_to_execution_change" => "SignedBLSToExecutionChange"
+    "attestation" => Attestation,
+    "attester_slashing" => AttesterSlashing,
+    "block_header" => BeaconBlock,
+    "deposit" => Deposit,
+    "proposer_slashing" => ProposerSlashing,
+    "voluntary_exit" => SignedVoluntaryExit,
+    "sync_aggregate" => SyncAggregate,
+    "execution_payload" => BeaconBlockBody,
+    "withdrawals" => ExecutionPayload,
+    "bls_to_execution_change" => SignedBLSToExecutionChange
+
     # "deposit_receipt" => "DepositReceipt" Not yet implemented
   }
 
@@ -38,6 +49,7 @@ defmodule OperationsTestRunner do
     "execution_payload" => "body",
     "withdrawals" => "execution_payload",
     "bls_to_execution_change" => "address_change"
+
     # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
 
@@ -51,7 +63,20 @@ defmodule OperationsTestRunner do
     # "proposer_slashing",
     # "voluntary_exit",
     # "sync_aggregate",
-    # "execution_payload"
+    # "execution_payload",
+    # "withdrawals",
+    # "bls_to_execution_change"
+  ]
+
+  @disabled_handlers_deneb [
+    # "attester_slashing",
+    # "attestation",
+    # "block_header",
+    # "deposit",
+    # "proposer_slashing",
+    # "voluntary_exit"
+    # "sync_aggregate",
+    # "execution_payload",
     # "withdrawals",
     # "bls_to_execution_change"
   ]
@@ -62,39 +87,35 @@ defmodule OperationsTestRunner do
   end
 
   @impl TestRunner
+  def skip?(%SpecTestCase{fork: "deneb", handler: handler}) do
+    Enum.member?(@disabled_handlers_deneb, handler)
+  end
+
+  @impl TestRunner
   def skip?(_testcase) do
     true
   end
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{handler: handler} = testcase) do
-    case_dir = SpecTestCase.dir(testcase)
+    case_dir = SpecTestCase.dir(testcase) <> "/"
 
-    pre =
-      SpecTestUtils.read_ssz_from_file!(
-        case_dir <> "/pre.ssz_snappy",
-        Types.BeaconState
-      )
+    pre = SpecTestUtils.read_ssz_from_file!(case_dir <> "pre.ssz_snappy", BeaconState)
 
     operation =
       SpecTestUtils.read_ssz_from_file!(
-        case_dir <>
-          "/" <> SpecTestUtils.resolve_name_from_handler(handler, @name_map) <> ".ssz_snappy",
+        case_dir <> SpecTestUtils.resolve_name_from_handler(handler, @name_map) <> ".ssz_snappy",
         SpecTestUtils.resolve_type_from_handler(handler, @type_map)
       )
 
-    post =
-      SpecTestUtils.read_ssz_from_optional_file!(
-        case_dir <> "/post.ssz_snappy",
-        Types.BeaconState
-      )
+    post = SpecTestUtils.read_ssz_from_optional_file!(case_dir <> "post.ssz_snappy", BeaconState)
 
     handle_case(testcase.handler, pre, operation, post, case_dir)
   end
 
   defp handle_case("execution_payload", pre, %BeaconBlockBody{} = body, post, case_dir) do
     %{execution_valid: execution_valid} =
-      YamlElixir.read_from_file!(case_dir <> "/execution.yaml")
+      YamlElixir.read_from_file!(case_dir <> "execution.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
     # We're skipping the tests where execution_valid is false since we make the execution client call

@@ -3,7 +3,7 @@ defmodule Types.SignedBLSToExecutionChange do
   Struct definition for `SignedBLSToExecutionChange`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
-  @behaviour LambdaEthereumConsensus.Container
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :message,

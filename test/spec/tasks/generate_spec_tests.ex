@@ -9,9 +9,11 @@ defmodule Mix.Tasks.GenerateSpecTests do
 
   use Mix.Task
   require Logger
+  alias Spec.MetaUtils
 
   @configs ["mainnet", "minimal", "general"]
   @forks ["phase0", "altair", "bellatrix", "capella", "deneb"]
+  @current_fork Application.compile_env!(:lambda_ethereum_consensus, :fork) |> Atom.to_string()
 
   @shortdoc "Generates tests for spec test files"
   @impl Mix.Task
@@ -24,9 +26,9 @@ defmodule Mix.Tasks.GenerateSpecTests do
     File.rm_rf!(generated_folder)
     File.mkdir_p!(generated_folder)
 
-    # Generate all tests for Capella fork
+    # Generate all tests for current fork
     for config <- @configs, runner <- runners do
-      generate_test(config, "capella", runner)
+      generate_test(config, @current_fork, runner)
     end
 
     # Generate tests for all forks in general preset
@@ -43,7 +45,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
   end
 
   defp generate_test(config, fork, runner) do
-    cases = SpecTestUtils.cases_for(fork: fork, config: config, runner: runner)
+    cases = MetaUtils.cases_for(fork: fork, config: config, runner: runner)
 
     if cases != [] do
       Logger.info("Generating tests for #{config}-#{fork}-#{runner}")
@@ -57,29 +59,25 @@ defmodule Mix.Tasks.GenerateSpecTests do
   end
 
   defp test_module(cases, config, fork, runner) do
-    c = Macro.camelize(config)
-    f = Macro.camelize(fork)
-    r = Macro.camelize(runner)
+    module_name = MetaUtils.test_module(config, fork, runner)
+    runner_module = MetaUtils.runner_module(runner)
 
-    module_name = "Elixir.#{c}.#{f}.#{r}Test" |> String.to_atom()
-    runner_module = "Elixir.#{r}TestRunner" |> String.to_atom()
-
-    # TODO: we can isolate tests that use the DB from each other by using ExUnit's tmp_dir context option.
     header = """
     defmodule #{module_name} do
       use ExUnit.Case, async: false
 
       setup_all do
-        start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: "tmp/#{config}_#{fork}_#{runner}_test_db"})
-        start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
-        start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
         Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
         |> Keyword.put(:config, #{chain_spec_config(config)})
         |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
       end
 
-      setup do
+      setup %{tmp_dir: tmp_dir} do
         on_exit(fn -> LambdaEthereumConsensus.StateTransition.Cache.clear_cache() end)
+        start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
+        start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
+        start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
+        :ok
       end
     """
 
@@ -94,6 +92,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
 
   defp generate_case(runner_module, testcase) do
     """
+      @tag :tmp_dir
       #{if runner_module.skip?(testcase), do: "\n@tag :skip", else: ""}
       test "#{SpecTestCase.name(testcase)}" do
         testcase = #{inspect(testcase)}

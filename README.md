@@ -90,6 +90,22 @@ Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-end
 > The data retrieved from the URL is stored in the DB once the node is initiated (i.e. the iex prompt shows).
 > Once this happens, following runs of `make iex` will start the node using that data.
 
+### Beacon API
+
+You can start the application with the Beacon API on the default port `4000` running:
+```shell
+make start
+```
+
+You can also specify a port with the "--beacon-api-port" flag:
+
+```shell
+iex -S mix run -- --beacon-api --beacon-api-port <your_port_here>
+```
+> [!WARNING]
+> In case checkpoint-sync is needed, following the instructions above will end immediately with an error (see [Checkpoint Sync](#checkpoint-sync)).
+>
+
 ### Tests, linting and formatting
 
 Our CI runs tests, linters, and also checks formatting and typing.
@@ -436,6 +452,9 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ayushm2003"><img src="https://avatars.githubusercontent.com/u/62571011?v=4?s=100" width="100px;" alt="Ayush"/><br /><sub><b>Ayush</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=ayushm2003" title="Documentation">📖</a> <a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=ayushm2003" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/sm-stack"><img src="https://avatars.githubusercontent.com/u/94497407?v=4?s=100" width="100px;" alt="Seungmin Jeon"/><br /><sub><b>Seungmin Jeon</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=sm-stack" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/manojkgorle"><img src="https://avatars.githubusercontent.com/u/65953961?v=4?s=100" width="100px;" alt="Manoj"/><br /><sub><b>Manoj</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=manojkgorle" title="Code">💻</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/avilagaston9"><img src="https://avatars.githubusercontent.com/u/72628438?v=4?s=100" width="100px;" alt="Avila Gastón"/><br /><sub><b>Avila Gastón</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=avilagaston9" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

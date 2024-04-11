@@ -39,6 +39,9 @@ jobs:
         with:
           version-type: strict
           version-file: .tool-versions
+          hexpm-mirrors: |
+            https://builds.hex.pm
+            https://repo.hex.pm
       - name: Set up Go
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v5
@@ -86,10 +89,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up Elixir
+      id: setup-beam
       uses: erlef/setup-beam@v1
       with:
         version-type: strict
         version-file: .tool-versions
+        hexpm-mirrors: |
+          https://builds.hex.pm
+          https://repo.hex.pm
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v4
@@ -127,7 +134,7 @@ jobs:
       id: plt-cache
       with:
         path: priv/plts
-        key: ${{ runner.os }}-plts-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+        key: ${{ runner.os }}-plts-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('mix.lock') }}
     - name: Create PLTs
       if: steps.plt-cache.outputs.cache-hit != 'true'
       run: |
@@ -147,6 +154,9 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
+        hexpm-mirrors: |
+          https://builds.hex.pm
+          https://repo.hex.pm
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v4
@@ -194,6 +204,9 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
+        hexpm-mirrors: |
+          https://builds.hex.pm
+          https://repo.hex.pm
     - name: Fetch native libraries
       id: output-cache
       uses: actions/cache/restore@v4
@@ -236,6 +249,9 @@ jobs:
       with:
         version-type: strict
         version-file: .tool-versions
+        hexpm-mirrors: |
+          https://builds.hex.pm
+          https://repo.hex.pm
     - name: Restore dependencies cache
       uses: actions/cache@v4
       with:
@@ -260,18 +276,20 @@ jobs:
         id: output-cache
         uses: actions/cache@v4
         with:
-          path: ./*.tar.gz
+          path: ./test/spec/vectors/*.tar.gz
           key: ${{ runner.os }}-spectest-${{ hashFiles('.spectest_version') }}
           lookup-only: true
       - name: Download spectests
         if: steps.output-cache.outputs.cache-hit != 'true'
         run: make download-vectors
 
-  spectests:
+  spectests-matrix:
     name: Run spec-tests
     needs: [compile-native, download-spectests, download-beacon-node-oapi]
     strategy:
+      fail-fast: false
       matrix:
+        fork: ["deneb"]
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-22.04
     steps:
@@ -290,7 +308,7 @@ jobs:
       - name: Fetch spectest vectors
         uses: actions/cache/restore@v4
         with:
-          path: ./*.tar.gz
+          path: ./test/spec/vectors/*.tar.gz
           key: ${{ runner.os }}-spectest-${{ hashFiles('.spectest_version') }}
           fail-on-cache-miss: true
       - name: Restore dependencies cache
@@ -315,9 +333,30 @@ jobs:
           mix escript.install --force hex protobuf
           protoc --elixir_out=./lib proto/libp2p.proto
           mix deps.get
+      - name: Update fork version
+        run: echo ${{ matrix.fork }} > .fork_version
       - name: Uncompress vectors
         run: make test/spec/vectors/tests/${{ matrix.config }}
       - name: Generate tests
         run: make gen-spec
       - name: Run tests
-        run: mix test --no-start test/generated/${{ matrix.config }}/*/*
+        run: |
+          if [[ "${{ matrix.config }}" == "general" ]] ; then
+            mix test --no-start test/generated/general/*/*
+          else
+            mix test --no-start test/generated/${{ matrix.config }}/${{ matrix.fork }}/*
+          fi
+
+  spectests-success:
+    name: All spec-tests passed
+    needs: spectests-matrix
+    runs-on: ubuntu-22.04
+    if: always()
+    steps:
+      - if: needs.spectests-matrix.result == 'success'
+        name: All spectests passed
+        run: exit 0
+
+      - if: needs.spectests-matrix.result != 'success'
+        name: Some spectests failed
+        run: exit 1

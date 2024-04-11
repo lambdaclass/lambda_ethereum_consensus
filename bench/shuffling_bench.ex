@@ -1,5 +1,5 @@
-alias LambdaEthereumConsensus.StateTransition.Shuffling
 alias LambdaEthereumConsensus.StateTransition.Misc
+alias LambdaEthereumConsensus.StateTransition.Shuffling
 
 index_count = 1000
 seed = :crypto.strong_rand_bytes(32)
