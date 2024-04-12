@@ -2,7 +2,8 @@ alias LambdaEthereumConsensus.SszEx
 alias LambdaEthereumConsensus.Store.StateDb
 alias Types.BeaconState
 
-# To run this benchmarks, checkpoint-sync is needed.
+# To run these benchmarks, you need a BeaconState stored in the Db beforehand.
+# The --mode db flag is also needed.
 
 {:ok, state} = StateDb.get_latest_state()
 :mainnet = ChainSpec.get_preset()
