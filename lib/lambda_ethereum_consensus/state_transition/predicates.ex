@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Range of predicates enabling verification of state
   """
 
-  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Hash
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
@@ -136,9 +136,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
   defp hash_merkle_node(value_1, value_2, index, i) do
     if div(index, 2 ** i) |> rem(2) == 1 do
-      SszEx.hash(value_1 <> value_2)
+      Hash.hash(value_1 <> value_2)
     else
-      SszEx.hash(value_2 <> value_1)
+      Hash.hash(value_2 <> value_1)
     end
   end
 

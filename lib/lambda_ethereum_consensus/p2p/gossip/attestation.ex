@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P
-  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Encode
   alias LambdaEthereumConsensus.StateTransition.Misc
 
   def start_link(init_arg) do
@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   @spec publish(non_neg_integer(), Types.Attestation.t()) :: :ok
   def publish(subnet_id, %Types.Attestation{} = attestation) do
     topic = get_topic_name(subnet_id)
-    {:ok, encoded} = SszEx.encode(attestation, Types.Attestation)
+    {:ok, encoded} = Encode.encode(attestation, Types.Attestation)
     {:ok, message} = :snappyer.compress(encoded)
     Libp2pPort.publish(topic, message)
   end
@@ -43,7 +43,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   def publish_aggregate(%Types.SignedAggregateAndProof{} = signed_aggregate) do
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
     topic = "/eth2/#{fork_context}/beacon_aggregate_and_proof/ssz_snappy"
-    {:ok, encoded} = SszEx.encode(signed_aggregate, Types.SignedAggregateAndProof)
+    {:ok, encoded} = Encode.encode(signed_aggregate, Types.SignedAggregateAndProof)
     {:ok, message} = :snappyer.compress(encoded)
     Libp2pPort.publish(topic, message)
   end

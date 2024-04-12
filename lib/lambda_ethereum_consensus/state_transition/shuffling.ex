@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
   Shuffling state transition functions
   """
   require Aja
-  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Hash
   import Bitwise
 
   @seed_size 32
@@ -49,13 +49,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
 
     pivot =
       (seed <> round_bytes)
-      |> SszEx.hash()
+      |> Hash.hash()
       |> :binary.part(0, 8)
       |> :binary.decode_unsigned(:little)
       |> rem(input_size)
 
     mirror = (pivot + 1) >>> 1
-    source = (seed <> round_bytes <> position_bytes(pivot >>> 8)) |> SszEx.hash()
+    source = (seed <> round_bytes <> position_bytes(pivot >>> 8)) |> Hash.hash()
     byte_v = :binary.at(source, (pivot &&& 0xFF) >>> 3)
 
     {_source, _byte_v, input} =
@@ -78,7 +78,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
 
     mirror = (pivot + input_size + 1) >>> 1
     list_end = input_size - 1
-    source = (seed <> round_bytes <> position_bytes(list_end >>> 8)) |> SszEx.hash()
+    source = (seed <> round_bytes <> position_bytes(list_end >>> 8)) |> Hash.hash()
     byte_v = :binary.at(source, (list_end &&& 0xFF) >>> 3)
 
     {_source, _byte_v, input} =
@@ -114,7 +114,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
 
   defp source(seed, round_bytes, j, previous_source) do
     if (j &&& 0xFF) == 0xFF do
-      (seed <> round_bytes <> position_bytes(j >>> 8)) |> SszEx.hash()
+      (seed <> round_bytes <> position_bytes(j >>> 8)) |> Hash.hash()
     else
       previous_source
     end

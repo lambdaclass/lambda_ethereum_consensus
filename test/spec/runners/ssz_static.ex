@@ -2,7 +2,9 @@ defmodule SszStaticTestRunner do
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
-  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Decode
+  alias LambdaEthereumConsensus.SszEx.Encode
+  alias LambdaEthereumConsensus.SszEx.Merkleization
   alias LambdaEthereumConsensus.Utils.Diff
   alias Ssz
   alias Types.BeaconBlock
@@ -115,10 +117,10 @@ defmodule SszStaticTestRunner do
          real_deserialized,
          expected_root
        ) do
-    {:ok, deserialized_by_ssz_ex} = SszEx.decode(real_serialized, schema)
+    {:ok, deserialized_by_ssz_ex} = Decode.decode(real_serialized, schema)
     assert Diff.diff(deserialized_by_ssz_ex, real_deserialized) == :unchanged
 
-    {:ok, serialized_by_ssz_ex} = SszEx.encode(real_deserialized, schema)
+    {:ok, serialized_by_ssz_ex} = Encode.encode(real_deserialized, schema)
     assert serialized_by_ssz_ex == real_serialized
 
     if schema not in @only_ssz_ex do
@@ -129,7 +131,7 @@ defmodule SszStaticTestRunner do
       assert root_by_nif == expected_root
     end
 
-    {:ok, root_by_ssz_ex} = SszEx.hash_tree_root(real_deserialized, schema)
+    {:ok, root_by_ssz_ex} = Merkleization.hash_tree_root(real_deserialized, schema)
     assert root_by_ssz_ex == expected_root
   end
 

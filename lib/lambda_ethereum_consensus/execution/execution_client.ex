@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   """
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
-  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Decode
   alias Types.DepositData
   alias Types.ExecutionPayload
   alias Types.NewPayloadRequest
@@ -174,9 +174,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     # These magic numbers correspond to the start and length of each field in the deposit log data.
     pubkey = binary_part(data, 192, 48)
     withdrawal_credentials = binary_part(data, 288, 32)
-    {:ok, amount} = binary_part(data, 352, 8) |> SszEx.decode(TypeAliases.uint64())
+    {:ok, amount} = binary_part(data, 352, 8) |> Decode.decode(TypeAliases.uint64())
     signature = binary_part(data, 416, 96)
-    {:ok, index} = binary_part(data, 544, 8) |> SszEx.decode(TypeAliases.uint64())
+    {:ok, index} = binary_part(data, 544, 8) |> Decode.decode(TypeAliases.uint64())
 
     block_number = String.to_integer(hex_block_number, 16)
 

@@ -3,13 +3,15 @@ defmodule Types.DepositTree do
   Pruned Merkle tree, for use in block production.
   Implementation adapted from [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881).
   """
-  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Hash
+  alias LambdaEthereumConsensus.SszEx.Merkleization
   alias Types.Deposit
   alias Types.DepositData
   alias Types.DepositTreeSnapshot
   alias Types.Eth1Data
 
   @tree_depth Constants.deposit_contract_tree_depth()
+  @zero_hashes Hash.compute_zero_hashes()
 
   defstruct inner: {:zero, @tree_depth},
             deposit_count: 0,
@@ -70,14 +72,14 @@ defmodule Types.DepositTree do
 
   @spec get_root(t()) :: Types.root()
   def get_root(%__MODULE__{inner: inner} = tree),
-    do: SszEx.hash_nodes(get_node_root(inner), mix_in_length(tree))
+    do: Hash.hash_nodes(get_node_root(inner), mix_in_length(tree))
 
   @spec get_deposit_count(t()) :: non_neg_integer()
   def get_deposit_count(%__MODULE__{deposit_count: count}), do: count
 
   @spec push_leaf(t(), DepositData.t()) :: t()
   def push_leaf(%__MODULE__{} = tree, %DepositData{} = deposit) do
-    leaf = {SszEx.hash_tree_root!(deposit), deposit}
+    leaf = {Merkleization.hash_tree_root!(deposit), deposit}
     new_inner = push_leaf_inner(tree.inner, leaf, @tree_depth)
     %{tree | inner: new_inner, deposit_count: tree.deposit_count + 1}
   end
@@ -146,11 +148,11 @@ defmodule Types.DepositTree do
     generate_proof(a, index, depth - 1, [get_node_root(b) | proof])
   end
 
-  defp get_node_root({:zero, level}), do: SszEx.get_zero_hash(level)
+  defp get_node_root({:zero, level}), do: Hash.get_zero_hash(level, @zero_hashes)
   defp get_node_root({:finalized, {hash, _}}), do: hash
 
   defp get_node_root({:node, {left, right}}),
-    do: SszEx.hash_nodes(get_node_root(left), get_node_root(right))
+    do: Hash.hash_nodes(get_node_root(left), get_node_root(right))
 
   defp get_node_root({:leaf, {hash, _}}), do: hash
 
@@ -178,5 +180,5 @@ defmodule Types.DepositTree do
   defp get_finalized({:zero, _}), do: 0
 
   defp mix_in_length(%__MODULE__{deposit_count: count}),
-    do: SszEx.hash_tree_root!(count, TypeAliases.uint64())
+    do: Merkleization.hash_tree_root!(count, TypeAliases.uint64())
 end

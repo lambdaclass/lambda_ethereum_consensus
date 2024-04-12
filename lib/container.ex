@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Container do
     Container for SSZ
   """
   alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Utils
 
   @doc """
   Returns a keyword list, where the keys are attribute names, and the values are schemas.
@@ -26,6 +27,6 @@ defmodule LambdaEthereumConsensus.Container do
   Called after compilation. Checks if the current module is a valid schema.
   """
   def __after_compile__(env, _bytecode) do
-    SszEx.validate_schema!(env.module)
+    Utils.validate_schema!(env.module)
   end
 end

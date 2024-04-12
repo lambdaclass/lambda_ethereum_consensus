@@ -2,7 +2,8 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
   @moduledoc """
   Storage and retrieval of blobs.
   """
-  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Decode
+  alias LambdaEthereumConsensus.SszEx.Encode
   alias LambdaEthereumConsensus.Store.Db
   alias Types.Blobdata
   alias Types.BlobSidecar
@@ -19,7 +20,7 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
     Db.put(key, encoded_blob)
 
     {:ok, encoded_blobdata} =
-      SszEx.encode(%Blobdata{blob: blob.blob, proof: blob.kzg_proof}, Blobdata)
+      Encode.encode(%Blobdata{blob: blob.blob, proof: blob.kzg_proof}, Blobdata)
 
     key = blobdata_key(block_root, blob.index)
     Db.put(key, encoded_blobdata)
@@ -29,7 +30,7 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
   @spec store_blob_with_proof(Types.root(), Types.uint64(), Types.blob(), Types.kzg_proof()) ::
           :ok
   def store_blob_with_proof(block_root, index, blob, proof) do
-    {:ok, encoded_blobdata} = SszEx.encode(%Blobdata{blob: blob, proof: proof}, Blobdata)
+    {:ok, encoded_blobdata} = Encode.encode(%Blobdata{blob: blob, proof: proof}, Blobdata)
     key = blobdata_key(block_root, index)
     Db.put(key, encoded_blobdata)
   end
@@ -50,7 +51,7 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
     key = blobdata_key(block_root, blob_index)
 
     with {:ok, encoded_blobdata} <- Db.get(key),
-         {:ok, blobdata} <- SszEx.decode(encoded_blobdata, Blobdata) do
+         {:ok, blobdata} <- Decode.decode(encoded_blobdata, Blobdata) do
       %{blob: blob, proof: proof} = blobdata
       {:ok, {blob, proof}}
     end

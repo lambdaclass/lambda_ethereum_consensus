@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Encode
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
@@ -443,13 +443,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp encode_enr(enr_fork_id, attnets_bv, syncnets_bv) do
-    {:ok, eth2} = SszEx.encode(enr_fork_id, Types.EnrForkId)
+    {:ok, eth2} = Encode.encode(enr_fork_id, Types.EnrForkId)
 
     {:ok, attnets} =
-      SszEx.encode(attnets_bv, {:bitvector, ChainSpec.get("ATTESTATION_SUBNET_COUNT")})
+      Encode.encode(attnets_bv, {:bitvector, ChainSpec.get("ATTESTATION_SUBNET_COUNT")})
 
     {:ok, syncnets} =
-      SszEx.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
+      Encode.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
 
     %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets}
   end

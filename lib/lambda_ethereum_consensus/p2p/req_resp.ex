@@ -6,6 +6,8 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.SszEx
+  alias LambdaEthereumConsensus.SszEx.Decode
+  alias LambdaEthereumConsensus.SszEx.Encode
 
   defmodule Error do
     @moduledoc """
@@ -62,7 +64,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
     do: encode(<<status_code>>, <<>>, {error_message, TypeAliases.error_message()})
 
   defp encode(result, context_bytes, {response, ssz_schema}) do
-    {:ok, ssz_response} = SszEx.encode(response, ssz_schema)
+    {:ok, ssz_response} = Encode.encode(response, ssz_schema)
     size_header = byte_size(ssz_response) |> P2P.Utils.encode_varint()
     {:ok, ssz_snappy_response} = Snappy.compress(ssz_response)
     Enum.join([result, context_bytes, size_header, ssz_snappy_response])
@@ -126,7 +128,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
     {_size, rest} = P2P.Utils.decode_varint(chunk)
 
     with {:ok, decompressed} <- Snappy.decompress(rest),
-         {:ok, decoded} <- SszEx.decode(decompressed, ssz_schema) do
+         {:ok, decoded} <- Decode.decode(decompressed, ssz_schema) do
       {:ok, decoded}
     end
   end
