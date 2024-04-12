@@ -98,16 +98,13 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   def handle_cast({:new_block, slot, head_root}, state) do
-    # TODO: this doesn't take into account reorgs or empty slots
-    new_state = update_state(state, slot, head_root)
+    # TODO: this doesn't take into account reorgs
+    new_state =
+      state
+      |> update_state(slot, head_root)
+      |> maybe_attest(slot)
 
-    case get_current_attester_duty(new_state, slot) do
-      nil -> :ok
-      duty -> attest(new_state, duty)
-    end
-
-    new_state = maybe_publish_aggregate(new_state, slot)
-
+    # TODO: move to handle_tick
     if should_propose?(new_state, slot + 1), do: propose(new_state, slot + 1)
 
     {:noreply, new_state}
@@ -125,17 +122,19 @@ defmodule LambdaEthereumConsensus.Validator do
     state
   end
 
-  defp handle_tick({_slot, :second_third}, state) do
+  defp handle_tick({slot, :second_third}, state) do
     # Here we may:
     # 1. send our attestation for an empty slot (if so)
     # 2. start building a payload
     state
+    |> maybe_attest(slot)
   end
 
-  defp handle_tick({_slot, :last_third}, state) do
+  defp handle_tick({slot, :last_third}, state) do
     # Here we may:
     # 1. publish our aggregate
     state
+    |> maybe_publish_aggregate(slot)
   end
 
   defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do
@@ -205,7 +204,9 @@ defmodule LambdaEthereumConsensus.Validator do
     # Can't fail
     {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch, validator.index)
 
-    update_with_aggregation_duty(duty, beacon_state, validator.privkey)
+    duty
+    |> Map.put(:attested?, false)
+    |> update_with_aggregation_duty(beacon_state, validator.privkey)
     |> update_with_subnet_id(beacon_state, epoch)
   end
 
@@ -256,20 +257,37 @@ defmodule LambdaEthereumConsensus.Validator do
     end)
   end
 
-  defp get_current_attester_duty(state, current_slot) do
-    find_attester_duty(state, &(&1.slot == current_slot))
-  end
-
-  defp find_attester_duty(%{duties: %{attester: attester_duties}}, search_fn) do
+  defp get_current_attester_duty(%{duties: %{attester: attester_duties}}, current_slot) do
     Enum.find(attester_duties, fn
       :not_computed -> false
-      duty -> search_fn.(duty)
+      duty -> duty.slot == current_slot
     end)
   end
 
+  defp replace_attester_duty(state, duty, new_duty) do
+    attester_duties =
+      Enum.map(state.duties.attester, fn
+        ^duty -> new_duty
+        d -> d
+      end)
+
+    %{state | duties: %{state.duties | attester: attester_duties}}
+  end
+
+  defp maybe_attest(state, slot) do
+    case get_current_attester_duty(state, slot) do
+      %{attested?: false} = duty ->
+        attest(state, duty)
+        replace_attester_duty(state, duty, %{duty | attested?: true})
+
+      _ ->
+        state
+    end
+  end
+
   defp attest(state, current_duty) do
-    {subnet_id, attestation} =
-      produce_attestation(current_duty, state.root, state.validator.privkey)
+    subnet_id = current_duty.subnet_id
+    attestation = produce_attestation(current_duty, state.root, state.validator.privkey)
 
     Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
     Gossip.Attestation.publish(subnet_id, attestation)
@@ -281,22 +299,14 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   # We publish our aggregate on the next slot, and when we're an aggregator
-  # TODO: we should publish it two-thirds of the way through the slot
-  defp maybe_publish_aggregate(%{duties: duties, validator: validator} = state, slot) do
-    case find_attester_duty(state, &(&1.slot < slot and &1.should_aggregate?)) do
-      nil ->
-        state
-
-      duty ->
+  defp maybe_publish_aggregate(%{validator: validator} = state, slot) do
+    case get_current_attester_duty(state, slot) do
+      %{should_aggregate?: false} = duty ->
         publish_aggregate(duty, validator)
+        replace_attester_duty(state, duty, %{duty | should_aggregate?: false})
 
-        attester_duties =
-          Enum.map(duties.attester, fn
-            ^duty -> %{duty | should_aggregate?: false}
-            d -> d
-          end)
-
-        %{state | duties: %{duties | attester: attester_duties}}
+      _ ->
+        state
     end
   end
 
@@ -375,13 +385,11 @@ defmodule LambdaEthereumConsensus.Validator do
 
     signature = Utils.get_attestation_signature(head_state, attestation_data, privkey)
 
-    attestation = %Attestation{
+    %Attestation{
       data: attestation_data,
       aggregation_bits: bits,
       signature: signature
     }
-
-    {duty.subnet_id, attestation}
   end
 
   defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
