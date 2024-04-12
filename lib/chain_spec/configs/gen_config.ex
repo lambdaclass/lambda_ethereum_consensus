@@ -21,6 +21,7 @@ defmodule ChainSpec.GenConfig do
 
       @impl unquote(__MODULE__)
       def get(key), do: Map.fetch!(@__unified, key)
+      def get_all, do: @__unified
     end
   end
 
