@@ -31,23 +31,32 @@ defmodule Unit.Validator.BlockBuilderTest do
     # This private key is taken from the spec test vectors
     privkey = <<0::248, 64>>
 
-    block_request = %BuildBlockRequest{
-      slot: pre_state.slot + 1,
-      parent_root: spec_block.message.parent_root,
-      proposer_index: 63,
-      graffiti_message: "",
-      privkey: privkey
-    }
+    proposed_slot = pre_state.slot + 1
 
-    {:ok, signed_block} =
-      BlockBuilder.build_from_parts(
-        pre_state,
+    {:ok, block_request} =
+      %BuildBlockRequest{
+        slot: proposed_slot,
+        parent_root: spec_block.message.parent_root,
+        proposer_index: 63,
+        graffiti_message: "",
+        privkey: privkey
+      }
+      |> BuildBlockRequest.validate(pre_state)
+
+    {:ok, mid_state} = StateTransition.process_slots(pre_state, proposed_slot)
+
+    {:ok, block} =
+      BlockBuilder.construct_beacon_block(
+        mid_state,
         block_request,
         spec_block.message.body.execution_payload,
         spec_block.message.body.eth1_data
       )
 
-    assert signed_block.message.body.randao_reveal == spec_block.message.body.randao_reveal
+    assert block.body.randao_reveal == spec_block.message.body.randao_reveal
+
+    {:ok, signed_block} = BlockBuilder.seal_block(pre_state, block, privkey)
+
     assert signed_block.signature == spec_block.signature
 
     assert {:ok, _} = StateTransition.state_transition(pre_state, signed_block, true)
