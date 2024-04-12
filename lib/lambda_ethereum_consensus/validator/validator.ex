@@ -27,6 +27,9 @@ defmodule LambdaEthereumConsensus.Validator do
   def notify_new_block(slot, head_root),
     do: GenServer.cast(__MODULE__, {:new_block, slot, head_root})
 
+  def notify_tick(logical_time),
+    do: GenServer.cast(__MODULE__, {:on_tick, logical_time})
+
   @impl true
   def init({slot, head_root}) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
@@ -108,6 +111,10 @@ defmodule LambdaEthereumConsensus.Validator do
     if should_propose?(new_state, slot + 1), do: propose(new_state, slot + 1)
 
     {:noreply, new_state}
+  end
+
+  def handle_cast({:on_tick, logical_time}, state) do
+    # TODO: implement
   end
 
   defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do

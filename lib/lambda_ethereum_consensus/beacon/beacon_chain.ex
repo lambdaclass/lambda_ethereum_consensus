@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Validator
   alias Types.BeaconState
   alias Types.Checkpoint
 
@@ -229,6 +230,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   defp notify_subscribers(logical_time) do
     log_new_slot(logical_time)
+    Validator.notify_tick(logical_time)
   end
 
   defp log_new_slot({slot, :first_third}) do
