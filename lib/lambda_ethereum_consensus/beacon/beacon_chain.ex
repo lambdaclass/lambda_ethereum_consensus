@@ -167,13 +167,13 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     time = :os.system_time(:second)
     ForkChoice.on_tick(time)
 
+    # TODO: reduce time between ticks to account for gnosis' 5s slot time.
+    old_logical_time = compute_logical_time(state)
     new_state = %BeaconChainState{state | time: time}
-    old_slot = compute_current_slot(state)
-    new_slot = compute_current_slot(new_state)
+    new_logical_time = compute_logical_time(new_state)
 
-    if old_slot != new_slot do
-      :telemetry.execute([:sync, :store], %{slot: new_slot})
-      Logger.info("[BeaconChain] Slot transition", slot: new_slot)
+    if old_logical_time != new_logical_time do
+      notify_subscribers(new_logical_time)
     end
 
     {:noreply, new_state}
@@ -206,4 +206,35 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     |> ChainSpec.get_fork_version_for_epoch()
     |> Misc.compute_fork_digest(genesis_validators_root)
   end
+
+  @type slot_third :: :first_third | :second_third | :last_third
+  @type logical_time :: {Types.slot(), slot_third()}
+
+  @spec compute_logical_time(BeaconChainState.t()) :: logical_time()
+  defp compute_logical_time(state) do
+    elapsed_time = state.time - state.genesis_time
+
+    slot_thirds = div(elapsed_time * 3, ChainSpec.get("SECONDS_PER_SLOT"))
+    slot = div(slot_thirds, 3)
+
+    slot_third =
+      case rem(slot_thirds, 3) do
+        0 -> :first_third
+        1 -> :second_third
+        2 -> :last_third
+      end
+
+    {slot, slot_third}
+  end
+
+  defp notify_subscribers(logical_time) do
+    log_new_slot(logical_time)
+  end
+
+  defp log_new_slot({slot, :first_third}) do
+    :telemetry.execute([:sync, :store], %{slot: slot})
+    Logger.info("[BeaconChain] Slot transition", slot: slot)
+  end
+
+  defp log_new_slot(_), do: :ok
 end
