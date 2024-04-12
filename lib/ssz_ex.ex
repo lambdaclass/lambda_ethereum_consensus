@@ -331,7 +331,7 @@ defmodule LambdaEthereumConsensus.SszEx do
     root |> hash_nodes(serialized_len)
   end
 
-  # Currently, we are not using this one.
+  # TODO: we are not using this
   def merkleize_chunks(chunks, leaf_count \\ nil) do
     chunks_len = chunks |> get_chunks_len()
 
