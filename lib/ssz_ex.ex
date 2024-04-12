@@ -331,39 +331,25 @@ defmodule LambdaEthereumConsensus.SszEx do
     root |> hash_nodes(serialized_len)
   end
 
+  # Currently, we are not using this one.
   def merkleize_chunks(chunks, leaf_count \\ nil) do
     chunks_len = chunks |> get_chunks_len()
 
     if chunks_len == 1 and leaf_count == nil do
       chunks
     else
-      node_count = 2 * leaf_count - 1
-      interior_count = node_count - leaf_count
-      leaf_start = interior_count * @bytes_per_chunk
-      padded_chunks = chunks |> convert_to_next_pow_of_two(leaf_count)
-      buffer = <<0::size(leaf_start * @bits_per_byte), padded_chunks::bitstring>>
+      power = leaf_count |> compute_pow()
+      height = power + 1
+      first_layer = chunks |> convert_to_next_pow_of_two(leaf_count)
 
-      new_buffer =
-        1..node_count
-        |> Enum.filter(fn x -> rem(x, 2) == 0 end)
+      final_layer =
+        1..(height - 1)
         |> Enum.reverse()
-        |> Enum.reduce(buffer, fn index, acc_buffer ->
-          parent_index = (index - 1) |> div(2)
-          start = parent_index * @bytes_per_chunk
-          stop = (index + 1) * @bytes_per_chunk
-          focus = acc_buffer |> :binary.part(start, stop - start)
-          focus_len = focus |> byte_size()
-          children_index = focus_len - 2 * @bytes_per_chunk
-          children = focus |> :binary.part(children_index, focus_len - children_index)
-
-          <<left::binary-size(@bytes_per_chunk), right::binary-size(@bytes_per_chunk)>> = children
-
-          parent = hash_nodes(left, right)
-          replace_chunk(acc_buffer, start, parent)
+        |> Enum.reduce(first_layer, fn _i, acc_layer ->
+          get_parent_layer(acc_layer)
         end)
 
-      <<root::binary-size(@bytes_per_chunk), _::binary>> = new_buffer
-      root
+      final_layer
     end
   end
 
@@ -1034,11 +1020,17 @@ defmodule LambdaEthereumConsensus.SszEx do
     end)
   end
 
-  defp get_nodes(_i, left_children_index, _height, current_layer, current_last_index)
-       when left_children_index < current_last_index do
-    start = left_children_index * @bytes_per_chunk
-    stop = (left_children_index + 2) * @bytes_per_chunk
-    children = current_layer |> :binary.part(start, stop - start)
+  defp get_parent_layer(current_layer) do
+    0..(get_chunks_len(current_layer) - 1)
+    |> Enum.filter(fn x -> rem(x, 2) == 0 end)
+    |> Enum.reduce(<<>>, fn j, acc_parent_layer ->
+      {left, right} = get_nodes(j, current_layer)
+      acc_parent_layer <> hash_nodes(left, right)
+    end)
+  end
+
+  defp get_nodes(left_children_index, current_layer) do
+    children = extract_chunks(left_children_index, current_layer, 2)
 
     <<left::binary-size(@bytes_per_chunk), right::binary-size(@bytes_per_chunk)>> =
       children
@@ -1046,21 +1038,24 @@ defmodule LambdaEthereumConsensus.SszEx do
     {left, right}
   end
 
+  defp get_nodes(_i, left_children_index, _height, current_layer, current_last_index)
+       when left_children_index < current_last_index do
+    get_nodes(left_children_index, current_layer)
+  end
+
   defp get_nodes(i, left_children_index, height, current_layer, current_last_index)
        when left_children_index == current_last_index do
-    start = left_children_index * @bytes_per_chunk
-    stop = (left_children_index + 1) * @bytes_per_chunk
-    left = current_layer |> :binary.part(start, stop - start)
+    left = extract_chunks(left_children_index, current_layer, 1)
     depth = height - i - 1
     right = get_zero_hash(depth)
     {left, right}
   end
 
-  defp replace_chunk(chunks, start, new_chunk) do
-    <<left::binary-size(start), _::size(@bits_per_chunk), right::binary>> =
-      chunks
-
-    <<left::binary, new_chunk::binary, right::binary>>
+  def extract_chunks(left_chunk_index, chunks, chunk_count) do
+    start = left_chunk_index * @bytes_per_chunk
+    stop = (left_chunk_index + chunk_count) * @bytes_per_chunk
+    extracted_chunks = chunks |> :binary.part(start, stop - start)
+    extracted_chunks
   end
 
   def list_hash_tree_root(list, inner_schema) do
