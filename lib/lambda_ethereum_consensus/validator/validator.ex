@@ -22,6 +22,10 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @default_graffiti_message "Lambda, so gentle, so good"
 
+  ##########################
+  ### Public API
+  ##########################
+
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
   def notify_new_block(slot, head_root),
@@ -29,6 +33,10 @@ defmodule LambdaEthereumConsensus.Validator do
 
   def notify_tick(logical_time),
     do: GenServer.cast(__MODULE__, {:on_tick, logical_time})
+
+  ##########################
+  ### GenServer Callbacks
+  ##########################
 
   @impl true
   def init({slot, head_root}) do
@@ -99,15 +107,10 @@ defmodule LambdaEthereumConsensus.Validator do
 
   def handle_cast({:new_block, slot, head_root}, state) do
     # TODO: this doesn't take into account reorgs
-    new_state =
-      state
-      |> update_state(slot, head_root)
-      |> maybe_attest(slot)
-
-    # TODO: move to handle_tick
-    if should_propose?(new_state, slot + 1), do: propose(new_state, slot + 1)
-
-    {:noreply, new_state}
+    state
+    |> update_state(slot, head_root)
+    |> maybe_attest(slot)
+    |> then(&{:noreply, &1})
   end
 
   def handle_cast({:on_tick, _}, %{validator: %{index: nil}} = state), do: {:noreply, state}
@@ -115,26 +118,28 @@ defmodule LambdaEthereumConsensus.Validator do
   def handle_cast({:on_tick, logical_time}, state),
     do: {:noreply, handle_tick(logical_time, state)}
 
-  defp handle_tick({_slot, :first_third}, state) do
+  ##########################
+  ### Private Functions
+  ##########################
+
+  defp handle_tick({slot, :first_third}, state) do
     # Here we may:
     # 1. propose our blocks
-    # 2. start collecting attestations for aggregation
-    state
+    # 2. (TODO) start collecting attestations for aggregation
+    maybe_propose(state, slot)
   end
 
   defp handle_tick({slot, :second_third}, state) do
     # Here we may:
-    # 1. send our attestation for an empty slot (if so)
-    # 2. start building a payload
+    # 1. send our attestation for an empty slot
+    # 2. (TODO) start building a payload
     state
     |> maybe_attest(slot)
   end
 
   defp handle_tick({slot, :last_third}, state) do
-    # Here we may:
-    # 1. publish our aggregate
-    state
-    |> maybe_publish_aggregate(slot)
+    # Here we may publish our attestation aggregate
+    maybe_publish_aggregate(state, slot)
   end
 
   defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do
@@ -444,8 +449,13 @@ defmodule LambdaEthereumConsensus.Validator do
     end)
   end
 
-  # Returns true if the validator should propose a block for the given slot
-  defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
+  defp maybe_propose(%{duties: %{proposer: slots}} = state, slot) do
+    if Enum.member?(slots, slot) do
+      propose(state, slot)
+    end
+
+    state
+  end
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
     # TODO: handle errors if there are any
