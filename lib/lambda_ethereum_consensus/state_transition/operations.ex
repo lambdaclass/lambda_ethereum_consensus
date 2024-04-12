@@ -350,7 +350,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())
-  defp get_expected_withdrawals(%BeaconState{} = state) do
+  def get_expected_withdrawals(%BeaconState{} = state) do
     # Compute the next batch of withdrawals which should be included in a block.
     epoch = Accessors.get_current_epoch(state)
 
