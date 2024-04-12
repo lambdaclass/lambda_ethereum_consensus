@@ -209,10 +209,16 @@ defmodule LambdaEthereumConsensus.Validator do
     # Can't fail
     {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch, validator.index)
 
-    duty
-    |> Map.put(:attested?, false)
-    |> update_with_aggregation_duty(beacon_state, validator.privkey)
-    |> update_with_subnet_id(beacon_state, epoch)
+    case duty do
+      nil ->
+        nil
+
+      duty ->
+        duty
+        |> Map.put(:attested?, false)
+        |> update_with_aggregation_duty(beacon_state, validator.privkey)
+        |> update_with_subnet_id(beacon_state, epoch)
+    end
   end
 
   defp get_subnet_ids(duties),
@@ -407,8 +413,6 @@ defmodule LambdaEthereumConsensus.Validator do
   defp go_to_slot(%{latest_block_header: %{parent_root: parent_root}}, slot) do
     BlockStates.get_state!(parent_root) |> go_to_slot(slot)
   end
-
-  defp update_with_aggregation_duty(nil, _beacon_state, _privkey), do: nil
 
   defp update_with_aggregation_duty(duty, beacon_state, privkey) do
     proof = Utils.get_slot_signature(beacon_state, duty.slot, privkey)
