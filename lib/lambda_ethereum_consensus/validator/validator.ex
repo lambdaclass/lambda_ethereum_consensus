@@ -113,8 +113,29 @@ defmodule LambdaEthereumConsensus.Validator do
     {:noreply, new_state}
   end
 
-  def handle_cast({:on_tick, logical_time}, state) do
-    # TODO: implement
+  def handle_cast({:on_tick, _}, %{validator: %{index: nil}} = state), do: {:noreply, state}
+
+  def handle_cast({:on_tick, logical_time}, state),
+    do: {:noreply, handle_tick(logical_time, state)}
+
+  defp handle_tick({_slot, :first_third}, state) do
+    # Here we may:
+    # 1. propose our blocks
+    # 2. start collecting attestations for aggregation
+    state
+  end
+
+  defp handle_tick({_slot, :second_third}, state) do
+    # Here we may:
+    # 1. send our attestation for an empty slot (if so)
+    # 2. start building a payload
+    state
+  end
+
+  defp handle_tick({_slot, :last_third}, state) do
+    # Here we may:
+    # 1. publish our aggregate
+    state
   end
 
   defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do
