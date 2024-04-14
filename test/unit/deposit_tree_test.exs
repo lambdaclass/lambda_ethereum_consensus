@@ -3,7 +3,7 @@ defmodule Unit.DepositTreeTest do
 
   use ExUnit.Case
 
-  alias LambdaEthereumConsensus.SszEx.Merkleization
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias Types.DepositData
   alias Types.DepositTree
@@ -87,7 +87,7 @@ defmodule Unit.DepositTreeTest do
     depth = Constants.deposit_contract_tree_depth() + 1
 
     proof_is_valid =
-      Merkleization.hash_tree_root!(@deposit_data_2)
+      SszEx.hash_tree_root!(@deposit_data_2)
       |> Predicates.valid_merkle_branch?(deposit.proof, depth, index, deposit_root)
 
     assert proof_is_valid

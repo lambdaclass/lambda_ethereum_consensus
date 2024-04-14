@@ -1,6 +1,4 @@
-alias LambdaEthereumConsensus.SszEx.Decode
-alias LambdaEthereumConsensus.SszEx.Encode
-alias LambdaEthereumConsensus.SszEx.Merkleization
+alias LambdaEthereumConsensus.SszEx
 alias Types.Checkpoint
 
 checkpoint = %Checkpoint{
@@ -10,7 +8,7 @@ checkpoint = %Checkpoint{
 
 Benchee.run(
   %{
-    "Encode.encode" => fn {v, schema} -> Encode.encode(v, schema) end,
+    "SszEx.encode" => fn {v, schema} -> SszEx.encode(v, schema) end,
     "Ssz.to_ssz" => fn {v, _schema} -> Ssz.to_ssz(v) end
   },
   inputs: %{
@@ -27,7 +25,7 @@ serialized =
 
 Benchee.run(
   %{
-    "Decode.decode" => fn {b, schema} -> Decode.decode(b, schema) end,
+    "SszEx.decode" => fn {b, schema} -> SszEx.decode(b, schema) end,
     "Ssz.from_ssz" => fn {b, schema} -> Ssz.from_ssz(b, schema) end
   },
   inputs: %{
@@ -41,16 +39,16 @@ Benchee.run(
 
 list = Stream.cycle([65_535]) |> Enum.take(316)
 schema = {:list, {:int, 16}, 1024}
-packed_chunks = Merkleization.pack(list, schema)
-limit = Merkleization.chunk_count(schema)
+packed_chunks = SszEx.pack(list, schema)
+limit = SszEx.chunk_count(schema)
 
 Benchee.run(
   %{
-    "Merkleization.merkleize_chunks" => fn {chunks, leaf_count} ->
-      Merkleization.merkleize_chunks(chunks, leaf_count)
+    "SszEx.merkleize_chunks" => fn {chunks, leaf_count} ->
+      SszEx.merkleize_chunks(chunks, leaf_count)
     end,
-    "Merkleization.merkleize_chunks_with_virtual_padding" => fn {chunks, leaf_count} ->
-      Merkleization.merkleize_chunks_with_virtual_padding(chunks, leaf_count)
+    "SszEx.merkleize_chunks_with_virtual_padding" => fn {chunks, leaf_count} ->
+      SszEx.merkleize_chunks_with_virtual_padding(chunks, leaf_count)
     end
   },
   inputs: %{

@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
-  alias LambdaEthereumConsensus.SszEx.Hash
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -774,7 +774,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       if Bls.valid?(proposer.pubkey, signing_root, randao_reveal) do
         randao_mix = Randao.get_randao_mix(state.randao_mixes, epoch)
-        hash = Hash.hash(randao_reveal)
+        hash = SszEx.hash(randao_reveal)
 
         # Mix in RANDAO reveal
         mix = :crypto.exor(randao_mix, hash)
@@ -905,7 +905,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   defp validate_withdrawal_credentials(validator, address_change) do
     <<prefix::binary-size(1), address::binary-size(31)>> = validator.withdrawal_credentials
-    <<_, hash::binary-size(31)>> = Hash.hash(address_change.from_bls_pubkey)
+    <<_, hash::binary-size(31)>> = SszEx.hash(address_change.from_bls_pubkey)
 
     if prefix == Constants.bls_withdrawal_prefix() and address == hash do
       :ok

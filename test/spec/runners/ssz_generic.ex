@@ -2,10 +2,7 @@ defmodule SszGenericTestRunner do
   @moduledoc """
   Runner for SSZ general test cases. `run_test_case/1` is the main entrypoint.
   """
-  alias LambdaEthereumConsensus.SszEx.Decode
-  alias LambdaEthereumConsensus.SszEx.Encode
-  alias LambdaEthereumConsensus.SszEx.Merkleization
-
+  alias LambdaEthereumConsensus.SszEx
   use ExUnit.CaseTemplate
   use TestRunner
 
@@ -65,18 +62,18 @@ defmodule SszGenericTestRunner do
   end
 
   defp assert_ssz_valid(schema, real_serialized, real_deserialized, expected_hash_tree_root) do
-    {:ok, deserialized} = Decode.decode(real_serialized, schema)
+    {:ok, deserialized} = SszEx.decode(real_serialized, schema)
     assert deserialized == real_deserialized
 
-    {:ok, serialized} = Encode.encode(real_deserialized, schema)
+    {:ok, serialized} = SszEx.encode(real_deserialized, schema)
 
     assert serialized == real_serialized
-    actual_hash_tree_root = Merkleization.hash_tree_root!(real_deserialized, schema)
+    actual_hash_tree_root = SszEx.hash_tree_root!(real_deserialized, schema)
     assert actual_hash_tree_root == expected_hash_tree_root
   end
 
   defp assert_ssz_invalid(schema, real_serialized) do
-    assert {:error, _msg} = Decode.decode(real_serialized, schema)
+    assert {:error, _msg} = SszEx.decode(real_serialized, schema)
   end
 
   defp parse_type(%SpecTestCase{handler: handler, case: cse}), do: parse_type(handler, cse)

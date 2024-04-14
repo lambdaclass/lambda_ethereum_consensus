@@ -1,6 +1,4 @@
-alias LambdaEthereumConsensus.SszEx.Decode
-alias LambdaEthereumConsensus.SszEx.Encode
-alias LambdaEthereumConsensus.SszEx.Merkleization
+alias LambdaEthereumConsensus.SszEx
 alias LambdaEthereumConsensus.Store.StateDb
 alias Types.BeaconState
 
@@ -13,7 +11,7 @@ alias Types.BeaconState
 
 Benchee.run(
   %{
-    "Decode.decode" => fn -> Decode.decode(encoded_state, BeaconState) end,
+    "SszEx.decode" => fn -> SszEx.decode(encoded_state, BeaconState) end,
     "Ssz.from_ssz" => fn -> Ssz.from_ssz(encoded_state, BeaconState) end
   },
   warmup: 2,
@@ -22,7 +20,7 @@ Benchee.run(
 
 Benchee.run(
   %{
-    "Encode.encode" => fn -> Encode.encode(state, BeaconState) end,
+    "SszEx.encode" => fn -> SszEx.encode(state, BeaconState) end,
     "Ssz.to_ssz" => fn -> Ssz.to_ssz(state) end
   },
   warmup: 2,
@@ -31,9 +29,7 @@ Benchee.run(
 
 Benchee.run(
   %{
-    "Merkleization.hash_tree_root!" => fn ->
-      Merkleization.hash_tree_root!(state, BeaconState)
-    end,
+    "SszEx.hash_tree_root!" => fn -> SszEx.hash_tree_root!(state, BeaconState) end,
     "Ssz.hash_tree_root" => fn -> Ssz.hash_tree_root(state, BeaconState) end
   },
   warmup: 2,

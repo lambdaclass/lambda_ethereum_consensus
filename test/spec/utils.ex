@@ -3,7 +3,6 @@ defmodule SpecTestUtils do
   Utilities for spec tests.
   """
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.SszEx.Decode
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   import Aja
@@ -71,7 +70,7 @@ defmodule SpecTestUtils do
     if File.exists?(file_path) do
       compressed = File.read!(file_path)
       {:ok, decompressed} = :snappyer.decompress(compressed)
-      {:ok, ssz_object} = Decode.decode(decompressed, ssz_type)
+      {:ok, ssz_object} = SszEx.decode(decompressed, ssz_type)
       ssz_object
     else
       nil

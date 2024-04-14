@@ -2,7 +2,7 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   @moduledoc """
   Functions for performing validator duties.
   """
-  alias LambdaEthereumConsensus.SszEx.Hash
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.AttestationData
@@ -107,7 +107,7 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     target = Constants.target_aggregators_per_committee()
     modulo = committee_length |> div(target) |> max(1)
 
-    Hash.hash(slot_signature)
+    SszEx.hash(slot_signature)
     |> binary_part(0, 8)
     |> :binary.decode_unsigned(:little)
     |> rem(modulo) == 0

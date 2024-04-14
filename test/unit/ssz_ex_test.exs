@@ -1,10 +1,6 @@
 defmodule Unit.SSZExTest do
-  alias LambdaEthereumConsensus.SszEx.Decode
-  alias LambdaEthereumConsensus.SszEx.Encode
-  alias LambdaEthereumConsensus.SszEx.Hash
-  alias LambdaEthereumConsensus.SszEx.Merkleization
-  alias LambdaEthereumConsensus.SszEx.Utils
   alias LambdaEthereumConsensus.Utils.Diff
+  alias LambdaEthereumConsensus.Utils.ZeroHashes
 
   alias Types.BeaconBlock
   alias Types.BeaconBlockBody
@@ -13,18 +9,19 @@ defmodule Unit.SSZExTest do
   alias Types.ExecutionPayload
   alias Types.SyncAggregate
 
-  @zero_hashes Hash.compute_zero_hashes()
+  @zero_hashes ZeroHashes.compute_zero_hashes()
 
+  alias LambdaEthereumConsensus.SszEx
   use ExUnit.Case
 
   def assert_roundtrip(serialized, deserialized, schema) do
-    assert {:ok, ^serialized} = Encode.encode(deserialized, schema)
-    assert {:ok, deserialized} === Decode.decode(serialized, schema)
+    assert {:ok, ^serialized} = SszEx.encode(deserialized, schema)
+    assert {:ok, deserialized} === SszEx.decode(serialized, schema)
   end
 
   def error_assert_roundtrip(serialized, deserialized, schema, error_message) do
-    assert {:error, ^error_message} = Encode.encode(deserialized, schema)
-    assert {:error, ^error_message} = Decode.decode(serialized, schema)
+    assert {:error, ^error_message} = SszEx.encode(deserialized, schema)
+    assert {:error, ^error_message} = SszEx.decode(serialized, schema)
   end
 
   test "packing a list of uints" do
@@ -34,7 +31,7 @@ defmodule Unit.SSZExTest do
       <<1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0>>
 
-    actual_1 = Merkleization.pack(list_1, {:list, {:int, 8}, 5})
+    actual_1 = SszEx.pack(list_1, {:list, {:int, 8}, 5})
     assert expected_1 == actual_1
 
     list_2 = [
@@ -71,7 +68,7 @@ defmodule Unit.SSZExTest do
         255, 255, 252, 255, 255, 255, 255, 255, 255, 255, 253, 255, 255, 255, 255, 255, 255, 255,
         254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255>>
 
-    actual_2 = Merkleization.pack(list_2, {:list, {:int, 64}, 15})
+    actual_2 = SszEx.pack(list_2, {:list, {:int, 64}, 15})
     assert expected_2 == actual_2
   end
 
@@ -82,7 +79,7 @@ defmodule Unit.SSZExTest do
       <<1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0>>
 
-    actual = Merkleization.pack(list, {:list, :bool, 5})
+    actual = SszEx.pack(list, {:list, :bool, 5})
     assert expected == actual
   end
 
@@ -92,63 +89,63 @@ defmodule Unit.SSZExTest do
     zero = <<0::256>>
 
     chunks = zero
-    root = Merkleization.merkleize_chunks(chunks)
+    root = SszEx.merkleize_chunks(chunks)
     expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero
-    root = chunks |> Merkleization.merkleize_chunks(2)
+    root = chunks |> SszEx.merkleize_chunks(2)
     expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     ones = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<1>> <> acc end)
 
     chunks = ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks(2)
+    root = chunks |> SszEx.merkleize_chunks(2)
     expected_value = "7c8975e1e60a5c8337f28edf8c33c3b180360b7279644a9bc1af3c51e6220bf5"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero <> zero <> zero
-    root = chunks |> Merkleization.merkleize_chunks(4)
+    root = chunks |> SszEx.merkleize_chunks(4)
     expected_value = "db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero <> zero <> zero <> zero <> zero <> zero <> zero
-    root = chunks |> Merkleization.merkleize_chunks(8)
+    root = chunks |> SszEx.merkleize_chunks(8)
     expected_value = "c78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones
-    root = chunks |> Merkleization.merkleize_chunks(4)
+    root = chunks |> SszEx.merkleize_chunks(4)
     expected_value = "29797eded0e83376b70f2bf034cc0811ae7f1414653b1d720dfd18f74cf13309"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     twos = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<2>> <> acc end)
 
     chunks = twos
-    root = chunks |> Merkleization.merkleize_chunks(8)
+    root = chunks |> SszEx.merkleize_chunks(8)
     expected_value = "fa4cf775712aa8a2fe5dcb5a517d19b2e9effcf58ff311b9fd8e4a7d308e6d00"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks(4)
+    root = chunks |> SszEx.merkleize_chunks(4)
     expected_value = "65aa94f2b59e517abd400cab655f42821374e433e41b8fe599f6bb15484adcec"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones <> ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks(8)
+    root = chunks |> SszEx.merkleize_chunks(8)
     expected_value = "0ae67e34cba4ad2bbfea5dc39e6679b444021522d861fab00f05063c54341289"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones <> ones <> ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks(8)
+    root = chunks |> SszEx.merkleize_chunks(8)
     expected_value = "0ef7df63c204ef203d76145627b8083c49aa7c55ebdee2967556f55a4f65a238"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     ## Large Leaf Count
 
     chunks = ones <> ones <> ones <> ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks(2 ** 10)
+    root = chunks |> SszEx.merkleize_chunks(2 ** 10)
     expected_value = "2647cb9e26bd83eeb0982814b2ac4d6cc4a65d0d98637f1a73a4c06d3db0e6ce"
     assert root |> Base.encode16(case: :lower) == expected_value
   end
@@ -157,63 +154,63 @@ defmodule Unit.SSZExTest do
     zero = <<0::256>>
 
     chunks = zero
-    root = Merkleization.merkleize_chunks_with_virtual_padding(chunks, 1)
+    root = SszEx.merkleize_chunks_with_virtual_padding(chunks, 1)
     expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(2)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2)
     expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     ones = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<1>> <> acc end)
 
     chunks = ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(2)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2)
     expected_value = "7c8975e1e60a5c8337f28edf8c33c3b180360b7279644a9bc1af3c51e6220bf5"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero <> zero <> zero
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(4)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
     expected_value = "db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero <> zero <> zero <> zero <> zero <> zero <> zero
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(8)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
     expected_value = "c78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(4)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
     expected_value = "29797eded0e83376b70f2bf034cc0811ae7f1414653b1d720dfd18f74cf13309"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     twos = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<2>> <> acc end)
 
     chunks = twos
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(8)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
     expected_value = "fa4cf775712aa8a2fe5dcb5a517d19b2e9effcf58ff311b9fd8e4a7d308e6d00"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(4)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
     expected_value = "65aa94f2b59e517abd400cab655f42821374e433e41b8fe599f6bb15484adcec"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones <> ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(8)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
     expected_value = "0ae67e34cba4ad2bbfea5dc39e6679b444021522d861fab00f05063c54341289"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones <> ones <> ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(8)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
     expected_value = "0ef7df63c204ef203d76145627b8083c49aa7c55ebdee2967556f55a4f65a238"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     ## Large Leaf Count
 
     chunks = ones <> ones <> ones <> ones <> ones
-    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(2 ** 10)
+    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2 ** 10)
     expected_value = "2647cb9e26bd83eeb0982814b2ac4d6cc4a65d0d98637f1a73a4c06d3db0e6ce"
     assert root |> Base.encode16(case: :lower) == expected_value
   end
@@ -222,12 +219,12 @@ defmodule Unit.SSZExTest do
     ## reference: https://github.com/ralexstokes/ssz-rs/blob/1f94d5dfc70c86dab672e91ac46af04a5f96c342/ssz-rs/src/merkleization/mod.rs#L459
 
     list = Stream.cycle([65_535]) |> Enum.take(316)
-    {:ok, root} = list |> Merkleization.hash_tree_root({:list, {:int, 16}, 1024})
+    {:ok, root} = list |> SszEx.hash_tree_root({:list, {:int, 16}, 1024})
     expected_value = "d20d2246e1438d88de46f6f41c7b041f92b673845e51f2de93b944bf599e63b1"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     ## hash tree root of empty list
-    {:ok, root} = [] |> Merkleization.hash_tree_root({:list, {:int, 16}, 1024})
+    {:ok, root} = [] |> SszEx.hash_tree_root({:list, {:int, 16}, 1024})
     expected_value = "c9eece3e14d3c3db45c38bbf69a4cb7464981e2506d8424a0ba450dad9b9af30"
     assert root |> Base.encode16(case: :lower) == expected_value
   end
@@ -241,14 +238,14 @@ defmodule Unit.SSZExTest do
 
     list = [checkpoint, checkpoint]
     schema = {:list, Checkpoint, 8}
-    Merkleization.hash_tree_root!(list, schema)
+    SszEx.hash_tree_root!(list, schema)
 
     ## list of lists
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
     list2 = Stream.cycle([65_530]) |> Enum.take(316)
     list = [list1, list2]
     schema = {:list, {:list, {:int, 16}, 1024}, 1024}
-    Merkleization.hash_tree_root!(list, schema)
+    SszEx.hash_tree_root!(list, schema)
 
     ## list of list of lists
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
@@ -257,7 +254,7 @@ defmodule Unit.SSZExTest do
     list4 = [list1, list2]
     list = [list3, list4]
     schema = {:list, {:list, {:list, {:int, 16}, 1024}, 1024}, 128}
-    Merkleization.hash_tree_root!(list, schema)
+    SszEx.hash_tree_root!(list, schema)
 
     ## list of list of vectors
     vector1 = Stream.cycle([65_535]) |> Enum.take(316)
@@ -266,7 +263,7 @@ defmodule Unit.SSZExTest do
     list2 = [vector1, vector2]
     list = [list1, list2]
     schema = {:list, {:list, {:vector, {:int, 16}, 316}, 1024}, 136}
-    Merkleization.hash_tree_root!(list, schema)
+    SszEx.hash_tree_root!(list, schema)
 
     ## list of vector of lists
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
@@ -275,7 +272,7 @@ defmodule Unit.SSZExTest do
     vector2 = [list1, list2]
     list = [vector1, vector2]
     schema = {:list, {:vector, {:list, {:int, 16}, 1024}, 2}, 32}
-    Merkleization.hash_tree_root!(list, schema)
+    SszEx.hash_tree_root!(list, schema)
 
     ## list of vector of vector
     vector1 = Stream.cycle([65_535]) |> Enum.take(316)
@@ -284,7 +281,7 @@ defmodule Unit.SSZExTest do
     vector4 = [vector1, vector2]
     list = [vector3, vector4]
     schema = {:list, {:vector, {:vector, {:int, 16}, 316}, 2}, 32}
-    Merkleization.hash_tree_root!(list, schema)
+    SszEx.hash_tree_root!(list, schema)
   end
 
   test "hash tree root of vector of composite objects" do
@@ -296,14 +293,14 @@ defmodule Unit.SSZExTest do
 
     vector = [checkpoint, checkpoint]
     schema = {:vector, Checkpoint, 2}
-    Merkleization.hash_tree_root!(vector, schema)
+    SszEx.hash_tree_root!(vector, schema)
 
     ## vector of vectors
     vector1 = Stream.cycle([65_535]) |> Enum.take(316)
     vector2 = Stream.cycle([65_530]) |> Enum.take(316)
     vector = [vector1, vector2]
     schema = {:vector, {:vector, {:int, 16}, 316}, 2}
-    Merkleization.hash_tree_root!(vector, schema)
+    SszEx.hash_tree_root!(vector, schema)
 
     ## vector of vector of vectors
     vector1 = Stream.cycle([65_535]) |> Enum.take(316)
@@ -312,7 +309,7 @@ defmodule Unit.SSZExTest do
     vector4 = [vector1, vector2]
     vector = [vector3, vector4]
     schema = {:vector, {:vector, {:vector, {:int, 16}, 316}, 2}, 2}
-    Merkleization.hash_tree_root!(vector, schema)
+    SszEx.hash_tree_root!(vector, schema)
 
     ## vector of list of vectors
     vector1 = Stream.cycle([65_535]) |> Enum.take(316)
@@ -321,7 +318,7 @@ defmodule Unit.SSZExTest do
     list2 = [vector1, vector2]
     vector = [list1, list2]
     schema = {:vector, {:list, {:vector, {:int, 16}, 316}, 32}, 2}
-    Merkleization.hash_tree_root!(vector, schema)
+    SszEx.hash_tree_root!(vector, schema)
 
     ## vector of vector of lists
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
@@ -330,7 +327,7 @@ defmodule Unit.SSZExTest do
     vector2 = [list1, list2]
     vector = [vector1, vector2]
     schema = {:vector, {:vector, {:list, {:int, 16}, 1024}, 2}, 2}
-    Merkleization.hash_tree_root!(vector, schema)
+    SszEx.hash_tree_root!(vector, schema)
 
     ## vector of list of lists
     list1 = Stream.cycle([65_535]) |> Enum.take(316)
@@ -339,7 +336,7 @@ defmodule Unit.SSZExTest do
     list4 = [list1, list2]
     vector = [list3, list4]
     schema = {:vector, {:list, {:list, {:int, 16}, 1024}, 8}, 2}
-    Merkleization.hash_tree_root!(vector, schema)
+    SszEx.hash_tree_root!(vector, schema)
   end
 
   test "serialize and deserialize uint" do
@@ -484,7 +481,7 @@ defmodule Unit.SSZExTest do
   @default_hash @default_root
 
   test "default block" do
-    default = Utils.default(BeaconBlock)
+    default = SszEx.default(BeaconBlock)
 
     expected = %BeaconBlock{
       slot: 0,
@@ -537,50 +534,50 @@ defmodule Unit.SSZExTest do
 
   test "serialize and deserialize bitlist" do
     encoded_bytes = <<160, 92, 1>>
-    assert {:ok, decoded_bytes} = Decode.decode(encoded_bytes, {:bitlist, 16})
-    assert {:ok, ^encoded_bytes} = Encode.encode(decoded_bytes, {:bitlist, 16})
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 16})
 
     encoded_bytes = <<255, 1>>
-    assert {:ok, decoded_bytes} = Decode.decode(encoded_bytes, {:bitlist, 16})
-    assert {:ok, ^encoded_bytes} = Encode.encode(decoded_bytes, {:bitlist, 16})
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 16})
 
     encoded_bytes = <<31>>
-    assert {:ok, decoded_bytes} = Decode.decode(encoded_bytes, {:bitlist, 16})
-    assert {:ok, ^encoded_bytes} = Encode.encode(decoded_bytes, {:bitlist, 16})
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 16})
 
     encoded_bytes = <<1>>
-    assert {:ok, decoded_bytes} = Decode.decode(encoded_bytes, {:bitlist, 31})
-    assert {:ok, ^encoded_bytes} = Encode.encode(decoded_bytes, {:bitlist, 31})
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 31})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 31})
 
     encoded_bytes = <<106, 141, 117, 7>>
-    assert {:ok, decoded_bytes} = Decode.decode(encoded_bytes, {:bitlist, 31})
-    assert {:ok, ^encoded_bytes} = Encode.encode(decoded_bytes, {:bitlist, 31})
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitlist, 31})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 31})
 
     encoded_bytes = <<7>>
-    assert {:error, _msg} = Decode.decode(encoded_bytes, {:bitlist, 1})
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
 
     encoded_bytes = <<124, 3>>
-    assert {:error, _msg} = Decode.decode(encoded_bytes, {:bitlist, 1})
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
 
     encoded_bytes = <<0>>
-    assert {:error, _msg} = Decode.decode(encoded_bytes, {:bitlist, 1})
-    assert {:error, _msg} = Decode.decode(encoded_bytes, {:bitlist, 16})
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 16})
   end
 
   test "serialize and deserialize bitvector" do
     encoded_bytes = <<255, 255>>
-    assert {:ok, decoded_bytes} = Decode.decode(encoded_bytes, {:bitvector, 16})
-    assert {:ok, ^encoded_bytes} = Encode.encode(decoded_bytes, {:bitvector, 16})
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitvector, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitvector, 16})
 
     encoded_bytes = <<0, 0>>
-    assert {:ok, decoded_bytes} = Decode.decode(encoded_bytes, {:bitvector, 16})
-    assert {:ok, ^encoded_bytes} = Encode.encode(decoded_bytes, {:bitvector, 16})
+    assert {:ok, decoded_bytes} = SszEx.decode(encoded_bytes, {:bitvector, 16})
+    assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitvector, 16})
 
     encoded_bytes = <<255, 255, 255, 255, 255, 1>>
-    assert {:error, _msg} = Decode.decode(encoded_bytes, {:bitvector, 33})
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 33})
 
     encoded_bytes = <<0>>
-    assert {:error, _msg} = Decode.decode(encoded_bytes, {:bitvector, 9})
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 9})
   end
 
   test "hash tree root of byte list" do
@@ -590,16 +587,15 @@ defmodule Unit.SSZExTest do
     pad = 32 - size
     byte_list = initial_list <> <<0::size(pad * 8)>>
 
-    left = Hash.hash(byte_list <> zero_chunk)
-    right = Hash.hash(zero_chunk <> zero_chunk)
-    chunked_list = Hash.hash(left <> right)
+    left = SszEx.hash(byte_list <> zero_chunk)
+    right = SszEx.hash(zero_chunk <> zero_chunk)
+    chunked_list = SszEx.hash(left <> right)
 
     packed_size = <<64>> <> <<0::size(31 * 8)>>
 
-    manual_root = Hash.hash(chunked_list <> packed_size)
+    manual_root = SszEx.hash(chunked_list <> packed_size)
 
-    {:ok, ssz_ex_root} =
-      (byte_list <> zero_chunk) |> Merkleization.hash_tree_root({:byte_list, 100})
+    {:ok, ssz_ex_root} = (byte_list <> zero_chunk) |> SszEx.hash_tree_root({:byte_list, 100})
 
     assert ssz_ex_root == manual_root
   end
@@ -608,13 +604,13 @@ defmodule Unit.SSZExTest do
     byte_list = <<>>
     zero_chunk = <<0::size(32 * 8)-little>>
 
-    left = Hash.hash(zero_chunk <> zero_chunk)
-    right = Hash.hash(zero_chunk <> zero_chunk)
-    chunked_list = Hash.hash(left <> right)
+    left = SszEx.hash(zero_chunk <> zero_chunk)
+    right = SszEx.hash(zero_chunk <> zero_chunk)
+    chunked_list = SszEx.hash(left <> right)
 
-    manual_root = Hash.hash(chunked_list <> zero_chunk)
+    manual_root = SszEx.hash(chunked_list <> zero_chunk)
 
-    {:ok, ssz_ex_root} = byte_list |> Merkleization.hash_tree_root({:byte_list, 100})
+    {:ok, ssz_ex_root} = byte_list |> SszEx.hash_tree_root({:byte_list, 100})
 
     assert ssz_ex_root == manual_root
   end
@@ -626,10 +622,9 @@ defmodule Unit.SSZExTest do
     pad = 32 - size
     byte_vector = initial_list <> <<0::size(pad * 8)>>
 
-    manual_root = Hash.hash(byte_vector <> zero_chunk)
+    manual_root = SszEx.hash(byte_vector <> zero_chunk)
 
-    {:ok, ssz_ex_root} =
-      (byte_vector <> zero_chunk) |> Merkleization.hash_tree_root({:byte_vector, 64})
+    {:ok, ssz_ex_root} = (byte_vector <> zero_chunk) |> SszEx.hash_tree_root({:byte_vector, 64})
 
     assert ssz_ex_root == manual_root
   end
@@ -656,35 +651,35 @@ defmodule Unit.SSZExTest do
     }
 
     {:ok, ssz_root} = Ssz.hash_tree_root(execution_payload, ExecutionPayload)
-    {:ok, ssz_ex_root} = Merkleization.hash_tree_root(execution_payload, ExecutionPayload)
+    {:ok, ssz_ex_root} = SszEx.hash_tree_root(execution_payload, ExecutionPayload)
 
     assert ssz_ex_root == ssz_root
   end
 
   test "hash_tree_root of empty Aja.Vector as native list" do
     vector = Aja.Vector.new()
-    expected_root = Hash.get_zero_hash(1, @zero_hashes)
-    {:ok, ssz_root} = Merkleization.hash_tree_root(vector, {:list, {:int, 8}, 3})
+    expected_root = ZeroHashes.get_zero_hash(1, @zero_hashes)
+    {:ok, ssz_root} = SszEx.hash_tree_root(vector, {:list, {:int, 8}, 3})
     assert expected_root == ssz_root
   end
 
   test "hash_tree_root of Aja.Vector as native list" do
     vector = Aja.Vector.new([1, 2, 3])
     size = <<3>> <> <<0::size(31 * 8)>>
-    expected_root = (<<1, 2, 3>> <> <<0::size(29 * 8)>>) |> Hash.hash_nodes(size)
-    {:ok, ssz_root} = Merkleization.hash_tree_root(vector, {:list, {:int, 8}, 3})
+    expected_root = (<<1, 2, 3>> <> <<0::size(29 * 8)>>) |> SszEx.hash_nodes(size)
+    {:ok, ssz_root} = SszEx.hash_tree_root(vector, {:list, {:int, 8}, 3})
     assert expected_root == ssz_root
   end
 
   test "zero_hashes" do
     chunk0 = <<0::size(32 * 8)>>
-    chunk1 = Hash.hash_nodes(chunk0, chunk0)
-    chunk2 = Hash.hash_nodes(chunk1, chunk1)
-    chunk3 = Hash.hash_nodes(chunk2, chunk2)
+    chunk1 = SszEx.hash_nodes(chunk0, chunk0)
+    chunk2 = SszEx.hash_nodes(chunk1, chunk1)
+    chunk3 = SszEx.hash_nodes(chunk2, chunk2)
 
-    assert Hash.get_zero_hash(0, @zero_hashes) == chunk0
-    assert Hash.get_zero_hash(1, @zero_hashes) == chunk1
-    assert Hash.get_zero_hash(2, @zero_hashes) == chunk2
-    assert Hash.get_zero_hash(3, @zero_hashes) == chunk3
+    assert ZeroHashes.get_zero_hash(0, @zero_hashes) == chunk0
+    assert ZeroHashes.get_zero_hash(1, @zero_hashes) == chunk1
+    assert ZeroHashes.get_zero_hash(2, @zero_hashes) == chunk2
+    assert ZeroHashes.get_zero_hash(3, @zero_hashes) == chunk3
   end
 end

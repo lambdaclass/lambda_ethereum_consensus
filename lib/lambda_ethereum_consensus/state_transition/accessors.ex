@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Functions accessing the current `BeaconState`
   """
 
-  alias LambdaEthereumConsensus.SszEx.Hash
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -97,7 +97,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       candidate_index = Aja.Vector.at!(active_validator_indices, shuffled_index)
 
       <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
-        Hash.hash(seed <> Misc.uint64_to_bytes(div(index, 32)))
+        SszEx.hash(seed <> Misc.uint64_to_bytes(div(index, 32)))
 
       max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
       effective_balance = Aja.Vector.at!(validators, candidate_index).effective_balance
@@ -264,7 +264,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
       state
       |> get_seed(epoch, Constants.domain_beacon_proposer())
-      |> then(&Hash.hash(&1 <> Misc.uint64_to_bytes(slot)))
+      |> then(&SszEx.hash(&1 <> Misc.uint64_to_bytes(slot)))
       |> then(&Misc.compute_proposer_index(state, indices, &1))
     end)
   end
@@ -451,7 +451,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     mix = Randao.get_randao_mix(state.randao_mixes, future_epoch)
 
-    Hash.hash(domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
+    SszEx.hash(domain_type <> Misc.uint64_to_bytes(epoch) <> mix)
   end
 
   @doc """

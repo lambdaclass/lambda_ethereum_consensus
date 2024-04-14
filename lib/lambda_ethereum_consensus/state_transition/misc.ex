@@ -7,8 +7,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   require Aja
 
   alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.SszEx.Hash
-  alias LambdaEthereumConsensus.SszEx.Merkleization
   alias Types.BeaconState
 
   @max_random_byte 2 ** 8 - 1
@@ -57,14 +55,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
 
     0..(shuffle_round_count - 1)
     |> Enum.reduce(index, fn round, current_index ->
-      pivot = Hash.hash(seed <> <<round>>) |> bytes_to_uint64() |> rem(index_count)
+      pivot = SszEx.hash(seed <> <<round>>) |> bytes_to_uint64() |> rem(index_count)
 
       flip = rem(pivot + index_count - current_index, index_count)
       position = max(current_index, flip)
 
       position_div_256 = position |> div(256) |> uint_to_bytes(32)
 
-      source = Hash.hash(seed <> <<round>> <> position_div_256)
+      source = SszEx.hash(seed <> <<round>> <> position_div_256)
 
       bit_index = rem(position, 256) + 7 - 2 * rem(position, 8)
       <<_::size(bit_index), bit::1, _::bits>> = source
@@ -138,7 +136,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       candidate_index = Aja.Vector.at!(indices, index)
 
       <<_::binary-size(rem(i, 32)), random_byte, _::binary>> =
-        Hash.hash(seed <> uint_to_bytes(div(i, 32), 64))
+        SszEx.hash(seed <> uint_to_bytes(div(i, 32), 64))
 
       effective_balance = Aja.Vector.at(state.validators, candidate_index).effective_balance
 
@@ -252,7 +250,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
 
   @spec compute_signing_root(any(), SszEx.schema(), Types.domain()) :: Types.root()
   def compute_signing_root(ssz_object, schema, domain) do
-    ssz_object |> Merkleization.hash_tree_root!(schema) |> compute_signing_root(domain)
+    ssz_object |> SszEx.hash_tree_root!(schema) |> compute_signing_root(domain)
   end
 
   @doc """
@@ -275,7 +273,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
 
   @spec kzg_commitment_to_versioned_hash(Types.kzg_commitment()) :: Types.bytes32()
   def kzg_commitment_to_versioned_hash(kzg_commitment) do
-    hash = Hash.hash(kzg_commitment) |> binary_slice(1..31)
+    hash = SszEx.hash(kzg_commitment) |> binary_slice(1..31)
     <<Constants.versioned_hash_version_kzg()::binary-size(1), hash::binary-size(31)>>
   end
 end
