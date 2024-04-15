@@ -59,6 +59,10 @@ defmodule SszEx do
   @type bitvector_schema() :: {:bitvector, size :: non_neg_integer}
   @type container_schema() :: module()
 
+  @spec encode(struct()) ::
+          {:ok, binary()} | {:error, String.t()}
+  def encode(%name{} = value), do: encode(value, name)
+
   @spec encode(any(), schema()) ::
           {:ok, binary()} | {:error, String.t()}
   def encode(value, schema), do: Encode.encode(value, schema)
