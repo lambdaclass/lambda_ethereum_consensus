@@ -70,8 +70,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @impl true
   def handle_cast({:block_processed, block_root, true}, state) do
-    # Block is valid
-    {:noreply, state |> Map.delete(block_root)}
+    # Block is valid. We immediately check if we can process another block.
+    state |> Map.delete(block_root) |> then(&handle_info(:process_blocks, &1))
   end
 
   @impl true
