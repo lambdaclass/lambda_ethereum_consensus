@@ -1,6 +1,7 @@
-defmodule LambdaEthereumConsensus.Utils.ZeroHashes do
+defmodule LambdaEthereumConsensus.SszEx.Hash do
   @moduledoc """
-  Precomputed zero hashes
+  The `Hash` module provides functions for computing cryptographic hashes, specifically for Merkle tree operations, according to the Ethereum Simple Serialize (SSZ) specifications.
+  This module uses the SHA-256 hash algorithm.
   """
 
   @bytes_per_chunk 32
@@ -15,8 +16,6 @@ defmodule LambdaEthereumConsensus.Utils.ZeroHashes do
     |> Enum.join()
   end
 
-  defp hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
-
   @doc """
   Given the output of `compute_zero_hashes` as second argument, return the root of
   an all-zero Merkle tree of the given depth.
@@ -26,4 +25,11 @@ defmodule LambdaEthereumConsensus.Utils.ZeroHashes do
     <<_::binary-size(offset), hash::binary-size(@bytes_per_chunk), _::binary>> = zero_hashes
     hash
   end
+
+  @compile {:inline, hash: 1}
+  @spec hash(iodata()) :: binary()
+  def hash(data), do: :crypto.hash(:sha256, data)
+
+  @spec hash_nodes(binary(), binary()) :: binary()
+  def hash_nodes(left, right), do: hash(left <> right)
 end
