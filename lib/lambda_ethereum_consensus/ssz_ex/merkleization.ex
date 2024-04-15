@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.SszEx.Merkleization do
   @moduledoc """
-  The `Merkleization` module provides functions for computing Merkle roots of various data structures according to the Ethereum Simple Serialize (SSZ) specifications.
+  The `Merkleization` module provides functions for computing Merkle roots of the SszEx schemas according to the Ethereum Simple Serialize (SSZ) specifications.
   """
 
   alias LambdaEthereumConsensus.SszEx.Encode
