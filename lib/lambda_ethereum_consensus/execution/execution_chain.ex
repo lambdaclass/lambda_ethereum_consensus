@@ -26,7 +26,11 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   @spec get_deposits(Eth1Data.t(), Eth1Data.t(), Range.t()) ::
           {:ok, [Deposit.t()] | nil} | {:error, any}
   def get_deposits(current_eth1_data, eth1_vote, deposit_range) do
-    GenServer.call(__MODULE__, {:get_deposits, current_eth1_data, eth1_vote, deposit_range})
+    if Range.size(deposit_range) == 0 do
+      {:ok, []}
+    else
+      GenServer.call(__MODULE__, {:get_deposits, current_eth1_data, eth1_vote, deposit_range})
+    end
   end
 
   @spec notify_new_block(Types.slot(), Eth1Data.t(), ExecutionPayload.t()) :: :ok
