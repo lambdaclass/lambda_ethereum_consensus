@@ -31,5 +31,5 @@ defmodule LambdaEthereumConsensus.SszEx.Hash do
   def hash(data), do: :crypto.hash(:sha256, data)
 
   @spec hash_nodes(binary(), binary()) :: binary()
-  def hash_nodes(left, right), do: :crypto.hash(:sha256, left <> right)
+  def hash_nodes(left, right), do: hash(left <> right)
 end
