@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.SszEx.Encode do
   @moduledoc """
-  Encode
+   The `Encode` module provides functions for encoding the SszEx schemas according to the Ethereum Simple Serialize (SSZ) specifications.
   """
 
   alias LambdaEthereumConsensus.SszEx

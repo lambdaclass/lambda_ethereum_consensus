@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.SszEx.Merkleization do
   @moduledoc """
-  Merkleization
+  The `Merkleization` module provides functions for computing Merkle roots of various data structures according to the Ethereum Simple Serialize (SSZ) specifications.
   """
 
   alias LambdaEthereumConsensus.SszEx.Encode
@@ -128,13 +128,13 @@ defmodule LambdaEthereumConsensus.SszEx.Merkleization do
     end
   end
 
-  def hash_tree_root_vector(chunks) do
+  defp hash_tree_root_vector(chunks) do
     leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
     {:ok, root}
   end
 
-  def hash_tree_root_list(chunks, limit, len) do
+  defp hash_tree_root_list(chunks, limit, len) do
     chunks_len = chunks |> get_chunks_len()
 
     if chunks_len > limit do
@@ -143,6 +143,16 @@ defmodule LambdaEthereumConsensus.SszEx.Merkleization do
       root = merkleize_chunks_with_virtual_padding(chunks, limit) |> mix_in_length(len)
       {:ok, root}
     end
+  end
+
+  defp list_hash_tree_root(list, inner_schema) do
+    list
+    |> Enum.reduce_while({:ok, <<>>}, fn value, {_, acc_roots} ->
+      case hash_tree_root(value, inner_schema) do
+        {:ok, root} -> {:cont, {:ok, acc_roots <> root}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 
   @spec mix_in_length(Types.root(), non_neg_integer) :: Types.root()
@@ -224,11 +234,11 @@ defmodule LambdaEthereumConsensus.SszEx.Merkleization do
     |> pack_bytes()
   end
 
-  def pack_bits(value, :bitvector) do
+  defp pack_bits(value, :bitvector) do
     BitVector.to_bytes(value) |> pack_bytes()
   end
 
-  def pack_bits(value, :bitlist) do
+  defp pack_bits(value, :bitlist) do
     value |> BitList.to_packed_bytes() |> pack_bytes()
   end
 
@@ -331,15 +341,5 @@ defmodule LambdaEthereumConsensus.SszEx.Merkleization do
     stop = (left_chunk_index + chunk_count) * @bytes_per_chunk
     extracted_chunks = chunks |> :binary.part(start, stop - start)
     extracted_chunks
-  end
-
-  def list_hash_tree_root(list, inner_schema) do
-    list
-    |> Enum.reduce_while({:ok, <<>>}, fn value, {_, acc_roots} ->
-      case hash_tree_root(value, inner_schema) do
-        {:ok, root} -> {:cont, {:ok, acc_roots <> root}}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
   end
 end

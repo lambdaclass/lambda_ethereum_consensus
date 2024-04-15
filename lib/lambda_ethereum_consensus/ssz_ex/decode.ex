@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.SszEx.Decode do
   @moduledoc """
-  Decode
+  The `Decode` module provides functions for decoding the SszEx schemas according to the Ethereum Simple Serialize (SSZ) specifications.
   """
 
   alias LambdaEthereumConsensus.SszEx.Utils
@@ -127,23 +127,23 @@ defmodule LambdaEthereumConsensus.SszEx.Decode do
     end
   end
 
-  def check_valid_vector_size_prev_decode(fixed_size, size, binary)
-      when fixed_size * size == byte_size(binary),
-      do: :ok
+  defp check_valid_vector_size_prev_decode(fixed_size, size, binary)
+       when fixed_size * size == byte_size(binary),
+       do: :ok
 
-  def check_valid_vector_size_prev_decode(_fixed_size, _size, _binary),
+  defp check_valid_vector_size_prev_decode(_fixed_size, _size, _binary),
     do: {:error, "Invalid vector size"}
 
-  def check_valid_vector_size_after_decode(size, decoded_size)
-      when decoded_size == size and decoded_size > 0,
-      do: :ok
+  defp check_valid_vector_size_after_decode(size, decoded_size)
+       when decoded_size == size and decoded_size > 0,
+       do: :ok
 
-  def check_valid_vector_size_after_decode(_size, _decoded_size),
+  defp check_valid_vector_size_after_decode(_size, _decoded_size),
     do: {:error, "invalid vector decoded size"}
 
-  def check_valid_list_size_after_decode(size, decoded_size) when decoded_size <= size, do: :ok
+  defp check_valid_list_size_after_decode(size, decoded_size) when decoded_size <= size, do: :ok
 
-  def check_valid_list_size_after_decode(_size, _decoded_size),
+  defp check_valid_list_size_after_decode(_size, _decoded_size),
     do: {:error, "invalid max_size of list"}
 
   defp decode_variable_list(binary, _, _) when byte_size(binary) == 0 do

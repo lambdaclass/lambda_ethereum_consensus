@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.SszEx.Utils do
   @moduledoc """
-  Utils
+  Utilities for SszEx.
   """
 
   alias LambdaEthereumConsensus.SszEx
