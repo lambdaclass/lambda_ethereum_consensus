@@ -195,7 +195,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     new_state = Map.put(state, :cached_fork_choice, new_cache)
 
     # TODO: make this check dynamic
-    if compute_current_slot(state) == head_slot do
+    if compute_current_slot(state) <= head_slot do
       {:noreply, %{new_state | synced: true}}
     else
       {:noreply, new_state}

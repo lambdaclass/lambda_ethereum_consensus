@@ -153,34 +153,36 @@ defmodule LambdaEthereumConsensus.Validator do
     Logger.warning("[Validator] Block came late", slot: slot, root: head_root)
 
     # TODO: rollback stale data instead of the whole cache
-    # We nuke the cache for good measure
-    rollbacked_state = %{state | slot: slot - 1, duties: empty_duties()}
-
-    update_state(rollbacked_state, slot, head_root)
+    epoch = Misc.compute_epoch_at_slot(slot + 1)
+    recompute_duties(state, 0, epoch, slot, head_root)
   end
 
-  defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do
+  defp update_state(%{slot: last_slot} = state, slot, head_root) do
     last_epoch = Misc.compute_epoch_at_slot(last_slot + 1)
     epoch = Misc.compute_epoch_at_slot(slot + 1)
 
     if last_epoch == epoch do
       %{state | slot: slot, root: head_root}
     else
-      start_slot = Misc.compute_start_slot_at_epoch(epoch)
-      target_root = if slot == start_slot, do: head_root, else: last_root
-
-      # Process the start of the new epoch
-      new_beacon = fetch_target_state(epoch, target_root) |> go_to_slot(start_slot)
-
-      new_duties =
-        shift_duties(state.duties, epoch, last_epoch)
-        |> maybe_update_duties(new_beacon, epoch, state.validator)
-
-      move_subnets(state.duties, new_duties)
-      log_duties(new_duties, state.validator.index)
-
-      %{state | slot: slot, root: head_root, duties: new_duties}
+      recompute_duties(state, last_epoch, epoch, slot, head_root)
     end
+  end
+
+  defp recompute_duties(%{root: last_root} = state, last_epoch, epoch, slot, head_root) do
+    start_slot = Misc.compute_start_slot_at_epoch(epoch)
+    target_root = if slot == start_slot, do: head_root, else: last_root
+
+    # Process the start of the new epoch
+    new_beacon = fetch_target_state(epoch, target_root) |> go_to_slot(start_slot)
+
+    new_duties =
+      shift_duties(state.duties, epoch, last_epoch)
+      |> maybe_update_duties(new_beacon, epoch, state.validator)
+
+    move_subnets(state.duties, new_duties)
+    log_duties(new_duties, state.validator.index)
+
+    %{state | slot: slot, root: head_root, duties: new_duties}
   end
 
   defp fetch_target_state(epoch, root) do
