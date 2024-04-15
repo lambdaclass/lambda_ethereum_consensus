@@ -51,11 +51,7 @@ defmodule LambdaEthereumConsensus.Validator do
     state = %{
       slot: slot,
       root: head_root,
-      duties: %{
-        # Order is: previous epoch, current epoch, next epoch
-        attester: [:not_computed, :not_computed, :not_computed],
-        proposer: :not_computed
-      },
+      duties: empty_duties(),
       validator: validator
     }
 
@@ -122,11 +118,20 @@ defmodule LambdaEthereumConsensus.Validator do
   ### Private Functions
   ##########################
 
+  defp empty_duties do
+    %{
+      # Order is: previous epoch, current epoch, next epoch
+      attester: [:not_computed, :not_computed, :not_computed],
+      proposer: :not_computed
+    }
+  end
+
   defp handle_tick({slot, :first_third}, state) do
     # Here we may:
     # 1. propose our blocks
     # 2. (TODO) start collecting attestations for aggregation
     maybe_propose(state, slot)
+    |> update_state(slot, state.root)
   end
 
   defp handle_tick({slot, :second_third}, state) do
@@ -142,12 +147,24 @@ defmodule LambdaEthereumConsensus.Validator do
     maybe_publish_aggregate(state, slot)
   end
 
+  defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
+
+  defp update_state(%{slot: slot, root: _other_root} = state, slot, head_root) do
+    Logger.warning("[Validator] Block came late", slot: slot, root: head_root)
+
+    # TODO: rollback stale data instead of the whole cache
+    # We nuke the cache for good measure
+    rollbacked_state = %{state | slot: slot - 1, duties: empty_duties()}
+
+    update_state(rollbacked_state, slot, head_root)
+  end
+
   defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do
     last_epoch = Misc.compute_epoch_at_slot(last_slot + 1)
     epoch = Misc.compute_epoch_at_slot(slot + 1)
 
     if last_epoch == epoch do
-      state
+      %{state | slot: slot, root: head_root}
     else
       start_slot = Misc.compute_start_slot_at_epoch(epoch)
       target_root = if slot == start_slot, do: head_root, else: last_root
