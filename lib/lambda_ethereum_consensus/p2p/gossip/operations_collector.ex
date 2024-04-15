@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   """
   use GenServer
 
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.Attestation
   alias Types.AttesterSlashing
   alias Types.BeaconBlock
@@ -81,7 +82,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
       attestations: block.body.attestations
     }
 
-    GenServer.cast(__MODULE__, {:new_block, operations})
+    GenServer.cast(__MODULE__, {:new_block, block.slot, operations})
   end
 
   @impl GenServer
@@ -111,11 +112,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     {:noreply, Map.replace!(state, operation, new_msgs)}
   end
 
-  def handle_cast({:new_block, operations}, state) do
-    {:noreply, filter_messages(state, operations)}
+  def handle_cast({:new_block, slot, operations}, state) do
+    {:noreply, filter_messages(state, slot, operations)}
   end
 
-  defp filter_messages(state, operations) do
+  defp filter_messages(state, slot, operations) do
     indices =
       operations.bls_to_execution_changes
       |> MapSet.new(& &1.message.validator_index)
@@ -142,8 +143,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     voluntary_exits =
       state.voluntary_exit |> Enum.reject(&MapSet.member?(exited, &1.message.validator_index))
 
+    # TODO: improve attestation filtering
     added_attestations = MapSet.new(operations.attestations)
-    attestations = state.attestation |> Enum.reject(&MapSet.member?(added_attestations, &1))
+
+    attestations =
+      state.attestation
+      |> Stream.reject(&MapSet.member?(added_attestations, &1))
+      |> Enum.reject(&old_attestation?(&1, slot))
 
     %{
       state
@@ -153,5 +159,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
         voluntary_exit: voluntary_exits,
         attestation: attestations
     }
+  end
+
+  defp old_attestation?(%Attestation{data: data}, slot) do
+    current_epoch = Misc.compute_epoch_at_slot(slot + 1)
+    data.target.epoch not in [current_epoch, current_epoch - 1]
   end
 end
