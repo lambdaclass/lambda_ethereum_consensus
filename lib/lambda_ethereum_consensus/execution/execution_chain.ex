@@ -58,8 +58,10 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   def handle_call({:get_deposits, current_eth1_data, eth1_vote, deposit_range}, _from, state) do
+    votes = state.eth1_data_votes
+
     eth1_data =
-      if has_majority?(state.eth1_data_votes, eth1_vote),
+      if Map.has_key?(votes, eth1_vote) and has_majority?(votes, eth1_vote),
         do: eth1_vote,
         else: current_eth1_data
 
