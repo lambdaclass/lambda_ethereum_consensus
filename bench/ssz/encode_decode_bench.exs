@@ -32,13 +32,13 @@ Benchee.run(
 
 Benchee.run(
   %{
-    "SszEx.encode" => fn {v} -> SszEx.encode(v) end,
-    "Ssz.to_ssz" => fn {v} -> Ssz.to_ssz(v) end
+    "SszEx.encode" => fn v -> SszEx.encode(v) end,
+    "Ssz.to_ssz" => fn v -> Ssz.to_ssz(v) end
   },
   warmup: 2,
   time: 5,
   inputs: %{
-    "BeaconState" => {state},
-    "Checkpoint" => {checkpoint}
+    "BeaconState" => state,
+    "Checkpoint" => checkpoint
   }
 )
