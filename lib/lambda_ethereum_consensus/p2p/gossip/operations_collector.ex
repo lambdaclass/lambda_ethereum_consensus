@@ -87,21 +87,18 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @impl GenServer
   def init(_init_arg) do
-    {:ok,
-     %{
-       bls_to_execution_change: [],
-       attester_slashing: [],
-       proposer_slashing: [],
-       voluntary_exit: [],
-       attestation: []
-     }}
+    state = Map.new(@operations, &{&1, []}) |> Map.put(:slot, nil)
+    {:ok, state}
   end
 
   @impl GenServer
   def handle_call({:get, operation, count}, _from, state) when operation in @operations do
     # NOTE: we don't remove these from the state, since after a block is built
     #  :new_block will be called, and already added messages will be removed
-    {:reply, Map.fetch!(state, operation) |> Enum.take(count), state}
+    operations =
+      Map.fetch!(state, operation) |> Stream.filter(&ignore?(&1, state)) |> Enum.take(count)
+
+    {:reply, operations, state}
   end
 
   @impl GenServer
@@ -157,7 +154,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
         attester_slashing: attester_slashings,
         proposer_slashing: proposer_slashings,
         voluntary_exit: voluntary_exits,
-        attestation: attestations
+        attestation: attestations,
+        slot: slot
     }
   end
 
@@ -165,4 +163,12 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     current_epoch = Misc.compute_epoch_at_slot(slot + 1)
     data.target.epoch not in [current_epoch, current_epoch - 1]
   end
+
+  defp ignore?(%Attestation{}, %{slot: nil}), do: false
+
+  defp ignore?(%Attestation{data: data}, state) do
+    data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") > state.slot
+  end
+
+  defp ignore?(_, _), do: false
 end
