@@ -87,4 +87,7 @@ defmodule SszEx do
 
   @spec hash_nodes(binary(), binary()) :: binary()
   def hash_nodes(left, right), do: Hash.hash_nodes(left, right)
+
+  @spec get_zero_hash(non_neg_integer()) :: binary()
+  def get_zero_hash(depth), do: Merkleization.get_zero_hash(depth)
 end
