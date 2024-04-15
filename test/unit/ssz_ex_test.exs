@@ -1,6 +1,5 @@
 defmodule Unit.SSZExTest do
   alias LambdaEthereumConsensus.Utils.Diff
-  alias LambdaEthereumConsensus.Utils.ZeroHashes
 
   alias Types.BeaconBlock
   alias Types.BeaconBlockBody
@@ -8,8 +7,6 @@ defmodule Unit.SSZExTest do
   alias Types.Eth1Data
   alias Types.ExecutionPayload
   alias Types.SyncAggregate
-
-  @zero_hashes ZeroHashes.compute_zero_hashes()
 
   alias LambdaEthereumConsensus.SszEx
   use ExUnit.Case
@@ -658,7 +655,7 @@ defmodule Unit.SSZExTest do
 
   test "hash_tree_root of empty Aja.Vector as native list" do
     vector = Aja.Vector.new()
-    expected_root = ZeroHashes.get_zero_hash(1, @zero_hashes)
+    expected_root = SszEx.get_zero_hash(1)
     {:ok, ssz_root} = SszEx.hash_tree_root(vector, {:list, {:int, 8}, 3})
     assert expected_root == ssz_root
   end
@@ -677,9 +674,9 @@ defmodule Unit.SSZExTest do
     chunk2 = SszEx.hash_nodes(chunk1, chunk1)
     chunk3 = SszEx.hash_nodes(chunk2, chunk2)
 
-    assert ZeroHashes.get_zero_hash(0, @zero_hashes) == chunk0
-    assert ZeroHashes.get_zero_hash(1, @zero_hashes) == chunk1
-    assert ZeroHashes.get_zero_hash(2, @zero_hashes) == chunk2
-    assert ZeroHashes.get_zero_hash(3, @zero_hashes) == chunk3
+    assert SszEx.get_zero_hash(0) == chunk0
+    assert SszEx.get_zero_hash(1) == chunk1
+    assert SszEx.get_zero_hash(2) == chunk2
+    assert SszEx.get_zero_hash(3) == chunk3
   end
 end

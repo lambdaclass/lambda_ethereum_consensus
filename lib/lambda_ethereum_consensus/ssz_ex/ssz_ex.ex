@@ -33,6 +33,13 @@ defmodule LambdaEthereumConsensus.SszEx do
       Where `container` is a module that implements the `LambdaEthereumConsensus.Container` behaviour.
       Expects the input to be an Elixir struct.
   """
+  alias LambdaEthereumConsensus.SszEx.Decode
+  alias LambdaEthereumConsensus.SszEx.Encode
+  alias LambdaEthereumConsensus.SszEx.Hash
+  alias LambdaEthereumConsensus.SszEx.Merkleization
+  alias LambdaEthereumConsensus.SszEx.Utils
+
+  @zero_hashes Hash.compute_zero_hashes()
 
   @type schema() ::
           :bool
@@ -53,4 +60,45 @@ defmodule LambdaEthereumConsensus.SszEx do
   @type bitlist_schema() :: {:bitlist, max_size :: non_neg_integer}
   @type bitvector_schema() :: {:bitvector, size :: non_neg_integer}
   @type container_schema() :: module()
+
+  @spec encode(any(), schema()) ::
+          {:ok, binary()} | {:error, String.t()}
+  def encode(value, schema), do: Encode.encode(value, schema)
+
+  @spec decode(binary(), schema()) ::
+          {:ok, any()} | {:error, String.t()}
+  def decode(value, schema), do: Decode.decode(value, schema)
+
+  @spec hash_tree_root!(any, any) :: Types.root()
+  def hash_tree_root!(value, schema), do: Merkleization.hash_tree_root!(value, schema)
+
+  @spec hash_tree_root!(any) :: Types.root()
+  def hash_tree_root!(value), do: Merkleization.hash_tree_root!(value)
+
+  @spec hash_tree_root(any, any) :: {:ok, Types.root()} | {:error, String.t()}
+  def hash_tree_root(value, schema), do: Merkleization.hash_tree_root(value, schema)
+
+  @spec validate_schema!(any) :: :ok
+  def validate_schema!(schema), do: Utils.validate_schema!(schema)
+
+  @spec default(any) :: any()
+  def default(schema), do: Utils.default(schema)
+
+  @spec get_zero_hash(non_neg_integer()) :: binary()
+  def get_zero_hash(depth), do: Hash.get_zero_hash(depth, @zero_hashes)
+
+  @spec hash(iodata()) :: binary()
+  def hash(data), do: Hash.hash(data)
+
+  @spec hash_nodes(binary(), binary()) :: binary()
+  def hash_nodes(left, right), do: Hash.hash_nodes(left, right)
+
+  def merkleize_chunks_with_virtual_padding(chunks, leaf_count),
+    do: Merkleization.merkleize_chunks_with_virtual_padding(chunks, leaf_count)
+
+  def merkleize_chunks(chunks, leaf_count \\ nil),
+    do: Merkleization.merkleize_chunks(chunks, leaf_count)
+
+  @spec pack(any, any) :: binary()
+  def pack(value, schema), do: Merkleization.pack(value, schema)
 end

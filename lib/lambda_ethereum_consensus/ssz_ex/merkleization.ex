@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.SszEx.Merkleization do
   Merkleization
   """
 
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.SszEx.Encode
   alias LambdaEthereumConsensus.SszEx.Hash
   alias LambdaEthereumConsensus.SszEx.Utils
@@ -15,7 +16,6 @@ defmodule LambdaEthereumConsensus.SszEx.Merkleization do
   @bits_per_byte 8
   @bits_per_chunk @bytes_per_chunk * @bits_per_byte
   @zero_chunk <<0::size(@bits_per_chunk)>>
-  @zero_hashes Hash.compute_zero_hashes()
 
   @spec hash_tree_root!(struct()) :: Types.root()
   def hash_tree_root!(%name{} = value) do
@@ -186,7 +186,7 @@ defmodule LambdaEthereumConsensus.SszEx.Merkleization do
     cond do
       chunks_len == 0 ->
         depth = height - 1
-        Hash.get_zero_hash(depth, @zero_hashes)
+        SszEx.get_zero_hash(depth)
 
       chunks_len == 1 and leaf_count == 1 ->
         chunks
@@ -325,7 +325,7 @@ defmodule LambdaEthereumConsensus.SszEx.Merkleization do
        when left_children_index == current_last_index do
     left = extract_chunks(left_children_index, current_layer, 1)
     depth = height - i - 1
-    right = Hash.get_zero_hash(depth, @zero_hashes)
+    right = SszEx.get_zero_hash(depth)
     {left, right}
   end
 
