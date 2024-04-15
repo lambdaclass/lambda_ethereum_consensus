@@ -61,7 +61,7 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @spec encode(struct()) ::
           {:ok, binary()} | {:error, String.t()}
-  def encode(%name{} = value), do: Encode.encode(value, name)
+  def encode(%name{} = value), do: encode(value, name)
 
   @spec encode(any(), schema()) ::
           {:ok, binary()} | {:error, String.t()}
