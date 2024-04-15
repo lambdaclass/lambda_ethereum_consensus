@@ -331,7 +331,7 @@ defmodule LambdaEthereumConsensus.Validator do
   # We publish our aggregate on the next slot, and when we're an aggregator
   defp maybe_publish_aggregate(%{validator: validator} = state, slot) do
     case get_current_attester_duty(state, slot) do
-      %{should_aggregate?: false} = duty ->
+      %{should_aggregate?: true} = duty ->
         publish_aggregate(duty, validator)
         replace_attester_duty(state, duty, %{duty | should_aggregate?: false})
 
