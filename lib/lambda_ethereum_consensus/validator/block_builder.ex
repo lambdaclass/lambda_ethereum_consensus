@@ -225,8 +225,6 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   @spec store_blobs(Types.SignedBeaconBlock.t(), Types.BlobsBundle.t()) :: :ok
   defp store_blobs(signed_block, blobs_bundle) do
-    dbg(blobs_bundle)
-
     block = signed_block.message
 
     block_header = %BeaconBlockHeader{
@@ -241,8 +239,6 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       message: block_header,
       signature: signed_block.signature
     }
-
-    # dbg(block_header)
 
     sidecars =
       Enum.with_index(blobs_bundle.blobs, fn blob, index ->
@@ -262,7 +258,6 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       end)
 
     for blob_sidecar <- sidecars do
-      dbg(blob_sidecar)
       BlobDb.store_blob(blob_sidecar)
     end
 
