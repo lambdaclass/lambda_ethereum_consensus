@@ -3,8 +3,7 @@ defmodule Types.DepositTree do
   Pruned Merkle tree, for use in block production.
   Implementation adapted from [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881).
   """
-  alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.SszEx.Merkleization
+  alias SszEx.Merkleization
   alias Types.Deposit
   alias Types.DepositData
   alias Types.DepositTreeSnapshot

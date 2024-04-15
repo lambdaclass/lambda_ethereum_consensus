@@ -2,7 +2,6 @@ defmodule SszStaticTestRunner do
   @moduledoc """
   Runner for SSZ test cases. `run_test_case/1` is the main entrypoint.
   """
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.Diff
   alias Ssz
   alias Types.BeaconBlock

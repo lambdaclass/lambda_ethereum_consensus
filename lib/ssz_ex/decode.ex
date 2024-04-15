@@ -1,18 +1,18 @@
-defmodule LambdaEthereumConsensus.SszEx.Decode do
+defmodule SszEx.Decode do
   @moduledoc """
   The `Decode` module provides functions for decoding the SszEx schemas according to the Ethereum Simple Serialize (SSZ) specifications.
   """
 
-  alias LambdaEthereumConsensus.SszEx.Utils
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias SszEx.Utils
 
   import Bitwise
   @bits_per_byte 8
   @bytes_per_length_offset 4
   @offset_bits 32
 
-  @spec decode(binary(), LambdaEthereumConsensus.SszEx.schema()) ::
+  @spec decode(binary(), SszEx.schema()) ::
           {:ok, any()} | {:error, String.t()}
   def decode(binary, :bool), do: decode_bool(binary)
   def decode(binary, {:int, size}), do: decode_uint(binary, size)

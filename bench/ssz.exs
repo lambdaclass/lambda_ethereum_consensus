@@ -1,5 +1,4 @@
-alias LambdaEthereumConsensus.SszEx
-alias LambdaEthereumConsensus.SszEx.Merkleization
+alias SszEx.Merkleization
 alias Types.Checkpoint
 
 checkpoint = %Checkpoint{

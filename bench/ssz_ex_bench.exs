@@ -1,4 +1,3 @@
-alias LambdaEthereumConsensus.SszEx
 alias LambdaEthereumConsensus.Store.StateDb
 alias Types.BeaconState
 

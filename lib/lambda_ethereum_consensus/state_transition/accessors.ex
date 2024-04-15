@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Functions accessing the current `BeaconState`
   """
 
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc

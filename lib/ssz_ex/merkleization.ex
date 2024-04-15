@@ -1,13 +1,13 @@
-defmodule LambdaEthereumConsensus.SszEx.Merkleization do
+defmodule SszEx.Merkleization do
   @moduledoc """
   The `Merkleization` module provides functions for computing Merkle roots of the SszEx schemas according to the Ethereum Simple Serialize (SSZ) specifications.
   """
 
-  alias LambdaEthereumConsensus.SszEx.Encode
-  alias LambdaEthereumConsensus.SszEx.Hash
-  alias LambdaEthereumConsensus.SszEx.Utils
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias SszEx.Encode
+  alias SszEx.Hash
+  alias SszEx.Utils
 
   import Bitwise
 
