@@ -3,8 +3,6 @@ defmodule Types.DepositTree do
   Pruned Merkle tree, for use in block production.
   Implementation adapted from [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881).
   """
-  alias LambdaEthereumConsensus.SszEx
-  alias LambdaEthereumConsensus.SszEx.Merkleization
   alias Types.Deposit
   alias Types.DepositData
   alias Types.DepositTreeSnapshot
@@ -147,7 +145,7 @@ defmodule Types.DepositTree do
     generate_proof(a, index, depth - 1, [get_node_root(b) | proof])
   end
 
-  defp get_node_root({:zero, level}), do: Merkleization.get_zero_hash(level)
+  defp get_node_root({:zero, level}), do: SszEx.get_zero_hash(level)
   defp get_node_root({:finalized, {hash, _}}), do: hash
 
   defp get_node_root({:node, {left, right}}),

@@ -2,7 +2,6 @@ defmodule SszGenericTestRunner do
   @moduledoc """
   Runner for SSZ general test cases. `run_test_case/1` is the main entrypoint.
   """
-  alias LambdaEthereumConsensus.SszEx
   use ExUnit.CaseTemplate
   use TestRunner
 

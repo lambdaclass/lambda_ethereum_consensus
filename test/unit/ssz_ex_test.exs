@@ -1,6 +1,6 @@
 defmodule Unit.SSZExTest do
-  alias LambdaEthereumConsensus.SszEx.Merkleization
   alias LambdaEthereumConsensus.Utils.Diff
+  alias SszEx.Merkleization
 
   alias Types.BeaconBlock
   alias Types.BeaconBlockBody
@@ -9,7 +9,6 @@ defmodule Unit.SSZExTest do
   alias Types.ExecutionPayload
   alias Types.SyncAggregate
 
-  alias LambdaEthereumConsensus.SszEx
   use ExUnit.Case
 
   def assert_roundtrip(serialized, deserialized, schema) do

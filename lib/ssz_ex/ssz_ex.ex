@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.SszEx do
+defmodule SszEx do
   @moduledoc """
     # SSZ library in Elixir
     ## Schema
@@ -33,11 +33,11 @@ defmodule LambdaEthereumConsensus.SszEx do
       Where `container` is a module that implements the `LambdaEthereumConsensus.Container` behaviour.
       Expects the input to be an Elixir struct.
   """
-  alias LambdaEthereumConsensus.SszEx.Decode
-  alias LambdaEthereumConsensus.SszEx.Encode
-  alias LambdaEthereumConsensus.SszEx.Hash
-  alias LambdaEthereumConsensus.SszEx.Merkleization
-  alias LambdaEthereumConsensus.SszEx.Utils
+  alias SszEx.Decode
+  alias SszEx.Encode
+  alias SszEx.Hash
+  alias SszEx.Merkleization
+  alias SszEx.Utils
 
   @type schema() ::
           :bool
@@ -91,4 +91,7 @@ defmodule LambdaEthereumConsensus.SszEx do
 
   @spec hash_nodes(binary(), binary()) :: binary()
   def hash_nodes(left, right), do: Hash.hash_nodes(left, right)
+
+  @spec get_zero_hash(non_neg_integer()) :: binary()
+  def get_zero_hash(depth), do: Merkleization.get_zero_hash(depth)
 end

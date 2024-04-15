@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.SszEx.Hash do
+defmodule SszEx.Hash do
   @moduledoc """
   The `Hash` module provides functions for computing cryptographic hashes, specifically for Merkle tree operations, according to the Ethereum Simple Serialize (SSZ) specifications.
   This module uses the SHA-256 hash algorithm.
