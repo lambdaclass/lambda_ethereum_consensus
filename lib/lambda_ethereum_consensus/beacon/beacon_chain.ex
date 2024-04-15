@@ -18,7 +18,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       :genesis_time,
       :genesis_validators_root,
       :time,
-      :cached_fork_choice
+      :cached_fork_choice,
+      :synced
     ]
 
     @type fork_choice_data :: %{
@@ -32,7 +33,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
             genesis_time: Types.uint64(),
             genesis_validators_root: Types.bytes32(),
             time: Types.uint64(),
-            cached_fork_choice: fork_choice_data()
+            cached_fork_choice: fork_choice_data(),
+            synced: boolean()
           }
   end
 
@@ -104,6 +106,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
        genesis_time: genesis_time,
        genesis_validators_root: genesis_validators_root,
        time: time,
+       synced: false,
        cached_fork_choice: fork_choice_data
      }}
   end
@@ -173,7 +176,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     new_state = %BeaconChainState{state | time: time}
     new_logical_time = compute_logical_time(new_state)
 
-    if old_logical_time != new_logical_time do
+    if state.synced and old_logical_time != new_logical_time do
       notify_subscribers(new_logical_time)
     end
 
@@ -182,14 +185,21 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @impl true
   def handle_cast({:update_fork_choice_cache, head_root, head_slot, justified, finalized}, state) do
-    {:noreply,
-     state
-     |> Map.put(:cached_fork_choice, %{
-       head_root: head_root,
-       head_slot: head_slot,
-       justified: justified,
-       finalized: finalized
-     })}
+    new_cache = %{
+      head_root: head_root,
+      head_slot: head_slot,
+      justified: justified,
+      finalized: finalized
+    }
+
+    new_state = Map.put(state, :cached_fork_choice, new_cache)
+
+    # TODO: make this check dynamic
+    if compute_current_slot(state) == head_slot do
+      {:noreply, %{new_state | synced: true}}
+    else
+      {:noreply, new_state}
+    end
   end
 
   def schedule_next_tick do
