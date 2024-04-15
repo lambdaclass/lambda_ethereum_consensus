@@ -22,10 +22,21 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @default_graffiti_message "Lambda, so gentle, so good"
 
+  ##########################
+  ### Public API
+  ##########################
+
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
   def notify_new_block(slot, head_root),
     do: GenServer.cast(__MODULE__, {:new_block, slot, head_root})
+
+  def notify_tick(logical_time),
+    do: GenServer.cast(__MODULE__, {:on_tick, logical_time})
+
+  ##########################
+  ### GenServer Callbacks
+  ##########################
 
   @impl true
   def init({slot, head_root}) do
@@ -95,19 +106,40 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   def handle_cast({:new_block, slot, head_root}, state) do
-    # TODO: this doesn't take into account reorgs or empty slots
-    new_state = update_state(state, slot, head_root)
+    # TODO: this doesn't take into account reorgs
+    state
+    |> update_state(slot, head_root)
+    |> maybe_attest(slot)
+    |> then(&{:noreply, &1})
+  end
 
-    case get_current_attester_duty(new_state, slot) do
-      nil -> :ok
-      duty -> attest(new_state, duty)
-    end
+  def handle_cast({:on_tick, _}, %{validator: %{index: nil}} = state), do: {:noreply, state}
 
-    new_state = maybe_publish_aggregate(new_state, slot)
+  def handle_cast({:on_tick, logical_time}, state),
+    do: {:noreply, handle_tick(logical_time, state)}
 
-    if should_propose?(new_state, slot + 1), do: propose(new_state, slot + 1)
+  ##########################
+  ### Private Functions
+  ##########################
 
-    {:noreply, new_state}
+  defp handle_tick({slot, :first_third}, state) do
+    # Here we may:
+    # 1. propose our blocks
+    # 2. (TODO) start collecting attestations for aggregation
+    maybe_propose(state, slot)
+  end
+
+  defp handle_tick({slot, :second_third}, state) do
+    # Here we may:
+    # 1. send our attestation for an empty slot
+    # 2. (TODO) start building a payload
+    state
+    |> maybe_attest(slot)
+  end
+
+  defp handle_tick({slot, :last_third}, state) do
+    # Here we may publish our attestation aggregate
+    maybe_publish_aggregate(state, slot)
   end
 
   defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do
@@ -177,8 +209,16 @@ defmodule LambdaEthereumConsensus.Validator do
     # Can't fail
     {:ok, duty} = Utils.get_committee_assignment(beacon_state, epoch, validator.index)
 
-    update_with_aggregation_duty(duty, beacon_state, validator.privkey)
-    |> update_with_subnet_id(beacon_state, epoch)
+    case duty do
+      nil ->
+        nil
+
+      duty ->
+        duty
+        |> Map.put(:attested?, false)
+        |> update_with_aggregation_duty(beacon_state, validator.privkey)
+        |> update_with_subnet_id(beacon_state, epoch)
+    end
   end
 
   defp get_subnet_ids(duties),
@@ -228,20 +268,37 @@ defmodule LambdaEthereumConsensus.Validator do
     end)
   end
 
-  defp get_current_attester_duty(state, current_slot) do
-    find_attester_duty(state, &(&1.slot == current_slot))
-  end
-
-  defp find_attester_duty(%{duties: %{attester: attester_duties}}, search_fn) do
+  defp get_current_attester_duty(%{duties: %{attester: attester_duties}}, current_slot) do
     Enum.find(attester_duties, fn
       :not_computed -> false
-      duty -> search_fn.(duty)
+      duty -> duty.slot == current_slot
     end)
   end
 
+  defp replace_attester_duty(state, duty, new_duty) do
+    attester_duties =
+      Enum.map(state.duties.attester, fn
+        ^duty -> new_duty
+        d -> d
+      end)
+
+    %{state | duties: %{state.duties | attester: attester_duties}}
+  end
+
+  defp maybe_attest(state, slot) do
+    case get_current_attester_duty(state, slot) do
+      %{attested?: false} = duty ->
+        attest(state, duty)
+        replace_attester_duty(state, duty, %{duty | attested?: true})
+
+      _ ->
+        state
+    end
+  end
+
   defp attest(state, current_duty) do
-    {subnet_id, attestation} =
-      produce_attestation(current_duty, state.root, state.validator.privkey)
+    subnet_id = current_duty.subnet_id
+    attestation = produce_attestation(current_duty, state.root, state.validator.privkey)
 
     Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
     Gossip.Attestation.publish(subnet_id, attestation)
@@ -253,22 +310,14 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   # We publish our aggregate on the next slot, and when we're an aggregator
-  # TODO: we should publish it two-thirds of the way through the slot
-  defp maybe_publish_aggregate(%{duties: duties, validator: validator} = state, slot) do
-    case find_attester_duty(state, &(&1.slot < slot and &1.should_aggregate?)) do
-      nil ->
-        state
-
-      duty ->
+  defp maybe_publish_aggregate(%{validator: validator} = state, slot) do
+    case get_current_attester_duty(state, slot) do
+      %{should_aggregate?: false} = duty ->
         publish_aggregate(duty, validator)
+        replace_attester_duty(state, duty, %{duty | should_aggregate?: false})
 
-        attester_duties =
-          Enum.map(duties.attester, fn
-            ^duty -> %{duty | should_aggregate?: false}
-            d -> d
-          end)
-
-        %{state | duties: %{duties | attester: attester_duties}}
+      _ ->
+        state
     end
   end
 
@@ -347,13 +396,11 @@ defmodule LambdaEthereumConsensus.Validator do
 
     signature = Utils.get_attestation_signature(head_state, attestation_data, privkey)
 
-    attestation = %Attestation{
+    %Attestation{
       data: attestation_data,
       aggregation_bits: bits,
       signature: signature
     }
-
-    {duty.subnet_id, attestation}
   end
 
   defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
@@ -366,8 +413,6 @@ defmodule LambdaEthereumConsensus.Validator do
   defp go_to_slot(%{latest_block_header: %{parent_root: parent_root}}, slot) do
     BlockStates.get_state!(parent_root) |> go_to_slot(slot)
   end
-
-  defp update_with_aggregation_duty(nil, _beacon_state, _privkey), do: nil
 
   defp update_with_aggregation_duty(duty, beacon_state, privkey) do
     proof = Utils.get_slot_signature(beacon_state, duty.slot, privkey)
@@ -408,8 +453,13 @@ defmodule LambdaEthereumConsensus.Validator do
     end)
   end
 
-  # Returns true if the validator should propose a block for the given slot
-  defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
+  defp maybe_propose(%{duties: %{proposer: slots}} = state, slot) do
+    if Enum.member?(slots, slot) do
+      propose(state, slot)
+    end
+
+    state
+  end
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
     # TODO: handle errors if there are any
