@@ -30,7 +30,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   # TODO: move to Engine API
   @type payload_id() :: String.t()
 
-  @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t(), payload_id() | nil) ::
+  @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t(), payload_id()) ::
           {:error, any()} | {:ok, Types.SignedBeaconBlock.t()}
   def build_block(%BuildBlockRequest{parent_root: parent_root} = request, payload_id) do
     pre_state = BlockStates.get_state!(parent_root)
