@@ -504,8 +504,8 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp propose(%{root: head_root, validator: validator} = state, proposed_slot) do
     {^proposed_slot, ^head_root, payload_id} = state.block_builder
-    # TODO: handle errors if there are any
-    {:ok, signed_block} =
+
+    build_result =
       BlockBuilder.build_block(
         %BuildBlockRequest{
           slot: proposed_slot,
@@ -517,16 +517,35 @@ defmodule LambdaEthereumConsensus.Validator do
         payload_id
       )
 
+    case build_result do
+      {:ok, signed_block} ->
+        publish_block(signed_block)
+
+      {:error, reason} ->
+        Logger.error(
+          "[Validator] Failed to build block for slot #{proposed_slot}. Reason: #{reason}"
+        )
+    end
+
+    %{state | payload_builder: nil}
+  end
+
+  defp publish_block(signed_block) do
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
+    proposed_slot = signed_block.message.slot
+
     # TODO: we might want to send the block to ForkChoice
     case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
-      :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
-      _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
-    end
+      :ok ->
+        Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
 
-    %{state | payload_builder: nil}
+      {:error, reason} ->
+        Logger.error(
+          "[Validator] Failed to publish block for slot #{proposed_slot}. Reason: #{reason}"
+        )
+    end
   end
 end
