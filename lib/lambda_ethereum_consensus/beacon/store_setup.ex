@@ -85,7 +85,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   Gets the deposit tree snapshot. Will return nil unless the strategy is checkpoint sync.
   """
   @spec get_deposit_snapshot!() :: DepositTreeSnapshot.t() | nil
-  def get_deposit_snapshot!(), do: get_deposit_snapshot!(get_strategy!())
+  def get_deposit_snapshot!, do: get_deposit_snapshot!(get_strategy!())
 
   @spec get_deposit_snapshot!(store_setup_strategy()) :: DepositTreeSnapshot.t() | nil
   def get_deposit_snapshot!({:file, _}), do: nil
@@ -93,7 +93,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   def get_deposit_snapshot!(:db), do: nil
 
   @spec get_strategy!() :: store_setup_strategy
-  defp get_strategy!() do
+  defp get_strategy! do
     Application.get_env(:lambda_ethereum_consensus, __MODULE__)
     |> Keyword.fetch!(:strategy)
   end
