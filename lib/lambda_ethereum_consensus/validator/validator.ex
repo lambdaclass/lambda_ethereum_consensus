@@ -106,6 +106,7 @@ defmodule LambdaEthereumConsensus.Validator do
     state
     |> update_state(slot, head_root)
     |> maybe_attest(slot)
+    |> maybe_build_payload(slot + 1)
     |> then(&{:noreply, &1})
   end
 
@@ -137,9 +138,10 @@ defmodule LambdaEthereumConsensus.Validator do
   defp handle_tick({slot, :second_third}, state) do
     # Here we may:
     # 1. send our attestation for an empty slot
-    # 2. (TODO) start building a payload
+    # 2. start building a payload
     state
     |> maybe_attest(slot)
+    |> maybe_build_payload(slot + 1)
   end
 
   defp handle_tick({slot, :last_third}, state) do
@@ -472,26 +474,43 @@ defmodule LambdaEthereumConsensus.Validator do
     end)
   end
 
-  defp maybe_propose(%{duties: %{proposer: slots}} = state, slot) do
-    if Enum.member?(slots, slot) do
-      propose(state, slot)
-    end
+  defp proposer?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
-    state
+  defp maybe_build_payload(%{root: head_root} = state, proposed_slot) do
+    if proposer?(state, proposed_slot) do
+      start_payload_builder(state, proposed_slot, head_root)
+    else
+      state
+    end
   end
 
-  defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
-    # TODO: handle errors if there are any
-    {:ok, payload_id} = BlockBuilder.start_building_payload(proposed_slot, head_root)
+  defp start_payload_builder(%{payload_builder: {slot, root, _}} = state, slot, root), do: state
 
+  defp start_payload_builder(state, proposed_slot, head_root) do
+    # TODO: handle reorgs and late blocks
+    {:ok, payload_id} = BlockBuilder.start_building_payload(proposed_slot, head_root)
+    %{state | payload_builder: {proposed_slot, head_root, payload_id}}
+  end
+
+  defp maybe_propose(state, slot) do
+    if proposer?(state, slot) do
+      propose(state, slot)
+    else
+      state
+    end
+  end
+
+  defp propose(%{root: head_root, validator: validator} = state, proposed_slot) do
+    {^proposed_slot, ^head_root, payload_id} = state.block_builder
+    # TODO: handle errors if there are any
     {:ok, signed_block} =
       BlockBuilder.build_block(
         %BuildBlockRequest{
           slot: proposed_slot,
           parent_root: head_root,
-          proposer_index: index,
+          proposer_index: validator.index,
           graffiti_message: @default_graffiti_message,
-          privkey: privkey
+          privkey: validator.privkey
         },
         payload_id
       )
@@ -505,5 +524,7 @@ defmodule LambdaEthereumConsensus.Validator do
       :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
       _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
     end
+
+    %{state | payload_builder: nil}
   end
 end
