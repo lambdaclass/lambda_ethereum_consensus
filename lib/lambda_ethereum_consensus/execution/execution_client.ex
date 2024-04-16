@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   """
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
+  alias Types.BlobsBundle
   alias Types.DepositData
   alias Types.ExecutionPayload
   alias Types.NewPayloadRequest
@@ -13,11 +14,12 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
 
   @type execution_status :: :optimistic | :valid | :invalid | :unknown
 
-  @spec get_payload(any()) :: {:error, any()} | {:ok, any()}
+  @spec get_payload(Types.payload_id()) ::
+          {:error, {ExecutionPayload.t(), BlobsBundle.t()}} | {:ok, any()}
   def get_payload(payload_id) do
     case EngineApi.get_payload(payload_id) do
-      {:ok, %{"execution_payload" => raw_payload}} ->
-        {:ok, parse_raw_payload(raw_payload)}
+      {:ok, %{"execution_payload" => raw_payload, "blobs_bundle" => raw_blobs_bundle}} ->
+        {:ok, {parse_raw_payload(raw_payload), parse_raw_blobs_bundle(raw_blobs_bundle)}}
 
       {:error, reason} ->
         Logger.error("Error when calling get payload: #{inspect(reason)}")
@@ -238,6 +240,18 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
       validator_index: raw_withdrawal["validatorIndex"] |> RPC.decode_integer(),
       address: raw_withdrawal["address"] |> RPC.decode_binary(),
       amount: raw_withdrawal["amount"] |> RPC.decode_integer()
+    }
+  end
+
+  defp parse_raw_blobs_bundle(%{
+         "blobs" => raw_blobs,
+         "commitments" => raw_commitments,
+         "proofs" => raw_proofs
+       }) do
+    %BlobsBundle{
+      blobs: raw_blobs |> Enum.map(&RPC.decode_binary/1),
+      commitments: raw_commitments |> Enum.map(&RPC.decode_binary/1),
+      proofs: raw_proofs |> Enum.map(&RPC.decode_binary/1)
     }
   end
 
