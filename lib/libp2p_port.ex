@@ -10,7 +10,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId

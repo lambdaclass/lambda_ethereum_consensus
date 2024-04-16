@@ -1,3 +1,4 @@
+# Used by "mix recode"
 [
   version: "0.7.2",
   # Can also be set/reset with `--autocorrect`/`--no-autocorrect`.
@@ -11,7 +12,9 @@
   # Can also be set/reset with `--verbose`/`--no-verbose`.
   verbose: false,
   # Can be overwritten by calling `mix recode "lib/**/*.ex"`.
-  inputs: ["{mix,.formatter}.exs", "{config,lib,bench,test}/**/*.{ex,exs}"],
+  inputs:
+    ["{mix,.formatter,.recode}.exs", "{config,lib,bench}/**/*.{ex,exs}"] ++
+      ((Path.wildcard("test/*") -- ["test/generated"]) |> Enum.map(&(&1 <> "/**/*.{ex,exs}"))),
   formatters: [Recode.CLIFormatter],
   tasks: [
     # Tasks could be added by a tuple of the tasks module name and an options
@@ -24,12 +27,18 @@
     {Recode.Task.FilterCount, []},
     # {Recode.Task.IOInspect, [autocorrect: false]},
     # {Recode.Task.Nesting, []},
-    {Recode.Task.PipeFunOne, []},
+    {Recode.Task.PipeFunOne, []}
+
     # {Recode.Task.SinglePipe, []},
+
     # {Recode.Task.Specs, [exclude: ["test/**/*.{ex,exs}", "mix.exs"], config: [only: :visible]]},
+
     # {Recode.Task.TagFIXME, [exit_code: 2]},
+
     # {Recode.Task.TagTODO, [exit_code: 4]},
+
     # {Recode.Task.TestFileExt, []},
+
     # {Recode.Task.UnusedVariable, [active: false]}
   ]
 ]

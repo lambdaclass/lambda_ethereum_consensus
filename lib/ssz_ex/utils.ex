@@ -1,9 +1,8 @@
-defmodule LambdaEthereumConsensus.SszEx.Utils do
+defmodule SszEx.Utils do
   @moduledoc """
   Utilities for SszEx.
   """
 
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
 

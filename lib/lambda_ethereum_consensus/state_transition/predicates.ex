@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   Range of predicates enabling verification of state
   """
 
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState

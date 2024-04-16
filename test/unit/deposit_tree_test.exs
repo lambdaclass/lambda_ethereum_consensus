@@ -3,7 +3,6 @@ defmodule Unit.DepositTreeTest do
 
   use ExUnit.Case
 
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias Types.DepositData
   alias Types.DepositTree
