@@ -703,7 +703,7 @@ defmodule Unit.SSZExTest do
   end
 
   test "decode longer IndexedAttestation" do
-    encoded_indexed_attestation = <<0::size(10000)>>
+    encoded_indexed_attestation = <<0::size(10_000)>>
 
     assert SszEx.decode(encoded_indexed_attestation, IndexedAttestation) ==
              {:error, "OffsetIntoFixedPortion (0)"}
