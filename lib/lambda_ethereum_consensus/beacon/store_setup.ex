@@ -1,40 +1,30 @@
-defmodule Genesis do
+defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   @moduledoc """
-  Logic to get genesis state from different sources. Two strategies can be specified:
-  - {:genesis_file, state}: a file with a hardcoded genesis is present.
-  - {:checkpoint_sync_url, url}: getting a checkpoint state from a specified endpoint.
-  - :db: The default one, which is relying on a saved state in the db.
-
-  The order for processing is the following:
-  - If a db state is present, it will always be used and the strategy will be ignored.
-  - If no db state is present, the checkpoint_sync_url or genesis_file strategy will be used.
-  - If the db is empty and the default strategy is used, there is no valid state to begin the chain
-    from and the node will stop.
-
-  All methods return {store, root} as that's what's needed by other modules such as
-  the beacon node.
+  Logic to get an initial state, store and deposit contract snapshot from different sources.
   """
 
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
+  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.StoreDb
-  alias Types.SignedBeaconBlock
   alias Types.BeaconBlock
+  alias Types.SignedBeaconBlock
   alias Types.Store
-  alias LambdaEthereumConsensus.SszEx
+
   require Logger
 
   @max_epochs_before_stale 8
 
   @doc """
-  Args:
+  Args: Three possible arguments:
+  - {:file, anchor_state}: path of an ssz file to get the genesis state from.
+  - {:checkpoint_sync_url, url}: url to get the genesis state from if performing checkpoint sync.
+  - :db : the genesis state and store can only be recovered from the db.
 
-  Opts are:
-  - checkpoint_sync_url: url to get the genesis state from if performing checkpoint sync.
-  - genesis_file: path of an ssz file to get the genesis state from.
+  Return value:
+  - {store, genesis_validators_root}
   """
-
-  def get_state!({:file, anchor_state}) do
+  def setup!({:file, anchor_state}) do
     anchor_block = %{
       SszEx.default(SignedBeaconBlock)
       | message: %{SszEx.default(BeaconBlock) | state_root: Ssz.hash_tree_root!(anchor_state)}
@@ -44,7 +34,7 @@ defmodule Genesis do
     {store, ChainSpec.get_genesis_validators_root()}
   end
 
-  def get_state!({:checkpoint_sync_url, checkpoint_url}) do
+  def setup!({:checkpoint_sync_url, checkpoint_url}) do
     case restore_state_from_db() do
       {:ok, {store, root}} ->
         Logger.warning("[Checkpoint sync] Recent state found. Ignoring the checkpoint URL.")
@@ -55,7 +45,7 @@ defmodule Genesis do
     end
   end
 
-  def get_state!(:db) do
+  def setup!(:db) do
     case restore_state_from_db() do
       nil ->
         Logger.error(
@@ -68,6 +58,13 @@ defmodule Genesis do
         {store, root}
     end
   end
+
+  @doc """
+  Gets the deposit tree snapshot. Will return nil unless the strategy is checkpoint sync.
+  """
+  def get_deposit_snapshot!({:file, _}), do: nil
+  def get_deposit_snapshot!({:checkpoint_sync_url, url}), do: fetch_deposit_snapshot(url)
+  def get_deposit_snapshot!(:db), do: nil
 
   defp restore_state_from_db do
     # Try to fetch the old store from the database
@@ -102,10 +99,6 @@ defmodule Genesis do
 
         # We already checked block and state match
         {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
-
-        # TODO: integrate into CheckpointSync, and validate snapshot
-        snapshot = fetch_deposit_snapshot(url)
-        store = Store.init_deposit_tree(store, snapshot)
 
         # Save store in DB
         StoreDb.persist_store(store)

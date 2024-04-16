@@ -15,28 +15,26 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
 
-  alias Libp2pProto.{
-    AddPeer,
-    Command,
-    Enr,
-    GetId,
-    GossipSub,
-    InitArgs,
-    JoinTopic,
-    LeaveTopic,
-    NewPeer,
-    Notification,
-    Publish,
-    Request,
-    Result,
-    ResultMessage,
-    SendRequest,
-    SendResponse,
-    SetHandler,
-    SubscribeToTopic,
-    Tracer,
-    ValidateMessage
-  }
+  alias Libp2pProto.AddPeer
+  alias Libp2pProto.Command
+  alias Libp2pProto.Enr
+  alias Libp2pProto.GetId
+  alias Libp2pProto.GossipSub
+  alias Libp2pProto.InitArgs
+  alias Libp2pProto.JoinTopic
+  alias Libp2pProto.LeaveTopic
+  alias Libp2pProto.NewPeer
+  alias Libp2pProto.Notification
+  alias Libp2pProto.Publish
+  alias Libp2pProto.Request
+  alias Libp2pProto.Result
+  alias Libp2pProto.ResultMessage
+  alias Libp2pProto.SendRequest
+  alias Libp2pProto.SendResponse
+  alias Libp2pProto.SetHandler
+  alias Libp2pProto.SubscribeToTopic
+  alias Libp2pProto.Tracer
+  alias Libp2pProto.ValidateMessage
 
   require Logger
 

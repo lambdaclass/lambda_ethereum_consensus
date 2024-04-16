@@ -4,8 +4,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   use Supervisor
   require Logger
 
-  alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.Beacon.StoreSetup
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
 
@@ -15,10 +16,12 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   @impl true
   def init(_) do
-    {store, genesis_validators_root} =
+    setup_strategy =
       Application.get_env(:lambda_ethereum_consensus, ForkChoice)
       |> Keyword.fetch!(:genesis_state)
-      |> Genesis.get_state!()
+
+    {store, genesis_validators_root} = StoreSetup.setup!(setup_strategy)
+    deposit_tree_snapshot = StoreSetup.get_deposit_snapshot!(setup_strategy)
 
     Cache.initialize_cache()
 
@@ -45,21 +48,37 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       finalized: store.finalized_checkpoint
     }
 
-    children = [
-      {LambdaEthereumConsensus.Beacon.BeaconChain,
-       {store.genesis_time, genesis_validators_root, fork_choice_data, time}},
-      {LambdaEthereumConsensus.ForkChoice, {store, head_slot, time}},
-      {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
-      LambdaEthereumConsensus.P2P.Peerbook,
-      LambdaEthereumConsensus.P2P.IncomingRequests,
-      LambdaEthereumConsensus.Beacon.PendingBlocks,
-      LambdaEthereumConsensus.Beacon.SyncBlocks,
-      LambdaEthereumConsensus.P2P.GossipSub,
-      LambdaEthereumConsensus.P2P.Gossip.Attestation,
-      # TODO: move checkpoint sync outside and move this to application.ex
-      {LambdaEthereumConsensus.Validator, {head_slot, head_root}}
-    ]
+    validator_children =
+      get_validator_children(deposit_tree_snapshot, head_slot, head_root, store.genesis_time)
+
+    children =
+      [
+        {LambdaEthereumConsensus.Beacon.BeaconChain,
+         {store.genesis_time, genesis_validators_root, fork_choice_data, time}},
+        {LambdaEthereumConsensus.ForkChoice, {store, head_slot, time}},
+        {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
+        LambdaEthereumConsensus.P2P.Peerbook,
+        LambdaEthereumConsensus.P2P.IncomingRequests,
+        LambdaEthereumConsensus.Beacon.PendingBlocks,
+        LambdaEthereumConsensus.Beacon.SyncBlocks,
+        LambdaEthereumConsensus.P2P.GossipSub,
+        LambdaEthereumConsensus.P2P.Gossip.Attestation
+      ] ++ validator_children
 
     Supervisor.init(children, strategy: :one_for_all)
+  end
+
+  defp get_validator_children(nil, _, _, _) do
+    Logger.warning("[Checkpoint sync] To enable validator features, checkpoint-sync is required.")
+
+    []
+  end
+
+  defp get_validator_children(deposit_tree_snapshot, head_slot, head_root, genesis_time) do
+    # TODO: move checkpoint sync outside and move this to application.ex
+    [
+      {LambdaEthereumConsensus.Validator, {head_slot, head_root}},
+      {LambdaEthereumConsensus.Execution.ExecutionChain, {genesis_time, deposit_tree_snapshot}}
+    ]
   end
 end

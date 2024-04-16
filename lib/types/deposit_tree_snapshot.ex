@@ -22,4 +22,12 @@ defmodule Types.DepositTreeSnapshot do
           execution_block_hash: Types.hash32(),
           execution_block_height: Types.uint64()
         }
+
+  def get_eth1_data(%__MODULE__{} = snapshot) do
+    %Types.Eth1Data{
+      deposit_root: snapshot.deposit_root,
+      deposit_count: snapshot.deposit_count,
+      block_hash: snapshot.execution_block_hash
+    }
+  end
 end

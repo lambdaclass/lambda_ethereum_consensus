@@ -7,7 +7,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.ForkChoice.{Handlers, Helpers}
+  alias LambdaEthereumConsensus.Execution.ExecutionChain
+  alias LambdaEthereumConsensus.ForkChoice.Handlers
+  alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb
@@ -68,6 +70,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def handle_cast({:on_block, block_root, %SignedBeaconBlock{} = signed_block, from}, store) do
     slot = signed_block.message.slot
 
+    Logger.info("[Fork choice] Adding new block", root: block_root, slot: slot)
+
     result =
       :telemetry.span([:sync, :on_block], %{}, fn ->
         {process_block(block_root, signed_block, store), %{}}
@@ -76,7 +80,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     case result do
       {:ok, new_store} ->
         :telemetry.execute([:sync, :on_block], %{slot: slot})
-        Logger.info("[Fork choice] New block added", slot: slot, root: block_root)
+        Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
 
         Task.async(__MODULE__, :recompute_head, [new_store])
 
@@ -167,17 +171,20 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Handlers.notify_forkchoice_update(store, head_block)
 
+    %{slot: slot, body: body} = head_block
+
     OperationsCollector.notify_new_block(head_block)
-    Validator.notify_new_block(head_block.slot, head_root)
+    Validator.notify_new_block(slot, head_root)
+    ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
 
     BeaconChain.update_fork_choice_cache(
       head_root,
-      head_block.slot,
+      slot,
       store.justified_checkpoint,
       store.finalized_checkpoint
     )
 
-    Logger.debug("[Fork choice] Updated fork choice cache", slot: head_block.slot)
+    Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
 
     :ok
   end

@@ -12,16 +12,15 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
-  alias LambdaEthereumConsensus.Validator.BlockRequest
-  alias LambdaEthereumConsensus.Validator.Proposer
+  alias LambdaEthereumConsensus.Validator.BlockBuilder
+  alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
 
-  @default_graffiti_message "Lambda: good, nice, gentle"
+  @default_graffiti_message "Lambda, so gentle, so good"
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -106,7 +105,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     new_state = maybe_publish_aggregate(new_state, slot)
 
-    if should_propose?(new_state, slot + 1), do: propose(new_state, slot)
+    if should_propose?(new_state, slot + 1), do: propose(new_state, slot + 1)
 
     {:noreply, new_state}
   end
@@ -122,7 +121,7 @@ defmodule LambdaEthereumConsensus.Validator do
       target_root = if slot == start_slot, do: head_root, else: last_root
 
       # Process the start of the new epoch
-      new_beacon = fetch_target_state(epoch, target_root) |> process_slots(start_slot)
+      new_beacon = fetch_target_state(epoch, target_root) |> go_to_slot(start_slot)
 
       new_duties =
         shift_duties(state.duties, epoch, last_epoch)
@@ -321,7 +320,7 @@ defmodule LambdaEthereumConsensus.Validator do
       slot: slot
     } = duty
 
-    head_state = BlockStates.get_state!(head_root) |> process_slots(slot)
+    head_state = BlockStates.get_state!(head_root) |> go_to_slot(slot)
     head_epoch = Misc.compute_epoch_at_slot(slot)
 
     epoch_boundary_block_root =
@@ -357,11 +356,15 @@ defmodule LambdaEthereumConsensus.Validator do
     {duty.subnet_id, attestation}
   end
 
-  defp process_slots(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
+  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
 
-  defp process_slots(state, slot) do
+  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot < slot do
     {:ok, st} = StateTransition.process_slots(state, slot)
     st
+  end
+
+  defp go_to_slot(%{latest_block_header: %{parent_root: parent_root}}, slot) do
+    BlockStates.get_state!(parent_root) |> go_to_slot(slot)
   end
 
   defp update_with_aggregation_duty(nil, _beacon_state, _privkey), do: nil
@@ -391,7 +394,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp fetch_validator_index(beacon, %{index: nil, pubkey: pk}) do
-    beacon.validators |> Enum.find_index(&(&1.pubkey == pk))
+    Enum.find_index(beacon.validators, &(&1.pubkey == pk))
   end
 
   defp compute_proposer_duties(beacon_state, epoch, validator_index) do
@@ -409,28 +412,21 @@ defmodule LambdaEthereumConsensus.Validator do
   defp should_propose?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
-    last_eth1_data = Blocks.get_block!(head_root) |> get_in([:body, :eth1_data])
-
-    block_request =
-      %BlockRequest{
-        slot: proposed_slot,
-        proposer_index: index,
-        graffiti_message: @default_graffiti_message,
-        eth1_data: last_eth1_data
-      }
-      |> Map.merge(Proposer.fetch_operations_for_block())
-
     # TODO: handle errors if there are any
     {:ok, signed_block} =
-      BlockStates.get_state!(head_root)
-      |> Proposer.construct_block(block_request, privkey)
+      BlockBuilder.build_block(%BuildBlockRequest{
+        slot: proposed_slot,
+        parent_root: head_root,
+        proposer_index: index,
+        graffiti_message: @default_graffiti_message,
+        privkey: privkey
+      })
 
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
     # TODO: we might want to send the block to ForkChoice
-
     case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
       :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
       _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")

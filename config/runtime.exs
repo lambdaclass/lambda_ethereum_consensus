@@ -223,9 +223,10 @@ case Keyword.get(args, :log_file) do
 end
 
 # Sentry
+dsn = System.get_env("SENTRY_DSN")
 
-{git_sha, 0} = System.cmd("git", ["rev-parse", "--short", "HEAD"])
+if dsn do
+  {git_sha, 0} = System.cmd("git", ["rev-parse", "HEAD"])
 
-config :sentry,
-  dsn: System.get_env("SENTRY_DSN"),
-  release: String.trim(git_sha)
+  config :sentry, dsn: dsn, release: String.trim(git_sha)
+end

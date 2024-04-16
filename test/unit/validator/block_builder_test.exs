@@ -1,12 +1,13 @@
-defmodule Unit.Validator.ProposerTests do
+defmodule Unit.Validator.BlockBuilderTest do
   @moduledoc false
-  use ExUnit.Case
 
   alias LambdaEthereumConsensus.StateTransition
-  alias LambdaEthereumConsensus.Validator.BlockRequest
-  alias LambdaEthereumConsensus.Validator.Proposer
+  alias LambdaEthereumConsensus.Validator.BlockBuilder
+  alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
+
+  use ExUnit.Case
 
   setup_all do
     Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
@@ -30,18 +31,21 @@ defmodule Unit.Validator.ProposerTests do
     # This private key is taken from the spec test vectors
     privkey = <<0::248, 64>>
 
-    block_request = %BlockRequest{
+    block_request = %BuildBlockRequest{
       slot: pre_state.slot + 1,
+      parent_root: spec_block.message.parent_root,
       proposer_index: 63,
       graffiti_message: "",
-      eth1_data: %Types.Eth1Data{
-        deposit_root: <<0::256>>,
-        deposit_count: 64,
-        block_hash: <<0::256>>
-      }
+      privkey: privkey
     }
 
-    {:ok, signed_block} = Proposer.construct_block(pre_state, block_request, privkey)
+    {:ok, signed_block} =
+      BlockBuilder.build_from_parts(
+        pre_state,
+        block_request,
+        spec_block.message.body.execution_payload,
+        spec_block.message.body.eth1_data
+      )
 
     assert signed_block.message.body.randao_reveal == spec_block.message.body.randao_reveal
     assert signed_block.signature == spec_block.signature

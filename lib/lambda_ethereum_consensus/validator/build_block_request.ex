@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Validator.BlockRequest do
+defmodule LambdaEthereumConsensus.Validator.BuildBlockRequest do
   @moduledoc """
   Struct that stores and validates data for block construction.
   Most of the data is already validated when computing the state
@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
   """
   alias Types.BeaconState
 
-  enforced_keys = [:slot, :proposer_index, :eth1_data]
+  enforced_keys = [:slot, :proposer_index, :parent_root, :privkey]
 
   optional_keys = [
     graffiti_message: "",
@@ -22,14 +22,15 @@ defmodule LambdaEthereumConsensus.Validator.BlockRequest do
 
   @type t() :: %__MODULE__{
           slot: Types.slot(),
+          parent_root: Types.root(),
           proposer_index: Types.validator_index(),
           graffiti_message: binary(),
-          eth1_data: Types.Eth1Data.t(),
           proposer_slashings: [Types.ProposerSlashing.t()],
           attester_slashings: [Types.AttesterSlashing.t()],
           attestations: [Types.Attestation.t()],
           voluntary_exits: [Types.SignedVoluntaryExit.t()],
-          bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()]
+          bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()],
+          privkey: Bls.privkey()
         }
 
   @spec validate(t(), BeaconState.t()) :: {:ok, t()} | {:error, String.t()}
