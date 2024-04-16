@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.BeaconBlock
+  alias Types.DepositTreeSnapshot
   alias Types.SignedBeaconBlock
   alias Types.Store
 
