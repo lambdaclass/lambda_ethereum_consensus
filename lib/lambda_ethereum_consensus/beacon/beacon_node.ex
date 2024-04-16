@@ -15,12 +15,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   @impl true
   def init(_) do
-    setup_strategy =
-      Application.get_env(:lambda_ethereum_consensus, StoreSetup)
-      |> Keyword.fetch!(:strategy)
-
-    {store, genesis_validators_root} = StoreSetup.setup!(setup_strategy)
-    deposit_tree_snapshot = StoreSetup.get_deposit_snapshot!(setup_strategy)
+    {store, genesis_validators_root} = StoreSetup.setup!()
+    deposit_tree_snapshot = StoreSetup.get_deposit_snapshot!()
 
     Cache.initialize_cache()
 

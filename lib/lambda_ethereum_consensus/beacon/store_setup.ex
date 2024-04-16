@@ -23,9 +23,9 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   - checkpoint_sync_url: a url where checkpoint sync can be performed.
 
   Return value: a store setup strategy, which is one of the following:
-  - {:file, Types.BeaconState.t()}
-  - {:checkpoint_sync_url, binary()}
-  - :db
+  - {:file, anchor_state}: path of an ssz file to get the genesis state from.
+  - {:checkpoint_sync_url, url}: url to get the genesis state from if performing checkpoint sync.
+  - :db : the genesis state and store can only be recovered from the db.
   """
   def make_strategy!(nil, nil), do: :db
   def make_strategy!(nil, url) when is_binary(url), do: {:checkpoint_sync_url, url}
@@ -38,15 +38,15 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   end
 
   @doc """
-  Args: Three possible arguments:
-  - {:file, anchor_state}: path of an ssz file to get the genesis state from.
-  - {:checkpoint_sync_url, url}: url to get the genesis state from if performing checkpoint sync.
-  - :db : the genesis state and store can only be recovered from the db.
-
-  Return value:
-  - {store, genesis_validators_root}
+  Gets a {store, genesis_validators_root} tuple with the configured strategy.
   """
+  @spec setup!() :: {Store.t(), binary}
+  def setup!, do: setup!(get_strategy!())
+
+  @spec setup!(store_setup_strategy()) :: {Store.t(), binary}
   def setup!({:file, anchor_state}) do
+    Logger.info("[Store Setup] Setting up store from genesis file.")
+
     anchor_block = %{
       SszEx.default(SignedBeaconBlock)
       | message: %{SszEx.default(BeaconBlock) | state_root: Ssz.hash_tree_root!(anchor_state)}
@@ -84,9 +84,19 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   @doc """
   Gets the deposit tree snapshot. Will return nil unless the strategy is checkpoint sync.
   """
+  @spec get_deposit_snapshot!() :: DepositTreeSnapshot.t() | nil
+  def get_deposit_snapshot!(), do: get_deposit_snapshot!(get_strategy!())
+
+  @spec get_deposit_snapshot!(store_setup_strategy()) :: DepositTreeSnapshot.t() | nil
   def get_deposit_snapshot!({:file, _}), do: nil
   def get_deposit_snapshot!({:checkpoint_sync_url, url}), do: fetch_deposit_snapshot(url)
   def get_deposit_snapshot!(:db), do: nil
+
+  @spec get_strategy!() :: store_setup_strategy
+  defp get_strategy!() do
+    Application.get_env(:lambda_ethereum_consensus, __MODULE__)
+    |> Keyword.fetch!(:strategy)
+  end
 
   defp restore_state_from_db do
     # Try to fetch the old store from the database
