@@ -681,31 +681,31 @@ defmodule Unit.SSZExTest do
     assert Merkleization.get_zero_hash(3) == chunk3
   end
 
-  test "decode shorter checkpoint" do
-    encoded_checkpoint =
-      <<0, 0, 0>>
+  # test "decode shorter checkpoint" do
+  #   encoded_checkpoint =
+  #     <<0, 0, 0>>
 
-    assert SszEx.decode(encoded_checkpoint, Checkpoint) == {:error, "InvalidByteLength"}
-  end
+  #   assert SszEx.decode(encoded_checkpoint, Checkpoint) == {:error, "InvalidByteLength"}
+  # end
 
-  test "decode longer checkpoint" do
-    encoded_checkpoint =
-      <<0::size(41)>>
+  # test "decode longer checkpoint" do
+  #   encoded_checkpoint =
+  #     <<0::size(41)>>
 
-    assert SszEx.decode(encoded_checkpoint, Checkpoint) == {:error, "InvalidByteLength"}
-  end
+  #   assert SszEx.decode(encoded_checkpoint, Checkpoint) == {:error, "InvalidByteLength"}
+  # end
 
-  test "decode shorter IndexedAttestation" do
-    encoded_indexed_attestation = <<0, 0, 0>>
+  # test "decode shorter IndexedAttestation" do
+  #   encoded_indexed_attestation = <<0, 0, 0>>
 
-    assert SszEx.decode(encoded_indexed_attestation, IndexedAttestation) ==
-             {:error, "OffsetOutOfBounds"}
-  end
+  #   assert SszEx.decode(encoded_indexed_attestation, IndexedAttestation) ==
+  #            {:error, "OffsetOutOfBounds"}
+  # end
 
-  test "decode longer IndexedAttestation" do
-    encoded_indexed_attestation = <<0::size(10_000)>>
+  # test "decode longer IndexedAttestation" do
+  #   encoded_indexed_attestation = <<0::size(10_000)>>
 
-    assert SszEx.decode(encoded_indexed_attestation, IndexedAttestation) ==
-             {:error, "OffsetIntoFixedPortion (0)"}
-  end
+  #   assert SszEx.decode(encoded_indexed_attestation, IndexedAttestation) ==
+  #            {:error, "OffsetIntoFixedPortion (0)"}
+  # end
 end

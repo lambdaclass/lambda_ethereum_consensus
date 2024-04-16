@@ -8,7 +8,6 @@ defmodule SszEx.Decode do
   alias SszEx.Utils
 
   import Bitwise
-  @bits_per_byte 8
   @bytes_per_length_offset 4
   @offset_bits 32
 
@@ -56,11 +55,18 @@ defmodule SszEx.Decode do
     {:ok, element}
   end
 
-  defp decode_uint(_binary, size), do: {:error, "invalid byte size #{inspect(size)}"}
+  defp decode_uint(binary, size),
+    do:
+      {:error,
+       "Invalid binary length when decoding uint.\nExpected size: #{size}.\nFound:#{bit_size(binary)}\nBinary:#{binary}"}
 
   defp decode_bool("\x01"), do: {:ok, true}
   defp decode_bool("\x00"), do: {:ok, false}
-  defp decode_bool(_), do: {:error, "invalid bool value"}
+
+  defp decode_bool(binary),
+    do:
+      {:error,
+       "Invalid binary value when decoding bool.\nExpected value: x01/x00.\nFound: #{binary}."}
 
   defp decode_bitlist(bit_list, max_size) when bit_size(bit_list) > 0 do
     num_bytes = byte_size(bit_list)
@@ -69,30 +75,31 @@ defmodule SszEx.Decode do
 
     cond do
       match?(<<_::binary-size(num_bytes - 1), 0>>, bit_list) ->
-        {:error, "BitList has no length information."}
-
-      div(len, @bits_per_byte) + 1 != num_bytes ->
-        {:error, "invalid byte count"}
+        {:error,
+         "Invalid binary value when decoding BitList.\nBinary has no length information.\nBinary: #{bit_list}."}
 
       len > max_size ->
-        {:error, "out of bounds"}
+        {:error,
+         "Invalid binary length when decoding BitList. Expected max_size: #{max_size}. Found: #{len}.\nBinary: #{bit_list}"}
 
       true ->
         {:ok, decoded}
     end
   end
 
-  defp decode_bitlist(_bit_list, _max_size), do: {:error, "invalid bitlist"}
+  defp decode_bitlist(_binary, _max_size),
+    do: {:error, "Invalid binary value when decoding BitList.\nEmpty binary found.\n"}
 
   defp decode_bitvector(bit_vector, size) do
     num_bytes = byte_size(bit_vector)
 
     cond do
       bit_size(bit_vector) == 0 ->
-        {:error, "ExcessBits"}
+        {:error, "Invalid binary value when decoding BitVector.\nEmpty binary found.\n"}
 
       num_bytes != max(1, div(size + 7, 8)) ->
-        {:error, "InvalidByteCount"}
+        {:error,
+         "Invalid binary length when decoding BitVector. Expected size: #{size}.\nBinary: #{bit_vector}"}
 
       true ->
         case bit_vector do
@@ -102,7 +109,8 @@ defmodule SszEx.Decode do
             {:ok, BitVector.new(bit_vector, size)}
 
           _else ->
-            {:error, "ExcessBits"}
+            {:error,
+             "Invalid binary length when decoding BitVector. Expected size: #{size}.\nBinary: #{bit_vector}"}
         end
     end
   end
@@ -118,21 +126,19 @@ defmodule SszEx.Decode do
 
   defp decode_fixed_vector(binary, inner_type, size) do
     fixed_size = Utils.get_fixed_size(inner_type)
+    byte_size = byte_size(binary)
 
-    with :ok <- check_valid_vector_size_prev_decode(fixed_size, size, binary),
-         {:ok, decoded_vector} = result <-
-           decode_fixed_collection(binary, fixed_size, inner_type),
-         :ok <- check_valid_vector_size_after_decode(size, length(decoded_vector)) do
-      result
+    if fixed_size * size != byte_size do
+      {:error,
+       "Invalid binary length while decoding vector of #{inner_type}.\nExpected size #{fixed_size * size}. Found: #{byte_size}.\nBinary: #{binary}."}
+    else
+      with {:ok, decoded_vector} = result <-
+             decode_fixed_collection(binary, fixed_size, inner_type),
+           :ok <- check_valid_vector_size_after_decode(size, length(decoded_vector)) do
+        result
+      end
     end
   end
-
-  defp check_valid_vector_size_prev_decode(fixed_size, size, binary)
-       when fixed_size * size == byte_size(binary),
-       do: :ok
-
-  defp check_valid_vector_size_prev_decode(_fixed_size, _size, _binary),
-    do: {:error, "Invalid vector size"}
 
   defp check_valid_vector_size_after_decode(size, decoded_size)
        when decoded_size == size and decoded_size > 0,
@@ -240,9 +246,11 @@ defmodule SszEx.Decode do
   defp decode_fixed_container(binary, module) do
     schemas = module.schema()
     fixed_length = get_fixed_length(schemas)
+    byte_size = byte_size(binary)
 
-    if fixed_length != byte_size(binary) do
-      {:error, "InvalidByteLength"}
+    if fixed_length != byte_size do
+      {:error,
+       "Invalid byte length while decoding #{module}. Expected #{fixed_length}. Found #{byte_size}."}
     else
       with {:ok, fixed_parts, _offsets, _items_index} <-
              decode_fixed_section(binary, schemas, fixed_length) do
