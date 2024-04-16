@@ -101,14 +101,8 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  def handle_cast({:new_block, slot, head_root}, state) do
-    # TODO: this doesn't take into account reorgs
-    state
-    |> update_state(slot, head_root)
-    |> maybe_attest(slot)
-    |> maybe_build_payload(slot + 1)
-    |> then(&{:noreply, &1})
-  end
+  def handle_cast({:new_block, slot, head_root}, state),
+    do: {:noreply, handle_new_block(slot, head_root, state)}
 
   def handle_cast({:on_tick, _}, %{validator: %{index: nil}} = state), do: {:noreply, state}
 
@@ -125,6 +119,14 @@ defmodule LambdaEthereumConsensus.Validator do
       attester: [:not_computed, :not_computed, :not_computed],
       proposer: :not_computed
     }
+  end
+
+  defp handle_new_block(slot, head_root, state) do
+    # TODO: this doesn't take into account reorgs
+    state
+    |> update_state(slot, head_root)
+    |> maybe_attest(slot)
+    |> maybe_build_payload(slot + 1)
   end
 
   defp handle_tick({slot, :first_third}, state) do
