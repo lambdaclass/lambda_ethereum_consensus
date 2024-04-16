@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
   Shuffling state transition functions
   """
   require Aja
-  alias LambdaEthereumConsensus.SszEx
   import Bitwise
 
   @seed_size 32

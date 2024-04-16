@@ -2,7 +2,6 @@ defmodule LambdaEthereumConsensus.Container do
   @moduledoc """
     Container for SSZ
   """
-  alias LambdaEthereumConsensus.SszEx
 
   @doc """
   Returns a keyword list, where the keys are attribute names, and the values are schemas.

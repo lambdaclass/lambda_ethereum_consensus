@@ -2,7 +2,6 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
   @moduledoc """
   Storage and retrieval of blobs.
   """
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Store.Db
   alias Types.Blobdata
   alias Types.BlobSidecar

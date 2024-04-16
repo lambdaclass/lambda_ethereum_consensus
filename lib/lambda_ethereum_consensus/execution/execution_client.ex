@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   """
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
-  alias LambdaEthereumConsensus.SszEx
   alias Types.BlobsBundle
   alias Types.DepositData
   alias Types.ExecutionPayload

@@ -5,7 +5,6 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P
-  alias LambdaEthereumConsensus.SszEx
 
   defmodule Error do
     @moduledoc """

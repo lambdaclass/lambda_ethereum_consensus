@@ -51,11 +51,7 @@ defmodule LambdaEthereumConsensus.Validator do
     state = %{
       slot: slot,
       root: head_root,
-      duties: %{
-        # Order is: previous epoch, current epoch, next epoch
-        attester: [:not_computed, :not_computed, :not_computed],
-        proposer: :not_computed
-      },
+      duties: empty_duties(),
       validator: validator
     }
 
@@ -122,11 +118,20 @@ defmodule LambdaEthereumConsensus.Validator do
   ### Private Functions
   ##########################
 
+  defp empty_duties do
+    %{
+      # Order is: previous epoch, current epoch, next epoch
+      attester: [:not_computed, :not_computed, :not_computed],
+      proposer: :not_computed
+    }
+  end
+
   defp handle_tick({slot, :first_third}, state) do
     # Here we may:
     # 1. propose our blocks
     # 2. (TODO) start collecting attestations for aggregation
     maybe_propose(state, slot)
+    |> update_state(slot, state.root)
   end
 
   defp handle_tick({slot, :second_third}, state) do
@@ -142,28 +147,42 @@ defmodule LambdaEthereumConsensus.Validator do
     maybe_publish_aggregate(state, slot)
   end
 
-  defp update_state(%{slot: last_slot, root: last_root} = state, slot, head_root) do
+  defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
+
+  defp update_state(%{slot: slot, root: _other_root} = state, slot, head_root) do
+    Logger.warning("[Validator] Block came late", slot: slot, root: head_root)
+
+    # TODO: rollback stale data instead of the whole cache
+    epoch = Misc.compute_epoch_at_slot(slot + 1)
+    recompute_duties(state, 0, epoch, slot, head_root)
+  end
+
+  defp update_state(%{slot: last_slot} = state, slot, head_root) do
     last_epoch = Misc.compute_epoch_at_slot(last_slot + 1)
     epoch = Misc.compute_epoch_at_slot(slot + 1)
 
     if last_epoch == epoch do
-      state
+      %{state | slot: slot, root: head_root}
     else
-      start_slot = Misc.compute_start_slot_at_epoch(epoch)
-      target_root = if slot == start_slot, do: head_root, else: last_root
-
-      # Process the start of the new epoch
-      new_beacon = fetch_target_state(epoch, target_root) |> go_to_slot(start_slot)
-
-      new_duties =
-        shift_duties(state.duties, epoch, last_epoch)
-        |> maybe_update_duties(new_beacon, epoch, state.validator)
-
-      move_subnets(state.duties, new_duties)
-      log_duties(new_duties, state.validator.index)
-
-      %{state | slot: slot, root: head_root, duties: new_duties}
+      recompute_duties(state, last_epoch, epoch, slot, head_root)
     end
+  end
+
+  defp recompute_duties(%{root: last_root} = state, last_epoch, epoch, slot, head_root) do
+    start_slot = Misc.compute_start_slot_at_epoch(epoch)
+    target_root = if slot == start_slot, do: head_root, else: last_root
+
+    # Process the start of the new epoch
+    new_beacon = fetch_target_state(epoch, target_root) |> go_to_slot(start_slot)
+
+    new_duties =
+      shift_duties(state.duties, epoch, last_epoch)
+      |> maybe_update_duties(new_beacon, epoch, state.validator)
+
+    move_subnets(state.duties, new_duties)
+    log_duties(new_duties, state.validator.index)
+
+    %{state | slot: slot, root: head_root, duties: new_duties}
   end
 
   defp fetch_target_state(epoch, root) do
@@ -312,7 +331,7 @@ defmodule LambdaEthereumConsensus.Validator do
   # We publish our aggregate on the next slot, and when we're an aggregator
   defp maybe_publish_aggregate(%{validator: validator} = state, slot) do
     case get_current_attester_duty(state, slot) do
-      %{should_aggregate?: false} = duty ->
+      %{should_aggregate?: true} = duty ->
         publish_aggregate(duty, validator)
         replace_attester_duty(state, duty, %{duty | should_aggregate?: false})
 

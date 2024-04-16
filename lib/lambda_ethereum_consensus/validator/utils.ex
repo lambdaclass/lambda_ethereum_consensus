@@ -2,7 +2,6 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   @moduledoc """
   Functions for performing validator duties.
   """
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.AttestationData
