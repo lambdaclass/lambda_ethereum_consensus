@@ -482,14 +482,19 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
     # TODO: handle errors if there are any
+    {:ok, payload_id} = BlockBuilder.start_building_payload(proposed_slot, head_root)
+
     {:ok, signed_block} =
-      BlockBuilder.build_block(%BuildBlockRequest{
-        slot: proposed_slot,
-        parent_root: head_root,
-        proposer_index: index,
-        graffiti_message: @default_graffiti_message,
-        privkey: privkey
-      })
+      BlockBuilder.build_block(
+        %BuildBlockRequest{
+          slot: proposed_slot,
+          parent_root: head_root,
+          proposer_index: index,
+          graffiti_message: @default_graffiti_message,
+          privkey: privkey
+        },
+        payload_id
+      )
 
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)

@@ -27,18 +27,17 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   require Logger
 
-  @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t()) ::
+  # TODO: move to Engine API
+  @type payload_id() :: String.t()
+
+  @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t(), payload_id() | nil) ::
           {:error, any()} | {:ok, Types.SignedBeaconBlock.t()}
-  def build_block(%BuildBlockRequest{parent_root: parent_root, slot: proposed_slot} = request) do
-    head_block = Blocks.get_block!(parent_root)
-    head_hash = head_block.body.execution_payload.block_hash
+  def build_block(%BuildBlockRequest{parent_root: parent_root} = request, payload_id) do
     pre_state = BlockStates.get_state!(parent_root)
 
-    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
-         {:ok, finalized_hash} <- get_finalized_block_hash(mid_state),
-         {:ok, {execution_payload, blobs_bundle}} <-
-           build_execution_block(mid_state, parent_root, head_hash, finalized_hash),
-         {:ok, eth1_vote} <- fetch_eth1_data(proposed_slot, mid_state),
+    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, request.slot),
+         {:ok, {execution_payload, blobs_bundle}} <- ExecutionClient.get_payload(payload_id),
+         {:ok, eth1_vote} <- fetch_eth1_data(request.slot, mid_state),
          {:ok, block_request} <-
            request
            |> Map.merge(fetch_operations_for_block())
@@ -92,6 +91,38 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          execution_payload: execution_payload
        }
      }}
+  end
+
+  @spec start_building_payload(Types.slot(), Types.root()) ::
+          {:ok, payload_id()} | {:error, any()}
+  def start_building_payload(proposed_slot, head_root) do
+    # PERF: the state can be cached for the later build_block call
+    head_block = Blocks.get_block!(head_root)
+    pre_state = BlockStates.get_state!(head_root)
+    head_payload_hash = head_block.body.execution_payload.block_hash
+
+    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
+         {:ok, finalized_payload_hash} <- get_finalized_block_hash(mid_state) do
+      forkchoice_state = %{
+        finalized_block_hash: finalized_payload_hash,
+        head_block_hash: head_payload_hash,
+        # TODO calculate safe block
+        safe_block_hash: finalized_payload_hash
+      }
+
+      current_epoch = Accessors.get_current_epoch(mid_state)
+
+      payload_attributes = %{
+        timestamp: Misc.compute_timestamp_at_slot(mid_state, mid_state.slot),
+        prev_randao: Randao.get_randao_mix(mid_state.randao_mixes, current_epoch),
+        # TODO: add suggested fee recipient
+        suggested_fee_recipient: <<0::160>>,
+        withdrawals: Operations.get_expected_withdrawals(mid_state),
+        parent_beacon_block_root: head_root
+      }
+
+      ExecutionClient.notify_forkchoice_updated(forkchoice_state, payload_attributes)
+    end
   end
 
   @spec seal_block(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
@@ -166,37 +197,6 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       sync_committee_bits: ChainSpec.get("SYNC_COMMITTEE_SIZE") |> BitVector.new(),
       sync_committee_signature: <<192, 0::760>>
     }
-  end
-
-  @spec build_execution_block(BeaconState.t(), Types.root(), Types.hash32(), Types.hash32()) ::
-          {:error, any()} | {:ok, {Types.ExecutionPayload.t(), Types.BlobsBundle.t()}}
-  defp build_execution_block(state, head_root, head_payload_hash, finalized_payload_hash) do
-    forkchoice_state = %{
-      finalized_block_hash: finalized_payload_hash,
-      head_block_hash: head_payload_hash,
-      # TODO calculate safe block
-      safe_block_hash: finalized_payload_hash
-    }
-
-    payload_attributes = %{
-      timestamp: Misc.compute_timestamp_at_slot(state, state.slot),
-      prev_randao: Randao.get_randao_mix(state.randao_mixes, Accessors.get_current_epoch(state)),
-      suggested_fee_recipient: <<0::160>>,
-      withdrawals: Operations.get_expected_withdrawals(state),
-      parent_beacon_block_root: head_root
-    }
-
-    with {:ok, payload_id} <-
-           ExecutionClient.notify_forkchoice_updated(
-             forkchoice_state,
-             payload_attributes
-           ),
-         # TODO: we need to balance a time that should be long enough to let the execution client
-         # pack as many transactions as possible (more fees for us) while giving enough time to propagate
-         # the block and have it included
-         :ok <- Process.sleep(3000) do
-      ExecutionClient.get_payload(payload_id)
-    end
   end
 
   defp get_finalized_block_hash(state) do
