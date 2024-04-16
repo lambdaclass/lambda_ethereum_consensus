@@ -14,7 +14,9 @@ defmodule LambdaEthereumConsensus.Validator.BuildBlockRequest do
     attester_slashings: [],
     attestations: [],
     voluntary_exits: [],
-    bls_to_execution_changes: []
+    bls_to_execution_changes: [],
+    deposits: [],
+    blob_kzg_commitments: []
   ]
 
   @enforce_keys enforced_keys
@@ -30,6 +32,7 @@ defmodule LambdaEthereumConsensus.Validator.BuildBlockRequest do
           attestations: [Types.Attestation.t()],
           voluntary_exits: [Types.SignedVoluntaryExit.t()],
           bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()],
+          blob_kzg_commitments: [Types.kzg_commitment()],
           privkey: Bls.privkey()
         }
 

@@ -2,7 +2,6 @@ defmodule SpecTestUtils do
   @moduledoc """
   Utilities for spec tests.
   """
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   import Aja

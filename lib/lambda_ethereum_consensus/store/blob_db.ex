@@ -2,7 +2,6 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
   @moduledoc """
   Storage and retrieval of blobs.
   """
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.Store.Db
   alias Types.Blobdata
   alias Types.BlobSidecar
@@ -11,8 +10,8 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
   @blobdata_prefix "blobdata"
 
   @spec store_blob(BlobSidecar.t()) :: :ok
-  def store_blob(%BlobSidecar{signed_block_header: %{message: block}} = blob) do
-    block_root = Ssz.hash_tree_root!(block)
+  def store_blob(%BlobSidecar{signed_block_header: %{message: block_header}} = blob) do
+    block_root = Ssz.hash_tree_root!(block_header)
     {:ok, encoded_blob} = Ssz.to_ssz(blob)
 
     key = blob_sidecar_key(block_root, blob.index)

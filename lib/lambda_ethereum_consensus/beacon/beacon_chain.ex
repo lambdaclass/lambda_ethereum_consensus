@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Validator
   alias Types.BeaconState
   alias Types.Checkpoint
 
@@ -17,7 +18,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       :genesis_time,
       :genesis_validators_root,
       :time,
-      :cached_fork_choice
+      :cached_fork_choice,
+      :synced
     ]
 
     @type fork_choice_data :: %{
@@ -31,7 +33,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
             genesis_time: Types.uint64(),
             genesis_validators_root: Types.bytes32(),
             time: Types.uint64(),
-            cached_fork_choice: fork_choice_data()
+            cached_fork_choice: fork_choice_data(),
+            synced: boolean()
           }
   end
 
@@ -103,6 +106,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
        genesis_time: genesis_time,
        genesis_validators_root: genesis_validators_root,
        time: time,
+       synced: false,
        cached_fork_choice: fork_choice_data
      }}
   end
@@ -167,13 +171,13 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     time = :os.system_time(:second)
     ForkChoice.on_tick(time)
 
+    # TODO: reduce time between ticks to account for gnosis' 5s slot time.
+    old_logical_time = compute_logical_time(state)
     new_state = %BeaconChainState{state | time: time}
-    old_slot = compute_current_slot(state)
-    new_slot = compute_current_slot(new_state)
+    new_logical_time = compute_logical_time(new_state)
 
-    if old_slot != new_slot do
-      :telemetry.execute([:sync, :store], %{slot: new_slot})
-      Logger.info("[BeaconChain] Slot transition", slot: new_slot)
+    if state.synced and old_logical_time != new_logical_time do
+      notify_subscribers(new_logical_time)
     end
 
     {:noreply, new_state}
@@ -181,14 +185,21 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   @impl true
   def handle_cast({:update_fork_choice_cache, head_root, head_slot, justified, finalized}, state) do
-    {:noreply,
-     state
-     |> Map.put(:cached_fork_choice, %{
-       head_root: head_root,
-       head_slot: head_slot,
-       justified: justified,
-       finalized: finalized
-     })}
+    new_cache = %{
+      head_root: head_root,
+      head_slot: head_slot,
+      justified: justified,
+      finalized: finalized
+    }
+
+    new_state = Map.put(state, :cached_fork_choice, new_cache)
+
+    # TODO: make this check dynamic
+    if compute_current_slot(state) <= head_slot do
+      {:noreply, %{new_state | synced: true}}
+    else
+      {:noreply, new_state}
+    end
   end
 
   def schedule_next_tick do
@@ -206,4 +217,36 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     |> ChainSpec.get_fork_version_for_epoch()
     |> Misc.compute_fork_digest(genesis_validators_root)
   end
+
+  @type slot_third :: :first_third | :second_third | :last_third
+  @type logical_time :: {Types.slot(), slot_third()}
+
+  @spec compute_logical_time(BeaconChainState.t()) :: logical_time()
+  defp compute_logical_time(state) do
+    elapsed_time = state.time - state.genesis_time
+
+    slot_thirds = div(elapsed_time * 3, ChainSpec.get("SECONDS_PER_SLOT"))
+    slot = div(slot_thirds, 3)
+
+    slot_third =
+      case rem(slot_thirds, 3) do
+        0 -> :first_third
+        1 -> :second_third
+        2 -> :last_third
+      end
+
+    {slot, slot_third}
+  end
+
+  defp notify_subscribers(logical_time) do
+    log_new_slot(logical_time)
+    Validator.notify_tick(logical_time)
+  end
+
+  defp log_new_slot({slot, :first_third}) do
+    :telemetry.execute([:sync, :store], %{slot: slot})
+    Logger.info("[BeaconChain] Slot transition", slot: slot)
+  end
+
+  defp log_new_slot(_), do: :ok
 end

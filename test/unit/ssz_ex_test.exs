@@ -1,6 +1,6 @@
 defmodule Unit.SSZExTest do
   alias LambdaEthereumConsensus.Utils.Diff
-  alias LambdaEthereumConsensus.Utils.ZeroHashes
+  alias SszEx.Merkleization
 
   alias Types.BeaconBlock
   alias Types.BeaconBlockBody
@@ -9,9 +9,6 @@ defmodule Unit.SSZExTest do
   alias Types.ExecutionPayload
   alias Types.SyncAggregate
 
-  @zero_hashes ZeroHashes.compute_zero_hashes()
-
-  alias LambdaEthereumConsensus.SszEx
   use ExUnit.Case
 
   def assert_roundtrip(serialized, deserialized, schema) do
@@ -31,7 +28,7 @@ defmodule Unit.SSZExTest do
       <<1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0>>
 
-    actual_1 = SszEx.pack(list_1, {:list, {:int, 8}, 5})
+    actual_1 = Merkleization.pack(list_1, {:list, {:int, 8}, 5})
     assert expected_1 == actual_1
 
     list_2 = [
@@ -68,7 +65,7 @@ defmodule Unit.SSZExTest do
         255, 255, 252, 255, 255, 255, 255, 255, 255, 255, 253, 255, 255, 255, 255, 255, 255, 255,
         254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255>>
 
-    actual_2 = SszEx.pack(list_2, {:list, {:int, 64}, 15})
+    actual_2 = Merkleization.pack(list_2, {:list, {:int, 64}, 15})
     assert expected_2 == actual_2
   end
 
@@ -79,7 +76,7 @@ defmodule Unit.SSZExTest do
       <<1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0>>
 
-    actual = SszEx.pack(list, {:list, :bool, 5})
+    actual = Merkleization.pack(list, {:list, :bool, 5})
     assert expected == actual
   end
 
@@ -89,63 +86,63 @@ defmodule Unit.SSZExTest do
     zero = <<0::256>>
 
     chunks = zero
-    root = SszEx.merkleize_chunks(chunks)
+    root = Merkleization.merkleize_chunks(chunks)
     expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero
-    root = chunks |> SszEx.merkleize_chunks(2)
+    root = chunks |> Merkleization.merkleize_chunks(2)
     expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     ones = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<1>> <> acc end)
 
     chunks = ones <> ones
-    root = chunks |> SszEx.merkleize_chunks(2)
+    root = chunks |> Merkleization.merkleize_chunks(2)
     expected_value = "7c8975e1e60a5c8337f28edf8c33c3b180360b7279644a9bc1af3c51e6220bf5"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero <> zero <> zero
-    root = chunks |> SszEx.merkleize_chunks(4)
+    root = chunks |> Merkleization.merkleize_chunks(4)
     expected_value = "db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero <> zero <> zero <> zero <> zero <> zero <> zero
-    root = chunks |> SszEx.merkleize_chunks(8)
+    root = chunks |> Merkleization.merkleize_chunks(8)
     expected_value = "c78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones
-    root = chunks |> SszEx.merkleize_chunks(4)
+    root = chunks |> Merkleization.merkleize_chunks(4)
     expected_value = "29797eded0e83376b70f2bf034cc0811ae7f1414653b1d720dfd18f74cf13309"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     twos = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<2>> <> acc end)
 
     chunks = twos
-    root = chunks |> SszEx.merkleize_chunks(8)
+    root = chunks |> Merkleization.merkleize_chunks(8)
     expected_value = "fa4cf775712aa8a2fe5dcb5a517d19b2e9effcf58ff311b9fd8e4a7d308e6d00"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones
-    root = chunks |> SszEx.merkleize_chunks(4)
+    root = chunks |> Merkleization.merkleize_chunks(4)
     expected_value = "65aa94f2b59e517abd400cab655f42821374e433e41b8fe599f6bb15484adcec"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones <> ones <> ones
-    root = chunks |> SszEx.merkleize_chunks(8)
+    root = chunks |> Merkleization.merkleize_chunks(8)
     expected_value = "0ae67e34cba4ad2bbfea5dc39e6679b444021522d861fab00f05063c54341289"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones <> ones <> ones <> ones
-    root = chunks |> SszEx.merkleize_chunks(8)
+    root = chunks |> Merkleization.merkleize_chunks(8)
     expected_value = "0ef7df63c204ef203d76145627b8083c49aa7c55ebdee2967556f55a4f65a238"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     ## Large Leaf Count
 
     chunks = ones <> ones <> ones <> ones <> ones
-    root = chunks |> SszEx.merkleize_chunks(2 ** 10)
+    root = chunks |> Merkleization.merkleize_chunks(2 ** 10)
     expected_value = "2647cb9e26bd83eeb0982814b2ac4d6cc4a65d0d98637f1a73a4c06d3db0e6ce"
     assert root |> Base.encode16(case: :lower) == expected_value
   end
@@ -154,63 +151,63 @@ defmodule Unit.SSZExTest do
     zero = <<0::256>>
 
     chunks = zero
-    root = SszEx.merkleize_chunks_with_virtual_padding(chunks, 1)
+    root = Merkleization.merkleize_chunks_with_virtual_padding(chunks, 1)
     expected_value = "0000000000000000000000000000000000000000000000000000000000000000"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(2)
     expected_value = "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     ones = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<1>> <> acc end)
 
     chunks = ones <> ones
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(2)
     expected_value = "7c8975e1e60a5c8337f28edf8c33c3b180360b7279644a9bc1af3c51e6220bf5"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero <> zero <> zero
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(4)
     expected_value = "db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = zero <> zero <> zero <> zero <> zero <> zero <> zero <> zero
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(8)
     expected_value = "c78009fdf07fc56a11f122370658a353aaa542ed63e44c4bc15ff4cd105ab33c"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(4)
     expected_value = "29797eded0e83376b70f2bf034cc0811ae7f1414653b1d720dfd18f74cf13309"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     twos = 0..31 |> Enum.reduce(<<>>, fn _, acc -> <<2>> <> acc end)
 
     chunks = twos
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(8)
     expected_value = "fa4cf775712aa8a2fe5dcb5a517d19b2e9effcf58ff311b9fd8e4a7d308e6d00"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(4)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(4)
     expected_value = "65aa94f2b59e517abd400cab655f42821374e433e41b8fe599f6bb15484adcec"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones <> ones <> ones
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(8)
     expected_value = "0ae67e34cba4ad2bbfea5dc39e6679b444021522d861fab00f05063c54341289"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     chunks = ones <> ones <> ones <> ones <> ones <> ones
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(8)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(8)
     expected_value = "0ef7df63c204ef203d76145627b8083c49aa7c55ebdee2967556f55a4f65a238"
     assert root |> Base.encode16(case: :lower) == expected_value
 
     ## Large Leaf Count
 
     chunks = ones <> ones <> ones <> ones <> ones
-    root = chunks |> SszEx.merkleize_chunks_with_virtual_padding(2 ** 10)
+    root = chunks |> Merkleization.merkleize_chunks_with_virtual_padding(2 ** 10)
     expected_value = "2647cb9e26bd83eeb0982814b2ac4d6cc4a65d0d98637f1a73a4c06d3db0e6ce"
     assert root |> Base.encode16(case: :lower) == expected_value
   end
@@ -658,7 +655,7 @@ defmodule Unit.SSZExTest do
 
   test "hash_tree_root of empty Aja.Vector as native list" do
     vector = Aja.Vector.new()
-    expected_root = ZeroHashes.get_zero_hash(1, @zero_hashes)
+    expected_root = Merkleization.get_zero_hash(1)
     {:ok, ssz_root} = SszEx.hash_tree_root(vector, {:list, {:int, 8}, 3})
     assert expected_root == ssz_root
   end
@@ -677,9 +674,9 @@ defmodule Unit.SSZExTest do
     chunk2 = SszEx.hash_nodes(chunk1, chunk1)
     chunk3 = SszEx.hash_nodes(chunk2, chunk2)
 
-    assert ZeroHashes.get_zero_hash(0, @zero_hashes) == chunk0
-    assert ZeroHashes.get_zero_hash(1, @zero_hashes) == chunk1
-    assert ZeroHashes.get_zero_hash(2, @zero_hashes) == chunk2
-    assert ZeroHashes.get_zero_hash(3, @zero_hashes) == chunk3
+    assert Merkleization.get_zero_hash(0) == chunk0
+    assert Merkleization.get_zero_hash(1) == chunk1
+    assert Merkleization.get_zero_hash(2) == chunk2
+    assert Merkleization.get_zero_hash(3) == chunk3
   end
 end
