@@ -1,7 +1,7 @@
 defmodule Unit.SSZExTest do
-  alias Types.IndexedAttestation
   alias LambdaEthereumConsensus.Utils.Diff
   alias SszEx.Merkleization
+  alias Types.IndexedAttestation
 
   alias Types.BeaconBlock
   alias Types.BeaconBlockBody
@@ -683,7 +683,7 @@ defmodule Unit.SSZExTest do
 
   test "decode shorter checkpoint" do
     encoded_checkpoint =
-      <<0,0,0>>
+      <<0, 0, 0>>
 
     assert SszEx.decode(encoded_checkpoint, Checkpoint) == {:error, "InvalidByteLength"}
   end
