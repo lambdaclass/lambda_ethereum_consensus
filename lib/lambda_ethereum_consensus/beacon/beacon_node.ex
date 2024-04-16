@@ -5,7 +5,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.StoreSetup
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks

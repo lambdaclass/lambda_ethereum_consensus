@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   """
 
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
-  alias LambdaEthereumConsensus.SszEx
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.BeaconBlock
