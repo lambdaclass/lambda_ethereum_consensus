@@ -241,23 +241,80 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       signature: signed_block.signature
     }
 
-    Stream.zip([blobs_bundle.blobs, blobs_bundle.commitments, blobs_bundle.proofs])
+    %Types.BlobsBundle{blobs: blobs, commitments: commitments, proofs: proofs} = blobs_bundle
+    inclusion_proofs = compute_inclusion_proofs(block.body)
+
+    Stream.zip([blobs, commitments, proofs, inclusion_proofs])
     |> Stream.with_index()
-    |> Stream.each(fn {{blob, commitment, proof}, index} ->
+    |> Stream.each(fn {{blob, commitment, proof, inclusion_proof}, index} ->
       BlobDb.store_blob(%BlobSidecar{
         index: index,
         blob: blob,
         kzg_commitment: commitment,
         kzg_proof: proof,
         signed_block_header: signed_block_header,
-        kzg_commitment_inclusion_proof: compute_inclusion_proofs(block.body, index)
+        kzg_commitment_inclusion_proof: inclusion_proof
       })
     end)
 
     :ok
   end
 
-  def compute_inclusion_proofs(%BeaconBlockBody{} = _body, _index) do
-    [<<0::256>>] |> Stream.cycle() |> Enum.take(17)
+  def compute_inclusion_proofs(%BeaconBlockBody{blob_kzg_commitments: []}), do: []
+
+  def compute_inclusion_proofs(%BeaconBlockBody{} = body) do
+    # TODO: maybe generalize and move to a separate module
+    commitments = body.blob_kzg_commitments
+    commitment_number = length(commitments)
+
+    # Compute the proof against the commitments tree root for each commitment
+    commitment_leaves =
+      Enum.map(commitments, &SszEx.hash_tree_root!(&1, TypeAliases.kzg_commitment()))
+
+    commitment_tree_height =
+      ChainSpec.get("MAX_BLOB_COMMITMENTS_PER_BLOCK") |> :math.log2() |> ceil()
+
+    commitment_tree_proofs =
+      0..(commitment_number - 1)
+      |> Enum.map(&compute_merkle_proof(commitment_leaves, &1, commitment_tree_height))
+
+    # Compute the proof against the BeaconBlockBody root for the commitments tree root
+    commitments_tree_index =
+      BeaconBlockBody.schema()
+      |> Enum.find_index(&match?({:blob_kzg_commitments, _}, &1))
+
+    body_height = BeaconBlockBody.schema() |> Enum.count() |> :math.log2() |> ceil()
+
+    body_proof =
+      BeaconBlockBody.schema()
+      |> Enum.map(fn {name, schema} -> Map.fetch!(body, name) |> SszEx.hash_tree_root!(schema) end)
+      |> compute_merkle_proof(commitments_tree_index, body_height)
+
+    mix_in_length = <<commitment_number::little-size(256)>>
+
+    # Concatenate both proofs and the mix-in length for each commitment
+    Enum.map(commitment_tree_proofs, &Enum.concat([&1, [mix_in_length], body_proof]))
+  end
+
+  defp compute_merkle_proof(leaves, index, height) do
+    compute_merkle_proof(leaves, index, 0, height, [])
+  end
+
+  defp compute_merkle_proof([_root], _, max_height, max_height, proof) do
+    Enum.reverse(proof)
+  end
+
+  defp compute_merkle_proof(leaves, index, height, max_height, proof) do
+    default_value = SszEx.get_zero_hash(height)
+
+    sibling_index = index - rem(index, 2) * 2 + 1
+    proof_element = Enum.at(leaves, sibling_index, default_value)
+
+    Stream.chunk_every(leaves, 2)
+    |> Enum.map(fn
+      [left, right] -> SszEx.hash_nodes(left, right)
+      [node] -> SszEx.hash_nodes(node, default_value)
+    end)
+    |> compute_merkle_proof(div(index, 2), height + 1, max_height, [proof_element | proof])
   end
 end
