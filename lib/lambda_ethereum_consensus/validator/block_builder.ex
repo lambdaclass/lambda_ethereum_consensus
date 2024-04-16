@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
   alias Types.BeaconBlockHeader
   alias Types.BeaconState
   alias Types.BlobSidecar
@@ -249,15 +250,14 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
         kzg_commitment: commitment,
         kzg_proof: proof,
         signed_block_header: signed_block_header,
-        # TODO
-        # compute_merkle_proof(
-        #       block.body,
-        #       get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments', index),
-        #    ),
-        kzg_commitment_inclusion_proof: [<<0::256>>] |> Stream.cycle() |> Enum.take(17)
+        kzg_commitment_inclusion_proof: compute_inclusion_proofs(block.body, index)
       })
     end)
 
     :ok
+  end
+
+  def compute_inclusion_proofs(%BeaconBlockBody{} = _body, _index) do
+    [<<0::256>>] |> Stream.cycle() |> Enum.take(17)
   end
 end
