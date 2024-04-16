@@ -490,6 +490,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp start_payload_builder(state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
+    Logger.info("[Validator] Starting to build payload for slot #{proposed_slot}")
     {:ok, payload_id} = BlockBuilder.start_building_payload(proposed_slot, head_root)
     %{state | payload_builder: {proposed_slot, head_root, payload_id}}
   end
