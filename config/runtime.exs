@@ -1,7 +1,8 @@
 import Config
+alias LambdaEthereumConsensus.Beacon.StoreSetup
+alias LambdaEthereumConsensus.ForkChoice
 alias LambdaEthereumConsensus.SszEx
 alias Types.BeaconStateDeneb
-alias LambdaEthereumConsensus.ForkChoice
 
 switches = [
   network: :string,
@@ -99,24 +100,8 @@ Application.put_env(:lambda_ethereum_consensus, ChainSpec,
   genesis_validators_root: Map.fetch!(chain_config, :genesis_validators_root)
 )
 
-genesis =
-  case {testnet_dir, checkpoint_sync_url} do
-    {nil, nil} ->
-      :db
-
-    {nil, url} when is_binary(url) ->
-      {:checkpoint_sync_url, url}
-
-    {dir, nil} when is_binary(dir) ->
-      {:ok, state} =
-        Path.join(testnet_dir, "genesis.ssz")
-        |> File.read!()
-        |> SszEx.decode(Types.BeaconState)
-
-      {:file, state}
-  end
-
-config :lambda_ethereum_consensus, ForkChoice, genesis_state: genesis
+config :lambda_ethereum_consensus, StoreSetup,
+  strategy: StoreSetup.make_strategy!(testnet_dir, checkpoint_sync_url)
 
 # Configures peer discovery
 bootnodes = Map.fetch!(chain_config, :bootnodes)

@@ -11,9 +11,32 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
+  @type store_setup_strategy ::
+          {:file, Types.BeaconState.t()} | {:checkpoint_sync_url, binary()} | :db
+
   require Logger
 
   @max_epochs_before_stale 8
+
+  @doc """
+  Args: at least one can be nil.
+  - testnet_dir: directory of a testnet configuration, including ssz and yaml config.
+  - checkpoint_sync_url: a url where checkpoint sync can be performed.
+
+  Return value: a store setup strategy, which is one of the following:
+  - {:file, Types.BeaconState.t()}
+  - {:checkpoint_sync_url, binary()}
+  - :db
+  """
+  def make_strategy!(nil, nil), do: :db
+  def make_strategy!(nil, url) when is_binary(url), do: {:checkpoint_sync_url, url}
+
+  def make_strategy!(dir, nil) when is_binary(dir) do
+    Path.join(dir, "genesis.ssz")
+    |> File.read!()
+    |> SszEx.decode(Types.BeaconState)
+    |> then(fn {:ok, state} -> {:file, state} end)
+  end
 
   @doc """
   Args: Three possible arguments:
