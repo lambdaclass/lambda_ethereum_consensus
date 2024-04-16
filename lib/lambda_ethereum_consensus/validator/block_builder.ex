@@ -94,6 +94,18 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
      }}
   end
 
+  @spec seal_block(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
+          {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
+  def seal_block(pre_state, block, privkey) do
+    wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
+
+    with {:ok, post_state} <- StateTransition.state_transition(pre_state, wrapped_block, false) do
+      %BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}
+      |> sign_block(post_state, privkey)
+      |> then(&{:ok, &1})
+    end
+  end
+
   @spec fetch_operations_for_block() :: %{
           proposer_slashings: [Types.ProposerSlashing.t()],
           attester_slashings: [Types.AttesterSlashing.t()],
@@ -125,18 +137,6 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     ExecutionChain.get_deposits(eth1_data, eth1_vote, range_start..range_end)
   end
 
-  @spec seal_block(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
-          {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
-  def seal_block(pre_state, block, privkey) do
-    wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
-
-    with {:ok, post_state} <- StateTransition.state_transition(pre_state, wrapped_block, false) do
-      %BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}
-      |> sign_block(post_state, privkey)
-      |> then(&{:ok, &1})
-    end
-  end
-
   defp sign_block(block, state, privkey) do
     signature = get_block_signature(state, block, privkey)
     %SignedBeaconBlock{message: block, signature: signature}
@@ -144,7 +144,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   @spec get_epoch_signature(BeaconState.t(), Types.slot(), Bls.privkey()) ::
           Types.bls_signature()
-  def get_epoch_signature(state, slot, privkey) do
+  defp get_epoch_signature(state, slot, privkey) do
     epoch = Misc.compute_epoch_at_slot(slot)
     domain = Accessors.get_domain(state, Constants.domain_randao(), epoch)
     signing_root = Misc.compute_signing_root(epoch, TypeAliases.epoch(), domain)
@@ -154,7 +154,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   @spec get_block_signature(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
           Types.bls_signature()
-  def get_block_signature(state, block, privkey) do
+  defp get_block_signature(state, block, privkey) do
     domain = Accessors.get_domain(state, Constants.domain_beacon_proposer())
     signing_root = Misc.compute_signing_root(block, domain)
     {:ok, signature} = Bls.sign(privkey, signing_root)
