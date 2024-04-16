@@ -240,26 +240,23 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       signature: signed_block.signature
     }
 
-    sidecars =
-      Enum.with_index(blobs_bundle.blobs, fn blob, index ->
-        %BlobSidecar{
-          index: index,
-          blob: blob,
-          kzg_commitment: blobs_bundle.commitments |> Enum.at(index),
-          kzg_proof: blobs_bundle.proofs |> Enum.at(index),
-          signed_block_header: signed_block_header,
-          # TODO
-          # compute_merkle_proof(
-          #       block.body,
-          #       get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments', index),
-          #    ),
-          kzg_commitment_inclusion_proof: [<<0::256>>] |> Stream.cycle() |> Enum.take(17)
-        }
-      end)
-
-    for blob_sidecar <- sidecars do
-      BlobDb.store_blob(blob_sidecar)
-    end
+    Stream.zip([blobs_bundle.blobs, blobs_bundle.commitments, blobs_bundle.proofs])
+    |> Stream.with_index()
+    |> Stream.each(fn {{blob, commitment, proof}, index} ->
+      BlobDb.store_blob(%BlobSidecar{
+        index: index,
+        blob: blob,
+        kzg_commitment: commitment,
+        kzg_proof: proof,
+        signed_block_header: signed_block_header,
+        # TODO
+        # compute_merkle_proof(
+        #       block.body,
+        #       get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments', index),
+        #    ),
+        kzg_commitment_inclusion_proof: [<<0::256>>] |> Stream.cycle() |> Enum.take(17)
+      })
+    end)
 
     :ok
   end
