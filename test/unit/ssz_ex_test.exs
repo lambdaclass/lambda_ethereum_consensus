@@ -1,4 +1,5 @@
 defmodule Unit.SSZExTest do
+  alias Types.IndexedAttestation
   alias LambdaEthereumConsensus.Utils.Diff
   alias SszEx.Merkleization
 
@@ -678,5 +679,33 @@ defmodule Unit.SSZExTest do
     assert Merkleization.get_zero_hash(1) == chunk1
     assert Merkleization.get_zero_hash(2) == chunk2
     assert Merkleization.get_zero_hash(3) == chunk3
+  end
+
+  test "decode shorter checkpoint" do
+    encoded_checkpoint =
+      <<0,0,0>>
+
+    assert SszEx.decode(encoded_checkpoint, Checkpoint) == {:error, "InvalidByteLength"}
+  end
+
+  test "decode longer checkpoint" do
+    encoded_checkpoint =
+      <<0::size(41)>>
+
+    assert SszEx.decode(encoded_checkpoint, Checkpoint) == {:error, "InvalidByteLength"}
+  end
+
+  test "decode shorter IndexedAttestation" do
+    encoded_indexed_attestation = <<0, 0, 0>>
+
+    assert SszEx.decode(encoded_indexed_attestation, IndexedAttestation) ==
+             {:error, "OffsetOutOfBounds"}
+  end
+
+  test "decode longer IndexedAttestation" do
+    encoded_indexed_attestation = <<0::size(10000)>>
+
+    assert SszEx.decode(encoded_indexed_attestation, IndexedAttestation) ==
+             {:error, "OffsetIntoFixedPortion (0)"}
   end
 end
