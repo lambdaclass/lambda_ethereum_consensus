@@ -138,12 +138,22 @@ defmodule SszEx.Decode do
       {:error,
        "Invalid binary length while decoding vector of #{inspect(inner_type)}.\nExpected size #{fixed_size * size}. Found: #{byte_size}.\nBinary: #{inspect(binary)}."}
     else
-      with {:ok, _decoded_vector} = result <-
-             decode_fixed_collection(binary, fixed_size, inner_type) do
+      with {:ok, decoded_vector} = result <-
+             decode_fixed_collection(binary, fixed_size, inner_type),
+           :ok <- check_valid_vector_size_after_decode(size, length(decoded_vector)) do
         result
       end
     end
   end
+
+  defp check_valid_vector_size_after_decode(size, decoded_size)
+       when decoded_size == size and decoded_size > 0,
+       do: :ok
+
+  defp check_valid_vector_size_after_decode(size, decoded_size),
+    do:
+      {:error,
+       "Invalid vector decoded size.\nExpected size: #{size}. Decoded vector size: #{decoded_size} "}
 
   defp decode_variable_list(binary, _, _) when byte_size(binary) == 0 do
     {:ok, []}
@@ -151,11 +161,13 @@ defmodule SszEx.Decode do
 
   defp decode_variable_list(
          <<first_offset::integer-32-little, _rest_bytes::bitstring>>,
-         _inner_type,
+         inner_type,
          size
        )
        when div(first_offset, @bytes_per_length_offset) > size,
-       do: {:error, "invalid length list"}
+       do:
+         {:error,
+          "Invalid binary when decoding list of #{inspect(inner_type)}.\nExpected max_size: #{size}.\n First offset points to: #{first_offset}."}
 
   defp decode_variable_list(binary, inner_type, _size) do
     <<first_offset::integer-32-little, rest_bytes::bitstring>> = binary
@@ -163,7 +175,8 @@ defmodule SszEx.Decode do
 
     if Integer.mod(first_offset, @bytes_per_length_offset) != 0 ||
          first_offset < @bytes_per_length_offset do
-      {:error, "InvalidListFixedBytesLen"}
+      {:error,
+       "Invalid binary when decoding list of #{inspect(inner_type)}.\nFirst offset points to: #{first_offset}."}
     else
       with :ok <-
              sanitize_offset(first_offset, nil, byte_size(binary), first_offset) do
