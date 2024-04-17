@@ -136,7 +136,7 @@ defmodule SszEx.Decode do
 
     if fixed_size * size != byte_size do
       {:error,
-       "Invalid binary length while decoding vector of #{IO.inspect(inner_type)}.\nExpected size #{fixed_size * size}. Found: #{byte_size}.\nBinary: #{inspect(binary)}."}
+       "Invalid binary length while decoding vector of #{inspect(inner_type)}.\nExpected size #{fixed_size * size}. Found: #{byte_size}.\nBinary: #{inspect(binary)}."}
     else
       with {:ok, _decoded_vector} = result <-
              decode_fixed_collection(binary, fixed_size, inner_type) do
