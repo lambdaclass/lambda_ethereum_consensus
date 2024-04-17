@@ -7,7 +7,7 @@ defmodule ConfigUtils do
   def load_config_from_file!(path) do
     path
     |> File.read!()
-    |> String.replace(~r/(0x[0-9a-fA-F]+)/, "'\\g{1}'")
+    |> String.replace(~r/\ (0x[0-9a-fA-F]+)/, " '\\g{1}'")
     |> YamlElixir.read_from_string!()
     |> Stream.map(fn
       {k, "0x" <> hash} -> {k, Base.decode16!(hash, case: :mixed)}
