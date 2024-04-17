@@ -519,7 +519,7 @@ defmodule LambdaEthereumConsensus.Validator do
       )
 
     case build_result do
-      {:ok, signed_block} ->
+      {:ok, {signed_block, _blob_sidecars}} ->
         publish_block(signed_block)
 
       {:error, reason} ->
