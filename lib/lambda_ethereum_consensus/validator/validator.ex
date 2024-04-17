@@ -519,8 +519,9 @@ defmodule LambdaEthereumConsensus.Validator do
       )
 
     case build_result do
-      {:ok, {signed_block, _blob_sidecars}} ->
+      {:ok, {signed_block, blob_sidecars}} ->
         publish_block(signed_block)
+        Enum.each(blob_sidecars, &publish_sidecar/1)
 
       {:error, reason} ->
         Logger.error(
@@ -531,6 +532,7 @@ defmodule LambdaEthereumConsensus.Validator do
     %{state | payload_builder: nil}
   end
 
+  # TODO: there's a lot of repeated code here. We should move this to a separate module
   defp publish_block(signed_block) do
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
@@ -548,5 +550,30 @@ defmodule LambdaEthereumConsensus.Validator do
           "[Validator] Failed to publish block for slot #{proposed_slot}. Reason: #{reason}"
         )
     end
+  end
+
+  defp publish_sidecar(%Types.BlobSidecar{index: index} = sidecar) do
+    {:ok, ssz_encoded} = Ssz.to_ssz(sidecar)
+    {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+
+    subnet_id = compute_subnet_for_blob_sidecar(index)
+
+    case Libp2pPort.publish(
+           "/eth2/#{fork_context}/blob_sidecar_#{subnet_id}/ssz_snappy",
+           encoded_msg
+         ) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error(
+          "[Validator] Failed to publish sidecar with index #{index}. Reason: #{reason}"
+        )
+    end
+  end
+
+  defp compute_subnet_for_blob_sidecar(blob_index) do
+    rem(blob_index, ChainSpec.get("BLOB_SIDECAR_SUBNET_COUNT"))
   end
 end
