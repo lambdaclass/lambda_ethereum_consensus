@@ -67,45 +67,37 @@ datadir = Keyword.get(args, :datadir, "level_db/#{network}")
 File.mkdir_p!(datadir)
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadir
 
-strategy = StoreSetup.make_strategy!(testnet_dir, checkpoint_sync_url)
-
-config :lambda_ethereum_consensus, StoreSetup, strategy: strategy
-
-chain_config =
+{chain_config, bootnodes} =
   case testnet_dir do
     nil ->
       config = ConfigUtils.parse_config(network)
       bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/boot_enr.yaml")
-
-      %{
-        config: config,
-        genesis_validators_root: config.genesis_validators_root(),
-        bootnodes: bootnodes
-      }
+      {config, bootnodes}
 
     testnet_dir ->
       Path.join(testnet_dir, "config.yaml") |> CustomConfig.load_from_file!()
-
-      # TODO: improve this
-      {:file, %{genesis_validators_root: genesis_validators_root}} = strategy
-
       bootnodes = Path.join(testnet_dir, "boot_enr.yaml") |> YamlElixir.read_from_file!()
-
-      %{
-        config: CustomConfig,
-        genesis_validators_root: genesis_validators_root,
-        bootnodes: bootnodes
-      }
+      {CustomConfig, bootnodes}
   end
 
 # We use put_env here as we need this immediately after to read the state.
-Application.put_env(:lambda_ethereum_consensus, ChainSpec,
-  config: Map.fetch!(chain_config, :config),
-  genesis_validators_root: Map.fetch!(chain_config, :genesis_validators_root)
-)
+Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: chain_config)
+
+strategy = StoreSetup.make_strategy!(testnet_dir, checkpoint_sync_url)
+
+genesis_validators_root =
+  case strategy do
+    {:file, state} -> state.genesis_validators_root
+    _ -> chain_config.genesis_validators_root()
+  end
+
+config :lambda_ethereum_consensus, ChainSpec,
+  config: chain_config,
+  genesis_validators_root: genesis_validators_root
+
+config :lambda_ethereum_consensus, StoreSetup, strategy: strategy
 
 # Configures peer discovery
-bootnodes = Map.fetch!(chain_config, :bootnodes)
 config :lambda_ethereum_consensus, :discovery, port: 9000, bootnodes: bootnodes
 
 # Engine API
