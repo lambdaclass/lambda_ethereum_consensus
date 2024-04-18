@@ -62,7 +62,7 @@ defmodule SszEx.Decode do
   defp decode_bool(binary) when byte_size(binary) != 1,
     do:
       {:error,
-       "Invalid binary length while decoding bool.\nExpected size: 1.\nFound:#{bit_size(binary)}\n"}
+       "Invalid binary length while decoding bool.\nExpected size: 1.\nFound:#{byte_size(binary)}\n"}
 
   defp decode_bool("\x01"), do: {:ok, true}
   defp decode_bool("\x00"), do: {:ok, false}
@@ -96,22 +96,13 @@ defmodule SszEx.Decode do
   defp decode_bitvector(bit_vector, size) do
     num_bits = bit_size(bit_vector)
     num_bytes = div(num_bits, 8)
-    expected_bytes = div(size + 7, 8)
     padding_bits = rem(8 - rem(size, 8), 8)
 
-    cond do
-      num_bytes != expected_bytes ->
-        {:error,
-         "Invalid binary length while decoding BitVector. \nExpected: #{expected_bytes} bytes.\nFound: #{num_bytes} bytes."}
-
-      match?(
-        <<_first::binary-size(num_bytes - 1), 0::size(padding_bits),
-          _rest::size(8 - padding_bits)>>,
-        bit_vector
-      ) ->
+    case bit_vector do
+      <<_first::binary-size(num_bytes - 1), 0::size(padding_bits), _rest::size(8 - padding_bits)>> ->
         {:ok, BitVector.new(bit_vector, size)}
 
-      true ->
+      _ ->
         {:error, "Invalid binary length while decoding BitVector. \nExpected size: #{size}.\n"}
     end
   end
@@ -265,16 +256,21 @@ defmodule SszEx.Decode do
     fixed_length = get_fixed_length(schemas)
     byte_size = byte_size(binary)
 
-    if fixed_length != byte_size do
-      {:error,
-       "Invalid binary length while decoding #{module}. \nExpected #{fixed_length}. \nFound #{byte_size}.\n"}
-    else
-      with {:ok, fixed_parts, _offsets, _items_index} <-
-             decode_fixed_section(binary, schemas, fixed_length) do
-        {:ok, struct!(module, fixed_parts)}
-      end
+    with :ok <- check_fixed_container_size(module, fixed_length, byte_size),
+         {:ok, fixed_parts, _offsets, _items_index} <-
+           decode_fixed_section(binary, schemas, fixed_length) do
+      {:ok, struct!(module, fixed_parts)}
     end
   end
+
+  defp check_fixed_container_size(module, expected_length, size)
+       when expected_length != size,
+       do:
+         {:error,
+          "Invalid binary length while decoding #{module}. \nExpected #{expected_length}. \nFound #{size}.\n"}
+
+  defp check_fixed_container_size(_module, _expected_length, _size),
+    do: :ok
 
   defp check_first_offset([{offset, _} | _rest], items_index, _binary_size)
        when offset != items_index,
