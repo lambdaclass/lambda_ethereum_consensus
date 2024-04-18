@@ -7,7 +7,6 @@ defmodule SszEx.Decode do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias SszEx.Utils
 
-  import Bitwise
   @bytes_per_length_offset 4
   @offset_bits 32
 
@@ -50,15 +49,20 @@ defmodule SszEx.Decode do
     end
   end
 
-  defp decode_uint(binary, size) when bit_size(binary) == size do
+  defp decode_uint(binary, size) when bit_size(binary) != size,
+    do:
+      {:error,
+       "Invalid binary length while decoding uint.\nExpected size: #{size}.\nFound:#{bit_size(binary)}\n"}
+
+  defp decode_uint(binary, size) do
     <<element::integer-size(size)-little, _rest::bitstring>> = binary
     {:ok, element}
   end
 
-  defp decode_uint(binary, size),
+  defp decode_bool(binary) when byte_size(binary) != 1,
     do:
       {:error,
-       "Invalid binary length while decoding uint.\nExpected size: #{size}.\nFound:#{bit_size(binary)}\nBinary:#{inspect(binary)}"}
+       "Invalid binary length while decoding bool.\nExpected size: 1.\nFound:#{bit_size(binary)}\n"}
 
   defp decode_bool("\x01"), do: {:ok, true}
   defp decode_bool("\x00"), do: {:ok, false}
@@ -68,7 +72,7 @@ defmodule SszEx.Decode do
       {:error,
        "Invalid binary value while decoding bool.\nExpected value: x01/x00.\nFound: x#{Base.encode16(binary)}."}
 
-  defp decode_bitlist(bit_list, _max_size) when bit_size(bit_list) == 0,
+  defp decode_bitlist("", _max_size),
     do: {:error, "Invalid binary value while decoding BitList.\nEmpty binary found.\n"}
 
   defp decode_bitlist(bit_list, max_size) do
@@ -89,14 +93,11 @@ defmodule SszEx.Decode do
     end
   end
 
-  defp decode_bitvector(bit_vector, _size) when bit_size(bit_vector) == 0 do
-    {:error, "Invalid binary value while decoding BitVector.\nEmpty binary found.\n"}
-  end
-
   defp decode_bitvector(bit_vector, size) do
     num_bits = bit_size(bit_vector)
     num_bytes = div(num_bits, 8)
-    expected_bytes = max(1, div(size + 7, 8))
+    expected_bytes = div(size + 7, 8)
+    padding_bits = rem(8 - rem(size, 8), 8)
 
     cond do
       num_bytes != expected_bytes ->
@@ -104,7 +105,8 @@ defmodule SszEx.Decode do
          "Invalid binary length while decoding BitVector. \nExpected: #{expected_bytes} bytes.\nFound: #{num_bytes} bytes."}
 
       match?(
-        <<_first::binary-size(num_bytes - 1), 0::size(8 - rem(size, 8) &&& 7), _rest::bitstring>>,
+        <<_first::binary-size(num_bytes - 1), 0::size(padding_bits),
+          _rest::size(8 - padding_bits)>>,
         bit_vector
       ) ->
         {:ok, BitVector.new(bit_vector, size)}
@@ -164,7 +166,7 @@ defmodule SszEx.Decode do
       {:error,
        "Invalid vector decoded size.\nExpected size: #{size}. Decoded vector size: #{decoded_size} "}
 
-  defp decode_variable_list(binary, _, _) when byte_size(binary) == 0 do
+  defp decode_variable_list("", _, _) do
     {:ok, []}
   end
 
