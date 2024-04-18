@@ -439,12 +439,45 @@ defmodule Unit.SSZExTest do
 
   test "deserialize out bounded list" do
     error_message =
-      "Invalid binary length when decoding list of {:int, 32}.\nExpected max_size: 3.\nFound: 16\nBinary: <<230, 0, 0, 0, 124, 1, 0, 0, 11, 2, 0, 0, 127, 91, 0, 0>>"
+      "Invalid binary length while decoding list of {:int, 32}.\nExpected max_size: 3.\nFound: 16\n"
 
     assert {:error, ^error_message} =
              SszEx.decode(
                <<230, 0, 0, 0, 124, 1, 0, 0, 11, 2, 0, 0, 127, 91, 0, 0>>,
                {:list, {:int, 32}, 3}
+             )
+  end
+
+  test "deserialize shorter vector" do
+    error_message =
+      "Invalid binary length while decoding vector of {:int, 32}.\nExpected size 12 bytes.\nFound: 6.\n"
+
+    assert {:error, ^error_message} =
+             SszEx.decode(
+               <<230, 0, 0, 0, 124, 1>>,
+               {:vector, {:int, 32}, 3}
+             )
+  end
+
+  test "deserialize outbounded vector" do
+    error_message =
+      "Invalid binary length while decoding vector of {:int, 32}.\nExpected size 12 bytes.\nFound: 13.\n"
+
+    assert {:error, ^error_message} =
+             SszEx.decode(
+               <<230, 0, 0, 0, 124, 1, 230, 0, 0, 0, 124, 1, 2>>,
+               {:vector, {:int, 32}, 3}
+             )
+  end
+
+  test "deserialize invalid vector" do
+    error_message =
+      "Invalid binary length while decoding vector of {:int, 32}.\nExpected size 12 bytes.\nFound: 13.\n"
+
+    assert {:error, ^error_message} =
+             SszEx.decode(
+               <<230, 0, 0, 0, 124, 1, 230, 0, 0, 0, 124, 1, 1::1>>,
+               {:vector, {:int, 32}, 3}
              )
   end
 
@@ -579,6 +612,10 @@ defmodule Unit.SSZExTest do
     encoded_bytes = <<255, 255, 255, 255, 255, 1>>
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 33})
 
+    encoded_bytes = <<255, 255, 255, 255, 255, 1::1>>
+    result = SszEx.decode(encoded_bytes, {:bitvector, 41})
+    assert {:error, _msg} = result
+
     encoded_bytes = <<0>>
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 9})
   end
@@ -692,7 +729,7 @@ defmodule Unit.SSZExTest do
 
     assert SszEx.decode(encoded_checkpoint, Checkpoint) ==
              {:error,
-              "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 3.\n Binary: <<0, 0, 0>>"}
+              "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 3.\n"}
   end
 
   test "decode longer checkpoint" do
@@ -701,6 +738,6 @@ defmodule Unit.SSZExTest do
 
     assert SszEx.decode(encoded_checkpoint, Checkpoint) ==
              {:error,
-              "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 41.\n Binary: <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>"}
+              "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 41.\n"}
   end
 end
