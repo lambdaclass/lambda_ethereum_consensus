@@ -6,9 +6,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.StoreDb
-  alias Types.BeaconBlock
   alias Types.DepositTreeSnapshot
-  alias Types.SignedBeaconBlock
   alias Types.Store
 
   @type store_setup_strategy ::
@@ -48,10 +46,9 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   def setup!({:file, anchor_state}) do
     Logger.info("[Store Setup] Setting up store from genesis file.")
 
-    anchor_block = %{
-      SszEx.default(SignedBeaconBlock)
-      | message: %{SszEx.default(BeaconBlock) | state_root: Ssz.hash_tree_root!(anchor_state)}
-    }
+    default_block = SszEx.default(Types.SignedBeaconBlock)
+    state_root = Ssz.hash_tree_root!(anchor_state)
+    anchor_block = %{default_block | message: %{default_block.message | state_root: state_root}}
 
     {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
     {store, ChainSpec.get_genesis_validators_root()}
