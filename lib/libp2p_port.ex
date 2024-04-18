@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   require Logger
 
-  @port_name "priv/native/libp2p_port"
+  @port_name Application.app_dir(:lambda_ethereum_consensus, ["priv", "native", "libp2p_port"])
 
   @default_args [
     listen_addr: [],
