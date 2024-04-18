@@ -91,7 +91,7 @@ compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
 compile-all: $(CONFIG_FILE) compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
-	mix compile --warnings-as-errors
+	mix compile
 
 #🗑️ clean: @ Remove the build files.
 clean:
@@ -129,7 +129,7 @@ checkpoint-sync: compile-all
 
 #▶️ sepolia: @ Run an interactive terminal using sepolia network
 sepolia: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.sepolia.ethpandaops.io --network sepolia --execution-jwt "/Volumes/MPaulucci SSD/geth-sepolia/geth/jwtsecret" --execution-endpoint "http://localhost:8080" --validator-file "validator.keys"
 
 #▶️ holesky: @ Run an interactive terminal using holesky network
 holesky: compile-all

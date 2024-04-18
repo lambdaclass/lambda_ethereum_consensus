@@ -216,7 +216,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   def schedule_blocks_processing do
-    Process.send_after(__MODULE__, :process_blocks, 3000)
+    Process.send_after(__MODULE__, :process_blocks, 100)
   end
 
   def schedule_blobs_download do

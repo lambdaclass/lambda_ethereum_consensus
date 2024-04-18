@@ -5,13 +5,13 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
-  alias LambdaEthereumConsensus.Libp2pPort
+  # alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
@@ -30,6 +30,10 @@ defmodule LambdaEthereumConsensus.Validator do
 
   def notify_new_block(slot, head_root),
     do: GenServer.cast(__MODULE__, {:new_block, slot, head_root})
+
+  def propose_test do
+    GenServer.call(__MODULE__, {:propose})
+  end
 
   def notify_tick(logical_time),
     do: GenServer.cast(__MODULE__, {:on_tick, logical_time})
@@ -95,6 +99,16 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @impl true
+  def handle_call({:propose}, _from, state) do
+    proposed_slot = state.slot + 1
+    Logger.info("[Validator] Starting proposal", root: state.root, slot: proposed_slot)
+
+    result = propose(state, proposed_slot)
+
+    {:reply, result, state}
+  end
+
+  @impl true
   def handle_cast(_, %{validator: nil} = state), do: {:noreply, state}
 
   # If we couldn't find the validator before, we just try again
@@ -147,7 +161,7 @@ defmodule LambdaEthereumConsensus.Validator do
     epoch = Misc.compute_epoch_at_slot(slot + 1)
 
     if last_epoch == epoch do
-      state
+      %{state | slot: slot, root: head_root}
     else
       start_slot = Misc.compute_start_slot_at_epoch(epoch)
       target_root = if slot == start_slot, do: head_root, else: last_root
@@ -463,23 +477,26 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
     # TODO: handle errors if there are any
-    {:ok, signed_block} =
-      BlockBuilder.build_block(%BuildBlockRequest{
-        slot: proposed_slot,
-        parent_root: head_root,
-        proposer_index: index,
-        graffiti_message: @default_graffiti_message,
-        privkey: privkey
-      })
+    head_block = Blocks.get_block!(head_root)
 
-    {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
-    {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    dbg("Proposing block for slot #{proposed_slot} with head block #{head_block.slot}")
 
-    # TODO: we might want to send the block to ForkChoice
-    case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
-      :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
-      _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
+    with {:ok, signed_block} <-
+           BlockBuilder.build_block(%BuildBlockRequest{
+             slot: proposed_slot,
+             parent_root: head_root,
+             proposer_index: index,
+             graffiti_message: @default_graffiti_message,
+             privkey: privkey
+           }),
+         {:ok, ssz_encoded} <- Ssz.to_ssz(signed_block),
+         {:ok, _encoded_msg} <- :snappyer.compress(ssz_encoded) do
+      # fork_context = Base.encode16(BeaconChain.get_fork_digest(), case: :lower)
+      # # TODO: we might want to send the block to ForkChoice
+      # case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
+      #   :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
+      #   _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
+      {:ok, signed_block}
     end
   end
 end
