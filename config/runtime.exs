@@ -67,6 +67,10 @@ datadir = Keyword.get(args, :datadir, "level_db/#{network}")
 File.mkdir_p!(datadir)
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadir
 
+strategy = StoreSetup.make_strategy!(testnet_dir, checkpoint_sync_url)
+
+config :lambda_ethereum_consensus, StoreSetup, strategy: strategy
+
 chain_config =
   case testnet_dir do
     nil ->
@@ -82,8 +86,8 @@ chain_config =
     testnet_dir ->
       Path.join(testnet_dir, "config.yaml") |> CustomConfig.load_from_file!()
 
-      # TODO: compute this from the genesis block
-      genesis_validators_root = <<0::256>>
+      # TODO: improve this
+      {:file, %{genesis_validators_root: genesis_validators_root}} = strategy
 
       bootnodes = Path.join(testnet_dir, "boot_enr.yaml") |> YamlElixir.read_from_file!()
 
@@ -99,9 +103,6 @@ Application.put_env(:lambda_ethereum_consensus, ChainSpec,
   config: Map.fetch!(chain_config, :config),
   genesis_validators_root: Map.fetch!(chain_config, :genesis_validators_root)
 )
-
-config :lambda_ethereum_consensus, StoreSetup,
-  strategy: StoreSetup.make_strategy!(testnet_dir, checkpoint_sync_url)
 
 # Configures peer discovery
 bootnodes = Map.fetch!(chain_config, :bootnodes)
