@@ -139,7 +139,7 @@ defmodule SszEx.Merkleization do
   end
 
   defp compute_merkle_proof(leaves, index, height, max_height, proof) do
-    default_value = Hash.get_zero_hash(height)
+    default_value = get_zero_hash(height)
 
     sibling_index = index - rem(index, 2) * 2 + 1
     proof_element = Enum.at(leaves, sibling_index, default_value)
