@@ -128,6 +128,30 @@ defmodule SszEx.Merkleization do
     end
   end
 
+  # TODO: make this work on any SSZ type and expose it in the API
+  @spec compute_merkle_proof([Types.root()], non_neg_integer, non_neg_integer) :: [Types.root()]
+  def compute_merkle_proof(leaves, index, height) do
+    compute_merkle_proof(leaves, index, 0, height, [])
+  end
+
+  defp compute_merkle_proof([_root], _, max_height, max_height, proof) do
+    Enum.reverse(proof)
+  end
+
+  defp compute_merkle_proof(leaves, index, height, max_height, proof) do
+    default_value = Hash.get_zero_hash(height)
+
+    sibling_index = index - rem(index, 2) * 2 + 1
+    proof_element = Enum.at(leaves, sibling_index, default_value)
+
+    Stream.chunk_every(leaves, 2)
+    |> Enum.map(fn
+      [left, right] -> Hash.hash_nodes(left, right)
+      [node] -> Hash.hash_nodes(node, default_value)
+    end)
+    |> compute_merkle_proof(div(index, 2), height + 1, max_height, [proof_element | proof])
+  end
+
   defp hash_tree_root_vector(chunks) do
     leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)

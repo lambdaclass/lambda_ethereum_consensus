@@ -276,7 +276,9 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
     commitment_tree_proofs =
       0..(commitment_number - 1)
-      |> Enum.map(&compute_merkle_proof(commitment_leaves, &1, commitment_tree_height))
+      |> Enum.map(
+        &SszEx.Merkleization.compute_merkle_proof(commitment_leaves, &1, commitment_tree_height)
+      )
 
     # Compute the proof against the BeaconBlockBody root for the commitments tree root
     commitments_tree_index =
@@ -288,33 +290,11 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     body_proof =
       BeaconBlockBody.schema()
       |> Enum.map(fn {name, schema} -> Map.fetch!(body, name) |> SszEx.hash_tree_root!(schema) end)
-      |> compute_merkle_proof(commitments_tree_index, body_height)
+      |> SszEx.Merkleization.compute_merkle_proof(commitments_tree_index, body_height)
 
     mix_in_length = <<commitment_number::little-size(256)>>
 
     # Concatenate both proofs and the mix-in length for each commitment
     Enum.map(commitment_tree_proofs, &Enum.concat([&1, [mix_in_length], body_proof]))
-  end
-
-  defp compute_merkle_proof(leaves, index, height) do
-    compute_merkle_proof(leaves, index, 0, height, [])
-  end
-
-  defp compute_merkle_proof([_root], _, max_height, max_height, proof) do
-    Enum.reverse(proof)
-  end
-
-  defp compute_merkle_proof(leaves, index, height, max_height, proof) do
-    default_value = SszEx.get_zero_hash(height)
-
-    sibling_index = index - rem(index, 2) * 2 + 1
-    proof_element = Enum.at(leaves, sibling_index, default_value)
-
-    Stream.chunk_every(leaves, 2)
-    |> Enum.map(fn
-      [left, right] -> SszEx.hash_nodes(left, right)
-      [node] -> SszEx.hash_nodes(node, default_value)
-    end)
-    |> compute_merkle_proof(div(index, 2), height + 1, max_height, [proof_element | proof])
   end
 end
