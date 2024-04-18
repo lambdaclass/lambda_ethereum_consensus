@@ -1,0 +1,17 @@
+_build/
+.elixir_ls/
+.github/
+.vscode/
+bench/
+deps/
+docs/
+level_db/
+metrics/
+priv/
+test/
+tmp/
+.all-contributorsrc
+.credo.exs
+.formatter.exs
+.spectest_version
+flake.*
