@@ -63,10 +63,18 @@ mode =
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus, mode: mode
 
-datadir = Keyword.get(args, :datadir, "level_db/#{network}")
+# DB setup
+default_datadir =
+  case testnet_dir do
+    nil -> "level_db/#{network}"
+    _ -> "level_db/local_testnet"
+  end
+
+datadir = Keyword.get(args, :datadir, default_datadir)
 File.mkdir_p!(datadir)
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadir
 
+# Network setup
 {chain_config, bootnodes} =
   case testnet_dir do
     nil ->
