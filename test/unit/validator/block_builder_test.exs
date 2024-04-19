@@ -2,8 +2,10 @@ defmodule Unit.Validator.BlockBuilderTest do
   @moduledoc false
 
   alias LambdaEthereumConsensus.StateTransition
+  alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Validator.BlockBuilder
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
+  alias Types.BeaconBlockBody
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
 
@@ -60,5 +62,31 @@ defmodule Unit.Validator.BlockBuilderTest do
     assert signed_block.signature == spec_block.signature
 
     assert {:ok, _} = StateTransition.state_transition(pre_state, signed_block, true)
+  end
+
+  test "prove commitments" do
+    spec_block =
+      SpecTestUtils.read_ssz_from_file!(
+        "test/fixtures/validator/proposer/empty_block.ssz_snappy",
+        SignedBeaconBlock
+      )
+
+    commitment = <<0::384>>
+    body = %{spec_block.message.body | blob_kzg_commitments: [commitment]}
+    body_root = SszEx.hash_tree_root!(body, BeaconBlockBody)
+
+    [proof] = BlockBuilder.compute_inclusion_proofs(body)
+
+    assert length(proof) == 9
+
+    commitment_root = SszEx.hash_tree_root!(commitment, TypeAliases.kzg_commitment())
+
+    # Manually computed generalized index of the commitment in the body
+    index = 0b101100000
+
+    valid? =
+      Predicates.valid_merkle_branch?(commitment_root, proof, length(proof), index, body_root)
+
+    assert valid?
   end
 end

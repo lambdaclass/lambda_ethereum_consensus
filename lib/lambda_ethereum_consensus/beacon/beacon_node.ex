@@ -8,6 +8,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   alias LambdaEthereumConsensus.ForkChoice.Helpers
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Validator
+  alias Types.BeaconState
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -69,11 +72,16 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     []
   end
 
-  defp get_validator_children(deposit_tree_snapshot, head_slot, head_root, genesis_time) do
-    # TODO: move checkpoint sync outside and move this to application.ex
-    [
-      {LambdaEthereumConsensus.Validator, {head_slot, head_root}},
-      {LambdaEthereumConsensus.Execution.ExecutionChain, {genesis_time, deposit_tree_snapshot}}
-    ]
+  defp get_validator_children(snapshot, head_slot, head_root, genesis_time) do
+    if is_nil(Application.get_env(:lambda_ethereum_consensus, Validator)) do
+      []
+    else
+      %BeaconState{eth1_data_votes: votes} = BlockStates.get_state!(head_root)
+      # TODO: move checkpoint sync outside and move this to application.ex
+      [
+        {Validator, {head_slot, head_root}},
+        {LambdaEthereumConsensus.Execution.ExecutionChain, {genesis_time, snapshot, votes}}
+      ]
+    end
   end
 end

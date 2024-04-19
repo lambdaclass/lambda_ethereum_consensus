@@ -17,8 +17,10 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias Types.BeaconBlock
+  alias Types.BeaconBlockBody
   alias Types.BeaconBlockHeader
   alias Types.BeaconState
+  alias Types.BlobsBundle
   alias Types.BlobSidecar
   alias Types.Eth1Data
   alias Types.ExecutionPayload
@@ -27,18 +29,17 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   require Logger
 
-  @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t()) ::
-          {:error, any()} | {:ok, Types.SignedBeaconBlock.t()}
-  def build_block(%BuildBlockRequest{parent_root: parent_root, slot: proposed_slot} = request) do
-    head_block = Blocks.get_block!(parent_root)
-    head_hash = head_block.body.execution_payload.block_hash
+  # TODO: move to Engine API
+  @type payload_id() :: String.t()
+
+  @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t(), payload_id()) ::
+          {:ok, {SignedBeaconBlock.t(), BlobSidecar.t()}} | {:error, any()}
+  def build_block(%BuildBlockRequest{parent_root: parent_root} = request, payload_id) do
     pre_state = BlockStates.get_state!(parent_root)
 
-    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
-         {:ok, finalized_hash} <- get_finalized_block_hash(mid_state),
-         {:ok, {execution_payload, blobs_bundle}} <-
-           build_execution_block(mid_state, parent_root, head_hash, finalized_hash),
-         {:ok, eth1_vote} <- fetch_eth1_data(proposed_slot, mid_state),
+    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, request.slot),
+         {:ok, {execution_payload, blobs_bundle}} <- ExecutionClient.get_payload(payload_id),
+         {:ok, eth1_vote} <- fetch_eth1_data(request.slot, mid_state),
          {:ok, block_request} <-
            request
            |> Map.merge(fetch_operations_for_block())
@@ -52,9 +53,9 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
              execution_payload,
              eth1_vote
            ),
-         {:ok, signed_block} <- seal_block(pre_state, block, block_request.privkey),
-         :ok <- store_blobs(signed_block, blobs_bundle) do
-      {:ok, signed_block}
+         {:ok, signed_block} <- seal_block(pre_state, block, block_request.privkey) do
+      sidecars = generate_sidecars(signed_block, blobs_bundle)
+      {:ok, {signed_block, sidecars}}
     end
   end
 
@@ -94,6 +95,50 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
      }}
   end
 
+  @spec start_building_payload(Types.slot(), Types.root()) ::
+          {:ok, payload_id()} | {:error, any()}
+  def start_building_payload(proposed_slot, head_root) do
+    # PERF: the state can be cached for the later build_block call
+    head_block = Blocks.get_block!(head_root)
+    pre_state = BlockStates.get_state!(head_root)
+    head_payload_hash = head_block.body.execution_payload.block_hash
+
+    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
+         {:ok, finalized_payload_hash} <- get_finalized_block_hash(mid_state) do
+      forkchoice_state = %{
+        finalized_block_hash: finalized_payload_hash,
+        head_block_hash: head_payload_hash,
+        # TODO calculate safe block
+        safe_block_hash: finalized_payload_hash
+      }
+
+      current_epoch = Accessors.get_current_epoch(mid_state)
+
+      payload_attributes = %{
+        timestamp: Misc.compute_timestamp_at_slot(mid_state, mid_state.slot),
+        prev_randao: Randao.get_randao_mix(mid_state.randao_mixes, current_epoch),
+        # TODO: add suggested fee recipient
+        suggested_fee_recipient: <<0::160>>,
+        withdrawals: Operations.get_expected_withdrawals(mid_state),
+        parent_beacon_block_root: head_root
+      }
+
+      ExecutionClient.notify_forkchoice_updated(forkchoice_state, payload_attributes)
+    end
+  end
+
+  @spec seal_block(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
+          {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
+  def seal_block(pre_state, block, privkey) do
+    wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
+
+    with {:ok, post_state} <- StateTransition.state_transition(pre_state, wrapped_block, false) do
+      %BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}
+      |> sign_block(post_state, privkey)
+      |> then(&{:ok, &1})
+    end
+  end
+
   @spec fetch_operations_for_block() :: %{
           proposer_slashings: [Types.ProposerSlashing.t()],
           attester_slashings: [Types.AttesterSlashing.t()],
@@ -122,19 +167,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     processable_deposits = eth1_data.deposit_count - range_start
     range_end = min(processable_deposits, ChainSpec.get("MAX_DEPOSITS")) + range_start - 1
 
-    ExecutionChain.get_deposits(eth1_data, eth1_vote, range_start..range_end)
-  end
-
-  @spec seal_block(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
-          {:ok, SignedBeaconBlock.t()} | {:error, String.t()}
-  def seal_block(pre_state, block, privkey) do
-    wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
-
-    with {:ok, post_state} <- StateTransition.state_transition(pre_state, wrapped_block, false) do
-      %BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}
-      |> sign_block(post_state, privkey)
-      |> then(&{:ok, &1})
-    end
+    ExecutionChain.get_deposits(eth1_data, eth1_vote, range_start..range_end//1)
   end
 
   defp sign_block(block, state, privkey) do
@@ -144,7 +177,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   @spec get_epoch_signature(BeaconState.t(), Types.slot(), Bls.privkey()) ::
           Types.bls_signature()
-  def get_epoch_signature(state, slot, privkey) do
+  defp get_epoch_signature(state, slot, privkey) do
     epoch = Misc.compute_epoch_at_slot(slot)
     domain = Accessors.get_domain(state, Constants.domain_randao(), epoch)
     signing_root = Misc.compute_signing_root(epoch, TypeAliases.epoch(), domain)
@@ -154,7 +187,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   @spec get_block_signature(BeaconState.t(), BeaconBlock.t(), Bls.privkey()) ::
           Types.bls_signature()
-  def get_block_signature(state, block, privkey) do
+  defp get_block_signature(state, block, privkey) do
     domain = Accessors.get_domain(state, Constants.domain_beacon_proposer())
     signing_root = Misc.compute_signing_root(block, domain)
     {:ok, signature} = Bls.sign(privkey, signing_root)
@@ -166,37 +199,6 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       sync_committee_bits: ChainSpec.get("SYNC_COMMITTEE_SIZE") |> BitVector.new(),
       sync_committee_signature: <<192, 0::760>>
     }
-  end
-
-  @spec build_execution_block(BeaconState.t(), Types.root(), Types.hash32(), Types.hash32()) ::
-          {:error, any()} | {:ok, {Types.ExecutionPayload.t(), Types.BlobsBundle.t()}}
-  defp build_execution_block(state, head_root, head_payload_hash, finalized_payload_hash) do
-    forkchoice_state = %{
-      finalized_block_hash: finalized_payload_hash,
-      head_block_hash: head_payload_hash,
-      # TODO calculate safe block
-      safe_block_hash: finalized_payload_hash
-    }
-
-    payload_attributes = %{
-      timestamp: Misc.compute_timestamp_at_slot(state, state.slot),
-      prev_randao: Randao.get_randao_mix(state.randao_mixes, Accessors.get_current_epoch(state)),
-      suggested_fee_recipient: <<0::160>>,
-      withdrawals: Operations.get_expected_withdrawals(state),
-      parent_beacon_block_root: head_root
-    }
-
-    with {:ok, payload_id} <-
-           ExecutionClient.notify_forkchoice_updated(
-             forkchoice_state,
-             payload_attributes
-           ),
-         # TODO: we need to balance a time that should be long enough to let the execution client
-         # pack as many transactions as possible (more fees for us) while giving enough time to propagate
-         # the block and have it included
-         :ok <- Process.sleep(3000) do
-      ExecutionClient.get_payload(payload_id)
-    end
   end
 
   defp get_finalized_block_hash(state) do
@@ -223,10 +225,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     {:ok, eth_vote}
   end
 
-  @spec store_blobs(Types.SignedBeaconBlock.t(), Types.BlobsBundle.t()) :: :ok
-  defp store_blobs(signed_block, blobs_bundle) do
-    block = signed_block.message
-
+  @spec generate_sidecars(SignedBeaconBlock.t(), BlobsBundle.t()) :: [BlobSidecar.t()]
+  defp generate_sidecars(%SignedBeaconBlock{message: block} = signed_block, blobs_bundle) do
     block_header = %BeaconBlockHeader{
       slot: block.slot,
       proposer_index: block.proposer_index,
@@ -240,24 +240,59 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       signature: signed_block.signature
     }
 
-    Stream.zip([blobs_bundle.blobs, blobs_bundle.commitments, blobs_bundle.proofs])
+    %Types.BlobsBundle{blobs: blobs, commitments: commitments, proofs: proofs} = blobs_bundle
+    inclusion_proofs = compute_inclusion_proofs(block.body)
+
+    Stream.zip([blobs, commitments, proofs, inclusion_proofs])
     |> Stream.with_index()
-    |> Stream.each(fn {{blob, commitment, proof}, index} ->
-      BlobDb.store_blob(%BlobSidecar{
+    |> Enum.map(fn {{blob, commitment, proof, inclusion_proof}, index} ->
+      %BlobSidecar{
         index: index,
         blob: blob,
         kzg_commitment: commitment,
         kzg_proof: proof,
         signed_block_header: signed_block_header,
-        # TODO
-        # compute_merkle_proof(
-        #       block.body,
-        #       get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments', index),
-        #    ),
-        kzg_commitment_inclusion_proof: [<<0::256>>] |> Stream.cycle() |> Enum.take(17)
-      })
+        kzg_commitment_inclusion_proof: inclusion_proof
+      }
+      |> tap(&BlobDb.store_blob/1)
     end)
+  end
 
-    :ok
+  def compute_inclusion_proofs(%BeaconBlockBody{blob_kzg_commitments: []}), do: []
+
+  def compute_inclusion_proofs(%BeaconBlockBody{} = body) do
+    # TODO: maybe generalize and move to a separate module
+    commitments = body.blob_kzg_commitments
+    commitment_number = length(commitments)
+
+    # Compute the proof against the commitments tree root for each commitment
+    commitment_leaves =
+      Enum.map(commitments, &SszEx.hash_tree_root!(&1, TypeAliases.kzg_commitment()))
+
+    commitment_tree_height =
+      ChainSpec.get("MAX_BLOB_COMMITMENTS_PER_BLOCK") |> :math.log2() |> ceil()
+
+    commitment_tree_proofs =
+      0..(commitment_number - 1)
+      |> Enum.map(
+        &SszEx.Merkleization.compute_merkle_proof(commitment_leaves, &1, commitment_tree_height)
+      )
+
+    # Compute the proof against the BeaconBlockBody root for the commitments tree root
+    commitments_tree_index =
+      BeaconBlockBody.schema()
+      |> Enum.find_index(&match?({:blob_kzg_commitments, _}, &1))
+
+    body_height = BeaconBlockBody.schema() |> Enum.count() |> :math.log2() |> ceil()
+
+    body_proof =
+      BeaconBlockBody.schema()
+      |> Enum.map(fn {name, schema} -> Map.fetch!(body, name) |> SszEx.hash_tree_root!(schema) end)
+      |> SszEx.Merkleization.compute_merkle_proof(commitments_tree_index, body_height)
+
+    mix_in_length = <<commitment_number::little-size(256)>>
+
+    # Concatenate both proofs and the mix-in length for each commitment
+    Enum.map(commitment_tree_proofs, &Enum.concat([&1, [mix_in_length], body_proof]))
   end
 end
