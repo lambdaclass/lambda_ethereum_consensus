@@ -746,8 +746,9 @@ defmodule Unit.SSZExTest do
     initial_list = [5, 5, 5, 5]
 
     error =
-      "Invalid binary length while encoding list of {:int, 8}.\nExpected max_size: 2.\nFound: 4\n"
+      "Invalid binary length while merkleizing list of {:int, 8}.\nExpected max_size: 2.\nFound: 4\n"
 
-    assert {:error, ^error} = SszEx.hash_tree_root(initial_list, {:list, {:int, 8}, 2})
+    result = SszEx.hash_tree_root(initial_list, {:list, {:int, 8}, 2})
+    assert error == "#{result}"
   end
 end
