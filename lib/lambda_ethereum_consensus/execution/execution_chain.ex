@@ -36,7 +36,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   @impl true
-  def init({genesis_time, %DepositTreeSnapshot{} = snapshot}) do
+  def init({genesis_time, %DepositTreeSnapshot{} = snapshot, eth1_votes}) do
     state = %{
       # PERF: we could use some kind of ordered map for storing votes
       eth1_data_votes: %{},
@@ -47,7 +47,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
       last_period: 0
     }
 
-    {:ok, state}
+    updated_state = Enum.reduce(eth1_votes, state, &update_state_with_vote(&2, &1))
+
+    {:ok, updated_state}
   end
 
   @impl true
@@ -69,7 +71,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     state
     |> prune_state(slot)
     |> update_state_with_payload(payload_info)
-    |> update_state_with_vote(eth1_data, slot)
+    |> update_state_with_vote(eth1_data)
     |> then(&{:noreply, &1})
   end
 
@@ -99,12 +101,12 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     Enum.take_while(eth1_chain, fn %{timestamp: timestamp} -> timestamp >= cutoff_time end)
   end
 
-  defp update_state_with_vote(state, eth1_data, slot) do
+  defp update_state_with_vote(state, eth1_data) do
     votes = state.eth1_data_votes
 
-    # We append the negative slot so ties are broken by the order of appearance
+    # We append the negative size so ties are broken by the order of appearance
     eth1_data_votes =
-      Map.update(votes, eth1_data, {1, -slot}, fn {count, i} -> {count + 1, i} end)
+      Map.update(votes, eth1_data, {1, -map_size(votes)}, fn {count, i} -> {count + 1, i} end)
 
     new_state = %{state | eth1_data_votes: eth1_data_votes}
 
