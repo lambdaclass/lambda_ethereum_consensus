@@ -20,6 +20,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias Types.BeaconBlockBody
   alias Types.BeaconBlockHeader
   alias Types.BeaconState
+  alias Types.BlobsBundle
   alias Types.BlobSidecar
   alias Types.Eth1Data
   alias Types.ExecutionPayload
@@ -32,7 +33,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   @type payload_id() :: String.t()
 
   @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t(), payload_id()) ::
-          {:error, any()} | {:ok, Types.SignedBeaconBlock.t()}
+          {:ok, {SignedBeaconBlock.t(), BlobSidecar.t()}} | {:error, any()}
   def build_block(%BuildBlockRequest{parent_root: parent_root} = request, payload_id) do
     pre_state = BlockStates.get_state!(parent_root)
 
@@ -52,9 +53,9 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
              execution_payload,
              eth1_vote
            ),
-         {:ok, signed_block} <- seal_block(pre_state, block, block_request.privkey),
-         :ok <- store_blobs(signed_block, blobs_bundle) do
-      {:ok, signed_block}
+         {:ok, signed_block} <- seal_block(pre_state, block, block_request.privkey) do
+      sidecars = generate_sidecars(signed_block, blobs_bundle)
+      {:ok, {signed_block, sidecars}}
     end
   end
 
@@ -224,10 +225,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     {:ok, eth_vote}
   end
 
-  @spec store_blobs(Types.SignedBeaconBlock.t(), Types.BlobsBundle.t()) :: :ok
-  defp store_blobs(signed_block, blobs_bundle) do
-    block = signed_block.message
-
+  @spec generate_sidecars(SignedBeaconBlock.t(), BlobsBundle.t()) :: [BlobSidecar.t()]
+  defp generate_sidecars(%SignedBeaconBlock{message: block} = signed_block, blobs_bundle) do
     block_header = %BeaconBlockHeader{
       slot: block.slot,
       proposer_index: block.proposer_index,
@@ -246,18 +245,17 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
     Stream.zip([blobs, commitments, proofs, inclusion_proofs])
     |> Stream.with_index()
-    |> Stream.each(fn {{blob, commitment, proof, inclusion_proof}, index} ->
-      BlobDb.store_blob(%BlobSidecar{
+    |> Enum.map(fn {{blob, commitment, proof, inclusion_proof}, index} ->
+      %BlobSidecar{
         index: index,
         blob: blob,
         kzg_commitment: commitment,
         kzg_proof: proof,
         signed_block_header: signed_block_header,
         kzg_commitment_inclusion_proof: inclusion_proof
-      })
+      }
+      |> tap(&BlobDb.store_blob/1)
     end)
-
-    :ok
   end
 
   def compute_inclusion_proofs(%BeaconBlockBody{blob_kzg_commitments: []}), do: []

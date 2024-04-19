@@ -64,28 +64,28 @@ defmodule SszEx.Merkleization do
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(list, {:list, type, _size} = schema) do
-    limit = chunk_count(schema)
+  def hash_tree_root(list, {:list, type, max_size} = schema) do
     len = Enum.count(list)
 
-    value =
-      if Utils.basic_type?(type) do
-        pack(list, schema)
-      else
-        list_hash_tree_root(list, type)
-      end
+    cond do
+      len > max_size ->
+        {:error,
+         "Invalid binary length while encoding list of #{inspect(type)}.\nExpected max_size: #{max_size}.\nFound: #{len}\n"}
 
-    case value do
-      {:ok, chunks} -> chunks |> hash_tree_root_list(limit, len)
-      {:error, reason} -> {:error, reason}
-      chunks -> chunks |> hash_tree_root_list(limit, len)
+      Utils.basic_type?(type) ->
+        list_hash_tree_root_basic(list, schema, len)
+
+      true ->
+        list_hash_tree_root_complex(list, schema, type, len)
     end
   end
 
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
           {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(vector, {:vector, _type, size}) when length(vector) != size,
-    do: {:error, "invalid size"}
+  def hash_tree_root(vector, {:vector, inner_type, size}) when length(vector) != size,
+    do:
+      {:error,
+       "Invalid binary length while merkleizing vector of #{inspect(inner_type)}.\nExpected size: #{size}.\nFound: #{length(vector)}\n"}
 
   def hash_tree_root(vector, {:vector, type, _size} = schema) do
     value =
@@ -152,6 +152,20 @@ defmodule SszEx.Merkleization do
     |> compute_merkle_proof(div(index, 2), height + 1, max_height, [proof_element | proof])
   end
 
+  defp list_hash_tree_root_basic(list, schema, len) do
+    limit = chunk_count(schema)
+    pack(list, schema) |> hash_tree_root_list(limit, len)
+  end
+
+  defp list_hash_tree_root_complex(list, schema, type, len) do
+    limit = chunk_count(schema)
+
+    with {:ok, chunks} <- list_hash_tree_root(list, type),
+         result <- hash_tree_root_list(chunks, limit, len) do
+      result
+    end
+  end
+
   defp hash_tree_root_vector(chunks) do
     leaf_count = chunks |> get_chunks_len() |> next_pow_of_two()
     root = merkleize_chunks_with_virtual_padding(chunks, leaf_count)
@@ -159,14 +173,8 @@ defmodule SszEx.Merkleization do
   end
 
   defp hash_tree_root_list(chunks, limit, len) do
-    chunks_len = chunks |> get_chunks_len()
-
-    if chunks_len > limit do
-      {:error, "chunk size exceeds limit"}
-    else
-      root = merkleize_chunks_with_virtual_padding(chunks, limit) |> mix_in_length(len)
-      {:ok, root}
-    end
+    root = merkleize_chunks_with_virtual_padding(chunks, limit) |> mix_in_length(len)
+    {:ok, root}
   end
 
   defp list_hash_tree_root(list, inner_schema) do
