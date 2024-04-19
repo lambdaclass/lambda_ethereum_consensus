@@ -431,7 +431,8 @@ defmodule Unit.SSZExTest do
   end
 
   test "serialize out bounded list" do
-    error_message = "invalid max_size of list"
+    error_message =
+      "Invalid binary length while encoding list of {:int, 32}.\nExpected max_size: 3.\nFound: 4\n"
 
     assert {:error, ^error_message} =
              SszEx.encode([230, 380, 523, 23_423], {:list, {:int, 32}, 3})
@@ -738,5 +739,14 @@ defmodule Unit.SSZExTest do
     assert SszEx.decode(encoded_checkpoint, Checkpoint) ==
              {:error,
               "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 41.\n"}
+  end
+
+  test "hash tree root of list exceeding max size" do
+    initial_list = [5, 5, 5, 5]
+
+    error =
+      "Invalid binary length while encoding list of {:int, 8}.\nExpected max_size: 2.\nFound: 4\n"
+
+    assert {:error, ^error} = SszEx.hash_tree_root(initial_list, {:list, {:int, 8}, 2})
   end
 end
