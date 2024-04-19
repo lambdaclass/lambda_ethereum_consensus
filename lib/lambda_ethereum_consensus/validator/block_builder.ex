@@ -170,7 +170,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     processable_deposits = eth1_data.deposit_count - range_start
     range_end = min(processable_deposits, ChainSpec.get("MAX_DEPOSITS")) + range_start - 1
 
-    ExecutionChain.get_deposits(eth1_data, eth1_vote, range_start..range_end)
+    ExecutionChain.get_deposits(eth1_data, eth1_vote, range_start..range_end//1)
   end
 
   defp sign_block(block, state, privkey) do
