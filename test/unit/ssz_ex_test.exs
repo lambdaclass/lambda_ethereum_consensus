@@ -434,8 +434,9 @@ defmodule Unit.SSZExTest do
     error_message =
       "Invalid binary length while encoding list of {:int, 32}.\nExpected max_size: 3.\nFound: 4\n"
 
-    assert {:error, ^error_message} =
-             SszEx.encode([230, 380, 523, 23_423], {:list, {:int, 32}, 3})
+    result = SszEx.encode([230, 380, 523, 23_423], {:list, {:int, 32}, 3})
+
+    assert error_message == "#{result}"
   end
 
   test "deserialize out bounded list" do
