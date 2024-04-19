@@ -12,7 +12,7 @@ defmodule SszEx.Decode do
   @offset_bits 32
 
   @spec decode(binary(), SszEx.schema()) ::
-          {:ok, any()} | Error.t()
+          {:ok, any()} | {:error, Error.t()}
   def decode(binary, :bool), do: decode_bool(binary)
   def decode(binary, {:int, size}), do: decode_uint(binary, size)
   def decode(value, {:byte_list, _}), do: {:ok, value}
@@ -51,10 +51,12 @@ defmodule SszEx.Decode do
   end
 
   defp decode_uint(binary, size) when bit_size(binary) != size,
-    do: %Error{
-      message:
-        "Invalid binary length while decoding uint.\nExpected size: #{size}.\nFound:#{bit_size(binary)}\n"
-    }
+    do:
+      {:error,
+       %Error{
+         message:
+           "Invalid binary length while decoding uint.\nExpected size: #{size}.\nFound:#{bit_size(binary)}\n"
+       }}
 
   defp decode_uint(binary, size) do
     <<element::integer-size(size)-little, _rest::bitstring>> = binary
@@ -62,24 +64,30 @@ defmodule SszEx.Decode do
   end
 
   defp decode_bool(binary) when byte_size(binary) != 1,
-    do: %Error{
-      message:
-        "Invalid binary length while decoding bool.\nExpected size: 1.\nFound:#{byte_size(binary)}\n"
-    }
+    do:
+      {:error,
+       %Error{
+         message:
+           "Invalid binary length while decoding bool.\nExpected size: 1.\nFound:#{byte_size(binary)}\n"
+       }}
 
   defp decode_bool("\x01"), do: {:ok, true}
   defp decode_bool("\x00"), do: {:ok, false}
 
   defp decode_bool(binary),
-    do: %Error{
-      message:
-        "Invalid binary value while decoding bool.\nExpected value: x01/x00.\nFound: x#{Base.encode16(binary)}."
-    }
+    do:
+      {:error,
+       %Error{
+         message:
+           "Invalid binary value while decoding bool.\nExpected value: x01/x00.\nFound: x#{Base.encode16(binary)}."
+       }}
 
   defp decode_bitlist("", _max_size),
-    do: %Error{
-      message: "Invalid binary value while decoding BitList.\nEmpty binary found.\n"
-    }
+    do:
+      {:error,
+       %Error{
+         message: "Invalid binary value while decoding BitList.\nEmpty binary found.\n"
+       }}
 
   defp decode_bitlist(bit_list, max_size) do
     num_bytes = byte_size(bit_list)
@@ -88,15 +96,17 @@ defmodule SszEx.Decode do
 
     cond do
       match?(<<_::binary-size(num_bytes - 1), 0>>, bit_list) ->
-        %Error{
-          message: "Invalid binary value while decoding BitList.\nMissing sentinel bit.\n"
-        }
+        {:error,
+         %Error{
+           message: "Invalid binary value while decoding BitList.\nMissing sentinel bit.\n"
+         }}
 
       len > max_size ->
-        %Error{
-          message:
-            "Invalid binary length while decoding BitList. \nExpected max_size: #{max_size}. Found: #{len}.\n"
-        }
+        {:error,
+         %Error{
+           message:
+             "Invalid binary length while decoding BitList. \nExpected max_size: #{max_size}. Found: #{len}.\n"
+         }}
 
       true ->
         {:ok, decoded}
@@ -113,9 +123,10 @@ defmodule SszEx.Decode do
         {:ok, BitVector.new(bit_vector, size)}
 
       _ ->
-        %Error{
-          message: "Invalid binary length while decoding BitVector. \nExpected size: #{size}.\n"
-        }
+        {:error,
+         %Error{
+           message: "Invalid binary length while decoding BitVector. \nExpected size: #{size}.\n"
+         }}
     end
   end
 
@@ -147,20 +158,24 @@ defmodule SszEx.Decode do
 
   defp check_valid_fixed_list_size(byte_length, inner_type, inner_type_size, max_size)
        when byte_length > inner_type_size * max_size,
-       do: %Error{
-         message:
-           "Invalid binary length while decoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{byte_length}\n"
-       }
+       do:
+         {:error,
+          %Error{
+            message:
+              "Invalid binary length while decoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{byte_length}\n"
+          }}
 
   defp check_valid_fixed_list_size(_byte_length, _inner_type, _inner_type_size, _max_size),
     do: :ok
 
   defp check_valid_vector_size(byte_length, inner_type, inner_type_size, size)
        when byte_length != inner_type_size * size,
-       do: %Error{
-         message:
-           "Invalid binary length while decoding vector of #{inspect(inner_type)}.\nExpected size #{inner_type_size * size} bytes.\nFound: #{byte_length}.\n"
-       }
+       do:
+         {:error,
+          %Error{
+            message:
+              "Invalid binary length while decoding vector of #{inspect(inner_type)}.\nExpected size #{inner_type_size * size} bytes.\nFound: #{byte_length}.\n"
+          }}
 
   defp check_valid_vector_size(_byte_length, _inner_type, _inner_type_size, _size),
     do: :ok
@@ -170,10 +185,12 @@ defmodule SszEx.Decode do
        do: :ok
 
   defp check_valid_vector_size_after_decode(size, decoded_size),
-    do: %Error{
-      message:
-        "Invalid vector decoded size.\nExpected size: #{size}. Decoded vector size: #{decoded_size} "
-    }
+    do:
+      {:error,
+       %Error{
+         message:
+           "Invalid vector decoded size.\nExpected size: #{size}. Decoded vector size: #{decoded_size} "
+       }}
 
   defp decode_variable_list("", _, _) do
     {:ok, []}
@@ -185,10 +202,12 @@ defmodule SszEx.Decode do
          size
        )
        when div(first_offset, @bytes_per_length_offset) > size,
-       do: %Error{
-         message:
-           "Invalid binary while decoding list of #{inspect(inner_type)}.\nExpected max_size: #{size}.\n First offset points to: #{first_offset}."
-       }
+       do:
+         {:error,
+          %Error{
+            message:
+              "Invalid binary while decoding list of #{inspect(inner_type)}.\nExpected max_size: #{size}.\n First offset points to: #{first_offset}."
+          }}
 
   defp decode_variable_list(binary, inner_type, _size) do
     <<first_offset::integer-32-little, rest_bytes::bitstring>> = binary
@@ -196,10 +215,11 @@ defmodule SszEx.Decode do
 
     if Integer.mod(first_offset, @bytes_per_length_offset) != 0 ||
          first_offset < @bytes_per_length_offset do
-      %Error{
-        message:
-          "Invalid binary while decoding list of #{inspect(inner_type)}.\nFirst offset points to: #{first_offset}."
-      }
+      {:error,
+       %Error{
+         message:
+           "Invalid binary while decoding list of #{inspect(inner_type)}.\nFirst offset points to: #{first_offset}."
+       }}
     else
       with :ok <-
              sanitize_offset(first_offset, nil, byte_size(binary), first_offset) do
@@ -286,20 +306,24 @@ defmodule SszEx.Decode do
 
   defp check_fixed_container_size(module, expected_length, size)
        when expected_length != size,
-       do: %Error{
-         message:
-           "Invalid binary length while decoding #{module}. \nExpected #{expected_length}. \nFound #{size}.\n"
-       }
+       do:
+         {:error,
+          %Error{
+            message:
+              "Invalid binary length while decoding #{module}. \nExpected #{expected_length}. \nFound #{size}.\n"
+          }}
 
   defp check_fixed_container_size(_module, _expected_length, _size),
     do: :ok
 
   defp check_first_offset([{offset, _} | _rest], items_index, _binary_size)
        when offset != items_index,
-       do: %Error{
-         message:
-           "First offset does not point to the first variable byte.\nExpected index: #{items_index}.\nOffset: #{offset}. "
-       }
+       do:
+         {:error,
+          %Error{
+            message:
+              "First offset does not point to the first variable byte.\nExpected index: #{items_index}.\nOffset: #{offset}. "
+          }}
 
   defp check_first_offset(_offsets, _items_index, _binary_size),
     do: :ok
@@ -364,16 +388,18 @@ defmodule SszEx.Decode do
   defp sanitize_offset(offset, previous_offset, num_bytes, nil) do
     cond do
       offset > num_bytes ->
-        %Error{
-          message:
-            "Offset points outside the binary. \nBinary length: #{num_bytes}.\nOffset: #{offset}"
-        }
+        {:error,
+         %Error{
+           message:
+             "Offset points outside the binary. \nBinary length: #{num_bytes}.\nOffset: #{offset}"
+         }}
 
       previous_offset != nil && previous_offset > offset ->
-        %Error{
-          message:
-            "Offset points to bytes prior to the previous offset.\nPrevious offset: #{previous_offset}.\nOffset: #{offset}"
-        }
+        {:error,
+         %Error{
+           message:
+             "Offset points to bytes prior to the previous offset.\nPrevious offset: #{previous_offset}.\nOffset: #{offset}"
+         }}
 
       true ->
         :ok
@@ -383,16 +409,18 @@ defmodule SszEx.Decode do
   defp sanitize_offset(offset, previous_offset, _num_bytes, num_fixed_bytes) do
     cond do
       offset < num_fixed_bytes ->
-        %Error{
-          message:
-            "Offset points “backwards” into the fixed-bytes portion. \nFirst variable byte index: #{num_fixed_bytes}.\nOffset: #{offset}."
-        }
+        {:error,
+         %Error{
+           message:
+             "Offset points “backwards” into the fixed-bytes portion. \nFirst variable byte index: #{num_fixed_bytes}.\nOffset: #{offset}."
+         }}
 
       previous_offset == nil && offset != num_fixed_bytes ->
-        %Error{
-          message:
-            "Offset does not point to the first variable byte.\nExpected index: #{num_fixed_bytes}.\nOffset: #{offset}."
-        }
+        {:error,
+         %Error{
+           message:
+             "Offset does not point to the first variable byte.\nExpected index: #{num_fixed_bytes}.\nOffset: #{offset}."
+         }}
 
       true ->
         :ok
@@ -410,10 +438,11 @@ defmodule SszEx.Decode do
   defp decode_fixed_collection(binary, chunk_size, _inner_type, results)
        when byte_size(binary) < chunk_size,
        do: [
-         %Error{
-           message:
-             "Invalid binary length while decoding collection. \nInner type size: #{chunk_size} bytes. Binary length: #{byte_size(binary)} bytes.\n"
-         }
+         {:error,
+          %Error{
+            message:
+              "Invalid binary length while decoding collection. \nInner type size: #{chunk_size} bytes. Binary length: #{byte_size(binary)} bytes.\n"
+          }}
          | results
        ]
 
@@ -426,7 +455,7 @@ defmodule SszEx.Decode do
     case Enum.group_by(results, fn {_, {type, _}} -> type end, fn {key, {_, result}} ->
            {key, result}
          end) do
-      %Error{} = error -> error
+      %{error: errors} -> {:error, errors}
       summary -> {:ok, Map.get(summary, :ok, [])}
     end
   end
