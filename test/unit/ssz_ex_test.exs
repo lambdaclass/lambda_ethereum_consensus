@@ -613,8 +613,7 @@ defmodule Unit.SSZExTest do
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 33})
 
     encoded_bytes = <<255, 255, 255, 255, 255, 1::1>>
-    result = SszEx.decode(encoded_bytes, {:bitvector, 41})
-    assert {:error, _msg} = result
+    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 41})
 
     encoded_bytes = <<0>>
     assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 9})

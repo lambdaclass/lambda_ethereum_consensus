@@ -94,18 +94,21 @@ defmodule SszEx.Decode do
   end
 
   defp decode_bitvector(bit_vector, size) do
-    num_bits = bit_size(bit_vector)
-    num_bytes = div(num_bits, 8)
+    first_num_bytes = get_first_bytes(size)
     padding_bits = rem(8 - rem(size, 8), 8)
 
     case bit_vector do
-      <<_first::binary-size(num_bytes - 1), 0::size(padding_bits), _rest::size(8 - padding_bits)>> ->
+      <<_first::binary-size(first_num_bytes), 0::size(padding_bits),
+        _rest::size(8 - padding_bits)>> ->
         {:ok, BitVector.new(bit_vector, size)}
 
       _ ->
         {:error, "Invalid binary length while decoding BitVector. \nExpected size: #{size}.\n"}
     end
   end
+
+  defp get_first_bytes(size) when rem(size, 8) == 0, do: div(size, 8) - 1
+  defp get_first_bytes(size), do: div(size, 8)
 
   defp decode_fixed_list(binary, inner_type, size) do
     fixed_size = Utils.get_fixed_size(inner_type)
