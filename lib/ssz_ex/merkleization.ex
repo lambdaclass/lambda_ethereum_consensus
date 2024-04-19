@@ -64,16 +64,17 @@ defmodule SszEx.Merkleization do
   end
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
-          {:ok, Types.root()} | Error.t()
+          {:ok, Types.root()} | {:error, Error.t()}
   def hash_tree_root(list, {:list, type, max_size} = schema) do
     len = Enum.count(list)
 
     cond do
       len > max_size ->
-        %Error{
-          message:
-            "Invalid binary length while merkleizing list of #{inspect(type)}.\nExpected max_size: #{max_size}.\nFound: #{len}\n"
-        }
+        {:error,
+         %Error{
+           message:
+             "Invalid binary length while merkleizing list of #{inspect(type)}.\nExpected max_size: #{max_size}.\nFound: #{len}\n"
+         }}
 
       Utils.basic_type?(type) ->
         list_hash_tree_root_basic(list, schema, len)
@@ -84,12 +85,14 @@ defmodule SszEx.Merkleization do
   end
 
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
-          {:ok, Types.root()} | Error.t()
+          {:ok, Types.root()} | {:error, Error.t()}
   def hash_tree_root(vector, {:vector, inner_type, size}) when length(vector) != size,
-    do: %Error{
-      message:
-        "Invalid binary length while merkleizing vector of #{inspect(inner_type)}.\nExpected size: #{size}.\nFound: #{length(vector)}\n"
-    }
+    do:
+      {:error,
+       %Error{
+         message:
+           "Invalid binary length while merkleizing vector of #{inspect(inner_type)}.\nExpected size: #{size}.\nFound: #{length(vector)}\n"
+       }}
 
   def hash_tree_root(vector, {:vector, type, _size} = schema) do
     value =
@@ -101,7 +104,7 @@ defmodule SszEx.Merkleization do
 
     case value do
       {:ok, chunks} -> chunks |> hash_tree_root_vector()
-      %Error{} -> value
+      {:error, %Error{}} -> value
       chunks -> chunks |> hash_tree_root_vector()
     end
   end
@@ -115,7 +118,7 @@ defmodule SszEx.Merkleization do
 
         case hash_tree_root(value, schema) do
           {:ok, root} -> {:cont, {:ok, acc_root <> root}}
-          %Error{} = error -> {:halt, error}
+          {:error, %Error{}} = error -> {:halt, error}
         end
       end)
 
@@ -127,7 +130,7 @@ defmodule SszEx.Merkleization do
         root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
         {:ok, root}
 
-      %Error{} ->
+      {:error, %Error{}} ->
         value
     end
   end
@@ -186,7 +189,7 @@ defmodule SszEx.Merkleization do
     |> Enum.reduce_while({:ok, <<>>}, fn value, {_, acc_roots} ->
       case hash_tree_root(value, inner_schema) do
         {:ok, root} -> {:cont, {:ok, acc_roots <> root}}
-        %Error{} = error -> {:halt, error}
+        {:error, %Error{}} = error -> {:halt, error}
       end
     end)
   end
@@ -260,7 +263,7 @@ defmodule SszEx.Merkleization do
     <<value::size(size)-little>> |> pack_bytes()
   end
 
-  @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | Error.t()
+  @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | {:error, Error.t()}
   def pack(list, {type, schema, _}) when type in [:vector, :list] do
     list
     |> Enum.reduce(<<>>, fn x, acc ->
