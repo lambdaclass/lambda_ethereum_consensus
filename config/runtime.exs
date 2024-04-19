@@ -1,4 +1,8 @@
 import Config
+alias LambdaEthereumConsensus.Beacon.StoreSetup
+alias LambdaEthereumConsensus.ForkChoice
+alias LambdaEthereumConsensus.SszEx
+alias Types.BeaconStateDeneb
 
 switches = [
   network: :string,
@@ -41,8 +45,10 @@ validator_file = Keyword.get(args, :validator_file)
 enable_beacon_api = Keyword.get(args, :beacon_api, false)
 beacon_api_port = Keyword.get(args, :beacon_api_port, 4000)
 
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice,
-  checkpoint_sync_url: checkpoint_sync_url
+if not is_nil(testnet_dir) and not is_nil(checkpoint_sync_url) do
+  IO.puts("Both checkpoint sync and testnet url specified (only one should be specified).")
+  System.halt(2)
+end
 
 valid_modes = ["full", "db"]
 raw_mode = Keyword.get(args, :mode, "full")
@@ -57,43 +63,49 @@ mode =
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus, mode: mode
 
-datadir = Keyword.get(args, :datadir, "level_db/#{network}")
+# DB setup
+default_datadir =
+  case testnet_dir do
+    nil -> "level_db/#{network}"
+    _ -> "level_db/local_testnet"
+  end
+
+datadir = Keyword.get(args, :datadir, default_datadir)
 File.mkdir_p!(datadir)
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadir
 
-chain_config =
+# Network setup
+{chain_config, bootnodes} =
   case testnet_dir do
     nil ->
       config = ConfigUtils.parse_config(network)
       bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/boot_enr.yaml")
-
-      %{
-        config: config,
-        genesis_validators_root: config.genesis_validators_root(),
-        bootnodes: bootnodes
-      }
+      {config, bootnodes}
 
     testnet_dir ->
       Path.join(testnet_dir, "config.yaml") |> CustomConfig.load_from_file!()
-
-      # TODO: compute this from the genesis block
-      genesis_validators_root = <<0::256>>
-
       bootnodes = Path.join(testnet_dir, "boot_enr.yaml") |> YamlElixir.read_from_file!()
+      {CustomConfig, bootnodes}
+  end
 
-      %{
-        config: CustomConfig,
-        genesis_validators_root: genesis_validators_root,
-        bootnodes: bootnodes
-      }
+# We use put_env here as we need this immediately after to read the state.
+Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: chain_config)
+
+strategy = StoreSetup.make_strategy!(testnet_dir, checkpoint_sync_url)
+
+genesis_validators_root =
+  case strategy do
+    {:file, state} -> state.genesis_validators_root
+    _ -> chain_config.genesis_validators_root()
   end
 
 config :lambda_ethereum_consensus, ChainSpec,
-  config: Map.fetch!(chain_config, :config),
-  genesis_validators_root: Map.fetch!(chain_config, :genesis_validators_root)
+  config: chain_config,
+  genesis_validators_root: genesis_validators_root
+
+config :lambda_ethereum_consensus, StoreSetup, strategy: strategy
 
 # Configures peer discovery
-bootnodes = Map.fetch!(chain_config, :bootnodes)
 config :lambda_ethereum_consensus, :discovery, port: 9000, bootnodes: bootnodes
 
 # Engine API
