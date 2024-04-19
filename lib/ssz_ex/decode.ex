@@ -241,10 +241,13 @@ defmodule SszEx.Decode do
     schemas = module.schema()
     fixed_length = get_fixed_length(schemas)
 
-    with {:ok, fixed_parts, _offsets, items_index} <-
-           decode_fixed_section(binary, schemas, fixed_length),
-         :ok <- check_byte_len(items_index, byte_size(binary)) do
-      {:ok, struct!(module, fixed_parts)}
+    if fixed_length != byte_size(binary) do
+      {:error, "InvalidByteLength"}
+    else
+      with {:ok, fixed_parts, _offsets, _items_index} <-
+             decode_fixed_section(binary, schemas, fixed_length) do
+        {:ok, struct!(module, fixed_parts)}
+      end
     end
   end
 
@@ -255,13 +258,6 @@ defmodule SszEx.Decode do
       true -> :ok
     end
   end
-
-  defp check_byte_len(items_index, binary_size)
-       when items_index == binary_size,
-       do: :ok
-
-  defp check_byte_len(_items_index, _binary_size),
-    do: {:error, "InvalidByteLength"}
 
   defp decode_variable_section(full_binary, binary, offsets) do
     offsets
