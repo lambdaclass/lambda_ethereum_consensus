@@ -101,13 +101,8 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  def handle_cast({:new_block, slot, head_root}, state) do
-    # TODO: this doesn't take into account reorgs
-    state
-    |> update_state(slot, head_root)
-    |> maybe_attest(slot)
-    |> then(&{:noreply, &1})
-  end
+  def handle_cast({:new_block, slot, head_root}, state),
+    do: {:noreply, handle_new_block(slot, head_root, state)}
 
   def handle_cast({:on_tick, _}, %{validator: %{index: nil}} = state), do: {:noreply, state}
 
@@ -126,6 +121,14 @@ defmodule LambdaEthereumConsensus.Validator do
     }
   end
 
+  defp handle_new_block(slot, head_root, state) do
+    # TODO: this doesn't take into account reorgs
+    state
+    |> update_state(slot, head_root)
+    |> maybe_attest(slot)
+    |> maybe_build_payload(slot + 1)
+  end
+
   defp handle_tick({slot, :first_third}, state) do
     # Here we may:
     # 1. propose our blocks
@@ -137,9 +140,10 @@ defmodule LambdaEthereumConsensus.Validator do
   defp handle_tick({slot, :second_third}, state) do
     # Here we may:
     # 1. send our attestation for an empty slot
-    # 2. (TODO) start building a payload
+    # 2. start building a payload
     state
     |> maybe_attest(slot)
+    |> maybe_build_payload(slot + 1)
   end
 
   defp handle_tick({slot, :last_third}, state) do
@@ -472,33 +476,104 @@ defmodule LambdaEthereumConsensus.Validator do
     end)
   end
 
-  defp maybe_propose(%{duties: %{proposer: slots}} = state, slot) do
-    if Enum.member?(slots, slot) do
-      propose(state, slot)
-    end
+  defp proposer?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
-    state
+  defp maybe_build_payload(%{root: head_root} = state, proposed_slot) do
+    if proposer?(state, proposed_slot) do
+      start_payload_builder(state, proposed_slot, head_root)
+    else
+      state
+    end
   end
 
-  defp propose(%{root: head_root, validator: %{index: index, privkey: privkey}}, proposed_slot) do
-    # TODO: handle errors if there are any
-    {:ok, signed_block} =
-      BlockBuilder.build_block(%BuildBlockRequest{
-        slot: proposed_slot,
-        parent_root: head_root,
-        proposer_index: index,
-        graffiti_message: @default_graffiti_message,
-        privkey: privkey
-      })
+  defp start_payload_builder(%{payload_builder: {slot, root, _}} = state, slot, root), do: state
 
+  defp start_payload_builder(state, proposed_slot, head_root) do
+    # TODO: handle reorgs and late blocks
+    Logger.info("[Validator] Starting to build payload for slot #{proposed_slot}")
+    {:ok, payload_id} = BlockBuilder.start_building_payload(proposed_slot, head_root)
+    %{state | payload_builder: {proposed_slot, head_root, payload_id}}
+  end
+
+  defp maybe_propose(state, slot) do
+    if proposer?(state, slot) do
+      propose(state, slot)
+    else
+      state
+    end
+  end
+
+  defp propose(%{root: head_root, validator: validator} = state, proposed_slot) do
+    {^proposed_slot, ^head_root, payload_id} = state.block_builder
+
+    build_result =
+      BlockBuilder.build_block(
+        %BuildBlockRequest{
+          slot: proposed_slot,
+          parent_root: head_root,
+          proposer_index: validator.index,
+          graffiti_message: @default_graffiti_message,
+          privkey: validator.privkey
+        },
+        payload_id
+      )
+
+    case build_result do
+      {:ok, {signed_block, blob_sidecars}} ->
+        publish_block(signed_block)
+        Enum.each(blob_sidecars, &publish_sidecar/1)
+
+      {:error, reason} ->
+        Logger.error(
+          "[Validator] Failed to build block for slot #{proposed_slot}. Reason: #{reason}"
+        )
+    end
+
+    %{state | payload_builder: nil}
+  end
+
+  # TODO: there's a lot of repeated code here. We should move this to a separate module
+  defp publish_block(signed_block) do
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
+    proposed_slot = signed_block.message.slot
+
     # TODO: we might want to send the block to ForkChoice
     case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
-      :ok -> Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
-      _ -> Logger.error("[Validator] Failed to publish block for slot #{proposed_slot}")
+      :ok ->
+        Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
+
+      {:error, reason} ->
+        Logger.error(
+          "[Validator] Failed to publish block for slot #{proposed_slot}. Reason: #{reason}"
+        )
     end
+  end
+
+  defp publish_sidecar(%Types.BlobSidecar{index: index} = sidecar) do
+    {:ok, ssz_encoded} = Ssz.to_ssz(sidecar)
+    {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+
+    subnet_id = compute_subnet_for_blob_sidecar(index)
+
+    case Libp2pPort.publish(
+           "/eth2/#{fork_context}/blob_sidecar_#{subnet_id}/ssz_snappy",
+           encoded_msg
+         ) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error(
+          "[Validator] Failed to publish sidecar with index #{index}. Reason: #{reason}"
+        )
+    end
+  end
+
+  defp compute_subnet_for_blob_sidecar(blob_index) do
+    rem(blob_index, ChainSpec.get("BLOB_SIDECAR_SUBNET_COUNT"))
   end
 end

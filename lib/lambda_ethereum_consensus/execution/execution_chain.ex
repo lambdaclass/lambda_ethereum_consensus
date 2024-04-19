@@ -26,7 +26,11 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   @spec get_deposits(Eth1Data.t(), Eth1Data.t(), Range.t()) ::
           {:ok, [Deposit.t()] | nil} | {:error, any}
   def get_deposits(current_eth1_data, eth1_vote, deposit_range) do
-    GenServer.call(__MODULE__, {:get_deposits, current_eth1_data, eth1_vote, deposit_range})
+    if Range.size(deposit_range) == 0 do
+      {:ok, []}
+    else
+      GenServer.call(__MODULE__, {:get_deposits, current_eth1_data, eth1_vote, deposit_range})
+    end
   end
 
   @spec notify_new_block(Types.slot(), Eth1Data.t(), ExecutionPayload.t()) :: :ok
@@ -36,7 +40,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   @impl true
-  def init({genesis_time, %DepositTreeSnapshot{} = snapshot}) do
+  def init({genesis_time, %DepositTreeSnapshot{} = snapshot, eth1_votes}) do
     state = %{
       # PERF: we could use some kind of ordered map for storing votes
       eth1_data_votes: %{},
@@ -47,7 +51,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
       last_period: 0
     }
 
-    {:ok, state}
+    updated_state = Enum.reduce(eth1_votes, state, &update_state_with_vote(&2, &1))
+
+    {:ok, updated_state}
   end
 
   @impl true
@@ -56,8 +62,10 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   def handle_call({:get_deposits, current_eth1_data, eth1_vote, deposit_range}, _from, state) do
+    votes = state.eth1_data_votes
+
     eth1_data =
-      if has_majority?(state.eth1_data_votes, eth1_vote),
+      if Map.has_key?(votes, eth1_vote) and has_majority?(votes, eth1_vote),
         do: eth1_vote,
         else: current_eth1_data
 
@@ -69,7 +77,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     state
     |> prune_state(slot)
     |> update_state_with_payload(payload_info)
-    |> update_state_with_vote(eth1_data, slot)
+    |> update_state_with_vote(eth1_data)
     |> then(&{:noreply, &1})
   end
 
@@ -99,12 +107,12 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     Enum.take_while(eth1_chain, fn %{timestamp: timestamp} -> timestamp >= cutoff_time end)
   end
 
-  defp update_state_with_vote(state, eth1_data, slot) do
+  defp update_state_with_vote(state, eth1_data) do
     votes = state.eth1_data_votes
 
-    # We append the negative slot so ties are broken by the order of appearance
+    # We append the negative size so ties are broken by the order of appearance
     eth1_data_votes =
-      Map.update(votes, eth1_data, {1, -slot}, fn {count, i} -> {count + 1, i} end)
+      Map.update(votes, eth1_data, {1, -map_size(votes)}, fn {count, i} -> {count + 1, i} end)
 
     new_state = %{state | eth1_data_votes: eth1_data_votes}
 

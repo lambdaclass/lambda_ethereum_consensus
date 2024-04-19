@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Consumer do
         data
         |> Base.encode16()
         |> then(&"[#{topic}] (err: #{reason}) raw: '#{&1}'")
-        |> Logger.error()
+        |> Logger.warning()
 
         Broadway.Message.failed(message, reason)
     end

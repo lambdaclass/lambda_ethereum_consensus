@@ -33,7 +33,7 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
     # NOTE: there's one per blob index in Deneb (6 blobs per block)
     topics =
       topics ++
-        Enum.map(0..5, fn i ->
+        Enum.map(0..(ChainSpec.get("BLOB_SIDECAR_SUBNET_COUNT") - 1), fn i ->
           {"blob_sidecar_#{i}", Types.BlobSidecar, &Handler.handle_blob_sidecar(&1, i)}
         end)
 
