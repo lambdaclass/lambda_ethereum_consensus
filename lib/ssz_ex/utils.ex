@@ -5,6 +5,7 @@ defmodule SszEx.Utils do
 
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias SszEx.Error
 
   @allowed_uints [8, 16, 32, 64, 128, 256]
   @bits_per_byte 8
@@ -67,7 +68,7 @@ defmodule SszEx.Utils do
 
   def flatten_results_by(results, fun) do
     case Enum.group_by(results, fn {type, _} -> type end, fn {_, result} -> result end) do
-      %{error: errors} -> {:error, errors}
+      %Error{} = error -> error
       summary -> {:ok, fun.(Map.get(summary, :ok, []))}
     end
   end

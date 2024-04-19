@@ -1,5 +1,6 @@
 defmodule Unit.SSZExTest do
   alias LambdaEthereumConsensus.Utils.Diff
+  alias SszEx.Error
   alias SszEx.Merkleization
 
   alias Types.BeaconBlock
@@ -443,44 +444,52 @@ defmodule Unit.SSZExTest do
     error_message =
       "Invalid binary length while decoding list of {:int, 32}.\nExpected max_size: 3.\nFound: 16\n"
 
-    assert {:error, ^error_message} =
-             SszEx.decode(
-               <<230, 0, 0, 0, 124, 1, 0, 0, 11, 2, 0, 0, 127, 91, 0, 0>>,
-               {:list, {:int, 32}, 3}
-             )
+    result =
+      SszEx.decode(
+        <<230, 0, 0, 0, 124, 1, 0, 0, 11, 2, 0, 0, 127, 91, 0, 0>>,
+        {:list, {:int, 32}, 3}
+      )
+
+    assert error_message == "#{result}"
   end
 
   test "deserialize shorter vector" do
     error_message =
       "Invalid binary length while decoding vector of {:int, 32}.\nExpected size 12 bytes.\nFound: 6.\n"
 
-    assert {:error, ^error_message} =
-             SszEx.decode(
-               <<230, 0, 0, 0, 124, 1>>,
-               {:vector, {:int, 32}, 3}
-             )
+    result =
+      SszEx.decode(
+        <<230, 0, 0, 0, 124, 1>>,
+        {:vector, {:int, 32}, 3}
+      )
+
+    assert error_message == "#{result}"
   end
 
   test "deserialize outbounded vector" do
     error_message =
       "Invalid binary length while decoding vector of {:int, 32}.\nExpected size 12 bytes.\nFound: 13.\n"
 
-    assert {:error, ^error_message} =
-             SszEx.decode(
-               <<230, 0, 0, 0, 124, 1, 230, 0, 0, 0, 124, 1, 2>>,
-               {:vector, {:int, 32}, 3}
-             )
+    result =
+      SszEx.decode(
+        <<230, 0, 0, 0, 124, 1, 230, 0, 0, 0, 124, 1, 2>>,
+        {:vector, {:int, 32}, 3}
+      )
+
+    assert error_message == "#{result}"
   end
 
   test "deserialize invalid vector" do
     error_message =
       "Invalid binary length while decoding vector of {:int, 32}.\nExpected size 12 bytes.\nFound: 13.\n"
 
-    assert {:error, ^error_message} =
-             SszEx.decode(
-               <<230, 0, 0, 0, 124, 1, 230, 0, 0, 0, 124, 1, 1::1>>,
-               {:vector, {:int, 32}, 3}
-             )
+    result =
+      SszEx.decode(
+        <<230, 0, 0, 0, 124, 1, 230, 0, 0, 0, 124, 1, 1::1>>,
+        {:vector, {:int, 32}, 3}
+      )
+
+    assert error_message == "#{result}"
   end
 
   test "serialize and deserialize container only with fixed parts" do
@@ -592,14 +601,14 @@ defmodule Unit.SSZExTest do
     assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitlist, 31})
 
     encoded_bytes = <<7>>
-    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
+    assert %Error{} = SszEx.decode(encoded_bytes, {:bitlist, 1})
 
     encoded_bytes = <<124, 3>>
-    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
+    assert %Error{} = SszEx.decode(encoded_bytes, {:bitlist, 1})
 
     encoded_bytes = <<0>>
-    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 1})
-    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitlist, 16})
+    assert %Error{} = SszEx.decode(encoded_bytes, {:bitlist, 1})
+    assert %Error{} = SszEx.decode(encoded_bytes, {:bitlist, 16})
   end
 
   test "serialize and deserialize bitvector" do
@@ -612,13 +621,13 @@ defmodule Unit.SSZExTest do
     assert {:ok, ^encoded_bytes} = SszEx.encode(decoded_bytes, {:bitvector, 16})
 
     encoded_bytes = <<255, 255, 255, 255, 255, 1>>
-    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 33})
+    assert %Error{} = SszEx.decode(encoded_bytes, {:bitvector, 33})
 
     encoded_bytes = <<255, 255, 255, 255, 255, 1::1>>
-    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 41})
+    assert %Error{} = SszEx.decode(encoded_bytes, {:bitvector, 41})
 
     encoded_bytes = <<0>>
-    assert {:error, _msg} = SszEx.decode(encoded_bytes, {:bitvector, 9})
+    assert %Error{} = SszEx.decode(encoded_bytes, {:bitvector, 9})
   end
 
   test "hash tree root of byte list" do
@@ -729,8 +738,10 @@ defmodule Unit.SSZExTest do
       <<0, 0, 0>>
 
     assert SszEx.decode(encoded_checkpoint, Checkpoint) ==
-             {:error,
-              "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 3.\n"}
+             %Error{
+               message:
+                 "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 3.\n"
+             }
   end
 
   test "decode longer checkpoint" do
@@ -738,8 +749,10 @@ defmodule Unit.SSZExTest do
       <<0::size(41 * 8)>>
 
     assert SszEx.decode(encoded_checkpoint, Checkpoint) ==
-             {:error,
-              "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 41.\n"}
+             %Error{
+               message:
+                 "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 41.\n"
+             }
   end
 
   test "hash tree root of list exceeding max size" do
