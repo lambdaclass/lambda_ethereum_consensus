@@ -34,10 +34,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
   @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t(), payload_id()) ::
           {:ok, {SignedBeaconBlock.t(), BlobSidecar.t()}} | {:error, any()}
-  def build_block(
-        %BuildBlockRequest{parent_root: parent_root, slot: proposed_slot} = request,
-        payload_id
-      ) do
+  def build_block(%BuildBlockRequest{parent_root: parent_root} = request, payload_id) do
     pre_state = BlockStates.get_state!(parent_root)
 
     with {:ok, mid_state} <- StateTransition.process_slots(pre_state, request.slot),
