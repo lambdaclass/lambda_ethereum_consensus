@@ -5,7 +5,6 @@ defmodule SszEx.Utils do
 
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias SszEx.Error
 
   @allowed_uints [8, 16, 32, 64, 128, 256]
   @bits_per_byte 8
