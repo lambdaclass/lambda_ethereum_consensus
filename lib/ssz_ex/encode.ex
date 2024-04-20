@@ -130,8 +130,8 @@ defmodule SszEx.Encode do
                  size = byte_size(encoded)
                  {:cont, {:ok, {[encoded | res_encoded], [size | res_size], size + acc}}}
 
-               error ->
-                 {:halt, {:error, %Error{message: error}}}
+               {:error, %Error{}} = error ->
+                 {:halt, error}
              end
            end) do
       {:ok, {Enum.reverse(encoded_list), Enum.reverse(byte_size_list), total_byte_size}}
