@@ -105,5 +105,7 @@ defmodule Unit.DepositTreeTest do
       |> DepositTree.finalize(eth1_data, @snapshot_2.execution_block_height)
 
     assert tree == DepositTree.from_snapshot(@snapshot_2)
+
+    assert DepositTree.get_snapshot(tree) == @snapshot_2
   end
 end

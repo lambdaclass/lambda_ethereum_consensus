@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   use GenServer
 
   alias LambdaEthereumConsensus.Execution.ExecutionClient
+  alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Deposit
   alias Types.DepositTree
   alias Types.DepositTreeSnapshot
@@ -22,6 +23,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   def get_eth1_vote(slot) do
     GenServer.call(__MODULE__, {:get_eth1_vote, slot})
   end
+
+  @spec get_eth1_vote(Types.slot()) :: DepositTreeSnapshot.t()
+  def get_deposit_snapshot(), do: GenServer.call(__MODULE__, :get_deposit_snapshot)
 
   @spec get_deposits(Eth1Data.t(), Eth1Data.t(), Range.t()) ::
           {:ok, [Deposit.t()] | nil} | {:error, any}
@@ -53,12 +57,19 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
 
     updated_state = Enum.reduce(eth1_votes, state, &update_state_with_vote(&2, &1))
 
+    StoreDb.persist_deposits_snapshot(snapshot)
+
     {:ok, updated_state}
   end
 
   @impl true
   def handle_call({:get_eth1_vote, slot}, _from, state) do
     {:reply, compute_eth1_vote(state, slot), state}
+  end
+
+  @impl true
+  def handle_call(:get_deposit_snapshot, _from, state) do
+    {:reply, DepositTree.get_snapshot(state.deposit_tree), state}
   end
 
   def handle_call({:get_deposits, current_eth1_data, eth1_vote, deposit_range}, _from, state) do
@@ -142,6 +153,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
          {:ok, deposits} <- ExecutionClient.get_deposit_logs(start_block..end_block) do
       # TODO: check if the result should be sorted by index
       deposit_tree = DepositTree.finalize(state.deposit_tree, old_eth1_data, start_block)
+      # TODO: delay persisting until it's finalized
+      deposit_tree |> DepositTree.get_snapshot() |> StoreDb.persist_deposits_snapshot()
       {:ok, update_tree_with_deposits(deposit_tree, deposits)}
     end
   end
