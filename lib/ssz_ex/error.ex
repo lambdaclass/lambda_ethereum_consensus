@@ -4,7 +4,7 @@ defmodule SszEx.Error do
   """
   alias SszEx.Error
   defstruct [:message]
-  @type t :: %__MODULE__{message: binary()}
+  @type t :: %__MODULE__{message: String.t()}
 
   def format(%Error{message: message}) do
     "#{message}"
