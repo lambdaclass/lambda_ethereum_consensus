@@ -18,7 +18,8 @@ switches = [
   validator_file: :string,
   log_file: :string,
   beacon_api: :boolean,
-  beacon_api_port: :integer
+  beacon_api_port: :integer,
+  discovery_port: :integer
 ]
 
 is_testing = Config.config_env() == :test
