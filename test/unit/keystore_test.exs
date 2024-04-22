@@ -38,14 +38,18 @@ defmodule Unit.KeystoreTest do
     })
 
   test "eip scrypt test vector" do
-    {pubkey, secret} = Keystore.decode_str!(@scrypt_json, @eip_password)
+    {pubkey, privkey} = Keystore.decode_str!(@scrypt_json, @eip_password)
 
     expected_pubkey =
       Base.decode16!(
         "9612D7A727C9D0A22E185A1C768478DFE919CADA9266988CB32359C11F2B7B27F4AE4040902382AE2910C15E2B420D07"
       )
 
-    assert secret == @eip_secret
+    assert privkey == @eip_secret
     assert pubkey == expected_pubkey
+
+    digest = :crypto.hash(:sha256, "test message")
+    {:ok, signature} = Bls.sign(privkey, digest)
+    assert Bls.valid?(pubkey, digest, signature)
   end
 end
