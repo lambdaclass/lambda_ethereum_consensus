@@ -1,7 +1,9 @@
 def BlsTest do
+
   use ExUnit.Case
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "bls_nif"
   alias Bls.key_validate, as: key_validate
+
   describe "validate_key" do
     test "returns true for valid public key" do
       valid_public_key =  <<
@@ -14,6 +16,7 @@ def BlsTest do
       >>
       assert key_validate(valid_public_key) == true
     end
+
     test "returns false for invalid public key" do
       invalid_public_key =  <<
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -26,5 +29,4 @@ def BlsTest do
     assert key_validate(valid_public_key) == false
     end
   end
-
 end
