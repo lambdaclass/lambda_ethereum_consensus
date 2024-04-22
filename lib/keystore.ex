@@ -24,7 +24,7 @@ defmodule Keystore do
 
     privkey = decrypt!(decoded_json["crypto"], password)
     # TODO: derive from privkey and validate with this pubkey
-    pubkey = Map.fetch!(decoded_json, "pubkey")
+    pubkey = Map.fetch!(decoded_json, "pubkey") |> parse_binary!()
     {pubkey, privkey}
   end
 
@@ -52,7 +52,7 @@ defmodule Keystore do
 
   defp derive_key!(%{"function" => "scrypt", "params" => params}, password) do
     %{"dklen" => @derived_key_size, "salt" => hex_salt, "n" => n, "p" => p, "r" => r} = params
-    salt = parse_binary(hex_salt)
+    salt = parse_binary!(hex_salt)
 
     if byte_size(salt) != @salt_bytes do
       raise "Invalid salt size: #{byte_size(salt)}"
@@ -84,7 +84,7 @@ defmodule Keystore do
   end
 
   defp parse_checksum!(%{"function" => "sha256", "message" => hex_message}) do
-    message = parse_binary(hex_message)
+    message = parse_binary!(hex_message)
 
     if byte_size(message) != @checksum_message_size do
       "Invalid checksum size: #{byte_size(message)}"
@@ -98,16 +98,16 @@ defmodule Keystore do
          "params" => %{"iv" => hex_iv},
          "message" => hex_message
        }) do
-    iv = parse_binary(hex_iv)
+    iv = parse_binary!(hex_iv)
 
     if byte_size(iv) != @iv_size do
       raise "Invalid IV size: #{byte_size(iv)}"
     end
 
-    {iv, parse_binary(hex_message)}
+    {iv, parse_binary!(hex_message)}
   end
 
-  defp parse_binary(hex), do: Base.decode16!(hex, case: :mixed)
+  defp parse_binary!(hex), do: Base.decode16!(hex, case: :mixed)
 
   defp sanitize_password(password),
     do: password |> String.normalize(:nfkd) |> String.replace(~r/[\x00-\x1f\x80-\x9f\x7f]/, "")
