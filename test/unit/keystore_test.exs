@@ -38,7 +38,14 @@ defmodule Unit.KeystoreTest do
     })
 
   test "eip scrypt test vector" do
-    {_pubkey, secret} = Keystore.decode_str!(@scrypt_json, @eip_password)
+    {pubkey, secret} = Keystore.decode_str!(@scrypt_json, @eip_password)
+
+    expected_pubkey =
+      Base.decode16!(
+        "9612D7A727C9D0A22E185A1C768478DFE919CADA9266988CB32359C11F2B7B27F4AE4040902382AE2910C15E2B420D07"
+      )
+
     assert secret == @eip_secret
+    assert pubkey == expected_pubkey
   end
 end
