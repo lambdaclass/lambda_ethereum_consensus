@@ -766,4 +766,31 @@ defmodule Unit.SSZExTest do
     {:error, result} = SszEx.hash_tree_root(initial_list, {:list, {:int, 8}, 2})
     assert error == "#{result}"
   end
+
+  test "stacktrace in hash_tree_root with invalid logs_bloom" do
+    execution_payload = %ExecutionPayload{
+      parent_hash: @default_hash,
+      fee_recipient: <<0::size(20 * 8)>>,
+      state_root: @default_root,
+      receipts_root: @default_root,
+      logs_bloom: <<0, 0, 0>>,
+      prev_randao: <<0::size(32 * 8)>>,
+      block_number: 0,
+      gas_limit: 0,
+      gas_used: 0,
+      timestamp: 0,
+      extra_data: <<>>,
+      base_fee_per_gas: 0,
+      block_hash: @default_hash,
+      transactions: [],
+      withdrawals: [],
+      blob_gas_used: 0,
+      excess_blob_gas: 0
+    }
+
+    {:error, error} = SszEx.hash_tree_root(execution_payload, ExecutionPayload)
+
+    assert "#{error}" ==
+             "Invalid binary length while merkleizing byte_vector.\nExpected size: 256.\nFound: 3\nStacktrace: logs_bloom\nElixir.Types.ExecutionPayload"
+  end
 end
