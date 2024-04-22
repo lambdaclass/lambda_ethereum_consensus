@@ -21,6 +21,9 @@ defmodule ChainSpec.GenConfig do
 
       @impl unquote(__MODULE__)
       def get(key), do: Map.fetch!(@__unified, key)
+
+      @impl unquote(__MODULE__)
+      def get_all, do: @__unified
     end
   end
 
@@ -28,4 +31,9 @@ defmodule ChainSpec.GenConfig do
   Fetches a value from config.
   """
   @callback get(String.t()) :: term()
+
+  @doc """
+  Fetches the full config dictionary.
+  """
+  @callback get_all() :: map()
 end
