@@ -23,6 +23,18 @@ defmodule Types.DepositTreeSnapshot do
           execution_block_height: Types.uint64()
         }
 
+  def for_empty_tree(block_hash, block_height) do
+    empty_root = Types.DepositTree.new() |> Types.DepositTree.get_root()
+
+    %__MODULE__{
+      finalized: [],
+      deposit_root: empty_root,
+      deposit_count: 0,
+      execution_block_hash: block_hash,
+      execution_block_height: block_height
+    }
+  end
+
   def get_eth1_data(%__MODULE__{} = snapshot) do
     %Types.Eth1Data{
       deposit_root: snapshot.deposit_root,

@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.DepositTreeSnapshot
+  alias Types.Eth1Data
   alias Types.Store
 
   @type store_setup_strategy ::
@@ -86,9 +87,17 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   def get_deposit_snapshot!, do: get_deposit_snapshot!(get_strategy!())
 
   @spec get_deposit_snapshot!(store_setup_strategy()) :: DepositTreeSnapshot.t() | nil
-  def get_deposit_snapshot!({:file, _}), do: nil
   def get_deposit_snapshot!({:checkpoint_sync_url, url}), do: fetch_deposit_snapshot(url)
   def get_deposit_snapshot!(:db), do: nil
+
+  def get_deposit_snapshot!({:file, %{eth1_data: %Eth1Data{} = eth1_data}}) do
+    if eth1_data.deposit_count == 0 do
+      # TODO: parse block height from deploy_block.txt
+      DepositTreeSnapshot.for_empty_tree(eth1_data.block_hash, 0)
+    else
+      nil
+    end
+  end
 
   @spec get_strategy!() :: store_setup_strategy
   defp get_strategy! do
