@@ -4,5 +4,5 @@ defmodule MinimalConfig do
   """
   use ChainSpec.GenConfig, file: "config/networks/minimal/config.yaml"
 
-  def genesis_validators_root, do: <<0::256>>
+  def genesis_validators_root(), do: <<0::256>>
 end

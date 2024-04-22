@@ -21,7 +21,7 @@ defmodule Types.DepositMessage do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:pubkey, TypeAliases.bls_pubkey()},
       {:withdrawal_credentials, TypeAliases.bytes32()},

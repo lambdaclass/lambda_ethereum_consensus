@@ -20,7 +20,7 @@ defmodule Types.Eth1Block do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       timestamp: TypeAliases.uint64(),
       deposit_root: TypeAliases.root(),

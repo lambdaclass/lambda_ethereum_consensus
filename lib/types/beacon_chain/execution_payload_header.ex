@@ -78,10 +78,10 @@ defmodule Types.ExecutionPayloadHeader do
     Map.update!(map, :base_fee_per_gas, &Ssz.decode_u256/1)
   end
 
-  def default, do: @default_execution_payload_header
+  def default(), do: @default_execution_payload_header
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:parent_hash, TypeAliases.hash32()},
       {:fee_recipient, TypeAliases.execution_address()},
