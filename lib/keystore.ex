@@ -9,15 +9,32 @@ defmodule Keystore do
   @iv_size 16
   @checksum_message_size 32
 
-  @spec from_json!(String.t()) :: {Types.bls_pubkey(), Bls.privkey()}
-  def from_json!(json) do
-    %{pubkey: hex_pubkey, version: 4} = Jason.decode!(json)
-    pubkey = Base.decode16!(hex_pubkey, case: :mixed)
-    privkey = ""
+  @spec decode_from_files!(Path.t(), Path.t()) :: {Types.bls_pubkey(), Bls.privkey()}
+  def decode_from_files!(json, password) do
+    password = File.read!(password)
+    File.read!(json) |> decode_str!(password)
+  end
+
+  @spec decode_str!(String.t(), String.t()) :: {Types.bls_pubkey(), Bls.privkey()}
+  def decode_str!(json, password) do
+    decoded_json = Jason.decode!(json)
+    # We only support version 4 (the only one)
+    %{"version" => 4} = decoded_json
+    validate_empty_path!(decoded_json["path"])
+
+    privkey = decrypt!(decoded_json["crypto"], password)
+    # TODO: derive from privkey and validate with this pubkey
+    pubkey = Map.fetch!(decoded_json, "pubkey")
     {pubkey, privkey}
   end
 
-  def decrypt!(password, %{"kdf" => kdf, "checksum" => checksum, "cipher" => cipher}) do
+  # TODO: support keystore paths
+  defp validate_empty_path!(path) when byte_size(path) > 0,
+    do: raise("Only empty-paths are supported")
+
+  defp validate_empty_path!(_), do: :ok
+
+  defp decrypt!(%{"kdf" => kdf, "checksum" => checksum, "cipher" => cipher}, password) do
     password = sanitize_password(password)
     derived_key = derive_key!(kdf, password)
 
@@ -45,6 +62,7 @@ defmodule Keystore do
     Scrypt.hash(password, salt, log_n, r, p, @derived_key_size)
   end
 
+  # TODO: support pbkdf2
   defp derive_key!(%{"function" => "pbkdf2"} = drf, _password) do
     %{"dklen" => _dklen, "salt" => _salt, "c" => _c, "prf" => "hmac-sha256"} = drf
   end
