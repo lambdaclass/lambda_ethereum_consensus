@@ -137,14 +137,4 @@ defmodule BlsTestRunner do
     end
   end
 
-  # defp handle_case(
-  #        "key_validate",
-  #        %{pubkeys: pubkeys},
-  #        output
-  #      ) do
-  #   case Bls.key_validate(pubkeys) do
-  #     {:ok, true} ->
-  #       assert output
-  #   end
-  # end
 end
