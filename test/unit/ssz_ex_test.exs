@@ -1,4 +1,5 @@
 defmodule Unit.SSZExTest do
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Diff
   alias SszEx.Error
   alias SszEx.Merkleization
@@ -792,5 +793,17 @@ defmodule Unit.SSZExTest do
 
     assert "#{error}" ==
              "Invalid binary length while merkleizing byte_vector.\nExpected size: 256.\nFound: 3\nStacktrace: logs_bloom\nElixir.Types.ExecutionPayload"
+  end
+
+  test "stacktrace in encode with invalid sync_committee_bits" do
+    sync_aggregate = %SyncAggregate{
+      sync_committee_bits: BitVector.new(2),
+      sync_committee_signature: <<0::size(32 * 8)>>
+    }
+
+    {:error, error} = SszEx.encode(sync_aggregate)
+
+    assert "#{error}" ==
+             "Invalid binary length while encoding BitVector. \nExpected: 512.\nFound: 2.\nStacktrace: sync_committee_bits\nElixir.Types.SyncAggregate"
   end
 end

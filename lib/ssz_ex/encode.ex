@@ -41,8 +41,9 @@ defmodule SszEx.Encode do
   def encode(value, {:bitvector, size}) when is_bitvector(value),
     do: encode_bitvector(value, size)
 
-  def encode(container, module) when is_map(container),
-    do: encode_container(container, module.schema())
+  def encode(container, module) when is_map(container) do
+    encode_container(container, module.schema()) |> add_trace("#{module}")
+  end
 
   defp encode_int(value, size) when is_integer(value), do: {:ok, <<value::size(size)-little>>}
   defp encode_bool(true), do: {:ok, "\x01"}
@@ -83,7 +84,7 @@ defmodule SszEx.Encode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while encoding BitVector. \nExpected: #{size}.\nFound: #{bit_vector_size(bit_vector)}."
+           "Invalid binary length while encoding BitVector. \nExpected: #{size}.\nFound: #{bit_vector_size(bit_vector)}.\n"
        }}
 
   defp encode_bitvector(bit_vector, _size),
@@ -147,8 +148,7 @@ defmodule SszEx.Encode do
            Enum.reduce(variable_parts, 0, fn part, acc -> byte_size(part) + acc end),
          :ok <- check_length(fixed_length, variable_length),
          {:ok, fixed_parts} <-
-           replace_offsets(fixed_size_values, offsets)
-           |> encode_schemas() do
+           replace_offsets(fixed_size_values, offsets) |> encode_schemas() do
       (fixed_parts ++ variable_parts)
       |> Enum.join()
       |> then(&{:ok, &1})
@@ -163,23 +163,23 @@ defmodule SszEx.Encode do
 
       if Utils.variable_size?(schema) do
         {[:offset | acc_fixed_size_values], @bytes_per_length_offset + acc_fixed_length,
-         [{value, schema} | acc_variable_values]}
+         [{value, key, schema} | acc_variable_values]}
       else
-        {[{value, schema} | acc_fixed_size_values],
+        {[{value, key, schema} | acc_fixed_size_values],
          acc_fixed_length + Utils.get_fixed_size(schema), acc_variable_values}
       end
     end)
   end
 
   defp encode_schemas(tuple_values) do
-    Enum.map(tuple_values, fn {value, schema} -> encode(value, schema) end)
+    Enum.map(tuple_values, fn {value, key, schema} -> encode(value, schema) |> add_trace(key) end)
     |> Utils.flatten_results()
   end
 
   defp calculate_offsets(variable_parts, fixed_length) do
     {offsets, _} =
       Enum.reduce(variable_parts, {[], fixed_length}, fn element, {res, acc} ->
-        {[{acc, {:int, 32}} | res], byte_size(element) + acc}
+        {[{acc, :offset, {:int, 32}} | res], byte_size(element) + acc}
       end)
 
     offsets
@@ -210,4 +210,9 @@ defmodule SszEx.Encode do
        }}
     end
   end
+
+  defp add_trace({:error, %Error{} = error}, module),
+    do: {:error, Error.add_trace(error, module)}
+
+  defp add_trace(value, _module), do: value
 end
