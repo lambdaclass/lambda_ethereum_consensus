@@ -144,13 +144,10 @@ fn eth_aggregate_pubkeys<'env>(
 }
 #[rustler::nif]
 fn key_validate<'env>(public_key: Binary) -> Result<bool, String> {
-    let pubkey =
+    let _pubkey =
         PublicKey::deserialize(public_key.as_slice()).map_err(|err| format!("{:?}", err))?;
 
-    match pubkey {
-        Ok(pubkey) => ok(true),
-        Err(err) => Err(format!("{:?}", err)),
-    }
+    Ok(true)   
 }
 
 rustler::init!(
