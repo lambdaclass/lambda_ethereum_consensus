@@ -15,6 +15,7 @@ defmodule BlsTestRunner do
     # "aggregate_verify",
     # "eth_aggregate_pubkeys"
     # "eth_fast_aggregate_verify"
+    # "key_validate"
   ]
 
   @impl TestRunner
@@ -134,6 +135,17 @@ defmodule BlsTestRunner do
 
       {:error, reason} ->
         assert not output, reason
+    end
+  end
+
+  defp handle_case(
+         "key_validate",
+         %{pubkeys: pubkeys},
+         output
+       ) do
+    case Bls.key_validate(pubkeys) do
+      {:ok, true} ->
+        assert output
     end
   end
 end
