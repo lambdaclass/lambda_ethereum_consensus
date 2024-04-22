@@ -5,6 +5,7 @@ defmodule SszEx.Encode do
 
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias SszEx.Error
   alias SszEx.Utils
 
   import BitVector
@@ -13,7 +14,7 @@ defmodule SszEx.Encode do
   @bits_per_byte 8
 
   @spec encode(any(), SszEx.schema()) ::
-          {:ok, binary()} | {:error, String.t()}
+          {:ok, binary()} | {:error, Error.t()}
   def encode(value, {:int, size}), do: encode_int(value, size)
   def encode(value, :bool), do: encode_bool(value)
   def encode(value, {:byte_list, _}), do: {:ok, value}
@@ -52,7 +53,10 @@ defmodule SszEx.Encode do
 
     if size > max_size do
       {:error,
-       "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}\n"}
+       %Error{
+         message:
+           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}\n"
+       }}
     else
       list
       |> Enum.map(&encode(&1, inner_type))
@@ -65,7 +69,10 @@ defmodule SszEx.Encode do
 
     if len > max_size do
       {:error,
-       "Invalid binary length while encoding BitList.\nExpected max_size: #{max_size}. Found: #{len}.\n"}
+       %Error{
+         message:
+           "Invalid binary length while encoding BitList.\nExpected max_size: #{max_size}. Found: #{len}.\n"
+       }}
     else
       {:ok, BitList.to_bytes(bit_list)}
     end
@@ -74,7 +81,10 @@ defmodule SszEx.Encode do
   defp encode_bitvector(bit_vector, size) when bit_vector_size(bit_vector) != size,
     do:
       {:error,
-       "Invalid binary length while encoding BitVector. \nExpected: #{size}.\nFound: #{bit_vector_size(bit_vector)}."}
+       %Error{
+         message:
+           "Invalid binary length while encoding BitVector. \nExpected: #{size}.\nFound: #{bit_vector_size(bit_vector)}."
+       }}
 
   defp encode_bitvector(bit_vector, _size),
     do: {:ok, BitVector.to_bytes(bit_vector)}
@@ -84,7 +94,10 @@ defmodule SszEx.Encode do
 
     if size > max_size do
       {:error,
-       "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}\n"}
+       %Error{
+         message:
+           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}\n"
+       }}
     else
       fixed_lengths = @bytes_per_length_offset * length(list)
 
@@ -117,8 +130,8 @@ defmodule SszEx.Encode do
                  size = byte_size(encoded)
                  {:cont, {:ok, {[encoded | res_encoded], [size | res_size], size + acc}}}
 
-               error ->
-                 {:halt, {:error, error}}
+               {:error, %Error{}} = error ->
+                 {:halt, error}
              end
            end) do
       {:ok, {Enum.reverse(encoded_list), Enum.reverse(byte_size_list), total_byte_size}}
@@ -191,7 +204,10 @@ defmodule SszEx.Encode do
       :ok
     else
       {:error,
-       "Invalid binary size after encoding. Size out of offset range. Size: #{fixed_lengths + total_byte_size}"}
+       %Error{
+         message:
+           "Invalid binary size after encoding. Size out of offset range. Size: #{fixed_lengths + total_byte_size}"
+       }}
     end
   end
 end
