@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   @store_prefix "store"
 
   @spec fetch_store() :: {:ok, Types.Store.t()} | :not_found
-  def fetch_store do
+  def fetch_store() do
     with {:ok, encoded_store} <- Db.get(@store_prefix) do
       {:ok, :erlang.binary_to_term(encoded_store)}
     end

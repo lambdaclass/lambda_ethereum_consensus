@@ -15,7 +15,7 @@ defmodule SpecTestUtils do
     "current_epoch_participation"
   ]
 
-  def vectors_dir, do: @vectors_dir
+  def vectors_dir(), do: @vectors_dir
 
   @spec sanitize_yaml(any()) :: any()
   def sanitize_yaml(map) when is_map(map) do

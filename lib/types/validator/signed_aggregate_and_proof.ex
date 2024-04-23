@@ -19,7 +19,7 @@ defmodule Types.SignedAggregateAndProof do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:message, Types.AggregateAndProof},
       {:signature, TypeAliases.bls_signature()}

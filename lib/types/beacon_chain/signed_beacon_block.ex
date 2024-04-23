@@ -19,7 +19,7 @@ defmodule Types.SignedBeaconBlock do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:message, Types.BeaconBlock},
       {:signature, TypeAliases.bls_signature()}

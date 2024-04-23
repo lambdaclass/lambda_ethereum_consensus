@@ -19,7 +19,7 @@ defmodule Types.ProposerSlashing do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:signed_header_1, Types.SignedBeaconBlockHeader},
       {:signed_header_2, Types.SignedBeaconBlockHeader}

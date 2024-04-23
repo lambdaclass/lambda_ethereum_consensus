@@ -10,5 +10,5 @@ defmodule BeaconApi.ApiSpec do
            |> OpenApiSpex.OpenApi.Decode.decode()
 
   @impl OpenApi
-  def spec, do: @ethspec
+  def spec(), do: @ethspec
 end

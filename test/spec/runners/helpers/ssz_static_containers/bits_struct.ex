@@ -24,7 +24,7 @@ defmodule Helpers.SszStaticContainers.BitsStruct do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:A, {:bitlist, 5}},
       {:B, {:bitvector, 2}},

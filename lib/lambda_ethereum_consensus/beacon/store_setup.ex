@@ -41,7 +41,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   Gets a {store, genesis_validators_root} tuple with the configured strategy.
   """
   @spec setup!() :: {Store.t(), binary}
-  def setup!, do: setup!(get_strategy!())
+  def setup!(), do: setup!(get_strategy!())
 
   @spec setup!(store_setup_strategy()) :: {Store.t(), binary}
   def setup!({:file, anchor_state}) do
@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   Gets the deposit tree snapshot. Will return nil unless the strategy is checkpoint sync.
   """
   @spec get_deposit_snapshot!() :: DepositTreeSnapshot.t() | nil
-  def get_deposit_snapshot!, do: get_deposit_snapshot!(get_strategy!())
+  def get_deposit_snapshot!(), do: get_deposit_snapshot!(get_strategy!())
 
   @spec get_deposit_snapshot!(store_setup_strategy()) :: DepositTreeSnapshot.t() | nil
   def get_deposit_snapshot!({:checkpoint_sync_url, url}), do: fetch_deposit_snapshot(url)
@@ -100,12 +100,12 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   end
 
   @spec get_strategy!() :: store_setup_strategy
-  defp get_strategy! do
+  defp get_strategy!() do
     Application.get_env(:lambda_ethereum_consensus, __MODULE__)
     |> Keyword.fetch!(:strategy)
   end
 
-  defp restore_state_from_db do
+  defp restore_state_from_db() do
     # Try to fetch the old store from the database
     case StoreDb.fetch_store() do
       {:ok, %Store{finalized_checkpoint: %{epoch: finalized_epoch}} = store} ->

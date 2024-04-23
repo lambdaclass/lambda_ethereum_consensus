@@ -16,7 +16,7 @@ defmodule ChainSpec.GenPreset do
       @behaviour unquote(__MODULE__)
 
       @impl unquote(__MODULE__)
-      def get_preset, do: @__parsed_preset
+      def get_preset(), do: @__parsed_preset
     end
   end
 

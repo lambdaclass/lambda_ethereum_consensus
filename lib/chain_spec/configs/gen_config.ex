@@ -23,7 +23,7 @@ defmodule ChainSpec.GenConfig do
       def get(key), do: Map.fetch!(@__unified, key)
 
       @impl unquote(__MODULE__)
-      def get_all, do: @__unified
+      def get_all(), do: @__unified
     end
   end
 

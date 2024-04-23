@@ -21,7 +21,7 @@ defmodule Types.EnrForkId do
         }
 
   @impl Container
-  def schema do
+  def schema() do
     [
       fork_digest: TypeAliases.fork_digest(),
       next_fork_version: TypeAliases.version(),

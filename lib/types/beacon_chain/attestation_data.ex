@@ -26,7 +26,7 @@ defmodule Types.AttestationData do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:slot, TypeAliases.slot()},
       {:index, TypeAliases.commitee_index()},
