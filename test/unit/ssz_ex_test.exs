@@ -868,7 +868,7 @@ defmodule Unit.SSZExTest do
     {:error, error} = SszEx.hash_tree_root(execution_payload)
 
     assert "#{error}" ==
-             "Invalid binary length while merkleizing byte_vector.\nExpected size: 256.\nFound: 3\nStacktrace: Elixir.Types.ExecutionPayload.logs_bloom"
+             "Invalid binary length while merkleizing byte_vector.\nExpected size: 256.\nFound: 3\nStacktrace: ExecutionPayload.logs_bloom"
   end
 
   test "stacktrace in encode with invalid sync_committee_bits" do
@@ -880,7 +880,7 @@ defmodule Unit.SSZExTest do
     {:error, error} = SszEx.encode(sync_aggregate)
 
     assert "#{error}" ==
-             "Invalid binary length while encoding BitVector. \nExpected: 512.\nFound: 2.\nStacktrace: Elixir.Types.SyncAggregate.sync_committee_bits"
+             "Invalid binary length while encoding BitVector. \nExpected: 512.\nFound: 2.\nStacktrace: SyncAggregate.sync_committee_bits"
   end
 
   test "stacktrace encode nested container" do
@@ -889,14 +889,14 @@ defmodule Unit.SSZExTest do
     {:error, error} = SszEx.encode(attester_slashing)
 
     assert "#{error}" ==
-             "Invalid binary length while encoding list of {:int, 64}.\nExpected max_size: 2048.\nFound: 3000\nStacktrace: Elixir.Types.AttesterSlashing.attestation_2.attesting_indices"
+             "Invalid binary length while encoding list of {:int, 64}.\nExpected max_size: 2048.\nFound: 3000\nStacktrace: AttesterSlashing.attestation_2.attesting_indices"
   end
 
   test "stacktrace hash_tree_root nested container" do
     attester_slashing = build_broken_attester_slashing()
     {:error, error} = SszEx.hash_tree_root(attester_slashing)
 
-    assert "Invalid binary length while merkleizing list of {:int, 64}.\nExpected max_size: 2048.\nFound: 3000\nStacktrace: Elixir.Types.AttesterSlashing.attestation_2.attesting_indices" =
+    assert "Invalid binary length while merkleizing list of {:int, 64}.\nExpected max_size: 2048.\nFound: 3000\nStacktrace: AttesterSlashing.attestation_2.attesting_indices" =
              "#{error}"
   end
 end

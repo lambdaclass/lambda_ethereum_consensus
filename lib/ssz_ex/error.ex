@@ -18,12 +18,19 @@ defmodule SszEx.Error do
     %Error{message: message, stacktrace: [new_trace]}
   end
 
+  def add_trace(%Error{message: message, stacktrace: stacktrace}, value) when is_struct(value) do
+    new_trace =
+      value.__struct__ |> Module.split() |> List.last()
+
+    %Error{message: message, stacktrace: [new_trace | stacktrace]}
+  end
+
   def add_trace(%Error{message: message, stacktrace: stacktrace}, new_trace) do
     %Error{message: message, stacktrace: [new_trace | stacktrace]}
   end
 
-  def add_trace({:error, %Error{} = error}, module),
-    do: {:error, Error.add_trace(error, module)}
+  def add_trace({:error, %Error{} = error}, new_trace),
+    do: {:error, Error.add_trace(error, new_trace)}
 
   def add_trace(value, _module), do: value
 
