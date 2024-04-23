@@ -5,7 +5,6 @@ defmodule SszEx.Utils do
 
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias SszEx.Error
 
   @allowed_uints [8, 16, 32, 64, 128, 256]
   @bits_per_byte 8
@@ -115,9 +114,4 @@ defmodule SszEx.Utils do
   def size_of(:bool), do: @bytes_per_boolean
 
   def size_of({:int, size}), do: size |> div(@bits_per_byte)
-
-  def add_trace({:error, %Error{} = error}, module),
-    do: {:error, Error.add_trace(error, module)}
-
-  def add_trace(value, _module), do: value
 end

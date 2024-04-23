@@ -138,8 +138,8 @@ defmodule SszEx.Merkleization do
         root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
         {:ok, root}
 
-      {:error, %Error{} = error} ->
-        {:error, Error.add_trace(error, "#{module}")}
+      {:error, %Error{}} ->
+        value
     end
   end
 

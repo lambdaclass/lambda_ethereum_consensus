@@ -39,8 +39,8 @@ defmodule SszEx.Decode do
   def decode(binary, module) when is_atom(module) do
     with {:ok, result} <-
            if(Utils.variable_size?(module),
-             do: decode_variable_container(binary, module) |> Utils.add_trace("#{module}"),
-             else: decode_fixed_container(binary, module) |> Utils.add_trace("#{module}")
+             do: decode_variable_container(binary, module),
+             else: decode_fixed_container(binary, module)
            ) do
       if exported?(module, :decode_ex, 1) do
         {:ok, module.decode_ex(result)}
@@ -339,7 +339,7 @@ defmodule SszEx.Decode do
             <<chunk::binary-size(size), rest::bitstring>> = rest_bytes
 
             {:cont,
-             {rest, [{key, decode(chunk, schema) |> Utils.add_trace(key)} | acc_variable_parts]}}
+             {rest, [{key, decode(chunk, schema) |> Error.add_trace(key)} | acc_variable_parts]}}
 
           error ->
             {:halt, {<<>>, [{key, error} | acc_variable_parts]}}
@@ -347,7 +347,7 @@ defmodule SszEx.Decode do
 
       [{_offset, {key, schema}}], {rest_bytes, acc_variable_parts} ->
         {:cont,
-         {<<>>, [{key, decode(rest_bytes, schema) |> Utils.add_trace(key)} | acc_variable_parts]}}
+         {<<>>, [{key, decode(rest_bytes, schema) |> Error.add_trace(key)} | acc_variable_parts]}}
     end)
     |> then(fn {<<>>, variable_parts} ->
       flatten_container_results(variable_parts)
@@ -367,7 +367,7 @@ defmodule SszEx.Decode do
         ssz_fixed_len = Utils.get_fixed_size(schema)
         <<chunk::binary-size(ssz_fixed_len), rest::bitstring>> = binary
 
-        {rest, [{key, decode(chunk, schema) |> Utils.add_trace(key)} | fixed_parts], offsets,
+        {rest, [{key, decode(chunk, schema) |> Error.add_trace(key)} | fixed_parts], offsets,
          items_index + ssz_fixed_len}
       end
     end)

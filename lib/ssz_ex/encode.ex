@@ -42,7 +42,7 @@ defmodule SszEx.Encode do
     do: encode_bitvector(value, size)
 
   def encode(container, module) when is_map(container) do
-    encode_container(container, module.schema()) |> Utils.add_trace("#{module}")
+    encode_container(container, module.schema())
   end
 
   defp encode_int(value, size) when is_integer(value), do: {:ok, <<value::size(size)-little>>}
@@ -173,7 +173,7 @@ defmodule SszEx.Encode do
 
   defp encode_schemas(tuple_values) do
     Enum.map(tuple_values, fn {value, key, schema} ->
-      encode(value, schema) |> Utils.add_trace(key)
+      encode(value, schema) |> Error.add_trace(key)
     end)
     |> Utils.flatten_results()
   end
