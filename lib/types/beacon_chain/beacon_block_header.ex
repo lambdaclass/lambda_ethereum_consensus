@@ -25,7 +25,7 @@ defmodule Types.BeaconBlockHeader do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:slot, TypeAliases.slot()},
       {:proposer_index, TypeAliases.validator_index()},

@@ -20,7 +20,7 @@ defmodule Helpers.SszStaticContainers.VarTestStruct do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:A, {:int, 16}},
       {:B, {:list, {:int, 16}, 1024}},

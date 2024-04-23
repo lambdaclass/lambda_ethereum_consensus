@@ -251,6 +251,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
 
   defp compute_period(slot), do: slot |> div(slots_per_eth1_voting_period())
 
-  defp slots_per_eth1_voting_period,
+  defp slots_per_eth1_voting_period(),
     do: ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH")
 end

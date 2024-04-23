@@ -1,7 +1,7 @@
 defmodule LambdaEthereumConsensus.MixProject do
   use Mix.Project
 
-  def project do
+  def project() do
     [
       app: :lambda_ethereum_consensus,
       version: "0.1.0",
@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   end
 
   # Run "mix help compile.app" to learn about applications.
-  def application do
+  def application() do
     [
       extra_applications: [:logger, :observer, :prometheus_ex],
       mod: {LambdaEthereumConsensus.Application, []}
@@ -28,7 +28,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   end
 
   # Run "mix help deps" to learn about dependencies.
-  defp deps do
+  defp deps() do
     [
       {:phoenix, "~> 1.7.7"},
       {:plug_cowboy, "~> 2.5"},
@@ -72,7 +72,7 @@ defmodule LambdaEthereumConsensus.MixProject do
     ]
   end
 
-  defp dialyzer do
+  defp dialyzer() do
     [
       # https://elixirforum.com/t/help-with-dialyzer-output/15202/5
       plt_add_apps: [:ex_unit, :mix],

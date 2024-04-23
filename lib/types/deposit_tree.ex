@@ -31,7 +31,7 @@ defmodule Types.DepositTree do
   ################
 
   @spec new() :: t()
-  def new, do: %__MODULE__{}
+  def new(), do: %__MODULE__{}
 
   @spec from_snapshot(DepositTreeSnapshot.t()) :: t()
   def from_snapshot(%DepositTreeSnapshot{} = snapshot) do

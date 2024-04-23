@@ -19,7 +19,7 @@ defmodule Types.BlobIdentifier do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:block_root, TypeAliases.root()},
       {:index, TypeAliases.blob_index()}

@@ -101,7 +101,7 @@ defmodule Deltas do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:rewards, {:list, {:int, 64}, 1_099_511_627_776}},
       {:penalties, {:list, {:int, 64}, 1_099_511_627_776}}

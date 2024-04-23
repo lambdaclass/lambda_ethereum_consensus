@@ -25,7 +25,7 @@ defmodule Types.StatusMessage do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       fork_digest: TypeAliases.fork_digest(),
       finalized_root: TypeAliases.root(),

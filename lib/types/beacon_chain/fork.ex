@@ -22,7 +22,7 @@ defmodule Types.Fork do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:previous_version, TypeAliases.version()},
       {:current_version, TypeAliases.version()},
