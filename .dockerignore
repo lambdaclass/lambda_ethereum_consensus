@@ -15,3 +15,4 @@ tmp/
 .formatter.exs
 .spectest_version
 flake.*
+native/**/target/
