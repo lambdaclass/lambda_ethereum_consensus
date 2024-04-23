@@ -19,7 +19,7 @@ defmodule CustomConfig do
   end
 
   @impl GenConfig
-  def get_all do
+  def get_all() do
     Application.get_env(:lambda_ethereum_consensus, __MODULE__)
     |> Keyword.fetch!(:merged)
     |> Map.new(fn {k, v} -> {k, parse_int(v)} end)

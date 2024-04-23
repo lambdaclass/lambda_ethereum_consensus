@@ -81,7 +81,7 @@ defmodule Unit.Libp2pPortTest do
     assert_receive {:new_peer, _peer_id}, 10_000
   end
 
-  defp two_hosts_gossip do
+  defp two_hosts_gossip() do
     gossiper_addr = ["/ip4/127.0.0.1/tcp/48766"]
     start_port(:publisher)
     start_port(:gossiper, listen_addr: gossiper_addr)

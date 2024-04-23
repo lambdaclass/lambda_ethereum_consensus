@@ -123,7 +123,7 @@ defmodule Ssz do
     do: error()
 
   ##### Utils
-  defp error, do: :erlang.nif_error(:nif_not_loaded)
+  defp error(), do: :erlang.nif_error(:nif_not_loaded)
 
   # Ssz types can have special decoding rules defined in their optional encode/1 function,
   defp encode(%name{} = struct) do

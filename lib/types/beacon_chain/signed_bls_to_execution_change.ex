@@ -19,7 +19,7 @@ defmodule Types.SignedBLSToExecutionChange do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:message, Types.BLSToExecutionChange},
       {:signature, TypeAliases.bls_signature()}

@@ -113,7 +113,7 @@ defmodule LambdaEthereumConsensus.Validator do
   ### Private Functions
   ##########################
 
-  defp empty_duties do
+  defp empty_duties() do
     %{
       # Order is: previous epoch, current epoch, next epoch
       attester: [:not_computed, :not_computed, :not_computed],

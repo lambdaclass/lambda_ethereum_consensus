@@ -50,7 +50,7 @@ defmodule LambdaEthereumConsensus.Application do
       ]
   end
 
-  defp get_operation_mode do
+  defp get_operation_mode() do
     Application.fetch_env!(:lambda_ethereum_consensus, LambdaEthereumConsensus)
     |> Keyword.fetch!(:mode)
   end

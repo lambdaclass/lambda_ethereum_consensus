@@ -109,7 +109,7 @@ defmodule Types.BeaconState do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:genesis_time, TypeAliases.uint64()},
       {:genesis_validators_root, TypeAliases.root()},

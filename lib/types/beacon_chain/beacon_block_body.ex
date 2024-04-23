@@ -46,7 +46,7 @@ defmodule Types.BeaconBlockBody do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       randao_reveal: TypeAliases.bls_signature(),
       eth1_data: Types.Eth1Data,
