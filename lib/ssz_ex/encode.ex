@@ -41,9 +41,8 @@ defmodule SszEx.Encode do
   def encode(value, {:bitvector, size}) when is_bitvector(value),
     do: encode_bitvector(value, size)
 
-  def encode(container, module) when is_map(container) do
-    encode_container(container, module.schema())
-  end
+  def encode(container, module) when is_map(container),
+    do: encode_container(container, module.schema())
 
   defp encode_int(value, size) when is_integer(value), do: {:ok, <<value::size(size)-little>>}
   defp encode_bool(true), do: {:ok, "\x01"}
