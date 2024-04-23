@@ -35,6 +35,7 @@ defmodule SszEx do
   """
   alias SszEx.Decode
   alias SszEx.Encode
+  alias SszEx.Error
   alias SszEx.Hash
   alias SszEx.Merkleization
   alias SszEx.Utils
@@ -60,15 +61,15 @@ defmodule SszEx do
   @type container_schema() :: module()
 
   @spec encode(struct()) ::
-          {:ok, binary()} | {:error, String.t()}
+          {:ok, binary()} | {:error, Error.t()}
   def encode(%name{} = value), do: encode(value, name)
 
   @spec encode(any(), schema()) ::
-          {:ok, binary()} | {:error, String.t()}
+          {:ok, binary()} | {:error, Error.t()}
   def encode(value, schema), do: Encode.encode(value, schema)
 
   @spec decode(binary(), schema()) ::
-          {:ok, any()} | {:error, String.t()}
+          {:ok, any()} | {:error, Error.t()}
   def decode(value, schema), do: Decode.decode(value, schema)
 
   @spec hash_tree_root!(struct()) :: Types.root()
@@ -77,7 +78,7 @@ defmodule SszEx do
   @spec hash_tree_root!(any, any) :: Types.root()
   def hash_tree_root!(value, schema), do: Merkleization.hash_tree_root!(value, schema)
 
-  @spec hash_tree_root(any, any) :: {:ok, Types.root()} | {:error, String.t()}
+  @spec hash_tree_root(any, any) :: {:ok, Types.root()} | {:error, Error.t()}
   def hash_tree_root(value, schema), do: Merkleization.hash_tree_root(value, schema)
 
   @spec validate_schema!(any) :: :ok

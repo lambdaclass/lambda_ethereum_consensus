@@ -44,18 +44,13 @@ defmodule LambdaEthereumConsensus.Application do
   defp get_children(:full) do
     get_children(:db) ++
       [
-        {LambdaEthereumConsensus.Beacon.BeaconNode, [checkpoint_sync_url()]},
+        LambdaEthereumConsensus.Beacon.BeaconNode,
         LambdaEthereumConsensus.P2P.Metadata,
         BeaconApi.Endpoint
       ]
   end
 
-  def checkpoint_sync_url do
-    Application.fetch_env!(:lambda_ethereum_consensus, LambdaEthereumConsensus.ForkChoice)
-    |> Keyword.fetch!(:checkpoint_sync_url)
-  end
-
-  defp get_operation_mode do
+  defp get_operation_mode() do
     Application.fetch_env!(:lambda_ethereum_consensus, LambdaEthereumConsensus)
     |> Keyword.fetch!(:mode)
   end

@@ -20,7 +20,7 @@ defmodule Types.BeaconBlocksByRangeRequest do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       start_slot: TypeAliases.slot(),
       count: TypeAliases.uint64(),

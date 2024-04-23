@@ -28,7 +28,7 @@ defmodule Types.BlobSidecar do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       index: TypeAliases.blob_index(),
       blob: TypeAliases.blob(),

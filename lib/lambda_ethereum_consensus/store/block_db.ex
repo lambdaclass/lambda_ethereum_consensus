@@ -58,7 +58,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     end
   end
 
-  def stream_missing_blocks_desc do
+  def stream_missing_blocks_desc() do
     Stream.resource(
       fn -> 0xFFFFFFFFFFFFFFFF |> block_root_by_slot_key() |> init_keycursor() end,
       &next_slot(&1, :prev),
@@ -119,7 +119,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
   defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)
 
-  def stream_blocks do
+  def stream_blocks() do
     Stream.resource(
       fn -> <<0::256>> |> block_key() |> init_cursor() end,
       &next_block/1,

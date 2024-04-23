@@ -90,7 +90,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
     end
   end
 
-  defp get_some_peer do
+  defp get_some_peer() do
     case P2P.Peerbook.get_some_peer() do
       nil ->
         Process.sleep(100)

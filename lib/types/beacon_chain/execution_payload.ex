@@ -61,7 +61,7 @@ defmodule Types.ExecutionPayload do
   end
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:parent_hash, TypeAliases.hash32()},
       {:fee_recipient, TypeAliases.execution_address()},

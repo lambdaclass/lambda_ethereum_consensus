@@ -228,7 +228,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       # Verify prev_randao
       payload.prev_randao !=
           Randao.get_randao_mix(state.randao_mixes, Accessors.get_current_epoch(state)) ->
-        {:error, "Prev_randao verification failed"}
+        {:error, "Invalid prev_randao"}
 
       # Verify timestamp
       payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->

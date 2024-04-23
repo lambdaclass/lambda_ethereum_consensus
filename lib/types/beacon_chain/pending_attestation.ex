@@ -26,7 +26,7 @@ defmodule Types.PendingAttestation do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:aggregation_bits, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
       {:data, Types.AttestationData},

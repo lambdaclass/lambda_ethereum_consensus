@@ -69,7 +69,7 @@ defmodule Types.Validator do
   end
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:pubkey, TypeAliases.bls_pubkey()},
       {:withdrawal_credentials, TypeAliases.bytes32()},

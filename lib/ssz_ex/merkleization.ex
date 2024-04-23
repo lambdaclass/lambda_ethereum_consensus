@@ -6,6 +6,7 @@ defmodule SszEx.Merkleization do
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   alias SszEx.Encode
+  alias SszEx.Error
   alias SszEx.Hash
   alias SszEx.Utils
 
@@ -63,29 +64,35 @@ defmodule SszEx.Merkleization do
   end
 
   @spec hash_tree_root(list(), {:list, any, non_neg_integer}) ::
-          {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(list, {:list, type, _size} = schema) do
-    limit = chunk_count(schema)
+          {:ok, Types.root()} | {:error, Error.t()}
+  def hash_tree_root(list, {:list, type, max_size} = schema) do
     len = Enum.count(list)
 
-    value =
-      if Utils.basic_type?(type) do
-        pack(list, schema)
-      else
-        list_hash_tree_root(list, type)
-      end
+    cond do
+      len > max_size ->
+        {:error,
+         %Error{
+           message:
+             "Invalid binary length while merkleizing list of #{inspect(type)}.\nExpected max_size: #{max_size}.\nFound: #{len}\n"
+         }}
 
-    case value do
-      {:ok, chunks} -> chunks |> hash_tree_root_list(limit, len)
-      {:error, reason} -> {:error, reason}
-      chunks -> chunks |> hash_tree_root_list(limit, len)
+      Utils.basic_type?(type) ->
+        list_hash_tree_root_basic(list, schema, len)
+
+      true ->
+        list_hash_tree_root_complex(list, schema, type, len)
     end
   end
 
   @spec hash_tree_root(list(), {:vector, any, non_neg_integer}) ::
-          {:ok, Types.root()} | {:error, String.t()}
-  def hash_tree_root(vector, {:vector, _type, size}) when length(vector) != size,
-    do: {:error, "invalid size"}
+          {:ok, Types.root()} | {:error, Error.t()}
+  def hash_tree_root(vector, {:vector, inner_type, size}) when length(vector) != size,
+    do:
+      {:error,
+       %Error{
+         message:
+           "Invalid binary length while merkleizing vector of #{inspect(inner_type)}.\nExpected size: #{size}.\nFound: #{length(vector)}\n"
+       }}
 
   def hash_tree_root(vector, {:vector, type, _size} = schema) do
     value =
@@ -97,7 +104,7 @@ defmodule SszEx.Merkleization do
 
     case value do
       {:ok, chunks} -> chunks |> hash_tree_root_vector()
-      {:error, reason} -> {:error, reason}
+      {:error, %Error{}} -> value
       chunks -> chunks |> hash_tree_root_vector()
     end
   end
@@ -111,7 +118,7 @@ defmodule SszEx.Merkleization do
 
         case hash_tree_root(value, schema) do
           {:ok, root} -> {:cont, {:ok, acc_root <> root}}
-          {:error, reason} -> {:halt, {:error, reason}}
+          {:error, %Error{}} = error -> {:halt, error}
         end
       end)
 
@@ -123,8 +130,46 @@ defmodule SszEx.Merkleization do
         root = chunks |> merkleize_chunks_with_virtual_padding(leaf_count)
         {:ok, root}
 
-      {:error, reason} ->
-        {:error, reason}
+      {:error, %Error{}} ->
+        value
+    end
+  end
+
+  # TODO: make this work on any SSZ type and expose it in the API
+  @spec compute_merkle_proof([Types.root()], non_neg_integer, non_neg_integer) :: [Types.root()]
+  def compute_merkle_proof(leaves, index, height) do
+    compute_merkle_proof(leaves, index, 0, height, [])
+  end
+
+  defp compute_merkle_proof([_root], _, max_height, max_height, proof) do
+    Enum.reverse(proof)
+  end
+
+  defp compute_merkle_proof(leaves, index, height, max_height, proof) do
+    default_value = get_zero_hash(height)
+
+    sibling_index = index - rem(index, 2) * 2 + 1
+    proof_element = Enum.at(leaves, sibling_index, default_value)
+
+    Stream.chunk_every(leaves, 2)
+    |> Enum.map(fn
+      [left, right] -> Hash.hash_nodes(left, right)
+      [node] -> Hash.hash_nodes(node, default_value)
+    end)
+    |> compute_merkle_proof(div(index, 2), height + 1, max_height, [proof_element | proof])
+  end
+
+  defp list_hash_tree_root_basic(list, schema, len) do
+    limit = chunk_count(schema)
+    pack(list, schema) |> hash_tree_root_list(limit, len)
+  end
+
+  defp list_hash_tree_root_complex(list, schema, type, len) do
+    limit = chunk_count(schema)
+
+    with {:ok, chunks} <- list_hash_tree_root(list, type),
+         result <- hash_tree_root_list(chunks, limit, len) do
+      result
     end
   end
 
@@ -135,14 +180,8 @@ defmodule SszEx.Merkleization do
   end
 
   defp hash_tree_root_list(chunks, limit, len) do
-    chunks_len = chunks |> get_chunks_len()
-
-    if chunks_len > limit do
-      {:error, "chunk size exceeds limit"}
-    else
-      root = merkleize_chunks_with_virtual_padding(chunks, limit) |> mix_in_length(len)
-      {:ok, root}
-    end
+    root = merkleize_chunks_with_virtual_padding(chunks, limit) |> mix_in_length(len)
+    {:ok, root}
   end
 
   defp list_hash_tree_root(list, inner_schema) do
@@ -150,7 +189,7 @@ defmodule SszEx.Merkleization do
     |> Enum.reduce_while({:ok, <<>>}, fn value, {_, acc_roots} ->
       case hash_tree_root(value, inner_schema) do
         {:ok, root} -> {:cont, {:ok, acc_roots <> root}}
-        {:error, reason} -> {:halt, {:error, reason}}
+        {:error, %Error{}} = error -> {:halt, error}
       end
     end)
   end
@@ -224,7 +263,7 @@ defmodule SszEx.Merkleization do
     <<value::size(size)-little>> |> pack_bytes()
   end
 
-  @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | :error
+  @spec pack(list(), {:list | :vector, any, non_neg_integer}) :: binary() | {:error, Error.t()}
   def pack(list, {type, schema, _}) when type in [:vector, :list] do
     list
     |> Enum.reduce(<<>>, fn x, acc ->

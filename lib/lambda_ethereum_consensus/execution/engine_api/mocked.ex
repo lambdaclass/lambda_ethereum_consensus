@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
   Using this method Execution and consensus layer client software may
   exchange with a list of supported Engine API methods.
   """
-  def exchange_capabilities do
+  def exchange_capabilities() do
     {:ok, ["engine_newPayloadV2", "engine_newPayloadV3"]}
   end
 

@@ -5,7 +5,7 @@ defmodule Libp2p do
 
   @on_load :load_nifs
 
-  def load_nifs do
+  def load_nifs() do
     dir = :code.priv_dir(:lambda_ethereum_consensus)
     :erlang.load_nif(dir ++ ~c"/native/libp2p_nif", 0)
   end
@@ -89,7 +89,7 @@ defmodule Libp2p do
   The ttl for a "permanent address" (e.g. bootstrap nodes).
   """
   @spec ttl_permanent_addr :: integer
-  def ttl_permanent_addr, do: 2 ** 63 - 1
+  def ttl_permanent_addr(), do: 2 ** 63 - 1
 
   @doc """
   Gets next subscription message.
