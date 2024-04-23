@@ -43,8 +43,8 @@ testnet_dir = Keyword.get(args, :testnet_dir)
 enable_metrics = Keyword.get(args, :metrics, false)
 metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
 validator_file = Keyword.get(args, :validator_file)
-enable_beacon_api = Keyword.get(args, :beacon_api, false)
-beacon_api_port = Keyword.get(args, :beacon_api_port, 4000)
+beacon_api_port = Keyword.get(args, :beacon_api_port, nil)
+enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
 discovery_port = Keyword.get(args, :discovery_port, 9000)
 
 if not is_nil(testnet_dir) and not is_nil(checkpoint_sync_url) do
@@ -133,7 +133,7 @@ alias BeaconApi
 
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
   server: enable_beacon_api,
-  http: [port: beacon_api_port],
+  http: [port: beacon_api_port || 4000],
   url: [host: "localhost"],
   render_errors: [
     formats: [json: BeaconApi.ErrorJSON],
