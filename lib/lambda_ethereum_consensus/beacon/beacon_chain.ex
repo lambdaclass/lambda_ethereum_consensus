@@ -44,10 +44,10 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @spec get_current_slot() :: Types.slot()
-  def get_current_slot, do: GenServer.call(__MODULE__, :get_current_slot)
+  def get_current_slot(), do: GenServer.call(__MODULE__, :get_current_slot)
 
   @spec get_genesis_time() :: Types.uint64()
-  def get_genesis_time, do: GenServer.call(__MODULE__, :get_genesis_time)
+  def get_genesis_time(), do: GenServer.call(__MODULE__, :get_genesis_time)
 
   @spec update_fork_choice_cache(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
           :ok
@@ -59,24 +59,24 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
-  def get_finalized_checkpoint do
+  def get_finalized_checkpoint() do
     %{finalized: finalized} = GenServer.call(__MODULE__, :get_fork_choice_cache)
     finalized
   end
 
   @spec get_justified_checkpoint() :: Types.Checkpoint.t()
-  def get_justified_checkpoint do
+  def get_justified_checkpoint() do
     %{justified: justified} = GenServer.call(__MODULE__, :get_fork_choice_cache)
     justified
   end
 
   @spec get_current_epoch() :: integer()
-  def get_current_epoch do
+  def get_current_epoch() do
     Misc.compute_epoch_at_slot(get_current_slot())
   end
 
   @spec get_fork_digest() :: Types.fork_digest()
-  def get_fork_digest do
+  def get_fork_digest() do
     GenServer.call(__MODULE__, :get_fork_digest)
   end
 
@@ -86,10 +86,10 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @spec get_fork_version() :: Types.version()
-  def get_fork_version, do: GenServer.call(__MODULE__, :get_fork_version)
+  def get_fork_version(), do: GenServer.call(__MODULE__, :get_fork_version)
 
   @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
-  def get_current_status_message, do: GenServer.call(__MODULE__, :get_current_status_message)
+  def get_current_status_message(), do: GenServer.call(__MODULE__, :get_current_status_message)
 
   ##########################
   ### GenServer Callbacks
@@ -202,7 +202,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     end
   end
 
-  def schedule_next_tick do
+  def schedule_next_tick() do
     # For millisecond precision
     time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
     Process.send_after(__MODULE__, :on_tick, time_to_next_tick)

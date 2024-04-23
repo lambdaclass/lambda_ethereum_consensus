@@ -19,7 +19,7 @@ defmodule Types.AttesterSlashing do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:attestation_1, Types.IndexedAttestation},
       {:attestation_2, Types.IndexedAttestation}

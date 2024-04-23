@@ -20,14 +20,14 @@ defmodule Types.Metadata do
           syncnets: Types.bitvector()
         }
 
-  def schema,
+  def schema(),
     do: [
       seq_number: TypeAliases.uint64(),
       attnets: {:bitvector, ChainSpec.get("ATTESTATION_SUBNET_COUNT")},
       syncnets: {:bitvector, Constants.sync_committee_subnet_count()}
     ]
 
-  def empty do
+  def empty() do
     attnets = ChainSpec.get("ATTESTATION_SUBNET_COUNT") |> BitVector.new()
     syncnets = Constants.sync_committee_subnet_count() |> BitVector.new()
     %__MODULE__{seq_number: 0, attnets: attnets, syncnets: syncnets}

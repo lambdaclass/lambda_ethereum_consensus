@@ -21,7 +21,7 @@ defmodule Types.ContributionAndProof do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:aggregator_index, TypeAliases.validator_index()},
       {:contribution, Types.SyncCommitteeContribution},

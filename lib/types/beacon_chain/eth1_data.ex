@@ -21,7 +21,7 @@ defmodule Types.Eth1Data do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       deposit_root: TypeAliases.root(),
       deposit_count: TypeAliases.uint64(),

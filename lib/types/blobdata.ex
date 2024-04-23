@@ -13,7 +13,7 @@ defmodule Types.Blobdata do
   @type t :: %__MODULE__{blob: Types.blob(), proof: Types.kzg_proof()}
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       blob: TypeAliases.blob(),
       proof: TypeAliases.kzg_proof()

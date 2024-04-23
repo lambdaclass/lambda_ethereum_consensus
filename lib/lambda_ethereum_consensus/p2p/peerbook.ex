@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   @doc """
   Get some peer from the peerbook.
   """
-  def get_some_peer do
+  def get_some_peer() do
     GenServer.call(__MODULE__, :get_some_peer)
   end
 
