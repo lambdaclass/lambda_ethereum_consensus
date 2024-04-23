@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   Using this method Execution and consensus layer client software may
   exchange with a list of supported Engine API methods.
   """
-  def exchange_capabilities do
+  def exchange_capabilities() do
     call("engine_exchangeCapabilities", [@supported_methods])
   end
 

@@ -9,9 +9,9 @@ defmodule Spec.MetaUtils do
   @vector_sub_dirs ["config", "fork", "runner", "handler", "suite", "case"]
   @vector_dir_keys Enum.map(@vector_sub_dirs, &String.to_atom/1)
 
-  def vectors_dir, do: @vectors_dir
-  def runners_dir, do: @runners_dir
-  def generated_dir, do: @generated_dir
+  def vectors_dir(), do: @vectors_dir
+  def runners_dir(), do: @runners_dir
+  def generated_dir(), do: @generated_dir
 
   @doc """
   All SpecTestCases for a filter. The filter might have either of the following keys:
@@ -58,7 +58,7 @@ defmodule Spec.MetaUtils do
   details, only the number of tests that are run or skipped. Partial directories are more
   interesting, as they might have unimplemented cases by oversight.
   """
-  def check_enabled do
+  def check_enabled() do
     {_status, "tests", res} = check_enabled(@vectors_dir, ["root" | @vector_sub_dirs])
     res
   end

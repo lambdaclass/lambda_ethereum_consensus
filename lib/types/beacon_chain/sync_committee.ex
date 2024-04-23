@@ -21,7 +21,7 @@ defmodule Types.SyncCommittee do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:pubkeys, {:vector, TypeAliases.bls_pubkey(), ChainSpec.get("SYNC_COMMITTEE_SIZE")}},
       {:aggregate_pubkey, TypeAliases.bls_pubkey()}

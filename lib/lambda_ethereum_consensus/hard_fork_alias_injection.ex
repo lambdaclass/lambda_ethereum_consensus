@@ -3,7 +3,7 @@ defmodule HardForkAliasInjection do
   is_deneb = Application.compile_env!(:lambda_ethereum_consensus, :fork) == :deneb
 
   @compile {:inline, deneb?: 0}
-  def deneb?, do: unquote(is_deneb)
+  def deneb?(), do: unquote(is_deneb)
 
   @doc """
   Compiles to the first argument if on deneb, otherwise to the second argument.

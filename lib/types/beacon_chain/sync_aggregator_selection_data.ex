@@ -15,7 +15,7 @@ defmodule Types.SyncAggregatorSelectionData do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       slot: TypeAliases.slot(),
       subcommittee_index: TypeAliases.uint64()

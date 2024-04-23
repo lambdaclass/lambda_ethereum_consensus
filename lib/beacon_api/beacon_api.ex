@@ -17,7 +17,7 @@ defmodule BeaconApi do
   those modules here.
   """
 
-  def router do
+  def router() do
     quote do
       use Phoenix.Router, helpers: false
 
@@ -27,7 +27,7 @@ defmodule BeaconApi do
     end
   end
 
-  def controller do
+  def controller() do
     quote do
       use Phoenix.Controller,
         formats: [:json]

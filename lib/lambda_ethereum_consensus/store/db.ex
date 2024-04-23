@@ -25,14 +25,14 @@ defmodule LambdaEthereumConsensus.Store.Db do
   end
 
   @spec iterate() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
-  def iterate do
+  def iterate() do
     ref = GenServer.call(@registered_name, :get_ref)
     # TODO: wrap cursor to make it DB-agnostic
     Exleveldb.iterator(ref, [])
   end
 
   @spec iterate_keys() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
-  def iterate_keys do
+  def iterate_keys() do
     ref = GenServer.call(@registered_name, :get_ref)
     # TODO: wrap cursor to make it DB-agnostic
     Exleveldb.iterator(ref, [], :keys_only)
@@ -57,7 +57,7 @@ defmodule LambdaEthereumConsensus.Store.Db do
   @impl true
   def handle_call(:get_ref, _from, %{ref: ref} = state), do: {:reply, ref, state}
 
-  defp get_dir do
+  defp get_dir() do
     Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)
     |> Keyword.fetch!(:dir)
   end

@@ -19,7 +19,7 @@ defmodule Types.SignedContributionAndProof do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:message, Types.ContributionAndProof},
       {:signature, TypeAliases.bls_signature()}

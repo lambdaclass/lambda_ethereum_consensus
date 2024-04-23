@@ -44,10 +44,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
   defp generate_cleanup_spec(:active_validator_indices, key), do: cleanup_epoch_ms(key)
 
   @spec initialize_cache() :: :ok
-  def initialize_cache, do: @tables |> Enum.each(&init_table/1)
+  def initialize_cache(), do: @tables |> Enum.each(&init_table/1)
 
   @spec clear_cache() :: :ok
-  def clear_cache, do: @tables |> Enum.each(&:ets.delete_all_objects/1)
+  def clear_cache(), do: @tables |> Enum.each(&:ets.delete_all_objects/1)
 
   @spec init_table(:ets.table()) :: :ok
   def init_table(table) do
