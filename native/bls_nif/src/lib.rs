@@ -147,7 +147,7 @@ fn key_validate<'env>(public_key: Binary) -> Result<bool, String> {
     let _pubkey =
         PublicKey::deserialize(public_key.as_slice()).map_err(|err| format!("{:?}", err))?;
 
-    Ok(true)   
+    Ok(true)
 }
 
 rustler::init!(

@@ -124,17 +124,16 @@ defmodule Unit.ReqRespTest do
     request = %BeaconBlocksByRangeRequest{start_slot: 15_125, count: count}
 
     # TODO: generate randomly
-    response =
-      [
-        %Types.BlobSidecar{
-          index: 1,
-          blob: <<152_521_252::(4096*32)*8>>,
-          kzg_commitment: <<57_888::48*8>>,
-          kzg_proof: <<6122::48*8>>,
-          signed_block_header: Block.signed_beacon_block_header(),
-          kzg_commitment_inclusion_proof: [<<1551::32*8>>] |> Stream.cycle() |> Enum.take(17)
-        }
-      ]
+    response = [
+      %Types.BlobSidecar{
+        index: 1,
+        blob: <<152_521_252::(4096*32)*8>>,
+        kzg_commitment: <<57_888::48*8>>,
+        kzg_proof: <<6122::48*8>>,
+        signed_block_header: Block.signed_beacon_block_header(),
+        kzg_commitment_inclusion_proof: [<<1551::32*8>>] |> Stream.cycle() |> Enum.take(17)
+      }
+    ]
 
     assert_complex_request_roundtrip(request, BeaconBlocksByRangeRequest, response)
   end
@@ -145,17 +144,16 @@ defmodule Unit.ReqRespTest do
     request = Enum.map(1..count, &%BlobIdentifier{block_root: <<&1::256>>, index: &1})
 
     # TODO: generate randomly
-    response =
-      [
-        %Types.BlobSidecar{
-          index: 1,
-          blob: <<152_521_252::(4096*32)*8>>,
-          kzg_commitment: <<57_888::48*8>>,
-          kzg_proof: <<6122::48*8>>,
-          signed_block_header: Block.signed_beacon_block_header(),
-          kzg_commitment_inclusion_proof: [<<1551::32*8>>] |> Stream.cycle() |> Enum.take(17)
-        }
-      ]
+    response = [
+      %Types.BlobSidecar{
+        index: 1,
+        blob: <<152_521_252::(4096*32)*8>>,
+        kzg_commitment: <<57_888::48*8>>,
+        kzg_proof: <<6122::48*8>>,
+        signed_block_header: Block.signed_beacon_block_header(),
+        kzg_commitment_inclusion_proof: [<<1551::32*8>>] |> Stream.cycle() |> Enum.take(17)
+      }
+    ]
 
     assert_complex_request_roundtrip(
       request,

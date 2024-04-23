@@ -136,5 +136,4 @@ defmodule BlsTestRunner do
         assert not output, reason
     end
   end
-
 end
