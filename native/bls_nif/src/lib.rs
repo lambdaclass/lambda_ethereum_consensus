@@ -142,6 +142,13 @@ fn eth_aggregate_pubkeys<'env>(
         }
     }
 }
+#[rustler::nif]
+fn key_validate<'env>(public_key: Binary) -> Result<bool, String> {
+    let _pubkey =
+        PublicKey::deserialize(public_key.as_slice()).map_err(|err| format!("{:?}", err))?;
+
+    Ok(true)
+}
 
 rustler::init!(
     "Elixir.Bls",
@@ -152,6 +159,7 @@ rustler::init!(
         fast_aggregate_verify,
         eth_fast_aggregate_verify,
         eth_aggregate_pubkeys,
-        verify
+        verify,
+        key_validate
     ]
 );

@@ -99,8 +99,7 @@ defmodule SszStaticTestRunner do
       YamlElixir.read_from_file!(case_dir <> "/value.yaml")
       |> SpecTestUtils.sanitize_yaml()
 
-    expected_sanitized =
-      SpecTestUtils.sanitize_ssz(sanitize_yaml, schema)
+    expected_sanitized = SpecTestUtils.sanitize_ssz(sanitize_yaml, schema)
 
     %{"root" => expected_root} = YamlElixir.read_from_file!(case_dir <> "/roots.yaml")
     expected_root = expected_root |> SpecTestUtils.sanitize_yaml()

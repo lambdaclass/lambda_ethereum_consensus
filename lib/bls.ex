@@ -46,7 +46,8 @@ defmodule Bls do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  # TODO: implement
+  @spec key_validate(Types.bls_pubkey()) ::
+          {:ok, boolean} | {:error, binary()}
   def key_validate(_public_key) do
     :erlang.nif_error(:nif_not_loaded)
   end

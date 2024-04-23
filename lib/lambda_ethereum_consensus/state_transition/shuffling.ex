@@ -43,8 +43,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
   defp shuffle_list(input, round, seed) do
     input_size = Aja.Enum.count(input)
 
-    round_bytes =
-      :binary.encode_unsigned(round, :little)
+    round_bytes = :binary.encode_unsigned(round, :little)
 
     pivot =
       (seed <> round_bytes)

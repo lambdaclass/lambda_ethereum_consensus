@@ -29,8 +29,7 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
     num_bits = bit_size(bitstring)
 
     <<pre::integer-little-size(num_bits - @bits_per_byte),
-      last_byte::integer-little-size(@bits_per_byte)>> =
-      bitstring
+      last_byte::integer-little-size(@bits_per_byte)>> = bitstring
 
     <<remove_trailing_bit(<<last_byte>>)::bitstring,
       pre::integer-size(num_bits - @bits_per_byte)>>
