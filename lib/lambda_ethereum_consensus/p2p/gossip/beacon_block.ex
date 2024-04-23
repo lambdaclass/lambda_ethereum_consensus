@@ -52,7 +52,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   end
 
   @impl true
-  def handle_cast({:slot_transition, slot}, state) do
+  def handle_cast({:on_tick, {slot, _}}, state) do
     {:noreply, state |> Map.put(:slot, slot)}
   end
 

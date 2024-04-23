@@ -31,9 +31,6 @@ defmodule LambdaEthereumConsensus.Validator do
   def notify_new_block(slot, head_root),
     do: GenServer.cast(__MODULE__, {:new_block, slot, head_root})
 
-  def notify_tick(logical_time),
-    do: GenServer.cast(__MODULE__, {:on_tick, logical_time})
-
   ##########################
   ### GenServer Callbacks
   ##########################

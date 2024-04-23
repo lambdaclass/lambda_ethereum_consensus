@@ -178,7 +178,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     new_logical_time = compute_logical_time(new_state)
 
     if old_logical_time != new_logical_time do
-      notify_subscribers(new_logical_time, state.synced)
+      notify_subscribers(new_logical_time)
     end
 
     {:noreply, new_state}
@@ -239,17 +239,12 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     {slot, slot_third}
   end
 
-  defp notify_subscribers(logical_time, synced) do
+  defp notify_subscribers(logical_time) do
     log_new_slot(logical_time)
 
-    if synced do
-      Validator.notify_tick(logical_time)
-    end
-
-    case logical_time do
-      {slot, :first_third} -> Gossip.BeaconBlock.notify_slot(slot)
-      _ -> :ok
-    end
+    Enum.each([Validator, Gossip.BeaconBlock], fn subscriber ->
+      GenServer.cast(subscriber, {:on_tick, logical_time})
+    end)
   end
 
   defp log_new_slot({slot, :first_third}) do
