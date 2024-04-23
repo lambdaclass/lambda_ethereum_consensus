@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   use GenServer
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator
   alias Types.BeaconState
@@ -176,8 +177,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     new_state = %BeaconChainState{state | time: time}
     new_logical_time = compute_logical_time(new_state)
 
-    if state.synced and old_logical_time != new_logical_time do
-      notify_subscribers(new_logical_time)
+    if old_logical_time != new_logical_time do
+      notify_subscribers(new_logical_time, state.synced)
     end
 
     {:noreply, new_state}
@@ -238,9 +239,17 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     {slot, slot_third}
   end
 
-  defp notify_subscribers(logical_time) do
+  defp notify_subscribers(logical_time, synced) do
     log_new_slot(logical_time)
-    Validator.notify_tick(logical_time)
+
+    if synced do
+      Validator.notify_tick(logical_time)
+    end
+
+    case logical_time do
+      {slot, :first_third} -> Gossip.BeaconBlock.notify_slot(slot)
+      _ -> :ok
+    end
   end
 
   defp log_new_slot({slot, :first_third}) do

@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.Gossip.Consumer
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
-  alias Types.SignedBeaconBlock
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
@@ -16,7 +15,6 @@ defmodule LambdaEthereumConsensus.P2P.GossipSub do
   @impl true
   def init(_opts) do
     topics = [
-      {"beacon_block", SignedBeaconBlock, &Handler.handle_beacon_block/1},
       {"beacon_aggregate_and_proof", Types.SignedAggregateAndProof,
        &Handler.handle_beacon_aggregate_and_proof/1},
       {"voluntary_exit", Types.SignedVoluntaryExit, &Handler.handle_voluntary_exit/1},
