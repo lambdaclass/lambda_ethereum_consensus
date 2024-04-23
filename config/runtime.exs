@@ -18,7 +18,8 @@ switches = [
   validator_file: :string,
   log_file: :string,
   beacon_api: :boolean,
-  beacon_api_port: :integer
+  beacon_api_port: :integer,
+  discovery_port: :integer
 ]
 
 is_testing = Config.config_env() == :test
@@ -44,6 +45,7 @@ metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, els
 validator_file = Keyword.get(args, :validator_file)
 enable_beacon_api = Keyword.get(args, :beacon_api, false)
 beacon_api_port = Keyword.get(args, :beacon_api_port, 4000)
+discovery_port = Keyword.get(args, :discovery_port, 9000)
 
 if not is_nil(testnet_dir) and not is_nil(checkpoint_sync_url) do
   IO.puts("Both checkpoint sync and testnet url specified (only one should be specified).")
@@ -106,7 +108,7 @@ config :lambda_ethereum_consensus, ChainSpec,
 config :lambda_ethereum_consensus, StoreSetup, strategy: strategy
 
 # Configures peer discovery
-config :lambda_ethereum_consensus, :discovery, port: 9000, bootnodes: bootnodes
+config :lambda_ethereum_consensus, :discovery, port: discovery_port, bootnodes: bootnodes
 
 # Engine API
 
