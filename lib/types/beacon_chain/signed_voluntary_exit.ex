@@ -19,7 +19,7 @@ defmodule Types.SignedVoluntaryExit do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:message, Types.VoluntaryExit},
       {:signature, TypeAliases.bls_signature()}

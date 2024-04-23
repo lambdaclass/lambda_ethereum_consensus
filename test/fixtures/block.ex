@@ -14,7 +14,7 @@ defmodule Fixtures.Block do
   alias Types.SignedBeaconBlock
 
   @spec signed_beacon_block :: SignedBeaconBlock.t()
-  def signed_beacon_block do
+  def signed_beacon_block() do
     %SignedBeaconBlock{
       message: beacon_block(),
       signature: Random.bls_signature()
@@ -22,7 +22,7 @@ defmodule Fixtures.Block do
   end
 
   @spec beacon_block :: BeaconBlock.t()
-  def beacon_block do
+  def beacon_block() do
     %BeaconBlock{
       parent_root: Random.root(),
       slot: Random.uint64(),
@@ -33,7 +33,7 @@ defmodule Fixtures.Block do
   end
 
   @spec beacon_block_body :: BeaconBlockBody.t()
-  def beacon_block_body do
+  def beacon_block_body() do
     fields = [
       randao_reveal: Random.bls_signature(),
       eth1_data: eth1_data(),
@@ -53,7 +53,7 @@ defmodule Fixtures.Block do
   end
 
   @spec eth1_data :: Types.Eth1Data.t()
-  def eth1_data do
+  def eth1_data() do
     %Types.Eth1Data{
       deposit_root: Random.root(),
       deposit_count: Random.uint64(),
@@ -62,7 +62,7 @@ defmodule Fixtures.Block do
   end
 
   @spec sync_aggregate :: Types.SyncAggregate.t()
-  def sync_aggregate do
+  def sync_aggregate() do
     %Types.SyncAggregate{
       sync_committee_bits: Random.sync_committee_bits(),
       sync_committee_signature: Random.bls_signature()
@@ -70,7 +70,7 @@ defmodule Fixtures.Block do
   end
 
   @spec execution_payload :: ExecutionPayload.t()
-  def execution_payload do
+  def execution_payload() do
     fields = [
       parent_hash: Random.hash32(),
       fee_recipient: Random.execution_address(),
@@ -95,7 +95,7 @@ defmodule Fixtures.Block do
   end
 
   @spec fork :: Types.Fork.t()
-  def fork do
+  def fork() do
     %Types.Fork{
       previous_version: Random.binary(4),
       current_version: Random.binary(4),
@@ -104,7 +104,7 @@ defmodule Fixtures.Block do
   end
 
   @spec beacon_block_header :: Types.BeaconBlockHeader.t()
-  def signed_beacon_block_header do
+  def signed_beacon_block_header() do
     %Types.SignedBeaconBlockHeader{
       message: beacon_block_header(),
       signature: Random.bls_signature()
@@ -112,7 +112,7 @@ defmodule Fixtures.Block do
   end
 
   @spec beacon_block_header :: Types.BeaconBlockHeader.t()
-  def beacon_block_header do
+  def beacon_block_header() do
     %Types.BeaconBlockHeader{
       slot: Random.uint64(),
       proposer_index: Random.uint64(),
@@ -123,7 +123,7 @@ defmodule Fixtures.Block do
   end
 
   @spec checkpoint :: Types.Checkpoint.t()
-  def checkpoint do
+  def checkpoint() do
     %Types.Checkpoint{
       epoch: Random.uint64(),
       root: Random.root()
@@ -131,7 +131,7 @@ defmodule Fixtures.Block do
   end
 
   @spec sync_committee :: Types.SyncCommittee.t()
-  def sync_committee do
+  def sync_committee() do
     %Types.SyncCommittee{
       pubkeys: [],
       aggregate_pubkey: Random.binary(48)
@@ -139,7 +139,7 @@ defmodule Fixtures.Block do
   end
 
   @spec execution_payload_header :: ExecutionPayloadHeader.t()
-  def execution_payload_header do
+  def execution_payload_header() do
     fields = [
       parent_hash: Random.binary(32),
       fee_recipient: Random.binary(20),
@@ -164,7 +164,7 @@ defmodule Fixtures.Block do
   end
 
   @spec beacon_state :: BeaconState.t()
-  def beacon_state do
+  def beacon_state() do
     %BeaconState{
       genesis_time: Random.uint64(),
       genesis_validators_root: Random.root(),

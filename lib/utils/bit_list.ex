@@ -18,7 +18,7 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
   Creates a default (empty/size 0) bit list.
   """
   @spec default :: t
-  def default, do: <<>>
+  def default(), do: <<>>
 
   @doc """
   Creates a new bit_list from bitstring.

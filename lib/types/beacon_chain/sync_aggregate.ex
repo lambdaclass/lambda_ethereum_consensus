@@ -31,7 +31,7 @@ defmodule Types.SyncAggregate do
   end
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:sync_committee_bits, {:bitvector, ChainSpec.get("SYNC_COMMITTEE_SIZE")}},
       {:sync_committee_signature, TypeAliases.bls_signature()}

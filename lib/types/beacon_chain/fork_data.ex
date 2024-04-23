@@ -20,7 +20,7 @@ defmodule Types.ForkData do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:current_version, TypeAliases.version()},
       {:genesis_validators_root, TypeAliases.root()}

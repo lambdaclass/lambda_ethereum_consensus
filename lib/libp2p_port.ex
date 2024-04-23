@@ -130,7 +130,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   on the current process. If there are no requests, it waits for one.
   """
   @spec handle_request() :: {String.t(), String.t(), binary()}
-  def handle_request do
+  def handle_request() do
     receive do
       {:request, {_protocol_id, _message_id, _message} = request} -> request
     end
@@ -189,7 +189,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   on the current process. If there are none, it waits for one.
   """
   @spec receive_gossip() :: {String.t(), binary(), binary()}
-  def receive_gossip do
+  def receive_gossip() do
     receive do
       {:gossipsub, {_topic_name, _msg_id, _message} = m} -> m
     end
@@ -427,7 +427,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     receive_response()
   end
 
-  defp receive_response do
+  defp receive_response() do
     receive do
       {:response, {res, %ResultMessage{message: []}}} -> res
       {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()

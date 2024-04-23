@@ -26,7 +26,7 @@ defmodule Types.SyncCommitteeContribution do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:slot, TypeAliases.slot()},
       {:beacon_block_root, TypeAliases.root()},

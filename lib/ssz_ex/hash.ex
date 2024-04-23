@@ -10,7 +10,7 @@ defmodule SszEx.Hash do
   @doc """
   Compute the roots of Merkle trees with all zero leaves and lengths from 0 to 64.
   """
-  def compute_zero_hashes do
+  def compute_zero_hashes() do
     Stream.iterate(<<0::size(8 * @bytes_per_chunk)>>, &hash_nodes(&1, &1))
     |> Stream.take(@max_merkle_tree_depth + 1)
     |> Enum.join()

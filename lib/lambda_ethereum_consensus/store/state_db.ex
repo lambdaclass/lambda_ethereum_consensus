@@ -52,7 +52,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
 
   @spec get_latest_state() ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
-  def get_latest_state do
+  def get_latest_state() do
     last_key = root_by_slot_key(0xFFFFFFFFFFFFFFFF)
 
     with {:ok, it} <- Db.iterate(),

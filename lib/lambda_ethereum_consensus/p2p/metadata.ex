@@ -17,12 +17,12 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   end
 
   @spec get_seq_number() :: Types.uint64()
-  def get_seq_number do
+  def get_seq_number() do
     GenServer.call(__MODULE__, :get_seq_number)
   end
 
   @spec get_metadata() :: Metadata.t()
-  def get_metadata do
+  def get_metadata() do
     GenServer.call(__MODULE__, :get_metadata)
   end
 

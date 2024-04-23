@@ -146,7 +146,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
           voluntary_exits: [Types.VoluntaryExit.t()],
           bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()]
         }
-  defp fetch_operations_for_block do
+  defp fetch_operations_for_block() do
     %{
       proposer_slashings:
         ChainSpec.get("MAX_PROPOSER_SLASHINGS") |> OperationsCollector.get_proposer_slashings(),
@@ -194,7 +194,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     signature
   end
 
-  defp get_sync_aggregate do
+  defp get_sync_aggregate() do
     %Types.SyncAggregate{
       sync_committee_bits: ChainSpec.get("SYNC_COMMITTEE_SIZE") |> BitVector.new(),
       sync_committee_signature: <<192, 0::760>>

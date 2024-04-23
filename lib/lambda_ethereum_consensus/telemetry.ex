@@ -122,7 +122,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
     ]
   end
 
-  defp periodic_measurements do
+  defp periodic_measurements() do
     [
       # A module, function and arguments to be invoked periodically.
       # This function must call :telemetry.execute/3 and a metric must be added above.
@@ -131,7 +131,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
     ]
   end
 
-  def uptime do
+  def uptime() do
     {uptime, _} = :erlang.statistics(:wall_clock)
     :telemetry.execute([:vm, :uptime], %{total: uptime})
   end
@@ -140,7 +140,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
     :telemetry.execute([:vm, :message_queue], %{length: len}, %{process: inspect(name)})
   end
 
-  def message_queue_lengths do
+  def message_queue_lengths() do
     Process.list()
     |> Enum.each(fn pid ->
       case Process.info(pid, [:message_queue_len, :registered_name]) do

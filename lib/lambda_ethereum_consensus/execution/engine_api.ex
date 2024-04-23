@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   """
   @behaviour LambdaEthereumConsensus.Execution.EngineApi.Behaviour
 
-  def exchange_capabilities, do: impl().exchange_capabilities()
+  def exchange_capabilities(), do: impl().exchange_capabilities()
 
   def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root),
     do: impl().new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)
@@ -18,5 +18,5 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
 
   def get_deposit_logs(block_number_range), do: impl().get_deposit_logs(block_number_range)
 
-  defp impl, do: Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)[:implementation]
+  defp impl(), do: Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)[:implementation]
 end

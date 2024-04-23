@@ -69,13 +69,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     "/eth2/#{fork_context}/beacon_attestation_#{subnet_id}/ssz_snappy"
   end
 
-  defp update_enr do
+  defp update_enr() do
     enr_fork_id = compute_enr_fork_id()
     %{attnets: attnets, syncnets: syncnets} = P2P.Metadata.get_metadata()
     Libp2pPort.update_enr(enr_fork_id, attnets, syncnets)
   end
 
-  defp compute_enr_fork_id do
+  defp compute_enr_fork_id() do
     current_version = BeaconChain.get_fork_version()
 
     fork_digest =

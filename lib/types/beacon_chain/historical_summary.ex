@@ -21,7 +21,7 @@ defmodule Types.HistoricalSummary do
         }
 
   @impl LambdaEthereumConsensus.Container
-  def schema do
+  def schema() do
     [
       {:block_summary_root, TypeAliases.root()},
       {:state_summary_root, TypeAliases.root()}
