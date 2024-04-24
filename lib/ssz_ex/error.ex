@@ -9,7 +9,6 @@ defmodule SszEx.Error do
   def format(%Error{message: message, stacktrace: []}), do: "#{message}"
 
   def format(%Error{message: message, stacktrace: stacktrace}) do
-    "#{message}"
     formatted_stacktrace = stacktrace |> Enum.join(".")
     "#{message}Stacktrace: #{formatted_stacktrace}"
   end
@@ -21,6 +20,8 @@ defmodule SszEx.Error do
 
     %Error{message: message, stacktrace: [new_trace | stacktrace]}
   end
+
+  def add_container(%Error{} = error, :bool), do: error
 
   def add_container(%Error{message: message, stacktrace: stacktrace}, value)
       when is_atom(value) do
