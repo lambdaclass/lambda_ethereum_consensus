@@ -59,28 +59,31 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   @impl true
   def handle_info({:gossipsub, {_topic, msg_id, message}}, %{slot: slot} = state) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
-         {:ok, beacon_block} <- Ssz.from_ssz(uncompressed, SignedBeaconBlock),
-         :ok <- handle_beacon_block(beacon_block, slot) do
-      # TODO: validate before accepting
+         {:ok, signed_block} <- Ssz.from_ssz(uncompressed, SignedBeaconBlock),
+         :ok <- validate(signed_block, slot) do
+      Logger.info("[Gossip] Block received", slot: signed_block.message.slot)
       Libp2pPort.validate_message(msg_id, :accept)
+      PendingBlocks.add_block(signed_block)
     else
-      {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
+      {:ignore, reason} ->
+        Logger.warning("[Gossip] Block ignored, reason: #{inspect(reason)}", slot: slot)
+        Libp2pPort.validate_message(msg_id, :ignore)
+
+      {:error, reason} ->
+        Logger.warning("[Gossip] Block rejected, reason: #{inspect(reason)}", slot: slot)
+        Libp2pPort.validate_message(msg_id, :reject)
     end
 
     {:noreply, state}
   end
 
-  @spec handle_beacon_block(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:error, any}
-  defp handle_beacon_block(%SignedBeaconBlock{message: block} = signed_block, current_slot) do
-    # TODO: reject blocks from the future
-    if block.slot > current_slot - ChainSpec.get("SLOTS_PER_EPOCH") do
-      Logger.info("[Gossip] Block received", slot: block.slot)
-
-      PendingBlocks.add_block(signed_block)
-      :ok
-    else
-      Logger.warning("[Gossip] Block with slot #{block.slot} is too old", slot: current_slot)
-      {:error, :block_too_old}
+  @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:error, any}
+  defp validate(%SignedBeaconBlock{message: block}, current_slot) do
+    cond do
+      # TODO incorporate MAXIMUM_GOSSIP_CLOCK_DISPARITY into future block calculations
+      block.slot <= current_slot - ChainSpec.get("SLOTS_PER_EPOCH") -> {:ignore, :block_too_old}
+      block.slot > current_slot -> {:ignore, :block_from_future}
+      true -> :ok
     end
   end
 end
