@@ -16,3 +16,4 @@ tmp/
 .spectest_version
 flake.*
 native/**/target/
+Dockerfile
