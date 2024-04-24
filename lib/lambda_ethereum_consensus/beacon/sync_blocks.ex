@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.P2P.BlockDownloader
+  alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.SignedBeaconBlock
 
@@ -72,6 +73,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
     if Enum.empty?(chunks) do
       Logger.info("[Optimistic Sync] Sync completed")
+      Gossip.BeaconBlock.start()
     else
       Process.sleep(1000)
       perform_sync(remaining_chunks)
