@@ -60,14 +60,15 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         LambdaEthereumConsensus.Beacon.PendingBlocks,
         LambdaEthereumConsensus.Beacon.SyncBlocks,
         LambdaEthereumConsensus.P2P.GossipSub,
-        LambdaEthereumConsensus.P2P.Gossip.Attestation
+        LambdaEthereumConsensus.P2P.Gossip.Attestation,
+        LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
       ] ++ validator_children
 
     Supervisor.init(children, strategy: :one_for_all)
   end
 
   defp get_validator_children(nil, _, _, _) do
-    Logger.warning("[Checkpoint sync] To enable validator features, checkpoint-sync is required.")
+    Logger.warning("Deposit data not found. Validator will be disabled.")
 
     []
   end

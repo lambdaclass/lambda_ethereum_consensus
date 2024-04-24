@@ -134,8 +134,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
     to_prune = :ets.info(data_table, :size) - max_entries
 
     if to_prune > 0 do
-      {elems, _cont} =
-        :ets.select(ttl_table, [{:_, [], [:"$_"]}], to_prune + batch_prune_size)
+      {elems, _cont} = :ets.select(ttl_table, [{:_, [], [:"$_"]}], to_prune + batch_prune_size)
 
       elems
       |> Enum.each(fn {uniq, root} ->

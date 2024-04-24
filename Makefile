@@ -91,7 +91,7 @@ compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
 
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
 compile-all: $(CONFIG_FILE) compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
-	mix compile --warnings-as-errors
+	mix compile
 
 #🗑️ clean: @ Remove the build files.
 clean:

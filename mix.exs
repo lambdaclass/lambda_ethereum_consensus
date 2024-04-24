@@ -37,6 +37,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:eleveldb,
        git: "https://github.com/basho/eleveldb", ref: "riak_kv-3.0.12", override: true},
       {:jason, "~> 1.4"},
+      {:scrypt_elixir, "~> 0.1.1", hex: :scrypt_elixir_copy},
       {:joken, "~> 2.6"},
       {:rustler, "~> 0.32", runtime: false},
       {:broadway, "~> 1.0"},

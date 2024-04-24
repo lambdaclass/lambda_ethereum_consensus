@@ -20,11 +20,11 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
     {:ok, %{"payload_id" => nil, "payload_status" => %{"status" => "VALID"}}}
   end
 
-  def get_payload(_payload), do: raise("not implemented")
+  def get_payload(_payload), do: {:error, "not supported"}
 
   # TODO: should we mock this too?
-  def get_block_header(_block_id), do: raise("not supported")
+  def get_block_header(_block_id), do: {:error, "not supported"}
 
   # TODO: should we mock this too?
-  def get_deposit_logs(_range), do: raise("not supported")
+  def get_deposit_logs(_range), do: {:error, "not supported"}
 end
