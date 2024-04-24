@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.MixProject do
     [
       app: :lambda_ethereum_consensus,
       version: "0.1.0",
-      elixir: "~> 1.15",
+      elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       dialyzer: dialyzer(),
@@ -39,7 +39,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:jason, "~> 1.4"},
       {:scrypt_elixir, "~> 0.1.1", hex: :scrypt_elixir_copy},
       {:joken, "~> 2.6"},
-      {:rustler, "~> 0.32"},
+      {:rustler, "~> 0.32", runtime: false},
       {:broadway, "~> 1.0"},
       {:snappyer, "~> 1.2"},
       {:yaml_elixir, "~> 2.8"},
