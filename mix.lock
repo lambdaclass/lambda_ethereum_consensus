@@ -16,7 +16,7 @@
   "dialyxir": {:hex, :dialyxir, "1.4.3", "edd0124f358f0b9e95bfe53a9fcf806d615d8f838e2202a9f430d59566b6b53b", [:mix], [{:erlex, ">= 0.2.6", [hex: :erlex, repo: "hexpm", optional: false]}], "hexpm", "bf2cfb75cd5c5006bec30141b131663299c661a864ec7fbbc72dfa557487a986"},
   "eep": {:git, "https://github.com/virtan/eep", "8f6e5e3ade0606390d928830db61350a5451dda8", [branch: "master"]},
   "eflambe": {:hex, :eflambe, "0.3.1", "ef0a35084fad1f50744496730a9662782c0a9ebf449d3e03143e23295c5926ea", [:rebar3], [{:meck, "0.9.2", [hex: :meck, repo: "hexpm", optional: false]}], "hexpm", "58d5997be606d4e269e9e9705338e055281fdf3e4935cc902c8908e9e4516c5f"},
-  "eleveldb": {:hex, :eleveldb, "2.2.20", "1fff63a5055bbf4bf821f797ef76065882b193f5e8095f95fcd9287187773b58", [:rebar3], [], "hexpm", "0e67df12ef836a7bcdde9373c59f1ae18b335defd1d66b820d3d4dd7ca1844e2"},
+  "eleveldb": {:git, "https://github.com/basho/eleveldb", "edfd3924abbb2c5780d2c4641dcc0592a221ac43", [ref: "riak_kv-3.0.12"]},
   "erlex": {:hex, :erlex, "0.2.6", "c7987d15e899c7a2f34f5420d2a2ea0d659682c06ac607572df55a43753aa12e", [:mix], [], "hexpm", "2ed2e25711feb44d52b17d2780eabf998452f6efda104877a3881c2f8c0c0c75"},
   "escape": {:hex, :escape, "0.1.0", "548edab75e6e6938b1e199ef59cb8e504bcfd3bcf83471d4ae9a3c7a7a3c7d45", [:mix], [], "hexpm", "a5d8e92db4677155df54bc1306d401b5233875d570d474201db03cb3047491cd"},
   "ex2ms": {:hex, :ex2ms, "1.7.0", "45b9f523d0b777667ded60070d82d871a37e294f0b6c5b8eca86771f00f82ee1", [:mix], [], "hexpm", "2589eee51f81f1b1caa6d08c990b1ad409215fe6f64c73f73c67d36ed10be827"},
