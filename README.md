@@ -121,6 +121,20 @@ make dialyzer  # Runs type-checker
 Source code can be formatted using `make fmt`.
 This formats not only the Elixir code, but also the code under [`native/`](./native/).
 
+### Docker
+
+The repo includes a `Dockerfile` for the consensus client. It can be built with:
+
+```bash
+docker build -t consensus .
+```
+
+Then you run it with `docker run`, adding CLI flags as needed:
+
+```bash
+docker run consensus --checkpoint-sync <url> --network <network> ...
+```
+
 ## Consensus spec tests
 
 You can run all of them with:
