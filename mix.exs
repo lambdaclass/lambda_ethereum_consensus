@@ -35,6 +35,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:tesla, "~> 1.4"},
       {:exleveldb, "~> 0.14"},
       {:jason, "~> 1.4"},
+      {:scrypt_elixir, "~> 0.1.1", hex: :scrypt_elixir_copy},
       {:joken, "~> 2.6"},
       {:rustler, "~> 0.32"},
       {:broadway, "~> 1.0"},

@@ -12,13 +12,12 @@ defmodule LambdaEthereumConsensus.Execution.RPC do
         {Tesla.Middleware.Headers, [{"authorization", "Bearer #{jwt}"}]}
       ])
 
-    request_body =
-      %{
-        "jsonrpc" => version,
-        "method" => method,
-        "params" => params,
-        "id" => 1
-      }
+    request_body = %{
+      "jsonrpc" => version,
+      "method" => method,
+      "params" => params,
+      "id" => 1
+    }
 
     with {:ok, result} <- post(client, endpoint, request_body) do
       result |> validate_rpc_response()

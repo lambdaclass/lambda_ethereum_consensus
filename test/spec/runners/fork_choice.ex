@@ -30,8 +30,7 @@ defmodule ForkChoiceTestRunner do
     anchor_block =
       SpecTestUtils.read_ssz_from_file!(case_dir <> "/anchor_block.ssz_snappy", BeaconBlock)
 
-    steps =
-      YamlElixir.read_from_file!(case_dir <> "/steps.yaml") |> SpecTestUtils.sanitize_yaml()
+    steps = YamlElixir.read_from_file!(case_dir <> "/steps.yaml") |> SpecTestUtils.sanitize_yaml()
 
     signed_block = %SignedBeaconBlock{message: anchor_block, signature: <<0::768>>}
 
@@ -170,8 +169,7 @@ defmodule ForkChoiceTestRunner do
   defp load_blob_data(case_dir, block, %{blobs: "blobs_0x" <> _hash = blobs_file, proofs: proofs}) do
     schema = {:list, TypeAliases.blob(), ChainSpec.get("MAX_BLOBS_PER_BLOCK")}
 
-    blobs =
-      SpecTestUtils.read_ssz_ex_from_file!(case_dir <> "/#{blobs_file}.ssz_snappy", schema)
+    blobs = SpecTestUtils.read_ssz_ex_from_file!(case_dir <> "/#{blobs_file}.ssz_snappy", schema)
 
     block_root = Ssz.hash_tree_root!(block.message)
 

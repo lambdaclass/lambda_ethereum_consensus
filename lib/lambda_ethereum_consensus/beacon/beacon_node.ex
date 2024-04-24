@@ -67,7 +67,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   end
 
   defp get_validator_children(nil, _, _, _) do
-    Logger.warning("[Checkpoint sync] To enable validator features, checkpoint-sync is required.")
+    Logger.warning("Deposit data not found. Validator will be disabled.")
 
     []
   end

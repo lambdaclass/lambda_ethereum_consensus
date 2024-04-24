@@ -16,8 +16,7 @@ defmodule Helpers.ProcessBlocks do
     pre = SpecTestUtils.read_ssz_from_file!(case_dir <> "/pre.ssz_snappy", BeaconState)
     post = SpecTestUtils.read_ssz_from_optional_file!(case_dir <> "/post.ssz_snappy", BeaconState)
 
-    meta =
-      YamlElixir.read_from_file!(case_dir <> "/meta.yaml") |> SpecTestUtils.sanitize_yaml()
+    meta = YamlElixir.read_from_file!(case_dir <> "/meta.yaml") |> SpecTestUtils.sanitize_yaml()
 
     %{blocks_count: blocks_count} = meta
 

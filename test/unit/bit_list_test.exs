@@ -1,4 +1,4 @@
-defmodule BitListTest do
+defmodule Unit.BitListTest do
   use ExUnit.Case
   alias LambdaEthereumConsensus.Utils.BitList
 
