@@ -57,11 +57,9 @@ defmodule LambdaEthereumConsensus.Utils.Diff do
     a_keys = a |> Map.keys() |> MapSet.new()
     b_keys = b |> Map.keys() |> MapSet.new()
 
-    a_extra =
-      MapSet.difference(a_keys, b_keys) |> Enum.map(fn k -> {k, Map.fetch!(a, k)} end)
+    a_extra = MapSet.difference(a_keys, b_keys) |> Enum.map(fn k -> {k, Map.fetch!(a, k)} end)
 
-    b_extra =
-      MapSet.difference(b_keys, a_keys) |> Enum.map(fn k -> {k, Map.fetch!(b, k)} end)
+    b_extra = MapSet.difference(b_keys, a_keys) |> Enum.map(fn k -> {k, Map.fetch!(b, k)} end)
 
     d
     |> add_if_not_empty(:added_left, a_extra)

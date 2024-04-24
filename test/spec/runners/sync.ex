@@ -25,8 +25,7 @@ defmodule SyncTestRunner do
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
-    original_engine_api_config =
-      Application.fetch_env!(:lambda_ethereum_consensus, EngineApi)
+    original_engine_api_config = Application.fetch_env!(:lambda_ethereum_consensus, EngineApi)
 
     Application.put_env(
       :lambda_ethereum_consensus,

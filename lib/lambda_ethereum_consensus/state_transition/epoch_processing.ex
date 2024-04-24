@@ -258,8 +258,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
 
-    epochs_per_historical_root =
-      div(slots_per_historical_root, ChainSpec.get("SLOTS_PER_EPOCH"))
+    epochs_per_historical_root = div(slots_per_historical_root, ChainSpec.get("SLOTS_PER_EPOCH"))
 
     if rem(next_epoch, epochs_per_historical_root) == 0 do
       with {:ok, block_summary_root} <-
@@ -279,8 +278,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           state_summary_root: state_summary_root
         }
 
-        new_state =
-          Map.update!(state, :historical_summaries, &(&1 ++ [historical_summary]))
+        new_state = Map.update!(state, :historical_summaries, &(&1 ++ [historical_summary]))
 
         {:ok, new_state}
       end
@@ -303,8 +301,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       previous_target_balance =
         get_total_participating_balance(state, target_index, previous_epoch)
 
-      current_target_balance =
-        get_total_participating_balance(state, target_index, current_epoch)
+      current_target_balance = get_total_participating_balance(state, target_index, current_epoch)
 
       total_active_balance = Accessors.get_total_active_balance(state)
 

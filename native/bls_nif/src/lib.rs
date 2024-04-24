@@ -16,6 +16,9 @@ fn sign<'env>(
     private_key: Binary,
     message: Binary,
 ) -> Result<Binary<'env>, String> {
+    if message.len() != 32 {
+        return Err(format!("Message must be 32 bytes long"));
+    }
     let sk = match SecretKey::deserialize(private_key.as_slice()) {
         Ok(sk) => sk,
         Err(e) => return Err(format!("{:?}", e)),
@@ -51,6 +54,9 @@ fn aggregate<'env>(env: Env<'env>, signatures: Vec<Binary>) -> Result<Binary<'en
 
 #[rustler::nif]
 fn verify<'env>(public_key: Binary, message: Binary, signature: Binary) -> Result<bool, String> {
+    if message.len() != 32 {
+        return Err(format!("Message must be 32 bytes long"));
+    }
     let sig = Signature::deserialize(signature.as_slice()).map_err(|err| format!("{:?}", err))?;
     let pubkey =
         PublicKey::deserialize(public_key.as_slice()).map_err(|err| format!("{:?}", err))?;
@@ -86,6 +92,9 @@ fn fast_aggregate_verify<'env>(
     message: Binary,
     signature: Binary,
 ) -> Result<bool, String> {
+    if message.len() != 32 {
+        return Err(format!("Message must be 32 bytes long"));
+    }
     let aggregate_sig = AggregateSignature::deserialize(signature.as_slice())
         .map_err(|err| format!("{:?}", err))?;
     let pubkeys_result = public_keys
@@ -104,6 +113,9 @@ fn eth_fast_aggregate_verify<'env>(
     message: Binary,
     signature: Binary,
 ) -> Result<bool, String> {
+    if message.len() != 32 {
+        return Err(format!("Message must be 32 bytes long"));
+    }
     let aggregate_sig = AggregateSignature::deserialize(signature.as_slice())
         .map_err(|err| format!("{:?}", err))?;
     let pubkeys_result = public_keys
@@ -142,6 +154,13 @@ fn eth_aggregate_pubkeys<'env>(
         }
     }
 }
+#[rustler::nif]
+fn key_validate<'env>(public_key: Binary) -> Result<bool, String> {
+    let _pubkey =
+        PublicKey::deserialize(public_key.as_slice()).map_err(|err| format!("{:?}", err))?;
+
+    Ok(true)
+}
 
 rustler::init!(
     "Elixir.Bls",
@@ -152,6 +171,7 @@ rustler::init!(
         fast_aggregate_verify,
         eth_fast_aggregate_verify,
         eth_aggregate_pubkeys,
-        verify
+        verify,
+        key_validate
     ]
 );
