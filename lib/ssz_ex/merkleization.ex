@@ -39,6 +39,14 @@ defmodule SszEx.Merkleization do
 
   @spec hash_tree_root(binary, {:byte_vector, non_neg_integer}) ::
           {:ok, Types.root()}
+  def hash_tree_root(value, {:byte_vector, size}) when byte_size(value) != size,
+    do:
+      {:error,
+       %Error{
+         message:
+           "Invalid binary length while merkleizing byte_vector.\nExpected size: #{size}.\nFound: #{byte_size(value)}"
+       }}
+
   def hash_tree_root(value, {:byte_vector, _size}) do
     packed_chunks = pack_bytes(value)
     leaf_count = packed_chunks |> get_chunks_len() |> next_pow_of_two()
@@ -73,7 +81,7 @@ defmodule SszEx.Merkleization do
         {:error,
          %Error{
            message:
-             "Invalid binary length while merkleizing list of #{inspect(type)}.\nExpected max_size: #{max_size}.\nFound: #{len}\n"
+             "Invalid binary length while merkleizing list of #{inspect(type)}.\nExpected max_size: #{max_size}.\nFound: #{len}"
          }}
 
       Utils.basic_type?(type) ->
@@ -91,7 +99,7 @@ defmodule SszEx.Merkleization do
       {:error,
        %Error{
          message:
-           "Invalid binary length while merkleizing vector of #{inspect(inner_type)}.\nExpected size: #{size}.\nFound: #{length(vector)}\n"
+           "Invalid binary length while merkleizing vector of #{inspect(inner_type)}.\nExpected size: #{size}.\nFound: #{length(vector)}"
        }}
 
   def hash_tree_root(vector, {:vector, type, _size} = schema) do
@@ -118,7 +126,7 @@ defmodule SszEx.Merkleization do
 
         case hash_tree_root(value, schema) do
           {:ok, root} -> {:cont, {:ok, acc_root <> root}}
-          {:error, %Error{}} = error -> {:halt, error}
+          {:error, %Error{} = error} -> {:halt, {:error, Error.add_trace(error, key)}}
         end
       end)
 

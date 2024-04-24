@@ -55,7 +55,7 @@ defmodule SszEx.Encode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}\n"
+           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}"
        }}
     else
       list
@@ -71,7 +71,7 @@ defmodule SszEx.Encode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while encoding BitList.\nExpected max_size: #{max_size}. Found: #{len}.\n"
+           "Invalid binary length while encoding BitList.\nExpected max_size: #{max_size}. Found: #{len}."
        }}
     else
       {:ok, BitList.to_bytes(bit_list)}
@@ -96,7 +96,7 @@ defmodule SszEx.Encode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}\n"
+           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}"
        }}
     else
       fixed_lengths = @bytes_per_length_offset * length(list)
@@ -147,8 +147,7 @@ defmodule SszEx.Encode do
            Enum.reduce(variable_parts, 0, fn part, acc -> byte_size(part) + acc end),
          :ok <- check_length(fixed_length, variable_length),
          {:ok, fixed_parts} <-
-           replace_offsets(fixed_size_values, offsets)
-           |> encode_schemas() do
+           replace_offsets(fixed_size_values, offsets) |> encode_schemas() do
       (fixed_parts ++ variable_parts)
       |> Enum.join()
       |> then(&{:ok, &1})
@@ -163,23 +162,25 @@ defmodule SszEx.Encode do
 
       if Utils.variable_size?(schema) do
         {[:offset | acc_fixed_size_values], @bytes_per_length_offset + acc_fixed_length,
-         [{value, schema} | acc_variable_values]}
+         [{value, key, schema} | acc_variable_values]}
       else
-        {[{value, schema} | acc_fixed_size_values],
+        {[{value, key, schema} | acc_fixed_size_values],
          acc_fixed_length + Utils.get_fixed_size(schema), acc_variable_values}
       end
     end)
   end
 
   defp encode_schemas(tuple_values) do
-    Enum.map(tuple_values, fn {value, schema} -> encode(value, schema) end)
+    Enum.map(tuple_values, fn {value, key, schema} ->
+      encode(value, schema) |> Error.add_trace(key)
+    end)
     |> Utils.flatten_results()
   end
 
   defp calculate_offsets(variable_parts, fixed_length) do
     {offsets, _} =
       Enum.reduce(variable_parts, {[], fixed_length}, fn element, {res, acc} ->
-        {[{acc, {:int, 32}} | res], byte_size(element) + acc}
+        {[{acc, :offset, {:int, 32}} | res], byte_size(element) + acc}
       end)
 
     offsets
