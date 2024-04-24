@@ -22,10 +22,15 @@ defmodule SszEx.Error do
     %Error{message: message, stacktrace: [new_trace | stacktrace]}
   end
 
-  def add_container(%Error{message: message, stacktrace: stacktrace}, value) do
+  def add_container(%Error{message: message, stacktrace: stacktrace}, value)
+      when is_atom(value) do
     new_trace =
       value |> Module.split() |> List.last()
 
+    %Error{message: message, stacktrace: [new_trace | stacktrace]}
+  end
+
+  def add_container(%Error{message: message, stacktrace: stacktrace}, new_trace) do
     %Error{message: message, stacktrace: [new_trace | stacktrace]}
   end
 
