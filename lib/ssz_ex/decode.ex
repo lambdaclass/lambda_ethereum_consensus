@@ -55,7 +55,7 @@ defmodule SszEx.Decode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while decoding uint.\nExpected size: #{size}.\nFound:#{bit_size(binary)}\n"
+           "Invalid binary length while decoding uint.\nExpected size: #{size}.\nFound:#{bit_size(binary)}"
        }}
 
   defp decode_uint(binary, size) do
@@ -68,7 +68,7 @@ defmodule SszEx.Decode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while decoding bool.\nExpected size: 1.\nFound:#{byte_size(binary)}\n"
+           "Invalid binary length while decoding bool.\nExpected size: 1.\nFound:#{byte_size(binary)}"
        }}
 
   defp decode_bool("\x01"), do: {:ok, true}
@@ -86,7 +86,7 @@ defmodule SszEx.Decode do
     do:
       {:error,
        %Error{
-         message: "Invalid binary value while decoding BitList.\nEmpty binary found.\n"
+         message: "Invalid binary value while decoding BitList.\nEmpty binary found."
        }}
 
   defp decode_bitlist(bit_list, max_size) do
@@ -98,14 +98,14 @@ defmodule SszEx.Decode do
       match?(<<_::binary-size(num_bytes - 1), 0>>, bit_list) ->
         {:error,
          %Error{
-           message: "Invalid binary value while decoding BitList.\nMissing sentinel bit.\n"
+           message: "Invalid binary value while decoding BitList.\nMissing sentinel bit."
          }}
 
       len > max_size ->
         {:error,
          %Error{
            message:
-             "Invalid binary length while decoding BitList. \nExpected max_size: #{max_size}. Found: #{len}.\n"
+             "Invalid binary length while decoding BitList. \nExpected max_size: #{max_size}. Found: #{len}."
          }}
 
       true ->
@@ -125,7 +125,7 @@ defmodule SszEx.Decode do
       _ ->
         {:error,
          %Error{
-           message: "Invalid binary length while decoding BitVector. \nExpected size: #{size}.\n"
+           message: "Invalid binary length while decoding BitVector. \nExpected size: #{size}."
          }}
     end
   end
@@ -162,7 +162,7 @@ defmodule SszEx.Decode do
          {:error,
           %Error{
             message:
-              "Invalid binary length while decoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{byte_length}\n"
+              "Invalid binary length while decoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{byte_length}"
           }}
 
   defp check_valid_fixed_list_size(_byte_length, _inner_type, _inner_type_size, _max_size),
@@ -174,7 +174,7 @@ defmodule SszEx.Decode do
          {:error,
           %Error{
             message:
-              "Invalid binary length while decoding vector of #{inspect(inner_type)}.\nExpected size #{inner_type_size * size} bytes.\nFound: #{byte_length}.\n"
+              "Invalid binary length while decoding vector of #{inspect(inner_type)}.\nExpected size #{inner_type_size * size} bytes.\nFound: #{byte_length}."
           }}
 
   defp check_valid_vector_size(_byte_length, _inner_type, _inner_type_size, _size),
@@ -310,7 +310,7 @@ defmodule SszEx.Decode do
          {:error,
           %Error{
             message:
-              "Invalid binary length while decoding #{module}. \nExpected #{expected_length}. \nFound #{size}.\n"
+              "Invalid binary length while decoding #{module}. \nExpected #{expected_length}. \nFound #{size}."
           }}
 
   defp check_fixed_container_size(_module, _expected_length, _size),
@@ -322,7 +322,7 @@ defmodule SszEx.Decode do
          {:error,
           %Error{
             message:
-              "First offset does not point to the first variable byte.\nExpected index: #{items_index}.\nOffset: #{offset}. "
+              "First offset does not point to the first variable byte.\nExpected index: #{items_index}.\nOffset: #{offset}."
           }}
 
   defp check_first_offset(_offsets, _items_index, _binary_size),
@@ -446,7 +446,7 @@ defmodule SszEx.Decode do
          {:error,
           %Error{
             message:
-              "Invalid binary length while decoding collection. \nInner type size: #{chunk_size} bytes. Binary length: #{byte_size(binary)} bytes.\n"
+              "Invalid binary length while decoding collection. \nInner type size: #{chunk_size} bytes. Binary length: #{byte_size(binary)} bytes."
           }}
          | results
        ]

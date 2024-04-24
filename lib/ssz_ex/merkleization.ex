@@ -44,7 +44,7 @@ defmodule SszEx.Merkleization do
       {:error,
        %Error{
          message:
-           "Invalid binary length while merkleizing byte_vector.\nExpected size: #{size}.\nFound: #{byte_size(value)}\n"
+           "Invalid binary length while merkleizing byte_vector.\nExpected size: #{size}.\nFound: #{byte_size(value)}"
        }}
 
   def hash_tree_root(value, {:byte_vector, _size}) do
@@ -81,7 +81,7 @@ defmodule SszEx.Merkleization do
         {:error,
          %Error{
            message:
-             "Invalid binary length while merkleizing list of #{inspect(type)}.\nExpected max_size: #{max_size}.\nFound: #{len}\n"
+             "Invalid binary length while merkleizing list of #{inspect(type)}.\nExpected max_size: #{max_size}.\nFound: #{len}"
          }}
 
       Utils.basic_type?(type) ->
@@ -99,7 +99,7 @@ defmodule SszEx.Merkleization do
       {:error,
        %Error{
          message:
-           "Invalid binary length while merkleizing vector of #{inspect(inner_type)}.\nExpected size: #{size}.\nFound: #{length(vector)}\n"
+           "Invalid binary length while merkleizing vector of #{inspect(inner_type)}.\nExpected size: #{size}.\nFound: #{length(vector)}"
        }}
 
   def hash_tree_root(vector, {:vector, type, _size} = schema) do

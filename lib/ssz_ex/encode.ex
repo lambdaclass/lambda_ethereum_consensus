@@ -55,7 +55,7 @@ defmodule SszEx.Encode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}\n"
+           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}"
        }}
     else
       list
@@ -71,7 +71,7 @@ defmodule SszEx.Encode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while encoding BitList.\nExpected max_size: #{max_size}. Found: #{len}.\n"
+           "Invalid binary length while encoding BitList.\nExpected max_size: #{max_size}. Found: #{len}."
        }}
     else
       {:ok, BitList.to_bytes(bit_list)}
@@ -83,7 +83,7 @@ defmodule SszEx.Encode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while encoding BitVector. \nExpected: #{size}.\nFound: #{bit_vector_size(bit_vector)}.\n"
+           "Invalid binary length while encoding BitVector. \nExpected: #{size}.\nFound: #{bit_vector_size(bit_vector)}."
        }}
 
   defp encode_bitvector(bit_vector, _size),
@@ -96,7 +96,7 @@ defmodule SszEx.Encode do
       {:error,
        %Error{
          message:
-           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}\n"
+           "Invalid binary length while encoding list of #{inspect(inner_type)}.\nExpected max_size: #{max_size}.\nFound: #{size}"
        }}
     else
       fixed_lengths = @bytes_per_length_offset * length(list)

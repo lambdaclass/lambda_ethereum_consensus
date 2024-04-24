@@ -6,11 +6,11 @@ defmodule SszEx.Error do
   defstruct [:message, stacktrace: []]
   @type t :: %__MODULE__{message: String.t(), stacktrace: list()}
 
-  def format(%Error{message: message, stacktrace: []}), do: "#{message}"
+  def format(%Error{message: message, stacktrace: []}), do: "#{message}\n"
 
   def format(%Error{message: message, stacktrace: stacktrace}) do
     formatted_stacktrace = stacktrace |> Enum.join(".")
-    "#{message}Stacktrace: #{formatted_stacktrace}"
+    "#{message}\nStacktrace: #{formatted_stacktrace}"
   end
 
   def add_container(%Error{message: message, stacktrace: stacktrace}, value)
