@@ -3,10 +3,10 @@ defmodule SszEx.Error do
   Error messages for SszEx domain.
   """
   alias SszEx.Error
-  defstruct [:message, :stacktrace]
+  defstruct [:message, stacktrace: []]
   @type t :: %__MODULE__{message: String.t(), stacktrace: list()}
 
-  def format(%Error{message: message, stacktrace: nil}), do: "#{message}"
+  def format(%Error{message: message, stacktrace: []}), do: "#{message}"
 
   def format(%Error{message: message, stacktrace: stacktrace}) do
     "#{message}"
@@ -14,16 +14,25 @@ defmodule SszEx.Error do
     "#{message}Stacktrace: #{formatted_stacktrace}"
   end
 
-  def add_trace(%Error{message: message, stacktrace: nil}, new_trace) do
-    %Error{message: message, stacktrace: [new_trace]}
-  end
-
-  def add_trace(%Error{message: message, stacktrace: stacktrace}, value) when is_struct(value) do
+  def add_container(%Error{message: message, stacktrace: stacktrace}, value)
+      when is_struct(value) do
     new_trace =
       value.__struct__ |> Module.split() |> List.last()
 
     %Error{message: message, stacktrace: [new_trace | stacktrace]}
   end
+
+  def add_container(%Error{message: message, stacktrace: stacktrace}, value) do
+    new_trace =
+      value |> Module.split() |> List.last()
+
+    %Error{message: message, stacktrace: [new_trace | stacktrace]}
+  end
+
+  def add_container({:error, %Error{} = error}, new_trace),
+    do: {:error, Error.add_container(error, new_trace)}
+
+  def add_container(value, _module), do: value
 
   def add_trace(%Error{message: message, stacktrace: stacktrace}, new_trace) do
     %Error{message: message, stacktrace: [new_trace | stacktrace]}

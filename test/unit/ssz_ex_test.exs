@@ -794,7 +794,7 @@ defmodule Unit.SSZExTest do
     {:error, error} = SszEx.decode(encoded_checkpoint, Checkpoint)
 
     assert "#{error}" ==
-             "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 3.\nStacktrace: Elixir.Types.Checkpoint"
+             "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 3.\nStacktrace: Checkpoint"
   end
 
   test "decode longer checkpoint" do
@@ -804,7 +804,7 @@ defmodule Unit.SSZExTest do
     {:error, error} = SszEx.decode(encoded_checkpoint, Checkpoint)
 
     assert "#{error}" ==
-             "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 41.\nStacktrace: Elixir.Types.Checkpoint"
+             "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 41.\nStacktrace: Checkpoint"
   end
 
   test "hash tree root of list exceeding max size" do

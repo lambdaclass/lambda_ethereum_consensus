@@ -62,7 +62,7 @@ defmodule SszEx do
 
   @spec encode(struct()) ::
           {:ok, binary()} | {:error, Error.t()}
-  def encode(%name{} = value), do: encode(value, name) |> Error.add_trace(value)
+  def encode(%name{} = value), do: encode(value, name) |> Error.add_container(value)
 
   @spec encode(any(), schema()) ::
           {:ok, binary()} | {:error, Error.t()}
@@ -71,7 +71,7 @@ defmodule SszEx do
   @spec decode(binary(), schema()) ::
           {:ok, any()} | {:error, Error.t()}
   def decode(value, module) when is_atom(module),
-    do: Decode.decode(value, module) |> Error.add_trace(module)
+    do: Decode.decode(value, module) |> Error.add_container(module)
 
   @spec decode(binary(), schema()) ::
           {:ok, any()} | {:error, Error.t()}
@@ -85,7 +85,7 @@ defmodule SszEx do
 
   @spec hash_tree_root(struct()) :: {:ok, Types.root()} | {:error, Error.t()}
   def hash_tree_root(%name{} = value),
-    do: hash_tree_root(value, name) |> Error.add_trace(value)
+    do: hash_tree_root(value, name) |> Error.add_container(value)
 
   @spec hash_tree_root(any, any) :: {:ok, Types.root()} | {:error, Error.t()}
   def hash_tree_root(value, schema), do: Merkleization.hash_tree_root(value, schema)
