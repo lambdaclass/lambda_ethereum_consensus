@@ -6,7 +6,6 @@ defmodule BeaconApi.V1.BeaconController do
   alias BeaconApi.Helpers
   alias BeaconApi.Utils
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
 
