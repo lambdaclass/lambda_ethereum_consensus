@@ -80,7 +80,7 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadi
 {chain_config, bootnodes} =
   case testnet_dir do
     nil ->
-      config = ConfigUtils.parse_config(network)
+      config = ConfigUtils.parse_config!(network)
       bootnodes = YamlElixir.read_from_file!("config/networks/#{network}/boot_enr.yaml")
       {config, bootnodes}
 

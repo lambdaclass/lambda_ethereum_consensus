@@ -30,7 +30,13 @@ defmodule ConfigUtils do
   def parse_config("holesky"), do: HoleskyConfig
   def parse_config("minimal"), do: MinimalConfig
   def parse_config("gnosis"), do: GnosisConfig
-  def parse_config(other), do: raise("Unknown config: #{other}")
+  def parse_config(_), do: :unknown
+
+  def parse_config!(config) do
+    with :unknown <- parse_config(config) do
+      raise("Unknown config: #{config}")
+    end
+  end
 
   def parse_preset("mainnet"), do: MainnetPreset
   def parse_preset("minimal"), do: MinimalPreset
