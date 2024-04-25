@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   use GenServer
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator
   alias Types.BeaconState
@@ -88,7 +89,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @spec get_fork_version() :: Types.version()
   def get_fork_version(), do: GenServer.call(__MODULE__, :get_fork_version)
 
-  @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
+  @spec get_current_status_message() :: Types.StatusMessage.t()
   def get_current_status_message(), do: GenServer.call(__MODULE__, :get_current_status_message)
 
   ##########################
@@ -176,7 +177,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     new_state = %BeaconChainState{state | time: time}
     new_logical_time = compute_logical_time(new_state)
 
-    if state.synced and old_logical_time != new_logical_time do
+    if old_logical_time != new_logical_time do
       notify_subscribers(new_logical_time)
     end
 
@@ -240,7 +241,10 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   defp notify_subscribers(logical_time) do
     log_new_slot(logical_time)
-    Validator.notify_tick(logical_time)
+
+    Enum.each([Validator, Gossip.BeaconBlock], fn subscriber ->
+      GenServer.cast(subscriber, {:on_tick, logical_time})
+    end)
   end
 
   defp log_new_slot({slot, :first_third}) do

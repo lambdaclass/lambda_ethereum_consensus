@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   require Logger
 
-  @port_name "priv/native/libp2p_port"
+  @port_name Application.app_dir(:lambda_ethereum_consensus, ["priv", "native", "libp2p_port"])
 
   @default_args [
     listen_addr: [],
@@ -149,7 +149,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Joins the given topic. This also starts receiving messages for the topic.
+  Joins the given topic.
+  This does not subscribe to the topic, use `subscribe_to_topic/2` for that.
   """
   @spec join_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
   def join_topic(pid \\ __MODULE__, topic_name) do

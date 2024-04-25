@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.StoreSetup
-  alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
@@ -36,7 +36,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     time = :os.system_time(:second)
 
-    {:ok, head_root} = Helpers.get_head(store)
+    {:ok, head_root} = Head.get_head(store)
     %{slot: head_slot} = Blocks.get_block!(head_root)
 
     fork_choice_data = %{
@@ -60,7 +60,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         LambdaEthereumConsensus.Beacon.PendingBlocks,
         LambdaEthereumConsensus.Beacon.SyncBlocks,
         LambdaEthereumConsensus.P2P.GossipSub,
-        LambdaEthereumConsensus.P2P.Gossip.Attestation
+        LambdaEthereumConsensus.P2P.Gossip.Attestation,
+        LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
       ] ++ validator_children
 
     Supervisor.init(children, strategy: :one_for_all)
