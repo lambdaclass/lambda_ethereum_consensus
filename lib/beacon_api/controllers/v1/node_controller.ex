@@ -11,8 +11,10 @@ defmodule BeaconApi.V1.NodeController do
     do: ApiSpec.spec().paths["/eth/v1/node/health"].get
 
   @spec health(Plug.Conn.t(), any) :: Plug.Conn.t()
-  def health(conn, _params) do
-    conn
-    |> send_resp(200, "")
+  def health(conn, params) do
+    # TODO: respond with syncing status if we're still syncing
+    _syncing_status = Map.get(params, :syncing_status, 206)
+
+    send_resp(conn, 200, "")
   end
 end
