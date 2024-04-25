@@ -33,7 +33,7 @@ defmodule Unit.BeaconApiTest.V1 do
 
     start_link_supervised!({Db, dir: tmp_dir})
 
-    patch(BeaconChain, :get_current_status_message, {:ok, status_message})
+    patch(BeaconChain, :get_current_status_message, status_message)
     patch(BeaconChain, :get_genesis_time, 42)
 
     :ok
