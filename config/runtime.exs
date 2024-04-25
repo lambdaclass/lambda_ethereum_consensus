@@ -19,7 +19,9 @@ switches = [
   log_file: :string,
   beacon_api: :boolean,
   beacon_api_port: :integer,
-  discovery_port: :integer
+  discovery_port: :integer,
+  keystore_file: :string,
+  keystore_password_file: :string
 ]
 
 is_testing = Config.config_env() == :test
@@ -46,6 +48,8 @@ validator_file = Keyword.get(args, :validator_file)
 beacon_api_port = Keyword.get(args, :beacon_api_port, nil)
 enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
 discovery_port = Keyword.get(args, :discovery_port, 9000)
+keystore = Keyword.get(args, :keystore_file)
+keystore_pass = Keyword.get(args, :keystore_password_file)
 
 if not is_nil(testnet_dir) and not is_nil(checkpoint_sync_url) do
   IO.puts("Both checkpoint sync and testnet url specified (only one should be specified).")
@@ -140,18 +144,8 @@ config :lambda_ethereum_consensus, BeaconApi.Endpoint,
     layout: false
   ]
 
-# Validator
-#
-# `validator_file` should be a file with two non-empty lines, the first being
-# the public key and the second the private key, both hex-encoded
-# TODO: move to ERC-2335 keystores
-if validator_file do
-  [pubkey, privkey] =
-    File.read!(validator_file)
-    |> String.split("\n")
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.map(&String.trim_leading(&1, "0x"))
-    |> Enum.map(&Base.decode16!(&1, case: :mixed))
+if is_binary(keystore) and is_binary(keystore_pass) do
+  {pubkey, privkey} = Keystore.decode_from_files!(keystore, keystore_pass)
 
   config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator,
     pubkey: pubkey,
