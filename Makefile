@@ -3,7 +3,7 @@
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
 		clean-tests gen-spec compile-all download-beacon-node-oapi test-iex \
-		sepolia holesky gnosis
+		sepolia holesky gnosis clean-db
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -98,6 +98,10 @@ clean:
 	-mix clean
 	-rm -rf test/generated
 	-rm $(GO_ARCHIVES) $(GO_HEADERS) $(OUTPUT_DIR)/*
+
+# 🗑️ clean-db: @ Erase the levelDB database. Handle with care.
+clean-db:
+	rm -rf level_db
 
 #📊 grafana-up: @ Start grafana server.
 grafana-up:
