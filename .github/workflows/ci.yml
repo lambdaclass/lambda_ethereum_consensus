@@ -298,6 +298,9 @@ jobs:
         with:
           version-type: strict
           version-file: .tool-versions
+          hexpm-mirrors: |
+            https://builds.hex.pm
+            https://repo.hex.pm
       - name: Fetch native libraries
         uses: actions/cache/restore@v4
         with:
