@@ -3,6 +3,7 @@ defmodule BeaconApi.V1.BeaconController do
 
   alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
+  alias BeaconApi.Helpers
   alias BeaconApi.Utils
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
@@ -40,7 +41,7 @@ defmodule BeaconApi.V1.BeaconController do
 
   @spec get_state_root(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_state_root(conn, %{state_id: state_id}) do
-    case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.state_root_by_state_id() do
+    case BeaconApi.Utils.parse_id(state_id) |> Helpers.state_root_by_state_id() do
       {:ok, {root, execution_optimistic, finalized}} ->
         conn |> root_response(root, execution_optimistic, finalized)
 
@@ -107,7 +108,7 @@ defmodule BeaconApi.V1.BeaconController do
 
   @spec get_finality_checkpoints(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_finality_checkpoints(conn, %{state_id: state_id}) do
-    case BeaconApi.Utils.parse_id(state_id) |> ForkChoice.Helpers.finality_checkpoint_by_id() do
+    case BeaconApi.Utils.parse_id(state_id) |> Helpers.finality_checkpoint_by_id() do
       {:ok,
        {previous_justified_checkpoint, current_justified_checkpoint, finalized_checkpoint,
         execution_optimistic, finalized}} ->
