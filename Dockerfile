@@ -7,8 +7,8 @@ WORKDIR /libp2p_port
 
 COPY native/libp2p_port /libp2p_port
 
+RUN go mod download
 RUN go build -o libp2p_port
-
 
 # Main image
 FROM elixir:1.16.2-otp-26
