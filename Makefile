@@ -1,4 +1,4 @@
-.PHONY: iex deps test spec-test lint clean compile-native fmt \
+.PHONY: iex deps test spec-test lint clean compile-port fmt \
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
@@ -64,11 +64,11 @@ deps:
 #📝 proto: @ Generate protobuf code
 proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 
-#🔨 compile-native: @ Compile C and Go artifacts.
-compile-native: $(OUTPUT_DIR)/libp2p_port
+#🔨 compile-port: @ Compile Go artifacts.
+compile-port: $(OUTPUT_DIR)/libp2p_port
 
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
-compile-all: $(CONFIG_FILE) compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
+compile-all: $(CONFIG_FILE) compile-port $(PROTOBUF_EX_FILES) download-beacon-node-oapi
 	mix compile
 
 #🗑️ clean: @ Remove the build files.
