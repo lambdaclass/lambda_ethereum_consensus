@@ -88,7 +88,13 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
 
   @spec get_deposit_snapshot!(store_setup_strategy()) :: DepositTreeSnapshot.t() | nil
   def get_deposit_snapshot!({:checkpoint_sync_url, url}), do: fetch_deposit_snapshot(url)
-  def get_deposit_snapshot!(:db), do: nil
+
+  def get_deposit_snapshot!(:db) do
+    case StoreDb.fetch_deposits_snapshot() do
+      {:ok, snapshot} -> snapshot
+      _ -> nil
+    end
+  end
 
   def get_deposit_snapshot!({:file, %{eth1_data: %Eth1Data{} = eth1_data}}) do
     if eth1_data.deposit_count == 0 do
