@@ -63,7 +63,7 @@ jobs:
           protoc --go_out=./native/libp2p_port proto/libp2p.proto
       - name: Compile native code
         if: steps.output-cache.outputs.cache-hit != 'true'
-        run: make compile-port compile-native
+        run: make compile-native
 
   download-beacon-node-oapi:
     name: Download Beacon Node OAPI
