@@ -39,13 +39,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
         "/eth2/#{fork_context}/blob_sidecar_#{i}/ssz_snappy"
       end)
 
-    Enum.map(topics, &Libp2pPort.join_topic/1)
+    Enum.each(topics, &Libp2pPort.join_topic/1)
     {:ok, topics}
   end
 
   @impl true
   def handle_call(:start, _from, topics) do
-    Enum.map(topics, &Libp2pPort.subscribe_to_topic/1)
+    Enum.each(topics, &Libp2pPort.subscribe_to_topic/1)
     {:reply, :ok, topics}
   end
 
@@ -53,7 +53,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
   def handle_info({:gossipsub, {_topic, msg_id, message}}, topics) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.BlobSidecar{index: blob_index} = blob} <-
-           Ssz.from_ssz(uncompressed, Types.BlobSidecar) |> IO.inspect() do
+           Ssz.from_ssz(uncompressed, Types.BlobSidecar) do
       Logger.debug("[Gossip] Blob sidecar received, with index #{blob_index}")
       BlobDb.store_blob(blob)
       Libp2pPort.validate_message(msg_id, :accept)
