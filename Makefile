@@ -20,11 +20,6 @@ default: help
 help:
 	@grep -E '[a-zA-Z\.\-\%]+:.*?@ .*$$' $(firstword $(MAKEFILE_LIST))| tr -d '#'  | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
 
-# magic from sym_num https://elixirforum.com/t/where-is-erl-nif-h-header-file-required-for-nif/27142/5
-ERLANG_INCLUDES := $(shell erl -eval 'io:format("~s", \
-		[lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])] \
-		)' -s init stop -noshell)
-
 OUTPUT_DIR = priv/native
 
 # create directories if they don't exist
