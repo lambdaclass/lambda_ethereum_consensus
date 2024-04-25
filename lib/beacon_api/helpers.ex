@@ -48,7 +48,7 @@ defmodule BeaconApi.Helpers do
   @spec block_root_by_block_id(block_id()) ::
           {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
   def block_root_by_block_id(:head) do
-    with {:ok, current_status} <- BeaconChain.get_current_status_message() do
+    with current_status <- BeaconChain.get_current_status_message() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
       {:ok, {current_status.head_root, execution_optimistic, false}}
