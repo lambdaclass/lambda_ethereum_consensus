@@ -1,4 +1,4 @@
-.PHONY: iex deps test spec-test lint clean compile-native compile-port fmt \
+.PHONY: iex deps test spec-test lint clean compile-native fmt \
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
