@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
-  alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb
@@ -166,7 +166,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
     persist_store(store)
-    {:ok, head_root} = Helpers.get_head(store)
+    {:ok, head_root} = Head.get_head(store)
     head_block = Blocks.get_block!(head_root)
 
     Handlers.notify_forkchoice_update(store, head_block)
