@@ -13,6 +13,12 @@ defmodule Unit.SSZExTest do
 
   use ExUnit.Case
 
+  setup_all do
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.put(:config, MainnetConfig)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
+  end
+
   def assert_roundtrip(serialized, deserialized, schema) do
     assert {:ok, ^serialized} = SszEx.encode(deserialized, schema)
     assert {:ok, deserialized} === SszEx.decode(serialized, schema)
