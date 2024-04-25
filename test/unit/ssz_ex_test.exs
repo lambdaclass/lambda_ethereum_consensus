@@ -1,4 +1,5 @@
 defmodule Unit.SSZExTest do
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Diff
   alias SszEx.Error
   alias SszEx.Merkleization
@@ -12,9 +13,68 @@ defmodule Unit.SSZExTest do
 
   use ExUnit.Case
 
+  setup_all do
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.put(:config, MainnetConfig)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
+  end
+
   def assert_roundtrip(serialized, deserialized, schema) do
     assert {:ok, ^serialized} = SszEx.encode(deserialized, schema)
     assert {:ok, deserialized} === SszEx.decode(serialized, schema)
+  end
+
+  def build_broken_attester_slashing() do
+    checkpoint_source = %Types.Checkpoint{
+      epoch: 3_776_037_760_046_644_755,
+      root:
+        <<29, 22, 191, 147, 188, 238, 162, 89, 147, 162, 202, 111, 169, 162, 84, 95, 194, 85, 54,
+          172, 44, 74, 37, 128, 248, 21, 86, 246, 151, 54, 24, 54>>
+    }
+
+    checkpoint_target = %Types.Checkpoint{
+      epoch: 2_840_053_453_521_072_037,
+      root:
+        <<15, 174, 23, 120, 4, 9, 2, 116, 67, 73, 254, 53, 197, 3, 191, 166, 104, 34, 121, 2, 57,
+          69, 75, 69, 254, 237, 132, 68, 254, 49, 127, 175>>
+    }
+
+    attestation_data = %Types.AttestationData{
+      slot: 5_057_010_135_270_197_978,
+      index: 6_920_931_864_607_509_210,
+      beacon_block_root:
+        <<31, 38, 101, 174, 248, 168, 116, 226, 15, 39, 218, 148, 42, 8, 80, 80, 241, 149, 162,
+          32, 176, 208, 120, 120, 89, 123, 136, 115, 154, 28, 21, 174>>,
+      source: checkpoint_source,
+      target: checkpoint_target
+    }
+
+    indexed_attestation_1 = %Types.IndexedAttestation{
+      attesting_indices: [15_833_676_831_095_072_535, 7_978_643_446_947_046_229],
+      data: attestation_data,
+      signature:
+        <<46, 244, 83, 164, 182, 222, 218, 247, 8, 186, 138, 100, 5, 96, 34, 117, 134, 123, 219,
+          188, 181, 11, 209, 57, 207, 24, 249, 42, 74, 27, 228, 97, 73, 46, 219, 202, 122, 149,
+          135, 30, 91, 126, 180, 69, 129, 170, 147, 142, 242, 27, 233, 63, 242, 7, 144, 8, 192,
+          165, 194, 220, 77, 247, 128, 107, 41, 199, 166, 59, 34, 160, 222, 114, 250, 250, 3, 130,
+          145, 8, 45, 65, 13, 82, 44, 80, 30, 181, 239, 54, 152, 237, 244, 72, 231, 179, 239, 22>>
+    }
+
+    broken_attestation = %Types.IndexedAttestation{
+      attesting_indices: List.duplicate(0, 3000),
+      data: attestation_data,
+      signature:
+        <<46, 244, 83, 164, 182, 222, 218, 247, 8, 186, 138, 100, 5, 96, 34, 117, 134, 123, 219,
+          188, 181, 11, 209, 57, 207, 24, 249, 42, 74, 27, 228, 97, 73, 46, 219, 202, 122, 149,
+          135, 30, 91, 126, 180, 69, 129, 170, 147, 142, 242, 27, 233, 63, 242, 7, 144, 8, 192,
+          165, 194, 220, 77, 247, 128, 107, 41, 199, 166, 59, 34, 160, 222, 114, 250, 250, 3, 130,
+          145, 8, 45, 65, 13, 82, 44, 80, 30, 181, 239, 54, 152, 237, 244, 72, 231, 179, 239, 22>>
+    }
+
+    %Types.AttesterSlashing{
+      attestation_1: indexed_attestation_1,
+      attestation_2: broken_attestation
+    }
   end
 
   test "packing a list of uints" do
@@ -737,24 +797,20 @@ defmodule Unit.SSZExTest do
     encoded_checkpoint =
       <<0, 0, 0>>
 
-    assert SszEx.decode(encoded_checkpoint, Checkpoint) ==
-             {:error,
-              %Error{
-                message:
-                  "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 3.\n"
-              }}
+    {:error, error} = SszEx.decode(encoded_checkpoint, Checkpoint)
+
+    assert "#{error}" ==
+             "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 3.\nStacktrace: Checkpoint"
   end
 
   test "decode longer checkpoint" do
     encoded_checkpoint =
       <<0::size(41 * 8)>>
 
-    assert SszEx.decode(encoded_checkpoint, Checkpoint) ==
-             {:error,
-              %Error{
-                message:
-                  "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 41.\n"
-              }}
+    {:error, error} = SszEx.decode(encoded_checkpoint, Checkpoint)
+
+    assert "#{error}" ==
+             "Invalid binary length while decoding Elixir.Types.Checkpoint. \nExpected 40. \nFound 41.\nStacktrace: Checkpoint"
   end
 
   test "hash tree root of list exceeding max size" do
@@ -765,5 +821,88 @@ defmodule Unit.SSZExTest do
 
     {:error, result} = SszEx.hash_tree_root(initial_list, {:list, {:int, 8}, 2})
     assert error == "#{result}"
+  end
+
+  test "hash_tree_root with invalid logs_bloom" do
+    execution_payload = %ExecutionPayload{
+      parent_hash: @default_hash,
+      fee_recipient: <<0::size(20 * 8)>>,
+      state_root: @default_root,
+      receipts_root: @default_root,
+      logs_bloom: <<0, 0, 0>>,
+      prev_randao: <<0::size(32 * 8)>>,
+      block_number: 0,
+      gas_limit: 0,
+      gas_used: 0,
+      timestamp: 0,
+      extra_data: <<>>,
+      base_fee_per_gas: 0,
+      block_hash: @default_hash,
+      transactions: [],
+      withdrawals: [],
+      blob_gas_used: 0,
+      excess_blob_gas: 0
+    }
+
+    {:error, error} = SszEx.hash_tree_root(execution_payload, ExecutionPayload)
+
+    assert "#{error}" ==
+             "Invalid binary length while merkleizing byte_vector.\nExpected size: 256.\nFound: 3\nStacktrace: logs_bloom"
+  end
+
+  test "stacktrace in hash_tree_root with invalid logs_bloom" do
+    execution_payload = %ExecutionPayload{
+      parent_hash: @default_hash,
+      fee_recipient: <<0::size(20 * 8)>>,
+      state_root: @default_root,
+      receipts_root: @default_root,
+      logs_bloom: <<0, 0, 0>>,
+      prev_randao: <<0::size(32 * 8)>>,
+      block_number: 0,
+      gas_limit: 0,
+      gas_used: 0,
+      timestamp: 0,
+      extra_data: <<>>,
+      base_fee_per_gas: 0,
+      block_hash: @default_hash,
+      transactions: [],
+      withdrawals: [],
+      blob_gas_used: 0,
+      excess_blob_gas: 0
+    }
+
+    {:error, error} = SszEx.hash_tree_root(execution_payload)
+
+    assert "#{error}" ==
+             "Invalid binary length while merkleizing byte_vector.\nExpected size: 256.\nFound: 3\nStacktrace: ExecutionPayload.logs_bloom"
+  end
+
+  test "stacktrace in encode with invalid sync_committee_bits" do
+    sync_aggregate = %SyncAggregate{
+      sync_committee_bits: BitVector.new(2),
+      sync_committee_signature: <<0::size(32 * 8)>>
+    }
+
+    {:error, error} = SszEx.encode(sync_aggregate)
+
+    assert "#{error}" ==
+             "Invalid binary length while encoding BitVector. \nExpected: 512.\nFound: 2.\nStacktrace: SyncAggregate.sync_committee_bits"
+  end
+
+  test "stacktrace encode nested container" do
+    attester_slashing = build_broken_attester_slashing()
+
+    {:error, error} = SszEx.encode(attester_slashing)
+
+    assert "#{error}" ==
+             "Invalid binary length while encoding list of {:int, 64}.\nExpected max_size: 2048.\nFound: 3000\nStacktrace: AttesterSlashing.attestation_2.attesting_indices"
+  end
+
+  test "stacktrace hash_tree_root nested container" do
+    attester_slashing = build_broken_attester_slashing()
+    {:error, error} = SszEx.hash_tree_root(attester_slashing)
+
+    assert "Invalid binary length while merkleizing list of {:int, 64}.\nExpected max_size: 2048.\nFound: 3000\nStacktrace: AttesterSlashing.attestation_2.attesting_indices" =
+             "#{error}"
   end
 end

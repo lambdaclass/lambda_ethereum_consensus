@@ -89,7 +89,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @spec get_fork_version() :: Types.version()
   def get_fork_version(), do: GenServer.call(__MODULE__, :get_fork_version)
 
-  @spec get_current_status_message() :: {:ok, Types.StatusMessage.t()} | {:error, any}
+  @spec get_current_status_message() :: Types.StatusMessage.t()
   def get_current_status_message(), do: GenServer.call(__MODULE__, :get_current_status_message)
 
   ##########################

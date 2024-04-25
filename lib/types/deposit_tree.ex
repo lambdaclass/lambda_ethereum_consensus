@@ -45,6 +45,21 @@ defmodule Types.DepositTree do
     }
   end
 
+  @spec get_snapshot(t()) :: DepositTreeSnapshot.t()
+  def get_snapshot(%__MODULE__{} = tree) do
+    finalized = get_finalized(tree.inner)
+    deposit_root = get_root(tree)
+    {el_hash, el_height} = tree.finalized_execution_block
+
+    %DepositTreeSnapshot{
+      finalized: finalized,
+      deposit_root: deposit_root,
+      deposit_count: tree.deposit_count,
+      execution_block_hash: el_hash,
+      execution_block_height: el_height
+    }
+  end
+
   @spec finalize(t(), Eth1Data.t(), non_neg_integer()) :: t()
   def finalize(%__MODULE__{} = tree, %Eth1Data{} = eth1_data, execution_block_height) do
     finalized_block = {eth1_data.block_hash, execution_block_height}
@@ -55,7 +70,7 @@ defmodule Types.DepositTree do
   @spec get_deposit(t(), non_neg_integer()) :: {:ok, Deposit.t()} | {:error, String.t()}
   def get_deposit(%__MODULE__{} = tree, index) do
     cond do
-      index < get_finalized(tree.inner) ->
+      index < count_finalized(tree.inner) ->
         {:error, "deposit already finalized"}
 
       index >= tree.deposit_count ->
@@ -171,10 +186,15 @@ defmodule Types.DepositTree do
   defp full?({:zero, _}), do: false
   defp full?(_), do: true
 
-  defp get_finalized({:finalized, {_, count}}), do: count
-  defp get_finalized({:node, {left, right}}), do: get_finalized(left) + get_finalized(right)
-  defp get_finalized({:leaf, _}), do: 0
-  defp get_finalized({:zero, _}), do: 0
+  defp count_finalized({:finalized, {_, count}}), do: count
+  defp count_finalized({:node, {left, right}}), do: count_finalized(left) + count_finalized(right)
+  defp count_finalized({:leaf, _}), do: 0
+  defp count_finalized({:zero, _}), do: 0
+
+  defp get_finalized({:finalized, {hash, _}}), do: [hash]
+  defp get_finalized({:node, {left, right}}), do: get_finalized(right) ++ get_finalized(left)
+  defp get_finalized({:leaf, _}), do: []
+  defp get_finalized({:zero, _}), do: []
 
   defp mix_in_length(%__MODULE__{deposit_count: count}),
     do: SszEx.hash_tree_root!(count, TypeAliases.uint64())

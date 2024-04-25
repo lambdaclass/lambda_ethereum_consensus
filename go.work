@@ -1,5 +1,3 @@
 go 1.21
 
 use ./native/libp2p_port
-
-use ./native/libp2p_nif/go_src

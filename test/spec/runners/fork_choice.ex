@@ -7,7 +7,7 @@ defmodule ForkChoiceTestRunner do
   use TestRunner
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
-  alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BeaconBlock
@@ -85,7 +85,7 @@ defmodule ForkChoiceTestRunner do
              x, {:ok, st} -> {:cont, Handlers.on_attestation(st, x, true)}
              _, {:error, _} = err -> {:halt, err}
            end) do
-      {:ok, head_root} = Helpers.get_head(new_store)
+      {:ok, head_root} = Head.get_head(new_store)
       head_block = Blocks.get_block!(head_root)
 
       {:ok, _result} = Handlers.notify_forkchoice_update(new_store, head_block)
@@ -139,7 +139,7 @@ defmodule ForkChoiceTestRunner do
 
   defp apply_step(_case_dir, store, %{checks: checks}) do
     if Map.has_key?(checks, :head) do
-      {:ok, head_root} = Helpers.get_head(store)
+      {:ok, head_root} = Head.get_head(store)
       assert head_root == checks.head.root
       assert Blocks.get_block!(head_root).slot == checks.head.slot
     end

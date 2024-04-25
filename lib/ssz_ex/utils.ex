@@ -67,7 +67,7 @@ defmodule SszEx.Utils do
 
   def flatten_results_by(results, fun) do
     case Enum.group_by(results, fn {type, _} -> type end, fn {_, result} -> result end) do
-      %{error: errors} -> {:error, errors}
+      %{error: [first_error | _rest]} -> {:error, first_error}
       summary -> {:ok, fun.(Map.get(summary, :ok, []))}
     end
   end

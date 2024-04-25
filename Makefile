@@ -1,4 +1,4 @@
-.PHONY: iex deps test spec-test lint clean compile-native compile-port fmt \
+.PHONY: iex deps test spec-test lint clean compile-port fmt \
 		clean-vectors download-vectors uncompress-vectors proto \
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
@@ -20,33 +20,11 @@ default: help
 help:
 	@grep -E '[a-zA-Z\.\-\%]+:.*?@ .*$$' $(firstword $(MAKEFILE_LIST))| tr -d '#'  | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}'
 
-# magic from sym_num https://elixirforum.com/t/where-is-erl-nif-h-header-file-required-for-nif/27142/5
-ERLANG_INCLUDES := $(shell erl -eval 'io:format("~s", \
-		[lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])] \
-		)' -s init stop -noshell)
-
-LIBP2P_DIR = native/libp2p_nif
 OUTPUT_DIR = priv/native
 
 # create directories if they don't exist
 DIRS=$(OUTPUT_DIR)
 $(info $(shell mkdir -p $(DIRS)))
-
-GO_SOURCES := $(LIBP2P_DIR)/go_src/main.go
-GO_ARCHIVES := $(patsubst %.go,%.a,$(GO_SOURCES))
-GO_HEADERS := $(patsubst %.go,%.h,$(GO_SOURCES))
-
-CFLAGS = -Wall -Werror
-CFLAGS += -Wl,-undefined -Wl,dynamic_lookup -fPIC -shared
-CFLAGS += -I$(ERLANG_INCLUDES)
-
-$(LIBP2P_DIR)/go_src/%.a $(LIBP2P_DIR)/go_src/%.h: $(LIBP2P_DIR)/go_src/%.go
-	cd $(LIBP2P_DIR)/go_src; \
-	go build -buildmode=c-archive $*.go
-
-$(OUTPUT_DIR)/libp2p_nif.so: $(GO_ARCHIVES) $(GO_HEADERS) $(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/go_src/utils.c
-	gcc $(CFLAGS) -I $(LIBP2P_DIR)/go_src -o $@ \
-		$(LIBP2P_DIR)/libp2p.c $(LIBP2P_DIR)/go_src/utils.c $(GO_ARCHIVES)
 
 ### PORT
 
@@ -86,11 +64,11 @@ deps:
 #📝 proto: @ Generate protobuf code
 proto: $(PROTOBUF_EX_FILES) $(PROTOBUF_GO_FILES)
 
-#🔨 compile-native: @ Compile C and Go artifacts.
-compile-native: $(OUTPUT_DIR)/libp2p_nif.so $(OUTPUT_DIR)/libp2p_port
+#🔨 compile-port: @ Compile Go artifacts.
+compile-port: $(OUTPUT_DIR)/libp2p_port
 
 #🔨 compile-all: @ Compile the elixir project and its dependencies.
-compile-all: $(CONFIG_FILE) compile-native $(PROTOBUF_EX_FILES) download-beacon-node-oapi
+compile-all: $(CONFIG_FILE) compile-port $(PROTOBUF_EX_FILES) download-beacon-node-oapi
 	mix compile
 
 #🗑️ clean: @ Remove the build files.
@@ -231,7 +209,6 @@ lint:
 #✅ fmt: @ Format all code (Go, rust and elixir).
 fmt:
 	mix format
-	gofmt -l -w native/libp2p_nif/go_src
 	gofmt -l -w native/libp2p_port
 	cd native/snappy_nif; cargo fmt
 	cd native/ssz_nif; cargo fmt

@@ -2,7 +2,7 @@ defmodule BeaconApi.Utils do
   @moduledoc """
    Set of useful utilitary functions in the context of the Beacon API
   """
-  alias LambdaEthereumConsensus.ForkChoice.Helpers
+  alias BeaconApi.Helpers
   alias LambdaEthereumConsensus.Utils.BitList
 
   @spec parse_id(binary) :: Helpers.block_id()
