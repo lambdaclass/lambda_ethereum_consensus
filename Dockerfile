@@ -28,7 +28,7 @@ ENV MIX_ENV=prod
 RUN mix local.hex --force
 
 # Install dependencies
-RUN apt-get update && apt-get install -y cmake
+RUN apt-get update && apt-get install -y cmake protobuf-compiler
 
 # Install rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -37,7 +37,12 @@ ENV PATH="${PATH}:/root/.cargo/bin"
 COPY . .
 COPY --from=libp2p_builder /libp2p_port/libp2p_port /consensus/priv/native/libp2p_port
 
+
+RUN mix escript.install --force hex protobuf
+RUN protoc --elixir_out=./lib proto/libp2p.proto
+
 RUN make download-beacon-node-oapi
+
 RUN mix deps.get
 RUN mix compile
 
