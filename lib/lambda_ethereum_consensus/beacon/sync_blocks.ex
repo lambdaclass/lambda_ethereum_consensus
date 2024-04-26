@@ -74,6 +74,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     if Enum.empty?(chunks) do
       Logger.info("[Optimistic Sync] Sync completed")
       Gossip.BeaconBlock.start()
+      Gossip.BlobSideCar.start()
     else
       Process.sleep(1000)
       perform_sync(remaining_chunks)
