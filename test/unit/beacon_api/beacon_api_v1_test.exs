@@ -144,4 +144,11 @@ defmodule Unit.BeaconApiTest.V1 do
     assert conn.status == 200
     assert conn.resp_body == expected_body
   end
+
+  test "node health" do
+    conn = conn(:get, "/eth/v1/node/health", nil) |> Router.call(@opts)
+    assert conn.state == :sent
+    assert conn.status == 200
+    assert conn.resp_body == ""
+  end
 end

@@ -133,6 +133,20 @@ jobs:
     - name: Run dialyzer
       run: mix dialyzer --no-check
 
+  docker-build:
+    name: Build Docker image
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+    - name: Build Docker image
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        file: ./Dockerfile
+        load: true # Important for building without pushing
+
   smoke:
     name: Start and stop the node
     needs: [compile-native, download-beacon-node-oapi]
