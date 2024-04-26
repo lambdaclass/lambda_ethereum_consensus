@@ -16,6 +16,10 @@ defmodule BeaconApi.Router do
       get("/blocks/:block_id/root", BeaconController, :get_block_root)
       get("/states/:state_id/finality_checkpoints", BeaconController, :get_finality_checkpoints)
     end
+
+    scope "/node" do
+      get("/health", NodeController, :health)
+    end
   end
 
   # Ethereum API Version 2

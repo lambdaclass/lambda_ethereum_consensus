@@ -15,11 +15,13 @@ switches = [
   testnet_dir: :string,
   metrics: :boolean,
   metrics_port: :integer,
-  validator_file: :string,
   log_file: :string,
   beacon_api: :boolean,
   beacon_api_port: :integer,
-  discovery_port: :integer
+  discovery_port: :integer,
+  boot_nodes: :string,
+  keystore_file: :string,
+  keystore_password_file: :string
 ]
 
 is_testing = Config.config_env() == :test
@@ -42,10 +44,12 @@ jwt_path = Keyword.get(args, :execution_jwt)
 testnet_dir = Keyword.get(args, :testnet_dir)
 enable_metrics = Keyword.get(args, :metrics, false)
 metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
-validator_file = Keyword.get(args, :validator_file)
 beacon_api_port = Keyword.get(args, :beacon_api_port, nil)
 enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
 discovery_port = Keyword.get(args, :discovery_port, 9000)
+cli_bootnodes = Keyword.get(args, :boot_nodes, "")
+keystore = Keyword.get(args, :keystore_file)
+keystore_pass = Keyword.get(args, :keystore_password_file)
 
 if not is_nil(testnet_dir) and not is_nil(checkpoint_sync_url) do
   IO.puts("Both checkpoint sync and testnet url specified (only one should be specified).")
@@ -108,6 +112,12 @@ config :lambda_ethereum_consensus, ChainSpec,
 config :lambda_ethereum_consensus, StoreSetup, strategy: strategy
 
 # Configures peer discovery
+bootnodes =
+  cli_bootnodes
+  |> String.split(",")
+  |> Enum.reject(&(&1 == ""))
+  |> Enum.concat(bootnodes)
+
 config :lambda_ethereum_consensus, :discovery, port: discovery_port, bootnodes: bootnodes
 
 # Engine API
@@ -140,18 +150,8 @@ config :lambda_ethereum_consensus, BeaconApi.Endpoint,
     layout: false
   ]
 
-# Validator
-#
-# `validator_file` should be a file with two non-empty lines, the first being
-# the public key and the second the private key, both hex-encoded
-# TODO: move to ERC-2335 keystores
-if validator_file do
-  [pubkey, privkey] =
-    File.read!(validator_file)
-    |> String.split("\n")
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.map(&String.trim_leading(&1, "0x"))
-    |> Enum.map(&Base.decode16!(&1, case: :mixed))
+if is_binary(keystore) and is_binary(keystore_pass) do
+  {pubkey, privkey} = Keystore.decode_from_files!(keystore, keystore_pass)
 
   config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator,
     pubkey: pubkey,

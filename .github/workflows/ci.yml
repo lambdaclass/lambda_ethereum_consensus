@@ -33,15 +33,6 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Elixir
-        # NOTE: this is needed for the NIF header files
-        uses: erlef/setup-beam@v1
-        with:
-          version-type: strict
-          version-file: .tool-versions
-          hexpm-mirrors: |
-            https://builds.hex.pm
-            https://repo.hex.pm
       - name: Set up Go
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v5
@@ -312,6 +303,9 @@ jobs:
         with:
           version-type: strict
           version-file: .tool-versions
+          hexpm-mirrors: |
+            https://builds.hex.pm
+            https://repo.hex.pm
       - name: Fetch native libraries
         uses: actions/cache/restore@v4
         with:
