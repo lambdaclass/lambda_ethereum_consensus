@@ -19,6 +19,7 @@ switches = [
   beacon_api: :boolean,
   beacon_api_port: :integer,
   discovery_port: :integer,
+  boot_nodes: :string,
   keystore_file: :string,
   keystore_password_file: :string
 ]
@@ -46,6 +47,7 @@ metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, els
 beacon_api_port = Keyword.get(args, :beacon_api_port, nil)
 enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
 discovery_port = Keyword.get(args, :discovery_port, 9000)
+cli_bootnodes = Keyword.get(args, :boot_nodes)
 keystore = Keyword.get(args, :keystore_file)
 keystore_pass = Keyword.get(args, :keystore_password_file)
 
@@ -108,6 +110,8 @@ config :lambda_ethereum_consensus, ChainSpec,
   genesis_validators_root: genesis_validators_root
 
 config :lambda_ethereum_consensus, StoreSetup, strategy: strategy
+
+bootnodes = String.split(cli_bootnodes, ",") ++ bootnodes
 
 # Configures peer discovery
 config :lambda_ethereum_consensus, :discovery, port: discovery_port, bootnodes: bootnodes
