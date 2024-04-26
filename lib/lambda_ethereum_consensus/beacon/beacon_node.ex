@@ -79,19 +79,34 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   end
 
   defp get_libp2p_args() do
-    config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
+    config = Application.fetch_env!(:lambda_ethereum_consensus, :libp2p)
     port = Keyword.fetch!(config, :port)
     bootnodes = Keyword.fetch!(config, :bootnodes)
+
+    listen_addr = Keyword.fetch!(config, :listen_addr) |> parse_listen_addr()
 
     if Enum.empty?(bootnodes) do
       Logger.warning("No bootnodes configured.")
     end
 
     [
-      listen_addr: [],
+      listen_addr: listen_addr,
       enable_discovery: true,
       discovery_addr: "0.0.0.0:#{port}",
       bootnodes: bootnodes
     ]
+  end
+
+  defp parse_listen_addr([]), do: []
+
+  defp parse_listen_addr(addr) do
+    case String.split(addr, ":") do
+      [ip, port] ->
+        ["/ip4/#{ip}/tcp/#{port}"]
+
+      _ ->
+        Logger.error("Invalid listen address: #{addr}")
+        System.halt(2)
+    end
   end
 end
