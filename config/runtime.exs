@@ -90,7 +90,7 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadi
 
     testnet_dir ->
       Path.join(testnet_dir, "config.yaml") |> CustomConfig.load_from_file!()
-      bootnodes = Path.join(testnet_dir, "boot_enr.yaml") |> YamlElixir.read_from_file!()
+      bootnodes = ConfigUtils.load_testnet_bootnodes(testnet_dir)
       {CustomConfig, bootnodes}
   end
 
@@ -139,8 +139,6 @@ config :lambda_ethereum_consensus, EngineApi,
   version: "2.0"
 
 # Beacon API
-alias BeaconApi
-
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
   server: enable_beacon_api,
   http: [port: beacon_api_port || 4000],
