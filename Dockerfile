@@ -39,11 +39,12 @@ COPY --from=libp2p_builder /libp2p_port/libp2p_port /consensus/priv/native/libp2
 
 
 RUN mix escript.install --force hex protobuf
+RUN mix deps.get
+
 RUN protoc --elixir_out=./lib proto/libp2p.proto
 
 RUN make download-beacon-node-oapi
 
-RUN mix deps.get
 RUN mix compile
 
 ENTRYPOINT [ "iex", "-S", "mix", "run", "--"]
