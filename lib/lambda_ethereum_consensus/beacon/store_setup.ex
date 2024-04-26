@@ -73,6 +73,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
           "[Sync] No recent state found. Please specify the URL to fetch them from via the --checkpoint-sync-url flag"
         )
 
+        Logger.flush()
         System.halt(1)
 
       {_, {store, root}} ->
@@ -153,6 +154,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
       _ ->
         Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block")
 
+        Logger.flush()
         System.halt(1)
     end
   end
@@ -170,6 +172,8 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
 
       _ ->
         Logger.error("[Checkpoint sync] Failed to fetch the deposit snapshot")
+
+        Logger.flush()
         System.halt(1)
     end
   end
