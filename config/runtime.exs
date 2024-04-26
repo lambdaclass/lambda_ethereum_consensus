@@ -15,7 +15,6 @@ switches = [
   testnet_dir: :string,
   metrics: :boolean,
   metrics_port: :integer,
-  validator_file: :string,
   log_file: :string,
   beacon_api: :boolean,
   beacon_api_port: :integer,
@@ -44,7 +43,6 @@ jwt_path = Keyword.get(args, :execution_jwt)
 testnet_dir = Keyword.get(args, :testnet_dir)
 enable_metrics = Keyword.get(args, :metrics, false)
 metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
-validator_file = Keyword.get(args, :validator_file)
 beacon_api_port = Keyword.get(args, :beacon_api_port, nil)
 enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
 discovery_port = Keyword.get(args, :discovery_port, 9000)
