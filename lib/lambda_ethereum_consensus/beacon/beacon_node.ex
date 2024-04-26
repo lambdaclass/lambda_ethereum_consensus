@@ -78,7 +78,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     end
   end
 
-  defp get_libp2p_args do
+  defp get_libp2p_args() do
     config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
     port = Keyword.fetch!(config, :port)
     bootnodes = Keyword.fetch!(config, :bootnodes)
