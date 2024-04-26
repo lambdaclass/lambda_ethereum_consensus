@@ -61,7 +61,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         LambdaEthereumConsensus.Beacon.SyncBlocks,
         LambdaEthereumConsensus.P2P.Gossip.Attestation,
         LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
-        LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
+        LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
+        LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
       ] ++ validator_children
 
     Supervisor.init(children, strategy: :one_for_all)

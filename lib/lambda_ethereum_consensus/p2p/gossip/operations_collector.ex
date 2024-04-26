@@ -39,19 +39,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     GenServer.call(__MODULE__, :start)
   end
 
-  @spec notify_bls_to_execution_change_gossip(SignedBLSToExecutionChange.t()) :: :ok
-  def notify_bls_to_execution_change_gossip(%SignedBLSToExecutionChange{} = msg) do
-    GenServer.cast(__MODULE__, {:bls_to_execution_change, msg})
-  end
-
   @spec get_bls_to_execution_changes(non_neg_integer()) :: list(SignedBLSToExecutionChange.t())
   def get_bls_to_execution_changes(count) do
     GenServer.call(__MODULE__, {:get, :bls_to_execution_change, count})
-  end
-
-  @spec notify_attester_slashing_gossip(AttesterSlashing.t()) :: :ok
-  def notify_attester_slashing_gossip(%AttesterSlashing{} = msg) do
-    GenServer.cast(__MODULE__, {:attester_slashing, msg})
   end
 
   @spec get_attester_slashings(non_neg_integer()) :: list(AttesterSlashing.t())
@@ -59,29 +49,14 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     GenServer.call(__MODULE__, {:get, :attester_slashing, count})
   end
 
-  @spec notify_proposer_slashing_gossip(ProposerSlashing.t()) :: :ok
-  def notify_proposer_slashing_gossip(%ProposerSlashing{} = msg) do
-    GenServer.cast(__MODULE__, {:proposer_slashing, msg})
-  end
-
   @spec get_proposer_slashings(non_neg_integer()) :: list(ProposerSlashing.t())
   def get_proposer_slashings(count) do
     GenServer.call(__MODULE__, {:get, :proposer_slashing, count})
   end
 
-  @spec notify_voluntary_exit_gossip(SignedVoluntaryExit.t()) :: :ok
-  def notify_voluntary_exit_gossip(%SignedVoluntaryExit{} = msg) do
-    GenServer.cast(__MODULE__, {:voluntary_exit, msg})
-  end
-
   @spec get_voluntary_exits(non_neg_integer()) :: list(SignedVoluntaryExit.t())
   def get_voluntary_exits(count) do
     GenServer.call(__MODULE__, {:get, :voluntary_exit, count})
-  end
-
-  @spec notify_attestation_gossip(Attestation.t()) :: :ok
-  def notify_attestation_gossip(%Attestation{} = msg) do
-    GenServer.cast(__MODULE__, {:attestation, msg})
   end
 
   @spec get_attestations(non_neg_integer()) :: list(Attestation.t())
@@ -155,7 +130,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
       # We are getting ~500 attestations in half a second. This is overwhelming the store GenServer at the moment.
       # ForkChoice.on_attestation(aggregate)
-      notify_attestation_gossip(aggregate)
+      GenServer.cast(__MODULE__, {:attestation, aggregate})
 
       Logger.debug(
         "[Gossip] Aggregate decoded. Total attestations: #{votes}",
@@ -175,7 +150,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.SignedVoluntaryExit{} = signed_voluntary_exit} <-
            Ssz.from_ssz(uncompressed, Types.SignedVoluntaryExit) do
-      notify_voluntary_exit_gossip(signed_voluntary_exit)
+      GenServer.cast(__MODULE__, {:voluntary_exit, signed_voluntary_exit})
 
       {:noreply, state}
     end
@@ -189,7 +164,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.ProposerSlashing{} = proposer_slashing} <-
            Ssz.from_ssz(uncompressed, Types.ProposerSlashing) do
-      notify_proposer_slashing_gossip(proposer_slashing)
+      GenServer.cast(__MODULE__, {:proposer_slashing, proposer_slashing})
 
       {:noreply, state}
     end
@@ -203,7 +178,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.AttesterSlashing{} = attester_slashing} <-
            Ssz.from_ssz(uncompressed, Types.AttesterSlashing) do
-      notify_attester_slashing_gossip(attester_slashing)
+      GenServer.cast(__MODULE__, {:attester_slashing, attester_slashing})
 
       {:noreply, state}
     end
@@ -218,7 +193,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.SignedBLSToExecutionChange{} = bls_to_execution_change} <-
            Ssz.from_ssz(uncompressed, Types.SignedBLSToExecutionChange) do
-      notify_bls_to_execution_change_gossip(bls_to_execution_change)
+      GenServer.cast(__MODULE__, {:bls_to_execution_change, bls_to_execution_change})
 
       {:noreply, state}
     end
