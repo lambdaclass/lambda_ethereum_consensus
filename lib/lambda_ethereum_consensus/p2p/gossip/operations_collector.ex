@@ -103,13 +103,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   @impl GenServer
-  # TODO: filter duplicates
-  def handle_cast({operation, msg}, state)
-      when operation in @operations do
-    new_msgs = [msg | Map.fetch!(state, operation)]
-    {:noreply, Map.replace!(state, operation, new_msgs)}
-  end
-
   def handle_cast({:new_block, slot, operations}, state) do
     {:noreply, filter_messages(state, slot, operations)}
   end
@@ -128,17 +121,15 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
       slot = aggregate.data.slot
       root = aggregate.data.beacon_block_root |> Base.encode16()
 
-      # We are getting ~500 attestations in half a second. This is overwhelming the store GenServer at the moment.
-      # ForkChoice.on_attestation(aggregate)
-      GenServer.cast(__MODULE__, {:attestation, aggregate})
-
       Logger.debug(
         "[Gossip] Aggregate decoded. Total attestations: #{votes}",
         slot: slot,
         root: root
       )
 
-      {:noreply, state}
+      # We are getting ~500 attestations in half a second. This is overwhelming the store GenServer at the moment.
+      # ForkChoice.on_attestation(aggregate)
+      handle_msg({:attestation, aggregate}, state)
     end
   end
 
@@ -150,9 +141,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.SignedVoluntaryExit{} = signed_voluntary_exit} <-
            Ssz.from_ssz(uncompressed, Types.SignedVoluntaryExit) do
-      GenServer.cast(__MODULE__, {:voluntary_exit, signed_voluntary_exit})
-
-      {:noreply, state}
+      handle_msg({:voluntary_exit, signed_voluntary_exit}, state)
     end
   end
 
@@ -164,9 +153,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.ProposerSlashing{} = proposer_slashing} <-
            Ssz.from_ssz(uncompressed, Types.ProposerSlashing) do
-      GenServer.cast(__MODULE__, {:proposer_slashing, proposer_slashing})
-
-      {:noreply, state}
+      handle_msg({:proposer_slashing, proposer_slashing}, state)
     end
   end
 
@@ -178,9 +165,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.AttesterSlashing{} = attester_slashing} <-
            Ssz.from_ssz(uncompressed, Types.AttesterSlashing) do
-      GenServer.cast(__MODULE__, {:attester_slashing, attester_slashing})
-
-      {:noreply, state}
+      handle_msg({:attester_slashing, attester_slashing}, state)
     end
   end
 
@@ -193,9 +178,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.SignedBLSToExecutionChange{} = bls_to_execution_change} <-
            Ssz.from_ssz(uncompressed, Types.SignedBLSToExecutionChange) do
-      GenServer.cast(__MODULE__, {:bls_to_execution_change, bls_to_execution_change})
-
-      {:noreply, state}
+      handle_msg({:bls_to_execution_change, bls_to_execution_change}, state)
     end
   end
 
@@ -208,6 +191,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
       end)
 
     topics
+  end
+
+  # TODO: filter duplicates
+  defp handle_msg({operation, msg}, state)
+       when operation in @operations do
+    new_msgs = [msg | Map.fetch!(state, operation)]
+    {:noreply, Map.replace!(state, operation, new_msgs)}
   end
 
   defp filter_messages(state, slot, operations) do
