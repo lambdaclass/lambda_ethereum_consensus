@@ -37,6 +37,7 @@ ENV PATH="${PATH}:/root/.cargo/bin"
 COPY . .
 COPY --from=libp2p_builder /libp2p_port/libp2p_port /consensus/priv/native/libp2p_port
 
+RUN make download-beacon-node-oapi
 RUN mix deps.get
 RUN mix compile
 
