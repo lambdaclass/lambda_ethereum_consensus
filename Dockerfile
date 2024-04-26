@@ -2,10 +2,17 @@
 FROM golang:1.21.3 AS libp2p_builder
 LABEL stage=builder
 
+# Install dependencies
+RUN apt-get update && apt-get install -y protobuf-compiler
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
 RUN mkdir /libp2p_port
 WORKDIR /libp2p_port
 
 COPY native/libp2p_port /libp2p_port
+COPY proto/libp2p.proto /libp2p_port/proto/libp2p.proto
+
+RUN protoc --go_out=./ proto/libp2p.proto
 
 RUN go mod download
 RUN go build -o libp2p_port
