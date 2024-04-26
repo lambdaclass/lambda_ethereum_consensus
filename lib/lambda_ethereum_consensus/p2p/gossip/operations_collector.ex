@@ -4,13 +4,18 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   """
   use GenServer
 
+  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Utils.BitField
   alias Types.Attestation
   alias Types.AttesterSlashing
   alias Types.BeaconBlock
   alias Types.ProposerSlashing
   alias Types.SignedBLSToExecutionChange
   alias Types.SignedVoluntaryExit
+
+  require Logger
 
   @operations [
     :bls_to_execution_change,
@@ -20,7 +25,19 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     :attestation
   ]
 
+  @topic_msgs [
+    "beacon_aggregate_and_proof",
+    "voluntary_exit",
+    "proposer_slashing",
+    "attester_slashing",
+    "bls_to_execution_change"
+  ]
+
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+
+  def start() do
+    GenServer.call(__MODULE__, :start)
+  end
 
   @spec notify_bls_to_execution_change_gossip(SignedBLSToExecutionChange.t()) :: :ok
   def notify_bls_to_execution_change_gossip(%SignedBLSToExecutionChange{} = msg) do
@@ -87,8 +104,17 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @impl GenServer
   def init(_init_arg) do
-    state = Map.new(@operations, &{&1, []}) |> Map.put(:slot, nil)
+    topics = get_topic_names()
+    Enum.each(topics, &Libp2pPort.join_topic/1)
+
+    state = Map.new(@operations, &{&1, []}) |> Map.put(:slot, nil) |> Map.put(:topics, topics)
     {:ok, state}
+  end
+
+  @impl true
+  def handle_call(:start, _from, %{topics: topics} = state) do
+    Enum.each(topics, &Libp2pPort.subscribe_to_topic/1)
+    {:reply, :ok, state}
   end
 
   @impl GenServer
@@ -111,6 +137,102 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   def handle_cast({:new_block, slot, operations}, state) do
     {:noreply, filter_messages(state, slot, operations)}
+  end
+
+  @impl true
+  def handle_info(
+        {:gossipsub,
+         {<<_::binary-size(15)>> <> "beacon_aggregate_and_proof" <> _, _msg_id, message}},
+        state
+      ) do
+    with {:ok, uncompressed} <- :snappyer.decompress(message),
+         {:ok,
+          %Types.SignedAggregateAndProof{message: %Types.AggregateAndProof{aggregate: aggregate}}} <-
+           Ssz.from_ssz(uncompressed, Types.SignedAggregateAndProof) do
+      votes = BitField.count(aggregate.aggregation_bits)
+      slot = aggregate.data.slot
+      root = aggregate.data.beacon_block_root |> Base.encode16()
+
+      # We are getting ~500 attestations in half a second. This is overwhelming the store GenServer at the moment.
+      # ForkChoice.on_attestation(aggregate)
+      notify_attestation_gossip(aggregate)
+
+      Logger.debug(
+        "[Gossip] Aggregate decoded. Total attestations: #{votes}",
+        slot: slot,
+        root: root
+      )
+
+      {:noreply, state}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {:gossipsub, {<<_::binary-size(15)>> <> "voluntary_exit" <> _, _msg_id, message}},
+        state
+      ) do
+    with {:ok, uncompressed} <- :snappyer.decompress(message),
+         {:ok, %Types.SignedVoluntaryExit{} = signed_voluntary_exit} <-
+           Ssz.from_ssz(uncompressed, Types.SignedVoluntaryExit) do
+      notify_voluntary_exit_gossip(signed_voluntary_exit)
+
+      {:noreply, state}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {:gossipsub, {<<_::binary-size(15)>> <> "proposer_slashing" <> _, _msg_id, message}},
+        state
+      ) do
+    with {:ok, uncompressed} <- :snappyer.decompress(message),
+         {:ok, %Types.ProposerSlashing{} = proposer_slashing} <-
+           Ssz.from_ssz(uncompressed, Types.ProposerSlashing) do
+      notify_proposer_slashing_gossip(proposer_slashing)
+
+      {:noreply, state}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {:gossipsub, {<<_::binary-size(15)>> <> "attester_slashing" <> _, _msg_id, message}},
+        state
+      ) do
+    with {:ok, uncompressed} <- :snappyer.decompress(message),
+         {:ok, %Types.AttesterSlashing{} = attester_slashing} <-
+           Ssz.from_ssz(uncompressed, Types.AttesterSlashing) do
+      notify_attester_slashing_gossip(attester_slashing)
+
+      {:noreply, state}
+    end
+  end
+
+  @impl true
+  def handle_info(
+        {:gossipsub,
+         {<<_::binary-size(15)>> <> "bls_to_execution_change" <> _, _msg_id, message}},
+        state
+      ) do
+    with {:ok, uncompressed} <- :snappyer.decompress(message),
+         {:ok, %Types.SignedBLSToExecutionChange{} = bls_to_execution_change} <-
+           Ssz.from_ssz(uncompressed, Types.SignedBLSToExecutionChange) do
+      notify_bls_to_execution_change_gossip(bls_to_execution_change)
+
+      {:noreply, state}
+    end
+  end
+
+  defp get_topic_names() do
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+
+    topics =
+      Enum.map(@topic_msgs, fn topic_msg ->
+        "/eth2/#{fork_context}/#{topic_msg}/ssz_snappy"
+      end)
+
+    topics
   end
 
   defp filter_messages(state, slot, operations) do

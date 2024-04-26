@@ -59,7 +59,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         LambdaEthereumConsensus.P2P.IncomingRequests,
         LambdaEthereumConsensus.Beacon.PendingBlocks,
         LambdaEthereumConsensus.Beacon.SyncBlocks,
-        LambdaEthereumConsensus.P2P.GossipSub,
         LambdaEthereumConsensus.P2P.Gossip.Attestation,
         LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
         LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
