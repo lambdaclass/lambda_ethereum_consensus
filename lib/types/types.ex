@@ -35,8 +35,6 @@ defmodule Types do
   @type domain_type :: bytes4
   @type fork_digest :: bytes4
   @type domain :: bytes32
-  @type bls_pubkey :: bytes48
-  @type bls_signature :: bytes96
   @type participation_flags :: uint8
   # Max size: 2**30
   @type transaction :: binary
@@ -44,8 +42,4 @@ defmodule Types do
   @type withdrawal_index :: uint64
   @type payload_id :: bytes8
   @type blob_index :: uint64
-  # Max size: BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB
-  @type blob :: binary
-  @type kzg_commitment :: bytes48
-  @type kzg_proof :: bytes48
 end
