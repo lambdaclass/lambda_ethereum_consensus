@@ -44,4 +44,6 @@ defmodule Types do
   @type withdrawal_index :: uint64
   @type payload_id :: bytes8
   @type blob_index :: uint64
+  # Max size: BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB
+  @type blob :: binary
 end
