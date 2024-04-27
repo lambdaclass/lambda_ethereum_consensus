@@ -5,6 +5,10 @@ defmodule Bls do
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "bls_nif"
 
   @type privkey() :: <<_::256>>
+  @type bytes48 :: <<_::384>>
+  @type bytes96 :: <<_::768>>
+  @type bls_pubkey :: bytes48
+  @type bls_signature :: bytes96
 
   @spec sign(privkey(), binary()) :: {:ok, Types.bls_signature()} | {:error, any()}
   def sign(_private_key, _message) do

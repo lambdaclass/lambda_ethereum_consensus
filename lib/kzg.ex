@@ -4,6 +4,11 @@ defmodule Kzg do
   """
   use Rustler, otp_app: :lambda_ethereum_consensus, crate: "kzg_nif"
 
+  # Max size: BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB
+  @type blob :: binary
+  @type kzg_commitment :: bytes48
+  @type kzg_proof :: bytes48
+
   @spec blob_to_kzg_commitment(Types.blob()) :: {:ok, Types.kzg_commitment()} | {:error, binary()}
   def blob_to_kzg_commitment(_blob) do
     :erlang.nif_error(:nif_not_loaded)
