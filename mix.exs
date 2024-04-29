@@ -50,7 +50,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:protobuf, "~> 0.12.0"},
       {:telemetry, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_metrics, "~> 1.0"},
       {:telemetry_metrics_prometheus, "~> 1.1.0"},
       {:aja, "~> 0.6"},
       {:logfmt_ex, "~> 0.4.2"},
