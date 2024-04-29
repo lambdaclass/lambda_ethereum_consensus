@@ -42,4 +42,14 @@ defmodule ConfigUtils do
   def parse_preset("minimal"), do: MinimalPreset
   def parse_preset("gnosis"), do: GnosisPreset
   def parse_preset(other), do: raise("Unknown preset: #{other}")
+
+  def load_testnet_bootnodes(testnet_dir) do
+    bootnodes_file = Path.join(testnet_dir, "boot_enr.yaml")
+
+    if File.exists?(bootnodes_file) do
+      YamlElixir.read_from_file!(bootnodes_file)
+    else
+      []
+    end
+  end
 end

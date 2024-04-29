@@ -23,16 +23,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     Cache.initialize_cache()
 
-    config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
-    port = Keyword.fetch!(config, :port)
-    bootnodes = Keyword.fetch!(config, :bootnodes)
-
-    libp2p_args = [
-      listen_addr: [],
-      enable_discovery: true,
-      discovery_addr: "0.0.0.0:#{port}",
-      bootnodes: bootnodes
-    ]
+    libp2p_args = get_libp2p_args()
 
     time = :os.system_time(:second)
 
@@ -85,5 +76,22 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         {LambdaEthereumConsensus.Execution.ExecutionChain, {genesis_time, snapshot, votes}}
       ]
     end
+  end
+
+  defp get_libp2p_args() do
+    config = Application.fetch_env!(:lambda_ethereum_consensus, :discovery)
+    port = Keyword.fetch!(config, :port)
+    bootnodes = Keyword.fetch!(config, :bootnodes)
+
+    if Enum.empty?(bootnodes) do
+      Logger.warning("No bootnodes configured.")
+    end
+
+    [
+      listen_addr: [],
+      enable_discovery: true,
+      discovery_addr: "0.0.0.0:#{port}",
+      bootnodes: bootnodes
+    ]
   end
 end
