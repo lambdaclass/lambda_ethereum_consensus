@@ -8,11 +8,11 @@ defmodule CustomConfig do
   def load_from_file!(path) do
     config = ConfigUtils.load_config_from_file!(path)
     preset = Map.fetch!(config, "PRESET_BASE") |> ConfigUtils.parse_preset()
-    base_config = Map.fetch!(config, "CONFIG_NAME") |> ConfigUtils.parse_config()
+    config_name = Map.get(config, "CONFIG_NAME") |> ConfigUtils.parse_config()
 
     merged_config =
       preset.get_preset()
-      |> Map.merge(base_config.get_all())
+      |> Map.merge(get_base_config(config_name))
       |> Map.merge(config)
 
     Application.put_env(:lambda_ethereum_consensus, __MODULE__, merged: merged_config)
@@ -37,4 +37,7 @@ defmodule CustomConfig do
   end
 
   defp parse_int(v), do: v
+
+  defp get_base_config(:unknown), do: %{}
+  defp get_base_config(config_name), do: config_name.get_all()
 end
