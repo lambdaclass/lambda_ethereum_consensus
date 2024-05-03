@@ -83,7 +83,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     port = Keyword.fetch!(config, :port)
     bootnodes = Keyword.fetch!(config, :bootnodes)
 
-    listen_addr = Keyword.fetch!(config, :listen_addr) |> parse_listen_addr()
+    listen_addr = Keyword.fetch!(config, :listen_addr) |> Enum.map(&parse_listen_addr/1)
 
     if Enum.empty?(bootnodes) do
       Logger.warning("No bootnodes configured.")
@@ -96,8 +96,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       bootnodes: bootnodes
     ]
   end
-
-  defp parse_listen_addr([]), do: []
 
   defp parse_listen_addr(addr) do
     case String.split(addr, ":") do

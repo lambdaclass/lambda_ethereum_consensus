@@ -18,7 +18,7 @@ switches = [
   log_file: :string,
   beacon_api: :boolean,
   beacon_api_port: :integer,
-  listen_address: :string,
+  listen_address: [:string, :keep],
   discovery_port: :integer,
   boot_nodes: :string,
   keystore_file: :string,
@@ -47,7 +47,7 @@ enable_metrics = Keyword.get(args, :metrics, false)
 metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
 beacon_api_port = Keyword.get(args, :beacon_api_port, nil)
 enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
-listen_address = Keyword.get(args, :listen_address)
+listen_addresses = Keyword.get_values(args, :listen_address)
 discovery_port = Keyword.get(args, :discovery_port, 9000)
 cli_bootnodes = Keyword.get(args, :boot_nodes, "")
 keystore = Keyword.get(args, :keystore_file)
@@ -123,7 +123,7 @@ bootnodes =
 config :lambda_ethereum_consensus, :libp2p,
   port: discovery_port,
   bootnodes: bootnodes,
-  listen_addr: listen_address
+  listen_addr: listen_addresses
 
 # Engine API
 
