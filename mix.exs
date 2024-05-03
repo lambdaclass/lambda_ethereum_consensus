@@ -40,7 +40,6 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:scrypt_elixir, "~> 0.1.1", hex: :scrypt_elixir_copy},
       {:joken, "~> 2.6"},
       {:rustler, "~> 0.32", runtime: false},
-      {:broadway, "~> 1.0"},
       {:snappyer, "~> 1.2"},
       {:yaml_elixir, "~> 2.8"},
       {:timex, "~> 3.7"},
