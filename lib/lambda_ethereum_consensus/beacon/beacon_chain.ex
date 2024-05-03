@@ -170,15 +170,17 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   def handle_info(:on_tick, state) do
     schedule_next_tick()
     time = :os.system_time(:second)
-    ForkChoice.on_tick(time)
-
-    # TODO: reduce time between ticks to account for gnosis' 5s slot time.
-    old_logical_time = compute_logical_time(state)
     new_state = %BeaconChainState{state | time: time}
-    new_logical_time = compute_logical_time(new_state)
 
-    if old_logical_time != new_logical_time do
-      notify_subscribers(new_logical_time)
+    if time >= state.genesis_time do
+      ForkChoice.on_tick(time)
+      # TODO: reduce time between ticks to account for gnosis' 5s slot time.
+      old_logical_time = compute_logical_time(state)
+      new_logical_time = compute_logical_time(new_state)
+
+      if old_logical_time != new_logical_time do
+        notify_subscribers(new_logical_time)
+      end
     end
 
     {:noreply, new_state}
