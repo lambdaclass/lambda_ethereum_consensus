@@ -73,12 +73,17 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
     if Enum.empty?(chunks) do
       Logger.info("[Optimistic Sync] Sync completed")
-      Gossip.BeaconBlock.start()
-      Gossip.BlobSideCar.start()
+      start_subscriptions()
     else
       Process.sleep(1000)
       perform_sync(remaining_chunks)
     end
+  end
+
+  defp start_subscriptions() do
+    Gossip.BeaconBlock.start()
+    Gossip.BlobSideCar.start()
+    Gossip.OperationsCollector.start()
   end
 
   @spec fetch_blocks_by_slot(Types.slot(), non_neg_integer()) ::
