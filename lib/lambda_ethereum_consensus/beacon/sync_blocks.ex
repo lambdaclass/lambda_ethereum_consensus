@@ -30,16 +30,14 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     last_slot = BeaconChain.get_current_slot()
 
     if last_slot > 0 do
-      chunks =
-        Enum.chunk_every(initial_slot..last_slot, @blocks_per_chunk)
-        |> Enum.map(fn chunk ->
-          first_slot = List.first(chunk)
-          last_slot = List.last(chunk)
-          count = last_slot - first_slot + 1
-          %{from: first_slot, count: count}
-        end)
-
-      perform_sync(chunks)
+      Enum.chunk_every(initial_slot..last_slot, @blocks_per_chunk)
+      |> Enum.map(fn chunk ->
+        first_slot = List.first(chunk)
+        last_slot = List.last(chunk)
+        count = last_slot - first_slot + 1
+        %{from: first_slot, count: count}
+      end)
+      |> perform_sync()
     end
   end
 

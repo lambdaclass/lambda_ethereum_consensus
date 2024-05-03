@@ -104,6 +104,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
       _ ->
         Logger.error("Invalid listen address: #{addr}")
+        Logger.flush()
         System.halt(2)
     end
   end
