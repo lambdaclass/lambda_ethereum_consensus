@@ -100,7 +100,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   defp parse_listen_addr(addr) do
     case String.split(addr, ":") do
       [ip, port] ->
-        ["/ip4/#{ip}/tcp/#{port}"]
+        "/ip4/#{ip}/tcp/#{port}"
 
       _ ->
         Logger.error("Invalid listen address: #{addr}")
