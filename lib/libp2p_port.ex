@@ -48,7 +48,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ]
 
   @type init_arg ::
-          {:listen_addr, String.t()}
+          {:listen_addr, [String.t()]}
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
@@ -67,7 +67,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     * `:opts` - a Keyword list of options to pass onto the GenServer.
       Defaults to `[name: __MODULE__]`.
 
-    * `:listen_addr` - the address to listen on.
+    * `:listen_addr` - the addresses to listen on.
     * `:enable_discovery` - boolean that specifies if the discovery service
       should be started.
     * `:discovery_addr` - the address used by the discovery service.
