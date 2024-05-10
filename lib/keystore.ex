@@ -25,6 +25,9 @@ defmodule Keystore do
     privkey = decrypt!(decoded_json["crypto"], password)
     # TODO: derive from privkey and validate with this pubkey
     pubkey = Map.fetch!(decoded_json, "pubkey") |> parse_binary!()
+    if Bls.derive_pubkey(privkey) == pubkey do
+      raise("Incorrect public key extracted")
+    end
     {pubkey, privkey}
   end
 

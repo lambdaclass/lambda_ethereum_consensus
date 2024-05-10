@@ -77,4 +77,15 @@ defmodule Bls do
       {:error, _} -> false
     end
   end
+
+  @doc """
+  Converts private to public key
+  """
+  @spec derive_pubkey?(privkey()) :: pubkey()
+  def derive_pubkey?(private_key) do
+    case Bls.derive_pubkey(private_key) do
+      {:ok, bool} -> bool
+      {:error, _} -> false
+    end
+  end
 end
