@@ -161,7 +161,6 @@ defmodule Unit.Libp2pPortTest do
 
     assert %{p2p_addresses: [p2p_address], discovery_addresses: [discovery_address]} = identity
     assert p2p_address == addr <> "/p2p/" <> peer_id
-    # TODO: fix
     assert discovery_address == "/ip4/127.0.0.1/udp/48796" <> "/p2p/" <> peer_id
   end
 end

@@ -1,7 +1,12 @@
 package proto_helpers
 
 import (
+	"crypto/ecdsa"
+	"crypto/rand"
 	proto_defs "libp2p_port/internal/proto"
+	"libp2p_port/internal/utils"
+
+	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
 type Enr struct {
@@ -16,6 +21,7 @@ type Config struct {
 	DiscoveryAddr   string
 	Bootnodes       []string
 	InitialEnr      Enr
+	Privkey         *ecdsa.PrivateKey
 }
 
 func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
@@ -25,7 +31,16 @@ func ConfigFromInitArgs(initArgs *proto_defs.InitArgs) Config {
 		DiscoveryAddr:   initArgs.DiscoveryAddr,
 		Bootnodes:       initArgs.Bootnodes,
 		InitialEnr:      LoadEnr(initArgs.InitialEnr),
+		Privkey:         generatePrivkey(),
 	}
+}
+
+func generatePrivkey() *ecdsa.PrivateKey {
+	intPrivKey, _, err := crypto.GenerateSecp256k1Key(rand.Reader)
+	utils.PanicIfError(err)
+	privKey, err := utils.ConvertFromInterfacePrivKey(intPrivKey)
+	utils.PanicIfError(err)
+	return privKey
 }
 
 func LoadEnr(enr *proto_defs.Enr) Enr {

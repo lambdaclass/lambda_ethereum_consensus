@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"libp2p_port/internal/port"
@@ -14,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	ma "github.com/multiformats/go-multiaddr"
@@ -32,10 +30,6 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 	utils.PanicIfError(err)
 	conn, err := net.ListenUDP("udp", udpAddr)
 	utils.PanicIfError(err)
-	intPrivKey, _, err := crypto.GenerateSecp256k1Key(rand.Reader)
-	utils.PanicIfError(err)
-	privKey, err := utils.ConvertFromInterfacePrivKey(intPrivKey)
-	utils.PanicIfError(err)
 
 	bootnodes := make([]*enode.Node, 0, len(config.Bootnodes))
 
@@ -46,14 +40,14 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 	}
 
 	cfg := discover.Config{
-		PrivateKey: privKey,
+		PrivateKey: config.Privkey,
 		Bootnodes:  bootnodes, // list of bootstrap nodes
 	}
 
 	db, err := enode.OpenDB("")
 	utils.PanicIfError(err)
 
-	localNode := enode.NewLocalNode(db, privKey)
+	localNode := enode.NewLocalNode(db, config.Privkey)
 	localNode.Set(enr.IP(udpAddr.IP))
 	localNode.Set(enr.UDP(udpAddr.Port))
 	localNode.Set(enr.TCP(udpAddr.Port))
@@ -163,7 +157,7 @@ func serializeENR(record *enr.Record) (string, error) {
 	return "enr:" + enrString, nil
 }
 
-func (d *Discoverer) GetDiscoveryAddresses() [][]byte {
+func (d *Discoverer) GetAddresses() [][]byte {
 	if d == nil {
 		return [][]byte{}
 	}

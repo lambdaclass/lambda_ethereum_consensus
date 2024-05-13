@@ -53,7 +53,7 @@ func getNodeIdentity(listener *reqresp.Listener, discoverer *discovery.Discovere
 	prettyPeerId := []byte(listener.Host().ID().String())
 	enr := discoverer.GetEnr()
 	p2pAddresses := listener.GetAddresses()
-	discoveryAddresses := discoverer.GetDiscoveryAddresses()
+	discoveryAddresses := discoverer.GetAddresses()
 
 	return &proto_defs.NodeIdentity{PeerId: []byte(peerId), Enr: enr, P2PAddresses: p2pAddresses, DiscoveryAddresses: discoveryAddresses, PrettyPeerId: prettyPeerId}
 }
