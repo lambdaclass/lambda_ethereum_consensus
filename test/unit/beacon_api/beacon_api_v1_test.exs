@@ -151,4 +151,31 @@ defmodule Unit.BeaconApiTest.V1 do
     assert conn.status == 200
     assert conn.resp_body == ""
   end
+
+  test "node identity" do
+    {:ok, expected_body} =
+      Jason.encode(%{
+        "data" => %{
+          peer_id: "QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N",
+          enr:
+            "enr:-IS4QHCYrYZbAKWCBRlAy5zzaDZXJBGkcnh4MHcBFZntXNFrdvJjX04jRzjzCBOonrkTfj499SZuOh8R33Ls8RRcy5wBgmlkgnY0gmlwhH8AAAGJc2VjcDI1NmsxoQPKY0yuDUmstAHYpMa2_oxVtw0RW_QAdpzBQA8yWM0xOIN1ZHCCdl8",
+          p2p_addresses: [
+            "/ip4/7.7.7.7/tcp/4242/p2p/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N"
+          ],
+          discovery_addresses: [
+            "/ip4/7.7.7.7/udp/30303/p2p/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N"
+          ],
+          metadata: %{
+            seq_number: "1",
+            attnets: "0x0000000000000000",
+            syncnets: "0x0f"
+          }
+        }
+      })
+
+    conn = conn(:get, "/eth/v1/node/identity", nil) |> Router.call(@opts)
+    assert conn.state == :sent
+    assert conn.status == 200
+    assert conn.resp_body == expected_body
+  end
 end

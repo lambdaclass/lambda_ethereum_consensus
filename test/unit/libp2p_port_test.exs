@@ -38,7 +38,7 @@ defmodule Unit.Libp2pPortTest do
     recver_addr = ["/ip4/127.0.0.1/tcp/48789"]
     start_port(:recver, listen_addr: recver_addr)
 
-    id = Libp2pPort.get_id(:recver)
+    %{peer_id: id} = Libp2pPort.get_node_identity(:recver)
     protocol_id = "/pong"
     pid = self()
 
@@ -90,7 +90,7 @@ defmodule Unit.Libp2pPortTest do
     message = "hello world!"
 
     # Connect the two peers
-    id = Libp2pPort.get_id(:gossiper)
+    %{peer_id: id} = Libp2pPort.get_node_identity(:gossiper)
     :ok = Libp2pPort.add_peer(:publisher, id, gossiper_addr, 999_999_999_999)
 
     pid = self()
@@ -133,12 +133,35 @@ defmodule Unit.Libp2pPortTest do
     retry_test(&two_hosts_gossip/0, 5)
   end
 
-  test "subscrive, leave, and join topic" do
+  test "subscribe, leave, and join topic" do
     port = start_port(:some, listen_addr: ["/ip4/127.0.0.1/tcp/48790"])
     topic = "test"
 
     Libp2pPort.subscribe_to_topic(port, topic)
     Libp2pPort.leave_topic(port, topic)
     Libp2pPort.join_topic(port, topic)
+  end
+
+  test "get node identity" do
+    addr = "/ip4/127.0.0.1/tcp/48795"
+
+    port =
+      start_port(:some,
+        listen_addr: [addr],
+        enable_discovery: true,
+        discovery_addr: "localhost:48796"
+      )
+
+    identity = Libp2pPort.get_node_identity(port)
+
+    assert %{pretty_peer_id: peer_id, peer_id: _peer_id, enr: enr} = identity
+
+    assert String.printable?(peer_id)
+    assert String.starts_with?(enr, "enr:")
+
+    assert %{p2p_addresses: [p2p_address], discovery_addresses: [discovery_address]} = identity
+    assert p2p_address == addr <> "/p2p/" <> peer_id
+    # TODO: fix
+    assert discovery_address == "/ip4/127.0.0.1/udp/48796" <> "/p2p/" <> peer_id
   end
 end

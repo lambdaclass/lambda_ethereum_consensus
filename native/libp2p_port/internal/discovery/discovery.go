@@ -3,6 +3,7 @@ package discovery
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"libp2p_port/internal/port"
 	"libp2p_port/internal/proto_helpers"
@@ -147,6 +148,42 @@ func filterPeer(node *enode.Node, currentForkDigest []byte) bool {
 	nodeENR.Load(entry)
 	forkDigest := sszEncodedForkEntry[:4]
 	return bytes.Equal(currentForkDigest, forkDigest)
+}
+
+// SerializeENR takes the enr record in its key-value form and serializes it.
+func serializeENR(record *enr.Record) (string, error) {
+	if record == nil {
+		return "", errors.New("could not serialize nil record")
+	}
+	buf := bytes.NewBuffer([]byte{})
+	if err := record.EncodeRLP(buf); err != nil {
+		return "", errors.Wrap(err, "could not encode ENR record to bytes")
+	}
+	enrString := base64.RawURLEncoding.EncodeToString(buf.Bytes())
+	return "enr:" + enrString, nil
+}
+
+func (d *Discoverer) GetDiscoveryAddresses() [][]byte {
+	if d == nil {
+		return [][]byte{}
+	}
+	addrs, err := convertToUdpMultiAddr(d.discv5_service.Self())
+	utils.PanicIfError(err)
+	serializedAddresses := make([][]byte, len(addrs))
+	for i := range addrs {
+		serializedAddresses[i] = []byte(addrs[i].String())
+	}
+	return serializedAddresses
+}
+
+func (d *Discoverer) GetEnr() []byte {
+	if d == nil {
+		return []byte{}
+	}
+	record := d.discv5_service.LocalNode().Node().Record()
+	enr, err := serializeENR(record)
+	utils.PanicIfError(err)
+	return []byte(enr)
 }
 
 func (d *Discoverer) UpdateEnr(enr proto_helpers.Enr) {

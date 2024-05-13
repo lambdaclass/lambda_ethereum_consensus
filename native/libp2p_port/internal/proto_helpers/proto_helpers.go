@@ -128,3 +128,8 @@ func ResultNotification(from []byte, result []byte, err error) *proto_defs.Notif
 	}
 	return &proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
 }
+
+func NodeIdentityNotification(from []byte, nodeIdentity *proto_defs.NodeIdentity) *proto_defs.Notification {
+	responseNotification := &proto_defs.Result{From: from, Result: &proto_defs.Result_NodeIdentity{NodeIdentity: nodeIdentity}}
+	return &proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
+}

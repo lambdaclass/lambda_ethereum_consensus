@@ -56,6 +56,16 @@ func (l *Listener) HostId() []byte {
 	return []byte(l.hostHandle.ID())
 }
 
+func (l *Listener) GetAddresses() [][]byte {
+	peerId := l.hostHandle.ID().String()
+	listenAddresses := l.Host().Addrs()
+	p2pAddresses := make([][]byte, len(listenAddresses))
+	for i := range listenAddresses {
+		p2pAddresses[i] = []byte(listenAddresses[i].String() + "/p2p/" + peerId)
+	}
+	return p2pAddresses
+}
+
 func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
 	addrInfo := peer.AddrInfo{ID: peer.ID(id)}
 	for _, addr := range addrs {
