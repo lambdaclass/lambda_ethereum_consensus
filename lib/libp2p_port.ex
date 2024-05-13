@@ -67,10 +67,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     * `:opts` - a Keyword list of options to pass onto the GenServer.
       Defaults to `[name: __MODULE__]`.
 
-    * `:listen_addr` - the addresses to listen on.
+    * `:listen_addr` - the addresses to listen on, in `Multiaddr` format.
     * `:enable_discovery` - boolean that specifies if the discovery service
       should be started.
-    * `:discovery_addr` - the address used by the discovery service.
+    * `:discovery_addr` - the address used by the discovery service, in `host:port` format.
     * `:bootnodes` - a list of bootnodes to use for discovery.
   """
   @spec start_link([{:opts, GenServer.options()} | init_arg()]) :: GenServer.on_start()
