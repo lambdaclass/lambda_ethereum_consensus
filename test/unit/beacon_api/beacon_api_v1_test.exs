@@ -153,22 +153,26 @@ defmodule Unit.BeaconApiTest.V1 do
   end
 
   test "node identity" do
-    {:ok, expected_body} =
-      Jason.encode(%{
+    alias LambdaEthereumConsensus.Libp2pPort
+    alias LambdaEthereumConsensus.P2P.Metadata
+    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
+
+    start_link_supervised!(Libp2pPort)
+    start_link_supervised!(Metadata)
+    identity = Libp2pPort.get_node_identity()
+    metadata = Metadata.get_metadata()
+
+    expected_body =
+      Jason.encode!(%{
         "data" => %{
-          peer_id: "QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N",
-          enr:
-            "enr:-IS4QHCYrYZbAKWCBRlAy5zzaDZXJBGkcnh4MHcBFZntXNFrdvJjX04jRzjzCBOonrkTfj499SZuOh8R33Ls8RRcy5wBgmlkgnY0gmlwhH8AAAGJc2VjcDI1NmsxoQPKY0yuDUmstAHYpMa2_oxVtw0RW_QAdpzBQA8yWM0xOIN1ZHCCdl8",
-          p2p_addresses: [
-            "/ip4/7.7.7.7/tcp/4242/p2p/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N"
-          ],
-          discovery_addresses: [
-            "/ip4/7.7.7.7/udp/30303/p2p/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N"
-          ],
-          metadata: %{
-            seq_number: "1",
-            attnets: "0x0000000000000000",
-            syncnets: "0x0f"
+          "peer_id" => identity[:pretty_peer_id],
+          "enr" => identity[:enr],
+          "p2p_addresses" => identity[:p2p_addresses],
+          "discovery_addresses" => identity[:discovery_addresses],
+          "metadata" => %{
+            "seq_number" => Utils.to_json(metadata.seq_number),
+            "attnets" => Utils.to_json(metadata.attnets),
+            "syncnets" => Utils.to_json(metadata.syncnets)
           }
         }
       })
