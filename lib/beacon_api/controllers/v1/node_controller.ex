@@ -13,6 +13,14 @@ defmodule BeaconApi.V1.NodeController do
   def open_api_operation(:identity),
     do: ApiSpec.spec().paths["/eth/v1/node/identity"].get
 
+  @spec health(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def health(conn, params) do
+    # TODO: respond with syncing status if we're still syncing
+    _syncing_status = Map.get(params, :syncing_status, 206)
+
+    send_resp(conn, 200, "")
+  end
+
   @spec identity(Plug.Conn.t(), any) :: Plug.Conn.t()
   def identity(conn, _params) do
     conn
