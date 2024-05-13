@@ -9,6 +9,7 @@ import (
 	"libp2p_port/internal/reqresp"
 	"libp2p_port/internal/utils"
 	"net"
+	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -71,6 +72,7 @@ func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, forkUpdates c
 	currentForkDigest := <-forkUpdates
 	for iter.Next() {
 		node := iter.Node()
+		time.Sleep(1 * time.Millisecond)
 		updateForkDigest(currentForkDigest[:], forkUpdates)
 		if !filterPeer(node, currentForkDigest[:]) {
 			continue
