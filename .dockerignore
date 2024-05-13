@@ -17,5 +17,5 @@ tmp/
 flake.*
 native/**/target/
 Dockerfile
-*.pb.ex
-*.pb.go
+**/*.pb.ex
+**/*.pb.go

@@ -62,7 +62,7 @@ RUN mix deps.compile
 COPY . .
 COPY --from=libp2p_builder /libp2p_port/libp2p_port /consensus/priv/native/libp2p_port
 
-RUN protoc --elixir_out=./lib proto/libp2p.proto
+RUN protoc --elixir_out=. proto/libp2p.proto
 
 RUN mix compile
 
