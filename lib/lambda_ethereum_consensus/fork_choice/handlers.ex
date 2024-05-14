@@ -13,6 +13,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Store.StateDb
 
   alias Types.Attestation
   alias Types.AttestationData
@@ -58,7 +59,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
     %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
     finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
-
     base_state = BlockStates.get_state(block.parent_root)
 
     cond do
@@ -264,9 +264,17 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     )
     |> if_then_update(
       finalized_checkpoint.epoch > store.finalized_checkpoint.epoch,
-      # Update finalized checkpoint
-      &%Store{&1 | finalized_checkpoint: finalized_checkpoint}
+      fn store -> update_finalized_checkpoint(store, finalized_checkpoint.epoch) end
     )
+  end
+
+  defp update_finalized_checkpoint(store, finalized_epoch) do
+    Task.async(fn ->
+      StateDb.remove_old_states(finalized_epoch)
+      Logger.debug("[Handlers] Old states removed.")
+    end)
+
+    %Store{store | finalized_checkpoint: finalized_epoch}
   end
 
   defp on_tick_per_slot(%Store{} = store, time) do
