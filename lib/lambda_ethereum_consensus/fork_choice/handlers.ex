@@ -264,17 +264,17 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     )
     |> if_then_update(
       finalized_checkpoint.epoch > store.finalized_checkpoint.epoch,
-      fn store -> update_finalized_checkpoint(store, finalized_checkpoint.epoch) end
+      fn store -> update_finalized_checkpoint(store, finalized_checkpoint) end
     )
   end
 
-  defp update_finalized_checkpoint(store, finalized_epoch) do
+  defp update_finalized_checkpoint(store, finalized_checkpoint) do
     Task.async(fn ->
-      StateDb.remove_old_states(finalized_epoch)
+      StateDb.remove_old_states(finalized_checkpoint.epoch)
       Logger.debug("[Handlers] Old states removed.")
     end)
 
-    %Store{store | finalized_checkpoint: finalized_epoch}
+    %Store{store | finalized_checkpoint: finalized_checkpoint}
   end
 
   defp on_tick_per_slot(%Store{} = store, time) do
