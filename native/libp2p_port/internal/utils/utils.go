@@ -39,6 +39,18 @@ func ConvertFromInterfacePrivKey(privkey crypto.PrivKey) (*ecdsa.PrivateKey, err
 }
 
 // Taken from Prysm: https://github.com/prysmaticlabs/prysm/blob/bcc23d2ded2548b6bce95680f49899325aedd960/crypto/ecdsa/utils.go
+func ConvertToInterfacePrivkey(privkey *ecdsa.PrivateKey) (crypto.PrivKey, error) {
+	privBytes := privkey.D.Bytes()
+	// In the event the number of bytes outputted by the big-int are less than 32,
+	// we append bytes to the start of the sequence for the missing most significant
+	// bytes.
+	if len(privBytes) < 32 {
+		privBytes = append(make([]byte, 32-len(privBytes)), privBytes...)
+	}
+	return crypto.UnmarshalSecp256k1PrivateKey(privBytes)
+}
+
+// Taken from Prysm: https://github.com/prysmaticlabs/prysm/blob/bcc23d2ded2548b6bce95680f49899325aedd960/crypto/ecdsa/utils.go
 func ConvertToInterfacePubkey(pubkey *ecdsa.PublicKey) (crypto.PubKey, error) {
 	xVal, yVal := new(btcec.FieldVal), new(btcec.FieldVal)
 	if xVal.SetByteSlice(pubkey.X.Bytes()) {

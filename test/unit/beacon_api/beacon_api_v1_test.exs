@@ -151,4 +151,35 @@ defmodule Unit.BeaconApiTest.V1 do
     assert conn.status == 200
     assert conn.resp_body == ""
   end
+
+  test "node identity" do
+    alias LambdaEthereumConsensus.Libp2pPort
+    alias LambdaEthereumConsensus.P2P.Metadata
+    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
+
+    start_link_supervised!(Libp2pPort)
+    start_link_supervised!(Metadata)
+    identity = Libp2pPort.get_node_identity()
+    metadata = Metadata.get_metadata()
+
+    expected_body =
+      Jason.encode!(%{
+        "data" => %{
+          "peer_id" => identity[:pretty_peer_id],
+          "enr" => identity[:enr],
+          "p2p_addresses" => identity[:p2p_addresses],
+          "discovery_addresses" => identity[:discovery_addresses],
+          "metadata" => %{
+            "seq_number" => Utils.to_json(metadata.seq_number),
+            "attnets" => Utils.to_json(metadata.attnets),
+            "syncnets" => Utils.to_json(metadata.syncnets)
+          }
+        }
+      })
+
+    conn = conn(:get, "/eth/v1/node/identity", nil) |> Router.call(@opts)
+    assert conn.state == :sent
+    assert conn.status == 200
+    assert conn.resp_body == expected_body
+  end
 end
