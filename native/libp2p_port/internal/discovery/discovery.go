@@ -9,10 +9,12 @@ import (
 	"libp2p_port/internal/reqresp"
 	"libp2p_port/internal/utils"
 	"net"
+	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	ma "github.com/multiformats/go-multiaddr"
@@ -71,30 +73,18 @@ func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, forkUpdates c
 	currentForkDigest := <-forkUpdates
 	for iter.Next() {
 		node := iter.Node()
+		time.Sleep(1 * time.Millisecond)
 		updateForkDigest(currentForkDigest[:], forkUpdates)
-		if !filterPeer(node, currentForkDigest[:]) {
+
+		if !filterPeer(node, currentForkDigest[:], listener) {
 			continue
 		}
-		var addrArr []string
-		if node.TCP() != 0 {
-			str := fmt.Sprintf("/ip4/%s/tcp/%d", node.IP(), node.TCP())
-			addrArr = append(addrArr, str)
-		} else if node.UDP() != 0 {
-			str := fmt.Sprintf("/ip4/%s/udp/%d/quic", node.IP(), node.UDP())
-			addrArr = append(addrArr, str)
-		} else {
-			continue
-		}
-		key, err := utils.ConvertToInterfacePubkey(node.Pubkey())
-		if err != nil {
-			continue
-		}
-		nodeID, err := peer.IDFromPublicKey(key)
+		addrInfo, err := convertToAddrInfo(node)
 		if err != nil {
 			continue
 		}
 		go func() {
-			listener.AddPeer([]byte(nodeID), addrArr, peerstore.PermanentAddrTTL)
+			listener.AddPeerWithAddrInfo(*addrInfo, peerstore.PermanentAddrTTL)
 		}()
 	}
 }
@@ -117,11 +107,11 @@ func updateForkDigest(currentForkDigest []byte, forkUpdates chan [4]byte) {
 //     connect to.
 //  2. Peer has a valid IP and TCP port set in their enr.
 //  3. ~Peer hasn't been marked as 'bad'~
-//  4. ~Peer is not currently active or connected.~
+//  4. Peer is not currently active or connected.
 //  5. ~Peer is ready to receive incoming connections.~
 //  6. Peer's fork digest in their ENR matches that of
 //     our localnodes.
-func filterPeer(node *enode.Node, currentForkDigest []byte) bool {
+func filterPeer(node *enode.Node, currentForkDigest []byte, listener *reqresp.Listener) bool {
 	// Ignore nil node entries passed in.
 	if node == nil {
 		return false
@@ -133,6 +123,10 @@ func filterPeer(node *enode.Node, currentForkDigest []byte) bool {
 	nodeENR := node.Record()
 	// do not dial nodes with their tcp ports not set
 	if err := nodeENR.Load(enr.WithEntry("tcp", new(enr.TCP))); err != nil {
+		return false
+	}
+	peerData, err := convertToAddrInfo(node)
+	if err != nil || listener.Host().Network().Connectedness(peerData.ID) == network.Connected {
 		return false
 	}
 	// Decide whether or not to connect to peer that does not
@@ -195,16 +189,16 @@ func updateEnr(localNode *enode.LocalNode, e proto_helpers.Enr) {
 	localNode.Set(enr.WithEntry("syncnets", e.Syncnets))
 }
 
-func convertToAddrInfo(node *enode.Node) (*peer.AddrInfo, ma.Multiaddr, error) {
+func convertToAddrInfo(node *enode.Node) (*peer.AddrInfo, error) {
 	multiAddr, err := convertToSingleMultiAddr(node)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	info, err := peer.AddrInfoFromP2pAddr(multiAddr)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return info, multiAddr, nil
+	return info, nil
 }
 
 func convertToSingleMultiAddr(node *enode.Node) (ma.Multiaddr, error) {
