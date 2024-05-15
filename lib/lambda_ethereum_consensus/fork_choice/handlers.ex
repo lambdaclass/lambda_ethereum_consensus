@@ -58,6 +58,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
     %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
     finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
+
     base_state = BlockStates.get_state(block.parent_root)
 
     cond do
@@ -263,6 +264,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     )
     |> if_then_update(
       finalized_checkpoint.epoch > store.finalized_checkpoint.epoch,
+      # Update finalized checkpoint
       &%Store{&1 | finalized_checkpoint: finalized_checkpoint}
     )
   end
