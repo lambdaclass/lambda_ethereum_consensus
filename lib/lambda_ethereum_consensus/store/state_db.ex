@@ -43,7 +43,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     end
   end
 
-  def get_slots_to_remove(slots_to_remove, iterator) do
+  defp get_slots_to_remove(slots_to_remove, iterator) do
     case Exleveldb.iterator_move(iterator, :prev) do
       {:ok, @stateslot_prefix <> slot, _root} ->
         [slot | slots_to_remove] |> get_slots_to_remove(iterator)
@@ -53,7 +53,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     end
   end
 
-  def remove_by_slot(binary_slot) do
+  defp remove_by_slot(binary_slot) do
     slot = :binary.decode_unsigned(binary_slot)
     key_slot = root_by_slot_key(slot)
 
