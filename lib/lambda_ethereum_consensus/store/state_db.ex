@@ -30,20 +30,19 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     Db.put(slothash_key_block, block_root)
   end
 
-  def remove_old_states(last_finalized_epoch) do
-    last_finalized_key =
-      (last_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")) |> root_by_slot_key()
+  def prune_states_older_than(slot) do
+    last_finalized_key = slot |> root_by_slot_key()
 
     with {:ok, it} <- Db.iterate(),
          {:ok, @stateslot_prefix <> _slot, _value} <-
            Exleveldb.iterator_move(it, last_finalized_key),
-         {:ok, slots_to_remove} <- get_slots_to_remove([], it),
+         {:ok, slots_to_remove} <- get_slots_to_remove(it),
          :ok <- Exleveldb.iterator_close(it) do
       slots_to_remove |> Enum.map(&remove_by_slot/1)
     end
   end
 
-  defp get_slots_to_remove(slots_to_remove, iterator) do
+  defp get_slots_to_remove(slots_to_remove \\ [], iterator) do
     case Exleveldb.iterator_move(iterator, :prev) do
       {:ok, @stateslot_prefix <> slot, _root} ->
         [slot | slots_to_remove] |> get_slots_to_remove(iterator)

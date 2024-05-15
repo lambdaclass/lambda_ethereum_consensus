@@ -13,7 +13,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Store.StateDb
 
   alias Types.Attestation
   alias Types.AttestationData
@@ -264,17 +263,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     )
     |> if_then_update(
       finalized_checkpoint.epoch > store.finalized_checkpoint.epoch,
-      fn store -> update_finalized_checkpoint(store, finalized_checkpoint) end
+      &%Store{&1 | finalized_checkpoint: finalized_checkpoint}
     )
-  end
-
-  defp update_finalized_checkpoint(store, finalized_checkpoint) do
-    Task.async(fn ->
-      StateDb.remove_old_states(finalized_checkpoint.epoch)
-      Logger.debug("[Handlers] Old states removed.")
-    end)
-
-    %Store{store | finalized_checkpoint: finalized_checkpoint}
   end
 
   defp on_tick_per_slot(%Store{} = store, time) do
