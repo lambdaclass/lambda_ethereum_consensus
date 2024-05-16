@@ -12,6 +12,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
   alias LambdaEthereumConsensus.Validator
@@ -82,6 +83,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     case result do
       {:ok, new_store} ->
+        {:ok, db_size} = Db.size()
+        IO.inspect(db_size)
+        :telemetry.execute([:db, :size], %{total: db_size})
         :telemetry.execute([:sync, :on_block], %{slot: slot})
         Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
 

@@ -118,7 +118,10 @@ defmodule LambdaEthereumConsensus.Telemetry do
       last_value("vm.system_counts.atom_count"),
       last_value("vm.system_counts.port_count"),
       last_value("vm.message_queue.length", tags: [:process]),
-      last_value("vm.uptime.total", unit: :millisecond)
+      last_value("vm.uptime.total", unit: :millisecond),
+
+      # Db Metrics
+      last_value("db.size.total")
     ]
   end
 
