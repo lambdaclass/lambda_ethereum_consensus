@@ -56,7 +56,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.BlobSidecar{index: blob_index} = blob} <-
            Ssz.from_ssz(uncompressed, Types.BlobSidecar) do
-      Logger.debug("[Gossip] Blob sidecar received, with index #{blob_index}")
+      Logger.debug("[Gossip] Blob sidecar received, with index #{blob_index}",
+        slot: blob.signed_block_header.message.slot
+      )
+
       BlobDb.store_blob(blob)
       Libp2pPort.validate_message(msg_id, :accept)
     else

@@ -63,9 +63,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         state |> Map.put(block_root, {signed_block, :pending})
 
       true ->
+        schedule_blobs_download(0)
         state |> Map.put(block_root, {signed_block, :download_blobs})
     end
-    |> then(&{:noreply, &1})
+    |> then(&{:noreply, &1 |> process_blocks()})
   end
 
   @impl true
@@ -219,8 +220,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     Process.send_after(__MODULE__, :process_blocks, 500)
   end
 
-  def schedule_blobs_download() do
-    Process.send_after(__MODULE__, :download_blobs, 500)
+  @spec schedule_blobs_download(integer()) :: reference()
+  def schedule_blobs_download(timeout \\ 500) do
+    Process.send_after(__MODULE__, :download_blobs, timeout)
   end
 
   def schedule_blocks_download() do
