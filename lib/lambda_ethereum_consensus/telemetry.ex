@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
   @moduledoc """
   Telemetry module for the consensus node.
   """
+  alias LambdaEthereumConsensus.Store.Db
   use Supervisor
   require Logger
   import Telemetry.Metrics
@@ -130,8 +131,14 @@ defmodule LambdaEthereumConsensus.Telemetry do
       # A module, function and arguments to be invoked periodically.
       # This function must call :telemetry.execute/3 and a metric must be added above.
       {__MODULE__, :message_queue_lengths, []},
-      {__MODULE__, :uptime, []}
+      {__MODULE__, :uptime, []},
+      {__MODULE__, :db_size, []}
     ]
+  end
+
+  def db_size() do
+    {:ok, db_size} = Db.size()
+    :telemetry.execute([:db, :size], %{total: db_size})
   end
 
   def uptime() do
