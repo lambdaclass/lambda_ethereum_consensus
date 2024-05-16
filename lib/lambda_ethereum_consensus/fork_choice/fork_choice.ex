@@ -12,6 +12,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
   alias LambdaEthereumConsensus.Validator
   alias Types.Attestation
@@ -72,6 +73,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Logger.info("[Fork choice] Adding new block", root: block_root, slot: slot)
 
+    %Store{finalized_checkpoint: last_finalized_checkpoint} = store
+
     result =
       :telemetry.span([:sync, :on_block], %{}, fn ->
         {process_block(block_root, signed_block, store), %{}}
@@ -83,6 +86,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
 
         Task.async(__MODULE__, :recompute_head, [new_store])
+
+        %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
+
+        if last_finalized_checkpoint.epoch < new_finalized_checkpoint.epoch do
+          new_finalized_slot =
+            new_finalized_checkpoint.epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+
+          Task.async(StateDb, :prune_states_older_than, [new_finalized_slot])
+        end
 
         GenServer.cast(from, {:block_processed, block_root, true})
         {:noreply, new_store}

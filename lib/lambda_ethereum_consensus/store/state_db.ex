@@ -30,6 +30,44 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     Db.put(slothash_key_block, block_root)
   end
 
+  def prune_states_older_than(slot) do
+    last_finalized_key = slot |> root_by_slot_key()
+
+    with {:ok, it} <- Db.iterate(),
+         {:ok, @stateslot_prefix <> _slot, _value} <-
+           Exleveldb.iterator_move(it, last_finalized_key),
+         {:ok, slots_to_remove} <- get_slots_to_remove(it),
+         :ok <- Exleveldb.iterator_close(it) do
+      slots_to_remove |> Enum.map(&remove_by_slot/1)
+    end
+  end
+
+  defp get_slots_to_remove(slots_to_remove \\ [], iterator) do
+    case Exleveldb.iterator_move(iterator, :prev) do
+      {:ok, @stateslot_prefix <> slot, _root} ->
+        [slot | slots_to_remove] |> get_slots_to_remove(iterator)
+
+      _ ->
+        {:ok, slots_to_remove}
+    end
+  end
+
+  defp remove_by_slot(binary_slot) do
+    slot = :binary.decode_unsigned(binary_slot)
+    key_slot = root_by_slot_key(slot)
+
+    with {:ok, block_root} <- Db.get(key_slot),
+         key_block <- state_key(block_root),
+         {:ok, encoded_state} <- Db.get(key_block) do
+      key_state =
+        encoded_state |> Ssz.from_ssz!(BeaconState) |> Ssz.hash_tree_root!() |> block_key()
+
+      Db.delete(key_slot)
+      Db.delete(key_block)
+      Db.delete(key_state)
+    end
+  end
+
   @spec get_state_by_block_root(Types.root()) ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
   def get_state_by_block_root(root) do
