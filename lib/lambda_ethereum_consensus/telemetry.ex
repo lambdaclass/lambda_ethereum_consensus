@@ -137,7 +137,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
   end
 
   def db_size() do
-    {:ok, db_size} = Db.size()
+    db_size = Db.size()
     :telemetry.execute([:db, :size], %{total: db_size})
   end
 
