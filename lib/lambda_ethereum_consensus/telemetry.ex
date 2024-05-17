@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
   @moduledoc """
   Telemetry module for the consensus node.
   """
+  alias LambdaEthereumConsensus.Store.Db
   use Supervisor
   require Logger
   import Telemetry.Metrics
@@ -118,7 +119,10 @@ defmodule LambdaEthereumConsensus.Telemetry do
       last_value("vm.system_counts.atom_count"),
       last_value("vm.system_counts.port_count"),
       last_value("vm.message_queue.length", tags: [:process]),
-      last_value("vm.uptime.total", unit: :millisecond)
+      last_value("vm.uptime.total", unit: :millisecond),
+
+      # Db Metrics
+      last_value("db.size.total", unit: :byte)
     ]
   end
 
@@ -127,8 +131,14 @@ defmodule LambdaEthereumConsensus.Telemetry do
       # A module, function and arguments to be invoked periodically.
       # This function must call :telemetry.execute/3 and a metric must be added above.
       {__MODULE__, :message_queue_lengths, []},
-      {__MODULE__, :uptime, []}
+      {__MODULE__, :uptime, []},
+      {__MODULE__, :db_size, []}
     ]
+  end
+
+  def db_size() do
+    db_size = Db.size()
+    :telemetry.execute([:db, :size], %{total: db_size})
   end
 
   def uptime() do
