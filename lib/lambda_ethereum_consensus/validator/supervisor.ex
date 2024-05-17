@@ -38,6 +38,20 @@ defmodule LambdaEthereumConsensus.Validator.Supervisor do
     end
   end
 
+  def notify_new_block(slot, head_root) do
+    cast_to_children({:new_block, slot, head_root})
+  end
+
+  def notify_tick(logical_time) do
+    cast_to_children({:on_tick, logical_time})
+  end
+
+  defp cast_to_children(msg) do
+    __MODULE__
+    |> Supervisor.which_children()
+    |> Enum.each(fn {_, pid, _, _} -> GenServer.cast(pid, msg) end)
+  end
+
   @spec get_validator_keys(binary(), binary()) :: list({Bls.pubkey(), Bls.privkey()})
   defp get_validator_keys(keystore_dir, keystore_pass_dir) do
     keystore_files = File.ls!(keystore_dir) |> Enum.sort()

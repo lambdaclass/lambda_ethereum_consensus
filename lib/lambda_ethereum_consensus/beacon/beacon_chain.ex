@@ -244,9 +244,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   defp notify_subscribers(logical_time) do
     log_new_slot(logical_time)
 
-    Enum.each([Validator, Gossip.BeaconBlock], fn subscriber ->
+    Enum.each([Gossip.BeaconBlock], fn subscriber ->
       GenServer.cast(subscriber, {:on_tick, logical_time})
     end)
+
+    Validator.Supervisor.notify_tick(logical_time)
   end
 
   defp log_new_slot({slot, :first_third}) do

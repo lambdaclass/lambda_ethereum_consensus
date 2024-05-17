@@ -168,7 +168,8 @@ defmodule LambdaEthereumConsensus.Validator do
   defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
 
   defp update_state(%{slot: slot, root: _other_root} = state, slot, head_root) do
-    Logger.warning("[Validator] Block came late", slot: slot, root: head_root)
+    # TODO: this log is appearing for every block
+    # Logger.warning("[Validator] Block came late", slot: slot, root: head_root)
 
     # TODO: rollback stale data instead of the whole cache
     epoch = Misc.compute_epoch_at_slot(slot + 1)
@@ -296,7 +297,7 @@ defmodule LambdaEthereumConsensus.Validator do
     # Drop the first element, which is the previous epoch's duty
     |> Stream.drop(1)
     |> Enum.each(fn %{index_in_committee: i, committee_index: ci, slot: slot} ->
-      Logger.info(
+      Logger.debug(
         "[Validator] #{validator_index} has to attest in committee #{ci} of slot #{slot} with index #{i}"
       )
     end)
@@ -508,8 +509,18 @@ defmodule LambdaEthereumConsensus.Validator do
   defp start_payload_builder(state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
     Logger.info("[Validator] Starting to build payload for slot #{proposed_slot}")
-    {:ok, payload_id} = BlockBuilder.start_building_payload(proposed_slot, head_root)
-    %{state | payload_builder: {proposed_slot, head_root, payload_id}}
+
+    case BlockBuilder.start_building_payload(proposed_slot, head_root) do
+      {:ok, payload_id} ->
+        %{state | payload_builder: {proposed_slot, head_root, payload_id}}
+
+      {:error, reason} ->
+        Logger.error(
+          "[Validator] Failed to start building payload for slot #{proposed_slot}. Reason: #{reason}"
+        )
+
+        state
+    end
   end
 
   defp maybe_propose(state, slot) do
@@ -520,8 +531,16 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp propose(%{root: head_root, validator: validator} = state, proposed_slot) do
-    {^proposed_slot, ^head_root, payload_id} = state.payload_builder
+  defp propose(%{payload_builder: nil} = state, _proposed_slot) do
+    Logger.error("[Validator] Tried to propose a block without a payload builder")
+    state
+  end
+
+  defp propose(
+         %{root: head_root, validator: validator, payload_builder: payload_builder} = state,
+         proposed_slot
+       ) do
+    {^proposed_slot, ^head_root, payload_id} = payload_builder
 
     build_result =
       BlockBuilder.build_block(
