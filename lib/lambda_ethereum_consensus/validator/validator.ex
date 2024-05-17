@@ -26,7 +26,11 @@ defmodule LambdaEthereumConsensus.Validator do
   ### Public API
   ##########################
 
-  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link({_, _, {pubkey, _}} = opts) do
+    # TODO: if possible, use validator index instead of pubkey
+    name = Atom.to_string(__MODULE__) <> "_" <> Base.encode16(pubkey, case: :lower)
+    GenServer.start_link(__MODULE__, opts, name: String.to_atom(name))
+  end
 
   def notify_new_block(slot, head_root),
     do: GenServer.cast(__MODULE__, {:new_block, slot, head_root})
@@ -35,29 +39,39 @@ defmodule LambdaEthereumConsensus.Validator do
   ### GenServer Callbacks
   ##########################
 
+  @type state :: %{
+          slot: Types.slot(),
+          root: Types.root(),
+          duties: %{
+            attester: list(:not_computed),
+            proposer: :not_computed | list(Types.slot())
+          },
+          validator: any(),
+          payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
+        }
+
   @impl true
-  def init({slot, head_root}) do
-    config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
-
-    validator =
-      case {Keyword.get(config, :pubkey), Keyword.get(config, :privkey)} do
-        {nil, nil} -> nil
-        {pubkey, privkey} -> %{index: nil, privkey: privkey, pubkey: pubkey}
-      end
-
+  @spec init({Types.slot(), Types.root(), {Bls.pubkey(), Bls.privkey()}}) ::
+          {:ok, state, {:continue, any}}
+  def init({head_slot, head_root, {pubkey, privkey}}) do
     state = %{
-      slot: slot,
+      slot: head_slot,
       root: head_root,
       duties: empty_duties(),
-      validator: validator
+      validator: %{
+        pubkey: pubkey,
+        privkey: privkey,
+        index: nil
+      },
+      payload_builder: nil
     }
 
     {:ok, state, {:continue, nil}}
   end
 
-  @impl true
-  def handle_continue(nil, %{validator: nil} = state), do: {:noreply, state}
+  @spec handle_continue(nil, state) :: {:noreply, state}
 
+  @impl true
   def handle_continue(nil, %{slot: slot, root: root} = state) do
     case try_setup_validator(state, slot, root) do
       nil ->
@@ -69,6 +83,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
+  @spec try_setup_validator(state, Types.slot(), Types.root()) :: state | nil
   defp try_setup_validator(state, slot, root) do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state(epoch, root)
@@ -86,6 +101,8 @@ defmodule LambdaEthereumConsensus.Validator do
         %{state | duties: duties, validator: validator}
     end
   end
+
+  @spec handle_cast(any, state) :: {:noreply, state}
 
   @impl true
   def handle_cast(_, %{validator: nil} = state), do: {:noreply, state}
@@ -186,6 +203,7 @@ defmodule LambdaEthereumConsensus.Validator do
     %{state | slot: slot, root: head_root, duties: new_duties}
   end
 
+  @spec fetch_target_state(Types.epoch(), Types.root()) :: Types.BeaconState.t()
   defp fetch_target_state(epoch, root) do
     {:ok, state} = Handlers.compute_target_checkpoint_state(epoch, root)
     state
@@ -458,6 +476,8 @@ defmodule LambdaEthereumConsensus.Validator do
     Map.put(duty, :subnet_id, subnet_id)
   end
 
+  @spec fetch_validator_index(Types.BeaconState.t(), %{index: nil, pubkey: Bls.pubkey()}) ::
+          non_neg_integer() | nil
   defp fetch_validator_index(beacon, %{index: nil, pubkey: pk}) do
     Enum.find_index(beacon.validators, &(&1.pubkey == pk))
   end
@@ -501,7 +521,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp propose(%{root: head_root, validator: validator} = state, proposed_slot) do
-    {^proposed_slot, ^head_root, payload_id} = state.block_builder
+    {^proposed_slot, ^head_root, payload_id} = state.payload_builder
 
     build_result =
       BlockBuilder.build_block(

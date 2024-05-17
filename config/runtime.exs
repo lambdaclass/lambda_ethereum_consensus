@@ -21,8 +21,8 @@ switches = [
   listen_address: [:string, :keep],
   discovery_port: :integer,
   boot_nodes: :string,
-  keystore_file: :string,
-  keystore_password_file: :string
+  keystore_dir: :string,
+  keystore_pass_dir: :string
 ]
 
 is_testing = Config.config_env() == :test
@@ -50,8 +50,8 @@ enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
 listen_addresses = Keyword.get_values(args, :listen_address)
 discovery_port = Keyword.get(args, :discovery_port, 9000)
 cli_bootnodes = Keyword.get(args, :boot_nodes, "")
-keystore = Keyword.get(args, :keystore_file)
-keystore_pass = Keyword.get(args, :keystore_password_file)
+keystore_dir = Keyword.get(args, :keystore_dir)
+keystore_pass_dir = Keyword.get(args, :keystore_pass_dir)
 
 if not is_nil(testnet_dir) and not is_nil(checkpoint_sync_url) do
   IO.puts("Both checkpoint sync and testnet url specified (only one should be specified).")
@@ -153,17 +153,10 @@ config :lambda_ethereum_consensus, BeaconApi.Endpoint,
     layout: false
   ]
 
-if is_binary(keystore) and is_binary(keystore_pass) do
-  {pubkey, privkey} = Keystore.decode_from_files!(keystore, keystore_pass)
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator.Supervisor,
+  keystore_dir: keystore_dir,
+  keystore_pass_dir: keystore_pass_dir
 
-  config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator,
-    pubkey: pubkey,
-    privkey: privkey
-end
-
-# Metrics
-
-# Configures metrics
 # TODO: we should set this dynamically
 block_time_ms =
   case network do
@@ -174,6 +167,8 @@ block_time_ms =
     # Default to mainnet
     _ -> 12_000
   end
+
+# Metrics
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
   block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms)),
