@@ -54,6 +54,10 @@ defmodule Bls do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  @spec derive_pubkey(privkey()) :: {:ok, pubkey()} | {:error, any()}
+  def derive_pubkey(private_key) do
+    Rustler.safe_nif_call(:derive_pubkey, [private_key])
+  end
   ##### Helpers #####
   @doc """
   Same as ``Bls.verify``, but treats errors as invalid signatures.
@@ -81,10 +85,10 @@ defmodule Bls do
   @doc """
   Converts private to public key
   """
-  @spec derive_pubkey?(privkey()) :: pubkey()
+  @spec derive_pubkey?(privkey()) :: {:ok, pubkey()} | {:error, any()}
   def derive_pubkey?(private_key) do
     case Bls.derive_pubkey(private_key) do
-      {:ok, bool} -> bool
+      {:ok, pubkey} -> pubkey
       {:error, _} -> false
     end
   end
