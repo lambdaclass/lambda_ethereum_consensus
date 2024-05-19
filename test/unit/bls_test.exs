@@ -22,7 +22,7 @@ defmodule BlsTest do
     test "return the correct public key for a private key" do
       valid_public_key = Base.decode16!("8abb15ca57942b6225af4710bbb74ce8466e99fdc2264d9ffd3b335c7396667e45f537ff1f75ed5afa00585db274f3b6",case: :mixed)
       private_key = Base.decode16!("18363054f52f3f1fdc9ae50d271de853c582c652ebe8dd0f261da3b00cd98984", case: :mixed)
-      assert Bls.derive_pubkey(private_key)==valid_public_key
+      assert Bls.derive_pubkey(private_key)=={:ok, valid_public_key}
     end
   end
 

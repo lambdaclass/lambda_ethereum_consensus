@@ -55,8 +55,8 @@ defmodule Bls do
   end
 
   @spec derive_pubkey(privkey()) :: {:ok, pubkey()} | {:error, any()}
-  def derive_pubkey(private_key) do
-    Rustler.safe_nif_call(:derive_pubkey, [private_key])
+  def derive_pubkey(_private_key) do
+    :erlang.nif_error(:nif_not_loaded)
   end
   ##### Helpers #####
   @doc """
