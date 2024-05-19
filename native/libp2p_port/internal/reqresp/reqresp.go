@@ -31,6 +31,8 @@ type Listener struct {
 }
 
 func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
+	ifaceKey, err := utils.ConvertToInterfacePrivkey(config.Privkey)
+	utils.PanicIfError(err)
 	// as per the spec
 	optionsSlice := []libp2p.Option{
 		libp2p.DefaultMuxers,
@@ -41,6 +43,7 @@ func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
 		libp2p.NATPortMap(), // Allow to use UPnP
 		libp2p.Ping(false),
 		libp2p.ListenAddrStrings(config.ListenAddr...),
+		libp2p.Identity(ifaceKey),
 	}
 
 	h, err := libp2p.New(optionsSlice...)
@@ -54,6 +57,16 @@ func (l *Listener) Host() host.Host {
 
 func (l *Listener) HostId() []byte {
 	return []byte(l.hostHandle.ID())
+}
+
+func (l *Listener) GetAddresses() [][]byte {
+	peerId := l.hostHandle.ID().String()
+	listenAddresses := l.Host().Addrs()
+	p2pAddresses := make([][]byte, len(listenAddresses))
+	for i := range listenAddresses {
+		p2pAddresses[i] = []byte(listenAddresses[i].String() + "/p2p/" + peerId)
+	}
+	return p2pAddresses
 }
 
 func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {

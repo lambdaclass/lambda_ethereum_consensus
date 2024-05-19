@@ -97,7 +97,7 @@ message Enr {
     bytes syncnets = 3;
 }
 
-message GetId {}
+message GetNodeIdentity {}
 
 message Publish {
     string topic = 1;
@@ -124,7 +124,7 @@ message Command {
         AddPeer add_peer = 5;
         SendRequest send_request = 6;
         SendResponse send_response = 7;
-        GetId get_id = 8;
+        GetNodeIdentity get_node_identity = 8;
         Publish publish = 9;
         ValidateMessage validate_message = 10;
         Enr update_enr = 11;
@@ -163,12 +163,21 @@ message ResultMessage {
     repeated bytes message = 3;
 }
 
+message NodeIdentity {
+    bytes peer_id = 1;
+    bytes enr = 2;
+    repeated bytes p2p_addresses = 3;
+    repeated bytes discovery_addresses = 4;
+    bytes pretty_peer_id = 5;
+}
+
 // A result from a command.
 message Result {
     bytes from = 1;
     oneof result {
         ResultMessage ok = 2;
         ResultMessage error = 3;
+        NodeIdentity node_identity = 4;
     }
 }
 

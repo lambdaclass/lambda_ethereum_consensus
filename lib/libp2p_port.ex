@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command
   alias Libp2pProto.Enr
-  alias Libp2pProto.GetId
+  alias Libp2pProto.GetNodeIdentity
   alias Libp2pProto.GossipSub
   alias Libp2pProto.InitArgs
   alias Libp2pProto.JoinTopic
@@ -67,10 +67,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     * `:opts` - a Keyword list of options to pass onto the GenServer.
       Defaults to `[name: __MODULE__]`.
 
-    * `:listen_addr` - the addresses to listen on.
+    * `:listen_addr` - the addresses to listen on, in `Multiaddr` format.
     * `:enable_discovery` - boolean that specifies if the discovery service
       should be started.
-    * `:discovery_addr` - the address used by the discovery service.
+    * `:discovery_addr` - the address used by the discovery service, in `host:port` format.
     * `:bootnodes` - a list of bootnodes to use for discovery.
   """
   @spec start_link([{:opts, GenServer.options()} | init_arg()]) :: GenServer.on_start()
@@ -79,15 +79,27 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.start_link(__MODULE__, args, opts)
   end
 
+  @type node_identity() :: %{
+          peer_id: binary(),
+          # Pretty-printed version of the peer ID
+          pretty_peer_id: String.t(),
+          enr: String.t(),
+          p2p_addresses: [String.t()],
+          discovery_addresses: [String.t()]
+        }
+
   @doc """
-  Gets the unique ID of the LibP2P node. This ID is used by peers to
-  identify and connect to it.
+  Retrieves identity info from the underlying LibP2P node.
   """
-  @spec get_id(GenServer.server()) :: binary()
-  def get_id(pid \\ __MODULE__) do
-    :telemetry.execute([:port, :message], %{}, %{function: "get_id", direction: "elixir->"})
-    {:ok, id} = call_command(pid, {:get_id, %GetId{}})
-    id
+  @spec get_node_identity(GenServer.server()) :: node_identity()
+  def get_node_identity(pid \\ __MODULE__) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "get_node_identity",
+      direction: "elixir->"
+    })
+
+    call_command(pid, {:get_node_identity, %GetNodeIdentity{}})
+    |> Map.take([:peer_id, :pretty_peer_id, :enr, :p2p_addresses, :discovery_addresses])
   end
 
   @doc """
@@ -430,6 +442,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp receive_response() do
     receive do
+      {:response, {:node_identity, identity}} -> identity
       {:response, {res, %ResultMessage{message: []}}} -> res
       {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()
     end

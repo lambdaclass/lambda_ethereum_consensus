@@ -65,9 +65,15 @@ defmodule Keystore do
     Scrypt.hash(password, salt, log_n, r, p, @derived_key_size)
   end
 
-  # TODO: support pbkdf2
-  defp derive_key!(%{"function" => "pbkdf2"} = drf, _password) do
-    %{"dklen" => _dklen, "salt" => _salt, "c" => _c, "prf" => "hmac-sha256"} = drf
+  defp derive_key!(%{"function" => "pbkdf2", "params" => params}, password) do
+    %{"dklen" => dklen, "salt" => hex_salt, "c" => c, "prf" => "hmac-sha256"} = params
+    salt = parse_binary!(hex_salt)
+
+    if byte_size(salt) != @salt_bytes do
+      raise "Invalid salt size: #{byte_size(salt)}"
+    end
+
+    :crypto.pbkdf2_hmac(:sha256, password, salt, c, dklen)
   end
 
   defp decrypt_secret(derived_key, iv, cipher_message) do

@@ -111,7 +111,7 @@ jobs:
         sudo apt-get install -y protobuf-compiler
         echo $(protoc --version)
         mix escript.install --force hex protobuf
-        protoc --elixir_out=./lib proto/libp2p.proto
+        protoc --elixir_out=. proto/libp2p.proto
         mix deps.get
     - name: Set up cargo cache
       uses: Swatinem/rust-cache@v2

@@ -28,6 +28,12 @@ defmodule Ssz do
     |> to_ssz_rs(schema)
   end
 
+  @spec from_ssz!(binary, module) :: struct
+  def from_ssz!(bin, schema) do
+    {:ok, root} = from_ssz(bin, schema)
+    root
+  end
+
   @spec from_ssz(binary, module) :: {:ok, struct} | {:error, String.t()}
   def from_ssz(bin, schema) do
     with {:ok, map} <- from_ssz_rs(bin, schema) do

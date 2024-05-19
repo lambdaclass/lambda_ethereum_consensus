@@ -2,18 +2,19 @@ package discovery
 
 import (
 	"bytes"
-	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"libp2p_port/internal/port"
 	"libp2p_port/internal/proto_helpers"
 	"libp2p_port/internal/reqresp"
 	"libp2p_port/internal/utils"
 	"net"
+	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
-	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	ma "github.com/multiformats/go-multiaddr"
@@ -31,10 +32,6 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 	utils.PanicIfError(err)
 	conn, err := net.ListenUDP("udp", udpAddr)
 	utils.PanicIfError(err)
-	intPrivKey, _, err := crypto.GenerateSecp256k1Key(rand.Reader)
-	utils.PanicIfError(err)
-	privKey, err := utils.ConvertFromInterfacePrivKey(intPrivKey)
-	utils.PanicIfError(err)
 
 	bootnodes := make([]*enode.Node, 0, len(config.Bootnodes))
 
@@ -45,14 +42,14 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 	}
 
 	cfg := discover.Config{
-		PrivateKey: privKey,
+		PrivateKey: config.Privkey,
 		Bootnodes:  bootnodes, // list of bootstrap nodes
 	}
 
 	db, err := enode.OpenDB("")
 	utils.PanicIfError(err)
 
-	localNode := enode.NewLocalNode(db, privKey)
+	localNode := enode.NewLocalNode(db, config.Privkey)
 	localNode.Set(enr.IP(udpAddr.IP))
 	localNode.Set(enr.UDP(udpAddr.Port))
 	localNode.Set(enr.TCP(udpAddr.Port))
@@ -76,30 +73,18 @@ func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, forkUpdates c
 	currentForkDigest := <-forkUpdates
 	for iter.Next() {
 		node := iter.Node()
+		time.Sleep(1 * time.Millisecond)
 		updateForkDigest(currentForkDigest[:], forkUpdates)
-		if !filterPeer(node, currentForkDigest[:]) {
+
+		if !filterPeer(node, currentForkDigest[:], listener) {
 			continue
 		}
-		var addrArr []string
-		if node.TCP() != 0 {
-			str := fmt.Sprintf("/ip4/%s/tcp/%d", node.IP(), node.TCP())
-			addrArr = append(addrArr, str)
-		} else if node.UDP() != 0 {
-			str := fmt.Sprintf("/ip4/%s/udp/%d/quic", node.IP(), node.UDP())
-			addrArr = append(addrArr, str)
-		} else {
-			continue
-		}
-		key, err := utils.ConvertToInterfacePubkey(node.Pubkey())
-		if err != nil {
-			continue
-		}
-		nodeID, err := peer.IDFromPublicKey(key)
+		addrInfo, err := convertToAddrInfo(node)
 		if err != nil {
 			continue
 		}
 		go func() {
-			listener.AddPeer([]byte(nodeID), addrArr, peerstore.PermanentAddrTTL)
+			listener.AddPeerWithAddrInfo(*addrInfo, peerstore.PermanentAddrTTL)
 		}()
 	}
 }
@@ -122,11 +107,11 @@ func updateForkDigest(currentForkDigest []byte, forkUpdates chan [4]byte) {
 //     connect to.
 //  2. Peer has a valid IP and TCP port set in their enr.
 //  3. ~Peer hasn't been marked as 'bad'~
-//  4. ~Peer is not currently active or connected.~
+//  4. Peer is not currently active or connected.
 //  5. ~Peer is ready to receive incoming connections.~
 //  6. Peer's fork digest in their ENR matches that of
 //     our localnodes.
-func filterPeer(node *enode.Node, currentForkDigest []byte) bool {
+func filterPeer(node *enode.Node, currentForkDigest []byte, listener *reqresp.Listener) bool {
 	// Ignore nil node entries passed in.
 	if node == nil {
 		return false
@@ -140,6 +125,10 @@ func filterPeer(node *enode.Node, currentForkDigest []byte) bool {
 	if err := nodeENR.Load(enr.WithEntry("tcp", new(enr.TCP))); err != nil {
 		return false
 	}
+	peerData, err := convertToAddrInfo(node)
+	if err != nil || listener.Host().Network().Connectedness(peerData.ID) == network.Connected {
+		return false
+	}
 	// Decide whether or not to connect to peer that does not
 	// match the proper fork ENR data with our local node.
 	sszEncodedForkEntry := make([]byte, 16)
@@ -147,6 +136,42 @@ func filterPeer(node *enode.Node, currentForkDigest []byte) bool {
 	nodeENR.Load(entry)
 	forkDigest := sszEncodedForkEntry[:4]
 	return bytes.Equal(currentForkDigest, forkDigest)
+}
+
+// SerializeENR takes the enr record in its key-value form and serializes it.
+func serializeENR(record *enr.Record) (string, error) {
+	if record == nil {
+		return "", errors.New("could not serialize nil record")
+	}
+	buf := bytes.NewBuffer([]byte{})
+	if err := record.EncodeRLP(buf); err != nil {
+		return "", errors.Wrap(err, "could not encode ENR record to bytes")
+	}
+	enrString := base64.RawURLEncoding.EncodeToString(buf.Bytes())
+	return "enr:" + enrString, nil
+}
+
+func (d *Discoverer) GetAddresses() [][]byte {
+	if d == nil {
+		return [][]byte{}
+	}
+	addrs, err := convertToUdpMultiAddr(d.discv5_service.Self())
+	utils.PanicIfError(err)
+	serializedAddresses := make([][]byte, len(addrs))
+	for i := range addrs {
+		serializedAddresses[i] = []byte(addrs[i].String())
+	}
+	return serializedAddresses
+}
+
+func (d *Discoverer) GetEnr() []byte {
+	if d == nil {
+		return []byte{}
+	}
+	record := d.discv5_service.LocalNode().Node().Record()
+	enr, err := serializeENR(record)
+	utils.PanicIfError(err)
+	return []byte(enr)
 }
 
 func (d *Discoverer) UpdateEnr(enr proto_helpers.Enr) {
@@ -164,16 +189,16 @@ func updateEnr(localNode *enode.LocalNode, e proto_helpers.Enr) {
 	localNode.Set(enr.WithEntry("syncnets", e.Syncnets))
 }
 
-func convertToAddrInfo(node *enode.Node) (*peer.AddrInfo, ma.Multiaddr, error) {
+func convertToAddrInfo(node *enode.Node) (*peer.AddrInfo, error) {
 	multiAddr, err := convertToSingleMultiAddr(node)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	info, err := peer.AddrInfoFromP2pAddr(multiAddr)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return info, multiAddr, nil
+	return info, nil
 }
 
 func convertToSingleMultiAddr(node *enode.Node) (ma.Multiaddr, error) {
