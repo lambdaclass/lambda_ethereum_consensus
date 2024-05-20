@@ -54,10 +54,6 @@ defmodule Bls do
     :erlang.nif_error(:nif_not_loaded)
   end
 
-  @spec derive_pubkey(privkey()) :: {:ok, pubkey()} | {:error, any()}
-  def derive_pubkey(_private_key) do
-    :erlang.nif_error(:nif_not_loaded)
-  end
   ##### Helpers #####
   @doc """
   Same as ``Bls.verify``, but treats errors as invalid signatures.
@@ -85,11 +81,11 @@ defmodule Bls do
   @doc """
   Converts private to public key
   """
-  @spec derive_pubkey?(privkey()) :: {:ok, pubkey()} | {:error, any()}
-  def derive_pubkey?(private_key) do
+  @spec derive_pubkey(privkey()) :: {:ok, pubkey()} | {:error, any()}
+  def derive_pubkey(private_key) do
     case Bls.derive_pubkey(private_key) do
-      {:ok, pubkey} -> pubkey
-      {:error, _} -> false
+      {:ok, pubkey} -> {:ok, pubkey}
+      error -> error
     end
   end
 end
