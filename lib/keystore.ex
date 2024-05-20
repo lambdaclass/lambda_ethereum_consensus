@@ -26,7 +26,9 @@ defmodule Keystore do
 
     pubkey = Map.fetch!(decoded_json, "pubkey") |> parse_binary!()
 
-    if Bls.derive_pubkey(privkey) != {:ok, pubkey} do
+    {:ok, derived_pubkey} = Bls.derive_pubkey(privkey)
+
+    if derived_pubkey != pubkey do
       raise("Keystore secret and public keys don't form a valid pair")
     end
 
