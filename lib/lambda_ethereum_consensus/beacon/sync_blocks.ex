@@ -29,6 +29,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch) + 1
     last_slot = BeaconChain.get_current_slot()
 
+    # If we're around genesis, we consider ourselves synced
     if last_slot > 0 do
       Enum.chunk_every(initial_slot..last_slot, @blocks_per_chunk)
       |> Enum.map(fn chunk ->
@@ -38,6 +39,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
         %{from: first_slot, count: count}
       end)
       |> perform_sync()
+    else
+      start_subscriptions()
     end
   end
 

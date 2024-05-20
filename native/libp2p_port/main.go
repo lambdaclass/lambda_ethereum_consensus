@@ -14,8 +14,9 @@ import (
 
 func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subscriber *gossipsub.Subscriber, discoverer *discovery.Discoverer) *proto_defs.Notification {
 	switch c := command.C.(type) {
-	case *proto_defs.Command_GetId:
-		return proto_helpers.ResultNotification(command.From, []byte(listener.HostId()), nil)
+	case *proto_defs.Command_GetNodeIdentity:
+		identity := getNodeIdentity(listener, discoverer)
+		return proto_helpers.NodeIdentityNotification(command.From, identity)
 	case *proto_defs.Command_AddPeer:
 		listener.AddPeer(c.AddPeer.Id, c.AddPeer.Addrs, c.AddPeer.Ttl)
 	case *proto_defs.Command_SendRequest:
@@ -43,6 +44,18 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	}
 	// Default, OK empty response
 	return proto_helpers.ResultNotification(command.From, nil, nil)
+}
+
+func getNodeIdentity(listener *reqresp.Listener, discoverer *discovery.Discoverer) *proto_defs.NodeIdentity {
+	peerId := listener.HostId()
+	// TODO: pass only raw peer ID
+	// Pretty-printed peer ID
+	prettyPeerId := []byte(listener.Host().ID().String())
+	enr := discoverer.GetEnr()
+	p2pAddresses := listener.GetAddresses()
+	discoveryAddresses := discoverer.GetAddresses()
+
+	return &proto_defs.NodeIdentity{PeerId: []byte(peerId), Enr: enr, P2PAddresses: p2pAddresses, DiscoveryAddresses: discoveryAddresses, PrettyPeerId: prettyPeerId}
 }
 
 func commandServer() {

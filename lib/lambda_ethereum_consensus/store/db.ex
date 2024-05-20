@@ -18,10 +18,23 @@ defmodule LambdaEthereumConsensus.Store.Db do
     Exleveldb.put(ref, key, value)
   end
 
+  @spec delete(binary) :: :ok
+  def delete(key) do
+    ref = GenServer.call(@registered_name, :get_ref)
+    Exleveldb.delete(ref, key)
+  end
+
   @spec get(binary) :: {:ok, binary} | :not_found
   def get(key) do
     ref = GenServer.call(@registered_name, :get_ref)
     Exleveldb.get(ref, key)
+  end
+
+  @spec size() :: non_neg_integer()
+  def size() do
+    ref = GenServer.call(@registered_name, :get_ref)
+    {:ok, size} = :eleveldb.status(ref, "leveldb.total-bytes")
+    String.to_integer(size)
   end
 
   @spec iterate() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
