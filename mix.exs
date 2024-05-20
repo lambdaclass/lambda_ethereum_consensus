@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:open_api_spex, "~> 3.18"},
       {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-32"},
       {:recode, "~> 0.7", only: [:dev, :test]},
-      {:sentry, "~> 10.5.0"},
+      {:sentry, "~> 10.6.0"},
       {:prometheus_ex, "~> 3.1"},
       {:prometheus_plugs, "~> 1.1"},
       {:prometheus_process_collector,
