@@ -41,24 +41,25 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
            Exleveldb.iterator_move(it, last_finalized_key),
          {:ok, slots_to_remove} <- get_slots_to_remove(it),
          :ok <- Exleveldb.iterator_close(it) do
-      slots_to_remove |> Enum.each(&remove_by_slot/1)
+      slots_to_remove |> Enum.each(&remove_state_by_slot/1)
       Logger.info("[StateDb] Pruning finished. #{length(slots_to_remove)} slots removed.")
     end
   end
 
-  @spec get_slots_to_remove(list(), :eleveldb.itr_ref()) :: {:ok, list(non_neg_integer())}
+  @spec get_slots_to_remove(list(non_neg_integer()), :eleveldb.itr_ref()) ::
+          {:ok, list(non_neg_integer())}
   defp get_slots_to_remove(slots_to_remove \\ [], iterator) do
     case Exleveldb.iterator_move(iterator, :prev) do
-      {:ok, @stateslot_prefix <> slot, _root} ->
-        [slot |> :binary.decode_unsigned() | slots_to_remove] |> get_slots_to_remove(iterator)
+      {:ok, @stateslot_prefix <> <<slot::unsigned-size(64)>>, _root} ->
+        [slot | slots_to_remove] |> get_slots_to_remove(iterator)
 
       _ ->
         {:ok, slots_to_remove}
     end
   end
 
-  @spec remove_by_slot(non_neg_integer()) :: :ok | :not_found
-  defp remove_by_slot(slot) do
+  @spec remove_state_by_slot(non_neg_integer()) :: :ok | :not_found
+  defp remove_state_by_slot(slot) do
     key_slot = root_by_slot_key(slot)
 
     with {:ok, block_root} <- Db.get(key_slot),
