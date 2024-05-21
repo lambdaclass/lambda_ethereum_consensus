@@ -14,11 +14,11 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Validator.BlockBuilder
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
-  alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
 
   @default_graffiti_message "Lambda, so gentle, so good"
@@ -28,8 +28,8 @@ defmodule LambdaEthereumConsensus.Validator do
   ##########################
 
   def start_link({_, _, {pubkey, _}} = opts) do
-    # TODO: if possible, use validator index instead of pubkey
-    name = Atom.to_string(__MODULE__) <> "_" <> Base.encode16(pubkey, case: :lower)
+    # TODO: if possible, use validator index instead of pubkey?
+    name = Atom.to_string(__MODULE__) <> Utils.format_shorten_binary(pubkey)
     GenServer.start_link(__MODULE__, opts, name: String.to_atom(name))
   end
 
@@ -520,7 +520,7 @@ defmodule LambdaEthereumConsensus.Validator do
           "[Validator] Failed to start building payload for slot #{proposed_slot}. Reason: #{reason}"
         )
 
-        state
+        %{state | payload_builder: nil}
     end
   end
 
@@ -533,7 +533,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp propose(%{payload_builder: nil} = state, _proposed_slot) do
-    Logger.error("[Validator] Tried to propose a block without a payload builder")
+    Logger.error("[Validator] Tried to propose a block without an execution payload")
     state
   end
 

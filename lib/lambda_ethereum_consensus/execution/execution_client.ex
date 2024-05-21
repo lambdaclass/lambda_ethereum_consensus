@@ -64,8 +64,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   """
   def notify_forkchoice_updated(fork_choice_state, payload_attributes) do
     case EngineApi.forkchoice_updated(fork_choice_state, payload_attributes) do
-      {:ok, %{"payload_id" => nil, "payload_status" => %{"status" => status}}} ->
-        {:error, "No payload id, status is #{parse_status(status)}"}
+      {:ok, %{"payload_id" => nil, "payload_status" => payload_status}} ->
+        {:error, "No payload id, status is #{inspect(payload_status)}"}
 
       {:ok, %{"payload_id" => payload_id, "payload_status" => %{"status" => "VALID"}}} ->
         {:ok, payload_id}

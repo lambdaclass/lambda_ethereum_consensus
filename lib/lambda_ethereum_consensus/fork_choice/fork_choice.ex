@@ -14,7 +14,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
-  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.Attestation
   alias Types.BeaconState
