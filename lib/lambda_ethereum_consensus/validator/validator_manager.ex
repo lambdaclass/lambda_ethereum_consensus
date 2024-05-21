@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Validator.Supervisor do
+defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   @moduledoc false
 
   use Supervisor
@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.Validator.Supervisor do
 
     if keystore_dir == nil or keystore_pass_dir == nil do
       Logger.warning(
-        "[Validator] No keystore_dir or keystore_pass_dir provided. Validator will not start."
+        "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
       )
 
       :ignore
@@ -69,7 +69,7 @@ defmodule LambdaEthereumConsensus.Validator.Supervisor do
       rescue
         error ->
           Logger.error(
-            "[Validator] Failed to decode keystore file: #{keystore_file}. Pass file: #{keystore_pass_file} Error: #{inspect(error)}"
+            "[Validator Manager] Failed to decode keystore file: #{keystore_file}. Pass file: #{keystore_pass_file} Error: #{inspect(error)}"
           )
 
           nil

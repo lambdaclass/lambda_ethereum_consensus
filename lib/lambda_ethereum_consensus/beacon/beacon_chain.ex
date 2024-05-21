@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Validator
+  alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.BeaconState
   alias Types.Checkpoint
 
@@ -248,7 +248,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
       GenServer.cast(subscriber, {:on_tick, logical_time})
     end)
 
-    Validator.Supervisor.notify_tick(logical_time)
+    ValidatorManager.notify_tick(logical_time)
   end
 
   defp log_new_slot({slot, :first_third}) do

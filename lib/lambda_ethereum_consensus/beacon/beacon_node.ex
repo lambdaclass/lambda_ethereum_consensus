@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Validator
+  alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.BeaconState
 
   def start_link(opts) do
@@ -69,7 +69,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     %BeaconState{eth1_data_votes: votes} = BlockStates.get_state!(head_root)
     # TODO: move checkpoint sync outside and move this to application.ex
     [
-      {Validator.Supervisor, {slot, head_root}},
+      {ValidatorManager, {slot, head_root}},
       {LambdaEthereumConsensus.Execution.ExecutionChain, {genesis_time, snapshot, votes}}
     ]
   end

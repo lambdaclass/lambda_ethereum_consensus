@@ -15,6 +15,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
   alias LambdaEthereumConsensus.Validator
+  alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.Attestation
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -186,7 +187,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     %{slot: slot, body: body} = head_block
 
     OperationsCollector.notify_new_block(head_block)
-    Validator.Supervisor.notify_new_block(slot, head_root)
+    ValidatorManager.notify_new_block(slot, head_root)
     ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
 
     BeaconChain.update_fork_choice_cache(
