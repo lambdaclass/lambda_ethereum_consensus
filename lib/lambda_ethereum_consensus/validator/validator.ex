@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.Validator do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
@@ -230,7 +231,7 @@ defmodule LambdaEthereumConsensus.Validator do
         old -> old |> Enum.reverse() |> Enum.take(1)
       end
 
-    %{duties | attester: attester_duties, proposer: old_duty ++ proposer_duties}
+    %{duties | attester: attester_duties, proposer: Enum.dedup(old_duty ++ proposer_duties)}
   end
 
   defp maybe_update_attester_duties([epp, ep0, ep1], beacon_state, epoch, validator) do
@@ -280,14 +281,14 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp join(subnets) do
     if not Enum.empty?(subnets) do
-      Logger.info("Joining subnets: #{Enum.join(subnets, ", ")}")
+      Logger.debug("Joining subnets: #{Enum.join(subnets, ", ")}")
       Enum.each(subnets, &Gossip.Attestation.join/1)
     end
   end
 
   defp leave(subnets) do
     if not Enum.empty?(subnets) do
-      Logger.info("Leaving subnets: #{Enum.join(subnets, ", ")}")
+      Logger.debug("Leaving subnets: #{Enum.join(subnets, ", ")}")
       Enum.each(subnets, &Gossip.Attestation.leave/1)
     end
   end
@@ -556,6 +557,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     case build_result do
       {:ok, {signed_block, blob_sidecars}} ->
+        PendingBlocks.add_block(signed_block)
         publish_block(signed_block)
         Enum.each(blob_sidecars, &publish_sidecar/1)
 
