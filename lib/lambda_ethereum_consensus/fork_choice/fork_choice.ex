@@ -89,12 +89,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
         %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
 
-        if last_finalized_checkpoint.epoch < new_finalized_checkpoint.epoch do
-          new_finalized_slot =
-            new_finalized_checkpoint.epoch * ChainSpec.get("SLOTS_PER_EPOCH")
-
-          Task.async(StateDb, :prune_states_older_than, [new_finalized_slot])
-        end
+        prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
 
         GenServer.cast(from, {:block_processed, block_root, true})
         {:noreply, new_store}
@@ -139,7 +134,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @impl GenServer
   def handle_cast({:on_tick, time}, store) do
+    %Store{finalized_checkpoint: last_finalized_checkpoint} = store
+
     new_store = Handlers.on_tick(store, time)
+    %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
+    prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
     {:noreply, new_store}
   end
 
@@ -151,6 +150,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ##########################
   ### Private Functions
   ##########################
+
+  def prune_old_states(last_finalized_epoch, new_finalized_epoch) do
+    if last_finalized_epoch < new_finalized_epoch do
+      new_finalized_slot =
+        new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+
+      Task.async(StateDb, :prune_states_older_than, [new_finalized_slot])
+    end
+  end
 
   @spec apply_handler(any(), any(), any()) :: any()
   def apply_handler(iter, state, handler) do
