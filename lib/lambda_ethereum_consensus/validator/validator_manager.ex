@@ -24,13 +24,13 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
 
       :ignore
     else
-      validator_keys = get_validator_keys(keystore_dir, keystore_pass_dir)
+      validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
 
       children =
         validator_keys
         |> Enum.map(fn {pubkey, privkey} ->
           Supervisor.child_spec({Validator, {slot, head_root, {pubkey, privkey}}},
-            id: pubkey |> Base.encode16(case: :lower) |> String.to_atom()
+            id: pubkey
           )
         end)
 
@@ -58,8 +58,8 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
       - <keystore_dir>/<public_key>.json
       - <keystore_pass_dir>/<public_key>.txt
   """
-  @spec get_validator_keys(binary(), binary()) :: list({Bls.pubkey(), Bls.privkey()})
-  defp get_validator_keys(keystore_dir, keystore_pass_dir) do
+  @spec decode_validator_keys(binary(), binary()) :: list({Bls.pubkey(), Bls.privkey()})
+  def decode_validator_keys(keystore_dir, keystore_pass_dir) do
     File.ls!(keystore_dir)
     |> Enum.map(fn filename ->
       if String.ends_with?(filename, ".json") do

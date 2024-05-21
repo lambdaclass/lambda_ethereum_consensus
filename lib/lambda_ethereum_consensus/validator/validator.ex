@@ -6,7 +6,6 @@ defmodule LambdaEthereumConsensus.Validator do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
@@ -556,7 +555,6 @@ defmodule LambdaEthereumConsensus.Validator do
 
     case build_result do
       {:ok, {signed_block, blob_sidecars}} ->
-        PendingBlocks.add_block(signed_block)
         publish_block(signed_block)
         Enum.each(blob_sidecars, &publish_sidecar/1)
 
