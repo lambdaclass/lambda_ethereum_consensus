@@ -40,7 +40,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
            Exleveldb.iterator_move(it, last_finalized_key),
          {:ok, slots_to_remove} <- get_slots_to_remove(it),
          :ok <- Exleveldb.iterator_close(it) do
-      slots_to_remove |> Enum.map(&remove_by_slot/1)
+      slots_to_remove |> Enum.each(&remove_by_slot/1)
       Logger.info("[StateDb] Pruning finished. #{length(slots_to_remove)} slots removed.")
     end
   end
@@ -55,7 +55,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     end
   end
 
-  def remove_by_slot(slot) do
+  defp remove_by_slot(slot) do
     key_slot = root_by_slot_key(slot)
 
     with {:ok, block_root} <- Db.get(key_slot),
