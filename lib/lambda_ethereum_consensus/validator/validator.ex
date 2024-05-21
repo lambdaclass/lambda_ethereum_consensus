@@ -14,11 +14,11 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Validator.BlockBuilder
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
+  alias LambdaEthereumConsensus.Validator.Utils
   alias Types.Attestation
 
   @default_graffiti_message "Lambda, so gentle, so good"
@@ -29,7 +29,9 @@ defmodule LambdaEthereumConsensus.Validator do
 
   def start_link({_, _, {pubkey, _}} = opts) do
     # TODO: if possible, use validator index instead of pubkey?
-    name = Atom.to_string(__MODULE__) <> Utils.format_shorten_binary(pubkey)
+    name =
+      Atom.to_string(__MODULE__) <> LambdaEthereumConsensus.Utils.format_shorten_binary(pubkey)
+
     GenServer.start_link(__MODULE__, opts, name: String.to_atom(name))
   end
 
@@ -44,7 +46,7 @@ defmodule LambdaEthereumConsensus.Validator do
           slot: Types.slot(),
           root: Types.root(),
           duties: %{
-            attester: list(:not_computed),
+            attester: list(:not_computed | Types.epoch()),
             proposer: :not_computed | list(Types.slot())
           },
           validator: any(),
@@ -231,7 +233,7 @@ defmodule LambdaEthereumConsensus.Validator do
         old -> old |> Enum.reverse() |> Enum.take(1)
       end
 
-    %{duties | attester: attester_duties, proposer: Enum.dedup(old_duty ++ proposer_duties)}
+    %{duties | attester: attester_duties, proposer: old_duty ++ proposer_duties}
   end
 
   defp maybe_update_attester_duties([epp, ep0, ep1], beacon_state, epoch, validator) do
