@@ -153,7 +153,25 @@ config :lambda_ethereum_consensus, BeaconApi.Endpoint,
     layout: false
   ]
 
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator.Supervisor,
+# Validator setup
+
+if (keystore_dir != nil and keystore_pass_dir == nil) or
+     (keystore_pass_dir !== nil and keystore_dir == nil) do
+  IO.puts("Both keystore_dir and keystore_pass_dir must be provided.")
+  System.halt(2)
+end
+
+if keystore_dir != nil and not File.dir?(keystore_dir) do
+  IO.puts("Keystore directory not found: #{keystore_dir}")
+  System.halt(2)
+end
+
+if keystore_pass_dir != nil and not File.dir?(keystore_pass_dir) do
+  IO.puts("Keystore password directory not found: #{keystore_pass_dir}")
+  System.halt(2)
+end
+
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator.ValidatorManager,
   keystore_dir: keystore_dir,
   keystore_pass_dir: keystore_pass_dir
 
