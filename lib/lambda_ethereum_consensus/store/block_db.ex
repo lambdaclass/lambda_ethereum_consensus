@@ -96,7 +96,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
         &close_cursor/1
       )
       |> Enum.to_list()
-      |> IO.inspect()
 
     slots_to_remove |> Enum.each(&remove_block_by_slot/1)
     Logger.info("[BlockDb] Pruning finished. #{Enum.count(slots_to_remove)} blocks removed.")
