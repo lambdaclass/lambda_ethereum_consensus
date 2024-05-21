@@ -534,17 +534,14 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp propose(%{payload_builder: nil} = state, _proposed_slot) do
-    Logger.error("[Validator] Tried to propose a block without an execution payload")
-    state
-  end
-
   defp propose(
-         %{root: head_root, validator: validator, payload_builder: payload_builder} = state,
+         %{
+           root: head_root,
+           validator: validator,
+           payload_builder: {proposed_slot, head_root, payload_id}
+         } = state,
          proposed_slot
        ) do
-    {^proposed_slot, ^head_root, payload_id} = payload_builder
-
     build_result =
       BlockBuilder.build_block(
         %BuildBlockRequest{
@@ -570,6 +567,19 @@ defmodule LambdaEthereumConsensus.Validator do
     end
 
     %{state | payload_builder: nil}
+  end
+
+  defp propose(%{payload_builder: nil} = state, _proposed_slot) do
+    Logger.error("[Validator] Tried to propose a block without an execution payload")
+    state
+  end
+
+  defp propose(state, proposed_slot) do
+    Logger.error(
+      "[Validator] Skipping block proposal for slot #{proposed_slot} due to missing validator data"
+    )
+
+    state
   end
 
   # TODO: there's a lot of repeated code here. We should move this to a separate module
