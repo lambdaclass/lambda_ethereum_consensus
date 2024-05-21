@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   @moduledoc """
   Storage and retrieval of blocks.
   """
+  require Logger
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.SignedBeaconBlock
@@ -83,11 +84,38 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     |> Stream.transform(nil, &get_missing_asc/2)
   end
 
+  @spec prune_blocks_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
+  def prune_blocks_older_than(slot) do
+    Logger.info("[BlockDb] Pruning started.", slot: slot)
+    initial_key = slot |> block_root_by_slot_key()
+
+    slots_to_remove =
+      Stream.resource(
+        fn -> init_keycursor(initial_key) end,
+        &next_slot(&1, :prev),
+        &close_cursor/1
+      )
+      |> Enum.to_list()
+      |> IO.inspect()
+
+    slots_to_remove |> Enum.each(&remove_block_by_slot/1)
+    Logger.info("[BlockDb] Pruning finished. #{Enum.count(slots_to_remove)} blocks removed.")
+  end
+
+  @spec remove_block_by_slot(non_neg_integer()) :: :ok | :not_found
+  defp remove_block_by_slot(slot) do
+    slothash_key = block_root_by_slot_key(slot)
+
+    with {:ok, block_root} <- Db.get(slothash_key) do
+      key_block = block_key(block_root)
+      Db.delete(slothash_key)
+      Db.delete(key_block)
+    end
+  end
+
   defp init_keycursor(initial_key) do
     with {:ok, it} <- Db.iterate_keys(),
-         {:ok, key} <- Exleveldb.iterator_move(it, initial_key),
-         {:ok, _} <-
-           if(key == initial_key, do: Exleveldb.iterator_move(it, :prev), else: {:ok, nil}) do
+         {:ok, _key} <- Exleveldb.iterator_move(it, initial_key) do
       it
     else
       # DB is empty
