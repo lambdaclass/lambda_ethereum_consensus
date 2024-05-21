@@ -52,18 +52,31 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
     |> Enum.each(fn {_, pid, _, _} -> GenServer.cast(pid, msg) end)
   end
 
+  @doc """
+    Get validator keys from the keystore directory.
+    This function expects two files for each validator:
+      - <keystore_dir>/<public_key>.json
+      - <keystore_pass_dir>/<public_key>.txt
+  """
   @spec get_validator_keys(binary(), binary()) :: list({Bls.pubkey(), Bls.privkey()})
   defp get_validator_keys(keystore_dir, keystore_pass_dir) do
-    keystore_files = File.ls!(keystore_dir) |> Enum.sort()
-    keystore_pass_files = File.ls!(keystore_pass_dir) |> Enum.sort()
+    File.ls!(keystore_dir)
+    |> Enum.map(fn filename ->
+      if String.ends_with?(filename, ".json") do
+        base_name = String.trim_trailing(filename, ".json")
 
-    Enum.zip(keystore_files, keystore_pass_files)
+        keystore_file = Path.join(keystore_dir, "#{base_name}.json")
+        keystore_pass_file = Path.join(keystore_pass_dir, "#{base_name}.txt")
+
+        {keystore_file, keystore_pass_file}
+      else
+        Logger.warning("[Validator Manager] Skipping file: #{filename}. Not a keystore file.")
+        nil
+      end
+    end)
+    |> Enum.filter(&is_tuple/1)
     |> Enum.map(fn {keystore_file, keystore_pass_file} ->
-      keystore_file = Path.join(keystore_dir, keystore_file)
-      keystore_pass_file = Path.join(keystore_pass_dir, keystore_pass_file)
-
       # TODO: remove `try` and handle errors properly
-      # TODO: match keystore file and pass file based on name
       try do
         Keystore.decode_from_files!(keystore_file, keystore_pass_file)
       rescue
