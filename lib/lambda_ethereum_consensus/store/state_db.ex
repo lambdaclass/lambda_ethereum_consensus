@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   @moduledoc """
   Beacon node state storage.
   """
+  require Logger
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.BeaconState
@@ -30,7 +31,9 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     Db.put(slothash_key_block, block_root)
   end
 
+  @spec prune_states_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
   def prune_states_older_than(slot) do
+    Logger.info("[StateDb] Pruning started.", slot: slot)
     last_finalized_key = slot |> root_by_slot_key()
 
     with {:ok, it} <- Db.iterate(),
@@ -38,13 +41,16 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
            Exleveldb.iterator_move(it, last_finalized_key),
          {:ok, slots_to_remove} <- get_slots_to_remove(it),
          :ok <- Exleveldb.iterator_close(it) do
-      slots_to_remove |> Enum.map(&remove_by_slot/1)
+      slots_to_remove |> Enum.each(&remove_state_by_slot/1)
+      Logger.info("[StateDb] Pruning finished. #{length(slots_to_remove)} slots removed.")
     end
   end
 
+  @spec get_slots_to_remove(list(non_neg_integer()), :eleveldb.itr_ref()) ::
+          {:ok, list(non_neg_integer())}
   defp get_slots_to_remove(slots_to_remove \\ [], iterator) do
     case Exleveldb.iterator_move(iterator, :prev) do
-      {:ok, @stateslot_prefix <> slot, _root} ->
+      {:ok, @stateslot_prefix <> <<slot::unsigned-size(64)>>, _root} ->
         [slot | slots_to_remove] |> get_slots_to_remove(iterator)
 
       _ ->
@@ -52,8 +58,8 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     end
   end
 
-  defp remove_by_slot(binary_slot) do
-    slot = :binary.decode_unsigned(binary_slot)
+  @spec remove_state_by_slot(non_neg_integer()) :: :ok | :not_found
+  defp remove_state_by_slot(slot) do
     key_slot = root_by_slot_key(slot)
 
     with {:ok, block_root} <- Db.get(key_slot),
