@@ -10,23 +10,32 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @dialyzer {:nowarn_function, {:init, 1}}
   @impl true
   def init({slot, head_root}) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
-
     keystore_dir = Keyword.get(config, :keystore_dir)
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir)
+
     validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
 
-    children =
-      validator_keys
-      |> Enum.map(fn {pubkey, privkey} ->
-        Supervisor.child_spec({Validator, {slot, head_root, {pubkey, privkey}}},
-          id: pubkey
-        )
-      end)
+    if is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
+      Logger.warning(
+        "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
+      )
 
-    Supervisor.init(children, strategy: :one_for_one)
+      :ignore
+    else
+      children =
+        validator_keys
+        |> Enum.map(fn {pubkey, privkey} ->
+          Supervisor.child_spec({Validator, {slot, head_root, {pubkey, privkey}}},
+            id: pubkey
+          )
+        end)
+
+      Supervisor.init(children, strategy: :one_for_one)
+    end
   end
 
   def notify_new_block(slot, head_root) do
@@ -49,7 +58,8 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
       - <keystore_dir>/<public_key>.json
       - <keystore_pass_dir>/<public_key>.txt
   """
-  @spec decode_validator_keys(binary(), binary()) :: list({Bls.pubkey(), Bls.privkey()})
+  @spec decode_validator_keys(binary(), binary()) ::
+          list({Bls.pubkey(), Bls.privkey()})
   def decode_validator_keys(keystore_dir, keystore_pass_dir)
       when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
     File.ls!(keystore_dir)
