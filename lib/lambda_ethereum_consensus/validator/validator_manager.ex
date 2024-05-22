@@ -74,7 +74,7 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
         nil
       end
     end)
-    |> Enum.filter(&is_tuple/1)
+    |> Enum.reject(&is_nil)
     |> Enum.map(fn {keystore_file, keystore_pass_file} ->
       # TODO: remove `try` and handle errors properly
       try do
@@ -88,6 +88,6 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
           nil
       end
     end)
-    |> Enum.filter(&is_tuple/1)
+    |> Enum.reject(&is_nil)
   end
 end
