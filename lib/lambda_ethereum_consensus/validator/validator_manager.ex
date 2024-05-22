@@ -13,20 +13,28 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   @impl true
   def init({slot, head_root}) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
-
     keystore_dir = Keyword.get(config, :keystore_dir)
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir)
-    validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
 
-    children =
-      validator_keys
-      |> Enum.map(fn {pubkey, privkey} ->
-        Supervisor.child_spec({Validator, {slot, head_root, {pubkey, privkey}}},
-          id: pubkey
-        )
-      end)
+    if is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
+      Logger.warning(
+        "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
+      )
 
-    Supervisor.init(children, strategy: :one_for_one)
+      :ignore
+    else
+      validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
+
+      children =
+        validator_keys
+        |> Enum.map(fn {pubkey, privkey} ->
+          Supervisor.child_spec({Validator, {slot, head_root, {pubkey, privkey}}},
+            id: pubkey
+          )
+        end)
+
+      Supervisor.init(children, strategy: :one_for_one)
+    end
   end
 
   def notify_new_block(slot, head_root) do
@@ -38,9 +46,15 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   end
 
   defp cast_to_children(msg) do
-    __MODULE__
-    |> Supervisor.which_children()
-    |> Enum.each(fn {_, pid, _, _} -> GenServer.cast(pid, msg) end)
+    case Process.whereis(__MODULE__) do
+      nil ->
+        # No active validators
+        nil
+
+      pid ->
+        Supervisor.which_children(pid)
+        |> Enum.each(fn {_, pid, _, _} -> GenServer.cast(pid, msg) end)
+    end
   end
 
   @doc """
@@ -49,8 +63,10 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
       - <keystore_dir>/<public_key>.json
       - <keystore_pass_dir>/<public_key>.txt
   """
-  @spec decode_validator_keys(binary(), binary()) :: list({Bls.pubkey(), Bls.privkey()})
-  def decode_validator_keys(keystore_dir, keystore_pass_dir) do
+  @spec decode_validator_keys(binary(), binary()) ::
+          list({Bls.pubkey(), Bls.privkey()})
+  def decode_validator_keys(keystore_dir, keystore_pass_dir)
+      when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
     File.ls!(keystore_dir)
     |> Enum.map(fn filename ->
       if String.ends_with?(filename, ".json") do

@@ -76,7 +76,8 @@ ENV MIX_ENV=prod
 # To avoid recompiling rustler NIFs
 ENV RUSTLER_SKIP_COMPILE=yes
 
-RUN mix local.hex --force
+# https://github.com/hexpm/hex/issues/1029#issuecomment-2124545292
+RUN mix local.hex 2.0.6 --force
 
 # Install dependencies
 RUN apt-get update && apt-get install -y cmake protobuf-compiler
