@@ -24,7 +24,7 @@ defmodule Keystore do
 
     privkey = decrypt!(decoded_json["crypto"], password)
 
-    pubkey = Map.fetch!(decoded_json, "pubkey") |> parse_binary!()
+    pubkey = Map.get(decoded_json, "pubkey") |> parse_binary!()
 
     {:ok, derived_pubkey} = Bls.derive_pubkey(privkey)
 
