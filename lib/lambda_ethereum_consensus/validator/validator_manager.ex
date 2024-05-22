@@ -16,26 +16,17 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
 
     keystore_dir = Keyword.get(config, :keystore_dir)
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir)
+    validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
 
-    if keystore_dir == nil or keystore_pass_dir == nil do
-      Logger.warning(
-        "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
-      )
+    children =
+      validator_keys
+      |> Enum.map(fn {pubkey, privkey} ->
+        Supervisor.child_spec({Validator, {slot, head_root, {pubkey, privkey}}},
+          id: pubkey
+        )
+      end)
 
-      :ignore
-    else
-      validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
-
-      children =
-        validator_keys
-        |> Enum.map(fn {pubkey, privkey} ->
-          Supervisor.child_spec({Validator, {slot, head_root, {pubkey, privkey}}},
-            id: pubkey
-          )
-        end)
-
-      Supervisor.init(children, strategy: :one_for_one)
-    end
+    Supervisor.init(children, strategy: :one_for_one)
   end
 
   def notify_new_block(slot, head_root) do
