@@ -30,6 +30,13 @@ defmodule LambdaEthereumConsensus.Store.Db do
     Exleveldb.get(ref, key)
   end
 
+  @spec size() :: non_neg_integer()
+  def size() do
+    ref = GenServer.call(@registered_name, :get_ref)
+    {:ok, size} = :eleveldb.status(ref, "leveldb.total-bytes")
+    String.to_integer(size)
+  end
+
   @spec iterate() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
   def iterate() do
     ref = GenServer.call(@registered_name, :get_ref)

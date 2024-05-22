@@ -23,8 +23,15 @@ defmodule Keystore do
     validate_empty_path!(decoded_json["path"])
 
     privkey = decrypt!(decoded_json["crypto"], password)
-    # TODO: derive from privkey and validate with this pubkey
+
     pubkey = Map.fetch!(decoded_json, "pubkey") |> parse_binary!()
+
+    {:ok, derived_pubkey} = Bls.derive_pubkey(privkey)
+
+    if derived_pubkey != pubkey do
+      raise("Keystore secret and public keys don't form a valid pair")
+    end
+
     {pubkey, privkey}
   end
 

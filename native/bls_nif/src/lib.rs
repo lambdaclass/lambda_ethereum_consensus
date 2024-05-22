@@ -161,6 +161,17 @@ fn key_validate<'env>(public_key: Binary) -> Result<bool, String> {
 
     Ok(true)
 }
+#[rustler::nif]
+fn derive_pubkey<'env>(env: Env<'env>, private_key: Binary) -> Result<Binary<'env>, String> {
+    let sk = match SecretKey::deserialize(private_key.as_slice()) {
+        Ok(sk) => sk,
+        Err(e) => return Err(format!("{:?}", e)),
+    };
+    let public_key = sk.public_key();
+    let public_key_bytes = public_key.serialize();
+
+    Ok(bytes_to_binary(env, &public_key_bytes))
+}
 
 rustler::init!(
     "Elixir.Bls",
@@ -172,6 +183,7 @@ rustler::init!(
         eth_fast_aggregate_verify,
         eth_aggregate_pubkeys,
         verify,
-        key_validate
+        key_validate,
+        derive_pubkey
     ]
 );
