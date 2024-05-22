@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
          {:ok, slots_to_remove} <- get_slots_to_remove(it),
          :ok <- Exleveldb.iterator_close(it) do
       slots_to_remove |> Enum.each(&remove_state_by_slot/1)
-      Logger.info("[StateDb] Pruning finished. #{length(slots_to_remove)} slots removed.")
+      Logger.info("[StateDb] Pruning finished. #{length(slots_to_remove)} states removed.")
     end
   end
 
