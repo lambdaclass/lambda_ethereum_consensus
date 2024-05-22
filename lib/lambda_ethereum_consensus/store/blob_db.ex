@@ -92,8 +92,7 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
           {:ok, list(binary())}
   defp get_block_root_keys_to_remove(keys_to_remove \\ [], iterator) do
     case Exleveldb.iterator_move(iterator, :prev) do
-      {:ok, <<@block_root_prefix, slot::unsigned-size(64), index::binary>> = block_root_key,
-       _root} ->
+      {:ok, <<@block_root_prefix, _rest::binary>> = block_root_key, _root} ->
         [block_root_key | keys_to_remove] |> get_block_root_keys_to_remove(iterator)
 
       _ ->
