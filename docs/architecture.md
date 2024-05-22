@@ -121,6 +121,43 @@ Also, there's a more complex case: we can only include a block in the fork tree 
 
 **TO DO**: document checkpoint sync.
 
+## Processes
+
+In terms of elixir, this is our current supervision tree:
+
+```mermaid
+graph LR
+
+
+Application --> Telemetry
+Application --> DB
+Application --> Blocks
+Application --> BlockStates
+
+
+Application --> Metadata
+Application --> BeaconNode
+Application --> BeaconApi.Endpoint
+
+BeaconNode -->|genesis_time,<br>genesis_validators_root,<br> fork_choice_data, time| BeaconChain 
+BeaconNode -->|store, head_slot| ForkChoice
+BeaconNode -->|listen_addr, <br>enable_discovery, <br> discovery_addr, <br>bootnodes| P2P.Libp2pPort
+BeaconNode --> P2P.Peerbook
+BeaconNode --> P2P.IncomingRequests
+BeaconNode --> PendingBlocks
+BeaconNode --> SyncBlocks
+BeaconNode --> Attestation
+BeaconNode --> BeaconBlock
+BeaconNode --> BlobSideCar
+BeaconNode --> OperationsCollector
+BeaconNode -->|slot, head_root| ValidatorManager
+BeaconNode --> ExecutionChain
+ValidatorManager --> ValidatorN
+
+P2P.IncomingRequests --> IncomingRequests.Handler
+P2P.IncomingRequests --> IncomingRequests.Receiver
+```
+
 ## Next document
 
 Let's go over [Fork Choice](fork_choice.md) to see a theoretical explanation of LMD GHOST.
