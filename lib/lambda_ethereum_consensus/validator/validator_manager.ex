@@ -50,7 +50,8 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
       - <keystore_pass_dir>/<public_key>.txt
   """
   @spec decode_validator_keys(binary(), binary()) :: list({Bls.pubkey(), Bls.privkey()})
-  def decode_validator_keys(keystore_dir, keystore_pass_dir) do
+  def decode_validator_keys(keystore_dir, keystore_pass_dir)
+      when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
     File.ls!(keystore_dir)
     |> Enum.map(fn filename ->
       if String.ends_with?(filename, ".json") do
