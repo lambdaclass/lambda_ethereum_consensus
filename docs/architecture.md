@@ -158,6 +158,8 @@ P2P.IncomingRequests --> IncomingRequests.Handler
 P2P.IncomingRequests --> IncomingRequests.Receiver
 ```
 
+Each box is a process. If it has children, it's a supervisor. If not, it's a GenServer, task, or other non-supervisor process. The tags in the edges/arrows are the init args passed on children init (start or restart after crash).
+
 ## Next document
 
 Let's go over [Fork Choice](fork_choice.md) to see a theoretical explanation of LMD GHOST.
