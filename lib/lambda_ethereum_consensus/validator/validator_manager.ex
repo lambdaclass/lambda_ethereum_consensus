@@ -10,14 +10,11 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @dialyzer {:nowarn_function, {:init, 1}}
   @impl true
   def init({slot, head_root}) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
     keystore_dir = Keyword.get(config, :keystore_dir)
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir)
-
-    validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
 
     if is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
       Logger.warning(
@@ -26,6 +23,8 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
 
       :ignore
     else
+      validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
+
       children =
         validator_keys
         |> Enum.map(fn {pubkey, privkey} ->
@@ -47,9 +46,15 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   end
 
   defp cast_to_children(msg) do
-    __MODULE__
-    |> Supervisor.which_children()
-    |> Enum.each(fn {_, pid, _, _} -> GenServer.cast(pid, msg) end)
+    case Process.whereis(__MODULE__) do
+      nil ->
+        # No active validators
+        nil
+
+      pid ->
+        Supervisor.which_children(pid)
+        |> Enum.each(fn {_, pid, _, _} -> GenServer.cast(pid, msg) end)
+    end
   end
 
   @doc """
