@@ -127,14 +127,16 @@ In terms of elixir, this is our current supervision tree:
 
 ```mermaid
 graph LR
-
+Application[Application <br> <:one_for_one>]
+BeaconNode[BeaconNode <br> <:one_for_all>]
+P2P.IncomingRequests[P2P.IncomingRequests <br> <:one_for_one>]
+ValidatorManager[ValidatorManager <br> <:one_for_one>]
+Telemetry[Telemetry <br> <:one_for_one>]
 
 Application --> Telemetry
 Application --> DB
 Application --> Blocks
 Application --> BlockStates
-
-
 Application --> Metadata
 Application --> BeaconNode
 Application --> BeaconApi.Endpoint
@@ -156,6 +158,9 @@ ValidatorManager --> ValidatorN
 
 P2P.IncomingRequests --> IncomingRequests.Handler
 P2P.IncomingRequests --> IncomingRequests.Receiver
+
+Telemetry --> :telemetry_poller
+Telemetry --> TelemetryMetricsPrometheus
 ```
 
 Each box is a process. If it has children, it's a supervisor. If not, it's a GenServer, task, or other non-supervisor process. The tags in the edges/arrows are the init args passed on children init (start or restart after crash).
