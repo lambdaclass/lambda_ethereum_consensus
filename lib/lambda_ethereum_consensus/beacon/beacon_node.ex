@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Validator
+  alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.BeaconState
 
   def start_link(opts) do
@@ -65,17 +65,13 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     []
   end
 
-  defp get_validator_children(snapshot, head_slot, head_root, genesis_time) do
-    if is_nil(Application.get_env(:lambda_ethereum_consensus, Validator)) do
-      []
-    else
-      %BeaconState{eth1_data_votes: votes} = BlockStates.get_state!(head_root)
-      # TODO: move checkpoint sync outside and move this to application.ex
-      [
-        {Validator, {head_slot, head_root}},
-        {LambdaEthereumConsensus.Execution.ExecutionChain, {genesis_time, snapshot, votes}}
-      ]
-    end
+  defp get_validator_children(snapshot, slot, head_root, genesis_time) do
+    %BeaconState{eth1_data_votes: votes} = BlockStates.get_state!(head_root)
+    # TODO: move checkpoint sync outside and move this to application.ex
+    [
+      {ValidatorManager, {slot, head_root}},
+      {LambdaEthereumConsensus.Execution.ExecutionChain, {genesis_time, snapshot, votes}}
+    ]
   end
 
   defp get_libp2p_args() do

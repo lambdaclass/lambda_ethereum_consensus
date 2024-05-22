@@ -26,7 +26,13 @@ defmodule LambdaEthereumConsensus.Validator do
   ### Public API
   ##########################
 
-  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link({_, _, {pubkey, _}} = opts) do
+    # TODO: if possible, use validator index instead of pubkey?
+    name =
+      Atom.to_string(__MODULE__) <> LambdaEthereumConsensus.Utils.format_shorten_binary(pubkey)
+
+    GenServer.start_link(__MODULE__, opts, name: String.to_atom(name))
+  end
 
   def notify_new_block(slot, head_root),
     do: GenServer.cast(__MODULE__, {:new_block, slot, head_root})
@@ -35,29 +41,39 @@ defmodule LambdaEthereumConsensus.Validator do
   ### GenServer Callbacks
   ##########################
 
+  @type state :: %{
+          slot: Types.slot(),
+          root: Types.root(),
+          duties: %{
+            attester: list(:not_computed | Types.epoch()),
+            proposer: :not_computed | list(Types.slot())
+          },
+          validator: any(),
+          payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
+        }
+
   @impl true
-  def init({slot, head_root}) do
-    config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
-
-    validator =
-      case {Keyword.get(config, :pubkey), Keyword.get(config, :privkey)} do
-        {nil, nil} -> nil
-        {pubkey, privkey} -> %{index: nil, privkey: privkey, pubkey: pubkey}
-      end
-
+  @spec init({Types.slot(), Types.root(), {Bls.pubkey(), Bls.privkey()}}) ::
+          {:ok, state, {:continue, any}}
+  def init({head_slot, head_root, {pubkey, privkey}}) do
     state = %{
-      slot: slot,
+      slot: head_slot,
       root: head_root,
       duties: empty_duties(),
-      validator: validator
+      validator: %{
+        pubkey: pubkey,
+        privkey: privkey,
+        index: nil
+      },
+      payload_builder: nil
     }
 
     {:ok, state, {:continue, nil}}
   end
 
-  @impl true
-  def handle_continue(nil, %{validator: nil} = state), do: {:noreply, state}
+  @spec handle_continue(nil, state) :: {:noreply, state}
 
+  @impl true
   def handle_continue(nil, %{slot: slot, root: root} = state) do
     case try_setup_validator(state, slot, root) do
       nil ->
@@ -69,6 +85,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
+  @spec try_setup_validator(state, Types.slot(), Types.root()) :: state | nil
   defp try_setup_validator(state, slot, root) do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state(epoch, root)
@@ -86,6 +103,8 @@ defmodule LambdaEthereumConsensus.Validator do
         %{state | duties: duties, validator: validator}
     end
   end
+
+  @spec handle_cast(any, state) :: {:noreply, state}
 
   @impl true
   def handle_cast(_, %{validator: nil} = state), do: {:noreply, state}
@@ -151,7 +170,8 @@ defmodule LambdaEthereumConsensus.Validator do
   defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
 
   defp update_state(%{slot: slot, root: _other_root} = state, slot, head_root) do
-    Logger.warning("[Validator] Block came late", slot: slot, root: head_root)
+    # TODO: this log is appearing for every block
+    # Logger.warning("[Validator] Block came late", slot: slot, root: head_root)
 
     # TODO: rollback stale data instead of the whole cache
     epoch = Misc.compute_epoch_at_slot(slot + 1)
@@ -186,6 +206,7 @@ defmodule LambdaEthereumConsensus.Validator do
     %{state | slot: slot, root: head_root, duties: new_duties}
   end
 
+  @spec fetch_target_state(Types.epoch(), Types.root()) :: Types.BeaconState.t()
   defp fetch_target_state(epoch, root) do
     {:ok, state} = Handlers.compute_target_checkpoint_state(epoch, root)
     state
@@ -261,14 +282,14 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp join(subnets) do
     if not Enum.empty?(subnets) do
-      Logger.info("Joining subnets: #{Enum.join(subnets, ", ")}")
+      Logger.debug("Joining subnets: #{Enum.join(subnets, ", ")}")
       Enum.each(subnets, &Gossip.Attestation.join/1)
     end
   end
 
   defp leave(subnets) do
     if not Enum.empty?(subnets) do
-      Logger.info("Leaving subnets: #{Enum.join(subnets, ", ")}")
+      Logger.debug("Leaving subnets: #{Enum.join(subnets, ", ")}")
       Enum.each(subnets, &Gossip.Attestation.leave/1)
     end
   end
@@ -278,7 +299,7 @@ defmodule LambdaEthereumConsensus.Validator do
     # Drop the first element, which is the previous epoch's duty
     |> Stream.drop(1)
     |> Enum.each(fn %{index_in_committee: i, committee_index: ci, slot: slot} ->
-      Logger.info(
+      Logger.debug(
         "[Validator] #{validator_index} has to attest in committee #{ci} of slot #{slot} with index #{i}"
       )
     end)
@@ -458,6 +479,8 @@ defmodule LambdaEthereumConsensus.Validator do
     Map.put(duty, :subnet_id, subnet_id)
   end
 
+  @spec fetch_validator_index(Types.BeaconState.t(), %{index: nil, pubkey: Bls.pubkey()}) ::
+          non_neg_integer() | nil
   defp fetch_validator_index(beacon, %{index: nil, pubkey: pk}) do
     Enum.find_index(beacon.validators, &(&1.pubkey == pk))
   end
@@ -488,8 +511,18 @@ defmodule LambdaEthereumConsensus.Validator do
   defp start_payload_builder(state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
     Logger.info("[Validator] Starting to build payload for slot #{proposed_slot}")
-    {:ok, payload_id} = BlockBuilder.start_building_payload(proposed_slot, head_root)
-    %{state | payload_builder: {proposed_slot, head_root, payload_id}}
+
+    case BlockBuilder.start_building_payload(proposed_slot, head_root) do
+      {:ok, payload_id} ->
+        %{state | payload_builder: {proposed_slot, head_root, payload_id}}
+
+      {:error, reason} ->
+        Logger.error(
+          "[Validator] Failed to start building payload for slot #{proposed_slot}. Reason: #{reason}"
+        )
+
+        %{state | payload_builder: nil}
+    end
   end
 
   defp maybe_propose(state, slot) do
@@ -500,9 +533,14 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp propose(%{root: head_root, validator: validator} = state, proposed_slot) do
-    {^proposed_slot, ^head_root, payload_id} = state.block_builder
-
+  defp propose(
+         %{
+           root: head_root,
+           validator: validator,
+           payload_builder: {proposed_slot, head_root, payload_id}
+         } = state,
+         proposed_slot
+       ) do
     build_result =
       BlockBuilder.build_block(
         %BuildBlockRequest{
@@ -527,6 +565,19 @@ defmodule LambdaEthereumConsensus.Validator do
     end
 
     %{state | payload_builder: nil}
+  end
+
+  defp propose(%{payload_builder: nil} = state, _proposed_slot) do
+    Logger.error("[Validator] Tried to propose a block without an execution payload")
+    state
+  end
+
+  defp propose(state, proposed_slot) do
+    Logger.error(
+      "[Validator] Skipping block proposal for slot #{proposed_slot} due to missing validator data"
+    )
+
+    state
   end
 
   # TODO: there's a lot of repeated code here. We should move this to a separate module

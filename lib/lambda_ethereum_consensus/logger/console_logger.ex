@@ -2,6 +2,7 @@ defmodule ConsoleLogger do
   @moduledoc """
   Custom logger formatter for console output.
   """
+  alias LambdaEthereumConsensus.Utils
 
   @pattern Logger.Formatter.compile(" $time $message ")
 
@@ -42,9 +43,7 @@ defmodule ConsoleLogger do
   end
 
   def format_metadata_value(:root, root) do
-    encoded = root |> Base.encode16(case: :lower)
-    # get the first 3 and last 4 characters
-    "0x#{String.slice(encoded, 0, 3)}..#{String.slice(encoded, -4, 4)}"
+    Utils.format_shorten_binary(root)
   end
 
   def format_metadata_value(:slot, slot) do
