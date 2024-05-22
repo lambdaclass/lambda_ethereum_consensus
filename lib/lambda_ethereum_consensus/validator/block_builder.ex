@@ -202,8 +202,16 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   end
 
   defp get_finalized_block_hash(state) do
-    finalized_block = Blocks.get_block!(state.finalized_checkpoint.root)
-    finalized_hash = finalized_block.body.execution_payload.block_hash
+    finalized_root = state.finalized_checkpoint.root
+
+    finalized_hash =
+      if finalized_root == <<0::256>> do
+        <<0::256>>
+      else
+        finalized_block = Blocks.get_block!(state.finalized_checkpoint.root)
+        finalized_block.body.execution_payload.block_hash
+      end
+
     {:ok, finalized_hash}
   end
 

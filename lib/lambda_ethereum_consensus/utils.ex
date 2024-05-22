@@ -38,4 +38,13 @@ defmodule LambdaEthereumConsensus.Utils do
   @spec map_err(any() | {:error, String.t()}, String.t()) :: any() | {:error, String.t()}
   def map_err({:error, _}, reason), do: {:error, reason}
   def map_err(v, _), do: v
+
+  @doc """
+  Format a binary to a shortened hexadecimal representation.
+  """
+  @spec format_shorten_binary(binary) :: String.t()
+  def format_shorten_binary(binary) do
+    encoded = binary |> Base.encode16(case: :lower)
+    "0x#{String.slice(encoded, 0, 3)}..#{String.slice(encoded, -4, 4)}"
+  end
 end
