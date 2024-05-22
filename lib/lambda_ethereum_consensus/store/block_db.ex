@@ -59,31 +59,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     end
   end
 
-  def stream_missing_blocks_desc() do
-    Stream.resource(
-      fn -> 0xFFFFFFFFFFFFFFFF |> block_root_by_slot_key() |> init_keycursor() end,
-      &next_slot(&1, :prev),
-      &close_cursor/1
-    )
-    # TODO: we should remove this when we have a genesis block
-    |> Stream.concat([-1])
-    |> Stream.transform(nil, &get_missing_desc/2)
-  end
-
-  def stream_missing_blocks_asc(starting_slot) do
-    initial_key = block_root_by_slot_key(starting_slot)
-
-    [starting_slot - 1]
-    |> Stream.concat(
-      Stream.resource(
-        fn -> init_keycursor(initial_key) end,
-        &next_slot(&1, :next),
-        &close_cursor/1
-      )
-    )
-    |> Stream.transform(nil, &get_missing_asc/2)
-  end
-
   @spec prune_blocks_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
   def prune_blocks_older_than(slot) do
     Logger.info("[BlockDb] Pruning started.", slot: slot)
@@ -136,12 +111,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
   defp close_cursor(nil), do: :ok
   defp close_cursor(it), do: :ok = Exleveldb.iterator_close(it)
-
-  def get_missing_desc(slot, nil), do: {[], slot}
-  def get_missing_desc(slot, prev), do: {(prev - 1)..(slot + 1)//-1, slot}
-
-  def get_missing_asc(slot, nil), do: {[], slot}
-  def get_missing_asc(slot, prev), do: {(prev + 1)..(slot - 1)//1, slot}
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
   defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)
