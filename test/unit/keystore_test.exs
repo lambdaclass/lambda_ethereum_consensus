@@ -94,9 +94,9 @@ defmodule Unit.KeystoreTest do
   end
 
   test "eip scrypt without pubkey test vector" do
-    decoded_json = Jason.decode!(@scrypt_json)
-    Map.delete(decoded_json, "pubkey")
-    scrypt_json = Jason.encode!(decoded_json)
+    scrypt_json = Jason.decode!(@pbkdf2_json)
+                    |> Map.delete("pubkey")
+                    |> Jason.encode!(escape: :unicode_safe)
 
     {pubkey, privkey} = Keystore.decode_str!(scrypt_json, @eip_password)
 
@@ -109,9 +109,9 @@ defmodule Unit.KeystoreTest do
   end
 
   test "eip pbkdf2 without pubkey test vector" do
-    decoded_json = Jason.decode!(@pbkdf2_json)
-    Map.delete(decoded_json, "pubkey")
-    pbkdf2_json = Jason.encode!(decoded_json)
+    pbkdf2_json = Jason.decode!(@pbkdf2_json)
+                    |> Map.delete("pubkey")
+                    |> Jason.encode!()
 
     {pubkey, privkey} = Keystore.decode_str!(pbkdf2_json, @eip_password)
 
