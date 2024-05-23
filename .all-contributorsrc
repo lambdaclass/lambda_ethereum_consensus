@@ -158,6 +158,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "artemd24",
+      "name": "Artem",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19683603?v=4",
+      "profile": "https://github.com/artemd24",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "commitType": "docs",
