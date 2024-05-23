@@ -1,33 +1,114 @@
-# Architecture of a consensus node
+# Architecture of the consensus node
 
+## Processes
 
-This is a block diagram of all the parts of the system and will be updated as needed.
+This is our complete supervision tree.
 
 ```mermaid
 graph LR
-subgraph "Consensus Node"
-  engine[Engine API Client]
-  BAPI[Beacon API]
-  TICK[Slot processor]
-  blk_db[Block DB]
-  BS_db[Beacon State DB]
-  brod[Broadway]
-  FCTree[Fork choice store - Genserver]
-  BAPI -->|Beacon state queries| BS_db
-  brod -->|Save blocks| blk_db
-  brod -->|Blocks and attestations| FCTree
-  TICK -->|New ticks| FCTree
-  BAPI --> engine
-  BAPI --> |head/slot requests| FCTree
-  brod --> |Save new states|BS_db
-end
-GOS[Gossip Protocols]
-exec[Execution Client]
-VALIDATOR[Validator]
-engine <--> |payload validation, execution| exec
-GOS -->|blocks, attestations| brod
-VALIDATOR --> BAPI
+Application[Application <br> <:one_for_one>]
+BeaconNode[BeaconNode <br> <:one_for_all>]
+P2P.IncomingRequests[P2P.IncomingRequests <br> <:one_for_one>]
+ValidatorManager[ValidatorManager <br> <:one_for_one>]
+Telemetry[Telemetry <br> <:one_for_one>]
+
+Application --> Telemetry
+Application --> DB
+Application --> Blocks
+Application --> BlockStates
+Application --> Metadata
+Application --> BeaconNode
+Application --> BeaconApi.Endpoint
+
+BeaconNode -->|genesis_time,<br>genesis_validators_root,<br> fork_choice_data, time| BeaconChain 
+BeaconNode -->|store, head_slot| ForkChoice
+BeaconNode -->|listen_addr, <br>enable_discovery, <br> discovery_addr, <br>bootnodes| P2P.Libp2pPort
+BeaconNode --> P2P.Peerbook
+BeaconNode --> P2P.IncomingRequests
+BeaconNode --> PendingBlocks
+BeaconNode --> SyncBlocks
+BeaconNode --> Attestation
+BeaconNode --> BeaconBlock
+BeaconNode --> BlobSideCar
+BeaconNode --> OperationsCollector
+BeaconNode -->|slot, head_root| ValidatorManager
+BeaconNode --> ExecutionChain
+ValidatorManager --> ValidatorN
+
+P2P.IncomingRequests --> IncomingRequests.Handler
+P2P.IncomingRequests --> IncomingRequests.Receiver
+
+Telemetry --> :telemetry_poller
+Telemetry --> TelemetryMetricsPrometheus
 ```
+
+Each box is a process. If it has children, it's a supervisor, with it's restart strategy clarified. 
+
+If it's a leaf in the tree, it's a GenServer, task, or other non-supervisor process. The tags in the edges/arrows are the init args passed on children init (start or restart after crash).
+
+## Block diagram
+
+This is the high level interaction between the processes.
+
+```mermaid
+graph LR
+
+subgraph "External"
+Libp2pPort
+ExecutionChain
+end
+
+subgraph "DB"
+BlobDb
+BlockDb
+end
+
+subgraph "Node"
+BeaconChain
+ForkChoice
+PendingBlocks
+OperationsCollector
+BlobSideCar
+Attestation
+BeaconBlock
+Peerbook
+IncomingRequests
+Metadata
+end
+
+BeaconChain -->|on_tick| Validator
+BeaconChain -->|on_tick| BeaconBlock
+BeaconChain -->|on_tick| ForkChoice
+BeaconBlock -->|add_block| PendingBlocks
+BeaconBlock -->|validate_message<br> subscribe_to_topic| Libp2pPort
+Validator -->|get_eth1_data <br>to build blocks| ExecutionChain
+Validator -->|get_fork_digest| BeaconChain
+Validator -->|publish block| Libp2pPort
+Validator -->|collect, stop_collecting| Attestation
+Validator -->|get slashings, <br>attestations,<br> voluntary exits|OperationsCollector
+Validator -->|store_blob| BlobDb
+ForkChoice -->|notify new block|Validator
+ForkChoice -->|notify new block|OperationsCollector
+ForkChoice -->|notify new block|ExecutionChain
+ForkChoice -->|update_fork_choice_cache| BeaconChain
+ForkChoice -->|store_block| BlockDb
+PendingBlocks -->|on_block| ForkChoice
+PendingBlocks -->|get_blob_sidecar|BlobDb
+OperationsCollector -->|on_attestation| ForkChoice
+Libp2pPort -->|gosipsub| BlobSideCar
+Libp2pPort -->|gossipsub| BeaconBlock
+Libp2pPort -->|store_blob| BlobDb
+Libp2pPort -->|new_peer| Peerbook
+BlobSideCar -->|validate_message| Libp2pPort
+BlobSideCar -->|store_blob| BlobDb
+Attestation -->|subscribe_to_topic|Libp2pPort
+Attestation -->|set_attnet|Metadata
+Attestation -->|set_attnet|Metadata
+IncomingRequests -->|get seq_number|Metadata
+PendingBlocks -->|penalize/get<br>on downloading|Peerbook
+Libp2pPort -->|new_request| IncomingRequests
+```
+
 
 ## Networking
 
@@ -121,49 +202,6 @@ Also, there's a more complex case: we can only include a block in the fork tree 
 
 **TO DO**: document checkpoint sync.
 
-## Processes
-
-In terms of elixir, this is our current supervision tree:
-
-```mermaid
-graph LR
-Application[Application <br> <:one_for_one>]
-BeaconNode[BeaconNode <br> <:one_for_all>]
-P2P.IncomingRequests[P2P.IncomingRequests <br> <:one_for_one>]
-ValidatorManager[ValidatorManager <br> <:one_for_one>]
-Telemetry[Telemetry <br> <:one_for_one>]
-
-Application --> Telemetry
-Application --> DB
-Application --> Blocks
-Application --> BlockStates
-Application --> Metadata
-Application --> BeaconNode
-Application --> BeaconApi.Endpoint
-
-BeaconNode -->|genesis_time,<br>genesis_validators_root,<br> fork_choice_data, time| BeaconChain 
-BeaconNode -->|store, head_slot| ForkChoice
-BeaconNode -->|listen_addr, <br>enable_discovery, <br> discovery_addr, <br>bootnodes| P2P.Libp2pPort
-BeaconNode --> P2P.Peerbook
-BeaconNode --> P2P.IncomingRequests
-BeaconNode --> PendingBlocks
-BeaconNode --> SyncBlocks
-BeaconNode --> Attestation
-BeaconNode --> BeaconBlock
-BeaconNode --> BlobSideCar
-BeaconNode --> OperationsCollector
-BeaconNode -->|slot, head_root| ValidatorManager
-BeaconNode --> ExecutionChain
-ValidatorManager --> ValidatorN
-
-P2P.IncomingRequests --> IncomingRequests.Handler
-P2P.IncomingRequests --> IncomingRequests.Receiver
-
-Telemetry --> :telemetry_poller
-Telemetry --> TelemetryMetricsPrometheus
-```
-
-Each box is a process. If it has children, it's a supervisor. If not, it's a GenServer, task, or other non-supervisor process. The tags in the edges/arrows are the init args passed on children init (start or restart after crash).
 
 ## Next document
 
