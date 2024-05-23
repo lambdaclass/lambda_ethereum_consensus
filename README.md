@@ -470,6 +470,7 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/avilagaston9"><img src="https://avatars.githubusercontent.com/u/72628438?v=4?s=100" width="100px;" alt="Avila Gastón"/><br /><sub><b>Avila Gastón</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=avilagaston9" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/guha-rahul"><img src="https://avatars.githubusercontent.com/u/52607971?v=4?s=100" width="100px;" alt="guha-rahul"/><br /><sub><b>guha-rahul</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=guha-rahul" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/artemd24"><img src="https://avatars.githubusercontent.com/u/19683603?v=4?s=100" width="100px;" alt="Artem"/><br /><sub><b>Artem</b></sub></a><br /><a href="https://github.com/lambdaclass/lambda_ethereum_consensus/commits?author=artemd24" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
