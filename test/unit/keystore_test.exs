@@ -92,4 +92,34 @@ defmodule Unit.KeystoreTest do
     {:ok, signature} = Bls.sign(privkey, digest)
     assert Bls.valid?(pubkey, digest, signature)
   end
+
+  test "eip scrypt without pubkey test vector" do
+    decoded_json = Jason.decode!(@scrypt_json)
+    Map.delete(decoded_json, "pubkey")
+    scrypt_json = Jason.encode!(decoded_json)
+
+    {pubkey, privkey} = Keystore.decode_str!(scrypt_json, @eip_password)
+
+    assert privkey == @eip_secret
+    assert pubkey == @pubkey
+
+    digest = :crypto.hash(:sha256, "test message")
+    {:ok, signature} = Bls.sign(privkey, digest)
+    assert Bls.valid?(pubkey, digest, signature)
+  end
+
+  test "eip pbkdf2 without pubkey test vector" do
+    decoded_json = Jason.decode!(@pbkdf2_json)
+    Map.delete(decoded_json, "pubkey")
+    pbkdf2_json = Jason.encode!(decoded_json)
+
+    {pubkey, privkey} = Keystore.decode_str!(pbkdf2_json, @eip_password)
+
+    assert privkey == @eip_secret
+    assert pubkey == @pubkey
+
+    digest = :crypto.hash(:sha256, "test message")
+    {:ok, signature} = Bls.sign(privkey, digest)
+    assert Bls.valid?(pubkey, digest, signature)
+  end
 end
