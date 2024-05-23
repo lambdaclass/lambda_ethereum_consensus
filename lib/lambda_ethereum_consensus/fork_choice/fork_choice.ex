@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
@@ -157,6 +158,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
 
       Task.async(StateDb, :prune_states_older_than, [new_finalized_slot])
+      Task.async(BlockDb, :prune_blocks_older_than, [new_finalized_slot])
     end
   end
 
