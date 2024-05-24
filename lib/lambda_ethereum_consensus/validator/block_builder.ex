@@ -104,7 +104,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
     head_payload_hash =
       if proposed_slot == 1 do
-        # The genesis block, does not have the payload_block_hash.
+        # If the head is the genesis block, fetches the payload_block_hash.
         with {:ok, %{block_hash: block_hash}} <- ExecutionClient.get_block_metadata(0) do
           block_hash
         end
