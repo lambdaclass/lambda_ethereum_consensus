@@ -44,9 +44,9 @@ defmodule LambdaEthereumConsensus.Application do
   defp get_children(:full) do
     get_children(:db) ++
       [
+        BeaconApi.Endpoint,
         LambdaEthereumConsensus.P2P.Metadata,
-        LambdaEthereumConsensus.Beacon.BeaconNode,
-        BeaconApi.Endpoint
+        LambdaEthereumConsensus.Beacon.BeaconNode
       ]
   end
 
