@@ -101,7 +101,15 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     # PERF: the state can be cached for the later build_block call
     head_block = Blocks.get_block!(head_root)
     pre_state = BlockStates.get_state!(head_root)
-    head_payload_hash = head_block.body.execution_payload.block_hash
+
+    head_payload_hash =
+      if proposed_slot == 1 do
+        {:ok, %{block_hash: block_hash}} = ExecutionClient.get_block_metadata(0)
+        Logger.info("[Store Setup] Receive head payload hash: #{inspect(block_hash)}")
+        block_hash
+      else
+        head_block.body.execution_payload.block_hash
+      end
 
     with {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
          {:ok, finalized_payload_hash} <- get_finalized_block_hash(mid_state) do
