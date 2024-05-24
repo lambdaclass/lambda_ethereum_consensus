@@ -53,56 +53,50 @@ This is the high level interaction between the processes.
 ```mermaid
 graph LR
 
-subgraph "External"
-Libp2pPort
 ExecutionChain
-end
 
-subgraph "DB"
 BlobDb
 BlockDb
+
+subgraph "P2P"
+    Libp2pPort
+    Peerbook
+    IncomingRequests
+    Attestation
+    BeaconBlock
+    BlobSideCar
+    Metadata
 end
 
 subgraph "Node"
-BeaconChain
-ForkChoice
-PendingBlocks
-OperationsCollector
-BlobSideCar
-Attestation
-BeaconBlock
-Peerbook
-IncomingRequests
-Metadata
+    Validator
+    BeaconChain
+    ForkChoice
+    PendingBlocks
+    OperationsCollector
 end
 
-BeaconChain -->|on_tick| Validator
+BeaconChain <-->|on_tick <br> get_fork_digest, get_| Validator
 BeaconChain -->|on_tick| BeaconBlock
-BeaconChain -->|on_tick| ForkChoice
+BeaconChain <-->|on_tick <br> update_fork_choice_cache| ForkChoice
 BeaconBlock -->|add_block| PendingBlocks
-BeaconBlock -->|validate_message<br> subscribe_to_topic| Libp2pPort
 Validator -->|get_eth1_data <br>to build blocks| ExecutionChain
-Validator -->|get_fork_digest| BeaconChain
 Validator -->|publish block| Libp2pPort
 Validator -->|collect, stop_collecting| Attestation
 Validator -->|get slashings, <br>attestations,<br> voluntary exits|OperationsCollector
 Validator -->|store_blob| BlobDb
 ForkChoice -->|notify new block|Validator
-ForkChoice -->|notify new block|OperationsCollector
+ForkChoice <-->|notify new block <br> on_attestation|OperationsCollector
 ForkChoice -->|notify new block|ExecutionChain
-ForkChoice -->|update_fork_choice_cache| BeaconChain
 ForkChoice -->|store_block| BlockDb
 PendingBlocks -->|on_block| ForkChoice
 PendingBlocks -->|get_blob_sidecar|BlobDb
-OperationsCollector -->|on_attestation| ForkChoice
-Libp2pPort -->|gosipsub| BlobSideCar
-Libp2pPort -->|gossipsub| BeaconBlock
+Libp2pPort <-->|gosipsub <br> validate_message| BlobSideCar
+Libp2pPort <-->|gossipsub <br> validate_message<br> subscribe_to_topic| BeaconBlock
+Libp2pPort <-->|gossipsub <br> validate_message<br> subscribe_to_topic| Attestation
 Libp2pPort -->|store_blob| BlobDb
 Libp2pPort -->|new_peer| Peerbook
-BlobSideCar -->|validate_message| Libp2pPort
 BlobSideCar -->|store_blob| BlobDb
-Attestation -->|subscribe_to_topic|Libp2pPort
-Attestation -->|set_attnet|Metadata
 Attestation -->|set_attnet|Metadata
 IncomingRequests -->|get seq_number|Metadata
 PendingBlocks -->|penalize/get<br>on downloading|Peerbook
