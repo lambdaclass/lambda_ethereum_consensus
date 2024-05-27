@@ -1,6 +1,8 @@
 # Architecture of the consensus node
 
-## Processes
+## Processes summary
+
+### Supervision tree
 
 This is our complete supervision tree.
 
@@ -46,7 +48,7 @@ Each box is a process. If it has children, it's a supervisor, with it's restart 
 
 If it's a leaf in the tree, it's a GenServer, task, or other non-supervisor process. The tags in the edges/arrows are the init args passed on children init (start or restart after crash).
 
-## Block diagram
+### High level interaction
 
 This is the high level interaction between the processes.
 
@@ -103,23 +105,78 @@ PendingBlocks -->|penalize/get<br>on downloading|Peerbook
 Libp2pPort -->|new_request| IncomingRequests
 ```
 
+## Sequences
 
-## Networking
+This section contains sequence diagrams representing the interaction of processes through time in response to a stimulus. The main entry point for new events is through gossip and request-response protocols, which is how nodes communicates between each other.
 
-The main entry for new events is the gossip protocol, which is how our consensus node communicates with other consensus nodes. This includes:
+Request-response is a simple protocol where client request for specific data such as old blocks that they may be missing or other clients metadata.
 
-1. Discovery: our node has a series of known `bootnodes` hardcoded. We request a list of the nodes they know about and add them to our list. We save them locally and now can use those too to request new nodes.
-2. Message propagation. When a proposer sends a new block, or validators attest for a new block, they send those to other known nodes. Those, in turn, propagate the messages sent to other nodes. This process is repeated until, ideally, the whole network receives the messages.
+Gossip allows clients to subscribe to different topics (hence the name "gossipsub") they are interested in, and get updates for them. This is how a node receives new blocks or attestations from their peers.
 
-We use the `go-libp2p` library for the networking primitives, which is an implementation of the `libp2p` networking stack.
+We use the `go-libp2p` library for the networking primitives, which is an implementation of the `libp2p` networking stack. We use ports to communicate with a go application and Broadway to process notifications. This port has a GenServer owner called `Libp2pPort`.
 
-We use ports to communicate with a go application and Broadway to process notifications.
+# Gossipsub
 
-**TO DO**: We need to document the port's architecture.
+### Subscribing
 
-## Gossipsub
+At the beginning of the application we subscribe a series of handler processes that will react to new gossipsub events.
 
-One of the main communication protocols is GossipSub. This allows us to tell peers which topics we're interested in and receive events for them. The main external events we react to are blocks and attestations.
+```mermaid
+sequenceDiagram
+participant sync as SyncBlocks
+participant ops as OperationsCollector
+participant p2p as Libp2pPort <br> (Genserver)
+participant port as Go Libp2p<br>(Port)
+
+ops ->>+ ops: init()
+
+loop
+    ops ->> p2p: join_topic
+    p2p ->> port: join_command
+
+end
+deactivate ops
+
+sync ->>+ ops: start()
+
+loop
+    ops ->> p2p: subscribe_to_topic
+    p2p ->> port: subscribe_command <br> from: operations_collector_pid
+end
+deactivate ops
+
+port ->>+ p2p: gossipsub_message <br> handler: operations_collector_pid
+p2p ->> ops: {:gossipsub, topic, message}
+deactivate p2p
+activate ops
+ops ->>ops: handle_msg(message)
+deactivate ops
+```
+
+Joining a topic allows the node to get the messages and participate in gossip for that topic. Subscribing means that the node will actually read the contents of those messages.
+
+We delay the subscription until the sync is finished to guarantee that we're at a point where we can process the messages that we receive.
+
+This will send the following message to the go libp2p app:
+
+```elixir
+%Command{
+    from: self() |> :erlant.term_to_binary(),
+    c: {:subscribe, %SubscribeToTopic{name: topic_name}}
+}
+```
+
+`self` here is the caller, which is `OperationsCollector`'s pid. The go side will save that binary representation of the pid and attach it to gossip messages that arrive for that topic. That is, the messages that will be notified to `Libp2pPort` will be of the form:
+
+```elixir
+%Gossipsub{
+    handler: operations_collector_pid,
+    message: message,
+    msg_id: id
+}
+```
+
+The operations collector then handles that message on `handle_info`, which means it deserializes and decompresses each message and then call specific handlers for that topic.
 
 ### Receiving an attestation
 
@@ -195,7 +252,6 @@ Also, there's a more complex case: we can only include a block in the fork tree 
 ### Checkpoint sync
 
 **TO DO**: document checkpoint sync.
-
 
 ## Next document
 
