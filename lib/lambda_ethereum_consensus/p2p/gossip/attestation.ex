@@ -7,7 +7,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P
+  alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc
+
+  @behaviour Handler
 
   def start_link(init_arg) do
     GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
@@ -20,6 +23,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     P2P.Metadata.set_attnet(subnet_id)
     # NOTE: this depends on the metadata being updated
     update_enr()
+  end
+
+  @impl true
+  def handle_gossip_message(topic, msg_id, message) do
+    send(__MODULE__, {:gossipsub, {topic, msg_id, message}})
   end
 
   @spec leave(non_neg_integer()) :: :ok
@@ -98,7 +106,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     attestations = Map.put(state.attestations, subnet_id, [attestation])
     attnets = Map.put(state.attnets, subnet_id, attestation.data)
     new_state = %{state | attnets: attnets, attestations: attestations}
-    get_topic_name(subnet_id) |> Libp2pPort.subscribe_to_topic()
+    get_topic_name(subnet_id) |> Libp2pPort.subscribe_to_topic(__MODULE__)
     {:reply, :ok, new_state}
   end
 

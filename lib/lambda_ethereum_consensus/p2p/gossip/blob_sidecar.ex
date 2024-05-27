@@ -4,11 +4,14 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
   """
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.Store.BlobDb
 
   use GenServer
 
   require Logger
+
+  @behaviour Handler
 
   @type topics :: [String.t()]
 
@@ -22,6 +25,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
 
   def start() do
     GenServer.call(__MODULE__, :start)
+  end
+
+  @impl true
+  def handle_gossip_message(topic, msg_id, message) do
+    send(__MODULE__, {:gossipsub, {topic, msg_id, message}})
   end
 
   ##########################
@@ -47,7 +55,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
 
   @impl true
   def handle_call(:start, _from, topics) do
-    Enum.each(topics, &Libp2pPort.subscribe_to_topic/1)
+    Enum.each(topics, fn topic -> Libp2pPort.subscribe_to_topic(topic, __MODULE__) end)
     {:reply, :ok, topics}
   end
 

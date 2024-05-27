@@ -3,5 +3,5 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   Gossip handler behaviour
   """
 
-  @callback handle_gossip_message(binary(), iodata()) :: :ok | {:error, any}
+  @callback handle_gossip_message(binary(), binary(), iodata()) :: :ok | {:error, any}
 end
