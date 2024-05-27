@@ -23,7 +23,7 @@ Application --> BeaconNode
 Application --> BeaconApi.Endpoint
 
 BeaconNode -->|genesis_time,<br>genesis_validators_root,<br> fork_choice_data, time| BeaconChain 
-BeaconNode -->|store, head_slot| ForkChoice
+BeaconNode -->|store, head_slot, time| ForkChoice
 BeaconNode -->|listen_addr, <br>enable_discovery, <br> discovery_addr, <br>bootnodes| P2P.Libp2pPort
 BeaconNode --> P2P.Peerbook
 BeaconNode --> P2P.IncomingRequests
@@ -34,7 +34,7 @@ BeaconNode --> BeaconBlock
 BeaconNode --> BlobSideCar
 BeaconNode --> OperationsCollector
 BeaconNode -->|slot, head_root| ValidatorManager
-BeaconNode --> ExecutionChain
+BeaconNode -->|genesis_time, snapshot, votes| ExecutionChain
 ValidatorManager --> ValidatorN
 
 P2P.IncomingRequests --> IncomingRequests.Handler
