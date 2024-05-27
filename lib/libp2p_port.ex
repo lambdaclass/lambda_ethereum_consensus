@@ -200,17 +200,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Returns the next gossipsub message received by the server for subscribed topics
-  on the current process. If there are none, it waits for one.
-  """
-  @spec receive_gossip() :: {String.t(), binary(), binary()}
-  def receive_gossip() do
-    receive do
-      {:gossipsub, {_topic_name, _msg_id, _message} = m} -> m
-    end
-  end
-
-  @doc """
   Leaves the given topic, unsubscribing if possible.
   """
   @spec leave_topic(GenServer.server(), String.t()) :: :ok
