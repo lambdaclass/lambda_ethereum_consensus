@@ -186,24 +186,26 @@ The operations collector then handles that message on `handle_info`, which means
 
 ### Receiving an attestation
 
+This is the intended way to process attestations in the current architecture, although the fork choice call is disabled and only attestations in blocks are being processed.
+
 ```mermaid
 sequenceDiagram
-    participant prod as Topic Producer (GenStage)
-    participant proc as Topic Processor (Broadway)
-    participant FC as Fork-choice store
+    participant p2p as Libp2pPort
+    participant ops as OperationsCollector
+    participant fc as ForkChoice
 
-    prod ->> proc: Produce demand
-    proc ->> proc: Decompress and deserialize message
-    proc ->>+ proc: on_attestation()
-    proc ->> FC: request latest message by the same validator
-    FC -->> proc: return
-    proc ->> proc: Validate attestation
-    proc ->>- FC: Update fork-choice store weights
+    p2p ->>+ ops: {:gossipsub, "beacon_aggregate_and_proof", att}
+    ops ->> ops: Decompress and deserialize message
+    ops ->>+ fc: on_attestation() <br> (disabled)
+    fc ->>- fc: Handlers.on_attestation(store, attestation, false)
+    ops ->>- ops: handle_msg({:attestation, aggregate}, state)
+
+
 ```
 
-When receiving an attestation, it's processed by the [on_attestation](https://eth2book.info/capella/annotated-spec/#on_attestation) callback. We just validate it and send it to the fork choice store to update its weights and target checkpoints. The attestation is only processed if this attestation is the latest message by that validator. If there's a newer one, it should be discarded.
+When receiving an attestation, the ForkChoice GenServer takes the current store object and modifies it using the [`on_attestation`](https://eth2book.info/capella/annotated-spec/#on_attestation) handler. It validates it and updates the fork tree weights and target checkpoints. The attestation is only processed if this attestation is the latest message by that validator. If there's a newer one, it should be discarded.
 
-The most relevant piece of the spec here is the [get_weight](https://eth2book.info/capella/annotated-spec/#get_weight) function, which is the core of the fork-choice algorithm. In the specs, this function is called on demand, when calling [get_head](https://eth2book.info/capella/annotated-spec/#get_head), works with the store's values, and recalculates them each time. In our case, we cache the weights and the head root each time we add a block or attestation, so we don't need to do the same calculations again. 
+The most relevant piece of the spec here is the [get_weight](https://eth2book.info/capella/annotated-spec/#get_weight) function, which is the core of the fork-choice algorithm. In the specs, this function is called on demand, when calling [get_head](https://eth2book.info/capella/annotated-spec/#get_head), works with the store's values, and recalculates them each time. In our case, we cache the weights and the head root each time we add a block or attestation, so we don't need to do the same calculations again.
 
 **To do**: we should probably save the latest messages in persistent storage as well so that if the node crashes we can recover the tree weights.
 
