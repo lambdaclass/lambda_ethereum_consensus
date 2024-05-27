@@ -211,51 +211,60 @@ The most relevant piece of the spec here is the [get_weight](https://eth2book.in
 
 ### Receiving a block
 
+A block is first received and sent to the `PendingBlocks` GenServer, which checks if the block has everything needed or if it's duplicated before letting it be processed.
+
 ```mermaid
 sequenceDiagram
-    participant prod as Topic Producer (GenStage)
-    participant proc as Topic Processor (Broadway)
-    participant block as Block DB
-    participant state as Beacon States DB
-    participant FC as Fork-choice store
-    participant exec as Execution Client
+    participant port as Libp2pPort
+    participant block as BeaconBlock
+    participant pending as PendingBlocks
 
-    prod ->> proc: Produce demand
-    proc ->> proc: Decompress and deserialize message
-    proc ->>+ proc: on_block(block)
-    proc ->> exec: Validate execution payload
-    exec -->> proc: ok
-    proc ->> FC: request validation metadata
-    FC -->> proc: return
-    proc ->> proc: Validate block
-    proc ->> block: Save new block
-    proc ->> proc: Calculate state transition
-    proc ->> state: Save new beacon state metadata
-    proc ->> FC: Add a new block to the tree and update weights
-    loop
-        proc ->>- proc: process_operations
-    end
-    loop
-        proc ->> proc: on_attestation
-    end
+    activate block
+    port ->> block: {:gossipsub, {topic, id, message}}
+    block ->> block: Decompress and deserialize message
+    block ->> port: validate_message(id, :accept)
+    block ->> pending: {:add_block, SignedBeaconBlock}
+    deactivate block
+
 ```
 
-Receiving a block is more complex:
+However, the block isn't processed immediately. Once every 500ms, `PendingBlocks` checks if there are blocks that should be processed and does so.
 
-- The block itself needs to be stored.
-- The state transition needs to be applied, a new beacon state calculated, and stored separately.
-- A new node needs to be added to the block tree aside from updating weights.
-- on_attestation needs to be called for each attestation.
+```mermaid
+sequenceDiagram
+    participant pending as PendingBlocks
+    participant FC as Fork-choice store
+    participant rec as recompute_head <br> (async task)
+    participant StoreDB
+    participant subs as OperationsCollector <br> Validators <br> ExecutionClient <br> BeaconChain
 
-Also, there's a more complex case: we can only include a block in the fork tree if we know of its parents and their connection with our current finalized checkpoint. If we receive a disconnected node, we'll need to use Request-Response to ask peers for the missing blocks.
+    pending ->> pending: :process_blocks
+    activate pending
+    loop
+        pending ->> pending: check which blocks are pending <br> check parent is downloaded and processed
+        pending ->>+ FC: {:on_block, block_root, signed_block, from}
+        deactivate pending
+    end
+
+    FC ->> FC: process_block
+    FC ->>+ rec: recompute_head(store)
+    FC ->> FC: prune_old_states
+    FC ->> pending: {:block_processed, block_root, true}
+    deactivate FC
+
+    rec ->> StoreDB: pruned_store
+    rec ->> rec: Handlers.get_head()
+    rec ->> subs: notify_new_block
+
+```
+
+For the happy path, shown above, fork choice store calculates the state transition, and notifies the pending blocks GenServer that the block was correctly processed, so it can mark it as such.
+
+Asynchronously, a new task is started to recompute the new head, as this takes a significant amount of time. When the head is recomputed, multiple processes are notified.
 
 ## Request-Response
 
 **TO DO**: document how ports work for this.
-
-### Pending blocks
-
-**TO DO**: document pending blocks design.
 
 ### Checkpoint sync
 
