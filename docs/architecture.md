@@ -119,13 +119,19 @@ We use the `go-libp2p` library for the networking primitives, which is an implem
 
 ### Subscribing
 
-At the beginning of the application we subscribe a series of handler processes that will react to new gossipsub events.
+At the beginning of the application we subscribe a series of handler processes that will react to new gossipsub events:
+
+- `Gossip.BeaconBlock` will handle topic `/eth2/<context>/beacon_block/ssz_snappy`.
+- `Gossip.BlobSideCar` will subscribe to all blob subnet topics. They're names are of the form `/eth2/<context>/blob_sidecar_<subnet_index>`.
+- `Gossip.OperationsCollector` will subscribe to operations `beacon_aggregate_and_proof` (attestations), `voluntary_exit`, `proposer_slashing`, `attester_slashing`, `bls_to_execution_change`.
+
+This is the process of subscribing, taking the operations collector as an example:
 
 ```mermaid
 sequenceDiagram
 participant sync as SyncBlocks
 participant ops as OperationsCollector
-participant p2p as Libp2pPort <br> (Genserver)
+participant p2p as Libp2pPort <br> (GenServer)
 participant port as Go Libp2p<br>(Port)
 
 ops ->>+ ops: init()
