@@ -315,8 +315,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp handle_notification(%GossipSub{} = gs, %{subscriptors: subscriptors}) do
     :telemetry.execute([:port, :message], %{}, %{function: "gossipsub", direction: "->elixir"})
-    # handler_pid = :erlang.binary_to_term(gs.handler)
-    # send(handler_pid, {:gossipsub, {gs.topic, gs.msg_id, gs.message}})
     {:ok, module} = Map.fetch(subscriptors, String.to_atom(gs.topic))
     module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
   end
