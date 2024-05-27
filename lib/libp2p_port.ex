@@ -187,7 +187,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Subscribes to the given topic. After this, messages published to the topic
   will be received by `self()`.
   """
-  @spec subscribe_to_topic(GenServer.server(), String.t(), atom()) :: :ok | {:error, String.t()}
+  @spec subscribe_to_topic(GenServer.server(), String.t(), module()) :: :ok | {:error, String.t()}
   def subscribe_to_topic(pid \\ __MODULE__, topic_name, module) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "subscribe_to_topic",
