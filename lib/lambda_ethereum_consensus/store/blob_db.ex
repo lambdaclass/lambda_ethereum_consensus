@@ -82,9 +82,21 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
            Exleveldb.iterator_move(it, last_finalized_key),
          {:ok, keys_to_remove} <- get_block_root_keys_to_remove(it),
          :ok <- Exleveldb.iterator_close(it) do
-      keys_to_remove |> Enum.each(&remove_blob_by_block_root_key/1)
+      total_removed =
+        keys_to_remove
+        |> Enum.reduce_while(0, fn
+          key, acc_removed_count ->
+            case remove_blob_by_block_root_key(key) do
+              :ok ->
+                {:cont, acc_removed_count + 1}
 
-      Logger.info("[BlobDb] Pruning finished. #{length(keys_to_remove)} blobs removed.")
+              _ ->
+                Logger.error("[BlobDb] Error while removing key.", key: key)
+                {:halt, acc_removed_count}
+            end
+        end)
+
+      Logger.info("[BlobDb] Pruning finished. #{total_removed} blobs removed.")
     end
   end
 
