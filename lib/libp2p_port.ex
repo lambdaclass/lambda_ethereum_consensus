@@ -194,9 +194,20 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "elixir->"
     })
 
-    GenServer.cast(__MODULE__, {:new_subscriptor, String.to_atom(topic_name), module})
+    GenServer.cast(pid, {:new_subscriptor, String.to_atom(topic_name), module})
 
     call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
+  end
+
+  @doc """
+  Returns the next gossipsub message received by the server for subscribed topics
+  on the current process. If there are none, it waits for one.
+  """
+  @spec receive_gossip() :: {String.t(), binary(), binary()}
+  def receive_gossip() do
+    receive do
+      {:gossipsub, {_topic_name, _msg_id, _message} = m} -> m
+    end
   end
 
   @doc """
