@@ -82,7 +82,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @impl true
   def handle_gossip_message(topic, msg_id, message) do
-    send(__MODULE__, {:gossipsub, {topic, msg_id, message}})
+    GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
   end
 
   @impl GenServer
@@ -116,7 +116,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   @impl true
-  def handle_info(
+  def handle_cast(
         {:gossipsub,
          {<<_::binary-size(15)>> <> "beacon_aggregate_and_proof" <> _, _msg_id, message}},
         state

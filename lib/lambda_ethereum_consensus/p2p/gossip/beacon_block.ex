@@ -34,7 +34,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
 
   @impl true
   def handle_gossip_message(topic, msg_id, message) do
-    send(__MODULE__, {:gossipsub, {topic, msg_id, message}})
+    GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
   end
 
   ##########################
@@ -64,7 +64,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   end
 
   @impl true
-  def handle_info({:gossipsub, {_topic, msg_id, message}}, %{slot: slot} = state) do
+  def handle_cast({:gossipsub, {_topic, msg_id, message}}, %{slot: slot} = state) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, signed_block} <- Ssz.from_ssz(uncompressed, SignedBeaconBlock),
          :ok <- validate(signed_block, slot) do

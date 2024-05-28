@@ -27,7 +27,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def handle_gossip_message(topic, msg_id, message) do
-    send(__MODULE__, {:gossipsub, {topic, msg_id, message}})
+    GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
   end
 
   @spec leave(non_neg_integer()) :: :ok
@@ -121,7 +121,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   @impl true
-  def handle_info({:gossipsub, {topic, msg_id, message}}, state) do
+  def handle_cast({:gossipsub, {topic, msg_id, message}}, state) do
     subnet_id = extract_subnet_id(topic)
 
     with {:ok, uncompressed} <- :snappyer.decompress(message),

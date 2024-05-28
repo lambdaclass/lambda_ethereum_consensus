@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
 
   @impl true
   def handle_gossip_message(topic, msg_id, message) do
-    send(__MODULE__, {:gossipsub, {topic, msg_id, message}})
+    GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
   end
 
   ##########################
@@ -60,7 +60,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
   end
 
   @impl true
-  def handle_info({:gossipsub, {_topic, msg_id, message}}, topics) do
+  def handle_cast({:gossipsub, {_topic, msg_id, message}}, topics) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.BlobSidecar{index: blob_index} = blob} <-
            Ssz.from_ssz(uncompressed, Types.BlobSidecar) do
