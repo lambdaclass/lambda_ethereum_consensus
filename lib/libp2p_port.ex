@@ -326,8 +326,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp handle_notification(%GossipSub{} = gs, %{subscriptors: subscriptors}) do
     :telemetry.execute([:port, :message], %{}, %{function: "gossipsub", direction: "->elixir"})
-    {:ok, module} = Map.fetch(subscriptors, gs.topic)
-    module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
+
+    case Map.fetch(subscriptors, gs.topic) do
+      {:ok, module} -> module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
+      :error -> Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
+    end
   end
 
   defp handle_notification(
