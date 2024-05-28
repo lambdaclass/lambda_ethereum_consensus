@@ -194,7 +194,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "elixir->"
     })
 
-    GenServer.cast(pid, {:new_subscriptor, String.to_atom(topic_name), module})
+    GenServer.cast(pid, {:new_subscriptor, topic_name, module})
 
     call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
@@ -326,7 +326,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp handle_notification(%GossipSub{} = gs, %{subscriptors: subscriptors}) do
     :telemetry.execute([:port, :message], %{}, %{function: "gossipsub", direction: "->elixir"})
-    {:ok, module} = Map.fetch(subscriptors, String.to_atom(gs.topic))
+    {:ok, module} = Map.fetch(subscriptors, gs.topic)
     module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
   end
 
