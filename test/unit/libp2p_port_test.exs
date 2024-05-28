@@ -87,7 +87,7 @@ defmodule Unit.Libp2pPortTest do
     start_port(:publisher)
     start_port(:gossiper, listen_addr: gossiper_addr)
 
-    # The message sent is the pid
+    # Send the PID in the message, so that we can receive a notification later.
     message = self() |> :erlang.term_to_binary()
     topic = "/test/gossipping"
 
@@ -98,10 +98,8 @@ defmodule Unit.Libp2pPortTest do
     # Subscribe to the topic
     :ok = Libp2pPort.subscribe_to_topic(:gossiper, topic, __MODULE__)
 
-    spawn_link(fn ->
-      # Publish message
-      :ok = Libp2pPort.publish(:publisher, topic, message)
-    end)
+    # Publish message
+    :ok = Libp2pPort.publish(:publisher, topic, message)
 
     # Receive the message
     assert {^topic, message_id, ^message} = Libp2pPort.receive_gossip()
@@ -111,6 +109,7 @@ defmodule Unit.Libp2pPortTest do
 
   @behaviour Handler
   def handle_gossip_message(topic, msg_id, message) do
+    # Decode the PID from the message and send a notification.
     send(:erlang.binary_to_term(message), {:gossipsub, {topic, msg_id, message}})
   end
 
