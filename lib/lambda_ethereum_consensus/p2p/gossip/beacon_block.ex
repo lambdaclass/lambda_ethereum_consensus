@@ -33,7 +33,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
         :ok
 
       {:error, reason} ->
-        Logger.debug("[Gossip] Subscription failed: '#{reason}'")
+        Logger.error("[Gossip] Subscription failed: '#{reason}'")
         :error
     end
   end
