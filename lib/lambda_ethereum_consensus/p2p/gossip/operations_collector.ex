@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitField
   alias Types.Attestation
@@ -16,6 +17,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   alias Types.SignedVoluntaryExit
 
   require Logger
+
+  @behaviour Handler
 
   @operations [
     :bls_to_execution_change,
@@ -77,6 +80,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     GenServer.cast(__MODULE__, {:new_block, block.slot, operations})
   end
 
+  @impl true
+  def handle_gossip_message(topic, msg_id, message) do
+    GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
+  end
+
   @impl GenServer
   def init(_init_arg) do
     topics = get_topic_names()
@@ -88,7 +96,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @impl true
   def handle_call(:start, _from, %{topics: topics} = state) do
-    Enum.each(topics, &Libp2pPort.subscribe_to_topic/1)
+    Enum.each(topics, fn topic -> Libp2pPort.subscribe_to_topic(topic, __MODULE__) end)
     {:reply, :ok, state}
   end
 
@@ -108,7 +116,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   @impl true
-  def handle_info(
+  def handle_cast(
         {:gossipsub,
          {<<_::binary-size(15)>> <> "beacon_aggregate_and_proof" <> _, _msg_id, message}},
         state
