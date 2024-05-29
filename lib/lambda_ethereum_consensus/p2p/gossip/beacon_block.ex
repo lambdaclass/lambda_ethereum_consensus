@@ -18,14 +18,15 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   @impl true
   def handle_gossip_message(_topic, msg_id, message) do
     # GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
-    Task.async(__MODULE__, :handle_beacon_block, [msg_id, message])
+    Task.start_link(__MODULE__, :handle_beacon_block, [msg_id, message])
     :ok
   end
 
   @spec join_topic() :: :ok
   def join_topic() do
     # TODO: this doesn't take into account fork digest changes
-    build_topic() |> Libp2pPort.join_topic()
+    topic_name = build_topic()
+    Libp2pPort.join_topic(self(), topic_name)
   end
 
   @spec subscribe_to_topic() :: :ok | :error

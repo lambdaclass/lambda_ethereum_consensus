@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
@@ -171,7 +172,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "elixir->"
     })
 
-    call_command(pid, {:join, %JoinTopic{name: topic_name}})
+    cast_command(pid, {:join, %JoinTopic{name: topic_name}})
   end
 
   @doc """
@@ -264,6 +265,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:update_enr, enr})
   end
 
+  defp join_init_topics() do
+    BeaconBlock.join_topic()
+  end
+
   ########################
   ### GenServer Callbacks
   ########################
@@ -280,6 +285,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> parse_args()
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
+
+    join_init_topics()
 
     {:ok, %{port: port, new_peer_handler: new_peer_handler, subscriptors: %{}}}
   end
