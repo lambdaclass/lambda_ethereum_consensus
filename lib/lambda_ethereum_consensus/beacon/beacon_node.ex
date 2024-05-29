@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   alias LambdaEthereumConsensus.Beacon.StoreSetup
   alias LambdaEthereumConsensus.ForkChoice.Head
+  alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
@@ -13,7 +14,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   alias Types.BeaconState
 
   def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+    result = Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+    join_topics()
+    result
   end
 
   @impl true
@@ -51,12 +54,15 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         LambdaEthereumConsensus.Beacon.PendingBlocks,
         LambdaEthereumConsensus.Beacon.SyncBlocks,
         LambdaEthereumConsensus.P2P.Gossip.Attestation,
-        LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
         LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
         LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
       ] ++ validator_children
 
     Supervisor.init(children, strategy: :one_for_all)
+  end
+
+  defp join_topics() do
+    BeaconBlock.join_topic()
   end
 
   defp get_validator_children(nil, _, _, _) do

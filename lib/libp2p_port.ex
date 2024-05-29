@@ -164,7 +164,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Joins the given topic.
   This does not subscribe to the topic, use `subscribe_to_topic/2` for that.
   """
-  @spec join_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
+  @spec join_topic(GenServer.server(), String.t()) :: :ok
   def join_topic(pid \\ __MODULE__, topic_name) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "join_topic",

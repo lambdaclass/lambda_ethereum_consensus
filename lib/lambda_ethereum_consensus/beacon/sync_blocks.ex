@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   end
 
   defp start_subscriptions() do
-    Gossip.BeaconBlock.start()
+    Gossip.BeaconBlock.subscribe_to_topic()
     Gossip.BlobSideCar.start()
     Gossip.OperationsCollector.start()
   end

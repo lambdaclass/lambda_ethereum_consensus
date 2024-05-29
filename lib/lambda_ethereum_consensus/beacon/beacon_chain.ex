@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   use GenServer
 
   alias LambdaEthereumConsensus.ForkChoice
-  alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.BeaconState
@@ -243,11 +242,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   defp notify_subscribers(logical_time) do
     log_new_slot(logical_time)
-
-    Enum.each([Gossip.BeaconBlock], fn subscriber ->
-      GenServer.cast(subscriber, {:on_tick, logical_time})
-    end)
-
     ValidatorManager.notify_tick(logical_time)
   end
 
