@@ -83,6 +83,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     end
   end
 
+  # TODO: handle subscription failures.
   defp start_subscriptions() do
     Gossip.BeaconBlock.subscribe_to_topic()
     Gossip.BlobSideCar.start()

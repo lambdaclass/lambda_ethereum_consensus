@@ -11,13 +11,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   require Logger
   @behaviour Handler
 
-  ##########################
-  ### Public API
-  ##########################
-
   @impl true
   def handle_gossip_message(_topic, msg_id, message) do
-    # GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
     Task.start_link(__MODULE__, :handle_beacon_block, [msg_id, message])
     :ok
   end
@@ -43,11 +38,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
     end
   end
 
-  defp build_topic() do
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
-    "/eth2/#{fork_context}/beacon_block/ssz_snappy"
-  end
-
   def handle_beacon_block(msg_id, message) do
     slot = BeaconChain.get_current_slot()
 
@@ -66,6 +56,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
         Logger.warning("[Gossip] Block rejected, reason: #{inspect(reason)}", slot: slot)
         Libp2pPort.validate_message(msg_id, :reject)
     end
+  end
+
+  defp build_topic() do
+    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    "/eth2/#{fork_context}/beacon_block/ssz_snappy"
   end
 
   @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:error, any}
