@@ -88,7 +88,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       listen_addr: listen_addr,
       enable_discovery: true,
       discovery_addr: "0.0.0.0:#{port}",
-      bootnodes: bootnodes
+      bootnodes: bootnodes,
+      join_init_topics: true
     ]
   end
 

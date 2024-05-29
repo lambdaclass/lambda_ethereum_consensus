@@ -54,6 +54,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
           | {:new_peer_handler, pid()}
+          | {:join_init_topics, boolean()}
 
   ######################
   ### API
@@ -276,6 +277,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def init(args) do
     {new_peer_handler, args} = Keyword.pop(args, :new_peer_handler, nil)
+    {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
@@ -286,7 +288,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
 
-    join_init_topics()
+    if join_init_topics, do: join_init_topics()
 
     {:ok, %{port: port, new_peer_handler: new_peer_handler, subscriptors: %{}}}
   end
