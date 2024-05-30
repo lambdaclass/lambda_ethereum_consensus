@@ -34,6 +34,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     GenServer.cast(__MODULE__, {:add_block, signed_block})
   end
 
+  @spec on_tick(Types.uint64()) :: :ok
+  def on_tick(time) do
+    GenServer.cast(__MODULE__, {:on_tick, time})
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -66,6 +71,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         state |> Map.put(block_root, {signed_block, :download_blobs})
     end
     |> then(&{:noreply, &1})
+  end
+
+  @impl true
+  def handle_cast({:on_tick, time}, state) do
+    ForkChoice.on_tick(time)
+    {:noreply, state}
   end
 
   @impl true
