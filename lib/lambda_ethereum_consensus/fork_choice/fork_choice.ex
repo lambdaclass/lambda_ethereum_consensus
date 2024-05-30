@@ -230,12 +230,17 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   defp persist_fork_choice_store(store) do
-    StoreDb.persist_fork_choice_store(store)
-    Logger.debug("[Fork choice] Store persisted")
+    :telemetry.span([:fork_choice, :persist], %{}, fn ->
+      {StoreDb.persist_fork_choice_store(store), %{}}
+    end)
   end
 
   defp fetch_fork_choice_store!() do
-    {:ok, store} = StoreDb.fetch_fork_choice_store()
+    {:ok, store} =
+      :telemetry.span([:fork_choice, :fetch], %{}, fn ->
+        {StoreDb.fetch_fork_choice_store(), %{}}
+      end)
+
     store
   end
 end
