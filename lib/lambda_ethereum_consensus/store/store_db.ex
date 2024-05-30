@@ -5,14 +5,23 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   alias LambdaEthereumConsensus.Store.Db
 
   @store_prefix "store"
+  @fork_choice_store_prefix "fork_choice_store"
   @snapshot_prefix "snapshot"
 
   @spec fetch_store() :: {:ok, Types.Store.t()} | :not_found
   def fetch_store(), do: get(@store_prefix)
 
+  @spec fetch_fork_choice_store() :: {:ok, Types.Store.t()} | :not_found
+  def fetch_fork_choice_store(), do: get(@fork_choice_store_prefix)
+
   @spec persist_store(Types.Store.t()) :: :ok
   def persist_store(%Types.Store{} = store) do
     put(@store_prefix, store)
+  end
+
+  @spec persist_fork_choice_store(Types.Store.t()) :: :ok
+  def persist_fork_choice_store(%Types.Store{} = store) do
+    put(@fork_choice_store_prefix, store)
   end
 
   @spec fetch_deposits_snapshot() :: {:ok, Types.DepositTreeSnapshot.t()} | :not_found
