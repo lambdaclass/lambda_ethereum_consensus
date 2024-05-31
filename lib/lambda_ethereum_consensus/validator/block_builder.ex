@@ -101,9 +101,17 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     # PERF: the state can be cached for the later build_block call
     head_block = Blocks.get_block!(head_root)
     pre_state = BlockStates.get_state!(head_root)
-    head_payload_hash = head_block.body.execution_payload.block_hash
 
-    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
+    head_payload_data =
+      if proposed_slot == 1 do
+        # If the head is the genesis block, fetches the payload_block_data.
+        ExecutionClient.get_block_metadata(0)
+      else
+        {:ok, head_block.body.execution_payload}
+      end
+
+    with {:ok, %{block_hash: head_payload_hash}} <- head_payload_data,
+         {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
          {:ok, finalized_payload_hash} <- get_finalized_block_hash(mid_state) do
       forkchoice_state = %{
         finalized_block_hash: finalized_payload_hash,

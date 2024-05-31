@@ -4,6 +4,7 @@ defmodule Unit.Libp2pPortTest do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.P2P.Gossip.Handler
 
   doctest Libp2pPort
 
@@ -86,37 +87,30 @@ defmodule Unit.Libp2pPortTest do
     start_port(:publisher)
     start_port(:gossiper, listen_addr: gossiper_addr)
 
+    # Send the PID in the message, so that we can receive a notification later.
+    message = self() |> :erlang.term_to_binary()
     topic = "/test/gossipping"
-    message = "hello world!"
 
     # Connect the two peers
     %{peer_id: id} = Libp2pPort.get_node_identity(:gossiper)
     :ok = Libp2pPort.add_peer(:publisher, id, gossiper_addr, 999_999_999_999)
 
-    pid = self()
-
-    spawn_link(fn ->
-      # Subscribe to the topic
-      :ok = Libp2pPort.subscribe_to_topic(:gossiper, topic)
-      send(pid, :subscribed)
-
-      # Receive the message
-      assert {^topic, message_id, ^message} = Libp2pPort.receive_gossip()
-
-      Libp2pPort.validate_message(message_id, :accept)
-
-      # Send acknowledgement
-      send(pid, :received)
-    end)
-
-    # Give a head start to the other process
-    assert_receive :subscribed, 100
+    # Subscribe to the topic
+    :ok = Libp2pPort.subscribe_to_topic(:gossiper, topic, __MODULE__)
 
     # Publish message
     :ok = Libp2pPort.publish(:publisher, topic, message)
 
-    # Receive acknowledgement
-    assert_receive :received, 100
+    # Receive the message
+    assert {^topic, message_id, ^message} = Libp2pPort.receive_gossip()
+
+    Libp2pPort.validate_message(message_id, :accept)
+  end
+
+  @behaviour Handler
+  def handle_gossip_message(topic, msg_id, message) do
+    # Decode the PID from the message and send a notification.
+    send(:erlang.binary_to_term(message), {:gossipsub, {topic, msg_id, message}})
   end
 
   defp retry_test(f, retries) do
@@ -137,7 +131,7 @@ defmodule Unit.Libp2pPortTest do
     port = start_port(:some, listen_addr: ["/ip4/127.0.0.1/tcp/48790"])
     topic = "test"
 
-    Libp2pPort.subscribe_to_topic(port, topic)
+    Libp2pPort.subscribe_to_topic(port, topic, __MODULE__)
     Libp2pPort.leave_topic(port, topic)
     Libp2pPort.join_topic(port, topic)
   end
