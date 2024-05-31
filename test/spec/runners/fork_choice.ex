@@ -80,6 +80,7 @@ defmodule ForkChoiceTestRunner do
     load_blob_data(case_dir, block, step)
 
     block_info = BlockInfo.from_block(block)
+
     with {:ok, new_store} <- Handlers.on_block(store, block_info),
          {:ok, new_store} <-
            block.message.body.attestations
