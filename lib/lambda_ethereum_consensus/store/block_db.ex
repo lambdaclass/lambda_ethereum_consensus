@@ -31,13 +31,13 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
           }
     defstruct [:root, :signed_block, :status]
 
-    @spec from_block(SignedBeaconBlock, block_status()) :: __MODULE__
+    @spec from_block(SignedBeaconBlock.t(), block_status()) :: t()
     def from_block(signed_block, status \\ :pending) do
       {:ok, root} = Ssz.hash_tree_root(signed_block.message)
       from_block(signed_block, root, status)
     end
 
-    @spec from_block(SignedBeaconBlock, Types.root(), block_status()) :: __MODULE__
+    @spec from_block(SignedBeaconBlock.t(), Types.root(), block_status()) :: t()
     def from_block(signed_block, root, status) do
       %__MODULE__{root: root, signed_block: signed_block, status: status}
     end
