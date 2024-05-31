@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Store.BlobDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
 
@@ -22,7 +23,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias Types.Checkpoint
   alias Types.IndexedAttestation
   alias Types.NewPayloadRequest
-  alias Types.SignedBeaconBlock
   alias Types.Store
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
@@ -54,8 +54,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   A block that is asserted as invalid due to unavailable PoW block may be valid at a later time,
   consider scheduling it for later processing in such case.
   """
-  @spec on_block(Store.t(), SignedBeaconBlock.t()) :: {:ok, Store.t()} | {:error, String.t()}
-  def on_block(%Store{} = store, %SignedBeaconBlock{message: block} = signed_block) do
+  @spec on_block(Store.t(), BlockInfo.t()) :: {:ok, Store.t()} | {:error, String.t()}
+  def on_block(%Store{} = store, %BlockInfo{} = block_info) do
+    block = block_info.signed_block.message
     %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
     finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
 
@@ -80,11 +81,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       finalized_root != Store.get_checkpoint_block(store, block.parent_root, finalized_epoch) ->
         {:error, "block isn't descendant of latest finalized block"}
 
-      not (Ssz.hash_tree_root!(block) |> data_available?(block.body.blob_kzg_commitments)) ->
+      not (block_info.root |> data_available?(block.body.blob_kzg_commitments)) ->
         {:error, "blob data not available"}
 
       true ->
-        compute_post_state(store, signed_block, base_state)
+        compute_post_state(store, block_info, base_state)
     end
   end
 
@@ -188,8 +189,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Check the block is valid and compute the post-state.
-  def compute_post_state(%Store{} = store, %SignedBeaconBlock{} = signed_block, state) do
-    %{message: block} = signed_block
+  def compute_post_state(%Store{} = store, %BlockInfo{} = block_info, state) do
+    block = block_info.signed_block.message
 
     payload = block.body.execution_payload
     parent_beacon_block_root = block.parent_root
@@ -210,7 +211,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         |> handle_verify_payload_result()
       end)
 
-    with {:ok, state} <- StateTransition.state_transition(state, signed_block, true),
+    with {:ok, state} <- StateTransition.state_transition(state, block_info.signed_block, true),
          {:ok, _execution_status} <- Task.await(payload_verification_task) do
       seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
       intervals_per_slot = Constants.intervals_per_slot()
@@ -218,25 +219,23 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
       is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
-      block_root = Ssz.hash_tree_root!(block)
-
       # Add new block and state to the store
-      BlockStates.store_state(block_root, state)
+      BlockStates.store_state(block_info.root, state)
 
       is_first_block = store.proposer_boost_root == <<0::256>>
       # TODO: store block timeliness data?
       is_timely = Store.get_current_slot(store) == block.slot and is_before_attesting_interval
 
       store
-      |> Store.store_block(block_root, signed_block)
+      |> Store.store_block(block_info)
       |> if_then_update(
         is_timely and is_first_block,
-        &%Store{&1 | proposer_boost_root: block_root}
+        &%Store{&1 | proposer_boost_root: block_info.root}
       )
       # Update checkpoints in store if necessary
       |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
       # Eagerly compute unrealized justification and finality
-      |> compute_pulled_up_tip(block_root, signed_block.message, state)
+      |> compute_pulled_up_tip(block_info.root, block_info.signed_block.message, state)
     end
   end
 

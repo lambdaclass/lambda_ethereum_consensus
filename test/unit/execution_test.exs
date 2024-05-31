@@ -54,8 +54,8 @@ defmodule Unit.ExecutionTest do
       "25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9"
       |> Base.decode16!(case: :mixed)
 
-    assert block_info.block_hash == expected_hash
-    assert block_info.block_number == 0
+    assert block_info.signed_block_hash == expected_hash
+    assert block_info.signed_block_number == 0
     assert block_info.timestamp == 1_633_267_481
   end
 

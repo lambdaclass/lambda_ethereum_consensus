@@ -10,31 +10,59 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   @block_prefix "blockHash"
   @blockslot_prefix "blockSlot"
 
-  @spec store_block(SignedBeaconBlock.t(), Types.root()) :: :ok
-  def store_block(%SignedBeaconBlock{} = signed_block) do
-    store_block(signed_block, Ssz.hash_tree_root!(signed_block.message))
+  defmodule BlockInfo do
+    @moduledoc """
+    Signed beacon block accompanied with its root and its processing status.
+    Maps to what's saved on the blocks db.
+    """
+    @type block_status ::
+            :pending
+            | :invalid
+            | :processing
+            | :download
+            | :download_blobs
+            | :unknown
+            | :transitioned
+
+    @type t :: %__MODULE__{
+            root: Types.root(),
+            signed_block: Types.SignedBeaconBlock.t(),
+            status: block_status()
+          }
+    defstruct [:root, :signed_block, :status]
+
+    @spec from_block(SignedBeaconBlock, block_status()) :: __MODULE__
+    def from_block(signed_block, status \\ :pending) do
+      {:ok, root} = Ssz.hash_tree_root(signed_block.message)
+      from_block(signed_block, root, status)
+    end
+
+    @spec from_block(SignedBeaconBlock, Types.root(), block_status()) :: __MODULE__
+    def from_block(signed_block, root, status) do
+      %__MODULE__{root: root, signed_block: signed_block, status: status}
+    end
   end
 
-  def store_block(%SignedBeaconBlock{} = signed_block, block_root) do
-    {:ok, encoded_signed_block} = Ssz.to_ssz(signed_block)
+  def store_block(_root, block_info), do: store_block(block_info)
 
-    key = block_key(block_root)
-    Db.put(key, encoded_signed_block)
+  def store_block(%BlockInfo{} = block_info) do
+    {:ok, encoded_signed_block} = Ssz.to_ssz(block_info.signed_block)
+
+    key = block_key(block_info.root)
+    Db.put(key, :erlang.term_to_binary({encoded_signed_block, block_info.status}))
 
     # WARN: this overrides any previous mapping for the same slot
     # TODO: this should apply fork-choice if not applied elsewhere
     # TODO: handle cases where slot is empty
-    slothash_key = block_root_by_slot_key(signed_block.message.slot)
-    Db.put(slothash_key, block_root)
+    slothash_key = block_root_by_slot_key(block_info.signed_block.message.slot)
+    Db.put(slothash_key, block_info.root)
   end
 
   @spec get_block(Types.root()) ::
-          {:ok, SignedBeaconBlock.t()} | {:error, String.t()} | :not_found
+          {:ok, BlockInfo.t()} | {:error, String.t()} | :not_found
   def get_block(block_root) do
-    key = block_key(block_root)
-
-    with {:ok, signed_block} <- Db.get(key) do
-      Ssz.from_ssz(signed_block, SignedBeaconBlock)
+    with {:ok, data} <- Db.get(block_key(block_root)) do
+      decode_block_info(block_root, data)
     end
   end
 
@@ -51,7 +79,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   end
 
   @spec get_block_by_slot(Types.slot()) ::
-          {:ok, SignedBeaconBlock.t()} | {:error, String.t()} | :not_found | :empty_slot
+          {:ok, BlockInfo.t()} | {:error, String.t()} | :not_found | :empty_slot
   def get_block_by_slot(slot) do
     # WARN: this will return the latest block received for the given slot
     with {:ok, root} <- get_block_root_by_slot(slot) do
@@ -74,6 +102,16 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
     slots_to_remove |> Enum.each(&remove_block_by_slot/1)
     Logger.info("[BlockDb] Pruning finished. #{Enum.count(slots_to_remove)} blocks removed.")
+  end
+
+  defp decode_block_info(root, data) do
+    with {:d, {encoded_signed_block, status}} <- {:d, :erlang.binary_to_term(data)},
+         {:ok, signed_block} <- Ssz.from_ssz(encoded_signed_block, SignedBeaconBlock) do
+      {:ok, %BlockInfo{root: root, signed_block: signed_block, status: status}}
+    else
+      {:d, other} -> {:error, "Block decoding failed, format is not the expected: #{other}"}
+      other -> other
+    end
   end
 
   @spec remove_block_by_slot(non_neg_integer()) :: :ok | :not_found
@@ -114,36 +152,4 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
   defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)
-
-  def stream_blocks() do
-    Stream.resource(
-      fn -> <<0::256>> |> block_key() |> init_cursor() end,
-      &next_block/1,
-      &close_cursor/1
-    )
-  end
-
-  defp init_cursor(initial_key) do
-    with {:ok, it} <- Db.iterate(),
-         {:ok, _, _} <- Exleveldb.iterator_move(it, initial_key),
-         {:ok, _, _} <- Exleveldb.iterator_move(it, :prev) do
-      it
-    else
-      # DB is empty
-      {:error, :invalid_iterator} -> nil
-    end
-  end
-
-  defp next_block(nil), do: {:halt, nil}
-
-  defp next_block(it) do
-    case Exleveldb.iterator_move(it, :prefetch) do
-      {:ok, @block_prefix <> <<hash::binary-size(32)>>, value} ->
-        {:ok, block} = Ssz.from_ssz(value, SignedBeaconBlock)
-        {[{hash, block.message}], it}
-
-      _ ->
-        {:halt, it}
-    end
-  end
 end

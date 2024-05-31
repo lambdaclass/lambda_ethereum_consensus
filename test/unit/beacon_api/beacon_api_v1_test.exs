@@ -7,6 +7,7 @@ defmodule Unit.BeaconApiTest.V1 do
   alias BeaconApi.Utils
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Db
 
   @moduletag :beacon_api_case
@@ -45,7 +46,10 @@ defmodule Unit.BeaconApiTest.V1 do
         0, 0>>
 
     signed_block = Fixtures.Block.signed_beacon_block()
-    BlockDb.store_block(signed_block, head_root)
+
+    signed_block
+    |> BlockInfo.from_block(head_root, :pending)
+    |> BlockDb.store_block()
 
     resp_body = %{
       data: %{root: Utils.hex_encode(signed_block.message.state_root)},
@@ -87,7 +91,11 @@ defmodule Unit.BeaconApiTest.V1 do
         0, 0>>
 
     signed_block = Fixtures.Block.signed_beacon_block()
-    BlockDb.store_block(signed_block, head_root)
+
+    signed_block
+    |> BlockInfo.from_block(head_root, :pending)
+    |> BlockDb.store_block()
+
     beacon_state = Fixtures.Block.beacon_state()
 
     patch(

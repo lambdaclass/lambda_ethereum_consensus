@@ -5,6 +5,7 @@ defmodule Unit.BeaconApiTest.V2 do
 
   alias BeaconApi.Router
   alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.Db
 
@@ -30,7 +31,10 @@ defmodule Unit.BeaconApiTest.V2 do
 
     signed_block = Fixtures.Block.signed_beacon_block()
     block_id = signed_block.message.slot
-    BlockDb.store_block(signed_block, head_root)
+
+    signed_block
+    |> BlockInfo.from_block(head_root, :pending)
+    |> BlockDb.store_block()
 
     resp_body = %{
       version: "deneb",
@@ -56,7 +60,10 @@ defmodule Unit.BeaconApiTest.V2 do
         0, 0>>
 
     signed_block = Fixtures.Block.signed_beacon_block()
-    BlockDb.store_block(signed_block, head_root)
+
+    signed_block
+    |> BlockInfo.from_block(head_root, :pending)
+    |> BlockDb.store_block()
 
     resp_body = %{
       version: "deneb",

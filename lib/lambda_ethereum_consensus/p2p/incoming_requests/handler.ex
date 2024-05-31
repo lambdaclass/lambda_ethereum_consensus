@@ -103,7 +103,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       response_chunk =
         roots
         |> Enum.take(truncated_count)
-        |> Enum.map(&Blocks.get_signed_block/1)
+        |> Enum.map(&Blocks.get_block_info/1)
         |> Enum.map(&map_block_result/1)
         |> Enum.reject(&(&1 == :skip))
         |> ReqResp.encode_response()
@@ -124,6 +124,11 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp map_block_result({:ok, block}), do: map_block_result(block)
   defp map_block_result({:error, _}), do: {:error, {2, "Server Error"}}
 
-  defp map_block_result(block),
-    do: {:ok, {block, BeaconChain.get_fork_digest_for_slot(block.message.slot)}}
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
+
+  defp map_block_result(%BlockInfo{} = block_info),
+    do:
+      {:ok,
+       {block_info.signed_block,
+        BeaconChain.get_fork_digest_for_slot(block_info.signed_block.message.slot)}}
 end
