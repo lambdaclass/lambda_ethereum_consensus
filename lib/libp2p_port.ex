@@ -187,12 +187,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Subscribes to the given topic. After this, messages published to the topic
   will be received by `self()`.
   """
-  @spec subscribe_to_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
-  def subscribe_to_topic(pid \\ __MODULE__, topic_name) do
+  @spec subscribe_to_topic(GenServer.server(), String.t(), module()) :: :ok | {:error, String.t()}
+  def subscribe_to_topic(pid \\ __MODULE__, topic_name, module) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "subscribe_to_topic",
       direction: "elixir->"
     })
+
+    GenServer.cast(pid, {:new_subscriptor, topic_name, module})
 
     call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
@@ -279,7 +281,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
 
-    {:ok, %{port: port, new_peer_handler: new_peer_handler}}
+    {:ok, %{port: port, new_peer_handler: new_peer_handler, subscriptors: %{}}}
+  end
+
+  @impl GenServer
+  def handle_cast({:new_subscriptor, topic, module}, %{subscriptors: subscriptors} = state) do
+    new_subscriptors = Map.put(subscriptors, topic, module)
+    {:noreply, %{state | subscriptors: new_subscriptors}}
   end
 
   @impl GenServer
@@ -316,10 +324,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%GossipSub{} = gs, _state) do
+  defp handle_notification(%GossipSub{} = gs, %{subscriptors: subscriptors}) do
     :telemetry.execute([:port, :message], %{}, %{function: "gossipsub", direction: "->elixir"})
-    handler_pid = :erlang.binary_to_term(gs.handler)
-    send(handler_pid, {:gossipsub, {gs.topic, gs.msg_id, gs.message}})
+
+    case Map.fetch(subscriptors, gs.topic) do
+      {:ok, module} -> module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
+      :error -> Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
+    end
   end
 
   defp handle_notification(

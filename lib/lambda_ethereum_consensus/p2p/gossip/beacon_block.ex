@@ -5,11 +5,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias Types.SignedBeaconBlock
 
   use GenServer
 
   require Logger
+  @behaviour Handler
 
   @type state :: %{topic: String.t(), slot: Types.slot()}
 
@@ -30,6 +32,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
     GenServer.cast(__MODULE__, {:slot_transition, slot})
   end
 
+  @impl true
+  def handle_gossip_message(topic, msg_id, message) do
+    GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -47,7 +54,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
 
   @impl true
   def handle_call(:start, _from, %{topic: topic_name} = state) do
-    Libp2pPort.subscribe_to_topic(topic_name)
+    Libp2pPort.subscribe_to_topic(topic_name, __MODULE__)
     {:reply, :ok, state}
   end
 
@@ -57,7 +64,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   end
 
   @impl true
-  def handle_info({:gossipsub, {_topic, msg_id, message}}, %{slot: slot} = state) do
+  def handle_cast({:gossipsub, {_topic, msg_id, message}}, %{slot: slot} = state) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, signed_block} <- Ssz.from_ssz(uncompressed, SignedBeaconBlock),
          :ok <- validate(signed_block, slot) do
