@@ -53,16 +53,19 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
       %__MODULE__{root: root, signed_block: signed_block, status: status}
     end
 
+    @spec change_status(t(), block_status()) :: t()
     def change_status(%__MODULE__{} = block_info, new_status) when is_status(new_status) do
       %__MODULE__{block_info | status: new_status}
     end
 
+    @spec encode(t()) :: {:ok, binary()} | {:error, binary()}
     def encode(%__MODULE__{} = block_info) do
       with {:ok, encoded_signed_block} <- Ssz.to_ssz(block_info.signed_block) do
-        :erlang.term_to_binary({encoded_signed_block, block_info.status})
+        {:ok, :erlang.term_to_binary({encoded_signed_block, block_info.status})}
       end
     end
 
+    @spec decode(Types.root(), binary()) :: {:error, binary()} | {:ok, t()}
     def decode(block_root, data) do
       with {:ok, {encoded_signed_block, status}} <- validate_term(:erlang.binary_to_term(data)),
            {:ok, signed_block} <- Ssz.from_ssz(encoded_signed_block, SignedBeaconBlock) do
@@ -81,6 +84,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     end
   end
 
+  @spec store_block_info(BlockInfo.t()) :: :ok
   def store_block_info(%BlockInfo{} = block_info) do
     # TODO handle encoding errors properly.
     {:ok, encoded} = BlockInfo.encode(block_info)
