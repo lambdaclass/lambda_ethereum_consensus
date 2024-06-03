@@ -5,6 +5,7 @@ defmodule BeaconApi.V2.BeaconController do
   alias BeaconApi.ErrorController
   alias BeaconApi.Utils
   alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types
 
@@ -46,8 +47,8 @@ defmodule BeaconApi.V2.BeaconController do
 
   def get_block(conn, %{block_id: block_id}) do
     with {slot, ""} when slot >= 0 <- Integer.parse(block_id),
-         {:ok, block_info} <- BlockDb.get_block_info_by_slot(slot) do
-      conn |> block_response(block_info.signed_block)
+         {:ok, %BlockInfo{block: signed_block}} <- BlockDb.get_block_info_by_slot(slot) do
+      conn |> block_response(signed_block)
     else
       :not_found ->
         conn |> block_not_found()

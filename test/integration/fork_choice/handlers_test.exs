@@ -4,6 +4,7 @@ defmodule Integration.ForkChoice.HandlersTest do
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.StateDb
@@ -23,8 +24,8 @@ defmodule Integration.ForkChoice.HandlersTest do
     # WARN: sometimes fails with "OffsetOutOfBounds" errors. Re-run the test in those cases.
     {:ok, state} = StateDb.get_latest_state()
 
-    {:ok, signed_block} = BlockDb.get_block_info_by_slot(state.slot)
-    {:ok, new_signed_block} = BlockDb.get_block_info_by_slot(state.slot + 1)
+    {:ok, %BlockInfo{block: signed_block}} = BlockDb.get_block_info_by_slot(state.slot)
+    {:ok, %BlockInfo{block: new_signed_block}} = BlockDb.get_block_info_by_slot(state.slot + 1)
 
     assert {:ok, store} = Types.Store.get_forkchoice_store(state, signed_block)
     new_store = Handlers.on_tick(store, :os.system_time(:second))
