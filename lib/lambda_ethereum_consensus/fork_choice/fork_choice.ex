@@ -125,8 +125,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       new_finalized_slot =
         new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
 
-      Task.start_link(StateDb, :prune_states_older_than, [new_finalized_slot])
-      Task.start_link(BlockDb, :prune_blocks_older_than, [new_finalized_slot])
+      Task.Supervisor.start_child(
+        PruneStatesSupervisor,
+        fn -> StateDb.prune_states_older_than(new_finalized_slot) end
+      )
+
+      Task.Supervisor.start_child(
+        PruneBlocksSupervisor,
+        fn -> BlockDb.prune_blocks_older_than(new_finalized_slot) end
+      )
     end
   end
 
