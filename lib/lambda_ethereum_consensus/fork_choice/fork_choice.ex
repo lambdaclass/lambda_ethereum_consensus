@@ -12,6 +12,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
@@ -36,9 +37,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     GenServer.cast(__MODULE__, {:on_tick, time})
   end
 
-  @spec on_block(SignedBeaconBlock.t(), Types.root()) :: :ok | :error
-  def on_block(signed_block, block_root) do
-    GenServer.cast(__MODULE__, {:on_block, block_root, signed_block, self()})
+  @spec on_block(BlockInfo.t()) :: :ok | :error
+  def on_block(block_info) do
+    GenServer.cast(__MODULE__, {:on_block, block_info, self()})
   end
 
   @spec on_attestation(Types.Attestation.t()) :: :ok
@@ -69,16 +70,17 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @impl GenServer
-  def handle_cast({:on_block, block_root, %SignedBeaconBlock{} = signed_block, from}, store) do
-    slot = signed_block.message.slot
+  def handle_cast({:on_block, %BlockInfo{} = block_info, from}, store) do
+    slot = block_info.signed_block.message.slot
+    block_root = block_info.root
 
-    Logger.info("[Fork choice] Adding new block", root: block_root, slot: slot)
+    Logger.info("[Fork choice] Adding new block", root: block_info.root, slot: slot)
 
     %Store{finalized_checkpoint: last_finalized_checkpoint} = store
 
     result =
       :telemetry.span([:sync, :on_block], %{}, fn ->
-        {process_block(block_root, signed_block, store), %{}}
+        {process_block(block_info, store), %{}}
       end)
 
     case result do
@@ -171,8 +173,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end)
   end
 
-  defp process_block(_block_root, %SignedBeaconBlock{} = signed_block, store) do
-    with {:ok, new_store} <- Handlers.on_block(store, signed_block),
+  @spec process_block(BlockInfo.t(), Store.t()) :: Store.t()
+  defp process_block(%BlockInfo{signed_block: signed_block} = block_info, store) do
+    with {:ok, new_store} <- Handlers.on_block(store, block_info),
          # process block attestations
          {:ok, new_store} <-
            signed_block.message.body.attestations
