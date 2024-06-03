@@ -6,6 +6,7 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.ForkChoice.Simple.Tree
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias Types.BeaconBlock
@@ -51,8 +52,9 @@ defmodule Types.Store do
         %BeaconState{} = anchor_state,
         %SignedBeaconBlock{message: anchor_block} = signed_block
       ) do
+    block_info = BlockInfo.from_block(signed_block, :transitioned)
+    anchor_block_root = block_info.root
     anchor_state_root = Ssz.hash_tree_root!(anchor_state)
-    anchor_block_root = Ssz.hash_tree_root!(anchor_block)
 
     if anchor_block.state_root == anchor_state_root do
       anchor_epoch = Accessors.get_current_epoch(anchor_state)
@@ -80,7 +82,7 @@ defmodule Types.Store do
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
         tree_cache: Tree.new(anchor_block_root)
       }
-      |> store_block(anchor_block_root, signed_block)
+      |> store_block_info(block_info)
       |> then(&{:ok, &1})
     else
       {:error, "Anchor block state root does not match anchor state root"}
@@ -125,10 +127,10 @@ defmodule Types.Store do
     |> Enum.map(&{&1, Blocks.get_block!(&1)})
   end
 
-  @spec store_block(t(), Types.root(), SignedBeaconBlock.t()) :: t()
-  def store_block(%__MODULE__{} = store, block_root, %SignedBeaconBlock{} = signed_block) do
-    Blocks.store_block(block_root, signed_block)
-    update_tree(store, block_root, signed_block.message.parent_root)
+  @spec store_block_info(t(), BlockInfo.t()) :: t()
+  def store_block_info(%__MODULE__{} = store, %BlockInfo{} = block_info) do
+    Blocks.store_block_info(block_info)
+    update_tree(store, block_info.root, block_info.signed_block.message.parent_root)
   end
 
   @spec get_safe_execution_payload_hash(t()) :: Types.hash32()

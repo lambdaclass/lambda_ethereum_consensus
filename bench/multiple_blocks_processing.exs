@@ -3,6 +3,7 @@ alias LambdaEthereumConsensus.ForkChoice.Handlers
 alias LambdaEthereumConsensus.StateTransition.Cache
 alias LambdaEthereumConsensus.Store
 alias LambdaEthereumConsensus.Store.BlockDb
+alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
 alias LambdaEthereumConsensus.Store.StateDb
 alias Types.BeaconState
 alias Types.SignedBeaconBlock
@@ -21,14 +22,14 @@ end_slot = start_slot + count
 
 IO.puts("fetching blocks...")
 {:ok, %BeaconState{} = state} = StateDb.get_state_by_slot(start_slot)
-{:ok, %SignedBeaconBlock{} = signed_block} = BlockDb.get_block_by_slot(state.slot)
+{:ok, %BlockInfo{signed_block: signed_block}} = BlockDb.get_block_info_by_slot(state.slot)
 
 blocks =
   (start_slot + 1)..end_slot
   # NOTE: we have to consider empty slots
   |> Enum.flat_map(fn slot ->
-    case BlockDb.get_block_by_slot(slot) do
-      {:ok, block} -> [block]
+    case BlockDb.get_block_info_by_slot(slot) do
+      {:ok, %BlockInfo{signed_block: block}} -> [block]
       :not_found -> []
     end
   end)
