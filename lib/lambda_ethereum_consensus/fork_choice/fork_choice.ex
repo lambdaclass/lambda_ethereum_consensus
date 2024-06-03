@@ -17,7 +17,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.StoreDb
   alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.Attestation
-  alias Types.SignedBeaconBlock
   alias Types.Store
 
   ##########################
@@ -64,7 +63,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
         persist_store(new_store)
         GenServer.cast(from, {:block_processed, block_root, true})
-        persist_fork_choice_store(new_store)
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
@@ -187,21 +185,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   defp fetch_store!() do
     {:ok, store} = StoreDb.fetch_store()
-    store
-  end
-
-  defp persist_fork_choice_store(store) do
-    :telemetry.span([:fork_choice, :persist], %{}, fn ->
-      {StoreDb.persist_fork_choice_store(store), %{}}
-    end)
-  end
-
-  defp fetch_fork_choice_store!() do
-    {:ok, store} =
-      :telemetry.span([:fork_choice, :fetch], %{}, fn ->
-        {StoreDb.fetch_fork_choice_store(), %{}}
-      end)
-
     store
   end
 end

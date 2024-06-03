@@ -15,19 +15,11 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
     end)
   end
 
-  @spec fetch_fork_choice_store() :: {:ok, Types.Store.t()} | :not_found
-  def fetch_fork_choice_store(), do: get(@fork_choice_store_prefix)
-
   @spec persist_store(Types.Store.t()) :: :ok
   def persist_store(%Types.Store{} = store) do
     :telemetry.span([:fork_choice, :persist], %{}, fn ->
       {put(@store_prefix, store), %{}}
     end)
-  end
-
-  @spec persist_fork_choice_store(Types.Store.t()) :: :ok
-  def persist_fork_choice_store(%Types.Store{} = store) do
-    put(@fork_choice_store_prefix, store)
   end
 
   @spec fetch_deposits_snapshot() :: {:ok, Types.DepositTreeSnapshot.t()} | :not_found
