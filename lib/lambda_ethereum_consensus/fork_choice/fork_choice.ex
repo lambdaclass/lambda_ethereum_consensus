@@ -87,22 +87,18 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     persist_store(state)
   end
 
-  @spec notify_attester_slashing(Types.AttesterSlashing.t()) :: :ok
-  def notify_attester_slashing(attester_slashing) do
+  @spec on_attester_slashing(Types.AttesterSlashing.t()) :: :ok
+  def on_attester_slashing(attester_slashing) do
     Logger.info("[Fork choice] Adding attester slashing to the store")
     state = fetch_store!()
 
-    state =
-      case Handlers.on_attester_slashing(state, attester_slashing) do
-        {:ok, new_state} ->
-          new_state
+    case Handlers.on_attester_slashing(state, attester_slashing) do
+      {:ok, new_state} ->
+        persist_store(new_state)
 
-        _ ->
-          Logger.error("[Fork choice] Failed to add attester slashing to the store")
-          state
-      end
-
-    persist_store(state)
+      _ ->
+        Logger.error("[Fork choice] Failed to add attester slashing to the store")
+    end
   end
 
   @spec on_tick(Types.uint64()) :: :ok
