@@ -32,6 +32,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     }
   end
 
+  # TODO: make private.
   @spec store_block_info(BlockInfo.t()) :: :ok
   def store_block_info(block_info) do
     LRUCache.put(@table, block_info.root, block_info)
@@ -66,17 +67,40 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     end
   end
 
+  @spec new_block_info(BlockInfo.t()) :: :ok
+  def new_block_info(block_info) do
+    store_block_info(block_info)
+    BlockDb.add_root_to_status(block_info.root, block_info.status)
+  end
+
   @spec change_status(BlockInfo.t(), BlockInfo.block_status()) :: :ok
   def change_status(block_info, status) do
+    old_status = block_info.status
+
     block_info
     |> BlockInfo.change_status(status)
     |> store_block_info()
+
+    BlockDb.change_root_status(block_info.root, old_status, status)
   end
 
-  @spec get_blocks_with_status(BlockInfo.block_status()) :: [BlockInfo.t()]
-  def get_blocks_with_status(_status) do
-    # TODO
-    []
+  @spec get_blocks_with_status(BlockInfo.block_status()) ::
+          {:ok, [BlockInfo.t()]} | {:error, binary()}
+  def get_blocks_with_status(status) do
+    BlockDb.get_roots_with_status(status)
+    |> Enum.reduce_while([], fn root, acc ->
+      case get_block_info(root) do
+        nil -> {:halt, root}
+        block_info -> {:cont, [block_info | acc]}
+      end
+    end)
+    |> case do
+      block_info when is_list(block_info) ->
+        {:ok, Enum.reverse(block_info)}
+
+      root ->
+        {:error, "Error getting blocks with status #{status}. Block with root #{root} not found."}
+    end
   end
 
   ##########################

@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
   @block_prefix "blockHash"
   @blockslot_prefix "blockSlot"
+  @block_status_prefix "blockStatus"
 
   defmodule BlockInfo do
     @moduledoc """
@@ -129,6 +130,42 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     end
   end
 
+  @spec remove_root_from_status(Types.root(), BlockInfo.block_status()) :: :ok
+  def remove_root_from_status(root, status) do
+    get_roots_with_status(status)
+    |> MapSet.delete(root)
+    |> store_roots_with_status(status)
+  end
+
+  @spec add_root_to_status(Types.root(), BlockInfo.block_status()) :: :ok
+  def add_root_to_status(root, status) do
+    get_roots_with_status(status)
+    |> MapSet.put(root)
+    |> store_roots_with_status(status)
+  end
+
+  def change_root_status(root, from_status, to_status) do
+    remove_root_from_status(root, from_status)
+    add_root_to_status(root, to_status)
+
+    # TODO: if we need to perform some level of db recovery, we probably should consider the
+    # blocks db as the source of truth and reconstruct the status ones. Either that or
+    # perform an ACID-like transaction.
+  end
+
+  @spec store_roots_with_status(MapSet.t(Types.root()), BlockInfo.block_status()) :: :ok
+  defp store_roots_with_status(block_roots, status) do
+    Db.put(block_status_key(status), :erlang.term_to_binary(block_roots))
+  end
+
+  @spec get_roots_with_status(BlockInfo.block_status()) :: MapSet.t(Types.root())
+  def get_roots_with_status(status) do
+    case Db.get(block_status_key(status)) do
+      {:ok, binary} -> :erlang.binary_to_term(binary)
+      :not_found -> []
+    end
+  end
+
   @spec prune_blocks_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
   def prune_blocks_older_than(slot) do
     Logger.info("[BlockDb] Pruning started.", slot: slot)
@@ -184,4 +221,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
   defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)
+
+  defp block_status_key(status), do: Utils.get_key(@block_status_prefix, Atom.to_string(status))
 end
