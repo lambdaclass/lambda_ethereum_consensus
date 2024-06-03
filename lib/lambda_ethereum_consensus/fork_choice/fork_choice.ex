@@ -35,8 +35,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     persist_store(store)
   end
 
-  @spec on_block(BlockInfo.t(), pid()) :: :ok | :error
-  def on_block(%BlockInfo{} = block_info, from \\ self()) do
+  @spec on_block(BlockInfo.t()) :: :ok | :error
+  def on_block(%BlockInfo{} = block_info) do
     store = fetch_store!()
     slot = block_info.signed_block.message.slot
     block_root = block_info.root
@@ -64,11 +64,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
 
         persist_store(new_store)
-        GenServer.cast(from, {:block_processed, block_root, true})
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
-        GenServer.cast(from, {:block_processed, block_root, false})
+        :error
     end
   end
 

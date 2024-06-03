@@ -16,10 +16,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
 
-  @type block_status :: :pending | :invalid | :processing | :download | :download_blobs | :unknown
+  @type block_status :: :pending | :invalid | :download | :download_blobs | :unknown
   @type block_info ::
           {SignedBeaconBlock.t(), :pending | :download_blobs}
-          | {nil, :invalid | :processing | :download}
+          | {nil, :invalid | :download}
   @type state :: %{Types.root() => block_info()}
 
   ##########################
@@ -78,19 +78,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def handle_cast({:on_tick, time}, state) do
     ForkChoice.on_tick(time)
     {:noreply, state}
-  end
-
-  @impl true
-  def handle_cast({:block_processed, block_root, true}, state) do
-    # Block is valid. We immediately check if we can process another block.
-    new_state = state |> Map.delete(block_root) |> process_blocks()
-    {:noreply, new_state}
-  end
-
-  @impl true
-  def handle_cast({:block_processed, block_root, false}, state) do
-    # Block is invalid
-    {:noreply, state |> Map.put(block_root, {nil, :invalid})}
   end
 
   @doc """
@@ -190,7 +177,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           state |> Map.put(block_root, {nil, :invalid})
 
         # If parent isn't processed, block is pending
-        parent_status in [:processing, :pending, :download, :download_blobs] ->
+        parent_status in [:pending, :download, :download_blobs] ->
           state
 
         # If parent is not in fork choice, download parent
@@ -199,8 +186,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
         # If all the other conditions are false, add block to fork choice
         true ->
-          ForkChoice.on_block(block_info)
-          state |> Map.put(block_root, {signed_block, :processing})
+          case ForkChoice.on_block(block_info) do
+            :ok -> state |> Map.delete(block_root)
+            :error -> state |> Map.put(block_root, {nil, :invalid})
+          end
       end
     end)
   end
