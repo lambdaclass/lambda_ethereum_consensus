@@ -24,8 +24,10 @@ defmodule Integration.ForkChoice.HandlersTest do
     # WARN: sometimes fails with "OffsetOutOfBounds" errors. Re-run the test in those cases.
     {:ok, state} = StateDb.get_latest_state()
 
-    {:ok, %BlockInfo{block: signed_block}} = BlockDb.get_block_info_by_slot(state.slot)
-    {:ok, %BlockInfo{block: new_signed_block}} = BlockDb.get_block_info_by_slot(state.slot + 1)
+    {:ok, %BlockInfo{signed_block: signed_block}} = BlockDb.get_block_info_by_slot(state.slot)
+
+    {:ok, %BlockInfo{signed_block: new_signed_block}} =
+      BlockDb.get_block_info_by_slot(state.slot + 1)
 
     assert {:ok, store} = Types.Store.get_forkchoice_store(state, signed_block)
     new_store = Handlers.on_tick(store, :os.system_time(:second))

@@ -47,7 +47,7 @@ defmodule BeaconApi.V2.BeaconController do
 
   def get_block(conn, %{block_id: block_id}) do
     with {slot, ""} when slot >= 0 <- Integer.parse(block_id),
-         {:ok, %BlockInfo{block: signed_block}} <- BlockDb.get_block_info_by_slot(slot) do
+         {:ok, %BlockInfo{signed_block: signed_block}} <- BlockDb.get_block_info_by_slot(slot) do
       conn |> block_response(signed_block)
     else
       :not_found ->

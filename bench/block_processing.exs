@@ -20,8 +20,8 @@ slot = 4_213_280
 
 IO.puts("fetching blocks...")
 {:ok, %BeaconState{} = state} = StateDb.get_state_by_slot(slot)
-{:ok, %BlockInfo{block: block}} = BlockDb.get_block_info_by_slot(slot)
-{:ok, %BlockInfo{block: new_block}} = BlockDb.get_block_info_by_slot(slot + 1)
+{:ok, %BlockInfo{signed_block: block}} = BlockDb.get_block_info_by_slot(slot)
+{:ok, %BlockInfo{signed_block: new_block}} = BlockDb.get_block_info_by_slot(slot + 1)
 
 IO.puts("initializing store...")
 {:ok, store} = Types.Store.get_forkchoice_store(state, block)
