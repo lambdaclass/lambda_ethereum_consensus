@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
@@ -32,21 +33,22 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     :telemetry.execute([:sync, :store], %{slot: Store.get_current_slot(store)})
     :telemetry.execute([:sync, :on_block], %{slot: head_slot})
 
-    persist_fork_choice_store(store)
+    persist_store(store)
   end
 
-  @spec on_block(SignedBeaconBlock.t(), Types.root(), pid()) :: :ok | :error
-  def on_block(%SignedBeaconBlock{} = signed_block, block_root, from \\ self()) do
-    store = fetch_fork_choice_store!()
-    slot = signed_block.message.slot
+  @spec on_block(BlockInfo.t(), pid()) :: :ok | :error
+  def on_block(%BlockInfo{} = block_info, from \\ self()) do
+    store = fetch_store!()
+    slot = block_info.signed_block.message.slot
+    block_root = block_info.root
 
-    Logger.info("[Fork choice] Adding new block", root: block_root, slot: slot)
+    Logger.info("[Fork choice] Adding new block", root: block_info.root, slot: slot)
 
     %Store{finalized_checkpoint: last_finalized_checkpoint} = store
 
     result =
       :telemetry.span([:sync, :on_block], %{}, fn ->
-        {process_block(block_root, signed_block, store), %{}}
+        {process_block(block_info, store), %{}}
       end)
 
     case result do
@@ -60,6 +62,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
         prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
 
+        persist_store(new_store)
         GenServer.cast(from, {:block_processed, block_root, true})
         persist_fork_choice_store(new_store)
 
@@ -71,7 +74,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec on_attestation(Types.Attestation.t()) :: :ok
   def on_attestation(%Attestation{} = attestation) do
-    state = fetch_fork_choice_store!()
+    state = fetch_store!()
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
     Logger.debug("[Fork choice] Adding attestation #{id} to the store")
 
@@ -81,13 +84,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         _ -> state
       end
 
-    persist_fork_choice_store(state)
+    persist_store(state)
   end
 
   @spec notify_attester_slashing(Types.AttesterSlashing.t()) :: :ok
   def notify_attester_slashing(attester_slashing) do
     Logger.info("[Fork choice] Adding attester slashing to the store")
-    state = fetch_fork_choice_store!()
+    state = fetch_store!()
 
     state =
       case Handlers.on_attester_slashing(state, attester_slashing) do
@@ -99,19 +102,19 @@ defmodule LambdaEthereumConsensus.ForkChoice do
           state
       end
 
-    persist_fork_choice_store(state)
+    persist_store(state)
   end
 
   @spec on_tick(Types.uint64()) :: :ok
   def on_tick(time) do
     Logger.info("[ForkChoice] On tick!")
-    store = fetch_fork_choice_store!()
+    store = fetch_store!()
     %Store{finalized_checkpoint: last_finalized_checkpoint} = store
 
     new_store = Handlers.on_tick(store, time)
     %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
     prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
-    persist_fork_choice_store(new_store)
+    persist_store(new_store)
   end
 
   ##########################
@@ -137,8 +140,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end)
   end
 
-  defp process_block(_block_root, %SignedBeaconBlock{} = signed_block, store) do
-    with {:ok, new_store} <- Handlers.on_block(store, signed_block),
+  @spec process_block(BlockInfo.t(), Store.t()) :: Store.t()
+  defp process_block(%BlockInfo{signed_block: signed_block} = block_info, store) do
+    with {:ok, new_store} <- Handlers.on_block(store, block_info),
          # process block attestations
          {:ok, new_store} <-
            signed_block.message.body.attestations
@@ -153,7 +157,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec recompute_head(Store.t()) :: :ok
   def recompute_head(store) do
-    persist_store(store)
     {:ok, head_root} = Head.get_head(store)
     head_block = Blocks.get_block!(head_root)
 
@@ -178,12 +181,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   defp persist_store(store) do
-    pruned_store = Map.put(store, :checkpoint_states, %{})
+    StoreDb.persist_store(store)
+    Logger.debug("[Fork choice] Store persisted")
+  end
 
-    Task.start_link(fn ->
-      StoreDb.persist_store(pruned_store)
-      Logger.debug("[Fork choice] Store persisted")
-    end)
+  defp fetch_store!() do
+    {:ok, store} = StoreDb.fetch_store()
+    store
   end
 
   defp persist_fork_choice_store(store) do

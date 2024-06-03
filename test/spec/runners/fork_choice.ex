@@ -9,6 +9,7 @@ defmodule ForkChoiceTestRunner do
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.Store.BlobDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BeaconBlock
   alias Types.BeaconState
@@ -78,7 +79,9 @@ defmodule ForkChoiceTestRunner do
 
     load_blob_data(case_dir, block, step)
 
-    with {:ok, new_store} <- Handlers.on_block(store, block),
+    block_info = BlockInfo.from_block(block)
+
+    with {:ok, new_store} <- Handlers.on_block(store, block_info),
          {:ok, new_store} <-
            block.message.body.attestations
            |> Enum.reduce_while({:ok, new_store}, fn
