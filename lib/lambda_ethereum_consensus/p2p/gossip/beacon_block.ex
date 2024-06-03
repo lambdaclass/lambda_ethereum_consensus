@@ -11,9 +11,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   require Logger
   @behaviour Handler
 
+  ##########################
+  ### Public API
+  ##########################
+
   @impl true
   def handle_gossip_message(_topic, msg_id, message) do
-    Task.start_link(__MODULE__, :handle_beacon_block, [msg_id, message])
+    handle_beacon_block(msg_id, message)
     :ok
   end
 
@@ -38,7 +42,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
     end
   end
 
-  def handle_beacon_block(msg_id, message) do
+  ##########################
+  ### Private functions
+  ##########################
+
+  defp handle_beacon_block(msg_id, message) do
     slot = BeaconChain.get_current_slot()
 
     with {:ok, uncompressed} <- :snappyer.decompress(message),
