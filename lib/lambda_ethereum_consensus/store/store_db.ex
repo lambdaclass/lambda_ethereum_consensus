@@ -8,11 +8,17 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   @snapshot_prefix "snapshot"
 
   @spec fetch_store() :: {:ok, Types.Store.t()} | :not_found
-  def fetch_store(), do: get(@store_prefix)
+  def fetch_store() do
+    :telemetry.span([:fork_choice, :fetch], %{}, fn ->
+      {get(@store_prefix), %{}}
+    end)
+  end
 
   @spec persist_store(Types.Store.t()) :: :ok
   def persist_store(%Types.Store{} = store) do
-    put(@store_prefix, store)
+    :telemetry.span([:fork_choice, :persist], %{}, fn ->
+      {put(@store_prefix, store), %{}}
+    end)
   end
 
   @spec fetch_deposits_snapshot() :: {:ok, Types.DepositTreeSnapshot.t()} | :not_found

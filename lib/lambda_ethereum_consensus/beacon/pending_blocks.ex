@@ -12,6 +12,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
 
@@ -167,6 +168,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     |> Enum.map(fn {root, {block, _}} -> {root, block} end)
     |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
     |> Enum.reduce(state, fn {block_root, signed_block}, state ->
+      block_info = BlockInfo.from_block(signed_block, block_root, :pending)
+
       parent_root = signed_block.message.parent_root
       parent_status = get_block_status(state, parent_root)
 
@@ -185,7 +188,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
         # If all the other conditions are false, add block to fork choice
         true ->
-          ForkChoice.on_block(signed_block, block_root)
+          ForkChoice.on_block(block_info)
           state |> Map.put(block_root, {signed_block, :processing})
       end
     end)
