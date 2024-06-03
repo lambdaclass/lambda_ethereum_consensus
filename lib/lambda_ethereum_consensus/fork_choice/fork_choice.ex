@@ -55,7 +55,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         :telemetry.execute([:sync, :on_block], %{slot: slot})
         Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
 
-        Task.start_link(__MODULE__, :recompute_head, [new_store])
+        :telemetry.span([:fork_choice, :recompute_head], %{}, fn ->
+          {recompute_head(new_store), %{}}
+        end)
 
         %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
 
