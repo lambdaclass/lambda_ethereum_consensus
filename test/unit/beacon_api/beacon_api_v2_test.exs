@@ -34,7 +34,7 @@ defmodule Unit.BeaconApiTest.V2 do
 
     signed_block
     |> BlockInfo.from_block(head_root, :pending)
-    |> BlockDb.store_block()
+    |> BlockDb.store_block_info()
 
     resp_body = %{
       version: "deneb",
@@ -63,7 +63,7 @@ defmodule Unit.BeaconApiTest.V2 do
 
     signed_block
     |> BlockInfo.from_block(head_root, :pending)
-    |> BlockDb.store_block()
+    |> BlockDb.store_block_info()
 
     resp_body = %{
       version: "deneb",

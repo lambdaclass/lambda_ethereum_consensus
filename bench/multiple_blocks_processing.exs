@@ -21,13 +21,13 @@ end_slot = start_slot + count
 
 IO.puts("fetching blocks...")
 {:ok, %BeaconState{} = state} = StateDb.get_state_by_slot(start_slot)
-{:ok, %SignedBeaconBlock{} = signed_block} = BlockDb.get_block_by_slot(state.slot)
+{:ok, %SignedBeaconBlock{} = signed_block} = BlockDb.get_block_info_by_slot(state.slot)
 
 blocks =
   (start_slot + 1)..end_slot
   # NOTE: we have to consider empty slots
   |> Enum.flat_map(fn slot ->
-    case BlockDb.get_block_by_slot(slot) do
+    case BlockDb.get_block_info_by_slot(slot) do
       {:ok, block} -> [block]
       :not_found -> []
     end

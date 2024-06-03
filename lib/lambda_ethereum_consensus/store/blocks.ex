@@ -21,7 +21,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
       table: @table,
       max_entries: @max_entries,
       batch_prune_size: @batch_prune_size,
-      store_func: fn _k, v -> BlockDb.store_block(v) end
+      store_func: fn _k, v -> BlockDb.store_block_info(v) end
     )
   end
 
@@ -32,18 +32,17 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     }
   end
 
-  @spec store_block(BlockInfo.t()) :: :ok
-  def store_block(block_info) do
-    # The key is included in the block, no need to pass it.
+  @spec store_block_info(BlockInfo.t()) :: :ok
+  def store_block_info(block_info) do
     LRUCache.put(@table, block_info.root, block_info)
   end
 
   @spec get_block_info(Types.root()) :: BlockInfo.t() | nil
-  def get_block_info(block_root), do: LRUCache.get(@table, block_root, &fetch_block/1)
+  def get_block_info(block_root), do: LRUCache.get(@table, block_root, &fetch_block_info/1)
 
   @spec get_block_info!(Types.root()) :: BlockInfo.t()
   def get_block_info!(block_root) do
-    case LRUCache.get(@table, block_root, &fetch_block/1) do
+    case LRUCache.get(@table, block_root, &fetch_block_info/1) do
       nil -> raise "Block not found: 0x#{Base.encode16(block_root, case: :lower)}"
     end
   end
@@ -71,8 +70,8 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   ### Private Functions
   ##########################
 
-  defp fetch_block(key) do
-    case BlockDb.get_block(key) do
+  defp fetch_block_info(key) do
+    case BlockDb.get_block_info(key) do
       {:ok, value} -> value
       :not_found -> nil
       # TODO: handle this somehow?

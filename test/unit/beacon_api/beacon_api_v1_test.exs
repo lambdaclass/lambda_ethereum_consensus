@@ -49,7 +49,7 @@ defmodule Unit.BeaconApiTest.V1 do
 
     signed_block
     |> BlockInfo.from_block(head_root, :pending)
-    |> BlockDb.store_block()
+    |> BlockDb.store_block_info()
 
     resp_body = %{
       data: %{root: Utils.hex_encode(signed_block.message.state_root)},
@@ -94,7 +94,7 @@ defmodule Unit.BeaconApiTest.V1 do
 
     signed_block
     |> BlockInfo.from_block(head_root, :pending)
-    |> BlockDb.store_block()
+    |> BlockDb.store_block_info()
 
     beacon_state = Fixtures.Block.beacon_state()
 

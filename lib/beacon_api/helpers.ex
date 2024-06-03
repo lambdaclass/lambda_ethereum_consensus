@@ -100,7 +100,7 @@ defmodule BeaconApi.Helpers do
 
   def state_root_by_state_id(id) do
     with {:ok, {block_root, optimistic, finalized}} <- block_root_by_block_id(id),
-         {:ok, block_info} <- BlockDb.get_block(block_root) do
+         {:ok, block_info} <- BlockDb.get_block_info(block_root) do
       state_root = block_info.signed_block.message.state_root
       {:ok, {state_root, optimistic, finalized}}
     end
@@ -114,7 +114,7 @@ defmodule BeaconApi.Helpers do
           | :invalid_id
   def block_by_block_id(block_id) do
     with {:ok, {root, optimistic, finalized}} <- block_root_by_block_id(block_id),
-         {:ok, block_info} <- BlockDb.get_block(root) do
+         {:ok, block_info} <- BlockDb.get_block_info(root) do
       {:ok, {block_info.signed_block, optimistic, finalized}}
     end
   end

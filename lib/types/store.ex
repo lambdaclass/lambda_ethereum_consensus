@@ -82,7 +82,7 @@ defmodule Types.Store do
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
         tree_cache: Tree.new(anchor_block_root)
       }
-      |> store_block(block_info)
+      |> store_block_info(block_info)
       |> then(&{:ok, &1})
     else
       {:error, "Anchor block state root does not match anchor state root"}
@@ -127,9 +127,9 @@ defmodule Types.Store do
     |> Enum.map(&{&1, Blocks.get_block!(&1)})
   end
 
-  @spec store_block(t(), BlockInfo.t()) :: t()
-  def store_block(%__MODULE__{} = store, %BlockInfo{} = block_info) do
-    Blocks.store_block(block_info)
+  @spec store_block_info(t(), BlockInfo.t()) :: t()
+  def store_block_info(%__MODULE__{} = store, %BlockInfo{} = block_info) do
+    Blocks.store_block_info(block_info)
     update_tree(store, block_info.root, block_info.signed_block.message.parent_root)
   end
 

@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
       # TODO: extend cache to support slots as keys
       response_chunk =
         start_slot..end_slot
-        |> Enum.map(&BlockDb.get_block_by_slot/1)
+        |> Enum.map(&BlockDb.get_block_info_by_slot/1)
         |> Enum.map(&map_block_result/1)
         |> Enum.reject(&(&1 == :skip))
         |> ReqResp.encode_response()

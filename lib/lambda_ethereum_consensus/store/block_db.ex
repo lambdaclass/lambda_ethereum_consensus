@@ -43,9 +43,18 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     end
   end
 
-  def store_block(_root, block_info), do: store_block(block_info)
+  defguard is_status(atom)
+           when atom in [
+                  :pending,
+                  :invalid,
+                  :processing,
+                  :download,
+                  :download_blobs,
+                  :unknown,
+                  :transitioned
+                ]
 
-  def store_block(%BlockInfo{} = block_info) do
+  def store_block_info(%BlockInfo{} = block_info) do
     {:ok, encoded_signed_block} = Ssz.to_ssz(block_info.signed_block)
 
     key = block_key(block_info.root)
@@ -58,11 +67,13 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     Db.put(slothash_key, block_info.root)
   end
 
-  @spec get_block(Types.root()) ::
+  @spec get_block_info(Types.root()) ::
           {:ok, BlockInfo.t()} | {:error, String.t()} | :not_found
-  def get_block(block_root) do
-    with {:ok, data} <- Db.get(block_key(block_root)) do
-      decode_block_info(block_root, data)
+  def get_block_info(block_root) do
+    with {:ok, data} <- Db.get(block_key(block_root)),
+         {:ok, {encoded_signed_block, status}} <- :erlang.binary_to_term(data) |> validate_term(),
+         {:ok, signed_block} <- Ssz.from_ssz(encoded_signed_block, SignedBeaconBlock) do
+      {:ok, %BlockInfo{root: block_root, signed_block: signed_block, status: status}}
     end
   end
 
@@ -78,12 +89,12 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     end
   end
 
-  @spec get_block_by_slot(Types.slot()) ::
+  @spec get_block_info_by_slot(Types.slot()) ::
           {:ok, BlockInfo.t()} | {:error, String.t()} | :not_found | :empty_slot
-  def get_block_by_slot(slot) do
+  def get_block_info_by_slot(slot) do
     # WARN: this will return the latest block received for the given slot
     with {:ok, root} <- get_block_root_by_slot(slot) do
-      get_block(root)
+      get_block_info(root)
     end
   end
 
@@ -104,14 +115,14 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     Logger.info("[BlockDb] Pruning finished. #{Enum.count(slots_to_remove)} blocks removed.")
   end
 
-  defp decode_block_info(root, data) do
-    with {:d, {encoded_signed_block, status}} <- {:d, :erlang.binary_to_term(data)},
-         {:ok, signed_block} <- Ssz.from_ssz(encoded_signed_block, SignedBeaconBlock) do
-      {:ok, %BlockInfo{root: root, signed_block: signed_block, status: status}}
-    else
-      {:d, other} -> {:error, "Block decoding failed, format is not the expected: #{other}"}
-      other -> other
-    end
+  # Validates a term that came out of the first decoding step for a stored block info tuple.
+  defp validate_term({encoded_signed_block, status})
+       when is_binary(encoded_signed_block) and is_status(status) do
+    {:ok, {encoded_signed_block, status}}
+  end
+
+  defp validate_term(other) do
+    {:error, "Block decoding failed, decoded term is not the expected tuple: #{other}"}
   end
 
   @spec remove_block_by_slot(non_neg_integer()) :: :ok | :not_found

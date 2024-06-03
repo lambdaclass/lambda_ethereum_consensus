@@ -227,7 +227,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       is_timely = Store.get_current_slot(store) == block.slot and is_before_attesting_interval
 
       store
-      |> Store.store_block(block_info)
+      |> Store.store_block_info(block_info)
       |> if_then_update(
         is_timely and is_first_block,
         &%Store{&1 | proposer_boost_root: block_info.root}
