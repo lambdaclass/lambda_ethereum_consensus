@@ -186,12 +186,16 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
         # If all the other conditions are false, add block to fork choice
         true ->
-          case ForkChoice.on_block(block_info) do
-            :ok -> state |> Map.delete(block_root)
-            :error -> state |> Map.put(block_root, {nil, :invalid})
-          end
+          process_block(state, block_info)
       end
     end)
+  end
+
+  defp process_block(state, block_info) do
+    case ForkChoice.on_block(block_info) do
+      :ok -> state |> Map.delete(block_info.root)
+      :error -> state |> Map.put(block_info.root, {nil, :invalid})
+    end
   end
 
   @spec get_block_status(state(), Types.root()) :: block_status()
