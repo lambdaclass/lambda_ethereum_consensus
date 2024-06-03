@@ -66,6 +66,18 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     end
   end
 
+  @spec change_status(BlockInfo.t(), BlockInfo.status()) :: :ok
+  def change_status(block_info, status) do
+    block_info
+    |> BlockInfo.change_status(status)
+    |> store_block_info()
+  end
+
+  def get_blocks_with_status(_status) do
+    # TODO
+    []
+  end
+
   ##########################
   ### Private Functions
   ##########################

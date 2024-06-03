@@ -26,10 +26,21 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
     @type t :: %__MODULE__{
             root: Types.root(),
-            signed_block: Types.SignedBeaconBlock.t(),
+            signed_block: Types.SignedBeaconBlock.t() | nil,
             status: block_status()
           }
     defstruct [:root, :signed_block, :status]
+
+    defguard is_status(atom)
+             when atom in [
+                    :pending,
+                    :invalid,
+                    :processing,
+                    :download,
+                    :download_blobs,
+                    :unknown,
+                    :transitioned
+                  ]
 
     @spec from_block(SignedBeaconBlock.t(), block_status()) :: t()
     def from_block(signed_block, status \\ :pending) do
@@ -41,39 +52,55 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     def from_block(signed_block, root, status) do
       %__MODULE__{root: root, signed_block: signed_block, status: status}
     end
+
+    def change_status(%__MODULE__{} = block_info, new_status) when is_status(new_status) do
+      %__MODULE__{block_info | status: new_status}
+    end
+
+    def encode(%__MODULE__{} = block_info) do
+      with {:ok, encoded_signed_block} <- Ssz.to_ssz(block_info.signed_block) do
+        :erlang.term_to_binary({encoded_signed_block, block_info.status})
+      end
+    end
+
+    def decode(block_root, data) do
+      with {:ok, {encoded_signed_block, status}} <- validate_term(:erlang.binary_to_term(data)),
+           {:ok, signed_block} <- Ssz.from_ssz(encoded_signed_block, SignedBeaconBlock) do
+        {:ok, %BlockInfo{root: block_root, signed_block: signed_block, status: status}}
+      end
+    end
+
+    # Validates a term that came out of the first decoding step for a stored block info tuple.
+    defp validate_term({encoded_signed_block, status})
+         when is_binary(encoded_signed_block) and is_status(status) do
+      {:ok, {encoded_signed_block, status}}
+    end
+
+    defp validate_term(other) do
+      {:error, "Block decoding failed, decoded term is not the expected tuple: #{other}"}
+    end
   end
 
-  defguard is_status(atom)
-           when atom in [
-                  :pending,
-                  :invalid,
-                  :processing,
-                  :download,
-                  :download_blobs,
-                  :unknown,
-                  :transitioned
-                ]
-
   def store_block_info(%BlockInfo{} = block_info) do
-    {:ok, encoded_signed_block} = Ssz.to_ssz(block_info.signed_block)
-
+    # TODO handle encoding errors properly.
+    {:ok, encoded} = BlockInfo.encode(block_info)
     key = block_key(block_info.root)
-    Db.put(key, :erlang.term_to_binary({encoded_signed_block, block_info.status}))
+    Db.put(key, encoded)
 
     # WARN: this overrides any previous mapping for the same slot
     # TODO: this should apply fork-choice if not applied elsewhere
     # TODO: handle cases where slot is empty
     slothash_key = block_root_by_slot_key(block_info.signed_block.message.slot)
     Db.put(slothash_key, block_info.root)
+
+    # Here we will also add a status list.
   end
 
   @spec get_block_info(Types.root()) ::
           {:ok, BlockInfo.t()} | {:error, String.t()} | :not_found
   def get_block_info(block_root) do
-    with {:ok, data} <- Db.get(block_key(block_root)),
-         {:ok, {encoded_signed_block, status}} <- :erlang.binary_to_term(data) |> validate_term(),
-         {:ok, signed_block} <- Ssz.from_ssz(encoded_signed_block, SignedBeaconBlock) do
-      {:ok, %BlockInfo{root: block_root, signed_block: signed_block, status: status}}
+    with {:ok, data} <- Db.get(block_key(block_root)) do
+      BlockInfo.decode(block_root, data)
     end
   end
 
@@ -113,16 +140,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
     slots_to_remove |> Enum.each(&remove_block_by_slot/1)
     Logger.info("[BlockDb] Pruning finished. #{Enum.count(slots_to_remove)} blocks removed.")
-  end
-
-  # Validates a term that came out of the first decoding step for a stored block info tuple.
-  defp validate_term({encoded_signed_block, status})
-       when is_binary(encoded_signed_block) and is_status(status) do
-    {:ok, {encoded_signed_block, status}}
-  end
-
-  defp validate_term(other) do
-    {:error, "Block decoding failed, decoded term is not the expected tuple: #{other}"}
   end
 
   @spec remove_block_by_slot(non_neg_integer()) :: :ok | :not_found

@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
@@ -70,7 +71,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @impl GenServer
-  def handle_cast({:on_block, %BlockInfo{} = block_info, from}, store) do
+  def handle_cast({:on_block, %BlockInfo{} = block_info}, store) do
     slot = block_info.signed_block.message.slot
     block_root = block_info.root
 
@@ -94,12 +95,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
         prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
 
-        GenServer.cast(from, {:block_processed, block_root, true})
+        PendingBlocks.notify_block_transitioned(block_info)
         {:noreply, new_store}
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
-        GenServer.cast(from, {:block_processed, block_root, false})
+        PendingBlocks.notify_block_transition_failed(block_info)
         {:noreply, store}
     end
   end
