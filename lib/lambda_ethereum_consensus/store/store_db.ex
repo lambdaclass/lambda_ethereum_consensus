@@ -5,7 +5,6 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   alias LambdaEthereumConsensus.Store.Db
 
   @store_prefix "store"
-  @fork_choice_store_prefix "fork_choice_store"
   @snapshot_prefix "snapshot"
 
   @spec fetch_store() :: {:ok, Types.Store.t()} | :not_found
