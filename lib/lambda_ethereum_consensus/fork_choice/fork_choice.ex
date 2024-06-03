@@ -72,7 +72,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @impl GenServer
-  def handle_cast({:on_block, %BlockInfo{} = block_info, from}, _store) do
+  def handle_cast({:on_block, %BlockInfo{} = block_info, _from}, _store) do
     store = fetch_store!()
     slot = block_info.signed_block.message.slot
     block_root = block_info.root
