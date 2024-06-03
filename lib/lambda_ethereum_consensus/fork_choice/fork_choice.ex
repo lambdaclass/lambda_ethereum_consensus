@@ -105,7 +105,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec on_tick(Types.uint64()) :: :ok
   def on_tick(time) do
-    Logger.info("[ForkChoice] On tick!")
     store = fetch_store!()
     %Store{finalized_checkpoint: last_finalized_checkpoint} = store
 
