@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
+  alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
@@ -268,6 +269,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp join_init_topics() do
     BeaconBlock.join_topic()
+    BlobSideCar.join_topics()
   end
 
   ########################
