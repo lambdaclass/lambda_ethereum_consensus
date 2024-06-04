@@ -16,10 +16,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
 
-  @type block_status :: :pending | :invalid | :processing | :download | :download_blobs | :unknown
+  @type block_status :: :pending | :invalid | :download | :download_blobs | :unknown
   @type block_info ::
           {SignedBeaconBlock.t(), :pending | :download_blobs}
-          | {nil, :invalid | :processing | :download}
+          | {nil, :invalid | :download}
   @type state :: nil
 
   ##########################
@@ -35,14 +35,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     GenServer.cast(__MODULE__, {:add_block, signed_block})
   end
 
-  @spec notify_block_transitioned(BlockInfo.t()) :: :ok
-  def notify_block_transitioned(block_info) do
-    GenServer.cast(__MODULE__, {:block_transitioned, block_info})
-  end
-
-  @spec notify_block_transition_failed(BlockInfo.t()) :: :ok
-  def notify_block_transition_failed(block_info) do
-    GenServer.cast(__MODULE__, {:block_transition_failed, block_info})
+  @spec on_tick(Types.uint64()) :: :ok
+  def on_tick(time) do
+    GenServer.cast(__MODULE__, {:on_tick, time})
   end
 
   ##########################
@@ -79,17 +74,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @impl true
-  def handle_cast({:block_transitioned, block_info}, _state) do
-    # Block is valid. We immediately check if we can process another block.
-    Blocks.change_status(block_info, :transitioned)
-    process_blocks()
-    {:noreply, nil}
-  end
-
-  @impl true
-  def handle_cast({:block_transition_failed, block_info}, _state) do
-    Blocks.change_status(block_info, :invalid)
-    {:noreply, nil}
+  def handle_cast({:on_tick, time}, state) do
+    ForkChoice.on_tick(time)
+    {:noreply, state}
   end
 
   @doc """
@@ -187,6 +174,36 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       parent.status == :transitioned ->
         Blocks.change_status(block_info, :processing)
         ForkChoice.on_block(block_info)
+    end
+  end
+
+  defp process_block(state, block_info) do
+    case ForkChoice.on_block(block_info) do
+      :ok ->
+        state |> Map.delete(block_info.root)
+
+      {:error, reason} ->
+        Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
+          slot: block_info.signed_block.message.slot,
+          root: block_info.root
+        )
+
+        state |> Map.put(block_info.root, {nil, :invalid})
+    end
+  end
+
+  defp process_block(state, block_info) do
+    case ForkChoice.on_block(block_info) do
+      :ok ->
+        state |> Map.delete(block_info.root)
+
+      {:error, reason} ->
+        Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
+          slot: block_info.signed_block.message.slot,
+          root: block_info.root
+        )
+
+        state |> Map.put(block_info.root, {nil, :invalid})
     end
   end
 

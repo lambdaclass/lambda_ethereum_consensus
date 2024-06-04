@@ -125,6 +125,12 @@ defmodule LambdaEthereumConsensus.Telemetry do
       last_value("db.size.total", unit: :byte),
 
       # ForkChoice Metrics
+      last_value("fork_choice.recompute_head.stop.duration",
+        unit: {:native, :millisecond}
+      ),
+      last_value("fork_choice.recompute_head.exception.duration",
+        unit: {:native, :millisecond}
+      ),
       last_value("fork_choice.persist.stop.duration",
         unit: {:native, :millisecond}
       ),

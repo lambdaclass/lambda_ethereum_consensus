@@ -19,7 +19,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     @type block_status ::
             :pending
             | :invalid
-            | :processing
             | :download
             | :download_blobs
             | :unknown
