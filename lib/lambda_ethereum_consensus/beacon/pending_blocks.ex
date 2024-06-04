@@ -148,9 +148,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
         # TODO: is it not possible that blobs were downloaded for one and not for another?
         if length(downloaded_blobs) == length(blobs_to_download) do
-          Enum.each(blocks_with_blobs, fn block_info ->
-            Blocks.change_status(block_info, :pending)
-          end)
+          Enum.each(blocks_with_blobs, &Blocks.change_status(&1, :pending))
         end
     end
 
