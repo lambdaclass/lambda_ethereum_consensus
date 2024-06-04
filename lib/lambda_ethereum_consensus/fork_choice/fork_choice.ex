@@ -6,7 +6,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
