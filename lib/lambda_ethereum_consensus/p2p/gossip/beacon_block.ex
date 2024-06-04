@@ -17,7 +17,24 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
 
   @impl true
   def handle_gossip_message(_topic, msg_id, message) do
-    handle_beacon_block(msg_id, message)
+    slot = BeaconChain.get_current_slot()
+
+    with {:ok, uncompressed} <- :snappyer.decompress(message),
+         {:ok, signed_block} <- Ssz.from_ssz(uncompressed, SignedBeaconBlock),
+         :ok <- validate(signed_block, slot) do
+      Logger.info("[Gossip] Block received", slot: signed_block.message.slot)
+      Libp2pPort.validate_message(msg_id, :accept)
+      PendingBlocks.add_block(signed_block)
+    else
+      {:ignore, reason} ->
+        Logger.warning("[Gossip] Block ignored, reason: #{inspect(reason)}", slot: slot)
+        Libp2pPort.validate_message(msg_id, :ignore)
+
+      {:error, reason} ->
+        Logger.warning("[Gossip] Block rejected, reason: #{inspect(reason)}", slot: slot)
+        Libp2pPort.validate_message(msg_id, :reject)
+    end
+
     :ok
   end
 
@@ -45,26 +62,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   ##########################
   ### Private functions
   ##########################
-
-  defp handle_beacon_block(msg_id, message) do
-    slot = BeaconChain.get_current_slot()
-
-    with {:ok, uncompressed} <- :snappyer.decompress(message),
-         {:ok, signed_block} <- Ssz.from_ssz(uncompressed, SignedBeaconBlock),
-         :ok <- validate(signed_block, slot) do
-      Logger.info("[Gossip] Block received", slot: signed_block.message.slot)
-      Libp2pPort.validate_message(msg_id, :accept)
-      PendingBlocks.add_block(signed_block)
-    else
-      {:ignore, reason} ->
-        Logger.warning("[Gossip] Block ignored, reason: #{inspect(reason)}", slot: slot)
-        Libp2pPort.validate_message(msg_id, :ignore)
-
-      {:error, reason} ->
-        Logger.warning("[Gossip] Block rejected, reason: #{inspect(reason)}", slot: slot)
-        Libp2pPort.validate_message(msg_id, :reject)
-    end
-  end
 
   defp topic() do
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
