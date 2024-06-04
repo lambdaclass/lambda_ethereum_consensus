@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
@@ -53,6 +54,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
           | {:new_peer_handler, pid()}
+          | {:join_init_topics, boolean()}
 
   ######################
   ### API
@@ -164,14 +166,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Joins the given topic.
   This does not subscribe to the topic, use `subscribe_to_topic/2` for that.
   """
-  @spec join_topic(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
+  @spec join_topic(GenServer.server(), String.t()) :: :ok
   def join_topic(pid \\ __MODULE__, topic_name) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "join_topic",
       direction: "elixir->"
     })
 
-    call_command(pid, {:join, %JoinTopic{name: topic_name}})
+    cast_command(pid, {:join, %JoinTopic{name: topic_name}})
   end
 
   @doc """
@@ -264,6 +266,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:update_enr, enr})
   end
 
+  defp join_init_topics() do
+    BeaconBlock.join_topic()
+  end
+
   ########################
   ### GenServer Callbacks
   ########################
@@ -271,6 +277,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def init(args) do
     {new_peer_handler, args} = Keyword.pop(args, :new_peer_handler, nil)
+    {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
@@ -280,6 +287,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> parse_args()
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
+
+    if join_init_topics, do: join_init_topics()
 
     {:ok, %{port: port, new_peer_handler: new_peer_handler, subscriptors: %{}}}
   end

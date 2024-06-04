@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.StoreSetup
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.Blocks
@@ -37,6 +38,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       finalized: store.finalized_checkpoint
     }
 
+    ForkChoice.init_store(store, head_slot, time)
+
     validator_children =
       get_validator_children(deposit_tree_snapshot, head_slot, head_root, store.genesis_time)
 
@@ -44,16 +47,16 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       [
         {LambdaEthereumConsensus.Beacon.BeaconChain,
          {store.genesis_time, genesis_validators_root, fork_choice_data, time}},
-        {LambdaEthereumConsensus.ForkChoice, {store, head_slot, time}},
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
         LambdaEthereumConsensus.P2P.Peerbook,
         LambdaEthereumConsensus.P2P.IncomingRequests,
         LambdaEthereumConsensus.Beacon.PendingBlocks,
         LambdaEthereumConsensus.Beacon.SyncBlocks,
         LambdaEthereumConsensus.P2P.Gossip.Attestation,
-        LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
         LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
-        LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+        LambdaEthereumConsensus.P2P.Gossip.OperationsCollector,
+        {Task.Supervisor, name: PruneStatesSupervisor},
+        {Task.Supervisor, name: PruneBlocksSupervisor}
       ] ++ validator_children
 
     Supervisor.init(children, strategy: :one_for_all)
@@ -89,7 +92,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       listen_addr: listen_addr,
       enable_discovery: true,
       discovery_addr: "0.0.0.0:#{port}",
-      bootnodes: bootnodes
+      bootnodes: bootnodes,
+      join_init_topics: true
     ]
   end
 
