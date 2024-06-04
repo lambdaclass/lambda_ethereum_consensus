@@ -24,13 +24,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   @spec join_topic() :: :ok
   def join_topic() do
     # TODO: this doesn't take into account fork digest changes
-    topic_name = build_topic()
+    topic_name = topic()
     Libp2pPort.join_topic(self(), topic_name)
   end
 
   @spec subscribe_to_topic() :: :ok | :error
   def subscribe_to_topic() do
-    build_topic()
+    topic()
     |> Libp2pPort.subscribe_to_topic(__MODULE__)
     |> case do
       :ok ->
@@ -66,7 +66,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
     end
   end
 
-  defp build_topic() do
+  defp topic() do
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
     "/eth2/#{fork_context}/beacon_block/ssz_snappy"
   end
