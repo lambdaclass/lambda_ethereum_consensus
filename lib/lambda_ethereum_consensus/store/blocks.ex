@@ -3,9 +3,9 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   Interface to `Store.blocks`.
   """
   alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.LRUCache
   alias Types.BeaconBlock
-  alias Types.SignedBeaconBlock
 
   @table :blocks_by_hash
   @max_entries 512
@@ -21,7 +21,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
       table: @table,
       max_entries: @max_entries,
       batch_prune_size: @batch_prune_size,
-      store_func: &BlockDb.store_block(&2, &1)
+      store_func: fn _k, v -> BlockDb.store_block_info(v) end
     )
   end
 
@@ -32,29 +32,31 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     }
   end
 
-  @spec store_block(Types.root(), SignedBeaconBlock.t()) :: :ok
-  def store_block(block_root, signed_block), do: LRUCache.put(@table, block_root, signed_block)
+  @spec store_block_info(BlockInfo.t()) :: :ok
+  def store_block_info(block_info) do
+    LRUCache.put(@table, block_info.root, block_info)
+  end
 
-  @spec get_signed_block(Types.root()) :: SignedBeaconBlock.t() | nil
-  def get_signed_block(block_root), do: LRUCache.get(@table, block_root, &fetch_block/1)
+  @spec get_block_info(Types.root()) :: BlockInfo.t() | nil
+  def get_block_info(block_root), do: LRUCache.get(@table, block_root, &fetch_block_info/1)
 
-  @spec get_signed_block!(Types.root()) :: SignedBeaconBlock.t()
-  def get_signed_block!(block_root) do
-    case LRUCache.get(@table, block_root, &fetch_block/1) do
+  @spec get_block_info!(Types.root()) :: BlockInfo.t()
+  def get_block_info!(block_root) do
+    case LRUCache.get(@table, block_root, &fetch_block_info/1) do
       nil -> raise "Block not found: 0x#{Base.encode16(block_root, case: :lower)}"
     end
   end
 
   @spec get_block(Types.root()) :: BeaconBlock.t() | nil
   def get_block(block_root) do
-    case get_signed_block(block_root) do
+    case get_block_info(block_root) do
       nil -> nil
-      %{message: block} -> block
+      %{signed_block: %{message: block}} -> block
     end
   end
 
   @spec has_block?(Types.root()) :: boolean()
-  def has_block?(block_root), do: not (get_signed_block(block_root) |> is_nil())
+  def has_block?(block_root), do: not (get_block_info(block_root) |> is_nil())
 
   @spec get_block!(Types.root()) :: BeaconBlock.t()
   def get_block!(block_root) do
@@ -68,8 +70,8 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   ### Private Functions
   ##########################
 
-  defp fetch_block(key) do
-    case BlockDb.get_block(key) do
+  defp fetch_block_info(key) do
+    case BlockDb.get_block_info(key) do
       {:ok, value} -> value
       :not_found -> nil
       # TODO: handle this somehow?

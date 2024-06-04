@@ -12,13 +12,14 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
+  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.SignedBeaconBlock
 
-  @type block_status :: :pending | :invalid | :processing | :download | :download_blobs | :unknown
+  @type block_status :: :pending | :invalid | :download | :download_blobs | :unknown
   @type block_info ::
           {SignedBeaconBlock.t(), :pending | :download_blobs}
-          | {nil, :invalid | :processing | :download}
+          | {nil, :invalid | :download}
   @type state :: %{Types.root() => block_info()}
 
   ##########################
@@ -32,6 +33,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @spec add_block(SignedBeaconBlock.t()) :: :ok
   def add_block(signed_block) do
     GenServer.cast(__MODULE__, {:add_block, signed_block})
+  end
+
+  @spec on_tick(Types.uint64()) :: :ok
+  def on_tick(time) do
+    GenServer.cast(__MODULE__, {:on_tick, time})
   end
 
   ##########################
@@ -69,16 +75,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @impl true
-  def handle_cast({:block_processed, block_root, true}, state) do
-    # Block is valid. We immediately check if we can process another block.
-    new_state = state |> Map.delete(block_root) |> process_blocks()
-    {:noreply, new_state}
-  end
-
-  @impl true
-  def handle_cast({:block_processed, block_root, false}, state) do
-    # Block is invalid
-    {:noreply, state |> Map.put(block_root, {nil, :invalid})}
+  def handle_cast({:on_tick, time}, state) do
+    ForkChoice.on_tick(time)
+    {:noreply, state}
   end
 
   @doc """
@@ -167,6 +166,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     |> Enum.map(fn {root, {block, _}} -> {root, block} end)
     |> Enum.sort_by(fn {_, signed_block} -> signed_block.message.slot end)
     |> Enum.reduce(state, fn {block_root, signed_block}, state ->
+      block_info = BlockInfo.from_block(signed_block, block_root, :pending)
+
       parent_root = signed_block.message.parent_root
       parent_status = get_block_status(state, parent_root)
 
@@ -176,7 +177,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           state |> Map.put(block_root, {nil, :invalid})
 
         # If parent isn't processed, block is pending
-        parent_status in [:processing, :pending, :download, :download_blobs] ->
+        parent_status in [:pending, :download, :download_blobs] ->
           state
 
         # If parent is not in fork choice, download parent
@@ -185,10 +186,24 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
         # If all the other conditions are false, add block to fork choice
         true ->
-          ForkChoice.on_block(signed_block, block_root)
-          state |> Map.put(block_root, {signed_block, :processing})
+          process_block(state, block_info)
       end
     end)
+  end
+
+  defp process_block(state, block_info) do
+    case ForkChoice.on_block(block_info) do
+      :ok ->
+        state |> Map.delete(block_info.root)
+
+      {:error, reason} ->
+        Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
+          slot: block_info.signed_block.message.slot,
+          root: block_info.root
+        )
+
+        state |> Map.put(block_info.root, {nil, :invalid})
+    end
   end
 
   @spec get_block_status(state(), Types.root()) :: block_status()

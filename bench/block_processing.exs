@@ -3,6 +3,7 @@ alias LambdaEthereumConsensus.ForkChoice.Handlers
 alias LambdaEthereumConsensus.StateTransition.Cache
 alias LambdaEthereumConsensus.Store
 alias LambdaEthereumConsensus.Store.BlockDb
+alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
 alias LambdaEthereumConsensus.Store.StateDb
 alias Types.BeaconState
 alias Types.SignedBeaconBlock
@@ -19,8 +20,8 @@ slot = 4_213_280
 
 IO.puts("fetching blocks...")
 {:ok, %BeaconState{} = state} = StateDb.get_state_by_slot(slot)
-{:ok, %SignedBeaconBlock{} = block} = BlockDb.get_block_by_slot(slot)
-{:ok, %SignedBeaconBlock{} = new_block} = BlockDb.get_block_by_slot(slot + 1)
+{:ok, %BlockInfo{signed_block: block}} = BlockDb.get_block_info_by_slot(slot)
+{:ok, %BlockInfo{signed_block: new_block}} = BlockDb.get_block_info_by_slot(slot + 1)
 
 IO.puts("initializing store...")
 {:ok, store} = Types.Store.get_forkchoice_store(state, block)
