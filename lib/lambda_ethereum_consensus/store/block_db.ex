@@ -162,7 +162,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   def get_roots_with_status(status) do
     case Db.get(block_status_key(status)) do
       {:ok, binary} -> :erlang.binary_to_term(binary)
-      :not_found -> []
+      :not_found -> MapSet.new([])
     end
   end
 

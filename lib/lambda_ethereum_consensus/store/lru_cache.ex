@@ -106,7 +106,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
   end
 
   defp cache_value(table, key, value) do
-    :ets.insert_new(table, {key, value, nil})
+    :ets.insert(table, {key, value, nil})
     GenServer.cast(table, {:touch_entry, key})
     value
   end
