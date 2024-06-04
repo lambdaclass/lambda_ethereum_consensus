@@ -92,24 +92,30 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @impl true
   def handle_info(:download_blocks, _state) do
-    Blocks.get_blocks_with_status(:download)
-    |> Enum.take(16)
-    |> Enum.map(& &1.root)
-    |> BlockDownloader.request_blocks_by_root()
-    |> case do
-      {:ok, signed_blocks} ->
-        signed_blocks
+    case Blocks.get_blocks_with_status(:download) do
+      {:ok, blocks_to_download} ->
+        blocks_to_download
+        |> Enum.take(16)
+        |> Enum.map(& &1.root)
+        |> BlockDownloader.request_blocks_by_root()
+        |> case do
+          {:ok, signed_blocks} ->
+            signed_blocks
+
+          {:error, reason} ->
+            Logger.debug("Block download failed: '#{reason}'")
+            []
+        end
+        |> Enum.each(fn signed_block ->
+          signed_block
+          |> BlockInfo.from_block()
+          |> BlockInfo.change_status(:download_blobs)
+          |> Blocks.new_block_info()
+        end)
 
       {:error, reason} ->
-        Logger.debug("Block download failed: '#{reason}'")
-        []
+        Logger.error("[PendingBlocks] Failed to get blocks to download. Reason: #{reason}")
     end
-    |> Enum.each(fn signed_block ->
-      signed_block
-      |> BlockInfo.from_block()
-      |> BlockInfo.change_status(:download_blobs)
-      |> Blocks.new_block_info()
-    end)
 
     schedule_blocks_download()
     {:noreply, nil}
@@ -117,30 +123,35 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   @impl true
   def handle_info(:download_blobs, _state) do
-    blocks_with_blobs =
-      Blocks.get_blocks_with_status(:download_blobs)
-      |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
-      |> Enum.take(16)
+    case Blocks.get_blocks_with_status(:download_blobs) do
+      {:ok, blocks_with_missing_blobs} ->
+        blocks_with_blobs =
+          blocks_with_missing_blobs
+          |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
+          |> Enum.take(16)
 
-    blobs_to_download = Enum.flat_map(blocks_with_blobs, &missing_blobs/1)
+        blobs_to_download = Enum.flat_map(blocks_with_blobs, &missing_blobs/1)
 
-    downloaded_blobs =
-      blobs_to_download
-      |> BlobDownloader.request_blobs_by_root()
-      |> case do
-        {:ok, blobs} ->
-          blobs
+        downloaded_blobs =
+          blobs_to_download
+          |> BlobDownloader.request_blobs_by_root()
+          |> case do
+            {:ok, blobs} ->
+              blobs
 
-        {:error, reason} ->
-          Logger.debug("Blob download failed: '#{reason}'")
-          []
-      end
+            {:error, reason} ->
+              Logger.debug("Blob download failed: '#{reason}'")
+              []
+          end
 
-    Enum.each(downloaded_blobs, &BlobDb.store_blob/1)
+        Enum.each(downloaded_blobs, &BlobDb.store_blob/1)
 
-    # TODO: is it not possible that blobs were downloaded for one and not for another?
-    if length(downloaded_blobs) == length(blobs_to_download) do
-      Enum.each(blocks_with_blobs, fn block_info -> Blocks.change_status(block_info, :pending) end)
+        # TODO: is it not possible that blobs were downloaded for one and not for another?
+        if length(downloaded_blobs) == length(blobs_to_download) do
+          Enum.each(blocks_with_blobs, fn block_info ->
+            Blocks.change_status(block_info, :pending)
+          end)
+        end
     end
 
     schedule_blobs_download()
@@ -152,9 +163,17 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   ##########################
 
   defp process_blocks() do
-    Blocks.get_blocks_with_status(:pending)
-    |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
-    |> Enum.each(&process_block/1)
+    case Blocks.get_blocks_with_status(:pending) do
+      {:ok, blocks} ->
+        blocks
+        |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
+        |> Enum.each(&process_block/1)
+
+      {:error, reason} ->
+        Logger.error(
+          "[Pending Blocks] Failed to get pending blocks to process. Reason: #{reason}"
+        )
+    end
   end
 
   defp process_block(block_info) do
