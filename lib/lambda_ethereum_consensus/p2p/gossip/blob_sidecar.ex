@@ -28,13 +28,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
 
   @spec join_topics() :: :ok
   def join_topics() do
-    build_topics()
+    topics()
     |> Enum.each(fn topic_name -> Libp2pPort.join_topic(self(), topic_name) end)
   end
 
   @spec subscribe_to_topics() :: :ok | :error
   def subscribe_to_topics() do
-    build_topics()
+    topics()
     |> Enum.each(fn topic ->
       Libp2pPort.subscribe_to_topic(topic, __MODULE__)
       |> case do
@@ -48,7 +48,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
     end)
   end
 
-  defp build_topics() do
+  defp topics() do
     # TODO: this doesn't take into account fork digest changes
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
