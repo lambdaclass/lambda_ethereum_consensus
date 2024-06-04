@@ -86,7 +86,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @spec handle_info(atom(), state()) :: {:noreply, state()}
   def handle_info(:process_blocks, _state) do
     schedule_blocks_processing()
-    {:noreply, process_blocks()}
+    process_blocks()
+    {:noreply, nil}
   end
 
   @impl true
@@ -172,38 +173,20 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
       # If all the other conditions are false, add block to fork choice
       parent.status == :transitioned ->
-        Blocks.change_status(block_info, :processing)
-        ForkChoice.on_block(block_info)
-    end
-  end
+        case ForkChoice.on_block(block_info) do
+          :ok ->
+            Blocks.change_status(block_info, :transitioned)
+            # Block is valid. We immediately check if we can process another block.
+            process_blocks()
 
-  defp process_block(state, block_info) do
-    case ForkChoice.on_block(block_info) do
-      :ok ->
-        state |> Map.delete(block_info.root)
+          {:error, reason} ->
+            Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
+              slot: block_info.signed_block.message.slot,
+              root: block_info.root
+            )
 
-      {:error, reason} ->
-        Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
-          slot: block_info.signed_block.message.slot,
-          root: block_info.root
-        )
-
-        state |> Map.put(block_info.root, {nil, :invalid})
-    end
-  end
-
-  defp process_block(state, block_info) do
-    case ForkChoice.on_block(block_info) do
-      :ok ->
-        state |> Map.delete(block_info.root)
-
-      {:error, reason} ->
-        Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
-          slot: block_info.signed_block.message.slot,
-          root: block_info.root
-        )
-
-        state |> Map.put(block_info.root, {nil, :invalid})
+            Blocks.change_status(block_info, :invalid)
+        end
     end
   end
 
