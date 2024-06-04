@@ -6,11 +6,11 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.ForkChoice.Simple.Tree
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias Types.BeaconBlock
   alias Types.BeaconState
+  alias Types.BlockInfo
   alias Types.Checkpoint
   alias Types.SignedBeaconBlock
 

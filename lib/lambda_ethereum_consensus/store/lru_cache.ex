@@ -34,7 +34,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
   @spec put(atom(), key(), value()) :: :ok
   def put(table, key, value) do
     cache_value(table, key, value)
-    GenServer.cast(table, {:put, key, value})
+    GenServer.call(table, {:put, key, value})
   end
 
   @spec get(atom(), key(), (key() -> value() | nil)) :: value() | nil
@@ -71,21 +71,26 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
   end
 
   @impl GenServer
-  def handle_cast({:put, key, value}, %{store_func: store} = state) do
+  def handle_call({:put, key, value}, _from, %{store_func: store} = state) do
     store.(key, value)
-    handle_cast({:touch_entry, key}, state)
+    touch_entry(key, state)
+    {:reply, :ok, state}
   end
 
   @impl GenServer
   def handle_cast({:touch_entry, key}, state) do
-    update_ttl(state[:data_table], state[:ttl_table], key)
-    prune_cache(state)
+    touch_entry(key, state)
     {:noreply, state}
   end
 
   ##########################
   ### Private Functions
   ##########################
+
+  defp touch_entry(key, state) do
+    update_ttl(state[:data_table], state[:ttl_table], key)
+    prune_cache(state)
+  end
 
   defp lookup(table, key, fetch_func) do
     case :ets.lookup_element(table, key, 2, nil) do

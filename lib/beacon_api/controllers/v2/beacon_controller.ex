@@ -5,9 +5,9 @@ defmodule BeaconApi.V2.BeaconController do
   alias BeaconApi.ErrorController
   alias BeaconApi.Utils
   alias LambdaEthereumConsensus.Store.BlockDb
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types
+  alias Types.BlockInfo
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 

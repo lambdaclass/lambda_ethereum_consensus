@@ -12,8 +12,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
+  alias Types.BlockInfo
   alias Types.SignedBeaconBlock
 
   @type block_status :: :pending | :invalid | :download | :download_blobs | :unknown
@@ -178,20 +178,15 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   defp process_block(block_info) do
     parent_root = block_info.signed_block.message.parent_root
-    parent = Blocks.get_block_info(parent_root)
 
-    cond do
-      is_nil(parent) ->
-        # TODO: add parent root to download list instead.
-        %BlockInfo{root: parent_root, status: :download, signed_block: nil}
-        |> Blocks.new_block_info()
+    case Blocks.get_block_info(parent_root) do
+      nil ->
+        Blocks.add_block_to_download(parent_root)
 
-      # If parent is invalid, block is invalid
-      parent.status == :invalid ->
+      %BlockInfo{status: :invalid} ->
         Blocks.change_status(block_info, :invalid)
 
-      # If all the other conditions are false, add block to fork choice
-      parent.status == :transitioned ->
+      %BlockInfo{status: :transitioned} ->
         case ForkChoice.on_block(block_info) do
           :ok ->
             Blocks.change_status(block_info, :transitioned)
@@ -206,6 +201,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
             Blocks.change_status(block_info, :invalid)
         end
+
+      _other ->
+        :ok
     end
   end
 
