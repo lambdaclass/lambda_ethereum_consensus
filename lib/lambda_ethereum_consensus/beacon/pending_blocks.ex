@@ -71,12 +71,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         :ok
 
       Enum.empty?(missing_blobs(block_info)) ->
-        Blocks.store_block_info(block_info)
+        Blocks.new_block_info(block_info)
 
       true ->
         block_info
         |> BlockInfo.change_status(:download_blobs)
-        |> Blocks.store_block_info()
+        |> Blocks.new_block_info()
     end
 
     {:noreply, nil}
@@ -124,7 +124,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       signed_block
       |> BlockInfo.from_block()
       |> BlockInfo.change_status(:download_blobs)
-      |> Blocks.store_block_info()
+      |> Blocks.new_block_info()
     end)
 
     schedule_blocks_download()
@@ -181,7 +181,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       is_nil(parent) ->
         # TODO: add parent root to download list instead.
         %BlockInfo{root: parent_root, status: :download, signed_block: nil}
-        |> Blocks.store_block_info()
+        |> Blocks.new_block_info()
 
       # If parent is invalid, block is invalid
       parent.status == :invalid ->
