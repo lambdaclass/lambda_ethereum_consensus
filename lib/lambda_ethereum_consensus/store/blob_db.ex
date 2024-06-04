@@ -72,8 +72,12 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
     end
   end
 
-  @spec prune_blobs_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
-  def prune_blobs_older_than(slot) do
+  @spec prune_old_blobs(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
+  def prune_old_blobs(current_finalized_slot) do
+    slot =
+      current_finalized_slot -
+        ChainSpec.get("MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS") * ChainSpec.get("SLOTS_PER_EPOCH")
+
     Logger.info("[BlobDb] Pruning started.", slot: slot)
     last_finalized_key = slot |> block_root_key(0)
 

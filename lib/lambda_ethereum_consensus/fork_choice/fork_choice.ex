@@ -131,7 +131,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         fn -> BlockDb.prune_blocks_older_than(new_finalized_slot) end
       )
 
-      Task.async(BlobDb, :prune_blobs_older_than, [new_finalized_slot])
+      Task.Supervisor.start_child(
+        PruneBlobsSupervisor,
+        fn -> BlobDb.prune_old_blobs(new_finalized_slot) end
+      )
     end
   end
 
