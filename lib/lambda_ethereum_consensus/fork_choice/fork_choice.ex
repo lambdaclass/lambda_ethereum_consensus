@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     persist_store(store)
   end
 
-  @spec on_block(BlockInfo.t()) :: :ok | :error
+  @spec on_block(BlockInfo.t()) :: :ok | {:error, String.t()}
   def on_block(%BlockInfo{} = block_info) do
     store = fetch_store!()
     slot = block_info.signed_block.message.slot
@@ -67,7 +67,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
-        :error
+        {:error, reason}
     end
   end
 

@@ -193,8 +193,16 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   defp process_block(state, block_info) do
     case ForkChoice.on_block(block_info) do
-      :ok -> state |> Map.delete(block_info.root)
-      :error -> state |> Map.put(block_info.root, {nil, :invalid})
+      :ok ->
+        state |> Map.delete(block_info.root)
+
+      {:error, reason} ->
+        Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
+          slot: block_info.signed_block.message.slot,
+          root: block_info.root
+        )
+
+        state |> Map.put(block_info.root, {nil, :invalid})
     end
   end
 
