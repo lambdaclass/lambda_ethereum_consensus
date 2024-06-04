@@ -32,7 +32,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
     |> Enum.each(fn topic_name -> Libp2pPort.join_topic(self(), topic_name) end)
   end
 
-  @spec subscribe_to_topics() :: :ok | :error
+  @spec subscribe_to_topics() :: :ok | {:error, String.t()}
   def subscribe_to_topics() do
     topics()
     |> Enum.each(fn topic ->
@@ -43,7 +43,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
 
         {:error, reason} ->
           Logger.error("[Gossip] Subscription failed: '#{reason}'")
-          :error
+          {:error, reason}
       end
     end)
   end
