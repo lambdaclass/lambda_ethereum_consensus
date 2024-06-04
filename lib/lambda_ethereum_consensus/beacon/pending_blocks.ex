@@ -65,18 +65,14 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def handle_cast({:add_block, %SignedBeaconBlock{} = signed_block}, _state) do
     block_info = BlockInfo.from_block(signed_block)
 
-    cond do
-      # If already processing or processed, ignore it
-      Blocks.has_block?(block_info.root) ->
-        :ok
-
-      Enum.empty?(missing_blobs(block_info)) ->
-        Blocks.new_block_info(block_info)
-
-      true ->
+    # If already processing or processed, ignore it
+    if not Blocks.has_block?(block_info.root) do
+      if Enum.empty?(missing_blobs(block_info)) do
         block_info
-        |> BlockInfo.change_status(:download_blobs)
-        |> Blocks.new_block_info()
+      else
+        block_info |> BlockInfo.change_status(:download_blobs)
+      end
+      |> Blocks.new_block_info()
     end
 
     {:noreply, nil}
