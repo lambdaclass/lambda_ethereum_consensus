@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.StateTransition do
   """
 
   require Logger
-  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias Types.BeaconBlockHeader
@@ -15,16 +14,16 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
 
-  @spec state_transition(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
+  @spec state_transition(StateInfo.t(), BlockInfo.t(), boolean()) ::
           {:ok, StateInfo.t()} | {:error, String.t()}
   def state_transition(
-        %BeaconState{} = state,
+        %StateInfo{} = state_info,
         %BlockInfo{} = block_info,
         validate_result
       ) do
     block = block_info.signed_block.message
 
-    state
+    state_info.beacon_state
     # Process slots (including those with no blocks) since block
     |> process_slots(block.slot)
     # Verify signature

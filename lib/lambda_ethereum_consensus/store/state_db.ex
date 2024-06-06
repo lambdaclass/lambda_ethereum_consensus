@@ -58,7 +58,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     with {:ok, block_root} <- Db.get(key_slot),
          key_block <- state_key(block_root),
          {:ok, encoded_state} <- Db.get(key_block),
-         {:ok, state_info} = StateInfo.decode(encoded_state, block_root) do
+         {:ok, state_info} <- StateInfo.decode(encoded_state, block_root) do
       key_state = block_key(state_info.root)
 
       Db.delete(key_slot)

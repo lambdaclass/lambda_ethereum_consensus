@@ -7,6 +7,7 @@ defmodule BeaconApi.Helpers do
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
+  alias Types.StateInfo
 
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
@@ -131,7 +132,7 @@ defmodule BeaconApi.Helpers do
     finalized = false
 
     case StateDb.get_state_by_state_root(hex_root) do
-      {:ok, state} -> {:ok, {state, execution_optimistic, finalized}}
+      {:ok, %StateInfo{beacon_state: state}} -> {:ok, {state, execution_optimistic, finalized}}
       _ -> :not_found
     end
   end

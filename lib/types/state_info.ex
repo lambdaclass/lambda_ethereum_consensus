@@ -17,7 +17,7 @@ defmodule Types.StateInfo do
           block_root: Types.root()
         }
 
-  @spec from_beacon_state(Types.BeaconState.t(), keyword()) :: Types.StateInfo.t()
+  @spec from_beacon_state(Types.BeaconState.t(), keyword()) :: t()
   def from_beacon_state(%BeaconState{} = state, fields \\ []) do
     encoded = Keyword.get_lazy(fields, :encoded, fn -> Ssz.to_ssz(state) end)
 
@@ -36,10 +36,12 @@ defmodule Types.StateInfo do
     %__MODULE__{root: root, beacon_state: state, encoded: encoded, block_root: block_root}
   end
 
+  @spec encode(t()) :: binary()
   def encode(%__MODULE__{} = state_info) do
     {state_info.encoded, state_info.root} |> :erlang.term_to_binary()
   end
 
+  @spec decode(binary(), Types.root()) :: t()
   def decode(bin, block_root) do
     with {:ok, encoded, root} <- :erlang.binary_to_term(bin) |> validate_term(),
          {:ok, beacon_state} <- Ssz.from_ssz(bin, BeaconState) do
