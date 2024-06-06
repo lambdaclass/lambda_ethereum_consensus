@@ -267,9 +267,28 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:update_enr, enr})
   end
 
-  defp join_init_topics() do
-    BeaconBlock.join_topic()
-    BlobSideCar.join_topics()
+  @spec join_init_topics(port()) :: :ok | {:error, String.t()}
+  defp join_init_topics(port) do
+    topics = [BeaconBlock.topic()] ++ BlobSideCar.topics()
+
+    topics
+    |> Enum.reduce(:ok, fn topic_name, acc ->
+      c = {:join, %JoinTopic{name: topic_name}}
+      data = Command.encode(%Command{c: c})
+
+      cond do
+        send_data(port, data) ->
+          :telemetry.execute([:port, :message], %{}, %{
+            function: "join_topic",
+            direction: "elixir->"
+          })
+
+          acc
+
+        true ->
+          {:error, "Error joining #{topic_name} topic."}
+      end
+    end)
   end
 
   ########################
@@ -290,7 +309,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
 
-    if join_init_topics, do: join_init_topics()
+    if join_init_topics do
+      case join_init_topics(port) do
+        :ok -> :ok
+        {:error, reason} -> Logger.error("[Libp2pPort] Error joining topics. Reason: #{reason}")
+      end
+    end
 
     {:ok, %{port: port, new_peer_handler: new_peer_handler, subscriptors: %{}}}
   end
