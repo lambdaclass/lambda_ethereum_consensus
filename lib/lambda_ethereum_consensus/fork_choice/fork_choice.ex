@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
@@ -128,6 +129,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       Task.Supervisor.start_child(
         PruneBlocksSupervisor,
         fn -> BlockDb.prune_blocks_older_than(new_finalized_slot) end
+      )
+
+      Task.Supervisor.start_child(
+        PruneBlobsSupervisor,
+        fn -> BlobDb.prune_old_blobs(new_finalized_slot) end
       )
     end
   end

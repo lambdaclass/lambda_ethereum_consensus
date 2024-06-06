@@ -56,7 +56,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
         LambdaEthereumConsensus.P2P.Gossip.OperationsCollector,
         {Task.Supervisor, name: PruneStatesSupervisor},
-        {Task.Supervisor, name: PruneBlocksSupervisor}
+        {Task.Supervisor, name: PruneBlocksSupervisor},
+        {Task.Supervisor, name: PruneBlobsSupervisor}
       ] ++ validator_children
 
     Supervisor.init(children, strategy: :one_for_all)
