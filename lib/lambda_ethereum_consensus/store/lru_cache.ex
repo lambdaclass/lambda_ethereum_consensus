@@ -33,12 +33,29 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
 
   @spec put(atom(), key(), value()) :: :ok
   def put(table, key, value) do
-    cache_value(table, key, value)
     GenServer.call(table, {:put, key, value})
+    :ok
   end
 
   @spec get(atom(), key(), (key() -> value() | nil)) :: value() | nil
-  def get(table, key, fetch_func), do: lookup(table, key, fetch_func)
+  def get(table, key, fetch_func) do
+    case :ets.lookup_element(table, key, 2, nil) do
+      nil ->
+        # Cache miss.
+        case fetch_func.(key) do
+          nil ->
+            nil
+
+          value ->
+            GenServer.call(table, {:cache_value, key, value})
+            value
+        end
+
+      v ->
+        :ok = GenServer.cast(table, {:touch_entry, key})
+        v
+    end
+  end
 
   ##########################
   ### GenServer Callbacks
@@ -73,8 +90,14 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
   @impl GenServer
   def handle_call({:put, key, value}, _from, %{store_func: store} = state) do
     store.(key, value)
+    cache_value(state, key, value)
     touch_entry(key, state)
     {:reply, :ok, state}
+  end
+
+  def handle_call({:cache_value, key, value}, _from, state) do
+    cache_value(state, key, value)
+    {:reply, :ok, value}
   end
 
   @impl GenServer
@@ -92,28 +115,9 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
     prune_cache(state)
   end
 
-  defp lookup(table, key, fetch_func) do
-    case :ets.lookup_element(table, key, 2, nil) do
-      nil ->
-        cache_miss(table, key, fetch_func)
-
-      v ->
-        :ok = GenServer.cast(table, {:touch_entry, key})
-        v
-    end
-  end
-
-  defp cache_miss(table, key, fetch_func) do
-    case fetch_func.(key) do
-      nil -> nil
-      value -> cache_value(table, key, value)
-    end
-  end
-
-  defp cache_value(table, key, value) do
-    :ets.insert(table, {key, value, nil})
-    GenServer.cast(table, {:touch_entry, key})
-    value
+  defp cache_value(state, key, value) do
+    :ets.insert(state.data_table, {key, value, nil})
+    touch_entry(key, state)
   end
 
   defp update_ttl(data_table, ttl_table, key) do

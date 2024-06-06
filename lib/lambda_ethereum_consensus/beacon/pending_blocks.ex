@@ -94,6 +94,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def handle_info(:download_blocks, _state) do
     case Blocks.get_blocks_with_status(:download) do
       {:ok, blocks_to_download} ->
+        IO.inspect("Blocks to download: #{length(blocks_to_download)}")
+
         blocks_to_download
         |> Enum.take(16)
         |> Enum.map(& &1.root)
@@ -125,6 +127,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def handle_info(:download_blobs, _state) do
     case Blocks.get_blocks_with_status(:download_blobs) do
       {:ok, blocks_with_missing_blobs} ->
+        IO.inspect("Blocks with blobs to download: #{length(blocks_with_missing_blobs)}")
+
         blocks_with_blobs =
           blocks_with_missing_blobs
           |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
@@ -163,6 +167,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   defp process_blocks() do
     case Blocks.get_blocks_with_status(:pending) do
       {:ok, blocks} ->
+        IO.inspect("Blocks pending to send to fork choice: #{length(blocks)}")
+
         blocks
         |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
         |> Enum.each(&process_block/1)
