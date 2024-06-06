@@ -6,13 +6,14 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.ForkChoice.Simple.Tree
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias Types.BeaconBlock
   alias Types.BeaconState
+  alias Types.BlockInfo
   alias Types.Checkpoint
   alias Types.SignedBeaconBlock
+  alias Types.StateInfo
 
   defstruct [
     :time,
@@ -53,8 +54,9 @@ defmodule Types.Store do
         %SignedBeaconBlock{message: anchor_block} = signed_block
       ) do
     block_info = BlockInfo.from_block(signed_block, :transitioned)
+    state_info = StateInfo.from_beacon_state(anchor_state, block_root: block_info.root)
     anchor_block_root = block_info.root
-    anchor_state_root = Ssz.hash_tree_root!(anchor_state)
+    anchor_state_root = state_info.root
 
     if anchor_block.state_root == anchor_state_root do
       anchor_epoch = Accessors.get_current_epoch(anchor_state)
@@ -66,7 +68,7 @@ defmodule Types.Store do
 
       time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
 
-      BlockStates.store_state(anchor_block_root, anchor_state)
+      BlockStates.store_state_info(state_info)
 
       %__MODULE__{
         time: time,

@@ -5,52 +5,10 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   require Logger
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
-  alias Types.SignedBeaconBlock
+  alias Types.BlockInfo
 
   @block_prefix "blockHash"
   @blockslot_prefix "blockSlot"
-
-  defmodule BlockInfo do
-    @moduledoc """
-    Signed beacon block accompanied with its root and its processing status.
-    Maps to what's saved on the blocks db.
-    """
-    @type block_status ::
-            :pending
-            | :invalid
-            | :download
-            | :download_blobs
-            | :unknown
-            | :transitioned
-
-    @type t :: %__MODULE__{
-            root: Types.root(),
-            signed_block: Types.SignedBeaconBlock.t(),
-            status: block_status()
-          }
-    defstruct [:root, :signed_block, :status]
-
-    @spec from_block(SignedBeaconBlock.t(), block_status()) :: t()
-    def from_block(signed_block, status \\ :pending) do
-      {:ok, root} = Ssz.hash_tree_root(signed_block.message)
-      from_block(signed_block, root, status)
-    end
-
-    @spec from_block(SignedBeaconBlock.t(), Types.root(), block_status()) :: t()
-    def from_block(signed_block, root, status) do
-      %__MODULE__{root: root, signed_block: signed_block, status: status}
-    end
-  end
-
-  defguard is_status(atom)
-           when atom in [
-                  :pending,
-                  :invalid,
-                  :download,
-                  :download_blobs,
-                  :unknown,
-                  :transitioned
-                ]
 
   def store_block_info(%BlockInfo{} = block_info) do
     {:ok, encoded_signed_block} = Ssz.to_ssz(block_info.signed_block)
@@ -115,7 +73,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
   # Validates a term that came out of the first decoding step for a stored block info tuple.
   defp validate_term({encoded_signed_block, status})
-       when is_binary(encoded_signed_block) and is_status(status) do
+       when is_binary(encoded_signed_block) and is_atom(status) do
     {:ok, {encoded_signed_block, status}}
   end
 

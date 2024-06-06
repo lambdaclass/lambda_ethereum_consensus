@@ -333,7 +333,7 @@ defmodule LambdaEthereumConsensus.Validator do
       slot: slot
     } = duty
 
-    head_state = BlockStates.get_state!(head_root) |> go_to_slot(slot)
+    head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
     head_epoch = Misc.compute_epoch_at_slot(slot)
 
     epoch_boundary_block_root =
@@ -375,7 +375,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp go_to_slot(%{latest_block_header: %{parent_root: parent_root}}, slot) do
-    BlockStates.get_state!(parent_root) |> go_to_slot(slot)
+    BlockStates.get_state_info!(parent_root).beacon_state |> go_to_slot(slot)
   end
 
   @spec fetch_validator_index(Types.BeaconState.t(), %{index: nil, pubkey: Bls.pubkey()}) ::

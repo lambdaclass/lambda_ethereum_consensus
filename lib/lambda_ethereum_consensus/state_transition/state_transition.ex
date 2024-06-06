@@ -9,23 +9,27 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias Types.BeaconBlockHeader
   alias Types.BeaconState
+  alias Types.BlockInfo
   alias Types.SignedBeaconBlock
+  alias Types.StateInfo
 
   import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
 
   @spec state_transition(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
-          {:ok, BeaconState.t()} | {:error, String.t()}
+          {:ok, StateInfo.t()} | {:error, String.t()}
   def state_transition(
         %BeaconState{} = state,
-        %SignedBeaconBlock{message: block} = signed_block,
+        %BlockInfo{} = block_info,
         validate_result
       ) do
+    block = block_info.signed_block.message
+
     state
     # Process slots (including those with no blocks) since block
     |> process_slots(block.slot)
     # Verify signature
     |> map_ok(fn st ->
-      if not validate_result or block_signature_valid?(st, signed_block) do
+      if not validate_result or block_signature_valid?(st, block_info.signed_block) do
         {:ok, st}
       else
         {:error, "invalid block signature"}
@@ -34,9 +38,11 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Process block
     |> map_ok(&process_block(&1, block))
     # Verify state root
-    |> map_ok(fn st ->
-      if not validate_result or block.state_root == Ssz.hash_tree_root!(st) do
-        {:ok, st}
+    |> map_ok(fn new_state ->
+      state_info = StateInfo.from_beacon_state(new_state)
+
+      if not validate_result or block.state_root == state_info.root do
+        {:ok, state_info}
       else
         {:error, "mismatched state roots"}
       end
