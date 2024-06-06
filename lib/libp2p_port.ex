@@ -286,7 +286,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           acc
 
         true ->
-          {:error, "Error joining #{topic_name} topic."}
+          {:error, "Error sending #{topic_name} to port."}
       end
     end)
   end
