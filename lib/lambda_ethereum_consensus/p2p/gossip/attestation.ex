@@ -9,8 +9,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.Db
 
   @behaviour Handler
+  @state_prefix "attestation"
 
   def start_link(init_arg) do
     GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
@@ -98,22 +100,28 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def init(_init_arg) do
+    store_state(%{attnets: %{}, attestations: %{}})
     {:ok, %{attnets: %{}, attestations: %{}}}
   end
 
   @impl true
-  def handle_call({:collect, subnet_id, attestation}, _from, state) do
+  def handle_call({:collect, subnet_id, attestation}, _from, _state) do
+    state = get_state!()
     attestations = Map.put(state.attestations, subnet_id, [attestation])
     attnets = Map.put(state.attnets, subnet_id, attestation.data)
     new_state = %{state | attnets: attnets, attestations: attestations}
     get_topic_name(subnet_id) |> Libp2pPort.subscribe_to_topic(__MODULE__)
+    store_state(new_state)
     {:reply, :ok, new_state}
   end
 
-  def handle_call({:stop_collecting, subnet_id}, _from, state) do
+  def handle_call({:stop_collecting, subnet_id}, _from, _state) do
+    state = get_state!()
+
     if Map.has_key?(state.attnets, subnet_id) do
       {collected, atts} = Map.pop(state.attestations, subnet_id, [])
       new_state = %{state | attnets: Map.delete(state.attnets, subnet_id), attestations: atts}
+      store_state(new_state)
       {:reply, {:ok, collected}, new_state}
     else
       {:reply, {:error, "subnet not joined"}, state}
@@ -121,7 +129,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   @impl true
-  def handle_cast({:gossipsub, {topic, msg_id, message}}, state) do
+  def handle_cast({:gossipsub, {topic, msg_id, message}}, _state) do
+    state = get_state!()
     subnet_id = extract_subnet_id(topic)
 
     with {:ok, uncompressed} <- :snappyer.decompress(message),
@@ -129,6 +138,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
       # TODO: validate before accepting
       Libp2pPort.validate_message(msg_id, :accept)
       new_state = store_attestation(subnet_id, state, attestation)
+      store_state(new_state)
       {:noreply, new_state}
     else
       {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
@@ -150,5 +160,14 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
         attestations = Map.update(attestations, subnet_id, [], &[attestation | &1])
         %{state | attestations: attestations}
     end
+  end
+
+  defp store_state(state) do
+    Db.put(@state_prefix, :erlang.term_to_binary(state))
+  end
+
+  defp get_state!() do
+    {:ok, state} = Db.get(@state_prefix)
+    :erlang.binary_to_term(state)
   end
 end
