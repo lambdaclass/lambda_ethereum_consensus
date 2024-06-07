@@ -10,27 +10,26 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias Types.BeaconBlockHeader
   alias Types.BeaconState
-  alias Types.BlockInfo
   alias Types.SignedBeaconBlock
   alias Types.StateInfo
 
   import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
 
-  @spec state_transition(StateInfo.t(), BlockInfo.t(), boolean()) ::
+  @spec state_transition(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
           {:ok, StateInfo.t()} | {:error, String.t()}
   def state_transition(
-        %StateInfo{} = state_info,
-        %BlockInfo{} = block_info,
+        beacon_state,
+        signed_block,
         validate_result
       ) do
-    block = block_info.signed_block.message
+    block = signed_block.message
 
-    state_info.beacon_state
+    beacon_state
     # Process slots (including those with no blocks) since block
     |> process_slots(block.slot)
     # Verify signature
     |> map_ok(fn st ->
-      if not validate_result or block_signature_valid?(st, block_info.signed_block) do
+      if not validate_result or block_signature_valid?(st, signed_block) do
         {:ok, st}
       else
         {:error, "invalid block signature"}

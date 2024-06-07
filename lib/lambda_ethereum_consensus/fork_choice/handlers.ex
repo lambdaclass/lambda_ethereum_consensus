@@ -211,7 +211,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         |> handle_verify_payload_result()
       end)
 
-    with {:ok, state_info} <- StateTransition.state_transition(state_info, block_info, true),
+    with {:ok, state_info} <-
+           StateTransition.state_transition(
+             state_info.beacon_state,
+             block_info.signed_block,
+             true
+           ),
          {:ok, _execution_status} <- Task.await(payload_verification_task) do
       seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
       intervals_per_slot = Constants.intervals_per_slot()
