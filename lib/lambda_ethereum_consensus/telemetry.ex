@@ -142,6 +142,18 @@ defmodule LambdaEthereumConsensus.Telemetry do
       ),
       last_value("fork_choice.fetch.exception.duration",
         unit: {:native, :millisecond}
+      ),
+      last_value("attestation.persist.stop.duration",
+        unit: {:native, :millisecond}
+      ),
+      last_value("attestation.persist.exception.duration",
+        unit: {:native, :millisecond}
+      ),
+      last_value("attestation.fetch.stop.duration",
+        unit: {:native, :millisecond}
+      ),
+      last_value("attestation.fetch.exception.duration",
+        unit: {:native, :millisecond}
       )
     ]
   end

@@ -100,7 +100,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def init(_init_arg) do
-    store_state(%{attnets: %{}, attestations: %{}})
+    persist_state(%{attnets: %{}, attestations: %{}})
     {:ok, nil}
   end
 
@@ -111,7 +111,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     attnets = Map.put(state.attnets, subnet_id, attestation.data)
     new_state = %{state | attnets: attnets, attestations: attestations}
     topic(subnet_id) |> Libp2pPort.subscribe_to_topic(__MODULE__)
-    store_state(new_state)
+    persist_state(new_state)
     {:reply, :ok, nil}
   end
 
@@ -121,7 +121,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     if Map.has_key?(state.attnets, subnet_id) do
       {collected, atts} = Map.pop(state.attestations, subnet_id, [])
       new_state = %{state | attnets: Map.delete(state.attnets, subnet_id), attestations: atts}
-      store_state(new_state)
+      persist_state(new_state)
       {:reply, {:ok, collected}, nil}
     else
       {:reply, {:error, "subnet not joined"}, nil}
@@ -138,7 +138,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
       # TODO: validate before accepting
       Libp2pPort.validate_message(msg_id, :accept)
       new_state = store_attestation(subnet_id, state, attestation)
-      store_state(new_state)
+      persist_state(new_state)
       {:noreply, nil}
     else
       {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
@@ -162,12 +162,18 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     end
   end
 
-  defp store_state(state) do
-    Db.put(@state_prefix, :erlang.term_to_binary(state))
+  defp persist_state(state) do
+    :telemetry.span([:attestation, :persist], %{}, fn ->
+      {Db.put(@state_prefix, :erlang.term_to_binary(state)), %{}}
+    end)
   end
 
   defp get_state!() do
-    {:ok, state} = Db.get(@state_prefix)
+    {:ok, state} =
+      :telemetry.span([:attestation, :fetch], %{}, fn ->
+        {Db.get(@state_prefix), %{}}
+      end)
+
     :erlang.binary_to_term(state)
   end
 end
