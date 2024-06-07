@@ -86,7 +86,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   # TODO: handle subscription failures.
   defp start_subscriptions() do
     Gossip.BeaconBlock.subscribe_to_topic()
-    Gossip.BlobSideCar.start()
+    Gossip.BlobSideCar.subscribe_to_topics()
     Gossip.OperationsCollector.start()
   end
 
