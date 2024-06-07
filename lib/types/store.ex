@@ -54,7 +54,7 @@ defmodule Types.Store do
         %SignedBeaconBlock{message: anchor_block} = signed_block
       ) do
     block_info = BlockInfo.from_block(signed_block, :transitioned)
-    state_info = StateInfo.from_beacon_state(anchor_state, block_root: block_info.root)
+    {:ok, state_info} = StateInfo.from_beacon_state(anchor_state, block_root: block_info.root)
     anchor_block_root = block_info.root
     anchor_state_root = state_info.root
 

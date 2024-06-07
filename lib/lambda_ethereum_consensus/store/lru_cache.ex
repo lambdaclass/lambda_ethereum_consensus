@@ -108,7 +108,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
   @impl GenServer
   def handle_call({:cache_value, key, value}, _from, state) do
     cache_value(state, key, value)
-    {:reply, :ok, value}
+    {:reply, :ok, state}
   end
 
   @impl GenServer
