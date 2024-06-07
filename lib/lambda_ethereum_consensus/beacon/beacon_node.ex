@@ -53,7 +53,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         LambdaEthereumConsensus.Beacon.PendingBlocks,
         LambdaEthereumConsensus.Beacon.SyncBlocks,
         LambdaEthereumConsensus.P2P.Gossip.Attestation,
-        LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
         LambdaEthereumConsensus.P2P.Gossip.OperationsCollector,
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
