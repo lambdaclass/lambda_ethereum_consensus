@@ -39,12 +39,12 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> map_ok(&process_block(&1, block))
     # Verify state root
     |> map_ok(fn new_state ->
-      state_info = StateInfo.from_beacon_state(new_state)
-
-      if not validate_result or block.state_root == state_info.root do
-        {:ok, state_info}
-      else
-        {:error, "mismatched state roots"}
+      with {:ok, state_info} <- StateInfo.from_beacon_state(new_state) do
+        if not validate_result or block.state_root == state_info.root do
+          {:ok, state_info}
+        else
+          {:error, "mismatched state roots"}
+        end
       end
     end)
   end
