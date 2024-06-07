@@ -28,10 +28,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
 
   @spec subscribe_to_topics() :: :ok | {:error, String.t()}
   def subscribe_to_topics() do
-    topics()
-    |> Enum.each(fn topic ->
-      Libp2pPort.subscribe_to_topic(topic, __MODULE__)
-      |> case do
+    Enum.each(topics(), fn topic ->
+      case Libp2pPort.subscribe_to_topic(topic, __MODULE__) do
         :ok ->
           :ok
 
