@@ -272,22 +272,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     topics = [BeaconBlock.topic()] ++ BlobSideCar.topics()
 
     topics
-    |> Enum.reduce(:ok, fn topic_name, acc ->
+    |> Enum.each(fn topic_name ->
       c = {:join, %JoinTopic{name: topic_name}}
       data = Command.encode(%Command{c: c})
 
-      cond do
-        send_data(port, data) ->
-          :telemetry.execute([:port, :message], %{}, %{
-            function: "join_topic",
-            direction: "elixir->"
-          })
+      send_data(port, data)
 
-          acc
-
-        true ->
-          {:error, "Error sending #{topic_name} to port."}
-      end
+      :telemetry.execute([:port, :message], %{}, %{
+        function: "join_topic",
+        direction: "elixir->"
+      })
     end)
   end
 
@@ -309,12 +303,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
 
-    if join_init_topics do
-      case join_init_topics(port) do
-        :ok -> :ok
-        {:error, reason} -> Logger.error("[Libp2pPort] Error joining topics. Reason: #{reason}")
-      end
-    end
+    if join_init_topics, do: join_init_topics(port)
 
     {:ok, %{port: port, new_peer_handler: new_peer_handler, subscriptors: %{}}}
   end
@@ -469,6 +458,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> then(&struct!(InitArgs, &1))
   end
 
+  @spec send_data(port(), iodata()) :: boolean()
   defp send_data(port, data), do: Port.command(port, data)
 
   defp send_protobuf(pid, %mod{} = protobuf) do
