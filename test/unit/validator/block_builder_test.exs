@@ -1,13 +1,13 @@
 defmodule Unit.Validator.BlockBuilderTest do
   @moduledoc false
 
-  alias Types.BlockInfo
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Validator.BlockBuilder
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias Types.BeaconBlockBody
   alias Types.BeaconState
+  alias Types.BlockInfo
   alias Types.SignedBeaconBlock
 
   use ExUnit.Case
@@ -62,7 +62,8 @@ defmodule Unit.Validator.BlockBuilderTest do
 
     assert signed_block.signature == spec_block.signature
 
-    assert {:ok, _} = StateTransition.verified_transition(pre_state, BlockInfo.from_block(signed_block))
+    assert {:ok, _} =
+             StateTransition.verified_transition(pre_state, BlockInfo.from_block(signed_block))
   end
 
   test "prove commitments" do

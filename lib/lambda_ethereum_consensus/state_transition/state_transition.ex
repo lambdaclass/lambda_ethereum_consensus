@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias Types.BeaconBlockHeader
   alias Types.BeaconState
+  alias Types.BlockInfo
   alias Types.SignedBeaconBlock
   alias Types.StateInfo
 

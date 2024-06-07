@@ -5,10 +5,10 @@ defmodule Helpers.ProcessBlocks do
 
   use ExUnit.CaseTemplate
 
-  alias Types.BlockInfo
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.Utils.Diff
   alias Types.BeaconState
+  alias Types.BlockInfo
   alias Types.SignedBeaconBlock
 
   def process_blocks(%SpecTestCase{} = testcase) do
@@ -34,7 +34,7 @@ defmodule Helpers.ProcessBlocks do
       blocks
       |> Enum.reduce_while({:ok, pre}, fn block, {:ok, state} ->
         case StateTransition.verified_transition(state, BlockInfo.from_block(block)) do
-          {:ok, post_state} -> {:cont, {:ok, post_state}}
+          {:ok, post_state} -> {:cont, {:ok, post_state.beacon_state}}
           {:error, error} -> {:halt, {:error, error}}
         end
       end)

@@ -131,13 +131,13 @@ defmodule Unit.BeaconApiTest.V1 do
 
   test "get genesis data" do
     expected_response = %{
-        "data" => %{
-          "genesis_time" => BeaconChain.get_genesis_time(),
-          "genesis_validators_root" =>
-            ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
-          "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
-        }
+      "data" => %{
+        "genesis_time" => BeaconChain.get_genesis_time(),
+        "genesis_validators_root" =>
+          ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
+        "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
       }
+    }
 
     conn = conn(:get, "/eth/v1/beacon/genesis", nil) |> Router.call(@opts)
 
@@ -164,18 +164,18 @@ defmodule Unit.BeaconApiTest.V1 do
     metadata = Metadata.get_metadata()
 
     expected_response = %{
-        "data" => %{
-          "peer_id" => identity[:pretty_peer_id],
-          "enr" => identity[:enr],
-          "p2p_addresses" => identity[:p2p_addresses],
-          "discovery_addresses" => identity[:discovery_addresses],
-          "metadata" => %{
-            "seq_number" => Utils.to_json(metadata.seq_number),
-            "attnets" => Utils.to_json(metadata.attnets),
-            "syncnets" => Utils.to_json(metadata.syncnets)
-          }
+      "data" => %{
+        "peer_id" => identity[:pretty_peer_id],
+        "enr" => identity[:enr],
+        "p2p_addresses" => identity[:p2p_addresses],
+        "discovery_addresses" => identity[:discovery_addresses],
+        "metadata" => %{
+          "seq_number" => Utils.to_json(metadata.seq_number),
+          "attnets" => Utils.to_json(metadata.attnets),
+          "syncnets" => Utils.to_json(metadata.syncnets)
         }
       }
+    }
 
     conn = conn(:get, "/eth/v1/node/identity", nil) |> Router.call(@opts)
     assert conn.state == :sent

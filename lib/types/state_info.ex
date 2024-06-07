@@ -40,7 +40,7 @@ defmodule Types.StateInfo do
     {state_info.encoded, state_info.root} |> :erlang.term_to_binary()
   end
 
-  @spec decode(binary(), Types.root()) :: t()
+  @spec decode(binary(), Types.root()) :: {:ok, t()} | {:error, binary()}
   def decode(bin, block_root) do
     with {:ok, encoded, root} <- :erlang.binary_to_term(bin) |> validate_term(),
          {:ok, beacon_state} <- Ssz.from_ssz(encoded, BeaconState) do
@@ -58,6 +58,7 @@ defmodule Types.StateInfo do
     with :error <- Keyword.fetch(keyword, key), do: fun.()
   end
 
+  @spec validate_term(term()) :: {:ok, binary(), Types.root()} | {:error, binary()}
   defp validate_term({ssz_encoded, root}) when is_binary(ssz_encoded) and is_binary(root) do
     {:ok, ssz_encoded, root}
   end
