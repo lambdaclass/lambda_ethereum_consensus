@@ -4,7 +4,9 @@ defmodule LambdaEthereumConsensus.StateTransition do
   """
 
   require Logger
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias Types.BeaconBlockHeader
   alias Types.BeaconState
@@ -123,8 +125,8 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   def block_signature_valid?(%BeaconState{} = state, %SignedBeaconBlock{} = signed_block) do
     proposer = Aja.Vector.at!(state.validators, signed_block.message.proposer_index)
-    domain = StateTransition.Accessors.get_domain(state, Constants.domain_beacon_proposer())
-    signing_root = StateTransition.Misc.compute_signing_root(signed_block.message, domain)
+    domain = Accessors.get_domain(state, Constants.domain_beacon_proposer())
+    signing_root = Misc.compute_signing_root(signed_block.message, domain)
     Bls.valid?(proposer.pubkey, signing_root, signed_block.signature)
   end
 
