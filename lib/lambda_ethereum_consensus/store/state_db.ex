@@ -69,21 +69,17 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
 
   @spec get_state_by_block_root(Types.root()) ::
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
-  def get_state_by_block_root(root) do
-    get_state(root)
+  def get_state_by_block_root(block_root) do
+    with {:ok, bin} <- block_root |> state_key() |> Db.get() do
+      StateInfo.decode(bin, block_root)
+    end
   end
 
   @spec get_state_by_state_root(Types.root()) ::
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
-  def get_state_by_state_root(root) do
-    with {:ok, block_root} <- root |> block_key() |> Db.get() do
-      get_state(block_root)
-    end
-  end
-
-  defp get_state(root) do
-    with {:ok, bin} <- root |> state_key() |> Db.get() do
-      StateInfo.decode(bin, root)
+  def get_state_by_state_root(state_root) do
+    with {:ok, block_root} <- state_root |> block_key() |> Db.get() do
+      get_state_by_block_root(block_root)
     end
   end
 
