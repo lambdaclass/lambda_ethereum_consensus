@@ -17,17 +17,16 @@ defmodule Types.StateInfo do
           block_root: Types.root()
         }
 
-  @spec from_beacon_state(Types.BeaconState.t(), keyword()) :: t()
+  @spec from_beacon_state(Types.BeaconState.t(), keyword()) :: {:ok, t()} | {:error, binary()}
   def from_beacon_state(%BeaconState{} = state, fields \\ []) do
-    encoded = Keyword.get_lazy(fields, :encoded, fn -> Ssz.to_ssz(state) end)
-
-    block_root =
-      Keyword.get_lazy(fields, :block_root, fn ->
-        # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
-        Ssz.hash_tree_root(state.latest_block_header)
-      end)
-
-    from_beacon_state(state, encoded, block_root)
+    with {:ok, encoded} <- fetch_lazy(fields, :encoded, fn -> Ssz.to_ssz(state) end),
+         {:ok, block_root} <-
+           fetch_lazy(fields, :block_root, fn ->
+             # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
+             Ssz.hash_tree_root(state.latest_block_header)
+           end) do
+      {:ok, from_beacon_state(state, encoded, block_root)}
+    end
   end
 
   @spec from_beacon_state(Types.BeaconState.t(), binary(), Types.root()) :: t()
@@ -44,14 +43,19 @@ defmodule Types.StateInfo do
   @spec decode(binary(), Types.root()) :: t()
   def decode(bin, block_root) do
     with {:ok, encoded, root} <- :erlang.binary_to_term(bin) |> validate_term(),
-         {:ok, beacon_state} <- Ssz.from_ssz(bin, BeaconState) do
-      %__MODULE__{
-        beacon_state: beacon_state,
-        root: root,
-        block_root: block_root,
-        encoded: encoded
-      }
+         {:ok, beacon_state} <- Ssz.from_ssz(encoded, BeaconState) do
+      {:ok,
+       %__MODULE__{
+         beacon_state: beacon_state,
+         root: root,
+         block_root: block_root,
+         encoded: encoded
+       }}
     end
+  end
+
+  defp fetch_lazy(keyword, key, fun) do
+    with :error <- Keyword.fetch(keyword, key), do: fun.()
   end
 
   defp validate_term({ssz_encoded, root}) when is_binary(ssz_encoded) and is_binary(root) do
@@ -60,6 +64,6 @@ defmodule Types.StateInfo do
 
   defp validate_term(other) do
     {:error,
-     "Error when decoding state info binary. Expected a {binary(), binary()} tuple. Found: #{other}"}
+     "Error when decoding state info binary. Expected a {binary(), binary()} tuple. Found: #{inspect(other)}"}
   end
 end
