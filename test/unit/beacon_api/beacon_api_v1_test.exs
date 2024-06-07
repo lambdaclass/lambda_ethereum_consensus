@@ -51,13 +51,11 @@ defmodule Unit.BeaconApiTest.V1 do
     |> BlockInfo.from_block(head_root, :pending)
     |> BlockDb.store_block_info()
 
-    resp_body = %{
-      data: %{root: Utils.hex_encode(signed_block.message.state_root)},
-      finalized: false,
-      execution_optimistic: true
+    expected_response = %{
+      "data" => %{"root" => Utils.hex_encode(signed_block.message.state_root)},
+      "finalized" => false,
+      "execution_optimistic" => true
     }
-
-    {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
 
     conn =
       conn(:get, "/eth/v1/beacon/states/head/root", nil)
@@ -65,16 +63,14 @@ defmodule Unit.BeaconApiTest.V1 do
 
     assert conn.state == :sent
     assert conn.status == 200
-    assert conn.resp_body == encoded_resp_body_json
+    assert Jason.decode!(conn.resp_body) == expected_response
   end
 
   test "get invalid state SSZ HashTreeRoot" do
-    resp_body = %{
-      code: 400,
-      message: "Invalid state ID: unknown_state"
+    expected_response = %{
+      "code" => 400,
+      "message" => "Invalid state ID: unknown_state"
     }
-
-    {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
 
     conn =
       conn(:get, "/eth/v1/beacon/states/unknown_state/root", nil)
@@ -82,7 +78,7 @@ defmodule Unit.BeaconApiTest.V1 do
 
     assert conn.state == :sent
     assert conn.status == 400
-    assert conn.resp_body == encoded_resp_body_json
+    assert Jason.decode!(conn.resp_body) == expected_response
   end
 
   test "get finality checkpoints by head" do
@@ -104,26 +100,24 @@ defmodule Unit.BeaconApiTest.V1 do
       {:ok, beacon_state}
     )
 
-    resp_body = %{
-      finalized: false,
-      execution_optimistic: true,
-      data: %{
-        previous_justified: %{
-          epoch: beacon_state.previous_justified_checkpoint.epoch,
-          root: Utils.hex_encode(beacon_state.previous_justified_checkpoint.root)
+    expected_response = %{
+      "finalized" => false,
+      "execution_optimistic" => true,
+      "data" => %{
+        "previous_justified" => %{
+          "epoch" => beacon_state.previous_justified_checkpoint.epoch,
+          "root" => Utils.hex_encode(beacon_state.previous_justified_checkpoint.root)
         },
-        current_justified: %{
-          epoch: beacon_state.current_justified_checkpoint.epoch,
-          root: Utils.hex_encode(beacon_state.current_justified_checkpoint.root)
+        "current_justified" => %{
+          "epoch" => beacon_state.current_justified_checkpoint.epoch,
+          "root" => Utils.hex_encode(beacon_state.current_justified_checkpoint.root)
         },
-        finalized: %{
-          epoch: beacon_state.finalized_checkpoint.epoch,
-          root: Utils.hex_encode(beacon_state.finalized_checkpoint.root)
+        "finalized" => %{
+          "epoch" => beacon_state.finalized_checkpoint.epoch,
+          "root" => Utils.hex_encode(beacon_state.finalized_checkpoint.root)
         }
       }
     }
-
-    {:ok, encoded_resp_body_json} = Jason.encode(resp_body)
 
     conn =
       :get
@@ -132,25 +126,24 @@ defmodule Unit.BeaconApiTest.V1 do
 
     assert conn.state == :sent
     assert conn.status == 200
-    assert conn.resp_body == encoded_resp_body_json
+    assert Jason.decode!(conn.resp_body) == expected_response
   end
 
   test "get genesis data" do
-    {:ok, expected_body} =
-      Jason.encode(%{
+    expected_response = %{
         "data" => %{
           "genesis_time" => BeaconChain.get_genesis_time(),
           "genesis_validators_root" =>
             ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
           "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
         }
-      })
+      }
 
     conn = conn(:get, "/eth/v1/beacon/genesis", nil) |> Router.call(@opts)
 
     assert conn.state == :sent
     assert conn.status == 200
-    assert conn.resp_body == expected_body
+    assert Jason.decode!(conn.resp_body) == expected_response
   end
 
   test "node health" do
@@ -170,8 +163,7 @@ defmodule Unit.BeaconApiTest.V1 do
     identity = Libp2pPort.get_node_identity()
     metadata = Metadata.get_metadata()
 
-    expected_body =
-      Jason.encode!(%{
+    expected_response = %{
         "data" => %{
           "peer_id" => identity[:pretty_peer_id],
           "enr" => identity[:enr],
@@ -183,11 +175,11 @@ defmodule Unit.BeaconApiTest.V1 do
             "syncnets" => Utils.to_json(metadata.syncnets)
           }
         }
-      })
+      }
 
     conn = conn(:get, "/eth/v1/node/identity", nil) |> Router.call(@opts)
     assert conn.state == :sent
     assert conn.status == 200
-    assert conn.resp_body == expected_body
+    assert Jason.decode!(conn.resp_body) == expected_response
   end
 end

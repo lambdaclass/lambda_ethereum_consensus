@@ -211,12 +211,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         |> handle_verify_payload_result()
       end)
 
-    with {:ok, state_info} <-
-           StateTransition.state_transition(
-             state_info.beacon_state,
-             block_info.signed_block,
-             true
-           ),
+    with {:ok, new_state_info} <-
+           StateTransition.verified_transition(state_info.beacon_state, block_info),
          {:ok, _execution_status} <- Task.await(payload_verification_task) do
       seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
       intervals_per_slot = Constants.intervals_per_slot()
@@ -225,13 +221,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
       # Add new block and state to the store
-      BlockStates.store_state_info(state_info)
+      BlockStates.store_state_info(new_state_info)
 
       is_first_block = store.proposer_boost_root == <<0::256>>
       # TODO: store block timeliness data?
       is_timely = Store.get_current_slot(store) == block.slot and is_before_attesting_interval
 
-      state = state_info.beacon_state
+      state = new_state_info.beacon_state
 
       store
       |> Store.store_block_info(block_info)

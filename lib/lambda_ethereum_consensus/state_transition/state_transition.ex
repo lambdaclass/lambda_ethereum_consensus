@@ -15,38 +15,40 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
 
-  @spec state_transition(BeaconState.t(), SignedBeaconBlock.t(), boolean()) ::
+  @spec verified_transition(BeaconState.t(), BlockInfo.t()) ::
           {:ok, StateInfo.t()} | {:error, String.t()}
-  def state_transition(
-        beacon_state,
-        signed_block,
-        validate_result
-      ) do
-    block = signed_block.message
-
+  def verified_transition(beacon_state, block_info) do
     beacon_state
-    # Process slots (including those with no blocks) since block
-    |> process_slots(block.slot)
+    |> transition(block_info.signed_block)
     # Verify signature
     |> map_ok(fn st ->
-      if not validate_result or block_signature_valid?(st, signed_block) do
+      if block_signature_valid?(st, block_info.signed_block) do
         {:ok, st}
       else
         {:error, "invalid block signature"}
       end
     end)
-    # Process block
-    |> map_ok(&process_block(&1, block))
-    # Verify state root
     |> map_ok(fn new_state ->
-      with {:ok, state_info} <- StateInfo.from_beacon_state(new_state) do
-        if not validate_result or block.state_root == state_info.root do
+      with {:ok, state_info} <-
+             StateInfo.from_beacon_state(new_state, block_root: block_info.root) do
+        if block_info.signed_block.message.state_root == state_info.root do
           {:ok, state_info}
         else
           {:error, "mismatched state roots"}
         end
       end
     end)
+  end
+
+  @spec transition(BeaconState.t(), SignedBeaconBlock.t()) :: {:ok, BeaconState.t()}
+  def transition(beacon_state, signed_block) do
+    block = signed_block.message
+
+    beacon_state
+    # Process slots (including those with no blocks) since block
+    |> process_slots(block.slot)
+    # Process block
+    |> map_ok(&process_block(&1, block))
   end
 
   def process_slots(%BeaconState{slot: old_slot}, slot) when old_slot >= slot,
