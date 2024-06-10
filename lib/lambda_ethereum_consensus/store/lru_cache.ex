@@ -34,7 +34,6 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
 
   @spec put(atom(), key(), value()) :: :ok
   def put(table, key, value) do
-    Logger.notice("DEBUG: before call")
     GenServer.call(table, {:put, key, value})
     :ok
   end
@@ -91,16 +90,11 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
 
   @impl GenServer
   def handle_call({:put, key, value}, _from, %{store_func: store} = state) do
-    Logger.notice("DEBUG: before store key value")
-
     store.(key, value)
-    Logger.notice("DEBUG: before caching")
 
     cache_value(state, key, value)
-    Logger.notice("DEBUG: before touch entry")
 
     touch_entry(key, state)
-    Logger.notice("DEBUG: after touch entry")
 
     {:reply, :ok, state}
   end
