@@ -151,7 +151,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     id_with_trailer |> String.trim_trailing("/ssz_snappy") |> String.to_integer()
   end
 
-  @spec persist_subnet_info(SubnetInfo.t(), non_neg_integer()) :: :ok
   defp persist_subnet_info(subnet_info, subnet_id) do
     :telemetry.span([:subnet, :persist], %{}, fn ->
       {Db.put(
