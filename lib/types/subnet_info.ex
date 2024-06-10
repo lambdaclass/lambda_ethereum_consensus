@@ -9,9 +9,10 @@ defmodule Types.SubnetInfo do
 
   @type t :: %__MODULE__{
           data: Types.AttestationData.t(),
-          attestations: Types.Attestation.t()
+          attestations: list(Types.Attestation.t())
         }
 
+  @spec new_subnet_with_attestation(Types.Attestation.t()) :: Types.SubnetInfo.t()
   def new_subnet_with_attestation(%Types.Attestation{data: data} = attestation),
     do: %__MODULE__{data: data, attestations: [attestation]}
 
