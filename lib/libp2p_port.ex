@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
+  alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
@@ -266,8 +267,22 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:update_enr, enr})
   end
 
-  defp join_init_topics() do
-    BeaconBlock.join_topic()
+  @spec join_init_topics(port()) :: :ok | {:error, String.t()}
+  defp join_init_topics(port) do
+    topics = [BeaconBlock.topic()] ++ BlobSideCar.topics()
+
+    topics
+    |> Enum.each(fn topic_name ->
+      c = {:join, %JoinTopic{name: topic_name}}
+      data = Command.encode(%Command{c: c})
+
+      send_data(port, data)
+
+      :telemetry.execute([:port, :message], %{}, %{
+        function: "join_topic",
+        direction: "elixir->"
+      })
+    end)
   end
 
   ########################
@@ -288,7 +303,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
 
-    if join_init_topics, do: join_init_topics()
+    if join_init_topics, do: join_init_topics(port)
 
     {:ok, %{port: port, new_peer_handler: new_peer_handler, subscriptors: %{}}}
   end
@@ -443,6 +458,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> then(&struct!(InitArgs, &1))
   end
 
+  @spec send_data(port(), iodata()) :: boolean()
   defp send_data(port, data), do: Port.command(port, data)
 
   defp send_protobuf(pid, %mod{} = protobuf) do

@@ -2,6 +2,8 @@ defmodule Types.BlockInfo do
   @moduledoc """
   Signed beacon block accompanied with its root and its processing status.
   Maps to what's saved on the blocks db.
+
+  signed_block field may be nil if it's queued for download.
   """
 
   alias Types.SignedBeaconBlock
