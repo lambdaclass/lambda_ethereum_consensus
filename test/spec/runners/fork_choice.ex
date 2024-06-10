@@ -9,10 +9,10 @@ defmodule ForkChoiceTestRunner do
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.Store.BlobDb
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BeaconBlock
   alias Types.BeaconState
+  alias Types.BlockInfo
   alias Types.SignedBeaconBlock
   alias Types.Store
 

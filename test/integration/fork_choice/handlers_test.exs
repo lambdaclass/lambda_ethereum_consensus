@@ -4,10 +4,10 @@ defmodule Integration.ForkChoice.HandlersTest do
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.BlockDb
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.StateDb
+  alias Types.BlockInfo
 
   setup_all do
     start_supervised!(Db)

@@ -69,7 +69,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   end
 
   defp get_validator_children(snapshot, slot, head_root, genesis_time) do
-    %BeaconState{eth1_data_votes: votes} = BlockStates.get_state!(head_root)
+    %BeaconState{eth1_data_votes: votes} = BlockStates.get_state_info!(head_root).beacon_state
     # TODO: move checkpoint sync outside and move this to application.ex
     [
       {ValidatorManager, {slot, head_root}},

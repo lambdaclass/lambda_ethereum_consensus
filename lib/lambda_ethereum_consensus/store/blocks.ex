@@ -3,9 +3,9 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   Interface to `Store.blocks`.
   """
   alias LambdaEthereumConsensus.Store.BlockDb
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.LRUCache
   alias Types.BeaconBlock
+  alias Types.BlockInfo
 
   @table :blocks_by_hash
   @max_entries 512

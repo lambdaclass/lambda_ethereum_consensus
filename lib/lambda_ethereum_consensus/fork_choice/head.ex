@@ -160,7 +160,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
       store.unrealized_justifications[block_root]
     else
       # The block is not from a prior epoch, therefore the voting source is not pulled up
-      head_state = BlockStates.get_state!(block_root)
+      head_state = BlockStates.get_state_info!(block_root).beacon_state
       head_state.current_justified_checkpoint
     end
   end

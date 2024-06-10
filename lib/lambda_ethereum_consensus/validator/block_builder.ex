@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   @spec build_block(LambdaEthereumConsensus.Validator.BuildBlockRequest.t(), payload_id()) ::
           {:ok, {SignedBeaconBlock.t(), BlobSidecar.t()}} | {:error, any()}
   def build_block(%BuildBlockRequest{parent_root: parent_root} = request, payload_id) do
-    pre_state = BlockStates.get_state!(parent_root)
+    pre_state = BlockStates.get_state_info!(parent_root).beacon_state
 
     with {:ok, mid_state} <- StateTransition.process_slots(pre_state, request.slot),
          {:ok, {execution_payload, blobs_bundle}} <- ExecutionClient.get_payload(payload_id),
@@ -100,7 +100,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   def start_building_payload(proposed_slot, head_root) do
     # PERF: the state can be cached for the later build_block call
     head_block = Blocks.get_block!(head_root)
-    pre_state = BlockStates.get_state!(head_root)
+    pre_state = BlockStates.get_state_info!(head_root).beacon_state
 
     head_payload_data =
       if proposed_slot == 1 do
@@ -140,7 +140,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   def seal_block(pre_state, block, privkey) do
     wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
 
-    with {:ok, post_state} <- StateTransition.state_transition(pre_state, wrapped_block, false) do
+    with {:ok, post_state} <- StateTransition.transition(pre_state, wrapped_block) do
       %BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}
       |> sign_block(post_state, privkey)
       |> then(&{:ok, &1})

@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
   and `LambdaEthereumConsensus.Store.BlockStates`.
   """
   use GenServer
+  require Logger
 
   @default_max_entries 512
   @default_batch_prune_size 32
@@ -33,12 +34,29 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
 
   @spec put(atom(), key(), value()) :: :ok
   def put(table, key, value) do
-    cache_value(table, key, value)
-    GenServer.cast(table, {:put, key, value})
+    GenServer.call(table, {:put, key, value})
+    :ok
   end
 
   @spec get(atom(), key(), (key() -> value() | nil)) :: value() | nil
-  def get(table, key, fetch_func), do: lookup(table, key, fetch_func)
+  def get(table, key, fetch_func) do
+    case :ets.lookup_element(table, key, 2, nil) do
+      nil ->
+        # Cache miss.
+        case fetch_func.(key) do
+          nil ->
+            nil
+
+          value ->
+            GenServer.call(table, {:cache_value, key, value})
+            value
+        end
+
+      v ->
+        :ok = GenServer.cast(table, {:touch_entry, key})
+        v
+    end
+  end
 
   ##########################
   ### GenServer Callbacks
@@ -71,15 +89,25 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
   end
 
   @impl GenServer
-  def handle_cast({:put, key, value}, %{store_func: store} = state) do
+  def handle_call({:put, key, value}, _from, %{store_func: store} = state) do
     store.(key, value)
-    handle_cast({:touch_entry, key}, state)
+
+    cache_value(state, key, value)
+
+    touch_entry(key, state)
+
+    {:reply, :ok, state}
+  end
+
+  @impl GenServer
+  def handle_call({:cache_value, key, value}, _from, state) do
+    cache_value(state, key, value)
+    {:reply, :ok, state}
   end
 
   @impl GenServer
   def handle_cast({:touch_entry, key}, state) do
-    update_ttl(state[:data_table], state[:ttl_table], key)
-    prune_cache(state)
+    touch_entry(key, state)
     {:noreply, state}
   end
 
@@ -87,28 +115,14 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
   ### Private Functions
   ##########################
 
-  defp lookup(table, key, fetch_func) do
-    case :ets.lookup_element(table, key, 2, nil) do
-      nil ->
-        cache_miss(table, key, fetch_func)
-
-      v ->
-        :ok = GenServer.cast(table, {:touch_entry, key})
-        v
-    end
+  defp touch_entry(key, state) do
+    update_ttl(state[:data_table], state[:ttl_table], key)
+    prune_cache(state)
   end
 
-  defp cache_miss(table, key, fetch_func) do
-    case fetch_func.(key) do
-      nil -> nil
-      value -> cache_value(table, key, value)
-    end
-  end
-
-  defp cache_value(table, key, value) do
-    :ets.insert_new(table, {key, value, nil})
-    GenServer.cast(table, {:touch_entry, key})
-    value
+  defp cache_value(state, key, value) do
+    :ets.insert(state.data_table, {key, value, nil})
+    touch_entry(key, state)
   end
 
   defp update_ttl(data_table, ttl_table, key) do

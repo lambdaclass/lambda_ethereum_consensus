@@ -5,73 +5,31 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   require Logger
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
-  alias Types.SignedBeaconBlock
+  alias Types.BlockInfo
 
   @block_prefix "blockHash"
   @blockslot_prefix "blockSlot"
 
-  defmodule BlockInfo do
-    @moduledoc """
-    Signed beacon block accompanied with its root and its processing status.
-    Maps to what's saved on the blocks db.
-    """
-    @type block_status ::
-            :pending
-            | :invalid
-            | :download
-            | :download_blobs
-            | :unknown
-            | :transitioned
-
-    @type t :: %__MODULE__{
-            root: Types.root(),
-            signed_block: Types.SignedBeaconBlock.t(),
-            status: block_status()
-          }
-    defstruct [:root, :signed_block, :status]
-
-    @spec from_block(SignedBeaconBlock.t(), block_status()) :: t()
-    def from_block(signed_block, status \\ :pending) do
-      {:ok, root} = Ssz.hash_tree_root(signed_block.message)
-      from_block(signed_block, root, status)
-    end
-
-    @spec from_block(SignedBeaconBlock.t(), Types.root(), block_status()) :: t()
-    def from_block(signed_block, root, status) do
-      %__MODULE__{root: root, signed_block: signed_block, status: status}
-    end
-  end
-
-  defguard is_status(atom)
-           when atom in [
-                  :pending,
-                  :invalid,
-                  :download,
-                  :download_blobs,
-                  :unknown,
-                  :transitioned
-                ]
-
   def store_block_info(%BlockInfo{} = block_info) do
-    {:ok, encoded_signed_block} = Ssz.to_ssz(block_info.signed_block)
-
+    # TODO handle encoding errors properly.
+    {:ok, encoded} = BlockInfo.encode(block_info)
     key = block_key(block_info.root)
-    Db.put(key, :erlang.term_to_binary({encoded_signed_block, block_info.status}))
+    Db.put(key, encoded)
 
     # WARN: this overrides any previous mapping for the same slot
     # TODO: this should apply fork-choice if not applied elsewhere
     # TODO: handle cases where slot is empty
-    slothash_key = block_root_by_slot_key(block_info.signed_block.message.slot)
-    Db.put(slothash_key, block_info.root)
+    if not is_nil(block_info.signed_block) do
+      slothash_key = block_root_by_slot_key(block_info.signed_block.message.slot)
+      Db.put(slothash_key, block_info.root)
+    end
   end
 
   @spec get_block_info(Types.root()) ::
           {:ok, BlockInfo.t()} | {:error, String.t()} | :not_found
   def get_block_info(block_root) do
-    with {:ok, data} <- Db.get(block_key(block_root)),
-         {:ok, {encoded_signed_block, status}} <- :erlang.binary_to_term(data) |> validate_term(),
-         {:ok, signed_block} <- Ssz.from_ssz(encoded_signed_block, SignedBeaconBlock) do
-      {:ok, %BlockInfo{root: block_root, signed_block: signed_block, status: status}}
+    with {:ok, data} <- Db.get(block_key(block_root)) do
+      BlockInfo.decode(block_root, data)
     end
   end
 
@@ -111,16 +69,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
     slots_to_remove |> Enum.each(&remove_block_by_slot/1)
     Logger.info("[BlockDb] Pruning finished. #{Enum.count(slots_to_remove)} blocks removed.")
-  end
-
-  # Validates a term that came out of the first decoding step for a stored block info tuple.
-  defp validate_term({encoded_signed_block, status})
-       when is_binary(encoded_signed_block) and is_status(status) do
-    {:ok, {encoded_signed_block, status}}
-  end
-
-  defp validate_term(other) do
-    {:error, "Block decoding failed, decoded term is not the expected tuple: #{other}"}
   end
 
   @spec remove_block_by_slot(non_neg_integer()) :: :ok | :not_found

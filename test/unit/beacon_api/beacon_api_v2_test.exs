@@ -5,9 +5,9 @@ defmodule Unit.BeaconApiTest.V2 do
 
   alias BeaconApi.Router
   alias LambdaEthereumConsensus.Store.BlockDb
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.Db
+  alias Types.BlockInfo
 
   @moduletag :beacon_api_case
   @moduletag :tmp_dir
