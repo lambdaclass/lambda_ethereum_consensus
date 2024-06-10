@@ -340,7 +340,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "attestation_persist_stop_duration",
+          "expr": "subnet_persist_stop_duration",
           "range": true,
           "instant": true,
           "datasource": {
@@ -357,7 +357,7 @@
         }
       ],
       "type": "timeseries",
-      "title": "Attestation Persisting State Duration",
+      "title": "SubnetInfo Persisting Duration",
       "gridPos": {
         "x": 0,
         "y": 0,
@@ -442,7 +442,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "attestation_fetch_stop_duration",
+          "expr": "subnet_fetch_stop_duration",
           "range": true,
           "instant": true,
           "datasource": {
@@ -459,7 +459,7 @@
         }
       ],
       "type": "timeseries",
-      "title": "Attestation Fetching State Duration",
+      "title": "SubnetInfo Fetching Duration",
       "gridPos": {
         "x": 0,
         "y": 0,

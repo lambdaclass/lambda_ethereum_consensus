@@ -10,7 +10,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Db
-  alias LambdaEthereumConsensus.Store.Db
   alias Types.SubnetInfo
 
   @behaviour Handler
@@ -83,8 +82,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   defp update_enr() do
     enr_fork_id = compute_enr_fork_id()
-    %{attnets: subnets, syncnets: syncnets} = P2P.Metadata.get_metadata()
-    Libp2pPort.update_enr(enr_fork_id, subnets, syncnets)
+    %{attnets: attnets, syncnets: syncnets} = P2P.Metadata.get_metadata()
+    Libp2pPort.update_enr(enr_fork_id, attnets, syncnets)
   end
 
   defp compute_enr_fork_id() do
@@ -136,13 +135,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
       fetch_subnet_info!(subnet_id)
       |> SubnetInfo.aggregate_attestation(attestation)
       |> persist_subnet_info(subnet_id)
-
-      {:noreply, nil}
     else
-      {:error, _} ->
-        Libp2pPort.validate_message(msg_id, :reject)
-        {:noreply, nil}
+      {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
     end
+
+    {:noreply, nil}
   end
 
   @subnet_id_start byte_size("/eth2/00000000/beacon_attestation_")
@@ -152,10 +149,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   defp persist_subnet_info(subnet_info, subnet_id) do
+    key = @subnet_prefix <> Integer.to_string(subnet_id)
+    value = SubnetInfo.encode(subnet_info)
+
     :telemetry.span([:subnet, :persist], %{}, fn ->
       {Db.put(
-         @subnet_prefix <> Integer.to_string(subnet_id),
-         SubnetInfo.encode(subnet_info)
+         key,
+         value
        ), %{}}
     end)
   end

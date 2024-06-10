@@ -30,12 +30,6 @@ defmodule LambdaEthereumConsensus.Store.Db do
     Exleveldb.get(ref, key)
   end
 
-  @spec has_key?(binary) :: boolean()
-  def has_key?(key) do
-    ref = GenServer.call(@registered_name, :get_ref)
-    Exleveldb.get(ref, key) != :not_found
-  end
-
   @spec size() :: non_neg_integer()
   def size() do
     ref = GenServer.call(@registered_name, :get_ref)
