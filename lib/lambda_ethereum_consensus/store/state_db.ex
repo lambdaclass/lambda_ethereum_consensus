@@ -6,29 +6,22 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.BeaconState
+  alias Types.StateInfo
 
   @state_prefix "beacon_state"
   @state_block_prefix "beacon_state_by_state"
   @stateslot_prefix @state_prefix <> "slot"
 
-  @spec store_state(BeaconState.t(), Types.root()) :: :ok
-  def store_state(%BeaconState{} = state) do
-    # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
-    store_state(state, Ssz.hash_tree_root!(state.latest_block_header))
-  end
-
-  def store_state(%BeaconState{} = state, block_root) do
-    state_root = Ssz.hash_tree_root!(state)
-    {:ok, encoded_state} = Ssz.to_ssz(state)
-
-    key_block = state_key(block_root)
-    key_state = block_key(state_root)
-    Db.put(key_block, encoded_state)
-    Db.put(key_state, block_root)
+  @spec store_state_info(StateInfo.t()) :: :ok
+  def store_state_info(%StateInfo{} = state_info) do
+    key_block = state_key(state_info.block_root)
+    key_state = block_key(state_info.root)
+    Db.put(key_block, StateInfo.encode(state_info))
+    Db.put(key_state, state_info.root)
 
     # WARN: this overrides any previous mapping for the same slot
-    slothash_key_block = root_by_slot_key(state.slot)
-    Db.put(slothash_key_block, block_root)
+    slothash_key_block = root_by_slot_key(state_info.beacon_state.slot)
+    Db.put(slothash_key_block, state_info.root)
   end
 
   @spec prune_states_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
@@ -64,9 +57,9 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
 
     with {:ok, block_root} <- Db.get(key_slot),
          key_block <- state_key(block_root),
-         {:ok, encoded_state} <- Db.get(key_block) do
-      key_state =
-        encoded_state |> Ssz.from_ssz!(BeaconState) |> Ssz.hash_tree_root!() |> block_key()
+         {:ok, encoded_state} <- Db.get(key_block),
+         {:ok, state_info} <- StateInfo.decode(encoded_state, block_root) do
+      key_state = block_key(state_info.root)
 
       Db.delete(key_slot)
       Db.delete(key_block)
@@ -75,27 +68,23 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   end
 
   @spec get_state_by_block_root(Types.root()) ::
-          {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
-  def get_state_by_block_root(root) do
-    get_state(root)
-  end
-
-  @spec get_state_by_state_root(Types.root()) ::
-          {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
-  def get_state_by_state_root(root) do
-    with {:ok, block_root} <- root |> block_key() |> Db.get() do
-      get_state(block_root)
+          {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
+  def get_state_by_block_root(block_root) do
+    with {:ok, bin} <- block_root |> state_key() |> Db.get() do
+      StateInfo.decode(bin, block_root)
     end
   end
 
-  defp get_state(root) do
-    with {:ok, bin} <- root |> state_key() |> Db.get() do
-      Ssz.from_ssz(bin, BeaconState)
+  @spec get_state_by_state_root(Types.root()) ::
+          {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
+  def get_state_by_state_root(state_root) do
+    with {:ok, block_root} <- state_root |> block_key() |> Db.get() do
+      get_state_by_block_root(block_root)
     end
   end
 
   @spec get_latest_state() ::
-          {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
+          {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
   def get_latest_state() do
     last_key = root_by_slot_key(0xFFFFFFFFFFFFFFFF)
 

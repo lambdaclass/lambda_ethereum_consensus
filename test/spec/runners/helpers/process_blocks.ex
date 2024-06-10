@@ -8,6 +8,7 @@ defmodule Helpers.ProcessBlocks do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.Utils.Diff
   alias Types.BeaconState
+  alias Types.BlockInfo
   alias Types.SignedBeaconBlock
 
   def process_blocks(%SpecTestCase{} = testcase) do
@@ -32,8 +33,8 @@ defmodule Helpers.ProcessBlocks do
     result =
       blocks
       |> Enum.reduce_while({:ok, pre}, fn block, {:ok, state} ->
-        case StateTransition.state_transition(state, block, true) do
-          {:ok, post_state} -> {:cont, {:ok, post_state}}
+        case StateTransition.verified_transition(state, BlockInfo.from_block(block)) do
+          {:ok, post_state} -> {:cont, {:ok, post_state.beacon_state}}
           {:error, error} -> {:halt, {:error, error}}
         end
       end)

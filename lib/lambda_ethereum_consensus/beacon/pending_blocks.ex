@@ -12,8 +12,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
+  alias Types.BlockInfo
   alias Types.SignedBeaconBlock
 
   @type block_status :: :pending | :invalid | :download | :download_blobs | :unknown

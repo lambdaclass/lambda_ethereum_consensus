@@ -11,18 +11,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Store.BlobDb
-  alias LambdaEthereumConsensus.Store.BlockDb.BlockInfo
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
-
   alias Types.Attestation
   alias Types.AttestationData
   alias Types.AttesterSlashing
   alias Types.BeaconBlock
   alias Types.BeaconState
+  alias Types.BlockInfo
   alias Types.Checkpoint
   alias Types.IndexedAttestation
   alias Types.NewPayloadRequest
+  alias Types.StateInfo
   alias Types.Store
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
@@ -60,7 +60,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
     finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
 
-    base_state = BlockStates.get_state(block.parent_root)
+    base_state = BlockStates.get_state_info(block.parent_root)
 
     cond do
       # Parent block must be known
@@ -166,7 +166,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           attestation_2: %IndexedAttestation{} = attestation_2
         }
       ) do
-    state = BlockStates.get_state!(store.justified_checkpoint.root)
+    state = BlockStates.get_state_info!(store.justified_checkpoint.root).beacon_state
 
     cond do
       not Predicates.slashable_attestation_data?(attestation_1.data, attestation_2.data) ->
@@ -189,7 +189,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Check the block is valid and compute the post-state.
-  def compute_post_state(%Store{} = store, %BlockInfo{} = block_info, state) do
+  def compute_post_state(%Store{} = store, %BlockInfo{} = block_info, %StateInfo{} = state_info) do
     block = block_info.signed_block.message
 
     payload = block.body.execution_payload
@@ -211,7 +211,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         |> handle_verify_payload_result()
       end)
 
-    with {:ok, state} <- StateTransition.state_transition(state, block_info.signed_block, true),
+    with {:ok, new_state_info} <-
+           StateTransition.verified_transition(state_info.beacon_state, block_info),
          {:ok, _execution_status} <- Task.await(payload_verification_task) do
       seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
       intervals_per_slot = Constants.intervals_per_slot()
@@ -220,11 +221,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
       # Add new block and state to the store
-      BlockStates.store_state(block_info.root, state)
+      BlockStates.store_state_info(new_state_info)
 
       is_first_block = store.proposer_boost_root == <<0::256>>
       # TODO: store block timeliness data?
       is_timely = Store.get_current_slot(store) == block.slot and is_before_attesting_interval
+
+      state = new_state_info.beacon_state
 
       store
       |> Store.store_block_info(block_info)
@@ -421,7 +424,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           {:ok, BeaconState.t()} | {:error, String.t()}
   def compute_target_checkpoint_state(target_epoch, target_root) do
     target_slot = Misc.compute_start_slot_at_epoch(target_epoch)
-    state = BlockStates.get_state!(target_root)
+    state = BlockStates.get_state_info!(target_root).beacon_state
 
     if state.slot < target_slot do
       StateTransition.process_slots(state, target_slot)
