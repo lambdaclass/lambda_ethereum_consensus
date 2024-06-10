@@ -10,9 +10,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Db
+  alias LambdaEthereumConsensus.Store.Db
 
   @behaviour Handler
-  @state_prefix "attestation"
+  @attestations_prefix "attestations"
+  @attnet_prefix "attnet"
 
   def start_link(init_arg) do
     GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
@@ -73,7 +75,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     GenServer.call(__MODULE__, {:stop_collecting, subnet_id})
   end
 
-  defp topic(subnet_id) do
+  def topic(subnet_id) do
     # TODO: this doesn't take into account fork digest changes
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
     "/eth2/#{fork_context}/beacon_attestation_#{subnet_id}/ssz_snappy"
@@ -100,28 +102,22 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def init(_init_arg) do
-    persist_state(%{attnets: %{}, attestations: %{}})
     {:ok, nil}
   end
 
   @impl true
   def handle_call({:collect, subnet_id, attestation}, _from, _state) do
-    state = get_state!()
-    attestations = Map.put(state.attestations, subnet_id, [attestation])
-    attnets = Map.put(state.attnets, subnet_id, attestation.data)
-    new_state = %{state | attnets: attnets, attestations: attestations}
-    topic(subnet_id) |> Libp2pPort.subscribe_to_topic(__MODULE__)
-    persist_state(new_state)
+    persist_attestations(subnet_id, [attestation])
+    persist_attnet(subnet_id, attestation.data)
+    Libp2pPort.subscribe_to_topic(topic(subnet_id), __MODULE__)
     {:reply, :ok, nil}
   end
 
   def handle_call({:stop_collecting, subnet_id}, _from, _state) do
-    state = get_state!()
-
-    if Map.has_key?(state.attnets, subnet_id) do
-      {collected, atts} = Map.pop(state.attestations, subnet_id, [])
-      new_state = %{state | attnets: Map.delete(state.attnets, subnet_id), attestations: atts}
-      persist_state(new_state)
+    if has_attnet?(subnet_id) do
+      collected = fetch_attestations!(subnet_id)
+      delete_attestations(subnet_id)
+      delete_subnet(subnet_id)
       {:reply, {:ok, collected}, nil}
     else
       {:reply, {:error, "subnet not joined"}, nil}
@@ -130,18 +126,18 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def handle_cast({:gossipsub, {topic, msg_id, message}}, _state) do
-    state = get_state!()
     subnet_id = extract_subnet_id(topic)
 
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, attestation} <- Ssz.from_ssz(uncompressed, Types.Attestation) do
       # TODO: validate before accepting
       Libp2pPort.validate_message(msg_id, :accept)
-      new_state = store_attestation(subnet_id, state, attestation)
-      persist_state(new_state)
+      aggregate_attestation(subnet_id, attestation)
       {:noreply, nil}
     else
-      {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
+      {:error, _} ->
+        Libp2pPort.validate_message(msg_id, :reject)
+        {:noreply, nil}
     end
   end
 
@@ -151,29 +147,50 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     id_with_trailer |> String.trim_trailing("/ssz_snappy") |> String.to_integer()
   end
 
-  defp store_attestation(subnet_id, %{attestations: attestations} = state, attestation) do
-    case Map.get(attestation, subnet_id) do
-      data when data !== attestation.data ->
-        state
-
-      _ ->
-        attestations = Map.update(attestations, subnet_id, [], &[attestation | &1])
-        %{state | attestations: attestations}
+  defp aggregate_attestation(subnet_id, attestation) do
+    if fetch_attnet!(subnet_id) == attestation.data do
+      attestations = [attestation | fetch_attestations!(subnet_id)]
+      persist_attestations(subnet_id, attestations)
     end
   end
 
-  defp persist_state(state) do
-    :telemetry.span([:attestation, :persist], %{}, fn ->
-      {Db.put(@state_prefix, :erlang.term_to_binary(state)), %{}}
+  defp persist_attestations(subnet_id, attestations) do
+    :telemetry.span([:attestations, :persist], %{}, fn ->
+      {Db.put(
+         @attestations_prefix <> Integer.to_string(subnet_id),
+         :erlang.term_to_binary(attestations)
+       ), %{}}
     end)
   end
 
-  defp get_state!() do
-    {:ok, state} =
-      :telemetry.span([:attestation, :fetch], %{}, fn ->
-        {Db.get(@state_prefix), %{}}
+  defp fetch_attestations!(subnet_id) do
+    {:ok, attestations} =
+      :telemetry.span([:attestations, :fetch], %{}, fn ->
+        {Db.get(@attestations_prefix <> Integer.to_string(subnet_id)), %{}}
       end)
 
-    :erlang.binary_to_term(state)
+    :erlang.binary_to_term(attestations)
   end
+
+  defp persist_attnet(subnet_id, data) do
+    :telemetry.span([:attnet, :persist], %{}, fn ->
+      {Db.put(@attnet_prefix <> Integer.to_string(subnet_id), :erlang.term_to_binary(data)), %{}}
+    end)
+  end
+
+  defp fetch_attnet!(subnet_id) do
+    {:ok, data} =
+      :telemetry.span([:attnet, :fetch], %{}, fn ->
+        {Db.get(@attnet_prefix <> Integer.to_string(subnet_id)), %{}}
+      end)
+
+    :erlang.binary_to_term(data)
+  end
+
+  defp has_attnet?(subnet_id), do: Db.has_key?(@attnet_prefix <> Integer.to_string(subnet_id))
+
+  defp delete_attestations(subnet_id),
+    do: Db.delete(@attestations_prefix <> Integer.to_string(subnet_id))
+
+  defp delete_subnet(subnet_id), do: Db.delete(@attnet_prefix <> Integer.to_string(subnet_id))
 end
