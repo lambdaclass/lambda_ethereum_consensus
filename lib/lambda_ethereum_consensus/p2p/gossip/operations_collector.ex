@@ -142,7 +142,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   @impl true
-  def handle_info(
+  def handle_cast(
         {:gossipsub, {<<_::binary-size(15)>> <> "voluntary_exit" <> _, _msg_id, message}},
         state
       ) do
@@ -154,7 +154,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   @impl true
-  def handle_info(
+  def handle_cast(
         {:gossipsub, {<<_::binary-size(15)>> <> "proposer_slashing" <> _, _msg_id, message}},
         state
       ) do
@@ -166,7 +166,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   @impl true
-  def handle_info(
+  def handle_cast(
         {:gossipsub, {<<_::binary-size(15)>> <> "attester_slashing" <> _, _msg_id, message}},
         state
       ) do
@@ -178,7 +178,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   @impl true
-  def handle_info(
+  def handle_cast(
         {:gossipsub,
          {<<_::binary-size(15)>> <> "bls_to_execution_change" <> _, _msg_id, message}},
         state

@@ -13,6 +13,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias Types.BlockInfo
+
   alias Types.Attestation
   alias Types.AttestationData
   alias Types.AttesterSlashing
