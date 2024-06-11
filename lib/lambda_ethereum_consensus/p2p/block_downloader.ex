@@ -34,7 +34,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       |> ReqResp.encode_request()
 
     with {:ok, response} <-
-           Libp2pPort.send_request(peer_id, @blocks_by_range_protocol_id, request),
+           Libp2pPort.send_async_request(peer_id, @blocks_by_range_protocol_id, request),
          {:ok, blocks} <- ReqResp.decode_response(response, SignedBeaconBlock),
          :ok <- verify_batch(blocks, slot, count) do
       tags = %{result: "success", type: "by_slot", reason: "success"}
@@ -78,7 +78,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     request = ReqResp.encode_request({roots, TypeAliases.beacon_blocks_by_root_request()})
 
     with {:ok, response} <-
-           Libp2pPort.send_request(peer_id, @blocks_by_root_protocol_id, request),
+           Libp2pPort.send_async_request(peer_id, @blocks_by_root_protocol_id, request),
          {:ok, blocks} <- ReqResp.decode_response(response, SignedBeaconBlock) do
       tags = %{result: "success", type: "by_root", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: length(roots)}, tags)

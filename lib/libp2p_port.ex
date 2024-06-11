@@ -16,6 +16,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
 
+  alias LambdaEthereumConsensus.ForkChoice
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command
   alias Libp2pProto.Enr
@@ -28,6 +29,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias Libp2pProto.Notification
   alias Libp2pProto.Publish
   alias Libp2pProto.Request
+  alias Libp2pProto.Response
   alias Libp2pProto.Result
   alias Libp2pProto.ResultMessage
   alias Libp2pProto.SendRequest
@@ -57,6 +59,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:new_peer_handler, pid()}
           | {:join_init_topics, boolean()}
 
+  @type node_identity() :: %{
+          peer_id: binary(),
+          # Pretty-printed version of the peer ID
+          pretty_peer_id: String.t(),
+          enr: String.t(),
+          p2p_addresses: [String.t()],
+          discovery_addresses: [String.t()]
+        }
+
   ######################
   ### API
   ######################
@@ -82,14 +93,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.start_link(__MODULE__, args, opts)
   end
 
-  @type node_identity() :: %{
-          peer_id: binary(),
-          # Pretty-printed version of the peer ID
-          pretty_peer_id: String.t(),
-          enr: String.t(),
-          p2p_addresses: [String.t()],
-          discovery_addresses: [String.t()]
-        }
+  @spec on_tick(Types.uint64()) :: :ok
+  def on_tick(time) do
+    GenServer.cast(__MODULE__, {:on_tick, time})
+  end
 
   @doc """
   Retrieves identity info from the underlying LibP2P node.
@@ -138,6 +145,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     :telemetry.execute([:port, :message], %{}, %{function: "send_request", direction: "elixir->"})
     c = %SendRequest{id: peer_id, protocol_id: protocol_id, message: message}
     call_command(pid, {:send_request, c})
+  end
+
+  @doc """
+  Sends a request to a peer. The response will be processed by the Libp2p process.
+  """
+  def send_async_request(pid \\ __MODULE__, peer_id, protocol_id, message) do
+    :telemetry.execute([:port, :message], %{}, %{function: "send_request", direction: "elixir->"})
+    c = %SendRequest{id: peer_id, protocol_id: protocol_id, message: message}
+    cast_command(pid, {:send_request, c})
   end
 
   @doc """
@@ -326,6 +342,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
+  def handle_cast({:on_tick, time}, state) do
+    # TODO: we probably want to remove this from here, but we keep it here to have this serialized
+    # with respect to the other fork choice store modifications.
+    ForkChoice.on_tick(time)
+    {:noreply, state}
+  end
+
+  @impl GenServer
   def handle_info({_port, {:data, data}}, state) do
     %Notification{n: {_, payload}} = Notification.decode(data)
     handle_notification(payload, state)
@@ -376,6 +400,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp handle_notification(%NewPeer{peer_id: peer_id}, %{new_peer_handler: handler}) do
     :telemetry.execute([:port, :message], %{}, %{function: "new peer", direction: "->elixir"})
     send(handler, {:new_peer, peer_id})
+  end
+
+  defp handle_notification(%Response{} = response, _state) do
+    :telemetry.execute([:port, :message], %{}, %{function: "response", direction: "->elixir"})
+    success = if response.success, do: :ok, else: :error
+
+    if response.from != "" do
+      send(:erlang.binary_to_term(response.from), {:response, {success, response.message}})
+    else
+      handle_async_response(response.protocol_id, success, response.message)
+    end
   end
 
   defp handle_notification(%Result{from: "", result: result}, _state) do
@@ -516,5 +551,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       next_fork_epoch: Constants.far_future_epoch()
     }
     |> encode_enr(attnets, syncnets)
+  end
+
+  @spec handle_async_response(binary(), :ok | :error, binary()) :: :ok
+  defp handle_async_response(protocol_id, _success?, _message) do
+    Logger.warning("Received unhandled response from protocol #{protocol_id}.")
   end
 end

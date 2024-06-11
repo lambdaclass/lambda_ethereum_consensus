@@ -4,13 +4,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
     The main purpose of this module is making sure that a blocks parent is already in the fork choice. If it's not, it will request it to the block downloader.
   """
-
-  use GenServer
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.BlobDownloader
-  alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BlockInfo
@@ -22,106 +19,44 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           | {nil, :invalid | :download}
   @type state :: nil
 
-  ##########################
-  ### Public API
-  ##########################
+  @doc """
+  If the block is not present, it will be stored as pending.
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
+  In case it's ready to be processed
+  (the parent is present and already transitioned), then the block's state transition will be
+  calculated, resulting in a new saved block.
 
+  If the new state enables older blocks that were pending to be processed, they will be processed
+  immediately.
+  """
   @spec add_block(SignedBeaconBlock.t()) :: :ok
   def add_block(signed_block) do
-    GenServer.cast(__MODULE__, {:add_block, signed_block})
-  end
-
-  @spec on_tick(Types.uint64()) :: :ok
-  def on_tick(time) do
-    GenServer.cast(__MODULE__, {:on_tick, time})
-  end
-
-  ##########################
-  ### GenServer Callbacks
-  ##########################
-
-  @impl true
-  @spec init(any) :: {:ok, state()}
-  def init(_opts) do
-    schedule_blocks_processing()
-    schedule_blocks_download()
-    schedule_blobs_download()
-
-    {:ok, nil}
-  end
-
-  @spec handle_cast(any(), state()) :: {:noreply, state()}
-
-  @impl true
-  def handle_cast({:add_block, %SignedBeaconBlock{} = signed_block}, _state) do
     block_info = BlockInfo.from_block(signed_block)
 
-    # If already processing or processed, ignore it
-    if not Blocks.has_block?(block_info.root) do
+    # If the block is new or was to be downloaded, we store it.
+    loaded_block = Blocks.get_block_info(block_info.root)
+
+    if is_nil(loaded_block) or loaded_block.status == :download do
       if Enum.empty?(missing_blobs(block_info)) do
         block_info
       else
         block_info |> BlockInfo.change_status(:download_blobs)
       end
       |> Blocks.new_block_info()
+
+      process_block(block_info)
     end
-
-    {:noreply, nil}
-  end
-
-  @impl true
-  def handle_cast({:on_tick, time}, state) do
-    ForkChoice.on_tick(time)
-    {:noreply, state}
   end
 
   @doc """
   Iterates through the pending blocks and adds them to the fork choice if their parent is already in the fork choice.
   """
-  @impl true
   @spec handle_info(atom(), state()) :: {:noreply, state()}
   def handle_info(:process_blocks, _state) do
-    schedule_blocks_processing()
     process_blocks()
     {:noreply, nil}
   end
 
-  @impl true
-  def handle_info(:download_blocks, _state) do
-    case Blocks.get_blocks_with_status(:download) do
-      {:ok, blocks_to_download} ->
-        blocks_to_download
-        |> Enum.take(16)
-        |> Enum.map(& &1.root)
-        |> BlockDownloader.request_blocks_by_root()
-        |> case do
-          {:ok, signed_blocks} ->
-            signed_blocks
-
-          {:error, reason} ->
-            Logger.debug("Block download failed: '#{reason}'")
-            []
-        end
-        |> Enum.each(fn signed_block ->
-          signed_block
-          |> BlockInfo.from_block()
-          |> BlockInfo.change_status(:download_blobs)
-          |> Blocks.new_block_info()
-        end)
-
-      {:error, reason} ->
-        Logger.error("[PendingBlocks] Failed to get blocks to download. Reason: #{reason}")
-    end
-
-    schedule_blocks_download()
-    {:noreply, nil}
-  end
-
-  @impl true
   def handle_info(:download_blobs, _state) do
     case Blocks.get_blocks_with_status(:download_blobs) do
       {:ok, blocks_with_missing_blobs} ->
@@ -152,7 +87,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         end
     end
 
-    schedule_blobs_download()
     {:noreply, nil}
   end
 
@@ -221,17 +155,5 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       _ ->
         true
     end
-  end
-
-  defp schedule_blocks_processing() do
-    Process.send_after(__MODULE__, :process_blocks, 500)
-  end
-
-  defp schedule_blobs_download() do
-    Process.send_after(__MODULE__, :download_blobs, 500)
-  end
-
-  defp schedule_blocks_download() do
-    Process.send_after(__MODULE__, :download_blocks, 1000)
   end
 end

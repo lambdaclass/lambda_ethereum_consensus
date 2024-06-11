@@ -35,7 +35,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
       |> ReqResp.encode_request()
 
     with {:ok, response} <-
-           Libp2pPort.send_request(peer_id, @blobs_by_range_protocol_id, request),
+           Libp2pPort.send_async_request(peer_id, @blobs_by_range_protocol_id, request),
          {:ok, blobs} <- ReqResp.decode_response(response, BlobSidecar),
          :ok <- verify_batch(blobs, slot, count) do
       {:ok, blobs}
@@ -74,7 +74,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
     request = ReqResp.encode_request({identifiers, TypeAliases.blob_sidecars_by_root_request()})
 
     with {:ok, response} <-
-           Libp2pPort.send_request(peer_id, @blobs_by_root_protocol_id, request),
+           Libp2pPort.send_async_request(peer_id, @blobs_by_root_protocol_id, request),
          {:ok, blobs} <- ReqResp.decode_response(response, BlobSidecar) do
       {:ok, blobs}
     else
