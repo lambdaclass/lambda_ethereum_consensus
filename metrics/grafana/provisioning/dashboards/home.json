@@ -238,7 +238,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "fork_choice_persist_stop_duration",
+          "expr": "db_latency_stop_duration{module=\"fork_choice\", action=\"persist\"}",
           "range": true,
           "instant": true,
           "datasource": {
@@ -340,7 +340,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "subnet_persist_stop_duration",
+          "expr": "db_latency_stop_duration{module=\"subnet\", action=\"persist\"}",
           "range": true,
           "instant": true,
           "datasource": {
@@ -442,7 +442,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "subnet_fetch_stop_duration",
+          "expr": "db_latency_stop_duration{module=\"subnet\", action=\"fetch\"}",
           "range": true,
           "instant": true,
           "datasource": {
@@ -544,7 +544,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "fork_choice_fetch_stop_duration",
+          "expr": "db_latency_stop_duration{module=\"fork_choice\", action=\"fetch\"}",
           "range": true,
           "instant": true,
           "datasource": {

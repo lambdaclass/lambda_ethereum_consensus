@@ -69,19 +69,20 @@ defmodule Types.SubnetInfo do
     key = @subnet_prefix <> Integer.to_string(subnet_id)
     value = encode(subnet_info)
 
-    :telemetry.span([:subnet, :persist], %{}, fn ->
+    :telemetry.span([:db, :latency], %{}, fn ->
       {Db.put(
          key,
          value
-       ), %{}}
+       ), %{module: "subnet", action: "persist"}}
     end)
   end
 
   @spec fetch_subnet_info(non_neg_integer()) :: {:ok, t()} | :not_found
   defp fetch_subnet_info(subnet_id) do
     result =
-      :telemetry.span([:subnet, :fetch], %{}, fn ->
-        {Db.get(@subnet_prefix <> Integer.to_string(subnet_id)), %{}}
+      :telemetry.span([:db, :latency], %{}, fn ->
+        {Db.get(@subnet_prefix <> Integer.to_string(subnet_id)),
+         %{module: "subnet", action: "fetch"}}
       end)
 
     case result do
