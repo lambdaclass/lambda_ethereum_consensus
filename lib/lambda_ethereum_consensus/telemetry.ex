@@ -143,6 +143,8 @@ defmodule LambdaEthereumConsensus.Telemetry do
       last_value("fork_choice.fetch.exception.duration",
         unit: {:native, :millisecond}
       ),
+
+      # SubnetInfo Metrics
       last_value("subnet.persist.stop.duration",
         unit: {:native, :millisecond}
       ),

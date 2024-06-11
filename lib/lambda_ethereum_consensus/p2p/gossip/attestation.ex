@@ -1,6 +1,7 @@
 defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   @moduledoc """
-  This module handles attestation gossipsub topics.
+  This module handles attestations from specific gossip subnets.
+  Used by validators to fulfill aggregation duties.
   """
   use GenServer
 
@@ -107,7 +108,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   @impl true
   def handle_call({:collect, subnet_id, attestation}, _from, _state) do
     subnet_info = SubnetInfo.new_subnet_with_attestation(attestation)
-    persist_subnet_info(subnet_info, subnet_id)
+    persist_subnet_info(subnet_id, subnet_info)
     Libp2pPort.subscribe_to_topic(topic(subnet_id), __MODULE__)
     {:reply, :ok, nil}
   end
@@ -132,9 +133,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
       # TODO: validate before accepting
       Libp2pPort.validate_message(msg_id, :accept)
 
-      fetch_subnet_info!(subnet_id)
-      |> SubnetInfo.aggregate_attestation(attestation)
-      |> persist_subnet_info(subnet_id)
+      subnet_info = fetch_subnet_info!(subnet_id)
+      new_subnet_info = SubnetInfo.add_attestation(subnet_info, attestation)
+      persist_subnet_info(subnet_id, new_subnet_info)
     else
       {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
     end
@@ -148,8 +149,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     id_with_trailer |> String.trim_trailing("/ssz_snappy") |> String.to_integer()
   end
 
-  @spec persist_subnet_info(SubnetInfo.t(), non_neg_integer()) :: :ok
-  defp persist_subnet_info(subnet_info, subnet_id) do
+  @spec persist_subnet_info(non_neg_integer(), SubnetInfo.t()) :: :ok
+  defp persist_subnet_info(subnet_id, subnet_info) do
     key = @subnet_prefix <> Integer.to_string(subnet_id)
     value = SubnetInfo.encode(subnet_info)
 
