@@ -9,7 +9,9 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
   @block_prefix "blockHash"
   @blockslot_prefix "blockSlot"
+  @block_status_prefix "blockStatus"
 
+  @spec store_block_info(BlockInfo.t()) :: :ok
   def store_block_info(%BlockInfo{} = block_info) do
     # TODO handle encoding errors properly.
     {:ok, encoded} = BlockInfo.encode(block_info)
@@ -51,6 +53,42 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     # WARN: this will return the latest block received for the given slot
     with {:ok, root} <- get_block_root_by_slot(slot) do
       get_block_info(root)
+    end
+  end
+
+  @spec remove_root_from_status(Types.root(), BlockInfo.block_status()) :: :ok
+  def remove_root_from_status(root, status) do
+    get_roots_with_status(status)
+    |> MapSet.delete(root)
+    |> store_roots_with_status(status)
+  end
+
+  @spec add_root_to_status(Types.root(), BlockInfo.block_status()) :: :ok
+  def add_root_to_status(root, status) do
+    get_roots_with_status(status)
+    |> MapSet.put(root)
+    |> store_roots_with_status(status)
+  end
+
+  def change_root_status(root, from_status, to_status) do
+    remove_root_from_status(root, from_status)
+    add_root_to_status(root, to_status)
+
+    # TODO: if we need to perform some level of db recovery, we probably should consider the
+    # blocks db as the source of truth and reconstruct the status ones. Either that or
+    # perform an ACID-like transaction.
+  end
+
+  @spec store_roots_with_status(MapSet.t(Types.root()), BlockInfo.block_status()) :: :ok
+  defp store_roots_with_status(block_roots, status) do
+    Db.put(block_status_key(status), :erlang.term_to_binary(block_roots))
+  end
+
+  @spec get_roots_with_status(BlockInfo.block_status()) :: MapSet.t(Types.root())
+  def get_roots_with_status(status) do
+    case Db.get(block_status_key(status)) do
+      {:ok, binary} -> :erlang.binary_to_term(binary)
+      :not_found -> MapSet.new([])
     end
   end
 
@@ -109,4 +147,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
   defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)
+
+  defp block_status_key(status), do: Utils.get_key(@block_status_prefix, Atom.to_string(status))
 end
