@@ -1,32 +1,16 @@
 defmodule Unit.AttestationTest do
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.Libp2pPort
-  alias LambdaEthereumConsensus.P2P.Gossip.Attestation
-  alias LambdaEthereumConsensus.P2P.Metadata
   alias LambdaEthereumConsensus.Store.Db
   alias Types.AttestationData
   alias Types.Checkpoint
+  alias Types.SubnetInfo
 
   use ExUnit.Case
   use Patch
 
-  doctest Attestation
+  doctest SubnetInfo
 
   setup %{tmp_dir: tmp_dir} do
-    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
-    |> Keyword.put(:config, MinimalConfig)
-    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
-
     start_link_supervised!({Db, dir: tmp_dir})
-    start_link_supervised!(Attestation)
-    patch(Libp2pPort, :subscribe_to_topic, fn _, _ -> :ok end)
-    patch(Libp2pPort, :join_topic, fn -> :ok end)
-    patch(Libp2pPort, :leave_topic, fn -> :ok end)
-    patch(Libp2pPort, :update_enr, fn _, _, _ -> :ok end)
-    patch(Libp2pPort, :validate_message, fn _, _ -> :ok end)
-    patch(BeaconChain, :get_fork_digest, fn -> "9999" end)
-    patch(BeaconChain, :get_fork_version, fn -> "9999" end)
-    patch(Metadata, :get_metadata, fn -> %{attnets: nil, syncnets: nil} end)
     :ok
   end
 
@@ -66,9 +50,9 @@ defmodule Unit.AttestationTest do
       signature: <<>>
     }
 
-    Attestation.collect(subnet_id, expected_attestation)
+    SubnetInfo.new_subnet_with_attestation(subnet_id, expected_attestation)
 
-    {:ok, attestations} = Attestation.stop_collecting(subnet_id)
+    {:ok, attestations} = SubnetInfo.stop_collecting(subnet_id)
 
     assert [expected_attestation] == attestations
   end
@@ -97,15 +81,11 @@ defmodule Unit.AttestationTest do
           2, 2, 2, 2, 2, 2, 2, 2, 2>>
     }
 
-    Attestation.collect(subnet_id, attestation1)
+    SubnetInfo.new_subnet_with_attestation(subnet_id, attestation1)
 
-    topic = Attestation.topic(subnet_id)
-    {:ok, encoded_attestation} = Ssz.to_ssz(attestation2)
-    {:ok, compressed_attestation} = :snappyer.compress(encoded_attestation)
+    SubnetInfo.add_attestation!(subnet_id, attestation2)
 
-    Attestation.handle_gossip_message(topic, 9999, compressed_attestation)
-
-    {:ok, attestations} = Attestation.stop_collecting(subnet_id)
+    {:ok, attestations} = SubnetInfo.stop_collecting(subnet_id)
 
     assert [attestation2, attestation1] == attestations
   end

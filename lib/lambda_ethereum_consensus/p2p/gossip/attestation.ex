@@ -10,11 +10,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Store.Db
   alias Types.SubnetInfo
 
   @behaviour Handler
-  @subnet_prefix "subnet"
 
   def start_link(init_arg) do
     GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
@@ -75,7 +73,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     GenServer.call(__MODULE__, {:stop_collecting, subnet_id})
   end
 
-  def topic(subnet_id) do
+  defp topic(subnet_id) do
     # TODO: this doesn't take into account fork digest changes
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
     "/eth2/#{fork_context}/beacon_attestation_#{subnet_id}/ssz_snappy"
@@ -107,21 +105,14 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def handle_call({:collect, subnet_id, attestation}, _from, _state) do
-    subnet_info = SubnetInfo.new_subnet_with_attestation(attestation)
-    persist_subnet_info(subnet_id, subnet_info)
+    SubnetInfo.new_subnet_with_attestation(subnet_id, attestation)
     Libp2pPort.subscribe_to_topic(topic(subnet_id), __MODULE__)
     {:reply, :ok, nil}
   end
 
   def handle_call({:stop_collecting, subnet_id}, _from, _state) do
-    case fetch_subnet_info(subnet_id) do
-      {:ok, subnet_info} ->
-        delete_subnet(subnet_id)
-        {:reply, {:ok, subnet_info.attestations}, nil}
-
-      :not_found ->
-        {:reply, {:error, "subnet not joined"}, nil}
-    end
+    result = SubnetInfo.stop_collecting(subnet_id)
+    {:reply, result, nil}
   end
 
   @impl true
@@ -133,9 +124,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
       # TODO: validate before accepting
       Libp2pPort.validate_message(msg_id, :accept)
 
-      subnet_info = fetch_subnet_info!(subnet_id)
-      new_subnet_info = SubnetInfo.add_attestation(subnet_info, attestation)
-      persist_subnet_info(subnet_id, new_subnet_info)
+      SubnetInfo.add_attestation!(subnet_id, attestation)
     else
       {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
     end
@@ -148,39 +137,4 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   defp extract_subnet_id(<<_::binary-size(@subnet_id_start)>> <> id_with_trailer) do
     id_with_trailer |> String.trim_trailing("/ssz_snappy") |> String.to_integer()
   end
-
-  @spec persist_subnet_info(non_neg_integer(), SubnetInfo.t()) :: :ok
-  defp persist_subnet_info(subnet_id, subnet_info) do
-    key = @subnet_prefix <> Integer.to_string(subnet_id)
-    value = SubnetInfo.encode(subnet_info)
-
-    :telemetry.span([:subnet, :persist], %{}, fn ->
-      {Db.put(
-         key,
-         value
-       ), %{}}
-    end)
-  end
-
-  @spec fetch_subnet_info(non_neg_integer()) :: {:ok, SubnetInfo.t()} | :not_found
-  defp fetch_subnet_info(subnet_id) do
-    result =
-      :telemetry.span([:subnet, :fetch], %{}, fn ->
-        {Db.get(@subnet_prefix <> Integer.to_string(subnet_id)), %{}}
-      end)
-
-    case result do
-      {:ok, binary} -> {:ok, SubnetInfo.decode(binary)}
-      :not_found -> result
-    end
-  end
-
-  @spec fetch_subnet_info!(non_neg_integer()) :: SubnetInfo.t()
-  defp fetch_subnet_info!(subnet_id) do
-    {:ok, subnet_info} = fetch_subnet_info(subnet_id)
-    subnet_info
-  end
-
-  @spec delete_subnet(non_neg_integer()) :: :ok
-  defp delete_subnet(subnet_id), do: Db.delete(@subnet_prefix <> Integer.to_string(subnet_id))
 end
