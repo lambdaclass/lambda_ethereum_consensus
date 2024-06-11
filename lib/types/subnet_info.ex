@@ -29,7 +29,8 @@ defmodule Types.SubnetInfo do
   @doc """
   Removes the associated SubnetInfo from the database and returns all the collected attestations.
   """
-  @spec stop_collecting(non_neg_integer()) :: {:ok, list(Types.Attestation.t())} | :not_found
+  @spec stop_collecting(non_neg_integer()) ::
+          {:ok, list(Types.Attestation.t())} | {:error, String.t()}
   def stop_collecting(subnet_id) do
     case fetch_subnet_info(subnet_id) do
       {:ok, subnet_info} ->
