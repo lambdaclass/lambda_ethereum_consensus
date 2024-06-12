@@ -210,8 +210,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   # TODO: filter duplicates
-  def handle_msg({operation, msg})
-      when operation in @operations do
+  defp handle_msg({operation, msg})
+       when operation in @operations do
     new_msgs = [msg | fetch_operation!(operation)]
     store_operation(operation, new_msgs)
     {:noreply, nil}
@@ -266,23 +266,23 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   defp ignore?(_, _), do: false
 
-  def store_operation(operation, value) do
+  defp store_operation(operation, value) do
     Db.put(
       Utils.get_key(@operation_prefix, Atom.to_string(operation)),
       :erlang.term_to_binary(value)
     )
   end
 
-  def fetch_operation!(operation) do
+  defp fetch_operation!(operation) do
     {:ok, value} = Db.get(Utils.get_key(@operation_prefix, Atom.to_string(operation)))
     :erlang.binary_to_term(value)
   end
 
-  def store_slot(value) do
+  defp store_slot(value) do
     Db.put(@slot_prefix, :erlang.term_to_binary(value))
   end
 
-  def fetch_slot!() do
+  defp fetch_slot!() do
     {:ok, value} = Db.get(@slot_prefix)
     :erlang.binary_to_term(value)
   end
