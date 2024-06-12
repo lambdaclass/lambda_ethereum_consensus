@@ -94,10 +94,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   def init(_init_arg) do
     topics = topics()
     Enum.each(topics, &Libp2pPort.join_topic/1)
-
-    # state = Map.new(@operations, &{&1, []}) |> Map.put(:slot, nil) |> Map.put(:topics, topics)
     store_slot(nil)
-    Enum.map(@operations, fn operation -> store_operation(operation, []) end)
+    Enum.each(@operations, fn operation -> store_operation(operation, []) end)
     {:ok, nil}
   end
 
@@ -112,12 +110,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     # NOTE: we don't remove these from the db, since after a block is built
     #  :new_block will be called, and already added messages will be removed
 
-    # operations =
-    #   Map.fetch!(state, operation) |> Stream.filter(&ignore?(&1, state)) |> Enum.take(count)
     slot = fetch_slot!()
 
     operations =
-      fetch_operation!(operation) |> Stream.filter(&ignore?(&1, slot)) |> Enum.take(count)
+      fetch_operation!(operation) |> Stream.reject(&ignore?(&1, slot)) |> Enum.take(count)
 
     {:reply, operations, nil}
   end
@@ -214,8 +210,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   # TODO: filter duplicates
-  defp handle_msg({operation, msg})
-       when operation in @operations do
+  def handle_msg({operation, msg})
+      when operation in @operations do
     new_msgs = [msg | fetch_operation!(operation)]
     store_operation(operation, new_msgs)
     {:noreply, nil}
@@ -255,16 +251,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     |> Stream.reject(&MapSet.member?(added_attestations, &1))
     |> Enum.reject(&old_attestation?(&1, slot))
     |> then(&store_operation(:attestation, &1))
-
-    # %{
-    #   state
-    #   | bls_to_execution_change: bls_to_execution_changes,
-    #     attester_slashing: attester_slashings,
-    #     proposer_slashing: proposer_slashings,
-    #     voluntary_exit: voluntary_exits,
-    #     attestation: attestations,
-    #     slot: slot
-    # }
   end
 
   defp old_attestation?(%Attestation{data: data}, slot) do
