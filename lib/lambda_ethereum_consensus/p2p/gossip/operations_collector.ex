@@ -101,7 +101,16 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @impl true
   def handle_call(:start, _from, _state) do
-    Enum.each(topics(), fn topic -> Libp2pPort.subscribe_to_topic(topic, __MODULE__) end)
+    Enum.each(topics(), fn topic ->
+      case Libp2pPort.subscribe_to_topic(topic, __MODULE__) do
+        :ok ->
+          :ok
+
+        {:error, reason} ->
+          raise "[OperationsCollector] Subscription failed: '#{reason}'"
+      end
+    end)
+
     {:reply, :ok, nil}
   end
 
@@ -267,23 +276,37 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   defp ignore?(_, _), do: false
 
   defp store_operation(operation, value) do
-    Db.put(
-      Utils.get_key(@operation_prefix, Atom.to_string(operation)),
-      :erlang.term_to_binary(value)
-    )
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {Db.put(
+         Utils.get_key(@operation_prefix, Atom.to_string(operation)),
+         :erlang.term_to_binary(value)
+       ), %{module: "operations_collector", action: "persist"}}
+    end)
   end
 
   defp fetch_operation!(operation) do
-    {:ok, value} = Db.get(Utils.get_key(@operation_prefix, Atom.to_string(operation)))
+    {:ok, value} =
+      :telemetry.span([:db, :latency], %{}, fn ->
+        {Db.get(Utils.get_key(@operation_prefix, Atom.to_string(operation))),
+         %{module: "operations_collector", action: "fetch"}}
+      end)
+
     :erlang.binary_to_term(value)
   end
 
   defp store_slot(value) do
-    Db.put(@slot_prefix, :erlang.term_to_binary(value))
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {Db.put(@slot_prefix, :erlang.term_to_binary(value)),
+       %{module: "operations_collector", action: "persist"}}
+    end)
   end
 
   defp fetch_slot!() do
-    {:ok, value} = Db.get(@slot_prefix)
+    {:ok, value} =
+      :telemetry.span([:db, :latency], %{}, fn ->
+        {Db.get(@slot_prefix), %{module: "operations_collector", action: "fetch"}}
+      end)
+
     :erlang.binary_to_term(value)
   end
 end
