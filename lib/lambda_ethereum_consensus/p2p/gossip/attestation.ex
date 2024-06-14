@@ -1,6 +1,7 @@
 defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   @moduledoc """
-  This module handles attestation gossipsub topics.
+  This module handles attestations from specific gossip subnets.
+  Used by validators to fulfill aggregation duties.
   """
   use GenServer
 
@@ -9,6 +10,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias Types.SubnetInfo
 
   @behaviour Handler
 
@@ -18,7 +20,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @spec join(non_neg_integer()) :: :ok
   def join(subnet_id) do
-    topic = get_topic_name(subnet_id)
+    topic = topic(subnet_id)
     Libp2pPort.join_topic(topic)
     P2P.Metadata.set_attnet(subnet_id)
     # NOTE: this depends on the metadata being updated
@@ -32,7 +34,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @spec leave(non_neg_integer()) :: :ok
   def leave(subnet_id) do
-    topic = get_topic_name(subnet_id)
+    topic = topic(subnet_id)
     Libp2pPort.leave_topic(topic)
     P2P.Metadata.clear_attnet(subnet_id)
     # NOTE: this depends on the metadata being updated
@@ -41,7 +43,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @spec publish(non_neg_integer(), Types.Attestation.t()) :: :ok
   def publish(subnet_id, %Types.Attestation{} = attestation) do
-    topic = get_topic_name(subnet_id)
+    topic = topic(subnet_id)
     {:ok, encoded} = SszEx.encode(attestation, Types.Attestation)
     {:ok, message} = :snappyer.compress(encoded)
     Libp2pPort.publish(topic, message)
@@ -65,13 +67,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
           {:ok, list(Types.Attestation.t())} | {:error, String.t()}
   def stop_collecting(subnet_id) do
     # TODO: implement some way to unsubscribe without leaving the topic
-    topic = get_topic_name(subnet_id)
+    topic = topic(subnet_id)
     Libp2pPort.leave_topic(topic)
     Libp2pPort.join_topic(topic)
     GenServer.call(__MODULE__, {:stop_collecting, subnet_id})
   end
 
-  defp get_topic_name(subnet_id) do
+  defp topic(subnet_id) do
     # TODO: this doesn't take into account fork digest changes
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
     "/eth2/#{fork_context}/beacon_attestation_#{subnet_id}/ssz_snappy"
@@ -98,57 +100,41 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def init(_init_arg) do
-    {:ok, %{attnets: %{}, attestations: %{}}}
+    {:ok, nil}
   end
 
   @impl true
-  def handle_call({:collect, subnet_id, attestation}, _from, state) do
-    attestations = Map.put(state.attestations, subnet_id, [attestation])
-    attnets = Map.put(state.attnets, subnet_id, attestation.data)
-    new_state = %{state | attnets: attnets, attestations: attestations}
-    get_topic_name(subnet_id) |> Libp2pPort.subscribe_to_topic(__MODULE__)
-    {:reply, :ok, new_state}
+  def handle_call({:collect, subnet_id, attestation}, _from, _state) do
+    SubnetInfo.new_subnet_with_attestation(subnet_id, attestation)
+    Libp2pPort.subscribe_to_topic(topic(subnet_id), __MODULE__)
+    {:reply, :ok, nil}
   end
 
-  def handle_call({:stop_collecting, subnet_id}, _from, state) do
-    if Map.has_key?(state.attnets, subnet_id) do
-      {collected, atts} = Map.pop(state.attestations, subnet_id, [])
-      new_state = %{state | attnets: Map.delete(state.attnets, subnet_id), attestations: atts}
-      {:reply, {:ok, collected}, new_state}
-    else
-      {:reply, {:error, "subnet not joined"}, state}
-    end
+  def handle_call({:stop_collecting, subnet_id}, _from, _state) do
+    result = SubnetInfo.stop_collecting(subnet_id)
+    {:reply, result, nil}
   end
 
   @impl true
-  def handle_cast({:gossipsub, {topic, msg_id, message}}, state) do
+  def handle_cast({:gossipsub, {topic, msg_id, message}}, _state) do
     subnet_id = extract_subnet_id(topic)
 
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, attestation} <- Ssz.from_ssz(uncompressed, Types.Attestation) do
       # TODO: validate before accepting
       Libp2pPort.validate_message(msg_id, :accept)
-      new_state = store_attestation(subnet_id, state, attestation)
-      {:noreply, new_state}
+
+      SubnetInfo.add_attestation!(subnet_id, attestation)
     else
       {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
     end
+
+    {:noreply, nil}
   end
 
   @subnet_id_start byte_size("/eth2/00000000/beacon_attestation_")
 
   defp extract_subnet_id(<<_::binary-size(@subnet_id_start)>> <> id_with_trailer) do
     id_with_trailer |> String.trim_trailing("/ssz_snappy") |> String.to_integer()
-  end
-
-  defp store_attestation(subnet_id, %{attestations: attestations} = state, attestation) do
-    case Map.get(attestation, subnet_id) do
-      data when data !== attestation.data ->
-        state
-
-      _ ->
-        attestations = Map.update(attestations, subnet_id, [], &[attestation | &1])
-        %{state | attestations: attestations}
-    end
   end
 end
