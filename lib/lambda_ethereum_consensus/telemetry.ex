@@ -123,24 +123,20 @@ defmodule LambdaEthereumConsensus.Telemetry do
 
       # Db Metrics
       last_value("db.size.total", unit: :byte),
+      last_value("db.latency.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:module, :action]
+      ),
+      last_value("db.latency.exception.duration",
+        unit: {:native, :millisecond},
+        tags: [:module, :action]
+      ),
 
       # ForkChoice Metrics
       last_value("fork_choice.recompute_head.stop.duration",
         unit: {:native, :millisecond}
       ),
       last_value("fork_choice.recompute_head.exception.duration",
-        unit: {:native, :millisecond}
-      ),
-      last_value("fork_choice.persist.stop.duration",
-        unit: {:native, :millisecond}
-      ),
-      last_value("fork_choice.persist.exception.duration",
-        unit: {:native, :millisecond}
-      ),
-      last_value("fork_choice.fetch.stop.duration",
-        unit: {:native, :millisecond}
-      ),
-      last_value("fork_choice.fetch.exception.duration",
         unit: {:native, :millisecond}
       )
     ]
