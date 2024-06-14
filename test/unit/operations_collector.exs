@@ -112,7 +112,54 @@ defmodule Unit.OperationsCollectorTest do
   end
 
   @tag :tmp_dir
-  test "filter operations" do
+  test "add two attestations" do
+    attestation1 = attestation()
+    attestation2 = attestation()
+    send_attestation(attestation1)
+    send_attestation(attestation2)
+
+    assert OperationsCollector.get_attestations(5) == [attestation2, attestation1]
+  end
+
+  @tag :tmp_dir
+  test "add two different operations" do
+    attestation = attestation()
+    signed_voluntary_exit = signed_voluntary_exit()
+
+    send_voluntary_exit(signed_voluntary_exit)
+    send_attestation(attestation)
+
+    assert OperationsCollector.get_attestations(5) == [attestation]
+    assert OperationsCollector.get_voluntary_exits(5) == [signed_voluntary_exit]
+  end
+
+  @tag :tmp_dir
+  test "filter zero operations" do
+    # send voluntary exit
+    signed_voluntary_exit = signed_voluntary_exit()
+    send_voluntary_exit(signed_voluntary_exit)
+    # send attestation
+    attestation = attestation()
+    send_attestation(attestation)
+
+    operations = %{
+      bls_to_execution_changes: [],
+      attester_slashings: [],
+      proposer_slashings: [],
+      voluntary_exits: [],
+      attestations: []
+    }
+
+    # ensure that the attestation is not considered old.
+    new_block_slot = attestation.data.target.epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    GenServer.cast(OperationsCollector, {:new_block, new_block_slot, operations})
+    assert OperationsCollector.get_voluntary_exits(5) == [signed_voluntary_exit]
+    assert OperationsCollector.get_attestations(5) == [attestation]
+  end
+
+  @tag :tmp_dir
+  test "filter included operations" do
     # send voluntary exit
     signed_voluntary_exit = signed_voluntary_exit()
     send_voluntary_exit(signed_voluntary_exit)
@@ -129,8 +176,71 @@ defmodule Unit.OperationsCollectorTest do
       attestations: [attestation]
     }
 
-    GenServer.cast(OperationsCollector, {:new_block, Random.uint64(), operations})
+    # ensure that the attestation is not considered old.
+    new_block_slot = attestation.data.target.epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    GenServer.cast(OperationsCollector, {:new_block, new_block_slot, operations})
     assert OperationsCollector.get_voluntary_exits(5) == []
     assert OperationsCollector.get_attestations(5) == []
+  end
+
+  @tag :tmp_dir
+  test "filter old attestation" do
+    # send attestation
+    attestation = attestation()
+    send_attestation(attestation)
+
+    operations = %{
+      bls_to_execution_changes: [],
+      attester_slashings: [],
+      proposer_slashings: [],
+      voluntary_exits: [],
+      attestations: []
+    }
+
+    # filter old attestation
+    new_block_slot = (attestation.data.target.epoch + 2) * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    GenServer.cast(OperationsCollector, {:new_block, new_block_slot, operations})
+
+    assert OperationsCollector.get_attestations(5) == []
+  end
+
+  @tag :tmp_dir
+  test "ignore future attestations" do
+    attestation = attestation()
+
+    # set target epoch properly
+    target_epoch = div(attestation.data.slot, ChainSpec.get("SLOTS_PER_EPOCH"))
+
+    attestation = %{
+      attestation
+      | data: %{
+          attestation.data
+          | target: %{attestation.data.target | epoch: target_epoch}
+        }
+    }
+
+    # set the OperationsCollector slot
+    operations = %{
+      bls_to_execution_changes: [],
+      attester_slashings: [],
+      proposer_slashings: [],
+      voluntary_exits: [],
+      attestations: []
+    }
+
+    GenServer.cast(OperationsCollector, {:new_block, attestation.data.slot, operations})
+
+    # send future attestation
+    send_attestation(attestation)
+
+    # attestation is ignored.
+    assert OperationsCollector.get_attestations(5) == []
+
+    # increment the OperationsCollector slot
+    GenServer.cast(OperationsCollector, {:new_block, attestation.data.slot + 1, operations})
+
+    assert OperationsCollector.get_attestations(5) == [attestation]
   end
 end

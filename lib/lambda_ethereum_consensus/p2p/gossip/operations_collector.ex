@@ -260,6 +260,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     |> Stream.reject(&MapSet.member?(added_attestations, &1))
     |> Enum.reject(&old_attestation?(&1, slot))
     |> then(&store_operation(:attestation, &1))
+
+    store_slot(slot)
   end
 
   defp old_attestation?(%Attestation{data: data}, slot) do
