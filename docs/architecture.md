@@ -2,6 +2,21 @@
 
 ## Processes summary
 
+Some GenServers to be deleted soon:
+
+Easy difficulty:
+- Metadata: can be replaced with db calls entirely.
+- BeaconChain: can be deleted and its calls replaced by ForkChoice db calls.
+- Peerbook: can be maintained in the db. Doesn't need to be a pid to be a handler.
+- IncomingRequests.Receiver: Genserver that receives incoming requests and dispatches them to a handler task. We should handle the tasks directly in port. The genserver is "needed" because of the set_handler primitive.
+
+Medium difficulty:
+- Validators: more complicated. May be replaced by libraries that react on slots. Need to be more thought. The most complicated part is independent failure.
+- ExecutionChain: the tricky part is the deposit tree, but the rest can be calculated after state transition succeeds.
+
+Not to be deleted soon:
+- SyncBlocks. It's an init task. It needs to be revisited only to see if it holds well against restarts.
+
 ### Supervision tree
 
 This is our complete supervision tree.
@@ -23,16 +38,10 @@ Application --> BeaconNode
 Application --> BeaconApi.Endpoint
 
 BeaconNode -->|genesis_time,<br>genesis_validators_root,<br> fork_choice_data, time| BeaconChain 
-BeaconNode -->|store, head_slot, time| ForkChoice
 BeaconNode -->|listen_addr, <br>enable_discovery, <br> discovery_addr, <br>bootnodes| P2P.Libp2pPort
 BeaconNode --> P2P.Peerbook
 BeaconNode --> P2P.IncomingRequests
-BeaconNode --> PendingBlocks
 BeaconNode --> SyncBlocks
-BeaconNode --> Attestation
-BeaconNode --> BeaconBlock
-BeaconNode --> BlobSideCar
-BeaconNode --> OperationsCollector
 BeaconNode -->|slot, head_root| ValidatorManager
 BeaconNode -->|genesis_time, snapshot, votes| ExecutionChain
 ValidatorManager --> ValidatorN
