@@ -64,9 +64,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @spec collect(non_neg_integer(), Types.Attestation.t()) :: :ok
   def collect(subnet_id, attestation) do
+    join(subnet_id)
     SubnetInfo.new_subnet_with_attestation(subnet_id, attestation)
     Libp2pPort.subscribe_to_topic(topic(subnet_id), __MODULE__)
-    join(subnet_id)
   end
 
   @spec stop_collecting(non_neg_integer()) ::
@@ -75,7 +75,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     # TODO: implement some way to unsubscribe without leaving the topic
     topic = topic(subnet_id)
     Libp2pPort.leave_topic(topic)
-    Libp2pPort.join_topic(topic)
     SubnetInfo.stop_collecting(subnet_id)
   end
 
