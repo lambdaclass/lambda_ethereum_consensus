@@ -80,10 +80,14 @@ message AddPeer {
     int64 ttl = 3;
 }
 
+// Outgoing request to be sent from this node to a different one.
 message SendRequest {
+    // Peer id
     bytes id = 1;
     string protocol_id = 2;
     bytes message = 3;
+    // internal identifier for our request
+    bytes request_id = 4;
 }
 
 message SendResponse {
@@ -182,10 +186,9 @@ message Result {
 }
 
 message Response {
-    bool success = 1;
-    bytes from = 2;
-    bytes protocol_id = 3;
-    bytes message = 4;
+    bytes id = 1;
+    bool success = 2;
+    bytes message = 3;
 }
 
 message Tracer {

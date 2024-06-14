@@ -69,7 +69,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:prometheus_process_collector,
        git: "https://github.com/lambdaclass/prometheus_process_collector",
        branch: "update-makefile-to-support-otp-26",
-       override: true}
+       override: true},
+      {:uuid, "~> 1.1"}
     ]
   end
 

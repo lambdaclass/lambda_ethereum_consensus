@@ -10,8 +10,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
+  alias LambdaEthereumConsensus.P2p.Requests
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
@@ -143,17 +145,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           {:ok, binary()} | {:error, String.t()}
   def send_request(pid \\ __MODULE__, peer_id, protocol_id, message) do
     :telemetry.execute([:port, :message], %{}, %{function: "send_request", direction: "elixir->"})
-    c = %SendRequest{id: peer_id, protocol_id: protocol_id, message: message}
-    call_command(pid, {:send_request, c})
+    from = self()
+
+    GenServer.cast(
+      pid,
+      {:send_request, peer_id, protocol_id, message,
+       fn response -> send(from, {:response, response}) end}
+    )
+
+    receive_response()
   end
 
   @doc """
   Sends a request to a peer. The response will be processed by the Libp2p process.
   """
-  def send_async_request(pid \\ __MODULE__, peer_id, protocol_id, message) do
+  def send_async_request(pid \\ __MODULE__, peer_id, protocol_id, message, handler) do
     :telemetry.execute([:port, :message], %{}, %{function: "send_request", direction: "elixir->"})
-    c = %SendRequest{id: peer_id, protocol_id: protocol_id, message: message}
-    cast_command(pid, {:send_request, c})
+    GenServer.cast(pid, {:send_request, peer_id, protocol_id, message, handler})
   end
 
   @doc """
@@ -349,12 +357,32 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {:noreply, state}
   end
 
+  def handle_cast(
+        {:send_request, peer_id, protocol_id, message, handler},
+        %{
+          requests: requests,
+          port: port
+        } = state
+      ) do
+    {new_requests, handler_id} = Requests.add_response_handler(requests, handler)
+
+    command = %Command{
+      c: %SendRequest{
+        id: peer_id,
+        protocol_id: protocol_id,
+        message: message,
+        request_id: handler_id
+      }
+    }
+
+    send_data(port, Command.encode(command))
+    {:noreply, state |> Map.put(:requests, new_requests)}
+  end
+
   @impl GenServer
   def handle_info({_port, {:data, data}}, state) do
     %Notification{n: {_, payload}} = Notification.decode(data)
-    handle_notification(payload, state)
-
-    {:noreply, state}
+    {:noreply, handle_notification(payload, state)}
   end
 
   @impl GenServer
@@ -372,13 +400,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%GossipSub{} = gs, %{subscriptors: subscriptors}) do
+  defp handle_notification(%GossipSub{} = gs, %{subscriptors: subscriptors} = state) do
     :telemetry.execute([:port, :message], %{}, %{function: "gossipsub", direction: "->elixir"})
 
     case Map.fetch(subscriptors, gs.topic) do
       {:ok, module} -> module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
       :error -> Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
     end
+
+    state
   end
 
   defp handle_notification(
@@ -388,103 +418,53 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
            request_id: request_id,
            message: message
          },
-         _state
+         state
        ) do
     :telemetry.execute([:port, :message], %{}, %{function: "request", direction: "->elixir"})
     handler_pid = :erlang.binary_to_term(handler)
     send(handler_pid, {:request, {protocol_id, request_id, message}})
+    state
   end
 
-  defp handle_notification(%NewPeer{peer_id: _peer_id}, %{new_peer_handler: nil}), do: :ok
+  defp handle_notification(%NewPeer{peer_id: _peer_id}, %{new_peer_handler: nil} = state),
+    do: state
 
   defp handle_notification(%NewPeer{peer_id: peer_id}, %{new_peer_handler: handler}) do
     :telemetry.execute([:port, :message], %{}, %{function: "new peer", direction: "->elixir"})
     send(handler, {:new_peer, peer_id})
   end
 
-  defp handle_notification(%Response{} = response, _state) do
+  defp handle_notification(%Response{} = response, %{requests: requests} = state) do
     :telemetry.execute([:port, :message], %{}, %{function: "response", direction: "->elixir"})
     success = if response.success, do: :ok, else: :error
 
-    if response.from != "" do
-      send(:erlang.binary_to_term(response.from), {:response, {success, response.message}})
-    else
-      handle_async_response(response.protocol_id, success, response.message)
+    {result, new_requests} =
+      Requests.handle_response(requests, {success, response.message}, response.id)
+
+    if result == :unhandled do
+      Logger.error("Unhandled response with id: #{response.id}. Message: #{response.message}")
     end
+
+    state |> Map.put(:requests, new_requests)
   end
 
-  defp handle_notification(%Result{from: "", result: result}, _state) do
+  defp handle_notification(%Result{from: "", result: result}, state) do
     :telemetry.execute([:port, :message], %{}, %{function: "result", direction: "->elixir"})
     # TODO: amount of failures would be a useful metric
     _success_txt = if match?({:ok, _}, result), do: "success", else: "failed"
+    state
   end
 
-  defp handle_notification(%Result{from: from, result: result}, _state) do
+  defp handle_notification(%Result{from: from, result: result}, state) do
     :telemetry.execute([:port, :message], %{}, %{function: "result", direction: "->elixir"})
     pid = :erlang.binary_to_term(from)
     send(pid, {:response, result})
+    state
   end
 
-  defp handle_notification(%Tracer{t: {:add_peer, %{}}}, _state) do
-    :telemetry.execute([:network, :pubsub_peers], %{}, %{
-      result: "add"
-    })
-  end
-
-  defp handle_notification(%Tracer{t: {:remove_peer, %{}}}, _state) do
-    :telemetry.execute([:network, :pubsub_peers], %{}, %{
-      result: "remove"
-    })
-  end
-
-  defp handle_notification(%Tracer{t: {:joined, %{topic: topic}}}, _state) do
-    :telemetry.execute([:network, :pubsub_topic_active], %{active: 1}, %{
-      topic: get_topic_name(topic)
-    })
-  end
-
-  defp handle_notification(%Tracer{t: {:left, %{topic: topic}}}, _state) do
-    :telemetry.execute([:network, :pubsub_topic_active], %{active: -1}, %{
-      topic: get_topic_name(topic)
-    })
-  end
-
-  defp handle_notification(%Tracer{t: {:grafted, %{topic: topic}}}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_graft], %{}, %{topic: get_topic_name(topic)})
-  end
-
-  defp handle_notification(%Tracer{t: {:pruned, %{topic: topic}}}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_prune], %{}, %{topic: get_topic_name(topic)})
-  end
-
-  defp handle_notification(%Tracer{t: {:deliver_message, %{topic: topic}}}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_deliver_message], %{}, %{
-      topic: get_topic_name(topic)
-    })
-  end
-
-  defp handle_notification(%Tracer{t: {:duplicate_message, %{topic: topic}}}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_duplicate_message], %{}, %{
-      topic: get_topic_name(topic)
-    })
-  end
-
-  defp handle_notification(%Tracer{t: {:reject_message, %{topic: topic}}}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_reject_message], %{}, %{
-      topic: get_topic_name(topic)
-    })
-  end
-
-  defp handle_notification(%Tracer{t: {:un_deliverable_message, %{topic: topic}}}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_un_deliverable_message], %{}, %{
-      topic: get_topic_name(topic)
-    })
-  end
-
-  defp handle_notification(%Tracer{t: {:validate_message, %{topic: topic}}}, _state) do
-    :telemetry.execute([:network, :pubsub_topics_validate_message], %{}, %{
-      topic: get_topic_name(topic)
-    })
+  defp handle_notification(%Tracer{t: notification}, state) do
+    Metrics.tracer(notification)
+    state
   end
 
   defp parse_args(args) do
@@ -516,13 +496,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       {:response, {:node_identity, identity}} -> identity
       {:response, {res, %ResultMessage{message: []}}} -> res
       {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()
-    end
-  end
-
-  defp get_topic_name(topic) do
-    case topic |> String.split("/") |> Enum.fetch(3) do
-      {:ok, name} -> name
-      :error -> topic
+      {:response, {res, %Response{} = response}} -> {res, response}
     end
   end
 
@@ -551,10 +525,5 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       next_fork_epoch: Constants.far_future_epoch()
     }
     |> encode_enr(attnets, syncnets)
-  end
-
-  @spec handle_async_response(binary(), :ok | :error, binary()) :: :ok
-  defp handle_async_response(protocol_id, _success?, _message) do
-    Logger.warning("Received unhandled response from protocol #{protocol_id}.")
   end
 end

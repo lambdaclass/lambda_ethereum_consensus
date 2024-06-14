@@ -95,7 +95,7 @@ func (l *Listener) SendRequest(from, peerId []byte, protocolId string, message [
 
 func sendAsyncRequest(h host.Host, p port.Port, from []byte, peerId peer.ID, protocolId protocol.ID, message []byte) {
 	response, err := sendRequest(h, peerId, protocolId, message)
-	result := proto_helpers.ResponseNotification([]byte(from), response, err, string(protocolId))
+	result := proto_helpers.ResponseNotification([]byte(from), response, err, string(protocolId), message)
 	p.SendNotification(result)
 }
 

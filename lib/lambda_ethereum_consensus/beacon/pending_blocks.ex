@@ -28,6 +28,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   If the new state enables older blocks that were pending to be processed, they will be processed
   immediately.
+
+  If blobs are missing, they will be requested.
   """
   @spec add_block(SignedBeaconBlock.t()) :: :ok
   def add_block(signed_block) do
@@ -37,9 +39,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     loaded_block = Blocks.get_block_info(block_info.root)
 
     if is_nil(loaded_block) or loaded_block.status == :download do
-      if Enum.empty?(missing_blobs(block_info)) do
+      missing_blobs = missing_blobs(block_info)
+
+      if Enum.empty?(missing_blobs) do
         block_info
       else
+        BlobDownloader.request_blobs_by_root(missing_blobs)
         block_info |> BlockInfo.change_status(:download_blobs)
       end
       |> Blocks.new_block_info()
@@ -49,44 +54,32 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @doc """
+  To be used when a series of blobs are downloaded. Stores each blob.
+  If there are blocks that can be processed, does so immediately.
+  """
+  def add_blobs(blobs) do
+    Enum.map(blobs, fn blob ->
+      BlobDb.store_blob(blob)
+      Ssz.hash_tree_root!(blob.signed_block_header.message)
+    end)
+    |> Enum.uniq()
+    |> Enum.each(fn root ->
+      with %BlockInfo{} = block_info <- Blocks.get_block_info(root) do
+        if Enum.empty?(missing_blobs(block_info)) do
+          Blocks.change_status(block_info, :pending)
+        end
+
+        process_block(block_info)
+      end
+    end)
+  end
+
+  @doc """
   Iterates through the pending blocks and adds them to the fork choice if their parent is already in the fork choice.
   """
   @spec handle_info(atom(), state()) :: {:noreply, state()}
   def handle_info(:process_blocks, _state) do
     process_blocks()
-    {:noreply, nil}
-  end
-
-  def handle_info(:download_blobs, _state) do
-    case Blocks.get_blocks_with_status(:download_blobs) do
-      {:ok, blocks_with_missing_blobs} ->
-        blocks_with_blobs =
-          blocks_with_missing_blobs
-          |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
-          |> Enum.take(16)
-
-        blobs_to_download = Enum.flat_map(blocks_with_blobs, &missing_blobs/1)
-
-        downloaded_blobs =
-          blobs_to_download
-          |> BlobDownloader.request_blobs_by_root()
-          |> case do
-            {:ok, blobs} ->
-              blobs
-
-            {:error, reason} ->
-              Logger.debug("Blob download failed: '#{reason}'")
-              []
-          end
-
-        Enum.each(downloaded_blobs, &BlobDb.store_blob/1)
-
-        # TODO: is it not possible that blobs were downloaded for one and not for another?
-        if length(downloaded_blobs) == length(blobs_to_download) do
-          Enum.each(blocks_with_blobs, &Blocks.change_status(&1, :pending))
-        end
-    end
-
     {:noreply, nil}
   end
 
