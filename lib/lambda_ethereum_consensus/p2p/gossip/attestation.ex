@@ -75,6 +75,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     # TODO: implement some way to unsubscribe without leaving the topic
     topic = topic(subnet_id)
     Libp2pPort.leave_topic(topic)
+    Libp2pPort.join_topic(topic)
     SubnetInfo.stop_collecting(subnet_id)
   end
 
