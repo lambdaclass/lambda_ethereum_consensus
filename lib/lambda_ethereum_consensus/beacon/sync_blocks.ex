@@ -64,15 +64,23 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
       end)
 
     results
-    |> Enum.filter(fn result -> match?({:ok, _}, result) end)
-    |> Enum.map(fn {:ok, blocks} -> blocks end)
-    |> List.flatten()
+    |> Enum.flat_map(fn
+      {:ok, blocks} -> blocks
+      _other -> []
+    end)
+    |> tap(fn blocks -> Logger.notice("Downloaded #{length(blocks)} blocks successfully.") end)
     |> Enum.each(&PendingBlocks.add_block/1)
 
     remaining_chunks =
       Enum.zip(chunks, results)
-      |> Enum.filter(fn {_chunk, result} -> match?({:error, _}, result) end)
-      |> Enum.map(fn {chunk, _} -> chunk end)
+      |> Enum.flat_map(fn
+        {chunk, {:error, reason}} ->
+          Logger.error(inspect(reason))
+          [chunk]
+
+        _other ->
+          []
+      end)
 
     if Enum.empty?(chunks) do
       Logger.info("[Optimistic Sync] Sync completed")

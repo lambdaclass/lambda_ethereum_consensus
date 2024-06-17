@@ -329,7 +329,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     if join_init_topics, do: join_init_topics(port)
 
-    {:ok, %{port: port, new_peer_handler: new_peer_handler, subscriptors: %{}}}
+    {:ok,
+     %{
+       port: port,
+       new_peer_handler: new_peer_handler,
+       subscriptors: %{},
+       requests: Requests.new()
+     }}
   end
 
   @impl GenServer
@@ -366,14 +372,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       ) do
     {new_requests, handler_id} = Requests.add_response_handler(requests, handler)
 
-    command = %Command{
-      c: %SendRequest{
-        id: peer_id,
-        protocol_id: protocol_id,
-        message: message,
-        request_id: handler_id
-      }
+    send_request = %SendRequest{
+      id: peer_id,
+      protocol_id: protocol_id,
+      message: message,
+      request_id: handler_id
     }
+
+    command = %Command{c: {:send_request, send_request}}
 
     send_data(port, Command.encode(command))
     {:noreply, state |> Map.put(:requests, new_requests)}
@@ -429,9 +435,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp handle_notification(%NewPeer{peer_id: _peer_id}, %{new_peer_handler: nil} = state),
     do: state
 
-  defp handle_notification(%NewPeer{peer_id: peer_id}, %{new_peer_handler: handler}) do
+  defp handle_notification(%NewPeer{peer_id: peer_id}, %{new_peer_handler: handler} = state) do
     :telemetry.execute([:port, :message], %{}, %{function: "new peer", direction: "->elixir"})
     send(handler, {:new_peer, peer_id})
+    state
   end
 
   defp handle_notification(%Response{} = response, %{requests: requests} = state) do
