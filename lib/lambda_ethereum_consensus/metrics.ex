@@ -1,4 +1,8 @@
 defmodule LambdaEthereumConsensus.Metrics do
+  @moduledoc """
+  Basic telemetry metric generation to be used across the node.
+  """
+
   def tracer({:joined, %{topic: topic}}, _state) do
     :telemetry.execute([:network, :pubsub_topic_active], %{active: 1}, %{
       topic: get_topic_name(topic)

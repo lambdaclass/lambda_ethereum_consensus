@@ -17,15 +17,40 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   # so we want to try again with a different peer
   @default_retries 5
 
-  @spec request_blocks_by_range(
-          Types.slot(),
-          non_neg_integer(),
-          ({:ok, [SignedBeaconBlock.t()]} | {:error, any()} -> term()),
-          non_neg_integer()
-        ) :: :ok
+  @type download_result :: {:ok, [SignedBeaconBlock.t()]} | {:error, any()}
+  @type on_blocks :: (download_result() -> term())
+
+  @doc """
+  Requests a series of blocks in batch, and synchronously (the caller will block waiting for the
+  result). As this is a synchronous function, the caller process must be different than Libp2pPort.
+
+  Arguments:
+  - slot: the slot that marks the start of the requested range.
+  - count: the amount of blocks that will be requested for download.
+  - retries (optional): if the download fails the request will retry, using a different random
+    peer. This argument determines the amount of times that will happen before returning an error.
+  """
+  @spec request_blocks_by_range_sync(Types.slot(), non_neg_integer(), non_neg_integer()) ::
+          download_result()
+  def request_blocks_by_range_sync(slot, count, retries \\ @default_retries)
+
+  def request_blocks_by_range_sync(_slot, 0, _retries), do: {:ok, []}
+
+  def request_blocks_by_range_sync(slot, count, retries) do
+    pid = self()
+    request_blocks_by_range(slot, count, fn result -> send(pid, result) end, retries)
+
+    receive do
+      result -> result
+    end
+  end
+
+  @spec request_blocks_by_range(Types.slot(), non_neg_integer(), on_blocks(), non_neg_integer()) ::
+          :ok
+  @spec request_blocks_by_range(Types.slot(), non_neg_integer(), on_blocks()) :: :ok
   def request_blocks_by_range(slot, count, on_blocks, retries \\ @default_retries)
 
-  def request_blocks_by_range(_slot, 0, _on_blocks, _retries), do: {:ok, []}
+  def request_blocks_by_range(_slot, 0, _on_blocks, _retries), do: :ok
 
   def request_blocks_by_range(slot, count, on_blocks, retries) do
     Logger.debug("Requesting block", slot: slot)
