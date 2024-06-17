@@ -13,6 +13,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   @blobs_by_root_protocol_id "/eth2/beacon_chain/req/blob_sidecars_by_root/1/ssz_snappy"
 
   @type on_blobs :: ({:ok, [BlobSidecar.t()]} | {:error, any()} -> :ok)
+  @type on_blob :: ({:ok, BlobSidecar.t()} | {:error, any()} -> :ok)
 
   # Requests to peers might fail for various reasons,
   # for example they might not support the protocol or might not reply
@@ -59,18 +60,22 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
     end
   end
 
-  @spec request_blob_by_root(Types.BlobIdentifier.t(), non_neg_integer()) ::
-          {:ok, BlobSidecar.t()} | {:error, binary()}
-  def request_blob_by_root(identifier, retries \\ @default_retries) do
-    with {:ok, [blob]} <- request_blobs_by_root([identifier], retries) do
-      {:ok, blob}
-    end
+  @spec request_blob_by_root(Types.BlobIdentifier.t(), on_blob(), non_neg_integer()) :: :ok
+  def request_blob_by_root(identifier, on_blob, retries \\ @default_retries) do
+    request_blobs_by_root(
+      [identifier],
+      fn
+        {:ok, [blob]} -> on_blob.({:ok, blob})
+        other -> on_blob.(other)
+      end,
+      retries
+    )
   end
 
   @spec request_blobs_by_root([Types.BlobIdentifier.t()], on_blobs(), non_neg_integer()) :: :ok
   def request_blobs_by_root(identifiers, on_blobs, retries \\ @default_retries)
 
-  def request_blobs_by_root([], on_blobs, _retries), do: {:ok, []}
+  def request_blobs_by_root([], _on_blobs, _retries), do: {:ok, []}
 
   def request_blobs_by_root(identifiers, on_blobs, retries) do
     Logger.debug("Requesting #{length(identifiers)} blobs.")

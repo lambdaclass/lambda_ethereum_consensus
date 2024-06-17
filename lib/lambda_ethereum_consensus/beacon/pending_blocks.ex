@@ -44,7 +44,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       if Enum.empty?(missing_blobs) do
         block_info
       else
-        BlobDownloader.request_blobs_by_root(missing_blobs)
+        BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/1)
         block_info |> BlockInfo.change_status(:download_blobs)
       end
       |> Blocks.new_block_info()
@@ -130,6 +130,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       _other ->
         :ok
     end
+  end
+
+  defp process_blobs({:ok, blobs}), do: add_blobs(blobs)
+
+  defp process_blobs({:error, reason}) do
+    Logger.error("Error downloading blobs: #{inspect(reason)}")
   end
 
   @spec missing_blobs(BlockInfo.t()) :: [Types.BlobIdentifier.t()]
