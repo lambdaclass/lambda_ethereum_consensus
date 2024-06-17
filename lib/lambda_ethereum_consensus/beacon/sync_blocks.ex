@@ -68,14 +68,17 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
       {:ok, blocks} -> blocks
       _other -> []
     end)
-    |> tap(fn blocks -> Logger.notice("Downloaded #{length(blocks)} blocks successfully.") end)
+    |> tap(fn blocks -> Logger.info("Downloaded #{length(blocks)} blocks successfully.") end)
     |> Enum.each(&PendingBlocks.add_block/1)
 
     remaining_chunks =
       Enum.zip(chunks, results)
       |> Enum.flat_map(fn
         {chunk, {:error, reason}} ->
-          Logger.error(inspect(reason))
+          Logger.error(
+            "Failed downloading the chunk #{inspect(chunk)}. Reason: #{inspect(reason)}"
+          )
+
           [chunk]
 
         _other ->
@@ -101,8 +104,12 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   @spec fetch_blocks_by_slot(Types.slot(), non_neg_integer()) ::
           {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
   def fetch_blocks_by_slot(from, count) do
+    Logger.info("Fetching #{count} blocks from #{from}")
+
     case BlockDownloader.request_blocks_by_range_sync(from, count, 0) do
       {:ok, blocks} ->
+        Logger.info("Fetched #{count} blocks from #{from}")
+
         {:ok, blocks}
 
       {:error, error} ->

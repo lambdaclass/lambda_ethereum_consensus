@@ -144,7 +144,7 @@ func ResultNotification(from []byte, result []byte, err error) *proto_defs.Notif
 	return &proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
 }
 
-func ResponseNotification(request_id []byte, result []byte, err error, protocolId string, requestMessage []byte) *proto_defs.Notification {
+func ResponseNotification(requestId []byte, result []byte, err error, protocolId string, requestMessage []byte) *proto_defs.Notification {
 	var responseMessage []byte
 	var success bool
 
@@ -159,7 +159,7 @@ func ResponseNotification(request_id []byte, result []byte, err error, protocolI
 			responseMessage = []byte{}
 		}
 	}
-	response := &proto_defs.Response{Id: request_id, Success: success, Message: responseMessage}
+	response := &proto_defs.Response{Id: requestId, Success: success, Message: responseMessage}
 	return &proto_defs.Notification{N: &proto_defs.Notification_Response{Response: response}}
 }
 
