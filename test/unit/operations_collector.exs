@@ -1,4 +1,5 @@
 defmodule Unit.OperationsCollectorTest do
+  alias Fixtures.Block
   alias Fixtures.Random
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
@@ -13,7 +14,7 @@ defmodule Unit.OperationsCollectorTest do
     patch(BeaconChain, :get_fork_digest, fn -> "9999" end)
     patch(BeaconChain, :get_fork_version, fn -> "9999" end)
     start_link_supervised!({Db, dir: tmp_dir})
-    start_link_supervised!(OperationsCollector)
+    OperationsCollector.init()
     :ok
   end
 
@@ -150,10 +151,14 @@ defmodule Unit.OperationsCollectorTest do
       attestations: []
     }
 
+    block = Block.beacon_block()
+    block = %{block | body: Map.merge(block.body, operations)}
+
     # ensure that the attestation is not considered old.
     new_block_slot = attestation.data.target.epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+    block = %{block | slot: new_block_slot}
 
-    GenServer.cast(OperationsCollector, {:new_block, new_block_slot, operations})
+    OperationsCollector.notify_new_block(block)
     assert OperationsCollector.get_voluntary_exits(5) == [signed_voluntary_exit]
     assert OperationsCollector.get_attestations(5) == [attestation]
   end
@@ -176,10 +181,14 @@ defmodule Unit.OperationsCollectorTest do
       attestations: [attestation]
     }
 
+    block = Block.beacon_block()
+    block = %{block | body: Map.merge(block.body, operations)}
+
     # ensure that the attestation is not considered old.
     new_block_slot = attestation.data.target.epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+    block = %{block | slot: new_block_slot}
 
-    GenServer.cast(OperationsCollector, {:new_block, new_block_slot, operations})
+    OperationsCollector.notify_new_block(block)
     assert OperationsCollector.get_voluntary_exits(5) == []
     assert OperationsCollector.get_attestations(5) == []
   end
@@ -198,10 +207,14 @@ defmodule Unit.OperationsCollectorTest do
       attestations: []
     }
 
+    block = Block.beacon_block()
+    block = %{block | body: Map.merge(block.body, operations)}
+
     # filter old attestation
     new_block_slot = (attestation.data.target.epoch + 2) * ChainSpec.get("SLOTS_PER_EPOCH")
+    block = %{block | slot: new_block_slot}
 
-    GenServer.cast(OperationsCollector, {:new_block, new_block_slot, operations})
+    OperationsCollector.notify_new_block(block)
 
     assert OperationsCollector.get_attestations(5) == []
   end
@@ -230,7 +243,11 @@ defmodule Unit.OperationsCollectorTest do
       attestations: []
     }
 
-    GenServer.cast(OperationsCollector, {:new_block, attestation.data.slot, operations})
+    block = Block.beacon_block()
+    block = %{block | body: Map.merge(block.body, operations)}
+    block = %{block | slot: attestation.data.slot}
+
+    OperationsCollector.notify_new_block(block)
 
     # send future attestation
     send_attestation(attestation)
@@ -239,7 +256,9 @@ defmodule Unit.OperationsCollectorTest do
     assert OperationsCollector.get_attestations(5) == []
 
     # increment the OperationsCollector slot
-    GenServer.cast(OperationsCollector, {:new_block, attestation.data.slot + 1, operations})
+    block = %{block | slot: block.slot + 1}
+
+    OperationsCollector.notify_new_block(block)
 
     assert OperationsCollector.get_attestations(5) == [attestation]
   end
