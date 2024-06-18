@@ -22,22 +22,22 @@ defmodule Unit.AttestationTest do
   test "set and clear attnet" do
     attnet_index = 5
 
-    expected_attnet =
+    expected_attnets =
       ChainSpec.get("ATTESTATION_SUBNET_COUNT") |> BitVector.new() |> BitVector.set(attnet_index)
 
     Metadata.set_attnet(attnet_index)
     new_metadata = Metadata.get_metadata()
 
-    assert new_metadata.attnets == expected_attnet
+    assert new_metadata.attnets == expected_attnets
     assert new_metadata.seq_number == 1
 
     Metadata.clear_attnet(5)
     new_metadata = Metadata.get_metadata()
 
-    expected_attnet =
+    expected_attnets =
       ChainSpec.get("ATTESTATION_SUBNET_COUNT") |> BitVector.new()
 
-    assert new_metadata.attnets == expected_attnet
+    assert new_metadata.attnets == expected_attnets
     assert new_metadata.seq_number == 2
   end
 
@@ -45,22 +45,22 @@ defmodule Unit.AttestationTest do
   test "set and clear syncnet" do
     syncnet_index = 2
 
-    expected_syncnet =
+    expected_syncnets =
       Constants.sync_committee_subnet_count() |> BitVector.new() |> BitVector.set(syncnet_index)
 
     Metadata.set_syncnet(syncnet_index)
     new_metadata = Metadata.get_metadata()
 
-    assert new_metadata.syncnets == expected_syncnet
+    assert new_metadata.syncnets == expected_syncnets
     assert new_metadata.seq_number == 1
 
     Metadata.clear_syncnet(2)
     new_metadata = Metadata.get_metadata()
 
-    expected_syncnet =
+    expected_syncnets =
       Constants.sync_committee_subnet_count() |> BitVector.new()
 
-    assert new_metadata.syncnets == expected_syncnet
+    assert new_metadata.syncnets == expected_syncnets
     assert new_metadata.seq_number == 2
   end
 
@@ -69,7 +69,7 @@ defmodule Unit.AttestationTest do
     # set attnet
     attnet_index = 5
 
-    expected_attnet =
+    expected_attnets =
       ChainSpec.get("ATTESTATION_SUBNET_COUNT") |> BitVector.new() |> BitVector.set(attnet_index)
 
     Metadata.set_attnet(attnet_index)
@@ -77,7 +77,7 @@ defmodule Unit.AttestationTest do
     # set syncnet
     syncnet_index = 2
 
-    expected_syncnet =
+    expected_syncnets =
       Constants.sync_committee_subnet_count() |> BitVector.new() |> BitVector.set(syncnet_index)
 
     Metadata.set_syncnet(syncnet_index)
@@ -85,28 +85,30 @@ defmodule Unit.AttestationTest do
     # check metadata
     new_metadata = Metadata.get_metadata()
 
-    assert new_metadata.syncnets == expected_syncnet
-    assert new_metadata.attnets == expected_attnet
+    assert new_metadata.syncnets == expected_syncnets
+    assert new_metadata.attnets == expected_attnets
     assert new_metadata.seq_number == 2
 
     # clear syncnet
     Metadata.clear_syncnet(2)
     new_metadata = Metadata.get_metadata()
 
-    expected_syncnet =
+    expected_syncnets =
       Constants.sync_committee_subnet_count() |> BitVector.new()
 
-    assert new_metadata.syncnets == expected_syncnet
+    assert new_metadata.syncnets == expected_syncnets
+    assert new_metadata.attnets == expected_attnets
     assert new_metadata.seq_number == 3
 
     # clear attnet
     Metadata.clear_attnet(5)
     new_metadata = Metadata.get_metadata()
 
-    expected_attnet =
+    expected_attnets =
       ChainSpec.get("ATTESTATION_SUBNET_COUNT") |> BitVector.new()
 
-    assert new_metadata.attnets == expected_attnet
+    assert new_metadata.attnets == expected_attnets
+    assert new_metadata.syncnets == expected_syncnets
     assert new_metadata.seq_number == 4
   end
 end
