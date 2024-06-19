@@ -48,7 +48,8 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
       @spec fold(term(), term(), (term(), term() -> term())) :: term()
       def fold(start_key, starting_value, f) do
         with {:ok, it} <- Db.iterate(),
-             {:ok, @prefix <> _, _} <- Exleveldb.iterator_move(it, start_key) do
+             {:ok, encoded_start} <- encode_key(start_key),
+             {:ok, @prefix <> _, _} <- Exleveldb.iterator_move(it, encoded_start) do
           res = iterate(it, starting_value, f)
           Exleveldb.iterator_close(it)
           {:ok, res}
