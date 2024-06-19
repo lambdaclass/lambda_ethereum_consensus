@@ -2,11 +2,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   @moduledoc """
     Utility functions for the fork choice.
   """
-  alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias Types.Store
 
   @spec get_head(Store.t()) :: {:ok, Types.root()} | {:error, any}
@@ -33,8 +33,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   end
 
   defp get_weight(%Store{} = store, root) do
-    {:ok, store} = Handlers.store_target_checkpoint_state(store, store.justified_checkpoint)
-    state = Map.fetch!(store.checkpoint_states, store.justified_checkpoint)
+    {:ok, state} = CheckpointStates.get_checkpoint_state(store.justified_checkpoint)
 
     block = Blocks.get_block!(root)
 
