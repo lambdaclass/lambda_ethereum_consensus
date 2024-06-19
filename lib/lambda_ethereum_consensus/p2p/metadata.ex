@@ -42,27 +42,33 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   @impl true
   def init(_opts) do
-    {:ok, Metadata.empty()}
+    Metadata.empty() |> Metadata.store_metadata()
+    {:ok, nil}
   end
 
   @impl true
-  def handle_call(:get_seq_number, _, %Metadata{seq_number: seq_number} = metadata) do
-    {:reply, seq_number, metadata}
+  def handle_call(:get_seq_number, _, _state) do
+    %Metadata{seq_number: seq_number} = Metadata.fetch_metadata!()
+    {:reply, seq_number, nil}
   end
 
   @impl true
-  def handle_call(:get_metadata, _, metadata), do: {:reply, metadata, metadata}
+  def handle_call(:get_metadata, _, _metadata), do: {:reply, Metadata.fetch_metadata!(), nil}
 
   @impl true
-  def handle_cast({:set_attestation_subnet, i, set}, metadata) do
+  def handle_cast({:set_attestation_subnet, i, set}, _metadata) do
+    metadata = Metadata.fetch_metadata!()
     attnets = set_or_clear(metadata.attnets, i, set)
-    {:noreply, %{metadata | attnets: attnets} |> increment_seqnum()}
+    %{metadata | attnets: attnets} |> increment_seqnum() |> Metadata.store_metadata()
+    {:noreply, nil}
   end
 
   @impl true
-  def handle_cast({:set_sync_committee, i, set}, metadata) do
+  def handle_cast({:set_sync_committee, i, set}, _metadata) do
+    metadata = Metadata.fetch_metadata!()
     syncnets = set_or_clear(metadata.syncnets, i, set)
-    {:noreply, %{metadata | syncnets: syncnets} |> increment_seqnum()}
+    %{metadata | syncnets: syncnets} |> increment_seqnum() |> Metadata.store_metadata()
+    {:noreply, nil}
   end
 
   ##########################

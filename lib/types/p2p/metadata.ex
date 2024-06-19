@@ -3,7 +3,10 @@ defmodule Types.Metadata do
   Struct definition for `Metadata`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Utils.BitVector
+
+  @metadata_prefix "metadata"
 
   fields = [
     :seq_number,
@@ -49,5 +52,31 @@ defmodule Types.Metadata do
     map
     |> Map.update!(:attnets, &BitVector.new(&1, subnet_count))
     |> Map.update!(:syncnets, &BitVector.new(&1, syncnet_count))
+  end
+
+  def store_metadata(%__MODULE__{} = map) do
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {Db.put(
+         @metadata_prefix,
+         :erlang.term_to_binary(map)
+       ), %{module: "metadata", action: "persist"}}
+    end)
+  end
+
+  def fetch_metadata() do
+    result =
+      :telemetry.span([:db, :latency], %{}, fn ->
+        {Db.get(@metadata_prefix), %{module: "metadata", action: "fetch"}}
+      end)
+
+    case result do
+      {:ok, binary} -> {:ok, :erlang.binary_to_term(binary)}
+      :not_found -> result
+    end
+  end
+
+  def fetch_metadata!() do
+    {:ok, metadata} = fetch_metadata()
+    metadata
   end
 end
