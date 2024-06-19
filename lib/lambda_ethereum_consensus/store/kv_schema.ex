@@ -17,14 +17,15 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
   @callback encode_value(term()) :: encode_result()
   @callback decode_value(term()) :: decode_result()
 
-  defmacro __using__(_params) do
+  defmacro __using__(prefix: prefix) do
     quote do
+      @prefix unquote(prefix)
       @behaviour LambdaEthereumConsensus.Store.KvSchema
 
       @spec get(term()) :: {:ok, term()} | {:error, binary()} | :not_found
       def get(key) do
         with {:ok, encoded_key} <- encode_key(key),
-             {:ok, encoded_value} <- Db.get(encoded_key) do
+             {:ok, encoded_value} <- Db.get(@prefix <> encoded_key) do
           decode_value(encoded_value)
         end
       end
@@ -33,14 +34,32 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
       def put(key, value) do
         with {:ok, encoded_key} <- encode_key(key),
              {:ok, encoded_value} <- encode_value(value) do
-          Db.put(encoded_key, encoded_value)
+          Db.put(@prefix <> encoded_key, encoded_value)
         end
       end
 
       @spec delete(term()) :: :ok | {:error, binary()}
       def delete(key) do
         with {:ok, encoded_key} <- encode_key(key) do
-          Db.delete(encoded_key)
+          Db.delete(@prefix <> encoded_key)
+        end
+      end
+
+      @spec fold(term(), term(), (term(), term() -> term())) :: term()
+      def fold(start_key, starting_value, f) do
+        with {:ok, it} <- Db.iterate(),
+             {:ok, @prefix <> _, _} <- Exleveldb.iterator_move(it, start_key) do
+          res = iterate(it, starting_value, f)
+          Exleveldb.iterator_close(it)
+          {:ok, res}
+        end
+      end
+
+      defp iterate(it, acc, f) do
+        case Exleveldb.iterator_move(it, :prev) do
+          # TODO: add option to get the value in the function too if needed.
+          {:ok, @prefix <> k, v} -> iterate(it, f.(decode_key(k), acc), f)
+          _ -> acc
         end
       end
     end

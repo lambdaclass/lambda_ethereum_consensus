@@ -407,12 +407,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     if target.epoch in [current_epoch, previous_epoch], do: :ok, else: {:error, "future epoch"}
   end
 
-  def prune_checkpoint_states(%Store{checkpoint_states: checkpoint_states} = store) do
-    finalized_epoch = store.finalized_checkpoint.epoch
-
-    checkpoint_states
-    |> Map.reject(fn {%{epoch: epoch}, _} -> epoch < finalized_epoch end)
-    |> then(&%{store | checkpoint_states: &1})
+  def prune_checkpoint_states(%Store{} = store) do
+    CheckpointStates.prune(store.finalized_checkpoint)
   end
 
   def update_latest_messages(%Store{} = store, attesting_indices, %Attestation{data: data}) do

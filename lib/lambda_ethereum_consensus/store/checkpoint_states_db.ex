@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   store.
   """
 
+  require Logger
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStates
@@ -12,7 +13,7 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   alias Types.BeaconState
   alias Types.Checkpoint
 
-  use KvSchema
+  use KvSchema, prefix: "checkpoint_states"
 
   @impl KvSchema
   @spec encode_key(Checkpoint.t()) :: {:ok, binary()} | {:error, binary()}
@@ -30,6 +31,14 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   @spec decode_value(binary()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def decode_value(bin), do: Ssz.from_ssz(bin, BeaconState)
 
+  @doc """
+  Gets the state for a checkpoint by getting the last block and processing slots until the checkpoint.
+  If there's a block for that checkpoint no calculation will be made, the state for that block will be
+  returned.
+
+  The state is saved in the db so further calls to get the state for the same checkpoint will be a kv
+  store get instead of a state transition.
+  """
   @spec get_checkpoint_state(Checkpoint.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def get_checkpoint_state(checkpoint) do
     case get(checkpoint) do
@@ -44,6 +53,9 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
     end
   end
 
+  @doc """
+  Calculate the state for a checkpoint without interacting with the db.
+  """
   @spec compute_target_checkpoint_state(Types.epoch(), Types.root()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def compute_target_checkpoint_state(target_epoch, target_root) do
@@ -54,6 +66,22 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
       StateTransition.process_slots(state, target_slot)
     else
       {:ok, state}
+    end
+  end
+
+  @doc """
+  Deletes all checkpoint states prior to the finalized one passed by parameter.
+  """
+  @spec prune(Checkpoint.t()) :: :ok
+  def prune(finalized_checkpoint) do
+    Logger.info("Pruning old checkpoint states")
+
+    case fold(finalized_checkpoint, 0, fn key, acc ->
+           delete(key)
+           acc + 1
+         end) do
+      {:ok, amount} -> Logger.info("Pruned #{amount} checkpoint states")
+      {:error, reason} -> Logger.error("Error while pruning checkpoint states: #{reason}")
     end
   end
 end

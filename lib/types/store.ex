@@ -8,6 +8,7 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.BlockInfo
@@ -24,7 +25,6 @@ defmodule Types.Store do
     :unrealized_finalized_checkpoint,
     :proposer_boost_root,
     :equivocating_indices,
-    :checkpoint_states,
     :latest_messages,
     :unrealized_justifications,
     # Stores block data on the current fork tree (~last two epochs)
@@ -40,7 +40,6 @@ defmodule Types.Store do
           unrealized_finalized_checkpoint: Checkpoint.t() | nil,
           proposer_boost_root: Types.root() | nil,
           equivocating_indices: MapSet.t(Types.validator_index()),
-          checkpoint_states: %{Checkpoint.t() => BeaconState.t()},
           # NOTE: the `Checkpoint` values in latest_messages are `LatestMessage`s
           latest_messages: %{Types.validator_index() => Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Checkpoint.t()},
@@ -69,6 +68,7 @@ defmodule Types.Store do
       time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
 
       BlockStates.store_state_info(state_info)
+      CheckpointStates.put(anchor_checkpoint, anchor_state)
 
       %__MODULE__{
         time: time,
@@ -79,7 +79,6 @@ defmodule Types.Store do
         unrealized_finalized_checkpoint: anchor_checkpoint,
         proposer_boost_root: <<0::256>>,
         equivocating_indices: MapSet.new(),
-        checkpoint_states: %{anchor_checkpoint => anchor_state},
         latest_messages: %{},
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
         tree_cache: Tree.new(anchor_block_root)
