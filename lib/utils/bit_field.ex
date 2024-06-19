@@ -89,8 +89,8 @@ defmodule LambdaEthereumConsensus.Utils.BitField do
   @spec bitwise_or(t, t) :: t
   def bitwise_or(left, right) when bit_size(left) == bit_size(right) do
     size = bit_size(left)
-    left_int = :binary.decode_unsigned(left)
-    right_int = :binary.decode_unsigned(right)
+    <<left_int::size(size)>> = left
+    <<right_int::size(size)>> = right
     <<Bitwise.bor(left_int, right_int)::size(size)>>
   end
 end
