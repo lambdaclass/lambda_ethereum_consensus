@@ -12,6 +12,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
+  alias LambdaEthereumConsensus.P2P.Peerbook
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.EnrForkId
@@ -227,20 +228,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Sets the receiver of new peer notifications.
-  If `nil`, notifications are disabled.
-  """
-  @spec set_new_peer_handler(GenServer.server(), pid() | nil) :: :ok
-  def set_new_peer_handler(pid \\ __MODULE__, handler) do
-    :telemetry.execute([:port, :message], %{}, %{
-      function: "set_new_peer_handler",
-      direction: "elixir->"
-    })
-
-    GenServer.cast(pid, {:set_new_peer_handler, handler})
-  end
-
-  @doc """
   Marks the message with a validation result. The result can be `:accept`, `:reject` or `:ignore`:
     * `:accept` - the message is valid and should be propagated.
     * `:reject` - the message is invalid, mustn't be propagated, and its sender should be penalized.
@@ -291,7 +278,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def init(args) do
-    {new_peer_handler, args} = Keyword.pop(args, :new_peer_handler, nil)
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
@@ -305,7 +291,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     if join_init_topics, do: join_init_topics(port)
 
-    {:ok, %{port: port, new_peer_handler: new_peer_handler, subscriptors: %{}}}
+    {:ok, %{port: port, subscriptors: %{}}}
   end
 
   @impl GenServer
@@ -318,11 +304,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def handle_cast({:send, data}, %{port: port} = state) do
     send_data(port, data)
     {:noreply, state}
-  end
-
-  @impl GenServer
-  def handle_cast({:set_new_peer_handler, new_peer_handler}, state) do
-    {:noreply, %{state | new_peer_handler: new_peer_handler}}
   end
 
   @impl GenServer
@@ -371,11 +352,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     send(handler_pid, {:request, {protocol_id, request_id, message}})
   end
 
-  defp handle_notification(%NewPeer{peer_id: _peer_id}, %{new_peer_handler: nil}), do: :ok
-
-  defp handle_notification(%NewPeer{peer_id: peer_id}, %{new_peer_handler: handler}) do
+  defp handle_notification(%NewPeer{peer_id: peer_id}, _state) do
     :telemetry.execute([:port, :message], %{}, %{function: "new peer", direction: "->elixir"})
-    send(handler, {:new_peer, peer_id})
+    Peerbook.handle_new_peer(peer_id)
   end
 
   defp handle_notification(%Result{from: "", result: result}, _state) do
