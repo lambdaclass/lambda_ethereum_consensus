@@ -118,8 +118,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   defp prune_old_states(last_finalized_epoch, new_finalized_epoch) do
     if last_finalized_epoch < new_finalized_epoch do
-      new_finalized_slot =
-        new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+      new_finalized_slot = new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
 
       Task.Supervisor.start_child(
         PruneStatesSupervisor,

@@ -8,7 +8,7 @@ defmodule Unit.BeaconApiTest.V1 do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Db
-  alias Types.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
 
   @moduletag :beacon_api_case
   @moduletag :tmp_dir

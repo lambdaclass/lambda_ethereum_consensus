@@ -58,13 +58,15 @@ defmodule LambdaEthereumConsensus.StateTransition do
   def process_slots(%BeaconState{slot: old_slot} = state, slot) do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
 
-    Enum.reduce((old_slot + 1)..slot//1, {:ok, state}, fn next_slot, acc ->
-      acc
-      |> map_ok(&process_slot/1)
-      # Process epoch on the start slot of the next epoch
-      |> map_ok(&maybe_process_epoch(&1, rem(next_slot, slots_per_epoch)))
-      |> map_ok(&{:ok, %BeaconState{&1 | slot: next_slot}})
-    end)
+    Enum.reduce(
+      (old_slot + 1)..slot(/ / 1, {:ok, state}, fn next_slot, acc ->
+        acc
+        |> map_ok(&process_slot/1)
+        # Process epoch on the start slot of the next epoch
+        |> map_ok(&maybe_process_epoch(&1, rem(next_slot, slots_per_epoch)))
+        |> map_ok(&{:ok, %BeaconState{&1 | slot: next_slot}})
+      end)
+    )
   end
 
   defp maybe_process_epoch(%BeaconState{} = state, 0), do: process_epoch(state)

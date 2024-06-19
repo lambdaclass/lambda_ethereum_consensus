@@ -118,8 +118,7 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
 
   @spec remove_blob_by_block_root_key(binary()) :: :ok | :not_found
   defp remove_blob_by_block_root_key(block_root_key) do
-    <<@block_root_prefix, _slot::unsigned-size(64), index>> =
-      block_root_key
+    <<@block_root_prefix, _slot::unsigned-size(64), index>> = block_root_key
 
     with {:ok, block_root} <- Db.get(block_root_key) do
       key_blob = blob_sidecar_key(block_root, index)

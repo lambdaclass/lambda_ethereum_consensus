@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   import Bitwise
   require Aja
 
-  alias Types.BeaconState
+ alias LambdaEthereumConsensus.Types.Base.BeaconState
 
   @max_random_byte 2 ** 8 - 1
 

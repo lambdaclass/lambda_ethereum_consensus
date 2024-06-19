@@ -127,7 +127,7 @@ defmodule Unit.ReqRespTest do
     response = [
       %Types.BlobSidecar{
         index: 1,
-        blob: <<152_521_252::(4096*32)*8>>,
+        blob: <<152_521_252::4096*32*8>>,
         kzg_commitment: <<57_888::48*8>>,
         kzg_proof: <<6122::48*8>>,
         signed_block_header: Block.signed_beacon_block_header(),
@@ -147,7 +147,7 @@ defmodule Unit.ReqRespTest do
     response = [
       %Types.BlobSidecar{
         index: 1,
-        blob: <<152_521_252::(4096*32)*8>>,
+        blob: <<152_521_252::4096*32*8>>,
         kzg_commitment: <<57_888::48*8>>,
         kzg_proof: <<6122::48*8>>,
         signed_block_header: Block.signed_beacon_block_header(),

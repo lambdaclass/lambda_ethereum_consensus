@@ -71,7 +71,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     |> Stream.drop(1)
     |> Enum.each(fn %{index_in_committee: i, committee_index: ci, slot: slot} ->
       Logger.debug(
-        "[Validator] #{validator_index} has to attest in committee #{ci} of slot #{slot} with index #{i}"
+        "[Validator] #{validator_index} has to attest in committee #{ci} of slot #{slot} with index #{
+          i
+        }"
       )
     end)
 

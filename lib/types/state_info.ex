@@ -65,6 +65,8 @@ defmodule Types.StateInfo do
 
   defp validate_term(other) do
     {:error,
-     "Error when decoding state info binary. Expected a {binary(), binary()} tuple. Found: #{inspect(other)}"}
+     "Error when decoding state info binary. Expected a {binary(), binary()} tuple. Found: #{
+       inspect(other)
+     }"}
   end
 end

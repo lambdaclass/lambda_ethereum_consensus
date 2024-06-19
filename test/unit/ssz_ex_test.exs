@@ -4,12 +4,12 @@ defmodule Unit.SSZExTest do
   alias SszEx.Error
   alias SszEx.Merkleization
 
-  alias Types.BeaconBlock
-  alias Types.BeaconBlockBody
-  alias Types.Checkpoint
-  alias Types.Eth1Data
-  alias Types.ExecutionPayload
-  alias Types.SyncAggregate
+ alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+ alias LambdaEthereumConsensus.Types.Base.BeaconBlockBody
+ alias LambdaEthereumConsensus.Types.Base.Checkpoint
+ alias LambdaEthereumConsensus.Types.Base.Eth1Data
+ alias LambdaEthereumConsensus.Types.Base.ExecutionPayload
+ alias LambdaEthereumConsensus.Types.Base.SyncAggregate
 
   use ExUnit.Case
 

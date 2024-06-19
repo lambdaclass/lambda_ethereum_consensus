@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias Types.EnrForkId
+  alias LambdaEthereumConsensus.Types.Base.EnrForkId
 
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command

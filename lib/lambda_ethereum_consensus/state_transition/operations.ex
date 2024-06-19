@@ -13,16 +13,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
 
-  alias Types.Attestation
-  alias Types.BeaconBlock
-  alias Types.BeaconBlockBody
-  alias Types.BeaconBlockHeader
-  alias Types.BeaconState
-  alias Types.ExecutionPayload
-  alias Types.ExecutionPayloadHeader
-  alias Types.SyncAggregate
-  alias Types.Validator
-  alias Types.Withdrawal
+ alias LambdaEthereumConsensus.Types.Base.Attestation
+ alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+ alias LambdaEthereumConsensus.Types.Base.BeaconBlockBody
+ alias LambdaEthereumConsensus.Types.Base.BeaconBlockHeader
+ alias LambdaEthereumConsensus.Types.Base.BeaconState
+ alias LambdaEthereumConsensus.Types.Base.ExecutionPayload
+ alias LambdaEthereumConsensus.Types.Base.ExecutionPayloadHeader
+ alias LambdaEthereumConsensus.Types.Base.SyncAggregate
+ alias LambdaEthereumConsensus.Types.Base.Validator
+ alias LambdaEthereumConsensus.Types.Base.Withdrawal
 
   @spec process_block_header(BeaconState.t(), BeaconBlock.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}

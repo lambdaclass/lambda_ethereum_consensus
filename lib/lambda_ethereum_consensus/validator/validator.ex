@@ -245,8 +245,7 @@ defmodule LambdaEthereumConsensus.Validator do
       %{attested?: false} = duty ->
         attest(state, duty)
 
-        new_duties =
-          Duties.replace_attester_duty(state.duties, duty, %{duty | attested?: true})
+        new_duties = Duties.replace_attester_duty(state.duties, duty, %{duty | attested?: true})
 
         %{state | duties: new_duties}
 
@@ -409,7 +408,9 @@ defmodule LambdaEthereumConsensus.Validator do
 
       {:error, reason} ->
         Logger.error(
-          "[Validator] Failed to start building payload for slot #{proposed_slot}. Reason: #{reason}"
+          "[Validator] Failed to start building payload for slot #{proposed_slot}. Reason: #{
+            reason
+          }"
         )
 
         %{state | payload_builder: nil}
