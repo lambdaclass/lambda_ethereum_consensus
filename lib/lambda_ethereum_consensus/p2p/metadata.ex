@@ -1,83 +1,90 @@
 defmodule LambdaEthereumConsensus.P2P.Metadata do
   @moduledoc """
-  This module handles Metadata's genserver to fetch and edit.
+  This module handles node's Metadata (fetch and edit operations).
   """
 
-  use GenServer
-
+  alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.Metadata
+
+  @metadata_prefix "metadata"
 
   ##########################
   ### Public API
   ##########################
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  def init() do
+    Metadata.empty() |> store_metadata()
   end
 
   @spec get_seq_number() :: Types.uint64()
   def get_seq_number() do
-    GenServer.call(__MODULE__, :get_seq_number)
+    %Metadata{seq_number: seq_number} = fetch_metadata!()
+    seq_number
   end
 
   @spec get_metadata() :: Metadata.t()
   def get_metadata() do
-    GenServer.call(__MODULE__, :get_metadata)
+    fetch_metadata!()
   end
 
   @spec set_attnet(non_neg_integer()) :: :ok
-  def set_attnet(i), do: GenServer.cast(__MODULE__, {:set_attestation_subnet, i, true})
+  def set_attnet(i) do
+    metadata = fetch_metadata!()
+    attnets = BitVector.set(metadata.attnets, i)
+    %{metadata | attnets: attnets} |> increment_seqnum() |> store_metadata()
+  end
+
   @spec clear_attnet(non_neg_integer()) :: :ok
-  def clear_attnet(i), do: GenServer.cast(__MODULE__, {:set_attestation_subnet, i, false})
+  def clear_attnet(i) do
+    metadata = fetch_metadata!()
+    attnets = BitVector.clear(metadata.attnets, i)
+    %{metadata | attnets: attnets} |> increment_seqnum() |> store_metadata()
+  end
 
   @spec set_syncnet(non_neg_integer()) :: :ok
-  def set_syncnet(i), do: GenServer.cast(__MODULE__, {:set_sync_committee, i, true})
+  def set_syncnet(i) do
+    metadata = fetch_metadata!()
+    syncnets = BitVector.set(metadata.syncnets, i)
+    %{metadata | syncnets: syncnets} |> increment_seqnum() |> store_metadata()
+  end
+
   @spec clear_syncnet(non_neg_integer()) :: :ok
-  def clear_syncnet(i), do: GenServer.cast(__MODULE__, {:set_sync_committee, i, false})
-
-  ##########################
-  ### GenServer Callbacks
-  ##########################
-
-  @impl true
-  def init(_opts) do
-    Metadata.empty() |> Metadata.store_metadata()
-    {:ok, nil}
-  end
-
-  @impl true
-  def handle_call(:get_seq_number, _, _state) do
-    %Metadata{seq_number: seq_number} = Metadata.fetch_metadata!()
-    {:reply, seq_number, nil}
-  end
-
-  @impl true
-  def handle_call(:get_metadata, _, _metadata), do: {:reply, Metadata.fetch_metadata!(), nil}
-
-  @impl true
-  def handle_cast({:set_attestation_subnet, i, set}, _metadata) do
-    metadata = Metadata.fetch_metadata!()
-    attnets = set_or_clear(metadata.attnets, i, set)
-    %{metadata | attnets: attnets} |> increment_seqnum() |> Metadata.store_metadata()
-    {:noreply, nil}
-  end
-
-  @impl true
-  def handle_cast({:set_sync_committee, i, set}, _metadata) do
-    metadata = Metadata.fetch_metadata!()
-    syncnets = set_or_clear(metadata.syncnets, i, set)
-    %{metadata | syncnets: syncnets} |> increment_seqnum() |> Metadata.store_metadata()
-    {:noreply, nil}
+  def clear_syncnet(i) do
+    metadata = fetch_metadata!()
+    syncnets = BitVector.clear(metadata.syncnets, i)
+    %{metadata | syncnets: syncnets} |> increment_seqnum() |> store_metadata()
   end
 
   ##########################
   ### Private Functions
   ##########################
 
-  @spec set_or_clear(BitVector.t(), non_neg_integer(), boolean()) :: BitVector.t()
-  defp set_or_clear(bitvector, i, true), do: BitVector.set(bitvector, i)
-  defp set_or_clear(bitvector, i, false), do: BitVector.clear(bitvector, i)
-
   defp increment_seqnum(state), do: %{state | seq_number: state.seq_number + 1}
+
+  defp store_metadata(%Metadata{} = map) do
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {Db.put(
+         @metadata_prefix,
+         :erlang.term_to_binary(map)
+       ), %{module: "metadata", action: "persist"}}
+    end)
+  end
+
+  defp fetch_metadata() do
+    result =
+      :telemetry.span([:db, :latency], %{}, fn ->
+        {Db.get(@metadata_prefix), %{module: "metadata", action: "fetch"}}
+      end)
+
+    case result do
+      {:ok, binary} -> {:ok, :erlang.binary_to_term(binary)}
+      :not_found -> result
+    end
+  end
+
+  defp fetch_metadata!() do
+    {:ok, metadata} = fetch_metadata()
+    metadata
+  end
 end
