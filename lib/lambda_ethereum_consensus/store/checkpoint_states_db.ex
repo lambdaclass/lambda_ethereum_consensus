@@ -10,23 +10,27 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.KvSchema
   alias Types.BeaconState
-  alias Types.BeaconState
   alias Types.Checkpoint
 
   use KvSchema
 
   @impl KvSchema
+  @spec encode_key(Checkpoint.t()) :: {:ok, binary()} | {:error, binary()}
   def encode_key(checkpoint), do: Ssz.to_ssz(checkpoint)
 
   @impl KvSchema
+  @spec decode_key(binary()) :: {:ok, Checkpoint.t()} | {:error, binary()}
   def decode_key(bin), do: Ssz.from_ssz(bin, Checkpoint)
 
   @impl KvSchema
+  @spec encode_value(BeaconState.t()) :: {:ok, binary()} | {:error, binary()}
   def encode_value(state), do: Ssz.to_ssz(state)
 
   @impl KvSchema
+  @spec decode_value(binary()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def decode_value(bin), do: Ssz.from_ssz(bin, BeaconState)
 
+  @spec get_checkpoint_state(Checkpoint.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def get_checkpoint_state(checkpoint) do
     case get(checkpoint) do
       {:ok, state} -> state
@@ -37,7 +41,7 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   defp compute_and_save(checkpoint) do
     with {:ok, state} <- compute_target_checkpoint_state(checkpoint.epoch, checkpoint.root) do
       put(checkpoint, state)
-      state
+      {:ok, state}
     end
   end
 
