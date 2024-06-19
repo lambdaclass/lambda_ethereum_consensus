@@ -159,7 +159,7 @@ defmodule Unit.BeaconApiTest.V1 do
     patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
 
     start_link_supervised!(Libp2pPort)
-    start_link_supervised!(Metadata)
+    Metadata.init()
     identity = Libp2pPort.get_node_identity()
     metadata = Metadata.get_metadata()
 
