@@ -33,15 +33,14 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   @spec get_checkpoint_state(Checkpoint.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def get_checkpoint_state(checkpoint) do
     case get(checkpoint) do
-      {:ok, state} -> state
-      :not_found -> compute_and_save(checkpoint)
-    end
-  end
+      {:ok, state} ->
+        {:ok, state}
 
-  defp compute_and_save(checkpoint) do
-    with {:ok, state} <- compute_target_checkpoint_state(checkpoint.epoch, checkpoint.root) do
-      put(checkpoint, state)
-      {:ok, state}
+      :not_found ->
+        with {:ok, state} <- compute_target_checkpoint_state(checkpoint.epoch, checkpoint.root) do
+          put(checkpoint, state)
+          {:ok, state}
+        end
     end
   end
 
