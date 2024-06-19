@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.P2P.Metadata do
   @moduledoc """
-  This module handles node's Metadata (fetch and edit operations).
+  This module handles node's Metadata (fetch and edit).
   """
 
   alias LambdaEthereumConsensus.Store.Db
