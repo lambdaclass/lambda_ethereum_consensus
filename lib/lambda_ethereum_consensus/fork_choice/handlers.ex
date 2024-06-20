@@ -13,19 +13,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
- alias LambdaEthereumConsensus.Types.Base.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
 
- alias LambdaEthereumConsensus.Types.Base.Attestation
- alias LambdaEthereumConsensus.Types.Base.AttestationData
- alias LambdaEthereumConsensus.Types.Base.AttesterSlashing
- alias LambdaEthereumConsensus.Types.Base.BeaconBlock
- alias LambdaEthereumConsensus.Types.Base.BeaconState
- alias LambdaEthereumConsensus.Types.Base.BlockInfo
- alias LambdaEthereumConsensus.Types.Base.Checkpoint
- alias LambdaEthereumConsensus.Types.Base.IndexedAttestation
- alias LambdaEthereumConsensus.Types.Base.NewPayloadRequest
- alias LambdaEthereumConsensus.Types.Base.StateInfo
- alias LambdaEthereumConsensus.Types.Base.Store
+  alias LambdaEthereumConsensus.Types.Base.Attestation
+  alias LambdaEthereumConsensus.Types.Base.AttestationData
+  alias LambdaEthereumConsensus.Types.Base.AttesterSlashing
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.Checkpoint
+  alias LambdaEthereumConsensus.Types.Base.IndexedAttestation
+  alias LambdaEthereumConsensus.Types.Base.NewPayloadRequest
+  alias LambdaEthereumConsensus.Types.Base.StateInfo
+  alias LambdaEthereumConsensus.Types.Base.Store
 
   import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
 

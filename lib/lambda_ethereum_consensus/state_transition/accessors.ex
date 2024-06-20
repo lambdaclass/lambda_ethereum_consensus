@@ -10,11 +10,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias LambdaEthereumConsensus.Utils
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.Randao
- alias LambdaEthereumConsensus.Types.Base.Attestation
- alias LambdaEthereumConsensus.Types.Base.BeaconState
- alias LambdaEthereumConsensus.Types.Base.IndexedAttestation
- alias LambdaEthereumConsensus.Types.Base.SyncCommittee
- alias LambdaEthereumConsensus.Types.Base.Validator
+  alias LambdaEthereumConsensus.Types.Base.Attestation
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.IndexedAttestation
+  alias LambdaEthereumConsensus.Types.Base.SyncCommittee
+  alias LambdaEthereumConsensus.Types.Base.Validator
 
   @max_random_byte 2 ** 8 - 1
 

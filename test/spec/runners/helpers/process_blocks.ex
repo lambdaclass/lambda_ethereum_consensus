@@ -7,9 +7,9 @@ defmodule Helpers.ProcessBlocks do
 
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.Utils.Diff
- alias LambdaEthereumConsensus.Types.Base.BeaconState
- alias LambdaEthereumConsensus.Types.Base.BlockInfo
- alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
 
   def process_blocks(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)

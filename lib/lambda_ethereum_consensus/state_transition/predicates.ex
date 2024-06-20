@@ -5,8 +5,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
- alias LambdaEthereumConsensus.Types.Base.BeaconState
- alias LambdaEthereumConsensus.Types.Base.Validator
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.Validator
 
   import Bitwise
 

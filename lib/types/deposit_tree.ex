@@ -3,10 +3,10 @@ defmodule Types.DepositTree do
   Pruned Merkle tree, for use in block production.
   Implementation adapted from [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881).
   """
- alias LambdaEthereumConsensus.Types.Base.Deposit
- alias LambdaEthereumConsensus.Types.Base.DepositData
- alias LambdaEthereumConsensus.Types.Base.DepositTreeSnapshot
- alias LambdaEthereumConsensus.Types.Base.Eth1Data
+  alias LambdaEthereumConsensus.Types.Base.Deposit
+  alias LambdaEthereumConsensus.Types.Base.DepositData
+  alias LambdaEthereumConsensus.Types.Base.DepositTreeSnapshot
+  alias LambdaEthereumConsensus.Types.Base.Eth1Data
 
   @tree_depth Constants.deposit_contract_tree_depth()
 
