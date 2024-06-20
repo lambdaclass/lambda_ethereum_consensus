@@ -15,6 +15,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
     blocks = get_filtered_block_tree(store)
     # Execute the LMD-GHOST fork choice
     head = store.justified_checkpoint.root
+    {:ok, justified_state} = CheckpointStates.get_checkpoint_state(store.justified_checkpoint)
 
     # PERF: return just the parent root and the block root in `get_filtered_block_tree`
     Stream.cycle([nil])
@@ -26,15 +27,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
       |> Enum.sort(:desc)
       |> then(fn
         [] -> {:halt, head}
-        c -> {:cont, Enum.max_by(c, &get_weight(store, &1))}
+        c -> {:cont, Enum.max_by(c, &get_weight(store, &1, justified_state))}
       end)
     end)
     |> then(&{:ok, &1})
   end
 
-  defp get_weight(%Store{} = store, root) do
-    {:ok, state} = CheckpointStates.get_checkpoint_state(store.justified_checkpoint)
-
+  defp get_weight(%Store{} = store, root, state) do
     block = Blocks.get_block!(root)
 
     # PERF: use ``Aja.Vector.foldl``
