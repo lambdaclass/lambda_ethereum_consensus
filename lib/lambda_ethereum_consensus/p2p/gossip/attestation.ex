@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   This module handles attestations from specific gossip subnets.
   Used by validators to fulfill aggregation duties.
   """
-  use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
@@ -13,10 +12,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.Types.Base.SubnetInfo
 
   @behaviour Handler
-
-  def start_link(init_arg) do
-    GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
-  end
 
   @spec join(non_neg_integer()) :: :ok
   def join(subnet_id) do
@@ -29,7 +24,17 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @impl true
   def handle_gossip_message(topic, msg_id, message) do
-    GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
+    subnet_id = extract_subnet_id(topic)
+
+    with {:ok, uncompressed} <- :snappyer.decompress(message),
+         {:ok, attestation} <- Ssz.from_ssz(uncompressed, Types.Attestation) do
+      # TODO: validate before accepting
+      Libp2pPort.validate_message(msg_id, :accept)
+
+      SubnetInfo.add_attestation!(subnet_id, attestation)
+    else
+      {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
+    end
   end
 
   @spec leave(non_neg_integer()) :: :ok
@@ -59,8 +64,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   @spec collect(non_neg_integer(), Types.Attestation.t()) :: :ok
   def collect(subnet_id, attestation) do
-    GenServer.call(__MODULE__, {:collect, subnet_id, attestation})
     join(subnet_id)
+    SubnetInfo.new_subnet_with_attestation(subnet_id, attestation)
+    Libp2pPort.subscribe_to_topic(topic(subnet_id), __MODULE__)
   end
 
   @spec stop_collecting(non_neg_integer()) ::
@@ -70,7 +76,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     topic = topic(subnet_id)
     Libp2pPort.leave_topic(topic)
     Libp2pPort.join_topic(topic)
-    GenServer.call(__MODULE__, {:stop_collecting, subnet_id})
+    SubnetInfo.stop_collecting(subnet_id)
   end
 
   defp topic(subnet_id) do
@@ -96,40 +102,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
       next_fork_version: current_version,
       next_fork_epoch: Constants.far_future_epoch()
     }
-  end
-
-  @impl true
-  def init(_init_arg) do
-    {:ok, nil}
-  end
-
-  @impl true
-  def handle_call({:collect, subnet_id, attestation}, _from, _state) do
-    SubnetInfo.new_subnet_with_attestation(subnet_id, attestation)
-    Libp2pPort.subscribe_to_topic(topic(subnet_id), __MODULE__)
-    {:reply, :ok, nil}
-  end
-
-  def handle_call({:stop_collecting, subnet_id}, _from, _state) do
-    result = SubnetInfo.stop_collecting(subnet_id)
-    {:reply, result, nil}
-  end
-
-  @impl true
-  def handle_cast({:gossipsub, {topic, msg_id, message}}, _state) do
-    subnet_id = extract_subnet_id(topic)
-
-    with {:ok, uncompressed} <- :snappyer.decompress(message),
-         {:ok, attestation} <- Ssz.from_ssz(uncompressed, Types.Attestation) do
-      # TODO: validate before accepting
-      Libp2pPort.validate_message(msg_id, :accept)
-
-      SubnetInfo.add_attestation!(subnet_id, attestation)
-    else
-      {:error, _} -> Libp2pPort.validate_message(msg_id, :reject)
-    end
-
-    {:noreply, nil}
   end
 
   @subnet_id_start byte_size("/eth2/00000000/beacon_attestation_")

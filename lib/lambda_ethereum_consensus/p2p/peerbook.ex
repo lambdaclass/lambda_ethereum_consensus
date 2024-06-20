@@ -28,9 +28,12 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     GenServer.cast(__MODULE__, {:remove_peer, peer_id})
   end
 
+  def handle_new_peer(peer_id) do
+    GenServer.cast(__MODULE__, {:new_peer, peer_id})
+  end
+
   @impl true
   def init(_opts) do
-    Libp2pPort.set_new_peer_handler(self())
     peerbook = %{}
     schedule_pruning()
     {:ok, peerbook}
@@ -53,7 +56,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   end
 
   @impl true
-  def handle_info({:new_peer, peer_id}, peerbook) do
+  def handle_cast({:new_peer, peer_id}, peerbook) do
     if Map.has_key?(peerbook, peer_id) do
       {:noreply, peerbook}
     else
