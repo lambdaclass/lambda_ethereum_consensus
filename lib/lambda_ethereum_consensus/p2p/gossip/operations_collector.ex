@@ -11,12 +11,12 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
   alias LambdaEthereumConsensus.Utils.BitField
-  alias Types.Attestation
-  alias Types.AttesterSlashing
-  alias Types.BeaconBlock
-  alias Types.ProposerSlashing
-  alias Types.SignedBLSToExecutionChange
-  alias Types.SignedVoluntaryExit
+  alias LambdaEthereumConsensus.Types.Base.Attestation
+  alias LambdaEthereumConsensus.Types.Base.AttesterSlashing
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.ProposerSlashing
+  alias LambdaEthereumConsensus.Types.Base.SignedBLSToExecutionChange
+  alias LambdaEthereumConsensus.Types.Base.SignedVoluntaryExit
 
   require Logger
 

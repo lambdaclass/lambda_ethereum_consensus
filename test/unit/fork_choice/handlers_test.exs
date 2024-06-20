@@ -3,7 +3,7 @@ defmodule Unit.ForkChoice.HandlersTest do
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Utils.Diff
-  alias Types.Store
+  alias LambdaEthereumConsensus.Types.Base.Store
 
   doctest Handlers
 

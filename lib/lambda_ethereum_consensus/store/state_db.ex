@@ -5,8 +5,8 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   require Logger
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
-  alias Types.BeaconState
-  alias Types.StateInfo
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.StateInfo
 
   @state_prefix "beacon_state"
   @state_block_prefix "beacon_state_by_state"

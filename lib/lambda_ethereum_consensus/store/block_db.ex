@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   require Logger
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
-  alias Types.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
 
   @block_prefix "blockHash"
   @blockslot_prefix "blockSlot"

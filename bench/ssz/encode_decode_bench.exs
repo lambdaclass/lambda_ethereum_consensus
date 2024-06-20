@@ -1,7 +1,7 @@
 alias LambdaEthereumConsensus.SszEx
 alias LambdaEthereumConsensus.Store.StateDb
-alias Types.BeaconState
-alias Types.Checkpoint
+alias LambdaEthereumConsensus.Types.BeaconState
+alias LambdaEthereumConsensus.Types.Checkpoint
 
 # To run these benchmarks, you need a BeaconState stored in the Db beforehand.
 # The --mode db flag is also needed.

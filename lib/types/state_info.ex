@@ -6,7 +6,7 @@ defmodule Types.StateInfo do
   - encoded: The ssz encoded version of the state. It's common that we save a
     state after
   """
-  alias Types.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
 
   defstruct [:root, :beacon_state, :encoded, :block_root]
 

@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias Types.AttestationData
-  alias Types.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.AttestationData
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
 
   @doc """
     Compute the correct subnet for an attestation.

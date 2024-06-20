@@ -4,7 +4,7 @@ defmodule EpochProcessingTestRunner do
   """
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.Utils.Diff
-  alias Types.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
 
   use ExUnit.CaseTemplate
   use TestRunner

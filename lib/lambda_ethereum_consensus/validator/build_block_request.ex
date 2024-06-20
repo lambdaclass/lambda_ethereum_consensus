@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.Validator.BuildBlockRequest do
   Most of the data is already validated when computing the state
   transition, so this focuses on cheap validations.
   """
-  alias Types.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
 
   enforced_keys = [:slot, :proposer_index, :parent_root, :privkey]
 

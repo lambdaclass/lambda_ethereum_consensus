@@ -8,12 +8,12 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias Types.BeaconBlock
-  alias Types.BeaconState
-  alias Types.BlockInfo
-  alias Types.Checkpoint
-  alias Types.SignedBeaconBlock
-  alias Types.StateInfo
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.Checkpoint
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.StateInfo
 
   defstruct [
     :time,

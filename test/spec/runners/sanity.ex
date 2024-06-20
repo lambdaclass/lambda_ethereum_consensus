@@ -8,7 +8,7 @@ defmodule SanityTestRunner do
 
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.Utils.Diff
-  alias Types.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
 
   @disabled_block_cases [
     # "activate_and_partial_withdrawal_max_effective_balance",

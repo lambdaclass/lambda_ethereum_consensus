@@ -16,16 +16,16 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
-  alias Types.BeaconBlock
-  alias Types.BeaconBlockBody
-  alias Types.BeaconBlockHeader
-  alias Types.BeaconState
-  alias Types.BlobsBundle
-  alias Types.BlobSidecar
-  alias Types.Eth1Data
-  alias Types.ExecutionPayload
-  alias Types.SignedBeaconBlock
-  alias Types.SignedBeaconBlockHeader
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlockBody
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlockHeader
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BlobsBundle
+  alias LambdaEthereumConsensus.Types.Base.BlobSidecar
+  alias LambdaEthereumConsensus.Types.Base.Eth1Data
+  alias LambdaEthereumConsensus.Types.Base.ExecutionPayload
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlockHeader
 
   require Logger
 

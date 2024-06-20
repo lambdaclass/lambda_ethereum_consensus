@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.ReqResp
-  alias Types.BlobSidecar
+   alias LambdaEthereumConsensus.Types.Base.BlobSidecar
 
   @blobs_by_range_protocol_id "/eth2/beacon_chain/req/blob_sidecars_by_range/1/ssz_snappy"
   @blobs_by_root_protocol_id "/eth2/beacon_chain/req/blob_sidecars_by_root/1/ssz_snappy"

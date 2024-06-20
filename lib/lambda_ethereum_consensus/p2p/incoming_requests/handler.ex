@@ -124,7 +124,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp map_block_result({:ok, block}), do: map_block_result(block)
   defp map_block_result({:error, _}), do: {:error, {2, "Server Error"}}
 
-  alias Types.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
 
   defp map_block_result(%BlockInfo{} = block_info),
     do:

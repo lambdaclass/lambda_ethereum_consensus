@@ -4,11 +4,11 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   """
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
-  alias Types.BlobsBundle
-  alias Types.DepositData
-  alias Types.ExecutionPayload
-  alias Types.NewPayloadRequest
-  alias Types.Withdrawal
+  alias LambdaEthereumConsensus.Types.Base.BlobsBundle
+  alias LambdaEthereumConsensus.Types.Base.DepositData
+  alias LambdaEthereumConsensus.Types.Base.ExecutionPayload
+  alias LambdaEthereumConsensus.Types.Base.NewPayloadRequest
+  alias LambdaEthereumConsensus.Types.Base.Withdrawal
 
   require Logger
 

@@ -7,10 +7,10 @@ defmodule BeaconApi.Helpers do
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
-  alias Types.StateInfo
+  alias LambdaEthereumConsensus.Types.Base.StateInfo
 
-  alias Types.BeaconState
-  alias Types.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
 
   @type named_root() :: :genesis | :justified | :finalized | :head
   @type block_id() :: named_root() | :invalid_id | Types.slot() | Types.root()

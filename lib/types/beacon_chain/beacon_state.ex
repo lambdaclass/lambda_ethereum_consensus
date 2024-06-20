@@ -9,7 +9,7 @@ defmodule Types.BeaconState do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias Types.ExecutionPayloadHeader
+  alias LambdaEthereumConsensus.Types.Base.ExecutionPayloadHeader
 
   fields = [
     :genesis_time,

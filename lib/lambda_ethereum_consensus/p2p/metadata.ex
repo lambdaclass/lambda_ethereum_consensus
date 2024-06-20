@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   use GenServer
 
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias Types.Metadata
+  alias LambdaEthereumConsensus.Types.Base.Metadata
 
   ##########################
   ### Public API

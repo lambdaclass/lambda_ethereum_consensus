@@ -2,8 +2,8 @@ defmodule BlocksTest do
   use ExUnit.Case
   alias Fixtures.Block
   alias LambdaEthereumConsensus.Store.Blocks
-  alias Types.BeaconBlock
-  alias Types.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
 
   setup %{tmp_dir: tmp_dir} do
     start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})

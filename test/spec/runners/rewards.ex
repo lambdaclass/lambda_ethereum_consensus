@@ -4,7 +4,7 @@ defmodule RewardsTestRunner do
   """
   use ExUnit.CaseTemplate
   use TestRunner
-  alias Types.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
 
   @disabled [
     # "basic",

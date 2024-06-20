@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias LambdaEthereumConsensus.Validator.Duties
   alias LambdaEthereumConsensus.Validator.Utils
-  alias Types.Attestation
+  alias LambdaEthereumConsensus.Types.Base.Attestation
 
   @default_graffiti_message "Lambda, so gentle, so good"
 

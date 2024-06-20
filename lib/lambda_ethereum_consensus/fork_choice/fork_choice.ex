@@ -16,9 +16,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
   alias LambdaEthereumConsensus.Validator.ValidatorManager
-  alias Types.Attestation
-  alias Types.BlockInfo
-  alias Types.Store
+  alias LambdaEthereumConsensus.Types.Base.Attestation
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.Store
 
   ##########################
   ### Public API

@@ -6,7 +6,7 @@ defmodule Types.BlockInfo do
   signed_block field may be nil if it's queued for download.
   """
 
-  alias Types.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
 
   @type block_status ::
           :pending

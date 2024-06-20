@@ -7,9 +7,9 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   use Tesla
   plug(Tesla.Middleware.JSON)
 
-  alias Types.BeaconState
-  alias Types.DepositTreeSnapshot
-  alias Types.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.DepositTreeSnapshot
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
 
   @doc """
   Safely retrieves the last finalized state and block

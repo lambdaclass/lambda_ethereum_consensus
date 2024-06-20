@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   """
   alias LambdaEthereumConsensus.Store.LRUCache
   alias LambdaEthereumConsensus.Store.StateDb
-  alias Types.StateInfo
+  alias LambdaEthereumConsensus.Types.Base.StateInfo
 
   @table :states_by_block_hash
   @max_entries 128

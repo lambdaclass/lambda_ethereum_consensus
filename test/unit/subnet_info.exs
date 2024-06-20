@@ -1,8 +1,8 @@
 defmodule Unit.AttestationTest do
   alias LambdaEthereumConsensus.Store.Db
-  alias Types.AttestationData
-  alias Types.Checkpoint
-  alias Types.SubnetInfo
+  alias LambdaEthereumConsensus.Types.Base.AttestationData
+  alias LambdaEthereumConsensus.Types.Base.Checkpoint
+  alias LambdaEthereumConsensus.Types.Base.SubnetInfo
 
   use ExUnit.Case
   use Patch

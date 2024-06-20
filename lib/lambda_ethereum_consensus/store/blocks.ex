@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   """
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.LRUCache
-  alias Types.BeaconBlock
-  alias Types.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
 
   @table :blocks_by_hash
   @max_entries 512

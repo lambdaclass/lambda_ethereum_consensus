@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.ReqResp
-  alias Types.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
 
   @blocks_by_range_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_range/2/ssz_snappy"
   @blocks_by_root_protocol_id "/eth2/beacon_chain/req/beacon_blocks_by_root/2/ssz_snappy"

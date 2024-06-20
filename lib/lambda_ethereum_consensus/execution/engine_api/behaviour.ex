@@ -3,8 +3,8 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Behaviour do
   Execution Layer Engine API behaviour
   """
 
-  alias Types.BlobsBundle
-  alias Types.ExecutionPayload
+  alias LambdaEthereumConsensus.Types.Base.BlobsBundle
+  alias LambdaEthereumConsensus.Types.Base.ExecutionPayload
 
   @type forkchoice_state_v1 :: %{
           finalized_block_hash: Types.hash32(),

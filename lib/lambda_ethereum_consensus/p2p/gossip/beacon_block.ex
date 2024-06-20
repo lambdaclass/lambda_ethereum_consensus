@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
-  alias Types.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
 
   require Logger
   @behaviour Handler

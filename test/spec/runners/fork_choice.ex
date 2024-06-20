@@ -10,11 +10,11 @@ defmodule ForkChoiceTestRunner do
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
-  alias Types.BeaconBlock
-  alias Types.BeaconState
-  alias Types.BlockInfo
-  alias Types.SignedBeaconBlock
-  alias Types.Store
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.Store
 
   @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella"}), do: false

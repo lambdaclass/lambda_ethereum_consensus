@@ -2,7 +2,7 @@ defmodule Types.NewPayloadRequest do
   @moduledoc """
   Struct received by `ExecutionClient.verify_and_notify_new_payload`.
   """
-  alias Types.ExecutionPayload
+  alias LambdaEthereumConsensus.Types.Base.ExecutionPayload
 
   @enforce_keys [:execution_payload]
   defstruct [:execution_payload, :versioned_hashes, :parent_beacon_block_root]

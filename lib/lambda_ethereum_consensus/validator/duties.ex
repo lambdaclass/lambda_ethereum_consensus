@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Utils
-  alias Types.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
 
   require Logger
 

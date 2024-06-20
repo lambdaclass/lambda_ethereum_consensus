@@ -5,10 +5,10 @@ defmodule Unit.Validator.BlockBuilderTest do
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Validator.BlockBuilder
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
-  alias Types.BeaconBlockBody
-  alias Types.BeaconState
-  alias Types.BlockInfo
-  alias Types.SignedBeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlockBody
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.BlockInfo
+  alias LambdaEthereumConsensus.Types.Base.SignedBeaconBlock
 
   use ExUnit.Case
 

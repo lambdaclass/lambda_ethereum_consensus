@@ -6,17 +6,17 @@ defmodule OperationsTestRunner do
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Utils.Diff
 
-  alias Types.Attestation
-  alias Types.AttesterSlashing
-  alias Types.BeaconBlock
-  alias Types.BeaconBlockBody
-  alias Types.BeaconState
-  alias Types.Deposit
-  alias Types.ExecutionPayload
-  alias Types.ProposerSlashing
-  alias Types.SignedBLSToExecutionChange
-  alias Types.SignedVoluntaryExit
-  alias Types.SyncAggregate
+  alias LambdaEthereumConsensus.Types.Base.Attestation
+  alias LambdaEthereumConsensus.Types.Base.AttesterSlashing
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlock
+  alias LambdaEthereumConsensus.Types.Base.BeaconBlockBody
+  alias LambdaEthereumConsensus.Types.Base.BeaconState
+  alias LambdaEthereumConsensus.Types.Base.Deposit
+  alias LambdaEthereumConsensus.Types.Base.ExecutionPayload
+  alias LambdaEthereumConsensus.Types.Base.ProposerSlashing
+  alias LambdaEthereumConsensus.Types.Base.SignedBLSToExecutionChange
+  alias LambdaEthereumConsensus.Types.Base.SignedVoluntaryExit
+  alias LambdaEthereumConsensus.Types.Base.SyncAggregate
 
   use ExUnit.CaseTemplate
   use TestRunner

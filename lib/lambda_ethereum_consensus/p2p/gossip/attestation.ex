@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias Types.SubnetInfo
+  alias LambdaEthereumConsensus.Types.Base.SubnetInfo
 
   @behaviour Handler
 

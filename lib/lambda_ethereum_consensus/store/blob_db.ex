@@ -6,8 +6,8 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
 
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
-  alias Types.Blobdata
-  alias Types.BlobSidecar
+  alias LambdaEthereumConsensus.Types.Base.Blobdata
+  alias LambdaEthereumConsensus.Types.Base.BlobSidecar
 
   @blob_sidecar_prefix "blob_sidecar"
   @blobdata_prefix "blobdata"
