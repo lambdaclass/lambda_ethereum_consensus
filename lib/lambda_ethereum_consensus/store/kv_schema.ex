@@ -94,8 +94,7 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
         :telemetry.span([:db, :latency], %{}, fn -> {f.(), %{module: @prefix, action: action}} end)
       end
 
-      # TODO: evaluate having these as different metrics.
-
+      # Encodes the key with the prefix, and measures the time it takes.
       defp do_encode_key(key) do
         db_span("encode_key", fn ->
           with {:ok, encoded_key} <- encode_key(key) do
@@ -104,6 +103,7 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
         end)
       end
 
+      # Decodes the key with the prefix, and measures the time it takes.
       defp do_decode_key(key) do
         db_span("decode_key", fn ->
           @prefix <> no_prefix_key = key
