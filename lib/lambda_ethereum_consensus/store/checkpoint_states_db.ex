@@ -80,8 +80,11 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
            delete(key)
            acc + 1
          end) do
-      {:ok, amount} -> Logger.info("Pruned #{amount} checkpoint states")
-      {:error, reason} -> Logger.error("Error while pruning checkpoint states: #{reason}")
+      {:ok, amount} ->
+        Logger.info("Pruned #{amount} checkpoint states")
+
+      {:error, reason} ->
+        Logger.error("Error while pruning checkpoint states: #{inspect(reason)}")
     end
   end
 end

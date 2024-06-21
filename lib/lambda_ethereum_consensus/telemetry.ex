@@ -131,6 +131,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
         unit: {:native, :millisecond},
         tags: [:module, :action]
       ),
+      counter("db.latency.stop.duration", unit: {:native, :millisecond}, tags: [:module, :action]),
 
       # ForkChoice Metrics
       last_value("fork_choice.recompute_head.stop.duration",
