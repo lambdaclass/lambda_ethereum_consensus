@@ -94,9 +94,26 @@ defmodule Unit.Store.KvSchemaTest do
   test "Folding stops if there is a different schema" do
     TupleSchema.put({1, 2}, [])
     NumberSchema.put(1, %{"a" => "b"})
-    NumberSchema.put(2, %{b: 3})
+    NumberSchema.put(5, %{b: 3})
     NumberSchema.put(70, %{c: 5})
 
-    assert {:ok, 3} == NumberSchema.fold(70, 0, fn n, acc -> acc + n end)
+    assert {:ok, 6} == NumberSchema.fold(70, 0, fn n, acc -> acc + n end)
+  end
+
+  @tag :tmp_dir
+  test "Folding stops if no other schema" do
+    NumberSchema.put(100, %{"a" => "b"})
+    NumberSchema.put(200, %{b: 3})
+    NumberSchema.put(700, %{c: 5})
+
+    assert {:ok, 300} == NumberSchema.fold(700, 0, fn n, acc -> acc + n end)
+  end
+
+  @tag :tmp_dir
+  test "Folding errors if failing to find the starting key" do
+    NumberSchema.put(1, %{"a" => "b"})
+    NumberSchema.put(5, %{b: 3})
+
+    {:error, _} = NumberSchema.fold(3, 0, fn n, acc -> acc + n end)
   end
 end
