@@ -13,6 +13,9 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   ### Public API
   ##########################
 
+  @doc """
+  Initializes the table in the db by creating and storing empty metadata.
+  """
   def init() do
     Metadata.empty() |> store_metadata()
   end
@@ -30,35 +33,31 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
 
   @spec set_attnet(non_neg_integer()) :: :ok
   def set_attnet(i) do
-    metadata = fetch_metadata!()
-    attnets = BitVector.set(metadata.attnets, i)
-    %{metadata | attnets: attnets} |> increment_seqnum() |> store_metadata()
+    update_metadata(fn metadata -> Map.update!(metadata, :attnets, &BitVector.set(&1, i)) end)
   end
 
   @spec clear_attnet(non_neg_integer()) :: :ok
   def clear_attnet(i) do
-    metadata = fetch_metadata!()
-    attnets = BitVector.clear(metadata.attnets, i)
-    %{metadata | attnets: attnets} |> increment_seqnum() |> store_metadata()
+    update_metadata(fn metadata -> Map.update!(metadata, :attnets, &BitVector.clear(&1, i)) end)
   end
 
   @spec set_syncnet(non_neg_integer()) :: :ok
   def set_syncnet(i) do
-    metadata = fetch_metadata!()
-    syncnets = BitVector.set(metadata.syncnets, i)
-    %{metadata | syncnets: syncnets} |> increment_seqnum() |> store_metadata()
+    update_metadata(fn metadata -> Map.update!(metadata, :syncnets, &BitVector.set(&1, i)) end)
   end
 
   @spec clear_syncnet(non_neg_integer()) :: :ok
   def clear_syncnet(i) do
-    metadata = fetch_metadata!()
-    syncnets = BitVector.clear(metadata.syncnets, i)
-    %{metadata | syncnets: syncnets} |> increment_seqnum() |> store_metadata()
+    update_metadata(fn metadata -> Map.update!(metadata, :syncnets, &BitVector.clear(&1, i)) end)
   end
 
   ##########################
   ### Private Functions
   ##########################
+
+  defp update_metadata(f) when is_function(f) do
+    fetch_metadata!() |> f.() |> increment_seqnum() |> store_metadata()
+  end
 
   defp increment_seqnum(state), do: %{state | seq_number: state.seq_number + 1}
 
@@ -72,14 +71,11 @@ defmodule LambdaEthereumConsensus.P2P.Metadata do
   end
 
   defp fetch_metadata() do
-    result =
-      :telemetry.span([:db, :latency], %{}, fn ->
-        {Db.get(@metadata_prefix), %{module: "metadata", action: "fetch"}}
-      end)
-
-    case result do
-      {:ok, binary} -> {:ok, :erlang.binary_to_term(binary)}
-      :not_found -> result
+    with {:ok, binary} <-
+           :telemetry.span([:db, :latency], %{}, fn ->
+             {Db.get(@metadata_prefix), %{module: "metadata", action: "fetch"}}
+           end) do
+      {:ok, :erlang.binary_to_term(binary)}
     end
   end
 
