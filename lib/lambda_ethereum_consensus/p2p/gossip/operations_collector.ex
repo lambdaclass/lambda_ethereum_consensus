@@ -40,56 +40,89 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     "bls_to_execution_change"
   ]
 
-  def start() do
-    Enum.each(topics(), fn topic ->
+  def subscribe_to_topics() do
+    Enum.reduce_while(topics(), :ok, fn topic, _acc ->
       case Libp2pPort.subscribe_to_topic(topic, __MODULE__) do
         :ok ->
-          :ok
+          {:cont, :ok}
 
         {:error, reason} ->
-          raise "[OperationsCollector] Subscription failed: '#{reason}'"
+          {:halt, {:error, "[OperationsCollector] Subscription failed: '#{reason}'"}}
       end
     end)
   end
 
   @spec get_bls_to_execution_changes(non_neg_integer()) :: list(SignedBLSToExecutionChange.t())
   def get_bls_to_execution_changes(count) do
-    get_operation({:get, :bls_to_execution_change, count})
+    get_operation(:bls_to_execution_change, count)
   end
 
   @spec get_attester_slashings(non_neg_integer()) :: list(AttesterSlashing.t())
   def get_attester_slashings(count) do
-    get_operation({:get, :attester_slashing, count})
+    get_operation(:attester_slashing, count)
   end
 
   @spec get_proposer_slashings(non_neg_integer()) :: list(ProposerSlashing.t())
   def get_proposer_slashings(count) do
-    get_operation({:get, :proposer_slashing, count})
+    get_operation(:proposer_slashing, count)
   end
 
   @spec get_voluntary_exits(non_neg_integer()) :: list(SignedVoluntaryExit.t())
   def get_voluntary_exits(count) do
-    get_operation({:get, :voluntary_exit, count})
+    get_operation(:voluntary_exit, count)
   end
 
   @spec get_attestations(non_neg_integer()) :: list(Attestation.t())
   def get_attestations(count) do
-    get_operation({:get, :attestation, count})
+    get_operation(:attestation, count)
   end
 
   @spec notify_new_block(BeaconBlock.t()) :: :ok
   def notify_new_block(%BeaconBlock{} = block) do
-    operations = %{
-      bls_to_execution_changes: block.body.bls_to_execution_changes,
-      attester_slashings: block.body.attester_slashings,
-      proposer_slashings: block.body.proposer_slashings,
-      voluntary_exits: block.body.voluntary_exits,
-      attestations: block.body.attestations
-    }
+    indices =
+      block.body.bls_to_execution_changes
+      |> MapSet.new(& &1.message.validator_index)
 
-    filter_messages(block.slot, operations)
+    update_operation(:bls_to_execution_change, fn values ->
+      Enum.reject(values, &MapSet.member?(indices, &1.message.validator_index))
+    end)
+
+    # TODO: improve AttesterSlashing filtering
+    update_operation(:attester_slashing, fn values ->
+      Enum.reject(values, &Enum.member?(block.body.attester_slashings, &1))
+    end)
+
+    slashed_proposers =
+      block.body.proposer_slashings |> MapSet.new(& &1.signed_header_1.message.proposer_index)
+
+    update_operation(:proposer_slashing, fn values ->
+      Enum.reject(
+        values,
+        &MapSet.member?(slashed_proposers, &1.signed_header_1.message.proposer_index)
+      )
+    end)
+
+    exited = block.body.voluntary_exits |> MapSet.new(& &1.message.validator_index)
+
+    update_operation(:voluntary_exit, fn values ->
+      Enum.reject(values, &MapSet.member?(exited, &1.message.validator_index))
+    end)
+
+    # TODO: improve attestation filtering
+    added_attestations = MapSet.new(block.body.attestations)
+
+    update_operation(:attestation, fn values ->
+      Stream.reject(values, &MapSet.member?(added_attestations, &1))
+      |> Enum.reject(&old_attestation?(&1, block.slot))
+    end)
+
+    store_slot(block.slot)
   end
 
+  @doc """
+  1. Joins all the necessary topics (`@topic_msgs`)
+  2. Initializes the tables in the db by creating and storing empty operations.
+  """
   def init() do
     topics = topics()
     Enum.each(topics, &Libp2pPort.join_topic/1)
@@ -97,7 +130,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     Enum.each(@operations, fn operation -> store_operation(operation, []) end)
   end
 
-  defp get_operation({:get, operation, count}) when operation in @operations do
+  defp get_operation(operation, count) when operation in @operations do
     # NOTE: we don't remove these from the db, since after a block is built
     #  :new_block will be called, and already added messages will be removed
 
@@ -205,44 +238,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     store_operation(operation, new_msgs)
   end
 
-  defp filter_messages(slot, operations) do
-    indices =
-      operations.bls_to_execution_changes
-      |> MapSet.new(& &1.message.validator_index)
-
-    fetch_operation!(:bls_to_execution_change)
-    |> Enum.reject(&MapSet.member?(indices, &1.message.validator_index))
-    |> then(&store_operation(:bls_to_execution_change, &1))
-
-    # TODO: improve AttesterSlashing filtering
-    fetch_operation!(:attester_slashing)
-    |> Enum.reject(&Enum.member?(operations.attester_slashings, &1))
-    |> then(&store_operation(:attester_slashing, &1))
-
-    slashed_proposers =
-      operations.proposer_slashings |> MapSet.new(& &1.signed_header_1.message.proposer_index)
-
-    fetch_operation!(:proposer_slashing)
-    |> Enum.reject(&MapSet.member?(slashed_proposers, &1.signed_header_1.message.proposer_index))
-    |> then(&store_operation(:proposer_slashing, &1))
-
-    exited = operations.voluntary_exits |> MapSet.new(& &1.message.validator_index)
-
-    fetch_operation!(:voluntary_exit)
-    |> Enum.reject(&MapSet.member?(exited, &1.message.validator_index))
-    |> then(&store_operation(:voluntary_exit, &1))
-
-    # TODO: improve attestation filtering
-    added_attestations = MapSet.new(operations.attestations)
-
-    fetch_operation!(:attestation)
-    |> Stream.reject(&MapSet.member?(added_attestations, &1))
-    |> Enum.reject(&old_attestation?(&1, slot))
-    |> then(&store_operation(:attestation, &1))
-
-    store_slot(slot)
-  end
-
   defp old_attestation?(%Attestation{data: data}, slot) do
     current_epoch = Misc.compute_epoch_at_slot(slot + 1)
     data.target.epoch not in [current_epoch, current_epoch - 1]
@@ -255,6 +250,12 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   defp ignore?(_, _), do: false
+
+  defp update_operation(operation, f) when is_function(f) do
+    fetch_operation!(operation)
+    |> f.()
+    |> then(&store_operation(operation, &1))
+  end
 
   defp store_operation(operation, value) do
     :telemetry.span([:db, :latency], %{}, fn ->
