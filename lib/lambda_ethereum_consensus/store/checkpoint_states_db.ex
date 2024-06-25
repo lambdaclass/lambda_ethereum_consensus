@@ -74,14 +74,14 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   """
   @spec prune(Checkpoint.t()) :: :ok
   def prune(finalized_checkpoint) do
-    Logger.info("Pruning old checkpoint states")
+    Logger.debug("Pruning old checkpoint states")
 
     case fold(finalized_checkpoint, 0, fn key, acc ->
            delete(key)
            acc + 1
          end) do
       {:ok, amount} ->
-        Logger.info("Pruned #{amount} checkpoint states")
+        Logger.debug("Pruned #{amount} checkpoint states")
 
       {:error, reason} ->
         Logger.error("Error while pruning checkpoint states: #{inspect(reason)}")

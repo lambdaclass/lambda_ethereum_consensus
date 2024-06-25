@@ -407,6 +407,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     if target.epoch in [current_epoch, previous_epoch], do: :ok, else: {:error, "future epoch"}
   end
 
+  @doc """
+  Removes the checkpoint states that are prior to the store's finalized checkpoint from
+  the key-value store.
+  """
   def prune_checkpoint_states(%Store{} = store) do
     CheckpointStates.prune(store.finalized_checkpoint)
   end
