@@ -294,6 +294,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     if join_init_topics, do: join_init_topics(port)
 
+    Peerbook.init()
+
     {:ok, %{port: port, subscriptors: %{}}}
   end
 

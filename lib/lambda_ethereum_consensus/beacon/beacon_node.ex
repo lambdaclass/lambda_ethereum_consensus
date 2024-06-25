@@ -50,7 +50,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         {LambdaEthereumConsensus.Beacon.BeaconChain,
          {store.genesis_time, genesis_validators_root, fork_choice_data, time}},
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
-        LambdaEthereumConsensus.P2P.Peerbook,
         LambdaEthereumConsensus.P2P.IncomingRequests,
         LambdaEthereumConsensus.Beacon.PendingBlocks,
         LambdaEthereumConsensus.Beacon.SyncBlocks,
