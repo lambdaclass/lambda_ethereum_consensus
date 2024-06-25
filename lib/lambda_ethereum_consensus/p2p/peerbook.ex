@@ -4,12 +4,14 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   """
   use GenServer
   alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.Store.Db
 
   @initial_score 100
   @prune_interval 2000
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
+  @peerbook_prefix "peerbook"
 
   @metadata_protocol_id "/eth2/beacon_chain/req/metadata/2/ssz_snappy"
 
@@ -32,67 +34,75 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     GenServer.cast(__MODULE__, {:new_peer, peer_id})
   end
 
+  @doc """
+    Initializes the table in the db by storing an empty peerbook.
+  """
   @impl true
   def init(_opts) do
-    peerbook = %{}
+    store_peerbook(%{})
     schedule_pruning()
-    {:ok, peerbook}
+    {:ok, nil}
   end
 
   @impl true
   def handle_call(:get_some_peer, _, map) when map == %{}, do: {:reply, nil, %{}}
 
   @impl true
-  def handle_call(:get_some_peer, _, peerbook) do
+  def handle_call(:get_some_peer, _, _peerbook) do
     # TODO: use some algorithm to pick a good peer, for now it's random
-    {peer_id, _score} = Enum.random(peerbook)
-    {:reply, peer_id, peerbook}
-  end
+    peerbook = fetch_peerbook!()
 
-  @impl true
-  def handle_cast({:remove_peer, peer_id}, peerbook) do
-    updated_peerbook = Map.delete(peerbook, peer_id)
-    {:noreply, updated_peerbook}
-  end
-
-  @impl true
-  def handle_cast({:new_peer, peer_id}, peerbook) do
-    if Map.has_key?(peerbook, peer_id) do
-      {:noreply, peerbook}
+    if peerbook == %{} do
+      {:reply, nil, nil}
     else
-      :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})
-      updated_peerbook = Map.put(peerbook, peer_id, @initial_score)
-      {:noreply, updated_peerbook}
+      {peer_id, _score} = Enum.random(peerbook)
+      {:reply, peer_id, nil}
     end
   end
 
   @impl true
-  def handle_info(:prune, peerbook) when map_size(peerbook) == 0 do
-    schedule_pruning()
-    {:noreply, peerbook}
+  def handle_cast({:remove_peer, peer_id}, _peerbook) do
+    fetch_peerbook!() |> Map.delete(peer_id) |> store_peerbook()
+    {:noreply, nil}
   end
 
   @impl true
-  def handle_info(:prune, peerbook) do
+  def handle_cast({:new_peer, peer_id}, _peerbook) do
+    peerbook = fetch_peerbook!()
+
+    if Map.has_key?(peerbook, peer_id) do
+      {:noreply, nil}
+    else
+      :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})
+      Map.put(peerbook, peer_id, @initial_score) |> store_peerbook()
+      {:noreply, nil}
+    end
+  end
+
+  @impl true
+  def handle_info(:prune, _peerbook) do
+    peerbook = fetch_peerbook!()
     len = map_size(peerbook)
 
-    prune_size =
-      (len * @prune_percentage)
-      |> round()
-      |> min(@max_prune_size)
-      |> min(len - @target_peers)
-      |> max(0)
+    if len != 0 do
+      prune_size =
+        (len * @prune_percentage)
+        |> round()
+        |> min(@max_prune_size)
+        |> min(len - @target_peers)
+        |> max(0)
 
-    n = :rand.uniform(len)
+      n = :rand.uniform(len)
 
-    peerbook
-    |> Map.keys()
-    |> Stream.drop(n)
-    |> Stream.take(prune_size)
-    |> Enum.each(fn peer_id -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
+      peerbook
+      |> Map.keys()
+      |> Stream.drop(n)
+      |> Stream.take(prune_size)
+      |> Enum.each(fn peer_id -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
+    end
 
     schedule_pruning()
-    {:noreply, peerbook}
+    {:noreply, nil}
   end
 
   def challenge_peer(peer_id) do
@@ -108,5 +118,31 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   def schedule_pruning(interval \\ @prune_interval) do
     Process.send_after(__MODULE__, :prune, interval)
+  end
+
+  defp store_peerbook(peerbook) do
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {Db.put(
+         @peerbook_prefix,
+         :erlang.term_to_binary(peerbook)
+       ), %{module: "peerbook", action: "persist"}}
+    end)
+  end
+
+  defp fetch_peerbook() do
+    result =
+      :telemetry.span([:db, :latency], %{}, fn ->
+        {Db.get(@peerbook_prefix), %{module: "peerbook", action: "fetch"}}
+      end)
+
+    case result do
+      {:ok, binary} -> {:ok, :erlang.binary_to_term(binary)}
+      :not_found -> result
+    end
+  end
+
+  defp fetch_peerbook!() do
+    {:ok, peerbook} = fetch_peerbook()
+    peerbook
   end
 end
