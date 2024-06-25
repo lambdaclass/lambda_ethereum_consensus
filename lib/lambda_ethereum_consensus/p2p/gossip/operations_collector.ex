@@ -2,12 +2,13 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   @moduledoc """
   Module that stores the operations received from gossipsub.
   """
-  use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.Db
+  alias LambdaEthereumConsensus.Store.Utils
   alias LambdaEthereumConsensus.Utils.BitField
   alias Types.Attestation
   alias Types.AttesterSlashing
@@ -19,6 +20,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   require Logger
 
   @behaviour Handler
+
+  @operation_prefix "operation"
+  @slot_prefix "operation_slot"
 
   @operations [
     :bls_to_execution_change,
@@ -36,90 +40,113 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     "bls_to_execution_change"
   ]
 
-  def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  def subscribe_to_topics() do
+    Enum.reduce_while(topics(), :ok, fn topic, _acc ->
+      case Libp2pPort.subscribe_to_topic(topic, __MODULE__) do
+        :ok ->
+          {:cont, :ok}
 
-  def start() do
-    GenServer.call(__MODULE__, :start)
+        {:error, reason} ->
+          {:halt, {:error, "[OperationsCollector] Subscription failed: '#{reason}'"}}
+      end
+    end)
   end
 
   @spec get_bls_to_execution_changes(non_neg_integer()) :: list(SignedBLSToExecutionChange.t())
   def get_bls_to_execution_changes(count) do
-    GenServer.call(__MODULE__, {:get, :bls_to_execution_change, count})
+    get_operation(:bls_to_execution_change, count)
   end
 
   @spec get_attester_slashings(non_neg_integer()) :: list(AttesterSlashing.t())
   def get_attester_slashings(count) do
-    GenServer.call(__MODULE__, {:get, :attester_slashing, count})
+    get_operation(:attester_slashing, count)
   end
 
   @spec get_proposer_slashings(non_neg_integer()) :: list(ProposerSlashing.t())
   def get_proposer_slashings(count) do
-    GenServer.call(__MODULE__, {:get, :proposer_slashing, count})
+    get_operation(:proposer_slashing, count)
   end
 
   @spec get_voluntary_exits(non_neg_integer()) :: list(SignedVoluntaryExit.t())
   def get_voluntary_exits(count) do
-    GenServer.call(__MODULE__, {:get, :voluntary_exit, count})
+    get_operation(:voluntary_exit, count)
   end
 
   @spec get_attestations(non_neg_integer()) :: list(Attestation.t())
   def get_attestations(count) do
-    GenServer.call(__MODULE__, {:get, :attestation, count})
+    get_operation(:attestation, count)
   end
 
   @spec notify_new_block(BeaconBlock.t()) :: :ok
   def notify_new_block(%BeaconBlock{} = block) do
-    operations = %{
-      bls_to_execution_changes: block.body.bls_to_execution_changes,
-      attester_slashings: block.body.attester_slashings,
-      proposer_slashings: block.body.proposer_slashings,
-      voluntary_exits: block.body.voluntary_exits,
-      attestations: block.body.attestations
-    }
+    indices =
+      block.body.bls_to_execution_changes
+      |> MapSet.new(& &1.message.validator_index)
 
-    GenServer.cast(__MODULE__, {:new_block, block.slot, operations})
+    update_operation(:bls_to_execution_change, fn values ->
+      Enum.reject(values, &MapSet.member?(indices, &1.message.validator_index))
+    end)
+
+    # TODO: improve AttesterSlashing filtering
+    update_operation(:attester_slashing, fn values ->
+      Enum.reject(values, &Enum.member?(block.body.attester_slashings, &1))
+    end)
+
+    slashed_proposers =
+      block.body.proposer_slashings |> MapSet.new(& &1.signed_header_1.message.proposer_index)
+
+    update_operation(:proposer_slashing, fn values ->
+      Enum.reject(
+        values,
+        &MapSet.member?(slashed_proposers, &1.signed_header_1.message.proposer_index)
+      )
+    end)
+
+    exited = block.body.voluntary_exits |> MapSet.new(& &1.message.validator_index)
+
+    update_operation(:voluntary_exit, fn values ->
+      Enum.reject(values, &MapSet.member?(exited, &1.message.validator_index))
+    end)
+
+    # TODO: improve attestation filtering
+    added_attestations = MapSet.new(block.body.attestations)
+
+    update_operation(:attestation, fn values ->
+      Stream.reject(values, &MapSet.member?(added_attestations, &1))
+      |> Enum.reject(&old_attestation?(&1, block.slot))
+    end)
+
+    store_slot(block.slot)
   end
 
-  @impl true
-  def handle_gossip_message(topic, msg_id, message) do
-    GenServer.cast(__MODULE__, {:gossipsub, {topic, msg_id, message}})
-  end
-
-  @impl GenServer
-  def init(_init_arg) do
-    topics = get_topic_names()
+  @doc """
+  1. Joins all the necessary topics (`@topic_msgs`)
+  2. Initializes the tables in the db by creating and storing empty operations.
+  """
+  def init() do
+    topics = topics()
     Enum.each(topics, &Libp2pPort.join_topic/1)
-
-    state = Map.new(@operations, &{&1, []}) |> Map.put(:slot, nil) |> Map.put(:topics, topics)
-    {:ok, state}
+    store_slot(nil)
+    Enum.each(@operations, fn operation -> store_operation(operation, []) end)
   end
 
-  @impl true
-  def handle_call(:start, _from, %{topics: topics} = state) do
-    Enum.each(topics, fn topic -> Libp2pPort.subscribe_to_topic(topic, __MODULE__) end)
-    {:reply, :ok, state}
-  end
-
-  @impl GenServer
-  def handle_call({:get, operation, count}, _from, state) when operation in @operations do
-    # NOTE: we don't remove these from the state, since after a block is built
+  defp get_operation(operation, count) when operation in @operations do
+    # NOTE: we don't remove these from the db, since after a block is built
     #  :new_block will be called, and already added messages will be removed
+
+    slot = fetch_slot!()
+
     operations =
-      Map.fetch!(state, operation) |> Stream.filter(&ignore?(&1, state)) |> Enum.take(count)
+      fetch_operation!(operation) |> Stream.reject(&ignore?(&1, slot)) |> Enum.take(count)
 
-    {:reply, operations, state}
-  end
-
-  @impl GenServer
-  def handle_cast({:new_block, slot, operations}, state) do
-    {:noreply, filter_messages(state, slot, operations)}
+    operations
   end
 
   @impl true
-  def handle_cast(
-        {:gossipsub,
-         {<<_::binary-size(15)>> <> "beacon_aggregate_and_proof" <> _, _msg_id, message}},
-        state
+  def handle_gossip_message(
+        <<_::binary-size(15)>> <> "beacon_aggregate_and_proof" <> _,
+        _msg_id,
+        message
       ) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok,
@@ -137,60 +164,63 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
       # We are getting ~500 attestations in half a second. This is overwhelming the store GenServer at the moment.
       # ForkChoice.on_attestation(aggregate)
-      handle_msg({:attestation, aggregate}, state)
+      handle_msg({:attestation, aggregate})
     end
   end
 
   @impl true
-  def handle_cast(
-        {:gossipsub, {<<_::binary-size(15)>> <> "voluntary_exit" <> _, _msg_id, message}},
-        state
+  def handle_gossip_message(
+        <<_::binary-size(15)>> <> "voluntary_exit" <> _,
+        _msg_id,
+        message
       ) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.SignedVoluntaryExit{} = signed_voluntary_exit} <-
            Ssz.from_ssz(uncompressed, Types.SignedVoluntaryExit) do
-      handle_msg({:voluntary_exit, signed_voluntary_exit}, state)
+      handle_msg({:voluntary_exit, signed_voluntary_exit})
     end
   end
 
   @impl true
-  def handle_cast(
-        {:gossipsub, {<<_::binary-size(15)>> <> "proposer_slashing" <> _, _msg_id, message}},
-        state
+  def handle_gossip_message(
+        <<_::binary-size(15)>> <> "proposer_slashing" <> _,
+        _msg_id,
+        message
       ) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.ProposerSlashing{} = proposer_slashing} <-
            Ssz.from_ssz(uncompressed, Types.ProposerSlashing) do
-      handle_msg({:proposer_slashing, proposer_slashing}, state)
+      handle_msg({:proposer_slashing, proposer_slashing})
     end
   end
 
   @impl true
-  def handle_cast(
-        {:gossipsub, {<<_::binary-size(15)>> <> "attester_slashing" <> _, _msg_id, message}},
-        state
+  def handle_gossip_message(
+        <<_::binary-size(15)>> <> "attester_slashing" <> _,
+        _msg_id,
+        message
       ) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.AttesterSlashing{} = attester_slashing} <-
            Ssz.from_ssz(uncompressed, Types.AttesterSlashing) do
-      handle_msg({:attester_slashing, attester_slashing}, state)
+      handle_msg({:attester_slashing, attester_slashing})
     end
   end
 
   @impl true
-  def handle_cast(
-        {:gossipsub,
-         {<<_::binary-size(15)>> <> "bls_to_execution_change" <> _, _msg_id, message}},
-        state
+  def handle_gossip_message(
+        <<_::binary-size(15)>> <> "bls_to_execution_change" <> _,
+        _msg_id,
+        message
       ) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.SignedBLSToExecutionChange{} = bls_to_execution_change} <-
            Ssz.from_ssz(uncompressed, Types.SignedBLSToExecutionChange) do
-      handle_msg({:bls_to_execution_change, bls_to_execution_change}, state)
+      handle_msg({:bls_to_execution_change, bls_to_execution_change})
     end
   end
 
-  defp get_topic_names() do
+  defp topics() do
     fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
 
     topics =
@@ -202,56 +232,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   end
 
   # TODO: filter duplicates
-  defp handle_msg({operation, msg}, state)
+  defp handle_msg({operation, msg})
        when operation in @operations do
-    new_msgs = [msg | Map.fetch!(state, operation)]
-    {:noreply, Map.replace!(state, operation, new_msgs)}
-  end
-
-  defp filter_messages(state, slot, operations) do
-    indices =
-      operations.bls_to_execution_changes
-      |> MapSet.new(& &1.message.validator_index)
-
-    bls_to_execution_changes =
-      state.bls_to_execution_change
-      |> Enum.reject(&MapSet.member?(indices, &1.message.validator_index))
-
-    # TODO: improve AttesterSlashing filtering
-    attester_slashings =
-      state.attester_slashing |> Enum.reject(&Enum.member?(operations.attester_slashings, &1))
-
-    slashed_proposers =
-      operations.proposer_slashings |> MapSet.new(& &1.signed_header_1.message.proposer_index)
-
-    proposer_slashings =
-      state.proposer_slashing
-      |> Enum.reject(
-        &MapSet.member?(slashed_proposers, &1.signed_header_1.message.proposer_index)
-      )
-
-    exited = operations.voluntary_exits |> MapSet.new(& &1.message.validator_index)
-
-    voluntary_exits =
-      state.voluntary_exit |> Enum.reject(&MapSet.member?(exited, &1.message.validator_index))
-
-    # TODO: improve attestation filtering
-    added_attestations = MapSet.new(operations.attestations)
-
-    attestations =
-      state.attestation
-      |> Stream.reject(&MapSet.member?(added_attestations, &1))
-      |> Enum.reject(&old_attestation?(&1, slot))
-
-    %{
-      state
-      | bls_to_execution_change: bls_to_execution_changes,
-        attester_slashing: attester_slashings,
-        proposer_slashing: proposer_slashings,
-        voluntary_exit: voluntary_exits,
-        attestation: attestations,
-        slot: slot
-    }
+    new_msgs = [msg | fetch_operation!(operation)]
+    store_operation(operation, new_msgs)
   end
 
   defp old_attestation?(%Attestation{data: data}, slot) do
@@ -259,11 +243,52 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     data.target.epoch not in [current_epoch, current_epoch - 1]
   end
 
-  defp ignore?(%Attestation{}, %{slot: nil}), do: false
+  defp ignore?(%Attestation{}, nil), do: false
 
-  defp ignore?(%Attestation{data: data}, state) do
-    data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") > state.slot
+  defp ignore?(%Attestation{data: data}, slot) do
+    data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") > slot
   end
 
   defp ignore?(_, _), do: false
+
+  defp update_operation(operation, f) when is_function(f) do
+    fetch_operation!(operation)
+    |> f.()
+    |> then(&store_operation(operation, &1))
+  end
+
+  defp store_operation(operation, value) do
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {Db.put(
+         Utils.get_key(@operation_prefix, Atom.to_string(operation)),
+         :erlang.term_to_binary(value)
+       ), %{module: "operations_collector", action: "persist"}}
+    end)
+  end
+
+  defp fetch_operation!(operation) do
+    {:ok, value} =
+      :telemetry.span([:db, :latency], %{}, fn ->
+        {Db.get(Utils.get_key(@operation_prefix, Atom.to_string(operation))),
+         %{module: "operations_collector", action: "fetch"}}
+      end)
+
+    :erlang.binary_to_term(value)
+  end
+
+  defp store_slot(value) do
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {Db.put(@slot_prefix, :erlang.term_to_binary(value)),
+       %{module: "operations_collector", action: "persist"}}
+    end)
+  end
+
+  defp fetch_slot!() do
+    {:ok, value} =
+      :telemetry.span([:db, :latency], %{}, fn ->
+        {Db.get(@slot_prefix), %{module: "operations_collector", action: "fetch"}}
+      end)
+
+    :erlang.binary_to_term(value)
+  end
 end

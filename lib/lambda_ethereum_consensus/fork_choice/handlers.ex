@@ -13,13 +13,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias Types.BlockInfo
-
+  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias Types.Attestation
   alias Types.AttestationData
   alias Types.AttesterSlashing
   alias Types.BeaconBlock
-  alias Types.BeaconState
   alias Types.BlockInfo
   alias Types.Checkpoint
   alias Types.IndexedAttestation
@@ -27,7 +25,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias Types.StateInfo
   alias Types.Store
 
-  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3, map_ok: 2]
+  import LambdaEthereumConsensus.Utils, only: [if_then_update: 3]
 
   ### Public API ###
 
@@ -127,9 +125,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           {:ok, Store.t()} | {:error, String.t()}
   def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
     with :ok <- check_attestation_valid(store, attestation, is_from_block),
-         {:ok, store} <- store_target_checkpoint_state(store, attestation.data.target),
          # Get state at the `target` to fully validate attestation
-         target_state = store.checkpoint_states[attestation.data.target],
+         {:ok, target_state} <- CheckpointStates.get_checkpoint_state(attestation.data.target),
          {:ok, indexed_attestation} <-
            Accessors.get_indexed_attestation(target_state, attestation),
          :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do
@@ -410,37 +407,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     if target.epoch in [current_epoch, previous_epoch], do: :ok, else: {:error, "future epoch"}
   end
 
-  # Store target checkpoint state if not yet seen
-  def store_target_checkpoint_state(%Store{} = store, %Checkpoint{} = target) do
-    if Map.has_key?(store.checkpoint_states, target) do
-      {:ok, store}
-    else
-      compute_target_checkpoint_state(target.epoch, target.root)
-      |> map_ok(
-        &{:ok, %Store{store | checkpoint_states: Map.put(store.checkpoint_states, target, &1)}}
-      )
-    end
-  end
-
-  @spec compute_target_checkpoint_state(Types.epoch(), Types.root()) ::
-          {:ok, BeaconState.t()} | {:error, String.t()}
-  def compute_target_checkpoint_state(target_epoch, target_root) do
-    target_slot = Misc.compute_start_slot_at_epoch(target_epoch)
-    state = BlockStates.get_state_info!(target_root).beacon_state
-
-    if state.slot < target_slot do
-      StateTransition.process_slots(state, target_slot)
-    else
-      {:ok, state}
-    end
-  end
-
-  def prune_checkpoint_states(%Store{checkpoint_states: checkpoint_states} = store) do
-    finalized_epoch = store.finalized_checkpoint.epoch
-
-    checkpoint_states
-    |> Map.reject(fn {%{epoch: epoch}, _} -> epoch < finalized_epoch end)
-    |> then(&%{store | checkpoint_states: &1})
+  @doc """
+  Removes the checkpoint states that are prior to the store's finalized checkpoint from
+  the key-value store.
+  """
+  def prune_checkpoint_states(%Store{} = store) do
+    CheckpointStates.prune(store.finalized_checkpoint)
   end
 
   def update_latest_messages(%Store{} = store, attesting_indices, %Attestation{data: data}) do

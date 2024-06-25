@@ -1,77 +1,86 @@
 defmodule LambdaEthereumConsensus.P2P.Metadata do
   @moduledoc """
-  This module handles Metadata's genserver to fetch and edit.
+  This module handles node's Metadata (fetch and edit).
   """
 
-  use GenServer
-
+  alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.Metadata
+
+  @metadata_prefix "metadata"
 
   ##########################
   ### Public API
   ##########################
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  @doc """
+  Initializes the table in the db by creating and storing empty metadata.
+  """
+  def init() do
+    Metadata.empty() |> store_metadata()
   end
 
   @spec get_seq_number() :: Types.uint64()
   def get_seq_number() do
-    GenServer.call(__MODULE__, :get_seq_number)
+    %Metadata{seq_number: seq_number} = fetch_metadata!()
+    seq_number
   end
 
   @spec get_metadata() :: Metadata.t()
   def get_metadata() do
-    GenServer.call(__MODULE__, :get_metadata)
+    fetch_metadata!()
   end
 
   @spec set_attnet(non_neg_integer()) :: :ok
-  def set_attnet(i), do: GenServer.cast(__MODULE__, {:set_attestation_subnet, i, true})
+  def set_attnet(i) do
+    update_metadata(fn metadata -> Map.update!(metadata, :attnets, &BitVector.set(&1, i)) end)
+  end
+
   @spec clear_attnet(non_neg_integer()) :: :ok
-  def clear_attnet(i), do: GenServer.cast(__MODULE__, {:set_attestation_subnet, i, false})
+  def clear_attnet(i) do
+    update_metadata(fn metadata -> Map.update!(metadata, :attnets, &BitVector.clear(&1, i)) end)
+  end
 
   @spec set_syncnet(non_neg_integer()) :: :ok
-  def set_syncnet(i), do: GenServer.cast(__MODULE__, {:set_sync_committee, i, true})
+  def set_syncnet(i) do
+    update_metadata(fn metadata -> Map.update!(metadata, :syncnets, &BitVector.set(&1, i)) end)
+  end
+
   @spec clear_syncnet(non_neg_integer()) :: :ok
-  def clear_syncnet(i), do: GenServer.cast(__MODULE__, {:set_sync_committee, i, false})
-
-  ##########################
-  ### GenServer Callbacks
-  ##########################
-
-  @impl true
-  def init(_opts) do
-    {:ok, Metadata.empty()}
-  end
-
-  @impl true
-  def handle_call(:get_seq_number, _, %Metadata{seq_number: seq_number} = metadata) do
-    {:reply, seq_number, metadata}
-  end
-
-  @impl true
-  def handle_call(:get_metadata, _, metadata), do: {:reply, metadata, metadata}
-
-  @impl true
-  def handle_cast({:set_attestation_subnet, i, set}, metadata) do
-    attnets = set_or_clear(metadata.attnets, i, set)
-    {:noreply, %{metadata | attnets: attnets} |> increment_seqnum()}
-  end
-
-  @impl true
-  def handle_cast({:set_sync_committee, i, set}, metadata) do
-    syncnets = set_or_clear(metadata.syncnets, i, set)
-    {:noreply, %{metadata | syncnets: syncnets} |> increment_seqnum()}
+  def clear_syncnet(i) do
+    update_metadata(fn metadata -> Map.update!(metadata, :syncnets, &BitVector.clear(&1, i)) end)
   end
 
   ##########################
   ### Private Functions
   ##########################
 
-  @spec set_or_clear(BitVector.t(), non_neg_integer(), boolean()) :: BitVector.t()
-  defp set_or_clear(bitvector, i, true), do: BitVector.set(bitvector, i)
-  defp set_or_clear(bitvector, i, false), do: BitVector.clear(bitvector, i)
+  defp update_metadata(f) when is_function(f) do
+    fetch_metadata!() |> f.() |> increment_seqnum() |> store_metadata()
+  end
 
   defp increment_seqnum(state), do: %{state | seq_number: state.seq_number + 1}
+
+  defp store_metadata(%Metadata{} = map) do
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {Db.put(
+         @metadata_prefix,
+         :erlang.term_to_binary(map)
+       ), %{module: "metadata", action: "persist"}}
+    end)
+  end
+
+  defp fetch_metadata() do
+    with {:ok, binary} <-
+           :telemetry.span([:db, :latency], %{}, fn ->
+             {Db.get(@metadata_prefix), %{module: "metadata", action: "fetch"}}
+           end) do
+      {:ok, :erlang.binary_to_term(binary)}
+    end
+  end
+
+  defp fetch_metadata!() do
+    {:ok, metadata} = fetch_metadata()
+    metadata
+  end
 end

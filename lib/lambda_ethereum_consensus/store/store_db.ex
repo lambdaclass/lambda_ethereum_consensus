@@ -9,15 +9,15 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
 
   @spec fetch_store() :: {:ok, Types.Store.t()} | :not_found
   def fetch_store() do
-    :telemetry.span([:fork_choice, :fetch], %{}, fn ->
-      {get(@store_prefix), %{}}
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {get(@store_prefix), %{module: "fork_choice", action: "fetch"}}
     end)
   end
 
   @spec persist_store(Types.Store.t()) :: :ok
   def persist_store(%Types.Store{} = store) do
-    :telemetry.span([:fork_choice, :persist], %{}, fn ->
-      {put(@store_prefix, store), %{}}
+    :telemetry.span([:db, :latency], %{}, fn ->
+      {put(@store_prefix, store), %{module: "fork_choice", action: "persist"}}
     end)
   end
 

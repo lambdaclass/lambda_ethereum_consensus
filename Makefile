@@ -103,7 +103,7 @@ test-iex:
 
 #▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync.
 checkpoint-sync: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/
+	iex -S mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/ --metrics
 
 #▶️ sepolia: @ Run an interactive terminal using sepolia network
 sepolia: compile-all

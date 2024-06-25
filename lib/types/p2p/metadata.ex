@@ -3,6 +3,7 @@ defmodule Types.Metadata do
   Struct definition for `Metadata`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+
   alias LambdaEthereumConsensus.Utils.BitVector
 
   fields = [

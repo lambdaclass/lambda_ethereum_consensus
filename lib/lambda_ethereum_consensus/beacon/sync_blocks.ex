@@ -98,7 +98,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   defp start_subscriptions() do
     Gossip.BeaconBlock.subscribe_to_topic()
     Gossip.BlobSideCar.subscribe_to_topics()
-    Gossip.OperationsCollector.start()
+    Gossip.OperationsCollector.subscribe_to_topics()
   end
 
   @spec fetch_blocks_by_slot(Types.slot(), non_neg_integer()) ::

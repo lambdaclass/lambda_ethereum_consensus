@@ -22,6 +22,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     {store, genesis_validators_root} = StoreSetup.setup!()
     deposit_tree_snapshot = StoreSetup.get_deposit_snapshot!()
 
+    LambdaEthereumConsensus.P2P.Metadata.init()
+
     Cache.initialize_cache()
 
     libp2p_args = get_libp2p_args()
@@ -51,8 +53,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         LambdaEthereumConsensus.P2P.Peerbook,
         LambdaEthereumConsensus.P2P.IncomingRequests,
         LambdaEthereumConsensus.Beacon.SyncBlocks,
-        LambdaEthereumConsensus.P2P.Gossip.Attestation,
-        LambdaEthereumConsensus.P2P.Gossip.OperationsCollector,
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
         {Task.Supervisor, name: PruneBlobsSupervisor}
