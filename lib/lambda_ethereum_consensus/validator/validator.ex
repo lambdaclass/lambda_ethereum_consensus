@@ -6,13 +6,13 @@ defmodule LambdaEthereumConsensus.Validator do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Validator.BlockBuilder
@@ -203,7 +203,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @spec fetch_target_state(Types.epoch(), Types.root()) :: Types.BeaconState.t()
   defp fetch_target_state(epoch, root) do
-    {:ok, state} = Handlers.compute_target_checkpoint_state(epoch, root)
+    {:ok, state} = CheckpointStates.compute_target_checkpoint_state(epoch, root)
     state
   end
 
