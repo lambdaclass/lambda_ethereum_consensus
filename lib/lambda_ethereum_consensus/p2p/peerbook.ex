@@ -34,6 +34,9 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     GenServer.cast(__MODULE__, {:new_peer, peer_id})
   end
 
+  @doc """
+    Initializes the table in the db by storing an empty peerbook.
+  """
   @impl true
   def init(_opts) do
     store_peerbook(%{})
