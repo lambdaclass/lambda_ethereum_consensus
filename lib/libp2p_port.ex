@@ -483,7 +483,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       {:response, {:node_identity, identity}} -> identity
       {:response, {res, %ResultMessage{message: []}}} -> res
       {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()
-      {:response, {res, %Response{} = response}} -> {res, response}
+      {:response, {res, response}} -> {res, response}
     end
   end
 

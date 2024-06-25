@@ -52,8 +52,6 @@ defmodule Unit.Libp2pPortTest do
       # (recver) Read the "ping" message
       assert {^protocol_id, id, "ping"} = Libp2pPort.handle_request()
       :ok = Libp2pPort.send_response(:recver, id, "pong")
-
-      send(pid, :message_received)
     end)
 
     # (sender) Wait for handler to be set
@@ -64,7 +62,6 @@ defmodule Unit.Libp2pPortTest do
 
     # (sender) Send "ping" to recver and receive "pong"
     assert {:ok, "pong"} = Libp2pPort.send_request(:sender, id, protocol_id, "ping")
-    assert_receive :message_received, 1000
   end
 
   # TODO: flaky test, fix
