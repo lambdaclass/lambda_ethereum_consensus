@@ -53,7 +53,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
 
         if retries > 0 do
           Logger.debug("Retrying request for #{count} blobs", slot: slot)
-          request_blobs_by_range(slot, count, retries - 1)
+          request_blobs_by_range(slot, count, on_blobs, retries - 1)
         else
           on_blobs.({:error, reason})
         end
@@ -99,7 +99,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
 
         if retries > 0 do
           Logger.debug("Retrying request for blobs.")
-          request_blobs_by_root(identifiers, retries - 1)
+          request_blobs_by_root(identifiers, on_blobs, retries - 1)
         else
           on_blobs.({:error, reason})
         end

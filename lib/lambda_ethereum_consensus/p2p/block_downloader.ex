@@ -143,7 +143,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
           pretty_roots = Enum.map_join(roots, ", ", &Base.encode16/1)
           Logger.debug("Retrying request for blocks with roots #{pretty_roots}")
-          request_blocks_by_root(roots, retries - 1)
+          request_blocks_by_root(roots, on_blocks, retries - 1)
         else
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
           on_blocks.({:error, reason})
