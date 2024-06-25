@@ -56,7 +56,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
-          | {:new_peer_handler, pid()}
           | {:join_init_topics, boolean()}
 
   ######################
