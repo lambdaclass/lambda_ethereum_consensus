@@ -4,16 +4,33 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   """
   use GenServer
   alias LambdaEthereumConsensus.Libp2pPort
-  alias LambdaEthereumConsensus.Store.Db
+  alias LambdaEthereumConsensus.Store.KvSchema
 
   @initial_score 100
   @prune_interval 2000
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
-  @peerbook_prefix "peerbook"
 
   @metadata_protocol_id "/eth2/beacon_chain/req/metadata/2/ssz_snappy"
+
+  use KvSchema, prefix: "peerbook"
+
+  @impl KvSchema
+  @spec encode_key(String.t()) :: {:ok, binary()} | {:error, binary()}
+  def encode_key(key), do: {:ok, key}
+
+  @impl KvSchema
+  @spec decode_key(binary()) :: {:ok, String.t()} | {:error, binary()}
+  def decode_key(key), do: {:ok, key}
+
+  @impl KvSchema
+  @spec encode_value(map()) :: {:ok, binary()} | {:error, binary()}
+  def encode_value(peerbook), do: {:ok, :erlang.term_to_binary(peerbook)}
+
+  @impl KvSchema
+  @spec decode_value(binary()) :: {:ok, map()} | {:error, binary()}
+  def decode_value(bin), do: {:ok, :erlang.binary_to_term(bin)}
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -120,26 +137,9 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     Process.send_after(__MODULE__, :prune, interval)
   end
 
-  defp store_peerbook(peerbook) do
-    :telemetry.span([:db, :latency], %{}, fn ->
-      {Db.put(
-         @peerbook_prefix,
-         :erlang.term_to_binary(peerbook)
-       ), %{module: "peerbook", action: "persist"}}
-    end)
-  end
+  defp store_peerbook(peerbook), do: put("", peerbook)
 
-  defp fetch_peerbook() do
-    result =
-      :telemetry.span([:db, :latency], %{}, fn ->
-        {Db.get(@peerbook_prefix), %{module: "peerbook", action: "fetch"}}
-      end)
-
-    case result do
-      {:ok, binary} -> {:ok, :erlang.binary_to_term(binary)}
-      :not_found -> result
-    end
-  end
+  defp fetch_peerbook(), do: get("")
 
   defp fetch_peerbook!() do
     {:ok, peerbook} = fetch_peerbook()
