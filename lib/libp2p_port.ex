@@ -12,6 +12,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
+  alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.P2P.Peerbook
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
@@ -270,6 +271,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
         direction: "elixir->"
       })
     end)
+
+    OperationsCollector.init()
   end
 
   ########################
