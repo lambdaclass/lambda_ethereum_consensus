@@ -8,7 +8,7 @@ defmodule Unit.AttestationTest do
 
   setup %{tmp_dir: tmp_dir} do
     start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
-    start_link_supervised!(Metadata)
+    Metadata.init()
     :ok
   end
 
