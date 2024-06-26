@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -27,7 +28,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     Process.sleep(1000)
     checkpoint = BeaconChain.get_finalized_checkpoint()
     initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch) + 1
-    last_slot = BeaconChain.get_current_slot()
+    last_slot = ForkChoice.get_current_chain_slot()
 
     # If we're around genesis, we consider ourselves synced
     if last_slot > 0 do

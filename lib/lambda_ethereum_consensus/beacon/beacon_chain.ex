@@ -43,11 +43,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec get_current_slot() :: Types.slot()
-  def get_current_slot(), do: GenServer.call(__MODULE__, :get_current_slot)
-
-  @spec get_genesis_time() :: Types.uint64()
-  def get_genesis_time(), do: GenServer.call(__MODULE__, :get_genesis_time)
+  @spec get_current_time() :: Types.uint64()
+  def get_current_time(), do: GenServer.call(__MODULE__, :get_current_time)
 
   @spec update_fork_choice_cache(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
           :ok
@@ -68,11 +65,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   def get_justified_checkpoint() do
     %{justified: justified} = GenServer.call(__MODULE__, :get_fork_choice_cache)
     justified
-  end
-
-  @spec get_current_epoch() :: integer()
-  def get_current_epoch() do
-    Misc.compute_epoch_at_slot(get_current_slot())
   end
 
   @spec get_fork_digest() :: Types.fork_digest()
@@ -112,13 +104,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @impl true
-  def handle_call(:get_current_slot, _from, state) do
-    {:reply, compute_current_slot(state), state}
-  end
-
-  @impl true
-  def handle_call(:get_genesis_time, _from, state) do
-    {:reply, state.genesis_time, state}
+  def handle_call(:get_current_time, _from, %{time: time} = state) do
+    {:reply, time, state}
   end
 
   @impl true

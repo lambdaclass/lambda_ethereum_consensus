@@ -4,6 +4,7 @@ defmodule BeaconApi.Helpers do
   """
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
@@ -77,7 +78,7 @@ defmodule BeaconApi.Helpers do
   def block_root_by_block_id(:invalid_id), do: :invalid_id
 
   def block_root_by_block_id(slot) when is_integer(slot) do
-    with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
+    with :ok <- check_valid_slot(slot, ForkChoice.get_current_chain_slot()),
          {:ok, root} <- BlockDb.get_block_root_by_slot(slot) do
       # TODO compute is_optimistic_or_invalid() and is_finalized()
       execution_optimistic = true
