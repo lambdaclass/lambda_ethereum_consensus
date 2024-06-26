@@ -130,5 +130,5 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
     do:
       {:ok,
        {block_info.signed_block,
-        BeaconChain.get_fork_digest_for_slot(block_info.signed_block.message.slot)}}
+        ForkChoice.get_fork_digest_for_slot(block_info.signed_block.message.slot)}}
 end

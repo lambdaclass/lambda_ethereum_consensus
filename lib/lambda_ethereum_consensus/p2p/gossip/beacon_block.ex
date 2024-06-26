@@ -54,7 +54,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   end
 
   def topic() do
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
     "/eth2/#{fork_context}/beacon_block/ssz_snappy"
   end
 

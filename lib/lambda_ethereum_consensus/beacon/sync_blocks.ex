@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.BlockDownloader
@@ -26,7 +25,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   def run(_opts) do
     # Initial sleep for faster app start
     Process.sleep(1000)
-    checkpoint = BeaconChain.get_finalized_checkpoint()
+    checkpoint = ForkChoice.get_finalized_checkpoint()
     initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch) + 1
     last_slot = ForkChoice.get_current_chain_slot()
 

@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
@@ -125,6 +126,31 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     compute_current_slot(time, genesis_time)
   end
 
+  @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
+  def get_finalized_checkpoint() do
+    %{finalized_checkpoint: finalized} = fetch_store!()
+    finalized
+  end
+
+  @spec get_justified_checkpoint() :: Types.Checkpoint.t()
+  def get_justified_checkpoint() do
+    %{justified_checkpoint: justified} = fetch_store!()
+    justified
+  end
+
+  @spec get_fork_digest() :: Types.fork_digest()
+  def get_fork_digest() do
+    store = fetch_store!()
+
+    compute_current_slot(store.time, store.genesis_file)
+    |> compute_fork_digest(store.genesis_validators_root)
+  end
+
+  @spec get_fork_digest_for_slot(Types.slot()) :: binary()
+  def get_fork_digest_for_slot(slot) do
+    compute_fork_digest(slot, ChainSpec.get_genesis_validators_root())
+  end
+
   ##########################
   ### Private Functions
   ##########################
@@ -213,4 +239,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   defp compute_current_slot(time, genesis_time),
     do: div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
+
+  defp compute_fork_digest(slot, genesis_validators_root) do
+    Misc.compute_epoch_at_slot(slot)
+    |> ChainSpec.get_fork_version_for_epoch()
+    |> Misc.compute_fork_digest(genesis_validators_root)
+  end
 end

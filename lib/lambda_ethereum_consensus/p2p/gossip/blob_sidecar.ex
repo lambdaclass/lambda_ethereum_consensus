@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
 
   def topics() do
     # TODO: this doesn't take into account fork digest changes
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
 
     # Generate blob sidecar topics
     # NOTE: there's one per blob index in Deneb (6 blobs per block)

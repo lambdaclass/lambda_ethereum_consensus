@@ -27,14 +27,14 @@ defmodule BeaconApi.Helpers do
            execution_optimistic? :: boolean(), finalized? :: boolean()}
 
   def root_by_id(:justified) do
-    justified_checkpoint = BeaconChain.get_justified_checkpoint()
+    justified_checkpoint = ForkChoice.get_justified_checkpoint()
     # TODO compute is_optimistic_or_invalid
     execution_optimistic = true
     {:ok, {justified_checkpoint.root, execution_optimistic, false}}
   end
 
   def root_by_id(:finalized) do
-    finalized_checkpoint = BeaconChain.get_finalized_checkpoint()
+    finalized_checkpoint = ForkChoice.get_finalized_checkpoint()
     # TODO compute is_optimistic_or_invalid
     execution_optimistic = true
     {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
@@ -60,7 +60,7 @@ defmodule BeaconApi.Helpers do
   def block_root_by_block_id(:genesis), do: :not_found
 
   def block_root_by_block_id(:justified) do
-    with justified_checkpoint <- BeaconChain.get_justified_checkpoint() do
+    with justified_checkpoint <- ForkChoice.get_justified_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
       {:ok, {justified_checkpoint.root, execution_optimistic, false}}
@@ -68,7 +68,7 @@ defmodule BeaconApi.Helpers do
   end
 
   def block_root_by_block_id(:finalized) do
-    with finalized_checkpoint <- BeaconChain.get_finalized_checkpoint() do
+    with finalized_checkpoint <- ForkChoice.get_finalized_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
       {:ok, {finalized_checkpoint.root, execution_optimistic, true}}

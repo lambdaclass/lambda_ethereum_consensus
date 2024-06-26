@@ -55,28 +55,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     )
   end
 
-  @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
-  def get_finalized_checkpoint() do
-    %{finalized: finalized} = GenServer.call(__MODULE__, :get_fork_choice_cache)
-    finalized
-  end
-
-  @spec get_justified_checkpoint() :: Types.Checkpoint.t()
-  def get_justified_checkpoint() do
-    %{justified: justified} = GenServer.call(__MODULE__, :get_fork_choice_cache)
-    justified
-  end
-
-  @spec get_fork_digest() :: Types.fork_digest()
-  def get_fork_digest() do
-    GenServer.call(__MODULE__, :get_fork_digest)
-  end
-
-  @spec get_fork_digest_for_slot(Types.slot()) :: binary()
-  def get_fork_digest_for_slot(slot) do
-    compute_fork_digest(slot, ChainSpec.get_genesis_validators_root())
-  end
-
   @spec get_fork_version() :: Types.version()
   def get_fork_version(), do: GenServer.call(__MODULE__, :get_fork_version)
 
@@ -106,19 +84,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @impl true
   def handle_call(:get_current_time, _from, %{time: time} = state) do
     {:reply, time, state}
-  end
-
-  @impl true
-  def handle_call(:get_fork_choice_cache, _, %{cached_fork_choice: cached} = state) do
-    {:reply, cached, state}
-  end
-
-  @impl true
-  def handle_call(:get_fork_digest, _from, state) do
-    fork_digest =
-      compute_current_slot(state) |> compute_fork_digest(state.genesis_validators_root)
-
-    {:reply, fork_digest, state}
   end
 
   @impl true
