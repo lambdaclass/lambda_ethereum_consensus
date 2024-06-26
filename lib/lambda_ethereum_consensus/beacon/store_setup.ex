@@ -40,10 +40,10 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   @doc """
   Gets a {store, genesis_validators_root} tuple with the configured strategy.
   """
-  @spec setup!() :: {Store.t(), binary}
+  @spec setup!() :: Store.t()
   def setup!(), do: setup!(get_strategy!())
 
-  @spec setup!(store_setup_strategy()) :: {Store.t(), binary}
+  @spec setup!(store_setup_strategy()) :: Store.t()
   def setup!({:file, anchor_state}) do
     Logger.info("[Store Setup] Setting up store from genesis file.")
 
@@ -52,14 +52,14 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
     anchor_block = %{default_block | message: %{default_block.message | state_root: state_root}}
 
     {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
-    {store, ChainSpec.get_genesis_validators_root()}
+    store
   end
 
   def setup!({:checkpoint_sync_url, checkpoint_url}) do
     case restore_state_from_db() do
-      {:ok, {store, root}} ->
+      {:ok, store} ->
         Logger.warning("[Checkpoint sync] Recent state found. Ignoring the checkpoint URL.")
-        {store, root}
+        store
 
       _ ->
         fetch_state_from_url(checkpoint_url)
@@ -76,8 +76,8 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
         Logger.flush()
         System.halt(1)
 
-      {_, {store, root}} ->
-        {store, root}
+      {_, store} ->
+        store
     end
   end
 
@@ -116,14 +116,12 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
     # Try to fetch the old store from the database
     case StoreDb.fetch_store() do
       {:ok, %Store{finalized_checkpoint: %{epoch: finalized_epoch}} = store} ->
-        res = {store, ChainSpec.get_genesis_validators_root()}
-
         if get_current_epoch(store) - finalized_epoch > @max_epochs_before_stale do
           Logger.info("[Sync] Found old state in DB.")
-          {:old_state, res}
+          {:old_state, store}
         else
           Logger.info("[Sync] Found recent state in DB.")
-          {:ok, res}
+          {:ok, store}
         end
 
       :not_found ->
@@ -149,7 +147,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
         # Save store in DB
         StoreDb.persist_store(store)
 
-        {store, genesis_validators_root}
+        store
 
       _ ->
         Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block")

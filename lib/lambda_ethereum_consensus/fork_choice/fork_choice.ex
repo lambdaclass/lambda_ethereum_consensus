@@ -24,8 +24,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ### Public API
   ##########################
 
-  @spec init_store(Store.t(), Types.slot(), Types.uint64()) :: :ok | :error
-  def init_store(%Store{} = store, head_slot, time) do
+  @spec init_store(Store.t(), Types.uint64()) :: :ok | :error
+  def init_store(%Store{head_slot: head_slot} = store, time) do
     Logger.info("[Fork choice] Initialized store.", slot: head_slot)
 
     store = Handlers.on_tick(store, time)

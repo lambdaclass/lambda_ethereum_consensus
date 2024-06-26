@@ -3,6 +3,7 @@ defmodule Types.Store do
     The Store struct is used to track information required for the fork choice algorithm.
   """
 
+  alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.ForkChoice.Simple.Tree
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -27,6 +28,9 @@ defmodule Types.Store do
     :equivocating_indices,
     :latest_messages,
     :unrealized_justifications,
+    :genesis_validators_root,
+    :head_root,
+    :head_slot,
     # Stores block data on the current fork tree (~last two epochs)
     :tree_cache
   ]
@@ -43,6 +47,9 @@ defmodule Types.Store do
           # NOTE: the `Checkpoint` values in latest_messages are `LatestMessage`s
           latest_messages: %{Types.validator_index() => Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Checkpoint.t()},
+          genesis_validators_root: Types.bytes32(),
+          head_root: Types.root() | nil,
+          head_slot: Types.slot() | nil,
           tree_cache: Tree.t()
         }
 
@@ -81,9 +88,13 @@ defmodule Types.Store do
         equivocating_indices: MapSet.new(),
         latest_messages: %{},
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
+        genesis_validators_root: ChainSpec.get_genesis_validators_root(),
+        head_root: nil,
+        head_slot: nil,
         tree_cache: Tree.new(anchor_block_root)
       }
       |> store_block_info(block_info)
+      |> update_head_info()
       |> then(&{:ok, &1})
     else
       {:error, "Anchor block state root does not match anchor state root"}
@@ -155,5 +166,11 @@ defmodule Types.Store do
       # Block is older than current finalized block
       {:error, :not_found} -> store
     end
+  end
+
+  defp update_head_info(store) do
+    {:ok, head_root} = Head.get_head(store)
+    %{slot: head_slot} = Blocks.get_block!(head_root)
+    %{store | head_root: head_root, head_slot: head_slot}
   end
 end

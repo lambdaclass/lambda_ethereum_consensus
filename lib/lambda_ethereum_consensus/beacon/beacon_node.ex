@@ -6,9 +6,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   alias LambdaEthereumConsensus.Beacon.StoreSetup
   alias LambdaEthereumConsensus.ForkChoice
-  alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.StateTransition.Cache
-  alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.BeaconState
@@ -19,7 +17,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
   @impl true
   def init(_) do
-    {store, genesis_validators_root} = StoreSetup.setup!()
+    store = StoreSetup.setup!()
     deposit_tree_snapshot = StoreSetup.get_deposit_snapshot!()
 
     LambdaEthereumConsensus.P2P.Metadata.init()
@@ -30,25 +28,27 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     time = :os.system_time(:second)
 
-    {:ok, head_root} = Head.get_head(store)
-    %{slot: head_slot} = Blocks.get_block!(head_root)
-
     fork_choice_data = %{
-      head_root: head_root,
-      head_slot: head_slot,
+      head_root: store.head_root,
+      head_slot: store.head_slot,
       justified: store.justified_checkpoint,
       finalized: store.finalized_checkpoint
     }
 
-    ForkChoice.init_store(store, head_slot, time)
+    ForkChoice.init_store(store, time)
 
     validator_children =
-      get_validator_children(deposit_tree_snapshot, head_slot, head_root, store.genesis_time)
+      get_validator_children(
+        deposit_tree_snapshot,
+        store.head_slot,
+        store.head_root,
+        store.genesis_time
+      )
 
     children =
       [
         {LambdaEthereumConsensus.Beacon.BeaconChain,
-         {store.genesis_time, genesis_validators_root, fork_choice_data, time}},
+         {store.genesis_time, store.genesis_validators_root, fork_choice_data, time}},
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
         LambdaEthereumConsensus.P2P.Peerbook,
         LambdaEthereumConsensus.P2P.IncomingRequests,
