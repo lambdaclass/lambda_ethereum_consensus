@@ -56,7 +56,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
-          | {:new_peer_handler, pid()}
           | {:join_init_topics, boolean()}
 
   ######################
@@ -293,6 +292,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> then(&send_data(port, &1))
 
     if join_init_topics, do: join_init_topics(port)
+
+    Peerbook.init()
 
     {:ok, %{port: port, subscriptors: %{}}}
   end
