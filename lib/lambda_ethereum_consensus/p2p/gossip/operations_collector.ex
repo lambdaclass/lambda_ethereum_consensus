@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   Module that stores the operations received from gossipsub.
   """
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.StateTransition.Misc

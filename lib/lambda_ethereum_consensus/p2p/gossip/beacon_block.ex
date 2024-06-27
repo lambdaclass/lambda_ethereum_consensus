@@ -2,7 +2,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   @moduledoc """
   This module handles beacon block gossipsub topics.
   """
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort

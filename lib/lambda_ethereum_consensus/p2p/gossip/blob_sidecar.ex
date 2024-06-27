@@ -2,7 +2,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
   @moduledoc """
   This module handles blob sidecar gossipsub topics.
   """
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.Store.BlobDb

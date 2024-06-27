@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Metadata
   alias LambdaEthereumConsensus.P2P.ReqResp

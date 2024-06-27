@@ -1,6 +1,6 @@
 defmodule Unit.ReqRespTest do
   alias Fixtures.Block
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.BeaconBlocksByRangeRequest
@@ -88,7 +88,7 @@ defmodule Unit.ReqRespTest do
   defp assert_complex_request_roundtrip(request, request_type, response) do
     [%response_type{} | _] = response
     context_bytes = "abcd"
-    patch(BeaconChain, :get_fork_digest, context_bytes)
+    patch(ForkChoice, :get_fork_digest, context_bytes)
     payloads = Enum.map(response, fn x -> {:ok, {x, context_bytes}} end)
 
     decoded_request =

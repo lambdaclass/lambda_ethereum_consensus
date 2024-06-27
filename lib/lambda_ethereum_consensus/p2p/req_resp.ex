@@ -2,8 +2,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   @moduledoc """
   Functions for encoding and decoding Req/Resp domain messages.
   """
-
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P
 
   defmodule Error do

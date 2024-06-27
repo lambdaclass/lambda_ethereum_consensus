@@ -142,7 +142,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def get_fork_digest() do
     store = fetch_store!()
 
-    compute_current_slot(store.time, store.genesis_file)
+    compute_current_slot(store.time, store.genesis_time)
     |> compute_fork_digest(store.genesis_validators_root)
   end
 
