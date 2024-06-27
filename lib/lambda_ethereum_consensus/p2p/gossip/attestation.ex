@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   Used by validators to fulfill aggregation duties.
   """
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P
@@ -93,7 +92,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   defp compute_enr_fork_id() do
-    current_version = BeaconChain.get_fork_version()
+    current_version = ForkChoice.get_fork_version()
 
     fork_digest =
       Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())

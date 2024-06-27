@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
@@ -285,7 +285,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
-    current_version = BeaconChain.get_fork_version()
+    current_version = ForkChoice.get_fork_version()
 
     ([initial_enr: compute_initial_enr(current_version)] ++ args)
     |> parse_args()

@@ -142,13 +142,20 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def get_fork_digest() do
     store = fetch_store!()
 
-    compute_current_slot(store.time, store.genesis_time)
+    get_current_chain_slot()
     |> compute_fork_digest(store.genesis_validators_root)
   end
 
   @spec get_fork_digest_for_slot(Types.slot()) :: binary()
   def get_fork_digest_for_slot(slot) do
     compute_fork_digest(slot, ChainSpec.get_genesis_validators_root())
+  end
+
+  @spec get_fork_version() :: Types.version()
+  def get_fork_version() do
+    get_current_chain_slot()
+    |> Misc.compute_epoch_at_slot()
+    |> ChainSpec.get_fork_version_for_epoch()
   end
 
   ##########################

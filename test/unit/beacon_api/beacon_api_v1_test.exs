@@ -157,7 +157,7 @@ defmodule Unit.BeaconApiTest.V1 do
   test "node identity" do
     alias LambdaEthereumConsensus.Libp2pPort
     alias LambdaEthereumConsensus.P2P.Metadata
-    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
+    patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
 
     start_link_supervised!(Libp2pPort)
     Metadata.init()
