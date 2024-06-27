@@ -22,16 +22,16 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, signed_block} <- Ssz.from_ssz(uncompressed, SignedBeaconBlock),
          :ok <- validate(signed_block, slot) do
-      Logger.info("[Gossip] Block received", slot: signed_block.message.slot)
+      Logger.info("[Gossip] Block received, block.slot: #{signed_block.message.slot}.")
       Libp2pPort.validate_message(msg_id, :accept)
       PendingBlocks.add_block(signed_block)
     else
       {:ignore, reason} ->
-        Logger.warning("[Gossip] Block ignored, reason: #{inspect(reason)}", slot: slot)
+        Logger.warning("[Gossip] Block ignored, reason: #{inspect(reason)}.")
         Libp2pPort.validate_message(msg_id, :ignore)
 
       {:error, reason} ->
-        Logger.warning("[Gossip] Block rejected, reason: #{inspect(reason)}", slot: slot)
+        Logger.warning("[Gossip] Block rejected, reason: #{inspect(reason)}.")
         Libp2pPort.validate_message(msg_id, :reject)
     end
 
@@ -63,11 +63,20 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
 
   @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:error, any}
   defp validate(%SignedBeaconBlock{message: block}, current_slot) do
+    min_slot = current_slot - ChainSpec.get("SLOTS_PER_EPOCH")
+
     cond do
       # TODO incorporate MAXIMUM_GOSSIP_CLOCK_DISPARITY into future block calculations
-      block.slot <= current_slot - ChainSpec.get("SLOTS_PER_EPOCH") -> {:ignore, :block_too_old}
-      block.slot > current_slot -> {:ignore, :block_from_future}
-      true -> :ok
+      block.slot <= min_slot ->
+        {:ignore,
+         "Block too old: block.slot=#{block.slot}. Current slot: #{current_slot}. Minimum expected slot: #{min_slot}"}
+
+      block.slot > current_slot ->
+        {:ignore,
+         "Block is from the future: block.slot=#{block.slot}. Current slot: #{current_slot}."}
+
+      true ->
+        :ok
     end
   end
 end

@@ -31,17 +31,22 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
     # If we're around genesis, we consider ourselves synced
     if last_slot > 0 do
-      Enum.chunk_every(initial_slot..last_slot, @blocks_per_chunk)
-      |> Enum.map(fn chunk ->
-        first_slot = List.first(chunk)
-        last_slot = List.last(chunk)
-        count = last_slot - first_slot + 1
-        %{from: first_slot, count: count}
-      end)
-      |> perform_sync()
+      perform_sync(initial_slot, last_slot)
     else
       start_subscriptions()
     end
+  end
+
+  @spec perform_sync(integer(), integer()) :: :ok
+  def perform_sync(initial_slot, last_slot) do
+    Enum.chunk_every(initial_slot..last_slot, @blocks_per_chunk)
+    |> Enum.map(fn chunk ->
+      first_slot = List.first(chunk)
+      last_slot = List.last(chunk)
+      count = last_slot - first_slot + 1
+      %{from: first_slot, count: count}
+    end)
+    |> perform_sync()
   end
 
   @spec perform_sync([chunk()]) :: :ok
@@ -68,16 +73,20 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
       {:ok, blocks} -> blocks
       _other -> []
     end)
-    |> tap(fn blocks -> Logger.info("Downloaded #{length(blocks)} blocks successfully.") end)
+    |> tap(fn blocks ->
+      Logger.info("[Optimistic Sync] Downloaded #{length(blocks)} blocks successfully.")
+    end)
     |> Enum.each(&PendingBlocks.add_block/1)
 
     remaining_chunks =
       Enum.zip(chunks, results)
       |> Enum.flat_map(fn
         {chunk, {:error, reason}} ->
-          Logger.error(
-            "Failed downloading the chunk #{inspect(chunk)}. Reason: #{inspect(reason)}"
-          )
+          if not String.contains?(inspect(reason), "failed to dial") do
+            Logger.debug(
+              "[Optimistic Sync] Failed downloading the chunk #{inspect(chunk)}. Reason: #{inspect(reason)}"
+            )
+          end
 
           [chunk]
 
@@ -104,7 +113,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   @spec fetch_blocks_by_slot(Types.slot(), non_neg_integer()) ::
           {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
   def fetch_blocks_by_slot(from, count) do
-    Logger.info("Fetching #{count} blocks from #{from}")
+    Logger.info("[Optimistic Sync] Fetching #{count} blocks starting from slot #{from}.")
 
     case BlockDownloader.request_blocks_by_range_sync(from, count, 0) do
       {:ok, blocks} ->
