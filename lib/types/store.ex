@@ -28,7 +28,6 @@ defmodule Types.Store do
     :equivocating_indices,
     :latest_messages,
     :unrealized_justifications,
-    :genesis_validators_root,
     :head_root,
     :head_slot,
     # Stores block data on the current fork tree (~last two epochs)
@@ -47,7 +46,6 @@ defmodule Types.Store do
           # NOTE: the `Checkpoint` values in latest_messages are `LatestMessage`s
           latest_messages: %{Types.validator_index() => Checkpoint.t()},
           unrealized_justifications: %{Types.root() => Checkpoint.t()},
-          genesis_validators_root: Types.bytes32(),
           head_root: Types.root() | nil,
           head_slot: Types.slot() | nil,
           tree_cache: Tree.t()
@@ -88,7 +86,6 @@ defmodule Types.Store do
         equivocating_indices: MapSet.new(),
         latest_messages: %{},
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
-        genesis_validators_root: ChainSpec.get_genesis_validators_root(),
         head_root: nil,
         head_slot: nil,
         tree_cache: Tree.new(anchor_block_root)

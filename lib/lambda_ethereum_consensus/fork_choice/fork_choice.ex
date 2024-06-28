@@ -141,10 +141,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec get_fork_digest() :: Types.fork_digest()
   def get_fork_digest() do
-    store = fetch_store!()
-
     get_current_chain_slot()
-    |> compute_fork_digest(store.genesis_validators_root)
+    |> compute_fork_digest(ChainSpec.get_genesis_validators_root())
   end
 
   @spec get_fork_digest_for_slot(Types.slot()) :: binary()
@@ -164,12 +162,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     %{
       head_root: head_root,
       head_slot: head_slot,
-      genesis_validators_root: genesis_validators_root,
       finalized_checkpoint: %{root: finalized_root, epoch: finalized_epoch}
     } = fetch_store!()
 
     %Types.StatusMessage{
-      fork_digest: compute_fork_digest(head_slot, genesis_validators_root),
+      fork_digest: compute_fork_digest(head_slot, ChainSpec.get_genesis_validators_root()),
       finalized_root: finalized_root,
       finalized_epoch: finalized_epoch,
       head_root: head_root,
