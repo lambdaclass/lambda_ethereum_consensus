@@ -9,21 +9,10 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   require Logger
 
-  defmodule BeaconChainState do
-    @moduledoc false
-
-    defstruct [
-      :genesis_time,
-      :genesis_validators_root,
-      :time
-    ]
-
-    @type t :: %__MODULE__{
-            genesis_time: Types.uint64(),
-            genesis_validators_root: Types.bytes32(),
-            time: Types.uint64()
-          }
-  end
+  @type state :: %{
+          genesis_time: Types.uint64(),
+          time: Types.uint64()
+        }
 
   @spec start_link({BeaconState.t(), Types.uint64()}) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(opts) do
@@ -38,15 +27,14 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   ##########################
 
   @impl GenServer
-  @spec init({Types.uint64(), Types.root(), Types.uint64()}) ::
-          {:ok, BeaconChainState.t()} | {:stop, any}
-  def init({genesis_time, genesis_validators_root, time}) do
+  @spec init({Types.uint64(), Types.uint64()}) ::
+          {:ok, state()} | {:stop, any}
+  def init({genesis_time, time}) do
     schedule_next_tick()
 
     {:ok,
-     %BeaconChainState{
+     %{
        genesis_time: genesis_time,
-       genesis_validators_root: genesis_validators_root,
        time: time
      }}
   end
@@ -60,7 +48,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   def handle_info(:on_tick, state) do
     schedule_next_tick()
     time = :os.system_time(:second)
-    new_state = %BeaconChainState{state | time: time}
+    new_state = %{state | time: time}
 
     if time >= state.genesis_time do
       PendingBlocks.on_tick(time)
@@ -85,7 +73,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @type slot_third :: :first_third | :second_third | :last_third
   @type logical_time :: {Types.slot(), slot_third()}
 
-  @spec compute_logical_time(BeaconChainState.t()) :: logical_time()
+  @spec compute_logical_time(state()) :: logical_time()
   defp compute_logical_time(state) do
     elapsed_time = state.time - state.genesis_time
 
