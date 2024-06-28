@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
@@ -122,7 +122,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec get_current_chain_slot() :: Types.slot()
   def get_current_chain_slot() do
-    time = BeaconChain.get_current_time()
+    time = Clock.get_current_time()
     genesis_time = get_genesis_time()
     compute_current_slot(time, genesis_time)
   end

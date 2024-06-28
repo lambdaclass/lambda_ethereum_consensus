@@ -40,7 +40,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     children =
       [
-        {LambdaEthereumConsensus.Beacon.BeaconChain, {store.genesis_time, time}},
+        {LambdaEthereumConsensus.Beacon.Clock, {store.genesis_time, time}},
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
         LambdaEthereumConsensus.P2P.Peerbook,
         LambdaEthereumConsensus.P2P.IncomingRequests,

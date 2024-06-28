@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
+defmodule LambdaEthereumConsensus.Beacon.Clock do
   @moduledoc false
 
   use GenServer
@@ -96,7 +96,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   defp log_new_slot({slot, :first_third}) do
     :telemetry.execute([:sync, :store], %{slot: slot})
-    Logger.info("[BeaconChain] Slot transition", slot: slot)
+    Logger.info("[Clock] Slot transition", slot: slot)
   end
 
   defp log_new_slot(_), do: :ok
