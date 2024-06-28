@@ -5,7 +5,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
 
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Validator.ValidatorManager
-  alias Types.BeaconState
 
   require Logger
 
@@ -14,7 +13,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
           time: Types.uint64()
         }
 
-  @spec start_link({BeaconState.t(), Types.uint64()}) :: :ignore | {:error, any} | {:ok, pid}
+  @spec start_link({Types.uint64(), Types.uint64()}) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end

@@ -61,7 +61,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   ### Private functions
   ##########################
 
-  @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:error, any}
+  @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:ignore, atom()}
   defp validate(%SignedBeaconBlock{message: block}, current_slot) do
     cond do
       # TODO incorporate MAXIMUM_GOSSIP_CLOCK_DISPARITY into future block calculations
