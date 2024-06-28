@@ -5,7 +5,6 @@ defmodule Unit.BeaconApiTest.V1 do
 
   alias BeaconApi.Router
   alias BeaconApi.Utils
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Db
@@ -35,7 +34,7 @@ defmodule Unit.BeaconApiTest.V1 do
 
     start_link_supervised!({Db, dir: tmp_dir})
 
-    patch(BeaconChain, :get_current_status_message, status_message)
+    patch(ForkChoice, :get_current_status_message, status_message)
     patch(ForkChoice, :get_genesis_time, 42)
 
     :ok

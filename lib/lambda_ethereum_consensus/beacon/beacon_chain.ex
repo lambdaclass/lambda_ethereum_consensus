@@ -4,10 +4,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
-  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.BeaconState
-  alias Types.Checkpoint
 
   require Logger
 
@@ -46,18 +44,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   @spec get_current_time() :: Types.uint64()
   def get_current_time(), do: GenServer.call(__MODULE__, :get_current_time)
 
-  @spec update_fork_choice_cache(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
-          :ok
-  def update_fork_choice_cache(head_root, head_slot, justified, finalized) do
-    GenServer.cast(
-      __MODULE__,
-      {:update_fork_choice_cache, head_root, head_slot, justified, finalized}
-    )
-  end
-
-  @spec get_current_status_message() :: Types.StatusMessage.t()
-  def get_current_status_message(), do: GenServer.call(__MODULE__, :get_current_status_message)
-
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -84,27 +70,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
   end
 
   @impl true
-  @spec handle_call(:get_current_status_message, any, BeaconChainState.t()) ::
-          {:reply, Types.StatusMessage.t(), BeaconChainState.t()}
-  def handle_call(:get_current_status_message, _from, state) do
-    %{
-      head_root: head_root,
-      head_slot: head_slot,
-      finalized: %{root: finalized_root, epoch: finalized_epoch}
-    } = state.cached_fork_choice
-
-    status_message = %Types.StatusMessage{
-      fork_digest: compute_fork_digest(head_slot, state.genesis_validators_root),
-      finalized_root: finalized_root,
-      finalized_epoch: finalized_epoch,
-      head_root: head_root,
-      head_slot: head_slot
-    }
-
-    {:reply, status_message, state}
-  end
-
-  @impl true
   def handle_info(:on_tick, state) do
     schedule_next_tick()
     time = :os.system_time(:second)
@@ -124,39 +89,10 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconChain do
     {:noreply, new_state}
   end
 
-  @impl true
-  def handle_cast({:update_fork_choice_cache, head_root, head_slot, justified, finalized}, state) do
-    new_cache = %{
-      head_root: head_root,
-      head_slot: head_slot,
-      justified: justified,
-      finalized: finalized
-    }
-
-    new_state = Map.put(state, :cached_fork_choice, new_cache)
-
-    # TODO: make this check dynamic
-    if compute_current_slot(state) <= head_slot do
-      {:noreply, %{new_state | synced: true}}
-    else
-      {:noreply, new_state}
-    end
-  end
-
   def schedule_next_tick() do
     # For millisecond precision
     time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
     Process.send_after(__MODULE__, :on_tick, time_to_next_tick)
-  end
-
-  defp compute_current_slot(state) do
-    div(state.time - state.genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
-  end
-
-  defp compute_fork_digest(slot, genesis_validators_root) do
-    Misc.compute_epoch_at_slot(slot)
-    |> ChainSpec.get_fork_version_for_epoch()
-    |> Misc.compute_fork_digest(genesis_validators_root)
   end
 
   @type slot_third :: :first_third | :second_third | :last_third

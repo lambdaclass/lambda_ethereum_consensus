@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Metadata
@@ -29,7 +28,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
   defp handle_req("status/1/ssz_snappy", message_id, message) do
     with {:ok, request} <- ReqResp.decode_request(message, Types.StatusMessage) do
       Logger.debug("[Status] '#{inspect(request)}'")
-      payload = BeaconChain.get_current_status_message() |> ReqResp.encode_ok()
+      payload = ForkChoice.get_current_status_message() |> ReqResp.encode_ok()
       Libp2pPort.send_response(message_id, payload)
     end
   end

@@ -19,6 +19,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.Attestation
   alias Types.BlockInfo
+  alias Types.Checkpoint
   alias Types.Store
 
   ##########################
@@ -158,6 +159,24 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     |> ChainSpec.get_fork_version_for_epoch()
   end
 
+  @spec get_current_status_message() :: Types.StatusMessage.t()
+  def get_current_status_message() do
+    %{
+      head_root: head_root,
+      head_slot: head_slot,
+      genesis_validators_root: genesis_validators_root,
+      finalized_checkpoint: %{root: finalized_root, epoch: finalized_epoch}
+    } = fetch_store!()
+
+    %Types.StatusMessage{
+      fork_digest: compute_fork_digest(head_slot, genesis_validators_root),
+      finalized_root: finalized_root,
+      finalized_epoch: finalized_epoch,
+      head_root: head_root,
+      head_slot: head_slot
+    }
+  end
+
   ##########################
   ### Private Functions
   ##########################
@@ -222,7 +241,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     ValidatorManager.notify_new_block(slot, head_root)
     ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
 
-    BeaconChain.update_fork_choice_cache(
+    update_fork_choice_data(
       head_root,
       slot,
       store.justified_checkpoint,
@@ -251,5 +270,21 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     Misc.compute_epoch_at_slot(slot)
     |> ChainSpec.get_fork_version_for_epoch()
     |> Misc.compute_fork_digest(genesis_validators_root)
+  end
+
+  @spec update_fork_choice_data(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
+          :ok
+  defp update_fork_choice_data(head_root, head_slot, justified, finalized) do
+    store = fetch_store!()
+
+    new_store = %{
+      store
+      | head_root: head_root,
+        head_slot: head_slot,
+        justified_checkpoint: justified,
+        finalized_checkpoint: finalized
+    }
+
+    persist_store(new_store)
   end
 end
