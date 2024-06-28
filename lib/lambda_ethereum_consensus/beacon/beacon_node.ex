@@ -28,13 +28,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     time = :os.system_time(:second)
 
-    fork_choice_data = %{
-      head_root: store.head_root,
-      head_slot: store.head_slot,
-      justified: store.justified_checkpoint,
-      finalized: store.finalized_checkpoint
-    }
-
     ForkChoice.init_store(store, time)
 
     validator_children =
@@ -48,7 +41,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     children =
       [
         {LambdaEthereumConsensus.Beacon.BeaconChain,
-         {store.genesis_time, store.genesis_validators_root, fork_choice_data, time}},
+         {store.genesis_time, store.genesis_validators_root, time}},
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
         LambdaEthereumConsensus.P2P.Peerbook,
         LambdaEthereumConsensus.P2P.IncomingRequests,
