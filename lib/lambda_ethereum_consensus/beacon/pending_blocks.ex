@@ -49,7 +49,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       end
       |> Blocks.new_block_info()
 
-      process_block(block_info)
+      if process_block(block_info) in [:transitioned, :invalid] do
+        process_blocks()
+      end
     end
   end
 
@@ -111,16 +113,17 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     case Blocks.get_block_info(parent_root) do
       nil ->
         Blocks.add_block_to_download(parent_root)
+        :download_pending
 
       %BlockInfo{status: :invalid} ->
         Blocks.change_status(block_info, :invalid)
+        :invalid
 
       %BlockInfo{status: :transitioned} ->
         case ForkChoice.on_block(block_info) do
           :ok ->
             Blocks.change_status(block_info, :transitioned)
-            # Block is valid. We immediately check if we can process another block.
-            process_blocks()
+            :transitioned
 
           {:error, reason} ->
             Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
@@ -129,6 +132,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             )
 
             Blocks.change_status(block_info, :invalid)
+            :invalid
         end
 
       _other ->
