@@ -4,7 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   Used by validators to fulfill aggregation duties.
   """
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
@@ -55,7 +55,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   def publish_aggregate(%Types.SignedAggregateAndProof{} = signed_aggregate) do
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
     topic = "/eth2/#{fork_context}/beacon_aggregate_and_proof/ssz_snappy"
     {:ok, encoded} = SszEx.encode(signed_aggregate, Types.SignedAggregateAndProof)
     {:ok, message} = :snappyer.compress(encoded)
@@ -81,7 +81,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
   defp topic(subnet_id) do
     # TODO: this doesn't take into account fork digest changes
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
     "/eth2/#{fork_context}/beacon_attestation_#{subnet_id}/ssz_snappy"
   end
 
@@ -92,7 +92,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   defp compute_enr_fork_id() do
-    current_version = BeaconChain.get_fork_version()
+    current_version = ForkChoice.get_fork_version()
 
     fork_digest =
       Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())

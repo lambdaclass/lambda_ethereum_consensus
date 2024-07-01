@@ -2,8 +2,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   @moduledoc """
   Functions for encoding and decoding Req/Resp domain messages.
   """
-
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P
 
   defmodule Error do
@@ -94,7 +93,7 @@ defmodule LambdaEthereumConsensus.P2P.ReqResp do
   @spec split_response(binary) :: {:ok, [binary()]} | {:error, String.t()} | {:error, Error.t()}
   def split_response(response_chunk) do
     # TODO: the fork_context should be computed depending on the block's slot
-    fork_context = BeaconChain.get_fork_digest()
+    fork_context = ForkChoice.get_fork_digest()
 
     case response_chunk do
       <<>> ->

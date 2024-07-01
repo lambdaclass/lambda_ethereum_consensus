@@ -3,7 +3,7 @@ defmodule BeaconApi.Helpers do
   Helper functions for the Beacon API
   """
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
@@ -26,14 +26,14 @@ defmodule BeaconApi.Helpers do
            execution_optimistic? :: boolean(), finalized? :: boolean()}
 
   def root_by_id(:justified) do
-    justified_checkpoint = BeaconChain.get_justified_checkpoint()
+    justified_checkpoint = ForkChoice.get_justified_checkpoint()
     # TODO compute is_optimistic_or_invalid
     execution_optimistic = true
     {:ok, {justified_checkpoint.root, execution_optimistic, false}}
   end
 
   def root_by_id(:finalized) do
-    finalized_checkpoint = BeaconChain.get_finalized_checkpoint()
+    finalized_checkpoint = ForkChoice.get_finalized_checkpoint()
     # TODO compute is_optimistic_or_invalid
     execution_optimistic = true
     {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
@@ -49,7 +49,7 @@ defmodule BeaconApi.Helpers do
   @spec block_root_by_block_id(block_id()) ::
           {:ok, root_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
   def block_root_by_block_id(:head) do
-    with current_status <- BeaconChain.get_current_status_message() do
+    with current_status <- ForkChoice.get_current_status_message() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
       {:ok, {current_status.head_root, execution_optimistic, false}}
@@ -59,7 +59,7 @@ defmodule BeaconApi.Helpers do
   def block_root_by_block_id(:genesis), do: :not_found
 
   def block_root_by_block_id(:justified) do
-    with justified_checkpoint <- BeaconChain.get_justified_checkpoint() do
+    with justified_checkpoint <- ForkChoice.get_justified_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
       {:ok, {justified_checkpoint.root, execution_optimistic, false}}
@@ -67,7 +67,7 @@ defmodule BeaconApi.Helpers do
   end
 
   def block_root_by_block_id(:finalized) do
-    with finalized_checkpoint <- BeaconChain.get_finalized_checkpoint() do
+    with finalized_checkpoint <- ForkChoice.get_finalized_checkpoint() do
       # TODO compute is_optimistic_or_invalid
       execution_optimistic = true
       {:ok, {finalized_checkpoint.root, execution_optimistic, true}}
@@ -77,7 +77,7 @@ defmodule BeaconApi.Helpers do
   def block_root_by_block_id(:invalid_id), do: :invalid_id
 
   def block_root_by_block_id(slot) when is_integer(slot) do
-    with :ok <- check_valid_slot(slot, BeaconChain.get_current_slot()),
+    with :ok <- check_valid_slot(slot, ForkChoice.get_current_chain_slot()),
          {:ok, root} <- BlockDb.get_block_root_by_slot(slot) do
       # TODO compute is_optimistic_or_invalid() and is_finalized()
       execution_optimistic = true

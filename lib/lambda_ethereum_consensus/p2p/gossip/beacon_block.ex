@@ -2,8 +2,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   @moduledoc """
   This module handles beacon block gossipsub topics.
   """
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias Types.SignedBeaconBlock
@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
 
   @impl true
   def handle_gossip_message(_topic, msg_id, message) do
-    slot = BeaconChain.get_current_slot()
+    slot = ForkChoice.get_current_chain_slot()
 
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, signed_block} <- Ssz.from_ssz(uncompressed, SignedBeaconBlock),
@@ -53,7 +53,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   end
 
   def topic() do
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
     "/eth2/#{fork_context}/beacon_block/ssz_snappy"
   end
 
@@ -61,7 +61,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   ### Private functions
   ##########################
 
-  @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:error, any}
+  @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:ignore, atom()}
   defp validate(%SignedBeaconBlock{message: block}, current_slot) do
     cond do
       # TODO incorporate MAXIMUM_GOSSIP_CLOCK_DISPARITY into future block calculations

@@ -1,7 +1,7 @@
 defmodule Unit.OperationsCollectorTest do
   alias Fixtures.Block
   alias Fixtures.Random
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.Store.Db
 
@@ -11,8 +11,8 @@ defmodule Unit.OperationsCollectorTest do
   doctest OperationsCollector
 
   setup %{tmp_dir: tmp_dir} do
-    patch(BeaconChain, :get_fork_digest, fn -> "9999" end)
-    patch(BeaconChain, :get_fork_version, fn -> "9999" end)
+    patch(ForkChoice, :get_fork_digest, fn -> "9999" end)
+    patch(ForkChoice, :get_fork_version, fn -> "9999" end)
     start_link_supervised!({Db, dir: tmp_dir})
     OperationsCollector.init()
     :ok

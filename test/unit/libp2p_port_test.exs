@@ -2,14 +2,14 @@ defmodule Unit.Libp2pPortTest do
   use ExUnit.Case
   use Patch
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
 
   doctest Libp2pPort
 
   setup %{tmp_dir: tmp_dir} do
-    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
+    patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
     start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
     :ok
   end

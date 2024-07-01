@@ -5,11 +5,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
@@ -18,14 +19,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.Attestation
   alias Types.BlockInfo
+  alias Types.Checkpoint
   alias Types.Store
 
   ##########################
   ### Public API
   ##########################
 
-  @spec init_store(Store.t(), Types.slot(), Types.uint64()) :: :ok | :error
-  def init_store(%Store{} = store, head_slot, time) do
+  @spec init_store(Store.t(), Types.uint64()) :: :ok | :error
+  def init_store(%Store{head_slot: head_slot} = store, time) do
     Logger.info("[Fork choice] Initialized store.", slot: head_slot)
 
     store = Handlers.on_tick(store, time)
@@ -112,6 +114,66 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     persist_store(new_store)
   end
 
+  @spec get_genesis_time() :: Types.uint64()
+  def get_genesis_time() do
+    %{genesis_time: genesis_time} = fetch_store!()
+    genesis_time
+  end
+
+  @spec get_current_chain_slot() :: Types.slot()
+  def get_current_chain_slot() do
+    time = Clock.get_current_time()
+    genesis_time = get_genesis_time()
+    compute_current_slot(time, genesis_time)
+  end
+
+  @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
+  def get_finalized_checkpoint() do
+    %{finalized_checkpoint: finalized} = fetch_store!()
+    finalized
+  end
+
+  @spec get_justified_checkpoint() :: Types.Checkpoint.t()
+  def get_justified_checkpoint() do
+    %{justified_checkpoint: justified} = fetch_store!()
+    justified
+  end
+
+  @spec get_fork_digest() :: Types.fork_digest()
+  def get_fork_digest() do
+    get_current_chain_slot()
+    |> compute_fork_digest(ChainSpec.get_genesis_validators_root())
+  end
+
+  @spec get_fork_digest_for_slot(Types.slot()) :: binary()
+  def get_fork_digest_for_slot(slot) do
+    compute_fork_digest(slot, ChainSpec.get_genesis_validators_root())
+  end
+
+  @spec get_fork_version() :: Types.version()
+  def get_fork_version() do
+    get_current_chain_slot()
+    |> Misc.compute_epoch_at_slot()
+    |> ChainSpec.get_fork_version_for_epoch()
+  end
+
+  @spec get_current_status_message() :: Types.StatusMessage.t()
+  def get_current_status_message() do
+    %{
+      head_root: head_root,
+      head_slot: head_slot,
+      finalized_checkpoint: %{root: finalized_root, epoch: finalized_epoch}
+    } = fetch_store!()
+
+    %Types.StatusMessage{
+      fork_digest: compute_fork_digest(head_slot, ChainSpec.get_genesis_validators_root()),
+      finalized_root: finalized_root,
+      finalized_epoch: finalized_epoch,
+      head_root: head_root,
+      head_slot: head_slot
+    }
+  end
+
   ##########################
   ### Private Functions
   ##########################
@@ -176,7 +238,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     ValidatorManager.notify_new_block(slot, head_root)
     ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
 
-    BeaconChain.update_fork_choice_cache(
+    update_fork_choice_data(
       head_root,
       slot,
       store.justified_checkpoint,
@@ -196,5 +258,30 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   defp fetch_store!() do
     {:ok, store} = StoreDb.fetch_store()
     store
+  end
+
+  defp compute_current_slot(time, genesis_time),
+    do: div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
+
+  defp compute_fork_digest(slot, genesis_validators_root) do
+    Misc.compute_epoch_at_slot(slot)
+    |> ChainSpec.get_fork_version_for_epoch()
+    |> Misc.compute_fork_digest(genesis_validators_root)
+  end
+
+  @spec update_fork_choice_data(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
+          :ok
+  defp update_fork_choice_data(head_root, head_slot, justified, finalized) do
+    store = fetch_store!()
+
+    new_store = %{
+      store
+      | head_root: head_root,
+        head_slot: head_slot,
+        justified_checkpoint: justified,
+        finalized_checkpoint: finalized
+    }
+
+    persist_store(new_store)
   end
 end

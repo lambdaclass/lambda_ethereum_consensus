@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.Validator do
   use GenServer
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition
@@ -475,7 +475,7 @@ defmodule LambdaEthereumConsensus.Validator do
   defp publish_block(signed_block) do
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
 
     proposed_slot = signed_block.message.slot
 
@@ -494,7 +494,7 @@ defmodule LambdaEthereumConsensus.Validator do
   defp publish_sidecar(%Types.BlobSidecar{index: index} = sidecar) do
     {:ok, ssz_encoded} = Ssz.to_ssz(sidecar)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
-    fork_context = BeaconChain.get_fork_digest() |> Base.encode16(case: :lower)
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
 
     subnet_id = compute_subnet_for_blob_sidecar(index)
 
