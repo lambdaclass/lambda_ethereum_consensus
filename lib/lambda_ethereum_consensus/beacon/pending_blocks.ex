@@ -108,9 +108,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         end
         |> Enum.each(fn signed_block ->
           signed_block
-          |> BlockInfo.from_block()
-          |> BlockInfo.change_status(:download_blobs)
-          |> Blocks.new_block_info()
+          |> BlockInfo.from_block(:download)
+          |> Blocks.change_status(:download_blobs)
         end)
 
       {:error, reason} ->
@@ -188,8 +187,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         case ForkChoice.on_block(block_info) do
           :ok ->
             Blocks.change_status(block_info, :transitioned)
-            # Block is valid. We immediately check if we can process another block.
-            process_blocks()
+
+          # Block is valid. We immediately check if we can process another block.
+          # process_blocks()
 
           {:error, reason} ->
             Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
