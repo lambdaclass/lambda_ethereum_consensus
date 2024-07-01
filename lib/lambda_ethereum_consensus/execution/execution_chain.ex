@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   stores the canonical Eth1 chain for block proposing.
   """
   require Logger
-  use GenServer
 
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.Store.KvSchema
@@ -33,18 +32,17 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   @spec decode_value(binary()) :: {:ok, map()} | {:error, binary()}
   def decode_value(bin), do: {:ok, :erlang.binary_to_term(bin)}
 
-  @spec start_link(Types.uint64()) :: GenServer.on_start()
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
   @spec get_eth1_vote(Types.slot()) :: {:ok, Eth1Data.t() | nil} | {:error, any}
   def get_eth1_vote(slot) do
-    GenServer.call(__MODULE__, {:get_eth1_vote, slot})
+    state = fetch_execution_state!()
+    compute_eth1_vote(state, slot)
   end
 
-  @spec get_eth1_vote(Types.slot()) :: DepositTreeSnapshot.t()
-  def get_deposit_snapshot(), do: GenServer.call(__MODULE__, :get_deposit_snapshot)
+  @spec get_deposit_snapshot() :: DepositTreeSnapshot.t()
+  def get_deposit_snapshot() do
+    state = fetch_execution_state!()
+    DepositTree.get_snapshot(state.deposit_tree)
+  end
 
   @spec get_deposits(Eth1Data.t(), Eth1Data.t(), Range.t()) ::
           {:ok, [Deposit.t()] | nil} | {:error, any}
@@ -52,17 +50,32 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     if Range.size(deposit_range) == 0 do
       {:ok, []}
     else
-      GenServer.call(__MODULE__, {:get_deposits, current_eth1_data, eth1_vote, deposit_range})
+      state = fetch_execution_state!()
+      votes = state.eth1_data_votes
+
+      eth1_data =
+        if Map.has_key?(votes, eth1_vote) and has_majority?(votes, eth1_vote),
+          do: eth1_vote,
+          else: current_eth1_data
+
+      compute_deposits(state, eth1_data, deposit_range)
     end
   end
 
   @spec notify_new_block(Types.slot(), Eth1Data.t(), ExecutionPayload.t()) :: :ok
   def notify_new_block(slot, eth1_data, %ExecutionPayload{} = execution_payload) do
     payload_info = Map.take(execution_payload, [:block_hash, :block_number, :timestamp])
-    GenServer.cast(__MODULE__, {:new_block, slot, eth1_data, payload_info})
+
+    fetch_execution_state!()
+    |> prune_state(slot)
+    |> update_state_with_payload(payload_info)
+    |> update_state_with_vote(eth1_data)
+    |> persist_execution_state()
   end
 
-  @impl true
+  @doc """
+    Initializes the table in the db by storing the initial state of the execution chain..
+  """
   def init({genesis_time, %DepositTreeSnapshot{} = snapshot, eth1_votes}) do
     state = %{
       # PERF: we could use some kind of ordered map for storing votes
@@ -79,41 +92,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     StoreDb.persist_deposits_snapshot(snapshot)
 
     persist_execution_state(updated_state)
-
-    {:ok, nil}
-  end
-
-  @impl true
-  def handle_call({:get_eth1_vote, slot}, _from, _state) do
-    state = fetch_execution_state!()
-    {:reply, compute_eth1_vote(state, slot), nil}
-  end
-
-  @impl true
-  def handle_call(:get_deposit_snapshot, _from, _state) do
-    state = fetch_execution_state!()
-    {:reply, DepositTree.get_snapshot(state.deposit_tree), nil}
-  end
-
-  def handle_call({:get_deposits, current_eth1_data, eth1_vote, deposit_range}, _from, _state) do
-    state = fetch_execution_state!()
-    votes = state.eth1_data_votes
-
-    eth1_data =
-      if Map.has_key?(votes, eth1_vote) and has_majority?(votes, eth1_vote),
-        do: eth1_vote,
-        else: current_eth1_data
-
-    {:reply, compute_deposits(state, eth1_data, deposit_range), nil}
-  end
-
-  @impl true
-  def handle_cast({:new_block, slot, eth1_data, payload_info}, _state) do
-    fetch_execution_state!()
-    |> prune_state(slot)
-    |> update_state_with_payload(payload_info)
-    |> update_state_with_vote(eth1_data)
-    |> then(&{:noreply, &1})
   end
 
   defp prune_state(%{genesis_time: genesis_time, last_period: last_period} = state, slot) do
