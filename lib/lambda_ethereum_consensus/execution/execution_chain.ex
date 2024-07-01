@@ -7,12 +7,31 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   use GenServer
 
   alias LambdaEthereumConsensus.Execution.ExecutionClient
+  alias LambdaEthereumConsensus.Store.KvSchema
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Deposit
   alias Types.DepositTree
   alias Types.DepositTreeSnapshot
   alias Types.Eth1Data
   alias Types.ExecutionPayload
+
+  use KvSchema, prefix: "execution_chain"
+
+  @impl KvSchema
+  @spec encode_key(String.t()) :: {:ok, binary()} | {:error, binary()}
+  def encode_key(key), do: {:ok, key}
+
+  @impl KvSchema
+  @spec decode_key(binary()) :: {:ok, String.t()} | {:error, binary()}
+  def decode_key(key), do: {:ok, key}
+
+  @impl KvSchema
+  @spec encode_value(map()) :: {:ok, binary()} | {:error, binary()}
+  def encode_value(state), do: {:ok, :erlang.term_to_binary(state)}
+
+  @impl KvSchema
+  @spec decode_value(binary()) :: {:ok, map()} | {:error, binary()}
+  def decode_value(bin), do: {:ok, :erlang.binary_to_term(bin)}
 
   @spec start_link(Types.uint64()) :: GenServer.on_start()
   def start_link(opts) do
@@ -59,20 +78,25 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
 
     StoreDb.persist_deposits_snapshot(snapshot)
 
-    {:ok, updated_state}
+    persist_execution_state(updated_state)
+
+    {:ok, nil}
   end
 
   @impl true
-  def handle_call({:get_eth1_vote, slot}, _from, state) do
-    {:reply, compute_eth1_vote(state, slot), state}
+  def handle_call({:get_eth1_vote, slot}, _from, _state) do
+    state = fetch_execution_state!()
+    {:reply, compute_eth1_vote(state, slot), nil}
   end
 
   @impl true
-  def handle_call(:get_deposit_snapshot, _from, state) do
-    {:reply, DepositTree.get_snapshot(state.deposit_tree), state}
+  def handle_call(:get_deposit_snapshot, _from, _state) do
+    state = fetch_execution_state!()
+    {:reply, DepositTree.get_snapshot(state.deposit_tree), nil}
   end
 
-  def handle_call({:get_deposits, current_eth1_data, eth1_vote, deposit_range}, _from, state) do
+  def handle_call({:get_deposits, current_eth1_data, eth1_vote, deposit_range}, _from, _state) do
+    state = fetch_execution_state!()
     votes = state.eth1_data_votes
 
     eth1_data =
@@ -80,12 +104,12 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
         do: eth1_vote,
         else: current_eth1_data
 
-    {:reply, compute_deposits(state, eth1_data, deposit_range), state}
+    {:reply, compute_deposits(state, eth1_data, deposit_range), nil}
   end
 
   @impl true
-  def handle_cast({:new_block, slot, eth1_data, payload_info}, state) do
-    state
+  def handle_cast({:new_block, slot, eth1_data, payload_info}, _state) do
+    fetch_execution_state!()
     |> prune_state(slot)
     |> update_state_with_payload(payload_info)
     |> update_state_with_vote(eth1_data)
@@ -266,4 +290,15 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
 
   defp slots_per_eth1_voting_period(),
     do: ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH")
+
+  defp persist_execution_state(state) do
+    put("", state)
+  end
+
+  defp fetch_execution_state(), do: get("")
+
+  defp fetch_execution_state!() do
+    {:ok, state} = fetch_execution_state()
+    state
+  end
 end
