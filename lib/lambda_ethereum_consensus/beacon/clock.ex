@@ -56,7 +56,8 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
       new_logical_time = compute_logical_time(new_state)
 
       if old_logical_time != new_logical_time do
-        notify_subscribers(new_logical_time)
+        log_new_slot(new_logical_time)
+        ValidatorManager.notify_tick(new_logical_time)
       end
     end
 
@@ -87,11 +88,6 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
       end
 
     {slot, slot_third}
-  end
-
-  defp notify_subscribers(logical_time) do
-    log_new_slot(logical_time)
-    ValidatorManager.notify_tick(logical_time)
   end
 
   defp log_new_slot({slot, :first_third}) do
