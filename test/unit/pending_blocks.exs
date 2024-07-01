@@ -62,9 +62,9 @@ defmodule PendingBlocksTest do
     rescue
       e in AssertionError ->
         if retries <= 0 do
-          raise e
+          reraise e, __STACKTRACE__
         else
-          assert_retry(delay_milliseconds, retries, assertion)
+          assert_retry(delay_milliseconds, retries - 1, assertion)
         end
     end
   end
