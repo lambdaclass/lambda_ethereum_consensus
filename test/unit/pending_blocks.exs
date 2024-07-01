@@ -1,5 +1,6 @@
 defmodule PendingBlocksTest do
   use ExUnit.Case
+  alias ExUnit.AssertionError
   alias Fixtures.Block
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.P2P.BlockDownloader
@@ -22,6 +23,15 @@ defmodule PendingBlocksTest do
   @tag :tmp_dir
   test "Download blocks" do
     block_info = new_block_info()
+
+    patch(BlockDownloader, :request_blocks_by_root, fn root ->
+      if root == [block_info.root] do
+        {:ok, [block_info.signed_block]}
+      else
+        {:error, nil}
+      end
+    end)
+
     Blocks.add_block_to_download(block_info.root)
 
     assert Blocks.get_blocks_with_status(:download) ==
@@ -34,22 +44,28 @@ defmodule PendingBlocksTest do
                 }
               ]}
 
-    patch(BlockDownloader, :request_blocks_by_root, fn root ->
-      if root == [block_info.root] do
-        {:ok, [block_info.signed_block]}
-      else
-        {:error, nil}
-      end
-    end)
-
     Process.send(PendingBlocks, :download_blocks, [])
-
-    # Waits for the block to be downloaded
-    Process.sleep(100)
-
     expected_block_info = BlockInfo.change_status(block_info, :download_blobs)
 
-    assert Blocks.get_blocks_with_status(:download) == {:ok, []}
-    assert Blocks.get_blocks_with_status(:download_blobs) == {:ok, [expected_block_info]}
+    # Waits for the block to be downloaded
+    assert_retry(10, 100, fn ->
+      assert Blocks.get_blocks_with_status(:download) == {:ok, []}
+      assert Blocks.get_blocks_with_status(:download_blobs) == {:ok, [expected_block_info]}
+    end)
+  end
+
+  defp assert_retry(delay_milliseconds, retries, assertion) do
+    Process.sleep(delay_milliseconds)
+
+    try do
+      assertion.()
+    rescue
+      e in AssertionError ->
+        if retries <= 0 do
+          raise e
+        else
+          assert_retry(delay_milliseconds, retries, assertion)
+        end
+    end
   end
 end
