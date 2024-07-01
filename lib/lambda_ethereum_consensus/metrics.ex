@@ -67,4 +67,14 @@ defmodule LambdaEthereumConsensus.Metrics do
       :error -> topic
     end
   end
+
+  def block_status(root, status) do
+    hex_root = root |> Base.encode16()
+
+    :telemetry.execute([:blocks, :status], %{}, %{
+      mainstat: status,
+      id: hex_root,
+      title: hex_root
+    })
+  end
 end

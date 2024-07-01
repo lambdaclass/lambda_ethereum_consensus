@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
-  alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -76,7 +76,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     |> tap(fn blocks ->
       Logger.info("[Optimistic Sync] Downloaded #{length(blocks)} blocks successfully.")
     end)
-    |> Enum.each(&PendingBlocks.add_block/1)
+    |> Enum.each(&Libp2pPort.add_block/1)
 
     remaining_chunks =
       Enum.zip(chunks, results)
@@ -113,12 +113,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   @spec fetch_blocks_by_slot(Types.slot(), non_neg_integer()) ::
           {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
   def fetch_blocks_by_slot(from, count) do
-    Logger.info("[Optimistic Sync] Fetching #{count} blocks starting from slot #{from}.")
-
     case BlockDownloader.request_blocks_by_range_sync(from, count, 0) do
       {:ok, blocks} ->
-        Logger.info("Fetched #{count} blocks from #{from}")
-
         {:ok, blocks}
 
       {:error, error} ->

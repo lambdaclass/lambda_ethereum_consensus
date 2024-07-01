@@ -2,8 +2,10 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @moduledoc """
   Interface to `Store.blocks`.
   """
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.LRUCache
+  alias LambdaEthereumConsensus.Utils
   alias Types.BeaconBlock
   alias Types.BlockInfo
 
@@ -81,10 +83,19 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
 
   @spec change_status(BlockInfo.t(), BlockInfo.block_status()) :: :ok
   def change_status(block_info, status) do
+    Metrics.block_status(block_info.root, status)
+
+    IO.puts(
+      "Block: #{Utils.format_shorten_binary(block_info.root)}. Changing status from #{block_info.status} to #{status}"
+    )
+
     old_status = block_info.status
 
     block_info
     |> BlockInfo.change_status(status)
+    |> tap(fn bi ->
+      IO.puts("Status for #{Utils.format_shorten_binary(bi.root)}: #{bi.status}")
+    end)
     |> store_block_info()
 
     BlockDb.change_root_status(block_info.root, old_status, status)

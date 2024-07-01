@@ -92,6 +92,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       {:ok, blocks} ->
         blocks
         |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
+        |> tap(fn sorted_blocks ->
+          Enum.frequencies_by(sorted_blocks, fn b -> b.status end)
+          |> IO.inspect(label: "statuses")
+        end)
         |> Enum.each(&process_block/1)
 
       {:error, reason} ->

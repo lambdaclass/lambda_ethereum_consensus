@@ -22,7 +22,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application() do
     [
-      extra_applications: [:logger, :observer, :prometheus_ex],
+      extra_applications: [:logger, :observer, :prometheus_ex, :wx, :runtime_tools],
       mod: {LambdaEthereumConsensus.Application, []}
     ]
   end

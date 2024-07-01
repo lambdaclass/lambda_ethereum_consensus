@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
@@ -299,6 +300,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     OperationsCollector.init()
   end
 
+  def add_block(pid \\ __MODULE__, block), do: GenServer.cast(pid, {:add_block, block})
+
   ########################
   ### GenServer Callbacks
   ########################
@@ -366,6 +369,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     send_data(port, Command.encode(command))
     {:noreply, state |> Map.put(:requests, new_requests)}
+  end
+
+  def handle_cast({:add_block, block}, state) do
+    PendingBlocks.add_block(block)
+    {:noreply, state}
   end
 
   @impl GenServer
