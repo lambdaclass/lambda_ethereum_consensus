@@ -87,8 +87,6 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   def change_status(block_info, status) do
     Metrics.block_status(block_info.root, status)
 
-    IO.puts("Changing status for #{block_info} to #{status}")
-
     new_block_info = BlockInfo.change_status(block_info, status)
     store_block_info(new_block_info)
 
