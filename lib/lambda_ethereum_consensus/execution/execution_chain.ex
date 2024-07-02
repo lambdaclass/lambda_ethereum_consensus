@@ -174,7 +174,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     end
   end
 
-  defp validate_range(%{deposit_count: count}, _..deposit_end) when deposit_end >= count, do: :ok
+  defp validate_range(%{deposit_count: count}, _..deposit_end//_) when deposit_end >= count,
+    do: :ok
+
   defp validate_range(_, _), do: {:error, "deposit range out of bounds"}
 
   defp compute_eth1_vote(%{eth1_data_votes: []}, _), do: {:ok, nil}
