@@ -42,15 +42,17 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       missing_blobs = missing_blobs(block_info)
 
       if Enum.empty?(missing_blobs) do
-        block_info
+        Blocks.new_block_info(block_info)
+
+        if process_block(block_info) in [:transitioned, :invalid] do
+          process_blocks()
+        end
       else
         BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/1)
-        block_info |> BlockInfo.change_status(:download_blobs)
-      end
-      |> Blocks.new_block_info()
 
-      if process_block(block_info) in [:transitioned, :invalid] do
-        process_blocks()
+        block_info
+        |> BlockInfo.change_status(:download_blobs)
+        |> Blocks.new_block_info()
       end
     end
   end
@@ -68,10 +70,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     |> Enum.each(fn root ->
       with %BlockInfo{} = block_info <- Blocks.get_block_info(root) do
         if Enum.empty?(missing_blobs(block_info)) do
-          Blocks.change_status(block_info, :pending)
-        end
+          new_block_info = Blocks.change_status(block_info, :pending)
 
-        process_block(block_info)
+          if process_block(new_block_info) in [:transitioned, :invalid] do
+            process_blocks()
+          end
+        end
       end
     end)
   end
@@ -104,6 +108,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   defp process_block(block_info) do
+    if block_info.status != :pending do
+      Logger.error("Called process block for a block that's not ready: #{block_info}")
+    end
+
     parent_root = block_info.signed_block.message.parent_root
 
     case Blocks.get_block_info(parent_root) do

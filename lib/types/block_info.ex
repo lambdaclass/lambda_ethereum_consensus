@@ -6,6 +6,7 @@ defmodule Types.BlockInfo do
   signed_block field may be nil if it's queued for download.
   """
 
+  alias LambdaEthereumConsensus.Utils
   alias Types.SignedBeaconBlock
 
   @type block_status ::
@@ -33,6 +34,12 @@ defmodule Types.BlockInfo do
                   :unknown,
                   :transitioned
                 ]
+
+  defimpl String.Chars, for: __MODULE__ do
+    def to_string(block_info) do
+      "Slot: #{block_info.signed_block.message.slot}. Root: #{Utils.format_shorten_binary(block_info.root)}. Status: #{inspect(block_info.status)}"
+    end
+  end
 
   @spec from_block(SignedBeaconBlock.t(), block_status()) :: t()
   def from_block(signed_block, status \\ :pending) do
