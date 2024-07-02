@@ -140,6 +140,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end
   end
 
+  # TODO: add block downloading either before or after processing. It's async so it's the same.
+
   defp process_blobs({:ok, blobs}), do: add_blobs(blobs)
 
   defp process_blobs({:error, reason}) do

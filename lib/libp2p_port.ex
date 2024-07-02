@@ -9,7 +9,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
@@ -61,7 +61,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
-          | {:new_peer_handler, pid()}
           | {:join_init_topics, boolean()}
 
   @type node_identity() :: %{
@@ -312,7 +311,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
-    current_version = BeaconChain.get_fork_version()
+    current_version = ForkChoice.get_fork_version()
 
     ([initial_enr: compute_initial_enr(current_version)] ++ args)
     |> parse_args()
@@ -320,6 +319,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> then(&send_data(port, &1))
 
     if join_init_topics, do: join_init_topics(port)
+
+    Peerbook.init()
 
     {:ok,
      %{

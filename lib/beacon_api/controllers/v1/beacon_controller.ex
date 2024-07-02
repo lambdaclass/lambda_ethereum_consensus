@@ -5,7 +5,7 @@ defmodule BeaconApi.V1.BeaconController do
   alias BeaconApi.ErrorController
   alias BeaconApi.Helpers
   alias BeaconApi.Utils
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
 
@@ -30,7 +30,7 @@ defmodule BeaconApi.V1.BeaconController do
     conn
     |> json(%{
       "data" => %{
-        "genesis_time" => BeaconChain.get_genesis_time(),
+        "genesis_time" => ForkChoice.get_genesis_time(),
         "genesis_validators_root" =>
           ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
         "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()

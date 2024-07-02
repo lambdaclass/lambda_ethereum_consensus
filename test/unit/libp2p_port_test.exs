@@ -2,14 +2,15 @@ defmodule Unit.Libp2pPortTest do
   use ExUnit.Case
   use Patch
 
-  alias LambdaEthereumConsensus.Beacon.BeaconChain
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
 
   doctest Libp2pPort
 
-  setup do
-    patch(BeaconChain, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
+  setup %{tmp_dir: tmp_dir} do
+    patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
+    start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
     :ok
   end
 
@@ -17,8 +18,10 @@ defmodule Unit.Libp2pPortTest do
     start_link_supervised!({Libp2pPort, [opts: [name: name]] ++ init_args}, id: name)
   end
 
+  @tag :tmp_dir
   test "start port", do: start_port()
 
+  @tag :tmp_dir
   test "start multiple ports" do
     start_port()
     start_port(:host1)
@@ -26,11 +29,13 @@ defmodule Unit.Libp2pPortTest do
     start_port(:host3)
   end
 
+  @tag :tmp_dir
   test "set stream handler" do
     start_port()
     :ok = Libp2pPort.set_handler("/my-app/amazing-protocol/1.0.1")
   end
 
+  @tag :tmp_dir
   test "start two hosts, and play one round of ping-pong" do
     # Setup sender
     start_port(:sender, listen_addr: ["/ip4/127.0.0.1/tcp/48787"])
@@ -79,6 +84,7 @@ defmodule Unit.Libp2pPortTest do
     assert_receive {:new_peer, _peer_id}, 10_000
   end
 
+  @tag :tmp_dir
   defp two_hosts_gossip() do
     gossiper_addr = ["/ip4/127.0.0.1/tcp/48766"]
     start_port(:publisher)
@@ -120,10 +126,12 @@ defmodule Unit.Libp2pPortTest do
       retry_test(f, retries - 1)
   end
 
+  @tag :tmp_dir
   test "start two hosts, and gossip about" do
     retry_test(&two_hosts_gossip/0, 5)
   end
 
+  @tag :tmp_dir
   test "subscribe, leave, and join topic" do
     port = start_port(:some, listen_addr: ["/ip4/127.0.0.1/tcp/48790"])
     topic = "test"
@@ -133,6 +141,7 @@ defmodule Unit.Libp2pPortTest do
     Libp2pPort.join_topic(port, topic)
   end
 
+  @tag :tmp_dir
   test "get node identity" do
     addr = "/ip4/127.0.0.1/tcp/48795"
 
