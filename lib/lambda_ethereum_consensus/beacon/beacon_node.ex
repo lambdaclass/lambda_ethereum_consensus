@@ -30,8 +30,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     ForkChoice.init_store(store, time)
 
-    validator_children =
-      get_validator_children(
+    validator_manager =
+      get_validator_manager(
         deposit_tree_snapshot,
         store.head_slot,
         store.head_root,
@@ -48,18 +48,18 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
         {Task.Supervisor, name: PruneBlobsSupervisor}
-      ] ++ validator_children
+      ] ++ validator_manager
 
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  defp get_validator_children(nil, _, _, _) do
+  defp get_validator_manager(nil, _, _, _) do
     Logger.warning("Deposit data not found. Validator will be disabled.")
 
     []
   end
 
-  defp get_validator_children(snapshot, slot, head_root, genesis_time) do
+  defp get_validator_manager(snapshot, slot, head_root, genesis_time) do
     %BeaconState{eth1_data_votes: votes} = BlockStates.get_state_info!(head_root).beacon_state
     LambdaEthereumConsensus.Execution.ExecutionChain.init(genesis_time, snapshot, votes)
     # TODO: move checkpoint sync outside and move this to application.ex
