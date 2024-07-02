@@ -7,8 +7,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
   require Logger
 
-  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition.Misc
