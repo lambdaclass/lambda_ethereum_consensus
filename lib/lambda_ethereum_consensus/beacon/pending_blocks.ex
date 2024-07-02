@@ -43,10 +43,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
       if Enum.empty?(missing_blobs) do
         Blocks.new_block_info(block_info)
-
-        if process_block(block_info) in [:transitioned, :invalid] do
-          process_blocks()
-        end
+        process_block_and_check_children(block_info)
       else
         BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/1)
 
@@ -70,11 +67,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     |> Enum.each(fn root ->
       with %BlockInfo{} = block_info <- Blocks.get_block_info(root) do
         if Enum.empty?(missing_blobs(block_info)) do
-          new_block_info = Blocks.change_status(block_info, :pending)
-
-          if process_block(new_block_info) in [:transitioned, :invalid] do
-            process_blocks()
-          end
+          block_info
+          |> Blocks.change_status(:pending)
+          |> process_block_and_check_children()
         end
       end
     end)
@@ -104,6 +99,18 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         Logger.error(
           "[Pending Blocks] Failed to get pending blocks to process. Reason: #{reason}"
         )
+    end
+  end
+
+  @doc """
+  Processes a single block. If it was transitioned or declared invalid, then process_blocks
+  is called to check if there's any children that can now be processed. This function
+  is only to be called when a new block is saved as pending, not when processing blocks
+  in batch, to avoid unneeded recursion.
+  """
+  defp process_block_and_check_children(block_info) do
+    if process_block(block_info) in [:transitioned, :invalid] do
+      process_blocks()
     end
   end
 
@@ -145,6 +152,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   # TODO: add block downloading either before or after processing. It's async so it's the same.
+  # TODO: add a new missing blobs call if some blobs are still missing for a block.
 
   defp process_blobs({:ok, blobs}), do: add_blobs(blobs)
 

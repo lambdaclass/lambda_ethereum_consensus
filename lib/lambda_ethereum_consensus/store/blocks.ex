@@ -5,7 +5,6 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.LRUCache
-  alias LambdaEthereumConsensus.Utils
   alias Types.BeaconBlock
   alias Types.BlockInfo
 
