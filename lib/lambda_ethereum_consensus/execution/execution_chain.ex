@@ -74,9 +74,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   @doc """
-    Initializes the table in the db by storing the initial state of the execution chain..
+    Initializes the table in the db by storing the initial state of the execution chain.
   """
-  def init({genesis_time, %DepositTreeSnapshot{} = snapshot, eth1_votes}) do
+  def init(genesis_time, %DepositTreeSnapshot{} = snapshot, eth1_votes) do
     state = %{
       # PERF: we could use some kind of ordered map for storing votes
       eth1_data_votes: %{},
