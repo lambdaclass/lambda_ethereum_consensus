@@ -3,7 +3,7 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
 
   use GenServer
 
-  alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Validator.ValidatorManager
 
   require Logger
@@ -50,7 +50,7 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
     new_state = %{state | time: time}
 
     if time >= state.genesis_time do
-      LibP2pPort.on_tick(time)
+      Libp2pPort.on_tick(time)
       # TODO: reduce time between ticks to account for gnosis' 5s slot time.
       old_logical_time = compute_logical_time(state)
       new_logical_time = compute_logical_time(new_state)
