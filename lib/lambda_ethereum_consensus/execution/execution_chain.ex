@@ -76,12 +76,11 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   @doc """
     Initializes the table in the db by storing the initial state of the execution chain.
   """
-  def init(genesis_time, %DepositTreeSnapshot{} = snapshot, eth1_votes) do
+  def init(%DepositTreeSnapshot{} = snapshot, eth1_votes) do
     state = %{
       # PERF: we could use some kind of ordered map for storing votes
       eth1_data_votes: %{},
       eth1_chain: [],
-      genesis_time: genesis_time,
       current_eth1_data: DepositTreeSnapshot.get_eth1_data(snapshot),
       deposit_tree: DepositTree.from_snapshot(snapshot),
       last_period: 0
@@ -94,11 +93,11 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     persist_execution_state(updated_state)
   end
 
-  defp prune_state(%{genesis_time: genesis_time, last_period: last_period} = state, slot) do
+  defp prune_state(%{last_period: last_period} = state, slot) do
     current_period = compute_period(slot)
 
     if current_period > last_period do
-      new_chain = drop_old_payloads(state.eth1_chain, genesis_time, slot)
+      new_chain = drop_old_payloads(state.eth1_chain, slot)
       %{state | eth1_data_votes: %{}, eth1_chain: new_chain, last_period: current_period}
     else
       state
@@ -109,8 +108,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     %{state | eth1_chain: [payload_info | eth1_chain]}
   end
 
-  defp drop_old_payloads(eth1_chain, genesis_time, slot) do
-    period_start = voting_period_start_time(slot, genesis_time)
+  defp drop_old_payloads(eth1_chain, slot) do
+    period_start = voting_period_start_time(slot)
 
     follow_time_distance =
       ChainSpec.get("SECONDS_PER_ETH1_BLOCK") * ChainSpec.get("ETH1_FOLLOW_DISTANCE")
@@ -186,12 +185,11 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
          %{
            eth1_chain: eth1_chain,
            eth1_data_votes: seen_votes,
-           genesis_time: genesis_time,
            deposit_tree: deposit_tree
          },
          slot
        ) do
-    period_start = voting_period_start_time(slot, genesis_time)
+    period_start = voting_period_start_time(slot)
     follow_time = ChainSpec.get("SECONDS_PER_ETH1_BLOCK") * ChainSpec.get("ETH1_FOLLOW_DISTANCE")
 
     blocks_to_consider =
@@ -261,7 +259,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     timestamp in (period_start - follow_time * 2)..(period_start - follow_time)
   end
 
-  defp voting_period_start_time(slot, genesis_time) do
+  defp voting_period_start_time(slot) do
+    genesis_time = StoreDb.fetch_genesis_time!()
     period_start_slot = slot - rem(slot, slots_per_eth1_voting_period())
     genesis_time + period_start_slot * ChainSpec.get("SECONDS_PER_SLOT")
   end
