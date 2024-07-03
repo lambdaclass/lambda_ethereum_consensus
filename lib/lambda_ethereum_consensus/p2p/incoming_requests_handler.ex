@@ -1,8 +1,7 @@
-defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
+defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
   @moduledoc """
   This module handles Req/Resp domain requests.
   """
-  require Logger
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
@@ -15,6 +14,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequests.Handler do
 
   @spec handle(String.t(), String.t(), binary()) :: any()
   def handle(name, message_id, message) do
+    Logger.debug("'#{name}' request received")
+
     case handle_req(name, message_id, message) do
       :ok -> :ok
       {:error, error} -> Logger.error("[#{name}] Request error: #{inspect(error)}")

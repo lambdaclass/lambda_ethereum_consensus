@@ -13,6 +13,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.P2P.IncomingRequestsHandler
   alias LambdaEthereumConsensus.P2P.Peerbook
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
@@ -42,6 +43,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   require Logger
 
   @port_name Application.app_dir(:lambda_ethereum_consensus, ["priv", "native", "libp2p_port"])
+  @request_prefix "/eth2/beacon_chain/req/"
 
   @default_args [
     listen_addr: [],
@@ -57,6 +59,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
           | {:join_init_topics, boolean()}
+          | {:set_request_handlers, boolean()}
 
   ######################
   ### API
@@ -107,14 +110,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Sets a Req/Resp handler for the given protocol ID. After this call,
-  peer requests are sent to the current process' mailbox. To handle them,
-  use `handle_request/0`.
+  Sets a Req/Resp handler for the given protocol ID.
   """
-  @spec set_handler(GenServer.server(), String.t()) :: :ok | {:error, String.t()}
-  def set_handler(pid \\ __MODULE__, protocol_id) do
+  @spec set_handler(String.t(), port()) :: boolean()
+  def set_handler(protocol_id, port) do
     :telemetry.execute([:port, :message], %{}, %{function: "set_handler", direction: "elixir->"})
-    call_command(pid, {:set_handler, %SetHandler{protocol_id: protocol_id}})
+
+    c = {:set_handler, %SetHandler{protocol_id: protocol_id}}
+    data = Command.encode(%Command{c: c})
+
+    send_data(port, data)
   end
 
   @doc """
@@ -142,17 +147,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Returns the next request received by the server for registered handlers
-  on the current process. If there are no requests, it waits for one.
-  """
-  @spec handle_request() :: {String.t(), String.t(), binary()}
-  def handle_request() do
-    receive do
-      {:request, {_protocol_id, _message_id, _message} = request} -> request
-    end
-  end
-
-  @doc """
   Sends a response for the request with the given message ID.
   """
   @spec send_response(GenServer.server(), String.t(), binary()) ::
@@ -161,7 +155,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     :telemetry.execute([:port, :message], %{}, %{function: "send_response", direction: "elixir->"})
 
     c = %SendResponse{request_id: request_id, message: response}
-    call_command(pid, {:send_response, c})
+    cast_command(pid, {:send_response, c})
   end
 
   @doc """
@@ -274,6 +268,21 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     OperationsCollector.init()
   end
 
+  @spec set_request_handlers(port()) :: :ok | {:error, String.t()}
+  defp set_request_handlers(port) do
+    [
+      "status/1",
+      "goodbye/1",
+      "ping/1",
+      "beacon_blocks_by_range/2",
+      "beacon_blocks_by_root/2",
+      "metadata/2"
+    ]
+    |> Stream.map(&Enum.join([@request_prefix, &1, "/ssz_snappy"]))
+    |> Stream.map(fn protocol_id -> set_handler(protocol_id, port) end)
+    |> Enum.each(fn true -> nil end)
+  end
+
   ########################
   ### GenServer Callbacks
   ########################
@@ -281,6 +290,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def init(args) do
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
+    {set_request_handlers, args} = Keyword.pop(args, :set_request_handlers, false)
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
@@ -292,8 +302,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> then(&send_data(port, &1))
 
     if join_init_topics, do: join_init_topics(port)
+    if set_request_handlers, do: set_request_handlers(port)
 
     Peerbook.init()
+
+    Logger.info("[Libp2pPort] Finish init")
 
     {:ok, %{port: port, subscriptors: %{}}}
   end
@@ -344,16 +357,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp handle_notification(
          %Request{
-           protocol_id: protocol_id,
-           handler: handler,
+           protocol_id: @request_prefix <> name,
+           handler: _handler,
            request_id: request_id,
            message: message
          },
          _state
        ) do
     :telemetry.execute([:port, :message], %{}, %{function: "request", direction: "->elixir"})
-    handler_pid = :erlang.binary_to_term(handler)
-    send(handler_pid, {:request, {protocol_id, request_id, message}})
+
+    IncomingRequestsHandler.handle(name, request_id, message)
   end
 
   defp handle_notification(%NewPeer{peer_id: peer_id}, _state) do
