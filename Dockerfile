@@ -114,4 +114,7 @@ RUN protoc --elixir_out=. proto/libp2p.proto
 
 RUN mix compile
 
-ENTRYPOINT [ "iex", "-S", "mix", "run", "--"]
+ARG COOKIE
+ENV COOKIE_VALUE=${COOKIE}
+
+ENTRYPOINT iex --sname lambdaconsensus --cookie $COOKIE_VALUE -S mix run -- $0 $@

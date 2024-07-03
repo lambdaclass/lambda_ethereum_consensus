@@ -1,0 +1,10 @@
+participants:
+  - el_type: geth
+    cl_type: lighthouse
+    count: 2
+  - el_type: geth
+    cl_type: lambda
+    cl_image: lambda_ethereum_consensus:latest
+    use_separate_vc: false
+    count: 1
+    cl_max_mem: 4096

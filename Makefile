@@ -42,7 +42,29 @@ PORT_SOURCES := $(shell find native/libp2p_port -type f)
 $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) $(PROTOBUF_GO_FILES)
 	cd native/libp2p_port; go build -o ../../$@
 
+KURTOSIS_SERVICE ?= cl-3-lambda-geth
+
 ##### TARGETS #####
+
+#💻 kurtosis.start: @ Starts the kurtosis environment
+kurtosis.start:
+	kurtosis run --enclave lambdanet ../ethereum-package --args-file network_params.yaml
+
+#💻 kurtosis.stop: @ Stops the kurtosis environment
+kurtosis.stop:
+	kurtosis enclave stop lambdanet
+
+#💻 kurtosis.remove: @ Removes the kurtosis environment
+kurtosis.remove:
+	kurtosis enclave rm lambdanet
+
+#💻 kurtosis.clean: @ Stops, removes and clean the kurtosis environment
+kurtosis.clean: kurtosis.stop kurtosis.clean
+	kurtosis clean -a
+
+#💻 kurtosis.connect: @ Connects to the client running in kurtosis, KURTOSIS_SERVICE could be given
+kurtosis.connect:
+	kurtosis service shell lambdanet $(KURTOSIS_SERVICE)
 
 #💻 nix: @ Start a nix environment.
 nix:
