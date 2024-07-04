@@ -77,7 +77,11 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @spec new_block_info(BlockInfo.t()) :: :ok
   def new_block_info(block_info) do
     store_block_info(block_info)
-    BlockDb.add_root_to_status(block_info.root, block_info.status)
+
+    # We add the root to the status list, but we also make sure we remove it from the downloads
+    # list. If it's not in the list, the operation is equivalent to only adding it in the correct
+    # one.
+    BlockDb.change_root_status(block_info.root, :download, block_info.status)
   end
 
   @doc """

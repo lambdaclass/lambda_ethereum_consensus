@@ -13,7 +13,10 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
   @blobdata_prefix "blobdata"
   @block_root_prefix "block_root"
 
-  @spec store_blob(BlobSidecar.t()) :: :ok
+  @doc """
+  Stores a blob sidecar for a certain block. Returns the block root.
+  """
+  @spec store_blob(BlobSidecar.t()) :: Types.root()
   def store_blob(%BlobSidecar{signed_block_header: %{message: block_header}} = blob) do
     block_root = Ssz.hash_tree_root!(block_header)
     {:ok, encoded_blob} = Ssz.to_ssz(blob)
@@ -29,6 +32,7 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
 
     block_root_key = block_root_key(block_header.slot, blob.index)
     Db.put(block_root_key, block_root)
+    block_root
   end
 
   # TODO: this is only used for tests
