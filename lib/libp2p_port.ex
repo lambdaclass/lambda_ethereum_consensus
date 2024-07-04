@@ -43,7 +43,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   require Logger
 
   @port_name Application.app_dir(:lambda_ethereum_consensus, ["priv", "native", "libp2p_port"])
-  @request_prefix "/eth2/beacon_chain/req/"
 
   @default_args [
     listen_addr: [],
@@ -270,15 +269,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @spec set_request_handlers(port()) :: :ok | {:error, String.t()}
   defp set_request_handlers(port) do
-    [
-      "status/1",
-      "goodbye/1",
-      "ping/1",
-      "beacon_blocks_by_range/2",
-      "beacon_blocks_by_root/2",
-      "metadata/2"
-    ]
-    |> Stream.map(&Enum.join([@request_prefix, &1, "/ssz_snappy"]))
+    IncomingRequestsHandler.protocol_ids()
     |> Stream.map(fn protocol_id -> set_handler(protocol_id, port) end)
     |> Enum.each(fn true -> nil end)
   end
@@ -357,7 +348,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp handle_notification(
          %Request{
-           protocol_id: @request_prefix <> name,
+           protocol_id: protocol_id,
            handler: _handler,
            request_id: request_id,
            message: message
@@ -366,7 +357,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
        ) do
     :telemetry.execute([:port, :message], %{}, %{function: "request", direction: "->elixir"})
 
-    IncomingRequestsHandler.handle(name, request_id, message)
+    IncomingRequestsHandler.handle(protocol_id, request_id, message)
   end
 
   defp handle_notification(%NewPeer{peer_id: peer_id}, _state) do

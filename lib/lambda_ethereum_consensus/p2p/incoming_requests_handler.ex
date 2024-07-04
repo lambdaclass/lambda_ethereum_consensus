@@ -12,8 +12,23 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
 
   require Logger
 
+  @request_prefix "/eth2/beacon_chain/req/"
+  @request_names [
+    "status/1",
+    "goodbye/1",
+    "ping/1",
+    "beacon_blocks_by_range/2",
+    "beacon_blocks_by_root/2",
+    "metadata/2"
+  ]
+
+  @spec protocol_ids() :: list(String.t())
+  def protocol_ids() do
+    @request_names |> Enum.map(&Enum.join([@request_prefix, &1, "/ssz_snappy"]))
+  end
+
   @spec handle(String.t(), String.t(), binary()) :: any()
-  def handle(name, message_id, message) do
+  def handle(@request_prefix <> name, message_id, message) do
     Logger.debug("'#{name}' request received")
 
     case handle_req(name, message_id, message) do
