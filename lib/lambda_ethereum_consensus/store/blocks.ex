@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @moduledoc """
   Interface to `Store.blocks`.
   """
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.LRUCache
   alias Types.BeaconBlock
@@ -76,18 +77,27 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @spec new_block_info(BlockInfo.t()) :: :ok
   def new_block_info(block_info) do
     store_block_info(block_info)
-    BlockDb.add_root_to_status(block_info.root, block_info.status)
+
+    # We add the root to the status list, but we also make sure we remove it from the downloads
+    # list. If it's not in the list, the operation is equivalent to only adding it in the correct
+    # one.
+    BlockDb.change_root_status(block_info.root, :download, block_info.status)
   end
 
-  @spec change_status(BlockInfo.t(), BlockInfo.block_status()) :: :ok
+  @doc """
+  Changes the status of a block in the db. Returns the block with the modified status.
+  """
+  @spec change_status(BlockInfo.t(), BlockInfo.block_status()) :: BlockInfo.t()
   def change_status(block_info, status) do
+    Metrics.block_status(block_info.root, status)
+
+    new_block_info = BlockInfo.change_status(block_info, status)
+    store_block_info(new_block_info)
+
     old_status = block_info.status
-
-    block_info
-    |> BlockInfo.change_status(status)
-    |> store_block_info()
-
     BlockDb.change_root_status(block_info.root, old_status, status)
+
+    new_block_info
   end
 
   @spec get_blocks_with_status(BlockInfo.block_status()) ::
