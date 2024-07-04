@@ -37,11 +37,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     loaded_block = Blocks.get_block_info(block_info.root)
 
     # If the block is new or was to be downloaded, we store it.
-<<<<<<< HEAD
-=======
-    loaded_block = Blocks.get_block_info(block_info.root)
-
->>>>>>> origin/main
     if is_nil(loaded_block) or loaded_block.status == :download do
       missing_blobs = missing_blobs(block_info)
 
