@@ -10,7 +10,7 @@ defmodule Unit.P2p.RequestsTest do
              Requests.handle_response(requests, "some response", "fake id")
   end
 
-  test "A requests object should handle a request only once" do
+  test "A requests object should handler a request only once" do
     requests = Requests.new()
     pid = self()
 

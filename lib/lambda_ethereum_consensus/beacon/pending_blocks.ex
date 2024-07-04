@@ -34,10 +34,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @spec add_block(SignedBeaconBlock.t()) :: :ok
   def add_block(signed_block) do
     block_info = BlockInfo.from_block(signed_block)
-
-    # If the block is new or was to be downloaded, we store it.
     loaded_block = Blocks.get_block_info(block_info.root)
 
+    # If the block is new or was to be downloaded, we store it.
     if is_nil(loaded_block) or loaded_block.status == :download do
       missing_blobs = missing_blobs(block_info)
 
@@ -130,10 +129,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   # To be used when a series of blobs are downloaded. Stores each blob.
   # If there are blocks that can be processed, does so immediately.
   defp add_blobs(blobs) do
-    Enum.map(blobs, fn blob ->
-      BlobDb.store_blob(blob)
-      Ssz.hash_tree_root!(blob.signed_block_header.message)
-    end)
+    blobs
+    |> Enum.map(&BlobDb.store_blob/1)
     |> Enum.uniq()
     |> Enum.each(fn root ->
       with %BlockInfo{} = block_info <- Blocks.get_block_info(root) do
