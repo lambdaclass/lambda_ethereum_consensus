@@ -264,7 +264,37 @@ Asynchronously, a new task is started to recompute the new head, as this takes a
 
 ## Request-Response
 
-**TO DO**: document how ports work for this.
+Request-response is an on-demand protocol where a node asks for information directly to a peer and expects a response. This may be to request metadata that corresponds to that peer for discovery purposes, or to request information from the past that will not appear on when listening to gossip (useful for checkpoint sync).
+
+It's implemented in the following way:
+
+```mermaid
+sequenceDiagram
+
+participant req as Requesting Process
+participant p2p as Libp2pPort
+participant gomain as go libp2p main
+participant goreq as request goroutine
+
+req ->> req: send_request(peer_id, protocol_id, message)
+req ->> p2p: send_protobuf(from: self())
+activate p2p
+p2p ->> gomain: %Command{}
+deactivate p2p
+req ->>+ req: receive_response()
+
+gomain ->> gomain: handle_command()
+gomain ->>+ goreq: go sendAsyncRequest()
+goreq ->>- p2p: SendNotification(%Result{from, response, err})
+
+p2p ->>p2p: handle_notification(%Result{from: from})
+p2p ->> req: {:response, result}
+deactivate req
+```
+
+Explained, a process that wants to request something from Libp2pPort sends a request with its own pid, which is then included in the Command payload. The request is handled asynchronously in the go side, and eventually, the pid is included in the response, and sent back to LibP2PPort, who now knows to which process it needs to be dispatched.
+
+The specific kind of command (a request) is specified, but there's nothing identifying this is a response vs any other kind of result, or the specific kind of response (e.g. a block download vs a blob download). Currently the only way this is handled differentially is because the pid is waiting for a specific kind of response and for nothing else at a time.
 
 ### Checkpoint sync
 

@@ -144,6 +144,25 @@ func ResultNotification(from []byte, result []byte, err error) *proto_defs.Notif
 	return &proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
 }
 
+func ResponseNotification(requestId []byte, result []byte, err error, protocolId string, requestMessage []byte) *proto_defs.Notification {
+	var responseMessage []byte
+	var success bool
+
+	if err != nil {
+		success = false
+		responseMessage = []byte(err.Error())
+	} else {
+		success = true
+		if result != nil {
+			responseMessage = result
+		} else {
+			responseMessage = []byte{}
+		}
+	}
+	response := &proto_defs.Response{Id: requestId, Success: success, Message: responseMessage}
+	return &proto_defs.Notification{N: &proto_defs.Notification_Response{Response: response}}
+}
+
 func NodeIdentityNotification(from []byte, nodeIdentity *proto_defs.NodeIdentity) *proto_defs.Notification {
 	responseNotification := &proto_defs.Result{From: from, Result: &proto_defs.Result_NodeIdentity{NodeIdentity: nodeIdentity}}
 	return &proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}

@@ -22,7 +22,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application() do
     [
-      extra_applications: [:logger, :observer, :prometheus_ex],
+      extra_applications: [:logger, :observer, :prometheus_ex, :wx, :runtime_tools],
       mod: {LambdaEthereumConsensus.Application, []}
     ]
   end
@@ -69,7 +69,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:prometheus_process_collector,
        git: "https://github.com/lambdaclass/prometheus_process_collector",
        branch: "update-makefile-to-support-otp-26",
-       override: true}
+       override: true},
+      {:uuid, "~> 1.1"}
     ]
   end
 

@@ -139,7 +139,8 @@ defmodule LambdaEthereumConsensus.Telemetry do
       ),
       last_value("fork_choice.recompute_head.exception.duration",
         unit: {:native, :millisecond}
-      )
+      ),
+      counter("blocks.status.count", tags: [:title, :mainstat, :id])
     ]
   end
 
