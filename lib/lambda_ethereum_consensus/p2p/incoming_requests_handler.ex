@@ -30,7 +30,12 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
   def handle(@request_prefix <> name, message_id, message) do
     Logger.debug("'#{name}' request received")
 
-    case handle_req(name, message_id, message) do
+    result =
+      :telemetry.span([:port, :request], %{}, fn ->
+        {handle_req(name, message_id, message), %{module: "handler", request: inspect(name)}}
+      end)
+
+    case result do
       {:error, error} -> {:error, "[#{name}] Request error: #{inspect(error)}"}
       result -> result
     end
