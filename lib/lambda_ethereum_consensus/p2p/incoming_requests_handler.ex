@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
   """
 
   alias LambdaEthereumConsensus.ForkChoice
-  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Metadata
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Store.BlockDb
@@ -27,25 +26,25 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     @request_names |> Enum.map(&Enum.join([@request_prefix, &1, "/ssz_snappy"]))
   end
 
-  @spec handle(String.t(), String.t(), binary()) :: any()
+  @spec handle(String.t(), String.t(), binary()) :: :ok | {:ok, any()} | {:error, String.t()}
   def handle(@request_prefix <> name, message_id, message) do
     Logger.debug("'#{name}' request received")
 
     case handle_req(name, message_id, message) do
-      :ok -> :ok
-      {:error, error} -> Logger.error("[#{name}] Request error: #{inspect(error)}")
+      {:error, error} -> {:error, "[#{name}] Request error: #{inspect(error)}"}
+      result -> result
     end
   end
 
   @spec handle_req(String.t(), String.t(), binary()) ::
-          :ok | {:error, String.t()}
+          :ok | {:ok, any()} | {:error, String.t()}
   defp handle_req(protocol_name, message_id, message)
 
   defp handle_req("status/1/ssz_snappy", message_id, message) do
     with {:ok, request} <- ReqResp.decode_request(message, Types.StatusMessage) do
       Logger.debug("[Status] '#{inspect(request)}'")
       payload = ForkChoice.get_current_status_message() |> ReqResp.encode_ok()
-      Libp2pPort.send_response(message_id, payload)
+      {:ok, {message_id, payload}}
     end
   end
 
@@ -59,7 +58,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
       {:ok, goodbye_reason} ->
         Logger.debug("[Goodbye] reason: #{goodbye_reason}")
         payload = ReqResp.encode_ok({0, TypeAliases.uint64()})
-        Libp2pPort.send_response(message_id, payload)
+        {:ok, {message_id, payload}}
 
       # Ignore read errors, since some peers eagerly disconnect.
       {:error, "failed to read"} ->
@@ -77,14 +76,14 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
       Logger.debug("[Ping] seq_number: #{seq_num}")
       seq_number = Metadata.get_seq_number()
       payload = ReqResp.encode_ok({seq_number, TypeAliases.uint64()})
-      Libp2pPort.send_response(message_id, payload)
+      {:ok, {message_id, payload}}
     end
   end
 
   defp handle_req("metadata/2/ssz_snappy", message_id, _message) do
     # NOTE: there's no request content so we just ignore it
     payload = Metadata.get_metadata() |> ReqResp.encode_ok()
-    Libp2pPort.send_response(message_id, payload)
+    {:ok, {message_id, payload}}
   end
 
   defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
@@ -105,7 +104,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
         |> Enum.reject(&(&1 == :skip))
         |> ReqResp.encode_response()
 
-      Libp2pPort.send_response(message_id, response_chunk)
+      {:ok, {message_id, response_chunk}}
     end
   end
 
@@ -124,7 +123,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
         |> Enum.reject(&(&1 == :skip))
         |> ReqResp.encode_response()
 
-      Libp2pPort.send_response(message_id, response_chunk)
+      {:ok, {message_id, response_chunk}}
     end
   end
 

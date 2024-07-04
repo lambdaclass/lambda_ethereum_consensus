@@ -173,13 +173,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @doc """
   Sends a response for the request with the given message ID.
   """
-  @spec send_response(GenServer.server(), String.t(), binary()) ::
-          :ok | {:error, String.t()}
-  def send_response(pid \\ __MODULE__, request_id, response) do
+  @spec send_response({String.t(), binary()}, port()) :: boolean()
+  def send_response({request_id, response}, port) do
     :telemetry.execute([:port, :message], %{}, %{function: "send_response", direction: "elixir->"})
 
-    c = %SendResponse{request_id: request_id, message: response}
-    cast_command(pid, {:send_response, c})
+    c = {:send_response, %SendResponse{request_id: request_id, message: response}}
+    data = Command.encode(%Command{c: c})
+
+    send_data(port, data)
   end
 
   @doc """
@@ -418,11 +419,22 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
            request_id: request_id,
            message: message
          },
-         state
+         %{port: port} = state
        ) do
     :telemetry.execute([:port, :message], %{}, %{function: "request", direction: "->elixir"})
 
-    IncomingRequestsHandler.handle(protocol_id, request_id, message)
+    case IncomingRequestsHandler.handle(protocol_id, request_id, message) do
+      :ok ->
+        :ok
+
+      {:ok, response} ->
+        send_response(response, port)
+
+      {:error, reason} ->
+        Logger.error("[Libp2pPort] Error handling request. Reason: #{inspect(reason)}")
+    end
+
+    state
   end
 
   defp handle_notification(%NewPeer{peer_id: peer_id}, state) do
