@@ -74,15 +74,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           discovery_addresses: [String.t()]
         }
 
-  @type node_identity() :: %{
-          peer_id: binary(),
-          # Pretty-printed version of the peer ID
-          pretty_peer_id: String.t(),
-          enr: String.t(),
-          p2p_addresses: [String.t()],
-          discovery_addresses: [String.t()]
-        }
-
   ######################
   ### API
   ######################
