@@ -42,9 +42,13 @@ PORT_SOURCES := $(shell find native/libp2p_port -type f)
 $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) $(PROTOBUF_GO_FILES)
 	cd native/libp2p_port; go build -o ../../$@
 
+KURTOSIS_COOKIE ?= secret
 KURTOSIS_SERVICE ?= cl-3-lambda-geth
 
 ##### TARGETS #####
+
+kurtosis.build:
+	docker build --build-arg IEX_ARGS="--sname lambdaconsensus --cookie $(KURTOSIS_COOKIE)" -t lambda_ethereum_consensus .
 
 #💻 kurtosis.start: @ Starts the kurtosis environment
 kurtosis.start:
@@ -58,13 +62,20 @@ kurtosis.stop:
 kurtosis.remove:
 	kurtosis enclave rm lambdanet
 
-#💻 kurtosis.clean: @ Stops, removes and clean the kurtosis environment
-kurtosis.clean: kurtosis.stop kurtosis.clean
+#💻 kurtosis.clean: @ Clean the kurtosis environment
+kurtosis.clean:
 	kurtosis clean -a
+
+#💻 kurtosis.purge: @ Purge the kurtosis environment
+kurtosis.purge: kurtosis.stop kurtosis.remove kurtosis.clean
 
 #💻 kurtosis.connect: @ Connects to the client running in kurtosis, KURTOSIS_SERVICE could be given
 kurtosis.connect:
 	kurtosis service shell lambdanet $(KURTOSIS_SERVICE)
+
+#💻 kurtosis.connect.iex: @ Connects to iex once inside the kurtosis service
+kurtosis.connect.iex:
+	iex --sname client --remsh lambdaconsensus --cookie $(KURTOSIS_COOKIE)
 
 #💻 nix: @ Start a nix environment.
 nix:
