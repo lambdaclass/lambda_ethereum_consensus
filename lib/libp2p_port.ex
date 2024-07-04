@@ -297,8 +297,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     Peerbook.init()
 
-    Logger.info("[Libp2pPort] Finish init")
-
     {:ok, %{port: port, subscriptors: %{}}}
   end
 
