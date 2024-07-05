@@ -2,15 +2,12 @@
 
 ## Processes summary
 
-### Supervision tree
-
 This is our complete supervision tree.
 
 ```mermaid
 graph LR
 Application[Application <br> <:one_for_one>]
 BeaconNode[BeaconNode <br> <:one_for_all>]
-P2P.IncomingRequests[P2P.IncomingRequests <br> <:one_for_one>]
 ValidatorManager[ValidatorManager <br> <:one_for_one>]
 Telemetry[Telemetry <br> <:one_for_one>]
 
@@ -18,27 +15,26 @@ Application --> Telemetry
 Application --> DB
 Application --> Blocks
 Application --> BlockStates
-Application --> Metadata
 Application --> BeaconNode
 Application --> BeaconApi.Endpoint
 
-BeaconNode -->|genesis_time,<br>genesis_validators_root,<br> fork_choice_data, time| BeaconChain 
-BeaconNode -->|store, head_slot, time| ForkChoice
-BeaconNode -->|listen_addr, <br>enable_discovery, <br> discovery_addr, <br>bootnodes| P2P.Libp2pPort
-BeaconNode --> P2P.Peerbook
-BeaconNode --> P2P.IncomingRequests
-BeaconNode --> PendingBlocks
-BeaconNode --> SyncBlocks
-BeaconNode --> Attestation
-BeaconNode --> BeaconBlock
-BeaconNode --> BlobSideCar
-BeaconNode --> OperationsCollector
-BeaconNode -->|slot, head_root| ValidatorManager
-BeaconNode -->|genesis_time, snapshot, votes| ExecutionChain
-ValidatorManager --> ValidatorN
+subgraph Basic infrastructure
+    DB
+    BeaconApi.Endpoint
+    Telemetry
+    :telemetry_poller
+    TelemetryMetricsPrometheus
+end
 
-P2P.IncomingRequests --> IncomingRequests.Handler
-P2P.IncomingRequests --> IncomingRequests.Receiver
+subgraph Caches
+    Blocks
+    BlockStates
+end
+
+BeaconNode -->|listen_addr, <br>enable_discovery, <br> discovery_addr, <br>bootnodes| P2P.Libp2pPort
+BeaconNode --> SyncBlocks
+BeaconNode -->|slot, head_root| ValidatorManager
+ValidatorManager --> ValidatorN
 
 Telemetry --> :telemetry_poller
 Telemetry --> TelemetryMetricsPrometheus
@@ -47,63 +43,6 @@ Telemetry --> TelemetryMetricsPrometheus
 Each box is a process. If it has children, it's a supervisor, with it's restart strategy clarified. 
 
 If it's a leaf in the tree, it's a GenServer, task, or other non-supervisor process. The tags in the edges/arrows are the init args passed on children init (start or restart after crash).
-
-### High level interaction
-
-This is the high level interaction between the processes.
-
-```mermaid
-graph LR
-
-ExecutionChain
-
-BlobDb
-BlockDb
-
-subgraph "P2P"
-    Libp2pPort
-    Peerbook
-    IncomingRequests
-    Attestation
-    BeaconBlock
-    BlobSideCar
-    Metadata
-end
-
-subgraph "Node"
-    Validator
-    BeaconChain
-    ForkChoice
-    PendingBlocks
-    OperationsCollector
-end
-
-BeaconChain <-->|on_tick <br> get_fork_digest, get_| Validator
-BeaconChain -->|on_tick| BeaconBlock
-BeaconChain <-->|on_tick <br> update_fork_choice_cache| ForkChoice
-BeaconBlock -->|add_block| PendingBlocks
-Validator -->|get_eth1_data <br>to build blocks| ExecutionChain
-Validator -->|publish block| Libp2pPort
-Validator -->|collect, stop_collecting| Attestation
-Validator -->|get slashings, <br>attestations,<br> voluntary exits|OperationsCollector
-Validator -->|store_blob| BlobDb
-ForkChoice -->|notify new block|Validator
-ForkChoice <-->|notify new block <br> on_attestation|OperationsCollector
-ForkChoice -->|notify new block|ExecutionChain
-ForkChoice -->|store_block| BlockDb
-PendingBlocks -->|on_block| ForkChoice
-PendingBlocks -->|get_blob_sidecar|BlobDb
-Libp2pPort <-->|gosipsub <br> validate_message| BlobSideCar
-Libp2pPort <-->|gossipsub <br> validate_message<br> subscribe_to_topic| BeaconBlock
-Libp2pPort <-->|gossipsub <br> validate_message<br> subscribe_to_topic| Attestation
-Libp2pPort -->|store_blob| BlobDb
-Libp2pPort -->|new_peer| Peerbook
-BlobSideCar -->|store_blob| BlobDb
-Attestation -->|set_attnet|Metadata
-IncomingRequests -->|get seq_number|Metadata
-PendingBlocks -->|penalize/get<br>on downloading|Peerbook
-Libp2pPort -->|new_request| IncomingRequests
-```
 
 ## P2P Events
 
@@ -296,10 +235,6 @@ Explained, a process that wants to request something from Libp2pPort sends a req
 
 The specific kind of command (a request) is specified, but there's nothing identifying this is a response vs any other kind of result, or the specific kind of response (e.g. a block download vs a blob download). Currently the only way this is handled differentially is because the pid is waiting for a specific kind of response and for nothing else at a time.
 
-## Checkpoint sync
-
-**TO DO**: document checkpoint sync.
-
 ## Validators
 
 Validators are separate processes. They react to:
@@ -350,6 +285,24 @@ In the proposing slot:
 - The operations (slashings, attestations voluntary exits) that were collected from gossip are added to the block.
 - The deposits and eth1_vote are fetched from `ExecutionChain`.
 - The block is signed.
+
+## Execution Chain
+
+The consensus node does not live in isolation. It communicates to the execution client. We implemented, in the `ExecutionClient` module, the following primitives:
+
+- `notify_forkchoice_updated(fork_choice_state)`: first message sent to the execution client right after exchanging capabilities. It returns if the client is syncing or valid.
+- `notify_forkchoice_updated(fork_choice_state, payload_attributes)`: sent to update the fork choice state in the execution client (finalized and head payload hash). This starts the execution payload build process. Returns a `payload_id` that will be used at block building time to get the actual execution payload. It's sent in the slot prior to proposing. It might return a null id if the execution client is still syncing.
+- `get_payload(payload_id)`: returns an `{ExecutionPayload.t(), BlobsBundle.t()}` tuple that started building when `notify_forkchoice_updated` was called with payload attributes.
+- `notify_new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)`: when the execution client gets a new block, it needs to check if the execution payload is valid. This method is used to send that payload for verification. It may return valid, invalid, or syncing, in the case where the execution client is not yet synced.
+
+Aside from payload validation and block building, there's a bit more information we need from the execution client:
+
+- Deposits: transactions to the deposit contract are processed by the execution client and held in logs. We can `get_deposit_logs(block_range)` to get those. We save those in a deposit tree, which is used to transmit the deposits cheaply to syncing nodes (sending deposit snapshots, see [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881)).
+- eth1_vote: 
+
+## Checkpoint sync
+
+**TO DO**: document checkpoint sync.
 
 ## Next document
 
