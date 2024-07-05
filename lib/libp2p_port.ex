@@ -296,8 +296,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec enable_request_handlers(port()) :: :ok | {:error, String.t()}
   defp enable_request_handlers(port) do
     IncomingRequestsHandler.protocol_ids()
-    |> Stream.map(fn protocol_id -> set_handler(protocol_id, port) end)
-    |> Enum.each(fn true -> nil end)
+    |> Enum.each(fn protocol_id -> set_handler(protocol_id, port) end)
   end
 
   def add_block(pid \\ __MODULE__, block), do: GenServer.cast(pid, {:add_block, block})
