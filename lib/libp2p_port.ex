@@ -119,7 +119,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @doc """
-  Sets a Req/Resp handler for the given protocol ID.
+  Sets libp2pport as the Req/Resp handler for the given protocol ID.
   """
   @spec set_handler(String.t(), port()) :: boolean()
   def set_handler(protocol_id, port) do
@@ -415,7 +415,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp handle_notification(
          %Request{
            protocol_id: protocol_id,
-           handler: _handler,
            request_id: request_id,
            message: message
          },

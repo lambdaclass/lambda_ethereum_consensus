@@ -89,7 +89,7 @@ defmodule LambdaEthereumConsensus.Telemetry do
         unit: {:native, :millisecond},
         tags: [:module, :request]
       ),
-      last_value("port.message.exception.duration",
+      last_value("port.request.exception.duration",
         unit: {:native, :millisecond},
         tags: [:module, :request]
       ),
