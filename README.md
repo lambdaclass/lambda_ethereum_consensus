@@ -241,6 +241,7 @@ iex --sname client --remsh lambdaconsensus --cookie my_secret
 ```
 
 Now you can check it working for example examining some constants:
+
 ```elixir
 #Erlang/OTP 26 [erts-14.2.5] [source] [64-bit] [smp:8:1] [ds:8:1:10] [async-threads:1] [jit]
 
@@ -250,6 +251,19 @@ Constants.versioned_hash_version_kzg()
 # <<1>>
 ```
 
+### Kurtosis cleanup
+
+```bash
+# kurtosis enclave stop lambdanet
+make kurtosis.stop
+# kurtosis enclave rm lambdanet
+make kurtosis.remove
+# kurtosis clean -a
+make kurtosis.clean
+
+# or do it all at once
+make kurtosis.purge
+```
 
 ## Consensus spec tests
 
