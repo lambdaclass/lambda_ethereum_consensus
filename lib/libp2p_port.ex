@@ -118,9 +118,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> Map.take([:peer_id, :pretty_peer_id, :enr, :p2p_addresses, :discovery_addresses])
   end
 
-  @doc """
-  Sets libp2pport as the Req/Resp handler for the given protocol ID.
-  """
+  # Sets libp2pport as the Req/Resp handler for the given protocol ID.
   @spec set_handler(String.t(), port()) :: boolean()
   defp set_handler(protocol_id, port) do
     :telemetry.execute([:port, :message], %{}, %{function: "set_handler", direction: "elixir->"})
@@ -170,9 +168,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.cast(pid, {:send_request, peer_id, protocol_id, message, handler})
   end
 
-  @doc """
-  Sends a response for the request with the given message ID.
-  """
+  # Sends a response for the request with the given message ID.
   @spec send_response({String.t(), binary()}, port()) :: boolean()
   defp send_response({request_id, response}, port) do
     :telemetry.execute([:port, :message], %{}, %{function: "send_response", direction: "elixir->"})
