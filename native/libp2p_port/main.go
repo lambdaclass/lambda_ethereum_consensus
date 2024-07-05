@@ -20,12 +20,12 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	case *proto_defs.Command_AddPeer:
 		listener.AddPeer(c.AddPeer.Id, c.AddPeer.Addrs, c.AddPeer.Ttl)
 	case *proto_defs.Command_SendRequest:
-		listener.SendRequest(command.From, c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message)
+		listener.SendRequest(c.SendRequest.Id, c.SendRequest.ProtocolId, c.SendRequest.Message, c.SendRequest.RequestId)
 		return nil // No response
 	case *proto_defs.Command_SendResponse:
 		listener.SendResponse(c.SendResponse.RequestId, c.SendResponse.Message)
 	case *proto_defs.Command_SetHandler:
-		listener.SetHandler(c.SetHandler.ProtocolId, command.From)
+		listener.SetHandler(c.SetHandler.ProtocolId)
 	case *proto_defs.Command_Subscribe:
 		err := subscriber.Subscribe(c.Subscribe.Name, command.From)
 		return proto_helpers.ResultNotification(command.From, nil, err)

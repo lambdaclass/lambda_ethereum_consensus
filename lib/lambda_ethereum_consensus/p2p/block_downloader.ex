@@ -17,13 +17,42 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   # so we want to try again with a different peer
   @default_retries 5
 
-  @spec request_blocks_by_range(Types.slot(), non_neg_integer(), non_neg_integer()) ::
-          {:ok, [SignedBeaconBlock.t()]} | {:error, any()}
-  def request_blocks_by_range(slot, count, retries \\ @default_retries)
+  @type download_result :: {:ok, [SignedBeaconBlock.t()]} | {:error, any()}
+  @type on_blocks :: (download_result() -> term())
 
-  def request_blocks_by_range(_slot, 0, _retries), do: {:ok, []}
+  @doc """
+  Requests a series of blocks in batch, and synchronously (the caller will block waiting for the
+  result). As this is a synchronous function, the caller process must be different than Libp2pPort.
 
-  def request_blocks_by_range(slot, count, retries) do
+  Arguments:
+  - slot: the slot that marks the start of the requested range.
+  - count: the amount of blocks that will be requested for download.
+  - retries (optional): if the download fails the request will retry, using a different random
+    peer. This argument determines the amount of times that will happen before returning an error.
+  """
+  @spec request_blocks_by_range_sync(Types.slot(), non_neg_integer(), non_neg_integer()) ::
+          download_result()
+  def request_blocks_by_range_sync(slot, count, retries \\ @default_retries)
+
+  def request_blocks_by_range_sync(_slot, 0, _retries), do: {:ok, []}
+
+  def request_blocks_by_range_sync(slot, count, retries) do
+    pid = self()
+    request_blocks_by_range(slot, count, fn result -> send(pid, result) end, retries)
+
+    receive do
+      result -> result
+    end
+  end
+
+  @spec request_blocks_by_range(Types.slot(), non_neg_integer(), on_blocks(), non_neg_integer()) ::
+          :ok
+  @spec request_blocks_by_range(Types.slot(), non_neg_integer(), on_blocks()) :: :ok
+  def request_blocks_by_range(slot, count, on_blocks, retries \\ @default_retries)
+
+  def request_blocks_by_range(_slot, 0, _on_blocks, _retries), do: :ok
+
+  def request_blocks_by_range(slot, count, on_blocks, retries) do
     Logger.debug("Requesting block", slot: slot)
 
     # TODO: handle no-peers asynchronously?
@@ -33,13 +62,18 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       %Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count}
       |> ReqResp.encode_request()
 
-    with {:ok, response} <-
-           Libp2pPort.send_request(peer_id, @blocks_by_range_protocol_id, request),
-         {:ok, blocks} <- ReqResp.decode_response(response, SignedBeaconBlock),
+    Libp2pPort.send_async_request(peer_id, @blocks_by_range_protocol_id, request, fn response ->
+      handle_blocks_by_range_response(response, slot, count, retries, peer_id, on_blocks)
+    end)
+  end
+
+  defp handle_blocks_by_range_response(response, slot, count, retries, peer_id, on_blocks) do
+    with {:ok, response_message} <- response,
+         {:ok, blocks} <- ReqResp.decode_response(response_message, SignedBeaconBlock),
          :ok <- verify_batch(blocks, slot, count) do
       tags = %{result: "success", type: "by_slot", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: count}, tags)
-      {:ok, blocks}
+      on_blocks.({:ok, blocks})
     else
       {:error, reason} ->
         tags = %{type: "by_slot", reason: parse_reason(reason)}
@@ -48,41 +82,58 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         if retries > 0 do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
           Logger.debug("Retrying request for #{count} blocks", slot: slot)
-          request_blocks_by_range(slot, count, retries - 1)
+          request_blocks_by_range(slot, count, on_blocks, retries - 1)
         else
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
+          on_blocks.({:error, reason})
           {:error, reason}
         end
     end
   end
 
-  @spec request_block_by_root(Types.root(), integer()) ::
-          {:ok, SignedBeaconBlock.t()} | {:error, binary()}
-  def request_block_by_root(root, retries \\ @default_retries) do
-    with {:ok, [block]} <- request_blocks_by_root([root], retries) do
-      {:ok, block}
-    end
+  @spec request_block_by_root(
+          Types.root(),
+          ({:ok, SignedBeaconBlock.t()} | {:error, binary()} -> :ok),
+          integer()
+        ) :: :ok
+  def request_block_by_root(root, on_block, retries \\ @default_retries) do
+    request_blocks_by_root(
+      [root],
+      fn
+        {:ok, [block]} -> on_block.({:ok, block})
+        other -> on_block.(other)
+      end,
+      retries
+    )
   end
 
-  @spec request_blocks_by_root([Types.root()], integer()) ::
-          {:ok, [SignedBeaconBlock.t()]} | {:error, binary()}
-  def request_blocks_by_root(roots, retries \\ @default_retries)
+  @spec request_blocks_by_root(
+          [Types.root()],
+          ({:ok, [SignedBeaconBlock.t()]} | {:error, binary()} -> :ok),
+          integer()
+        ) :: :ok
+  def request_blocks_by_root(roots, on_blocks, retries \\ @default_retries)
 
-  def request_blocks_by_root([], _retries), do: {:ok, []}
+  def request_blocks_by_root([], _on_blocks, _retries), do: {:ok, []}
 
-  def request_blocks_by_root(roots, retries) do
+  def request_blocks_by_root(roots, on_blocks, retries) do
     Logger.debug("Requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
 
     peer_id = get_some_peer()
 
     request = ReqResp.encode_request({roots, TypeAliases.beacon_blocks_by_root_request()})
 
-    with {:ok, response} <-
-           Libp2pPort.send_request(peer_id, @blocks_by_root_protocol_id, request),
-         {:ok, blocks} <- ReqResp.decode_response(response, SignedBeaconBlock) do
+    Libp2pPort.send_async_request(peer_id, @blocks_by_root_protocol_id, request, fn response ->
+      handle_blocks_by_root_response(response, roots, on_blocks, peer_id, retries)
+    end)
+  end
+
+  defp handle_blocks_by_root_response(response, roots, on_blocks, peer_id, retries) do
+    with {:ok, response_message} <- response,
+         {:ok, blocks} <- ReqResp.decode_response(response_message, SignedBeaconBlock) do
       tags = %{result: "success", type: "by_root", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: length(roots)}, tags)
-      {:ok, blocks}
+      on_blocks.({:ok, blocks})
     else
       {:error, reason} ->
         tags = %{type: "by_root", reason: parse_reason(reason)}
@@ -92,10 +143,10 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
           pretty_roots = Enum.map_join(roots, ", ", &Base.encode16/1)
           Logger.debug("Retrying request for blocks with roots #{pretty_roots}")
-          request_blocks_by_root(roots, retries - 1)
+          request_blocks_by_root(roots, on_blocks, retries - 1)
         else
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
-          {:error, reason}
+          on_blocks.({:error, reason})
         end
     end
   end

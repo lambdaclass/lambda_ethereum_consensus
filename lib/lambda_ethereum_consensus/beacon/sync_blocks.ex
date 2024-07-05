@@ -7,8 +7,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.P2P.Gossip
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -31,17 +31,22 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
 
     # If we're around genesis, we consider ourselves synced
     if last_slot > 0 do
-      Enum.chunk_every(initial_slot..last_slot, @blocks_per_chunk)
-      |> Enum.map(fn chunk ->
-        first_slot = List.first(chunk)
-        last_slot = List.last(chunk)
-        count = last_slot - first_slot + 1
-        %{from: first_slot, count: count}
-      end)
-      |> perform_sync()
+      perform_sync(initial_slot, last_slot)
     else
       start_subscriptions()
     end
+  end
+
+  @spec perform_sync(integer(), integer()) :: :ok
+  def perform_sync(initial_slot, last_slot) do
+    Enum.chunk_every(initial_slot..last_slot, @blocks_per_chunk)
+    |> Enum.map(fn chunk ->
+      first_slot = List.first(chunk)
+      last_slot = List.last(chunk)
+      count = last_slot - first_slot + 1
+      %{from: first_slot, count: count}
+    end)
+    |> perform_sync()
   end
 
   @spec perform_sync([chunk()]) :: :ok
@@ -64,15 +69,30 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
       end)
 
     results
-    |> Enum.filter(fn result -> match?({:ok, _}, result) end)
-    |> Enum.map(fn {:ok, blocks} -> blocks end)
-    |> List.flatten()
-    |> Enum.each(&PendingBlocks.add_block/1)
+    |> Enum.flat_map(fn
+      {:ok, blocks} -> blocks
+      _other -> []
+    end)
+    |> tap(fn blocks ->
+      Logger.info("[Optimistic Sync] Downloaded #{length(blocks)} blocks successfully.")
+    end)
+    |> Enum.each(&Libp2pPort.add_block/1)
 
     remaining_chunks =
       Enum.zip(chunks, results)
-      |> Enum.filter(fn {_chunk, result} -> match?({:error, _}, result) end)
-      |> Enum.map(fn {chunk, _} -> chunk end)
+      |> Enum.flat_map(fn
+        {chunk, {:error, reason}} ->
+          if not String.contains?(inspect(reason), "failed to dial") do
+            Logger.debug(
+              "[Optimistic Sync] Failed downloading the chunk #{inspect(chunk)}. Reason: #{inspect(reason)}"
+            )
+          end
+
+          [chunk]
+
+        _other ->
+          []
+      end)
 
     if Enum.empty?(chunks) do
       Logger.info("[Optimistic Sync] Sync completed")
@@ -93,7 +113,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   @spec fetch_blocks_by_slot(Types.slot(), non_neg_integer()) ::
           {:ok, [SignedBeaconBlock.t()]} | {:error, String.t()}
   def fetch_blocks_by_slot(from, count) do
-    case BlockDownloader.request_blocks_by_range(from, count, 0) do
+    case BlockDownloader.request_blocks_by_range_sync(from, count, 0) do
       {:ok, blocks} ->
         {:ok, blocks}
 

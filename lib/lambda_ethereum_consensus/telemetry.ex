@@ -85,6 +85,14 @@ defmodule LambdaEthereumConsensus.Telemetry do
       counter("network.pubsub_topics_un_deliverable_message.count", tags: [:topic]),
       counter("network.pubsub_topics_validate_message.count", tags: [:topic]),
       counter("port.message.count", tags: [:function, :direction]),
+      last_value("port.request.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:module, :request]
+      ),
+      last_value("port.request.exception.duration",
+        unit: {:native, :millisecond},
+        tags: [:module, :request]
+      ),
       sum("network.request.blocks", tags: [:result, :type, :reason]),
 
       # Sync metrics
@@ -139,7 +147,8 @@ defmodule LambdaEthereumConsensus.Telemetry do
       ),
       last_value("fork_choice.recompute_head.exception.duration",
         unit: {:native, :millisecond}
-      )
+      ),
+      counter("blocks.status.count", tags: [:title, :mainstat, :id])
     ]
   end
 

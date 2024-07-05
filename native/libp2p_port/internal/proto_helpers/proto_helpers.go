@@ -123,8 +123,8 @@ func NewPeerNotification(id []byte) proto_defs.Notification {
 	return proto_defs.Notification{N: &proto_defs.Notification_NewPeer{NewPeer: newPeerNotification}}
 }
 
-func RequestNotification(protocolId string, handler []byte, requestId string, message []byte) proto_defs.Notification {
-	requestNotification := &proto_defs.Request{ProtocolId: []byte(protocolId), Handler: handler, RequestId: []byte(requestId), Message: message}
+func RequestNotification(protocolId string, requestId string, message []byte) proto_defs.Notification {
+	requestNotification := &proto_defs.Request{ProtocolId: []byte(protocolId), RequestId: []byte(requestId), Message: message}
 	return proto_defs.Notification{N: &proto_defs.Notification_Request{Request: requestNotification}}
 }
 
@@ -142,6 +142,25 @@ func ResultNotification(from []byte, result []byte, err error) *proto_defs.Notif
 		responseNotification = &proto_defs.Result{From: from, Result: resultOk}
 	}
 	return &proto_defs.Notification{N: &proto_defs.Notification_Result{Result: responseNotification}}
+}
+
+func ResponseNotification(requestId []byte, result []byte, err error, protocolId string, requestMessage []byte) *proto_defs.Notification {
+	var responseMessage []byte
+	var success bool
+
+	if err != nil {
+		success = false
+		responseMessage = []byte(err.Error())
+	} else {
+		success = true
+		if result != nil {
+			responseMessage = result
+		} else {
+			responseMessage = []byte{}
+		}
+	}
+	response := &proto_defs.Response{Id: requestId, Success: success, Message: responseMessage}
+	return &proto_defs.Notification{N: &proto_defs.Notification_Response{Response: response}}
 }
 
 func NodeIdentityNotification(from []byte, nodeIdentity *proto_defs.NodeIdentity) *proto_defs.Notification {

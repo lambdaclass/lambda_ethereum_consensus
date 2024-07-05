@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"math/big"
+	"os"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	gcrypto "github.com/ethereum/go-ethereum/crypto"
@@ -92,4 +93,14 @@ func MsgID(msg *pb.Message) string {
 	var digest []byte
 	digest = h.Sum(digest)
 	return string(digest[:20])
+}
+
+// Log function that writes to a single file. Only to be used for testing.
+func Log(msg string) {
+	f, err := os.OpenFile("logs/go_log.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	PanicIfError(err)
+	defer f.Close()
+
+	_, err = f.WriteString(msg)
+	PanicIfError(err)
 }
