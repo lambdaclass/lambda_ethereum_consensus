@@ -26,7 +26,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     @request_names |> Enum.map(&Enum.join([@request_prefix, &1, "/ssz_snappy"]))
   end
 
-  @spec handle(String.t(), String.t(), binary()) :: :ok | {:ok, any()} | {:error, String.t()}
+  @spec handle(String.t(), String.t(), binary()) :: {:ok, any()} | {:error, String.t()}
   def handle(@request_prefix <> name, message_id, message) do
     Logger.debug("'#{name}' request received")
 
