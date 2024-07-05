@@ -25,7 +25,7 @@ func handleCommand(command *proto_defs.Command, listener *reqresp.Listener, subs
 	case *proto_defs.Command_SendResponse:
 		listener.SendResponse(c.SendResponse.RequestId, c.SendResponse.Message)
 	case *proto_defs.Command_SetHandler:
-		listener.SetHandler(c.SetHandler.ProtocolId, command.From)
+		listener.SetHandler(c.SetHandler.ProtocolId)
 	case *proto_defs.Command_Subscribe:
 		err := subscriber.Subscribe(c.Subscribe.Name, command.From)
 		return proto_helpers.ResultNotification(command.From, nil, err)

@@ -125,7 +125,7 @@ func (l *Listener) SendResponse(requestId string, message []byte) {
 	value.(responseChannel) <- message
 }
 
-func (l *Listener) SetHandler(protocolId string, handler []byte) {
+func (l *Listener) SetHandler(protocolId string) {
 	l.hostHandle.SetStreamHandler(protocol.ID(protocolId), func(stream network.Stream) {
 		defer stream.Close()
 		id := string(stream.Protocol())
@@ -137,7 +137,7 @@ func (l *Listener) SetHandler(protocolId string, handler []byte) {
 		requestId := stream.ID()
 		responseChan := make(chan []byte)
 		l.pendingMessages.Store(requestId, responseChan)
-		notification := proto_helpers.RequestNotification(id, handler, requestId, request)
+		notification := proto_helpers.RequestNotification(id, requestId, request)
 		l.port.SendNotification(&notification)
 		response := <-responseChan
 		_, err = stream.Write(response)

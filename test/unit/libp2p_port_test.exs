@@ -5,6 +5,8 @@ defmodule Unit.Libp2pPortTest do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
+  alias LambdaEthereumConsensus.P2P.Metadata
+  alias LambdaEthereumConsensus.P2P.ReqResp
 
   doctest Libp2pPort
 
@@ -30,43 +32,30 @@ defmodule Unit.Libp2pPortTest do
   end
 
   @tag :tmp_dir
-  test "set stream handler" do
-    start_port()
-    :ok = Libp2pPort.set_handler("/my-app/amazing-protocol/1.0.1")
-  end
-
-  @tag :tmp_dir
   test "start two hosts, and play one round of ping-pong" do
     # Setup sender
     start_port(:sender, listen_addr: ["/ip4/127.0.0.1/tcp/48787"])
 
     # Setup receiver
     recver_addr = ["/ip4/127.0.0.1/tcp/48789"]
-    start_port(:recver, listen_addr: recver_addr)
+    start_port(:recver, listen_addr: recver_addr, enable_request_handlers: true)
 
+    # Setup request
     %{peer_id: id} = Libp2pPort.get_node_identity(:recver)
-    protocol_id = "/pong"
-    pid = self()
+    protocol_id = "/eth2/beacon_chain/req/ping/1/ssz_snappy"
+    message = ReqResp.encode_request({2, TypeAliases.uint64()})
 
-    spawn_link(fn ->
-      # (recver) Set stream handler
-      :ok = Libp2pPort.set_handler(:recver, protocol_id)
-
-      send(pid, :handler_set)
-
-      # (recver) Read the "ping" message
-      assert {^protocol_id, id, "ping"} = Libp2pPort.handle_request()
-      :ok = Libp2pPort.send_response(:recver, id, "pong")
-    end)
-
-    # (sender) Wait for handler to be set
-    assert_receive :handler_set, 1000
+    # Setup expected result
+    expected_seq_num = 1
+    patch(Metadata, :get_seq_number, fn -> expected_seq_num end)
+    expected_result = {:ok, ReqResp.encode_ok({expected_seq_num, TypeAliases.uint64()})}
 
     # (sender) Add recver peer
     :ok = Libp2pPort.add_peer(:sender, id, recver_addr, 999_999_999_999)
 
-    # (sender) Send "ping" to recver and receive "pong"
-    assert {:ok, "pong"} = Libp2pPort.send_request(:sender, id, protocol_id, "ping")
+    # (sender) Send "ping" to recver
+    assert expected_result ==
+             Libp2pPort.send_request(:sender, id, protocol_id, message)
   end
 
   # TODO: flaky test, fix

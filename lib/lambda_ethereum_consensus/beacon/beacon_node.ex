@@ -42,7 +42,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       [
         {LambdaEthereumConsensus.Beacon.Clock, {store.genesis_time, time}},
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
-        LambdaEthereumConsensus.P2P.IncomingRequests,
         LambdaEthereumConsensus.Beacon.SyncBlocks,
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
@@ -83,7 +82,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       enable_discovery: true,
       discovery_addr: "0.0.0.0:#{port}",
       bootnodes: bootnodes,
-      join_init_topics: true
+      join_init_topics: true,
+      enable_request_handlers: true
     ]
   end
 
