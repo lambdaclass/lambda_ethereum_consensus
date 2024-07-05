@@ -298,7 +298,7 @@ The consensus node does not live in isolation. It communicates to the execution 
 Aside from payload validation and block building, there's a bit more information we need from the execution client:
 
 - Deposits: transactions to the deposit contract are processed by the execution client and held in logs. We can `get_deposit_logs(block_range)` to get those. We save those in a deposit tree, which is used to transmit the deposits cheaply to syncing nodes (sending deposit snapshots, see [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881)).
-- eth1_vote: 
+- Eth1 vote: the ultimate goal in consensus is not only to chose the right fork, but also to agree on what that head beacon block refers to in the execution chain. We summarize the execution state in `Eth1Data`, a container with the deposit root, deposit amount, and execution block hash. In the current beacon state we save the current eth1 data, and a history of the last N ones.
 
 ## Checkpoint sync
 
