@@ -38,7 +38,7 @@ defmodule Unit.Libp2pPortTest do
 
     # Setup receiver
     recver_addr = ["/ip4/127.0.0.1/tcp/48789"]
-    start_port(:recver, listen_addr: recver_addr, set_request_handlers: true)
+    start_port(:recver, listen_addr: recver_addr, enable_request_handlers: true)
 
     # Setup request
     %{peer_id: id} = Libp2pPort.get_node_identity(:recver)

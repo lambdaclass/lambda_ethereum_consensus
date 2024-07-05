@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
           | {:join_init_topics, boolean()}
-          | {:set_request_handlers, boolean()}
+          | {:enable_request_handlers, boolean()}
 
   @type node_identity() :: %{
           peer_id: binary(),
@@ -293,8 +293,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     OperationsCollector.init()
   end
 
-  @spec set_request_handlers(port()) :: :ok | {:error, String.t()}
-  defp set_request_handlers(port) do
+  @spec enable_request_handlers(port()) :: :ok | {:error, String.t()}
+  defp enable_request_handlers(port) do
     IncomingRequestsHandler.protocol_ids()
     |> Stream.map(fn protocol_id -> set_handler(protocol_id, port) end)
     |> Enum.each(fn true -> nil end)
@@ -309,7 +309,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def init(args) do
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
-    {set_request_handlers, args} = Keyword.pop(args, :set_request_handlers, false)
+    {enable_request_handlers, args} = Keyword.pop(args, :enable_request_handlers, false)
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
@@ -321,7 +321,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> then(&send_data(port, &1))
 
     if join_init_topics, do: join_init_topics(port)
-    if set_request_handlers, do: set_request_handlers(port)
+    if enable_request_handlers, do: enable_request_handlers(port)
 
     Peerbook.init()
 
