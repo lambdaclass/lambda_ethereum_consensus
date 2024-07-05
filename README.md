@@ -135,6 +135,122 @@ Then you run it with `docker run`, adding CLI flags as needed:
 docker run consensus --checkpoint-sync <url> --network <network> ...
 ```
 
+## Testing Environment with Kurtosis
+
+For testing the node locally we can simulate other nodes and start from genesis using [`Kurtosis`](https://docs.kurtosis.com/) and the lambda class fork of [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git).
+
+### Why using Kurtosis
+We can test the process and transitioning of the Beacon state and execution of the consensus rules connecting the node to Spolia for example or even Mainnet; but testing validators require at least 32 ETH which is hard to get even in Testnet and beign selected as a block proposer would be a never ending task. For this reasons and specially the ability to test multiple Validators and completely different scenarios, right now, the best way is to use [`Kurtosis`](https://docs.kurtosis.com/) which in combination with the [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git) is a great way to simulate local testnets with great level of control on the participants of the network.
+
+### Prerequisites
+- [`Docker`](https://docs.docker.com/get-docker/)
+- [`Kurtosis`](https://docs.kurtosis.com/install/#ii-install-the-cli)
+
+### Consensus node setup + ethereum-package
+
+As stated in the `ethereum-package` README:
+> This is a Kurtosis package that will spin up a private Ethereum testnet over Docker or Kubernetes with multi-client support, Flashbot's mev-boost infrastructure for PBS-related testing/validation, and other useful network tools (transaction spammer, monitoring tools, etc). Kurtosis packages are entirely reproducible and composable, so this will work the same way over Docker or Kubernetes, in the cloud or locally on your machine.
+
+After having kurtosis installed we need to clone the lambdaclass fork and select a particular branch:
+
+```bash
+# Lambdaclass fork of the kurtosis ethereum package.
+git clone https://github.com/lambdaclass/ethereum-package.git 
+# This is later assumed to be cloned in the same root directory as this repo for the make tasks to work seameless
+cd ethereum-package
+
+# We're now working in the lecc-integration branch.
+git checkout lecc-integration
+```
+
+After that we are ready to go back to the node directory 
+
+```bash
+# As mentioned before is assumed both repos share its parent directory
+cd ../lambda_ethereum_consensus
+
+# If you want to modify the network configuration you can do it here
+vim network_params.yaml
+```
+
+We hae some sensible defaults for an easy network of 3 clients with 64 Validators each (ethereum-package default) and a small tweak to the lambda consensus node memory limit. Here is an example of the doc, all parameters are explained in [their documentation](https://github.com/ethpandaops/ethereum-package?tab=readme-ov-file#configuration).
+
+```yaml
+participants:
+  - el_type: geth
+    cl_type: lighthouse
+    count: 2
+  - el_type: geth
+    cl_type: lambda
+    cl_image: lambda_ethereum_consensus:latest
+    use_separate_vc: false
+    count: 1
+    cl_max_mem: 4096
+```
+
+### Kurtosis Execution and Make tasks
+
+First we need to build the docker image:
+
+```bash
+# simple docker build
+docker build -t lambda_ethereum_consensus .
+
+# or if you want to start an elixir node that you can later connect to, use this make task
+make kurtosis.build
+
+# which executes the following
+docker build --build-arg IEX_ARGS="--sname lambdaconsensus --cookie my_cookie" -t lambda_ethereum_consensus .
+
+# You can select an especific cookie instead of the default one using the KURTOSIS_COOKIE arg
+make kurtosis.build KURTOSIS_COOKIE=my_secret
+```
+
+For starting the local environment once the docker image is already built just run:
+
+```bash
+# Using the make task
+make kurtosis.start
+
+# which executes
+kurtosis run --enclave lambdanet ../ethereum-package --args-file network_params.yaml
+```
+
+_Note: This command assumes the aforementioned locations with the ethereum-package at the same directory as this repo_ 
+
+Then you can simply connect to the node with the following:
+
+```bash
+# to connect to the instance
+make kurtosis.connect
+
+# You can specify the KURTOSIS_SERVICE if the config is different to the default provided:
+make kurtosis.connect KURTOSIS_SERVICE=cl-6-lambda-geth
+```
+
+Once inside the node you can simply connect to the node with a new iex session running the following
+
+```bash
+make kurtosis.connect.iex
+
+# if you set a specific cookie you can add it as argument as before
+make kurtosis.connect.iex KURTOSIS_COOKIE=my_secret
+
+# which is just a convenient task over:
+iex --sname client --remsh lambdaconsensus --cookie my_secret
+```
+
+Now you can check it working for example examining some constants:
+```elixir
+#Erlang/OTP 26 [erts-14.2.5] [source] [64-bit] [smp:8:1] [ds:8:1:10] [async-threads:1] [jit]
+
+#Interactive Elixir (1.16.2) - press Ctrl+C to exit (type h() ENTER for help)
+
+Constants.versioned_hash_version_kzg()
+# <<1>>
+```
+
+
 ## Consensus spec tests
 
 You can run all of them with:
