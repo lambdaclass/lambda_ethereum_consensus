@@ -122,7 +122,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Sets libp2pport as the Req/Resp handler for the given protocol ID.
   """
   @spec set_handler(String.t(), port()) :: boolean()
-  def set_handler(protocol_id, port) do
+  defp set_handler(protocol_id, port) do
     :telemetry.execute([:port, :message], %{}, %{function: "set_handler", direction: "elixir->"})
 
     c = {:set_handler, %SetHandler{protocol_id: protocol_id}}
@@ -174,7 +174,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Sends a response for the request with the given message ID.
   """
   @spec send_response({String.t(), binary()}, port()) :: boolean()
-  def send_response({request_id, response}, port) do
+  defp send_response({request_id, response}, port) do
     :telemetry.execute([:port, :message], %{}, %{function: "send_response", direction: "elixir->"})
 
     c = {:send_response, %SendResponse{request_id: request_id, message: response}}
