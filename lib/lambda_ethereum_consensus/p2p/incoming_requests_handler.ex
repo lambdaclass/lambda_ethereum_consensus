@@ -55,7 +55,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
 
   defp handle_req("goodbye/1/ssz_snappy", _, "") do
     # ignore empty messages
-    Logger.debug("[Goodbye] empty message")
+    {:error, "Empty message"}
   end
 
   defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
@@ -66,10 +66,6 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
         {:ok, {message_id, payload}}
 
       # Ignore read errors, since some peers eagerly disconnect.
-      {:error, "failed to read"} ->
-        Logger.debug("[Goodbye] failed to read")
-        :ok
-
       err ->
         err
     end
@@ -134,8 +130,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
 
   defp handle_req(protocol, _message_id, _message) do
     # This should never happen, since Libp2p only accepts registered protocols
-    Logger.error("Unsupported protocol: #{protocol}")
-    :ok
+    {:error, "Unsupported protocol: #{protocol}"}
   end
 
   defp map_block_result(:not_found), do: map_block_result(nil)

@@ -418,9 +418,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     :telemetry.execute([:port, :message], %{}, %{function: "request", direction: "->elixir"})
 
     case IncomingRequestsHandler.handle(protocol_id, request_id, message) do
-      :ok ->
-        :ok
-
       {:ok, response} ->
         send_response(response, port)
 
