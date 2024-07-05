@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
   end
 
   @spec handle_req(String.t(), String.t(), binary()) ::
-          :ok | {:ok, any()} | {:error, String.t()}
+          {:ok, any()} | {:error, String.t()}
   defp handle_req(protocol_name, message_id, message)
 
   defp handle_req("status/1/ssz_snappy", message_id, message) do
