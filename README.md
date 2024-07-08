@@ -135,12 +135,12 @@ Then you run it with `docker run`, adding CLI flags as needed:
 docker run consensus --checkpoint-sync <url> --network <network> ...
 ```
 
-## Testing Environment with Kurtosis
+# Testing Environment with Kurtosis
 
-For testing the node locally we can simulate other nodes and start from genesis using [`Kurtosis`](https://docs.kurtosis.com/) and the lambda class fork of [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git).
+To test the node locally, we can simulate other nodes and start from genesis using [`Kurtosis`](https://docs.kurtosis.com/) and the Lambda Class fork of [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git).
 
-### Why using Kurtosis
-We can test the process and transitioning of the Beacon state and execution of the consensus rules connecting the node to Spolia for example or even Mainnet; but testing validators require at least 32 ETH which is hard to get even in Testnet and beign selected as a block proposer would be a never ending task. For this reasons and specially the ability to test multiple Validators and completely different scenarios, right now, the best way is to use [`Kurtosis`](https://docs.kurtosis.com/) which in combination with the [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git) is a great way to simulate local testnets with great level of control on the participants of the network.
+### Why Use Kurtosis
+We can test the process and transition of the Beacon state and execution of the consensus rules by connecting the node to Sepolia or even Mainnet. However, testing validators requires at least 32 ETH, which is hard to acquire even in Testnet, and being selected as a block proposer can be a never-ending task. For these reasons, and especially the ability to test multiple validators and completely different scenarios, the best approach currently is to use [`Kurtosis`](https://docs.kurtosis.com/). In combination with the [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git), Kurtosis is a great way to simulate local testnets with a high level of control over the network participants.
 
 ### Prerequisites
 - [`Docker`](https://docs.docker.com/get-docker/)
@@ -152,9 +152,10 @@ As stated in the `ethereum-package` README:
 > This is a Kurtosis package that will spin up a private Ethereum testnet over Docker or Kubernetes with multi-client support, Flashbot's mev-boost infrastructure for PBS-related testing/validation, and other useful network tools (transaction spammer, monitoring tools, etc). Kurtosis packages are entirely reproducible and composable, so this will work the same way over Docker or Kubernetes, in the cloud or locally on your machine.
 
 After having kurtosis installed we need to do 3 setup steps
-1- Clone the lambdaclass ethereum-package fork and checkout a particular branch
-2- Copy our Grafana custom dashboards to be able to look at them
-3- Build the Docker image of the service
+
+1. Clone the lambdaclass ethereum-package fork and checkout a particular branch
+2. Copy our Grafana custom dashboards to be able to look at them
+3. Build the Docker image of the service
 
 All of this can be done with a simple
 
@@ -182,10 +183,7 @@ make kurtosis.setup.lambdaconsensus
 After that we are ready to tweak the configuration
 
 ```bash
-# As mentioned before is assumed both repos share its parent directory
-cd ../lambda_ethereum_consensus
-
-# If you want to modify the network configuration you can do it here
+# Assumming you are still in the lambda_ethereum_consensus repo you can modify the configuration through
 vim network_params.yaml
 ```
 
