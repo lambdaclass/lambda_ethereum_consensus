@@ -288,6 +288,8 @@ In the proposing slot:
 
 ## Execution Chain
 
+### Engine API: fork choice updates
+
 The consensus node does not live in isolation. It communicates to the execution client. We implemented, in the `ExecutionClient` module, the following primitives:
 
 - `notify_forkchoice_updated(fork_choice_state)`: first message sent to the execution client right after exchanging capabilities. It returns if the client is syncing or valid.
@@ -295,10 +297,63 @@ The consensus node does not live in isolation. It communicates to the execution 
 - `get_payload(payload_id)`: returns an `{ExecutionPayload.t(), BlobsBundle.t()}` tuple that started building when `notify_forkchoice_updated` was called with payload attributes.
 - `notify_new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)`: when the execution client gets a new block, it needs to check if the execution payload is valid. This method is used to send that payload for verification. It may return valid, invalid, or syncing, in the case where the execution client is not yet synced.
 
-Aside from payload validation and block building, there's a bit more information we need from the execution client:
+### Deposit contract
 
-- Deposits: transactions to the deposit contract are processed by the execution client and held in logs. We can `get_deposit_logs(block_range)` to get those. We save those in a deposit tree, which is used to transmit the deposits cheaply to syncing nodes (sending deposit snapshots, see [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881)).
-- Eth1 vote: the ultimate goal in consensus is not only to chose the right fork, but also to agree on what that head beacon block refers to in the execution chain. We summarize the execution state in `Eth1Data`, a container with the deposit root, deposit amount, and execution block hash. In the current beacon state we save the current eth1 data, and a history of the last N ones.
+Aside from sending the latest fork choice updates and payloads for validation, the consensus layer has two more needs regarding execution: tracking the deposit contract and voting on their view of the eth1 chain.
+
+Each time there's a deposit, a log is included in the execution block that can be read by the consensus layer using the `get_deposit_logs(range)` function for this.
+
+Each deposit has the following form:
+
+```elixir
+%DepositData {
+    # BLS Credentials publicly identifying the validator.
+    pubkey: Types.bls_pubkey(),
+    # Public address where the stake rewards will be sent.
+    withdrawal_credentials: Types.bytes32(),
+    # Amount of eth deposited.
+    amount: Types.gwei(),
+    # Signature over the other fields.
+    signature: Types.bls_signature()
+}
+```
+
+These deposits are aggregated into a merkle trie where each deposit is a leaf. After aggregation we can obtain:
+
+- A `deposit_root`: root of the merkle trie.
+- A `deposit_count`: the amount of deposits that were processed in the execution layer.
+
+This aggregation structure is useful to send snapshots cheaply, when performing checkpoint sync. See [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881). It can also be used to send cheap merkle proofs that show a deposit is part of the current deposit set.
+
+### Eth 1 voting
+
+Validators have a summarized view of the execution chain, stored in a struct called `Eth1Data`:
+
+```elixir
+%Eth1Data{
+    deposit_root: Types.root(),
+    deposit_count: Types.uint64(),
+    block_hash: Types.hash32()
+}
+```
+
+This is the full process of how this data is included in the consensus state:
+
+- There's a voting period each 64 epochs. That is, 2048 slots, almost 7 hours. There's a period change when `rem(next_epoch, epochs_per_eth1_voting_period) == 0`.
+- Each proposer include their view of the chain (`Eth1Data`) in the block they propose (`block.body.eth1_data`). They obtain this data from their own execution client. This is sometimes called their "eth 1 vote".
+- When state transition is performed using that block, the vote is included in the `beacon_state.eth1_data_votes` array, which contains the votes for the whole voting period. If a single `eth1_data_vote` is present in more than half of the period slots, then it's now considered the current `eth1_data`, which means it's assigned as `beacon_state.eth1_data` in that state transition.
+- After an eth1 data vote period finishes, the `beacon_state.eth1_data_votes` are reset (the list is assigned as empty), regardless of there being a winner (new eth 1 data after the period) or not.
+
+Everything related to state transition is performed by beacon nodes even if they're not validators, and need no interaction with the execution chain, as they only apply blocks to states as a pure function.
+
+However, validators that include their view of the execution chain in a block being built, do need access to the latest blocks, as described in the [eth1 data section](https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#eth1-data) of the validator specs. To summarize:
+
+- The consensus node gets blocks from the execution client and builds `Eth1Data` structs.
+- A proposer at a slot `N` will need to build its eth1 vote for the voting period that started at slot `s = div(N, EPOCHS_PER_ETH1_VOTING_PERIOD)`. It will take  into account the execution blocks that are `ETH1_FOLLOW_DISTANCE` behind the current voting period.
+- The vote is selected using the following priority:
+  - An `eth1_data` that is present in the execution client and also in the beacon state `eth1_data_votes` list. If more than one match, the most frequent will be selected. That ways it tries to match a vote by a different node if present.
+  - If no matches are found in the beacon state votes, it will default to the latest eth1 data available in the local execution client (within the expected range).
+  - If nothing is found in the execution chain for the expected range, the last default is voting for the current `beacon_state.eth1_data`.
 
 ## Checkpoint sync
 
