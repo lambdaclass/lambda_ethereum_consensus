@@ -8,6 +8,7 @@ defmodule Unit.BeaconApiTest.V1 do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Db
+  alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.BlockInfo
 
   @moduletag :beacon_api_case
@@ -35,7 +36,7 @@ defmodule Unit.BeaconApiTest.V1 do
     start_link_supervised!({Db, dir: tmp_dir})
 
     patch(ForkChoice, :get_current_status_message, status_message)
-    patch(ForkChoice, :get_genesis_time, 42)
+    patch(StoreDb, :fetch_genesis_time!, 42)
 
     :ok
   end
@@ -132,7 +133,7 @@ defmodule Unit.BeaconApiTest.V1 do
   test "get genesis data" do
     expected_response = %{
       "data" => %{
-        "genesis_time" => ForkChoice.get_genesis_time(),
+        "genesis_time" => StoreDb.fetch_genesis_time!(),
         "genesis_validators_root" =>
           ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
         "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
