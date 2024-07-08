@@ -140,7 +140,7 @@ docker run consensus --checkpoint-sync <url> --network <network> ...
 To test the node locally, we can simulate other nodes and start from genesis using [`Kurtosis`](https://docs.kurtosis.com/) and the Lambda Class fork of [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git).
 
 ### Why Use Kurtosis
-We can test the process and transition of the Beacon state and execution of the consensus rules by connecting the node to Sepolia or even Mainnet. However, testing validators requires at least 32 ETH, which is hard to acquire even in Testnet, and being selected as a block proposer can be a never-ending task. For these reasons, and especially the ability to test multiple validators and completely different scenarios, the best approach currently is to use [`Kurtosis`](https://docs.kurtosis.com/). In combination with the [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git), Kurtosis is a great way to simulate local testnets with a high level of control over the network participants.
+We can test the process and transition of the Beacon state and execution of the consensus rules by connecting the node to Sepolia or even Mainnet. However, testing validators requires at least 32 ETH, which is hard to acquire even in Testnet, and being selected as a block proposer can be a never-ending task. For these reasons, and especially the ability to test multiple validators and completely different scenarios, the best approach currently is to use [`Kurtosis`](https://docs.kurtosis.com/). In combination with the [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git), kurtosis is a great way to simulate local testnets with a high level of control over the network participants.
 
 ### Prerequisites
 - [`Docker`](https://docs.docker.com/get-docker/)
@@ -151,13 +151,13 @@ We can test the process and transition of the Beacon state and execution of the 
 As stated in the `ethereum-package` README:
 > This is a Kurtosis package that will spin up a private Ethereum testnet over Docker or Kubernetes with multi-client support, Flashbot's mev-boost infrastructure for PBS-related testing/validation, and other useful network tools (transaction spammer, monitoring tools, etc). Kurtosis packages are entirely reproducible and composable, so this will work the same way over Docker or Kubernetes, in the cloud or locally on your machine.
 
-After having kurtosis installed we need to do 3 setup steps
+After kurtosis is installed, we need to do three setup steps.
 
 1. Clone the lambdaclass ethereum-package fork and checkout a particular branch
 2. Copy our Grafana custom dashboards to be able to look at them
 3. Build the Docker image of the service
 
-All of this can be done with a simple
+We can accomplish all the steps with a simple.
 
 ```bash
 make kurtosis.setup
@@ -176,25 +176,25 @@ make kurtosis.setup.grafana
 make kurtosis.setup.lambdaconsensus
 # docker build --build-arg IEX_ARGS="--sname lambdaconsensus --cookie secret" -t lambda_ethereum_consensus .
 
-# alternatively you could build the repo without the node config and cookie just by running
+# alternatively, you could build the repo without the node config and cookie just by running
 # docker build -t lambda_ethereum_consensus .
 ```
 
-After that we are ready to tweak the configuration
+After that, we will be ready to tweak the configuration.
 
 ```bash
-# Assumming you are still in the lambda_ethereum_consensus repo you can modify the configuration through
+# assumming you are still in the lambda_ethereum_consensus repo, you can modify the configuration through
 vim network_params.yaml
 ```
 
-We have some sensible defaults for an easy network of 3 clients with 64 Validators each (ethereum-package default) and a small tweak to the lambda consensus node memory limit. Here is an example of the doc, all parameters are explained in [their documentation](https://github.com/ethpandaops/ethereum-package?tab=readme-ov-file#configuration).
+We have some sensible defaults for a simple network of 3 clients with 64 Validators each (ethereum-package default) and a slight tweak to the memory limit. Here is an example of the doc; all parameters are explained in [their documentation](https://github.com/ethpandaops/ethereum-package?tab=readme-ov-file#configuration).
 
 ```yaml
 participants:
-  - el_type: geth
+ - el_type: geth
     cl_type: lighthouse
     count: 2
-  - el_type: geth
+ - el_type: geth
     cl_type: lambda
     cl_image: lambda_ethereum_consensus:latest
     use_separate_vc: false
@@ -204,7 +204,7 @@ participants:
 
 ### Kurtosis Execution and Make tasks
 
-For starting the local environment once the docker image is already built just run:
+For starting the local environment after the setup run:
 
 ```bash
 # Using the make task
@@ -214,29 +214,29 @@ make kurtosis.start
 kurtosis run --enclave lambdanet ../ethereum-package --args-file network_params.yaml
 ```
 
-Then you can simply connect to the node with the following:
+Then, you can connect to the service (running docker instance) with the following:
 
 ```bash
 # to connect to the instance
 make kurtosis.connect
 
-# You can specify the KURTOSIS_SERVICE if the config is different to the default provided:
+# you can specify the KURTOSIS_SERVICE if the config is different from the default provided:
 make kurtosis.connect KURTOSIS_SERVICE=cl-6-lambda-geth
 ```
 
-Once inside the node you can simply connect to the node with a new iex session running the following
+Once inside the service, you can connect to the node with a new IEX session running the following.
 
 ```bash
 make kurtosis.connect.iex
 
-# if you set a specific cookie you can add it as argument as before
+# if you set a specific cookie, you can add it as an argument as before
 make kurtosis.connect.iex KURTOSIS_COOKIE=my_secret
 
 # which is just a convenient task over:
 iex --sname client --remsh lambdaconsensus --cookie my_secret
 ```
 
-Now you can check it working for example examining some constants:
+Now you can check it is working, for example, by examining some constants:
 
 ```elixir
 #Erlang/OTP 26 [erts-14.2.5] [source] [64-bit] [smp:8:1] [ds:8:1:10] [async-threads:1] [jit]
@@ -247,9 +247,17 @@ Constants.versioned_hash_version_kzg()
 # <<1>>
 ```
 
+### Kurtosis metrics
+
+The [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git) has prometheus and grafana support built-in. Metrics are being picked up correctly by prometheus, and we have already copied our custom grafana dashboards during the setup step, so you can inspect all of that by accessing the home pages for any of the services (looking for the mapped docker ports). If you want to make changes to the dashboards and see them working with kurtosis afterward, you'll need to update them running again:
+
+```bash
+make kurtosis.setup.grafana
+```
+
 ### Kurtosis cleanup
 
-For a complete cleanup you could execute the following tasks
+For a complete cleanup, you could execute the following tasks.
 
 ```bash
 # kurtosis enclave stop lambdanet
