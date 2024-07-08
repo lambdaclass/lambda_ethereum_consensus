@@ -105,7 +105,7 @@ PendingBlocks -->|penalize/get<br>on downloading|Peerbook
 Libp2pPort -->|new_request| IncomingRequests
 ```
 
-## Sequences
+## P2P Events
 
 This section contains sequence diagrams representing the interaction of processes through time in response to a stimulus. The main entry point for new events is through gossip and request-response protocols, which is how nodes communicates between each other.
 
@@ -115,7 +115,7 @@ Gossip allows clients to subscribe to different topics (hence the name "gossipsu
 
 We use the `go-libp2p` library for the networking primitives, which is an implementation of the `libp2p` networking stack. We use ports to communicate with a go application and Broadway to process notifications. This port has a GenServer owner called `Libp2pPort`.
 
-# Gossipsub
+## Gossipsub
 
 ### Subscribing
 
@@ -296,9 +296,60 @@ Explained, a process that wants to request something from Libp2pPort sends a req
 
 The specific kind of command (a request) is specified, but there's nothing identifying this is a response vs any other kind of result, or the specific kind of response (e.g. a block download vs a blob download). Currently the only way this is handled differentially is because the pid is waiting for a specific kind of response and for nothing else at a time.
 
-### Checkpoint sync
+## Checkpoint sync
 
 **TO DO**: document checkpoint sync.
+
+## Validators
+
+Validators are separate processes. They react to:
+
+- Clock ticks: this allows them to compute their duties for different sections of the slot:
+  - First third: producing a block and sending it to the general gossip channel.
+  - Second third: Attesting for a block and sending it to a subnet.
+  - Last third: aggregating attestations from a subnet and sending them over the general gossip network.
+- Fork choice results (head updates): these are needed by the validators to build the blocks accordingly when proposing, as they will get the head state, create a block on top of it and apply a state transition.
+
+### Attester duty calculation
+
+Duties are calculated by the `LambdaEthereumConsensus.Validator.Duties` module. This should be done once every epoch. In the current implementation it's done when:
+
+- A new head appears for the same current slot.
+- There's an epoch change.
+
+A validator must attest once per epoch, in one committee. There are multiple committees per slot. In the current design, all attestation committees are calculated for every slot of the epoch, and then the one containing the validator is returned, thus obtaining the slot and committee index within the slot for that validator.
+
+There's some room for optimizations here:
+
+- We should calculate the committees only once for all validators.
+- We should not calculate the full committees, we should only shuffle the validators that we are handling to know in which slot and committee they are in an epoch.
+
+### Proposing duties
+
+There's only one block proposer per slot and there are about 1 million validators in mainnet. That means that a block will be chosen approximately once every 12 million seconds (a slot is 12 seconds), which is roughly 4 months and 19 days.
+
+Each proposer index is calculated for the whole epoch, using the hash of the epoch's randao mix + metadata as a seed.
+
+This too could be calculated only once for all validators, but it's not as big as a task compared to calculating all committees.
+
+### Building blocks
+
+When proposing a block, the "block builder" is used.
+
+In the previous block to proposing, the payload build starts:
+
+- The head block and state are fetched from the db.
+- The block metadata is obtained from the blocks execution payload.
+- Slots are processed if necessary.
+- The execution client is notified of the fork choice update.
+
+In the proposing slot:
+
+- The process of getting the pre-state, processing slots, etc. is repeated (this could be optimized).
+- The execution payload and blob bundle are requested directly to the execution client for the corresponding payload_id.
+- The operations (slashings, attestations voluntary exits) that were collected from gossip are added to the block.
+- The deposits and eth1_vote are fetched from `ExecutionChain`.
+- The block is signed.
 
 ## Next document
 
