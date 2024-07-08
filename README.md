@@ -151,19 +151,35 @@ We can test the process and transitioning of the Beacon state and execution of t
 As stated in the `ethereum-package` README:
 > This is a Kurtosis package that will spin up a private Ethereum testnet over Docker or Kubernetes with multi-client support, Flashbot's mev-boost infrastructure for PBS-related testing/validation, and other useful network tools (transaction spammer, monitoring tools, etc). Kurtosis packages are entirely reproducible and composable, so this will work the same way over Docker or Kubernetes, in the cloud or locally on your machine.
 
-After having kurtosis installed we need to clone the lambdaclass fork and select a particular branch:
+After having kurtosis installed we need to do 3 setup steps
+1- Clone the lambdaclass ethereum-package fork and checkout a particular branch
+2- Copy our Grafana custom dashboards to be able to look at them
+3- Build the Docker image of the service
+
+All of this can be done with a simple
 
 ```bash
-# Lambdaclass fork of the kurtosis ethereum package.
-git clone https://github.com/lambdaclass/ethereum-package.git 
-# This is later assumed to be cloned in the same root directory as this repo for the make tasks to work seameless
-cd ethereum-package
-
-# We're now working in the lecc-integration branch.
-git checkout lecc-integration
+make kurtosis.setup
 ```
 
-After that we are ready to go back to the node directory 
+or executed each at a time
+
+```bash 
+make kurtosis.setup.ethereum-package
+# git clone https://github.com/lambdaclass/ethereum-package.git ../ethereum-package && \
+# cd ../ethereum-package && git checkout lecc-integration
+
+make kurtosis.setup.grafana
+# cp -r ./metrics/grafana/provisioning/dashboards/* ../ethereum-package/static_files/grafana-config/dashboards/lambdaconsensus
+
+make kurtosis.setup.lambdaconsensus
+# docker build --build-arg IEX_ARGS="--sname lambdaconsensus --cookie secret" -t lambda_ethereum_consensus .
+
+# alternatively you could build the repo without the node config and cookie just by running
+# docker build -t lambda_ethereum_consensus .
+```
+
+After that we are ready to tweak the configuration
 
 ```bash
 # As mentioned before is assumed both repos share its parent directory
@@ -173,7 +189,7 @@ cd ../lambda_ethereum_consensus
 vim network_params.yaml
 ```
 
-We hae some sensible defaults for an easy network of 3 clients with 64 Validators each (ethereum-package default) and a small tweak to the lambda consensus node memory limit. Here is an example of the doc, all parameters are explained in [their documentation](https://github.com/ethpandaops/ethereum-package?tab=readme-ov-file#configuration).
+We have some sensible defaults for an easy network of 3 clients with 64 Validators each (ethereum-package default) and a small tweak to the lambda consensus node memory limit. Here is an example of the doc, all parameters are explained in [their documentation](https://github.com/ethpandaops/ethereum-package?tab=readme-ov-file#configuration).
 
 ```yaml
 participants:
@@ -190,22 +206,6 @@ participants:
 
 ### Kurtosis Execution and Make tasks
 
-First we need to build the docker image:
-
-```bash
-# simple docker build
-docker build -t lambda_ethereum_consensus .
-
-# or if you want to start an elixir node that you can later connect to, use this make task
-make kurtosis.build
-
-# which executes the following
-docker build --build-arg IEX_ARGS="--sname lambdaconsensus --cookie my_cookie" -t lambda_ethereum_consensus .
-
-# You can select an especific cookie instead of the default one using the KURTOSIS_COOKIE arg
-make kurtosis.build KURTOSIS_COOKIE=my_secret
-```
-
 For starting the local environment once the docker image is already built just run:
 
 ```bash
@@ -215,8 +215,6 @@ make kurtosis.start
 # which executes
 kurtosis run --enclave lambdanet ../ethereum-package --args-file network_params.yaml
 ```
-
-_Note: This command assumes the aforementioned locations with the ethereum-package at the same directory as this repo_ 
 
 Then you can simply connect to the node with the following:
 
@@ -252,6 +250,8 @@ Constants.versioned_hash_version_kzg()
 ```
 
 ### Kurtosis cleanup
+
+For a complete cleanup you could execute the following tasks
 
 ```bash
 # kurtosis enclave stop lambdanet
