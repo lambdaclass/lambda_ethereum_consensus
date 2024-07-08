@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Metrics do
   @moduledoc """
   Basic telemetry metric generation to be used across the node.
   """
+  alias LambdaEthereumConsensus.Store.BlockDb
 
   def tracer({:add_peer, %{}}) do
     :telemetry.execute([:network, :pubsub_peers], %{}, %{result: "add"})
@@ -71,10 +72,32 @@ defmodule LambdaEthereumConsensus.Metrics do
   def block_status(root, status) do
     hex_root = root |> Base.encode16()
 
-    :telemetry.execute([:blocks, :status], %{}, %{
-      mainstat: status,
+    color = map_color(status)
+
+    :telemetry.execute([:blocks, :status], %{total: 1}, %{
       id: hex_root,
+      mainstat: status,
+      color: color,
       title: hex_root
     })
   end
+
+  def block_relationship(parent_id, child_id) do
+    hex_parent_id = parent_id |> Base.encode16()
+    hex_child_id = child_id |> Base.encode16()
+
+    if BlockDb.has_block_info?(parent_id),
+      do:
+        :telemetry.execute([:blocks, :relationship], %{total: 1}, %{
+          id: hex_child_id <> hex_parent_id,
+          source: hex_parent_id,
+          target: hex_child_id
+        })
+  end
+
+  defp map_color(:transitioned), do: "blue"
+  defp map_color(:pending), do: "green"
+  defp map_color(:download_blobs), do: "yellow"
+  defp map_color(:download), do: "orange"
+  defp map_color(:invalid), do: "red"
 end
