@@ -16,6 +16,14 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
 
   use KvSchema, prefix: "execution_chain"
 
+  @type state :: %{
+          eth1_data_votes: map(),
+          eth1_chain: list(map()),
+          current_eth1_data: %Types.Eth1Data{},
+          deposit_tree: %Types.DepositTree{},
+          last_period: integer()
+        }
+
   @impl KvSchema
   @spec encode_key(String.t()) :: {:ok, binary()} | {:error, binary()}
   def encode_key(key), do: {:ok, key}
@@ -178,7 +186,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
 
   defp validate_range(_, _), do: {:error, "deposit range out of bounds"}
 
-  defp compute_eth1_vote(%{eth1_data_votes: []}, _), do: {:ok, nil}
+  defp compute_eth1_vote(%{eth1_data_votes: map}, _) when map == %{}, do: {:ok, nil}
   defp compute_eth1_vote(%{eth1_chain: []}, _), do: {:ok, nil}
 
   defp compute_eth1_vote(
@@ -270,12 +278,13 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   defp slots_per_eth1_voting_period(),
     do: ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD") * ChainSpec.get("SLOTS_PER_EPOCH")
 
-  defp persist_execution_state(state) do
-    put("", state)
-  end
+  @spec persist_execution_state(state()) :: :ok | {:error, binary()}
+  defp persist_execution_state(state), do: put("", state)
 
+  @spec fetch_execution_state() :: {:ok, state()} | {:error, binary()} | :not_found
   defp fetch_execution_state(), do: get("")
 
+  @spec fetch_execution_state!() :: state()
   defp fetch_execution_state!() do
     {:ok, state} = fetch_execution_state()
     state
