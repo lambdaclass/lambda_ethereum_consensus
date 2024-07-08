@@ -288,6 +288,14 @@ In the proposing slot:
 
 ## Execution Chain
 
+The consensus node needs to communicate with the execution client for three different reasons:
+
+- Fork choice updates: the execution clients needs notifications when the head is updated, and payloads need validation. For these goals, `engineAPI` is used.
+- Deposit contract tracking: accounts that wish to become validators need to deposit 32ETH in the deposit contract. This happens in the execution chain, but the information needs to arrive to consensus for the validator set to be updated.
+- Eth 1 votes: consensus nodes agree on a summary of the execution state and a voting mechanism is built for this.
+
+Let's go to this communication sections one by one.
+
 ### Engine API: fork choice updates
 
 The consensus node does not live in isolation. It communicates to the execution client. We implemented, in the `ExecutionClient` module, the following primitives:
@@ -298,8 +306,6 @@ The consensus node does not live in isolation. It communicates to the execution 
 - `notify_new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)`: when the execution client gets a new block, it needs to check if the execution payload is valid. This method is used to send that payload for verification. It may return valid, invalid, or syncing, in the case where the execution client is not yet synced.
 
 ### Deposit contract
-
-Aside from sending the latest fork choice updates and payloads for validation, the consensus layer has two more needs regarding execution: tracking the deposit contract and voting on their view of the eth1 chain.
 
 Each time there's a deposit, a log is included in the execution block that can be read by the consensus layer using the `get_deposit_logs(range)` function for this.
 
