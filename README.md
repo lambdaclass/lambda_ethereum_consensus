@@ -255,9 +255,18 @@ The [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git) ha
 make kurtosis.setup.grafana
 ```
 
+By default, `ethereum-package` shows it's dashboards in the home page, to see our custom dashboards it's needed to go to `Dashboards` in the left panel and then enter our own `lambdaconsensus` folder.
+
 ### Kurtosis cleanup
 
-For a complete cleanup, you could execute the following tasks.
+For a complete cleanup, you could execute the following task.
+
+```bash
+# Stop, remove and clean
+make kurtosis.purge
+```
+
+Suppose the stop was made manually, the purge failed in some step, or the environment was inconsistent for other reasons. In that case, It is also possible to execute every cleanup task individually avoiding the ones not needed:
 
 ```bash
 # kurtosis enclave stop lambdanet
