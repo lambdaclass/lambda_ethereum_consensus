@@ -5,9 +5,9 @@ defmodule BeaconApi.V1.BeaconController do
   alias BeaconApi.ErrorController
   alias BeaconApi.Helpers
   alias BeaconApi.Utils
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.StoreDb
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
@@ -30,7 +30,7 @@ defmodule BeaconApi.V1.BeaconController do
     conn
     |> json(%{
       "data" => %{
-        "genesis_time" => ForkChoice.get_genesis_time(),
+        "genesis_time" => StoreDb.fetch_genesis_time!(),
         "genesis_validators_root" =>
           ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
         "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
