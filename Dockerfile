@@ -114,4 +114,7 @@ RUN protoc --elixir_out=. proto/libp2p.proto
 
 RUN mix compile
 
-ENTRYPOINT [ "iex", "-S", "mix", "run", "--"]
+ARG IEX_ARGS=""
+ENV IEX_ARGS_VALUE=${IEX_ARGS}
+
+ENTRYPOINT iex $IEX_ARGS_VALUE -S mix run -- $0 $@
