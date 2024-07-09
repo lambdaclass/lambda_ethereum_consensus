@@ -42,7 +42,63 @@ PORT_SOURCES := $(shell find native/libp2p_port -type f)
 $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) $(PROTOBUF_GO_FILES)
 	cd native/libp2p_port; go build -o ../../$@
 
+GRAFANA_DASHBOARDS_DIR = ./metrics/grafana/provisioning/dashboards
+
+# Root directory of ethereum-package
+KURTOSIS_DIR ?= ../ethereum-package
+# Grafana configuration directory for dashboards
+KURTOSIS_GRAFANA_DASHBOARDS_DIR ?= $(KURTOSIS_DIR)/static_files/grafana-config/dashboards
+# Secret cookie for the lambdaconsesus IEX node built for usage with kurtosis
+KURTOSIS_COOKIE ?= secret
+# Name of the kurtosis service pointing to the lambdaconsesus node
+KURTOSIS_SERVICE ?= cl-3-lambda-geth
+
 ##### TARGETS #####
+
+# 💻 kurtosis.setup: @ Setup the kurtosis environment
+kurtosis.setup: kurtosis.setup.ethereum-package kurtosis.setup.grafana kurtosis.setup.lambdaconsensus
+
+#💻 kurtosis.setup.ethereum-package: @ Clones the lambda ethereum-package and check out the current active branch
+kurtosis.setup.ethereum-package:
+	git clone https://github.com/lambdaclass/ethereum-package.git $(KURTOSIS_DIR) && \
+	cd $(KURTOSIS_DIR) && \
+	git checkout lecc-integration
+
+# 💻 kurtosis.setup.grafana: @ Copies the grafana dashboards to the ethereum-package folder under grafana-config
+kurtosis.setup.grafana:
+	[ -d  $(KURTOSIS_GRAFANA_DASHBOARDS_DIR)/lambdaconsensus ] || mkdir $(KURTOSIS_GRAFANA_DASHBOARDS_DIR)/lambdaconsensus
+	cp -r $(GRAFANA_DASHBOARDS_DIR)/* $(KURTOSIS_GRAFANA_DASHBOARDS_DIR)/lambdaconsensus
+
+#💻 kurtosis.setup.lambdaconsensus: @ Builds the node Docker for the kurtosis environment
+kurtosis.setup.lambdaconsensus:
+	docker build --build-arg IEX_ARGS="--sname lambdaconsensus --cookie $(KURTOSIS_COOKIE)" -t lambda_ethereum_consensus .
+
+#💻 kurtosis.start: @ Starts the kurtosis environment
+kurtosis.start:
+	kurtosis run --enclave lambdanet $(KURTOSIS_DIR) --args-file network_params.yaml
+
+#💻 kurtosis.stop: @ Stops the kurtosis environment
+kurtosis.stop:
+	kurtosis enclave stop lambdanet
+
+#💻 kurtosis.remove: @ Removes the kurtosis environment
+kurtosis.remove:
+	kurtosis enclave rm lambdanet
+
+#💻 kurtosis.clean: @ Clean the kurtosis environment
+kurtosis.clean:
+	kurtosis clean -a
+
+#💻 kurtosis.purge: @ Purge the kurtosis environment
+kurtosis.purge: kurtosis.stop kurtosis.remove kurtosis.clean
+
+#💻 kurtosis.connect: @ Connects to the client running in kurtosis, KURTOSIS_SERVICE could be given
+kurtosis.connect:
+	kurtosis service shell lambdanet $(KURTOSIS_SERVICE)
+
+#💻 kurtosis.connect.iex: @ Connects to iex ONCE INSIDE THE KURTOSIS SERVICE
+kurtosis.connect.iex:
+	iex --sname client --remsh lambdaconsensus --cookie $(KURTOSIS_COOKIE)
 
 #💻 nix: @ Start a nix environment.
 nix:
