@@ -80,24 +80,21 @@ defmodule LambdaEthereumConsensus.Metrics do
       do: block_status(root, signed_block.message.slot, old_status, new_status)
 
   def block_status(root, slot, old_status, new_status) do
-    hex_root = root |> Base.encode16()
+    block_status_execute(root, old_status, slot, 0)
+    block_status_execute(root, new_status, slot, 1)
+  end
 
-    color_str = map_color(old_status)
+  def block_status(root, slot, new_status) do
+    block_status_execute(root, new_status, slot, 1)
+  end
 
-    :telemetry.execute([:blocks, :status], %{total: 0}, %{
+  defp block_status_execute(root, status, slot, value) do
+    hex_root = Base.encode16(root)
+
+    :telemetry.execute([:blocks, :status], %{total: value}, %{
       id: hex_root,
-      mainstat: old_status,
-      color: color_str,
-      title: slot,
-      subtitle: hex_root
-    })
-
-    color_str = map_color(new_status)
-
-    :telemetry.execute([:blocks, :status], %{total: 1}, %{
-      id: hex_root,
-      mainstat: new_status,
-      color: color_str,
+      mainstat: status,
+      color: map_color(status),
       title: slot,
       subtitle: hex_root
     })

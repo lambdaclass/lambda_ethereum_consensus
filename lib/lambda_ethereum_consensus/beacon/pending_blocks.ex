@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
@@ -35,6 +36,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def add_block(signed_block) do
     block_info = BlockInfo.from_block(signed_block)
     loaded_block = Blocks.get_block_info(block_info.root)
+
+    Metrics.block_relationship(
+      block_info.signed_block.message.parent_root,
+      block_info.root
+    )
 
     # If the block is new or was to be downloaded, we store it.
     if is_nil(loaded_block) or loaded_block.status == :download do
@@ -91,6 +97,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     case Blocks.get_block_info(parent_root) do
       nil ->
         Blocks.add_block_to_download(parent_root)
+        inspect("Add parent to download #{inspect(parent_root)}")
         :download_pending
 
       %BlockInfo{status: :invalid} ->

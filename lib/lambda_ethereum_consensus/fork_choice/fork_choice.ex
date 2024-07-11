@@ -36,7 +36,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     :telemetry.execute([:sync, :store], %{slot: Store.get_current_slot(store)})
     :telemetry.execute([:sync, :on_block], %{slot: head_slot})
 
-    Metrics.block_status(head_root, head_slot, :download, :transitioned)
+    Metrics.block_status(head_root, head_slot, :transitioned)
 
     persist_store(store)
   end
@@ -66,11 +66,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         end)
 
         %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
-
-        Metrics.block_relationship(
-          block_info.signed_block.message.parent_root,
-          block_info.root
-        )
 
         prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
 
