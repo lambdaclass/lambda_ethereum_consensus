@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlobDb
@@ -27,13 +28,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ##########################
 
   @spec init_store(Store.t(), Types.uint64()) :: :ok | :error
-  def init_store(%Store{head_slot: head_slot} = store, time) do
+  def init_store(%Store{head_slot: head_slot, head_root: head_root} = store, time) do
     Logger.info("[Fork choice] Initialized store.", slot: head_slot)
 
     store = Handlers.on_tick(store, time)
 
     :telemetry.execute([:sync, :store], %{slot: Store.get_current_slot(store)})
     :telemetry.execute([:sync, :on_block], %{slot: head_slot})
+
+    Metrics.block_status(head_root, head_slot, :transitioned)
 
     persist_store(store)
   end
@@ -63,6 +66,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         end)
 
         %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
+
+        # Metrics.block_status(block_info.root, :transitioned)
+
+        Metrics.block_relationship(
+          block_info.signed_block.message.parent_root,
+          block_info.root
+        )
 
         prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
 

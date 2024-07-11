@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   Storage and retrieval of blocks.
   """
   require Logger
+  # alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.BlockInfo
@@ -82,6 +83,8 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   def change_root_status(root, from_status, to_status) do
     remove_root_from_status(root, from_status)
     add_root_to_status(root, to_status)
+
+    # Metrics.block_status(root, from_status, to_status)
 
     # TODO: if we need to perform some level of db recovery, we probably should consider the
     # blocks db as the source of truth and reconstruct the status ones. Either that or

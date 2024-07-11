@@ -69,16 +69,41 @@ defmodule LambdaEthereumConsensus.Metrics do
     end
   end
 
-  def block_status(root, status) do
+  def block_status(root, slot, status) do
     hex_root = root |> Base.encode16()
 
-    color = map_color(status)
+    color_str = map_color(status) |> IO.inspect()
 
     :telemetry.execute([:blocks, :status], %{total: 1}, %{
       id: hex_root,
       mainstat: status,
-      color: color,
-      title: hex_root
+      color: color_str,
+      title: slot,
+      subtitle: hex_root
+    })
+  end
+
+  def block_status(root, slot, old_status, new_status) do
+    hex_root = root |> Base.encode16()
+
+    color_str = map_color(old_status) |> IO.inspect()
+
+    :telemetry.execute([:blocks, :status], %{total: 0}, %{
+      id: hex_root,
+      mainstat: old_status,
+      color: color_str,
+      title: slot,
+      subtitle: hex_root
+    })
+
+    color_str = map_color(new_status) |> IO.inspect()
+
+    :telemetry.execute([:blocks, :status], %{total: 1}, %{
+      id: hex_root,
+      mainstat: new_status,
+      color: color_str,
+      title: slot,
+      subtitle: hex_root
     })
   end
 
@@ -86,7 +111,7 @@ defmodule LambdaEthereumConsensus.Metrics do
     hex_parent_id = parent_id |> Base.encode16()
     hex_child_id = child_id |> Base.encode16()
 
-    if BlockDb.has_block_info?(parent_id),
+    if BlockDb.has_block_info?(parent_id) and BlockDb.has_block_info?(child_id),
       do:
         :telemetry.execute([:blocks, :relationship], %{total: 1}, %{
           id: hex_child_id <> hex_parent_id,
