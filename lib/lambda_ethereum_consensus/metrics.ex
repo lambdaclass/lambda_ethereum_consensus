@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Metrics do
   Basic telemetry metric generation to be used across the node.
   """
   alias LambdaEthereumConsensus.Store.BlockDb
+  alias Types.BlockInfo
 
   def tracer({:add_peer, %{}}) do
     :telemetry.execute([:network, :pubsub_peers], %{}, %{result: "add"})
@@ -69,24 +70,19 @@ defmodule LambdaEthereumConsensus.Metrics do
     end
   end
 
-  def block_status(root, slot, status) do
-    hex_root = root |> Base.encode16()
+  def block_status(%BlockInfo{root: root, status: new_status, signed_block: nil}, old_status),
+    do: block_status(root, nil, old_status, new_status)
 
-    color_str = map_color(status) |> IO.inspect()
-
-    :telemetry.execute([:blocks, :status], %{total: 1}, %{
-      id: hex_root,
-      mainstat: status,
-      color: color_str,
-      title: slot,
-      subtitle: hex_root
-    })
-  end
+  def block_status(
+        %BlockInfo{root: root, status: new_status, signed_block: signed_block},
+        old_status
+      ),
+      do: block_status(root, signed_block.message.slot, old_status, new_status)
 
   def block_status(root, slot, old_status, new_status) do
     hex_root = root |> Base.encode16()
 
-    color_str = map_color(old_status) |> IO.inspect()
+    color_str = map_color(old_status)
 
     :telemetry.execute([:blocks, :status], %{total: 0}, %{
       id: hex_root,
@@ -96,7 +92,7 @@ defmodule LambdaEthereumConsensus.Metrics do
       subtitle: hex_root
     })
 
-    color_str = map_color(new_status) |> IO.inspect()
+    color_str = map_color(new_status)
 
     :telemetry.execute([:blocks, :status], %{total: 1}, %{
       id: hex_root,

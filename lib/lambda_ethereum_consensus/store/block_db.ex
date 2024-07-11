@@ -84,8 +84,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     remove_root_from_status(root, from_status)
     add_root_to_status(root, to_status)
 
-    # Metrics.block_status(root, from_status, to_status)
-
     # TODO: if we need to perform some level of db recovery, we probably should consider the
     # blocks db as the source of truth and reconstruct the status ones. Either that or
     # perform an ACID-like transaction.
