@@ -115,13 +115,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           :ok ->
             Blocks.change_status(block_info, :transitioned)
 
-            Metrics.block_status(
-              block_info.root,
-              block_info.signed_block.message.slot,
-              :pending,
-              :transitioned
-            )
-
             Metrics.block_relationship(
               block_info.signed_block.message.parent_root,
               block_info.root
@@ -162,13 +155,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       with %BlockInfo{} = block_info <- Blocks.get_block_info(root) do
         # TODO: add a new missing blobs call if some blobs are still missing for a block.
         if Enum.empty?(missing_blobs(block_info)) do
-          Metrics.block_status(
-            block_info.root,
-            block_info.signed_block.message.slot,
-            :download_blobs,
-            :pending
-          )
-
           Metrics.block_relationship(
             block_info.signed_block.message.parent_root,
             block_info.root

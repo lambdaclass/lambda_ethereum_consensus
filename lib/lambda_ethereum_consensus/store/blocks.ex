@@ -103,6 +103,14 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
 
     old_status = block_info.status
     BlockDb.change_root_status(block_info.root, old_status, status)
+
+    Metrics.block_status(
+      block_info.root,
+      block_info.signed_block.message.slot,
+      old_status,
+      status
+    )
+
     new_block_info
   end
 
