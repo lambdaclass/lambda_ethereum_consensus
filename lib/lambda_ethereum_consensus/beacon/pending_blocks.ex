@@ -44,11 +44,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       if Enum.empty?(missing_blobs) do
         Blocks.new_block_info(block_info)
 
-        Metrics.block_relationship(
-          block_info.signed_block.message.parent_root,
-          block_info.root
-        )
-
         process_block_and_check_children(block_info)
       else
         BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/1, 30)
@@ -56,11 +51,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         block_info
         |> BlockInfo.change_status(:download_blobs)
         |> Blocks.new_block_info()
-
-        Metrics.block_relationship(
-          block_info.signed_block.message.parent_root,
-          block_info.root
-        )
       end
     end
   end
@@ -102,6 +92,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
     case Blocks.get_block_info(parent_root) do
       nil ->
+        IO.inspect("Add parent to download #{inspect(parent_root)}")
         Blocks.add_block_to_download(parent_root)
 
         Metrics.block_relationship(
@@ -109,7 +100,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           block_info.root
         )
 
-        IO.inspect("Add parent to download #{inspect(parent_root)}")
         :download_pending
 
       %BlockInfo{status: :invalid} ->
@@ -120,11 +110,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         case ForkChoice.on_block(block_info) do
           :ok ->
             Blocks.change_status(block_info, :transitioned)
-
-            Metrics.block_relationship(
-              parent_root,
-              block_info.root
-            )
 
             :transitioned
 
@@ -161,11 +146,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       with %BlockInfo{} = block_info <- Blocks.get_block_info(root) do
         # TODO: add a new missing blobs call if some blobs are still missing for a block.
         if Enum.empty?(missing_blobs(block_info)) do
-          Metrics.block_relationship(
-            block_info.signed_block.message.parent_root,
-            block_info.root
-          )
-
           block_info
           |> Blocks.change_status(:pending)
           |> process_block_and_check_children()

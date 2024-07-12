@@ -83,7 +83,12 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     # one.
     BlockDb.change_root_status(block_info.root, :download, block_info.status)
 
-    slot = if block_info.signed_block, do: block_info.signed_block.message.slot
+    {slot, parent_root} =
+      if block_info.signed_block do
+        {block_info.signed_block.message.slot, block_info.signed_block.message.parent_root}
+      else
+        {nil, nil}
+      end
 
     Metrics.block_status(
       block_info.root,
@@ -91,6 +96,8 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
       :download,
       block_info.status
     )
+
+    Metrics.block_relationship(parent_root, block_info.root)
   end
 
   @doc """
@@ -110,6 +117,8 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
       old_status,
       status
     )
+
+    Metrics.block_relationship(block_info.signed_block.message.parent_root, block_info.root)
 
     new_block_info
   end

@@ -100,6 +100,8 @@ defmodule LambdaEthereumConsensus.Metrics do
     })
   end
 
+  def block_relationship(nil, _child_id), do: :ok
+
   def block_relationship(parent_id, child_id) do
     if Blocks.get_block_info(parent_id) do
       hex_parent_id = parent_id |> Base.encode16()
