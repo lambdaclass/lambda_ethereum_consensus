@@ -74,6 +74,10 @@ defmodule LambdaEthereumConsensus.Metrics do
     block_status_execute(root, new_status, slot, 1)
   end
 
+  @doc """
+  - Sets the old status to '0' to deactivate it and sets the new status to '1' so that we can filter the Grafana table.
+  - If the old status is ':download', it will be deactivated with a 'nil' slot, since that's how it was activated.
+  """
   def block_status(root, slot, :download, new_status) do
     block_status_execute(root, :download, nil, 0)
     block_status_execute(root, new_status, slot, 1)
@@ -100,17 +104,17 @@ defmodule LambdaEthereumConsensus.Metrics do
     })
   end
 
-  def block_relationship(nil, _child_id), do: :ok
+  def block_relationship(nil, _), do: :ok
 
-  def block_relationship(parent_id, child_id) do
-    if Blocks.get_block_info(parent_id) do
-      hex_parent_id = parent_id |> Base.encode16()
-      hex_child_id = child_id |> Base.encode16()
+  def block_relationship(parent_root, root) do
+    if Blocks.get_block_info(parent_root) do
+      hex_parent_root = parent_root |> Base.encode16()
+      hex_root = root |> Base.encode16()
 
       :telemetry.execute([:blocks, :relationship], %{total: 1}, %{
-        id: hex_child_id <> hex_parent_id,
-        source: hex_parent_id,
-        target: hex_child_id
+        id: hex_root <> hex_parent_root,
+        source: hex_parent_root,
+        target: hex_root
       })
     end
   end

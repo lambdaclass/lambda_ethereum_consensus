@@ -43,7 +43,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
       if Enum.empty?(missing_blobs) do
         Blocks.new_block_info(block_info)
-
         process_block_and_check_children(block_info)
       else
         BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/1, 30)
@@ -92,7 +91,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
     case Blocks.get_block_info(parent_root) do
       nil ->
-        IO.inspect("Add parent to download #{inspect(parent_root)}")
+        Logger.info("Add parent to download #{inspect(parent_root)}")
         Blocks.add_block_to_download(parent_root)
 
         Metrics.block_relationship(
@@ -110,7 +109,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         case ForkChoice.on_block(block_info) do
           :ok ->
             Blocks.change_status(block_info, :transitioned)
-
             :transitioned
 
           {:error, reason} ->
