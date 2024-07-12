@@ -107,6 +107,7 @@ defmodule LambdaEthereumConsensus.Metrics do
   def block_relationship(nil, _), do: :ok
 
   def block_relationship(parent_root, root) do
+    # If we try to add an edge to a non-existent node, it will crash.
     if Blocks.get_block_info(parent_root) do
       hex_parent_root = parent_root |> Base.encode16()
       hex_root = root |> Base.encode16()
