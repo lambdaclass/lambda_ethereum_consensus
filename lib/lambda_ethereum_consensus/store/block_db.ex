@@ -36,15 +36,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     end
   end
 
-  @spec has_block_info?(Types.root()) ::
-          boolean()
-  def has_block_info?(block_root) do
-    case Db.get(block_key(block_root)) do
-      {:ok, _data} -> true
-      _ -> false
-    end
-  end
-
   @spec get_block_root_by_slot(Types.slot()) ::
           {:ok, Types.root()} | {:error, String.t()} | :not_found | :empty_slot
   def get_block_root_by_slot(slot) do

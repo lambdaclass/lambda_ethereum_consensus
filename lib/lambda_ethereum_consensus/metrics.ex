@@ -2,7 +2,6 @@ defmodule LambdaEthereumConsensus.Metrics do
   @moduledoc """
   Basic telemetry metric generation to be used across the node.
   """
-  alias LambdaEthereumConsensus.Store.BlockDb
   alias Types.BlockInfo
 
   def tracer({:add_peer, %{}}) do
@@ -104,13 +103,11 @@ defmodule LambdaEthereumConsensus.Metrics do
     hex_parent_id = parent_id |> Base.encode16()
     hex_child_id = child_id |> Base.encode16()
 
-    if BlockDb.has_block_info?(parent_id) and BlockDb.has_block_info?(child_id),
-      do:
-        :telemetry.execute([:blocks, :relationship], %{total: 1}, %{
-          id: hex_child_id <> hex_parent_id,
-          source: hex_parent_id,
-          target: hex_child_id
-        })
+    :telemetry.execute([:blocks, :relationship], %{total: 1}, %{
+      id: hex_child_id <> hex_parent_id,
+      source: hex_parent_id,
+      target: hex_child_id
+    })
   end
 
   defp map_color(:transitioned), do: "blue"

@@ -29,6 +29,141 @@
   "liveNow": false,
   "panels": [
     {
+      "type": "nodeGraph",
+      "title": "Blocks Statuses",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "PBFA97CFB590B2093",
+        "type": "prometheus"
+      },
+      "id": 31,
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "blocks_status_total",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "builder",
+          "legendFormat": "__auto",
+          "useBackend": false,
+          "disableTextWrap": false,
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "blocks_relationship_total",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "uid": "PBFA97CFB590B2093",
+            "type": "prometheus"
+          },
+          "hide": false,
+          "editorMode": "builder",
+          "legendFormat": "__auto",
+          "useBackend": false,
+          "disableTextWrap": false,
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "format": "table"
+        }
+      ],
+      "options": {
+        "nodes": {},
+        "edges": {}
+      },
+      "transformations": [
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "fieldName": "Value #A",
+                "config": {
+                  "id": "equal",
+                  "options": {
+                    "value": 0
+                  }
+                }
+              }
+            ],
+            "type": "exclude",
+            "match": "any"
+          },
+          "filter": {
+            "id": "byRefId",
+            "options": "A"
+          },
+          "topic": "series"
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "id": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "source": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "target": {
+                "aggregations": [],
+                "operation": "groupby"
+              }
+            }
+          },
+          "filter": {
+            "id": "byRefId",
+            "options": "B"
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "id": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "mainstat": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "title": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "Value #A": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "color": {
+                "aggregations": [],
+                "operation": "groupby"
+              }
+            }
+          },
+          "filter": {
+            "id": "byRefId",
+            "options": "A"
+          }
+        }
+      ]
+    },
+    {
       "datasource": {
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
