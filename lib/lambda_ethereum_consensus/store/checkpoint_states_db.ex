@@ -76,7 +76,7 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   def prune(finalized_checkpoint) do
     Logger.debug("Pruning old checkpoint states")
 
-    case fold(finalized_checkpoint, 0, fn key, acc ->
+    case fold_keys(finalized_checkpoint, 0, fn key, acc ->
            delete(key)
            acc + 1
          end) do
