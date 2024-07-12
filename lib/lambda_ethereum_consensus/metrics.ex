@@ -74,6 +74,11 @@ defmodule LambdaEthereumConsensus.Metrics do
     block_status_execute(root, new_status, slot, 1)
   end
 
+  def block_status(root, slot, :download, new_status) do
+    block_status_execute(root, :download, nil, 0)
+    block_status_execute(root, new_status, slot, 1)
+  end
+
   def block_status(root, slot, old_status, new_status) do
     block_status_execute(root, old_status, slot, 0)
     block_status_execute(root, new_status, slot, 1)

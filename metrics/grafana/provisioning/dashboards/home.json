@@ -83,7 +83,7 @@
           "exemplar": false
         }
       ],
-      "title": "Blocks Statuses",
+      "title": "Blockchain View",
       "transformations": [
         {
           "id": "filterByValue",

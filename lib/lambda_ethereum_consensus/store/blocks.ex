@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @moduledoc """
   Interface to `Store.blocks`.
   """
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.LRUCache
   alias Types.BeaconBlock
@@ -81,6 +82,15 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     # list. If it's not in the list, the operation is equivalent to only adding it in the correct
     # one.
     BlockDb.change_root_status(block_info.root, :download, block_info.status)
+
+    slot = if block_info.signed_block, do: block_info.signed_block.message.slot
+
+    Metrics.block_status(
+      block_info.root,
+      slot,
+      :download,
+      block_info.status
+    )
   end
 
   @doc """
