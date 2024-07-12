@@ -100,7 +100,7 @@ defmodule LambdaEthereumConsensus.Metrics do
       mainstat: status,
       color: map_color(status),
       title: slot,
-      subtitle: hex_root
+      detail__root: hex_root
     })
   end
 
