@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   Storage and retrieval of blocks.
   """
   require Logger
-  # alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.BlockInfo

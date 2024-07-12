@@ -29,60 +29,61 @@
   "liveNow": false,
   "panels": [
     {
-      "type": "nodeGraph",
-      "title": "Blocks Statuses",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
       "datasource": {
         "uid": "PBFA97CFB590B2093",
         "type": "prometheus"
       },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "id": 31,
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "blocks_status_total",
-          "range": true,
-          "instant": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "builder",
-          "legendFormat": "__auto",
-          "useBackend": false,
-          "disableTextWrap": false,
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "format": "table"
-        },
-        {
-          "refId": "B",
-          "expr": "blocks_relationship_total",
-          "range": true,
-          "instant": false,
-          "datasource": {
-            "uid": "PBFA97CFB590B2093",
-            "type": "prometheus"
-          },
-          "hide": false,
-          "editorMode": "builder",
-          "legendFormat": "__auto",
-          "useBackend": false,
-          "disableTextWrap": false,
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "format": "table"
-        }
-      ],
       "options": {
         "nodes": {},
         "edges": {}
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "blocks_status_total",
+          "format": "table",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "useBackend": false,
+          "exemplar": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "blocks_relationship_total",
+          "format": "table",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "B",
+          "useBackend": false,
+          "exemplar": false
+        }
+      ],
+      "title": "Blocks Statuses",
       "transformations": [
         {
           "id": "filterByValue",
@@ -106,62 +107,9 @@
             "options": "A"
           },
           "topic": "series"
-        },
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "id": {
-                "aggregations": [],
-                "operation": "groupby"
-              },
-              "source": {
-                "aggregations": [],
-                "operation": "groupby"
-              },
-              "target": {
-                "aggregations": [],
-                "operation": "groupby"
-              }
-            }
-          },
-          "filter": {
-            "id": "byRefId",
-            "options": "B"
-          }
-        },
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "id": {
-                "aggregations": [],
-                "operation": "groupby"
-              },
-              "mainstat": {
-                "aggregations": [],
-                "operation": "groupby"
-              },
-              "title": {
-                "aggregations": [],
-                "operation": "groupby"
-              },
-              "Value #A": {
-                "aggregations": [],
-                "operation": "groupby"
-              },
-              "color": {
-                "aggregations": [],
-                "operation": "groupby"
-              }
-            }
-          },
-          "filter": {
-            "id": "byRefId",
-            "options": "A"
-          }
         }
-      ]
+      ],
+      "type": "nodeGraph"
     },
     {
       "datasource": {

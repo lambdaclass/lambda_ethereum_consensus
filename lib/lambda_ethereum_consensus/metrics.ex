@@ -2,7 +2,9 @@ defmodule LambdaEthereumConsensus.Metrics do
   @moduledoc """
   Basic telemetry metric generation to be used across the node.
   """
+  alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BlockInfo
+  require Logger
 
   def tracer({:add_peer, %{}}) do
     :telemetry.execute([:network, :pubsub_peers], %{}, %{result: "add"})
@@ -69,26 +71,21 @@ defmodule LambdaEthereumConsensus.Metrics do
     end
   end
 
-  def block_status(%BlockInfo{root: root, status: new_status, signed_block: nil}, old_status),
-    do: block_status(root, nil, old_status, new_status)
-
-  def block_status(
-        %BlockInfo{root: root, status: new_status, signed_block: signed_block},
-        old_status
-      ),
-      do: block_status(root, signed_block.message.slot, old_status, new_status)
+  def block_status(root, slot, new_status) do
+    block_status_execute(root, new_status, slot, 1)
+  end
 
   def block_status(root, slot, old_status, new_status) do
     block_status_execute(root, old_status, slot, 0)
     block_status_execute(root, new_status, slot, 1)
   end
 
-  def block_status(root, slot, new_status) do
-    block_status_execute(root, new_status, slot, 1)
-  end
-
   defp block_status_execute(root, status, slot, value) do
     hex_root = Base.encode16(root)
+
+    Logger.info(
+      "[Metrics] slot = #{inspect(slot)}, status = #{inspect(status)}, value = #{inspect(value)}"
+    )
 
     :telemetry.execute([:blocks, :status], %{total: value}, %{
       id: hex_root,
@@ -100,14 +97,16 @@ defmodule LambdaEthereumConsensus.Metrics do
   end
 
   def block_relationship(parent_id, child_id) do
-    hex_parent_id = parent_id |> Base.encode16()
-    hex_child_id = child_id |> Base.encode16()
+    if Blocks.get_block_info(parent_id) do
+      hex_parent_id = parent_id |> Base.encode16()
+      hex_child_id = child_id |> Base.encode16()
 
-    :telemetry.execute([:blocks, :relationship], %{total: 1}, %{
-      id: hex_child_id <> hex_parent_id,
-      source: hex_parent_id,
-      target: hex_child_id
-    })
+      :telemetry.execute([:blocks, :relationship], %{total: 1}, %{
+        id: hex_child_id <> hex_parent_id,
+        source: hex_parent_id,
+        target: hex_child_id
+      })
+    end
   end
 
   defp map_color(:transitioned), do: "blue"
