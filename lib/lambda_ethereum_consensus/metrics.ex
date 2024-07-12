@@ -91,7 +91,7 @@ defmodule LambdaEthereumConsensus.Metrics do
   defp block_status_execute(root, status, slot, value) do
     hex_root = Base.encode16(root)
 
-    Logger.info(
+    Logger.debug(
       "[Metrics] slot = #{inspect(slot)}, status = #{inspect(status)}, value = #{inspect(value)}"
     )
 
