@@ -103,6 +103,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     case Blocks.get_block_info(parent_root) do
       nil ->
         Blocks.add_block_to_download(parent_root)
+
+        Metrics.block_relationship(
+          parent_root,
+          block_info.root
+        )
+
         IO.inspect("Add parent to download #{inspect(parent_root)}")
         :download_pending
 
@@ -116,7 +122,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             Blocks.change_status(block_info, :transitioned)
 
             Metrics.block_relationship(
-              block_info.signed_block.message.parent_root,
+              parent_root,
               block_info.root
             )
 
