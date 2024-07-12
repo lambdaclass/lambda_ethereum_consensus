@@ -59,6 +59,17 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       else
         BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/1, 30)
 
+        Metrics.block_status(
+          block_info.root,
+          block_info.signed_block.message.slot,
+          :download_blobs
+        )
+
+        Metrics.block_relationship(
+          block_info.signed_block.message.parent_root,
+          block_info.root
+        )
+
         block_info
         |> BlockInfo.change_status(:download_blobs)
         |> Blocks.new_block_info()
@@ -171,6 +182,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           Metrics.block_status(
             block_info.root,
             block_info.signed_block.message.slot,
+            :download_blobs,
             :pending
           )
 
