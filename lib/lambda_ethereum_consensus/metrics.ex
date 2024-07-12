@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.Metrics do
   Basic telemetry metric generation to be used across the node.
   """
   alias LambdaEthereumConsensus.Store.Blocks
-  alias Types.BlockInfo
   require Logger
 
   def tracer({:add_peer, %{}}) do
