@@ -5,7 +5,7 @@ defmodule BeaconApi.V1.BeaconController do
   alias BeaconApi.ErrorController
   alias BeaconApi.Helpers
   alias BeaconApi.Utils
-  alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.Store.BlockBySlot
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StoreDb
 
@@ -94,7 +94,7 @@ defmodule BeaconApi.V1.BeaconController do
 
   def get_block_root(conn, %{block_id: block_id}) do
     with {slot, ""} when slot >= 0 <- Integer.parse(block_id),
-         {:ok, block_root} <- BlockDb.get_block_root_by_slot(slot) do
+         {:ok, block_root} <- BlockBySlot.get(slot) do
       conn |> root_response(block_root, true, false)
     else
       :not_found ->

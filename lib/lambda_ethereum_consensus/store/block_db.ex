@@ -3,12 +3,12 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   Storage and retrieval of blocks.
   """
   require Logger
+  alias LambdaEthereumConsensus.Store.BlockBySlot
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.BlockInfo
 
   @block_prefix "blockHash"
-  @blockslot_prefix "blockSlot"
   @block_status_prefix "blockStatus"
 
   @spec store_block_info(BlockInfo.t()) :: :ok
@@ -22,8 +22,7 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     # TODO: this should apply fork-choice if not applied elsewhere
     # TODO: handle cases where slot is empty
     if not is_nil(block_info.signed_block) do
-      slothash_key = block_root_by_slot_key(block_info.signed_block.message.slot)
-      Db.put(slothash_key, block_info.root)
+      BlockBySlot.put(block_info.signed_block.message.slot, block_info.root)
     end
   end
 
@@ -35,24 +34,14 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     end
   end
 
-  @spec get_block_root_by_slot(Types.slot()) ::
-          {:ok, Types.root()} | {:error, String.t()} | :not_found | :empty_slot
-  def get_block_root_by_slot(slot) do
-    key = block_root_by_slot_key(slot)
-    block = Db.get(key)
-
-    case block do
-      {:ok, <<>>} -> :empty_slot
-      _ -> block
-    end
-  end
-
   @spec get_block_info_by_slot(Types.slot()) ::
           {:ok, BlockInfo.t()} | {:error, String.t()} | :not_found | :empty_slot
   def get_block_info_by_slot(slot) do
     # WARN: this will return the latest block received for the given slot
-    with {:ok, root} <- get_block_root_by_slot(slot) do
-      get_block_info(root)
+    case BlockBySlot.get(slot) do
+      {:ok, <<>>} -> :empty_slot
+      {:ok, root} -> get_block_info(root)
+      other -> other
     end
   end
 
@@ -95,58 +84,40 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   @spec prune_blocks_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
   def prune_blocks_older_than(slot) do
     Logger.info("[BlockDb] Pruning started.", slot: slot)
-    initial_key = slot |> block_root_by_slot_key()
 
-    slots_to_remove =
-      Stream.resource(
-        fn -> init_keycursor(initial_key) end,
-        &next_slot(&1, :prev),
-        &close_cursor/1
-      )
-      |> Enum.to_list()
+    # TODO: this can be improved if we implement the folding with values in KvSchema.
+    n_removed =
+      BlockBySlot.fold_keys(slot, 0, fn slot, acc ->
+        case remove_block_by_slot(slot) do
+          :ok ->
+            acc + 1
 
-    slots_to_remove |> Enum.each(&remove_block_by_slot/1)
-    Logger.info("[BlockDb] Pruning finished. #{Enum.count(slots_to_remove)} blocks removed.")
+          other ->
+            Logger.error(
+              "[Block pruning] Failed to remove block from slot #{inspect(slot)}. Reason: #{inspect(other)}"
+            )
+        end
+      end)
+
+    Logger.info("[BlockDb] Pruning finished. #{n_removed} blocks removed.")
   end
 
   @spec remove_block_by_slot(non_neg_integer()) :: :ok | :not_found
   defp remove_block_by_slot(slot) do
-    slothash_key = block_root_by_slot_key(slot)
+    case BlockBySlot.get(slot) do
+      {:ok, <<>>} ->
+        :ok
 
-    with {:ok, block_root} <- Db.get(slothash_key) do
-      key_block = block_key(block_root)
-      Db.delete(slothash_key)
-      Db.delete(key_block)
+      {:ok, block_root} ->
+        key_block = block_key(block_root)
+        BlockBySlot.delete(slot)
+        Db.delete(key_block)
+
+      other ->
+        other
     end
   end
-
-  defp init_keycursor(initial_key) do
-    with {:ok, it} <- Db.iterate_keys(),
-         {:ok, _key} <- Exleveldb.iterator_move(it, initial_key) do
-      it
-    else
-      # DB is empty
-      {:error, :invalid_iterator} -> nil
-    end
-  end
-
-  defp next_slot(nil, _movement), do: {:halt, nil}
-
-  defp next_slot(it, movement) do
-    case Exleveldb.iterator_move(it, movement) do
-      {:ok, @blockslot_prefix <> <<key::64>>} ->
-        {[key], it}
-
-      _ ->
-        {:halt, it}
-    end
-  end
-
-  defp close_cursor(nil), do: :ok
-  defp close_cursor(it), do: :ok = Exleveldb.iterator_close(it)
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
-  defp block_root_by_slot_key(slot), do: Utils.get_key(@blockslot_prefix, slot)
-
   defp block_status_key(status), do: Utils.get_key(@block_status_prefix, Atom.to_string(status))
 end
