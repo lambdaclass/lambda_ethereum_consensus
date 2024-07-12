@@ -1,60 +1,80 @@
 defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
-  @moduledoc false
-
-  use Supervisor
+  @moduledoc """
+  Module that manage the validators state
+  """
+  use Agent
 
   require Logger
   alias LambdaEthereumConsensus.Validator
 
-  def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link({slot, head_root}) do
+    Agent.start_link(fn -> init({slot, head_root}) end, name: __MODULE__)
   end
 
-  @impl true
   def init({slot, head_root}) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
     keystore_dir = Keyword.get(config, :keystore_dir)
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir)
 
-    if is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
-      Logger.warning(
-        "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
-      )
+    setup_validators(slot, head_root, keystore_dir, keystore_pass_dir)
+  end
 
-      :ignore
-    else
-      validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
+  defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
+       when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
+    Logger.warning(
+      "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
+    )
 
-      children =
-        validator_keys
-        |> Enum.map(fn {pubkey, privkey} ->
-          Supervisor.child_spec({Validator, {slot, head_root, {pubkey, privkey}}},
-            id: pubkey
-          )
-        end)
+    []
+  end
 
-      Supervisor.init(children, strategy: :one_for_one)
-    end
+  defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
+    validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
+
+    validators =
+      validator_keys
+      |> Enum.map(fn {pubkey, privkey} ->
+        {pubkey, Validator.new({slot, head_root, {pubkey, privkey}})}
+      end)
+      |> Map.new()
+
+    Logger.info("[Validator Manager] Initialized validators #{inspect(Map.keys(validators))}")
+
+    validators
   end
 
   def notify_new_block(slot, head_root) do
-    cast_to_children({:new_block, slot, head_root})
+    notify_validators({:new_block, slot, head_root})
   end
 
   def notify_tick(logical_time) do
-    cast_to_children({:on_tick, logical_time})
+    notify_validators({:on_tick, logical_time})
   end
 
-  defp cast_to_children(msg) do
-    case Process.whereis(__MODULE__) do
-      nil ->
-        # No active validators
-        nil
+  defp notify_validators(msg) do
+    # This is a really naive and blocking implementation. This is just an initial iteration
+    # to remove the GenServer behavior in the validators.
+    Agent.update(
+      __MODULE__,
+      fn validators ->
+        Logger.info("[Validator Manager] Notifying validators: #{inspect(msg)}")
 
-      pid ->
-        Supervisor.which_children(pid)
-        |> Enum.each(fn {_, pid, _, _} -> GenServer.cast(pid, msg) end)
-    end
+        # TODO: remove this is just for testing purposes
+        {time, value} =
+          :timer.tc(fn ->
+            Enum.map(validators, fn {pubkey, validator} ->
+              {pubkey, Validator.notify(msg, validator)}
+            end)
+          end)
+
+        Logger.info(
+          "[Validator Manager] Validators notified of #{inspect(elem(msg, 0))} after #{time / 1_000}ms"
+        )
+
+        value
+      end,
+      4_000
+    )
   end
 
   @doc """

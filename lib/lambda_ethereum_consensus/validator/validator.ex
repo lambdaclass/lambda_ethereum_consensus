@@ -1,9 +1,16 @@
 defmodule LambdaEthereumConsensus.Validator do
   @moduledoc """
-  GenServer that performs validator duties.
+  Module that performs validator duties.
   """
-  use GenServer
   require Logger
+
+  defstruct [
+    :slot,
+    :root,
+    :duties,
+    :validator,
+    :payload_builder
+  ]
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
@@ -23,28 +30,13 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @default_graffiti_message "Lambda, so gentle, so good"
 
-  ##########################
-  ### Public API
-  ##########################
+  @type validator :: %{
+          index: non_neg_integer() | nil,
+          pubkey: Bls.pubkey(),
+          privkey: Bls.privkey()
+        }
 
-  def start_link({_, _, {pubkey, _}} = opts) do
-    # TODO: if possible, use validator index instead of pubkey?
-    name =
-      Atom.to_string(__MODULE__) <> LambdaEthereumConsensus.Utils.format_shorten_binary(pubkey)
-
-    GenServer.start_link(__MODULE__, opts, name: String.to_atom(name))
-  end
-
-  def notify_new_block(slot, head_root),
-    do: GenServer.cast(__MODULE__, {:new_block, slot, head_root})
-
-  ##########################
-  ### GenServer Callbacks
-  ##########################
-
-  @type validator :: any()
-
-  @type state :: %{
+  @type state :: %__MODULE__{
           slot: Types.slot(),
           root: Types.root(),
           duties: Duties.duties(),
@@ -52,11 +44,9 @@ defmodule LambdaEthereumConsensus.Validator do
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
 
-  @impl true
-  @spec init({Types.slot(), Types.root(), {Bls.pubkey(), Bls.privkey()}}) ::
-          {:ok, state, {:continue, any}}
-  def init({head_slot, head_root, {pubkey, privkey}}) do
-    state = %{
+  @spec new({Types.slot(), Types.root(), {Bls.pubkey(), Bls.privkey()}}) :: state
+  def new({head_slot, head_root, {pubkey, privkey}}) do
+    state = %__MODULE__{
       slot: head_slot,
       root: head_root,
       duties: Duties.empty_duties(),
@@ -68,19 +58,13 @@ defmodule LambdaEthereumConsensus.Validator do
       payload_builder: nil
     }
 
-    {:ok, state, {:continue, nil}}
-  end
-
-  @impl true
-  @spec handle_continue(any(), state) :: {:noreply, state}
-  def handle_continue(_, %{slot: slot, root: root} = state) do
-    case try_setup_validator(state, slot, root) do
+    case try_setup_validator(state, head_slot, head_root) do
       nil ->
         Logger.error("[Validator] Public key not found in the validator set")
-        {:noreply, state}
+        state
 
       new_state ->
-        {:noreply, new_state}
+        new_state
     end
   end
 
@@ -103,26 +87,24 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec handle_cast(any, state) :: {:noreply, state}
-
-  @impl true
-  def handle_cast(_, %{validator: nil} = state), do: {:noreply, state}
+  @spec notify(any, state) :: state
+  def notify(_, %{validator: nil} = state), do: state
 
   # If we couldn't find the validator before, we just try again
-  def handle_cast({:new_block, slot, head_root} = msg, %{validator: %{index: nil}} = state) do
+  def notify({:new_block, slot, head_root} = msg, %{validator: %{index: nil}} = state) do
     case try_setup_validator(state, slot, head_root) do
-      nil -> {:noreply, state}
-      new_state -> handle_cast(msg, new_state)
+      nil -> state
+      new_state -> notify(msg, new_state)
     end
   end
 
-  def handle_cast({:new_block, slot, head_root}, state),
-    do: {:noreply, handle_new_block(slot, head_root, state)}
+  def notify({:new_block, slot, head_root}, state),
+    do: handle_new_block(slot, head_root, state)
 
-  def handle_cast({:on_tick, _}, %{validator: %{index: nil}} = state), do: {:noreply, state}
+  def notify({:on_tick, _}, %{validator: %{index: nil}} = state), do: state
 
-  def handle_cast({:on_tick, logical_time}, state),
-    do: {:noreply, handle_tick(logical_time, state)}
+  def notify({:on_tick, logical_time}, state),
+    do: handle_tick(logical_time, state)
 
   ##########################
   ### Private Functions
@@ -130,6 +112,11 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @spec handle_new_block(Types.slot(), Types.root(), state) :: state
   defp handle_new_block(slot, head_root, state) do
+    Logger.info("[Validator] #{state.validator.index} received new block",
+      root: head_root,
+      slot: slot
+    )
+
     # TODO: this doesn't take into account reorgs
     state
     |> update_state(slot, head_root)
@@ -138,6 +125,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp handle_tick({slot, :first_third}, state) do
+    Logger.info("[Validator] #{state.validator.index} starting first third", slot: slot)
     # Here we may:
     # 1. propose our blocks
     # 2. (TODO) start collecting attestations for aggregation
@@ -146,6 +134,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp handle_tick({slot, :second_third}, state) do
+    Logger.info("[Validator] #{state.validator.index} starting second third", slot: slot)
     # Here we may:
     # 1. send our attestation for an empty slot
     # 2. start building a payload
@@ -155,6 +144,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp handle_tick({slot, :last_third}, state) do
+    Logger.info("[Validator] #{state.validator.index} starting last third", slot: slot)
     # Here we may publish our attestation aggregate
     maybe_publish_aggregate(state, slot)
   end
@@ -378,7 +368,7 @@ defmodule LambdaEthereumConsensus.Validator do
     BlockStates.get_state_info!(parent_root).beacon_state |> go_to_slot(slot)
   end
 
-  @spec fetch_validator_index(Types.BeaconState.t(), %{index: nil, pubkey: Bls.pubkey()}) ::
+  @spec fetch_validator_index(Types.BeaconState.t(), validator()) ::
           non_neg_integer() | nil
   defp fetch_validator_index(beacon, %{index: nil, pubkey: pk}) do
     Enum.find_index(beacon.validators, &(&1.pubkey == pk))
