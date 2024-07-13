@@ -65,16 +65,7 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
           with {:ok, it} <- Db.iterate_keys(),
                {:ok, encoded_start} <- do_encode_key(start_key),
                {:ok, ^encoded_start} <- Exleveldb.iterator_move(it, encoded_start) do
-            res =
-              if include_first? do
-                case accumulate(it, starting_value, f, encoded_start) do
-                  {:cont, acc} -> iterate(it, acc, f, direction)
-                  {:halt, acc} -> acc
-                end
-              else
-                iterate(it, starting_value, f, direction)
-              end
-
+            res = iterate(it, starting_value, f, direction, encoded_start, include_first?)
             Exleveldb.iterator_close(it)
             {:ok, res}
           else
@@ -87,6 +78,17 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
               other
           end
         end)
+      end
+
+      defp iterate(it, acc, f, direction, _first_key, false) do
+        iterate(it, acc, f, direction)
+      end
+
+      defp iterate(it, acc, f, direction, first_key, true) do
+        case accumulate(it, acc, f, first_key) do
+          {:cont, new_acc} -> iterate(it, new_acc, f, direction)
+          {:halt, new_acc} -> new_acc
+        end
       end
 
       defp iterate(it, acc, f, direction) do

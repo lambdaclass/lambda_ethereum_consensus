@@ -67,4 +67,6 @@ defmodule Unit.Store.BlockDbTest do
     assert {:ok, block_2} == BlockDb.get_block_info(block_2.root)
     assert {:ok, block_3} == BlockDb.get_block_info(block_3.root)
   end
+
+  # TODO: test for empty slots.
 end

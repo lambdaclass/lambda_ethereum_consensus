@@ -1,4 +1,11 @@
 defmodule LambdaEthereumConsensus.Store.BlockBySlot do
+  @moduledoc """
+  KvSchema that stores block roots indexed by slot. As we store blocks by their root, this module
+  acts as an index if we need to look for them using their root. Some use cases are block pruning
+  (removing all blocks prior to a slot) or checking if a range of slots contain blocks, for
+  checkpoint sync checks.
+  """
+
   alias LambdaEthereumConsensus.Store.KvSchema
   use KvSchema, prefix: "blockSlot"
   @type value_t :: Types.root() | <<>>
