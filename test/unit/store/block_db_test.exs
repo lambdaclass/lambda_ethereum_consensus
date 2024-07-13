@@ -5,6 +5,10 @@ defmodule Unit.Store.BlockDbTest do
   use ExUnit.Case
 
   setup %{tmp_dir: tmp_dir} do
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.put(:config, MainnetConfig)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
+
     start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
     :ok
   end
