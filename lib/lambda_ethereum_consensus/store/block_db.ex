@@ -38,8 +38,9 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
           {:ok, BlockInfo.t()} | {:error, String.t()} | :not_found | :empty_slot
   def get_block_info_by_slot(slot) do
     # WARN: this will return the latest block received for the given slot
+    # TODO: Are we actually saving empty slots in this index?
     case BlockBySlot.get(slot) do
-      {:ok, <<>>} -> :empty_slot
+      {:ok, :empty_slot} -> :empty_slot
       {:ok, root} -> get_block_info(root)
       other -> other
     end
@@ -85,11 +86,17 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
   def prune_blocks_older_than(slot) do
     Logger.info("[BlockDb] Pruning started.", slot: slot)
 
-    # TODO: this can be improved if we implement the folding with values in KvSchema.
+    # TODO: the separate get operation is avoided if we implement folding with values in KvSchema.
     n_removed =
       BlockBySlot.fold_keys(slot, 0, fn slot, acc ->
-        case remove_block_by_slot(slot) do
-          :ok ->
+        case BlockBySlot.get(slot) do
+          {:ok, :empty_slot} ->
+            BlockBySlot.delete(slot)
+            acc + 1
+
+          {:ok, block_root} ->
+            BlockBySlot.delete(slot)
+            Db.delete(block_key(block_root))
             acc + 1
 
           other ->
@@ -100,22 +107,6 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
       end)
 
     Logger.info("[BlockDb] Pruning finished. #{n_removed} blocks removed.")
-  end
-
-  @spec remove_block_by_slot(non_neg_integer()) :: :ok | :not_found
-  defp remove_block_by_slot(slot) do
-    case BlockBySlot.get(slot) do
-      {:ok, <<>>} ->
-        :ok
-
-      {:ok, block_root} ->
-        key_block = block_key(block_root)
-        BlockBySlot.delete(slot)
-        Db.delete(key_block)
-
-      other ->
-        other
-    end
   end
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)

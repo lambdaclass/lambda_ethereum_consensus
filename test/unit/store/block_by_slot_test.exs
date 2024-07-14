@@ -41,4 +41,20 @@ defmodule Unit.Store.BlockBySlotTest do
     assert BlockBySlot.all_present?(1, 1)
     refute BlockBySlot.all_present?(1, 3)
   end
+
+  @tag :tmp_dir
+  test "retrieving an empty slot" do
+    assert :ok == BlockBySlot.put(1, :empty_slot)
+    assert {:ok, :empty_slot} == BlockBySlot.get(1)
+  end
+
+  @tag :tmp_dir
+  test "Trying to save an atom that's not :empty_slot fails" do
+    assert_raise(FunctionClauseError, fn -> BlockBySlot.put(1, :some_atom) end)
+  end
+
+  @tag :tmp_dir
+  test "Trying to save a non-root binary fails" do
+    assert_raise(FunctionClauseError, fn -> BlockBySlot.put(1, "Hello") end)
+  end
 end

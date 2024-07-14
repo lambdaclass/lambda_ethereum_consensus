@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.Store.BlockBySlot do
 
   alias LambdaEthereumConsensus.Store.KvSchema
   use KvSchema, prefix: "blockSlot"
-  @type value_t :: Types.root() | <<>>
+  @type value_t :: Types.root() | :empty_slot
 
   ################################
   ### PUBLIC API
@@ -55,17 +55,11 @@ defmodule LambdaEthereumConsensus.Store.BlockBySlot do
 
   @impl KvSchema
   @spec encode_value(value_t()) :: {:ok, value_t()} | {:error, binary()}
-  def encode_value(root), do: check_root("Encoding", root)
+  def encode_value(:empty_slot), do: {:ok, <<>>}
+  def encode_value(<<_::256>> = root), do: {:ok, root}
 
   @impl KvSchema
   @spec decode_value(value_t()) :: {:ok, value_t()} | {:error, binary()}
-  def decode_value(root), do: check_root("Decoding", root)
-
-  ################################
-  ### Private functions
-  ################################
-
-  defp check_root(_op, <<>>), do: {:ok, <<>>}
-  defp check_root(_op, <<_::256>> = root), do: {:ok, root}
-  defp check_root(op, other), do: {:error, "[Block by slot] #{op} error. Invalid root: #{other}"}
+  def decode_value(<<>>), do: {:ok, :empty_slot}
+  def decode_value(<<_::256>> = root), do: {:ok, root}
 end

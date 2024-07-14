@@ -1,5 +1,6 @@
 defmodule Unit.Store.BlockDbTest do
   alias Fixtures.Block
+  alias LambdaEthereumConsensus.Store.BlockBySlot
   alias LambdaEthereumConsensus.Store.BlockDb
 
   use ExUnit.Case
@@ -51,9 +52,6 @@ defmodule Unit.Store.BlockDbTest do
 
   @tag :tmp_dir
   test "Pruning on a non existent root returns and doesn't delete anything" do
-    # TODO: this might not work for empty blocks. We may need to delete any block with lower slot
-    # anyway, even if the slot doesn't match anything.
-
     blocks =
       [block_1, block_2, block_3] =
       [Block.block_info(), Block.block_info(), Block.block_info()]
@@ -68,5 +66,27 @@ defmodule Unit.Store.BlockDbTest do
     assert {:ok, block_3} == BlockDb.get_block_info(block_3.root)
   end
 
-  # TODO: test for empty slots.
+  @tag :tmp_dir
+  test "Empty blocks don't affect pruning" do
+    blocks =
+      [block_1, block_2, block_3] =
+      [Block.block_info(), Block.block_info(), Block.block_info()]
+      |> Enum.sort_by(& &1.signed_block.message.slot)
+
+    Enum.each(blocks, &BlockDb.store_block_info/1)
+
+    block_slots = Enum.map(blocks, & &1.signed_block.message.slot)
+
+    min_slot = Enum.min(block_slots) - 1
+    max_slot = Enum.max(block_slots) + 1
+    BlockBySlot.put(max_slot, :empty_slot)
+    BlockBySlot.put(min_slot, :empty_slot)
+
+    assert :ok == BlockDb.prune_blocks_older_than(max_slot)
+    assert :not_found == BlockDb.get_block_info(block_1.root)
+    assert :not_found == BlockDb.get_block_info(block_2.root)
+    assert :not_found == BlockDb.get_block_info(block_3.root)
+    assert {:ok, :empty_slot} == BlockBySlot.get(max_slot)
+    assert :not_found == BlockBySlot.get(min_slot)
+  end
 end
