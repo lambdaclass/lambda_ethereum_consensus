@@ -121,6 +121,56 @@ make dialyzer  # Runs type-checker
 Source code can be formatted using `make fmt`.
 This formats not only the Elixir code, but also the code under [`native/`](./native/).
 
+### Consensus spec tests
+
+You can run all of them with:
+
+```shell
+make spec-test
+```
+
+Or only run those of a specific config with:
+
+```shell
+make spec-test-config-`config`
+
+# Some examples
+make spec-test-config-mainnet
+make spec-test-config-minimal
+make spec-test-config-general
+```
+
+Or by a single runner in all configs, with:
+
+```shell
+make spec-test-runner-`runner`
+
+# Some examples
+make spec-test-runner-ssz_static
+make spec-test-runner-bls
+make spec-test-runner-operations
+```
+
+The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
+
+If you want to specify both a config and a runner:
+
+```shell
+make spec-test-mainnet-operations
+make spec-test-minimal-epoch_processing
+make spec-test-general-bls
+```
+
+More advanced filtering (e.g. by fork or handler) will be re-added again, but if you want to only run a specific test, you can always do that manually with:
+
+```shell
+mix test --no-start test/generated/<config>/<fork>/<runner>.exs:<line_of_your_testcase>
+```
+You can put a "*" in any directory (e.g. config) you don't want to filter by, although that won't work if adding the line of the testcase.
+
+> [!NOTE]
+> We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
+
 ### Docker
 
 The repo includes a `Dockerfile` for the consensus client. It can be built with:
@@ -135,7 +185,7 @@ Then you run it with `docker run`, adding CLI flags as needed:
 docker run consensus --checkpoint-sync <url> --network <network> ...
 ```
 
-# Testing Environment with Kurtosis
+## Testing Environment with Kurtosis
 
 To test the node locally, we can simulate other nodes and start from genesis using [`Kurtosis`](https://docs.kurtosis.com/) and the Lambda Class fork of [`ethereum-package`](https://github.com/lambdaclass/ethereum-package.git).
 
@@ -280,55 +330,94 @@ make kurtosis.clean
 make kurtosis.purge
 ```
 
-## Consensus spec tests
 
-You can run all of them with:
+## Live Metrics
 
-```shell
-make spec-test
-```
+When running the node, metrics are available at [`http://localhost:9568/metrics`](http://localhost:9568/metrics) in Prometheus format.
 
-Or only run those of a specific config with:
+### Grafana
 
-```shell
-make spec-test-config-`config`
-
-# Some examples
-make spec-test-config-mainnet
-make spec-test-config-minimal
-make spec-test-config-general
-```
-
-Or by a single runner in all configs, with:
+A docker-compose is available at [`metrics/`](./metrics) with a Grafana-Prometheus setup preloaded with dashboards that disponibilize the data.
+To run it, install [Docker Compose](https://docs.docker.com/compose/) and execute:
 
 ```shell
-make spec-test-runner-`runner`
-
-# Some examples
-make spec-test-runner-ssz_static
-make spec-test-runner-bls
-make spec-test-runner-operations
+make grafana-up
 ```
 
-The complete list of test runners can be found [here](https://github.com/ethereum/consensus-specs/tree/dev/tests/formats).
+After that, open [`http://localhost:3000/`](http://localhost:3000/) in a browser.
+The default username and password are both `admin`.
 
-If you want to specify both a config and a runner:
+To stop the containers run `make grafana-down`. For cleaning up the metrics data, run `make grafana-clean`.
+
+## Benchmarks
+
+Several benchmarks are provided in the `/bench` directory. They are all standard elixir scripts, so they can be run as such. For example:
+
+```bash
+mix run bench/byte_reversal.exs
+```
+
+## Profiling
+
+### QCachegrind
+
+To install [QCachegrind](https://github.com/KDE/kcachegrind) via [Homebrew](https://formulae.brew.sh/formula/qcachegrind), run:
+
+```sh
+brew install qcachegrind
+```
+
+To build a qcachegrind profile, run, inside iex:
+
+```elixir
+LambdaEthereumConsensus.Profile.build()
+```
+
+Options and details are in the `Profile` package. After the profile trace is generated, you open it in qcachegrind with:
 
 ```shell
-make spec-test-mainnet-operations
-make spec-test-minimal-epoch_processing
-make spec-test-general-bls
+qcachegrind callgrind.out.<trace_name>
 ```
 
-More advanced filtering (e.g. by fork or handler) will be re-added again, but if you want to only run a specific test, you can always do that manually with:
+If you want to group the traces by function instead of process, you can use the following before viewing it in qcachegrind:
 
 ```shell
-mix test --no-start test/generated/<config>/<fork>/<runner>.exs:<line_of_your_testcase>
+grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
 ```
-You can put a "*" in any directory (e.g. config) you don't want to filter by, although that won't work if adding the line of the testcase.
 
-> [!NOTE]
-> We specify the `--no-start` flag to stop *ExUnit* from starting the application, to reduce resource consumption.
+### etop
+
+Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar to UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
+
+```elixir
+:etop.start()
+```
+
+In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got.
+This can be used to identify infinite loops or busy waits.
+
+Also of note is the `:sort` option, that allows sorting the list by, for example, message queue size:
+
+```elixir
+:etop.start(sort: :msg_q)
+```
+
+### eFlambè
+
+When optimizing code, it might be useful to have a graphic way to determine bottlenecks in the system.
+In that case, you can use [eFlambè](https://github.com/Stratus3D/eflambe) to generate flamegraphs of specific functions.
+The following code will capture information from 10 calls to `Handlers.on_block/2`, dumping it in different files named \<timestamp\>-eflambe-output.bggg.
+
+```elixir
+:eflambe.capture({LambdaEthereumConsensus.ForkChoice.Handlers, :has_block?, 2}, 10)
+```
+
+The files generated can be processed via common flamegraph tools.
+For example, using [Brendan Gregg's stack](https://github.com/brendangregg/FlameGraph):
+
+```shell
+cat *-eflambe-output.bggg | flamegraph.pl - > flamegraph.svg
+```
 
 ## Why Elixir?
 
@@ -466,86 +555,6 @@ Lambda Ethereum Consensus is more than just a project; it's a community-driven i
 ---
 
 **Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
-
-## Metrics
-
-When running the node, metrics are available at [`http://localhost:9568/metrics`](http://localhost:9568/metrics) in Prometheus format.
-
-### Grafana
-
-A docker-compose is available at [`metrics/`](./metrics) with a Grafana-Prometheus setup preloaded with dashboards that disponibilize the data.
-To run it, install [Docker Compose](https://docs.docker.com/compose/) and execute:
-
-```shell
-make grafana-up
-```
-
-After that, open [`http://localhost:3000/`](http://localhost:3000/) in a browser.
-The default username and password are both `admin`.
-
-To stop the containers run `make grafana-down`. For cleaning up the metrics data, run `make grafana-clean`.
-
-## Profiling
-
-### QCachegrind
-
-To install [QCachegrind](https://github.com/KDE/kcachegrind) via [Homebrew](https://formulae.brew.sh/formula/qcachegrind), run:
-
-```sh
-brew install qcachegrind
-```
-
-To build a qcachegrind profile, run, inside iex:
-
-```elixir
-LambdaEthereumConsensus.Profile.build()
-```
-
-Options and details are in the `Profile` package. After the profile trace is generated, you open it in qcachegrind with:
-
-```shell
-qcachegrind callgrind.out.<trace_name>
-```
-
-If you want to group the traces by function instead of process, you can use the following before viewing it in qcachegrind:
-
-```shell
-grep -v "^ob=" callgrind.out.trace_name > callgrind.out.merged.trace_name
-```
-
-### etop
-
-Another useful tool to quickly diagnose processes taking too much CPU is `:etop`, similar to UNIX `top` command. This is installed by default in erlang, and included in the `:observer` extra application in `mix.exs`. You can run it with:
-
-```elixir
-:etop.start()
-```
-
-In particular, the `reds` metric symbolizes `reductions`, which can roughly be interpreted as the number of calls a function got.
-This can be used to identify infinite loops or busy waits.
-
-Also of note is the `:sort` option, that allows sorting the list by, for example, message queue size:
-
-```elixir
-:etop.start(sort: :msg_q)
-```
-
-### eFlambè
-
-When optimizing code, it might be useful to have a graphic way to determine bottlenecks in the system.
-In that case, you can use [eFlambè](https://github.com/Stratus3D/eflambe) to generate flamegraphs of specific functions.
-The following code will capture information from 10 calls to `Handlers.on_block/2`, dumping it in different files named \<timestamp\>-eflambe-output.bggg.
-
-```elixir
-:eflambe.capture({LambdaEthereumConsensus.ForkChoice.Handlers, :has_block?, 2}, 10)
-```
-
-The files generated can be processed via common flamegraph tools.
-For example, using [Brendan Gregg's stack](https://github.com/brendangregg/FlameGraph):
-
-```shell
-cat *-eflambe-output.bggg | flamegraph.pl - > flamegraph.svg
-```
 
 ## Code of Conduct
 
