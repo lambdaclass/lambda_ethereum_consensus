@@ -30,7 +30,7 @@
               pkgs.go_1_21
               pkgs.gotools
               otp.erlang
-              otp.elixir_1_15
+              nixpkgs.legacyPackages.aarch64-darwin.elixir_1_16
               pkgs.elixir_ls
               pkgs.glibcLocales
               pkgs.protobuf3_24
@@ -42,6 +42,13 @@
              ]);
 
             shellHook = ''
+              if [ -f ~/.git-prompt.sh ]; then
+                GIT_PS1_SHOWUPSTREAM="auto"
+                GIT_PS1_SHOWCOLORHINTS="yes"
+                source ~/.git-prompt.sh
+                export PROMPT_COMMAND='__git_ps1 "\u@\h:\W" "\\\$ ";'
+              fi
+
               export PATH="$HOME/go/bin:$HOME/.mix/escripts:$PATH"
             '';
           };

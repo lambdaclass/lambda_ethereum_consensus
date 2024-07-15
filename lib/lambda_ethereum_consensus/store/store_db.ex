@@ -21,6 +21,19 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
     end)
   end
 
+  @spec fetch_genesis_time() :: {:ok, Types.uint64()} | :not_found
+  def fetch_genesis_time() do
+    with {:ok, store} <- fetch_store() do
+      store.genesis_time
+    end
+  end
+
+  @spec fetch_genesis_time!() :: Types.uint64()
+  def fetch_genesis_time!() do
+    {:ok, %{genesis_time: genesis_time}} = fetch_store()
+    genesis_time
+  end
+
   @spec fetch_deposits_snapshot() :: {:ok, Types.DepositTreeSnapshot.t()} | :not_found
   def fetch_deposits_snapshot(), do: get(@snapshot_prefix)
 

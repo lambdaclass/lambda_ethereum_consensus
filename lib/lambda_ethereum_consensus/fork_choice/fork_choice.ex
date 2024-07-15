@@ -117,16 +117,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     persist_store(new_store)
   end
 
-  @spec get_genesis_time() :: Types.uint64()
-  def get_genesis_time() do
-    %{genesis_time: genesis_time} = fetch_store!()
-    genesis_time
-  end
-
   @spec get_current_chain_slot() :: Types.slot()
   def get_current_chain_slot() do
     time = Clock.get_current_time()
-    genesis_time = get_genesis_time()
+    genesis_time = StoreDb.fetch_genesis_time!()
     compute_current_slot(time, genesis_time)
   end
 
