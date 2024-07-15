@@ -99,9 +99,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         Logger.debug("[PendingBlocks] Add parent to download #{inspect(parent_root)}")
         Blocks.add_block_to_download(parent_root)
 
-        BlockDownloader.request_blocks_by_range(
-          block_info.signed_block.message.slot - 1,
-          1,
+        BlockDownloader.request_blocks_by_root(
+          [parent_root],
           fn result ->
             process_downloaded_block(result)
           end,
