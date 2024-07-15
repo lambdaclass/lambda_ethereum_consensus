@@ -82,6 +82,22 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
     # list. If it's not in the list, the operation is equivalent to only adding it in the correct
     # one.
     BlockDb.change_root_status(block_info.root, :download, block_info.status)
+
+    {slot, parent_root} =
+      if block_info.signed_block do
+        {block_info.signed_block.message.slot, block_info.signed_block.message.parent_root}
+      else
+        {nil, nil}
+      end
+
+    Metrics.block_status(
+      block_info.root,
+      slot,
+      :download,
+      block_info.status
+    )
+
+    Metrics.block_relationship(parent_root, block_info.root)
   end
 
   @doc """
@@ -89,13 +105,20 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   """
   @spec change_status(BlockInfo.t(), BlockInfo.block_status()) :: BlockInfo.t()
   def change_status(block_info, status) do
-    Metrics.block_status(block_info.root, status)
-
     new_block_info = BlockInfo.change_status(block_info, status)
     store_block_info(new_block_info)
 
     old_status = block_info.status
     BlockDb.change_root_status(block_info.root, old_status, status)
+
+    Metrics.block_status(
+      block_info.root,
+      block_info.signed_block.message.slot,
+      old_status,
+      status
+    )
+
+    Metrics.block_relationship(block_info.signed_block.message.parent_root, block_info.root)
 
     new_block_info
   end
