@@ -97,7 +97,18 @@ defmodule Unit.Store.KvSchemaTest do
     NumberSchema.put(5, %{b: 3})
     NumberSchema.put(70, %{c: 5})
 
-    assert {:ok, 6} == NumberSchema.fold(70, 0, fn n, acc -> acc + n end)
+    assert {:ok, 6} == NumberSchema.fold_keys(70, 0, fn n, acc -> acc + n end)
+  end
+
+  @tag :tmp_dir
+  test "Folding includes the first value if so requested" do
+    TupleSchema.put({1, 2}, [])
+    NumberSchema.put(1, %{"a" => "b"})
+    NumberSchema.put(5, %{b: 3})
+    NumberSchema.put(70, %{c: 5})
+
+    assert {:ok, 76} ==
+             NumberSchema.fold_keys(70, 0, fn n, acc -> acc + n end, include_first: true)
   end
 
   @tag :tmp_dir
@@ -106,7 +117,7 @@ defmodule Unit.Store.KvSchemaTest do
     NumberSchema.put(200, %{b: 3})
     NumberSchema.put(700, %{c: 5})
 
-    assert {:ok, 300} == NumberSchema.fold(700, 0, fn n, acc -> acc + n end)
+    assert {:ok, 300} == NumberSchema.fold_keys(700, 0, fn n, acc -> acc + n end)
   end
 
   @tag :tmp_dir
@@ -114,6 +125,6 @@ defmodule Unit.Store.KvSchemaTest do
     NumberSchema.put(1, %{"a" => "b"})
     NumberSchema.put(5, %{b: 3})
 
-    {:error, _} = NumberSchema.fold(3, 0, fn n, acc -> acc + n end)
+    {:error, _} = NumberSchema.fold_keys(3, 0, fn n, acc -> acc + n end)
   end
 end

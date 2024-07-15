@@ -56,18 +56,21 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
         end)
       end
 
-      @spec fold(key(), acc(), (key(), acc() -> acc())) :: {:ok, acc()} | {:error, binary()}
-      def fold(start_key, starting_value, f) do
-        db_span("fold", fn ->
-          with {:ok, it} <- Db.iterate(),
+      @spec fold_keys(key(), acc(), (key(), acc() -> acc())) :: {:ok, acc()} | {:error, any()}
+      def fold_keys(start_key, starting_value, f, opts \\ []) do
+        db_span("fold_keys", fn ->
+          include_first? = Keyword.get(opts, :include_first, false)
+          direction = Keyword.get(opts, :direction, :prev)
+
+          with {:ok, it} <- Db.iterate_keys(),
                {:ok, encoded_start} <- do_encode_key(start_key),
-               {:ok, ^encoded_start, _} <- Exleveldb.iterator_move(it, encoded_start) do
-            res = iterate(it, starting_value, f)
+               {:ok, ^encoded_start} <- Exleveldb.iterator_move(it, encoded_start) do
+            res = iterate(it, starting_value, f, direction, encoded_start, include_first?)
             Exleveldb.iterator_close(it)
             {:ok, res}
           else
-            # Failed at moving the iterator for the first time.
-            {:ok, some_key, _some_value} ->
+            # The iterator moved for the first time to a place where it wasn't expected.
+            {:ok, some_key} ->
               {:error,
                "Failed to start iterator for table #{@prefix}. The obtained key is: #{some_key}"}
 
@@ -77,16 +80,32 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
         end)
       end
 
-      defp iterate(it, acc, f) do
-        case Exleveldb.iterator_move(it, :prev) do
-          # TODO: add option to get the value in the function too if needed.
-          {:ok, @prefix <> _ = k, v} ->
-            # TODO: plan for weird corner cases where the key can't be decoded.
+      defp iterate(it, acc, f, direction, _first_key, false) do
+        iterate(it, acc, f, direction)
+      end
+
+      defp iterate(it, acc, f, direction, first_key, true) do
+        case accumulate(it, acc, f, first_key) do
+          {:cont, new_acc} -> iterate(it, new_acc, f, direction)
+          {:halt, new_acc} -> new_acc
+        end
+      end
+
+      defp iterate(it, acc, f, direction) do
+        case accumulate(it, acc, f, direction) do
+          {:cont, acc} -> iterate(it, acc, f, direction)
+          {:halt, acc} -> acc
+        end
+      end
+
+      defp accumulate(it, acc, f, direction) do
+        case Exleveldb.iterator_move(it, direction) do
+          {:ok, @prefix <> _ = k} ->
             {:ok, decoded_key} = do_decode_key(k)
-            iterate(it, f.(decoded_key, acc), f)
+            {:cont, f.(decoded_key, acc)}
 
           _ ->
-            acc
+            {:halt, acc}
         end
       end
 
