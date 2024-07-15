@@ -54,9 +54,11 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   defp notify_validators(msg) do
     # This is a really naive and blocking implementation. This is just an initial iteration
     # to remove the GenServer behavior in the validators.
-    Logger.info("[Validator Manager] Self: #{inspect(self())} Notifying validators: #{inspect(msg)}")
+    Logger.info(
+      "[Validator Manager] Self: #{inspect(self())} Notifying validators: #{inspect(msg)}"
+    )
 
-    #Agent.update(__MODULE__, &notify_all(&1, msg), 17_000)
+    # Agent.update(__MODULE__, &notify_all(&1, msg), 17_000)
     GenServer.cast(__MODULE__, {:notify_all, msg})
   end
 

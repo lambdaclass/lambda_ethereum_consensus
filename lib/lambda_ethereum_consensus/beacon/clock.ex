@@ -1,15 +1,5 @@
 defmodule LambdaEthereumConsensus.Beacon.Clock do
   @moduledoc false
-  # This is happening sometimes, specially after recovery, need to investigate further.
-  #
-  # 2024-07-12 19:23:08 ERROR 22:23:08.002 GenServer LambdaEthereumConsensus.Beacon.Clock terminating
-  # 2024-07-12 19:23:08 ** (CaseClauseError) no case clause matching: -1
-  # 2024-07-12 19:23:08     (lambda_ethereum_consensus 0.1.0) lib/lambda_ethereum_consensus/beacon/clock.ex:86: LambdaEthereumConsensus.Beacon.Clock.compute_logical_time/1
-  # 2024-07-12 19:23:08     (lambda_ethereum_consensus 0.1.0) lib/lambda_ethereum_consensus/beacon/clock.ex:57: LambdaEthereumConsensus.Beacon.Clock.handle_info/2
-  # 2024-07-12 19:23:08     (stdlib 5.2.3) gen_server.erl:1095: :gen_server.try_handle_info/3
-  # 2024-07-12 19:23:08     (stdlib 5.2.3) gen_server.erl:1183: :gen_server.handle_msg/6
-  # 2024-07-12 19:23:08     (stdlib 5.2.3) proc_lib.erl:241: :proc_lib.init_p_do_apply/3
-  # 2024-07-12 19:23:08 Last message: :on_tick
   use GenServer
 
   alias LambdaEthereumConsensus.Libp2pPort
@@ -27,10 +17,8 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  # FIXME: This timeout may impact the performance of the system, but due to the syncronic nature of
-  # the the block proposal upon ticks, now the Clock is blocked until the block is proposed.
   @spec get_current_time() :: Types.uint64()
-  def get_current_time(), do: GenServer.call(__MODULE__, :get_current_time, 19_000)
+  def get_current_time(), do: GenServer.call(__MODULE__, :get_current_time)
 
   ##########################
   ### GenServer Callbacks

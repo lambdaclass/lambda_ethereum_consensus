@@ -101,7 +101,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @spec on_tick(Types.uint64()) :: :ok
   def on_tick(time) do
-    Logger.info("[Libp2pport] #{inspect(self())} Tick: #{time}")
     GenServer.cast(__MODULE__, {:on_tick, time})
   end
 
@@ -372,14 +371,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   def handle_cast({:add_block, block}, state) do
-    Logger.info("[libp2p] handle_cast add_block Self: #{inspect(self())}")
     PendingBlocks.add_block(block)
     {:noreply, state}
   end
 
   @impl GenServer
   def handle_info({_port, {:data, data}}, state) do
-    Logger.info("[libp2p] handle_info Self: #{inspect(self())}")
     %Notification{n: {_, payload}} = Notification.decode(data)
     {:noreply, handle_notification(payload, state)}
   end
@@ -500,11 +497,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       {:response, {res, %ResultMessage{message: []}}} -> res
       {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()
       {:response, {res, response}} -> {res, response}
-      other ->
-        Logger.error("[Libp2pPort] Unexpected response: #{inspect(other)}")
-        {:error, "Unexpected response"}
-    after 10_000 ->
-      raise "Self: #{inspect(self())} No response received!!! Timeout"
     end
   end
 

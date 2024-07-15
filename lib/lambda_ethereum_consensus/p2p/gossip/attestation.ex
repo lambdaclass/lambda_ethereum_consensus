@@ -50,23 +50,17 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   @spec publish(non_neg_integer(), Types.Attestation.t()) :: :ok
   def publish(subnet_id, %Types.Attestation{} = attestation) do
     topic = topic(subnet_id)
-    Logger.info("Encode and compress attestation")
     {:ok, encoded} = SszEx.encode(attestation, Types.Attestation)
     {:ok, message} = :snappyer.compress(encoded)
-    Logger.info("Self: #{inspect(self())} Publishing attestation")
     Libp2pPort.publish(topic, message)
-    Logger.info("Attestation published")
   end
 
   def publish_aggregate(%Types.SignedAggregateAndProof{} = signed_aggregate) do
     fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
     topic = "/eth2/#{fork_context}/beacon_aggregate_and_proof/ssz_snappy"
-    Logger.info("Encode and compress aggregate and proof")
     {:ok, encoded} = SszEx.encode(signed_aggregate, Types.SignedAggregateAndProof)
     {:ok, message} = :snappyer.compress(encoded)
-    Logger.info("Publishing aggregate and proof")
     Libp2pPort.publish(topic, message)
-    Logger.info("Attestation published")
   end
 
   @spec collect(non_neg_integer(), Types.Attestation.t()) :: :ok
