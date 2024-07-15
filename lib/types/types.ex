@@ -48,4 +48,12 @@ defmodule Types do
   @type kzg_proof :: Kzg.proof()
   @type bls_signature :: Bls.signature()
   @type bls_pubkey :: Bls.pubkey()
+
+  defmodule Guards do
+    @moduledoc """
+    Module defining guards for some types. Added as needed.
+    """
+
+    defguard is_root(binary) when is_binary(binary) and byte_size(binary) == 32
+  end
 end
