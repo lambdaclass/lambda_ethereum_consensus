@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   Used by validators to fulfill aggregation duties.
   """
 
-  require Logger
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P

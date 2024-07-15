@@ -1,5 +1,6 @@
 defmodule LambdaEthereumConsensus.Beacon.Clock do
   @moduledoc false
+
   use GenServer
 
   alias LambdaEthereumConsensus.Libp2pPort
