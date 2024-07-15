@@ -357,6 +357,25 @@ Several benchmarks are provided in the `/bench` directory. They are all standard
 mix run bench/byte_reversal.exs
 ```
 
+Some of the benchmarks require a state or blocks to be available in the db. For this, the easiest thing is to run `make checkpoint-sync` so an anchor state and block are downloaded for mainnet, and optimistic sync starts. If the benchmark requires additional blocks, maybe wait until the first chunk is downloaded.
+
+Some need to be executed with `--mode db` in order to not have the store replaced by the application. This needs to be added at the end, like so:
+
+```bash
+mix run <script> --mode db
+```
+
+A quick summary of the available benchmarks:
+
+- `deposit_tree`: measures the time of saving and loading an the "execution chain" state, mainly to test how much it costs to save and load a realistic deposit tree. Uses benchee. The conclusion was very low (the order of μs).
+- `byte_reversal`: compares three different methods for byte reversal as a bitlist/bitvector operation. This concludes that using numbers as internal representation for those types would be the most efficient. If we ever need to improve them, that would be a good starting point. 
+- `shuffling_bench`: compares different methods for shuffling: shuffling a list in one go vs computing each shuffle one by one. Shuffling the full list was proved to be 10x faster.
+- `block_processing`: Builds a fork choice store with an anchor block and state. Uses the next block available to apply `on_block`, `on_attestation` and `on_attester_slashing` handlers. Runs these handlers 30 times. To run this, at least 2 blocks and a state must be available in the db.
+- `multiple_block_processing`:
+- `SSZ benchmarks`: they compare between our own library and the rust nif ssz library. To run any of these two benchmarks you previously need to have a BeaconState in the database.
+  - `encode_decode_bench`: compares the libraries at encoding and decoding a Checkpoint and a BeaconState container. 
+  - `hash_tree_root_bench`: compares the libraries at performing the hash tree root of a Beacon State and packed list of numbers.
+
 ## Profiling
 
 ### QCachegrind
