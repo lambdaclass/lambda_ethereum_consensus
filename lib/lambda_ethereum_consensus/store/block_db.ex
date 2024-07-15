@@ -87,26 +87,26 @@ defmodule LambdaEthereumConsensus.Store.BlockDb do
     Logger.info("[BlockDb] Pruning started.", slot: slot)
 
     # TODO: the separate get operation is avoided if we implement folding with values in KvSchema.
-    n_removed =
-      BlockBySlot.fold_keys(slot, 0, fn slot, acc ->
-        case BlockBySlot.get(slot) do
-          {:ok, :empty_slot} ->
-            BlockBySlot.delete(slot)
-            acc + 1
+    case BlockBySlot.fold_keys(slot, 0, fn slot, acc ->
+           case BlockBySlot.get(slot) do
+             {:ok, :empty_slot} ->
+               BlockBySlot.delete(slot)
+               acc + 1
 
-          {:ok, block_root} ->
-            BlockBySlot.delete(slot)
-            Db.delete(block_key(block_root))
-            acc + 1
+             {:ok, block_root} ->
+               BlockBySlot.delete(slot)
+               Db.delete(block_key(block_root))
+               acc + 1
 
-          other ->
-            Logger.error(
-              "[Block pruning] Failed to remove block from slot #{inspect(slot)}. Reason: #{inspect(other)}"
-            )
-        end
-      end)
-
-    Logger.info("[BlockDb] Pruning finished. #{n_removed} blocks removed.")
+             other ->
+               Logger.error(
+                 "[Block pruning] Failed to remove block from slot #{inspect(slot)}. Reason: #{inspect(other)}"
+               )
+           end
+         end) do
+      {:ok, n_removed} -> Logger.info("[BlockDb] Pruning finished. #{n_removed} blocks removed.")
+      {:error, reason} -> Logger.error("[BlockDb] Error pruning blocks: #{inspect(reason)}")
+    end
   end
 
   defp block_key(root), do: Utils.get_key(@block_prefix, root)
