@@ -8,5 +8,5 @@ participants:
     cl_image: lambda_ethereum_consensus:latest
     use_separate_vc: false
     count: 1
-    validator_count: 2
+    validator_count: 6
     cl_max_mem: 4096

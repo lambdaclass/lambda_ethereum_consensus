@@ -2,13 +2,13 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   @moduledoc """
   Module that manage the validators state
   """
-  use Agent
+  use GenServer
 
   require Logger
   alias LambdaEthereumConsensus.Validator
 
   def start_link({slot, head_root}) do
-    Agent.start_link(fn -> init({slot, head_root}) end, name: __MODULE__)
+    GenServer.start_link(__MODULE__, {slot, head_root}, name: __MODULE__)
   end
 
   def init({slot, head_root}) do
@@ -25,7 +25,7 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
       "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
     )
 
-    []
+    {:ok, []}
   end
 
   defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
@@ -40,7 +40,7 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
 
     Logger.info("[Validator Manager] Initialized validators #{inspect(Map.keys(validators))}")
 
-    validators
+    {:ok, validators}
   end
 
   def notify_new_block(slot, head_root) do
@@ -54,28 +54,30 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   defp notify_validators(msg) do
     # This is a really naive and blocking implementation. This is just an initial iteration
     # to remove the GenServer behavior in the validators.
-    Agent.update(
-      __MODULE__,
-      fn validators ->
-        Logger.info("[Validator Manager] Notifying validators: #{inspect(msg)}")
+    Logger.info("[Validator Manager] Self: #{inspect(self())} Notifying validators: #{inspect(msg)}")
 
-        # TODO: remove this is just for testing purposes
-        {time, value} =
-          :timer.tc(fn ->
-            Enum.map(validators, fn {pubkey, validator} ->
-              {pubkey, Validator.notify(msg, validator)}
-            end)
-          end)
-
-        Logger.info(
-          "[Validator Manager] Validators notified of #{inspect(elem(msg, 0))} after #{time / 1_000}ms"
-        )
-
-        value
-      end,
-      4_000
-    )
+    #Agent.update(__MODULE__, &notify_all(&1, msg), 17_000)
+    GenServer.cast(__MODULE__, {:notify_all, msg})
   end
+
+  def handle_cast({:notify_all, msg}, validators) do
+    validators = notify_all(validators, msg)
+
+    {:noreply, validators}
+  end
+
+  defp notify_all(validators, msg) do
+    {time, value} =
+      :timer.tc(fn -> Enum.map(validators, &notify_validator(&1, msg)) end)
+
+    Logger.info(
+      "[Validator Manager] Self: #{inspect(self())} Validators notified of #{inspect(elem(msg, 0))} after #{time / 1_000}ms"
+    )
+
+    value
+  end
+
+  defp notify_validator({pubkey, validator}, msg), do: {pubkey, Validator.notify(msg, validator)}
 
   @doc """
     Get validator keys from the keystore directory.

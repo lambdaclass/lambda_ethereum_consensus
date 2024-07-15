@@ -112,6 +112,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @spec handle_new_block(Types.slot(), Types.root(), state) :: state
   defp handle_new_block(slot, head_root, state) do
+    # TODO we need to better debug what is happening, the validator is a black box that breaks whithout explicitly saying why
     Logger.info("[Validator] #{state.validator.index} received new block",
       root: head_root,
       slot: slot
@@ -247,11 +248,17 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @spec attest(state, Duties.attester_duty()) :: :ok
   defp attest(state, current_duty) do
+    Logger.info("[Validator] #{state.validator.index} About to attest in slot #{state.slot}")
     subnet_id = current_duty.subnet_id
     attestation = produce_attestation(current_duty, state.root, state.validator.privkey)
 
-    Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
-    Gossip.Attestation.publish(subnet_id, attestation)
+    Logger.info("[Validator] #{state.validator.index} Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
+    {time, _} = :timer.tc(fn ->
+      Gossip.Attestation.publish(subnet_id, attestation)
+    end)
+    # TODO just for testing
+    Logger.info("[Validator] Attestation published in #{time / 1_000}ms")
+
 
     if current_duty.should_aggregate? do
       Logger.info("[Validator] Collecting messages for future aggregation...")
@@ -422,6 +429,7 @@ defmodule LambdaEthereumConsensus.Validator do
          } = state,
          proposed_slot
        ) do
+    Logger.info("[Validator] About to build block for slot #{proposed_slot}")
     build_result =
       BlockBuilder.build_block(
         %BuildBlockRequest{
@@ -433,6 +441,8 @@ defmodule LambdaEthereumConsensus.Validator do
         },
         payload_id
       )
+
+    Logger.info("[Validator] Block built for slot #{proposed_slot}")
 
     case build_result do
       {:ok, {signed_block, blob_sidecars}} ->
@@ -463,12 +473,14 @@ defmodule LambdaEthereumConsensus.Validator do
 
   # TODO: there's a lot of repeated code here. We should move this to a separate module
   defp publish_block(signed_block) do
+    Logger.info("[Validator] About to publish in slot #{signed_block.message.slot}")
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
     fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
 
     proposed_slot = signed_block.message.slot
 
+    Logger.info("[Validator] Self #{inspect(self())} Publishing block for slot #{proposed_slot}")
     # TODO: we might want to send the block to ForkChoice
     case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
       :ok ->
