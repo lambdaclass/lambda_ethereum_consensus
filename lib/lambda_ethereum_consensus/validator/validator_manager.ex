@@ -5,12 +5,16 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   use GenServer
 
   require Logger
+  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.Validator
 
+  @spec start_link({Types.slot(), Types.root()}) :: :ignore | {:error, any} | {:ok, pid}
   def start_link({slot, head_root}) do
     GenServer.start_link(__MODULE__, {slot, head_root}, name: __MODULE__)
   end
 
+  @spec init({Types.slot(), Types.root()}) ::
+          {:ok, %{Bls.pubkey() => Validator.t()}} | {:stop, any}
   def init({slot, head_root}) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
     keystore_dir = Keyword.get(config, :keystore_dir)
@@ -38,29 +42,24 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
       end)
       |> Map.new()
 
-    Logger.info("[Validator Manager] Initialized validators #{inspect(Map.keys(validators))}")
+    Logger.info("[Validator Manager] Initialized #{Enum.count(validators)} validators")
 
     {:ok, validators}
   end
 
+  @spec notify_new_block(Types.slot(), Types.root()) :: :ok
   def notify_new_block(slot, head_root) do
     notify_validators({:new_block, slot, head_root})
   end
 
+  @spec notify_tick(Clock.logical_time()) :: :ok
   def notify_tick(logical_time) do
     notify_validators({:on_tick, logical_time})
   end
 
-  defp notify_validators(msg) do
-    # This is a really naive and blocking implementation. This is just an initial iteration
-    # to remove the GenServer behavior in the validators.
-    Logger.info(
-      "[Validator Manager] Self: #{inspect(self())} Notifying validators: #{inspect(msg)}"
-    )
-
-    # Agent.update(__MODULE__, &notify_all(&1, msg), 17_000)
-    GenServer.cast(__MODULE__, {:notify_all, msg})
-  end
+  # TODO: The use of a Genserver and cast is still needed to avoid locking at the clock level.
+  # This is a temporary solution and will be taken off in a future PR.
+  defp notify_validators(msg), do: GenServer.cast(__MODULE__, {:notify_all, msg})
 
   def handle_cast({:notify_all, msg}, validators) do
     validators = notify_all(validators, msg)
@@ -69,17 +68,24 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   end
 
   defp notify_all(validators, msg) do
-    {time, value} =
-      :timer.tc(fn -> Enum.map(validators, &notify_validator(&1, msg)) end)
+    start_time = System.monotonic_time(:millisecond)
 
-    Logger.info(
-      "[Validator Manager] Self: #{inspect(self())} Validators notified of #{inspect(elem(msg, 0))} after #{time / 1_000}ms"
+    updated_validators = Enum.map(validators, &notify_validator(&1, msg))
+
+    end_time = System.monotonic_time(:millisecond)
+
+    Logger.debug(
+      "[Validator Manager] #{inspect(msg)} notified to all Validators after #{end_time - start_time} ms"
     )
 
-    value
+    updated_validators
   end
 
-  defp notify_validator({pubkey, validator}, msg), do: {pubkey, Validator.notify(msg, validator)}
+  defp notify_validator({pubkey, validator}, {:on_tick, logical_time}),
+    do: {pubkey, Validator.handle_tick(logical_time, validator)}
+
+  defp notify_validator({pubkey, validator}, {:new_block, slot, head_root}),
+    do: {pubkey, Validator.handle_new_block(slot, head_root, validator)}
 
   @doc """
     Get validator keys from the keystore directory.

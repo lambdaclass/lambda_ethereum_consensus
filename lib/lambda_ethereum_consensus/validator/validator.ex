@@ -12,6 +12,7 @@ defmodule LambdaEthereumConsensus.Validator do
     :payload_builder
   ]
 
+  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
@@ -62,6 +63,9 @@ defmodule LambdaEthereumConsensus.Validator do
 
     case try_setup_validator(state, head_slot, head_root) do
       nil ->
+        # TODO: Previously this was handled by the validator continusly trying to setup itself,
+        # but now that they are processed syncronously, we should handle this case different.
+        # Right now it's just omitted and logged.
         Logger.error("[Validator] Public key not found in the validator set")
         state
 
@@ -89,31 +93,17 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec notify(any, state) :: state
-  def notify(_, %{validator: nil} = state), do: state
+  @spec handle_new_block(Types.slot(), Types.root(), state) :: state
+  def handle_new_block(slot, head_root, %{validator: %{index: nil}} = state) do
+    log_error("-1", "setup validator", "index not present handle block",
+      slot: slot,
+      root: head_root
+    )
 
-  # If we couldn't find the validator before, we just try again
-  def notify({:new_block, slot, head_root} = msg, %{validator: %{index: nil}} = state) do
-    case try_setup_validator(state, slot, head_root) do
-      nil -> state
-      new_state -> notify(msg, new_state)
-    end
+    state
   end
 
-  def notify({:new_block, slot, head_root}, state),
-    do: handle_new_block(slot, head_root, state)
-
-  def notify({:on_tick, _}, %{validator: %{index: nil}} = state), do: state
-
-  def notify({:on_tick, logical_time}, state),
-    do: handle_tick(logical_time, state)
-
-  ##########################
-  ### Private Functions
-  ##########################
-
-  @spec handle_new_block(Types.slot(), Types.root(), state) :: state
-  defp handle_new_block(slot, head_root, state) do
+  def handle_new_block(slot, head_root, state) do
     log_debug(state.validator.index, "recieved new block", slot: slot, root: head_root)
 
     # TODO: this doesn't take into account reorgs
@@ -123,7 +113,13 @@ defmodule LambdaEthereumConsensus.Validator do
     |> maybe_build_payload(slot + 1)
   end
 
-  defp handle_tick({slot, :first_third}, state) do
+  @spec handle_tick(Clock.logical_time(), state) :: state
+  def handle_tick(_logical_time, %{validator: %{index: nil}} = state) do
+    log_error("-1", "setup validator", "index not present for handle tick")
+    state
+  end
+
+  def handle_tick({slot, :first_third}, state) do
     log_debug(state.validator.index, "started first third", slot: slot)
     # Here we may:
     # 1. propose our blocks
@@ -132,7 +128,7 @@ defmodule LambdaEthereumConsensus.Validator do
     |> update_state(slot, state.root)
   end
 
-  defp handle_tick({slot, :second_third}, state) do
+  def handle_tick({slot, :second_third}, state) do
     log_debug(state.validator.index, "started second third", slot: slot)
     # Here we may:
     # 1. send our attestation for an empty slot
@@ -142,11 +138,15 @@ defmodule LambdaEthereumConsensus.Validator do
     |> maybe_build_payload(slot + 1)
   end
 
-  defp handle_tick({slot, :last_third}, state) do
+  def handle_tick({slot, :last_third}, state) do
     log_debug(state.validator.index, "started last third", slot: slot)
     # Here we may publish our attestation aggregate
     maybe_publish_aggregate(state, slot)
   end
+
+  ##########################
+  ### Private Functions
+  ##########################
 
   @spec update_state(state, Types.slot(), Types.root()) :: state
 
