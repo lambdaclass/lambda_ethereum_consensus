@@ -7,7 +7,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice
-  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.BlockDownloader
 
   alias LambdaEthereumConsensus.Metrics
@@ -140,7 +139,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   defp process_downloaded_block({:ok, [block]}) do
-    Libp2pPort.add_block(block)
+    add_block(block)
   end
 
   defp process_downloaded_block({:error, reason}) do

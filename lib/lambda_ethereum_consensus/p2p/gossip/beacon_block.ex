@@ -57,6 +57,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
     "/eth2/#{fork_context}/beacon_block/ssz_snappy"
   end
 
+  def topics(), do: [topic()]
+
   ##########################
   ### Private functions
   ##########################

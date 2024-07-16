@@ -2,15 +2,12 @@
 
 ## Processes summary
 
-### Supervision tree
-
 This is our complete supervision tree.
 
 ```mermaid
 graph LR
 Application[Application <br> <:one_for_one>]
 BeaconNode[BeaconNode <br> <:one_for_all>]
-P2P.IncomingRequests[P2P.IncomingRequests <br> <:one_for_one>]
 ValidatorManager[ValidatorManager <br> <:one_for_one>]
 Telemetry[Telemetry <br> <:one_for_one>]
 
@@ -18,27 +15,26 @@ Application --> Telemetry
 Application --> DB
 Application --> Blocks
 Application --> BlockStates
-Application --> Metadata
 Application --> BeaconNode
 Application --> BeaconApi.Endpoint
 
-BeaconNode -->|genesis_time,<br>genesis_validators_root,<br> fork_choice_data, time| BeaconChain 
-BeaconNode -->|store, head_slot, time| ForkChoice
-BeaconNode -->|listen_addr, <br>enable_discovery, <br> discovery_addr, <br>bootnodes| P2P.Libp2pPort
-BeaconNode --> P2P.Peerbook
-BeaconNode --> P2P.IncomingRequests
-BeaconNode --> PendingBlocks
-BeaconNode --> SyncBlocks
-BeaconNode --> Attestation
-BeaconNode --> BeaconBlock
-BeaconNode --> BlobSideCar
-BeaconNode --> OperationsCollector
-BeaconNode -->|slot, head_root| ValidatorManager
-BeaconNode -->|genesis_time, snapshot, votes| ExecutionChain
-ValidatorManager --> ValidatorN
+subgraph Basic infrastructure
+    DB
+    BeaconApi.Endpoint
+    Telemetry
+    :telemetry_poller
+    TelemetryMetricsPrometheus
+end
 
-P2P.IncomingRequests --> IncomingRequests.Handler
-P2P.IncomingRequests --> IncomingRequests.Receiver
+subgraph Caches
+    Blocks
+    BlockStates
+end
+
+BeaconNode -->|listen_addr, <br>enable_discovery, <br> discovery_addr, <br>bootnodes| P2P.Libp2pPort
+BeaconNode --> SyncBlocks
+BeaconNode -->|slot, head_root| ValidatorManager
+ValidatorManager --> ValidatorN
 
 Telemetry --> :telemetry_poller
 Telemetry --> TelemetryMetricsPrometheus
@@ -47,63 +43,6 @@ Telemetry --> TelemetryMetricsPrometheus
 Each box is a process. If it has children, it's a supervisor, with it's restart strategy clarified. 
 
 If it's a leaf in the tree, it's a GenServer, task, or other non-supervisor process. The tags in the edges/arrows are the init args passed on children init (start or restart after crash).
-
-### High level interaction
-
-This is the high level interaction between the processes.
-
-```mermaid
-graph LR
-
-ExecutionChain
-
-BlobDb
-BlockDb
-
-subgraph "P2P"
-    Libp2pPort
-    Peerbook
-    IncomingRequests
-    Attestation
-    BeaconBlock
-    BlobSideCar
-    Metadata
-end
-
-subgraph "Node"
-    Validator
-    BeaconChain
-    ForkChoice
-    PendingBlocks
-    OperationsCollector
-end
-
-BeaconChain <-->|on_tick <br> get_fork_digest, get_| Validator
-BeaconChain -->|on_tick| BeaconBlock
-BeaconChain <-->|on_tick <br> update_fork_choice_cache| ForkChoice
-BeaconBlock -->|add_block| PendingBlocks
-Validator -->|get_eth1_data <br>to build blocks| ExecutionChain
-Validator -->|publish block| Libp2pPort
-Validator -->|collect, stop_collecting| Attestation
-Validator -->|get slashings, <br>attestations,<br> voluntary exits|OperationsCollector
-Validator -->|store_blob| BlobDb
-ForkChoice -->|notify new block|Validator
-ForkChoice <-->|notify new block <br> on_attestation|OperationsCollector
-ForkChoice -->|notify new block|ExecutionChain
-ForkChoice -->|store_block| BlockDb
-PendingBlocks -->|on_block| ForkChoice
-PendingBlocks -->|get_blob_sidecar|BlobDb
-Libp2pPort <-->|gosipsub <br> validate_message| BlobSideCar
-Libp2pPort <-->|gossipsub <br> validate_message<br> subscribe_to_topic| BeaconBlock
-Libp2pPort <-->|gossipsub <br> validate_message<br> subscribe_to_topic| Attestation
-Libp2pPort -->|store_blob| BlobDb
-Libp2pPort -->|new_peer| Peerbook
-BlobSideCar -->|store_blob| BlobDb
-Attestation -->|set_attnet|Metadata
-IncomingRequests -->|get seq_number|Metadata
-PendingBlocks -->|penalize/get<br>on downloading|Peerbook
-Libp2pPort -->|new_request| IncomingRequests
-```
 
 ## P2P Events
 
@@ -296,10 +235,6 @@ Explained, a process that wants to request something from Libp2pPort sends a req
 
 The specific kind of command (a request) is specified, but there's nothing identifying this is a response vs any other kind of result, or the specific kind of response (e.g. a block download vs a blob download). Currently the only way this is handled differentially is because the pid is waiting for a specific kind of response and for nothing else at a time.
 
-## Checkpoint sync
-
-**TO DO**: document checkpoint sync.
-
 ## Validators
 
 Validators are separate processes. They react to:
@@ -350,6 +285,85 @@ In the proposing slot:
 - The operations (slashings, attestations voluntary exits) that were collected from gossip are added to the block.
 - The deposits and eth1_vote are fetched from `ExecutionChain`.
 - The block is signed.
+
+## Execution Chain
+
+The consensus node needs to communicate with the execution client for three different reasons:
+
+- Fork choice updates: the execution clients needs notifications when the head is updated, and payloads need validation. For these goals, `engineAPI` is used.
+- Deposit contract tracking: accounts that wish to become validators need to deposit 32ETH in the deposit contract. This happens in the execution chain, but the information needs to arrive to consensus for the validator set to be updated.
+- Eth 1 votes: consensus nodes agree on a summary of the execution state and a voting mechanism is built for this.
+
+Let's go to this communication sections one by one.
+
+### Engine API: fork choice updates
+
+The consensus node does not live in isolation. It communicates to the execution client. We implemented, in the `ExecutionClient` module, the following primitives:
+
+- `notify_forkchoice_updated(fork_choice_state)`: first message sent to the execution client right after exchanging capabilities. It returns if the client is syncing or valid.
+- `notify_forkchoice_updated(fork_choice_state, payload_attributes)`: sent to update the fork choice state in the execution client (finalized and head payload hash). This starts the execution payload build process. Returns a `payload_id` that will be used at block building time to get the actual execution payload. It's sent in the slot prior to proposing. It might return a null id if the execution client is still syncing.
+- `get_payload(payload_id)`: returns an `{ExecutionPayload.t(), BlobsBundle.t()}` tuple that started building when `notify_forkchoice_updated` was called with payload attributes.
+- `notify_new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)`: when the execution client gets a new block, it needs to check if the execution payload is valid. This method is used to send that payload for verification. It may return valid, invalid, or syncing, in the case where the execution client is not yet synced.
+
+### Deposit contract
+
+Each time there's a deposit, a log is included in the execution block that can be read by the consensus layer using the `get_deposit_logs(range)` function for this.
+
+Each deposit has the following form:
+
+```elixir
+%DepositData {
+    # BLS Credentials publicly identifying the validator.
+    pubkey: Types.bls_pubkey(),
+    # Public address where the stake rewards will be sent.
+    withdrawal_credentials: Types.bytes32(),
+    # Amount of eth deposited.
+    amount: Types.gwei(),
+    # Signature over the other fields.
+    signature: Types.bls_signature()
+}
+```
+
+These deposits are aggregated into a merkle trie where each deposit is a leaf. After aggregation we can obtain:
+
+- A `deposit_root`: root of the merkle trie.
+- A `deposit_count`: the amount of deposits that were processed in the execution layer.
+
+This aggregation structure is useful to send snapshots cheaply, when performing checkpoint sync. See [EIP-4881](https://eips.ethereum.org/EIPS/eip-4881). It can also be used to send cheap merkle proofs that show a deposit is part of the current deposit set.
+
+### Eth 1 voting
+
+Validators have a summarized view of the execution chain, stored in a struct called `Eth1Data`:
+
+```elixir
+%Eth1Data{
+    deposit_root: Types.root(),
+    deposit_count: Types.uint64(),
+    block_hash: Types.hash32()
+}
+```
+
+This is the full process of how this data is included in the consensus state:
+
+- There's a voting period each 64 epochs. That is, 2048 slots, almost 7 hours. There's a period change when `rem(next_epoch, epochs_per_eth1_voting_period) == 0`.
+- Each proposer include their view of the chain (`Eth1Data`) in the block they propose (`block.body.eth1_data`). They obtain this data from their own execution client. This is sometimes called their "eth 1 vote".
+- When state transition is performed using that block, the vote is included in the `beacon_state.eth1_data_votes` array, which contains the votes for the whole voting period. If a single `eth1_data_vote` is present in more than half of the period slots, then it's now considered the current `eth1_data`, which means it's assigned as `beacon_state.eth1_data` in that state transition.
+- After an eth1 data vote period finishes, the `beacon_state.eth1_data_votes` are reset (the list is assigned as empty), regardless of there being a winner (new eth 1 data after the period) or not.
+
+Everything related to state transition is performed by beacon nodes even if they're not validators, and need no interaction with the execution chain, as they only apply blocks to states as a pure function.
+
+However, validators that include their view of the execution chain in a block being built, do need access to the latest blocks, as described in the [eth1 data section](https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#eth1-data) of the validator specs. To summarize:
+
+- The consensus node gets blocks from the execution client and builds `Eth1Data` structs.
+- A proposer at a slot `N` will need to build its eth1 vote for the voting period that started at slot `s = div(N, EPOCHS_PER_ETH1_VOTING_PERIOD)`. It will take  into account the execution blocks that are `ETH1_FOLLOW_DISTANCE` behind the current voting period.
+- The vote is selected using the following priority:
+  - An `eth1_data` that is present in the execution client and also in the beacon state `eth1_data_votes` list. If more than one match, the most frequent will be selected. That ways it tries to match a vote by a different node if present.
+  - If no matches are found in the beacon state votes, it will default to the latest eth1 data available in the local execution client (within the expected range).
+  - If nothing is found in the execution chain for the expected range, the last default is voting for the current `beacon_state.eth1_data`.
+
+## Checkpoint sync
+
+**TO DO**: document checkpoint sync.
 
 ## Next document
 

@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   use GenServer
 
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
@@ -20,9 +21,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.P2p.Requests
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias Types.EnrForkId
-
-  alias LambdaEthereumConsensus.ForkChoice
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command
   alias Libp2pProto.Enr
@@ -44,10 +42,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias Libp2pProto.SubscribeToTopic
   alias Libp2pProto.Tracer
   alias Libp2pProto.ValidateMessage
+  alias Types.EnrForkId
 
   require Logger
 
-  @port_name Application.app_dir(:lambda_ethereum_consensus, ["priv", "native", "libp2p_port"])
+  @port_name Application.app_dir(:lambda_ethereum_consensus, [
+               "priv",
+               "native",
+               "libp2p_port"
+             ])
 
   @default_args [
     listen_addr: [],
@@ -73,6 +76,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           p2p_addresses: [String.t()],
           discovery_addresses: [String.t()]
         }
+
+  @sync_delay_millis 10_000
 
   ######################
   ### API
@@ -121,7 +126,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   # Sets libp2pport as the Req/Resp handler for the given protocol ID.
   @spec set_handler(String.t(), port()) :: boolean()
   defp set_handler(protocol_id, port) do
-    :telemetry.execute([:port, :message], %{}, %{function: "set_handler", direction: "elixir->"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "set_handler",
+      direction: "elixir->"
+    })
 
     c = {:set_handler, %SetHandler{protocol_id: protocol_id}}
     data = Command.encode(%Command{c: c})
@@ -136,7 +144,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec add_peer(GenServer.server(), binary(), [String.t()], integer()) ::
           :ok | {:error, String.t()}
   def add_peer(pid \\ __MODULE__, id, addrs, ttl) do
-    :telemetry.execute([:port, :message], %{}, %{function: "add_peer", direction: "elixir->"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "add_peer",
+      direction: "elixir->"
+    })
+
     c = %AddPeer{id: id, addrs: addrs, ttl: ttl}
     call_command(pid, {:add_peer, c})
   end
@@ -148,7 +160,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec send_request(GenServer.server(), binary(), String.t(), binary()) ::
           {:ok, binary()} | {:error, String.t()}
   def send_request(pid \\ __MODULE__, peer_id, protocol_id, message) do
-    :telemetry.execute([:port, :message], %{}, %{function: "send_request", direction: "elixir->"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "send_request",
+      direction: "elixir->"
+    })
+
     from = self()
 
     GenServer.cast(
@@ -164,14 +180,21 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Sends a request to a peer. The response will be processed by the Libp2p process.
   """
   def send_async_request(pid \\ __MODULE__, peer_id, protocol_id, message, handler) do
-    :telemetry.execute([:port, :message], %{}, %{function: "send_request", direction: "elixir->"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "send_request",
+      direction: "elixir->"
+    })
+
     GenServer.cast(pid, {:send_request, peer_id, protocol_id, message, handler})
   end
 
   # Sends a response for the request with the given message ID.
   @spec send_response({String.t(), binary()}, port()) :: boolean()
   defp send_response({request_id, response}, port) do
-    :telemetry.execute([:port, :message], %{}, %{function: "send_response", direction: "elixir->"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "send_response",
+      direction: "elixir->"
+    })
 
     c = {:send_response, %SendResponse{request_id: request_id, message: response}}
     data = Command.encode(%Command{c: c})
@@ -198,7 +221,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   """
   @spec publish(GenServer.server(), String.t(), binary()) :: :ok | {:error, String.t()}
   def publish(pid \\ __MODULE__, topic_name, message) do
-    :telemetry.execute([:port, :message], %{}, %{function: "publish", direction: "elixir->"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "publish",
+      direction: "elixir->"
+    })
+
     call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
   end
 
@@ -206,14 +233,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   Subscribes to the given topic. After this, messages published to the topic
   will be received by `self()`.
   """
-  @spec subscribe_to_topic(GenServer.server(), String.t(), module()) :: :ok | {:error, String.t()}
+  @spec subscribe_to_topic(GenServer.server(), String.t(), module()) ::
+          :ok | {:error, String.t()}
   def subscribe_to_topic(pid \\ __MODULE__, topic_name, module) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "subscribe_to_topic",
       direction: "elixir->"
     })
 
-    GenServer.cast(pid, {:new_subscriptor, topic_name, module})
+    GenServer.cast(pid, {:new_subscriber, topic_name, module})
 
     call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
@@ -255,15 +283,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "elixir->"
     })
 
-    cast_command(pid, {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}})
+    cast_command(
+      pid,
+      {:validate_message, %ValidateMessage{msg_id: msg_id, result: result}}
+    )
   end
 
   @doc """
   Updates the "eth2", "attnets", and "syncnets" ENR entries for the node.
   """
-  @spec update_enr(GenServer.server(), Types.EnrForkId.t(), BitVector.t(), BitVector.t()) :: :ok
+  @spec update_enr(GenServer.server(), Types.EnrForkId.t(), BitVector.t(), BitVector.t()) ::
+          :ok
   def update_enr(pid \\ __MODULE__, enr_fork_id, attnets_bv, syncnets_bv) do
-    :telemetry.execute([:port, :message], %{}, %{function: "update_enr", direction: "elixir->"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "update_enr",
+      direction: "elixir->"
+    })
+
     # TODO: maybe move encoding to caller
     enr = encode_enr(enr_fork_id, attnets_bv, syncnets_bv)
     cast_command(pid, {:update_enr, enr})
@@ -295,7 +331,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     |> Enum.each(fn protocol_id -> set_handler(protocol_id, port) end)
   end
 
-  def add_block(pid \\ __MODULE__, block), do: GenServer.cast(pid, {:add_block, block})
+  @doc """
+  This function is only used by checkpoint sync to notify of new manually downloaded blocks
+  and it should not be related to other manual block downloads or gossip blocks.
+  """
+  def notify_blocks_downloaded(pid \\ __MODULE__, range, blocks) do
+    GenServer.cast(pid, {:add_blocks, range, blocks})
+  end
+
+  def notify_block_download_failed(pid \\ __MODULE__, range, reason) do
+    GenServer.cast(pid, {:error_downloading_chunk, range, reason})
+  end
 
   ########################
   ### GenServer Callbacks
@@ -319,19 +365,24 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     if enable_request_handlers, do: enable_request_handlers(port)
 
     Peerbook.init()
+    Process.send_after(self(), :sync_blocks, @sync_delay_millis)
+
+    Logger.info(
+      "[Optimistic Sync] Waiting #{@sync_delay_millis / 1000} seconds to discover some peers before requesting blocks."
+    )
 
     {:ok,
      %{
        port: port,
-       subscriptors: %{},
-       requests: Requests.new()
+       subscribers: %{},
+       requests: Requests.new(),
+       syncing: true
      }}
   end
 
   @impl GenServer
-  def handle_cast({:new_subscriptor, topic, module}, %{subscriptors: subscriptors} = state) do
-    new_subscriptors = Map.put(subscriptors, topic, module)
-    {:noreply, %{state | subscriptors: new_subscriptors}}
+  def handle_cast({:new_subscriber, topic, module}, state) do
+    {:noreply, add_subscriber(state, topic, module)}
   end
 
   @impl GenServer
@@ -370,9 +421,41 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {:noreply, state |> Map.put(:requests, new_requests)}
   end
 
-  def handle_cast({:add_block, block}, state) do
-    PendingBlocks.add_block(block)
+  @impl GenServer
+  def handle_cast({:add_blocks, {first_slot, last_slot}, blocks}, state) do
+    n_blocks = length(blocks)
+    missing = last_slot - first_slot + 1 - n_blocks
+
+    Logger.info(
+      "[Optimistic Sync] Range #{first_slot} - #{last_slot} downloaded successfully, with #{n_blocks} blocks and #{missing} missing."
+    )
+
+    Enum.each(blocks, &PendingBlocks.add_block/1)
+    new_state = Map.update!(state, :blocks_remaining, fn n -> n - n_blocks - missing end)
+
+    if new_state.blocks_remaining > 0 do
+      Logger.info("[Optimistic Sync] Blocks remaining: #{new_state.blocks_remaining}")
+      {:noreply, new_state}
+    else
+      Logger.info("[Optimistic Sync] Sync completed. Subscribing to gossip topics.")
+      {:noreply, subscribe_to_gossip_topics(new_state)}
+    end
+  end
+
+  @impl GenServer
+  def handle_cast({:error_downloading_chunk, range, reason}, state) do
+    Logger.error(
+      "[Optimistic Sync] Failed to download the block range #{inspect(range)}, no retries left. Reason: #{inspect(reason)}"
+    )
+
+    # TODO: kill the genserver or retry sync all together.
     {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_info(:sync_blocks, state) do
+    blocks_to_download = SyncBlocks.run()
+    {:noreply, state |> Map.put(:blocks_remaining, blocks_to_download)}
   end
 
   @impl GenServer
@@ -388,6 +471,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def handle_info(other, state) do
     :telemetry.execute([:port, :message], %{}, %{function: "other", direction: "->elixir"})
+
     Logger.error(inspect(other))
     {:noreply, state}
   end
@@ -396,10 +480,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%GossipSub{} = gs, %{subscriptors: subscriptors} = state) do
-    :telemetry.execute([:port, :message], %{}, %{function: "gossipsub", direction: "->elixir"})
+  defp handle_notification(%GossipSub{} = gs, %{subscribers: subscribers} = state) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "gossipsub",
+      direction: "->elixir"
+    })
 
-    case Map.fetch(subscriptors, gs.topic) do
+    case Map.fetch(subscribers, gs.topic) do
       {:ok, module} -> module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
       :error -> Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
     end
@@ -415,7 +502,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
          },
          %{port: port} = state
        ) do
-    :telemetry.execute([:port, :message], %{}, %{function: "request", direction: "->elixir"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "request",
+      direction: "->elixir"
+    })
 
     case IncomingRequestsHandler.handle(protocol_id, request_id, message) do
       {:ok, response} ->
@@ -429,13 +519,21 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp handle_notification(%NewPeer{peer_id: peer_id}, state) do
-    :telemetry.execute([:port, :message], %{}, %{function: "new peer", direction: "->elixir"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "new peer",
+      direction: "->elixir"
+    })
+
     Peerbook.handle_new_peer(peer_id)
     state
   end
 
   defp handle_notification(%Response{} = response, %{requests: requests} = state) do
-    :telemetry.execute([:port, :message], %{}, %{function: "response", direction: "->elixir"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "response",
+      direction: "->elixir"
+    })
+
     success = if response.success, do: :ok, else: :error
 
     {result, new_requests} =
@@ -449,14 +547,22 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp handle_notification(%Result{from: "", result: result}, state) do
-    :telemetry.execute([:port, :message], %{}, %{function: "result", direction: "->elixir"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "result",
+      direction: "->elixir"
+    })
+
     # TODO: amount of failures would be a useful metric
     _success_txt = if match?({:ok, _}, result), do: "success", else: "failed"
     state
   end
 
   defp handle_notification(%Result{from: from, result: result}, state) do
-    :telemetry.execute([:port, :message], %{}, %{function: "result", direction: "->elixir"})
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "result",
+      direction: "->elixir"
+    })
+
     pid = :erlang.binary_to_term(from)
     send(pid, {:response, result})
     state
@@ -493,10 +599,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp receive_response() do
     receive do
-      {:response, {:node_identity, identity}} -> identity
-      {:response, {res, %ResultMessage{message: []}}} -> res
-      {:response, {res, %ResultMessage{message: message}}} -> [res | message] |> List.to_tuple()
-      {:response, {res, response}} -> {res, response}
+      {:response, {:node_identity, identity}} ->
+        identity
+
+      {:response, {res, %ResultMessage{message: []}}} ->
+        res
+
+      {:response, {res, %ResultMessage{message: message}}} ->
+        [res | message] |> List.to_tuple()
+
+      {:response, {res, response}} ->
+        {res, response}
     end
   end
 
@@ -525,5 +638,29 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       next_fork_epoch: Constants.far_future_epoch()
     }
     |> encode_enr(attnets, syncnets)
+  end
+
+  defp add_subscriber(state, topic, module) do
+    update_in(state.subscribers, fn
+      subscribers -> Map.put(subscribers, topic, module)
+    end)
+  end
+
+  defp topics_for_module(module) do
+    Enum.map(module.topics(), fn topic -> {module, topic} end)
+  end
+
+  defp subscribe_to_gossip_topics(state) do
+    [
+      LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
+      LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
+      LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+    ]
+    |> Enum.flat_map(&topics_for_module/1)
+    |> Enum.reduce(state, fn {module, topic}, state ->
+      command = %Command{c: {:subscribe, %SubscribeToTopic{name: topic}}}
+      send_data(state.port, Command.encode(command))
+      add_subscriber(state, topic, module)
+    end)
   end
 end

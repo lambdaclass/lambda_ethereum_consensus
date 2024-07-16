@@ -41,7 +41,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
       [
         {LambdaEthereumConsensus.Beacon.Clock, {store.genesis_time, time}},
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
-        LambdaEthereumConsensus.Beacon.SyncBlocks,
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
         {Task.Supervisor, name: PruneBlobsSupervisor}
