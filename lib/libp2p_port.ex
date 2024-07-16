@@ -78,6 +78,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           discovery_addresses: [String.t()]
         }
 
+  @sync_delay_millis 10_000
+
   ######################
   ### API
   ######################
@@ -240,7 +242,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "elixir->"
     })
 
-    GenServer.cast(pid, {:new_subscriptor, topic_name, module})
+    GenServer.cast(pid, {:new_subscriber, topic_name, module})
 
     call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
@@ -335,7 +337,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   and it should not be related to other manual block downloads or gossip blocks.
   """
   def notify_blocks_downloaded(pid \\ __MODULE__, range, blocks) do
-    GenServer.cast(pid, {:add_block, range, blocks})
+    GenServer.cast(pid, {:add_blocks, range, blocks})
   end
 
   def notify_block_download_failed(pid \\ __MODULE__, range, reason) do
@@ -364,24 +366,24 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     if enable_request_handlers, do: enable_request_handlers(port)
 
     Peerbook.init()
-    Process.send_after(self(), :sync_blocks, 1_000)
+    Process.send_after(self(), :sync_blocks, @sync_delay_millis)
+
+    Logger.info(
+      "[Optimistic Sync] Waiting #{@sync_delay_millis / 1000} seconds to discover some peers before requesting blocks."
+    )
 
     {:ok,
      %{
        port: port,
-       subscriptors: %{},
+       subscribers: %{},
        requests: Requests.new(),
        syncing: true
      }}
   end
 
   @impl GenServer
-  def handle_cast(
-        {:new_subscriptor, topic, module},
-        %{subscriptors: subscriptors} = state
-      ) do
-    new_subscriptors = Map.put(subscriptors, topic, module)
-    {:noreply, %{state | subscriptors: new_subscriptors}}
+  def handle_cast({:new_subscriber, topic, module}, state) do
+    {:noreply, add_subscriber(state, topic, module)}
   end
 
   @impl GenServer
@@ -421,7 +423,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_cast({:add_block, {first_slot, last_slot}, blocks}, state) do
+  def handle_cast({:add_blocks, {first_slot, last_slot}, blocks}, state) do
     n_blocks = length(blocks)
     missing = last_slot - first_slot + 1 - n_blocks
 
@@ -434,20 +436,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     if new_state.blocks_remaining > 0 do
       Logger.info("[Optimistic Sync] Blocks remaining: #{new_state.blocks_remaining}")
+      {:noreply, new_state}
     else
       Logger.info("[Optimistic Sync] Sync completed. Subscribing to gossip topics.")
 
-      Enum.each(
-        [
-          LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
-          LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
-          LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
-        ],
-        fn module -> subscribe_to_topic(self(), module.topic(), module) end
-      )
+      [
+        LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
+        LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
+        LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+      ]
+      |> Enum.flat_map(fn module -> Enum.map(module.topics(), fn topic -> {module, topic} end) end)
+      |> Enum.reduce(new_state, fn {module, topic}, state ->
+        command = %Command{c: {:subscribe, %SubscribeToTopic{name: topic}}}
+        send_data(state.port, Command.encode(command))
+        add_subscriber(state, topic, module)
+      end)
+      |> then(fn state -> {:noreply, state} end)
     end
-
-    {:noreply, new_state}
   end
 
   @impl GenServer
@@ -488,13 +493,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  defp handle_notification(%GossipSub{} = gs, %{subscriptors: subscriptors} = state) do
+  defp handle_notification(%GossipSub{} = gs, %{subscribers: subscribers} = state) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "gossipsub",
       direction: "->elixir"
     })
 
-    case Map.fetch(subscriptors, gs.topic) do
+    case Map.fetch(subscribers, gs.topic) do
       {:ok, module} -> module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
       :error -> Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
     end
@@ -646,5 +651,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       next_fork_epoch: Constants.far_future_epoch()
     }
     |> encode_enr(attnets, syncnets)
+  end
+
+  defp add_subscriber(state, topic, module) do
+    update_in(state.subscribers, fn
+      subscribers -> Map.put(subscribers, topic, module)
+    end)
   end
 end
