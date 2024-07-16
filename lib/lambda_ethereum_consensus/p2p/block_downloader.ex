@@ -17,8 +17,10 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   # so we want to try again with a different peer
   @default_retries 5
 
+  @type range :: {Types.slot(), Types.slot()}
   @type download_result :: {:ok, [SignedBeaconBlock.t()]} | {:error, any()}
-  @type on_blocks :: (download_result() -> term())
+  @type on_blocks ::
+          ({:ok, range(), [SignedBeaconBlock.t()]} | {:error, range(), any()} -> term())
 
   @doc """
   Requests a series of blocks in batch, and synchronously (the caller will block waiting for the
@@ -73,7 +75,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
          :ok <- verify_batch(blocks, slot, count) do
       tags = %{result: "success", type: "by_slot", reason: "success"}
       :telemetry.execute([:network, :request], %{blocks: count}, tags)
-      on_blocks.({:ok, blocks})
+      on_blocks.({:ok, {slot, slot + count - 1}, blocks})
     else
       {:error, reason} ->
         tags = %{type: "by_slot", reason: parse_reason(reason)}
@@ -85,7 +87,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
           request_blocks_by_range(slot, count, on_blocks, retries - 1)
         else
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
-          on_blocks.({:error, reason})
+          # TODO: Add block range that failed in the reason
+          on_blocks.({:error, {slot, slot + count - 1}, reason})
           {:error, reason}
         end
     end

@@ -220,7 +220,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     end
   end
 
-  defp topics() do
+  def topics() do
     fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
 
     topics =
