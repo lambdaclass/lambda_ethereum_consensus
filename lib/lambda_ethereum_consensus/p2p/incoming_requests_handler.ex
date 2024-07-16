@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
   """
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Metadata
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Store.BlockDb
@@ -31,8 +32,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     Logger.debug("'#{name}' request received")
 
     result =
-      :telemetry.span([:port, :request], %{}, fn ->
-        {handle_req(name, message_id, message), %{module: "handler", request: inspect(name)}}
+      Metrics.handler_span("request_handler", name |> String.split("/") |> List.first(), fn ->
+        handle_req(name, message_id, message)
       end)
 
     case result do

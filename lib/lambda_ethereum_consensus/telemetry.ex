@@ -85,14 +85,6 @@ defmodule LambdaEthereumConsensus.Telemetry do
       counter("network.pubsub_topics_un_deliverable_message.count", tags: [:topic]),
       counter("network.pubsub_topics_validate_message.count", tags: [:topic]),
       counter("port.message.count", tags: [:function, :direction]),
-      last_value("port.request.stop.duration",
-        unit: {:native, :millisecond},
-        tags: [:module, :request]
-      ),
-      last_value("port.request.exception.duration",
-        unit: {:native, :millisecond},
-        tags: [:module, :request]
-      ),
       sum("network.request.blocks", tags: [:result, :type, :reason]),
 
       # Sync metrics
@@ -140,6 +132,18 @@ defmodule LambdaEthereumConsensus.Telemetry do
         tags: [:module, :action]
       ),
       counter("db.latency.stop.count", unit: {:native, :millisecond}, tags: [:module, :action]),
+      last_value("libp2pport.handler.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:module, :action]
+      ),
+      last_value("libp2pport.handler.exception.duration",
+        unit: {:native, :millisecond},
+        tags: [:module, :action]
+      ),
+      counter("libp2pport.handler.stop.count",
+        unit: {:native, :millisecond},
+        tags: [:module, :action]
+      ),
 
       # ForkChoice Metrics
       last_value("fork_choice.recompute_head.stop.duration",
