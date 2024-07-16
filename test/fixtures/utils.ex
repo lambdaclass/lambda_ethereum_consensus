@@ -18,6 +18,9 @@ defmodule Fixtures.Random do
     binary(32)
   end
 
+  @spec slot() :: Types.slot()
+  def slot(), do: uint64()
+
   @spec bls_signature :: binary
   def bls_signature() do
     binary(96)
