@@ -12,7 +12,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
@@ -445,7 +444,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
         LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
         LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
       ]
-      |> Enum.flat_map(fn module -> Enum.map(module.topics(), fn topic -> {module, topic} end) end)
+      |> Enum.flat_map(&topics_for_module/1)
       |> Enum.reduce(new_state, fn {module, topic}, state ->
         command = %Command{c: {:subscribe, %SubscribeToTopic{name: topic}}}
         send_data(state.port, Command.encode(command))
@@ -657,5 +656,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     update_in(state.subscribers, fn
       subscribers -> Map.put(subscribers, topic, module)
     end)
+  end
+
+  defp topics_for_module(module) do
+    Enum.map(module.topics(), fn topic -> {module, topic} end)
   end
 end
