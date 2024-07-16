@@ -14,7 +14,7 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   end
 
   @spec init({Types.slot(), Types.root()}) ::
-          {:ok, %{Bls.pubkey() => Validator.t()}} | {:stop, any}
+          {:ok, %{Bls.pubkey() => Validator.state()}} | {:stop, any}
   def init({slot, head_root}) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
     keystore_dir = Keyword.get(config, :keystore_dir)
