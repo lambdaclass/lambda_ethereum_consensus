@@ -7,6 +7,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.P2P.BlockDownloader
+
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
@@ -18,6 +21,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           {SignedBeaconBlock.t(), :pending | :download_blobs}
           | {nil, :invalid | :download}
   @type state :: nil
+
+  @download_retries 100
 
   @doc """
   If the block is not present, it will be stored as pending.
@@ -44,7 +49,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         Blocks.new_block_info(block_info)
         process_block_and_check_children(block_info)
       else
-        BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/1, 30)
+        BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/1, @download_retries)
 
         block_info
         |> BlockInfo.change_status(:download_blobs)
@@ -90,7 +95,22 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
     case Blocks.get_block_info(parent_root) do
       nil ->
+        Logger.debug("[PendingBlocks] Add parent to download #{inspect(parent_root)}")
         Blocks.add_block_to_download(parent_root)
+
+        BlockDownloader.request_blocks_by_root(
+          [parent_root],
+          fn result ->
+            process_downloaded_block(result)
+          end,
+          @download_retries
+        )
+
+        Metrics.block_relationship(
+          parent_root,
+          block_info.root
+        )
+
         :download_pending
 
       %BlockInfo{status: :invalid} ->
@@ -116,6 +136,16 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       _other ->
         :ok
     end
+  end
+
+  defp process_downloaded_block({:ok, [block]}) do
+    add_block(block)
+  end
+
+  defp process_downloaded_block({:error, reason}) do
+    Logger.error("Error downloading block: #{inspect(reason)}")
+
+    # We might want to declare a block invalid here.
   end
 
   defp process_blobs({:ok, blobs}), do: add_blobs(blobs)

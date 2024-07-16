@@ -30,6 +30,89 @@
   "panels": [
     {
       "datasource": {
+        "uid": "PBFA97CFB590B2093",
+        "type": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 31,
+      "options": {
+        "nodes": {},
+        "edges": {}
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "blocks_status_total",
+          "format": "table",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "useBackend": false,
+          "exemplar": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "blocks_relationship_total",
+          "format": "table",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "B",
+          "useBackend": false,
+          "exemplar": false
+        }
+      ],
+      "title": "Blockchain View",
+      "transformations": [
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "fieldName": "Value #A",
+                "config": {
+                  "id": "equal",
+                  "options": {
+                    "value": 0
+                  }
+                }
+              }
+            ],
+            "type": "exclude",
+            "match": "any"
+          },
+          "filter": {
+            "id": "byRefId",
+            "options": "A"
+          },
+          "topic": "series"
+        }
+      ],
+      "type": "nodeGraph"
+    },
+    {
+      "datasource": {
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },

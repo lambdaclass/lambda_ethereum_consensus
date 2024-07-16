@@ -5,6 +5,7 @@ defmodule Fixtures.Block do
 
   alias Fixtures.Random
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias Types.BlockInfo
 
   alias Types.BeaconBlock
   alias Types.BeaconBlockBody
@@ -12,6 +13,11 @@ defmodule Fixtures.Block do
   alias Types.ExecutionPayload
   alias Types.ExecutionPayloadHeader
   alias Types.SignedBeaconBlock
+
+  @spec block_info :: BlockInfo.t()
+  def block_info() do
+    signed_beacon_block() |> BlockInfo.from_block()
+  end
 
   @spec signed_beacon_block :: SignedBeaconBlock.t()
   def signed_beacon_block() do
