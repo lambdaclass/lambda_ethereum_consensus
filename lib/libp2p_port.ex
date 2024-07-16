@@ -438,19 +438,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       {:noreply, new_state}
     else
       Logger.info("[Optimistic Sync] Sync completed. Subscribing to gossip topics.")
-
-      [
-        LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
-        LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
-        LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
-      ]
-      |> Enum.flat_map(&topics_for_module/1)
-      |> Enum.reduce(new_state, fn {module, topic}, state ->
-        command = %Command{c: {:subscribe, %SubscribeToTopic{name: topic}}}
-        send_data(state.port, Command.encode(command))
-        add_subscriber(state, topic, module)
-      end)
-      |> then(fn state -> {:noreply, state} end)
+      {:noreply, subscribe_to_gossip_topics(new_state)}
     end
   end
 
@@ -660,5 +648,19 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp topics_for_module(module) do
     Enum.map(module.topics(), fn topic -> {module, topic} end)
+  end
+
+  defp subscribe_to_gossip_topics(state) do
+    [
+      LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
+      LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
+      LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+    ]
+    |> Enum.flat_map(&topics_for_module/1)
+    |> Enum.reduce(state, fn {module, topic}, state ->
+      command = %Command{c: {:subscribe, %SubscribeToTopic{name: topic}}}
+      send_data(state.port, Command.encode(command))
+      add_subscriber(state, topic, module)
+    end)
   end
 end
