@@ -20,6 +20,7 @@ defmodule BeaconApi.Router do
     scope "/node" do
       get("/health", NodeController, :health)
       get("/identity", NodeController, :identity)
+      get("/version", NodeController, :version)
     end
   end
 
