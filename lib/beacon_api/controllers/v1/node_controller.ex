@@ -58,7 +58,7 @@ defmodule BeaconApi.V1.NodeController do
     conn
     |> json(%{
       "data" => %{
-        "version" => "Lambda/#{version}/#{arch}",
+        "version" => "Lambda/#{version}/#{arch}"
       }
     })
   end
