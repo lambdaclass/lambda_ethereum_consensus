@@ -22,5 +22,5 @@ defmodule LambdaEthereumConsensus.Store.StateInfoByRoot do
   @impl KvSchema
   @spec decode_value(binary()) :: {:ok, StateInfo.t()} | {:error, binary()}
   def decode_value(encoded_state) when is_binary(encoded_state),
-    do: {:ok, StateInfo.decode(encoded_state)}
+    do: StateInfo.decode(encoded_state)
 end
