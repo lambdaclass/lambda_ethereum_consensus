@@ -30,6 +30,155 @@
   "panels": [
     {
       "type": "piechart",
+      "title": "Gossip Messages",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "PBFA97CFB590B2093",
+        "type": "prometheus"
+      },
+      "id": 35,
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "libp2pport_handler_stop_count{module=\"gossip_handler\"}",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "builder",
+          "legendFormat": "{{action}}",
+          "useBackend": false,
+          "disableTextWrap": false,
+          "fullMetaSearch": false,
+          "includeNullMetadata": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "pieType": "pie",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none",
+          "maxHeight": 600
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "values": []
+        },
+        "displayLabels": [
+          "value"
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "datasource": {
+        "uid": "PBFA97CFB590B2093",
+        "type": "prometheus"
+      },
+      "type": "bargauge",
+      "title": "Mean Gossip Handlers Durations",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "id": 34,
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "refId": "A",
+          "expr": "libp2pport_handler_stop_duration{module=\"gossip_handler\"}",
+          "range": true,
+          "instant": false,
+          "editorMode": "builder",
+          "legendFormat": "{{action}}",
+          "useBackend": false,
+          "disableTextWrap": false,
+          "fullMetaSearch": false,
+          "includeNullMetadata": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "mean"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "namePlacement": "auto",
+        "showUnfilled": true,
+        "sizing": "auto",
+        "minVizWidth": 8,
+        "minVizHeight": 16,
+        "maxVizHeight": 300
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "red"
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "pluginVersion": "11.0.0"
+    },
+    {
+      "type": "piechart",
       "title": "Received Requests",
       "gridPos": {
         "x": 0,
@@ -45,7 +194,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "libp2pport_handler_stop_count",
+          "expr": "libp2pport_handler_stop_count{module=\"request_handler\"}",
           "range": true,
           "instant": false,
           "datasource": {
@@ -123,7 +272,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "refId": "A",
-          "expr": "libp2pport_handler_stop_duration",
+          "expr": "libp2pport_handler_stop_duration{module=\"request_handler\"}",
           "range": true,
           "instant": false,
           "editorMode": "builder",
