@@ -5,19 +5,18 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   require Logger
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.StateInfoByRoot
+  alias LambdaEthereumConsensus.Store.StateRootByBlockRoot
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.BeaconState
   alias Types.StateInfo
 
   @state_prefix "beacon_state"
-  @state_block_prefix @state_prefix <> "block"
   @stateslot_prefix @state_prefix <> "slot"
 
   @spec store_state_info(StateInfo.t()) :: :ok
   def store_state_info(%StateInfo{} = state_info) do
     StateInfoByRoot.put(state_info.root, state_info)
-    block_key = block_key(state_info.block_root)
-    Db.put(block_key, state_info.root)
+    StateRootByBlockRoot.put(state_info.block_root, state_info.root)
 
     # WARN: this overrides any previous mapping for the same slot
     slot_key = slot_key(state_info.beacon_state.slot)
@@ -54,21 +53,17 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   @spec remove_state_by_slot(non_neg_integer()) :: :ok | :not_found
   defp remove_state_by_slot(slot) do
     with {:ok, block_root} <- get_block_root_by_slot(slot),
-         {:ok, state_root} <- get_state_root_by_block_root(block_root) do
+         {:ok, state_root} <- StateRootByBlockRoot.get(block_root) do
       slot |> slot_key() |> Db.delete()
-      block_root |> block_key() |> Db.delete()
+      StateRootByBlockRoot.delete(block_root)
       StateInfoByRoot.delete(state_root)
     end
   end
 
-  @spec get_state_root_by_block_root(Types.root()) ::
-          {:ok, Types.root()} | {:error, String.t()} | :not_found
-  def get_state_root_by_block_root(block_root), do: block_root |> block_key() |> Db.get()
-
   @spec get_state_by_block_root(Types.root()) ::
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
   def get_state_by_block_root(block_root) do
-    with {:ok, state_root} <- get_state_root_by_block_root(block_root) do
+    with {:ok, state_root} <- StateRootByBlockRoot.get(block_root) do
       StateInfoByRoot.get(state_root)
     end
   end
@@ -103,6 +98,5 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     end
   end
 
-  defp block_key(root), do: Utils.get_key(@state_block_prefix, root)
   defp slot_key(slot), do: Utils.get_key(@stateslot_prefix, slot)
 end
