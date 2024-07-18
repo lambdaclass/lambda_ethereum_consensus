@@ -9,19 +9,19 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   alias Types.StateInfo
 
   @state_prefix "beacon_state"
-  @state_block_prefix "beacon_state_by_state"
+  @state_block_prefix @state_prefix <> "block"
   @stateslot_prefix @state_prefix <> "slot"
 
   @spec store_state_info(StateInfo.t()) :: :ok
   def store_state_info(%StateInfo{} = state_info) do
-    key_block = state_key(state_info.block_root)
-    key_state = block_key(state_info.root)
-    Db.put(key_block, StateInfo.encode(state_info))
-    Db.put(key_state, state_info.root)
+    state_key = state_key(state_info.root)
+    block_key = block_key(state_info.block_root)
+    Db.put(state_key, StateInfo.encode(state_info))
+    Db.put(block_key, state_info.root)
 
     # WARN: this overrides any previous mapping for the same slot
-    slothash_key_block = root_by_slot_key(state_info.beacon_state.slot)
-    Db.put(slothash_key_block, state_info.root)
+    slot_key = slot_key(state_info.beacon_state.slot)
+    Db.put(slot_key, state_info.block_root)
   end
 
   @spec prune_states_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
@@ -53,33 +53,33 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
 
   @spec remove_state_by_slot(non_neg_integer()) :: :ok | :not_found
   defp remove_state_by_slot(slot) do
-    key_slot = root_by_slot_key(slot)
 
-    with {:ok, block_root} <- Db.get(key_slot),
-         key_block <- state_key(block_root),
-         {:ok, encoded_state} <- Db.get(key_block),
-         {:ok, state_info} <- StateInfo.decode(encoded_state, block_root) do
-      key_state = block_key(state_info.root)
+    with {:ok, block_root} <- get_block_root_by_slot(slot),
+         {:ok, state_root} <- get_state_root_by_block_root(block_root) do
 
-      Db.delete(key_slot)
-      Db.delete(key_block)
-      Db.delete(key_state)
+      slot |> slot_key() |> Db.delete()
+      block_root |> block_key() |> Db.delete()
+      state_root |> state_key() |> Db.delete()
     end
   end
+
+  @spec get_state_root_by_block_root(Types.root()) ::
+          {:ok, Types.root()} | {:error, String.t()} | :not_found
+  def get_state_root_by_block_root(block_root), do: block_root |> block_key() |> Db.get()
 
   @spec get_state_by_block_root(Types.root()) ::
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
   def get_state_by_block_root(block_root) do
-    with {:ok, bin} <- block_root |> state_key() |> Db.get() do
-      StateInfo.decode(bin, block_root)
+    with {:ok, state_root} <- get_state_root_by_block_root(block_root) do
+     get_state_by_state_root(state_root)
     end
   end
 
   @spec get_state_by_state_root(Types.root()) ::
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
   def get_state_by_state_root(state_root) do
-    with {:ok, block_root} <- state_root |> block_key() |> Db.get() do
-      get_state_by_block_root(block_root)
+    with {:ok, encoded_state} <- state_root |> state_key() |> Db.get() do
+      StateInfo.decode(encoded_state)
     end
   end
 
@@ -92,28 +92,28 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
          {:ok, _key, _value} <- Exleveldb.iterator_move(it, last_key),
          {:ok, @stateslot_prefix <> _slot, root} <- Exleveldb.iterator_move(it, :prev),
          :ok <- Exleveldb.iterator_close(it) do
-      get_state_by_block_root(root)
+      get_state_by_state_root(root)
     else
       {:ok, _key, _value} -> :not_found
       {:error, :invalid_iterator} -> :not_found
     end
   end
 
-  @spec get_state_root_by_slot(Types.slot()) ::
+  @spec get_block_root_by_slot(Types.slot()) ::
           {:ok, Types.root()} | {:error, String.t()} | :not_found
-  def get_state_root_by_slot(slot),
-    do: slot |> root_by_slot_key() |> Db.get()
+  def get_block_root_by_slot(slot),
+    do: slot |> slot_key() |> Db.get()
 
   @spec get_state_by_slot(Types.slot()) ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
   def get_state_by_slot(slot) do
     # WARN: this will return the latest state received for the given slot
-    with {:ok, root} <- get_state_root_by_slot(slot) do
-      get_state_by_block_root(root)
+    with {:ok, block_root} <- get_block_root_by_slot(slot) do
+      get_state_by_block_root(block_root)
     end
   end
 
   defp state_key(root), do: Utils.get_key(@state_prefix, root)
   defp block_key(root), do: Utils.get_key(@state_block_prefix, root)
-  defp root_by_slot_key(slot), do: Utils.get_key(@stateslot_prefix, slot)
+  defp slot_key(slot), do: Utils.get_key(@stateslot_prefix, slot)
 end

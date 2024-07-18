@@ -37,12 +37,12 @@ defmodule Types.StateInfo do
 
   @spec encode(t()) :: binary()
   def encode(%__MODULE__{} = state_info) do
-    {state_info.encoded, state_info.root} |> :erlang.term_to_binary()
+    {state_info.encoded, state_info.root, state_info.block_root} |> :erlang.term_to_binary()
   end
 
-  @spec decode(binary(), Types.root()) :: {:ok, t()} | {:error, binary()}
-  def decode(bin, block_root) do
-    with {:ok, encoded, root} <- :erlang.binary_to_term(bin) |> validate_term(),
+  @spec decode(binary()) :: {:ok, t()} | {:error, binary()}
+  def decode(bin) do
+    with {:ok, encoded, root, block_root} <- :erlang.binary_to_term(bin) |> validate_term(),
          {:ok, beacon_state} <- Ssz.from_ssz(encoded, BeaconState) do
       {:ok,
        %__MODULE__{
@@ -59,8 +59,8 @@ defmodule Types.StateInfo do
   end
 
   @spec validate_term(term()) :: {:ok, binary(), Types.root()} | {:error, binary()}
-  defp validate_term({ssz_encoded, root}) when is_binary(ssz_encoded) and is_binary(root) do
-    {:ok, ssz_encoded, root}
+  defp validate_term({ssz_encoded, root, block_root}) when is_binary(ssz_encoded) and is_binary(root) and is_binary(root) do
+    {:ok, ssz_encoded, root, block_root}
   end
 
   defp validate_term(other) do
