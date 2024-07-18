@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   """
   require Logger
   alias LambdaEthereumConsensus.Store.Db
+  alias LambdaEthereumConsensus.Store.StateInfoByRoot
   alias LambdaEthereumConsensus.Store.Utils
   alias Types.BeaconState
   alias Types.StateInfo
@@ -14,9 +15,8 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
 
   @spec store_state_info(StateInfo.t()) :: :ok
   def store_state_info(%StateInfo{} = state_info) do
-    state_key = state_key(state_info.root)
+    StateInfoByRoot.put(state_info.root, state_info)
     block_key = block_key(state_info.block_root)
-    Db.put(state_key, StateInfo.encode(state_info))
     Db.put(block_key, state_info.root)
 
     # WARN: this overrides any previous mapping for the same slot
@@ -57,7 +57,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
          {:ok, state_root} <- get_state_root_by_block_root(block_root) do
       slot |> slot_key() |> Db.delete()
       block_root |> block_key() |> Db.delete()
-      state_root |> state_key() |> Db.delete()
+      StateInfoByRoot.delete(state_root)
     end
   end
 
@@ -69,15 +69,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
   def get_state_by_block_root(block_root) do
     with {:ok, state_root} <- get_state_root_by_block_root(block_root) do
-      get_state_by_state_root(state_root)
-    end
-  end
-
-  @spec get_state_by_state_root(Types.root()) ::
-          {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
-  def get_state_by_state_root(state_root) do
-    with {:ok, encoded_state} <- state_root |> state_key() |> Db.get() do
-      StateInfo.decode(encoded_state)
+      StateInfoByRoot.get(state_root)
     end
   end
 
@@ -90,7 +82,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
          {:ok, _key, _value} <- Exleveldb.iterator_move(it, last_key),
          {:ok, @stateslot_prefix <> _slot, root} <- Exleveldb.iterator_move(it, :prev),
          :ok <- Exleveldb.iterator_close(it) do
-      get_state_by_state_root(root)
+      StateInfoByRoot.get(root)
     else
       {:ok, _key, _value} -> :not_found
       {:error, :invalid_iterator} -> :not_found
@@ -111,7 +103,6 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
     end
   end
 
-  defp state_key(root), do: Utils.get_key(@state_prefix, root)
   defp block_key(root), do: Utils.get_key(@state_block_prefix, root)
   defp slot_key(slot), do: Utils.get_key(@stateslot_prefix, slot)
 end
