@@ -27,7 +27,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   @spec prune_states_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
   def prune_states_older_than(slot) do
     Logger.info("[StateDb] Pruning started.", slot: slot)
-    last_finalized_key = slot |> root_by_slot_key()
+    last_finalized_key = slot |> slot_key()
 
     with {:ok, it} <- Db.iterate(),
          {:ok, @stateslot_prefix <> _slot, _value} <-
@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   @spec get_latest_state() ::
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
   def get_latest_state() do
-    last_key = root_by_slot_key(0xFFFFFFFFFFFFFFFF)
+    last_key = slot_key(0xFFFFFFFFFFFFFFFF)
 
     with {:ok, it} <- Db.iterate(),
          {:ok, _key, _value} <- Exleveldb.iterator_move(it, last_key),
