@@ -53,10 +53,8 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
 
   @spec remove_state_by_slot(non_neg_integer()) :: :ok | :not_found
   defp remove_state_by_slot(slot) do
-
     with {:ok, block_root} <- get_block_root_by_slot(slot),
          {:ok, state_root} <- get_state_root_by_block_root(block_root) do
-
       slot |> slot_key() |> Db.delete()
       block_root |> block_key() |> Db.delete()
       state_root |> state_key() |> Db.delete()
@@ -71,7 +69,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
   def get_state_by_block_root(block_root) do
     with {:ok, state_root} <- get_state_root_by_block_root(block_root) do
-     get_state_by_state_root(state_root)
+      get_state_by_state_root(state_root)
     end
   end
 
