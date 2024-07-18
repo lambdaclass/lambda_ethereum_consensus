@@ -487,8 +487,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     })
 
     case Map.fetch(subscribers, gs.topic) do
-      {:ok, module} -> Metrics.handler_span("gossip_handler", gs.topic, fn -> module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)end)
-      :error -> Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
+      {:ok, module} ->
+        Metrics.handler_span("gossip_handler", gs.topic, fn ->
+          module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
+        end)
+
+      :error ->
+        Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
     end
 
     state
