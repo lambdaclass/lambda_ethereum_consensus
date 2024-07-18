@@ -431,15 +431,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     )
 
     Enum.each(blocks, &PendingBlocks.add_block/1)
-    new_state = Map.update!(state, :blocks_remaining, fn n -> n - n_blocks - missing end)
 
-    if new_state.blocks_remaining > 0 do
-      Logger.info("[Optimistic Sync] Blocks remaining: #{new_state.blocks_remaining}")
-      {:noreply, new_state}
-    else
-      Logger.info("[Optimistic Sync] Sync completed. Subscribing to gossip topics.")
-      {:noreply, subscribe_to_gossip_topics(new_state)}
-    end
+    new_state =
+      Map.update!(state, :blocks_remaining, fn n -> n - n_blocks - missing end)
+      |> subscribe_if_no_blocks()
+
+    {:noreply, new_state}
   end
 
   @impl GenServer
@@ -455,7 +452,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def handle_info(:sync_blocks, state) do
     blocks_to_download = SyncBlocks.run()
-    {:noreply, state |> Map.put(:blocks_remaining, blocks_to_download)}
+
+    new_state =
+      state |> Map.put(:blocks_remaining, blocks_to_download) |> subscribe_if_no_blocks()
+
+    {:noreply, new_state}
   end
 
   @impl GenServer
@@ -648,6 +649,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp topics_for_module(module) do
     Enum.map(module.topics(), fn topic -> {module, topic} end)
+  end
+
+  defp subscribe_if_no_blocks(state) do
+    if state.blocks_remaining > 0 do
+      Logger.info("[Optimistic Sync] Blocks remaining: #{state.blocks_remaining}")
+      state
+    else
+      Logger.info("[Optimistic Sync] Sync completed. Subscribing to gossip topics.")
+      subscribe_to_gossip_topics(state)
+    end
   end
 
   defp subscribe_to_gossip_topics(state) do
