@@ -117,4 +117,7 @@ RUN mix compile
 ARG IEX_ARGS=""
 ENV IEX_ARGS_VALUE=${IEX_ARGS}
 
+# TODO: This could be an issue regarding OS signals, we should use JSONArgs but shell form is the
+# only way to pass args to ENTRYPOINT, specially important because of the cookie. Best
+# solution would be to move to releases and avoid starting the node manually through iex.
 ENTRYPOINT iex $IEX_ARGS_VALUE -S mix run -- $0 $@
