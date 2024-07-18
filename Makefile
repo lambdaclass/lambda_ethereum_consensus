@@ -77,6 +77,9 @@ kurtosis.setup.lambdaconsensus:
 kurtosis.start:
 	kurtosis run --enclave lambdanet $(KURTOSIS_DIR) --args-file network_params.yaml
 
+#💻 kurtosis.build-and-start: @ Builds the lambdaconsensus Docker image and starts the kurtosis environment.
+kurtosis.clean-start: kurtosis.clean kurtosis.setup.lambdaconsensus kurtosis.start
+
 #💻 kurtosis.stop: @ Stops the kurtosis environment
 kurtosis.stop:
 	kurtosis enclave stop lambdanet

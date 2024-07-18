@@ -1,61 +1,91 @@
 defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
-  @moduledoc false
-
-  use Supervisor
+  @moduledoc """
+  Module that manage the validators state
+  """
+  use GenServer
 
   require Logger
+  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.Validator
 
-  def start_link(opts) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+  @spec start_link({Types.slot(), Types.root()}) :: :ignore | {:error, any} | {:ok, pid}
+  def start_link({slot, head_root}) do
+    GenServer.start_link(__MODULE__, {slot, head_root}, name: __MODULE__)
   end
 
-  @impl true
+  @spec init({Types.slot(), Types.root()}) ::
+          {:ok, %{Bls.pubkey() => Validator.state()}} | {:stop, any}
   def init({slot, head_root}) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
     keystore_dir = Keyword.get(config, :keystore_dir)
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir)
 
-    if is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
-      Logger.warning(
-        "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
-      )
-
-      :ignore
-    else
-      validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
-
-      children =
-        validator_keys
-        |> Enum.map(fn {pubkey, privkey} ->
-          Supervisor.child_spec({Validator, {slot, head_root, {pubkey, privkey}}},
-            id: pubkey
-          )
-        end)
-
-      Supervisor.init(children, strategy: :one_for_one)
-    end
+    setup_validators(slot, head_root, keystore_dir, keystore_pass_dir)
   end
 
+  defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
+       when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
+    Logger.warning(
+      "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
+    )
+
+    {:ok, []}
+  end
+
+  defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
+    validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
+
+    validators =
+      validator_keys
+      |> Enum.map(fn {pubkey, privkey} ->
+        {pubkey, Validator.new({slot, head_root, {pubkey, privkey}})}
+      end)
+      |> Map.new()
+
+    Logger.info("[Validator Manager] Initialized #{Enum.count(validators)} validators")
+
+    {:ok, validators}
+  end
+
+  @spec notify_new_block(Types.slot(), Types.root()) :: :ok
   def notify_new_block(slot, head_root) do
-    cast_to_children({:new_block, slot, head_root})
+    notify_validators({:new_block, slot, head_root})
   end
 
+  @spec notify_tick(Clock.logical_time()) :: :ok
   def notify_tick(logical_time) do
-    cast_to_children({:on_tick, logical_time})
+    notify_validators({:on_tick, logical_time})
   end
 
-  defp cast_to_children(msg) do
-    case Process.whereis(__MODULE__) do
-      nil ->
-        # No active validators
-        nil
+  # TODO: The use of a Genserver and cast is still needed to avoid locking at the clock level.
+  # This is a temporary solution and will be taken off in a future PR.
+  defp notify_validators(msg), do: GenServer.cast(__MODULE__, {:notify_all, msg})
 
-      pid ->
-        Supervisor.which_children(pid)
-        |> Enum.each(fn {_, pid, _, _} -> GenServer.cast(pid, msg) end)
-    end
+  def handle_cast({:notify_all, msg}, validators) do
+    validators = notify_all(validators, msg)
+
+    {:noreply, validators}
   end
+
+  defp notify_all(validators, msg) do
+    start_time = System.monotonic_time(:millisecond)
+
+    updated_validators = Enum.map(validators, &notify_validator(&1, msg))
+
+    end_time = System.monotonic_time(:millisecond)
+
+    Logger.debug(
+      "[Validator Manager] #{inspect(msg)} notified to all Validators after #{end_time - start_time} ms"
+    )
+
+    updated_validators
+  end
+
+  defp notify_validator({pubkey, validator}, {:on_tick, logical_time}),
+    do: {pubkey, Validator.handle_tick(logical_time, validator)}
+
+  defp notify_validator({pubkey, validator}, {:new_block, slot, head_root}),
+    do: {pubkey, Validator.handle_new_block(slot, head_root, validator)}
 
   @doc """
     Get validator keys from the keystore directory.
