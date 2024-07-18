@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
     case try_setup_validator(state, head_slot, head_root) do
       nil ->
-        # TODO: Previously this was handled by the validator continusly trying to setup itself,
+        # TODO: Previously this was handled by the validator continously trying to setup itself,
         # but now that they are processed syncronously, we should handle this case different.
         # Right now it's just omitted and logged.
         Logger.error("[Validator] Public key not found in the validator set")
@@ -511,28 +511,18 @@ defmodule LambdaEthereumConsensus.Validator do
   defp log_debug_result(result, index, message, metadata),
     do: log_result(result, :debug, index, message, metadata)
 
-  defp log_result(result, level, index, message, metadata) do
-    case result do
-      :ok ->
-        case level do
-          :info -> log_info(index, message, metadata)
-          :debug -> log_debug(index, message, metadata)
-        end
+  defp log_result(:ok, :info, index, message, metadata), do: log_info(index, message, metadata)
+  defp log_result(:ok, :debug, index, message, metadata), do: log_debug(index, message, metadata)
 
-      {:error, reason} ->
-        log_error(index, message, reason, metadata)
-    end
-  end
+  defp log_result({:error, reason}, _level, index, message, metadata),
+    do: log_error(index, message, reason, metadata)
 
-  defp log_info(index, message, metadata) do
-    Logger.info("[Validator] #{index} #{message}", metadata)
-  end
+  defp log_info(index, message, metadata),
+    do: Logger.info("[Validator] #{index} #{message}", metadata)
 
-  defp log_debug(index, message, metadata) do
-    Logger.debug("[Validator] #{index} #{message}", metadata)
-  end
+  defp log_debug(index, message, metadata),
+    do: Logger.debug("[Validator] #{index} #{message}", metadata)
 
-  defp log_error(index, message, reason, metadata \\ []) do
-    Logger.error("[Validator] #{index} Failed to #{message}. Reason: #{reason}", metadata)
-  end
+  defp log_error(index, message, reason, metadata \\ []),
+    do: Logger.error("[Validator] #{index} Failed to #{message}. Reason: #{reason}", metadata)
 end
