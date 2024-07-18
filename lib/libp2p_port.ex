@@ -652,12 +652,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp subscribe_if_no_blocks(state) do
-    if new_state.blocks_remaining > 0 do
-      Logger.info("[Optimistic Sync] Blocks remaining: #{new_state.blocks_remaining}")
-      new_state
+    if state.blocks_remaining > 0 do
+      Logger.info("[Optimistic Sync] Blocks remaining: #{state.blocks_remaining}")
+      state
     else
       Logger.info("[Optimistic Sync] Sync completed. Subscribing to gossip topics.")
-      subscribe_to_gossip_topics(new_state)
+      subscribe_to_gossip_topics(state)
     end
   end
 
