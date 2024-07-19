@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Store.State.StateInfoByRoot do
+defmodule LambdaEthereumConsensus.Store.StateDb.StateInfoByRoot do
   @moduledoc """
   KvSchema that stores StateInfos indexed by BeaconState roots.
   """

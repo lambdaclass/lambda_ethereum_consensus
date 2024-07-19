@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Store.State.BlockRootBySlot do
+defmodule LambdaEthereumConsensus.Store.StateDb.BlockRootBySlot do
   @moduledoc """
   KvSchema that stores block roots indexed by slots.
   """

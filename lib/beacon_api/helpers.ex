@@ -7,7 +7,7 @@ defmodule BeaconApi.Helpers do
   alias LambdaEthereumConsensus.Store.BlockBySlot
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.State.StateInfoByRoot
+  alias LambdaEthereumConsensus.Store.StateDb
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
   alias Types.StateInfo
@@ -98,7 +98,7 @@ defmodule BeaconApi.Helpers do
     execution_optimistic = true
     finalized = false
 
-    case StateInfoByRoot.get(hex_root) do
+    case StateDb.get_state_by_state_root(hex_root) do
       {:ok, _state} -> {:ok, {hex_root, execution_optimistic, finalized}}
       _ -> :not_found
     end
@@ -136,7 +136,7 @@ defmodule BeaconApi.Helpers do
     execution_optimistic = true
     finalized = false
 
-    case StateInfoByRoot.get(hex_root) do
+    case StateDb.get_state_by_state_root(hex_root) do
       {:ok, %StateInfo{beacon_state: state}} -> {:ok, {state, execution_optimistic, finalized}}
       _ -> :not_found
     end
@@ -146,7 +146,7 @@ defmodule BeaconApi.Helpers do
     with {:ok, {%{message: %{state_root: state_root}}, optimistic, finalized}} <-
            block_by_block_id(id),
          {:ok, state} <-
-           StateInfoByRoot.get(state_root) do
+           StateDb.get_state_by_state_root(state_root) do
       {:ok, {state, optimistic, finalized}}
     end
   end
