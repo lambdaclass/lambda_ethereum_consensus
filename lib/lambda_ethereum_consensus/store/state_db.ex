@@ -3,58 +3,53 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   Beacon node state storage.
   """
   require Logger
-  alias LambdaEthereumConsensus.Store.Db
-  alias LambdaEthereumConsensus.Store.StateInfoByRoot
-  alias LambdaEthereumConsensus.Store.StateRootByBlockRoot
-  alias LambdaEthereumConsensus.Store.Utils
+  alias LambdaEthereumConsensus.Store.State.BlockRootBySlot
+  alias LambdaEthereumConsensus.Store.State.StateInfoByRoot
+  alias LambdaEthereumConsensus.Store.State.StateRootByBlockRoot
   alias Types.BeaconState
   alias Types.StateInfo
-
-  @state_prefix "beacon_state"
-  @stateslot_prefix @state_prefix <> "slot"
 
   @spec store_state_info(StateInfo.t()) :: :ok
   def store_state_info(%StateInfo{} = state_info) do
     StateInfoByRoot.put(state_info.root, state_info)
     StateRootByBlockRoot.put(state_info.block_root, state_info.root)
-
     # WARN: this overrides any previous mapping for the same slot
-    slot_key = slot_key(state_info.beacon_state.slot)
-    Db.put(slot_key, state_info.block_root)
+    BlockRootBySlot.put(state_info.beacon_state.slot, state_info.block_root)
   end
 
   @spec prune_states_older_than(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
   def prune_states_older_than(slot) do
     Logger.info("[StateDb] Pruning started.", slot: slot)
-    last_finalized_key = slot |> slot_key()
 
-    with {:ok, it} <- Db.iterate(),
-         {:ok, @stateslot_prefix <> _slot, _value} <-
-           Exleveldb.iterator_move(it, last_finalized_key),
-         {:ok, slots_to_remove} <- get_slots_to_remove(it),
-         :ok <- Exleveldb.iterator_close(it) do
-      slots_to_remove |> Enum.each(&remove_state_by_slot/1)
-      Logger.info("[StateDb] Pruning finished. #{length(slots_to_remove)} states removed.")
-    end
-  end
+    result =
+      BlockRootBySlot.fold_keys(slot, 0, fn slot, acc ->
+        case BlockRootBySlot.get(slot) do
+          {:ok, _block_root} ->
+            remove_state_by_slot(slot)
+            acc + 1
 
-  @spec get_slots_to_remove(list(non_neg_integer()), :eleveldb.itr_ref()) ::
-          {:ok, list(non_neg_integer())}
-  defp get_slots_to_remove(slots_to_remove \\ [], iterator) do
-    case Exleveldb.iterator_move(iterator, :prev) do
-      {:ok, @stateslot_prefix <> <<slot::unsigned-size(64)>>, _root} ->
-        [slot | slots_to_remove] |> get_slots_to_remove(iterator)
+          other ->
+            Logger.error(
+              "[Block pruning] Failed to remove block from slot #{inspect(slot)}. Reason: #{inspect(other)}"
+            )
+        end
+      end)
 
-      _ ->
-        {:ok, slots_to_remove}
+    # TODO: the separate get operation is avoided if we implement folding with values in KvSchema.
+    case result do
+      {:ok, n_removed} ->
+        Logger.info("[StateDb] Pruning finished. #{inspect(n_removed)} states removed.")
+
+      {:error, reason} ->
+        Logger.error("[StateDb] Error pruning states: #{inspect(reason)}")
     end
   end
 
   @spec remove_state_by_slot(non_neg_integer()) :: :ok | :not_found
   defp remove_state_by_slot(slot) do
-    with {:ok, block_root} <- get_block_root_by_slot(slot),
+    with {:ok, block_root} <- BlockRootBySlot.get(slot),
          {:ok, state_root} <- StateRootByBlockRoot.get(block_root) do
-      slot |> slot_key() |> Db.delete()
+      BlockRootBySlot.delete(slot)
       StateRootByBlockRoot.delete(block_root)
       StateInfoByRoot.delete(state_root)
     end
@@ -71,32 +66,18 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   @spec get_latest_state() ::
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
   def get_latest_state() do
-    last_key = slot_key(0xFFFFFFFFFFFFFFFF)
-
-    with {:ok, it} <- Db.iterate(),
-         {:ok, _key, _value} <- Exleveldb.iterator_move(it, last_key),
-         {:ok, @stateslot_prefix <> _slot, root} <- Exleveldb.iterator_move(it, :prev),
-         :ok <- Exleveldb.iterator_close(it) do
-      StateInfoByRoot.get(root)
-    else
-      {:ok, _key, _value} -> :not_found
-      {:error, :invalid_iterator} -> :not_found
+    with {:ok, last_block_root} <- BlockRootBySlot.get_last_block_root(),
+         {:ok, last_state_root} <- StateRootByBlockRoot.get(last_block_root) do
+      StateInfoByRoot.get(last_state_root)
     end
   end
-
-  @spec get_block_root_by_slot(Types.slot()) ::
-          {:ok, Types.root()} | {:error, String.t()} | :not_found
-  def get_block_root_by_slot(slot),
-    do: slot |> slot_key() |> Db.get()
 
   @spec get_state_by_slot(Types.slot()) ::
           {:ok, BeaconState.t()} | {:error, String.t()} | :not_found
   def get_state_by_slot(slot) do
     # WARN: this will return the latest state received for the given slot
-    with {:ok, block_root} <- get_block_root_by_slot(slot) do
+    with {:ok, block_root} <- BlockRootBySlot.get(slot) do
       get_state_by_block_root(block_root)
     end
   end
-
-  defp slot_key(slot), do: Utils.get_key(@stateslot_prefix, slot)
 end

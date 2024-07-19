@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   ### Private functions
   ##########################
 
-  @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:ignore, atom()}
+  @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:ignore, String.t()}
   defp validate(%SignedBeaconBlock{message: block}, current_slot) do
     min_slot = current_slot - ChainSpec.get("SLOTS_PER_EPOCH")
 

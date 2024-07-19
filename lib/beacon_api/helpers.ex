@@ -7,7 +7,7 @@ defmodule BeaconApi.Helpers do
   alias LambdaEthereumConsensus.Store.BlockBySlot
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.StateInfoByRoot
+  alias LambdaEthereumConsensus.Store.State.StateInfoByRoot
   alias Types.BeaconState
   alias Types.SignedBeaconBlock
   alias Types.StateInfo
