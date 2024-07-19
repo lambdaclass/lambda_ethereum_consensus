@@ -120,6 +120,12 @@ defmodule LambdaEthereumConsensus.Metrics do
     end
   end
 
+  def span_operation(handler, transition, operation, f) do
+    :telemetry.span([:fork_choice, :latency], %{}, fn ->
+      {f.(), %{handler: handler, transition: transition, operation: operation}}
+    end)
+  end
+
   defp map_color(:transitioned), do: "blue"
   defp map_color(:pending), do: "green"
   defp map_color(:download_blobs), do: "yellow"
