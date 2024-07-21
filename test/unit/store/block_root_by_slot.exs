@@ -13,10 +13,6 @@ defmodule Unit.Store.StateDb.BlockRootBySlotTest do
   test "Get on a non-existent slot" do
     slot = Random.slot()
     assert :not_found == BlockRootBySlot.get(slot)
-
-
-
-
   end
 
   @tag :tmp_dir
@@ -56,11 +52,12 @@ defmodule Unit.Store.StateDb.BlockRootBySlotTest do
     assert :not_found == BlockRootBySlot.get(slot2)
   end
 
-    @tag :tmp_dir
+  @tag :tmp_dir
   test "Get the root of the last slot" do
-      [root1, root2, root3] =
+    [root1, root2, root3] =
       [Random.root(), Random.root(), Random.root()]
-      [slot1, slot2, slot3] =
+
+    [slot1, slot2, slot3] =
       [Random.slot(), Random.slot(), Random.slot()]
       |> Enum.sort()
 
@@ -69,10 +66,9 @@ defmodule Unit.Store.StateDb.BlockRootBySlotTest do
     assert :ok == BlockRootBySlot.put(slot3, root3)
 
     # Check that the keys are present
-  assert {:ok, root1} == BlockRootBySlot.get(slot1)
-  assert {:ok, root2} == BlockRootBySlot.get(slot2)
-  assert {:ok, root3} == BlockRootBySlot.get(slot3)
-
+    assert {:ok, root1} == BlockRootBySlot.get(slot1)
+    assert {:ok, root2} == BlockRootBySlot.get(slot2)
+    assert {:ok, root3} == BlockRootBySlot.get(slot3)
 
     assert {:ok, root2} == BlockRootBySlot.get_last_slot_block_root(slot3)
   end
