@@ -28,8 +28,8 @@ defmodule LambdaEthereumConsensus.Store.StateDb.BlockRootBySlot do
   @spec decode_value(Types.root()) :: {:ok, Types.root()} | {:error, binary()}
   def decode_value(<<_::256>> = root), do: {:ok, root}
 
-  @spec get_last_block_root() :: {:ok, Types.root()} | {:error, binary()}
-  def get_last_block_root() do
+  @spec get_last_slot_block_root() :: {:ok, Types.root()} | :not_found
+  def get_last_slot_block_root() do
     with {:ok, last_key} <- do_encode_key(0xFFFFFFFFFFFFFFFF),
          {:ok, it} <- Db.iterate(),
          {:ok, _key, _value} <- Exleveldb.iterator_move(it, last_key),

@@ -41,7 +41,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
   @spec get_latest_state() ::
           {:ok, StateInfo.t()} | {:error, String.t()} | :not_found
   def get_latest_state() do
-    with {:ok, last_block_root} <- BlockRootBySlot.get_last_block_root(),
+    with {:ok, last_block_root} <- BlockRootBySlot.get_last_slot_block_root(),
          {:ok, last_state_root} <- StateRootByBlockRoot.get(last_block_root) do
       StateInfoByRoot.get(last_state_root)
     end
