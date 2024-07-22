@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb.BlockRootBySlot do
 
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.KvSchema
-
+  require Logger
   use KvSchema, prefix: "state_by_slot"
 
   @impl KvSchema
@@ -30,14 +30,34 @@ defmodule LambdaEthereumConsensus.Store.StateDb.BlockRootBySlot do
 
   @spec get_last_slot_block_root() :: {:ok, Types.root()} | :not_found
   def get_last_slot_block_root() do
-    with {:ok, last_key} <- do_encode_key(0xFFFFFFFFFFFFFFFF),
+    with {:ok, first_slot} <- get_first_slot() do
+      fold_keys(
+        first_slot,
+        nil,
+        fn slot, _acc ->
+          case get(slot) do
+            {:ok, block_root} ->
+              block_root
+
+            other ->
+              Logger.error(
+                "[Block pruning] Failed to find last slot root #{inspect(slot)}. Reason: #{inspect(other)}"
+              )
+          end
+        end,
+        direction: :next
+      )
+    end
+  end
+
+  @spec get_first_slot() :: {:ok, Types.slot()} | :not_found
+  defp get_first_slot() do
+    with {:ok, first_key} <- do_encode_key(0),
          {:ok, it} <- Db.iterate(),
-         {:ok, _key, _value} <- Exleveldb.iterator_move(it, last_key),
-         {:ok, @prefix <> _slot, root} <- Exleveldb.iterator_move(it, :prev),
+         {:ok, key, _value} <- Exleveldb.iterator_move(it, first_key),
          :ok <- Exleveldb.iterator_close(it) do
-      {:ok, root}
+      key |> do_decode_key()
     else
-      {:ok, _key, _value} -> :not_found
       {:error, :invalid_iterator} -> :not_found
     end
   end

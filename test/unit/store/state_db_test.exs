@@ -55,4 +55,28 @@ defmodule Unit.Store.StateDb do
     assert {:ok, state} == StateDb.get_state_by_state_root(state.root)
     assert {:ok, state} == StateDb.get_state_by_slot(state.beacon_state.slot)
   end
+
+  @tag :tmp_dir
+  test "Basic saving of two states" do
+    state1 = get_state_info()
+    beacon_state2 = state1.beacon_state |> Map.put(:slot, state1.beacon_state.slot + 1)
+
+    state2 =
+      state1
+      |> Map.put(:beacon_state, beacon_state2)
+      |> Map.put(:block_root, Random.root())
+      |> Map.put(:root, Random.root())
+
+    assert :ok == StateDb.store_state_info(state1)
+    assert :ok == StateDb.store_state_info(state2)
+
+    assert {:ok, state1} == StateDb.get_state_by_block_root(state1.block_root)
+    assert {:ok, state1} == StateDb.get_state_by_state_root(state1.root)
+    # assert {:ok, state1} == StateDb.get_state_by_slot(state1.beacon_state.slot)
+
+    {:ok, result_state} = StateDb.get_state_by_state_root(state2.root)
+    assert :unchanged == LambdaEthereumConsensus.Utils.Diff.diff(result_state, state2)
+    # assert {:ok, state2} == StateDb.get_state_by_block_root(state2.block_root)
+    # assert {:ok, state2} == StateDb.get_state_by_slot(state2.beacon_state.slot)
+  end
 end
