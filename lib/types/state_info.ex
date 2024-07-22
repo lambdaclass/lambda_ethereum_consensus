@@ -5,6 +5,7 @@ defmodule Types.StateInfo do
   - root: The hash tree root of the state, so that we don't recalculate it before saving.
   - encoded: The ssz encoded version of the state. It's common that we save a
     state after
+  Warning: Do not modify this manually. If you do, you may need to re-encode the beacon state using `from_beacon_state`.
   """
   alias Types.BeaconState
 

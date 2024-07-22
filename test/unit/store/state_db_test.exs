@@ -27,6 +27,31 @@ defmodule Unit.Store.StateDb do
     state_info
   end
 
+  # Returns a new `state_info` with:
+  # - `slot` incremented by 1.
+  # - A random `block_root`.
+  # - A random `state_root`.
+  defp modify_state_info(state_info) do
+    new_beacon_state = state_info.beacon_state |> Map.put(:slot, state_info.beacon_state.slot + 1)
+    {:ok, new_state_info} = StateInfo.from_beacon_state(new_beacon_state)
+
+    new_state_info
+    |> Map.put(:block_root, Random.root())
+    |> Map.put(:root, Random.root())
+  end
+
+  defp assert_state_is_present(state) do
+    assert {:ok, state} == StateDb.get_state_by_block_root(state.block_root)
+    assert {:ok, state} == StateDb.get_state_by_state_root(state.root)
+    assert {:ok, state} == StateDb.get_state_by_slot(state.beacon_state.slot)
+  end
+
+  defp assert_state_not_found(state) do
+    assert :not_found == StateDb.get_state_by_block_root(state.block_root)
+    assert :not_found == StateDb.get_state_by_state_root(state.root)
+    assert :not_found == StateDb.get_state_by_slot(state.beacon_state.slot)
+  end
+
   @tag :tmp_dir
   test "Get on a non-existent block root" do
     root = Random.root()
@@ -51,32 +76,60 @@ defmodule Unit.Store.StateDb do
 
     assert :ok == StateDb.store_state_info(state)
 
-    assert {:ok, state} == StateDb.get_state_by_block_root(state.block_root)
-    assert {:ok, state} == StateDb.get_state_by_state_root(state.root)
-    assert {:ok, state} == StateDb.get_state_by_slot(state.beacon_state.slot)
+    assert_state_is_present(state)
   end
 
   @tag :tmp_dir
   test "Basic saving of two states" do
     state1 = get_state_info()
-    beacon_state2 = state1.beacon_state |> Map.put(:slot, state1.beacon_state.slot + 1)
-
-    state2 =
-      state1
-      |> Map.put(:beacon_state, beacon_state2)
-      |> Map.put(:block_root, Random.root())
-      |> Map.put(:root, Random.root())
+    state2 = modify_state_info(state1)
 
     assert :ok == StateDb.store_state_info(state1)
     assert :ok == StateDb.store_state_info(state2)
 
-    assert {:ok, state1} == StateDb.get_state_by_block_root(state1.block_root)
-    assert {:ok, state1} == StateDb.get_state_by_state_root(state1.root)
-    # assert {:ok, state1} == StateDb.get_state_by_slot(state1.beacon_state.slot)
+    assert_state_is_present(state1)
+    assert_state_is_present(state2)
+  end
 
-    {:ok, result_state} = StateDb.get_state_by_state_root(state2.root)
-    assert :unchanged == LambdaEthereumConsensus.Utils.Diff.diff(result_state, state2)
-    # assert {:ok, state2} == StateDb.get_state_by_block_root(state2.block_root)
-    # assert {:ok, state2} == StateDb.get_state_by_slot(state2.beacon_state.slot)
+  @tag :tmp_dir
+  test "Pruning from the first slot" do
+    state1 = get_state_info()
+    state2 = modify_state_info(state1)
+    state3 = modify_state_info(state2)
+
+    assert :ok == StateDb.store_state_info(state1)
+    assert :ok == StateDb.store_state_info(state2)
+    assert :ok == StateDb.store_state_info(state3)
+
+    assert_state_is_present(state1)
+    assert_state_is_present(state2)
+    assert_state_is_present(state3)
+
+    assert :ok == StateDb.prune_states_older_than(state1.beacon_state.slot)
+
+    assert_state_is_present(state1)
+    assert_state_is_present(state2)
+    assert_state_is_present(state3)
+  end
+
+  @tag :tmp_dir
+  test "Pruning from the last slot" do
+    state1 = get_state_info()
+    state2 = modify_state_info(state1)
+    state3 = modify_state_info(state2)
+
+    assert :ok == StateDb.store_state_info(state1)
+    assert :ok == StateDb.store_state_info(state2)
+    assert :ok == StateDb.store_state_info(state3)
+
+    assert_state_is_present(state1)
+    assert_state_is_present(state2)
+    assert_state_is_present(state3)
+
+    assert :ok == StateDb.prune_states_older_than(state3.beacon_state.slot)
+
+    assert_state_not_found(state1)
+    assert_state_not_found(state2)
+    assert_state_is_present(state3)
   end
 end
