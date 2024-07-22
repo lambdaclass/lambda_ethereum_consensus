@@ -1,3 +1,5 @@
+# credo:disable-for-this-file Credo.Check.Refactor.LongQuoteBlocks
+# TODO #1236: fix the credo check.
 defmodule LambdaEthereumConsensus.Store.KvSchema do
   @moduledoc """
   Utilities to define modules that auto-generate get, put and delete methods, according
@@ -79,6 +81,95 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
           end
         end)
       end
+
+      @doc """
+      Returns all keys for a schema. Will be an empty list if no keys are found for the schema
+      in the db.
+      """
+      def all_keys() do
+        db_span("all_keys", fn -> stream_all_keys() |> Enum.to_list() end)
+      end
+
+      @doc """
+      Stream all keys for the kv schema, starting from the first one and going in the
+      :next direction.
+      """
+      def stream_all_keys() do
+        case first_key() do
+          {:ok, key} -> stream_keys(key, :next)
+          :not_found -> []
+          other -> other
+        end
+      end
+
+      @doc """
+      Returns the first key of the schema, or :not_found if no elements of the schema are present
+      in the db.
+      """
+      @spec first_key() :: {:ok, key()} | :not_found
+      def first_key() do
+        {:ok, it} = Db.iterate_keys()
+
+        case Exleveldb.iterator_move(it, @prefix) do
+          {:ok, @prefix <> _k = full_key} -> do_decode_key(full_key)
+          {:ok, _other} -> :not_found
+          {:error, :invalid_iterator} -> :not_found
+        end
+      end
+
+      @doc """
+      Returns an elixir Stream for the KvSchema, that can be used with the Stream or Enum libraries
+      for general purpose iteration.
+      """
+      def stream_keys(start_key, direction) do
+        Stream.resource(
+          fn -> key_iterator(start_key) end,
+          &next_key(&1, direction),
+          &close/1
+        )
+      end
+
+      # NOTE: Exleveldb iterator_move returns the key when found. If it doesn't find the exact key,
+      # it returns the first available key that's lexicographically higher than the one  requested.
+      # That's why we match against {:ok, some_key} as a failure to initialize an iterator. In the
+      # case where no higher key is available, iterator_move returns {:error, :invalid_iterator}.
+      defp key_iterator(key) do
+        with {:ok, it} <- Db.iterate_keys(),
+             {:ok, encoded_start} <- do_encode_key(key),
+             {:ok, ^encoded_start} <- Exleveldb.iterator_move(it, encoded_start) do
+          {:first, it, key}
+        else
+          # The iterator moved for the first time to a place where it wasn't expected.
+          {:ok, some_key} ->
+            {:error,
+             "Failed to start iterator for table #{@prefix}. The obtained key is: #{some_key}"}
+
+          other ->
+            other
+        end
+      end
+
+      defp next_key({:next, it}, direction), do: move_iterator(it, direction)
+
+      # The first iteration is just returning the first key.
+      defp next_key({:first, it, key}, direction), do: {[key], {:next, it}}
+
+      defp move_iterator(it, direction) do
+        case Exleveldb.iterator_move(it, direction) do
+          {:ok, @prefix <> _ = k} ->
+            {:ok, decoded_key} = do_decode_key(k)
+            {[decoded_key], {:next, it}}
+
+          _ ->
+            {:halt, it}
+        end
+      end
+
+      # For the case when the iterator is never found, for any reason.
+      defp next_key({:error, _}, _direction), do: nil
+
+      defp close(nil), do: :ok
+      defp close(it), do: :ok == Exleveldb.iterator_close(it)
 
       defp iterate(it, acc, f, direction, _first_key, false) do
         iterate(it, acc, f, direction)
