@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb.BlockRootBySlot do
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.KvSchema
   require Logger
-  use KvSchema, prefix: "state_by_slot"
+  use KvSchema, prefix: "statedb_block_root_by_slot"
 
   @impl KvSchema
   @spec encode_key(Types.slot()) :: {:ok, binary()} | {:error, binary()}

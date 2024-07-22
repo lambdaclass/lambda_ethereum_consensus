@@ -24,7 +24,7 @@ defmodule Unit.Store.StateRootByBlockRoot do
   end
 
   @tag :tmp_dir
-  test "Basic saving two state roots" do
+  test "Basic saving of two state roots" do
     state_root1 = Random.root()
     block_root1 = Random.root()
     state_root2 = Random.root()

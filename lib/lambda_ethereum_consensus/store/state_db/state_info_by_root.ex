@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb.StateInfoByRoot do
 
   alias LambdaEthereumConsensus.Store.KvSchema
   alias Types.StateInfo
-  use KvSchema, prefix: "state_root_by_block_root"
+  use KvSchema, prefix: "statedb_state_by_root"
 
   @impl KvSchema
   @spec encode_key(Types.root()) :: {:ok, binary()}
