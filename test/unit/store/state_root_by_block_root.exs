@@ -10,13 +10,13 @@ defmodule Unit.Store.StateRootByBlockRoot do
   end
 
   @tag :tmp_dir
-  test "Get on a non-existent slot" do
+  test "Get on a non-existent root" do
     root = Random.root()
     assert :not_found == StateRootByBlockRoot.get(root)
   end
 
   @tag :tmp_dir
-  test "Basic saving a block root" do
+  test "Basic saving a state root" do
     block_root = Random.root()
     state_root = Random.root()
     assert :ok == StateRootByBlockRoot.put(block_root, state_root)
@@ -24,7 +24,7 @@ defmodule Unit.Store.StateRootByBlockRoot do
   end
 
   @tag :tmp_dir
-  test "Basic saving two block roots" do
+  test "Basic saving two state roots" do
     state_root1 = Random.root()
     block_root1 = Random.root()
     state_root2 = Random.root()
@@ -38,7 +38,7 @@ defmodule Unit.Store.StateRootByBlockRoot do
   end
 
   @tag :tmp_dir
-  test "Delete one root" do
+  test "Delete one state root" do
     state_root1 = Random.root()
     block_root1 = Random.root()
     state_root2 = Random.root()
