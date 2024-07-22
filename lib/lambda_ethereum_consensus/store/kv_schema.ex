@@ -98,7 +98,6 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
         case first_key() do
           {:ok, key} -> stream_keys(key, :next)
           :not_found -> []
-          other -> other
         end
       end
 
