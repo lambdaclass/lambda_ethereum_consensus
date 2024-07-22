@@ -1,8 +1,8 @@
 defmodule Unit.Store.StateInfoByRoot do
   alias Fixtures.Random
   alias LambdaEthereumConsensus.Store.StateDb.StateInfoByRoot
-  alias Types.StateInfo
   alias Types.BeaconState
+  alias Types.StateInfo
 
   use ExUnit.Case
 
