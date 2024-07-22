@@ -2,8 +2,6 @@ defmodule LambdaEthereumConsensus.Store.StateDb.BlockRootBySlot do
   @moduledoc """
   KvSchema that stores block roots indexed by slots.
   """
-
-  alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.KvSchema
   require Logger
   use KvSchema, prefix: "statedb_block_root_by_slot"
@@ -30,7 +28,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb.BlockRootBySlot do
 
   @spec get_last_slot_block_root() :: {:ok, Types.root()} | :not_found
   def get_last_slot_block_root() do
-    with {:ok, first_slot} <- get_first_slot() do
+    with {:ok, first_slot} <- first_key() do
       fold_keys(
         first_slot,
         nil,
@@ -47,18 +45,6 @@ defmodule LambdaEthereumConsensus.Store.StateDb.BlockRootBySlot do
         end,
         direction: :next
       )
-    end
-  end
-
-  @spec get_first_slot() :: {:ok, Types.slot()} | :not_found
-  defp get_first_slot() do
-    with {:ok, first_key} <- do_encode_key(0),
-         {:ok, it} <- Db.iterate(),
-         {:ok, key, _value} <- Exleveldb.iterator_move(it, first_key),
-         :ok <- Exleveldb.iterator_close(it) do
-      key |> do_decode_key()
-    else
-      {:error, :invalid_iterator} -> :not_found
     end
   end
 end
