@@ -1,6 +1,6 @@
 defmodule LambdaEthereumConsensus.Store.StateDb do
   @moduledoc """
-  This module offers an interface to manage Beacon node state storage.
+  This module offers an interface to manage beacon node state storage.
 
   The module coordinates the interaction with the following key-value stores:
     * `StateInfoByRoot` - Maps state roots to states.
