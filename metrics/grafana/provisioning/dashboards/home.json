@@ -29,136 +29,108 @@
   "liveNow": false,
   "panels": [
     {
+      "type": "piechart",
+      "title": "Libp2pPort Handlers Count",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
       "datasource": {
         "uid": "PBFA97CFB590B2093",
         "type": "prometheus"
       },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "id": 39,
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "mean"
-          ],
-          "fields": ""
-        },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "namePlacement": "auto",
-        "showUnfilled": true,
-        "sizing": "auto",
-        "minVizWidth": 8,
-        "minVizHeight": 16,
-        "maxVizHeight": 300
-      },
-      "pluginVersion": "11.0.0",
+      "id": 31,
       "targets": [
         {
+          "refId": "A",
+          "expr": "libp2pport_handler_stop_count",
+          "range": true,
+          "instant": false,
           "datasource": {
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg by(module) (libp2pport_handler_stop_duration)",
+          "legendFormat": "{{module}} - {{action}}",
+          "useBackend": false,
+          "disableTextWrap": false,
+          "fullMetaSearch": false,
+          "includeNullMetadata": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "pieType": "pie",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none",
+          "maxHeight": 600
+        },
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "displayLabels": []
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "Libp2pPort Handlers Time",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "uid": "PBFA97CFB590B2093",
+        "type": "prometheus"
+      },
+      "id": 30,
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "libp2pport_handler_stop_duration",
+          "range": true,
+          "instant": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "builder",
+          "legendFormat": "{{module}} - {{action}}",
+          "useBackend": false,
+          "disableTextWrap": false,
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{module}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
+          "exemplar": false
         }
       ],
-      "title": "Mean Time Per Libp2pport Handler",
-      "type": "bargauge"
-    },
-    {
-      "type": "piechart",
-      "title": "Responses handle",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "uid": "PBFA97CFB590B2093",
-        "type": "prometheus"
-      },
-      "id": 38,
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "libp2pport_handler_stop_count{module=\"response_handler\"}",
-          "range": true,
-          "instant": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "builder",
-          "legendFormat": "{{action}}",
-          "useBackend": false,
-          "disableTextWrap": false,
-          "fullMetaSearch": false,
-          "includeNullMetadata": true
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "pieType": "pie",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none",
-          "maxHeight": 600
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "values": []
-        },
-        "displayLabels": [
-          "value"
-        ]
-      },
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -171,44 +143,11 @@
           "color": {
             "mode": "palette-classic"
           },
-          "mappings": []
+          "mappings": [],
+          "unit": "ms"
         },
         "overrides": []
       },
-      "description": ""
-    },
-    {
-      "datasource": {
-        "uid": "PBFA97CFB590B2093",
-        "type": "prometheus"
-      },
-      "type": "bargauge",
-      "title": "Mean Time Per Response Handler",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
-      "id": 37,
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "refId": "A",
-          "expr": "libp2pport_handler_stop_duration{module=\"response_handler\"}",
-          "range": true,
-          "instant": false,
-          "editorMode": "builder",
-          "legendFormat": "{{action}}",
-          "useBackend": false,
-          "disableTextWrap": false,
-          "fullMetaSearch": false,
-          "includeNullMetadata": true
-        }
-      ],
       "options": {
         "reduceOptions": {
           "values": false,
@@ -217,338 +156,20 @@
           ],
           "fields": ""
         },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "namePlacement": "auto",
-        "showUnfilled": true,
-        "sizing": "auto",
-        "minVizWidth": 8,
-        "minVizHeight": 16,
-        "maxVizHeight": 300
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "green"
-              },
-              {
-                "value": 80,
-                "color": "red"
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "pluginVersion": "11.0.0"
-    },
-    {
-      "type": "piechart",
-      "title": "Gossip Messages",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "uid": "PBFA97CFB590B2093",
-        "type": "prometheus"
-      },
-      "id": 36,
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "libp2pport_handler_stop_count{module=\"gossip_handler\"}",
-          "range": true,
-          "instant": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "builder",
-          "legendFormat": "{{action}}",
-          "useBackend": false,
-          "disableTextWrap": false,
-          "fullMetaSearch": false,
-          "includeNullMetadata": true
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "pieType": "pie",
+        "pieType": "donut",
         "tooltip": {
           "mode": "single",
           "sort": "none",
           "maxHeight": 600
         },
         "legend": {
-          "showLegend": true,
+          "showLegend": false,
           "displayMode": "list",
           "placement": "bottom",
           "values": []
-        },
-        "displayLabels": [
-          "value"
-        ]
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": []
-        },
-        "overrides": []
+        }
       },
       "description": ""
-    },
-    {
-      "datasource": {
-        "uid": "PBFA97CFB590B2093",
-        "type": "prometheus"
-      },
-      "type": "bargauge",
-      "title": "Mean Time Per Gossip Handler",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
-      "id": 35,
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "refId": "A",
-          "expr": "libp2pport_handler_stop_duration{module=\"gossip_handler\"}",
-          "range": true,
-          "instant": false,
-          "editorMode": "builder",
-          "legendFormat": "{{action}}",
-          "useBackend": false,
-          "disableTextWrap": false,
-          "fullMetaSearch": false,
-          "includeNullMetadata": true
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "mean"
-          ],
-          "fields": ""
-        },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "namePlacement": "auto",
-        "showUnfilled": true,
-        "sizing": "auto",
-        "minVizWidth": 8,
-        "minVizHeight": 16,
-        "maxVizHeight": 300
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "green"
-              },
-              {
-                "value": 80,
-                "color": "red"
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "pluginVersion": "11.0.0"
-    },
-    {
-      "type": "piechart",
-      "title": "Received Requests",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "uid": "PBFA97CFB590B2093",
-        "type": "prometheus"
-      },
-      "id": 34,
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "libp2pport_handler_stop_count{module=\"request_handler\"}",
-          "range": true,
-          "instant": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "builder",
-          "legendFormat": "{{action}}",
-          "useBackend": false,
-          "disableTextWrap": false,
-          "fullMetaSearch": false,
-          "includeNullMetadata": true
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "pieType": "pie",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none",
-          "maxHeight": 600
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "values": []
-        },
-        "displayLabels": [
-          "value"
-        ]
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "description": ""
-    },
-    {
-      "datasource": {
-        "uid": "PBFA97CFB590B2093",
-        "type": "prometheus"
-      },
-      "type": "bargauge",
-      "title": "Mean  Time Per Request Handler",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
-      "id": 33,
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "refId": "A",
-          "expr": "libp2pport_handler_stop_duration{module=\"request_handler\"}",
-          "range": true,
-          "instant": false,
-          "editorMode": "builder",
-          "legendFormat": "{{action}}",
-          "useBackend": false,
-          "disableTextWrap": false,
-          "fullMetaSearch": false,
-          "includeNullMetadata": true
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "mean"
-          ],
-          "fields": ""
-        },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "namePlacement": "auto",
-        "showUnfilled": true,
-        "sizing": "auto",
-        "minVizWidth": 8,
-        "minVizHeight": 16,
-        "maxVizHeight": 300
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "green"
-              },
-              {
-                "value": 80,
-                "color": "red"
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "pluginVersion": "11.0.0"
     },
     {
       "datasource": {
@@ -578,7 +199,7 @@
         "x": 0,
         "y": 0
       },
-      "id": 32,
+      "id": 29,
       "options": {
         "displayLabels": [],
         "legend": {
@@ -783,7 +404,7 @@
         "x": 0,
         "y": 12
       },
-      "id": 31,
+      "id": 28,
       "options": {
         "edges": {},
         "nodes": {}
@@ -1094,7 +715,7 @@
         "x": 0,
         "y": 20
       },
-      "id": 30,
+      "id": 27,
       "options": {
         "displayMode": "gradient",
         "minVizHeight": 10,
@@ -1690,209 +1311,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 43
-      },
-      "id": 27,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "fork_choice_recompute_head_stop_duration",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "ForkChoice RecomputeHead Duration",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 51
-      },
-      "id": 25,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "db_latency_stop_duration{module=\"fork_choice\", action=\"persist\"}",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "ForkChoice Persisting Store Duration",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
         "y": 59
       },
-      "id": 28,
+      "id": 26,
       "options": {
         "legend": {
           "calcs": [],
@@ -1992,7 +1413,7 @@
         "x": 0,
         "y": 67
       },
-      "id": 29,
+      "id": 25,
       "options": {
         "legend": {
           "calcs": [],
@@ -2026,106 +1447,6 @@
         }
       ],
       "title": "SubnetInfo Fetching Duration",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 75
-      },
-      "id": 26,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "db_latency_stop_duration{module=\"fork_choice\", action=\"fetch\"}",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "ForkChoice Fetching Store Duration",
       "type": "timeseries"
     },
     {
