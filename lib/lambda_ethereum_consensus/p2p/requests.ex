@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.P2p.Requests do
   response is available and then handles appropriately.
   """
 
-  alias LambdaEthereumConsensus.Metrics
   @type id :: binary
   @type handler :: (term() -> term())
   @type requests :: %{id => handler}
@@ -40,7 +39,7 @@ defmodule LambdaEthereumConsensus.P2p.Requests do
   def handle_response(requests, response, handler_id) do
     case Map.fetch(requests, handler_id) do
       {:ok, handler} ->
-        Metrics.handler_span("response_handler", handler_id, fn -> handler.(response) end)
+        handler.(response)
         {:ok, Map.delete(requests, handler_id)}
 
       :error ->

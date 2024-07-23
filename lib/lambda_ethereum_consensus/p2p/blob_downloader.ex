@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   require Logger
 
   alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias Types.BlobSidecar
@@ -38,7 +39,13 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
       |> ReqResp.encode_request()
 
     Libp2pPort.send_async_request(peer_id, @blobs_by_range_protocol_id, request, fn response ->
-      handle_blobs_by_range_response(response, peer_id, count, slot, retries, on_blobs)
+      Metrics.handler_span(
+        "response_handler",
+        "blob_sidecars_by_range",
+        fn ->
+          handle_blobs_by_range_response(response, peer_id, count, slot, retries, on_blobs)
+        end
+      )
     end)
   end
 
@@ -85,7 +92,11 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
     request = ReqResp.encode_request({identifiers, TypeAliases.blob_sidecars_by_root_request()})
 
     Libp2pPort.send_async_request(peer_id, @blobs_by_root_protocol_id, request, fn response ->
-      handle_blobs_by_root(response, peer_id, identifiers, retries, on_blobs)
+      Metrics.handler_span(
+        "response_handler",
+        "blob_sidecars_by_root",
+        fn -> handle_blobs_by_root(response, peer_id, identifiers, retries, on_blobs) end
+      )
     end)
   end
 
