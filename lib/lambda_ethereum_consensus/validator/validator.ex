@@ -7,6 +7,7 @@ defmodule LambdaEthereumConsensus.Validator do
   defstruct [
     :slot,
     :root,
+    :epoch,
     :duties,
     :validator,
     :payload_builder
@@ -41,6 +42,7 @@ defmodule LambdaEthereumConsensus.Validator do
   # just at the begining of every epoch, and then just update them as needed.
   @type state :: %__MODULE__{
           slot: Types.slot(),
+          epoch: Types.epoch(),
           root: Types.root(),
           duties: Duties.duties(),
           validator: validator(),
@@ -51,6 +53,7 @@ defmodule LambdaEthereumConsensus.Validator do
   def new({head_slot, head_root, {pubkey, privkey}}) do
     state = %__MODULE__{
       slot: head_slot,
+      epoch: Misc.compute_epoch_at_slot(head_slot),
       root: head_root,
       duties: Duties.empty_duties(),
       validator: %{
@@ -152,17 +155,8 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
 
-  defp update_state(%{slot: slot, root: _other_root} = state, slot, head_root) do
-    # TODO: this log is appearing for every block
-    # Logger.warning("[Validator] Block came late", slot: slot, root: head_root)
-
-    # TODO: rollback stale data instead of the whole cache
-    epoch = Misc.compute_epoch_at_slot(slot + 1)
-    recompute_duties(state, 0, epoch, slot, head_root)
-  end
-
-  defp update_state(%{slot: last_slot} = state, slot, head_root) do
-    last_epoch = Misc.compute_epoch_at_slot(last_slot + 1)
+  # Epoch as part of the state now avoids recomputing the duties at every block
+  defp update_state(%{epoch: last_epoch} = state, slot, head_root) do
     epoch = Misc.compute_epoch_at_slot(slot + 1)
 
     if last_epoch == epoch do
@@ -187,7 +181,7 @@ defmodule LambdaEthereumConsensus.Validator do
     move_subnets(state.duties, new_duties)
     Duties.log_duties(new_duties, state.validator.index)
 
-    %{state | slot: slot, root: head_root, duties: new_duties}
+    %{state | slot: slot, root: head_root, duties: new_duties, epoch: epoch}
   end
 
   @spec fetch_target_state(Types.epoch(), Types.root()) :: Types.BeaconState.t()
@@ -254,8 +248,9 @@ defmodule LambdaEthereumConsensus.Validator do
     log_md = [slot: attestation.data.slot, attestation: attestation, subnet_id: subnet_id]
     log_debug(validator.index, "publishing attestation", log_md)
 
-    Gossip.Attestation.publish(subnet_id, attestation)
-    |> log_info_result(validator.index, "published attestation", log_md)
+    # FIXME: Uncommenting this line generates the invalid signature errors upon proposals
+    # Gossip.Attestation.publish(subnet_id, attestation)
+    # |> log_info_result(validator.index, "published attestation", log_md)
 
     if current_duty.should_aggregate? do
       log_debug(validator.index, "collecting for future aggregation", log_md)
@@ -400,16 +395,16 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp start_payload_builder(%{validator: validator} = state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
-    log_debug(validator.index, "starting building payload", slot: proposed_slot)
+    log_debug(validator.index, "starting building payload for slot #{proposed_slot}")
 
     case BlockBuilder.start_building_payload(proposed_slot, head_root) do
       {:ok, payload_id} ->
-        log_debug(validator.index, "payload built", slot: proposed_slot)
+        log_info(validator.index, "payload built for slot #{proposed_slot}")
 
         %{state | payload_builder: {proposed_slot, head_root, payload_id}}
 
       {:error, reason} ->
-        log_error(validator.index, "start building payload", reason, slot: proposed_slot)
+        log_error(validator.index, "start building payload for slot #{proposed_slot}", reason)
 
         %{state | payload_builder: nil}
     end
@@ -517,10 +512,10 @@ defmodule LambdaEthereumConsensus.Validator do
   defp log_result({:error, reason}, _level, index, message, metadata),
     do: log_error(index, message, reason, metadata)
 
-  defp log_info(index, message, metadata),
+  defp log_info(index, message, metadata \\ []),
     do: Logger.info("[Validator] #{index} #{message}", metadata)
 
-  defp log_debug(index, message, metadata),
+  defp log_debug(index, message, metadata \\ []),
     do: Logger.debug("[Validator] #{index} #{message}", metadata)
 
   defp log_error(index, message, reason, metadata \\ []),
