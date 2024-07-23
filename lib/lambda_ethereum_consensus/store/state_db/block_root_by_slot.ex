@@ -43,7 +43,8 @@ defmodule LambdaEthereumConsensus.Store.StateDb.BlockRootBySlot do
               )
           end
         end,
-        direction: :next
+        direction: :next,
+        include_first: true
       )
     end
   end

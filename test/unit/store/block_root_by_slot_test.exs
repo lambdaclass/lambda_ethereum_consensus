@@ -79,6 +79,16 @@ defmodule Unit.Store.BlockRootBySlotTest do
   end
 
   @tag :tmp_dir
+  test "Get last block root with one element" do
+    root = Random.root()
+    slot = Random.slot()
+
+    assert :ok == BlockRootBySlot.put(slot, root)
+
+    assert {:ok, root} == BlockRootBySlot.get_last_slot_block_root()
+  end
+
+  @tag :tmp_dir
   test "Attempt to save a non-root binary fails" do
     assert_raise(FunctionClauseError, fn -> BlockRootBySlot.put(1, "Hello") end)
   end

@@ -37,7 +37,6 @@ defmodule Unit.Store.StateDb do
 
     new_state_info
     |> Map.put(:block_root, Random.root())
-    |> Map.put(:root, Random.root())
   end
 
   defp assert_state_is_present(state) do
@@ -131,5 +130,32 @@ defmodule Unit.Store.StateDb do
     assert_state_not_found(state1)
     assert_state_not_found(state2)
     assert_state_is_present(state3)
+  end
+
+  @tag :tmp_dir
+  test "Get latest state when empty" do
+    assert :not_found == StateDb.get_latest_state()
+  end
+
+  @tag :tmp_dir
+  test "Get latest state with one state" do
+    state = get_state_info()
+
+    assert :ok == StateDb.store_state_info(state)
+
+    assert {:ok, state} == StateDb.get_latest_state()
+  end
+
+  @tag :tmp_dir
+  test "Get latest state with many states" do
+    state1 = get_state_info()
+    state2 = modify_state_info(state1)
+    state3 = modify_state_info(state2)
+
+    assert :ok == StateDb.store_state_info(state1)
+    assert :ok == StateDb.store_state_info(state2)
+    assert :ok == StateDb.store_state_info(state3)
+
+    assert {:ok, state3} == StateDb.get_latest_state()
   end
 end
