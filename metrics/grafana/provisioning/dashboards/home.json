@@ -29,37 +29,10 @@
   "liveNow": false,
   "panels": [
     {
-      "type": "piechart",
-      "title": "Libp2pPort Handlers Count",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
       "datasource": {
-        "uid": "PBFA97CFB590B2093",
-        "type": "prometheus"
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
       },
-      "id": 31,
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "libp2pport_handler_stop_count",
-          "range": true,
-          "instant": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "builder",
-          "legendFormat": "{{module}} - {{action}}",
-          "useBackend": false,
-          "disableTextWrap": false,
-          "fullMetaSearch": false,
-          "includeNullMetadata": true
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -76,6 +49,13 @@
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 31,
       "options": {
         "reduceOptions": {
           "values": false,
@@ -91,46 +71,43 @@
           "maxHeight": 600
         },
         "legend": {
-          "showLegend": false,
-          "displayMode": "list",
-          "placement": "bottom"
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
         },
         "displayLabels": []
-      }
-    },
-    {
-      "type": "piechart",
-      "title": "Libp2pPort Handlers Time",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
       },
-      "datasource": {
-        "uid": "PBFA97CFB590B2093",
-        "type": "prometheus"
-      },
-      "id": 30,
       "targets": [
         {
-          "refId": "A",
-          "expr": "libp2pport_handler_stop_duration",
-          "range": true,
-          "instant": false,
           "datasource": {
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "editorMode": "builder",
-          "legendFormat": "{{module}} - {{action}}",
-          "useBackend": false,
           "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "libp2pport_handler_stop_count",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "exemplar": false
+          "instant": false,
+          "legendFormat": "{{module}} - {{action}}",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
         }
       ],
+      "title": "Libp2pPort Handlers Count",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -148,6 +125,13 @@
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 30,
       "options": {
         "reduceOptions": {
           "values": false,
@@ -163,13 +147,36 @@
           "maxHeight": 600
         },
         "legend": {
-          "showLegend": false,
-          "displayMode": "list",
-          "placement": "bottom",
-          "values": []
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
         }
       },
-      "description": ""
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "exemplar": false,
+          "expr": "libp2pport_handler_stop_duration",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "{{module}} - {{action}}",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Libp2pPort Handlers Time",
+      "type": "piechart"
     },
     {
       "datasource": {
