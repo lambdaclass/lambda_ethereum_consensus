@@ -96,8 +96,8 @@ defmodule Unit.BeaconApiTest.V1 do
     beacon_state = Fixtures.Block.beacon_state()
 
     patch(
-      LambdaEthereumConsensus.Store.StateDb,
-      :get_state_by_state_root,
+      LambdaEthereumConsensus.Store.StateDb.StateInfoByRoot,
+      :get,
       {:ok, beacon_state}
     )
 
