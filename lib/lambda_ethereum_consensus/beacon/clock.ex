@@ -18,9 +18,6 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @spec get_current_time() :: Types.uint64()
-  def get_current_time(), do: GenServer.call(__MODULE__, :get_current_time)
-
   ##########################
   ### GenServer Callbacks
   ##########################
@@ -36,11 +33,6 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
        genesis_time: genesis_time,
        time: time
      }}
-  end
-
-  @impl true
-  def handle_call(:get_current_time, _from, %{time: time} = state) do
-    {:reply, time, state}
   end
 
   @impl true

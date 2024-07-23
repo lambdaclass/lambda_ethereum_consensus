@@ -255,7 +255,7 @@ defmodule LambdaEthereumConsensus.Validator do
     log_debug(validator.index, "publishing attestation", log_md)
 
     Gossip.Attestation.publish(subnet_id, attestation)
-    |> log_debug_result(validator.index, "published attestation", log_md)
+    |> log_info_result(validator.index, "published attestation", log_md)
 
     if current_duty.should_aggregate? do
       log_debug(validator.index, "collecting for future aggregation", log_md)

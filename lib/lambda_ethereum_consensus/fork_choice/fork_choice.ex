@@ -119,7 +119,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec get_current_chain_slot() :: Types.slot()
   def get_current_chain_slot() do
-    time = Clock.get_current_time()
+    time = :os.system_time(:second)
     genesis_time = StoreDb.fetch_genesis_time!()
     compute_current_slot(time, genesis_time)
   end

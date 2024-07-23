@@ -226,7 +226,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "elixir->"
     })
 
-    call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
+    cast_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
   end
 
   @doc """
@@ -243,7 +243,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     GenServer.cast(pid, {:new_subscriber, topic_name, module})
 
-    call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
+    cast_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
 
   @doc """
