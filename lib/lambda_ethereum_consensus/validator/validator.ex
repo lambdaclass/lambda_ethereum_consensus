@@ -1,10 +1,18 @@
 defmodule LambdaEthereumConsensus.Validator do
   @moduledoc """
-  GenServer that performs validator duties.
+  Module that performs validator duties.
   """
-  use GenServer
   require Logger
 
+  defstruct [
+    :slot,
+    :root,
+    :duties,
+    :validator,
+    :payload_builder
+  ]
+
+  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
@@ -23,28 +31,15 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @default_graffiti_message "Lambda, so gentle, so good"
 
-  ##########################
-  ### Public API
-  ##########################
+  @type validator :: %{
+          index: non_neg_integer() | nil,
+          pubkey: Bls.pubkey(),
+          privkey: Bls.privkey()
+        }
 
-  def start_link({_, _, {pubkey, _}} = opts) do
-    # TODO: if possible, use validator index instead of pubkey?
-    name =
-      Atom.to_string(__MODULE__) <> LambdaEthereumConsensus.Utils.format_shorten_binary(pubkey)
-
-    GenServer.start_link(__MODULE__, opts, name: String.to_atom(name))
-  end
-
-  def notify_new_block(slot, head_root),
-    do: GenServer.cast(__MODULE__, {:new_block, slot, head_root})
-
-  ##########################
-  ### GenServer Callbacks
-  ##########################
-
-  @type validator :: any()
-
-  @type state :: %{
+  # TODO: Slot and Root are redundant, we should also have the duties separated and calculated
+  # just at the begining of every epoch, and then just update them as needed.
+  @type state :: %__MODULE__{
           slot: Types.slot(),
           root: Types.root(),
           duties: Duties.duties(),
@@ -52,11 +47,9 @@ defmodule LambdaEthereumConsensus.Validator do
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
 
-  @impl true
-  @spec init({Types.slot(), Types.root(), {Bls.pubkey(), Bls.privkey()}}) ::
-          {:ok, state, {:continue, any}}
-  def init({head_slot, head_root, {pubkey, privkey}}) do
-    state = %{
+  @spec new({Types.slot(), Types.root(), {Bls.pubkey(), Bls.privkey()}}) :: state
+  def new({head_slot, head_root, {pubkey, privkey}}) do
+    state = %__MODULE__{
       slot: head_slot,
       root: head_root,
       duties: Duties.empty_duties(),
@@ -68,19 +61,16 @@ defmodule LambdaEthereumConsensus.Validator do
       payload_builder: nil
     }
 
-    {:ok, state, {:continue, nil}}
-  end
-
-  @impl true
-  @spec handle_continue(any(), state) :: {:noreply, state}
-  def handle_continue(_, %{slot: slot, root: root} = state) do
-    case try_setup_validator(state, slot, root) do
+    case try_setup_validator(state, head_slot, head_root) do
       nil ->
+        # TODO: Previously this was handled by the validator continously trying to setup itself,
+        # but now that they are processed syncronously, we should handle this case different.
+        # Right now it's just omitted and logged.
         Logger.error("[Validator] Public key not found in the validator set")
-        {:noreply, state}
+        state
 
       new_state ->
-        {:noreply, new_state}
+        new_state
     end
   end
 
@@ -94,7 +84,7 @@ defmodule LambdaEthereumConsensus.Validator do
         nil
 
       validator_index ->
-        Logger.info("[Validator] Setup for validator number #{validator_index} complete")
+        log_info(validator_index, "setup validator", slot: slot, root: root)
         validator = %{state.validator | index: validator_index}
         duties = Duties.maybe_update_duties(state.duties, beacon, epoch, validator)
         join_subnets_for_duties(duties)
@@ -103,33 +93,19 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec handle_cast(any, state) :: {:noreply, state}
+  @spec handle_new_block(Types.slot(), Types.root(), state) :: state
+  def handle_new_block(slot, head_root, %{validator: %{index: nil}} = state) do
+    log_error("-1", "setup validator", "index not present handle block",
+      slot: slot,
+      root: head_root
+    )
 
-  @impl true
-  def handle_cast(_, %{validator: nil} = state), do: {:noreply, state}
-
-  # If we couldn't find the validator before, we just try again
-  def handle_cast({:new_block, slot, head_root} = msg, %{validator: %{index: nil}} = state) do
-    case try_setup_validator(state, slot, head_root) do
-      nil -> {:noreply, state}
-      new_state -> handle_cast(msg, new_state)
-    end
+    state
   end
 
-  def handle_cast({:new_block, slot, head_root}, state),
-    do: {:noreply, handle_new_block(slot, head_root, state)}
+  def handle_new_block(slot, head_root, state) do
+    log_debug(state.validator.index, "recieved new block", slot: slot, root: head_root)
 
-  def handle_cast({:on_tick, _}, %{validator: %{index: nil}} = state), do: {:noreply, state}
-
-  def handle_cast({:on_tick, logical_time}, state),
-    do: {:noreply, handle_tick(logical_time, state)}
-
-  ##########################
-  ### Private Functions
-  ##########################
-
-  @spec handle_new_block(Types.slot(), Types.root(), state) :: state
-  defp handle_new_block(slot, head_root, state) do
     # TODO: this doesn't take into account reorgs
     state
     |> update_state(slot, head_root)
@@ -137,7 +113,14 @@ defmodule LambdaEthereumConsensus.Validator do
     |> maybe_build_payload(slot + 1)
   end
 
-  defp handle_tick({slot, :first_third}, state) do
+  @spec handle_tick(Clock.logical_time(), state) :: state
+  def handle_tick(_logical_time, %{validator: %{index: nil}} = state) do
+    log_error("-1", "setup validator", "index not present for handle tick")
+    state
+  end
+
+  def handle_tick({slot, :first_third}, state) do
+    log_debug(state.validator.index, "started first third", slot: slot)
     # Here we may:
     # 1. propose our blocks
     # 2. (TODO) start collecting attestations for aggregation
@@ -145,7 +128,8 @@ defmodule LambdaEthereumConsensus.Validator do
     |> update_state(slot, state.root)
   end
 
-  defp handle_tick({slot, :second_third}, state) do
+  def handle_tick({slot, :second_third}, state) do
+    log_debug(state.validator.index, "started second third", slot: slot)
     # Here we may:
     # 1. send our attestation for an empty slot
     # 2. start building a payload
@@ -154,10 +138,15 @@ defmodule LambdaEthereumConsensus.Validator do
     |> maybe_build_payload(slot + 1)
   end
 
-  defp handle_tick({slot, :last_third}, state) do
+  def handle_tick({slot, :last_third}, state) do
+    log_debug(state.validator.index, "started last third", slot: slot)
     # Here we may publish our attestation aggregate
     maybe_publish_aggregate(state, slot)
   end
+
+  ##########################
+  ### Private Functions
+  ##########################
 
   @spec update_state(state, Types.slot(), Types.root()) :: state
 
@@ -256,16 +245,23 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec attest(state, Duties.attester_duty()) :: :ok
-  defp attest(state, current_duty) do
+  defp attest(%{validator: validator} = state, current_duty) do
     subnet_id = current_duty.subnet_id
+    log_debug(validator.index, "attesting", slot: current_duty.slot, subnet_id: subnet_id)
+
     attestation = produce_attestation(current_duty, state.root, state.validator.privkey)
 
-    Logger.info("[Validator] Attesting in slot #{attestation.data.slot} on subnet #{subnet_id}")
+    log_md = [slot: attestation.data.slot, attestation: attestation, subnet_id: subnet_id]
+    log_debug(validator.index, "publishing attestation", log_md)
+
     Gossip.Attestation.publish(subnet_id, attestation)
+    |> log_debug_result(validator.index, "published attestation", log_md)
 
     if current_duty.should_aggregate? do
-      Logger.info("[Validator] Collecting messages for future aggregation...")
+      log_debug(validator.index, "collecting for future aggregation", log_md)
+
       Gossip.Attestation.collect(subnet_id, attestation)
+      |> log_debug_result(validator.index, "collected attestation", log_md)
     end
   end
 
@@ -288,14 +284,17 @@ defmodule LambdaEthereumConsensus.Validator do
   defp publish_aggregate(duty, validator) do
     case Gossip.Attestation.stop_collecting(duty.subnet_id) do
       {:ok, attestations} ->
-        Logger.info("[Validator] Publishing aggregate of slot #{duty.slot}")
+        log_md = [slot: duty.slot, attestations: attestations]
+        log_debug(validator.index, "publishing aggregate", log_md)
 
         aggregate_attestations(attestations)
         |> append_proof(duty.selection_proof, validator)
         |> append_signature(duty.signing_domain, validator)
         |> Gossip.Attestation.publish_aggregate()
+        |> log_info_result(validator.index, "published aggregate", log_md)
 
-      _ ->
+      {:error, reason} ->
+        log_error(validator.index, "stop collecting attestations", reason)
         :ok
     end
   end
@@ -378,7 +377,7 @@ defmodule LambdaEthereumConsensus.Validator do
     BlockStates.get_state_info!(parent_root).beacon_state |> go_to_slot(slot)
   end
 
-  @spec fetch_validator_index(Types.BeaconState.t(), %{index: nil, pubkey: Bls.pubkey()}) ::
+  @spec fetch_validator_index(Types.BeaconState.t(), validator()) ::
           non_neg_integer() | nil
   defp fetch_validator_index(beacon, %{index: nil, pubkey: pk}) do
     Enum.find_index(beacon.validators, &(&1.pubkey == pk))
@@ -399,18 +398,18 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp start_payload_builder(%{payload_builder: {slot, root, _}} = state, slot, root), do: state
 
-  defp start_payload_builder(state, proposed_slot, head_root) do
+  defp start_payload_builder(%{validator: validator} = state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
-    Logger.info("[Validator] Starting to build payload for slot #{proposed_slot}")
+    log_debug(validator.index, "starting building payload", slot: proposed_slot)
 
     case BlockBuilder.start_building_payload(proposed_slot, head_root) do
       {:ok, payload_id} ->
+        log_debug(validator.index, "payload built", slot: proposed_slot)
+
         %{state | payload_builder: {proposed_slot, head_root, payload_id}}
 
       {:error, reason} ->
-        Logger.error(
-          "[Validator] Failed to start building payload for slot #{proposed_slot}. Reason: #{reason}"
-        )
+        log_error(validator.index, "start building payload", reason, slot: proposed_slot)
 
         %{state | payload_builder: nil}
     end
@@ -432,6 +431,8 @@ defmodule LambdaEthereumConsensus.Validator do
          } = state,
          proposed_slot
        ) do
+    log_debug(validator.index, "building block", slot: proposed_slot)
+
     build_result =
       BlockBuilder.build_block(
         %BuildBlockRequest{
@@ -446,20 +447,19 @@ defmodule LambdaEthereumConsensus.Validator do
 
     case build_result do
       {:ok, {signed_block, blob_sidecars}} ->
-        publish_block(signed_block)
-        Enum.each(blob_sidecars, &publish_sidecar/1)
+        publish_block(validator.index, signed_block)
+        Enum.each(blob_sidecars, &publish_sidecar(validator.index, &1))
 
       {:error, reason} ->
-        Logger.error(
-          "[Validator] Failed to build block for slot #{proposed_slot}. Reason: #{reason}"
-        )
+        log_error(validator.index, "build block", reason, slot: proposed_slot)
     end
 
     %{state | payload_builder: nil}
   end
 
+  # TODO: at least in kurtosis there are blocks that are proposed without a payload apparently, must investigate.
   defp propose(%{payload_builder: nil} = state, _proposed_slot) do
-    Logger.error("[Validator] Tried to propose a block without an execution payload")
+    log_error(state.validator.index, "propose block", "lack of execution payload")
     state
   end
 
@@ -472,47 +472,57 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   # TODO: there's a lot of repeated code here. We should move this to a separate module
-  defp publish_block(signed_block) do
+  defp publish_block(validator_index, signed_block) do
     {:ok, ssz_encoded} = Ssz.to_ssz(signed_block)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
     fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
 
     proposed_slot = signed_block.message.slot
 
-    # TODO: we might want to send the block to ForkChoice
-    case Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg) do
-      :ok ->
-        Logger.info("[Validator] Proposed block for slot #{proposed_slot}")
+    log_debug(validator_index, "publishing block", slot: proposed_slot)
 
-      {:error, reason} ->
-        Logger.error(
-          "[Validator] Failed to publish block for slot #{proposed_slot}. Reason: #{reason}"
-        )
-    end
+    # TODO: we might want to send the block to ForkChoice
+    Libp2pPort.publish("/eth2/#{fork_context}/beacon_block/ssz_snappy", encoded_msg)
+    |> log_info_result(validator_index, "published block", slot: proposed_slot)
   end
 
-  defp publish_sidecar(%Types.BlobSidecar{index: index} = sidecar) do
+  defp publish_sidecar(validator_index, %Types.BlobSidecar{index: index} = sidecar) do
     {:ok, ssz_encoded} = Ssz.to_ssz(sidecar)
     {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
     fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
 
     subnet_id = compute_subnet_for_blob_sidecar(index)
 
-    case Libp2pPort.publish(
-           "/eth2/#{fork_context}/blob_sidecar_#{subnet_id}/ssz_snappy",
-           encoded_msg
-         ) do
-      :ok ->
-        :ok
+    log_debug(validator_index, "publishing sidecar", sidecar_index: index)
 
-      {:error, reason} ->
-        Logger.error(
-          "[Validator] Failed to publish sidecar with index #{index}. Reason: #{reason}"
-        )
-    end
+    Libp2pPort.publish("/eth2/#{fork_context}/blob_sidecar_#{subnet_id}/ssz_snappy", encoded_msg)
+    |> log_debug_result(validator_index, "published sidecar", sidecar_index: index)
   end
 
   defp compute_subnet_for_blob_sidecar(blob_index) do
     rem(blob_index, ChainSpec.get("BLOB_SIDECAR_SUBNET_COUNT"))
   end
+
+  # Some Log Helpers to avoid repetition
+
+  defp log_info_result(result, index, message, metadata),
+    do: log_result(result, :info, index, message, metadata)
+
+  defp log_debug_result(result, index, message, metadata),
+    do: log_result(result, :debug, index, message, metadata)
+
+  defp log_result(:ok, :info, index, message, metadata), do: log_info(index, message, metadata)
+  defp log_result(:ok, :debug, index, message, metadata), do: log_debug(index, message, metadata)
+
+  defp log_result({:error, reason}, _level, index, message, metadata),
+    do: log_error(index, message, reason, metadata)
+
+  defp log_info(index, message, metadata),
+    do: Logger.info("[Validator] #{index} #{message}", metadata)
+
+  defp log_debug(index, message, metadata),
+    do: Logger.debug("[Validator] #{index} #{message}", metadata)
+
+  defp log_error(index, message, reason, metadata \\ []),
+    do: Logger.error("[Validator] #{index} Failed to #{message}. Reason: #{reason}", metadata)
 end

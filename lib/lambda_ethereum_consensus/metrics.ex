@@ -104,6 +104,12 @@ defmodule LambdaEthereumConsensus.Metrics do
     end
   end
 
+  def span_operation(handler, transition, operation, f) do
+    :telemetry.span([:fork_choice, :latency], %{}, fn ->
+      {f.(), %{handler: handler, transition: transition, operation: operation}}
+    end)
+  end
+
   def handler_span(module, action, f) do
     :telemetry.span([:libp2pport, :handler], %{}, fn ->
       {f.(), %{module: module, action: action}}

@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   This module contains functions for handling state transition
   """
 
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -919,19 +920,31 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     # Ensure that outstanding deposits are processed up to the maximum number of deposits
     with :ok <- verify_deposits(state, body) do
       {:ok, state}
-      |> for_ops(body.proposer_slashings, &process_proposer_slashing/2)
-      |> for_ops(body.attester_slashings, &process_attester_slashing/2)
-      |> Utils.map_ok(&process_attestation_batch(&1, body.attestations))
-      |> for_ops(body.deposits, &process_deposit/2)
-      |> for_ops(body.voluntary_exits, &process_voluntary_exit/2)
-      |> for_ops(body.bls_to_execution_changes, &process_bls_to_execution_change/2)
+      |> for_ops(:proposer_slashing, body.proposer_slashings, &process_proposer_slashing/2)
+      |> for_ops(:attester_slashing, body.attester_slashings, &process_attester_slashing/2)
+      |> apply_op(:attestation_batch, &process_attestation_batch(&1, body.attestations))
+      |> for_ops(:deposit, body.deposits, &process_deposit/2)
+      |> for_ops(:voluntary_exit, body.voluntary_exits, &process_voluntary_exit/2)
+      |> for_ops(
+        :bls_to_execution_change,
+        body.bls_to_execution_changes,
+        &process_bls_to_execution_change/2
+      )
     end
   end
 
-  defp for_ops(acc, operations, func) do
-    Enum.reduce_while(operations, acc, fn
-      operation, {:ok, state} -> {:cont, func.(state, operation)}
-      _, {:error, reason} -> {:halt, {:error, reason}}
+  defp apply_op(acc, op_name, func) do
+    Metrics.span_operation(:on_block, :process_block_operations, op_name, fn ->
+      Utils.map_ok(acc, func)
+    end)
+  end
+
+  defp for_ops(acc, op_name, operations, func) do
+    Metrics.span_operation(:on_block, :process_block_operations, op_name, fn ->
+      Enum.reduce_while(operations, acc, fn
+        operation, {:ok, state} -> {:cont, func.(state, operation)}
+        _, {:error, reason} -> {:halt, {:error, reason}}
+      end)
     end)
   end
 

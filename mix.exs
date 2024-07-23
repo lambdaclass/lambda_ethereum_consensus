@@ -22,7 +22,9 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application() do
     [
-      extra_applications: [:logger, :observer, :prometheus_ex, :wx, :runtime_tools],
+      extra_applications:
+        extra_applications(System.get_env("EXTRA_APPLICATIONS")) ++
+          [:logger, :prometheus_ex, :runtime_tools, :observer],
       mod: {LambdaEthereumConsensus.Application, []}
     ]
   end
@@ -81,6 +83,9 @@ defmodule LambdaEthereumConsensus.MixProject do
       plt_file: {:no_warn, "priv/plts/project.plt"}
     ]
   end
+
+  defp extra_applications("WX"), do: [:wx]
+  defp extra_applications(_), do: []
 
   defp compiler_paths(:test),
     do: ["test/spec", "test/fixtures"] ++ compiler_paths(:prod)

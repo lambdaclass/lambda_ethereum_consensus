@@ -144,6 +144,10 @@ defmodule LambdaEthereumConsensus.Telemetry do
         unit: {:native, :millisecond},
         tags: [:module, :action]
       ),
+      last_value("fork_choice.latency.stop.duration",
+        unit: {:native, :millisecond},
+        tags: [:handler, :transition, :operation]
+      ),
 
       # ForkChoice Metrics
       last_value("fork_choice.recompute_head.stop.duration",

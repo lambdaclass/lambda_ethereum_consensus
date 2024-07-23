@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   """
 
   require Logger
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -108,17 +109,23 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
     state
     |> EpochProcessing.process_justification_and_finalization()
-    |> map_ok(&EpochProcessing.process_inactivity_updates/1)
-    |> map_ok(&EpochProcessing.process_rewards_and_penalties/1)
-    |> map_ok(&EpochProcessing.process_registry_updates/1)
-    |> map_ok(&EpochProcessing.process_slashings/1)
-    |> map_ok(&EpochProcessing.process_eth1_data_reset/1)
-    |> map_ok(&EpochProcessing.process_effective_balance_updates/1)
-    |> map_ok(&EpochProcessing.process_slashings_reset/1)
-    |> map_ok(&EpochProcessing.process_randao_mixes_reset/1)
-    |> map_ok(&EpochProcessing.process_historical_summaries_update/1)
-    |> map_ok(&EpochProcessing.process_participation_flag_updates/1)
-    |> map_ok(&EpochProcessing.process_sync_committee_updates/1)
+    |> epoch_op(:inactivity_updates, &EpochProcessing.process_inactivity_updates/1)
+    |> epoch_op(:rewards_and_penalties, &EpochProcessing.process_rewards_and_penalties/1)
+    |> epoch_op(:registry_updates, &EpochProcessing.process_registry_updates/1)
+    |> epoch_op(:slashings, &EpochProcessing.process_slashings/1)
+    |> epoch_op(:eth1_data_reset, &EpochProcessing.process_eth1_data_reset/1)
+    |> epoch_op(:effective_balance_updates, &EpochProcessing.process_effective_balance_updates/1)
+    |> epoch_op(:slashings_reset, &EpochProcessing.process_slashings_reset/1)
+    |> epoch_op(:randao_mixes_reset, &EpochProcessing.process_randao_mixes_reset/1)
+    |> epoch_op(
+      :historical_summaries_update,
+      &EpochProcessing.process_historical_summaries_update/1
+    )
+    |> epoch_op(
+      :participation_flag_updates,
+      &EpochProcessing.process_participation_flag_updates/1
+    )
+    |> epoch_op(:sync_committee_updates, &EpochProcessing.process_sync_committee_updates/1)
     |> tap(fn _ ->
       end_time = System.monotonic_time(:millisecond)
       Logger.debug("[Epoch processing] took #{end_time - start_time} ms")
@@ -136,16 +143,26 @@ defmodule LambdaEthereumConsensus.StateTransition do
     start_time = System.monotonic_time(:millisecond)
 
     {:ok, state}
-    |> map_ok(&Operations.process_block_header(&1, block))
-    |> map_ok(&Operations.process_withdrawals(&1, block.body.execution_payload))
-    |> map_ok(&Operations.process_execution_payload(&1, block.body))
-    |> map_ok(&Operations.process_randao(&1, block.body))
-    |> map_ok(&Operations.process_eth1_data(&1, block.body))
+    |> block_op(:block_header, &Operations.process_block_header(&1, block))
+    |> block_op(:withdrawals, &Operations.process_withdrawals(&1, block.body.execution_payload))
+    |> block_op(:execution_payload, &Operations.process_execution_payload(&1, block.body))
+    |> block_op(:randao, &Operations.process_randao(&1, block.body))
+    |> block_op(:eth1_data, &Operations.process_eth1_data(&1, block.body))
     |> map_ok(&Operations.process_operations(&1, block.body))
-    |> map_ok(&Operations.process_sync_aggregate(&1, block.body.sync_aggregate))
+    |> block_op(
+      :sync_aggregate,
+      &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
+    )
     |> tap(fn _ ->
       end_time = System.monotonic_time(:millisecond)
       Logger.debug("[Block processing] took #{end_time - start_time} ms")
     end)
+  end
+
+  def block_op(state, operation, f), do: apply_op(state, :process_block, operation, f)
+  def epoch_op(state, operation, f), do: apply_op(state, :epoch, operation, f)
+
+  def apply_op(state, transition, operation, f) do
+    Metrics.span_operation(:on_block, transition, operation, fn -> map_ok(state, f) end)
   end
 end
