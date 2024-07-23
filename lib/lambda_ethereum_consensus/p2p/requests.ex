@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.P2p.Requests do
   Uses uuids to identify requests and their handlers. Saves the handler in the struct until a
   response is available and then handles appropriately.
   """
-
   @type id :: binary
   @type handler :: (term() -> term())
   @type requests :: %{id => handler}
