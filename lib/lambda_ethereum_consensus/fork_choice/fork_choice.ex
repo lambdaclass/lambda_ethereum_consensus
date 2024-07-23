@@ -197,7 +197,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end
   end
 
-  defp apply_handler(iter, name, state, handler) do
+  def apply_handler(iter, name, state, handler) do
     Metrics.span_operation(name, nil, nil, fn ->
       iter
       |> Enum.reduce_while({:ok, state}, fn
@@ -218,7 +218,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
          {:ok, new_store} <-
            signed_block.message.body.attester_slashings
            |> apply_handler(:attester_slashings, new_store, &Handlers.on_attester_slashing/2) do
-      Handlers.prune_checkpoint_states(new_store)
       {:ok, new_store}
     end
   end

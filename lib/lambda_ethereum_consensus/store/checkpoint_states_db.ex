@@ -9,27 +9,31 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Store.KvSchema
+  alias LambdaEthereumConsensus.Store.LRUCache
   alias Types.BeaconState
   alias Types.Checkpoint
 
-  use KvSchema, prefix: "checkpoint_states"
+  @table :checkpoint_states
+  @max_entries 512
+  @batch_prune_size 32
 
-  @impl KvSchema
-  @spec encode_key(Checkpoint.t()) :: {:ok, binary()} | {:error, binary()}
-  def encode_key(checkpoint), do: Ssz.to_ssz(checkpoint)
-
-  @impl KvSchema
-  @spec decode_key(binary()) :: {:ok, Checkpoint.t()} | {:error, binary()}
-  def decode_key(bin), do: Ssz.from_ssz(bin, Checkpoint)
-
-  @impl KvSchema
-  @spec encode_value(BeaconState.t()) :: {:ok, binary()} | {:error, binary()}
-  def encode_value(state), do: Ssz.to_ssz(state)
-
-  @impl KvSchema
-  @spec decode_value(binary()) :: {:ok, BeaconState.t()} | {:error, binary()}
-  def decode_value(bin), do: Ssz.from_ssz(bin, BeaconState)
+  def child_spec(_opts) do
+    %{
+      id: __MODULE__,
+      start:
+        {LRUCache, :start_link,
+         [
+           [
+             table: @table,
+             max_entries: @max_entries,
+             batch_prune_size: @batch_prune_size,
+             # We don't actually store this in the db, we either calculate it or
+             # get it from the ets.
+             store_func: fn _k, _v -> :ok end
+           ]
+         ]}
+    }
+  end
 
   @doc """
   Gets the state for a checkpoint by getting the last block and processing slots until the checkpoint.
@@ -41,16 +45,18 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   """
   @spec get_checkpoint_state(Checkpoint.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def get_checkpoint_state(checkpoint) do
-    case get(checkpoint) do
-      {:ok, state} ->
-        {:ok, state}
-
-      :not_found ->
-        with {:ok, state} <- compute_target_checkpoint_state(checkpoint.epoch, checkpoint.root) do
-          put(checkpoint, state)
-          {:ok, state}
-        end
+    case LRUCache.get(
+           @table,
+           checkpoint,
+           fn checkpoint -> compute_target_checkpoint_state(checkpoint.epoch, checkpoint.root) end
+         ) do
+      nil -> :not_found
+      value -> {:ok, value}
     end
+  end
+
+  def put(checkpoint, beacon_state) do
+    LRUCache.put(@table, checkpoint, beacon_state)
   end
 
   @doc """
@@ -66,25 +72,6 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
       StateTransition.process_slots(state, target_slot)
     else
       {:ok, state}
-    end
-  end
-
-  @doc """
-  Deletes all checkpoint states prior to the finalized one passed by parameter.
-  """
-  @spec prune(Checkpoint.t()) :: :ok
-  def prune(finalized_checkpoint) do
-    Logger.debug("Pruning old checkpoint states")
-
-    case fold_keys(finalized_checkpoint, 0, fn key, acc ->
-           delete(key)
-           acc + 1
-         end) do
-      {:ok, amount} ->
-        Logger.debug("Pruned #{amount} checkpoint states")
-
-      {:error, reason} ->
-        Logger.error("Error while pruning checkpoint states: #{inspect(reason)}")
     end
   end
 end
