@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
+  alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
@@ -392,10 +393,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_cast({:on_tick, time}, state) do
+  def handle_cast({:on_tick, {time, slot_data, changed_slot_data}}, state) do
     # TODO: we probably want to remove this from here, but we keep it here to have this serialized
     # with respect to the other fork choice store modifications.
     ForkChoice.on_tick(time)
+
+    # For testing that calling it from the libp2p works, and its just a matter of the notify new block,
+    # not the clock being the one who calls the notify tick.
+    if changed_slot_data do
+      ValidatorManager.notify_tick(slot_data)
+    end
+
     {:noreply, state}
   end
 

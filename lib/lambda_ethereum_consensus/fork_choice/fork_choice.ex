@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.Clock
+  # alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
@@ -232,7 +232,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     %{slot: slot, body: body} = head_block
 
     OperationsCollector.notify_new_block(head_block)
-    ValidatorManager.notify_new_block(slot, head_root)
+
     ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
 
     update_fork_choice_data(
@@ -242,7 +242,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       store.finalized_checkpoint
     )
 
-    Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
+    ValidatorManager.notify_new_block(slot, head_root)
+
+    Logger.info("[Fork choice] Updated fork choice cache", slot: slot)
 
     :ok
   end

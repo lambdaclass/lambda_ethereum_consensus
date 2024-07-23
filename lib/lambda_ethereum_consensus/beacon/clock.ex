@@ -42,15 +42,12 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
     new_state = %{state | time: time}
 
     if time >= state.genesis_time do
-      Libp2pPort.on_tick(time)
+
       # TODO: reduce time between ticks to account for gnosis' 5s slot time.
       old_logical_time = compute_logical_time(state)
       new_logical_time = compute_logical_time(new_state)
 
-      if old_logical_time != new_logical_time do
-        log_new_slot(new_logical_time)
-        ValidatorManager.notify_tick(new_logical_time)
-      end
+      Libp2pPort.on_tick({time, new_logical_time, new_logical_time != old_logical_time})
     end
 
     {:noreply, new_state}

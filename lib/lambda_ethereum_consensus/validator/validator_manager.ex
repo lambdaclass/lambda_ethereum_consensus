@@ -49,11 +49,15 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
 
   @spec notify_new_block(Types.slot(), Types.root()) :: :ok
   def notify_new_block(slot, head_root) do
-    notify_validators({:new_block, slot, head_root})
+    # Making this alone a cast solves the issue
+    GenServer.cast(__MODULE__, {:notify_all, {:new_block, slot, head_root}})
+    # notify_validators({:new_block, slot, head_root})
   end
 
   @spec notify_tick(Clock.logical_time()) :: :ok
   def notify_tick(logical_time) do
+    # Making this a cast alone doesn't solve the issue
+    # GenServer.cast(__MODULE__, {:notify_all, {:on_tick, logical_time}})
     notify_validators({:on_tick, logical_time})
   end
 
