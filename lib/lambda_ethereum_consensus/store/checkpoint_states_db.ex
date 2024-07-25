@@ -9,30 +9,14 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Store.LRUCache
   alias Types.BeaconState
   alias Types.Checkpoint
+  alias Types.StateInfo
 
   @table :checkpoint_states
-  @max_entries 512
-  @batch_prune_size 32
 
-  def child_spec(_opts) do
-    %{
-      id: __MODULE__,
-      start:
-        {LRUCache, :start_link,
-         [
-           [
-             table: @table,
-             max_entries: @max_entries,
-             batch_prune_size: @batch_prune_size,
-             # We don't actually store this in the db, we either calculate it or
-             # get it from the ets.
-             store_func: fn _k, _v -> :ok end
-           ]
-         ]}
-    }
+  def new() do
+    :ets.new(@table, [:named_table, :set, :public, read_concurrency: true])
   end
 
   @doc """
@@ -45,18 +29,35 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   """
   @spec get_checkpoint_state(Checkpoint.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def get_checkpoint_state(checkpoint) do
-    case LRUCache.get(
-           @table,
-           checkpoint,
-           fn checkpoint -> compute_target_checkpoint_state(checkpoint.epoch, checkpoint.root) end
-         ) do
-      nil -> :not_found
-      value -> {:ok, value}
-    end
+    {t, v} =
+      :timer.tc(fn ->
+        case :ets.lookup_element(@table, checkpoint, 2, :not_found) do
+          :not_found ->
+            IO.puts("MISS")
+            compute_and_save(checkpoint)
+
+          state ->
+            IO.puts("HIT")
+            {:ok, state}
+        end
+      end)
+
+    IO.puts("Getting the checkpoint state took #{t / 1_000_000} seconds")
+    v
   end
 
+  @spec put(Checkpoint.t(), BeaconState.t()) :: true
   def put(checkpoint, beacon_state) do
-    LRUCache.put(@table, checkpoint, beacon_state)
+    :ets.insert(@table, {checkpoint, beacon_state})
+  end
+
+  # Computes the state for the checkpoint, adds it to the ets and returns it.
+  @spec compute_and_save(Checkpoint.t()) :: {:ok, BeaconState.t()} | {:error, String.t()}
+  defp compute_and_save(checkpoint) do
+    with {:ok, state} <- compute_target_checkpoint_state(checkpoint.epoch, checkpoint.root) do
+      put(checkpoint, state)
+      {:ok, state}
+    end
   end
 
   @doc """
@@ -66,12 +67,17 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
           {:ok, BeaconState.t()} | {:error, String.t()}
   def compute_target_checkpoint_state(target_epoch, target_root) do
     target_slot = Misc.compute_start_slot_at_epoch(target_epoch)
-    state = BlockStates.get_state_info!(target_root).beacon_state
 
-    if state.slot < target_slot do
-      StateTransition.process_slots(state, target_slot)
-    else
-      {:ok, state}
+    case BlockStates.get_state_info(target_root) do
+      %StateInfo{beacon_state: state} ->
+        if state.slot < target_slot do
+          StateTransition.process_slots(state, target_slot)
+        else
+          {:ok, state}
+        end
+
+      nil ->
+        {:error, "Checkpoint state for the target root not found"}
     end
   end
 end

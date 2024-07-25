@@ -15,6 +15,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
   alias LambdaEthereumConsensus.Validator.ValidatorManager
@@ -212,14 +213,31 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     with {:ok, new_store} <- Handlers.on_block(store, block_info),
          # process block attestations
          {:ok, new_store} <-
-           signed_block.message.body.attestations
-           |> apply_handler(:attestations, new_store, &Handlers.on_attestation(&1, &2, true)),
+           process_attestations(new_store, signed_block.message.body.attestations),
          # process block attester slashings
          {:ok, new_store} <-
            signed_block.message.body.attester_slashings
            |> apply_handler(:attester_slashings, new_store, &Handlers.on_attester_slashing/2) do
       {:ok, new_store}
     end
+  end
+
+  defp process_attestations(store, attestations) do
+    # prefetch states:
+    states =
+      attestations
+      |> Enum.map(& &1.data.target)
+      |> Enum.uniq()
+      |> Enum.flat_map(fn ch ->
+        case CheckpointStates.get_checkpoint_state(ch) do
+          {:ok, state} -> [{ch, state}]
+          _other -> []
+        end
+      end)
+      |> Map.new()
+
+    attestations
+    |> apply_handler(:attestations, store, &Handlers.on_attestation(&1, &2, true, states))
   end
 
   @spec recompute_head(Store.t()) :: :ok

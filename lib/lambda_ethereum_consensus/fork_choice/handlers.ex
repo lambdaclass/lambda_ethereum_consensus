@@ -115,6 +115,22 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     end
   end
 
+  def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
+    with {:ok, target_state} <- CheckpointStates.get_checkpoint_state(attestation.data.target) do
+      on_attestation_with_state(store, attestation, is_from_block, target_state)
+    end
+  end
+
+  def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block, states) do
+    case Map.fetch(states, attestation.data.target) do
+      {:ok, target_state} ->
+        on_attestation_with_state(store, attestation, is_from_block, target_state)
+
+      :error ->
+        {:error, "Checkpoint state not found for attestation."}
+    end
+  end
+
   @doc """
   Run ``on_attestation`` upon receiving a new ``attestation`` from either within a block or directly on the wire.
 
@@ -123,10 +139,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   """
   @spec on_attestation(Store.t(), Attestation.t(), boolean()) ::
           {:ok, Store.t()} | {:error, String.t()}
-  def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
+  def on_attestation_with_state(
+        %Store{} = store,
+        %Attestation{} = attestation,
+        is_from_block,
+        target_state
+      ) do
     with :ok <- check_attestation_valid(store, attestation, is_from_block),
          # Get state at the `target` to fully validate attestation
-         {:ok, target_state} <- CheckpointStates.get_checkpoint_state(attestation.data.target),
          {:ok, indexed_attestation} <-
            Accessors.get_indexed_attestation(target_state, attestation),
          :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do
