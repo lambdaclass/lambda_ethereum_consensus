@@ -127,7 +127,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         on_attestation_with_state(store, attestation, is_from_block, target_state)
 
       :error ->
-        {:error, "Checkpoint state not found for attestation."}
+        if is_from_block do
+          {:ok, store}
+        else
+          {:error, "Checkpoint state not found for attestation."}
+        end
     end
   end
 
