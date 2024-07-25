@@ -14,7 +14,7 @@ Logger.configure(level: :warning)
 Cache.initialize_cache()
 
 # NOTE: this slot must be at the beginning of an epoch (i.e. a multiple of 32)
-slot = 9_577_024
+slot = 9_591_424
 
 IO.puts("fetching blocks...")
 {:ok, %StateInfo{beacon_state: state}} = StateDb.get_state_by_slot(slot)

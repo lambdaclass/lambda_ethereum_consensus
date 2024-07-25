@@ -29,21 +29,10 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
   """
   @spec get_checkpoint_state(Checkpoint.t()) :: {:ok, BeaconState.t()} | {:error, binary()}
   def get_checkpoint_state(checkpoint) do
-    {t, v} =
-      :timer.tc(fn ->
-        case :ets.lookup_element(@table, checkpoint, 2, :not_found) do
-          :not_found ->
-            IO.puts("MISS")
-            compute_and_save(checkpoint)
-
-          state ->
-            IO.puts("HIT")
-            {:ok, state}
-        end
-      end)
-
-    IO.puts("Getting the checkpoint state took #{t / 1_000_000} seconds")
-    v
+    case :ets.lookup_element(@table, checkpoint, 2, :not_found) do
+      :not_found -> compute_and_save(checkpoint)
+      state -> {:ok, state}
+    end
   end
 
   @spec put(Checkpoint.t(), BeaconState.t()) :: true
