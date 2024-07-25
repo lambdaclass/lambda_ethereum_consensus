@@ -209,7 +209,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @spec process_block(BlockInfo.t(), Store.t()) :: Store.t()
-  defp process_block(%BlockInfo{signed_block: signed_block} = block_info, store) do
+  def process_block(%BlockInfo{signed_block: signed_block} = block_info, store) do
     with {:ok, new_store} <- Handlers.on_block(store, block_info),
          # process block attestations
          {:ok, new_store} <-
