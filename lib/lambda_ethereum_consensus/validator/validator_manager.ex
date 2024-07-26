@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
 
   # TODO: The use of a Genserver and cast is still needed to avoid locking at the clock level.
   # This is a temporary solution and will be taken off in a future PR.
-  defp notify_validators(msg), do: GenServer.call(__MODULE__, {:notify_all, msg})
+  defp notify_validators(msg), do: GenServer.call(__MODULE__, {:notify_all, msg}, 20_000)
 
   def handle_cast({:notify_all, msg}, validators) do
     validators = notify_all(validators, msg)
@@ -79,6 +79,8 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
 
   defp notify_all(validators, msg) do
     start_time = System.monotonic_time(:millisecond)
+
+    Logger.info("[Validator Manager] Notifying all Validators with message: #{inspect(msg)}")
 
     updated_validators = Enum.map(validators, &notify_validator(&1, msg))
 

@@ -246,11 +246,11 @@ defmodule LambdaEthereumConsensus.Validator do
     attestation = produce_attestation(current_duty, state.root, state.validator.privkey)
 
     log_md = [slot: attestation.data.slot, attestation: attestation, subnet_id: subnet_id]
-    log_debug(validator.index, "publishing attestation", log_md)
+    debug_log_msg = "publishing attestation on committee index: #{current_duty.committee_index} | as #{current_duty.index_in_committee}/#{current_duty.committee_length - 1} and pubkey: #{LambdaEthereumConsensus.Utils.format_shorten_binary(validator.pubkey)}"
+    log_debug(validator.index, debug_log_msg, log_md)
 
-    # FIXME: Uncommenting this line generates the invalid signature errors upon proposals
-    # Gossip.Attestation.publish(subnet_id, attestation)
-    # |> log_info_result(validator.index, "published attestation", log_md)
+    Gossip.Attestation.publish(subnet_id, attestation)
+    |> log_info_result(validator.index, "published attestation", log_md)
 
     if current_duty.should_aggregate? do
       log_debug(validator.index, "collecting for future aggregation", log_md)
@@ -295,12 +295,15 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp aggregate_attestations(attestations) do
+    # TODO: We need to check why we are producing duplicate attestations, this was generating invalid signatures
+    unique_attestations = attestations |> Enum.uniq()
+
     aggregation_bits =
-      attestations
+      unique_attestations
       |> Stream.map(&Map.fetch!(&1, :aggregation_bits))
       |> Enum.reduce(&BitField.bitwise_or/2)
 
-    {:ok, signature} = attestations |> Enum.map(&Map.fetch!(&1, :signature)) |> Bls.aggregate()
+    {:ok, signature} = unique_attestations |> Enum.map(&Map.fetch!(&1, :signature)) |> Bls.aggregate()
 
     %{List.first(attestations) | aggregation_bits: aggregation_bits, signature: signature}
   end

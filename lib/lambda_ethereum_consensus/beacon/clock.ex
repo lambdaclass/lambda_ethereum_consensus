@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
   use GenServer
 
   alias LambdaEthereumConsensus.Libp2pPort
-  alias LambdaEthereumConsensus.Validator.ValidatorManager
 
   require Logger
 
