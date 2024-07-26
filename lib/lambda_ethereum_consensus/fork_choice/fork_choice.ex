@@ -230,22 +230,25 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   defp process_attestations(store, attestations) do
     Metrics.span_operation(:attestations, nil, nil, fn ->
-      # prefetch states:
-      states =
-        attestations
-        |> Enum.map(& &1.data.target)
-        |> Enum.uniq()
-        |> Enum.flat_map(fn ch ->
-          case CheckpointStates.get_checkpoint_state(ch) do
-            {:ok, state} -> [{ch, state}]
-            _other -> []
-          end
-        end)
-        |> Map.new()
-
-      attestations
-      |> apply_handler(store, &Handlers.on_attestation(&1, &2, true, states))
+      apply_handler(
+        attestations,
+        store,
+        &Handlers.on_attestation(&1, &2, true, prefetch_states(attestations))
+      )
     end)
+  end
+
+  defp prefetch_states(attestations) do
+    attestations
+    |> Enum.map(& &1.data.target)
+    |> Enum.uniq()
+    |> Enum.flat_map(fn ch ->
+      case CheckpointStates.get_checkpoint_state(ch) do
+        {:ok, state} -> [{ch, state}]
+        _other -> []
+      end
+    end)
+    |> Map.new()
   end
 
   @spec recompute_head(Store.t()) :: :ok
