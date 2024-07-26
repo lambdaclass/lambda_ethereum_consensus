@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   require Logger
 
   alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias Types.SignedBeaconBlock
@@ -65,7 +66,13 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
       |> ReqResp.encode_request()
 
     Libp2pPort.send_async_request(peer_id, @blocks_by_range_protocol_id, request, fn response ->
-      handle_blocks_by_range_response(response, slot, count, retries, peer_id, on_blocks)
+      Metrics.handler_span(
+        "response_handler",
+        "blocks_by_range",
+        fn ->
+          handle_blocks_by_range_response(response, slot, count, retries, peer_id, on_blocks)
+        end
+      )
     end)
   end
 
@@ -127,7 +134,11 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
     request = ReqResp.encode_request({roots, TypeAliases.beacon_blocks_by_root_request()})
 
     Libp2pPort.send_async_request(peer_id, @blocks_by_root_protocol_id, request, fn response ->
-      handle_blocks_by_root_response(response, roots, on_blocks, peer_id, retries)
+      Metrics.handler_span(
+        "response_handler",
+        "blocks_by_root",
+        fn -> handle_blocks_by_root_response(response, roots, on_blocks, peer_id, retries) end
+      )
     end)
   end
 
