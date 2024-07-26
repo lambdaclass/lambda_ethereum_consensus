@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
+  alias LambdaEthereumConsensus.Store.CheckpointStates
 
   use Application
   require Logger
@@ -33,6 +34,8 @@ defmodule LambdaEthereumConsensus.Application do
   end
 
   defp get_children(:db) do
+    CheckpointStates.new()
+
     [
       LambdaEthereumConsensus.Telemetry,
       LambdaEthereumConsensus.Store.Db,

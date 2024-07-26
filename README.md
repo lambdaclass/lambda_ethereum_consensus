@@ -421,6 +421,8 @@ Also of note is the `:sort` option, that allows sorting the list by, for example
 :etop.start(sort: :msg_q)
 ```
 
+_Note: If you want to use the `:observer` GUI and not just `etop`, you'll probably need `:wx` also set in your extra applications, there is an easy way to do this, just set the `EXTRA_APPLICATIONS` environment variable to `WX` (`export EXTRA_APPLICATIONS=WX`) before starting the node_
+
 ### eFlambè
 
 When optimizing code, it might be useful to have a graphic way to determine bottlenecks in the system.

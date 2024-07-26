@@ -88,22 +88,6 @@ defmodule LambdaEthereumConsensus.Metrics do
     block_status_execute(root, new_status, slot, 1)
   end
 
-  defp block_status_execute(root, status, slot, value) do
-    hex_root = Base.encode16(root)
-
-    Logger.debug(
-      "[Metrics] slot = #{inspect(slot)}, status = #{inspect(status)}, value = #{inspect(value)}"
-    )
-
-    :telemetry.execute([:blocks, :status], %{total: value}, %{
-      id: hex_root,
-      mainstat: status,
-      color: map_color(status),
-      title: slot,
-      detail__root: hex_root
-    })
-  end
-
   def block_relationship(nil, _), do: :ok
 
   def block_relationship(parent_root, root) do
@@ -118,6 +102,34 @@ defmodule LambdaEthereumConsensus.Metrics do
         target: hex_root
       })
     end
+  end
+
+  def span_operation(handler, transition, operation, f) do
+    :telemetry.span([:fork_choice, :latency], %{}, fn ->
+      {f.(), %{handler: handler, transition: transition, operation: operation}}
+    end)
+  end
+
+  def handler_span(module, action, f) do
+    :telemetry.span([:libp2pport, :handler], %{}, fn ->
+      {f.(), %{module: module, action: action}}
+    end)
+  end
+
+  defp block_status_execute(root, status, slot, value) do
+    hex_root = Base.encode16(root)
+
+    Logger.debug(
+      "[Metrics] slot = #{inspect(slot)}, status = #{inspect(status)}, value = #{inspect(value)}"
+    )
+
+    :telemetry.execute([:blocks, :status], %{total: value}, %{
+      id: hex_root,
+      mainstat: status,
+      color: map_color(status),
+      title: slot,
+      detail__root: hex_root
+    })
   end
 
   defp map_color(:transitioned), do: "blue"

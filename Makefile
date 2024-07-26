@@ -77,6 +77,9 @@ kurtosis.setup.lambdaconsensus:
 kurtosis.start:
 	kurtosis run --enclave lambdanet $(KURTOSIS_DIR) --args-file network_params.yaml
 
+#💻 kurtosis.build-and-start: @ Builds the lambdaconsensus Docker image and starts the kurtosis environment.
+kurtosis.clean-start: kurtosis.clean kurtosis.setup.lambdaconsensus kurtosis.start
+
 #💻 kurtosis.stop: @ Stops the kurtosis environment
 kurtosis.stop:
 	kurtosis enclave stop lambdanet
@@ -163,7 +166,7 @@ checkpoint-sync: compile-all
 
 #▶️ sepolia: @ Run an interactive terminal using sepolia network
 sepolia: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia
+	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia --metrics
 
 #▶️ holesky: @ Run an interactive terminal using holesky network
 holesky: compile-all

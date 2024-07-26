@@ -65,6 +65,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
     header = """
     defmodule #{module_name} do
       use ExUnit.Case, async: false
+      alias LambdaEthereumConsensus.Store.CheckpointStates
 
       setup_all do
         Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
@@ -74,9 +75,11 @@ defmodule Mix.Tasks.GenerateSpecTests do
 
       setup %{tmp_dir: tmp_dir} do
         on_exit(fn -> LambdaEthereumConsensus.StateTransition.Cache.clear_cache() end)
+        CheckpointStates.new()
         start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
         start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
         start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
+
         :ok
       end
     """
