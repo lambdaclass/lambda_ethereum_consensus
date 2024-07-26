@@ -58,11 +58,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end
   end
 
-  ##########################
-  ### Private Functions
-  ##########################
-
-  defp process_blocks() do
+  @doc """
+  Sends any blocks that are ready to block processing. This should usually be called only by this
+  module after receiving a new block, but there are some other cases like at node startup, as there
+  may be pending blocks from prior executions.
+  """
+  def process_blocks() do
     case Blocks.get_blocks_with_status(:pending) do
       {:ok, blocks} ->
         blocks
@@ -75,6 +76,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         )
     end
   end
+
+  ##########################
+  ### Private Functions
+  ##########################
 
   # Processes a block. If it was transitioned or declared invalid, then process_blocks
   # is called to check if there's any children that can now be processed. This function
