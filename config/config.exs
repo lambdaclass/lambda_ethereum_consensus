@@ -37,6 +37,16 @@ config :sentry,
   enable_source_code_context: true,
   root_source_code_paths: [File.cwd!()]
 
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.PromEx,
+  disabled: false,
+  grafana: [
+    host: "http://localhost:3000",
+    # Authenticate via Basic Auth
+    username: "admin",
+    password: "admin",
+    upload_dashboards_on_start: true
+  ]
+
 config :lambda_ethereum_consensus, :logger, [
   {:handler, :sentry_handler, Sentry.LoggerHandler,
    %{

@@ -8,7 +8,8 @@ defmodule BeaconApi.Endpoint do
     json_decoder: Phoenix.json_library()
   )
 
-  plug(BeaconApi.MetricsExporter)
+  # plug(BeaconApi.MetricsExporter)
+  plug(PromEx.Plug, prom_ex_module: LambdaEthereumConsensus.PromEx)
   plug(BeaconApi.Router)
   plug(Sentry.PlugContext)
 end

@@ -41,6 +41,8 @@ services:
       grafana-loki:
         aliases:
           - grafana
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Since the Loki containers are running as user 10001 and the mounted data volume is owned by root,
   # Loki would not have permissions to create the directories.

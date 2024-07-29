@@ -188,9 +188,8 @@ block_time_ms =
 
 # Metrics
 
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
-  block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms)),
-  port: metrics_port
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.PromExPlugin,
+  block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms))
 
 # Logging
 
