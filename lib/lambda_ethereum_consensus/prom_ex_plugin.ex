@@ -1,4 +1,9 @@
 defmodule LambdaEthereumConsensus.PromExPlugin do
+  @moduledoc """
+  This module defines our custom PromEx plugin.
+  It contains all the custom metrics that are displayed on our `node` dashboard.
+  """
+
   alias LambdaEthereumConsensus.Store.Db
   use PromEx.Plugin
 
