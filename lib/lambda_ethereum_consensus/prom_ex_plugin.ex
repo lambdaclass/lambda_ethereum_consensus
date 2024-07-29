@@ -93,7 +93,6 @@ defmodule LambdaEthereumConsensus.PromExPlugin do
     [
       Polling.build(:periodic_measurements, 15_000, {__MODULE__, :periodic_measurements, []}, [
         last_value([:db, :size, :total], unit: :byte),
-        last_value([:vm, :uptime, :total], unit: :millisecond),
         last_value([:vm, :message_queue, :length], tags: [:process])
       ])
     ]
@@ -101,18 +100,12 @@ defmodule LambdaEthereumConsensus.PromExPlugin do
 
   def periodic_measurements() do
     message_queue_lengths()
-    uptime()
     db_size()
   end
 
   def db_size() do
     db_size = Db.size()
     :telemetry.execute([:db, :size], %{total: db_size})
-  end
-
-  def uptime() do
-    {uptime, _} = :erlang.statistics(:wall_clock)
-    :telemetry.execute([:vm, :uptime], %{total: uptime})
   end
 
   defp register_queue_length(name, len) do

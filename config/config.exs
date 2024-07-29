@@ -38,7 +38,6 @@ config :sentry,
   root_source_code_paths: [File.cwd!()]
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.PromEx,
-  disabled: false,
   grafana: [
     host: "http://localhost:3000",
     # Authenticate via Basic Auth

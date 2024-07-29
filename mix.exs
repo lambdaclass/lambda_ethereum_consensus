@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.MixProject do
     [
       extra_applications:
         extra_applications(System.get_env("EXTRA_APPLICATIONS")) ++
-          [:logger, :prometheus_ex, :runtime_tools, :observer],
+          [:logger, :runtime_tools, :observer],
       mod: {LambdaEthereumConsensus.Application, []}
     ]
   end
@@ -49,7 +49,6 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.12.0"},
-      {:prometheus_ex, "~> 3.1"},
       {:aja, "~> 0.6"},
       {:logfmt_ex, "~> 0.4.2"},
       {:ex2ms, "~> 1.6", runtime: false},

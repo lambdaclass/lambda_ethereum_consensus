@@ -1589,7 +1589,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "vm_uptime_total{}",
+          "expr": "lambda_ethereum_consensus_prom_ex_beam_stats_uptime_milliseconds_count{job=\"prom_ex\", instance=\"host.docker.internal:4000\"}",
           "legendFormat": "Uptime",
           "range": true,
           "refId": "Uptime"
