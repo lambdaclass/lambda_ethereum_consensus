@@ -1,55 +1,47 @@
-defmodule LambdaEthereumConsensus.Beacon.Clock do
+defmodule LambdaEthereumConsensus.Beacon.Ticker do
   @moduledoc false
 
   use GenServer
 
-  alias LambdaEthereumConsensus.Libp2pPort
-
   require Logger
 
-  @type state :: %{
-          genesis_time: Types.uint64(),
-          time: Types.uint64()
-        }
-
-  @spec start_link({Types.uint64(), Types.uint64()}) :: :ignore | {:error, any} | {:ok, pid}
+  @spec start_link([atom()]) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  @spec register_to_tick(atom() | [atom()]) :: :ok
+  def register_to_tick(to_tick) when is_atom(to_tick), do: register_to_tick([to_tick])
+  def register_to_tick(to_tick) when is_list(to_tick) do
+    GenServer.cast(__MODULE__, {:register_to_tick, to_tick})
   end
 
   ##########################
   ### GenServer Callbacks
   ##########################
 
-  @impl GenServer
-  @spec init({Types.uint64(), Types.uint64()}) ::
-          {:ok, state()} | {:stop, any}
-  def init({genesis_time, time}) do
+  @impl true
+  @spec init([atom()]) :: {:ok, [atom()]} | {:stop, any}
+  def init(to_tick) when is_list(to_tick) do
     schedule_next_tick()
 
-    {:ok,
-     %{
-       genesis_time: genesis_time,
-       time: time
-     }}
+    {:ok, to_tick}
   end
 
   @impl true
-  def handle_info(:on_tick, state) do
+  def handle_cast({:register_to_tick, to_tick_additions}, to_tick) do
+    new_to_tick = Enum.uniq(to_tick ++ to_tick_additions)
+    {:noreply, new_to_tick}
+  end
+
+  @impl true
+  def handle_info(:on_tick, to_tick) do
     schedule_next_tick()
     time = :os.system_time(:second)
-    new_state = %{state | time: time}
 
-    if time >= state.genesis_time do
+    Enum.each(to_tick, & &1.on_tick(time))
 
-      # TODO: reduce time between ticks to account for gnosis' 5s slot time.
-      old_logical_time = compute_logical_time(state)
-      new_logical_time = compute_logical_time(new_state)
-
-      Libp2pPort.on_tick({time, new_logical_time, new_logical_time != old_logical_time})
-    end
-
-    {:noreply, new_state}
+    {:noreply, to_tick}
   end
 
   def schedule_next_tick() do
@@ -57,31 +49,4 @@ defmodule LambdaEthereumConsensus.Beacon.Clock do
     time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
     Process.send_after(__MODULE__, :on_tick, time_to_next_tick)
   end
-
-  @type slot_third :: :first_third | :second_third | :last_third
-  @type logical_time :: {Types.slot(), slot_third()}
-
-  @spec compute_logical_time(state()) :: logical_time()
-  defp compute_logical_time(state) do
-    elapsed_time = state.time - state.genesis_time
-
-    slot_thirds = div(elapsed_time * 3, ChainSpec.get("SECONDS_PER_SLOT"))
-    slot = div(slot_thirds, 3)
-
-    slot_third =
-      case rem(slot_thirds, 3) do
-        0 -> :first_third
-        1 -> :second_third
-        2 -> :last_third
-      end
-
-    {slot, slot_third}
-  end
-
-  defp log_new_slot({slot, :first_third}) do
-    :telemetry.execute([:sync, :store], %{slot: slot})
-    Logger.info("[Clock] Slot transition", slot: slot)
-  end
-
-  defp log_new_slot(_), do: :ok
 end

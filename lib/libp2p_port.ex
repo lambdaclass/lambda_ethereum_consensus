@@ -62,12 +62,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ]
 
   @type init_arg ::
-          {:listen_addr, [String.t()]}
+          {:genesis_time, Types.uint64()}
+          | {:listen_addr, [String.t()]}
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
           | {:join_init_topics, boolean()}
           | {:enable_request_handlers, boolean()}
+
+  @type slot_data() :: {Types.uint64(), :first_third | :second_third | :last_third}
 
   @type node_identity() :: %{
           peer_id: binary(),
@@ -350,6 +353,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def init(args) do
+    {genesis_time, args} = Keyword.pop!(args, :genesis_time)
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
     {enable_request_handlers, args} = Keyword.pop(args, :enable_request_handlers, false)
 
@@ -374,6 +378,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     {:ok,
      %{
+       genesis_time: genesis_time,
+       slot_data: {0, :first_third},
        port: port,
        subscribers: %{},
        requests: Requests.new(),
@@ -393,18 +399,22 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_cast({:on_tick, {time, slot_data, changed_slot_data}}, state) do
+  def handle_cast({:on_tick, time}, %{genesis_time: genesis_time} = state) when time <= genesis_time, do: {:noreply, state}
+  def handle_cast({:on_tick, time}, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
     # TODO: we probably want to remove this from here, but we keep it here to have this serialized
     # with respect to the other fork choice store modifications.
+
     ForkChoice.on_tick(time)
 
-    # For testing that calling it from the libp2p works, and its just a matter of the notify new block,
-    # not the clock being the one who calls the notify tick.
-    if changed_slot_data do
+    new_slot_data = compute_slot(genesis_time, time)
+
+    if slot_data != new_slot_data do
       ValidatorManager.notify_tick(slot_data)
     end
 
-    {:noreply, state}
+    log_new_slot(new_slot_data)
+
+    {:noreply, %{state | slot_data: new_slot_data}}
   end
 
   def handle_cast(
@@ -682,4 +692,32 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       add_subscriber(state, topic, module)
     end)
   end
+
+  @spec compute_slot(Types.uint64(), Types.uint64()) :: slot_data()
+  defp compute_slot(genesis_time, time) do
+    # TODO: This was copied as it is from the Clock to convert it into just a Ticker,
+    # slot calculations are spread across modules, we should probably centralize them.
+    elapsed_time = time - genesis_time
+
+    slot_thirds = div(elapsed_time * 3, ChainSpec.get("SECONDS_PER_SLOT"))
+    slot = div(slot_thirds, 3)
+
+    slot_third =
+      case rem(slot_thirds, 3) do
+        0 -> :first_third
+        1 -> :second_third
+        2 -> :last_third
+      end
+
+    {slot, slot_third}
+  end
+
+  defp log_new_slot({slot, :first_third}) do
+    # TODO: as with the previous function, this was copied from the Clock module.
+    # is use :sync, :store as the slot event, probably something to look into.
+    :telemetry.execute([:sync, :store], %{slot: slot})
+    Logger.info("[Libp2p] Slot transition", slot: slot)
+  end
+
+  defp log_new_slot(_), do: :ok
 end
