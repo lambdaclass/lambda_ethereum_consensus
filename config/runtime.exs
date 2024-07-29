@@ -14,7 +14,6 @@ switches = [
   datadir: :string,
   testnet_dir: :string,
   metrics: :boolean,
-  metrics_port: :integer,
   log_file: :string,
   beacon_api: :boolean,
   beacon_api_port: :integer,
@@ -43,8 +42,7 @@ checkpoint_sync_url = Keyword.get(args, :checkpoint_sync_url)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
 testnet_dir = Keyword.get(args, :testnet_dir)
-enable_metrics = Keyword.get(args, :metrics, false)
-metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
+disable_metrics = not Keyword.get(args, :metrics, false)
 beacon_api_port = Keyword.get(args, :beacon_api_port, nil)
 enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
 listen_addresses = Keyword.get_values(args, :listen_address)
@@ -187,6 +185,20 @@ block_time_ms =
   end
 
 # Metrics
+
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.PromEx,
+  disabled: disable_metrics,
+  metrics_server: [
+    port: 9568,
+    auth_strategy: :none
+  ],
+  grafana: [
+    host: "http://localhost:3000",
+    # Authenticate via Basic Auth
+    username: "admin",
+    password: "admin",
+    upload_dashboards_on_start: true
+  ]
 
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.PromExPlugin,
   block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms))

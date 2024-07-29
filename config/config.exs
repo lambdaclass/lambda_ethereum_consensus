@@ -20,8 +20,6 @@ config :lambda_ethereum_consensus, :fork, fork
 # Configure logging
 config :logger, level: :info, truncate: :infinity
 
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry, enable: true
-
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
@@ -36,19 +34,6 @@ config :sentry,
   environment_name: Mix.env(),
   enable_source_code_context: true,
   root_source_code_paths: [File.cwd!()]
-
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.PromEx,
-  metrics_server: [
-    port: 9568,
-    auth_strategy: :none
-  ],
-  grafana: [
-    host: "http://localhost:3000",
-    # Authenticate via Basic Auth
-    username: "admin",
-    password: "admin",
-    upload_dashboards_on_start: true
-  ]
 
 config :lambda_ethereum_consensus, :logger, [
   {:handler, :sentry_handler, Sentry.LoggerHandler,
