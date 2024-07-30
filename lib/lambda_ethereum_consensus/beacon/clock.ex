@@ -12,6 +12,7 @@ defmodule LambdaEthereumConsensus.Beacon.Ticker do
 
   @spec register_to_tick(atom() | [atom()]) :: :ok
   def register_to_tick(to_tick) when is_atom(to_tick), do: register_to_tick([to_tick])
+
   def register_to_tick(to_tick) when is_list(to_tick) do
     GenServer.cast(__MODULE__, {:register_to_tick, to_tick})
   end
@@ -39,6 +40,12 @@ defmodule LambdaEthereumConsensus.Beacon.Ticker do
     schedule_next_tick()
     time = :os.system_time(:second)
 
+    # TODO: This assumes that on_tick/1 is implemented for all modules in to_tick
+    # this could be later a behaviour but I'm not sure we want to maintain this ticker
+    # in the long run. It's important that on_tick/1 is a very fast operation and
+    # that any intensive computation is done asynchronously (e.g calling a cast).
+    # We could also consider using a tasks to run on_tick/1 in parallel, but for
+    # now this is enough to avoid complexity.
     Enum.each(to_tick, & &1.on_tick(time))
 
     {:noreply, to_tick}

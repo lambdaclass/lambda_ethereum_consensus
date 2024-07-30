@@ -246,7 +246,10 @@ defmodule LambdaEthereumConsensus.Validator do
     attestation = produce_attestation(current_duty, state.root, state.validator.privkey)
 
     log_md = [slot: attestation.data.slot, attestation: attestation, subnet_id: subnet_id]
-    debug_log_msg = "publishing attestation on committee index: #{current_duty.committee_index} | as #{current_duty.index_in_committee}/#{current_duty.committee_length - 1} and pubkey: #{LambdaEthereumConsensus.Utils.format_shorten_binary(validator.pubkey)}"
+
+    debug_log_msg =
+      "publishing attestation on committee index: #{current_duty.committee_index} | as #{current_duty.index_in_committee}/#{current_duty.committee_length - 1} and pubkey: #{LambdaEthereumConsensus.Utils.format_shorten_binary(validator.pubkey)}"
+
     log_debug(validator.index, debug_log_msg, log_md)
 
     Gossip.Attestation.publish(subnet_id, attestation)
@@ -303,7 +306,8 @@ defmodule LambdaEthereumConsensus.Validator do
       |> Stream.map(&Map.fetch!(&1, :aggregation_bits))
       |> Enum.reduce(&BitField.bitwise_or/2)
 
-    {:ok, signature} = unique_attestations |> Enum.map(&Map.fetch!(&1, :signature)) |> Bls.aggregate()
+    {:ok, signature} =
+      unique_attestations |> Enum.map(&Map.fetch!(&1, :signature)) |> Bls.aggregate()
 
     %{List.first(attestations) | aggregation_bits: aggregation_bits, signature: signature}
   end

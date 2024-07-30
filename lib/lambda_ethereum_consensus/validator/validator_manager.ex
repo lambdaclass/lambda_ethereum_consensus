@@ -47,8 +47,8 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
     {:ok, validators}
   end
 
-  @spec notify_new_block(Types.slot(), Types.root()) :: :ok
-  def notify_new_block(slot, head_root) do
+  @spec notify_new_block({Types.slot(), Types.root()}) :: :ok
+  def notify_new_block({slot, head_root}) do
     # Making this alone a cast sometimes solves the issue for a while
     # GenServer.cast(__MODULE__, {:notify_all, {:new_block, slot, head_root}})
     notify_validators({:new_block, slot, head_root})

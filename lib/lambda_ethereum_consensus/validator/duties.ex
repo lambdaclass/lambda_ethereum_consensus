@@ -69,7 +69,12 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     attester_duties
     # Drop the first element, which is the previous epoch's duty
     |> Stream.drop(1)
-    |> Enum.each(fn %{index_in_committee: i, committee_index: ci, slot: slot, should_aggregate?: sa} ->
+    |> Enum.each(fn %{
+                      index_in_committee: i,
+                      committee_index: ci,
+                      slot: slot,
+                      should_aggregate?: sa
+                    } ->
       Logger.info(
         "[Validator] #{validator_index} has to attest in committee #{ci} of slot #{slot} with index #{i}, and should_aggregate?: #{sa}"
       )
