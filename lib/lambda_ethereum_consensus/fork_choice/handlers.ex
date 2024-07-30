@@ -115,6 +115,26 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     end
   end
 
+  def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
+    with {:ok, target_state} <- CheckpointStates.get_checkpoint_state(attestation.data.target) do
+      on_attestation_with_state(store, attestation, is_from_block, target_state)
+    end
+  end
+
+  def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block, states) do
+    case Map.fetch(states, attestation.data.target) do
+      {:ok, target_state} ->
+        on_attestation_with_state(store, attestation, is_from_block, target_state)
+
+      :error ->
+        if is_from_block do
+          {:ok, store}
+        else
+          {:error, "Checkpoint state not found for attestation."}
+        end
+    end
+  end
+
   @doc """
   Run ``on_attestation`` upon receiving a new ``attestation`` from either within a block or directly on the wire.
 
@@ -123,10 +143,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   """
   @spec on_attestation(Store.t(), Attestation.t(), boolean()) ::
           {:ok, Store.t()} | {:error, String.t()}
-  def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
+  def on_attestation_with_state(
+        %Store{} = store,
+        %Attestation{} = attestation,
+        is_from_block,
+        target_state
+      ) do
     with :ok <- check_attestation_valid(store, attestation, is_from_block),
          # Get state at the `target` to fully validate attestation
-         {:ok, target_state} <- CheckpointStates.get_checkpoint_state(attestation.data.target),
          {:ok, indexed_attestation} <-
            Accessors.get_indexed_attestation(target_state, attestation),
          :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do
@@ -405,14 +429,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     # If attestation target is from a future epoch, delay consideration until the epoch arrives
     # TODO: delay consideration until the epoch arrives
     if target.epoch in [current_epoch, previous_epoch], do: :ok, else: {:error, "future epoch"}
-  end
-
-  @doc """
-  Removes the checkpoint states that are prior to the store's finalized checkpoint from
-  the key-value store.
-  """
-  def prune_checkpoint_states(%Store{} = store) do
-    CheckpointStates.prune(store.finalized_checkpoint)
   end
 
   def update_latest_messages(%Store{} = store, attesting_indices, %Attestation{data: data}) do

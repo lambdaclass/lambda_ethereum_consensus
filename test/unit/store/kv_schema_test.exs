@@ -124,7 +124,87 @@ defmodule Unit.Store.KvSchemaTest do
   test "Folding errors if failing to find the starting key" do
     NumberSchema.put(1, %{"a" => "b"})
     NumberSchema.put(5, %{b: 3})
-
     {:error, _} = NumberSchema.fold_keys(3, 0, fn n, acc -> acc + n end)
+  end
+
+  @tag :tmp_dir
+  test "First key works when no other schemas are present" do
+    NumberSchema.put(1, %{"a" => "b"})
+    NumberSchema.put(5, %{b: 3})
+    NumberSchema.put(70, %{c: 5})
+
+    assert NumberSchema.first_key() == {:ok, 1}
+  end
+
+  @tag :tmp_dir
+  test "First key works returns :not_found when no keys are present for the schema, even if there are some other schemas present" do
+    TupleSchema.put({1, 2}, [])
+    Db.put("z", "some_value")
+    assert NumberSchema.first_key() == :not_found
+  end
+
+  @tag :tmp_dir
+  test "Streaming keys works with different things" do
+    NumberSchema.put(1, %{"a" => "b"})
+    NumberSchema.put(5, %{b: 3})
+    NumberSchema.put(70, %{c: 5})
+
+    sum =
+      NumberSchema.stream_keys(1, :next)
+      |> Stream.take_every(2)
+      |> Enum.sum()
+
+    assert sum == 71
+
+    list = NumberSchema.stream_keys(70, :prev) |> Enum.to_list()
+
+    assert list == [70, 5, 1]
+  end
+
+  @tag :tmp_dir
+  test "all_keys returns all keys when no other schemas are present" do
+    NumberSchema.put(1, %{"a" => "b"})
+    NumberSchema.put(5, %{b: 3})
+    NumberSchema.put(70, %{c: 5})
+
+    assert NumberSchema.all_keys() == [1, 5, 70]
+  end
+
+  @tag :tmp_dir
+  test "all_keys returns all keys when other schemas are present" do
+    NumberSchema.put(1, %{"a" => "b"})
+    NumberSchema.put(5, %{b: 3})
+    NumberSchema.put(70, %{c: 5})
+    TupleSchema.put({1, 2}, [])
+    Db.put("z", "some_value")
+
+    assert NumberSchema.all_keys() == [1, 5, 70]
+  end
+
+  @tag :tmp_dir
+  test "all_keys returns an empty list when no keys are present for the schema even if there are for others" do
+    TupleSchema.put({1, 2}, [])
+    Db.put("z", "some_value")
+
+    assert NumberSchema.all_keys() == []
+  end
+
+  @tag :tmp_dir
+  test "stream all keys returns empty stream when no keys are present" do
+    TupleSchema.put({1, 2}, [])
+    Db.put("z", "some_value")
+
+    assert NumberSchema.stream_all_keys() |> Enum.to_list() == []
+  end
+
+  @tag :tmp_dir
+  test "stream all keys returns allows to map over keys" do
+    TupleSchema.put({1, 2}, [])
+    NumberSchema.put(1, %{"a" => "b"})
+    NumberSchema.put(5, %{b: 3})
+    NumberSchema.put(70, %{c: 5})
+    Db.put("z", "some_value")
+
+    assert NumberSchema.stream_all_keys() |> Enum.map(fn k -> k * k end) == [1, 25, 4900]
   end
 end

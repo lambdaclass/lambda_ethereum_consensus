@@ -384,7 +384,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
        subscribers: %{},
        requests: Requests.new(),
        syncing: true
-     }}
+     }, {:continue, :check_pending_blocks}}
+  end
+
+  # There may be pending blocks from a prior execution, regardless of the optimistic sync
+  # state. We should run a process_blocks round. If no pending blocks are available, this
+  # call is a noop.
+  @impl GenServer
+  def handle_continue(:check_pending_blocks, state) do
+    PendingBlocks.process_blocks()
+    {:noreply, state}
   end
 
   @impl GenServer
@@ -506,8 +515,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     })
 
     case Map.fetch(subscribers, gs.topic) do
-      {:ok, module} -> module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
-      :error -> Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
+      {:ok, module} ->
+        Metrics.handler_span("gossip_handler", gs.topic, fn ->
+          module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
+        end)
+
+      :error ->
+        Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
     end
 
     state
