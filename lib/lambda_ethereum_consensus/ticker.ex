@@ -1,4 +1,4 @@
-defmodule LambdaEthereumConsensus.Beacon.Ticker do
+defmodule LambdaEthereumConsensus.Ticker do
   @moduledoc false
 
   use GenServer
