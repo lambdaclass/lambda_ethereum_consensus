@@ -1,6 +1,3 @@
-import Bitwise
-alias LambdaEthereumConsensus.Utils.BitVector
-
 reverse_number = fn bits ->
   bitsize = bit_size(bits)
   <<num::integer-little-size(bitsize)>> = bits
