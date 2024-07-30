@@ -379,7 +379,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {:ok,
      %{
        genesis_time: genesis_time,
-       slot_data: {0, :first_third},
+       slot_data: nil,
        port: port,
        subscribers: %{},
        requests: Requests.new(),
@@ -399,7 +399,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_cast({:on_tick, time}, %{genesis_time: genesis_time} = state) when time <= genesis_time, do: {:noreply, state}
+  def handle_cast({:on_tick, time}, %{genesis_time: genesis_time} = state) when time < genesis_time, do: {:noreply, state}
   def handle_cast({:on_tick, time}, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
     # TODO: we probably want to remove this from here, but we keep it here to have this serialized
     # with respect to the other fork choice store modifications.

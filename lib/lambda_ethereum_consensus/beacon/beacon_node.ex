@@ -24,11 +24,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     Cache.initialize_cache()
 
+    libp2p_args = get_libp2p_args()
+
     time = :os.system_time(:second)
 
     ForkChoice.init_store(store, time)
-
-    libp2p_args = get_libp2p_args(store.genesis_time)
 
     validator_manager =
       get_validator_manager(
@@ -39,8 +39,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     children =
       [
-        {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
         {LambdaEthereumConsensus.Beacon.Ticker, [LambdaEthereumConsensus.Libp2pPort]},
+        {LambdaEthereumConsensus.Libp2pPort, [{:genesis_time, store.genesis_time} | libp2p_args]},
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
         {Task.Supervisor, name: PruneBlobsSupervisor}
@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     ]
   end
 
-  defp get_libp2p_args(genesis_time) do
+  defp get_libp2p_args() do
     config = Application.fetch_env!(:lambda_ethereum_consensus, :libp2p)
     port = Keyword.fetch!(config, :port)
     bootnodes = Keyword.fetch!(config, :bootnodes)
@@ -75,7 +75,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     end
 
     [
-      genesis_time: genesis_time,
       listen_addr: listen_addr,
       enable_discovery: true,
       discovery_addr: "0.0.0.0:#{port}",
