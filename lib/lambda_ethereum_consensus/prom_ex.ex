@@ -11,18 +11,4 @@ defmodule LambdaEthereumConsensus.PromEx do
       LambdaEthereumConsensus.PromExPlugin
     ]
   end
-
-  @impl true
-  def dashboards() do
-    [
-      {:prom_ex, "beam.json"}
-    ]
-  end
-
-  @impl true
-  def dashboard_assigns() do
-    [
-      datasource_id: "Prometheus"
-    ]
-  end
 end
