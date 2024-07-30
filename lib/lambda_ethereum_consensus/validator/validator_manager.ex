@@ -1,21 +1,13 @@
-defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
+defmodule LambdaEthereumConsensus.Validator.Setup do
   @moduledoc """
-  Module that manage the validators state
+  Module that setups the initial validators state
   """
-  use GenServer
 
   require Logger
-  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.Validator
 
-  @spec start_link({Types.slot(), Types.root()}) :: :ignore | {:error, any} | {:ok, pid}
-  def start_link({slot, head_root}) do
-    GenServer.start_link(__MODULE__, {slot, head_root}, name: __MODULE__)
-  end
-
-  @spec init({Types.slot(), Types.root()}) ::
-          {:ok, %{Bls.pubkey() => Validator.state()}} | {:stop, any}
-  def init({slot, head_root}) do
+  @spec init(Types.slot(), Types.root()) :: %{Bls.pubkey() => Validator.state()}
+  def init(slot, head_root) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
     keystore_dir = Keyword.get(config, :keystore_dir)
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir)
@@ -26,10 +18,10 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
   defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
        when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
     Logger.warning(
-      "[Validator Manager] No keystore_dir or keystore_pass_dir provided. Validator will not start."
+      "[Validator] No keystore_dir or keystore_pass_dir provided. Validator will not start."
     )
 
-    {:ok, []}
+    %{}
   end
 
   defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
@@ -42,62 +34,10 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
       end)
       |> Map.new()
 
-    Logger.info("[Validator Manager] Initialized #{Enum.count(validators)} validators")
+    Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
 
-    {:ok, validators}
+    validators
   end
-
-  @spec notify_new_block({Types.slot(), Types.root()}) :: :ok
-  def notify_new_block({slot, head_root}) do
-    # Making this alone a cast sometimes solves the issue for a while
-    # GenServer.cast(__MODULE__, {:notify_all, {:new_block, slot, head_root}})
-    notify_validators({:new_block, slot, head_root})
-  end
-
-  @spec notify_tick(Clock.logical_time()) :: :ok
-  def notify_tick(logical_time) do
-    # Making this a cast alone doesn't solve the issue
-    # GenServer.cast(__MODULE__, {:notify_all, {:on_tick, logical_time}})
-    notify_validators({:on_tick, logical_time})
-  end
-
-  # TODO: The use of a Genserver and cast is still needed to avoid locking at the clock level.
-  # This is a temporary solution and will be taken off in a future PR.
-  defp notify_validators(msg), do: GenServer.call(__MODULE__, {:notify_all, msg}, 20_000)
-
-  def handle_cast({:notify_all, msg}, validators) do
-    validators = notify_all(validators, msg)
-
-    {:noreply, validators}
-  end
-
-  def handle_call({:notify_all, msg}, _from, validators) do
-    validators = notify_all(validators, msg)
-
-    {:reply, :ok, validators}
-  end
-
-  defp notify_all(validators, msg) do
-    start_time = System.monotonic_time(:millisecond)
-
-    Logger.info("[Validator Manager] Notifying all Validators with message: #{inspect(msg)}")
-
-    updated_validators = Enum.map(validators, &notify_validator(&1, msg))
-
-    end_time = System.monotonic_time(:millisecond)
-
-    Logger.debug(
-      "[Validator Manager] #{inspect(msg)} notified to all Validators after #{end_time - start_time} ms"
-    )
-
-    updated_validators
-  end
-
-  defp notify_validator({pubkey, validator}, {:on_tick, logical_time}),
-    do: {pubkey, Validator.handle_tick(logical_time, validator)}
-
-  defp notify_validator({pubkey, validator}, {:new_block, slot, head_root}),
-    do: {pubkey, Validator.handle_new_block(slot, head_root, validator)}
 
   @doc """
     Get validator keys from the keystore directory.
@@ -119,7 +59,7 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
 
         {keystore_file, keystore_pass_file}
       else
-        Logger.warning("[Validator Manager] Skipping file: #{filename}. Not a keystore file.")
+        Logger.warning("[Validator] Skipping file: #{filename}. Not a keystore file.")
         nil
       end
     end)
@@ -131,7 +71,7 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
       rescue
         error ->
           Logger.error(
-            "[Validator Manager] Failed to decode keystore file: #{keystore_file}. Pass file: #{keystore_pass_file} Error: #{inspect(error)}"
+            "[Validator] Failed to decode keystore file: #{keystore_file}. Pass file: #{keystore_pass_file} Error: #{inspect(error)}"
           )
 
           nil

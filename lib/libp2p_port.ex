@@ -9,7 +9,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
-  alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
@@ -22,6 +21,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.P2p.Requests
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Validator
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command
   alias Libp2pProto.Enr
@@ -63,6 +63,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @type init_arg ::
           {:genesis_time, Types.uint64()}
+          | {:validators, %{}}
           | {:listen_addr, [String.t()]}
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
@@ -111,6 +112,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec on_tick(Types.uint64()) :: :ok
   def on_tick(time) do
     GenServer.cast(__MODULE__, {:on_tick, time})
+  end
+
+  @spec notify_new_block({Types.slot(), Types.root()}) :: :ok
+  def notify_new_block(data) do
+    # TODO: This is quick workarround to notify the libp2p port about new blocks from within
+    # the ForkChoice.recompute_head/1 without moving the validators to the store this
+    # allows to deferr that move until we simplify the state and remove duplicates.
+    send(self(), {:new_block, data})
   end
 
   @doc """
@@ -354,6 +363,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def init(args) do
     {genesis_time, args} = Keyword.pop!(args, :genesis_time)
+    {validators, args} = Keyword.pop(args, :validators, %{})
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
     {enable_request_handlers, args} = Keyword.pop(args, :enable_request_handlers, false)
 
@@ -379,6 +389,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {:ok,
      %{
        genesis_time: genesis_time,
+       validators: validators,
        slot_data: nil,
        port: port,
        subscribers: %{},
@@ -408,7 +419,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_cast({:on_tick, time}, %{genesis_time: genesis_time} = state) when time < genesis_time, do: {:noreply, state}
+  def handle_cast({:on_tick, time}, %{genesis_time: genesis_time} = state)
+      when time < genesis_time,
+      do: {:noreply, state}
+
   def handle_cast({:on_tick, time}, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
     # TODO: we probably want to remove this from here, but we keep it here to have this serialized
     # with respect to the other fork choice store modifications.
@@ -417,13 +431,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     new_slot_data = compute_slot(genesis_time, time)
 
-    if slot_data != new_slot_data do
-      ValidatorManager.notify_tick(slot_data)
-    end
+    updated_state = maybe_tick_validators(slot_data != new_slot_data, new_slot_data, state)
 
-    log_new_slot(new_slot_data)
+    log_new_slot(slot_data, new_slot_data)
 
-    {:noreply, %{state | slot_data: new_slot_data}}
+    {:noreply, updated_state}
   end
 
   def handle_cast(
@@ -484,6 +496,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       state |> Map.put(:blocks_remaining, blocks_to_download) |> subscribe_if_no_blocks()
 
     {:noreply, new_state}
+  end
+
+  @impl GenServer
+  def handle_info({:new_block, data}, %{validators: validators} = state) do
+    updated_validators = notify_validators(validators, {:new_block, data})
+
+    {:noreply, %{state | validators: updated_validators}}
   end
 
   @impl GenServer
@@ -707,6 +726,38 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     end)
   end
 
+  # Validator related functions
+
+  defp maybe_tick_validators(false = _slot_data_changed, _slot_data, state), do: state
+
+  defp maybe_tick_validators(true, slot_data, %{validators: validators} = state) do
+    updated_validators = notify_validators(validators, {:on_tick, slot_data})
+
+    %{state | slot_data: slot_data, validators: updated_validators}
+  end
+
+  defp notify_validators(validators, msg) do
+    start_time = System.monotonic_time(:millisecond)
+
+    Logger.info("[Libp2p] Notifying all Validators with message: #{inspect(msg)}")
+
+    updated_validators = Enum.map(validators, &notify_validator(&1, msg))
+
+    end_time = System.monotonic_time(:millisecond)
+
+    Logger.debug(
+      "[Validator Manager] #{inspect(msg)} notified to all Validators after #{end_time - start_time} ms"
+    )
+
+    updated_validators
+  end
+
+  defp notify_validator({pubkey, validator}, {:on_tick, slot_data}),
+    do: {pubkey, Validator.handle_tick(slot_data, validator)}
+
+  defp notify_validator({pubkey, validator}, {:new_block, {slot, head_root}}),
+    do: {pubkey, Validator.handle_new_block(slot, head_root, validator)}
+
   @spec compute_slot(Types.uint64(), Types.uint64()) :: slot_data()
   defp compute_slot(genesis_time, time) do
     # TODO: This was copied as it is from the Clock to convert it into just a Ticker,
@@ -726,12 +777,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {slot, slot_third}
   end
 
-  defp log_new_slot({slot, :first_third}) do
+  defp log_new_slot({slot, _third}, {slot, _third}), do: :ok
+
+  defp log_new_slot({_prev_slot, _thrid}, {slot, :first_third}) do
     # TODO: as with the previous function, this was copied from the Clock module.
-    # is use :sync, :store as the slot event, probably something to look into.
+    # It use :sync, :store as the slot event, probably something to look into.
     :telemetry.execute([:sync, :store], %{slot: slot})
     Logger.info("[Libp2p] Slot transition", slot: slot)
   end
 
-  defp log_new_slot(_), do: :ok
+  defp log_new_slot(_, _), do: :ok
 end

@@ -4,11 +4,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   """
 
   require Logger
-
-  # alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
+  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -18,7 +17,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
-  alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.Attestation
   alias Types.BlockInfo
   alias Types.Checkpoint
@@ -271,7 +269,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       store.finalized_checkpoint
     )
 
-    ValidatorManager.notify_new_block(slot, head_root)
+    Libp2pPort.notify_new_block({slot, head_root})
 
     Logger.info("[Fork choice] Updated fork choice cache", slot: slot)
 
