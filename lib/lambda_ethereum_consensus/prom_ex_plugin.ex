@@ -95,8 +95,12 @@ defmodule LambdaEthereumConsensus.PromExPlugin do
 
   @impl true
   def polling_metrics(_opts) do
+    poll_rate =
+      Application.get_env(:lambda_ethereum_consensus, __MODULE__)
+      |> Keyword.fetch!(:poll_rate)
+
     [
-      Polling.build(:periodic_measurements, 15_000, {__MODULE__, :periodic_measurements, []}, [
+      Polling.build(:periodic_measurements, poll_rate, {__MODULE__, :periodic_measurements, []}, [
         last_value([:db, :size, :total], unit: :byte),
         last_value([:vm, :message_queue, :length], tags: [:process])
       ])
