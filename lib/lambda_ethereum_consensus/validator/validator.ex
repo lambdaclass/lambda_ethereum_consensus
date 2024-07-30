@@ -13,7 +13,6 @@ defmodule LambdaEthereumConsensus.Validator do
     :payload_builder
   ]
 
-  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
@@ -116,7 +115,7 @@ defmodule LambdaEthereumConsensus.Validator do
     |> maybe_build_payload(slot + 1)
   end
 
-  @spec handle_tick(Clock.logical_time(), state) :: state
+  @spec handle_tick({Types.slot(), atom()}, state) :: state
   def handle_tick(_logical_time, %{validator: %{index: nil}} = state) do
     log_error("-1", "setup validator", "index not present for handle tick")
     state

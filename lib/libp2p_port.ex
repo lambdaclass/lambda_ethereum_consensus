@@ -777,7 +777,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {slot, slot_third}
   end
 
-  defp log_new_slot({slot, _third}, {slot, _third}), do: :ok
+  defp log_new_slot({slot, _third}, {slot, _another_third}), do: :ok
 
   defp log_new_slot({_prev_slot, _thrid}, {slot, :first_third}) do
     # TODO: as with the previous function, this was copied from the Clock module.
