@@ -743,8 +743,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     end)
   end
 
-  # Validator related functions
-
   defp maybe_tick_validators(false = _slot_data_changed, _slot_data, state), do: state
 
   defp maybe_tick_validators(true, slot_data, %{validators: validators} = state) do
@@ -797,8 +795,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp log_new_slot({slot, _third}, {slot, _another_third}), do: :ok
 
   defp log_new_slot({_prev_slot, _thrid}, {slot, :first_third}) do
-    # TODO: as with the previous function, this was copied from the Clock module.
-    # It use :sync, :store as the slot event, probably something to look into.
+    # TODO: It used :sync, :store as the slot event in the old Clock, double-check.
     :telemetry.execute([:sync, :store], %{slot: slot})
     Logger.info("[Libp2p] Slot transition", slot: slot)
   end
