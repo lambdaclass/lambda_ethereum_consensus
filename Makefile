@@ -66,7 +66,9 @@ kurtosis.setup.ethereum-package:
 
 # 💻 kurtosis.setup.grafana: @ Copies the grafana dashboards to the ethereum-package folder under grafana-config
 kurtosis.setup.grafana:
-	[ -d  $(KURTOSIS_GRAFANA_DASHBOARDS_DIR)/lambdaconsensus ] || mkdir $(KURTOSIS_GRAFANA_DASHBOARDS_DIR)/lambdaconsensus
+	[ -d  $(KURTOSIS_GRAFANA_DASHBOARDS_DIR)/lambdaconsensus ] && \
+		rm $(KURTOSIS_GRAFANA_DASHBOARDS_DIR)/lambdaconsensus/* || \
+		mkdir $(KURTOSIS_GRAFANA_DASHBOARDS_DIR)/lambdaconsensus
 	cp -r $(GRAFANA_DASHBOARDS_DIR)/* $(KURTOSIS_GRAFANA_DASHBOARDS_DIR)/lambdaconsensus
 
 #💻 kurtosis.setup.lambdaconsensus: @ Builds the node Docker for the kurtosis environment
