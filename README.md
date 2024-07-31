@@ -332,7 +332,7 @@ make kurtosis.purge
 
 ## Live Metrics
 
-When running the node, metrics are available at [`http://localhost:9568/metrics`](http://localhost:9568/metrics) in Prometheus format.
+When running the node, use the `--metrics` flag to enable metrics at [`http://localhost:9568/metrics`](http://localhost:9568/metrics) in Prometheus format.
 
 ### Grafana
 
