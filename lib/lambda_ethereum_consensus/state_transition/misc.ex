@@ -6,6 +6,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   import Bitwise
   require Aja
 
+  alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Shuffling
   alias Types.BeaconState
 
   @max_random_byte 2 ** 8 - 1
@@ -181,8 +183,59 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   @doc """
+  Gets all committees for a single epoch. More efficient than calculating each one, as the shuffling
+  is done a single time for the whole index list and shared values are reused between committees.
+  """
+  @spec compute_all_committees(BeaconState.t(), Types.epoch()) :: list(Aja.Vector.t())
+  def compute_all_committees(state, epoch) do
+    committee_count =
+      Accessors.get_committee_count_per_slot(state, epoch) * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    indices = Accessors.get_active_validator_indices(state, epoch)
+    index_count = Aja.Vector.size(indices)
+
+    # All committees except the last one are of this size.
+    committee_size = div(index_count, committee_count)
+    seed = Accessors.get_seed(state, epoch, Constants.domain_beacon_attester())
+    shuffled_indices = Shuffling.shuffle_list(indices, seed)
+
+    1..committee_count
+    |> Enum.reduce({shuffled_indices, []}, fn _i, {indices, committees} ->
+      {new_committee, remaining} = Aja.Vector.split(indices, committee_size)
+      {remaining, [new_committee | committees]}
+    end)
+    |> Enum.reverse()
+  end
+
+  @doc """
   Computes the validator indices of the ``committee_index``-th committee at some epoch
   with ``committee_count`` committees, and for some given ``indices`` and ``seed``.
+
+  Args:
+  - indices: a full list of all active validator indices for a single epoch.
+  - seed: for shuffling calculations.
+  - committee_index: global number representing the order of the requested committee within the
+    whole epoch.
+  - committee_count: total amount of committees for the epoch. Useful to determine the start and end
+    of the requested committee.
+
+  Returns:
+  - The list of indices for the validators that conform the requested committee. The order is the
+    same as used in the aggregation bits of an attestation in that committee.
+
+  PERFORMANCE NOTE:
+
+  Instead of shuffling the full index list, it focuses on the positions of the requested committee
+  and calculates their shuffled index. Because of the symmetric nature of the shuffling algorithm,
+  looking at the shuffled index position in the index list gives the element that would end up in
+  the committee if the full list was to be shuffled.
+
+  This is, in logic, equivalent to shuffling the whole validator index list and getting the
+  elements for the committee under calculation, but only calculating the shuffling for the elements
+  of the committee.
+
+  While the amount of calculations is smaller than the full shuffling, calling this for every
+  committee in an epoch is inefficient. For that end, compute_all_committees should be called.
   """
   @spec compute_committee(Aja.Vector.t(), Types.bytes32(), Types.uint64(), Types.uint64()) ::
           {:error, String.t()}

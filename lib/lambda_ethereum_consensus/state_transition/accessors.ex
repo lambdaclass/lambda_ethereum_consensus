@@ -281,7 +281,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
-  Return the number of committees in each slot for the given ``epoch``.
+  Returns the number of committees in each slot for the given ``epoch``.
+
+  The amount of committees is (using integer division):
+  active_validator_count / slots_per_epoch / TARGET_COMMITTEE_SIZE
+
+  The amount of committees will be capped between 1 and MAX_COMMITTEES_PER_SLOT.
   """
   @spec get_committee_count_per_slot(BeaconState.t(), Types.epoch()) :: Types.uint64()
   def get_committee_count_per_slot(%BeaconState{} = state, epoch) do
@@ -300,7 +305,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
-  Return the beacon committee at ``slot`` for ``index``.
+  Returns the beacon committee at ``slot`` for ``index``.
+  - slot is the one for which the committee is being calculated. Typically the slot of an
+    attestation. Might be different from the state slot.
+  - index: the index of the committee within the slot. It's not the committee index, which is the
+    index of the committee within the epoch. This transformation is done internally.
+
+  The beacon committee returned is a list of global validator indices that should participate in
+  the requested slot. The order in which the indices are sorted is the same as the one used in
+  aggregation bits, so checking if the nth member of a committee participated is as simple as
+  checking if the nth bit is set.
   """
   @spec get_beacon_committee(BeaconState.t(), Types.slot(), Types.commitee_index()) ::
           {:ok, [Types.validator_index()]} | {:error, String.t()}
@@ -505,6 +519,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   @doc """
   Return the set of attesting indices corresponding to ``data`` and ``bits``.
+
+  It computes the committee for the attestation (indices of validators that should participate in
+  that slot) and then filters the ones that actually participated. It returns an unordered MapSet,
+  which is useful for checking inclusion, but should be ordered if used to validate an attestation.
   """
   @spec get_attesting_indices(BeaconState.t(), Types.AttestationData.t(), Types.bitlist()) ::
           {:ok, MapSet.t()} | {:error, String.t()}
