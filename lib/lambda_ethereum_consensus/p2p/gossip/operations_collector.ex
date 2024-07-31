@@ -40,17 +40,18 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     "bls_to_execution_change"
   ]
 
-  def subscribe_to_topics() do
-    Enum.reduce_while(topics(), :ok, fn topic, _acc ->
-      case Libp2pPort.subscribe_to_topic(topic, __MODULE__) do
-        :ok ->
-          {:cont, :ok}
+  # TODO: Is anyone using this function?
+  # def subscribe_to_topics() do
+  #   Enum.reduce_while(topics(), :ok, fn topic, _acc ->
+  #     case Libp2pPort.subscribe_to_topic(topic, __MODULE__) do
+  #       :ok ->
+  #         {:cont, :ok}
 
-        {:error, reason} ->
-          {:halt, {:error, "[OperationsCollector] Subscription failed: '#{reason}'"}}
-      end
-    end)
-  end
+  #       {:error, reason} ->
+  #         {:halt, {:error, "[OperationsCollector] Subscription failed: '#{reason}'"}}
+  #     end
+  #   end)
+  # end
 
   @spec get_bls_to_execution_changes(non_neg_integer()) :: list(SignedBLSToExecutionChange.t())
   def get_bls_to_execution_changes(count) do
