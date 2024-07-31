@@ -259,6 +259,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     %{slot: slot, body: body} = head_block
 
     OperationsCollector.notify_new_block(head_block)
+    Libp2pPort.notify_new_block(slot, head_root)
     ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
 
     update_fork_choice_data(
@@ -267,8 +268,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       store.justified_checkpoint,
       store.finalized_checkpoint
     )
-
-    Libp2pPort.notify_new_block({slot, head_root})
 
     Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
 

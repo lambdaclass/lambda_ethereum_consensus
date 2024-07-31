@@ -114,12 +114,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.cast(__MODULE__, {:on_tick, time})
   end
 
-  @spec notify_new_block({Types.slot(), Types.root()}) :: :ok
-  def notify_new_block(data) do
+  @spec notify_new_block(Types.slot(), Types.root()) :: :ok
+  def notify_new_block(slot, head_root) do
     # TODO: This is quick workarround to notify the libp2p port about new blocks from within
     # the ForkChoice.recompute_head/1 without moving the validators to the store this
     # allows to deferr that move until we simplify the state and remove duplicates.
-    send(self(), {:new_block, data})
+    send(self(), {:new_block, slot, head_root})
   end
 
   @doc """
@@ -499,8 +499,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_info({:new_block, data}, %{validators: validators} = state) do
-    updated_validators = notify_validators(validators, {:new_block, data})
+  def handle_info({:new_block, slot, head_root}, %{validators: validators} = state) do
+    updated_validators = notify_validators(validators, {:new_block, slot, head_root})
 
     {:noreply, %{state | validators: updated_validators}}
   end
@@ -755,7 +755,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp notify_validator({pubkey, validator}, {:on_tick, slot_data}),
     do: {pubkey, Validator.handle_tick(slot_data, validator)}
 
-  defp notify_validator({pubkey, validator}, {:new_block, {slot, head_root}}),
+  defp notify_validator({pubkey, validator}, {:new_block, slot, head_root}),
     do: {pubkey, Validator.handle_new_block(slot, head_root, validator)}
 
   @spec compute_slot(Types.uint64(), Types.uint64()) :: slot_data()
