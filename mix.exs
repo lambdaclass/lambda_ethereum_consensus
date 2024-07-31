@@ -24,7 +24,7 @@ defmodule LambdaEthereumConsensus.MixProject do
     [
       extra_applications:
         extra_applications(System.get_env("EXTRA_APPLICATIONS")) ++
-          [:logger, :prometheus_ex, :runtime_tools, :observer],
+          [:logger, :runtime_tools, :observer],
       mod: {LambdaEthereumConsensus.Application, []}
     ]
   end
@@ -49,10 +49,6 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
       {:protobuf, "~> 0.12.0"},
-      {:telemetry, "~> 1.0"},
-      {:telemetry_poller, "~> 1.0"},
-      {:telemetry_metrics, "~> 1.0"},
-      {:telemetry_metrics_prometheus, "~> 1.1.0"},
       {:aja, "~> 0.6"},
       {:logfmt_ex, "~> 0.4.2"},
       {:ex2ms, "~> 1.6", runtime: false},
@@ -66,12 +62,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-32"},
       {:recode, "~> 0.7", only: [:dev, :test]},
       {:sentry, "~> 10.6.0"},
-      {:prometheus_ex, "~> 3.1"},
-      {:prometheus_plugs, "~> 1.1"},
-      {:prometheus_process_collector,
-       git: "https://github.com/lambdaclass/prometheus_process_collector",
-       branch: "update-makefile-to-support-otp-26",
-       override: true},
+      {:prom_ex, "~> 1.9.0"},
       {:flama, git: "https://github.com/lambdaclass/ht1223_tracer"},
       {:uuid, "~> 1.1"}
     ]

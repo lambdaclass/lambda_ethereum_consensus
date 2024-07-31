@@ -43,8 +43,8 @@ checkpoint_sync_url = Keyword.get(args, :checkpoint_sync_url)
 execution_endpoint = Keyword.get(args, :execution_endpoint, "http://localhost:8551")
 jwt_path = Keyword.get(args, :execution_jwt)
 testnet_dir = Keyword.get(args, :testnet_dir)
-enable_metrics = Keyword.get(args, :metrics, false)
-metrics_port = Keyword.get(args, :metrics_port, if(enable_metrics, do: 9568, else: nil))
+metrics_port = Keyword.get(args, :metrics_port, nil)
+enable_metrics = Keyword.get(args, :metrics, not is_nil(metrics_port))
 beacon_api_port = Keyword.get(args, :beacon_api_port, nil)
 enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
 listen_addresses = Keyword.get_values(args, :listen_address)
@@ -188,9 +188,16 @@ block_time_ms =
 
 # Metrics
 
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.Telemetry,
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.PromEx,
+  disabled: not enable_metrics,
+  metrics_server: [
+    port: metrics_port || 9568,
+    auth_strategy: :none
+  ]
+
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.PromExPlugin,
   block_processing_buckets: [0.5, 1.0, 1.5, 2, 4, 6, 8] |> Enum.map(&(&1 * block_time_ms)),
-  port: metrics_port
+  poll_rate: 15_000
 
 # Logging
 
