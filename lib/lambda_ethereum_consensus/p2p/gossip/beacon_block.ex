@@ -38,20 +38,19 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
     :ok
   end
 
-  # # TODO: Is anyone using this function?
-  # @spec subscribe_to_topic() :: :ok | :error
-  # def subscribe_to_topic() do
-  #   topic()
-  #   |> Libp2pPort.subscribe_to_topic(__MODULE__)
-  #   |> case do
-  #     :ok ->
-  #       :ok
+  @spec subscribe_to_topic() :: :ok | :error
+  def subscribe_to_topic() do
+    topic()
+    |> Libp2pPort.subscribe_to_topic(__MODULE__)
+    |> case do
+      :ok ->
+        :ok
 
-  #     {:error, reason} ->
-  #       Logger.error("[Gossip] Subscription failed: '#{reason}'")
-  #       :error
-  #   end
-  # end
+      {:error, reason} ->
+        Logger.error("[Gossip] Subscription failed: '#{reason}'")
+        :error
+    end
+  end
 
   def topic() do
     fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)

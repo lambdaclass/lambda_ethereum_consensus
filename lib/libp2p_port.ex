@@ -256,6 +256,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     GenServer.cast(pid, {:new_subscriber, topic_name, module})
 
+    call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
+  end
+
+  @doc """
+  Subscribes to the given topic async, not waiting for a response at the subscribe.
+  After this, messages published to the topicwill be received by `self()`.
+  """
+  @spec async_subscribe_to_topic(GenServer.server(), String.t(), module()) ::
+          :ok | {:error, String.t()}
+  def async_subscribe_to_topic(pid \\ __MODULE__, topic_name, module) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "async_subscribe_to_topic",
+      direction: "elixir->"
+    })
+
+    GenServer.cast(pid, {:new_subscriber, topic_name, module})
+
     cast_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
 

@@ -26,20 +26,19 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
     end
   end
 
-  # TODO: Is anyone using this function?
-  # @spec subscribe_to_topics() :: :ok | {:error, String.t()}
-  # def subscribe_to_topics() do
-  #   Enum.each(topics(), fn topic ->
-  #     case Libp2pPort.subscribe_to_topic(topic, __MODULE__) do
-  #       :ok ->
-  #         :ok
+  @spec subscribe_to_topics() :: :ok | {:error, String.t()}
+  def subscribe_to_topics() do
+    Enum.each(topics(), fn topic ->
+      case Libp2pPort.subscribe_to_topic(topic, __MODULE__) do
+        :ok ->
+          :ok
 
-  #       {:error, reason} ->
-  #         Logger.error("[Gossip] Subscription failed: '#{reason}'")
-  #         {:error, reason}
-  #     end
-  #   end)
-  # end
+        {:error, reason} ->
+          Logger.error("[Gossip] Subscription failed: '#{reason}'")
+          {:error, reason}
+      end
+    end)
+  end
 
   def topics() do
     # TODO: this doesn't take into account fork digest changes
