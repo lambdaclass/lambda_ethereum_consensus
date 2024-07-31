@@ -264,6 +264,7 @@ lint:
 	mix recode --no-autocorrect
 	mix format --check-formatted
 	mix credo --strict
+	mix dialyzer --no-check
 
 #✅ fmt: @ Format all code (Go, rust and elixir).
 fmt:

@@ -3,18 +3,13 @@ defmodule LambdaEthereumConsensus.Ticker do
 
   use GenServer
 
+  @tick_time 1000
+
   require Logger
 
   @spec start_link([atom()]) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
-  @spec register_to_tick(atom() | [atom()]) :: :ok
-  def register_to_tick(to_tick) when is_atom(to_tick), do: register_to_tick([to_tick])
-
-  def register_to_tick(to_tick) when is_list(to_tick) do
-    GenServer.cast(__MODULE__, {:register_to_tick, to_tick})
   end
 
   ##########################
@@ -25,19 +20,13 @@ defmodule LambdaEthereumConsensus.Ticker do
   @spec init([atom()]) :: {:ok, [atom()]} | {:stop, any}
   def init(to_tick) when is_list(to_tick) do
     schedule_next_tick()
-
     {:ok, to_tick}
-  end
-
-  @impl true
-  def handle_cast({:register_to_tick, to_tick_additions}, to_tick) do
-    new_to_tick = Enum.uniq(to_tick ++ to_tick_additions)
-    {:noreply, new_to_tick}
   end
 
   @impl true
   def handle_info(:on_tick, to_tick) do
     schedule_next_tick()
+    # If @tick_time becomes less than 1000, we should use :millisecond instead.
     time = :os.system_time(:second)
 
     # TODO: This assumes that on_tick/1 is implemented for all modules in to_tick
@@ -53,7 +42,7 @@ defmodule LambdaEthereumConsensus.Ticker do
 
   def schedule_next_tick() do
     # For millisecond precision
-    time_to_next_tick = 1000 - rem(:os.system_time(:millisecond), 1000)
+    time_to_next_tick = @tick_time - rem(:os.system_time(:millisecond), @tick_time)
     Process.send_after(__MODULE__, :on_tick, time_to_next_tick)
   end
 end
