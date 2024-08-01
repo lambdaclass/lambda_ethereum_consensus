@@ -485,7 +485,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_info(:on_tick, %{genesis_time: genesis_time} = state) do
+  def handle_info(:on_tick, state) do
     schedule_next_tick()
     time = :os.system_time(:second)
 
@@ -758,7 +758,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp notify_validators(validators, msg) do
     start_time = System.monotonic_time(:millisecond)
 
-    Logger.info("[Libp2p] Notifying all Validators with message: #{inspect(msg)}")
+    Logger.debug("[Libp2p] Notifying all Validators with message: #{inspect(msg)}")
 
     updated_validators = Enum.map(validators, &notify_validator(&1, msg))
 
