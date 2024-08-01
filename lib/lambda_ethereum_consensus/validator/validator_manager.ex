@@ -23,6 +23,11 @@ defmodule LambdaEthereumConsensus.Validator.ValidatorManager do
     setup_validators(slot, head_root, keystore_dir, keystore_pass_dir)
   end
 
+  def get_pubkeys(), do: GenServer.call(__MODULE__, :get_pubkeys)
+
+  def handle_call(:get_pubkeys, _from, [] = validators), do: {:reply, validators, validators}
+  def handle_call(:get_pubkeys, _from, validators), do: {:reply, Map.keys(validators), validators}
+
   defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
        when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
     Logger.warning(
