@@ -9,6 +9,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
+  @tick_time 1000
+
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
@@ -107,11 +109,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def start_link(init_args) do
     {opts, args} = Keyword.pop(init_args, :opts, name: __MODULE__)
     GenServer.start_link(__MODULE__, args, opts)
-  end
-
-  @spec on_tick(Types.uint64()) :: :ok
-  def on_tick(time) do
-    GenServer.cast(__MODULE__, {:on_tick, time})
   end
 
   @spec notify_new_block(Types.slot(), Types.root()) :: :ok
@@ -403,6 +400,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       "[Optimistic Sync] Waiting #{@sync_delay_millis / 1000} seconds to discover some peers before requesting blocks."
     )
 
+    schedule_next_tick()
+
     {:ok,
      %{
        genesis_time: genesis_time,
@@ -433,26 +432,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def handle_cast({:send, data}, %{port: port} = state) do
     send_data(port, data)
     {:noreply, state}
-  end
-
-  @impl GenServer
-  def handle_cast({:on_tick, time}, %{genesis_time: genesis_time} = state)
-      when time < genesis_time,
-      do: {:noreply, state}
-
-  def handle_cast({:on_tick, time}, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
-    # TODO: we probably want to remove this from here, but we keep it here to have this serialized
-    # with respect to the other fork choice store modifications.
-
-    ForkChoice.on_tick(time)
-
-    new_slot_data = compute_slot(genesis_time, time)
-
-    updated_state = maybe_tick_validators(slot_data != new_slot_data, new_slot_data, state)
-
-    log_new_slot(slot_data, new_slot_data)
-
-    {:noreply, updated_state}
   end
 
   def handle_cast(
@@ -503,6 +482,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     # TODO: kill the genserver or retry sync all together.
     {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_info(:on_tick, %{genesis_time: genesis_time} = state) do
+    schedule_next_tick()
+    time = :os.system_time(:second)
+
+    {:noreply, on_tick(time, state)}
   end
 
   @impl GenServer
@@ -743,6 +730,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     end)
   end
 
+  defp on_tick(time, %{genesis_time: genesis_time} = state) when time < genesis_time, do: state
+
+  defp on_tick(time, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
+    # TODO: we probably want to remove this (ForkChoice.on_tick) from here, but we keep it
+    # here to have this serialized with respect to the other fork choice store modifications.
+
+    ForkChoice.on_tick(time)
+
+    new_slot_data = compute_slot(genesis_time, time)
+
+    updated_state = maybe_tick_validators(slot_data != new_slot_data, new_slot_data, state)
+
+    maybe_log_new_slot(slot_data, new_slot_data)
+
+    updated_state
+  end
+
   defp maybe_tick_validators(false = _slot_data_changed, _slot_data, state), do: state
 
   defp maybe_tick_validators(true, slot_data, %{validators: validators} = state) do
@@ -773,10 +777,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp notify_validator({pubkey, validator}, {:new_block, slot, head_root}),
     do: {pubkey, Validator.handle_new_block(slot, head_root, validator)}
 
-  @spec compute_slot(Types.uint64(), Types.uint64()) :: slot_data()
+  defp schedule_next_tick() do
+    # For millisecond precision
+    time_to_next_tick = @tick_time - rem(:os.system_time(:millisecond), @tick_time)
+    Process.send_after(__MODULE__, :on_tick, time_to_next_tick)
+  end
+
   defp compute_slot(genesis_time, time) do
-    # TODO: This was copied as it is from the Clock to convert it into just a Ticker,
-    # slot calculations are spread across modules, we should probably centralize them.
+    # TODO: This was copied as it is from the Clock, slot calculations are spread
+    # across modules, we should probably centralize them.
     elapsed_time = time - genesis_time
 
     slot_thirds = div(elapsed_time * 3, ChainSpec.get("SECONDS_PER_SLOT"))
@@ -792,13 +801,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {slot, slot_third}
   end
 
-  defp log_new_slot({slot, _third}, {slot, _another_third}), do: :ok
+  defp maybe_log_new_slot({slot, _third}, {slot, _another_third}), do: :ok
 
-  defp log_new_slot({_prev_slot, _thrid}, {slot, :first_third}) do
+  defp maybe_log_new_slot({_prev_slot, _thrid}, {slot, :first_third}) do
     # TODO: It used :sync, :store as the slot event in the old Clock, double-check.
     :telemetry.execute([:sync, :store], %{slot: slot})
     Logger.info("[Libp2p] Slot transition", slot: slot)
   end
 
-  defp log_new_slot(_, _), do: :ok
+  defp maybe_log_new_slot(_, _), do: :ok
 end

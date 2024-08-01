@@ -36,7 +36,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     children =
       [
-        {LambdaEthereumConsensus.Ticker, [LambdaEthereumConsensus.Libp2pPort]},
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
