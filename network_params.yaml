@@ -10,3 +10,4 @@ participants:
     count: 1
     validator_count: 32
     cl_max_mem: 4096
+    keymanager_enabled: true

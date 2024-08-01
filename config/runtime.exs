@@ -19,7 +19,7 @@ switches = [
   beacon_api: :boolean,
   beacon_api_port: :integer,
   keystore_api: :boolean,
-  keystore_api_port: :integer,
+  validator_api_port: :integer,
   listen_address: [:string, :keep],
   discovery_port: :integer,
   boot_nodes: :string,
@@ -49,8 +49,8 @@ metrics_port = Keyword.get(args, :metrics_port, nil)
 enable_metrics = Keyword.get(args, :metrics, not is_nil(metrics_port))
 beacon_api_port = Keyword.get(args, :beacon_api_port, nil)
 enable_beacon_api = Keyword.get(args, :beacon_api, not is_nil(beacon_api_port))
-keystore_api_port = Keyword.get(args, :keystore_api_port, nil)
-enable_keystore_api = Keyword.get(args, :keystore_api, not is_nil(keystore_api_port))
+validator_api_port = Keyword.get(args, :validator_api_port, nil)
+enable_keystore_api = Keyword.get(args, :keystore_api, not is_nil(validator_api_port))
 listen_addresses = Keyword.get_values(args, :listen_address)
 discovery_port = Keyword.get(args, :discovery_port, 9000)
 cli_bootnodes = Keyword.get(args, :boot_nodes, "")
@@ -160,7 +160,7 @@ config :lambda_ethereum_consensus, BeaconApi.Endpoint,
 # KeyStore API
 config :lambda_ethereum_consensus, KeyStoreApi.Endpoint,
   server: enable_keystore_api,
-  http: [port: keystore_api_port || 5000],
+  http: [port: validator_api_port || 5000],
   url: [host: "localhost"],
   render_errors: [
     formats: [json: KeyStoreApi.ErrorJSON],
