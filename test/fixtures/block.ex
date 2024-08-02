@@ -3,6 +3,7 @@ defmodule Fixtures.Block do
   Fixtures for blocks.
   """
 
+  alias Types.StateInfo
   alias Fixtures.Random
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.BlockInfo
@@ -201,5 +202,15 @@ defmodule Fixtures.Block do
       next_withdrawal_validator_index: Random.uint64(),
       historical_summaries: []
     }
+  end
+
+  def beacon_state_from_file() do
+    {:ok, encoded} =
+      File.read!("test/fixtures/validator/proposer/beacon_state.ssz_snappy")
+      |> :snappyer.decompress()
+
+    {:ok, decoded} = SszEx.decode(encoded, BeaconState)
+    {:ok, state_info} = StateInfo.from_beacon_state(decoded)
+    state_info
   end
 end

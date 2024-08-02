@@ -5,9 +5,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
 
   import Bitwise
   require Aja
+  require Logger
 
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Shuffling
+  alias LambdaEthereumConsensus.Utils
   alias Types.BeaconState
 
   @max_random_byte 2 ** 8 - 1
@@ -188,23 +190,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   """
   @spec compute_all_committees(BeaconState.t(), Types.epoch()) :: list(Aja.Vector.t())
   def compute_all_committees(state, epoch) do
+    indices = Accessors.get_active_validator_indices(state, epoch)
+    index_count = Aja.Vector.size(indices)
+    seed = Accessors.get_seed(state, epoch, Constants.domain_beacon_attester())
+
+    shuffled_indices = Shuffling.shuffle_list(indices, seed) |> Aja.Vector.to_list()
+
     committee_count =
       Accessors.get_committee_count_per_slot(state, epoch) * ChainSpec.get("SLOTS_PER_EPOCH")
 
-    indices = Accessors.get_active_validator_indices(state, epoch)
-    index_count = Aja.Vector.size(indices)
+    committee_sizes =
+      Enum.map(0..(committee_count - 1), fn index ->
+        {c_start, c_end} = committee_boundaries(index, index_count, committee_count)
+        c_end - c_start + 1
+      end)
 
-    # All committees except the last one are of this size.
-    committee_size = div(index_count, committee_count)
-    seed = Accessors.get_seed(state, epoch, Constants.domain_beacon_attester())
-    shuffled_indices = Shuffling.shuffle_list(indices, seed)
-
-    1..committee_count
-    |> Enum.reduce({shuffled_indices, []}, fn _i, {indices, committees} ->
-      {new_committee, remaining} = Aja.Vector.split(indices, committee_size)
-      {remaining, [new_committee | committees]}
-    end)
-    |> Enum.reverse()
+    # separate using sizes.
+    Utils.chunk_by_sizes(shuffled_indices, committee_sizes)
   end
 
   @doc """
@@ -250,8 +252,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   def compute_committee(indices, seed, committee_index, committee_count)
       when committee_index < committee_count do
     index_count = Aja.Vector.size(indices)
-    committee_start = div(index_count * committee_index, committee_count)
-    committee_end = div(index_count * (committee_index + 1), committee_count) - 1
+
+    {committee_start, committee_end} =
+      committee_boundaries(committee_index, index_count, committee_count)
 
     committee_start..committee_end//1
     # NOTE: this cannot fail because committee_end < index_count
@@ -263,6 +266,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   def compute_committee(_, _, _, _), do: {:error, "Invalid committee index"}
+
+  @doc """
+  Computes the boundaries of a committee.
+
+  Args:
+  - committee_index: epoch based committee index.
+  - index_count: amount of active validators participating in the epoch.
+  - committee_count: amount of committees that will be formed in the epoch.
+  """
+  def committee_boundaries(committee_index, index_count, committee_count) do
+    committee_start = div(index_count * committee_index, committee_count)
+    committee_end = div(index_count * (committee_index + 1), committee_count) - 1
+    {committee_start, committee_end}
+  end
 
   @doc """
   Return the 32-byte fork data root for the ``current_version`` and ``genesis_validators_root``.

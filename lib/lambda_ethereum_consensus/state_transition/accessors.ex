@@ -341,6 +341,39 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     end
   end
 
+  @doc """
+  Computes all committees for a single epoch and saves them in the cache. This only happens if the
+  value is not calculated and if the root for the epoch is available. If any of those conditions
+  is not true, this function is a noop.
+
+  Arguments:
+  - state: state used to get active validators, seed and others. Any state that is within the same
+    epoch is equivalent, as validators are updated in epoch boundaries.
+  - epoch: epoch for which the committees are calculated.
+  """
+  def maybe_prefetch_committees(state, epoch) do
+    first_slot = Misc.compute_start_slot_at_epoch(epoch)
+
+    with {:ok, root} <- get_epoch_root(state, epoch),
+         false <- Cache.present?(:beacon_committee, {first_slot, {0, root}}) do
+      committees_per_slot = get_committee_count_per_slot(state, epoch)
+
+      Misc.compute_all_committees(state, epoch)
+      |> Enum.with_index()
+      |> Enum.each(fn {committee, i} ->
+        # The how do we know for which slot is a committee
+        slot = first_slot + div(i, committees_per_slot)
+        index = rem(i, committees_per_slot)
+
+        Cache.set(
+          :beacon_committee,
+          {slot, {index, root}},
+          {:ok, committee |> Aja.Enum.to_list()}
+        )
+      end)
+    end
+  end
+
   @spec get_base_reward_per_increment(BeaconState.t()) :: Types.gwei()
   def get_base_reward_per_increment(state) do
     numerator = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT") * ChainSpec.get("BASE_REWARD_FACTOR")
