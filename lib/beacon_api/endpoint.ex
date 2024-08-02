@@ -8,7 +8,6 @@ defmodule BeaconApi.Endpoint do
     json_decoder: Phoenix.json_library()
   )
 
-  plug(BeaconApi.MetricsExporter)
   plug(BeaconApi.Router)
   plug(Sentry.PlugContext)
 end

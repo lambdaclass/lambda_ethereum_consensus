@@ -9,7 +9,6 @@ defmodule LambdaEthereumConsensus.Application do
 
   @impl true
   def start(_type, _args) do
-    BeaconApi.MetricsExporter.setup()
     # Configure sentry logger handler
     Logger.add_handlers(:lambda_ethereum_consensus)
     mode = get_operation_mode()
@@ -37,7 +36,6 @@ defmodule LambdaEthereumConsensus.Application do
     CheckpointStates.new()
 
     [
-      LambdaEthereumConsensus.Telemetry,
       LambdaEthereumConsensus.Store.Db,
       LambdaEthereumConsensus.Store.Blocks,
       LambdaEthereumConsensus.Store.BlockStates
@@ -48,6 +46,7 @@ defmodule LambdaEthereumConsensus.Application do
     get_children(:db) ++
       [
         BeaconApi.Endpoint,
+        LambdaEthereumConsensus.PromEx,
         LambdaEthereumConsensus.Beacon.BeaconNode
       ]
   end
