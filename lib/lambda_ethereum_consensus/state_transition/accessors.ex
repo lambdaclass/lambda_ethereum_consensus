@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Functions accessing the current `BeaconState`
   """
 
+  require Logger
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -356,6 +357,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     with {:ok, root} <- get_epoch_root(state, epoch),
          false <- Cache.present?(:beacon_committee, {first_slot, {0, root}}) do
+      Logger.info(
+        "[Block processing] Computing committees for epoch #{epoch} with root #{Base.encode16(state.block_root)}"
+      )
+
       committees_per_slot = get_committee_count_per_slot(state, epoch)
 
       Misc.compute_all_committees(state, epoch)

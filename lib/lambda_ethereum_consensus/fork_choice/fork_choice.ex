@@ -225,13 +225,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       |> Map.new()
 
     # Prefetch committees for all relevant epochs.
-    Enum.each(states, fn {ch, state} ->
-      Logger.info(
-        "[Block Processing] Prefetching committees for epoch #{ch.epoch}, root 0x#{Base.encode16(ch.root)}"
-      )
-
-      Accessors.maybe_prefetch_committees(state, ch.epoch)
-    end)
+    Enum.each(states, fn {ch, state} -> Accessors.maybe_prefetch_committees(state, ch.epoch) end)
 
     with {:ok, new_store} <- Handlers.on_block(store, block_info),
          # process block attestations
