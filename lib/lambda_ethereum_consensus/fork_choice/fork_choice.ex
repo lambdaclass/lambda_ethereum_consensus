@@ -209,24 +209,31 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec process_block(BlockInfo.t(), Store.t()) :: Store.t()
   def process_block(%BlockInfo{signed_block: signed_block} = block_info, store) do
+    attestations = signed_block.message.body.attestations
+    attester_slashings = signed_block.message.body.attester_slashings
+
     # Prefetch relevant states.
     states =
-      signed_block.message.body.attestations
-      |> Enum.map(& &1.data.target)
-      |> Enum.uniq()
-      |> Enum.flat_map(fn ch ->
-        case CheckpointStates.get_checkpoint_state(ch) do
-          {:ok, state} -> [{ch, state}]
-          _other -> []
-        end
+      Metrics.span_operation(:prefetch_states, nil, nil, fn ->
+        attestations
+        |> Enum.map(& &1.data.target)
+        |> Enum.uniq()
+        |> Enum.flat_map(fn ch ->
+          case CheckpointStates.get_checkpoint_state(ch) do
+            {:ok, state} -> [{ch, state}]
+            _other -> []
+          end
+        end)
+        |> Map.new()
       end)
-      |> Map.new()
 
     # Prefetch committees for all relevant epochs.
-    Enum.each(states, fn {ch, state} -> Accessors.maybe_prefetch_committees(state, ch.epoch) end)
+    Metrics.span_operation(:prefetch_committees, nil, nil, fn ->
+      Enum.each(states, fn {ch, state} -> Accessors.maybe_prefetch_committees(state, ch.epoch) end)
+    end)
 
     with {:ok, new_store} <- apply_on_block(store, block_info),
-         {:ok, new_store} <- process_attestations(new_store, attestations),
+         {:ok, new_store} <- process_attestations(new_store, attestations, states),
          {:ok, new_store} <- process_attester_slashings(new_store, attester_slashings) do
       {:ok, new_store}
     end
@@ -242,12 +249,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end)
   end
 
-  defp process_attestations(store, attestations) do
+  defp process_attestations(store, attestations, states) do
     Metrics.span_operation(:attestations, nil, nil, fn ->
       apply_handler(
         attestations,
         store,
-        &Handlers.on_attestation(&1, &2, true, prefetch_states(attestations))
+        &Handlers.on_attestation(&1, &2, true, states)
       )
     end)
   end
