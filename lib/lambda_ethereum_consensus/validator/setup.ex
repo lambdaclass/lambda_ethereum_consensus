@@ -18,21 +18,16 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
   defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
        when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
     Logger.warning(
-      "[Validator] No keystore_dir or keystore_pass_dir provided. Validator will not start."
+      "[Validator] No keystore_dir or keystore_pass_dir provided. Validators won't start."
     )
 
-    %{}
+    []
   end
 
   defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
     validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
 
-    validators =
-      validator_keys
-      |> Enum.map(fn {pubkey, privkey} ->
-        {pubkey, Validator.new({slot, head_root, {pubkey, privkey}})}
-      end)
-      |> Map.new()
+    validators = Enum.map(validator_keys, &Validator.new({slot, head_root, &1}))
 
     Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
 
@@ -49,34 +44,46 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
           list({Bls.pubkey(), Bls.privkey()})
   def decode_validator_keys(keystore_dir, keystore_pass_dir)
       when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
-    File.ls!(keystore_dir)
-    |> Enum.map(fn filename ->
-      if String.ends_with?(filename, ".json") do
-        base_name = String.trim_trailing(filename, ".json")
+    keystore_dir
+    |> File.ls!()
+    |> map_rejecting_nils(&paths_from_filename(keystore_dir, keystore_pass_dir, &1, Path.extname(&1)))
+    |> map_rejecting_nils(&decode_key/1)
+  end
 
-        keystore_file = Path.join(keystore_dir, "#{base_name}.json")
-        keystore_pass_file = Path.join(keystore_pass_dir, "#{base_name}.txt")
+  defp decode_key({keystore_file, keystore_pass_file}) do
+    # TODO: remove `try` and handle errors properly
+    try do
+      Keystore.decode_from_files!(keystore_file, keystore_pass_file)
+    rescue
+      error ->
+        Logger.error(
+          "[Validator] Failed to decode keystore file: #{keystore_file}. Pass file: #{keystore_pass_file} Error: #{inspect(error)}"
+        )
 
-        {keystore_file, keystore_pass_file}
-      else
-        Logger.warning("[Validator] Skipping file: #{filename}. Not a keystore file.")
         nil
-      end
-    end)
-    |> Enum.reject(&is_nil/1)
-    |> Enum.map(fn {keystore_file, keystore_pass_file} ->
-      # TODO: remove `try` and handle errors properly
-      try do
-        Keystore.decode_from_files!(keystore_file, keystore_pass_file)
-      rescue
-        error ->
-          Logger.error(
-            "[Validator] Failed to decode keystore file: #{keystore_file}. Pass file: #{keystore_pass_file} Error: #{inspect(error)}"
-          )
+    end
+  end
 
-          nil
+  defp paths_from_filename(keystore_dir, keystore_pass_dir, filename, ".json") do
+    basename = Path.basename(filename, ".json")
+
+    keystore_file = Path.join(keystore_dir, "#{basename}.json")
+    keystore_pass_file = Path.join(keystore_pass_dir, "#{basename}.txt")
+
+    {keystore_file, keystore_pass_file}
+  end
+
+  defp paths_from_filename(_keystore_dir, _keystore_pass_dir, basename, _ext) do
+    Logger.warning("[Validator] Skipping file: #{basename}. Not a json keystore file.")
+    nil
+  end
+
+  defp map_rejecting_nils(enumerable, fun) do
+    Enum.reduce(enumerable, [], fn elem, acc ->
+      case fun.(elem) do
+        nil -> acc
+        result -> [result | acc]
       end
     end)
-    |> Enum.reject(&is_nil/1)
   end
 end

@@ -771,11 +771,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     updated_validators
   end
 
-  defp notify_validator({pubkey, validator}, {:on_tick, slot_data}),
-    do: {pubkey, Validator.handle_tick(slot_data, validator)}
+  defp notify_validator(validator, {:on_tick, slot_data}),
+    do: Validator.handle_tick(slot_data, validator)
 
-  defp notify_validator({pubkey, validator}, {:new_block, slot, head_root}),
-    do: {pubkey, Validator.handle_new_block(slot, head_root, validator)}
+  defp notify_validator(validator, {:new_block, slot, head_root}),
+    do: Validator.handle_new_block(slot, head_root, validator)
 
   defp schedule_next_tick() do
     # For millisecond precision
