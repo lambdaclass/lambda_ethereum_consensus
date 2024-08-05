@@ -95,8 +95,8 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec handle_new_block(Types.slot(), Types.root(), state) :: state
-  def handle_new_block(slot, head_root, %{validator: %{index: nil}} = state) do
+  @spec handle_new_head(Types.slot(), Types.root(), state) :: state
+  def handle_new_head(slot, head_root, %{validator: %{index: nil}} = state) do
     log_error("-1", "setup validator", "index not present handle block",
       slot: slot,
       root: head_root
@@ -105,8 +105,8 @@ defmodule LambdaEthereumConsensus.Validator do
     state
   end
 
-  def handle_new_block(slot, head_root, state) do
-    log_debug(state.validator.index, "recieved new block", slot: slot, root: head_root)
+  def handle_new_head(slot, head_root, state) do
+    log_debug(state.validator.index, "recieved new head", slot: slot, root: head_root)
 
     # TODO: this doesn't take into account reorgs
     state

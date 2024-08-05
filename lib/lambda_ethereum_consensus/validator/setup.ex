@@ -18,7 +18,7 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
   defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
        when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
     Logger.warning(
-      "[Validator] No keystore_dir or keystore_pass_dir provided. Validators won't start."
+      "[Validator] No keystore_dir or keystore_pass_dir provided. Validator will not start."
     )
 
     []
@@ -46,7 +46,9 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
       when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
     keystore_dir
     |> File.ls!()
-    |> map_rejecting_nils(&paths_from_filename(keystore_dir, keystore_pass_dir, &1, Path.extname(&1)))
+    |> map_rejecting_nils(
+      &paths_from_filename(keystore_dir, keystore_pass_dir, &1, Path.extname(&1))
+    )
     |> map_rejecting_nils(&decode_key/1)
   end
 
@@ -77,6 +79,29 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
     Logger.warning("[Validator] Skipping file: #{basename}. Not a json keystore file.")
     nil
   end
+
+  @spec notify_validators([Validator.state()], tuple()) :: [Validator.state()]
+  def notify_validators(validators, msg) do
+    start_time = System.monotonic_time(:millisecond)
+
+    Logger.debug("[Validator] Notifying all Validators with message: #{inspect(msg)}")
+
+    updated_validators = Enum.map(validators, &notify_validator(&1, msg))
+
+    end_time = System.monotonic_time(:millisecond)
+
+    Logger.debug(
+      "[Validator] #{inspect(msg)} notified to all Validators after #{end_time - start_time} ms"
+    )
+
+    updated_validators
+  end
+
+  defp notify_validator(validator, {:on_tick, slot_data}),
+    do: Validator.handle_tick(slot_data, validator)
+
+  defp notify_validator(validator, {:new_head, slot, head_root}),
+    do: Validator.handle_new_head(slot, head_root, validator)
 
   defp map_rejecting_nils(enumerable, fun) do
     Enum.reduce(enumerable, [], fn elem, acc ->
