@@ -111,12 +111,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.start_link(__MODULE__, args, opts)
   end
 
-  @spec notify_new_block(Types.slot(), Types.root()) :: :ok
-  def notify_new_block(slot, head_root) do
-    # TODO: This is quick workarround to notify the libp2p port about new blocks from within
+  @spec notify_new_head(Types.slot(), Types.root()) :: :ok
+  def notify_new_head(slot, head_root) do
+    # TODO: This is quick workarround to notify the libp2p port about new heads from within
     # the ForkChoice.recompute_head/1 without moving the validators to the store this
     # allows to deferr that move until we simplify the state and remove duplicates.
-    send(self(), {:new_block, slot, head_root})
+    # THIS IS NEEDED BECAUSE FORKCHOICE IS CURRENTLY RUNNING ON LIBP2P PORT.
+    # It could be a simple cast in the future if that's not the case anymore.
+    send(self(), {:new_head, slot, head_root})
   end
 
   @doc """
@@ -503,7 +505,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_info({:new_block, slot, head_root}, %{validators: validators} = state) do
+  def handle_info({:new_head, slot, head_root}, %{validators: validators} = state) do
     updated_validators = notify_validators(validators, {:new_block, slot, head_root})
 
     {:noreply, %{state | validators: updated_validators}}
@@ -740,19 +742,18 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     new_slot_data = compute_slot(genesis_time, time)
 
-    updated_state = maybe_tick_validators(slot_data != new_slot_data, new_slot_data, state)
+    updated_state =
+      if slot_data == new_slot_data do
+        state
+      else
+        updated_validators = notify_validators(validators, {:on_tick, slot_data})
+
+        %{state | slot_data: slot_data, validators: updated_validators}
+      end
 
     maybe_log_new_slot(slot_data, new_slot_data)
 
     updated_state
-  end
-
-  defp maybe_tick_validators(false = _slot_data_changed, _slot_data, state), do: state
-
-  defp maybe_tick_validators(true, slot_data, %{validators: validators} = state) do
-    updated_validators = notify_validators(validators, {:on_tick, slot_data})
-
-    %{state | slot_data: slot_data, validators: updated_validators}
   end
 
   defp notify_validators(validators, msg) do
