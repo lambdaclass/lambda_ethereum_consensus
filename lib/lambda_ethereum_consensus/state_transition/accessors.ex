@@ -357,9 +357,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     with {:ok, root} <- get_epoch_root(state, epoch),
          false <- Cache.present?(:beacon_committee, {first_slot, {0, root}}) do
-      Logger.info(
-        "[Block processing] Computing committees for epoch #{epoch} with root #{Base.encode16(state.block_root)}"
-      )
+      Logger.info("[Block processing] Computing committees for epoch #{epoch}")
 
       committees_per_slot = get_committee_count_per_slot(state, epoch)
 

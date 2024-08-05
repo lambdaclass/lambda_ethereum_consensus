@@ -218,12 +218,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         attestations
         |> Enum.map(& &1.data.target)
         |> Enum.uniq()
-        |> Enum.flat_map(fn ch ->
-          case CheckpointStates.get_checkpoint_state(ch) do
-            {:ok, state} -> [{ch, state}]
-            _other -> []
-          end
-        end)
+        |> Enum.flat_map(&fetch_checkpoint_state/1)
         |> Map.new()
       end)
 
@@ -236,6 +231,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
          {:ok, new_store} <- process_attestations(new_store, attestations, states),
          {:ok, new_store} <- process_attester_slashings(new_store, attester_slashings) do
       {:ok, new_store}
+    end
+  end
+
+  def fetch_checkpoint_state(checkpoint) do
+    case CheckpointStates.get_checkpoint_state(checkpoint) do
+      {:ok, state} -> [{checkpoint, state}]
+      _other -> []
     end
   end
 

@@ -31,7 +31,7 @@ defmodule Unit.StateTransition.MiscTest do
   end
 
   defp assert_all_committees_equal(all_committees, all_committees_individual) do
-    adapted_committees = Enum.map(all_committees, &{:ok, Aja.Vector.to_list(&1)})
+    adapted_committees = Enum.map(all_committees, &{:ok, &1})
     assert Diff.diff(adapted_committees, all_committees_individual) == :unchanged
   end
 end

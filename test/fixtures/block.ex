@@ -3,10 +3,10 @@ defmodule Fixtures.Block do
   Fixtures for blocks.
   """
 
-  alias Types.StateInfo
   alias Fixtures.Random
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.BlockInfo
+  alias Types.StateInfo
 
   alias Types.BeaconBlock
   alias Types.BeaconBlockBody
