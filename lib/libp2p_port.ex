@@ -735,10 +735,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp on_tick(time, %{genesis_time: genesis_time} = state) when time < genesis_time, do: state
 
-  defp on_tick(
-         time,
-         %{genesis_time: genesis_time, slot_data: slot_data, validators: validators} = state
-       ) do
+  defp on_tick(time, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
     # TODO: we probably want to remove this (ForkChoice.on_tick) from here, but we keep it
     # here to have this serialized with respect to the other fork choice store modifications.
 
@@ -750,7 +747,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       if slot_data == new_slot_data do
         state
       else
-        updated_validators = Validator.Setup.notify_validators(validators, {:on_tick, new_slot_data})
+        updated_validators =
+          Validator.Setup.notify_validators(state.validators, {:on_tick, new_slot_data})
 
         %{state | slot_data: new_slot_data, validators: updated_validators}
       end
