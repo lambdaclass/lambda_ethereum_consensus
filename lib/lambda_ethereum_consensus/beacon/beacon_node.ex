@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Validator.ValidatorManager
+  alias LambdaEthereumConsensus.Validator
   alias Types.BeaconState
 
   def start_link(opts) do
@@ -24,43 +24,35 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     Cache.initialize_cache()
 
-    libp2p_args = get_libp2p_args()
-
     time = :os.system_time(:second)
 
     ForkChoice.init_store(store, time)
 
-    validator_manager =
-      get_validator_manager(
-        deposit_tree_snapshot,
-        store.head_slot,
-        store.head_root
-      )
+    init_execution_chain(deposit_tree_snapshot, store.head_root)
+
+    validators = Validator.Setup.init(store.head_slot, store.head_root)
+
+    libp2p_args = [genesis_time: store.genesis_time, validators: validators] ++ get_libp2p_args()
 
     children =
       [
-        {LambdaEthereumConsensus.Beacon.Clock, {store.genesis_time, time}},
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
         {Task.Supervisor, name: PruneBlobsSupervisor}
-      ] ++ validator_manager
+      ]
 
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  defp get_validator_manager(nil, _, _) do
+  defp init_execution_chain(nil, _) do
     Logger.warning("Deposit data not found. Validator will be disabled.")
     []
   end
 
-  defp get_validator_manager(snapshot, slot, head_root) do
+  defp init_execution_chain(snapshot, head_root) do
     %BeaconState{eth1_data_votes: votes} = BlockStates.get_state_info!(head_root).beacon_state
     LambdaEthereumConsensus.Execution.ExecutionChain.init(snapshot, votes)
-    # TODO: move checkpoint sync outside and move this to application.ex
-    [
-      {ValidatorManager, {slot, head_root}}
-    ]
   end
 
   defp get_libp2p_args() do
