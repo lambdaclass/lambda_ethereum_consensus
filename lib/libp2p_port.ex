@@ -750,9 +750,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       if slot_data == new_slot_data do
         state
       else
-        updated_validators = Validator.Setup.notify_validators(validators, {:on_tick, slot_data})
+        updated_validators = Validator.Setup.notify_validators(validators, {:on_tick, new_slot_data})
 
-        %{state | slot_data: slot_data, validators: updated_validators}
+        %{state | slot_data: new_slot_data, validators: updated_validators}
       end
 
     maybe_log_new_slot(slot_data, new_slot_data)
