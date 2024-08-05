@@ -15,7 +15,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
   alias LambdaEthereumConsensus.Validator.ValidatorManager
@@ -39,12 +38,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Metrics.block_status(head_root, head_slot, :transitioned)
 
-    persist_store(store)
+    StoreDb.persist_store(store)
   end
 
-  @spec on_block(BlockInfo.t()) :: :ok | {:error, String.t()}
-  def on_block(%BlockInfo{} = block_info) do
-    store = fetch_store!()
+  @spec on_block(Store.t(), BlockInfo.t()) :: :ok | {:error, String.t()}
+  def on_block(store, %BlockInfo{} = block_info) do
     slot = block_info.signed_block.message.slot
     block_root = block_info.root
 
@@ -66,11 +64,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
           {recompute_head(new_store), %{}}
         end)
 
-        %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
-
-        prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
-
-        persist_store(new_store)
+        new_store
+        |> prune_old_states(last_finalized_checkpoint.epoch)
+        |> tap(&Store.persist/1)
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
@@ -78,44 +74,41 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end
   end
 
-  @spec on_attestation(Types.Attestation.t()) :: :ok
-  def on_attestation(%Attestation{} = attestation) do
-    state = fetch_store!()
+  @spec on_attestation(Store.t(), Types.Attestation.t()) :: Store.t()
+  def on_attestation(store, %Attestation{} = attestation) do
     id = attestation.signature |> Base.encode16() |> String.slice(0, 8)
     Logger.debug("[Fork choice] Adding attestation #{id} to the store")
 
-    state =
-      case Handlers.on_attestation(state, attestation, false) do
-        {:ok, new_state} -> new_state
-        _ -> state
+    store =
+      case Handlers.on_attestation(store, attestation, false) do
+        {:ok, new_store} -> new_store
+        _ -> store
       end
 
-    persist_store(state)
+    tap(store, &StoreDb.persist_store/1)
   end
 
-  @spec on_attester_slashing(Types.AttesterSlashing.t()) :: :ok
-  def on_attester_slashing(attester_slashing) do
+  @spec on_attester_slashing(Store.t(), Types.AttesterSlashing.t()) :: Store.t()
+  def on_attester_slashing(store, attester_slashing) do
     Logger.info("[Fork choice] Adding attester slashing to the store")
-    state = fetch_store!()
 
-    case Handlers.on_attester_slashing(state, attester_slashing) do
-      {:ok, new_state} ->
-        persist_store(new_state)
+    case Handlers.on_attester_slashing(store, attester_slashing) do
+      {:ok, new_store} ->
+        tap(new_store, &StoreDb.persist_store/1)
 
       _ ->
         Logger.error("[Fork choice] Failed to add attester slashing to the store")
+        store
     end
   end
 
-  @spec on_tick(Types.uint64()) :: :ok
-  def on_tick(time) do
-    store = fetch_store!()
+  @spec on_tick(Store.t(), Types.uint64()) :: Store.t()
+  def on_tick(store, time) do
     %Store{finalized_checkpoint: last_finalized_checkpoint} = store
 
-    new_store = Handlers.on_tick(store, time)
-    %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
-    prune_old_states(last_finalized_checkpoint.epoch, new_finalized_checkpoint.epoch)
-    persist_store(new_store)
+    Handlers.on_tick(store, time)
+    |> prune_old_states(last_finalized_checkpoint.epoch)
+    |> tap(&StoreDb.persist_store/1)
   end
 
   @spec get_current_chain_slot() :: Types.slot()
@@ -176,7 +169,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ### Private Functions
   ##########################
 
-  defp prune_old_states(last_finalized_epoch, new_finalized_epoch) do
+  defp prune_old_states(store, last_finalized_epoch) do
+    new_finalized_epoch = store.finalized_checkpoint.epoch
+
     if last_finalized_epoch < new_finalized_epoch do
       new_finalized_slot =
         new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
@@ -196,6 +191,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         fn -> BlobDb.prune_old_blobs(new_finalized_slot) end
       )
     end
+
+    Store.prune(store)
   end
 
   def apply_handler(iter, state, handler) do
@@ -233,22 +230,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       apply_handler(
         attestations,
         store,
-        &Handlers.on_attestation(&1, &2, true, prefetch_states(attestations))
+        &Handlers.on_attestation(&1, &2, true)
       )
     end)
-  end
-
-  defp prefetch_states(attestations) do
-    attestations
-    |> Enum.map(& &1.data.target)
-    |> Enum.uniq()
-    |> Enum.flat_map(fn ch ->
-      case CheckpointStates.get_checkpoint_state(ch) do
-        {:ok, state} -> [{ch, state}]
-        _other -> []
-      end
-    end)
-    |> Map.new()
   end
 
   @spec recompute_head(Store.t()) :: :ok
@@ -274,11 +258,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
 
     :ok
-  end
-
-  defp persist_store(store) do
-    StoreDb.persist_store(store)
-    Logger.debug("[Fork choice] Store persisted")
   end
 
   defp fetch_store!() do
@@ -308,6 +287,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         finalized_checkpoint: finalized
     }
 
-    persist_store(new_store)
+    StoreDb.persist_store(new_store)
   end
 end

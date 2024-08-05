@@ -5,11 +5,13 @@ defmodule Types.Store do
 
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.ForkChoice.Simple.Tree
+  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.CheckpointStates
+  alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.BlockInfo
@@ -31,7 +33,13 @@ defmodule Types.Store do
     :head_root,
     :head_slot,
     # Stores block data on the current fork tree (~last two epochs)
-    :tree_cache
+    :tree_cache,
+
+    ### Everything under this can be thought as cache for the db.
+    # States indexed by block root.
+    :states,
+    # States indexed by checkpoint. Sometimes necessary because of empty slots.
+    :checkpoint_states
   ]
 
   @type t :: %__MODULE__{
@@ -48,7 +56,9 @@ defmodule Types.Store do
           unrealized_justifications: %{Types.root() => Checkpoint.t()},
           head_root: Types.root() | nil,
           head_slot: Types.slot() | nil,
-          tree_cache: Tree.t()
+          tree_cache: Tree.t(),
+          states: %{Types.root() => StateInfo.t()},
+          checkpoint_states: %{Types.Checkpoint.t() => StateInfo.t()}
         }
 
   @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) ::
@@ -88,7 +98,9 @@ defmodule Types.Store do
         unrealized_justifications: %{anchor_block_root => anchor_checkpoint},
         head_root: nil,
         head_slot: nil,
-        tree_cache: Tree.new(anchor_block_root)
+        tree_cache: Tree.new(anchor_block_root),
+        states: %{},
+        checkpoint_states: %{}
       }
       |> store_block_info(block_info)
       |> update_head_info()
@@ -149,6 +161,71 @@ defmodule Types.Store do
     safe_block.body.execution_payload.block_hash
   end
 
+  @doc """
+  Removes everything prior to the last finalized slot, specifically checkpoint states
+  and states by root.
+  """
+  def prune(%Store{} = store) do
+    new_finalized_slot =
+      store.finalized_checkpoint.epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    store
+    |> prune_checkpoint_states(slot)
+    |> prune_states(slot)
+  end
+
+  @doc """
+  Gets a StatInfo given a block root. Defaults to the DB if not present in the store.
+  """
+  def get_state(store, root) when is_binary(root) do
+    with nil <- Map.get(store.states, root) do
+      BlockStates.get_state_info(root)
+    end
+  end
+
+  def get_state!(store, root) do
+    %StateInfo{} = get_state(store, root)
+  end
+
+  def store_state(store, block_root, state) do
+    # TODO: Add a task to save the block async.
+    put_in(store, [:states, block_root], state)
+  end
+
+  @doc """
+  Gets a State given a checkpoint. If there is no state for that checkpoint in the store
+  it will try to compute it.
+
+  Computing the state means:
+  1. Getting the state for the checkpoint's root.
+  2. If the state is the one requested, it is returned.
+  3. If not, that means that there are empty slots, so slots are processed.
+
+  Returns a {store, state} or {store, nil}. The store may be updated if the state is calculated.
+  """
+  def get_checkpoint_state(store, %Checkpoint{} = checkpoint) do
+    case Map.get(store.checkpoint_states, checkpoint) do
+      nil -> compute_checkpoint_state(store, checkpoint)
+      state -> {store, state}
+    end
+  end
+
+  def remove_cache(%Store{} = store) do
+    store |> Map.delete(:states) |> Map.delete(:checkpoint_states)
+  end
+
+  defp prune_checkpoint_states(store, slot) do
+    update_in(store.checkpoint_states, fn checkpoint_states ->
+      Map.filter(checkpoint_states, fn {_checkpoint, state} -> state.slot < slot end)
+    end)
+  end
+
+  defp prune_states(store, slot) do
+    update_in(store.states, fn states ->
+      Map.filter(states, fn {_root, state} -> state.slot < slot end)
+    end)
+  end
+
   @spec get_safe_beacon_block_root(t()) :: Types.root()
   defp get_safe_beacon_block_root(%__MODULE__{} = store) do
     store.finalized_checkpoint.root
@@ -169,5 +246,22 @@ defmodule Types.Store do
     {:ok, head_root} = Head.get_head(store)
     %{slot: head_slot} = Blocks.get_block!(head_root)
     %{store | head_root: head_root, head_slot: head_slot}
+  end
+
+  defp compute_checkpoint_state(store, checkpoint) do
+    target_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch)
+
+    case get_state(store, checkpoint.root) do
+      nil ->
+        {store, nil}
+
+      %StateInfo{beacon_state: state} ->
+        if state.slot < target_slot do
+          new_state = StateTransition.process_slots(state, target_slot)
+          {put_in(store, [:checkpoint_states, checkpoint], new_state), new_state}
+        else
+          {store, state}
+        end
+    end
   end
 end

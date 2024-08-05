@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   If blobs are missing, they will be requested.
   """
   @spec add_block(SignedBeaconBlock.t()) :: :ok
-  def add_block(signed_block) do
+  def add_block(store, signed_block) do
     block_info = BlockInfo.from_block(signed_block)
     loaded_block = Blocks.get_block_info(block_info.root)
 
@@ -47,14 +47,18 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
       if Enum.empty?(missing_blobs) do
         Blocks.new_block_info(block_info)
-        process_block_and_check_children(block_info)
+        process_block_and_check_children(store, block_info)
       else
         BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/1, @download_retries)
 
         block_info
         |> BlockInfo.change_status(:download_blobs)
         |> Blocks.new_block_info()
+
+        store
       end
+    else
+      store
     end
   end
 
@@ -63,12 +67,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   module after receiving a new block, but there are some other cases like at node startup, as there
   may be pending blocks from prior executions.
   """
-  def process_blocks() do
+  def process_blocks(store) do
     case Blocks.get_blocks_with_status(:pending) do
       {:ok, blocks} ->
         blocks
         |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
-        |> Enum.each(&process_block/1)
+        |> Enum.each(&process_block(store, &1))
 
       {:error, reason} ->
         Logger.error(
@@ -85,13 +89,13 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   # is called to check if there's any children that can now be processed. This function
   # is only to be called when a new block is saved as pending, not when processing blocks
   # in batch, to avoid unneeded recursion.
-  defp process_block_and_check_children(block_info) do
-    if process_block(block_info) in [:transitioned, :invalid] do
-      process_blocks()
+  defp process_block_and_check_children(store, block_info) do
+    if process_block(store, block_info) in [:transitioned, :invalid] do
+      process_blocks(store)
     end
   end
 
-  defp process_block(block_info) do
+  defp process_block(store, block_info) do
     if block_info.status != :pending do
       Logger.error("Called process block for a block that's not ready: #{block_info}")
     end
@@ -123,7 +127,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         :invalid
 
       %BlockInfo{status: :transitioned} ->
-        case ForkChoice.on_block(block_info) do
+        case ForkChoice.on_block(store, block_info) do
           :ok ->
             Blocks.change_status(block_info, :transitioned)
             :transitioned

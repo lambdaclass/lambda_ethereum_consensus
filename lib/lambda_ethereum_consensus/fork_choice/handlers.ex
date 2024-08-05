@@ -12,8 +12,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Store.CheckpointStates
+
   alias Types.Attestation
   alias Types.AttestationData
   alias Types.AttesterSlashing
@@ -60,7 +59,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
     finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
 
-    base_state = BlockStates.get_state_info(block.parent_root)
+    base_state = Store.get_state(store, block.parent_root)
 
     cond do
       # Parent block must be known
@@ -115,26 +114,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     end
   end
 
-  def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block) do
-    with {:ok, target_state} <- CheckpointStates.get_checkpoint_state(attestation.data.target) do
-      on_attestation_with_state(store, attestation, is_from_block, target_state)
-    end
-  end
-
-  def on_attestation(%Store{} = store, %Attestation{} = attestation, is_from_block, states) do
-    case Map.fetch(states, attestation.data.target) do
-      {:ok, target_state} ->
-        on_attestation_with_state(store, attestation, is_from_block, target_state)
-
-      :error ->
-        if is_from_block do
-          {:ok, store}
-        else
-          {:error, "Checkpoint state not found for attestation."}
-        end
-    end
-  end
-
   @doc """
   Run ``on_attestation`` upon receiving a new ``attestation`` from either within a block or directly on the wire.
 
@@ -143,20 +122,24 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   """
   @spec on_attestation(Store.t(), Attestation.t(), boolean()) ::
           {:ok, Store.t()} | {:error, String.t()}
-  def on_attestation_with_state(
+  def on_attestation(
         %Store{} = store,
         %Attestation{} = attestation,
-        is_from_block,
-        target_state
+        is_from_block
       ) do
     with :ok <- check_attestation_valid(store, attestation, is_from_block),
          # Get state at the `target` to fully validate attestation
+         {new_store, %StateInfo{beacon_state: target_state}} <-
+           Store.get_checkpoint_state(store, attestation.data.target),
          {:ok, indexed_attestation} <-
            Accessors.get_indexed_attestation(target_state, attestation),
          :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do
       # Update latest messages for attesting indices
-      update_latest_messages(store, indexed_attestation.attesting_indices, attestation)
+      update_latest_messages(new_store, indexed_attestation.attesting_indices, attestation)
     else
+      {%Store{} = _store, nil} ->
+        {:error, "Target state not found for the checkpoint while validating attestation"}
+
       {:unknown_block, _} ->
         # TODO: this is just a patch, we should fetch blocks preemptively
         if is_from_block do
@@ -189,7 +172,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           attestation_2: %IndexedAttestation{} = attestation_2
         }
       ) do
-    state = BlockStates.get_state_info!(store.justified_checkpoint.root).beacon_state
+    state = Store.get_state!(store, store.justified_checkpoint.root).beacon_state
 
     cond do
       not Predicates.slashable_attestation_data?(attestation_1.data, attestation_2.data) ->
@@ -244,15 +227,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
       # Add new block and state to the store
-      BlockStates.store_state_info(new_state_info)
-
-      is_first_block = store.proposer_boost_root == <<0::256>>
+      new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
+      is_first_block = new_store.proposer_boost_root == <<0::256>>
       # TODO: store block timeliness data?
-      is_timely = Store.get_current_slot(store) == block.slot and is_before_attesting_interval
+      is_timely = Store.get_current_slot(new_store) == block.slot and is_before_attesting_interval
 
       state = new_state_info.beacon_state
 
-      store
+      new_store
       |> Store.store_block_info(block_info)
       |> if_then_update(
         is_timely and is_first_block,
