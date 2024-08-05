@@ -506,7 +506,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_info({:new_head, slot, head_root}, %{validators: validators} = state) do
-    updated_validators = notify_validators(validators, {:new_block, slot, head_root})
+    updated_validators =
+      Validator.Setup.notify_validators(validators, {:new_head, slot, head_root})
 
     {:noreply, %{state | validators: updated_validators}}
   end
@@ -734,7 +735,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   defp on_tick(time, %{genesis_time: genesis_time} = state) when time < genesis_time, do: state
 
-  defp on_tick(time, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
+  defp on_tick(
+         time,
+         %{genesis_time: genesis_time, slot_data: slot_data, validators: validators} = state
+       ) do
     # TODO: we probably want to remove this (ForkChoice.on_tick) from here, but we keep it
     # here to have this serialized with respect to the other fork choice store modifications.
 
@@ -746,7 +750,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       if slot_data == new_slot_data do
         state
       else
-        updated_validators = notify_validators(validators, {:on_tick, slot_data})
+        updated_validators = Validator.Setup.notify_validators(validators, {:on_tick, slot_data})
 
         %{state | slot_data: slot_data, validators: updated_validators}
       end
@@ -755,28 +759,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     updated_state
   end
-
-  defp notify_validators(validators, msg) do
-    start_time = System.monotonic_time(:millisecond)
-
-    Logger.debug("[Libp2p] Notifying all Validators with message: #{inspect(msg)}")
-
-    updated_validators = Enum.map(validators, &notify_validator(&1, msg))
-
-    end_time = System.monotonic_time(:millisecond)
-
-    Logger.debug(
-      "[Validator Manager] #{inspect(msg)} notified to all Validators after #{end_time - start_time} ms"
-    )
-
-    updated_validators
-  end
-
-  defp notify_validator({pubkey, validator}, {:on_tick, slot_data}),
-    do: {pubkey, Validator.handle_tick(slot_data, validator)}
-
-  defp notify_validator({pubkey, validator}, {:new_block, slot, head_root}),
-    do: {pubkey, Validator.handle_new_block(slot, head_root, validator)}
 
   defp schedule_next_tick() do
     # For millisecond precision

@@ -79,4 +79,27 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
     end)
     |> Enum.reject(&is_nil/1)
   end
+
+  @spec notify_validators(map(), tuple()) :: map()
+  def notify_validators(validators, msg) do
+    start_time = System.monotonic_time(:millisecond)
+
+    Logger.debug("[Validator] Notifying all Validators with message: #{inspect(msg)}")
+
+    updated_validators = Map.new(validators, &notify_validator(&1, msg))
+
+    end_time = System.monotonic_time(:millisecond)
+
+    Logger.debug(
+      "[Validator] #{inspect(msg)} notified to all Validators after #{end_time - start_time} ms"
+    )
+
+    updated_validators
+  end
+
+  defp notify_validator({pubkey, validator}, {:on_tick, slot_data}),
+    do: {pubkey, Validator.handle_tick(slot_data, validator)}
+
+  defp notify_validator({pubkey, validator}, {:new_head, slot, head_root}),
+    do: {pubkey, Validator.handle_new_head(slot, head_root, validator)}
 end
