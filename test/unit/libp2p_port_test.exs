@@ -17,7 +17,9 @@ defmodule Unit.Libp2pPortTest do
   end
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
-    start_link_supervised!({Libp2pPort, [opts: [name: name]] ++ init_args}, id: name)
+    start_link_supervised!({Libp2pPort, [opts: [name: name], genesis_time: 42] ++ init_args},
+      id: name
+    )
   end
 
   @tag :tmp_dir

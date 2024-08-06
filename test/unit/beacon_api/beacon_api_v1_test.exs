@@ -159,7 +159,7 @@ defmodule Unit.BeaconApiTest.V1 do
     alias LambdaEthereumConsensus.P2P.Metadata
     patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
 
-    start_link_supervised!(Libp2pPort)
+    start_link_supervised!({Libp2pPort, genesis_time: 42})
     Metadata.init()
     identity = Libp2pPort.get_node_identity()
     metadata = Metadata.get_metadata()
