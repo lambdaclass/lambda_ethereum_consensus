@@ -9,6 +9,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
+  @tick_time 1000
+
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
@@ -21,6 +23,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.P2p.Requests
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Validator
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command
   alias Libp2pProto.Enr
@@ -61,12 +64,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ]
 
   @type init_arg ::
-          {:listen_addr, [String.t()]}
+          {:genesis_time, Types.uint64()}
+          | {:validators, %{}}
+          | {:listen_addr, [String.t()]}
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
           | {:bootnodes, [String.t()]}
           | {:join_init_topics, boolean()}
           | {:enable_request_handlers, boolean()}
+
+  @type slot_data() :: {Types.uint64(), :first_third | :second_third | :last_third}
 
   @type node_identity() :: %{
           peer_id: binary(),
@@ -104,9 +111,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.start_link(__MODULE__, args, opts)
   end
 
-  @spec on_tick(Types.uint64()) :: :ok
-  def on_tick(time) do
-    GenServer.cast(__MODULE__, {:on_tick, time})
+  @spec notify_new_head(Types.slot(), Types.root()) :: :ok
+  def notify_new_head(slot, head_root) do
+    # TODO: This is quick workarround to notify the libp2p port about new heads from within
+    # the ForkChoice.recompute_head/1 without moving the validators to the store this
+    # allows to deferr that move until we simplify the state and remove duplicates.
+    # THIS IS NEEDED BECAUSE FORKCHOICE IS CURRENTLY RUNNING ON LIBP2P PORT.
+    # It could be a simple cast in the future if that's not the case anymore.
+    send(self(), {:new_head, slot, head_root})
   end
 
   @doc """
@@ -226,7 +238,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "elixir->"
     })
 
-    call_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
+    cast_command(pid, {:publish, %Publish{topic: topic_name, message: message}})
   end
 
   @doc """
@@ -244,6 +256,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.cast(pid, {:new_subscriber, topic_name, module})
 
     call_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
+  end
+
+  @doc """
+  Subscribes to the given topic async, not waiting for a response at the subscribe.
+  After this, messages published to the topicwill be received by `self()`.
+  """
+  @spec async_subscribe_to_topic(GenServer.server(), String.t(), module()) ::
+          :ok | {:error, String.t()}
+  def async_subscribe_to_topic(pid \\ __MODULE__, topic_name, module) do
+    :telemetry.execute([:port, :message], %{}, %{
+      function: "async_subscribe_to_topic",
+      direction: "elixir->"
+    })
+
+    GenServer.cast(pid, {:new_subscriber, topic_name, module})
+
+    cast_command(pid, {:subscribe, %SubscribeToTopic{name: topic_name}})
   end
 
   @doc """
@@ -349,6 +378,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def init(args) do
+    {genesis_time, args} = Keyword.pop!(args, :genesis_time)
+    {validators, args} = Keyword.pop(args, :validators, %{})
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
     {enable_request_handlers, args} = Keyword.pop(args, :enable_request_handlers, false)
 
@@ -371,8 +402,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       "[Optimistic Sync] Waiting #{@sync_delay_millis / 1000} seconds to discover some peers before requesting blocks."
     )
 
+    schedule_next_tick()
+
     {:ok,
      %{
+       genesis_time: genesis_time,
+       validators: validators,
+       slot_data: nil,
        port: port,
        subscribers: %{},
        requests: Requests.new(),
@@ -397,14 +433,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def handle_cast({:send, data}, %{port: port} = state) do
     send_data(port, data)
-    {:noreply, state}
-  end
-
-  @impl GenServer
-  def handle_cast({:on_tick, time}, state) do
-    # TODO: we probably want to remove this from here, but we keep it here to have this serialized
-    # with respect to the other fork choice store modifications.
-    ForkChoice.on_tick(time)
     {:noreply, state}
   end
 
@@ -459,6 +487,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
+  def handle_info(:on_tick, state) do
+    schedule_next_tick()
+    time = :os.system_time(:second)
+
+    {:noreply, on_tick(time, state)}
+  end
+
+  @impl GenServer
   def handle_info(:sync_blocks, state) do
     blocks_to_download = SyncBlocks.run()
 
@@ -466,6 +502,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       state |> Map.put(:blocks_remaining, blocks_to_download) |> subscribe_if_no_blocks()
 
     {:noreply, new_state}
+  end
+
+  @impl GenServer
+  def handle_info({:new_head, slot, head_root}, %{validators: validators} = state) do
+    updated_validators =
+      Validator.Setup.notify_validators(validators, {:new_head, slot, head_root})
+
+    {:noreply, %{state | validators: updated_validators}}
   end
 
   @impl GenServer
@@ -688,4 +732,63 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       add_subscriber(state, topic, module)
     end)
   end
+
+  defp on_tick(time, %{genesis_time: genesis_time} = state) when time < genesis_time, do: state
+
+  defp on_tick(time, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
+    # TODO: we probably want to remove this (ForkChoice.on_tick) from here, but we keep it
+    # here to have this serialized with respect to the other fork choice store modifications.
+
+    ForkChoice.on_tick(time)
+
+    new_slot_data = compute_slot(genesis_time, time)
+
+    updated_state =
+      if slot_data == new_slot_data do
+        state
+      else
+        updated_validators =
+          Validator.Setup.notify_validators(state.validators, {:on_tick, new_slot_data})
+
+        %{state | slot_data: new_slot_data, validators: updated_validators}
+      end
+
+    maybe_log_new_slot(slot_data, new_slot_data)
+
+    updated_state
+  end
+
+  defp schedule_next_tick() do
+    # For millisecond precision
+    time_to_next_tick = @tick_time - rem(:os.system_time(:millisecond), @tick_time)
+    Process.send_after(__MODULE__, :on_tick, time_to_next_tick)
+  end
+
+  defp compute_slot(genesis_time, time) do
+    # TODO: This was copied as it is from the Clock, slot calculations are spread
+    # across modules, we should probably centralize them.
+    elapsed_time = time - genesis_time
+
+    slot_thirds = div(elapsed_time * 3, ChainSpec.get("SECONDS_PER_SLOT"))
+    slot = div(slot_thirds, 3)
+
+    slot_third =
+      case rem(slot_thirds, 3) do
+        0 -> :first_third
+        1 -> :second_third
+        2 -> :last_third
+      end
+
+    {slot, slot_third}
+  end
+
+  defp maybe_log_new_slot({slot, _third}, {slot, _another_third}), do: :ok
+
+  defp maybe_log_new_slot({_prev_slot, _thrid}, {slot, :first_third}) do
+    # TODO: It used :sync, :store as the slot event in the old Clock, double-check.
+    :telemetry.execute([:sync, :store], %{slot: slot})
+    Logger.info("[Libp2p] Slot transition", slot: slot)
+  end
+
+  defp maybe_log_new_slot(_, _), do: :ok
 end

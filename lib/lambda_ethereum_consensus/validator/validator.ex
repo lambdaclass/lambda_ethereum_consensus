@@ -7,12 +7,12 @@ defmodule LambdaEthereumConsensus.Validator do
   defstruct [
     :slot,
     :root,
+    :epoch,
     :duties,
     :validator,
     :payload_builder
   ]
 
-  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
@@ -41,6 +41,7 @@ defmodule LambdaEthereumConsensus.Validator do
   # just at the begining of every epoch, and then just update them as needed.
   @type state :: %__MODULE__{
           slot: Types.slot(),
+          epoch: Types.epoch(),
           root: Types.root(),
           duties: Duties.duties(),
           validator: validator(),
@@ -51,6 +52,7 @@ defmodule LambdaEthereumConsensus.Validator do
   def new({head_slot, head_root, {pubkey, privkey}}) do
     state = %__MODULE__{
       slot: head_slot,
+      epoch: Misc.compute_epoch_at_slot(head_slot),
       root: head_root,
       duties: Duties.empty_duties(),
       validator: %{
@@ -93,8 +95,8 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec handle_new_block(Types.slot(), Types.root(), state) :: state
-  def handle_new_block(slot, head_root, %{validator: %{index: nil}} = state) do
+  @spec handle_new_head(Types.slot(), Types.root(), state) :: state
+  def handle_new_head(slot, head_root, %{validator: %{index: nil}} = state) do
     log_error("-1", "setup validator", "index not present handle block",
       slot: slot,
       root: head_root
@@ -103,8 +105,8 @@ defmodule LambdaEthereumConsensus.Validator do
     state
   end
 
-  def handle_new_block(slot, head_root, state) do
-    log_debug(state.validator.index, "recieved new block", slot: slot, root: head_root)
+  def handle_new_head(slot, head_root, state) do
+    log_debug(state.validator.index, "recieved new head", slot: slot, root: head_root)
 
     # TODO: this doesn't take into account reorgs
     state
@@ -113,7 +115,7 @@ defmodule LambdaEthereumConsensus.Validator do
     |> maybe_build_payload(slot + 1)
   end
 
-  @spec handle_tick(Clock.logical_time(), state) :: state
+  @spec handle_tick({Types.slot(), atom()}, state) :: state
   def handle_tick(_logical_time, %{validator: %{index: nil}} = state) do
     log_error("-1", "setup validator", "index not present for handle tick")
     state
@@ -152,17 +154,8 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
 
-  defp update_state(%{slot: slot, root: _other_root} = state, slot, head_root) do
-    # TODO: this log is appearing for every block
-    # Logger.warning("[Validator] Block came late", slot: slot, root: head_root)
-
-    # TODO: rollback stale data instead of the whole cache
-    epoch = Misc.compute_epoch_at_slot(slot + 1)
-    recompute_duties(state, 0, epoch, slot, head_root)
-  end
-
-  defp update_state(%{slot: last_slot} = state, slot, head_root) do
-    last_epoch = Misc.compute_epoch_at_slot(last_slot + 1)
+  # Epoch as part of the state now avoids recomputing the duties at every block
+  defp update_state(%{epoch: last_epoch} = state, slot, head_root) do
     epoch = Misc.compute_epoch_at_slot(slot + 1)
 
     if last_epoch == epoch do
@@ -187,7 +180,7 @@ defmodule LambdaEthereumConsensus.Validator do
     move_subnets(state.duties, new_duties)
     Duties.log_duties(new_duties, state.validator.index)
 
-    %{state | slot: slot, root: head_root, duties: new_duties}
+    %{state | slot: slot, root: head_root, duties: new_duties, epoch: epoch}
   end
 
   @spec fetch_target_state(Types.epoch(), Types.root()) :: Types.BeaconState.t()
@@ -252,10 +245,14 @@ defmodule LambdaEthereumConsensus.Validator do
     attestation = produce_attestation(current_duty, state.root, state.validator.privkey)
 
     log_md = [slot: attestation.data.slot, attestation: attestation, subnet_id: subnet_id]
-    log_debug(validator.index, "publishing attestation", log_md)
+
+    debug_log_msg =
+      "publishing attestation on committee index: #{current_duty.committee_index} | as #{current_duty.index_in_committee}/#{current_duty.committee_length - 1} and pubkey: #{LambdaEthereumConsensus.Utils.format_shorten_binary(validator.pubkey)}"
+
+    log_debug(validator.index, debug_log_msg, log_md)
 
     Gossip.Attestation.publish(subnet_id, attestation)
-    |> log_debug_result(validator.index, "published attestation", log_md)
+    |> log_info_result(validator.index, "published attestation", log_md)
 
     if current_duty.should_aggregate? do
       log_debug(validator.index, "collecting for future aggregation", log_md)
@@ -300,12 +297,16 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp aggregate_attestations(attestations) do
+    # TODO: We need to check why we are producing duplicate attestations, this was generating invalid signatures
+    unique_attestations = attestations |> Enum.uniq()
+
     aggregation_bits =
-      attestations
+      unique_attestations
       |> Stream.map(&Map.fetch!(&1, :aggregation_bits))
       |> Enum.reduce(&BitField.bitwise_or/2)
 
-    {:ok, signature} = attestations |> Enum.map(&Map.fetch!(&1, :signature)) |> Bls.aggregate()
+    {:ok, signature} =
+      unique_attestations |> Enum.map(&Map.fetch!(&1, :signature)) |> Bls.aggregate()
 
     %{List.first(attestations) | aggregation_bits: aggregation_bits, signature: signature}
   end
@@ -400,16 +401,16 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp start_payload_builder(%{validator: validator} = state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
-    log_debug(validator.index, "starting building payload", slot: proposed_slot)
+    log_debug(validator.index, "starting building payload for slot #{proposed_slot}")
 
     case BlockBuilder.start_building_payload(proposed_slot, head_root) do
       {:ok, payload_id} ->
-        log_debug(validator.index, "payload built", slot: proposed_slot)
+        log_info(validator.index, "payload built for slot #{proposed_slot}")
 
         %{state | payload_builder: {proposed_slot, head_root, payload_id}}
 
       {:error, reason} ->
-        log_error(validator.index, "start building payload", reason, slot: proposed_slot)
+        log_error(validator.index, "start building payload for slot #{proposed_slot}", reason)
 
         %{state | payload_builder: nil}
     end
@@ -514,13 +515,10 @@ defmodule LambdaEthereumConsensus.Validator do
   defp log_result(:ok, :info, index, message, metadata), do: log_info(index, message, metadata)
   defp log_result(:ok, :debug, index, message, metadata), do: log_debug(index, message, metadata)
 
-  defp log_result({:error, reason}, _level, index, message, metadata),
-    do: log_error(index, message, reason, metadata)
-
-  defp log_info(index, message, metadata),
+  defp log_info(index, message, metadata \\ []),
     do: Logger.info("[Validator] #{index} #{message}", metadata)
 
-  defp log_debug(index, message, metadata),
+  defp log_debug(index, message, metadata \\ []),
     do: Logger.debug("[Validator] #{index} #{message}", metadata)
 
   defp log_error(index, message, reason, metadata \\ []),
