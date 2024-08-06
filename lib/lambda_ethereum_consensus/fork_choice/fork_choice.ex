@@ -4,11 +4,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   """
 
   require Logger
-
-  alias LambdaEthereumConsensus.Beacon.Clock
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
+  alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.StateTransition.Accessors
@@ -19,7 +18,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
-  alias LambdaEthereumConsensus.Validator.ValidatorManager
   alias Types.Attestation
   alias Types.BlockInfo
   alias Types.Checkpoint
@@ -121,7 +119,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec get_current_chain_slot() :: Types.slot()
   def get_current_chain_slot() do
-    time = Clock.get_current_time()
+    time = :os.system_time(:second)
     genesis_time = StoreDb.fetch_genesis_time!()
     compute_current_slot(time, genesis_time)
   end
@@ -271,7 +269,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     %{slot: slot, body: body} = head_block
 
     OperationsCollector.notify_new_block(head_block)
-    ValidatorManager.notify_new_block(slot, head_root)
+    Libp2pPort.notify_new_head(slot, head_root)
     ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
 
     update_fork_choice_data(
