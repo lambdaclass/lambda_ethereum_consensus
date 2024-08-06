@@ -378,10 +378,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def init(args) do
+    IO.puts("empieza")
     {genesis_time, args} = Keyword.pop!(args, :genesis_time)
     {validators, args} = Keyword.pop(args, :validators, %{})
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
     {enable_request_handlers, args} = Keyword.pop(args, :enable_request_handlers, false)
+    {store, args} = Keyword.pop!(args, :store)
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
@@ -404,6 +406,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     schedule_next_tick()
 
+    IO.puts("termina")
+
     {:ok,
      %{
        genesis_time: genesis_time,
@@ -412,6 +416,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
        port: port,
        subscribers: %{},
        requests: Requests.new(),
+       store: store,
        syncing: true
      }, {:continue, :check_pending_blocks}}
   end
@@ -421,8 +426,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   # call is a noop.
   @impl GenServer
   def handle_continue(:check_pending_blocks, state) do
-    PendingBlocks.process_blocks()
-    {:noreply, state}
+    {:noreply, update_in(state.store, &PendingBlocks.process_blocks/1)}
   end
 
   @impl GenServer
@@ -467,10 +471,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       "[Optimistic Sync] Range #{first_slot} - #{last_slot} downloaded successfully, with #{n_blocks} blocks and #{missing} missing."
     )
 
-    Enum.each(blocks, &PendingBlocks.add_block/1)
+    new_store =
+      Enum.reduce(blocks, state.store, fn block, store ->
+        PendingBlocks.add_block(store, block)
+      end)
 
     new_state =
-      Map.update!(state, :blocks_remaining, fn n -> n - n_blocks - missing end)
+      state
+      |> Map.put(:store, new_store)
+      |> Map.update!(:blocks_remaining, fn n -> n - n_blocks - missing end)
       |> subscribe_if_no_blocks()
 
     {:noreply, new_state}
@@ -540,17 +549,19 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "->elixir"
     })
 
-    case Map.fetch(subscribers, gs.topic) do
-      {:ok, module} ->
-        Metrics.handler_span("gossip_handler", gs.topic, fn ->
-          module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
-        end)
+    new_store =
+      case Map.fetch(subscribers, gs.topic) do
+        {:ok, module} ->
+          Metrics.handler_span("gossip_handler", gs.topic, fn ->
+            module.handle_gossip_message(state.store, gs.topic, gs.msg_id, gs.message)
+          end)
 
-      :error ->
-        Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
-    end
+        :error ->
+          Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
+          state.store
+      end
 
-    state
+    Map.put(state, :store, new_store)
   end
 
   defp handle_notification(
@@ -587,7 +598,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     state
   end
 
-  defp handle_notification(%Response{} = response, %{requests: requests} = state) do
+  defp handle_notification(%Response{} = response, %{requests: requests, store: store} = state) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "response",
       direction: "->elixir"
@@ -596,7 +607,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     success = if response.success, do: :ok, else: :error
 
     {result, new_requests} =
-      Requests.handle_response(requests, {success, response.message}, response.id)
+      Requests.handle_response(requests, store, {success, response.message}, response.id)
 
     if result == :unhandled do
       Logger.error("Unhandled response with id: #{response.id}. Message: #{response.message}")
@@ -739,7 +750,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     # TODO: we probably want to remove this (ForkChoice.on_tick) from here, but we keep it
     # here to have this serialized with respect to the other fork choice store modifications.
 
-    ForkChoice.on_tick(time)
+    new_store = ForkChoice.on_tick(state.store, time)
 
     new_slot_data = compute_slot(genesis_time, time)
 
@@ -755,7 +766,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     maybe_log_new_slot(slot_data, new_slot_data)
 
-    updated_state
+    updated_state |> Map.put(:store, new_store)
   end
 
   defp schedule_next_tick() do

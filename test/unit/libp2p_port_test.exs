@@ -102,7 +102,7 @@ defmodule Unit.Libp2pPortTest do
   end
 
   @behaviour Handler
-  def handle_gossip_message(topic, msg_id, message) do
+  def handle_gossip_message(_store, topic, msg_id, message) do
     # Decode the PID from the message and send a notification.
     send(:erlang.binary_to_term(message), {:gossipsub, {topic, msg_id, message}})
   end

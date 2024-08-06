@@ -11,7 +11,6 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.CheckpointStates
-  alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.BlockInfo
@@ -58,7 +57,7 @@ defmodule Types.Store do
           head_slot: Types.slot() | nil,
           tree_cache: Tree.t(),
           states: %{Types.root() => StateInfo.t()},
-          checkpoint_states: %{Types.Checkpoint.t() => StateInfo.t()}
+          checkpoint_states: %{Types.Checkpoint.t() => BeaconState.t()}
         }
 
   @spec get_forkchoice_store(BeaconState.t(), SignedBeaconBlock.t()) ::
@@ -103,6 +102,7 @@ defmodule Types.Store do
         checkpoint_states: %{}
       }
       |> store_block_info(block_info)
+      |> store_state(block_info.root, state_info)
       |> update_head_info()
       |> then(&{:ok, &1})
     else
@@ -165,13 +165,13 @@ defmodule Types.Store do
   Removes everything prior to the last finalized slot, specifically checkpoint states
   and states by root.
   """
-  def prune(%Store{} = store) do
+  def prune(%__MODULE__{} = store) do
     new_finalized_slot =
       store.finalized_checkpoint.epoch * ChainSpec.get("SLOTS_PER_EPOCH")
 
     store
-    |> prune_checkpoint_states(slot)
-    |> prune_states(slot)
+    |> prune_checkpoint_states(new_finalized_slot)
+    |> prune_states(new_finalized_slot)
   end
 
   @doc """
@@ -189,9 +189,10 @@ defmodule Types.Store do
 
   def store_state(store, block_root, state) do
     # TODO: Add a task to save the block async.
-    put_in(store, [:states, block_root], state)
+    update_in(store.states, fn states -> Map.put(states, block_root, state) end)
   end
 
+  @spec get_checkpoint_state(t(), Types.Checkpoint.t()) :: {t(), BeaconState.t()}
   @doc """
   Gets a State given a checkpoint. If there is no state for that checkpoint in the store
   it will try to compute it.
@@ -210,7 +211,7 @@ defmodule Types.Store do
     end
   end
 
-  def remove_cache(%Store{} = store) do
+  def remove_cache(%__MODULE__{} = store) do
     store |> Map.delete(:states) |> Map.delete(:checkpoint_states)
   end
 

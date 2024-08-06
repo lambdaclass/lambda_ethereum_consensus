@@ -129,8 +129,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       ) do
     with :ok <- check_attestation_valid(store, attestation, is_from_block),
          # Get state at the `target` to fully validate attestation
-         {new_store, %StateInfo{beacon_state: target_state}} <-
-           Store.get_checkpoint_state(store, attestation.data.target),
+         {new_store, target_state} <- Store.get_checkpoint_state(store, attestation.data.target),
          {:ok, indexed_attestation} <-
            Accessors.get_indexed_attestation(target_state, attestation),
          :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do

@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
+  alias Types.BeaconState
   alias Types.Store
 
   @spec get_head(Store.t()) :: {:ok, Types.root()} | {:error, any}
@@ -13,7 +14,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
     blocks = get_filtered_block_tree(store)
     # Execute the LMD-GHOST fork choice
     head = store.justified_checkpoint.root
-    {:ok, justified_state} = Store.get_checkpoint_state(store, store.justified_checkpoint)
+
+    {_store, %BeaconState{} = justified_state} =
+      Store.get_checkpoint_state(store, store.justified_checkpoint)
 
     # PERF: return just the parent root and the block root in `get_filtered_block_tree`
     Stream.cycle([nil])

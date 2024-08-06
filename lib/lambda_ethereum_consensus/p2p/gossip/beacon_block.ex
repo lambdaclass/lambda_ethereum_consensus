@@ -16,7 +16,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   ##########################
 
   @impl true
-  def handle_gossip_message(_topic, msg_id, message) do
+  def handle_gossip_message(store, _topic, msg_id, message) do
     slot = ForkChoice.get_current_chain_slot()
 
     with {:ok, uncompressed} <- :snappyer.decompress(message),
@@ -24,18 +24,18 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
          :ok <- validate(signed_block, slot) do
       Logger.info("[Gossip] Block received, block.slot: #{signed_block.message.slot}.")
       Libp2pPort.validate_message(msg_id, :accept)
-      PendingBlocks.add_block(signed_block)
+      PendingBlocks.add_block(store, signed_block)
     else
       {:ignore, reason} ->
         Logger.warning("[Gossip] Block ignored, reason: #{inspect(reason)}.")
         Libp2pPort.validate_message(msg_id, :ignore)
+        store
 
       {:error, reason} ->
         Logger.warning("[Gossip] Block rejected, reason: #{inspect(reason)}.")
         Libp2pPort.validate_message(msg_id, :reject)
+        store
     end
-
-    :ok
   end
 
   @spec subscribe_to_topic() :: :ok | :error

@@ -3,6 +3,8 @@ defmodule LambdaEthereumConsensus.P2p.Requests do
   Uses uuids to identify requests and their handlers. Saves the handler in the struct until a
   response is available and then handles appropriately.
   """
+  alias Types.Store
+
   @type id :: binary
   @type handler :: (term() -> term())
   @type requests :: %{id => handler}
@@ -34,11 +36,11 @@ defmodule LambdaEthereumConsensus.P2p.Requests do
   - status is :ok if it was handled or :unhandled if the id didn't correspond to a saved handler.
   - requests is the modified requests object with the handler removed.
   """
-  @spec handle_response(requests(), term(), id()) :: {:ok | :unhandled, requests()}
-  def handle_response(requests, response, handler_id) do
+  @spec handle_response(requests(), Store.t(), term(), id()) :: {:ok | :unhandled, requests()}
+  def handle_response(requests, store, response, handler_id) do
     case Map.fetch(requests, handler_id) do
       {:ok, handler} ->
-        handler.(response)
+        handler.(store, response)
         {:ok, Map.delete(requests, handler_id)}
 
       :error ->

@@ -26,13 +26,15 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     time = :os.system_time(:second)
 
-    ForkChoice.init_store(store, time)
+    store = ForkChoice.init_store(store, time)
 
     init_execution_chain(deposit_tree_snapshot, store.head_root)
 
     validators = Validator.Setup.init(store.head_slot, store.head_root)
 
-    libp2p_args = [genesis_time: store.genesis_time, validators: validators] ++ get_libp2p_args()
+    libp2p_args =
+      [genesis_time: store.genesis_time, validators: validators, store: store] ++
+        get_libp2p_args()
 
     children =
       [

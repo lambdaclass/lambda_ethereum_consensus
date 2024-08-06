@@ -12,6 +12,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
   @behaviour Handler
 
   @impl true
+  def handle_gossip_message(store, topic, msg_id, message) do
+    handle_gossip_message(topic, msg_id, message)
+    store
+  end
+
   def handle_gossip_message(_topic, msg_id, message) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.BlobSidecar{index: blob_index} = blob} <-

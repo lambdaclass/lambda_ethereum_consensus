@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   Beacon node store storage.
   """
   alias LambdaEthereumConsensus.Store.Db
+  alias Types.Store
 
   @store_prefix "store"
   @snapshot_prefix "snapshot"
