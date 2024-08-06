@@ -73,4 +73,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
     match_spec = generate_cleanup_spec(table, key)
     :ets.select_delete(table, match_spec)
   end
+
+  def present?(table, key), do: :ets.member(table, key)
+  def set(table, key, value), do: :ets.insert_new(table, {key, value})
 end

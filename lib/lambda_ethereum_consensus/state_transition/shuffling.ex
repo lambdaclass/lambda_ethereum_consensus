@@ -9,10 +9,24 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
   @position_size 4
 
   @doc """
-  Performs a full shuffle of a list of indices.
-  This function is equivalent to running `compute_shuffled_index` for each index in the list.
+  Performs a full shuffle of an Aja.Vector, regardless of its values. It's equivalent to:
+  1. Iterating over the indexes of the elements.
+  2. Calculating the shuffled index with compute_shuffled_index.
+  3. Swapping the elements of those indexes.
 
-  Shuffling the whole list should be 10-100x faster than shuffling each single item.
+  In code, it's equivalent to:
+
+  r = Vector.size(list)
+  1..r
+  |> Enum.map(fn i ->
+    {:ok, j} = compute_shuffled_index(i, r, seed)
+    Aja.Vector.at!(list, j)
+  end)
+  |> Aja.Vector.new()
+
+  However, shuffling the whole list with this function should be 10-100x faster than shuffling each
+  item separately, as pivots and other structures are reused. To further improve this function,
+  index calculation could be parallelized.
 
   ## Examples
     iex> shuffled = Shuffling.shuffle_list(Aja.Vector.new(0..99), <<0::32*8>>)
