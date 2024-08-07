@@ -1,6 +1,6 @@
-defmodule LambdaEthereumConsensus.ValidatorPool do
+defmodule LambdaEthereumConsensus.ValidatorSet do
   @moduledoc """
-  Module that holds the pool of validators and their states,
+  Module that holds the set of validators and their states,
   it also manages the validator's duties as bitmaps to
   simplify the delegation of work.
   """
@@ -73,7 +73,7 @@ defmodule LambdaEthereumConsensus.ValidatorPool do
   end
 
   @doc """
-  Notify all validators of a new block.
+  Notify all validators of a new tick.
   """
   @spec notify_tick(t(), tuple()) :: t()
   def notify_tick(%{validators: %{uninitialized: validators}} = pool, slot_data) do

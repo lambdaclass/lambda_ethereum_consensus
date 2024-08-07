@@ -40,6 +40,18 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     }
   end
 
+  @spec compute_proposers_for_epoch(beacon_state :: BeaconState.t(), epoch :: Types.epoch()) ::
+          %{Types.slot() => non_neg_integer()}
+  def compute_proposers_for_epoch(beacon_state, epoch) do
+    start_slot = Misc.compute_start_slot_at_epoch(epoch)
+
+    start_slot..(start_slot + ChainSpec.get("SLOTS_PER_EPOCH") - 1)
+    |> Enum.map(fn slot ->
+      {slot, Accessors.get_beacon_proposer_index(beacon_state, slot)}
+    end)
+    |> Map.new()
+  end
+
   @spec get_current_attester_duty(duties :: duties(), current_slot :: Types.slot()) ::
           attester_duty()
   def get_current_attester_duty(%{attester: attester_duties}, current_slot) do
