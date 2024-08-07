@@ -9,18 +9,36 @@ defmodule Keystore do
   @iv_size 16
   @checksum_message_size 32
 
-  @spec decode_from_files!(Path.t(), Path.t()) :: {Types.bls_pubkey(), Bls.privkey()}
+  fields = [
+    :pubkey,
+    :privkey,
+    :path,
+    :readonly
+  ]
+
+  @enforce_keys fields
+  defstruct fields
+
+  @type t() :: %__MODULE__{
+          pubkey: Types.bls_pubkey(),
+          privkey: Bls.privkey(),
+          path: String.t(),
+          readonly: boolean()
+        }
+
+  @spec decode_from_files!(Path.t(), Path.t()) :: t()
   def decode_from_files!(json, password) do
     password = File.read!(password)
     File.read!(json) |> decode_str!(password)
   end
 
-  @spec decode_str!(String.t(), String.t()) :: {Types.bls_pubkey(), Bls.privkey()}
+  @spec decode_str!(String.t(), String.t()) :: t()
   def decode_str!(json, password) do
     decoded_json = Jason.decode!(json)
     # We only support version 4 (the only one)
     %{"version" => 4} = decoded_json
-    validate_empty_path!(decoded_json["path"])
+    path = decoded_json["path"]
+    validate_empty_path!(path)
 
     privkey = decrypt!(decoded_json["crypto"], password)
 
@@ -36,7 +54,7 @@ defmodule Keystore do
       raise("Keystore secret and public keys don't form a valid pair")
     end
 
-    {pubkey, privkey}
+    %__MODULE__{pubkey: pubkey, privkey: privkey, path: path, readonly: false}
   end
 
   # TODO: support keystore paths

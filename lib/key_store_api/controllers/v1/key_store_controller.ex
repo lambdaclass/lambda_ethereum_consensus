@@ -3,7 +3,7 @@ defmodule KeyStoreApi.V1.KeyStoreController do
 
   alias BeaconApi.Utils
   alias KeyStoreApi.ApiSpec
-  alias LambdaEthereumConsensus.Validator.ValidatorManager
+  alias LambdaEthereumConsensus.Libp2pPort
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
@@ -20,53 +20,54 @@ defmodule KeyStoreApi.V1.KeyStoreController do
 
   @spec get_keys(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_keys(conn, _params) do
-    pubkeys_info =
-      ValidatorManager.get_pubkeys()
-      |> Enum.map(
-        &%{
-          "validatin_pubkey" => &1 |> Utils.hex_encode(),
-          "derivation_path" => "m/12381/3600/0/0/0",
-          "readonly" => true
-        }
-      )
-
     conn
     |> json(%{
-      "data" => pubkeys_info
+      "data" =>
+        Libp2pPort.get_keystores()
+        |> Enum.map(
+          &%{
+            "validatin_pubkey" => &1.pubkey |> Utils.hex_encode(),
+            "derivation_path" => &1.path,
+            "readonly" => &1.readonly
+          }
+        )
     })
   end
 
   @spec add_keys(Plug.Conn.t(), any) :: Plug.Conn.t()
   def add_keys(conn, _params) do
     body_params = conn.private.open_api_spex.body_params
-    config = Application.get_env(:lambda_ethereum_consensus, ValidatorManager, [])
+
+    config =
+      Application.get_env(:lambda_ethereum_consensus, LambdaEthereumConsensus.Validator.Setup, [])
+
     keystore_dir = Keyword.get(config, :keystore_dir) || @default_keystore_dir
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir) || @default_keystore_pass_dir
 
     results =
       Enum.zip(body_params.keystores, body_params.passwords)
-      |> Enum.map(fn {keystore, password} ->
-        {pubkey, _privkey} = Keystore.decode_str!(keystore, password)
+      |> Enum.map(fn {keystore_file, password_file} ->
+        keystore = Keystore.decode_str!(keystore_file, password_file)
 
         File.write!(
           Path.join(
             keystore_dir,
-            "#{inspect(pubkey |> Utils.hex_encode())}.json"
+            "#{inspect(keystore.pubkey |> Utils.hex_encode())}.json"
           ),
-          keystore
+          keystore_file
         )
 
         File.write!(
           Path.join(
             keystore_pass_dir,
-            "#{inspect(pubkey |> Utils.hex_encode())}.txt"
+            "#{inspect(keystore.pubkey |> Utils.hex_encode())}.txt"
           ),
-          password
+          password_file
         )
 
         %{
           status: "imported",
-          message: "Pubkey: #{inspect(pubkey)}"
+          message: "Pubkey: #{inspect(keystore.pubkey)}"
         }
       end)
 

@@ -334,6 +334,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:update_enr, enr})
   end
 
+  def get_keystores(), do: GenServer.call(__MODULE__, :get_keystores)
+
   @spec join_init_topics(port()) :: :ok | {:error, String.t()}
   defp join_init_topics(port) do
     topics = [BeaconBlock.topic()] ++ BlobSideCar.topics()
@@ -529,6 +531,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Logger.error(inspect(other))
     {:noreply, state}
   end
+
+  @impl GenServer
+  def handle_call(:get_keystores, _from, %{validators: []} = state),
+    do: {:reply, [], state}
+
+  @impl GenServer
+  def handle_call(:get_keystores, _from, %{validators: validators} = state),
+    do: {:reply, Enum.map(validators, fn {_pk, validator} -> validator.keystore end), state}
 
   ######################
   ### PRIVATE FUNCTIONS

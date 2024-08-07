@@ -9,7 +9,8 @@ defmodule LambdaEthereumConsensus.Validator do
     :root,
     :epoch,
     :duties,
-    :validator,
+    :index,
+    :keystore,
     :payload_builder
   ]
 
@@ -31,12 +32,6 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @default_graffiti_message "Lambda, so gentle, so good"
 
-  @type validator :: %{
-          index: non_neg_integer() | nil,
-          pubkey: Bls.pubkey(),
-          privkey: Bls.privkey()
-        }
-
   # TODO: Slot and Root are redundant, we should also have the duties separated and calculated
   # just at the begining of every epoch, and then just update them as needed.
   @type state :: %__MODULE__{
@@ -44,22 +39,20 @@ defmodule LambdaEthereumConsensus.Validator do
           epoch: Types.epoch(),
           root: Types.root(),
           duties: Duties.duties(),
-          validator: validator(),
+          index: non_neg_integer() | nil,
+          keystore: Keystore.t(),
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
 
-  @spec new({Types.slot(), Types.root(), {Bls.pubkey(), Bls.privkey()}}) :: state
-  def new({head_slot, head_root, {pubkey, privkey}}) do
+  @spec new({Types.slot(), Types.root(), Keystore.t()}) :: state
+  def new({head_slot, head_root, keystore}) do
     state = %__MODULE__{
       slot: head_slot,
       epoch: Misc.compute_epoch_at_slot(head_slot),
       root: head_root,
       duties: Duties.empty_duties(),
-      validator: %{
-        pubkey: pubkey,
-        privkey: privkey,
-        index: nil
-      },
+      index: nil,
+      keystore: keystore,
       payload_builder: nil
     }
 
@@ -81,17 +74,25 @@ defmodule LambdaEthereumConsensus.Validator do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state(epoch, root)
 
-    case fetch_validator_index(beacon, state.validator) do
+    case fetch_validator_index(beacon, state.keystore.pubkey) do
       nil ->
         nil
 
       validator_index ->
         log_info(validator_index, "setup validator", slot: slot, root: root)
-        validator = %{state.validator | index: validator_index}
-        duties = Duties.maybe_update_duties(state.duties, beacon, epoch, validator)
+
+        duties =
+          Duties.maybe_update_duties(
+            state.duties,
+            beacon,
+            epoch,
+            validator_index,
+            state.keystore.privkey
+          )
+
         join_subnets_for_duties(duties)
         Duties.log_duties(duties, validator_index)
-        %{state | duties: duties, validator: validator}
+        %{state | duties: duties, index: validator_index}
     end
   end
 
@@ -106,7 +107,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   def handle_new_head(slot, head_root, state) do
-    log_debug(state.validator.index, "recieved new head", slot: slot, root: head_root)
+    log_debug(state.index, "recieved new head", slot: slot, root: head_root)
 
     # TODO: this doesn't take into account reorgs
     state
@@ -122,7 +123,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   def handle_tick({slot, :first_third}, state) do
-    log_debug(state.validator.index, "started first third", slot: slot)
+    log_debug(state.index, "started first third", slot: slot)
     # Here we may:
     # 1. propose our blocks
     # 2. (TODO) start collecting attestations for aggregation
@@ -131,7 +132,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   def handle_tick({slot, :second_third}, state) do
-    log_debug(state.validator.index, "started second third", slot: slot)
+    log_debug(state.index, "started second third", slot: slot)
     # Here we may:
     # 1. send our attestation for an empty slot
     # 2. start building a payload
@@ -141,7 +142,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   def handle_tick({slot, :last_third}, state) do
-    log_debug(state.validator.index, "started last third", slot: slot)
+    log_debug(state.index, "started last third", slot: slot)
     # Here we may publish our attestation aggregate
     maybe_publish_aggregate(state, slot)
   end
@@ -175,10 +176,10 @@ defmodule LambdaEthereumConsensus.Validator do
 
     new_duties =
       Duties.shift_duties(state.duties, epoch, last_epoch)
-      |> Duties.maybe_update_duties(new_beacon, epoch, state.validator)
+      |> Duties.maybe_update_duties(new_beacon, epoch, state.index, state.keystore.privkey)
 
     move_subnets(state.duties, new_duties)
-    Duties.log_duties(new_duties, state.validator.index)
+    Duties.log_duties(new_duties, state.index)
 
     %{state | slot: slot, root: head_root, duties: new_duties, epoch: epoch}
   end
@@ -238,35 +239,35 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec attest(state, Duties.attester_duty()) :: :ok
-  defp attest(%{validator: validator} = state, current_duty) do
+  defp attest(%{index: validator_index, keystore: keystore} = state, current_duty) do
     subnet_id = current_duty.subnet_id
-    log_debug(validator.index, "attesting", slot: current_duty.slot, subnet_id: subnet_id)
+    log_debug(validator_index, "attesting", slot: current_duty.slot, subnet_id: subnet_id)
 
-    attestation = produce_attestation(current_duty, state.root, state.validator.privkey)
+    attestation = produce_attestation(current_duty, state.root, keystore.privkey)
 
     log_md = [slot: attestation.data.slot, attestation: attestation, subnet_id: subnet_id]
 
     debug_log_msg =
-      "publishing attestation on committee index: #{current_duty.committee_index} | as #{current_duty.index_in_committee}/#{current_duty.committee_length - 1} and pubkey: #{LambdaEthereumConsensus.Utils.format_shorten_binary(validator.pubkey)}"
+      "publishing attestation on committee index: #{current_duty.committee_index} | as #{current_duty.index_in_committee}/#{current_duty.committee_length - 1} and pubkey: #{LambdaEthereumConsensus.Utils.format_shorten_binary(keystore.pubkey)}"
 
-    log_debug(validator.index, debug_log_msg, log_md)
+    log_debug(validator_index, debug_log_msg, log_md)
 
     Gossip.Attestation.publish(subnet_id, attestation)
-    |> log_info_result(validator.index, "published attestation", log_md)
+    |> log_info_result(validator_index, "published attestation", log_md)
 
     if current_duty.should_aggregate? do
-      log_debug(validator.index, "collecting for future aggregation", log_md)
+      log_debug(validator_index, "collecting for future aggregation", log_md)
 
       Gossip.Attestation.collect(subnet_id, attestation)
-      |> log_debug_result(validator.index, "collected attestation", log_md)
+      |> log_debug_result(validator_index, "collected attestation", log_md)
     end
   end
 
   # We publish our aggregate on the next slot, and when we're an aggregator
-  defp maybe_publish_aggregate(%{validator: validator} = state, slot) do
+  defp maybe_publish_aggregate(%{index: validator_index, keystore: keystore} = state, slot) do
     case Duties.get_current_attester_duty(state.duties, slot) do
       %{should_aggregate?: true} = duty ->
-        publish_aggregate(duty, validator)
+        publish_aggregate(duty, validator_index, keystore)
 
         new_duties =
           Duties.replace_attester_duty(state.duties, duty, %{duty | should_aggregate?: false})
@@ -278,20 +279,20 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp publish_aggregate(duty, validator) do
+  defp publish_aggregate(duty, validator_index, keystore) do
     case Gossip.Attestation.stop_collecting(duty.subnet_id) do
       {:ok, attestations} ->
         log_md = [slot: duty.slot, attestations: attestations]
-        log_debug(validator.index, "publishing aggregate", log_md)
+        log_debug(validator_index, "publishing aggregate", log_md)
 
         aggregate_attestations(attestations)
-        |> append_proof(duty.selection_proof, validator)
-        |> append_signature(duty.signing_domain, validator)
+        |> append_proof(duty.selection_proof, validator_index)
+        |> append_signature(duty.signing_domain, keystore)
         |> Gossip.Attestation.publish_aggregate()
-        |> log_info_result(validator.index, "published aggregate", log_md)
+        |> log_info_result(validator_index, "published aggregate", log_md)
 
       {:error, reason} ->
-        log_error(validator.index, "stop collecting attestations", reason)
+        log_error(validator_index, "stop collecting attestations", reason)
         :ok
     end
   end
@@ -311,9 +312,9 @@ defmodule LambdaEthereumConsensus.Validator do
     %{List.first(attestations) | aggregation_bits: aggregation_bits, signature: signature}
   end
 
-  defp append_proof(aggregate, proof, validator) do
+  defp append_proof(aggregate, proof, validator_index) do
     %Types.AggregateAndProof{
-      aggregator_index: validator.index,
+      aggregator_index: validator_index,
       aggregate: aggregate,
       selection_proof: proof
     }
@@ -378,9 +379,9 @@ defmodule LambdaEthereumConsensus.Validator do
     BlockStates.get_state_info!(parent_root).beacon_state |> go_to_slot(slot)
   end
 
-  @spec fetch_validator_index(Types.BeaconState.t(), validator()) ::
+  @spec fetch_validator_index(Types.BeaconState.t(), Bls.privkey()) ::
           non_neg_integer() | nil
-  defp fetch_validator_index(beacon, %{index: nil, pubkey: pk}) do
+  defp fetch_validator_index(beacon, pk) do
     Enum.find_index(beacon.validators, &(&1.pubkey == pk))
   end
 
@@ -399,18 +400,18 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp start_payload_builder(%{payload_builder: {slot, root, _}} = state, slot, root), do: state
 
-  defp start_payload_builder(%{validator: validator} = state, proposed_slot, head_root) do
+  defp start_payload_builder(%{index: validator_index} = state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
-    log_debug(validator.index, "starting building payload for slot #{proposed_slot}")
+    log_debug(validator_index, "starting building payload for slot #{proposed_slot}")
 
     case BlockBuilder.start_building_payload(proposed_slot, head_root) do
       {:ok, payload_id} ->
-        log_info(validator.index, "payload built for slot #{proposed_slot}")
+        log_info(validator_index, "payload built for slot #{proposed_slot}")
 
         %{state | payload_builder: {proposed_slot, head_root, payload_id}}
 
       {:error, reason} ->
-        log_error(validator.index, "start building payload for slot #{proposed_slot}", reason)
+        log_error(validator_index, "start building payload for slot #{proposed_slot}", reason)
 
         %{state | payload_builder: nil}
     end
@@ -460,7 +461,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   # TODO: at least in kurtosis there are blocks that are proposed without a payload apparently, must investigate.
   defp propose(%{payload_builder: nil} = state, _proposed_slot) do
-    log_error(state.validator.index, "propose block", "lack of execution payload")
+    log_error(state.index, "propose block", "lack of execution payload")
     state
   end
 
