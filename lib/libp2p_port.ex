@@ -23,7 +23,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.P2p.Requests
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias LambdaEthereumConsensus.Validator
+  alias LambdaEthereumConsensus.ValidatorPool
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command
   alias Libp2pProto.Enr
@@ -507,7 +507,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def handle_info({:new_head, slot, head_root}, %{validators: validators} = state) do
     updated_validators =
-      Validator.Setup.notify_validators(validators, {:new_head, slot, head_root})
+      ValidatorPool.notify_head(validators, slot, head_root)
 
     {:noreply, %{state | validators: updated_validators}}
   end
@@ -748,7 +748,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
         state
       else
         updated_validators =
-          Validator.Setup.notify_validators(state.validators, {:on_tick, new_slot_data})
+          ValidatorPool.notify_tick(state.validators, new_slot_data)
 
         %{state | slot_data: new_slot_data, validators: updated_validators}
       end
