@@ -13,6 +13,7 @@ defmodule KeyStoreApi.Router do
     scope "/keystores" do
       get("/", KeyStoreController, :get_keys)
       post("/", KeyStoreController, :add_keys)
+      delete("/", KeyStoreController, :delete_keys)
     end
   end
 

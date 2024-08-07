@@ -18,6 +18,9 @@ defmodule KeyStoreApi.V1.KeyStoreController do
   def open_api_operation(:add_keys),
     do: ApiSpec.spec().paths["/eth/v1/keystores"].post
 
+  def open_api_operation(:delete_keys),
+    do: ApiSpec.spec().paths["/eth/v1/keystores"].delete
+
   @spec get_keys(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_keys(conn, _params) do
     conn
@@ -65,9 +68,51 @@ defmodule KeyStoreApi.V1.KeyStoreController do
           password_file
         )
 
+        Libp2pPort.add_validator(keystore)
+
         %{
           status: "imported",
           message: "Pubkey: #{inspect(keystore.pubkey)}"
+        }
+      end)
+
+    conn
+    |> json(%{
+      "data" => results
+    })
+  end
+
+  @spec delete_keys(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def delete_keys(conn, _params) do
+    body_params = conn.private.open_api_spex.body_params
+
+    config =
+      Application.get_env(:lambda_ethereum_consensus, LambdaEthereumConsensus.Validator.Setup, [])
+
+    keystore_dir = Keyword.get(config, :keystore_dir) || @default_keystore_dir
+    keystore_pass_dir = Keyword.get(config, :keystore_pass_dir) || @default_keystore_pass_dir
+
+    results =
+      Enum.map(body_params.pubkeys, fn pubkey ->
+        :ok = Libp2pPort.delete_validator(pubkey)
+
+        File.rm!(
+          Path.join(
+            keystore_dir,
+            "#{inspect(pubkey |> Utils.hex_encode())}.json"
+          )
+        )
+
+        File.rm!(
+          Path.join(
+            keystore_pass_dir,
+            "#{inspect(pubkey |> Utils.hex_encode())}.txt"
+          )
+        )
+
+        %{
+          status: "deleted",
+          message: "Pubkey: #{inspect(pubkey)}"
         }
       end)
 

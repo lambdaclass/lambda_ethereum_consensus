@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           discovery_addresses: [String.t()]
         }
 
-  @sync_delay_millis 10_000
+  @sync_delay_millis 20_000
 
   ######################
   ### API
@@ -334,7 +334,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:update_enr, enr})
   end
 
+  @spec get_keystores() :: list(Keystore.t())
   def get_keystores(), do: GenServer.call(__MODULE__, :get_keystores)
+
+  @spec delete_validator(Bls.pubkey()) :: :ok
+  def delete_validator(pubkey), do: GenServer.call(__MODULE__, {:delete_validator, pubkey})
+
+  @spec add_validator(Keystore.t()) :: :ok
+  def add_validator(keystore), do: GenServer.call(__MODULE__, {:add_validator, keystore})
 
   @spec join_init_topics(port()) :: :ok | {:error, String.t()}
   defp join_init_topics(port) do
@@ -539,6 +546,21 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def handle_call(:get_keystores, _from, %{validators: validators} = state),
     do: {:reply, Enum.map(validators, fn {_pk, validator} -> validator.keystore end), state}
+
+  @impl GenServer
+  def handle_call({:delete_validator, pk}, _from, %{validators: validators} = state),
+    do: {:reply, :ok, %{state | validators: Map.delete(validators, pk)}}
+
+  @impl GenServer
+  def handle_call({:add_validator, keystore}, _from, %{validators: validators} = state) do
+    # TODO: HANDLE REPEATED VALIDATORS
+    {:reply, :ok,
+     %{
+       state
+       | validators:
+           Map.put(validators, keystore.pubkey, Validator.new({0, <<0::256>>, keystore}))
+     }}
+  end
 
   ######################
   ### PRIVATE FUNCTIONS
