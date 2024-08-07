@@ -20,7 +20,7 @@ defmodule Keystore do
   defstruct fields
 
   @type t() :: %__MODULE__{
-          pubkey: Types.bls_pubkey(),
+          pubkey: Bls.pubkey(),
           privkey: Bls.privkey(),
           path: String.t(),
           readonly: boolean()
