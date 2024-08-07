@@ -57,6 +57,8 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
         keystore_file = Path.join(keystore_dir, "#{base_name}.json")
         keystore_pass_file = Path.join(keystore_pass_dir, "#{base_name}.txt")
 
+        IO.inspect("KEYSTORE_FILE: #{inspect(keystore_file)}")
+        IO.inspect("KEYSTORE_PASS_FILE: #{inspect(keystore_pass_file)}")
         {keystore_file, keystore_pass_file}
       else
         Logger.warning("[Validator] Skipping file: #{filename}. Not a keystore file.")

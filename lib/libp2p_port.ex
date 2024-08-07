@@ -337,7 +337,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @spec get_keystores() :: list(Keystore.t())
   def get_keystores(), do: GenServer.call(__MODULE__, :get_keystores)
 
-  @spec delete_validator(Bls.pubkey()) :: :ok
+  @spec delete_validator(Bls.pubkey()) :: :ok | {:error, String.t()}
   def delete_validator(pubkey), do: GenServer.call(__MODULE__, {:delete_validator, pubkey})
 
   @spec add_validator(Keystore.t()) :: :ok
@@ -548,17 +548,32 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     do: {:reply, Enum.map(validators, fn {_pk, validator} -> validator.keystore end), state}
 
   @impl GenServer
-  def handle_call({:delete_validator, pk}, _from, %{validators: validators} = state),
-    do: {:reply, :ok, %{state | validators: Map.delete(validators, pk)}}
+  def handle_call({:delete_validator, pk}, _from, %{validators: validators} = state) do
+    case Map.fetch(validators, pk) do
+      {:ok, validator} ->
+        Logger.warning("[Libp2pPort] Deleting validator with index #{inspect(validator.index)}.")
+
+        {:reply, :ok, %{state | validators: Map.delete(validators, pk)}}
+
+      :error ->
+        {:error, "Pubkey #{inspect(pk)} not found."}
+    end
+  end
 
   @impl GenServer
   def handle_call({:add_validator, keystore}, _from, %{validators: validators} = state) do
     # TODO: HANDLE REPEATED VALIDATORS
+    current_status = ForkChoice.get_current_status_message()
+
     {:reply, :ok,
      %{
        state
        | validators:
-           Map.put(validators, keystore.pubkey, Validator.new({0, <<0::256>>, keystore}))
+           Map.put(
+             validators,
+             keystore.pubkey,
+             Validator.new({current_status.head_slot, current_status.head_root, keystore})
+           )
      }}
   end
 

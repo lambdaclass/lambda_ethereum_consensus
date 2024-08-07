@@ -31,6 +31,12 @@ defmodule BeaconApi.Utils do
     "0x" <> Base.encode16(binary, case: :lower)
   end
 
+  def hex_decode("0x" <> binary) do
+    with {:ok, decoded} <- Base.decode16(binary, case: :lower) do
+      decoded
+    end
+  end
+
   defp to_json(attribute, module) when is_struct(attribute) do
     module.schema()
     |> Enum.map(fn {k, schema} ->

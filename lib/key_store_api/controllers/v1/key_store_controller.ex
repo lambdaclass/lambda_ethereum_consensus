@@ -5,6 +5,8 @@ defmodule KeyStoreApi.V1.KeyStoreController do
   alias KeyStoreApi.ApiSpec
   alias LambdaEthereumConsensus.Libp2pPort
 
+  require Logger
+
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
   @default_keystore_dir "keystore_dir"
@@ -52,10 +54,12 @@ defmodule KeyStoreApi.V1.KeyStoreController do
       |> Enum.map(fn {keystore_file, password_file} ->
         keystore = Keystore.decode_str!(keystore_file, password_file)
 
+        base_name = keystore.pubkey |> Utils.hex_encode()
+
         File.write!(
           Path.join(
             keystore_dir,
-            "#{inspect(keystore.pubkey |> Utils.hex_encode())}.json"
+            base_name <> ".json"
           ),
           keystore_file
         )
@@ -63,7 +67,7 @@ defmodule KeyStoreApi.V1.KeyStoreController do
         File.write!(
           Path.join(
             keystore_pass_dir,
-            "#{inspect(keystore.pubkey |> Utils.hex_encode())}.txt"
+            base_name <> ".txt"
           ),
           password_file
         )
@@ -94,26 +98,30 @@ defmodule KeyStoreApi.V1.KeyStoreController do
 
     results =
       Enum.map(body_params.pubkeys, fn pubkey ->
-        :ok = Libp2pPort.delete_validator(pubkey)
+        case Libp2pPort.delete_validator(pubkey |> Utils.hex_decode()) do
+          :ok ->
+            File.rm!(
+              Path.join(
+                keystore_dir,
+                pubkey <> ".json"
+              )
+            )
 
-        File.rm!(
-          Path.join(
-            keystore_dir,
-            "#{inspect(pubkey |> Utils.hex_encode())}.json"
-          )
-        )
+            File.rm!(
+              Path.join(
+                keystore_pass_dir,
+                pubkey <> ".txt"
+              )
+            )
 
-        File.rm!(
-          Path.join(
-            keystore_pass_dir,
-            "#{inspect(pubkey |> Utils.hex_encode())}.txt"
-          )
-        )
+            %{
+              status: "deleted",
+              message: "Pubkey: #{inspect(pubkey)}"
+            }
 
-        %{
-          status: "deleted",
-          message: "Pubkey: #{inspect(pubkey)}"
-        }
+          {:error, reason} ->
+            Logger.error("[Keystore] Error removing key. Reason: #{reason}")
+        end
       end)
 
     conn
