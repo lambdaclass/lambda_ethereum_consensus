@@ -192,7 +192,7 @@ defmodule Types.Store do
     update_in(store.states, fn states -> Map.put(states, block_root, state) end)
   end
 
-  @spec get_checkpoint_state(t(), Types.Checkpoint.t()) :: {t(), BeaconState.t()}
+  @spec get_checkpoint_state(t(), Types.Checkpoint.t()) :: {t(), BeaconState.t() | nil}
   @doc """
   Gets a State given a checkpoint. If there is no state for that checkpoint in the store
   it will try to compute it.

@@ -47,4 +47,27 @@ defmodule LambdaEthereumConsensus.Utils do
     encoded = binary |> Base.encode16(case: :lower)
     "0x#{String.slice(encoded, 0, 3)}..#{String.slice(encoded, -4, 4)}"
   end
+
+  def chunk_by_sizes(enum, sizes), do: chunk_by_sizes(enum, sizes, [], 0, [])
+
+  # No more elements, there may be a leftover chunk to add.
+  def chunk_by_sizes([], _sizes, chunk, chunk_size, all_chunks) do
+    if chunk_size > 0 do
+      [Enum.reverse(chunk) | all_chunks] |> Enum.reverse()
+    else
+      Enum.reverse(all_chunks)
+    end
+  end
+
+  # No more splits will be done. We just performed a split.
+  def chunk_by_sizes(enum, [], [], 0, all_chunks), do: [enum | Enum.reverse(all_chunks)]
+
+  def chunk_by_sizes(enum, [size | rem_sizes] = sizes, chunk, chunk_size, all_chunks) do
+    if chunk_size == size do
+      chunk_by_sizes(enum, rem_sizes, [], 0, [Enum.reverse(chunk) | all_chunks])
+    else
+      [elem | rem_enum] = enum
+      chunk_by_sizes(rem_enum, sizes, [elem | chunk], chunk_size + 1, all_chunks)
+    end
+  end
 end

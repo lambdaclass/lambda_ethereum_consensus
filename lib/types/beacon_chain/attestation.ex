@@ -2,6 +2,9 @@ defmodule Types.Attestation do
   @moduledoc """
   Struct definition for `AttestationMainnet`.
   Related definitions in `native/ssz_nif/src/types/`.
+
+  aggregation_bits is a bit list that has the size of a committee. Each individual bit is set if
+  the validator corresponding to that bit participated in attesting.
   """
   alias LambdaEthereumConsensus.Utils.BitList
 

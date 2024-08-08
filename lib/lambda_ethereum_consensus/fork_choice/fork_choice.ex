@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.BlockDb
@@ -205,10 +206,35 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     attestations = signed_block.message.body.attestations
     attester_slashings = signed_block.message.body.attester_slashings
 
-    with {:ok, new_store} <- apply_on_block(store, block_info),
+    # Prefetch relevant states.
+    states =
+      Metrics.span_operation(:prefetch_states, nil, nil, fn ->
+        attestations
+        |> Enum.map(& &1.data.target)
+        |> Enum.uniq()
+        |> Enum.flat_map(fn ch -> fetch_checkpoint_state(store, ch) end)
+      end)
+
+    # Prefetch committees for all relevant epochs.
+    Metrics.span_operation(:prefetch_committees, nil, nil, fn ->
+      for {checkpoint, state} <- states do
+        Accessors.maybe_prefetch_committees(state, checkpoint.epoch)
+      end
+    end)
+
+    new_store = update_in(store.checkpoint_states, fn cs -> Map.merge(cs, Map.new(states)) end)
+
+    with {:ok, new_store} <- apply_on_block(new_store, block_info),
          {:ok, new_store} <- process_attestations(new_store, attestations),
          {:ok, new_store} <- process_attester_slashings(new_store, attester_slashings) do
       {:ok, new_store}
+    end
+  end
+
+  def fetch_checkpoint_state(store, checkpoint) do
+    case Store.get_checkpoint_state(store, checkpoint) do
+      {_store, nil} -> []
+      {_store, state} -> [{checkpoint, state}]
     end
   end
 

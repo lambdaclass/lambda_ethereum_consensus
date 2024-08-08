@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   Functions accessing the current `BeaconState`
   """
 
+  require Logger
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -281,7 +282,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
-  Return the number of committees in each slot for the given ``epoch``.
+  Returns the number of committees in each slot for the given ``epoch``.
+
+  The amount of committees is (using integer division):
+  active_validator_count / slots_per_epoch / TARGET_COMMITTEE_SIZE
+
+  The amount of committees will be capped between 1 and MAX_COMMITTEES_PER_SLOT.
   """
   @spec get_committee_count_per_slot(BeaconState.t(), Types.epoch()) :: Types.uint64()
   def get_committee_count_per_slot(%BeaconState{} = state, epoch) do
@@ -300,7 +306,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
-  Return the beacon committee at ``slot`` for ``index``.
+  Returns the beacon committee at ``slot`` for ``index``.
+  - slot is the one for which the committee is being calculated. Typically the slot of an
+    attestation. Might be different from the state slot.
+  - index: the index of the committee within the slot. It's not the committee index, which is the
+    index of the committee within the epoch. This transformation is done internally.
+
+  The beacon committee returned is a list of global validator indices that should participate in
+  the requested slot. The order in which the indices are sorted is the same as the one used in
+  aggregation bits, so checking if the nth member of a committee participated is as simple as
+  checking if the nth bit is set.
   """
   @spec get_beacon_committee(BeaconState.t(), Types.slot(), Types.commitee_index()) ::
           {:ok, [Types.validator_index()]} | {:error, String.t()}
@@ -324,6 +339,41 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     case get_epoch_root(state, epoch) do
       {:ok, root} -> Cache.lazily_compute(:beacon_committee, {slot, {index, root}}, compute_fn)
       _ -> compute_fn.()
+    end
+  end
+
+  @doc """
+  Computes all committees for a single epoch and saves them in the cache. This only happens if the
+  value is not calculated and if the root for the epoch is available. If any of those conditions
+  is not true, this function is a noop.
+
+  Arguments:
+  - state: state used to get active validators, seed and others. Any state that is within the same
+    epoch is equivalent, as validators are updated in epoch boundaries.
+  - epoch: epoch for which the committees are calculated.
+  """
+  def maybe_prefetch_committees(state, epoch) do
+    first_slot = Misc.compute_start_slot_at_epoch(epoch)
+
+    with {:ok, root} <- get_epoch_root(state, epoch),
+         false <- Cache.present?(:beacon_committee, {first_slot, {0, root}}) do
+      Logger.info("[Block processing] Computing committees for epoch #{epoch}")
+
+      committees_per_slot = get_committee_count_per_slot(state, epoch)
+
+      Misc.compute_all_committees(state, epoch)
+      |> Enum.with_index()
+      |> Enum.each(fn {committee, i} ->
+        # The how do we know for which slot is a committee
+        slot = first_slot + div(i, committees_per_slot)
+        index = rem(i, committees_per_slot)
+
+        Cache.set(
+          :beacon_committee,
+          {slot, {index, root}},
+          {:ok, committee |> Aja.Enum.to_list()}
+        )
+      end)
     end
   end
 
@@ -505,6 +555,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   @doc """
   Return the set of attesting indices corresponding to ``data`` and ``bits``.
+
+  It computes the committee for the attestation (indices of validators that should participate in
+  that slot) and then filters the ones that actually participated. It returns an unordered MapSet,
+  which is useful for checking inclusion, but should be ordered if used to validate an attestation.
   """
   @spec get_attesting_indices(BeaconState.t(), Types.AttestationData.t(), Types.bitlist()) ::
           {:ok, MapSet.t()} | {:error, String.t()}

@@ -2,7 +2,8 @@ defmodule LambdaEthereumConsensus.Profile do
   @moduledoc """
   Wrappers for profiling using EEP, with easy defaults.
   """
-  alias Timex.Format.DateTime.Formatter
+  alias Utils.Date
+
   @default_profile_time_millis 300
 
   @doc """
@@ -18,7 +19,7 @@ defmodule LambdaEthereumConsensus.Profile do
     traces instead of a long one and to inspect them separately.
   """
   def build(opts \\ []) do
-    trace_name = Keyword.get(opts, :trace_name, now_str())
+    trace_name = Keyword.get(opts, :trace_name, Date.now_str())
     erlang_trace_name = String.to_charlist(trace_name)
     profile_time_millis = Keyword.get(opts, :profile_time_millis, @default_profile_time_millis)
 
@@ -29,11 +30,5 @@ defmodule LambdaEthereumConsensus.Profile do
 
     File.rm(trace_name <> ".trace")
     :ok
-  end
-
-  defp now_str() do
-    DateTime.utc_now()
-    |> Formatter.format!("{YYYY}_{0M}_{0D}__{h24}_{m}_{s}_{ss}")
-    |> String.replace(".", "")
   end
 end
