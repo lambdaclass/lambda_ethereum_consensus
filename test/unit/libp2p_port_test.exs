@@ -7,6 +7,7 @@ defmodule Unit.Libp2pPortTest do
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.P2P.Metadata
   alias LambdaEthereumConsensus.P2P.ReqResp
+  alias Types.Store
 
   doctest Libp2pPort
 
@@ -17,7 +18,8 @@ defmodule Unit.Libp2pPortTest do
   end
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
-    start_link_supervised!({Libp2pPort, [opts: [name: name], genesis_time: 42] ++ init_args},
+    start_link_supervised!(
+      {Libp2pPort, [opts: [name: name], store: %Store{}, genesis_time: 42] ++ init_args},
       id: name
     )
   end

@@ -182,7 +182,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.cast(
       pid,
       {:send_request, peer_id, protocol_id, message,
-       fn response -> send(from, {:response, response}) end}
+       fn _store, response -> send(from, {:response, response}) end}
     )
 
     receive_response()
@@ -378,7 +378,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def init(args) do
-    IO.puts("empieza")
     {genesis_time, args} = Keyword.pop!(args, :genesis_time)
     {validators, args} = Keyword.pop(args, :validators, %{})
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
@@ -405,8 +404,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     )
 
     schedule_next_tick()
-
-    IO.puts("termina")
 
     {:ok,
      %{

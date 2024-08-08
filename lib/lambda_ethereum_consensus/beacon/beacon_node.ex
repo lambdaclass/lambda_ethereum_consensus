@@ -18,7 +18,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   @impl true
   def init(_) do
     store = StoreSetup.setup!()
-    deposit_tree_snapshot = StoreSetup.get_deposit_snapshot!()
 
     LambdaEthereumConsensus.P2P.Metadata.init()
 
@@ -28,9 +27,10 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     store = ForkChoice.init_store(store, time)
 
-    init_execution_chain(deposit_tree_snapshot, store.head_root)
-
     validators = Validator.Setup.init(store.head_slot, store.head_root)
+
+    StoreSetup.get_deposit_snapshot!()
+    |> init_execution_chain(store.head_root)
 
     libp2p_args =
       [genesis_time: store.genesis_time, validators: validators, store: store] ++
