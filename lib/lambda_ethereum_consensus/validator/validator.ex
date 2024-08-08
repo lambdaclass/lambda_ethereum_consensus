@@ -428,32 +428,33 @@ defmodule LambdaEthereumConsensus.Validator do
   defp propose(
          %{
            root: head_root,
-           validator: validator,
-           payload_builder: {proposed_slot, head_root, payload_id}
+           index: validator_index,
+           payload_builder: {proposed_slot, head_root, payload_id},
+           keystore: keystore
          } = state,
          proposed_slot
        ) do
-    log_debug(validator.index, "building block", slot: proposed_slot)
+    log_debug(validator_index, "building block", slot: proposed_slot)
 
     build_result =
       BlockBuilder.build_block(
         %BuildBlockRequest{
           slot: proposed_slot,
           parent_root: head_root,
-          proposer_index: validator.index,
+          proposer_index: validator_index,
           graffiti_message: @default_graffiti_message,
-          privkey: validator.privkey
+          privkey: keystore.privkey
         },
         payload_id
       )
 
     case build_result do
       {:ok, {signed_block, blob_sidecars}} ->
-        publish_block(validator.index, signed_block)
-        Enum.each(blob_sidecars, &publish_sidecar(validator.index, &1))
+        publish_block(validator_index, signed_block)
+        Enum.each(blob_sidecars, &publish_sidecar(validator_index, &1))
 
       {:error, reason} ->
-        log_error(validator.index, "build block", reason, slot: proposed_slot)
+        log_error(validator_index, "build block", reason, slot: proposed_slot)
     end
 
     %{state | payload_builder: nil}

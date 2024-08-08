@@ -2,12 +2,12 @@ participants:
   - el_type: geth
     cl_type: lighthouse
     count: 2
-    validator_count: 32
+    validator_count: 1
   - el_type: geth
     cl_type: lambda
     cl_image: lambda_ethereum_consensus:latest
     use_separate_vc: false
     count: 1
-    validator_count: 32
+    validator_count: 63
     cl_max_mem: 4096
     keymanager_enabled: true
