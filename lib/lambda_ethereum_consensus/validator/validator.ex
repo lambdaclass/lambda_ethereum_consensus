@@ -48,11 +48,11 @@ defmodule LambdaEthereumConsensus.Validator do
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
 
-  @spec new({Types.slot(), Types.root(), {Bls.pubkey(), Bls.privkey()}}) :: state
-  def new({head_slot, head_root, {pubkey, privkey}}) do
+  @spec new({Bls.pubkey(), Bls.privkey()}, Types.epoch(), Types.slot(), Types.root(), Types.BeaconState.t()) :: state
+  def new({pubkey, privkey}, epoch, head_slot, head_root, beacon) do
     state = %__MODULE__{
       slot: head_slot,
-      epoch: Misc.compute_epoch_at_slot(head_slot),
+      epoch: epoch,
       root: head_root,
       duties: Duties.empty_duties(),
       validator: %{
@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.Validator do
       payload_builder: nil
     }
 
-    case try_setup_validator(state, head_slot, head_root) do
+    case try_setup_validator(state, epoch, head_slot, head_root, beacon) do
       nil ->
         # TODO: Previously this was handled by the validator continously trying to setup itself,
         # but now that they are processed syncronously, we should handle this case different.
@@ -76,11 +76,8 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec try_setup_validator(state, Types.slot(), Types.root()) :: state | nil
-  defp try_setup_validator(state, slot, root) do
-    epoch = Misc.compute_epoch_at_slot(slot)
-    beacon = fetch_target_state(epoch, root)
-
+  @spec try_setup_validator(state, Types.epoch(), Types.slot(), Types.root(), Types.BeaconState.t()) :: state | nil
+  defp try_setup_validator(state, epoch, slot, root, beacon) do
     case fetch_validator_index(beacon, state.validator) do
       nil ->
         nil

@@ -10,13 +10,15 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   require Logger
 
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Validator
+  alias LambdaEthereumConsensus.Validator.Duties
 
-  @type validators :: %{atom() => list(Validator.state())}
+  @type validators :: %{atom() => %{} | []}
   @type t :: %__MODULE__{
-          epoch: Types.epoch(),
-          slot: Types.slot(),
-          head_root: Types.root(),
+          epoch: Types.epoch() | nil,
+          slot: Types.slot() | nil,
+          head_root: Types.root() | nil,
           validators: validators()
         }
 
@@ -44,16 +46,31 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
     validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
 
-    validators = Enum.map(validator_keys, &Validator.new({slot, head_root, &1}))
+    epoch = Misc.compute_epoch_at_slot(slot)
+    beacon = fetch_target_state!(epoch, head_root)
+
+    validators = Map.new(validator_keys, fn validator_key ->
+      validator = Validator.new(validator_key, epoch, slot, head_root, beacon)
+      {validator.validator.index, validator}
+    end)
 
     Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
 
+    proposers = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
+
     %__MODULE__{
-      epoch: Misc.compute_epoch_at_slot(slot),
+      epoch: epoch,
       slot: slot,
       head_root: head_root,
-      validators: %{uninitialized: validators}
+      validators: %{
+        proposers: proposers,
+        uninitialized: validators}
     }
+  end
+
+  defp fetch_target_state!(epoch, head_root) do
+    {:ok, state} = CheckpointStates.compute_target_checkpoint_state(epoch, head_root)
+    state
   end
 
   @doc """
@@ -64,7 +81,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     uninitialized_validators =
       maybe_debug_notify(
         fn ->
-          Enum.map(validators, &Validator.handle_new_head(slot, head_root, &1))
+          Map.new(validators, fn {k, v} ->
+            {k, Validator.handle_new_head(slot, head_root, v)}
+          end)
         end,
         {:new_head, slot, head_root}
       )
@@ -80,7 +99,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     uninitialized_validators =
       maybe_debug_notify(
         fn ->
-          Enum.map(validators, &Validator.handle_tick(slot_data, &1))
+          Map.new(validators,  fn {k, v} ->
+            {k, Validator.handle_tick(slot_data, v)}
+          end)
         end,
         {:on_tick, slot_data}
       )
