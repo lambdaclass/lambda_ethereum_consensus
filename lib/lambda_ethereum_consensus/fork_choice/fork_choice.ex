@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   # alias LambdaEthereumConsensus.Store.BlobDb
   # alias LambdaEthereumConsensus.Store.BlockDb
@@ -209,10 +210,32 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     attestations = signed_block.message.body.attestations
     attester_slashings = signed_block.message.body.attester_slashings
 
+    # Prefetch relevant states.
+    states =
+      Metrics.span_operation(:prefetch_states, nil, nil, fn ->
+        attestations
+        |> Enum.map(& &1.data.target)
+        |> Enum.uniq()
+        |> Enum.flat_map(&fetch_checkpoint_state/1)
+        |> Map.new()
+      end)
+
+    # Prefetch committees for all relevant epochs.
+    Metrics.span_operation(:prefetch_committees, nil, nil, fn ->
+      Enum.each(states, fn {ch, state} -> Accessors.maybe_prefetch_committees(state, ch.epoch) end)
+    end)
+
     with {:ok, new_store} <- apply_on_block(store, block_info),
-         {:ok, new_store} <- process_attestations(new_store, attestations),
+         {:ok, new_store} <- process_attestations(new_store, attestations, states),
          {:ok, new_store} <- process_attester_slashings(new_store, attester_slashings) do
       {:ok, new_store}
+    end
+  end
+
+  def fetch_checkpoint_state(checkpoint) do
+    case CheckpointStates.get_checkpoint_state(checkpoint) do
+      {:ok, state} -> [{checkpoint, state}]
+      _other -> []
     end
   end
 
@@ -226,27 +249,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end)
   end
 
-  defp process_attestations(store, attestations) do
+  defp process_attestations(store, attestations, states) do
     Metrics.span_operation(:attestations, nil, nil, fn ->
       apply_handler(
         attestations,
         store,
-        &Handlers.on_attestation(&1, &2, true, prefetch_states(attestations))
+        &Handlers.on_attestation(&1, &2, true, states)
       )
     end)
-  end
-
-  defp prefetch_states(attestations) do
-    attestations
-    |> Enum.map(& &1.data.target)
-    |> Enum.uniq()
-    |> Enum.flat_map(fn ch ->
-      case CheckpointStates.get_checkpoint_state(ch) do
-        {:ok, state} -> [{ch, state}]
-        _other -> []
-      end
-    end)
-    |> Map.new()
   end
 
   @spec recompute_head(Store.t()) :: :ok
