@@ -146,4 +146,18 @@ defmodule Keystore do
 
   defp sanitize_password(password),
     do: password |> String.normalize(:nfkd) |> String.replace(~r/[\x00-\x1f\x80-\x9f\x7f]/, "")
+
+  def get_keystore_dir() do
+    config =
+      Application.get_env(:lambda_ethereum_consensus, LambdaEthereumConsensus.Validator.Setup, [])
+
+    Keyword.get(config, :keystore_dir) || "keystore_dir"
+  end
+
+  def get_keystore_pass_dir() do
+    config =
+      Application.get_env(:lambda_ethereum_consensus, LambdaEthereumConsensus.Validator.Setup, [])
+
+    Keyword.get(config, :keystore_pass_dir) || "keystore_pass_dir"
+  end
 end
