@@ -212,18 +212,18 @@ defmodule Types.Store do
   end
 
   def remove_cache(%__MODULE__{} = store) do
-    store |> Map.delete(:states) |> Map.delete(:checkpoint_states)
+    store |> Map.put(:states, %{}) |> Map.put(:checkpoint_states, %{})
   end
 
   defp prune_checkpoint_states(store, slot) do
     update_in(store.checkpoint_states, fn checkpoint_states ->
-      Map.filter(checkpoint_states, fn {_checkpoint, state} -> state.slot < slot end)
+      Map.reject(checkpoint_states, fn {_checkpoint, state} -> state.slot < slot end)
     end)
   end
 
   defp prune_states(store, slot) do
     update_in(store.states, fn states ->
-      Map.filter(states, fn {_root, state} -> state.slot < slot end)
+      Map.reject(states, fn {_root, %StateInfo{beacon_state: state}} -> state.slot < slot end)
     end)
   end
 

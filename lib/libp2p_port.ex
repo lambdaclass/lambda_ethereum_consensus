@@ -746,7 +746,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp on_tick(time, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
     # TODO: we probably want to remove this (ForkChoice.on_tick) from here, but we keep it
     # here to have this serialized with respect to the other fork choice store modifications.
-
     new_store = ForkChoice.on_tick(state.store, time)
 
     new_slot_data = compute_slot(genesis_time, time)
