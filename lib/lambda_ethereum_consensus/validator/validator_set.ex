@@ -49,14 +49,19 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state!(epoch, head_root)
 
-    validators = Map.new(validator_keys, fn validator_key ->
-      validator = Validator.new(validator_key, epoch, slot, head_root, beacon)
-      {validator.validator.index, validator}
-    end)
+    validators =
+      Map.new(validator_keys, fn validator_key ->
+        validator = Validator.new(validator_key, epoch, slot, head_root, beacon)
+        {validator.validator.index, validator}
+      end)
 
     Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
 
     proposers = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
+    attesters = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
+
+    Logger.info("[Validator] Proposers: #{inspect(proposers, pretty: true)}")
+    Logger.info("[Validator] Attesters: #{inspect(attesters, pretty: true)}")
 
     %__MODULE__{
       epoch: epoch,
@@ -64,7 +69,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
       head_root: head_root,
       validators: %{
         proposers: proposers,
-        uninitialized: validators}
+        attesters: attesters,
+        uninitialized: validators
+      }
     }
   end
 
@@ -99,7 +106,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     uninitialized_validators =
       maybe_debug_notify(
         fn ->
-          Map.new(validators,  fn {k, v} ->
+          Map.new(validators, fn {k, v} ->
             {k, Validator.handle_tick(slot_data, v)}
           end)
         end,

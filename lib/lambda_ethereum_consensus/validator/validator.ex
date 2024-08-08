@@ -48,7 +48,13 @@ defmodule LambdaEthereumConsensus.Validator do
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
 
-  @spec new({Bls.pubkey(), Bls.privkey()}, Types.epoch(), Types.slot(), Types.root(), Types.BeaconState.t()) :: state
+  @spec new(
+          {Bls.pubkey(), Bls.privkey()},
+          Types.epoch(),
+          Types.slot(),
+          Types.root(),
+          Types.BeaconState.t()
+        ) :: state
   def new({pubkey, privkey}, epoch, head_slot, head_root, beacon) do
     state = %__MODULE__{
       slot: head_slot,
@@ -76,7 +82,13 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec try_setup_validator(state, Types.epoch(), Types.slot(), Types.root(), Types.BeaconState.t()) :: state | nil
+  @spec try_setup_validator(
+          state,
+          Types.epoch(),
+          Types.slot(),
+          Types.root(),
+          Types.BeaconState.t()
+        ) :: state | nil
   defp try_setup_validator(state, epoch, slot, root, beacon) do
     case fetch_validator_index(beacon, state.validator) do
       nil ->
