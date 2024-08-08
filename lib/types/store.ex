@@ -258,8 +258,12 @@ defmodule Types.Store do
 
       %StateInfo{beacon_state: state} ->
         if state.slot < target_slot do
-          new_state = StateTransition.process_slots(state, target_slot)
-          {put_in(store, [:checkpoint_states, checkpoint], new_state), new_state}
+          # The only way this can fail is if target slot > state.slot, which is false by
+          # construction.
+          {:ok, new_state} = StateTransition.process_slots(state, target_slot)
+
+          {update_in(store.checkpoint_states, fn s -> Map.put(s, checkpoint, new_state) end),
+           new_state}
         else
           {store, state}
         end
