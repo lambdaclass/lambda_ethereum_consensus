@@ -14,14 +14,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
-  alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.P2P.IncomingRequestsHandler
   alias LambdaEthereumConsensus.P2P.Peerbook
-  alias LambdaEthereumConsensus.P2p.Requests
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Validator
@@ -47,6 +45,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias Libp2pProto.Tracer
   alias Libp2pProto.ValidateMessage
   alias Types.EnrForkId
+  alias Types.Store
 
   require Logger
 
@@ -413,7 +412,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
        slot_data: nil,
        port: port,
        subscribers: %{},
-       requests: Requests.new(),
+       requests: %{},
        store: store,
        syncing: true
      }, {:continue, :check_pending_blocks}}
@@ -445,7 +444,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           port: port
         } = state
       ) do
-    {new_requests, handler_id} = Requests.add_response_handler(requests, handler)
+    {new_requests, handler_id} = add_response_handler(requests, handler)
 
     send_request = %SendRequest{
       id: peer_id,
@@ -602,16 +601,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "->elixir"
     })
 
-    success = if response.success, do: :ok, else: :error
-
-    {result, new_requests, new_store} =
-      Requests.handle_response(requests, store, {success, response.message}, response.id)
-
-    if result == :unhandled do
-      Logger.error("Unhandled response with id: #{response.id}. Message: #{response.message}")
-    end
-
-    state |> Map.put(:requests, new_requests) |> Map.put(:store, new_store)
+    {new_requests, new_store} = handle_response(requests, store, response)
+    state |> Map.merge(%{requests: new_requests, store: new_store})
   end
 
   defp handle_notification(%Result{from: "", result: result}, state) do
@@ -788,6 +779,37 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       end
 
     {slot, slot_third}
+  end
+
+  defp add_response_handler(requests, handler) do
+    id = UUID.uuid4()
+    {Map.put(requests, id, handler), id}
+  end
+
+  # Handles a request using handler_id. The handler will be popped from the
+  # requests map.
+  #
+  # Returns a {status, requests} tuple where:
+  # - status is :ok if it was handled or :unhandled if the id didn't correspond to a saved handler.
+  # - requests is the modified requests object with the handler removed.
+  defp handle_response(requests, store, response) do
+    case Map.pop(requests, response.id) do
+      {nil, new_requests} ->
+        Logger.error("Unhandled response with id: #{response.id}. Message: #{response.message}")
+        {new_requests, store}
+
+      {handler, new_requests} ->
+        success = if response.success, do: :ok, else: :error
+
+        case handler.(store, {success, response.message}) do
+          {:ok, %Store{} = new_store} ->
+            {new_requests, new_store}
+
+          {:error, reason} ->
+            Logger.warning("Handling response failed with reason: #{reason}")
+            {new_requests, store}
+        end
+    end
   end
 
   defp maybe_log_new_slot({slot, _third}, {slot, _another_third}), do: :ok

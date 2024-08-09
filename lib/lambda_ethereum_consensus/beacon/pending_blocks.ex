@@ -153,21 +153,21 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   defp process_downloaded_block(store, {:ok, [block]}) do
     # TODO: add store.
-    add_block(store, block)
+    {:ok, add_block(store, block)}
   end
 
   defp process_downloaded_block(store, {:error, reason}) do
     # We might want to declare a block invalid here.
     Logger.error("Error downloading block: #{inspect(reason)}")
-    store
+    {:ok, store}
   end
 
-  defp process_blobs(store, {:ok, blobs}), do: add_blobs(store, blobs)
+  defp process_blobs(store, {:ok, blobs}), do: {:ok, add_blobs(store, blobs)}
 
   defp process_blobs(store, {:error, reason}) do
     # We might want to declare a block invalid here.
     Logger.error("Error downloading blobs: #{inspect(reason)}")
-    store
+    {:ok, store}
   end
 
   # To be used when a series of blobs are downloaded. Stores each blob.

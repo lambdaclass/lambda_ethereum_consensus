@@ -109,12 +109,11 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
           Logger.debug("Retrying request for #{count} blocks", slot: slot)
           request_blocks_by_range(slot, count, on_blocks, retries - 1)
-          store
+          {:ok, store}
         else
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
           # TODO: Add block range that failed in the reason
           on_blocks.(store, {:error, {slot, slot + count - 1}, reason})
-          store
         end
     end
   end
@@ -176,7 +175,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
           pretty_roots = Enum.map_join(roots, ", ", &Base.encode16/1)
           Logger.debug("Retrying request for blocks with roots #{pretty_roots}")
           request_blocks_by_root(roots, on_blocks, retries - 1)
-          store
+          {:ok, store}
         else
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "error"))
           on_blocks.(store, {:error, reason})

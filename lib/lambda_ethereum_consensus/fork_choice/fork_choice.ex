@@ -64,6 +64,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         end)
         |> prune_old_states(last_finalized_checkpoint.epoch)
         |> tap(&StoreDb.persist_store/1)
+        |> then(&{:ok, &1})
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
