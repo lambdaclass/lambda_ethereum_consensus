@@ -182,7 +182,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.cast(
       pid,
       {:send_request, peer_id, protocol_id, message,
-       fn _store, response -> send(from, {:response, response}) end}
+       fn store, response ->
+         send(from, {:response, response})
+         {:ok, store}
+       end}
     )
 
     receive_response()
