@@ -247,7 +247,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec attest(state, Duties.attester_duty()) :: :ok
-  defp attest(%{validator: validator} = state, current_duty) do
+  def attest(%{validator: validator} = state, current_duty) do
     subnet_id = current_duty.subnet_id
     log_debug(validator.index, "attesting", slot: current_duty.slot, subnet_id: subnet_id)
 
@@ -405,10 +405,9 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec start_payload_builder(state, Types.slot(), Types.root()) :: state
+  def start_payload_builder(%{payload_builder: {slot, root, _}} = state, slot, root), do: state
 
-  defp start_payload_builder(%{payload_builder: {slot, root, _}} = state, slot, root), do: state
-
-  defp start_payload_builder(%{validator: validator} = state, proposed_slot, head_root) do
+  def start_payload_builder(%{validator: validator} = state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
     log_debug(validator.index, "starting building payload for slot #{proposed_slot}")
 

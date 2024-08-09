@@ -41,11 +41,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     }
   end
 
-  @spec compute_proposers_for_epoch(BeaconState.t(), Types.epoch(), %{}) ::
-          %{Types.slot() => non_neg_integer()}
+  @spec compute_proposers_for_epoch(BeaconState.t(), Types.epoch(), %{}) :: any()
   def compute_proposers_for_epoch(%BeaconState{} = state, epoch, validators) do
     with {:ok, epoch} <- check_valid_epoch(state, epoch),
          {start_slot, end_slot} <- boundary_slots(epoch) do
+
       start_slot..end_slot
       |> Enum.flat_map(fn slot ->
         {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state, slot)
@@ -54,7 +54,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           do: [{slot, proposer_index}],
           else: []
       end)
-      |> Map.new()
+      |> then(&{:ok, Map.new(&1)})
     end
   end
 
@@ -80,7 +80,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           slot :: Types.slot(),
           committee_index :: Types.uint64(),
           validator_index :: [{Types.validator_index(), Validator.validator()}]
-        ) :: attester_duty() | nil
+        ) :: [attester_duty()]
   defp compute_attester_dutys(state, epoch, slot, validators, committee_index) do
     with {:ok, committee} <- Accessors.get_beacon_committee(state, slot, committee_index) do
       committee
@@ -108,7 +108,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
       end
     else
       {:error, _} ->
-        nil
+        []
     end
   end
 

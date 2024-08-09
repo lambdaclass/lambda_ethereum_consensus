@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   simplify the delegation of work.
   """
 
-  defstruct epoch: nil, slot: nil, head_root: nil, validators: %{uninitialized: []}
+  defstruct epoch: nil, slot: nil, head_root: nil, duties: %{}, validators: []
 
   require Logger
 
@@ -19,11 +19,12 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
           epoch: Types.epoch() | nil,
           slot: Types.slot() | nil,
           head_root: Types.root() | nil,
+          duties: %{Types.epoch() => %{proposers: Duties.proposers(), attesters: Duties.attesters()}},
           validators: validators()
         }
 
   @doc """
-  Initiate the pool of validators, given the slot and head root.
+  Initiate the set of validators, given the slot and head root.
   """
   @spec init(Types.slot(), Types.root()) :: t()
   def init(slot, head_root) do
@@ -57,8 +58,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
     Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
 
-    proposers = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
-    attesters = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
+    {:ok, proposers} = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
+    {:ok, attesters} = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
 
     Logger.info("[Validator] Proposers: #{inspect(proposers, pretty: true)}")
     Logger.info("[Validator] Attesters: #{inspect(attesters, pretty: true)}")
@@ -67,11 +68,11 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
       epoch: epoch,
       slot: slot,
       head_root: head_root,
-      validators: %{
+      duties: %{epoch => %{
         proposers: proposers,
-        attesters: attesters,
-        uninitialized: validators
-      }
+        attesters: attesters
+      }},
+      validators: validators
     }
   end
 
@@ -84,26 +85,62 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   Notify all validators of a new head.
   """
   @spec notify_head(t(), Types.slot(), Types.root()) :: t()
-  def notify_head(%{validators: %{uninitialized: validators}} = pool, slot, head_root) do
-    uninitialized_validators =
-      maybe_debug_notify(
-        fn ->
-          Map.new(validators, fn {k, v} ->
-            {k, Validator.handle_new_head(slot, head_root, v)}
-          end)
-        end,
-        {:new_head, slot, head_root}
-      )
-
-    %{pool | validators: %{uninitialized: uninitialized_validators}}
+  def notify_head(%{validators: validators, epoch: epoch} = set, slot, head_root) do
+    set
+    |> attest(epoch, slot)
+    |> build_next_payload(epoch, slot, head_root)
+    |> update_state(slot, head_root)
   end
+
+  defp update_state(set, slot, head_root) do
+    %{set | slot: slot, head_root: head_root}
+  end
+
+  defp attest(set, epoch, slot) do
+    updated_duties =
+      set
+      |> current_attesters(epoch, slot)
+      |> Enum.map(fn {validator, duty} ->
+        Validator.attest(validator, duty)
+
+        # Duty.attested(duty)
+        %{duty | attested?: true}
+      end)
+
+    %{set | duties: put_in(set.duties, [set.epoch, :attesters, slot], updated_duties)}
+  end
+
+  defp build_next_payload(set, epoch, slot, head_root) do
+    set
+    |> proposer(epoch, slot + 1)
+    |> case do
+      nil -> set
+      validator_index ->
+        validator = Map.get(set.validators, validator_index)
+        updated_validator = Validator.start_payload_builder(validator, slot + 1, head_root)
+
+        %{set | validators: Map.put(set.validators, updated_validator.validator.index, updated_validator)}
+    end
+  end
+
+  defp current_attesters(set, epoch, slot) do
+    attesters(set, epoch, slot)
+    |> Enum.flat_map(fn
+      %{attested?: false} = duty -> [{Map.get(set.validators, duty.validator_index), duty}]
+      _ -> []
+    end)
+  end
+
+  defp proposer(set, epoch, slot), do: get_in(set.duties, [epoch, :proposers, slot])
+  defp attesters(set, epoch, slot), do: get_in(set.duties, [epoch, :attesters, slot]) || []
+
 
   @doc """
   Notify all validators of a new tick.
   """
   @spec notify_tick(t(), tuple()) :: t()
-  def notify_tick(%{validators: %{uninitialized: validators}} = pool, slot_data) do
-    uninitialized_validators =
+  def notify_tick(%{validators: validators} = set, slot_data) do
+    validators =
       maybe_debug_notify(
         fn ->
           Map.new(validators, fn {k, v} ->
@@ -113,7 +150,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
         {:on_tick, slot_data}
       )
 
-    %{pool | validators: %{uninitialized: uninitialized_validators}}
+    %{set | validators: validators}
   end
 
   defp maybe_debug_notify(fun, data) do
