@@ -12,7 +12,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
-
+  alias LambdaEthereumConsensus.Store.StateDb
   alias Types.Attestation
   alias Types.AttestationData
   alias Types.AttesterSlashing
@@ -228,6 +228,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
       # Add new block and state to the store
       new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
+
+      Task.Supervisor.start_child(
+        PruneStatesSupervisor,
+        fn -> StateDb.store_state_info(new_state_info) end
+      )
+
       is_first_block = new_store.proposer_boost_root == <<0::256>>
       # TODO: store block timeliness data?
       is_timely = Store.get_current_slot(new_store) == block.slot and is_before_attesting_interval
