@@ -271,6 +271,7 @@ participants:
     use_separate_vc: false
     count: 1
     cl_max_mem: 4096
+    keymanager_enabled: true
 ```
 
 ### Kurtosis Execution and Make tasks

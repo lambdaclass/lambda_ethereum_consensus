@@ -50,8 +50,8 @@ defmodule KeyStoreApi.V1.KeyStoreController do
 
         base_name = keystore.pubkey |> Utils.hex_encode()
 
-        File.write!(get_keystore_file(base_name), keystore_file)
-        File.write!(get_keystore_pass_file(base_name), password_file)
+        File.write!(get_keystore_file_path(base_name), keystore_file)
+        File.write!(get_keystore_pass_file_path(base_name), password_file)
 
         Libp2pPort.add_validator(keystore)
 
@@ -75,8 +75,8 @@ defmodule KeyStoreApi.V1.KeyStoreController do
       Enum.map(body_params.pubkeys, fn pubkey ->
         case Libp2pPort.delete_validator(pubkey |> Utils.hex_decode()) do
           :ok ->
-            File.rm!(get_keystore_file(pubkey))
-            File.rm!(get_keystore_pass_file(pubkey))
+            File.rm!(get_keystore_file_path(pubkey))
+            File.rm!(get_keystore_pass_file_path(pubkey))
 
             %{
               status: "deleted",
@@ -94,6 +94,8 @@ defmodule KeyStoreApi.V1.KeyStoreController do
     })
   end
 
-  defp get_keystore_file(base_name), do: Path.join(@keystore_dir, base_name <> ".json")
-  defp get_keystore_pass_file(base_name), do: Path.join(@keystore_pass_dir, base_name <> ".txt")
+  defp get_keystore_file_path(base_name), do: Path.join(@keystore_dir, base_name <> ".json")
+
+  defp get_keystore_pass_file_path(base_name),
+    do: Path.join(@keystore_pass_dir, base_name <> ".txt")
 end
