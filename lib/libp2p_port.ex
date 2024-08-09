@@ -563,9 +563,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def handle_call({:add_validator, keystore}, _from, %{validators: validators} = state) do
     # TODO: handle repeated validators
-    current_status = ForkChoice.get_current_status_message()
-    validator = Validator.new({current_status.head_slot, current_status.head_root, keystore})
-    Logger.warning("[Libp2pPort] Adding validator with index #{inspect(validator.index)}.")
+    # TODO: handle 0 validators
+    first_validator = validators |> Map.values() |> List.first()
+    validator = Validator.new({first_validator.slot, first_validator.root, keystore})
+
+    Logger.warning(
+      "[Libp2pPort] Adding validator with index #{inspect(validator.index)}. head_slot: #{inspect(validator.slot)}."
+    )
 
     {:reply, :ok,
      %{
