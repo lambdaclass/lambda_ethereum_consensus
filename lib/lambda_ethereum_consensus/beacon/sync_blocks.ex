@@ -61,11 +61,13 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     end
   end
 
-  defp on_chunk_downloaded(_store, {:ok, range, blocks}) do
+  defp on_chunk_downloaded(store, {:ok, range, blocks}) do
     Libp2pPort.notify_blocks_downloaded(range, blocks)
+    store
   end
 
-  defp on_chunk_downloaded(_store, {:error, range, reason}) do
+  defp on_chunk_downloaded(store, {:error, range, reason}) do
     Libp2pPort.notify_block_download_failed(range, reason)
+    store
   end
 end

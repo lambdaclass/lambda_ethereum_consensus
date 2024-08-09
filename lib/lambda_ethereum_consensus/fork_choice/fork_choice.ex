@@ -64,7 +64,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         end)
         |> prune_old_states(last_finalized_checkpoint.epoch)
         |> tap(&StoreDb.persist_store/1)
-        |> then(&{:ok, &1})
 
       {:error, reason} ->
         Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
@@ -171,6 +170,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     new_finalized_epoch = store.finalized_checkpoint.epoch
 
     if last_finalized_epoch < new_finalized_epoch do
+      Logger.info("Pruning states before slot #{new_finalized_epoch}")
+
       new_finalized_slot =
         new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
 

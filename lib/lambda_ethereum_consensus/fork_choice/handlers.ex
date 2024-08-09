@@ -64,7 +64,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     cond do
       # Parent block must be known
       base_state |> is_nil() ->
-        {:error, "parent state not found in store"}
+        {:error,
+         "parent state (block root = #{Base.encode16(block.parent_root)}) not found in store"}
 
       # Blocks cannot be in the future. If they are, their
       # consideration must be delayed until they are in the past.

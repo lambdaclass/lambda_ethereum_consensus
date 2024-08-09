@@ -7,10 +7,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   require Logger
 
   alias LambdaEthereumConsensus.ForkChoice
-  alias LambdaEthereumConsensus.P2P.BlockDownloader
-
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.BlobDownloader
+  alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BlockInfo

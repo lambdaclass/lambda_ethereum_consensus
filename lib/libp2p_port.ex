@@ -14,6 +14,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
@@ -603,14 +604,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     success = if response.success, do: :ok, else: :error
 
-    {result, new_requests} =
+    {result, new_requests, new_store} =
       Requests.handle_response(requests, store, {success, response.message}, response.id)
 
     if result == :unhandled do
       Logger.error("Unhandled response with id: #{response.id}. Message: #{response.message}")
     end
 
-    state |> Map.put(:requests, new_requests)
+    state |> Map.put(:requests, new_requests) |> Map.put(:store, new_store)
   end
 
   defp handle_notification(%Result{from: "", result: result}, state) do

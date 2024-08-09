@@ -36,15 +36,16 @@ defmodule LambdaEthereumConsensus.P2p.Requests do
   - status is :ok if it was handled or :unhandled if the id didn't correspond to a saved handler.
   - requests is the modified requests object with the handler removed.
   """
-  @spec handle_response(requests(), Store.t(), term(), id()) :: {:ok | :unhandled, requests()}
+  @spec handle_response(requests(), Store.t(), term(), id()) ::
+          {:ok | :unhandled, requests(), Store.t()}
   def handle_response(requests, store, response, handler_id) do
     case Map.fetch(requests, handler_id) do
       {:ok, handler} ->
-        handler.(store, response)
-        {:ok, Map.delete(requests, handler_id)}
+        %Store{} = new_store = handler.(store, response)
+        {:ok, Map.delete(requests, handler_id), new_store}
 
       :error ->
-        {:unhandled, requests}
+        {:unhandled, requests, store}
     end
   end
 end
