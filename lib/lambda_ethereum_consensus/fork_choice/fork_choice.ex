@@ -12,11 +12,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  # alias LambdaEthereumConsensus.Store.BlobDb
-  # alias LambdaEthereumConsensus.Store.BlockDb
+  alias LambdaEthereumConsensus.Store.BlobDb
+  alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.CheckpointStates
-  # alias LambdaEthereumConsensus.Store.StateDb
+  alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Attestation
   alias Types.BlockInfo
@@ -175,26 +175,26 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ### Private Functions
   ##########################
 
-  defp prune_old_states(_last_finalized_epoch, _new_finalized_epoch) do
-    # if last_finalized_epoch < new_finalized_epoch do
-    #   new_finalized_slot =
-    #     new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+  defp prune_old_states(last_finalized_epoch, new_finalized_epoch) do
+    if last_finalized_epoch < new_finalized_epoch do
+      new_finalized_slot =
+        new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
 
-    #   Task.Supervisor.start_child(
-    #     PruneStatesSupervisor,
-    #     fn -> StateDb.prune_states_older_than(new_finalized_slot) end
-    #   )
+      Task.Supervisor.start_child(
+        PruneStatesSupervisor,
+        fn -> StateDb.prune_states_older_than(new_finalized_slot) end
+      )
 
-    #   Task.Supervisor.start_child(
-    #     PruneBlocksSupervisor,
-    #     fn -> BlockDb.prune_blocks_older_than(new_finalized_slot) end
-    #   )
+      Task.Supervisor.start_child(
+        PruneBlocksSupervisor,
+        fn -> BlockDb.prune_blocks_older_than(new_finalized_slot) end
+      )
 
-    #   Task.Supervisor.start_child(
-    #     PruneBlobsSupervisor,
-    #     fn -> BlobDb.prune_old_blobs(new_finalized_slot) end
-    #   )
-    # end
+      Task.Supervisor.start_child(
+        PruneBlobsSupervisor,
+        fn -> BlobDb.prune_old_blobs(new_finalized_slot) end
+      )
+    end
   end
 
   def apply_handler(iter, state, handler) do
