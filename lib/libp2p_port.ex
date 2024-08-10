@@ -563,7 +563,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def handle_call({:add_validator, keystore}, _from, %{validators: validators} = state) do
     # TODO (#1263): handle 0 validators
-    # TODO (#1264): handle repeated validators
     first_validator = validators |> Map.values() |> List.first()
     validator = Validator.new({first_validator.slot, first_validator.root, keystore})
 

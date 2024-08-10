@@ -59,9 +59,9 @@ defmodule KeyStoreApi.V1.KeyStoreController do
 
         base_name = keystore.pubkey |> Utils.hex_encode()
 
+        # This overrides any existing credential with the same pubkey.
         File.write!(get_keystore_file_path(base_name), keystore_str)
         File.write!(get_keystore_pass_file_path(base_name), password_str)
-
         Libp2pPort.add_validator(keystore)
 
         %{
