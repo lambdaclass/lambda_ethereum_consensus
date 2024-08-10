@@ -23,6 +23,9 @@ defmodule KeyStoreApi.V1.KeyStoreController do
   def open_api_operation(:delete_keys),
     do: ApiSpec.spec().paths["/eth/v1/keystores"].delete
 
+  @doc """
+  Returns all the keystores associated with the node.
+  """
   @spec get_keys(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_keys(conn, _params) do
     conn
@@ -39,19 +42,25 @@ defmodule KeyStoreApi.V1.KeyStoreController do
     })
   end
 
+  @doc """
+  For each keystore received:
+  - Creates a keystore_file and keystore_pass_file in their respective directories.
+  - Creates a new validator in Libp2pPort.
+  """
   @spec add_keys(Plug.Conn.t(), any) :: Plug.Conn.t()
   def add_keys(conn, _params) do
     body_params = conn.private.open_api_spex.body_params
 
     results =
       Enum.zip(body_params.keystores, body_params.passwords)
-      |> Enum.map(fn {keystore_file, password_file} ->
-        keystore = Keystore.decode_str!(keystore_file, password_file)
+      |> Enum.map(fn {keystore_str, password_str} ->
+        # TODO (#1268): handle bad requests
+        keystore = Keystore.decode_str!(keystore_str, password_str)
 
         base_name = keystore.pubkey |> Utils.hex_encode()
 
-        File.write!(get_keystore_file_path(base_name), keystore_file)
-        File.write!(get_keystore_pass_file_path(base_name), password_file)
+        File.write!(get_keystore_file_path(base_name), keystore_str)
+        File.write!(get_keystore_pass_file_path(base_name), password_str)
 
         Libp2pPort.add_validator(keystore)
 
@@ -67,6 +76,11 @@ defmodule KeyStoreApi.V1.KeyStoreController do
     })
   end
 
+  @doc """
+  For each pubkey received:
+  - Removes the associated validator from Libp2pPort.
+  - Removes the keystore_file and keystore_pass_file associated with the key.
+  """
   @spec delete_keys(Plug.Conn.t(), any) :: Plug.Conn.t()
   def delete_keys(conn, _params) do
     body_params = conn.private.open_api_spex.body_params
