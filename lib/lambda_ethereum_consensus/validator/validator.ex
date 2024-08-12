@@ -44,8 +44,8 @@ defmodule LambdaEthereumConsensus.Validator do
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
 
-  @spec new(Types.slot(), Types.root(), Keystore.t()) :: state()
-  def new(head_slot, head_root, keystore) do
+  @spec new({Types.slot(), Types.root(), Keystore.t()}) :: state()
+  def new({head_slot, head_root, keystore}) do
     state = %__MODULE__{
       slot: head_slot,
       epoch: Misc.compute_epoch_at_slot(head_slot),
