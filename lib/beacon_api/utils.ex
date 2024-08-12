@@ -31,11 +31,8 @@ defmodule BeaconApi.Utils do
     "0x" <> Base.encode16(binary, case: :lower)
   end
 
-  def hex_decode("0x" <> binary) do
-    with {:ok, decoded} <- Base.decode16(binary, case: :lower) do
-      decoded
-    end
-  end
+  def hex_decode("0x" <> binary), do: Base.decode16(binary, case: :lower)
+  def hex_decode(binary), do: {:error, "Not valid pubkey: #{inspect(binary)}"}
 
   defp to_json(attribute, module) when is_struct(attribute) do
     module.schema()

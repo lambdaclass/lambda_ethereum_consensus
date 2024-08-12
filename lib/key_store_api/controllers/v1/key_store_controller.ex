@@ -87,18 +87,23 @@ defmodule KeyStoreApi.V1.KeyStoreController do
 
     results =
       Enum.map(body_params.pubkeys, fn pubkey ->
-        case Libp2pPort.delete_validator(pubkey |> Utils.hex_decode()) do
-          :ok ->
-            File.rm!(get_keystore_file_path(pubkey))
-            File.rm!(get_keystore_pass_file_path(pubkey))
+        with {:ok, pubkey} <- Utils.hex_decode(pubkey),
+             :ok <- Libp2pPort.delete_validator(pubkey) do
+          File.rm!(get_keystore_file_path(pubkey))
+          File.rm!(get_keystore_pass_file_path(pubkey))
 
-            %{
-              status: "deleted",
-              message: "Pubkey: #{inspect(pubkey)}"
-            }
-
+          %{
+            status: "deleted",
+            message: "Pubkey: #{inspect(pubkey)}"
+          }
+        else
           {:error, reason} ->
             Logger.error("[Keystore] Error removing key. Reason: #{reason}")
+
+            %{
+              status: "error",
+              message: "Error removing key #{inspect(pubkey)}. Reason: #{inspect(reason)}"
+            }
         end
       end)
 
