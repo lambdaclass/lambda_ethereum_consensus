@@ -30,7 +30,7 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
     validators =
       validator_keystores
       |> Enum.map(fn keystore ->
-        {keystore.pubkey, Validator.new({slot, head_root, keystore})}
+        {keystore.pubkey, Validator.new(slot, head_root, keystore)}
       end)
       |> Map.new()
 

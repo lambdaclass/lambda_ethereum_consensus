@@ -560,7 +560,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def handle_call({:add_validator, keystore}, _from, %{validators: validators} = state) do
     # TODO (#1263): handle 0 validators
     first_validator = validators |> Map.values() |> List.first()
-    validator = Validator.new({first_validator.slot, first_validator.root, keystore})
+    validator = Validator.new(first_validator.slot, first_validator.root, keystore)
 
     Logger.warning(
       "[Libp2pPort] Adding validator with index #{inspect(validator.index)}. head_slot: #{inspect(validator.slot)}."
