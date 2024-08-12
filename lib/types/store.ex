@@ -188,7 +188,6 @@ defmodule Types.Store do
   end
 
   def store_state(store, block_root, state) do
-    # TODO: Add a task to save the block async.
     update_in(store.states, fn states -> Map.put(states, block_root, state) end)
   end
 

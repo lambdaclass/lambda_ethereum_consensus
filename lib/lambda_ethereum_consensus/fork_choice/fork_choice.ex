@@ -55,15 +55,17 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     case result do
       {:ok, new_store} ->
+        Logger.info("[Fork choice] Block processed. Recomputing head.")
         :telemetry.execute([:sync, :on_block], %{slot: slot})
-        # TODO: move this to the tap after persisting.
-        Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
 
         :telemetry.span([:fork_choice, :recompute_head], %{}, fn ->
           {recompute_head(new_store), %{}}
         end)
         |> prune_old_states(last_finalized_checkpoint.epoch)
-        |> tap(&StoreDb.persist_store/1)
+        |> tap(fn store ->
+          StoreDb.persist_store(store)
+          Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
+        end)
         |> then(&{:ok, &1})
 
       {:error, reason} ->

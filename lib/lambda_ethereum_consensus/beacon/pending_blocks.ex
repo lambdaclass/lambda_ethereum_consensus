@@ -152,7 +152,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   defp process_downloaded_block(store, {:ok, [block]}) do
-    # TODO: add store.
     {:ok, add_block(store, block)}
   end
 
