@@ -46,7 +46,7 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
       - <keystore_pass_dir>/<public_key>.txt
   """
   @spec decode_validator_keystores(binary(), binary()) ::
-          list({Bls.pubkey(), Bls.privkey()})
+          list(Keystore.t())
   def decode_validator_keystores(keystore_dir, keystore_pass_dir)
       when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
     File.ls!(keystore_dir)
