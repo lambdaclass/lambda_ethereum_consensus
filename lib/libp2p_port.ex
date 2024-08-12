@@ -540,10 +540,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_call(:get_keystores, _from, %{validators: []} = state),
-    do: {:reply, [], state}
-
-  @impl GenServer
   def handle_call(:get_keystores, _from, %{validators: validators} = state),
     do: {:reply, Enum.map(validators, fn {_pubkey, validator} -> validator.keystore end), state}
 
