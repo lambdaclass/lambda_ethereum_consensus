@@ -17,6 +17,13 @@ defmodule ForkChoiceTestRunner do
   alias Types.Store
 
   @impl TestRunner
+  def setup() do
+    # Start this supervisor, necessary for post state tasks.
+    start_link_supervised!({Task.Supervisor, name: PruneStatesSupervisor})
+    :ok
+  end
+
+  @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella"}), do: false
   def skip?(%SpecTestCase{fork: "deneb"}), do: false
   def skip?(_testcase), do: true
