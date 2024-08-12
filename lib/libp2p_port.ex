@@ -545,18 +545,18 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_call(:get_keystores, _from, %{validators: validators} = state),
-    do: {:reply, Enum.map(validators, fn {_pk, validator} -> validator.keystore end), state}
+    do: {:reply, Enum.map(validators, fn {_pubkey, validator} -> validator.keystore end), state}
 
   @impl GenServer
-  def handle_call({:delete_validator, pk}, _from, %{validators: validators} = state) do
-    case Map.fetch(validators, pk) do
+  def handle_call({:delete_validator, pubkey}, _from, %{validators: validators} = state) do
+    case Map.fetch(validators, pubkey) do
       {:ok, validator} ->
         Logger.warning("[Libp2pPort] Deleting validator with index #{inspect(validator.index)}.")
 
-        {:reply, :ok, %{state | validators: Map.delete(validators, pk)}}
+        {:reply, :ok, %{state | validators: Map.delete(validators, pubkey)}}
 
       :error ->
-        {:error, "Pubkey #{inspect(pk)} not found."}
+        {:error, "Pubkey #{inspect(pubkey)} not found."}
     end
   end
 
