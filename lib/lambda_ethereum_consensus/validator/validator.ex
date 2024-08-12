@@ -97,7 +97,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec handle_new_head(Types.slot(), Types.root(), state) :: state
-  def handle_new_head(slot, head_root, %{validator: %{index: nil}} = state) do
+  def handle_new_head(slot, head_root, %{index: nil} = state) do
     log_error("-1", "setup validator", "index not present handle block",
       slot: slot,
       root: head_root
@@ -117,7 +117,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec handle_tick({Types.slot(), atom()}, state) :: state
-  def handle_tick(_logical_time, %{validator: %{index: nil}} = state) do
+  def handle_tick(_logical_time, %{index: nil} = state) do
     log_error("-1", "setup validator", "index not present for handle tick")
     state
   end
