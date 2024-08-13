@@ -90,7 +90,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec handle_new_head(Types.slot(), Types.root(), state) :: state
+  @spec handle_new_head(Types.slot(), Types.root(), t()) :: t()
   def handle_new_head(slot, head_root, %{index: nil, epoch: last_epoch} = state) do
     epoch = Misc.compute_epoch_at_slot(slot)
 
@@ -112,11 +112,6 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec handle_tick({Types.slot(), atom()}, t()) :: t()
-  def handle_tick(_logical_time, %{index: nil} = state) do
-    log_error("-1", "setup validator", "index not present for handle tick")
-    state
-  end
-
   def handle_tick({slot, :first_third}, state) do
     log_debug(state.index, "started first third", slot: slot)
     # Here we may:
@@ -162,6 +157,9 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec recompute_duties(t(), Types.epoch(), Types.epoch(), Types.slot(), Types.root()) :: t()
+  defp recompute_duties(%{index: nil} = state, _last_epoch, _epoch, slot, head_root),
+    do: try_setup_validator(state, slot, head_root)
+
   defp recompute_duties(%{root: last_root} = state, last_epoch, epoch, slot, head_root) do
     start_slot = Misc.compute_start_slot_at_epoch(epoch)
     target_root = if slot == start_slot, do: head_root, else: last_root
@@ -380,7 +378,7 @@ defmodule LambdaEthereumConsensus.Validator do
     Enum.find_index(beacon.validators, &(&1.pubkey == pubkey))
   end
 
-  defp proposer?(%{duties: %{proposer: :not_computed}}, _slot), do: false
+  defp proposer?(%{index: nil}, _slot), do: false
   defp proposer?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   @spec maybe_build_payload(t(), Types.slot()) :: t()
