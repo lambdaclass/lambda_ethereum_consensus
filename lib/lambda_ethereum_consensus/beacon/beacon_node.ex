@@ -32,7 +32,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     validator_set = ValidatorSet.init(store.head_slot, store.head_root)
 
-    libp2p_args = [genesis_time: store.genesis_time, validator_set: validator_set] ++ get_libp2p_args()
+    libp2p_args =
+      [genesis_time: store.genesis_time, validator_set: validator_set] ++ get_libp2p_args()
 
     children =
       [

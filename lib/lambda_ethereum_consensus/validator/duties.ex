@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.BeaconState
 
@@ -44,7 +45,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   def compute_proposers_for_epoch(%BeaconState{} = state, epoch, validators) do
     with {:ok, epoch} <- check_valid_epoch(state, epoch),
          {start_slot, end_slot} <- boundary_slots(epoch) do
-
       start_slot..end_slot
       |> Enum.flat_map(fn slot ->
         {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state, slot)
@@ -61,7 +61,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   def compute_attesters_for_epoch(%BeaconState{} = state, epoch, validators) do
     with {:ok, epoch} <- check_valid_epoch(state, epoch),
          {start_slot, end_slot} <- boundary_slots(epoch) do
-
       committee_count_per_slot = Accessors.get_committee_count_per_slot(state, epoch)
 
       start_slot..end_slot
@@ -77,27 +76,31 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           state :: BeaconState.t(),
           epoch :: Types.epoch(),
           slot :: Types.slot(),
-          committee_index :: Types.uint64(),
-          validator_index :: [{Types.validator_index(), Validator.validator()}]
-        ) :: [attester_duty()]
+          validators :: %{Types.validator_index() => Validator.t()},
+          committee_index :: Types.uint64()
+        ) :: [{Types.slot(), attester_duty()}]
   defp compute_attester_dutys(state, epoch, slot, validators, committee_index) do
     with {:ok, committee} <- Accessors.get_beacon_committee(state, slot, committee_index) do
       committee
       |> Stream.with_index()
       |> Stream.flat_map(fn {validator_index, index_in_committee} ->
         case Map.get(validators, validator_index) do
-          nil -> []
+          nil ->
+            []
+
           validator ->
-           [%{
-              slot: slot,
-              validator_index: validator_index,
-              index_in_committee: index_in_committee,
-              committee_length: length(committee),
-              committee_index: committee_index,
-              attested?: false
-            }
-            |> update_with_aggregation_duty(state, validator.keystore.privkey)
-            |> update_with_subnet_id(state, epoch)]
+            [
+              %{
+                slot: slot,
+                validator_index: validator_index,
+                index_in_committee: index_in_committee,
+                committee_length: length(committee),
+                committee_index: committee_index,
+                attested?: false
+              }
+              |> update_with_aggregation_duty(state, validator.keystore.privkey)
+              |> update_with_subnet_id(state, epoch)
+            ]
         end
       end)
       |> Enum.into([])

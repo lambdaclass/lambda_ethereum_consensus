@@ -23,6 +23,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.P2p.Requests
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
+  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.ValidatorSet
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command
@@ -541,14 +542,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_call(:get_keystores, _from, %{validator_set: validator_set} = state),
-    do: {:reply, Enum.map(validator_set.validators, fn {_index, validator} -> validator.keystore end), state}
+    do:
+      {:reply,
+       Enum.map(validator_set.validators, fn {_index, validator} -> validator.keystore end),
+       state}
 
   @impl GenServer
   def handle_call({:delete_validator, pubkey}, _from, %{validator_set: validator_set} = state) do
     validator_set.validators
     |> Enum.find(fn {_index, validator} -> validator.keystore.pubkey == pubkey end)
     |> case do
-      {index, validator} ->
+      {index, _validator} ->
         Logger.warning("[Libp2pPort] Deleting validator with index #{inspect(index)}.")
         updated_validators = Map.delete(validator_set.validators, index)
         {:reply, :ok, Map.put(state.validator_set, :validators, updated_validators)}
@@ -560,15 +564,16 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_call(
-        {:add_validator, %Keystore{pubkey: pubkey} = keystore},
+        {:add_validator, keystore},
         _from,
-        %{validator_set: %{head_root: head_root} = validator_set, slot_data: {slot, _third}} = state
+        %{validator_set: %{head_root: head_root}, slot_data: {slot, _third}} =
+          state
       ) do
     # TODO (#1263): handle 0 validators
     validator = Validator.new(keystore, slot, head_root)
 
     Logger.warning(
-      "[Libp2pPort] Adding validator with index #{inspect(validator.index)}. head_slot: #{inspect(validator.slot)}."
+      "[Libp2pPort] Adding validator with index #{inspect(validator.index)}. head_slot: #{inspect(slot)}."
     )
 
     {:reply, :ok, put_in(state.validator_set, [:validators, validator.index], validator)}

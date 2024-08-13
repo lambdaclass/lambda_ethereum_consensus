@@ -17,7 +17,12 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   @type validators :: %{atom() => %{} | []}
   @type t :: %__MODULE__{
           head_root: Types.root() | nil,
-          duties: %{Types.epoch() => %{proposers: Duties.proposers(), attesters: Duties.attesters()}},
+          duties: %{
+            Types.epoch() => %{
+              proposers: Duties.proposer_duties(),
+              attesters: Duties.attester_duties()
+            }
+          },
           validators: validators()
         }
 
@@ -37,13 +42,13 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   Notify all validators of a new head.
   """
   @spec notify_head(t(), Types.slot(), Types.root()) :: t()
-  def notify_head(%{validators: validators} = set, slot, head_root) do
+  def notify_head(set, slot, head_root) do
     # TODO: Just for testing purposes, remove it later
     Logger.info("[Validator] Notifying all Validators with new_head", root: head_root, slot: slot)
     epoch = Misc.compute_epoch_at_slot(slot)
 
     set
-    |> update_state(epoch, slot, head_root)
+    |> update_state(epoch, head_root)
     |> attest(epoch, slot, head_root)
     |> build_next_payload(epoch, slot, head_root)
   end
@@ -69,7 +74,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   ##############################
   # Setup
 
-    defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
+  defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
        when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
     Logger.warning(
       "[Validator] No keystore_dir or keystore_pass_dir provided. Validators won't start."
@@ -94,25 +99,26 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
 
     %__MODULE__{validators: validators}
-    |> update_state(epoch, slot, head_root)
+    |> update_state(epoch, head_root)
   end
 
   ##############################
   # State update
 
-  defp update_state(set, epoch, slot, head_root) do
+  defp update_state(set, epoch, head_root) do
     set
     |> update_head(head_root)
-    |> compute_duties(epoch, slot, head_root)
+    |> compute_duties(epoch, head_root)
   end
 
   defp update_head(%{head_root: head_root} = set, head_root), do: set
   defp update_head(set, head_root), do: %{set | head_root: head_root}
 
-  defp compute_duties(set, epoch, _slot, _head_root)
-    when not is_nil(:erlang.map_get(epoch, set.duties)), do: set
+  defp compute_duties(set, epoch, _head_root)
+       when not is_nil(:erlang.map_get(epoch, set.duties)),
+       do: set
 
-  defp compute_duties(set, epoch, slot, head_root) do
+  defp compute_duties(set, epoch, head_root) do
     epoch
     |> fetch_target_beaconstate!(head_root)
     |> compute_duties_for_epoch!(epoch, set.validators)
@@ -128,8 +134,13 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     {:ok, proposers} = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
     {:ok, attesters} = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
 
-    Logger.info("[Validator] Proposer duties for epoch #{epoch} are: #{inspect(proposers, pretty: true)}")
-    Logger.info("[Validator] Attester duties for epoch #{epoch} are: #{inspect(attesters, pretty: true)}")
+    Logger.info(
+      "[Validator] Proposer duties for epoch #{epoch} are: #{inspect(proposers, pretty: true)}"
+    )
+
+    Logger.info(
+      "[Validator] Attester duties for epoch #{epoch} are: #{inspect(attesters, pretty: true)}"
+    )
 
     %{epoch => %{proposers: proposers, attesters: attesters}}
   end
@@ -163,7 +174,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     set
     |> proposer(epoch, slot + 1)
     |> case do
-      nil -> set
+      nil ->
+        set
+
       validator_index ->
         validator = Map.get(set.validators, validator_index)
         updated_validator = Validator.start_payload_builder(validator, slot + 1, head_root)
@@ -187,7 +200,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp attesters(set, epoch, slot), do: get_in(set.duties, [epoch, :attesters, slot]) || []
 
   defp maybe_debug_notify(fun, data) do
-    if Application.get_env(:logger, :level) == :info do # :debug do
+    # :debug do
+    if Application.get_env(:logger, :level) == :info do
       Logger.info("[Validator] Notifying all Validators with message: #{inspect(data)}")
 
       start_time = System.monotonic_time(:millisecond)
@@ -211,7 +225,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
       - <keystore_pass_dir>/<public_key>.txt
   """
   @spec decode_validator_keystores(binary(), binary()) ::
-  list(Keystore.t())
+          list(Keystore.t())
   def decode_validator_keystores(keystore_dir, keystore_pass_dir)
       when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
     keystore_dir

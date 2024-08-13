@@ -42,10 +42,8 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @spec new(
           Keystore.t(),
-          Types.epoch(),
           Types.slot(),
-          Types.root(),
-          Types.BeaconState.t()
+          Types.root()
         ) :: t()
   def new(keystore, head_slot, head_root) do
     epoch = Misc.compute_epoch_at_slot(head_slot)
@@ -184,9 +182,10 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec recompute_duties(t(), Types.epoch(), Types.epoch(), Types.slot(), Types.root()) :: t()
-  defp recompute_duties(state, last_epoch, epoch, slot, head_root) do
+  defp recompute_duties(state, last_epoch, epoch, _slot, head_root) do
     start_slot = Misc.compute_start_slot_at_epoch(epoch)
-    # Why is this needed? something here seems wrong, why would i need to move to a different slot if
+
+    # TODO: Why is this needed? something here seems wrong, why would i need to move to a different slot if
     # I'm calculating this at a new epoch? need to check it
     # target_root = if slot == start_slot, do: head_root, else: last_root
 
@@ -259,7 +258,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec attest(t(), Duties.attester_duty(), Types.root()) :: :ok
-  def attest(%{index: validator_index, keystore: keystore} = state, current_duty, head_root) do
+  def attest(%{index: validator_index, keystore: keystore}, current_duty, head_root) do
     subnet_id = current_duty.subnet_id
     log_debug(validator_index, "attesting", slot: current_duty.slot, subnet_id: subnet_id)
 
@@ -421,7 +420,9 @@ defmodule LambdaEthereumConsensus.Validator do
 
   def start_payload_builder(%{index: validator_index} = state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
-    log_debug(validator_index, "starting building payload for slot #{proposed_slot}", root: head_root)
+    log_debug(validator_index, "starting building payload for slot #{proposed_slot}",
+      root: head_root
+    )
 
     case BlockBuilder.start_building_payload(proposed_slot, head_root) do
       {:ok, payload_id} ->
