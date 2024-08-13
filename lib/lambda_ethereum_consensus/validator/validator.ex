@@ -540,7 +540,7 @@ defmodule LambdaEthereumConsensus.Validator do
   defp log_info(index, message, metadata \\ []),
     do: Logger.info("[Validator] #{index} #{message}", metadata)
 
-  defp log_debug(index, message, metadata \\ []),
+  defp log_debug(index, message, metadata),
     do: Logger.debug("[Validator] #{index} #{message}", metadata)
 
   defp log_error(index, message, reason, metadata \\ []),

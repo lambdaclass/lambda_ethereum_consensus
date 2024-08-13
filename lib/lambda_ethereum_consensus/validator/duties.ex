@@ -80,37 +80,42 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           committee_index :: Types.uint64()
         ) :: [{Types.slot(), attester_duty()}]
   defp compute_attester_dutys(state, epoch, slot, validators, committee_index) do
-    with {:ok, committee} <- Accessors.get_beacon_committee(state, slot, committee_index) do
-      committee
-      |> Stream.with_index()
-      |> Stream.flat_map(fn {validator_index, index_in_committee} ->
-        case Map.get(validators, validator_index) do
-          nil ->
-            []
+    case Accessors.get_beacon_committee(state, slot, committee_index) do
+      {:ok, committee} ->
+        compute_cometee_duties(state, epoch, slot, committee, committee_index, validators)
 
-          validator ->
-            [
-              %{
-                slot: slot,
-                validator_index: validator_index,
-                index_in_committee: index_in_committee,
-                committee_length: length(committee),
-                committee_index: committee_index,
-                attested?: false
-              }
-              |> update_with_aggregation_duty(state, validator.keystore.privkey)
-              |> update_with_subnet_id(state, epoch)
-            ]
-        end
-      end)
-      |> Enum.into([])
-      |> case do
-        [] -> []
-        duties -> [{slot, duties}]
-      end
-    else
       {:error, _} ->
         []
+    end
+  end
+
+  defp compute_cometee_duties(state, epoch, slot, committee, committee_index, validators) do
+    committee
+    |> Stream.with_index()
+    |> Stream.flat_map(fn {validator_index, index_in_committee} ->
+      case Map.get(validators, validator_index) do
+        nil ->
+          []
+
+        validator ->
+          [
+            %{
+              slot: slot,
+              validator_index: validator_index,
+              index_in_committee: index_in_committee,
+              committee_length: length(committee),
+              committee_index: committee_index,
+              attested?: false
+            }
+            |> update_with_aggregation_duty(state, validator.keystore.privkey)
+            |> update_with_subnet_id(state, epoch)
+          ]
+      end
+    end)
+    |> Enum.into([])
+    |> case do
+      [] -> []
+      duties -> [{slot, duties}]
     end
   end
 
