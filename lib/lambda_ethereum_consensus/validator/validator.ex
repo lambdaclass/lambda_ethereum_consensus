@@ -56,17 +56,7 @@ defmodule LambdaEthereumConsensus.Validator do
       payload_builder: nil
     }
 
-    case try_setup_validator(state, head_slot, head_root) do
-      nil ->
-        # TODO: Previously this was handled by the validator continously trying to setup itself,
-        # but now that they are processed syncronously, we should handle this case different.
-        # Right now it's just omitted and logged.
-        Logger.error("[Validator] Public key not found in the validator set")
-        state
-
-      new_state ->
-        new_state
-    end
+    try_setup_validator(state, head_slot, head_root)
   end
 
   @spec try_setup_validator(t(), Types.slot(), Types.root()) :: t() | nil
@@ -76,7 +66,11 @@ defmodule LambdaEthereumConsensus.Validator do
 
     case fetch_validator_index(beacon, state.keystore.pubkey) do
       nil ->
-        nil
+        Logger.warning(
+          "[Validator] Public key #{inspect(state.keystore.pubkey)} not found in the validator set"
+        )
+
+        state
 
       validator_index ->
         log_info(validator_index, "setup validator", slot: slot, root: root)
@@ -96,14 +90,15 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec handle_new_head(Types.slot(), Types.root(), t()) :: t()
-  def handle_new_head(slot, head_root, %{index: nil} = state) do
-    log_error("-1", "setup validator", "index not present handle block",
-      slot: slot,
-      root: head_root
-    )
+  @spec handle_new_head(Types.slot(), Types.root(), state) :: state
+  def handle_new_head(slot, head_root, %{index: nil, epoch: last_epoch} = state) do
+    epoch = Misc.compute_epoch_at_slot(slot)
 
-    state
+    if last_epoch == epoch do
+      %{state | slot: slot, root: head_root}
+    else
+      try_setup_validator(state, slot, head_root)
+    end
   end
 
   def handle_new_head(slot, head_root, state) do
@@ -385,6 +380,7 @@ defmodule LambdaEthereumConsensus.Validator do
     Enum.find_index(beacon.validators, &(&1.pubkey == pubkey))
   end
 
+  defp proposer?(%{duties: %{proposer: :not_computed}}, _slot), do: false
   defp proposer?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
   @spec maybe_build_payload(t(), Types.slot()) :: t()
