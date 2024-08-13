@@ -90,7 +90,8 @@ Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-end
 > The data retrieved from the URL is stored in the DB once the node is initiated (i.e. the iex prompt shows).
 > Once this happens, following runs of `make iex` will start the node using that data.
 
-### Beacon API
+### APIs
+#### Beacon API
 
 You can start the application with the Beacon API on the default port `4000` running:
 ```shell
@@ -100,7 +101,27 @@ make start
 You can also specify a port with the "--beacon-api-port" flag:
 
 ```shell
-iex -S mix run -- --beacon-api --beacon-api-port <your_port_here>
+iex -S mix run --  --beacon-api-port <your_port_here>
+```
+> [!WARNING]
+> In case checkpoint-sync is needed, following the instructions above will end immediately with an error (see [Checkpoint Sync](#checkpoint-sync)).
+>
+
+#### Key-Manager API
+
+Implemented following the [Ethereum specification](https://ethereum.github.io/keymanager-APIs/#/).
+
+You can start the application with the key manager API on the default port `5000` running:
+
+```shell
+iex -S mix run -- --validator-api
+```
+
+
+You can also specify a port with the "--validator-api-port" flag:
+
+```shell
+iex -S mix run -- --validator-api-port <your_port_here>
 ```
 > [!WARNING]
 > In case checkpoint-sync is needed, following the instructions above will end immediately with an error (see [Checkpoint Sync](#checkpoint-sync)).
@@ -250,6 +271,7 @@ participants:
     use_separate_vc: false
     count: 1
     cl_max_mem: 4096
+    keymanager_enabled: true
 ```
 
 ### Kurtosis Execution and Make tasks

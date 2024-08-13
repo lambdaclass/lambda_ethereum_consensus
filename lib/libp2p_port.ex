@@ -334,6 +334,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     cast_command(pid, {:update_enr, enr})
   end
 
+  @spec get_keystores() :: list(Keystore.t())
+  def get_keystores(), do: GenServer.call(__MODULE__, :get_keystores)
+
+  @spec delete_validator(Bls.pubkey()) :: :ok | {:error, String.t()}
+  def delete_validator(pubkey), do: GenServer.call(__MODULE__, {:delete_validator, pubkey})
+
+  @spec add_validator(Keystore.t()) :: :ok
+  def add_validator(keystore), do: GenServer.call(__MODULE__, {:add_validator, keystore})
+
   @spec join_init_topics(port()) :: :ok | {:error, String.t()}
   defp join_init_topics(port) do
     topics = [BeaconBlock.topic()] ++ BlobSideCar.topics()
@@ -528,6 +537,49 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     Logger.error(inspect(other))
     {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_call(:get_keystores, _from, %{validators: validators} = state),
+    do: {:reply, Enum.map(validators, fn {_pubkey, validator} -> validator.keystore end), state}
+
+  @impl GenServer
+  def handle_call({:delete_validator, pubkey}, _from, %{validators: validators} = state) do
+    case Map.fetch(validators, pubkey) do
+      {:ok, validator} ->
+        Logger.warning("[Libp2pPort] Deleting validator with index #{inspect(validator.index)}.")
+
+        {:reply, :ok, %{state | validators: Map.delete(validators, pubkey)}}
+
+      :error ->
+        {:error, "Pubkey #{inspect(pubkey)} not found."}
+    end
+  end
+
+  @impl GenServer
+  def handle_call(
+        {:add_validator, %Keystore{pubkey: pubkey} = keystore},
+        _from,
+        %{validators: validators} = state
+      ) do
+    # TODO (#1263): handle 0 validators
+    first_validator = validators |> Map.values() |> List.first()
+    validator = Validator.new({first_validator.slot, first_validator.root, keystore})
+
+    Logger.warning(
+      "[Libp2pPort] Adding validator with index #{inspect(validator.index)}. head_slot: #{inspect(validator.slot)}."
+    )
+
+    {:reply, :ok,
+     %{
+       state
+       | validators:
+           Map.put(
+             validators,
+             pubkey,
+             validator
+           )
+     }}
   end
 
   ######################
