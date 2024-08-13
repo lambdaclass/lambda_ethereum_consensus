@@ -121,35 +121,35 @@ defmodule LambdaEthereumConsensus.Validator do
     state
     |> update_state(slot, head_root)
     |> maybe_attest(slot)
-    |> maybe_build_payload(slot + 1)
+    |> maybe_build_payload(slot + 1, head_root)
   end
 
-  @spec handle_tick({Types.slot(), atom()}, state) :: state
-  def handle_tick(_logical_time, %{validator: %{index: nil}} = state) do
+  @spec handle_tick({Types.slot(), atom()}, state, Types.root()) :: state
+  def handle_tick(_logical_time, %{validator: %{index: nil}} = state, _root) do
     log_error("-1", "setup validator", "index not present for handle tick")
     state
   end
 
-  def handle_tick({slot, :first_third}, state) do
+  def handle_tick({slot, :first_third}, state, root) do
     log_debug(state.validator.index, "started first third", slot: slot)
     # Here we may:
     # 1. propose our blocks
     # 2. (TODO) start collecting attestations for aggregation
-    maybe_propose(state, slot)
-    |> update_state(slot, state.root)
+    maybe_propose(state, slot, root)
+    |> update_state(slot, root)
   end
 
-  def handle_tick({slot, :second_third}, state) do
+  def handle_tick({slot, :second_third}, state, root) do
     log_debug(state.validator.index, "started second third", slot: slot)
     # Here we may:
     # 1. send our attestation for an empty slot
     # 2. start building a payload
     state
     |> maybe_attest(slot)
-    |> maybe_build_payload(slot + 1)
+    |> maybe_build_payload(slot + 1, root)
   end
 
-  def handle_tick({slot, :last_third}, state) do
+  def handle_tick({slot, :last_third}, state, _root) do
     log_debug(state.validator.index, "started last third", slot: slot)
     # Here we may publish our attestation aggregate
     maybe_publish_aggregate(state, slot)
@@ -395,8 +395,8 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp proposer?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
-  @spec maybe_build_payload(state, Types.slot()) :: state
-  defp maybe_build_payload(%{root: head_root} = state, proposed_slot) do
+  @spec maybe_build_payload(state, Types.slot(), Types.root()) :: state
+  defp maybe_build_payload(state, proposed_slot, head_root) do
     if proposer?(state, proposed_slot) do
       start_payload_builder(state, proposed_slot, head_root)
     else
@@ -409,7 +409,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   def start_payload_builder(%{validator: validator} = state, proposed_slot, head_root) do
     # TODO: handle reorgs and late blocks
-    log_debug(validator.index, "starting building payload for slot #{proposed_slot}")
+    log_debug(validator.index, "starting building payload for slot #{proposed_slot}", root: head_root)
 
     case BlockBuilder.start_building_payload(proposed_slot, head_root) do
       {:ok, payload_id} ->
@@ -424,9 +424,9 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp maybe_propose(state, slot) do
+  defp maybe_propose(state, slot, root) do
     if proposer?(state, slot) do
-      propose(state, slot)
+      propose(state, slot, root)
     else
       state
     end
@@ -434,11 +434,11 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp propose(
          %{
-           root: head_root,
            validator: validator,
            payload_builder: {proposed_slot, head_root, payload_id}
          } = state,
-         proposed_slot
+         proposed_slot,
+         head_root
        ) do
     log_debug(validator.index, "building block", slot: proposed_slot)
 
@@ -467,7 +467,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   # TODO: at least in kurtosis there are blocks that are proposed without a payload apparently, must investigate.
-  defp propose(%{payload_builder: nil} = state, _proposed_slot) do
+  defp propose(%{payload_builder: nil} = state, _proposed_slot, _head_root) do
     log_error(state.validator.index, "propose block", "lack of execution payload")
     state
   end

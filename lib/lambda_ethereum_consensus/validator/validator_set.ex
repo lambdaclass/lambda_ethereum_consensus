@@ -58,22 +58,25 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
     Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
 
-    {:ok, proposers} = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
-    {:ok, attesters} = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
-
-    Logger.info("[Validator] Proposers: #{inspect(proposers, pretty: true)}")
-    Logger.info("[Validator] Attesters: #{inspect(attesters, pretty: true)}")
+    duties = compute_duties_for_epoch!(beacon, epoch, validators)
 
     %__MODULE__{
       epoch: epoch,
       slot: slot,
       head_root: head_root,
-      duties: %{epoch => %{
-        proposers: proposers,
-        attesters: attesters
-      }},
+      duties: %{epoch => duties},
       validators: validators
     }
+  end
+
+  defp compute_duties_for_epoch!(beacon, epoch, validators) do
+    {:ok, proposers} = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
+    {:ok, attesters} = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
+
+    Logger.info("[Validator] Proposer duties for epoch #{epoch} are: #{inspect(proposers, pretty: true)}")
+    Logger.info("[Validator] Attester duties for epoch #{epoch} are: #{inspect(attesters, pretty: true)}")
+
+    %{proposers: proposers, attesters: attesters}
   end
 
   defp fetch_target_state!(epoch, head_root) do
@@ -86,14 +89,31 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   """
   @spec notify_head(t(), Types.slot(), Types.root()) :: t()
   def notify_head(%{validators: validators, epoch: epoch} = set, slot, head_root) do
+    # TODO: Just for testing purposes, remove it later
+    Logger.info("[Validator] Notifying all Validators with new_head", root: head_root, slot: slot)
+
     set
+    |> update_state(slot, head_root)
     |> attest(epoch, slot)
     |> build_next_payload(epoch, slot, head_root)
-    |> update_state(slot, head_root)
   end
 
   defp update_state(set, slot, head_root) do
-    %{set | slot: slot, head_root: head_root}
+    if new_epoch?(set, slot + 1) do
+      epoch = Misc.compute_epoch_at_slot(slot + 1)
+      beacon = fetch_target_state!(epoch, head_root)
+
+      duties = compute_duties_for_epoch!(beacon, epoch, set.validators)
+
+      %{set | epoch: epoch, slot: slot, head_root: head_root, duties: Map.put(set.duties, epoch, duties)}
+    else
+      %{set | slot: slot, head_root: head_root}
+    end
+  end
+
+  defp new_epoch?(set, slot) do
+    epoch = Misc.compute_epoch_at_slot(slot)
+    epoch > set.epoch
   end
 
   defp attest(set, epoch, slot) do
@@ -119,7 +139,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
         validator = Map.get(set.validators, validator_index)
         updated_validator = Validator.start_payload_builder(validator, slot + 1, head_root)
 
-        %{set | validators: Map.put(set.validators, updated_validator.validator.index, updated_validator)}
+        %{set | validators: Map.put(set.validators, updated_validator.validator.index, %{updated_validator | root: head_root})}
     end
   end
 
@@ -139,12 +159,12 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   Notify all validators of a new tick.
   """
   @spec notify_tick(t(), tuple()) :: t()
-  def notify_tick(%{validators: validators} = set, slot_data) do
+  def notify_tick(%{validators: validators, head_root: head_root} = set, slot_data) do
     validators =
       maybe_debug_notify(
         fn ->
           Map.new(validators, fn {k, v} ->
-            {k, Validator.handle_tick(slot_data, v)}
+            {k, Validator.handle_tick(slot_data, v, head_root)}
           end)
         end,
         {:on_tick, slot_data}
@@ -154,14 +174,14 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp maybe_debug_notify(fun, data) do
-    if Application.get_env(:logger, :level) == :debug do
-      Logger.debug("[Validator] Notifying all Validators with message: #{inspect(data)}")
+    if Application.get_env(:logger, :level) == :info do # :debug do
+      Logger.info("[Validator] Notifying all Validators with message: #{inspect(data)}")
 
       start_time = System.monotonic_time(:millisecond)
       result = fun.()
       end_time = System.monotonic_time(:millisecond)
 
-      Logger.debug(
+      Logger.info(
         "[Validator] #{inspect(data)} notified to all Validators after #{end_time - start_time} ms"
       )
 
