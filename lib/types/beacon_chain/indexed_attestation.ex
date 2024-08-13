@@ -2,6 +2,14 @@ defmodule Types.IndexedAttestation do
   @moduledoc """
   Struct definition for `IndexedAttestation`.
   Related definitions in `native/ssz_nif/src/types/`.
+
+  attesting_indices is a list of indices, each one of them spanning from 0 to the amount of
+  validators in the chain - 1 (it's a global index). Only the validators that participated
+  are included, so not the full committee is present in the list, and they should be sorted. This
+  field is the only difference with respect to Types.Attestation.
+
+  To verify an attestation, it needs to be converted to an indexed one (get_indexed_attestation),
+  with the attesting indices sorted. The bls signature can then be used to verify for the result.
   """
   use LambdaEthereumConsensus.Container
 

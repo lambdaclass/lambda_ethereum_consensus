@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Utils
   alias Types.BeaconState
 
@@ -97,7 +96,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
               committee_index: committee_index,
               attested?: false
             }
-            |> update_with_aggregation_duty(state, validator.validator.privkey)
+            |> update_with_aggregation_duty(state, validator.keystore.privkey)
             |> update_with_subnet_id(state, epoch)]
         end
       end)
@@ -191,11 +190,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end)
   end
 
-  def maybe_update_duties(duties, beacon_state, epoch, validator) do
+  def maybe_update_duties(duties, beacon_state, epoch, validator_index, privkey) do
     attester_duties =
-      maybe_update_attester_duties(duties.attester, beacon_state, epoch, validator)
+      maybe_update_attester_duties(duties.attester, beacon_state, epoch, validator_index, privkey)
 
-    proposer_duties = compute_proposer_duties(beacon_state, epoch, validator.index)
+    proposer_duties = compute_proposer_duties(beacon_state, epoch, validator_index)
     # To avoid edge-cases
     old_duty =
       case duties.proposer do
@@ -206,12 +205,21 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     %{duties | attester: attester_duties, proposer: old_duty ++ proposer_duties}
   end
 
-  defp maybe_update_attester_duties([epp, ep0, ep1], beacon_state, epoch, validator) do
+  defp maybe_update_attester_duties(
+         [epp, ep0, ep1],
+         beacon_state,
+         epoch,
+         validator_index,
+         privkey
+       ) do
     duties =
       Stream.with_index([ep0, ep1])
       |> Enum.map(fn
-        {:not_computed, i} -> compute_attester_duties(beacon_state, epoch + i, validator)
-        {d, _} -> d
+        {:not_computed, i} ->
+          compute_attester_duties(beacon_state, epoch + i, validator_index, privkey)
+
+        {d, _} ->
+          d
       end)
 
     [epp | duties]
@@ -228,11 +236,12 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   @spec compute_attester_duties(
           beacon_state :: BeaconState.t(),
           epoch :: Types.epoch(),
-          validator :: Validator.validator()
+          validator_index :: non_neg_integer(),
+          privkey :: Bls.privkey()
         ) :: attester_duty() | nil
-  defp compute_attester_duties(beacon_state, epoch, validator) do
+  defp compute_attester_duties(beacon_state, epoch, validator_index, privkey) do
     # Can't fail
-    {:ok, duty} = get_committee_assignment(beacon_state, epoch, validator.index)
+    {:ok, duty} = get_committee_assignment(beacon_state, epoch, validator_index)
 
     case duty do
       nil ->
@@ -241,7 +250,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
       duty ->
         duty
         |> Map.put(:attested?, false)
-        |> update_with_aggregation_duty(beacon_state, validator.privkey)
+        |> update_with_aggregation_duty(beacon_state, privkey)
         |> update_with_subnet_id(beacon_state, epoch)
     end
   end

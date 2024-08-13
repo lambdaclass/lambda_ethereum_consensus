@@ -79,16 +79,16 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
-    validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
+    validator_keystores = decode_validator_keystores(keystore_dir, keystore_pass_dir)
     epoch = Misc.compute_epoch_at_slot(slot)
 
     # This will be removed later when refactoring Validator new
     beacon = fetch_target_beaconstate!(epoch, head_root)
 
     validators =
-      Map.new(validator_keys, fn validator_key ->
-        validator = Validator.new(validator_key, epoch, slot, head_root, beacon)
-        {validator.validator.index, validator}
+      Map.new(validator_keystores, fn keystore ->
+        validator = Validator.new(keystore, epoch, slot, head_root, beacon)
+        {validator.index, validator}
       end)
 
     Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
@@ -168,7 +168,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
         validator = Map.get(set.validators, validator_index)
         updated_validator = Validator.start_payload_builder(validator, slot + 1, head_root)
 
-        %{set | validators: Map.put(set.validators, updated_validator.validator.index, updated_validator)}
+        %{set | validators: Map.put(set.validators, updated_validator.index, updated_validator)}
     end
   end
 
@@ -205,14 +205,14 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   @doc """
-    Get validator keys from the keystore directory.
+    Get validator keystores from the keystore directory.
     This function expects two files for each validator:
       - <keystore_dir>/<public_key>.json
       - <keystore_pass_dir>/<public_key>.txt
   """
-  @spec decode_validator_keys(binary(), binary()) ::
-          list({Bls.pubkey(), Bls.privkey()})
-  def decode_validator_keys(keystore_dir, keystore_pass_dir)
+  @spec decode_validator_keystores(binary(), binary()) ::
+  list(Keystore.t())
+  def decode_validator_keystores(keystore_dir, keystore_pass_dir)
       when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
     keystore_dir
     |> File.ls!()
