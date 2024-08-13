@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
   require Logger
   alias LambdaEthereumConsensus.Validator
 
-  @spec init(Types.slot(), Types.root()) :: %{Bls.pubkey() => Validator.state()}
+  @spec init(Types.slot(), Types.root()) :: %{Bls.pubkey() => Validator.t()}
   def init(slot, head_root) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
     keystore_dir = Keyword.get(config, :keystore_dir)

@@ -34,7 +34,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   # TODO: Slot and Root are redundant, we should also have the duties separated and calculated
   # just at the begining of every epoch, and then just update them as needed.
-  @type state :: %__MODULE__{
+  @type t :: %__MODULE__{
           slot: Types.slot(),
           epoch: Types.epoch(),
           root: Types.root(),
@@ -44,7 +44,7 @@ defmodule LambdaEthereumConsensus.Validator do
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
 
-  @spec new({Types.slot(), Types.root(), Keystore.t()}) :: state()
+  @spec new({Types.slot(), Types.root(), Keystore.t()}) :: t()
   def new({head_slot, head_root, keystore}) do
     state = %__MODULE__{
       slot: head_slot,
@@ -69,7 +69,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec try_setup_validator(state(), Types.slot(), Types.root()) :: state() | nil
+  @spec try_setup_validator(t(), Types.slot(), Types.root()) :: t() | nil
   defp try_setup_validator(state, slot, root) do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state(epoch, root)
@@ -96,7 +96,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec handle_new_head(Types.slot(), Types.root(), state) :: state
+  @spec handle_new_head(Types.slot(), Types.root(), t()) :: t()
   def handle_new_head(slot, head_root, %{index: nil} = state) do
     log_error("-1", "setup validator", "index not present handle block",
       slot: slot,
@@ -116,7 +116,7 @@ defmodule LambdaEthereumConsensus.Validator do
     |> maybe_build_payload(slot + 1)
   end
 
-  @spec handle_tick({Types.slot(), atom()}, state) :: state
+  @spec handle_tick({Types.slot(), atom()}, t()) :: t()
   def handle_tick(_logical_time, %{index: nil} = state) do
     log_error("-1", "setup validator", "index not present for handle tick")
     state
@@ -151,7 +151,7 @@ defmodule LambdaEthereumConsensus.Validator do
   ### Private Functions
   ##########################
 
-  @spec update_state(state, Types.slot(), Types.root()) :: state
+  @spec update_state(t(), Types.slot(), Types.root()) :: t()
 
   defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
 
@@ -166,7 +166,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec recompute_duties(state, Types.epoch(), Types.epoch(), Types.slot(), Types.root()) :: state
+  @spec recompute_duties(t(), Types.epoch(), Types.epoch(), Types.slot(), Types.root()) :: t()
   defp recompute_duties(%{root: last_root} = state, last_epoch, epoch, slot, head_root) do
     start_slot = Misc.compute_start_slot_at_epoch(epoch)
     target_root = if slot == start_slot, do: head_root, else: last_root
@@ -222,7 +222,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec maybe_attest(state, Types.slot()) :: state
+  @spec maybe_attest(t(), Types.slot()) :: t()
   defp maybe_attest(state, slot) do
     case Duties.get_current_attester_duty(state.duties, slot) do
       %{attested?: false} = duty ->
@@ -238,7 +238,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec attest(state, Duties.attester_duty()) :: :ok
+  @spec attest(t(), Duties.attester_duty()) :: :ok
   defp attest(%{index: validator_index, keystore: keystore} = state, current_duty) do
     subnet_id = current_duty.subnet_id
     log_debug(validator_index, "attesting", slot: current_duty.slot, subnet_id: subnet_id)
@@ -379,15 +379,15 @@ defmodule LambdaEthereumConsensus.Validator do
     BlockStates.get_state_info!(parent_root).beacon_state |> go_to_slot(slot)
   end
 
-  @spec fetch_validator_index(Types.BeaconState.t(), Bls.privkey()) ::
+  @spec fetch_validator_index(Types.BeaconState.t(), Bls.pubkey()) ::
           non_neg_integer() | nil
-  defp fetch_validator_index(beacon, pk) do
-    Enum.find_index(beacon.validators, &(&1.pubkey == pk))
+  defp fetch_validator_index(beacon, pubkey) do
+    Enum.find_index(beacon.validators, &(&1.pubkey == pubkey))
   end
 
   defp proposer?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
 
-  @spec maybe_build_payload(state, Types.slot()) :: state
+  @spec maybe_build_payload(t(), Types.slot()) :: t()
   defp maybe_build_payload(%{root: head_root} = state, proposed_slot) do
     if proposer?(state, proposed_slot) do
       start_payload_builder(state, proposed_slot, head_root)
@@ -396,7 +396,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec start_payload_builder(state, Types.slot(), Types.root()) :: state
+  @spec start_payload_builder(t(), Types.slot(), Types.root()) :: t()
 
   defp start_payload_builder(%{payload_builder: {slot, root, _}} = state, slot, root), do: state
 
