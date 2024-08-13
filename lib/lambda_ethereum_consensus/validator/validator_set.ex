@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   simplify the delegation of work.
   """
 
-  defstruct epoch: nil, slot: nil, head_root: nil, duties: %{}, validators: []
+  defstruct head_root: nil, duties: %{}, validators: []
 
   require Logger
 
@@ -16,8 +16,6 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   @type validators :: %{atom() => %{} | []}
   @type t :: %__MODULE__{
-          epoch: Types.epoch() | nil,
-          slot: Types.slot() | nil,
           head_root: Types.root() | nil,
           duties: %{Types.epoch() => %{proposers: Duties.proposers(), attesters: Duties.attesters()}},
           validators: validators()
@@ -35,125 +33,20 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     setup_validators(slot, head_root, keystore_dir, keystore_pass_dir)
   end
 
-  defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
-       when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
-    Logger.warning(
-      "[Validator] No keystore_dir or keystore_pass_dir provided. Validators won't start."
-    )
-
-    %__MODULE__{}
-  end
-
-  defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
-    validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
-
-    epoch = Misc.compute_epoch_at_slot(slot)
-    beacon = fetch_target_state!(epoch, head_root)
-
-    validators =
-      Map.new(validator_keys, fn validator_key ->
-        validator = Validator.new(validator_key, epoch, slot, head_root, beacon)
-        {validator.validator.index, validator}
-      end)
-
-    Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
-
-    duties = compute_duties_for_epoch!(beacon, epoch, validators)
-
-    %__MODULE__{
-      epoch: epoch,
-      slot: slot,
-      head_root: head_root,
-      duties: %{epoch => duties},
-      validators: validators
-    }
-  end
-
-  defp compute_duties_for_epoch!(beacon, epoch, validators) do
-    {:ok, proposers} = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
-    {:ok, attesters} = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
-
-    Logger.info("[Validator] Proposer duties for epoch #{epoch} are: #{inspect(proposers, pretty: true)}")
-    Logger.info("[Validator] Attester duties for epoch #{epoch} are: #{inspect(attesters, pretty: true)}")
-
-    %{proposers: proposers, attesters: attesters}
-  end
-
-  defp fetch_target_state!(epoch, head_root) do
-    {:ok, state} = CheckpointStates.compute_target_checkpoint_state(epoch, head_root)
-    state
-  end
-
   @doc """
   Notify all validators of a new head.
   """
   @spec notify_head(t(), Types.slot(), Types.root()) :: t()
-  def notify_head(%{validators: validators, epoch: epoch} = set, slot, head_root) do
+  def notify_head(%{validators: validators} = set, slot, head_root) do
     # TODO: Just for testing purposes, remove it later
     Logger.info("[Validator] Notifying all Validators with new_head", root: head_root, slot: slot)
+    epoch = Misc.compute_epoch_at_slot(slot)
 
     set
-    |> update_state(slot, head_root)
-    |> attest(epoch, slot)
+    |> update_state(epoch, slot, head_root)
+    |> attest(epoch, slot, head_root)
     |> build_next_payload(epoch, slot, head_root)
   end
-
-  defp update_state(set, slot, head_root) do
-    if new_epoch?(set, slot + 1) do
-      epoch = Misc.compute_epoch_at_slot(slot + 1)
-      beacon = fetch_target_state!(epoch, head_root)
-
-      duties = compute_duties_for_epoch!(beacon, epoch, set.validators)
-
-      %{set | epoch: epoch, slot: slot, head_root: head_root, duties: Map.put(set.duties, epoch, duties)}
-    else
-      %{set | slot: slot, head_root: head_root}
-    end
-  end
-
-  defp new_epoch?(set, slot) do
-    epoch = Misc.compute_epoch_at_slot(slot)
-    epoch > set.epoch
-  end
-
-  defp attest(set, epoch, slot) do
-    updated_duties =
-      set
-      |> current_attesters(epoch, slot)
-      |> Enum.map(fn {validator, duty} ->
-        Validator.attest(validator, duty)
-
-        # Duty.attested(duty)
-        %{duty | attested?: true}
-      end)
-
-    %{set | duties: put_in(set.duties, [set.epoch, :attesters, slot], updated_duties)}
-  end
-
-  defp build_next_payload(set, epoch, slot, head_root) do
-    set
-    |> proposer(epoch, slot + 1)
-    |> case do
-      nil -> set
-      validator_index ->
-        validator = Map.get(set.validators, validator_index)
-        updated_validator = Validator.start_payload_builder(validator, slot + 1, head_root)
-
-        %{set | validators: Map.put(set.validators, updated_validator.validator.index, %{updated_validator | root: head_root})}
-    end
-  end
-
-  defp current_attesters(set, epoch, slot) do
-    attesters(set, epoch, slot)
-    |> Enum.flat_map(fn
-      %{attested?: false} = duty -> [{Map.get(set.validators, duty.validator_index), duty}]
-      _ -> []
-    end)
-  end
-
-  defp proposer(set, epoch, slot), do: get_in(set.duties, [epoch, :proposers, slot])
-  defp attesters(set, epoch, slot), do: get_in(set.duties, [epoch, :attesters, slot]) || []
-
 
   @doc """
   Notify all validators of a new tick.
@@ -172,6 +65,126 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
     %{set | validators: validators}
   end
+
+  ##############################
+  # Setup
+
+    defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
+       when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
+    Logger.warning(
+      "[Validator] No keystore_dir or keystore_pass_dir provided. Validators won't start."
+    )
+
+    %__MODULE__{}
+  end
+
+  defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
+    validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
+    epoch = Misc.compute_epoch_at_slot(slot)
+
+    # This will be removed later when refactoring Validator new
+    beacon = fetch_target_beaconstate!(epoch, head_root)
+
+    validators =
+      Map.new(validator_keys, fn validator_key ->
+        validator = Validator.new(validator_key, epoch, slot, head_root, beacon)
+        {validator.validator.index, validator}
+      end)
+
+    Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
+
+    %__MODULE__{validators: validators}
+    |> update_state(epoch, slot, head_root)
+  end
+
+  ##############################
+  # State update
+
+  defp update_state(set, epoch, slot, head_root) do
+    set
+    |> update_head(head_root)
+    |> compute_duties(epoch, slot, head_root)
+  end
+
+  defp update_head(%{head_root: head_root} = set, head_root), do: set
+  defp update_head(set, head_root), do: %{set | head_root: head_root}
+
+  defp compute_duties(set, epoch, _slot, _head_root)
+    when not is_nil(:erlang.map_get(epoch, set.duties)), do: set
+
+  defp compute_duties(set, epoch, slot, head_root) do
+    epoch
+    |> fetch_target_beaconstate!(head_root)
+    |> compute_duties_for_epoch!(epoch, set.validators)
+    |> merge_duties_and_prune(epoch, set)
+  end
+
+  defp fetch_target_beaconstate!(epoch, head_root) do
+    {:ok, beaconstate} = CheckpointStates.compute_target_checkpoint_state(epoch, head_root)
+    beaconstate
+  end
+
+  defp compute_duties_for_epoch!(beacon, epoch, validators) do
+    {:ok, proposers} = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
+    {:ok, attesters} = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
+
+    Logger.info("[Validator] Proposer duties for epoch #{epoch} are: #{inspect(proposers, pretty: true)}")
+    Logger.info("[Validator] Attester duties for epoch #{epoch} are: #{inspect(attesters, pretty: true)}")
+
+    %{epoch => %{proposers: proposers, attesters: attesters}}
+  end
+
+  defp merge_duties_and_prune(new_duties, epoch, set) do
+    set.duties
+    # Remove duties from epoch - 2 or older
+    |> Map.reject(fn {old_epoch, _} -> old_epoch < epoch - 2 end)
+    |> Map.merge(new_duties)
+    |> then(fn current_duties -> %{set | duties: current_duties} end)
+  end
+
+  ##############################
+  # Attestation and proposal
+
+  defp attest(set, epoch, slot, root) do
+    updated_duties =
+      set
+      |> current_attesters(epoch, slot)
+      |> Enum.map(fn {validator, duty} ->
+        Validator.attest(validator, duty, root)
+
+        # Duty.attested(duty)
+        %{duty | attested?: true}
+      end)
+
+    %{set | duties: put_in(set.duties, [epoch, :attesters, slot], updated_duties)}
+  end
+
+  defp build_next_payload(set, epoch, slot, head_root) do
+    set
+    |> proposer(epoch, slot + 1)
+    |> case do
+      nil -> set
+      validator_index ->
+        validator = Map.get(set.validators, validator_index)
+        updated_validator = Validator.start_payload_builder(validator, slot + 1, head_root)
+
+        %{set | validators: Map.put(set.validators, updated_validator.validator.index, updated_validator)}
+    end
+  end
+
+  ##############################
+  # Helpers
+
+  defp current_attesters(set, epoch, slot) do
+    attesters(set, epoch, slot)
+    |> Enum.flat_map(fn
+      %{attested?: false} = duty -> [{Map.get(set.validators, duty.validator_index), duty}]
+      _ -> []
+    end)
+  end
+
+  defp proposer(set, epoch, slot), do: get_in(set.duties, [epoch, :proposers, slot])
+  defp attesters(set, epoch, slot), do: get_in(set.duties, [epoch, :attesters, slot]) || []
 
   defp maybe_debug_notify(fun, data) do
     if Application.get_env(:logger, :level) == :info do # :debug do

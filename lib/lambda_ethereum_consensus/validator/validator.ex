@@ -5,8 +5,6 @@ defmodule LambdaEthereumConsensus.Validator do
   require Logger
 
   defstruct [
-    :slot,
-    :root,
     :epoch,
     :duties,
     :validator,
@@ -40,9 +38,7 @@ defmodule LambdaEthereumConsensus.Validator do
   # TODO: Slot and Root are redundant, we should also have the duties separated and calculated
   # just at the begining of every epoch, and then just update them as needed.
   @type state :: %__MODULE__{
-          slot: Types.slot(),
           epoch: Types.epoch(),
-          root: Types.root(),
           duties: Duties.duties(),
           validator: validator(),
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
@@ -57,9 +53,7 @@ defmodule LambdaEthereumConsensus.Validator do
         ) :: state
   def new({pubkey, privkey}, epoch, head_slot, head_root, beacon) do
     state = %__MODULE__{
-      slot: head_slot,
       epoch: epoch,
-      root: head_root,
       duties: Duties.empty_duties(),
       validator: %{
         pubkey: pubkey,
@@ -120,7 +114,7 @@ defmodule LambdaEthereumConsensus.Validator do
     # TODO: this doesn't take into account reorgs
     state
     |> update_state(slot, head_root)
-    |> maybe_attest(slot)
+    |> maybe_attest(slot, head_root)
     |> maybe_build_payload(slot + 1, head_root)
   end
 
@@ -145,7 +139,7 @@ defmodule LambdaEthereumConsensus.Validator do
     # 1. send our attestation for an empty slot
     # 2. start building a payload
     state
-    |> maybe_attest(slot)
+    |> maybe_attest(slot, root)
     |> maybe_build_payload(slot + 1, root)
   end
 
@@ -168,7 +162,7 @@ defmodule LambdaEthereumConsensus.Validator do
     epoch = Misc.compute_epoch_at_slot(slot + 1)
 
     if last_epoch == epoch do
-      %{state | slot: slot, root: head_root}
+      state
     else
       recompute_duties(state, last_epoch, epoch, slot, head_root)
     end
@@ -189,7 +183,7 @@ defmodule LambdaEthereumConsensus.Validator do
     move_subnets(state.duties, new_duties)
     Duties.log_duties(new_duties, state.validator.index)
 
-    %{state | slot: slot, root: head_root, duties: new_duties, epoch: epoch}
+    %{state | duties: new_duties, epoch: epoch}
   end
 
   @spec fetch_target_state(Types.epoch(), Types.root()) :: Types.BeaconState.t()
@@ -230,11 +224,11 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec maybe_attest(state, Types.slot()) :: state
-  defp maybe_attest(state, slot) do
+  @spec maybe_attest(state, Types.slot(), Types.root()) :: state
+  defp maybe_attest(state, slot, head_root) do
     case Duties.get_current_attester_duty(state.duties, slot) do
       %{attested?: false} = duty ->
-        attest(state, duty)
+        attest(state, duty, head_root)
 
         new_duties =
           Duties.replace_attester_duty(state.duties, duty, %{duty | attested?: true})
@@ -246,12 +240,12 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec attest(state, Duties.attester_duty()) :: :ok
-  def attest(%{validator: validator} = state, current_duty) do
+  @spec attest(state, Duties.attester_duty(), Types.root()) :: :ok
+  def attest(%{validator: validator} = state, current_duty, head_root) do
     subnet_id = current_duty.subnet_id
     log_debug(validator.index, "attesting", slot: current_duty.slot, subnet_id: subnet_id)
 
-    attestation = produce_attestation(current_duty, state.root, state.validator.privkey)
+    attestation = produce_attestation(current_duty, head_root, state.validator.privkey)
 
     log_md = [slot: attestation.data.slot, attestation: attestation, subnet_id: subnet_id]
 
@@ -472,7 +466,7 @@ defmodule LambdaEthereumConsensus.Validator do
     state
   end
 
-  defp propose(state, proposed_slot) do
+  defp propose(state, proposed_slot, _head_root) do
     Logger.error(
       "[Validator] Skipping block proposal for slot #{proposed_slot} due to missing validator data"
     )
