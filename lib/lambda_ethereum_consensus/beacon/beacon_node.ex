@@ -30,9 +30,9 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     init_execution_chain(deposit_tree_snapshot, store.head_root)
 
-    validators = ValidatorSet.init(store.head_slot, store.head_root)
+    validator_set = ValidatorSet.init(store.head_slot, store.head_root)
 
-    libp2p_args = [genesis_time: store.genesis_time, validators: validators] ++ get_libp2p_args()
+    libp2p_args = [genesis_time: store.genesis_time, validator_set: validator_set] ++ get_libp2p_args()
 
     children =
       [
