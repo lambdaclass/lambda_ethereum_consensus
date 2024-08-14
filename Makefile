@@ -45,7 +45,7 @@ $(OUTPUT_DIR)/libp2p_port: $(PORT_SOURCES) $(PROTOBUF_GO_FILES)
 GRAFANA_DASHBOARDS_DIR = ./metrics/grafana/provisioning/dashboards
 
 # Root directory of ethereum-package
-KURTOSIS_DIR ?= ../ethereum-package
+KURTOSIS_DIR ?= ./ethereum-package
 # Grafana configuration directory for dashboards
 KURTOSIS_GRAFANA_DASHBOARDS_DIR ?= $(KURTOSIS_DIR)/static_files/grafana-config/dashboards
 # Secret cookie for the lambdaconsesus IEX node built for usage with kurtosis
@@ -60,9 +60,7 @@ kurtosis.setup: kurtosis.setup.ethereum-package kurtosis.setup.grafana kurtosis.
 
 #💻 kurtosis.setup.ethereum-package: @ Clones the lambda ethereum-package and check out the current active branch
 kurtosis.setup.ethereum-package:
-	git clone https://github.com/lambdaclass/ethereum-package.git $(KURTOSIS_DIR) && \
-	cd $(KURTOSIS_DIR) && \
-	git checkout lecc-integration
+	git submodule update --init --recursive
 
 # 💻 kurtosis.setup.grafana: @ Copies the grafana dashboards to the ethereum-package folder under grafana-config
 kurtosis.setup.grafana:
