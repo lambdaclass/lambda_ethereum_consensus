@@ -88,22 +88,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   def process_tick(%{head_root: head_root} = set, epoch, {slot, :last_third}) do
     set
     |> update_state(epoch, head_root)
-    |> publish_aggregate(epoch, slot, head_root)
+    |> publish_aggregate(epoch, slot)
   end
-
-  # def process_tick(%{validators: validators, head_root: head_root} = set, _epoch, slot_data) do
-  #   validators =
-  #     maybe_debug_notify(
-  #       fn ->
-  #         Map.new(validators, fn {k, v} ->
-  #           {k, Validator.handle_tick(slot_data, v, head_root)}
-  #         end)
-  #       end,
-  #       {:on_tick, slot_data}
-  #     )
-
-  #   %{set | validators: validators}
-  # end
 
   ##############################
   # Setup
@@ -190,32 +176,36 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   ##############################
   # Attestation and proposal
 
-  defp attest(set, epoch, slot, root) do
-    updated_duties =
-      set
-      |> current_attesters(epoch, slot)
-      |> Enum.map(fn {validator, duty} ->
-        Validator.attest(validator, duty, root)
+  defp attest(set, epoch, slot, head_root) do
+    case current_attesters(set, epoch, slot) do
+      [] ->
+        set
 
-        # Duty.attested(duty)
-        %{duty | attested?: true}
-      end)
+      attesters ->
+        Enum.map(attesters, fn {validator, duty} ->
+          Validator.attest(validator, duty, head_root)
 
-    %{set | duties: put_in(set.duties, [epoch, :attesters, slot], updated_duties)}
+          # Duty.attested(duty)
+          %{duty | attested?: true}
+        end)
+        |> then(&%{set | duties: put_in(set.duties, [epoch, :attesters, slot], &1)})
+    end
   end
 
-  defp publish_aggregate(set, epoch, slot, head_root) do
-    updated_duties =
-      set
-      |> current_aggregators(epoch, slot)
-      |> Enum.map(fn {validator, duty} ->
-        Validator.publish_aggregate(duty, validator.index, validator.keystore)
+  defp publish_aggregate(set, epoch, slot) do
+    case current_aggregators(set, epoch, slot) do
+      [] ->
+        set
 
-        # Duty.aggregated(duty)
-        %{duty | should_aggregate?: false}
-      end)
+      aggregators ->
+        Enum.map(aggregators, fn {validator, duty} ->
+          Validator.publish_aggregate(duty, validator.index, validator.keystore)
 
-    %{set | duties: put_in(set.duties, [epoch, :attesters, slot], updated_duties)}
+          # Duty.aggregated(duty)
+          %{duty | should_aggregate?: false}
+        end)
+        |> then(&%{set | duties: put_in(set.duties, [epoch, :attesters, slot], &1)})
+    end
   end
 
   defp build_next_payload(%{validators: validators} = set, epoch, slot, head_root) do
@@ -250,7 +240,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   # Helpers
 
   defp current_attesters(set, epoch, slot) do
-    attesters(set, epoch, slot)
+    set
+    |> attesters(epoch, slot)
     |> Enum.flat_map(fn
       %{attested?: false} = duty -> [{Map.get(set.validators, duty.validator_index), duty}]
       _ -> []
@@ -258,7 +249,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp current_aggregators(set, epoch, slot) do
-    attesters(set, epoch, slot)
+    set
+    |> attesters(epoch, slot)
     |> Enum.flat_map(fn
       %{should_aggregate?: true} = duty -> [{Map.get(set.validators, duty.validator_index), duty}]
       _ -> []
@@ -267,25 +259,6 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   defp proposer(set, epoch, slot), do: get_in(set.duties, [epoch, :proposers, slot])
   defp attesters(set, epoch, slot), do: get_in(set.duties, [epoch, :attesters, slot]) || []
-
-  # defp maybe_debug_notify(fun, data) do
-  #   # :debug do
-  #   if Application.get_env(:logger, :level) == :info do
-  #     Logger.info("[Validator] Notifying all Validators with message: #{inspect(data)}")
-
-  #     start_time = System.monotonic_time(:millisecond)
-  #     result = fun.()
-  #     end_time = System.monotonic_time(:millisecond)
-
-  #     Logger.info(
-  #       "[Validator] #{inspect(data)} notified to all Validators after #{end_time - start_time} ms"
-  #     )
-
-  #     result
-  #   else
-  #     fun.()
-  #   end
-  # end
 
   @doc """
     Get validator keystores from the keystore directory.

@@ -111,77 +111,46 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec handle_tick({Types.slot(), atom()}, t(), Types.root()) :: t()
-  def handle_tick(_logical_time, %{index: nil} = state, _root) do
-    log_error("-1", "setup validator", "index not present for handle tick")
-    state
-  end
-
-  def handle_tick({slot, :first_third}, state, root) do
-    log_debug(state.index, "started first third", slot: slot)
-    # Here we may:
-    # 1. propose our blocks
-    # 2. (TODO) start collecting attestations for aggregation
-    maybe_propose(state, slot, root)
-    |> update_state(slot, root)
-  end
-
-  def handle_tick({slot, :second_third}, state, root) do
-    log_debug(state.index, "started second third", slot: slot)
-    # Here we may:
-    # 1. send our attestation for an empty slot
-    # 2. start building a payload
-    state
-    |> maybe_attest(slot, root)
-    |> maybe_build_payload(slot + 1, root)
-  end
-
-  def handle_tick({slot, :last_third}, state, _root) do
-    log_debug(state.index, "started last third", slot: slot)
-    # Here we may publish our attestation aggregate
-    maybe_publish_aggregate(state, slot)
-  end
-
   ##########################
   ### Private Functions
   ##########################
 
-  @spec update_state(t(), Types.slot(), Types.root()) :: t()
+  # @spec update_state(t(), Types.slot(), Types.root()) :: t()
 
-  defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
+  # defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
 
-  # Epoch as part of the state now avoids recomputing the duties at every block
-  defp update_state(%{epoch: last_epoch} = state, slot, head_root) do
-    epoch = Misc.compute_epoch_at_slot(slot + 1)
+  # # Epoch as part of the state now avoids recomputing the duties at every block
+  # defp update_state(%{epoch: last_epoch} = state, slot, head_root) do
+  #   epoch = Misc.compute_epoch_at_slot(slot + 1)
 
-    if last_epoch == epoch do
-      state
-    else
-      recompute_duties(state, last_epoch, epoch, slot, head_root)
-    end
-  end
+  #   if last_epoch == epoch do
+  #     state
+  #   else
+  #     recompute_duties(state, last_epoch, epoch, slot, head_root)
+  #   end
+  # end
 
-  @spec recompute_duties(t(), Types.epoch(), Types.epoch(), Types.slot(), Types.root()) :: t()
-  defp recompute_duties(state, last_epoch, epoch, _slot, head_root) do
-    start_slot = Misc.compute_start_slot_at_epoch(epoch)
+  # @spec recompute_duties(t(), Types.epoch(), Types.epoch(), Types.slot(), Types.root()) :: t()
+  # defp recompute_duties(state, last_epoch, epoch, _slot, head_root) do
+  #   start_slot = Misc.compute_start_slot_at_epoch(epoch)
 
-    # TODO: Why is this needed? something here seems wrong, why would i need to move to a different slot if
-    # I'm calculating this at a new epoch? need to check it
-    # target_root = if slot == start_slot, do: head_root, else: last_root
+  #   # TODO: Why is this needed? something here seems wrong, why would i need to move to a different slot if
+  #   # I'm calculating this at a new epoch? need to check it
+  #   # target_root = if slot == start_slot, do: head_root, else: last_root
 
-    # Process the start of the new epoch
-    # new_beacon = fetch_target_state(epoch, target_root) |> go_to_slot(start_slot)
-    new_beacon = fetch_target_state(epoch, head_root) |> go_to_slot(start_slot)
+  #   # Process the start of the new epoch
+  #   # new_beacon = fetch_target_state(epoch, target_root) |> go_to_slot(start_slot)
+  #   new_beacon = fetch_target_state(epoch, head_root) |> go_to_slot(start_slot)
 
-    new_duties =
-      Duties.shift_duties(state.duties, epoch, last_epoch)
-      |> Duties.maybe_update_duties(new_beacon, epoch, state.index, state.keystore.privkey)
+  #   new_duties =
+  #     Duties.shift_duties(state.duties, epoch, last_epoch)
+  #     |> Duties.maybe_update_duties(new_beacon, epoch, state.index, state.keystore.privkey)
 
-    move_subnets(state.duties, new_duties)
-    Duties.log_duties(new_duties, state.index)
+  #   move_subnets(state.duties, new_duties)
+  #   Duties.log_duties(new_duties, state.index)
 
-    %{state | duties: new_duties, epoch: epoch}
-  end
+  #   %{state | duties: new_duties, epoch: epoch}
+  # end
 
   @spec fetch_target_state(Types.epoch(), Types.root()) :: Types.BeaconState.t()
   defp fetch_target_state(epoch, root) do
@@ -189,23 +158,23 @@ defmodule LambdaEthereumConsensus.Validator do
     state
   end
 
-  defp get_subnet_ids(duties),
-    do: duties |> Stream.reject(&(&1 == :not_computed)) |> Enum.map(& &1.subnet_id)
-
-  defp move_subnets(%{attester: old_duties}, %{attester: new_duties}) do
-    old_subnets = old_duties |> get_subnet_ids() |> MapSet.new()
-    new_subnets = new_duties |> get_subnet_ids() |> MapSet.new()
-
-    # leave old subnets (except for recurring ones)
-    MapSet.difference(old_subnets, new_subnets) |> leave()
-
-    # join new subnets (except for recurring ones)
-    MapSet.difference(new_subnets, old_subnets) |> join()
-  end
-
   defp join_subnets_for_duties(%{attester: duties}) do
     duties |> get_subnet_ids() |> join()
   end
+
+  defp get_subnet_ids(duties),
+    do: duties |> Stream.reject(&(&1 == :not_computed)) |> Enum.map(& &1.subnet_id)
+
+  # defp move_subnets(%{attester: old_duties}, %{attester: new_duties}) do
+  #   old_subnets = old_duties |> get_subnet_ids() |> MapSet.new()
+  #   new_subnets = new_duties |> get_subnet_ids() |> MapSet.new()
+
+  #   # leave old subnets (except for recurring ones)
+  #   MapSet.difference(old_subnets, new_subnets) |> leave()
+
+  #   # join new subnets (except for recurring ones)
+  #   MapSet.difference(new_subnets, old_subnets) |> join()
+  # end
 
   defp join(subnets) do
     if not Enum.empty?(subnets) do
@@ -214,28 +183,12 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp leave(subnets) do
-    if not Enum.empty?(subnets) do
-      Logger.debug("Leaving subnets: #{Enum.join(subnets, ", ")}")
-      Enum.each(subnets, &Gossip.Attestation.leave/1)
-    end
-  end
-
-  @spec maybe_attest(t(), Types.slot(), Types.root()) :: t()
-  defp maybe_attest(state, slot, head_root) do
-    case Duties.get_current_attester_duty(state.duties, slot) do
-      %{attested?: false} = duty ->
-        attest(state, duty, head_root)
-
-        new_duties =
-          Duties.replace_attester_duty(state.duties, duty, %{duty | attested?: true})
-
-        %{state | duties: new_duties}
-
-      _ ->
-        state
-    end
-  end
+  # defp leave(subnets) do
+  #   if not Enum.empty?(subnets) do
+  #     Logger.debug("Leaving subnets: #{Enum.join(subnets, ", ")}")
+  #     Enum.each(subnets, &Gossip.Attestation.leave/1)
+  #   end
+  # end
 
   @spec attest(t(), Duties.attester_duty(), Types.root()) :: :ok
   def attest(%{index: validator_index, keystore: keystore}, current_duty, head_root) do
@@ -262,22 +215,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  # We publish our aggregate on the next slot, and when we're an aggregator
-  defp maybe_publish_aggregate(%{index: validator_index, keystore: keystore} = state, slot) do
-    case Duties.get_current_attester_duty(state.duties, slot) do
-      %{should_aggregate?: true} = duty ->
-        publish_aggregate(duty, validator_index, keystore)
-
-        new_duties =
-          Duties.replace_attester_duty(state.duties, duty, %{duty | should_aggregate?: false})
-
-        %{state | duties: new_duties}
-
-      _ ->
-        state
-    end
-  end
-
+  @spec publish_aggregate(Duties.attester_duty(), non_neg_integer(), Keystore.t()) :: :ok
   def publish_aggregate(duty, validator_index, keystore) do
     case Gossip.Attestation.stop_collecting(duty.subnet_id) do
       {:ok, attestations} ->
@@ -384,17 +322,6 @@ defmodule LambdaEthereumConsensus.Validator do
     Enum.find_index(beacon.validators, &(&1.pubkey == pubkey))
   end
 
-  defp proposer?(%{duties: %{proposer: slots}}, slot), do: Enum.member?(slots, slot)
-
-  @spec maybe_build_payload(t(), Types.slot(), Types.root()) :: t()
-  defp maybe_build_payload(state, proposed_slot, head_root) do
-    if proposer?(state, proposed_slot) do
-      start_payload_builder(state, proposed_slot, head_root)
-    else
-      state
-    end
-  end
-
   @spec start_payload_builder(t(), Types.slot(), Types.root()) :: t()
   def start_payload_builder(%{payload_builder: {slot, root, _}} = state, slot, root), do: state
 
@@ -417,14 +344,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp maybe_propose(state, slot, root) do
-    if proposer?(state, slot) do
-      propose(state, slot, root)
-    else
-      state
-    end
-  end
-
+  @spec propose(t(), Types.slot(), Types.root()) :: t()
   def propose(
         %{
           index: validator_index,
