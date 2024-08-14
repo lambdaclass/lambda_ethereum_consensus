@@ -58,7 +58,7 @@ KURTOSIS_SERVICE ?= cl-3-lambda-geth
 # 💻 kurtosis.setup: @ Setup the kurtosis environment
 kurtosis.setup: kurtosis.setup.ethereum-package kurtosis.setup.grafana kurtosis.setup.lambdaconsensus
 
-#💻 kurtosis.setup.ethereum-package: @ Clones the lambda ethereum-package and check out the current active branch
+#💻 kurtosis.setup.ethereum-package: @ Downloads the lambda ethereum-package content
 kurtosis.setup.ethereum-package:
 	git submodule update --init --recursive
 
