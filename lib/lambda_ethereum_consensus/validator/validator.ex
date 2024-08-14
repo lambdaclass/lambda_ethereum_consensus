@@ -111,26 +111,6 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec handle_new_head(Types.slot(), Types.root(), t()) :: t()
-  def handle_new_head(slot, head_root, %{index: nil} = state) do
-    log_error("-1", "setup validator", "index not present handle block",
-      slot: slot,
-      root: head_root
-    )
-
-    state
-  end
-
-  def handle_new_head(slot, head_root, state) do
-    log_debug(state.index, "recieved new head", slot: slot, root: head_root)
-
-    # TODO: this doesn't take into account reorgs
-    state
-    |> update_state(slot, head_root)
-    |> maybe_attest(slot, head_root)
-    |> maybe_build_payload(slot + 1, head_root)
-  end
-
   @spec handle_tick({Types.slot(), atom()}, t(), Types.root()) :: t()
   def handle_tick(_logical_time, %{index: nil} = state, _root) do
     log_error("-1", "setup validator", "index not present for handle tick")
@@ -298,7 +278,7 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp publish_aggregate(duty, validator_index, keystore) do
+  def publish_aggregate(duty, validator_index, keystore) do
     case Gossip.Attestation.stop_collecting(duty.subnet_id) do
       {:ok, attestations} ->
         log_md = [slot: duty.slot, attestations: attestations]
@@ -445,15 +425,15 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  defp propose(
-         %{
-           index: validator_index,
-           payload_builder: {proposed_slot, head_root, payload_id},
-           keystore: keystore
-         } = state,
-         proposed_slot,
-         head_root
-       ) do
+  def propose(
+        %{
+          index: validator_index,
+          payload_builder: {proposed_slot, head_root, payload_id},
+          keystore: keystore
+        } = state,
+        proposed_slot,
+        head_root
+      ) do
     log_debug(validator_index, "building block", slot: proposed_slot)
 
     build_result =
@@ -481,12 +461,12 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   # TODO: at least in kurtosis there are blocks that are proposed without a payload apparently, must investigate.
-  defp propose(%{payload_builder: nil} = state, _proposed_slot, _head_root) do
+  def propose(%{payload_builder: nil} = state, _proposed_slot, _head_root) do
     log_error(state.index, "propose block", "lack of execution payload")
     state
   end
 
-  defp propose(state, proposed_slot, _head_root) do
+  def propose(state, proposed_slot, _head_root) do
     Logger.error(
       "[Validator] Skipping block proposal for slot #{proposed_slot} due to missing validator data"
     )

@@ -57,19 +57,53 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   Notify all validators of a new tick.
   """
   @spec notify_tick(t(), tuple()) :: t()
-  def notify_tick(%{validators: validators, head_root: head_root} = set, slot_data) do
-    validators =
-      maybe_debug_notify(
-        fn ->
-          Map.new(validators, fn {k, v} ->
-            {k, Validator.handle_tick(slot_data, v, head_root)}
-          end)
-        end,
-        {:on_tick, slot_data}
-      )
+  def notify_tick(%{head_root: head_root} = set, {slot, third} = slot_data) do
+    # TODO: Just for testing purposes, remove it later
+    Logger.info("[Validator] Notifying all Validators with notify_tick: #{inspect(third)}",
+      root: head_root,
+      slot: slot
+    )
 
-    %{set | validators: validators}
+    epoch = Misc.compute_epoch_at_slot(slot)
+
+    process_tick(set, epoch, slot_data)
   end
+
+  @spec process_tick(t(), Types.epoch(), tuple()) :: t()
+  def process_tick(%{head_root: head_root} = set, epoch, {slot, :first_third}) do
+    set
+    |> update_state(epoch, head_root)
+    |> propose(epoch, slot, head_root)
+  end
+
+  @spec process_tick(t(), Types.epoch(), tuple()) :: t()
+  def process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
+    set
+    |> update_state(epoch, head_root)
+    |> attest(epoch, slot, head_root)
+    |> build_next_payload(epoch, slot, head_root)
+  end
+
+  @spec process_tick(t(), Types.epoch(), tuple()) :: t()
+  def process_tick(%{head_root: head_root} = set, epoch, {slot, :last_third}) do
+    set
+    |> update_state(epoch, head_root)
+    |> publish_aggregate(epoch, slot, head_root)
+  end
+
+  # def process_tick(%{validators: validators, head_root: head_root} = set, _epoch, slot_data) do
+  #   validators =
+  #     maybe_debug_notify(
+  #       fn ->
+  #         Map.new(validators, fn {k, v} ->
+  #           {k, Validator.handle_tick(slot_data, v, head_root)}
+  #         end)
+  #       end,
+  #       {:on_tick, slot_data}
+  #     )
+
+  #   %{set | validators: validators}
+  # end
 
   ##############################
   # Setup
@@ -170,7 +204,21 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     %{set | duties: put_in(set.duties, [epoch, :attesters, slot], updated_duties)}
   end
 
-  defp build_next_payload(set, epoch, slot, head_root) do
+  defp publish_aggregate(set, epoch, slot, head_root) do
+    updated_duties =
+      set
+      |> current_aggregators(epoch, slot)
+      |> Enum.map(fn {validator, duty} ->
+        Validator.publish_aggregate(duty, validator.index, validator.keystore)
+
+        # Duty.aggregated(duty)
+        %{duty | should_aggregate?: false}
+      end)
+
+    %{set | duties: put_in(set.duties, [epoch, :attesters, slot], updated_duties)}
+  end
+
+  defp build_next_payload(%{validators: validators} = set, epoch, slot, head_root) do
     set
     |> proposer(epoch, slot + 1)
     |> case do
@@ -178,10 +226,23 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
         set
 
       validator_index ->
-        validator = Map.get(set.validators, validator_index)
-        updated_validator = Validator.start_payload_builder(validator, slot + 1, head_root)
+        validators
+        |> Map.update!(validator_index, &Validator.start_payload_builder(&1, slot + 1, head_root))
+        |> then(&%{set | validators: &1})
+    end
+  end
 
-        %{set | validators: Map.put(set.validators, updated_validator.index, updated_validator)}
+  defp propose(%{validators: validators} = set, epoch, slot, head_root) do
+    set
+    |> proposer(epoch, slot)
+    |> case do
+      nil ->
+        set
+
+      validator_index ->
+        validators
+        |> Map.update!(validator_index, &Validator.propose(&1, slot, head_root))
+        |> then(&%{set | validators: &1})
     end
   end
 
@@ -196,27 +257,35 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     end)
   end
 
+  defp current_aggregators(set, epoch, slot) do
+    attesters(set, epoch, slot)
+    |> Enum.flat_map(fn
+      %{should_aggregate?: true} = duty -> [{Map.get(set.validators, duty.validator_index), duty}]
+      _ -> []
+    end)
+  end
+
   defp proposer(set, epoch, slot), do: get_in(set.duties, [epoch, :proposers, slot])
   defp attesters(set, epoch, slot), do: get_in(set.duties, [epoch, :attesters, slot]) || []
 
-  defp maybe_debug_notify(fun, data) do
-    # :debug do
-    if Application.get_env(:logger, :level) == :info do
-      Logger.info("[Validator] Notifying all Validators with message: #{inspect(data)}")
+  # defp maybe_debug_notify(fun, data) do
+  #   # :debug do
+  #   if Application.get_env(:logger, :level) == :info do
+  #     Logger.info("[Validator] Notifying all Validators with message: #{inspect(data)}")
 
-      start_time = System.monotonic_time(:millisecond)
-      result = fun.()
-      end_time = System.monotonic_time(:millisecond)
+  #     start_time = System.monotonic_time(:millisecond)
+  #     result = fun.()
+  #     end_time = System.monotonic_time(:millisecond)
 
-      Logger.info(
-        "[Validator] #{inspect(data)} notified to all Validators after #{end_time - start_time} ms"
-      )
+  #     Logger.info(
+  #       "[Validator] #{inspect(data)} notified to all Validators after #{end_time - start_time} ms"
+  #     )
 
-      result
-    else
-      fun.()
-    end
-  end
+  #     result
+  #   else
+  #     fun.()
+  #   end
+  # end
 
   @doc """
     Get validator keystores from the keystore directory.
