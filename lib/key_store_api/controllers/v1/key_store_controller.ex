@@ -9,9 +9,6 @@ defmodule KeyStoreApi.V1.KeyStoreController do
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
-  @keystore_dir Keystore.get_keystore_dir()
-  @keystore_pass_dir Keystore.get_keystore_pass_dir()
-
   # NOTE: this function is required by OpenApiSpex, and should return the information
   #  of each specific endpoint. We just return the specific entry from the parsed spec.
   def open_api_operation(:get_keys),
@@ -60,8 +57,8 @@ defmodule KeyStoreApi.V1.KeyStoreController do
         base_name = keystore.pubkey |> Utils.hex_encode()
 
         # This overrides any existing credential with the same pubkey.
-        File.write!(get_keystore_file_path(base_name), keystore_str)
-        File.write!(get_keystore_pass_file_path(base_name), password_str)
+        File.write!(Keystore.keystore_file(base_name), keystore_str)
+        File.write!(Keystore.keystore_pass_file(base_name), password_str)
         Libp2pPort.add_validator(keystore)
 
         %{
@@ -87,10 +84,10 @@ defmodule KeyStoreApi.V1.KeyStoreController do
 
     results =
       Enum.map(body_params.pubkeys, fn pubkey ->
-        with {:ok, pubkey} <- Utils.hex_decode(pubkey),
-             :ok <- Libp2pPort.delete_validator(pubkey) do
-          File.rm!(get_keystore_file_path(pubkey))
-          File.rm!(get_keystore_pass_file_path(pubkey))
+        with {:ok, decoded_pubkey} <- Utils.hex_decode(pubkey),
+             :ok <- Libp2pPort.delete_validator(decoded_pubkey) do
+          File.rm!(Keystore.keystore_file(pubkey))
+          File.rm!(Keystore.keystore_pass_file(pubkey))
 
           %{
             status: "deleted",
@@ -112,9 +109,4 @@ defmodule KeyStoreApi.V1.KeyStoreController do
       "data" => results
     })
   end
-
-  defp get_keystore_file_path(base_name), do: Path.join(@keystore_dir, base_name <> ".json")
-
-  defp get_keystore_pass_file_path(base_name),
-    do: Path.join(@keystore_pass_dir, base_name <> ".txt")
 end
