@@ -170,7 +170,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
       attesters ->
         Enum.map(attesters, fn {validator, duty} ->
-          Validator.attest(validator, duty, head_root)
+          Validator.attest(validator, duty, slot, head_root)
 
           # Duty.attested(duty)
           %{duty | attested?: true}
@@ -186,7 +186,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
       aggregators ->
         Enum.map(aggregators, fn {validator, duty} ->
-          Validator.publish_aggregate(duty, validator.index, validator.keystore)
+          Validator.publish_aggregate(duty, slot, validator.index, validator.keystore)
 
           # Duty.aggregated(duty)
           %{duty | should_aggregate?: false}

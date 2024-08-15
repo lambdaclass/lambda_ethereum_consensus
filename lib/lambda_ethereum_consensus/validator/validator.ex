@@ -90,14 +90,14 @@ defmodule LambdaEthereumConsensus.Validator do
   ##########################
   # Attestations
 
-  @spec attest(t(), Duties.attester_duty(), Types.root()) :: :ok
-  def attest(%{index: validator_index, keystore: keystore}, current_duty, head_root) do
+  @spec attest(t(), Duties.attester_duty(), Types.slot(), Types.root()) :: :ok
+  def attest(%{index: validator_index, keystore: keystore}, current_duty, slot, head_root) do
     subnet_id = current_duty.subnet_id
-    log_debug(validator_index, "attesting", slot: current_duty.slot, subnet_id: subnet_id)
+    log_debug(validator_index, "attesting", slot: slot, subnet_id: subnet_id)
 
-    attestation = produce_attestation(current_duty, head_root, keystore.privkey)
+    attestation = produce_attestation(current_duty, slot, head_root, keystore.privkey)
 
-    log_md = [slot: attestation.data.slot, attestation: attestation, subnet_id: subnet_id]
+    log_md = [slot: slot, attestation: attestation, subnet_id: subnet_id]
 
     debug_log_msg =
       "publishing attestation on committee index: #{current_duty.committee_index} | as #{current_duty.index_in_committee}/#{current_duty.committee_length - 1} and pubkey: #{LambdaEthereumConsensus.Utils.format_shorten_binary(keystore.pubkey)}"
@@ -115,11 +115,12 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec publish_aggregate(Duties.attester_duty(), non_neg_integer(), Keystore.t()) :: :ok
-  def publish_aggregate(duty, validator_index, keystore) do
+  @spec publish_aggregate(Duties.attester_duty(), Types.slot(), non_neg_integer(), Keystore.t()) ::
+          :ok
+  def publish_aggregate(duty, slot, validator_index, keystore) do
     case Gossip.Attestation.stop_collecting(duty.subnet_id) do
       {:ok, attestations} ->
-        log_md = [slot: duty.slot, attestations: attestations]
+        log_md = [slot: slot, attestations: attestations]
         log_debug(validator_index, "publishing aggregate", log_md)
 
         aggregate_attestations(attestations)
@@ -163,12 +164,11 @@ defmodule LambdaEthereumConsensus.Validator do
     %Types.SignedAggregateAndProof{message: aggregate_and_proof, signature: signature}
   end
 
-  defp produce_attestation(duty, head_root, privkey) do
+  defp produce_attestation(duty, slot, head_root, privkey) do
     %{
       index_in_committee: index_in_committee,
       committee_length: committee_length,
-      committee_index: committee_index,
-      slot: slot
+      committee_index: committee_index
     } = duty
 
     head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)

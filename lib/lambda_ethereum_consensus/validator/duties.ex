@@ -16,7 +16,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           selection_proof: Bls.signature(),
           signing_domain: Types.domain(),
           subnet_id: Types.uint64(),
-          slot: Types.slot(),
           validator_index: Types.validator_index(),
           committee_index: Types.uint64(),
           committee_length: Types.uint64(),
@@ -51,16 +50,13 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
          {start_slot, end_slot} <- boundary_slots(epoch) do
       committee_count_per_slot = Accessors.get_committee_count_per_slot(state, epoch)
 
-      start_slot..end_slot
-      |> Enum.flat_map(fn slot ->
-        0..(committee_count_per_slot - 1)
-        |> Enum.flat_map(&compute_duties_per_committee(state, epoch, slot, validators, &1))
-        |> case do
-          [] -> []
-          duties -> [{slot, duties}]
-        end
-      end)
-      |> Map.new()
+      for slot <- start_slot..end_slot,
+          committee_i <- 0..(committee_count_per_slot - 1),
+          reduce: %{} do
+        acc ->
+          new_duties = compute_duties_per_committee(state, epoch, slot, validators, committee_i)
+          Map.update(acc, slot, new_duties, &(new_duties ++ &1))
+      end
     end
   end
 
@@ -71,15 +67,14 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
             validator = Map.get(validators, validator_index),
             duty =
               %{
-                slot: slot,
                 validator_index: validator_index,
                 index_in_committee: index_in_committee,
                 committee_length: length(committee),
                 committee_index: committee_index,
                 attested?: false
               }
-              |> update_with_aggregation_duty(state, validator.keystore.privkey)
-              |> update_with_subnet_id(state, epoch) do
+              |> update_with_aggregation_duty(state, slot, validator.keystore.privkey)
+              |> update_with_subnet_id(state, epoch, slot) do
           duty
         end
 
@@ -88,11 +83,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
-  defp update_with_aggregation_duty(duty, beacon_state, privkey) do
-    proof = Utils.get_slot_signature(beacon_state, duty.slot, privkey)
+  defp update_with_aggregation_duty(duty, beacon_state, slot, privkey) do
+    proof = Utils.get_slot_signature(beacon_state, slot, privkey)
 
     if Utils.aggregator?(proof, duty.committee_length) do
-      epoch = Misc.compute_epoch_at_slot(duty.slot)
+      epoch = Misc.compute_epoch_at_slot(slot)
       domain = Accessors.get_domain(beacon_state, Constants.domain_aggregate_and_proof(), epoch)
 
       Map.put(duty, :should_aggregate?, true)
@@ -103,11 +98,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
-  defp update_with_subnet_id(duty, beacon_state, epoch) do
+  defp update_with_subnet_id(duty, beacon_state, epoch, slot) do
     committees_per_slot = Accessors.get_committee_count_per_slot(beacon_state, epoch)
 
     subnet_id =
-      Utils.compute_subnet_for_attestation(committees_per_slot, duty.slot, duty.committee_index)
+      Utils.compute_subnet_for_attestation(committees_per_slot, slot, duty.committee_index)
 
     Map.put(duty, :subnet_id, subnet_id)
   end
