@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           discovery_addresses: [String.t()]
         }
 
-  @sync_delay_millis 10_000
+  @sync_delay_millis 20_000
 
   ######################
   ### API

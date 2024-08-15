@@ -20,7 +20,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Attestation
   alias Types.BlockInfo
-  alias Types.Checkpoint
   alias Types.Store
 
   ##########################
@@ -61,9 +60,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         :telemetry.execute([:sync, :on_block], %{slot: slot})
         Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
 
-        :telemetry.span([:fork_choice, :recompute_head], %{}, fn ->
-          {recompute_head(new_store), %{}}
-        end)
+        new_store =
+          :telemetry.span([:fork_choice, :recompute_head], %{}, fn ->
+            {recompute_head(new_store), %{}}
+          end)
 
         %Store{finalized_checkpoint: new_finalized_checkpoint} = new_store
 
@@ -178,7 +178,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   defp prune_old_states(last_finalized_epoch, new_finalized_epoch) do
     if last_finalized_epoch < new_finalized_epoch do
       new_finalized_slot =
-        new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+        Misc.compute_start_slot_at_epoch(new_finalized_epoch)
 
       Task.Supervisor.start_child(
         PruneStatesSupervisor,
@@ -259,7 +259,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end)
   end
 
-  @spec recompute_head(Store.t()) :: :ok
+  @spec recompute_head(Store.t()) :: Store.t()
   def recompute_head(store) do
     {:ok, head_root} = Head.get_head(store)
     head_block = Blocks.get_block!(head_root)
@@ -272,16 +272,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     Libp2pPort.notify_new_head(slot, head_root)
     ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
 
-    update_fork_choice_data(
-      head_root,
-      slot,
-      store.justified_checkpoint,
-      store.finalized_checkpoint
-    )
-
     Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
 
-    :ok
+    %{
+      store
+      | head_root: head_root,
+        head_slot: slot
+    }
   end
 
   defp persist_store(store) do
@@ -301,21 +298,5 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     Misc.compute_epoch_at_slot(slot)
     |> ChainSpec.get_fork_version_for_epoch()
     |> Misc.compute_fork_digest(genesis_validators_root)
-  end
-
-  @spec update_fork_choice_data(Types.root(), Types.slot(), Checkpoint.t(), Checkpoint.t()) ::
-          :ok
-  defp update_fork_choice_data(head_root, head_slot, justified, finalized) do
-    store = fetch_store!()
-
-    new_store = %{
-      store
-      | head_root: head_root,
-        head_slot: head_slot,
-        justified_checkpoint: justified,
-        finalized_checkpoint: finalized
-    }
-
-    persist_store(new_store)
   end
 end
