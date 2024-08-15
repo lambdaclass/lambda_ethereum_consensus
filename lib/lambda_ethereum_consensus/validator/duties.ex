@@ -55,7 +55,10 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
       |> Enum.flat_map(fn slot ->
         0..(committee_count_per_slot - 1)
         |> Enum.flat_map(&compute_duties_per_committee(state, epoch, slot, validators, &1))
-        |> Enum.map(&{slot, &1})
+        |> case do
+          [] -> []
+          duties -> [{slot, duties}]
+        end
       end)
       |> Map.new()
     end
