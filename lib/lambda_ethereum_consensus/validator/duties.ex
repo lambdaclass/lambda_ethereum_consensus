@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Utils
   alias LambdaEthereumConsensus.ValidatorSet
   alias Types.BeaconState
@@ -36,15 +35,12 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   def compute_proposers_for_epoch(%BeaconState{} = state, epoch, validators) do
     with {:ok, epoch} <- check_valid_epoch(state, epoch),
          {start_slot, end_slot} <- boundary_slots(epoch) do
-      start_slot..end_slot
-      |> Enum.flat_map(fn slot ->
-        {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state, slot)
-
-        if Map.has_key?(validators, proposer_index),
-          do: [{slot, proposer_index}],
-          else: []
-      end)
-      |> Map.new()
+      for slot <- start_slot..end_slot,
+          {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state, slot),
+          Map.has_key?(validators, proposer_index),
+          into: %{} do
+        {slot, proposer_index}
+      end
     end
   end
 
@@ -58,56 +54,34 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
       start_slot..end_slot
       |> Enum.flat_map(fn slot ->
         0..(committee_count_per_slot - 1)
-        |> Enum.flat_map(&compute_attester_duties(state, epoch, slot, validators, &1))
+        |> Enum.flat_map(&compute_duties_per_committee(state, epoch, slot, validators, &1))
+        |> Enum.map(&{slot, &1})
       end)
       |> Map.new()
     end
   end
 
-  @spec compute_attester_duties(
-          state :: BeaconState.t(),
-          epoch :: Types.epoch(),
-          slot :: Types.slot(),
-          validators :: %{Types.validator_index() => Validator.t()},
-          committee_index :: Types.uint64()
-        ) :: [{Types.slot(), attester_duty()}]
-  defp compute_attester_duties(state, epoch, slot, validators, committee_index) do
+  defp compute_duties_per_committee(state, epoch, slot, validators, committee_index) do
     case Accessors.get_beacon_committee(state, slot, committee_index) do
       {:ok, committee} ->
-        compute_cometee_duties(state, epoch, slot, committee, committee_index, validators)
+        for {validator_index, index_in_committee} <- Enum.with_index(committee),
+            validator = Map.get(validators, validator_index),
+            duty =
+              %{
+                slot: slot,
+                validator_index: validator_index,
+                index_in_committee: index_in_committee,
+                committee_length: length(committee),
+                committee_index: committee_index,
+                attested?: false
+              }
+              |> update_with_aggregation_duty(state, validator.keystore.privkey)
+              |> update_with_subnet_id(state, epoch) do
+          duty
+        end
 
       {:error, _} ->
         []
-    end
-  end
-
-  defp compute_cometee_duties(state, epoch, slot, committee, committee_index, validators) do
-    committee
-    |> Stream.with_index()
-    |> Stream.flat_map(fn {validator_index, index_in_committee} ->
-      case Map.get(validators, validator_index) do
-        nil ->
-          []
-
-        validator ->
-          [
-            %{
-              slot: slot,
-              validator_index: validator_index,
-              index_in_committee: index_in_committee,
-              committee_length: length(committee),
-              committee_index: committee_index,
-              attested?: false
-            }
-            |> update_with_aggregation_duty(state, validator.keystore.privkey)
-            |> update_with_subnet_id(state, epoch)
-          ]
-      end
-    end)
-    |> Enum.into([])
-    |> case do
-      [] -> []
-      duties -> [{slot, duties}]
     end
   end
 

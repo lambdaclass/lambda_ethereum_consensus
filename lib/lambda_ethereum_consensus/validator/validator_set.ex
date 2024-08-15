@@ -145,6 +145,10 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
       "[Validator] Proposer duties for epoch #{epoch} are: #{inspect(proposers, pretty: true)}"
     )
 
+    Logger.info(
+      "[Validator] Attester duties for epoch #{epoch} are: #{inspect(attesters, pretty: true)}"
+    )
+
     %{epoch => %{proposers: proposers, attesters: attesters}}
   end
 
