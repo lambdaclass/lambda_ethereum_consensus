@@ -29,6 +29,7 @@ defmodule LambdaEthereumConsensus.Application do
   @impl true
   def config_change(changed, _new, removed) do
     BeaconApi.Endpoint.config_change(changed, removed)
+    KeyStoreApi.Endpoint.config_change(changed, removed)
     :ok
   end
 
@@ -46,6 +47,7 @@ defmodule LambdaEthereumConsensus.Application do
     get_children(:db) ++
       [
         BeaconApi.Endpoint,
+        KeyStoreApi.Endpoint,
         LambdaEthereumConsensus.PromEx,
         LambdaEthereumConsensus.Beacon.BeaconNode
       ]
