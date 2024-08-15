@@ -8,7 +8,6 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.BlockDownloader
-  alias LambdaEthereumConsensus.StateTransition.Misc
 
   @blocks_per_chunk 16
   @retries 50
@@ -23,9 +22,8 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   """
   @spec run() :: non_neg_integer()
   def run() do
-    # Initial sleep for faster app start
-    checkpoint = ForkChoice.get_finalized_checkpoint()
-    initial_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch) + 1
+    %{head_slot: head_slot} = ForkChoice.get_current_status_message()
+    initial_slot = head_slot + 1
     last_slot = ForkChoice.get_current_chain_slot()
 
     # If we're around genesis, we consider ourselves synced
