@@ -224,7 +224,7 @@ As stated in the `ethereum-package` README:
 
 After kurtosis is installed, we need to do three setup steps.
 
-1. Clone the lambdaclass ethereum-package fork and checkout a particular branch
+1. Download the lambdaclass ethereum-package fork submodule's content.
 2. Copy our Grafana custom dashboards to be able to look at them
 3. Build the Docker image of the service
 
@@ -238,11 +238,10 @@ or executed each at a time
 
 ```bash 
 make kurtosis.setup.ethereum-package
-# git clone https://github.com/lambdaclass/ethereum-package.git ../ethereum-package && \
-# cd ../ethereum-package && git checkout lecc-integration
+# git submodule update --init --recursive
 
 make kurtosis.setup.grafana
-# cp -r ./metrics/grafana/provisioning/dashboards/* ../ethereum-package/static_files/grafana-config/dashboards/lambdaconsensus
+# cp -r ./metrics/grafana/provisioning/dashboards/* ./ethereum-package/static_files/grafana-config/dashboards/lambdaconsensus
 
 make kurtosis.setup.lambdaconsensus
 # docker build --build-arg IEX_ARGS="--sname lambdaconsensus --cookie secret" -t lambda_ethereum_consensus .
@@ -254,7 +253,6 @@ make kurtosis.setup.lambdaconsensus
 After that, we will be ready to tweak the configuration.
 
 ```bash
-# assumming you are still in the lambda_ethereum_consensus repo, you can modify the configuration through
 vim network_params.yaml
 ```
 
@@ -283,7 +281,7 @@ For starting the local environment after the setup run:
 make kurtosis.start
 
 # which executes
-kurtosis run --enclave lambdanet ../ethereum-package --args-file network_params.yaml
+kurtosis run --enclave lambdanet ./ethereum-package --args-file network_params.yaml
 ```
 
 Then, you can connect to the service (running docker instance) with the following:
