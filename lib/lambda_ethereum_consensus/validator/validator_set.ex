@@ -10,7 +10,6 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   require Logger
 
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Duties
 
@@ -48,7 +47,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     epoch = Misc.compute_epoch_at_slot(slot)
 
     set
-    |> update_state(epoch, head_root)
+    |> update_state(epoch, slot, head_root)
     |> attest(epoch, slot, head_root)
     |> build_next_payload(epoch, slot, head_root)
   end
@@ -66,30 +65,22 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
     epoch = Misc.compute_epoch_at_slot(slot)
 
-    process_tick(set, epoch, slot_data)
+    set
+    |> update_state(epoch, slot, head_root)
+    |> process_tick(epoch, slot_data)
   end
 
-  @spec process_tick(t(), Types.epoch(), tuple()) :: t()
-  def process_tick(%{head_root: head_root} = set, epoch, {slot, :first_third}) do
-    set
-    |> update_state(epoch, head_root)
-    |> propose(epoch, slot, head_root)
-  end
+  defp process_tick(%{head_root: head_root} = set, epoch, {slot, :first_third}),
+    do: propose(set, epoch, slot, head_root)
 
-  @spec process_tick(t(), Types.epoch(), tuple()) :: t()
-  def process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
+  defp process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
     set
-    |> update_state(epoch, head_root)
     |> attest(epoch, slot, head_root)
     |> build_next_payload(epoch, slot, head_root)
   end
 
-  @spec process_tick(t(), Types.epoch(), tuple()) :: t()
-  def process_tick(%{head_root: head_root} = set, epoch, {slot, :last_third}) do
-    set
-    |> update_state(epoch, head_root)
-    |> publish_aggregate(epoch, slot)
-  end
+  defp process_tick(set, epoch, {slot, :last_third}),
+    do: publish_aggregate(set, epoch, slot)
 
   ##############################
   # Setup
@@ -108,46 +99,41 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     epoch = Misc.compute_epoch_at_slot(slot)
 
     # This will be removed later when refactoring Validator new
-    beacon = fetch_target_beaconstate!(epoch, head_root)
+    beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
 
     validators =
       Map.new(validator_keystores, fn keystore ->
-        validator = Validator.new(keystore, epoch, slot, head_root, beacon)
+        validator = Validator.new(keystore, beacon)
         {validator.index, validator}
       end)
 
     Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
 
     %__MODULE__{validators: validators}
-    |> update_state(epoch, head_root)
+    |> update_state(epoch, slot, head_root)
   end
 
   ##############################
   # State update
 
-  defp update_state(set, epoch, head_root) do
+  defp update_state(set, epoch, slot, head_root) do
     set
     |> update_head(head_root)
-    |> compute_duties(epoch, head_root)
+    |> compute_duties(epoch, slot, head_root)
   end
 
   defp update_head(%{head_root: head_root} = set, head_root), do: set
   defp update_head(set, head_root), do: %{set | head_root: head_root}
 
-  defp compute_duties(set, epoch, _head_root)
+  defp compute_duties(set, epoch, _slot, _head_root)
        when not is_nil(:erlang.map_get(epoch, set.duties)),
        do: set
 
-  defp compute_duties(set, epoch, head_root) do
+  defp compute_duties(set, epoch, slot, head_root) do
     epoch
-    |> fetch_target_beaconstate!(head_root)
+    |> Validator.fetch_target_state_and_go_to_slot(slot, head_root)
     |> compute_duties_for_epoch!(epoch, set.validators)
     |> merge_duties_and_prune(epoch, set)
-  end
-
-  defp fetch_target_beaconstate!(epoch, head_root) do
-    {:ok, beaconstate} = CheckpointStates.compute_target_checkpoint_state(epoch, head_root)
-    beaconstate
   end
 
   defp compute_duties_for_epoch!(beacon, epoch, validators) do

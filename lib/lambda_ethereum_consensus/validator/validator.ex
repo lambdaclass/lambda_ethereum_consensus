@@ -5,8 +5,6 @@ defmodule LambdaEthereumConsensus.Validator do
   require Logger
 
   defstruct [
-    :epoch,
-    :duties,
     :index,
     :keystore,
     :payload_builder
@@ -33,162 +31,64 @@ defmodule LambdaEthereumConsensus.Validator do
   # TODO: Slot and Root are redundant, we should also have the duties separated and calculated
   # just at the begining of every epoch, and then just update them as needed.
   @type t :: %__MODULE__{
-          epoch: Types.epoch(),
-          duties: Duties.duties(),
           index: non_neg_integer() | nil,
           keystore: Keystore.t(),
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
 
-  @spec new(
-          Keystore.t(),
-          Types.slot(),
-          Types.root()
-        ) :: t()
+  @spec new(Keystore.t(), Types.slot(), Types.root()) :: t()
   def new(keystore, head_slot, head_root) do
     epoch = Misc.compute_epoch_at_slot(head_slot)
-    beacon = fetch_target_state(epoch, head_root) |> go_to_slot(head_slot)
+    beacon = fetch_target_state_and_go_to_slot(epoch, head_slot, head_root)
 
-    new(keystore, epoch, head_slot, head_root, beacon)
+    new(keystore, beacon)
   end
 
-  @spec new(
-          Keystore.t(),
-          Types.epoch(),
-          Types.slot(),
-          Types.root(),
-          Types.BeaconState.t()
-        ) :: t()
-  def new(keystore, epoch, head_slot, head_root, beacon) do
+  @spec new(Keystore.t(), Types.BeaconState.t()) :: t()
+  def new(keystore, beacon) do
     state = %__MODULE__{
-      epoch: epoch,
-      duties: Duties.empty_duties(),
       index: nil,
       keystore: keystore,
       payload_builder: nil
     }
 
-    case try_setup_validator(state, epoch, head_slot, head_root, beacon) do
-      nil ->
-        # TODO: Previously this was handled by the validator continously trying to setup itself,
-        # but now that they are processed syncronously, we should handle this case different.
-        # Right now it's just omitted and logged.
-        Logger.error("[Validator] Public key not found in the validator set")
-        state
-
-      new_state ->
-        new_state
-    end
-  end
-
-  @spec try_setup_validator(
-          t(),
-          Types.epoch(),
-          Types.slot(),
-          Types.root(),
-          Types.BeaconState.t()
-        ) :: t() | nil
-  defp try_setup_validator(state, epoch, slot, root, beacon) do
     case fetch_validator_index(beacon, state.keystore.pubkey) do
       nil ->
-        nil
+        Logger.warning(
+          "[Validator] Public key #{state.keystore.pubkey} not found in the validator set"
+        )
+
+        state
 
       validator_index ->
-        log_info(validator_index, "setup validator", slot: slot, root: root)
-
-        duties =
-          Duties.maybe_update_duties(
-            state.duties,
-            beacon,
-            epoch,
-            validator_index,
-            state.keystore.privkey
-          )
-
-        join_subnets_for_duties(duties)
-        Duties.log_duties(duties, validator_index)
-        %{state | duties: duties, index: validator_index}
+        log_debug(validator_index, "Setup completed")
+        %{state | index: validator_index}
     end
   end
 
   ##########################
-  ### Private Functions
-  ##########################
+  # Target State
 
-  # @spec update_state(t(), Types.slot(), Types.root()) :: t()
+  @spec fetch_target_state_and_go_to_slot(Types.epoch(), Types.slot(), Types.root()) ::
+          Types.BeaconState.t()
+  def fetch_target_state_and_go_to_slot(epoch, slot, root) do
+    epoch |> fetch_target_state(root) |> go_to_slot(slot)
+  end
 
-  # defp update_state(%{slot: slot, root: root} = state, slot, root), do: state
-
-  # # Epoch as part of the state now avoids recomputing the duties at every block
-  # defp update_state(%{epoch: last_epoch} = state, slot, head_root) do
-  #   epoch = Misc.compute_epoch_at_slot(slot + 1)
-
-  #   if last_epoch == epoch do
-  #     state
-  #   else
-  #     recompute_duties(state, last_epoch, epoch, slot, head_root)
-  #   end
-  # end
-
-  # @spec recompute_duties(t(), Types.epoch(), Types.epoch(), Types.slot(), Types.root()) :: t()
-  # defp recompute_duties(state, last_epoch, epoch, _slot, head_root) do
-  #   start_slot = Misc.compute_start_slot_at_epoch(epoch)
-
-  #   # TODO: Why is this needed? something here seems wrong, why would i need to move to a different slot if
-  #   # I'm calculating this at a new epoch? need to check it
-  #   # target_root = if slot == start_slot, do: head_root, else: last_root
-
-  #   # Process the start of the new epoch
-  #   # new_beacon = fetch_target_state(epoch, target_root) |> go_to_slot(start_slot)
-  #   new_beacon = fetch_target_state(epoch, head_root) |> go_to_slot(start_slot)
-
-  #   new_duties =
-  #     Duties.shift_duties(state.duties, epoch, last_epoch)
-  #     |> Duties.maybe_update_duties(new_beacon, epoch, state.index, state.keystore.privkey)
-
-  #   move_subnets(state.duties, new_duties)
-  #   Duties.log_duties(new_duties, state.index)
-
-  #   %{state | duties: new_duties, epoch: epoch}
-  # end
-
-  @spec fetch_target_state(Types.epoch(), Types.root()) :: Types.BeaconState.t()
   defp fetch_target_state(epoch, root) do
     {:ok, state} = CheckpointStates.compute_target_checkpoint_state(epoch, root)
     state
   end
 
-  defp join_subnets_for_duties(%{attester: duties}) do
-    duties |> get_subnet_ids() |> join()
+  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
+
+  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot < slot do
+    {:ok, st} = StateTransition.process_slots(state, slot)
+    st
   end
 
-  defp get_subnet_ids(duties),
-    do: duties |> Stream.reject(&(&1 == :not_computed)) |> Enum.map(& &1.subnet_id)
-
-  # defp move_subnets(%{attester: old_duties}, %{attester: new_duties}) do
-  #   old_subnets = old_duties |> get_subnet_ids() |> MapSet.new()
-  #   new_subnets = new_duties |> get_subnet_ids() |> MapSet.new()
-
-  #   # leave old subnets (except for recurring ones)
-  #   MapSet.difference(old_subnets, new_subnets) |> leave()
-
-  #   # join new subnets (except for recurring ones)
-  #   MapSet.difference(new_subnets, old_subnets) |> join()
-  # end
-
-  defp join(subnets) do
-    if not Enum.empty?(subnets) do
-      Logger.debug("Joining subnets: #{Enum.join(subnets, ", ")}")
-      Enum.each(subnets, &Gossip.Attestation.join/1)
-    end
-  end
-
-  # defp leave(subnets) do
-  #   if not Enum.empty?(subnets) do
-  #     Logger.debug("Leaving subnets: #{Enum.join(subnets, ", ")}")
-  #     Enum.each(subnets, &Gossip.Attestation.leave/1)
-  #   end
-  # end
+  ##########################
+  # Attestations
 
   @spec attest(t(), Duties.attester_duty(), Types.root()) :: :ok
   def attest(%{index: validator_index, keystore: keystore}, current_duty, head_root) do
@@ -202,7 +102,7 @@ defmodule LambdaEthereumConsensus.Validator do
     debug_log_msg =
       "publishing attestation on committee index: #{current_duty.committee_index} | as #{current_duty.index_in_committee}/#{current_duty.committee_length - 1} and pubkey: #{LambdaEthereumConsensus.Utils.format_shorten_binary(keystore.pubkey)}"
 
-    log_debug(validator_index, debug_log_msg, log_md)
+    log_info(validator_index, debug_log_msg, log_md)
 
     Gossip.Attestation.publish(subnet_id, attestation)
     |> log_info_result(validator_index, "published attestation", log_md)
@@ -305,22 +205,14 @@ defmodule LambdaEthereumConsensus.Validator do
     }
   end
 
-  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
-
-  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot < slot do
-    {:ok, st} = StateTransition.process_slots(state, slot)
-    st
-  end
-
-  defp go_to_slot(%{latest_block_header: %{parent_root: parent_root}}, slot) do
-    BlockStates.get_state_info!(parent_root).beacon_state |> go_to_slot(slot)
-  end
-
   @spec fetch_validator_index(Types.BeaconState.t(), Bls.pubkey()) ::
           non_neg_integer() | nil
   defp fetch_validator_index(beacon, pubkey) do
     Enum.find_index(beacon.validators, &(&1.pubkey == pubkey))
   end
+
+  ################################
+  # Payload building and proposing
 
   @spec start_payload_builder(t(), Types.slot(), Types.root()) :: t()
   def start_payload_builder(%{payload_builder: {slot, root, _}} = state, slot, root), do: state
@@ -380,7 +272,6 @@ defmodule LambdaEthereumConsensus.Validator do
     %{state | payload_builder: nil}
   end
 
-  # TODO: at least in kurtosis there are blocks that are proposed without a payload apparently, must investigate.
   def propose(%{payload_builder: nil} = state, _proposed_slot, _head_root) do
     log_error(state.index, "propose block", "lack of execution payload")
     state
@@ -426,7 +317,8 @@ defmodule LambdaEthereumConsensus.Validator do
     rem(blob_index, ChainSpec.get("BLOB_SIDECAR_SUBNET_COUNT"))
   end
 
-  # Some Log Helpers to avoid repetition
+  ################################
+  # Log Helpers
 
   defp log_info_result(result, index, message, metadata),
     do: log_result(result, :info, index, message, metadata)
@@ -440,7 +332,7 @@ defmodule LambdaEthereumConsensus.Validator do
   defp log_info(index, message, metadata \\ []),
     do: Logger.info("[Validator] #{index} #{message}", metadata)
 
-  defp log_debug(index, message, metadata),
+  defp log_debug(index, message, metadata \\ []),
     do: Logger.debug("[Validator] #{index} #{message}", metadata)
 
   defp log_error(index, message, reason, metadata \\ []),
