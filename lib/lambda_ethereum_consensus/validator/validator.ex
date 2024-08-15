@@ -28,10 +28,10 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @default_graffiti_message "Lambda, so gentle, so good"
 
-  # TODO: Slot and Root are redundant, we should also have the duties separated and calculated
-  # just at the begining of every epoch, and then just update them as needed.
+  @type index :: non_neg_integer()
+
   @type t :: %__MODULE__{
-          index: non_neg_integer() | nil,
+          index: index() | nil,
           keystore: Keystore.t(),
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
@@ -102,7 +102,7 @@ defmodule LambdaEthereumConsensus.Validator do
     debug_log_msg =
       "publishing attestation on committee index: #{current_duty.committee_index} | as #{current_duty.index_in_committee}/#{current_duty.committee_length - 1} and pubkey: #{LambdaEthereumConsensus.Utils.format_shorten_binary(keystore.pubkey)}"
 
-    log_info(validator_index, debug_log_msg, log_md)
+    log_debug(validator_index, debug_log_msg, log_md)
 
     Gossip.Attestation.publish(subnet_id, attestation)
     |> log_info_result(validator_index, "published attestation", log_md)

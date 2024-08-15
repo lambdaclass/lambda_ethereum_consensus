@@ -13,7 +13,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Duties
 
-  @type validators :: %{atom() => %{} | []}
+  @type validators :: %{Validator.index() => Validator.t()}
+
   @type t :: %__MODULE__{
           head_root: Types.root() | nil,
           duties: %{
@@ -137,15 +138,11 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp compute_duties_for_epoch!(beacon, epoch, validators) do
-    {:ok, proposers} = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
-    {:ok, attesters} = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
+    proposers = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
+    attesters = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
 
     Logger.info(
       "[Validator] Proposer duties for epoch #{epoch} are: #{inspect(proposers, pretty: true)}"
-    )
-
-    Logger.info(
-      "[Validator] Attester duties for epoch #{epoch} are: #{inspect(attesters, pretty: true)}"
     )
 
     %{epoch => %{proposers: proposers, attesters: attesters}}
