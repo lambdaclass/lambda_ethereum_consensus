@@ -90,7 +90,8 @@ Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-end
 > The data retrieved from the URL is stored in the DB once the node is initiated (i.e. the iex prompt shows).
 > Once this happens, following runs of `make iex` will start the node using that data.
 
-### Beacon API
+### APIs
+#### Beacon API
 
 You can start the application with the Beacon API on the default port `4000` running:
 ```shell
@@ -100,7 +101,27 @@ make start
 You can also specify a port with the "--beacon-api-port" flag:
 
 ```shell
-iex -S mix run -- --beacon-api --beacon-api-port <your_port_here>
+iex -S mix run --  --beacon-api-port <your_port_here>
+```
+> [!WARNING]
+> In case checkpoint-sync is needed, following the instructions above will end immediately with an error (see [Checkpoint Sync](#checkpoint-sync)).
+>
+
+#### Key-Manager API
+
+Implemented following the [Ethereum specification](https://ethereum.github.io/keymanager-APIs/#/).
+
+You can start the application with the key manager API on the default port `5000` running:
+
+```shell
+iex -S mix run -- --validator-api
+```
+
+
+You can also specify a port with the "--validator-api-port" flag:
+
+```shell
+iex -S mix run -- --validator-api-port <your_port_here>
 ```
 > [!WARNING]
 > In case checkpoint-sync is needed, following the instructions above will end immediately with an error (see [Checkpoint Sync](#checkpoint-sync)).
@@ -203,7 +224,7 @@ As stated in the `ethereum-package` README:
 
 After kurtosis is installed, we need to do three setup steps.
 
-1. Clone the lambdaclass ethereum-package fork and checkout a particular branch
+1. Download the lambdaclass ethereum-package fork submodule's content.
 2. Copy our Grafana custom dashboards to be able to look at them
 3. Build the Docker image of the service
 
@@ -217,11 +238,10 @@ or executed each at a time
 
 ```bash 
 make kurtosis.setup.ethereum-package
-# git clone https://github.com/lambdaclass/ethereum-package.git ../ethereum-package && \
-# cd ../ethereum-package && git checkout lecc-integration
+# git submodule update --init --recursive
 
 make kurtosis.setup.grafana
-# cp -r ./metrics/grafana/provisioning/dashboards/* ../ethereum-package/static_files/grafana-config/dashboards/lambdaconsensus
+# cp -r ./metrics/grafana/provisioning/dashboards/* ./ethereum-package/static_files/grafana-config/dashboards/lambdaconsensus
 
 make kurtosis.setup.lambdaconsensus
 # docker build --build-arg IEX_ARGS="--sname lambdaconsensus --cookie secret" -t lambda_ethereum_consensus .
@@ -233,7 +253,6 @@ make kurtosis.setup.lambdaconsensus
 After that, we will be ready to tweak the configuration.
 
 ```bash
-# assumming you are still in the lambda_ethereum_consensus repo, you can modify the configuration through
 vim network_params.yaml
 ```
 
@@ -250,6 +269,7 @@ participants:
     use_separate_vc: false
     count: 1
     cl_max_mem: 4096
+    keymanager_enabled: true
 ```
 
 ### Kurtosis Execution and Make tasks
@@ -261,7 +281,7 @@ For starting the local environment after the setup run:
 make kurtosis.start
 
 # which executes
-kurtosis run --enclave lambdanet ../ethereum-package --args-file network_params.yaml
+kurtosis run --enclave lambdanet ./ethereum-package --args-file network_params.yaml
 ```
 
 Then, you can connect to the service (running docker instance) with the following:

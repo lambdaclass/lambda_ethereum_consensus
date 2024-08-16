@@ -6,7 +6,7 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
   require Logger
   alias LambdaEthereumConsensus.Validator
 
-  @spec init(Types.slot(), Types.root()) :: %{Bls.pubkey() => Validator.state()}
+  @spec init(Types.slot(), Types.root()) :: %{Bls.pubkey() => Validator.t()}
   def init(slot, head_root) do
     config = Application.get_env(:lambda_ethereum_consensus, __MODULE__, [])
     keystore_dir = Keyword.get(config, :keystore_dir)
@@ -25,12 +25,12 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
   end
 
   defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
-    validator_keys = decode_validator_keys(keystore_dir, keystore_pass_dir)
+    validator_keystores = decode_validator_keystores(keystore_dir, keystore_pass_dir)
 
     validators =
-      validator_keys
-      |> Enum.map(fn {pubkey, privkey} ->
-        {pubkey, Validator.new({slot, head_root, {pubkey, privkey}})}
+      validator_keystores
+      |> Enum.map(fn keystore ->
+        {keystore.pubkey, Validator.new({slot, head_root, keystore})}
       end)
       |> Map.new()
 
@@ -40,14 +40,14 @@ defmodule LambdaEthereumConsensus.Validator.Setup do
   end
 
   @doc """
-    Get validator keys from the keystore directory.
+    Get validator keystores from the keystore directory.
     This function expects two files for each validator:
       - <keystore_dir>/<public_key>.json
       - <keystore_pass_dir>/<public_key>.txt
   """
-  @spec decode_validator_keys(binary(), binary()) ::
-          list({Bls.pubkey(), Bls.privkey()})
-  def decode_validator_keys(keystore_dir, keystore_pass_dir)
+  @spec decode_validator_keystores(binary(), binary()) ::
+          list(Keystore.t())
+  def decode_validator_keystores(keystore_dir, keystore_pass_dir)
       when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
     File.ls!(keystore_dir)
     |> Enum.map(fn filename ->

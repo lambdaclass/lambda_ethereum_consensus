@@ -72,7 +72,8 @@ defmodule Unit.KeystoreTest do
         })
 
   test "eip scrypt test vector" do
-    {pubkey, privkey} = Keystore.decode_str!(@scrypt_json, @eip_password)
+    %Keystore{pubkey: pubkey, privkey: privkey, path: _path} =
+      Keystore.decode_str!(@scrypt_json, @eip_password)
 
     assert privkey == @eip_secret
     assert pubkey == @pubkey
@@ -83,7 +84,8 @@ defmodule Unit.KeystoreTest do
   end
 
   test "eip pbkdf2 test vector" do
-    {pubkey, privkey} = Keystore.decode_str!(@pbkdf2_json, @eip_password)
+    %Keystore{pubkey: pubkey, privkey: privkey, path: _path} =
+      Keystore.decode_str!(@pbkdf2_json, @eip_password)
 
     assert privkey == @eip_secret
     assert pubkey == @pubkey
@@ -99,7 +101,8 @@ defmodule Unit.KeystoreTest do
       |> Map.delete("pubkey")
       |> Jason.encode!()
 
-    {pubkey, privkey} = Keystore.decode_str!(scrypt_json, @eip_password)
+    %Keystore{pubkey: pubkey, privkey: privkey, path: _path} =
+      Keystore.decode_str!(scrypt_json, @eip_password)
 
     assert privkey == @eip_secret
     assert pubkey == @pubkey
@@ -115,7 +118,8 @@ defmodule Unit.KeystoreTest do
       |> Map.delete("pubkey")
       |> Jason.encode!()
 
-    {pubkey, privkey} = Keystore.decode_str!(pbkdf2_json, @eip_password)
+    %Keystore{pubkey: pubkey, privkey: privkey, path: _path} =
+      Keystore.decode_str!(pbkdf2_json, @eip_password)
 
     assert privkey == @eip_secret
     assert pubkey == @pubkey

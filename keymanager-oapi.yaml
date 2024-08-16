@@ -1,0 +1,1455 @@
+openapi: 3.0.3
+info:
+  title: Eth2 key manager API
+  description: |
+    API specification for a key manager client, which enables users to manage keystores.
+
+    The key manager API is served by the binary holding the validator keys. This binary may be a remote signer or a validator client.
+
+    All routes SHOULD be exposed through a secure channel, such as with HTTPs, an SSH tunnel, a VPN, etc.
+
+    All requests by default send and receive JSON, and as such should have either or both of the "Content-Type: application/json"
+    and "Accept: application/json" headers.
+
+    All sensitive routes are to be authenticated with a token. This token should be provided by the user via a secure channel:
+      - Log the token to stdout when running the binary with the key manager API enabled
+      - Read the token from a file available to the binary
+  version: v1.0.0-alpha
+  contact:
+    name: Ethereum Github
+    url: 'https://github.com/ethereum/keymanager-APIs/issues'
+  license:
+    name: Creative Commons Zero v1.0 Universal
+    url: 'https://creativecommons.org/publicdomain/zero/1.0/'
+servers:
+  - url: '{server_url}'
+    variables:
+      server_url:
+        description: key manager API url
+        default: 'https://public-mainnet-node.ethereum.org'
+tags:
+  - name: Fee Recipient
+    description: Set of endpoints for management of fee recipient.
+  - name: Gas Limit
+    description: Set of endpoints for management of gas limits.
+  - name: Local Key Manager
+    description: Set of endpoints for key management of local keys.
+  - name: Remote Key Manager
+    description: Set of endpoints for key management of external keys.
+paths:
+  /eth/v1/keystores:
+    get:
+      operationId: listKeys
+      summary: List Keys.
+      description: |
+        List all validating pubkeys known to and decrypted by this keymanager binary
+      security:
+        - bearerAuth: []
+      tags:
+        - Local Key Manager
+      responses:
+        '200':
+          description: Success response
+          content:
+            application/json:
+              schema:
+                title: ListKeysResponse
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - validating_pubkey
+                      properties:
+                        validating_pubkey:
+                          type: string
+                          pattern: '^0x[a-fA-F0-9]{96}$'
+                          description: |
+                            The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+                          example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+                        derivation_path:
+                          type: string
+                          description: The derivation path (if present in the imported keystore).
+                          example: m/12381/3600/0/0/0
+                        readonly:
+                          type: boolean
+                          description: The key associated with this pubkey cannot be deleted from the API
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+    post:
+      operationId: importKeystores
+      summary: Import Keystores.
+      description: |
+        Import keystores generated by the Eth2.0 deposit CLI tooling. `passwords[i]` must unlock `keystores[i]`.
+
+        Users SHOULD send slashing_protection data associated with the imported pubkeys. MUST follow the format defined in
+        EIP-3076: Slashing Protection Interchange Format.
+      security:
+        - bearerAuth: []
+      tags:
+        - Local Key Manager
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - keystores
+                - passwords
+              properties:
+                keystores:
+                  type: array
+                  description: JSON-encoded keystore files generated with the Launchpad.
+                  items:
+                    type: string
+                    description: |
+                      JSON serialized representation of a single keystore in EIP-2335: BLS12-381 Keystore format.
+                    example: '{"version":4,"uuid":"9f75a3fa-1e5a-49f9-be3d-f5a19779c6fa","path":"m/12381/3600/0/0/0","pubkey":"0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a","crypto":{"kdf":{"function":"pbkdf2","params":{"dklen":32,"c":262144,"prf":"hmac-sha256","salt":"8ff8f22ef522a40f99c6ce07fdcfc1db489d54dfbc6ec35613edf5d836fa1407"},"message":""},"checksum":{"function":"sha256","params":{},"message":"9678a69833d2576e3461dd5fa80f6ac73935ae30d69d07659a709b3cd3eddbe3"},"cipher":{"function":"aes-128-ctr","params":{"iv":"31b69f0ac97261e44141b26aa0da693f"},"message":"e8228bafec4fcbaca3b827e586daad381d53339155b034e5eaae676b715ab05e"}}}'
+                passwords:
+                  type: array
+                  description: 'Passwords to unlock imported keystore files. `passwords[i]` must unlock `keystores[i]`.'
+                  items:
+                    type: string
+                    example: ABCDEFGH01234567ABCDEFGH01234567
+                slashing_protection:
+                  type: string
+                  description: |
+                    JSON serialized representation of the slash protection data in format defined in EIP-3076: Slashing Protection Interchange Format.
+                  example: '{"metadata":{"interchange_format_version":"5","genesis_validators_root":"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2"},"data":[{"pubkey":"0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a","signed_blocks":[],"signed_attestations":[]}]}'
+      responses:
+        '200':
+          description: Success response
+          content:
+            application/json:
+              schema:
+                title: ImportKeystoresResponse
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    description: Status result of each `request.keystores` with same length and order of `request.keystores`
+                    items:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                          description: |
+                            - imported: Keystore successfully decrypted and imported to keymanager permanent storage
+                            - duplicate: Keystore's pubkey is already known to the keymanager
+                            - error: Any other status different to the above: decrypting error, I/O errors, etc.
+                          enum:
+                            - imported
+                            - duplicate
+                            - error
+                          example: imported
+                        message:
+                          type: string
+                          description: error message if status == error
+        '400':
+          description: Bad request. Request was malformed and could not be processed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+    delete:
+      operationId: deleteKeys
+      summary: Delete Keys.
+      description: |
+        DELETE must delete all keys from `request.pubkeys` that are known to the keymanager and exist in its
+        persistent storage. Additionally, DELETE must fetch the slashing protection data for the requested keys from
+        persistent storage, which must be retained (and not deleted) after the response has been sent. Therefore in the
+        case of two identical delete requests being made, both will have access to slashing protection data.
+
+        In a single atomic sequential operation the keymanager must:
+        1. Guarantee that key(s) can not produce any more signature; only then
+        2. Delete key(s) and serialize its associated slashing protection data
+
+        DELETE should never return a 404 response, even if all pubkeys from request.pubkeys have no extant keystores
+        nor slashing protection data.
+
+        Slashing protection data must only be returned for keys from `request.pubkeys` for which a
+        `deleted` or `not_active` status is returned.
+      security:
+        - bearerAuth: []
+      tags:
+        - Local Key Manager
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pubkeys
+              properties:
+                pubkeys:
+                  type: array
+                  description: List of public keys to delete.
+                  items:
+                    type: string
+                    pattern: '^0x[a-fA-F0-9]{96}$'
+                    description: |
+                      The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+                    example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+      responses:
+        '200':
+          description: Success response
+          content:
+            application/json:
+              schema:
+                title: DeleteKeysResponse
+                type: object
+                required:
+                  - data
+                  - slashing_protection
+                properties:
+                  data:
+                    type: array
+                    description: Deletion status of all keys in `request.pubkeys` in the same order.
+                    items:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                          description: |
+                            - deleted: key was active and removed
+                            - not_active: slashing protection data returned but key was not active
+                            - not_found: key was not found to be removed, and no slashing data can be returned
+                            - error: unexpected condition meant the key could not be removed (the key was actually found, but we couldn't stop using it) - this would be a sign that making it active elsewhere would almost certainly cause you headaches / slashing conditions etc.
+                          enum:
+                            - deleted
+                            - not_active
+                            - not_found
+                            - error
+                          example: deleted
+                        message:
+                          type: string
+                          description: error message if status == error
+                  slashing_protection:
+                    type: string
+                    description: |
+                      JSON serialized representation of the slash protection data in format defined in EIP-3076: Slashing Protection Interchange Format.
+                    example: '{"metadata":{"interchange_format_version":"5","genesis_validators_root":"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2"},"data":[{"pubkey":"0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a","signed_blocks":[],"signed_attestations":[]}]}'
+        '400':
+          description: Bad request. Request was malformed and could not be processed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+  /eth/v1/remotekeys:
+    get:
+      operationId: listRemoteKeys
+      summary: List Remote Keys.
+      description: |
+        List all remote validating pubkeys known to this validator client binary
+      security:
+        - bearerAuth: []
+      tags:
+        - Remote Key Manager
+      responses:
+        '200':
+          description: Success response
+          content:
+            application/json:
+              schema:
+                title: ListRemoteKeysResponse
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - pubkey
+                      properties:
+                        pubkey:
+                          type: string
+                          pattern: '^0x[a-fA-F0-9]{96}$'
+                          description: |
+                            The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+                          example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+                        url:
+                          description: 'URL to API implementing EIP-3030: BLS Remote Signer HTTP API'
+                          type: string
+                          example: 'https://remote.signer'
+                        readonly:
+                          type: boolean
+                          description: The signer associated with this pubkey cannot be deleted from the API
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+    post:
+      operationId: importRemoteKeys
+      summary: Import Remote Keys.
+      description: |
+        Import remote keys for the validator client to request duties for.
+      security:
+        - bearerAuth: []
+      tags:
+        - Remote Key Manager
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - remote_keys
+              properties:
+                remote_keys:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - pubkey
+                    properties:
+                      pubkey:
+                        type: string
+                        pattern: '^0x[a-fA-F0-9]{96}$'
+                        description: |
+                          The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+                        example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+                      url:
+                        description: 'URL to API implementing EIP-3030: BLS Remote Signer HTTP API'
+                        type: string
+                        example: 'https://remote.signer'
+      responses:
+        '200':
+          description: Success response
+          content:
+            application/json:
+              schema:
+                title: ImportRemoteKeysResponse
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    description: Status result of each `request.remote_keys` with same length and order of `request.remote_keys`
+                    items:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                          description: |
+                            - imported: Remote key successfully imported to validator client permanent storage
+                            - duplicate: Remote key's pubkey is already known to the validator client
+                            - error: Any other status different to the above: I/O errors, etc.
+                          enum:
+                            - imported
+                            - duplicate
+                            - error
+                          example: imported
+                        message:
+                          type: string
+                          description: error message if status == error
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+    delete:
+      operationId: deleteRemoteKeys
+      summary: Delete Remote Keys.
+      description: |
+        DELETE must delete all keys from `request.pubkeys` that are known to the validator client and exist in its
+        persistent storage.
+
+        DELETE should never return a 404 response, even if all pubkeys from request.pubkeys have no existing keystores.
+      security:
+        - bearerAuth: []
+      tags:
+        - Remote Key Manager
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pubkeys
+              properties:
+                pubkeys:
+                  type: array
+                  description: List of public keys to delete.
+                  items:
+                    type: string
+                    pattern: '^0x[a-fA-F0-9]{96}$'
+                    description: |
+                      The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+                    example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+      responses:
+        '200':
+          description: Success response
+          content:
+            application/json:
+              schema:
+                title: DeleteRemoteKeysResponse
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: array
+                    description: Deletion status of all keys in `request.pubkeys` in the same order.
+                    items:
+                      type: object
+                      required:
+                        - status
+                      properties:
+                        status:
+                          type: string
+                          description: |
+                            - deleted: key was active and removed
+                            - not_found: key was not found to be removed
+                            - error: unexpected condition meant the key could not be removed (the key was actually found,
+                              but we couldn't stop using it) - this would be a sign that making it active elsewhere would
+                              almost certainly cause you headaches / slashing conditions etc.
+                          enum:
+                            - deleted
+                            - not_found
+                            - error
+                          example: deleted
+                        message:
+                          type: string
+                          description: error message if status == error
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+  '/eth/v1/validator/{pubkey}/feerecipient':
+    get:
+      operationId: listFeeRecipient
+      summary: List Fee Recipient.
+      description: |
+        List the validator public key to eth address mapping for fee recipient feature on a specific public key.
+        The validator public key will return with the default fee recipient address if a specific one was not found.
+
+        WARNING: The fee_recipient is not used on Phase0 or Altair networks.
+      security:
+        - bearerAuth: []
+      tags:
+        - Fee Recipient
+      parameters:
+        - in: path
+          name: pubkey
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{96}$'
+            description: |
+              The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+            example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+          required: true
+      responses:
+        '200':
+          description: success response
+          content:
+            application/json:
+              schema:
+                title: ListFeeRecipientResponse
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - ethaddress
+                    properties:
+                      pubkey:
+                        type: string
+                        pattern: '^0x[a-fA-F0-9]{96}$'
+                        description: |
+                          The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+                        example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+                      ethaddress:
+                        type: string
+                        description: An address on the execution (Ethereum 1) network.
+                        example: '0xabcf8e0d4e9587369b2301d0790347320302cc09'
+                        pattern: '^0x[a-fA-F0-9]{40}$'
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '404':
+          description: Path not found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+    post:
+      operationId: setFeeRecipient
+      summary: Set Fee Recipient.
+      description: |
+        Sets the validator client fee recipient mapping which will then update the beacon node.
+        Existing mappings for the same validator public key will be overwritten.
+        Specific Public keys not mapped will continue to use the default address for fee recipient in accordance to the startup of the validator client and beacon node.
+        Cannot specify the 0x00 fee recipient address through the API.
+
+        WARNING: The fee_recipient is not used on Phase0 or Altair networks.
+      security:
+        - bearerAuth: []
+      tags:
+        - Fee Recipient
+      parameters:
+        - in: path
+          name: pubkey
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{96}$'
+            description: |
+              The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+            example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: SetFeeRecipientRequest
+              type: object
+              required:
+                - ethaddress
+              properties:
+                ethaddress:
+                  type: string
+                  description: An address on the execution (Ethereum 1) network.
+                  example: '0xabcf8e0d4e9587369b2301d0790347320302cc09'
+                  pattern: '^0x[a-fA-F0-9]{40}$'
+      responses:
+        '202':
+          description: successfully updated
+        '400':
+          description: Bad request. Request was malformed and could not be processed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '404':
+          description: Path not found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+    delete:
+      operationId: deleteFeeRecipient
+      summary: Delete Configured Fee Recipient
+      description: Delete a configured fee recipient mapping for the specified public key.
+      security:
+        - bearerAuth: []
+      tags:
+        - Fee Recipient
+      parameters:
+        - in: path
+          name: pubkey
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{96}$'
+            description: |
+              The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+            example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+          required: true
+      responses:
+        '204':
+          description: 'Successfully removed the mapping, or there was no mapping to remove for a key that the server is managing.'
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'A mapping was found, but cannot be removed. This may be because the mapping was in configuration files that cannot be updated.'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '404':
+          description: 'The key was not found on the server, nothing to delete.'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+  '/eth/v1/validator/{pubkey}/gas_limit':
+    get:
+      operationId: getGasLimit
+      summary: Get Gas Limit.
+      description: |
+        Get the execution gas limit for an individual validator. This gas limit is the one used by the
+        validator when proposing blocks via an external builder. If no limit has been set explicitly for
+        a key then the process-wide default will be returned.
+
+        The server may return a 400 status code if no external builder is configured.
+
+        WARNING: The gas_limit is not used on Phase0 or Altair networks.
+      security:
+        - bearerAuth: []
+      tags:
+        - Gas Limit
+      parameters:
+        - in: path
+          name: pubkey
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{96}$'
+            description: |
+              The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+            example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+          required: true
+      responses:
+        '200':
+          description: success response
+          content:
+            application/json:
+              schema:
+                title: ListGasLimitResponse
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - gas_limit
+                    properties:
+                      pubkey:
+                        type: string
+                        pattern: '^0x[a-fA-F0-9]{96}$'
+                        description: |
+                          The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+                        example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+                      gas_limit:
+                        type: string
+                        pattern: '^[1-9][0-9]{0,19}$'
+                        example: '30000000'
+        '400':
+          description: Bad request. Request was malformed and could not be processed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '404':
+          description: Path not found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+    post:
+      operationId: setGasLimit
+      summary: Set Gas Limit.
+      description: |
+        Set the gas limit for an individual validator. This limit will be propagated to the beacon
+        node for use on future block proposals. The beacon node is responsible for informing external
+        block builders of the change.
+
+        The server may return a 400 status code if no external builder is configured.
+
+        WARNING: The gas_limit is not used on Phase0 or Altair networks.
+      security:
+        - bearerAuth: []
+      tags:
+        - Gas Limit
+      parameters:
+        - in: path
+          name: pubkey
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{96}$'
+            description: |
+              The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+            example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: SetGasLimitRequest
+              type: object
+              required:
+                - gas_limit
+              properties:
+                gas_limit:
+                  type: string
+                  pattern: '^[1-9][0-9]{0,19}$'
+                  example: '30000000'
+      responses:
+        '202':
+          description: successfully updated
+        '400':
+          description: Bad request. Request was malformed and could not be processed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'Forbidden, a token is found but is invalid'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '404':
+          description: Path not found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+    delete:
+      operationId: deleteGasLimit
+      summary: Delete Configured Gas Limit
+      description: |
+        Delete a configured gas limit for the specified public key.
+
+        The server may return a 400 status code if no external builder is configured.
+      security:
+        - bearerAuth: []
+      tags:
+        - Gas Limit
+      parameters:
+        - in: path
+          name: pubkey
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{96}$'
+            description: |
+              The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+            example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+          required: true
+      responses:
+        '204':
+          description: 'Successfully removed the gas limit, or there was no gas limit set for the requested public key.'
+        '400':
+          description: Bad request. Request was malformed and could not be processed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '401':
+          description: 'Unauthorized, no token is found'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '403':
+          description: 'A gas limit was found, but cannot be removed. This may be because the gas limit was in configuration files that cannot be updated.'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '404':
+          description: 'The key was not found on the server, nothing to delete.'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+        '500':
+          description: |
+            Internal server error. The server encountered an unexpected error indicative of
+            a serious fault in the system, or a bug.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - message
+                properties:
+                  message:
+                    description: Detailed error message
+                    type: string
+                    example: description of the error that occurred
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: 'URL safe token, optionally JWT'
+  schemas:
+    Pubkey:
+      type: string
+      pattern: '^0x[a-fA-F0-9]{96}$'
+      description: |
+        The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+      example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+    EthAddress:
+      type: string
+      description: An address on the execution (Ethereum 1) network.
+      example: '0xabcf8e0d4e9587369b2301d0790347320302cc09'
+      pattern: '^0x[a-fA-F0-9]{40}$'
+    Keystore:
+      type: string
+      description: |
+        JSON serialized representation of a single keystore in EIP-2335: BLS12-381 Keystore format.
+      example: '{"version":4,"uuid":"9f75a3fa-1e5a-49f9-be3d-f5a19779c6fa","path":"m/12381/3600/0/0/0","pubkey":"0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a","crypto":{"kdf":{"function":"pbkdf2","params":{"dklen":32,"c":262144,"prf":"hmac-sha256","salt":"8ff8f22ef522a40f99c6ce07fdcfc1db489d54dfbc6ec35613edf5d836fa1407"},"message":""},"checksum":{"function":"sha256","params":{},"message":"9678a69833d2576e3461dd5fa80f6ac73935ae30d69d07659a709b3cd3eddbe3"},"cipher":{"function":"aes-128-ctr","params":{"iv":"31b69f0ac97261e44141b26aa0da693f"},"message":"e8228bafec4fcbaca3b827e586daad381d53339155b034e5eaae676b715ab05e"}}}'
+    FeeRecipient:
+      type: object
+      required:
+        - ethaddress
+      properties:
+        pubkey:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{96}$'
+          description: |
+            The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+          example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+        ethaddress:
+          type: string
+          description: An address on the execution (Ethereum 1) network.
+          example: '0xabcf8e0d4e9587369b2301d0790347320302cc09'
+          pattern: '^0x[a-fA-F0-9]{40}$'
+    GasLimit:
+      type: object
+      required:
+        - gas_limit
+      properties:
+        pubkey:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{96}$'
+          description: |
+            The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+          example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+        gas_limit:
+          type: string
+          pattern: '^[1-9][0-9]{0,19}$'
+          example: '30000000'
+    Uint64:
+      type: string
+      pattern: '^[1-9][0-9]{0,19}$'
+      example: '30000000'
+    SignerDefinition:
+      type: object
+      required:
+        - pubkey
+      properties:
+        pubkey:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{96}$'
+          description: |
+            The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+          example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+        url:
+          description: 'URL to API implementing EIP-3030: BLS Remote Signer HTTP API'
+          type: string
+          example: 'https://remote.signer'
+        readonly:
+          type: boolean
+          description: The signer associated with this pubkey cannot be deleted from the API
+    ImportRemoteSignerDefinition:
+      type: object
+      required:
+        - pubkey
+      properties:
+        pubkey:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{96}$'
+          description: |
+            The validator's BLS public key, uniquely identifying them. _48-bytes, hex encoded with 0x prefix, case insensitive._
+          example: '0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a'
+        url:
+          description: 'URL to API implementing EIP-3030: BLS Remote Signer HTTP API'
+          type: string
+          example: 'https://remote.signer'
+    SlashingProtectionData:
+      type: string
+      description: |
+        JSON serialized representation of the slash protection data in format defined in EIP-3076: Slashing Protection Interchange Format.
+      example: '{"metadata":{"interchange_format_version":"5","genesis_validators_root":"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2"},"data":[{"pubkey":"0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a","signed_blocks":[],"signed_attestations":[]}]}'
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          description: Detailed error message
+          type: string
+          example: description of the error that occurred
+  responses:
+    BadRequest:
+      description: Bad request. Request was malformed and could not be processed
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - message
+            properties:
+              message:
+                description: Detailed error message
+                type: string
+                example: description of the error that occurred
+    Unauthorized:
+      description: 'Unauthorized, no token is found'
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - message
+            properties:
+              message:
+                description: Detailed error message
+                type: string
+                example: description of the error that occurred
+    Forbidden:
+      description: 'Forbidden, a token is found but is invalid'
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - message
+            properties:
+              message:
+                description: Detailed error message
+                type: string
+                example: description of the error that occurred
+    NotFound:
+      description: Path not found
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - message
+            properties:
+              message:
+                description: Detailed error message
+                type: string
+                example: description of the error that occurred
+    InternalError:
+      description: |
+        Internal server error. The server encountered an unexpected error indicative of
+        a serious fault in the system, or a bug.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - message
+            properties:
+              message:
+                description: Detailed error message
+                type: string
+                example: description of the error that occurred

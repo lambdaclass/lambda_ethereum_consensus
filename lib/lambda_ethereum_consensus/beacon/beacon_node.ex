@@ -18,7 +18,6 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   @impl true
   def init(_) do
     store = StoreSetup.setup!()
-    deposit_tree_snapshot = StoreSetup.get_deposit_snapshot!()
 
     LambdaEthereumConsensus.P2P.Metadata.init()
 
@@ -26,20 +25,24 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     time = :os.system_time(:second)
 
-    ForkChoice.init_store(store, time)
-
-    init_execution_chain(deposit_tree_snapshot, store.head_root)
+    store = ForkChoice.init_store(store, time)
 
     validators = Validator.Setup.init(store.head_slot, store.head_root)
 
-    libp2p_args = [genesis_time: store.genesis_time, validators: validators] ++ get_libp2p_args()
+    StoreSetup.get_deposit_snapshot!()
+    |> init_execution_chain(store.head_root)
+
+    libp2p_args =
+      [genesis_time: store.genesis_time, validators: validators, store: store] ++
+        get_libp2p_args()
 
     children =
       [
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
-        {Task.Supervisor, name: PruneBlobsSupervisor}
+        {Task.Supervisor, name: PruneBlobsSupervisor},
+        {Task.Supervisor, name: StoreStatesSupervisor}
       ]
 
     Supervisor.init(children, strategy: :one_for_all)

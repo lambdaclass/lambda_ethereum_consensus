@@ -9,9 +9,13 @@ defmodule ConsoleLogger do
   def format(level, message, timestamp, metadata) do
     formatted_metadata = format_metadata(metadata)
 
-    [format_level(level)] ++
-      [Logger.Formatter.format(@pattern, level, message, timestamp, [])] ++
-      [formatted_metadata] ++ ["\n"]
+    [
+      format_level(level),
+      Logger.Formatter.format(@pattern, level, message, timestamp, []),
+      formatted_metadata,
+      "\n"
+    ]
+    |> IO.iodata_to_binary()
   rescue
     err ->
       inspect(err)
