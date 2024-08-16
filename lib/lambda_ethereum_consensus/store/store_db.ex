@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   Beacon node store storage.
   """
   alias LambdaEthereumConsensus.Store.Db
+  alias Types.Store
 
   @store_prefix "store"
   @snapshot_prefix "snapshot"
@@ -17,7 +18,7 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   @spec persist_store(Types.Store.t()) :: :ok
   def persist_store(%Types.Store{} = store) do
     :telemetry.span([:db, :latency], %{}, fn ->
-      {put(@store_prefix, store), %{module: "fork_choice", action: "persist"}}
+      {put(@store_prefix, Store.remove_cache(store)), %{module: "fork_choice", action: "persist"}}
     end)
   end
 

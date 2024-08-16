@@ -13,6 +13,13 @@ defmodule SyncTestRunner do
   ]
 
   @impl TestRunner
+  def setup() do
+    # Start this supervisor, necessary for post state tasks.
+    start_link_supervised!({Task.Supervisor, name: StoreStatesSupervisor})
+    :ok
+  end
+
+  @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella"} = testcase) do
     Enum.member?(@disabled_cases, testcase.case)
   end

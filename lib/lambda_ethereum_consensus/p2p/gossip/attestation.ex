@@ -23,6 +23,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   end
 
   @impl true
+  def handle_gossip_message(store, topic, msg_id, message) do
+    handle_gossip_message(topic, msg_id, message)
+    store
+  end
+
   def handle_gossip_message(topic, msg_id, message) do
     subnet_id = extract_subnet_id(topic)
 

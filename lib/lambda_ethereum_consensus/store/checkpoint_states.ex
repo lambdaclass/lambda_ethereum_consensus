@@ -51,6 +51,8 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
 
   @doc """
   Calculate the state for a checkpoint without interacting with the db.
+
+  TODO (#1278): use Store.get_target_checkpoint_state instead.
   """
   @spec compute_target_checkpoint_state(Types.epoch(), Types.root()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}

@@ -8,13 +8,15 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.ReqResp
+  alias LambdaEthereumConsensus.Store
   alias Types.BlobSidecar
+  alias Types.Store
 
   @blobs_by_range_protocol_id "/eth2/beacon_chain/req/blob_sidecars_by_range/1/ssz_snappy"
   @blobs_by_root_protocol_id "/eth2/beacon_chain/req/blob_sidecars_by_root/1/ssz_snappy"
 
-  @type on_blobs :: ({:ok, [BlobSidecar.t()]} | {:error, any()} -> :ok)
-  @type on_blob :: ({:ok, BlobSidecar.t()} | {:error, any()} -> :ok)
+  @type on_blobs :: (Store.t(), {:ok, [BlobSidecar.t()]} | {:error, any()} -> :ok)
+  @type on_blob :: (Store.t(), {:ok, BlobSidecar.t()} | {:error, any()} -> :ok)
 
   # Requests to peers might fail for various reasons,
   # for example they might not support the protocol or might not reply
@@ -38,22 +40,23 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
       %Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count}
       |> ReqResp.encode_request()
 
-    Libp2pPort.send_async_request(peer_id, @blobs_by_range_protocol_id, request, fn response ->
+    Libp2pPort.send_async_request(peer_id, @blobs_by_range_protocol_id, request, fn store,
+                                                                                    response ->
       Metrics.handler_span(
         "response_handler",
         "blob_sidecars_by_range",
         fn ->
-          handle_blobs_by_range_response(response, peer_id, count, slot, retries, on_blobs)
+          handle_blobs_by_range_response(store, response, peer_id, count, slot, retries, on_blobs)
         end
       )
     end)
   end
 
-  defp handle_blobs_by_range_response(response, peer_id, count, slot, retries, on_blobs) do
+  defp handle_blobs_by_range_response(store, response, peer_id, count, slot, retries, on_blobs) do
     with {:ok, response_message} <- response,
          {:ok, blobs} <- ReqResp.decode_response(response_message, BlobSidecar),
          :ok <- verify_batch(blobs, slot, count) do
-      on_blobs.({:ok, blobs})
+      on_blobs.(store, {:ok, blobs})
     else
       {:error, reason} ->
         P2P.Peerbook.penalize_peer(peer_id)
@@ -61,8 +64,9 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
         if retries > 0 do
           Logger.debug("Retrying request for #{count} blobs", slot: slot)
           request_blobs_by_range(slot, count, on_blobs, retries - 1)
+          {:ok, store}
         else
-          on_blobs.({:error, reason})
+          on_blobs.(store, {:error, reason})
         end
     end
   end
@@ -71,10 +75,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   def request_blob_by_root(identifier, on_blob, retries \\ @default_retries) do
     request_blobs_by_root(
       [identifier],
-      fn
-        {:ok, [blob]} -> on_blob.({:ok, blob})
-        other -> on_blob.(other)
-      end,
+      fn store, response -> on_blob.(store, flatten_response(response)) end,
       retries
     )
   end
@@ -91,19 +92,20 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
 
     request = ReqResp.encode_request({identifiers, TypeAliases.blob_sidecars_by_root_request()})
 
-    Libp2pPort.send_async_request(peer_id, @blobs_by_root_protocol_id, request, fn response ->
+    Libp2pPort.send_async_request(peer_id, @blobs_by_root_protocol_id, request, fn store,
+                                                                                   response ->
       Metrics.handler_span(
         "response_handler",
         "blob_sidecars_by_root",
-        fn -> handle_blobs_by_root(response, peer_id, identifiers, retries, on_blobs) end
+        fn -> handle_blobs_by_root(store, response, peer_id, identifiers, retries, on_blobs) end
       )
     end)
   end
 
-  def handle_blobs_by_root(response, peer_id, identifiers, retries, on_blobs) do
+  def handle_blobs_by_root(store, response, peer_id, identifiers, retries, on_blobs) do
     with {:ok, response_message} <- response,
          {:ok, blobs} <- ReqResp.decode_response(response_message, BlobSidecar) do
-      on_blobs.({:ok, blobs})
+      on_blobs.(store, {:ok, blobs})
     else
       {:error, reason} ->
         P2P.Peerbook.penalize_peer(peer_id)
@@ -111,8 +113,9 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
         if retries > 0 do
           Logger.debug("Retrying request for blobs.")
           request_blobs_by_root(identifiers, on_blobs, retries - 1)
+          {:ok, store}
         else
-          on_blobs.({:error, reason})
+          on_blobs.(store, {:error, reason})
         end
     end
   end
@@ -139,4 +142,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
       {:error, "blob outside requested slot range"}
     end
   end
+
+  defp flatten_response({:ok, [blob]}), do: {:ok, blob}
+  defp flatten_response(other), do: other
 end
