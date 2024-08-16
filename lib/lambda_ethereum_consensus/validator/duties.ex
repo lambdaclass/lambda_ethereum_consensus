@@ -24,11 +24,14 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @type proposer_duty :: Types.slot()
 
-  @type attester_duties :: %{Types.slot() => [attester_duty()]}
-  @type proposer_duties :: %{Types.slot() => [proposer_duty()]}
+  @type attester_duties :: [attester_duty()]
+  @type proposer_duties :: [proposer_duty()]
+
+  @type attester_duties_per_slot :: %{Types.slot() => attester_duties()}
+  @type proposer_duties_per_slot :: %{Types.slot() => proposer_duties()}
 
   @type kind :: :proposers | :attesters
-  @type duties :: %{attesters: attester_duties(), proposers: proposer_duties()}
+  @type duties :: %{kind() => attester_duties_per_slot() | proposer_duties_per_slot()}
 
   ############################
   # Accessors
@@ -37,14 +40,14 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   def current_proposer(duties, epoch, slot),
     do: get_in(duties, [epoch, :proposers, slot])
 
-  @spec current_attesters(duties(), Types.epoch(), Types.slot()) :: [attester_duty()]
+  @spec current_attesters(duties(), Types.epoch(), Types.slot()) :: attester_duties()
   def current_attesters(duties, epoch, slot) do
     for %{attested?: false} = duty <- attesters(duties, epoch, slot) do
       duty
     end
   end
 
-  @spec current_aggregators(duties(), Types.epoch(), Types.slot()) :: [attester_duty()]
+  @spec current_aggregators(duties(), Types.epoch(), Types.slot()) :: attester_duties()
   def current_aggregators(duties, epoch, slot) do
     for %{should_aggregate?: true} = duty <- attesters(duties, epoch, slot) do
       duty
@@ -56,9 +59,13 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   ############################
   # Update functions
 
-  @spec update_duties!(duties(), kind(), Types.epoch(), Types.slot(), [
-          attester_duty() | proposer_duties()
-        ]) :: duties()
+  @spec update_duties!(
+          duties(),
+          kind(),
+          Types.epoch(),
+          Types.slot(),
+          attester_duties() | proposer_duties()
+        ) :: duties()
   def update_duties!(duties, kind, epoch, slot, updated),
     do: put_in(duties, [epoch, kind, slot], updated)
 
@@ -72,7 +79,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   # Main functions
 
   @spec compute_proposers_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
-          proposer_duties()
+          proposer_duties_per_slot()
   def compute_proposers_for_epoch(%BeaconState{} = state, epoch, validators) do
     with {:ok, epoch} <- check_valid_epoch(state, epoch),
          {start_slot, end_slot} <- boundary_slots(epoch) do
@@ -86,7 +93,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   end
 
   @spec compute_attesters_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
-          attester_duties()
+          attester_duties_per_slot()
   def compute_attesters_for_epoch(%BeaconState{} = state, epoch, validators) do
     with {:ok, epoch} <- check_valid_epoch(state, epoch),
          {start_slot, end_slot} <- boundary_slots(epoch) do

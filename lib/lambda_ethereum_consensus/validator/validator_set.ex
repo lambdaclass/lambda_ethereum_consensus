@@ -26,6 +26,10 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
           validators: validators()
         }
 
+  @doc "Check if the duties for the given epoch are already computed."
+  defguard is_duties_computed(set, epoch)
+           when is_map(set.duties) and not is_nil(:erlang.map_get(epoch, set.duties))
+
   @doc """
   Initiate the set of validators, given the slot and head root.
   """
@@ -75,7 +79,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     set
     |> update_state(epoch, slot, head_root)
     |> attests(epoch, slot, head_root)
-    |> build_next_payload(epoch, slot, head_root)
+    |> build_payload(slot + 1, head_root)
   end
 
   @doc """
@@ -99,7 +103,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
     set
     |> attests(epoch, slot, head_root)
-    |> build_next_payload(epoch, slot, head_root)
+    |> build_payload(slot + 1, head_root)
   end
 
   defp process_tick(set, epoch, {slot, :last_third}) do
@@ -119,19 +123,23 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp update_head(set, head_root), do: %{set | head_root: head_root}
 
   defp compute_duties(set, epoch, _slot, _head_root)
-       when not is_nil(:erlang.map_get(epoch, set.duties)),
+       when is_duties_computed(set, epoch) and is_duties_computed(set, epoch + 1),
        do: set
 
   defp compute_duties(set, epoch, slot, head_root) do
-    epoch
-    |> Validator.fetch_target_state_and_go_to_slot(slot, head_root)
-    |> compute_duties_for_epoch!(epoch, set.validators)
+    epochs_to_calculate =
+      [{epoch, slot}, {epoch + 1, Misc.compute_start_slot_at_epoch(epoch + 1)}]
+      |> Enum.reject(&Map.has_key?(set.duties, elem(&1, 0)))
+
+    epochs_to_calculate
+    |> Map.new(&compute_duties_for_epoch!(set, &1, head_root))
     |> merge_duties_and_prune(epoch, set)
   end
 
-  defp compute_duties_for_epoch!(beacon, epoch, validators) do
-    proposers = Duties.compute_proposers_for_epoch(beacon, epoch, validators)
-    attesters = Duties.compute_attesters_for_epoch(beacon, epoch, validators)
+  defp compute_duties_for_epoch!(set, {epoch, slot}, head_root) do
+    beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+    proposers = Duties.compute_proposers_for_epoch(beacon, epoch, set.validators)
+    attesters = Duties.compute_attesters_for_epoch(beacon, epoch, set.validators)
 
     Logger.info(
       "[Validator] Proposer duties for epoch #{epoch} are: #{inspect(proposers, pretty: true)}"
@@ -141,13 +149,13 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
       "[Validator] Attester duties for epoch #{epoch} are: #{inspect(attesters, pretty: true)}"
     )
 
-    %{epoch => %{proposers: proposers, attesters: attesters}}
+    {epoch, %{proposers: proposers, attesters: attesters}}
   end
 
-  defp merge_duties_and_prune(new_duties, epoch, set) do
+  defp merge_duties_and_prune(new_duties, current_epoch, set) do
     set.duties
     # Remove duties from epoch - 2 or older
-    |> Map.reject(fn {old_epoch, _} -> old_epoch < epoch - 2 end)
+    |> Map.reject(fn {old_epoch, _} -> old_epoch < current_epoch - 1 end)
     |> Map.merge(new_duties)
     |> then(fn current_duties -> %{set | duties: current_duties} end)
   end
@@ -155,15 +163,16 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   ##############################
   # Block proposal
 
-  defp build_next_payload(%{validators: validators} = set, epoch, slot, head_root) do
-    # FIXME: At a boundary slot epoch here is incorrect, we need to alway have the next epoch calculated
-    case Duties.current_proposer(set.duties, epoch, slot + 1) do
+  defp build_payload(%{validators: validators} = set, slot, head_root) do
+    epoch = Misc.compute_epoch_at_slot(slot)
+
+    case Duties.current_proposer(set.duties, epoch, slot) do
       nil ->
         set
 
       validator_index ->
         validators
-        |> Map.update!(validator_index, &Validator.start_payload_builder(&1, slot + 1, head_root))
+        |> Map.update!(validator_index, &Validator.start_payload_builder(&1, slot, head_root))
         |> update_validators(set)
     end
   end
