@@ -75,6 +75,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     Logger.debug("[ValidatorSet] New Head", root: head_root, slot: slot)
     epoch = Misc.compute_epoch_at_slot(slot)
 
+    # TODO: this doesn't take into account reorgs
     set
     |> update_state(epoch, slot, head_root)
     |> attests(epoch, slot, head_root)
