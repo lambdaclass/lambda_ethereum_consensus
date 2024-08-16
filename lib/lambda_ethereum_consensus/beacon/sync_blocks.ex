@@ -51,7 +51,7 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
         BlockDownloader.request_blocks_by_range(
           first_slot,
           count,
-          &on_chunk_downloaded/1,
+          &on_chunk_downloaded/2,
           @retries
         )
 
@@ -61,11 +61,13 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     end
   end
 
-  defp on_chunk_downloaded({:ok, range, blocks}) do
+  defp on_chunk_downloaded(store, {:ok, range, blocks}) do
     Libp2pPort.notify_blocks_downloaded(range, blocks)
+    {:ok, store}
   end
 
-  defp on_chunk_downloaded({:error, range, reason}) do
+  defp on_chunk_downloaded(store, {:error, range, reason}) do
     Libp2pPort.notify_block_download_failed(range, reason)
+    {:ok, store}
   end
 end

@@ -80,6 +80,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
         start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
         start_link_supervised!(LambdaEthereumConsensus.Store.BlockStates)
 
+        #{runner_module}.setup()
         :ok
       end
     """
