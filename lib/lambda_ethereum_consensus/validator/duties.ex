@@ -27,7 +27,49 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   @type attester_duties :: %{Types.slot() => [attester_duty()]}
   @type proposer_duties :: %{Types.slot() => [proposer_duty()]}
 
+  @type kind :: :proposers | :attesters
   @type duties :: %{attesters: attester_duties(), proposers: proposer_duties()}
+
+  ############################
+  # Accessors
+
+  @spec current_proposer(duties(), Types.epoch(), Types.slot()) :: proposer_duty() | nil
+  def current_proposer(duties, epoch, slot),
+    do: get_in(duties, [epoch, :proposers, slot])
+
+  @spec current_attesters(duties(), Types.epoch(), Types.slot()) :: [attester_duty()]
+  def current_attesters(duties, epoch, slot) do
+    for %{attested?: false} = duty <- attesters(duties, epoch, slot) do
+      duty
+    end
+  end
+
+  @spec current_aggregators(duties(), Types.epoch(), Types.slot()) :: [attester_duty()]
+  def current_aggregators(duties, epoch, slot) do
+    for %{should_aggregate?: true} = duty <- attesters(duties, epoch, slot) do
+      duty
+    end
+  end
+
+  defp attesters(duties, epoch, slot), do: get_in(duties, [epoch, :attesters, slot]) || []
+
+  ############################
+  # Update functions
+
+  @spec update_duties!(duties(), kind(), Types.epoch(), Types.slot(), [
+          attester_duty() | proposer_duties()
+        ]) :: duties()
+  def update_duties!(duties, kind, epoch, slot, updated),
+    do: put_in(duties, [epoch, kind, slot], updated)
+
+  @spec attested(attester_duty()) :: attester_duty()
+  def attested(duty), do: Map.put(duty, :attested?, true)
+
+  @spec aggregated(attester_duty()) :: attester_duty()
+  def aggregated(duty), do: Map.put(duty, :should_aggregate?, false)
+
+  ############################
+  # Main functions
 
   @spec compute_proposers_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
           proposer_duties()
@@ -64,18 +106,16 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     case Accessors.get_beacon_committee(state, slot, committee_index) do
       {:ok, committee} ->
         for {validator_index, index_in_committee} <- Enum.with_index(committee),
-            validator = Map.get(validators, validator_index),
-            duty =
-              %{
-                validator_index: validator_index,
-                index_in_committee: index_in_committee,
-                committee_length: length(committee),
-                committee_index: committee_index,
-                attested?: false
-              }
-              |> update_with_aggregation_duty(state, slot, validator.keystore.privkey)
-              |> update_with_subnet_id(state, epoch, slot) do
-          duty
+            validator = Map.get(validators, validator_index) do
+          %{
+            validator_index: validator_index,
+            index_in_committee: index_in_committee,
+            committee_length: length(committee),
+            committee_index: committee_index,
+            attested?: false
+          }
+          |> update_with_aggregation_duty(state, slot, validator.keystore.privkey)
+          |> update_with_subnet_id(state, epoch, slot)
         end
 
       {:error, _} ->

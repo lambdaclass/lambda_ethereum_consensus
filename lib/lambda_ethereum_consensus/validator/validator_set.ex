@@ -38,54 +38,6 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     setup_validators(slot, head_root, keystore_dir, keystore_pass_dir)
   end
 
-  @doc """
-  Notify all validators of a new head.
-  """
-  @spec notify_head(t(), Types.slot(), Types.root()) :: t()
-  def notify_head(set, slot, head_root) do
-    # TODO: Just for testing purposes, remove it later
-    Logger.info("[Validator] Notifying all Validators with new_head", root: head_root, slot: slot)
-    epoch = Misc.compute_epoch_at_slot(slot)
-
-    set
-    |> update_state(epoch, slot, head_root)
-    |> attest(epoch, slot, head_root)
-    |> build_next_payload(epoch, slot, head_root)
-  end
-
-  @doc """
-  Notify all validators of a new tick.
-  """
-  @spec notify_tick(t(), tuple()) :: t()
-  def notify_tick(%{head_root: head_root} = set, {slot, third} = slot_data) do
-    # TODO: Just for testing purposes, remove it later
-    Logger.info("[Validator] Notifying all Validators with notify_tick: #{inspect(third)}",
-      root: head_root,
-      slot: slot
-    )
-
-    epoch = Misc.compute_epoch_at_slot(slot)
-
-    set
-    |> update_state(epoch, slot, head_root)
-    |> process_tick(epoch, slot_data)
-  end
-
-  defp process_tick(%{head_root: head_root} = set, epoch, {slot, :first_third}),
-    do: propose(set, epoch, slot, head_root)
-
-  defp process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
-    set
-    |> attest(epoch, slot, head_root)
-    |> build_next_payload(epoch, slot, head_root)
-  end
-
-  defp process_tick(set, epoch, {slot, :last_third}),
-    do: publish_aggregate(set, epoch, slot)
-
-  ##############################
-  # Setup
-
   defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
        when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
     Logger.warning(
@@ -99,12 +51,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     validator_keystores = decode_validator_keystores(keystore_dir, keystore_pass_dir)
     epoch = Misc.compute_epoch_at_slot(slot)
 
-    # This will be removed later when refactoring Validator new
-    beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
-
     validators =
       Map.new(validator_keystores, fn keystore ->
-        validator = Validator.new(keystore, beacon)
+        validator = Validator.new(keystore, slot, head_root)
         {validator.index, validator}
       end)
 
@@ -112,6 +61,49 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
     %__MODULE__{validators: validators}
     |> update_state(epoch, slot, head_root)
+  end
+
+  @doc """
+  Notify all validators of a new head.
+  """
+  @spec notify_head(t(), Types.slot(), Types.root()) :: t()
+  def notify_head(set, slot, head_root) do
+    # TODO: Just for testing purposes, remove it later
+    Logger.info("[ValidatorSet] New Head", root: head_root, slot: slot)
+    epoch = Misc.compute_epoch_at_slot(slot)
+
+    set
+    |> update_state(epoch, slot, head_root)
+    |> attests(epoch, slot, head_root)
+    |> build_next_payload(epoch, slot, head_root)
+  end
+
+  @doc """
+  Notify all validators of a new tick.
+  """
+  @spec notify_tick(t(), tuple()) :: t()
+  def notify_tick(%{head_root: head_root} = set, {slot, third} = slot_data) do
+    # TODO: Just for testing purposes, remove it later
+    Logger.info("[ValidatorSet] Tick #{inspect(third)}", root: head_root, slot: slot)
+    epoch = Misc.compute_epoch_at_slot(slot)
+
+    set
+    |> update_state(epoch, slot, head_root)
+    |> process_tick(epoch, slot_data)
+  end
+
+  defp process_tick(%{head_root: head_root} = set, epoch, {slot, :first_third}) do
+    propose(set, epoch, slot, head_root)
+  end
+
+  defp process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
+    set
+    |> attests(epoch, slot, head_root)
+    |> build_next_payload(epoch, slot, head_root)
+  end
+
+  defp process_tick(set, epoch, {slot, :last_third}) do
+    publish_aggregates(set, epoch, slot)
   end
 
   ##############################
@@ -161,91 +153,86 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   ##############################
-  # Attestation and proposal
-
-  defp attest(set, epoch, slot, head_root) do
-    case current_attesters(set, epoch, slot) do
-      [] ->
-        set
-
-      attesters ->
-        Enum.map(attesters, fn {validator, duty} ->
-          Validator.attest(validator, duty, slot, head_root)
-
-          # Duty.attested(duty)
-          %{duty | attested?: true}
-        end)
-        |> then(&%{set | duties: put_in(set.duties, [epoch, :attesters, slot], &1)})
-    end
-  end
-
-  defp publish_aggregate(set, epoch, slot) do
-    case current_aggregators(set, epoch, slot) do
-      [] ->
-        set
-
-      aggregators ->
-        Enum.map(aggregators, fn {validator, duty} ->
-          Validator.publish_aggregate(duty, slot, validator.index, validator.keystore)
-
-          # Duty.aggregated(duty)
-          %{duty | should_aggregate?: false}
-        end)
-        |> then(&%{set | duties: put_in(set.duties, [epoch, :attesters, slot], &1)})
-    end
-  end
+  # Block proposal
 
   defp build_next_payload(%{validators: validators} = set, epoch, slot, head_root) do
-    set
-    |> proposer(epoch, slot + 1)
-    |> case do
+    # FIXME: At a boundary slot epoch here is incorrect, we need to alway have the next epoch calculated
+    case Duties.current_proposer(set.duties, epoch, slot + 1) do
       nil ->
         set
 
       validator_index ->
         validators
         |> Map.update!(validator_index, &Validator.start_payload_builder(&1, slot + 1, head_root))
-        |> then(&%{set | validators: &1})
+        |> update_validators(set)
     end
   end
 
   defp propose(%{validators: validators} = set, epoch, slot, head_root) do
-    set
-    |> proposer(epoch, slot)
-    |> case do
+    case Duties.current_proposer(set.duties, epoch, slot) do
       nil ->
         set
 
       validator_index ->
         validators
         |> Map.update!(validator_index, &Validator.propose(&1, slot, head_root))
-        |> then(&%{set | validators: &1})
+        |> update_validators(set)
     end
   end
 
+  defp update_validators(new_validators, set), do: %{set | validators: new_validators}
+
   ##############################
-  # Helpers
+  # Attestation
 
-  defp current_attesters(set, epoch, slot) do
-    set
-    |> attesters(epoch, slot)
-    |> Enum.flat_map(fn
-      %{attested?: false} = duty -> [{Map.get(set.validators, duty.validator_index), duty}]
-      _ -> []
-    end)
+  defp attests(set, epoch, slot, head_root) do
+    case Duties.current_attesters(set.duties, epoch, slot) do
+      [] ->
+        set
+
+      attester_duties ->
+        attester_duties
+        |> Enum.map(&attest(&1, slot, head_root, set.validators))
+        |> update_duties(set, epoch, :attesters, slot)
+    end
   end
 
-  defp current_aggregators(set, epoch, slot) do
-    set
-    |> attesters(epoch, slot)
-    |> Enum.flat_map(fn
-      %{should_aggregate?: true} = duty -> [{Map.get(set.validators, duty.validator_index), duty}]
-      _ -> []
-    end)
+  defp publish_aggregates(set, epoch, slot) do
+    case Duties.current_aggregators(set.duties, epoch, slot) do
+      [] ->
+        set
+
+      aggregator_duties ->
+        aggregator_duties
+        |> Enum.map(&publish_aggregate(&1, slot, set.validators))
+        |> update_duties(set, epoch, :attesters, slot)
+    end
   end
 
-  defp proposer(set, epoch, slot), do: get_in(set.duties, [epoch, :proposers, slot])
-  defp attesters(set, epoch, slot), do: get_in(set.duties, [epoch, :attesters, slot]) || []
+  defp attest(duty, slot, head_root, validators) do
+    validators
+    |> Map.get(duty.validator_index)
+    |> Validator.attest(duty, slot, head_root)
+
+    Duties.attested(duty)
+  end
+
+  defp publish_aggregate(duty, slot, validators) do
+    validators
+    |> Map.get(duty.validator_index)
+    |> Validator.publish_aggregate(duty, slot)
+
+    Duties.aggregated(duty)
+  end
+
+  defp update_duties(new_duties, set, epoch, kind, slot) do
+    set.duties
+    |> Duties.update_duties!(kind, epoch, slot, new_duties)
+    |> then(&%{set | duties: &1})
+  end
+
+  ##############################
+  # Key management
 
   @doc """
     Get validator keystores from the keystore directory.

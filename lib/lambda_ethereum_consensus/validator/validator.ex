@@ -41,7 +41,24 @@ defmodule LambdaEthereumConsensus.Validator do
     epoch = Misc.compute_epoch_at_slot(head_slot)
     beacon = fetch_target_state_and_go_to_slot(epoch, head_slot, head_root)
 
-    new(keystore, beacon)
+    state = %__MODULE__{
+      index: nil,
+      keystore: keystore,
+      payload_builder: nil
+    }
+
+    case fetch_validator_index(beacon, state.keystore.pubkey) do
+      nil ->
+        Logger.warning(
+          "[Validator] Public key #{state.keystore.pubkey} not found in the validator set"
+        )
+
+        state
+
+      validator_index ->
+        log_debug(validator_index, "Setup completed")
+        %{state | index: validator_index}
+    end
   end
 
   @spec new(Keystore.t(), Types.BeaconState.t()) :: t()
@@ -115,9 +132,9 @@ defmodule LambdaEthereumConsensus.Validator do
     end
   end
 
-  @spec publish_aggregate(Duties.attester_duty(), Types.slot(), non_neg_integer(), Keystore.t()) ::
+  @spec publish_aggregate(t(), Duties.attester_duty(), Types.slot()) ::
           :ok
-  def publish_aggregate(duty, slot, validator_index, keystore) do
+  def publish_aggregate(%{index: validator_index, keystore: keystore}, duty, slot) do
     case Gossip.Attestation.stop_collecting(duty.subnet_id) do
       {:ok, attestations} ->
         log_md = [slot: slot, attestations: attestations]
