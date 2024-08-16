@@ -10,6 +10,7 @@ defmodule Unit.BeaconApiTest.V1 do
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.BlockInfo
+  alias Types.Store
 
   @moduletag :beacon_api_case
   @moduletag :tmp_dir
@@ -159,7 +160,7 @@ defmodule Unit.BeaconApiTest.V1 do
     alias LambdaEthereumConsensus.P2P.Metadata
     patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
 
-    start_link_supervised!({Libp2pPort, genesis_time: :os.system_time(:second)})
+    start_link_supervised!({Libp2pPort, genesis_time: :os.system_time(:second), store: %Store{}})
     Metadata.init()
     identity = Libp2pPort.get_node_identity()
     metadata = Metadata.get_metadata()

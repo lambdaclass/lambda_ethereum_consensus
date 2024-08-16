@@ -5,8 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Store.CheckpointStates
+  alias Types.BeaconState
   alias Types.Store
 
   @spec get_head(Store.t()) :: {:ok, Types.root()} | {:error, any}
@@ -15,7 +14,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
     blocks = get_filtered_block_tree(store)
     # Execute the LMD-GHOST fork choice
     head = store.justified_checkpoint.root
-    {:ok, justified_state} = CheckpointStates.get_checkpoint_state(store.justified_checkpoint)
+
+    {_store, %BeaconState{} = justified_state} =
+      Store.get_checkpoint_state(store, store.justified_checkpoint)
 
     # PERF: return just the parent root and the block root in `get_filtered_block_tree`
     Stream.cycle([nil])
@@ -158,7 +159,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
       store.unrealized_justifications[block_root]
     else
       # The block is not from a prior epoch, therefore the voting source is not pulled up
-      head_state = BlockStates.get_state_info!(block_root).beacon_state
+      head_state = Store.get_state!(store, block_root).beacon_state
       head_state.current_justified_checkpoint
     end
   end

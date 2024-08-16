@@ -7,6 +7,7 @@ defmodule Unit.Libp2pPortTest do
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
   alias LambdaEthereumConsensus.P2P.Metadata
   alias LambdaEthereumConsensus.P2P.ReqResp
+  alias Types.Store
 
   doctest Libp2pPort
 
@@ -18,7 +19,8 @@ defmodule Unit.Libp2pPortTest do
 
   defp start_port(name \\ Libp2pPort, init_args \\ []) do
     start_link_supervised!(
-      {Libp2pPort, [opts: [name: name], genesis_time: :os.system_time(:second)] ++ init_args},
+      {Libp2pPort,
+       [opts: [name: name], store: %Store{}, genesis_time: :os.system_time(:second)] ++ init_args},
       id: name
     )
   end
@@ -103,7 +105,7 @@ defmodule Unit.Libp2pPortTest do
   end
 
   @behaviour Handler
-  def handle_gossip_message(topic, msg_id, message) do
+  def handle_gossip_message(_store, topic, msg_id, message) do
     # Decode the PID from the message and send a notification.
     send(:erlang.binary_to_term(message), {:gossipsub, {topic, msg_id, message}})
   end

@@ -20,7 +20,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.P2P.IncomingRequestsHandler
   alias LambdaEthereumConsensus.P2P.Peerbook
-  alias LambdaEthereumConsensus.P2p.Requests
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Validator
@@ -47,6 +46,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias Libp2pProto.Tracer
   alias Libp2pProto.ValidateMessage
   alias Types.EnrForkId
+  alias Types.Store
 
   require Logger
 
@@ -183,7 +183,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.cast(
       pid,
       {:send_request, peer_id, protocol_id, message,
-       fn response -> send(from, {:response, response}) end}
+       fn store, response ->
+         send(from, {:response, response})
+         {:ok, store}
+       end}
     )
 
     receive_response()
@@ -392,6 +395,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {validator_set, args} = Keyword.pop(args, :validator_set, %{})
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
     {enable_request_handlers, args} = Keyword.pop(args, :enable_request_handlers, false)
+    {store, args} = Keyword.pop!(args, :store)
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
@@ -421,7 +425,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
        slot_data: nil,
        port: port,
        subscribers: %{},
-       requests: Requests.new(),
+       requests: %{},
+       store: store,
        syncing: true
      }, {:continue, :check_pending_blocks}}
   end
@@ -431,8 +436,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   # call is a noop.
   @impl GenServer
   def handle_continue(:check_pending_blocks, state) do
-    PendingBlocks.process_blocks()
-    {:noreply, state}
+    {:noreply, update_in(state.store, &PendingBlocks.process_blocks/1)}
   end
 
   @impl GenServer
@@ -453,7 +457,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           port: port
         } = state
       ) do
-    {new_requests, handler_id} = Requests.add_response_handler(requests, handler)
+    {new_requests, handler_id} = add_response_handler(requests, handler)
 
     send_request = %SendRequest{
       id: peer_id,
@@ -477,10 +481,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       "[Optimistic Sync] Range #{first_slot} - #{last_slot} downloaded successfully, with #{n_blocks} blocks and #{missing} missing."
     )
 
-    Enum.each(blocks, &PendingBlocks.add_block/1)
+    new_store =
+      Enum.reduce(blocks, state.store, fn block, store ->
+        PendingBlocks.add_block(store, block)
+      end)
 
     new_state =
-      Map.update!(state, :blocks_remaining, fn n -> n - n_blocks - missing end)
+      state
+      |> Map.put(:store, new_store)
+      |> Map.update!(:blocks_remaining, fn n -> n - n_blocks - missing end)
       |> subscribe_if_no_blocks()
 
     {:noreply, new_state}
@@ -589,17 +598,19 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "->elixir"
     })
 
-    case Map.fetch(subscribers, gs.topic) do
-      {:ok, module} ->
-        Metrics.handler_span("gossip_handler", gs.topic, fn ->
-          module.handle_gossip_message(gs.topic, gs.msg_id, gs.message)
-        end)
+    new_store =
+      case Map.fetch(subscribers, gs.topic) do
+        {:ok, module} ->
+          Metrics.handler_span("gossip_handler", gs.topic, fn ->
+            module.handle_gossip_message(state.store, gs.topic, gs.msg_id, gs.message)
+          end)
 
-      :error ->
-        Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
-    end
+        :error ->
+          Logger.error("[Gossip] Received gossip from unknown topic: #{gs.topic}.")
+          state.store
+      end
 
-    state
+    Map.put(state, :store, new_store)
   end
 
   defp handle_notification(
@@ -636,22 +647,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     state
   end
 
-  defp handle_notification(%Response{} = response, %{requests: requests} = state) do
+  defp handle_notification(%Response{} = response, %{requests: requests, store: store} = state) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "response",
       direction: "->elixir"
     })
 
-    success = if response.success, do: :ok, else: :error
-
-    {result, new_requests} =
-      Requests.handle_response(requests, {success, response.message}, response.id)
-
-    if result == :unhandled do
-      Logger.error("Unhandled response with id: #{response.id}. Message: #{response.message}")
-    end
-
-    state |> Map.put(:requests, new_requests)
+    {new_requests, new_store} = handle_response(requests, store, response)
+    state |> Map.merge(%{requests: new_requests, store: new_store})
   end
 
   defp handle_notification(%Result{from: "", result: result}, state) do
@@ -787,8 +790,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp on_tick(time, %{genesis_time: genesis_time, slot_data: slot_data} = state) do
     # TODO: we probably want to remove this (ForkChoice.on_tick) from here, but we keep it
     # here to have this serialized with respect to the other fork choice store modifications.
-
-    ForkChoice.on_tick(time)
+    new_store = ForkChoice.on_tick(state.store, time)
 
     new_slot_data = compute_slot(genesis_time, time)
 
@@ -804,7 +806,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     maybe_log_new_slot(slot_data, new_slot_data)
 
-    updated_state
+    updated_state |> Map.put(:store, new_store)
   end
 
   defp schedule_next_tick() do
@@ -829,6 +831,37 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       end
 
     {slot, slot_third}
+  end
+
+  defp add_response_handler(requests, handler) do
+    id = UUID.uuid4()
+    {Map.put(requests, id, handler), id}
+  end
+
+  # Handles a request using handler_id. The handler will be popped from the
+  # requests map.
+  #
+  # Returns a {status, requests} tuple where:
+  # - status is :ok if it was handled or :unhandled if the id didn't correspond to a saved handler.
+  # - requests is the modified requests object with the handler removed.
+  defp handle_response(requests, store, response) do
+    case Map.pop(requests, response.id) do
+      {nil, new_requests} ->
+        Logger.error("Unhandled response with id: #{response.id}. Message: #{response.message}")
+        {new_requests, store}
+
+      {handler, new_requests} ->
+        success = if response.success, do: :ok, else: :error
+
+        case handler.(store, {success, response.message}) do
+          {:ok, %Store{} = new_store} ->
+            {new_requests, new_store}
+
+          {:error, reason} ->
+            Logger.warning("Handling response failed with reason: #{reason}")
+            {new_requests, store}
+        end
+    end
   end
 
   defp maybe_log_new_slot({slot, _third}, {slot, _another_third}), do: :ok
