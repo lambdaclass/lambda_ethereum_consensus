@@ -15,7 +15,7 @@ defmodule SyncTestRunner do
   @impl TestRunner
   def setup() do
     # Start this supervisor, necessary for post state tasks.
-    start_link_supervised!({Task.Supervisor, name: PruneStatesSupervisor})
+    start_link_supervised!({Task.Supervisor, name: StoreStatesSupervisor})
     :ok
   end
 

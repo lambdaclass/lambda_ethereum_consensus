@@ -2,32 +2,28 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
   @moduledoc """
   This module handles blob sidecar gossipsub topics.
   """
+  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
-  alias LambdaEthereumConsensus.Store.BlobDb
 
   require Logger
 
   @behaviour Handler
 
-  @impl true
-  def handle_gossip_message(store, topic, msg_id, message) do
-    handle_gossip_message(topic, msg_id, message)
-    store
-  end
-
-  def handle_gossip_message(_topic, msg_id, message) do
+  @impl Handler
+  def handle_gossip_message(store, _topic, msg_id, message) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.BlobSidecar{index: blob_index} = blob} <-
            Ssz.from_ssz(uncompressed, Types.BlobSidecar) do
       Logger.debug("[Gossip] Blob sidecar received, with index #{blob_index}")
-      BlobDb.store_blob(blob)
       Libp2pPort.validate_message(msg_id, :accept)
+      PendingBlocks.add_blob(store, blob)
     else
       {:error, reason} ->
         Logger.warning("[Gossip] Blob rejected, reason: #{inspect(reason)}")
         Libp2pPort.validate_message(msg_id, :reject)
+        store
     end
   end
 

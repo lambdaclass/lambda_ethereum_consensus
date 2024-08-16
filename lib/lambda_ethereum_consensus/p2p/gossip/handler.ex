@@ -5,5 +5,5 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Handler do
   alias Types.Store
 
   @callback handle_gossip_message(Store.t(), binary(), binary(), iodata()) ::
-              {:ok, Store.t()} | {:error, any}
+              Store.t() | {:error, any}
 end

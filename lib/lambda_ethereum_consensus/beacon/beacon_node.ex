@@ -41,7 +41,8 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
         {LambdaEthereumConsensus.Libp2pPort, libp2p_args},
         {Task.Supervisor, name: PruneStatesSupervisor},
         {Task.Supervisor, name: PruneBlocksSupervisor},
-        {Task.Supervisor, name: PruneBlobsSupervisor}
+        {Task.Supervisor, name: PruneBlobsSupervisor},
+        {Task.Supervisor, name: StoreStatesSupervisor}
       ]
 
     Supervisor.init(children, strategy: :one_for_all)

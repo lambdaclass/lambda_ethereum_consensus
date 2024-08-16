@@ -169,6 +169,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     {:ok, store}
   end
 
+  def add_blob(store, blob), do: add_blobs(store, [blob])
+
   # To be used when a series of blobs are downloaded. Stores each blob.
   # If there are blocks that can be processed, does so immediately.
   defp add_blobs(store, blobs) do

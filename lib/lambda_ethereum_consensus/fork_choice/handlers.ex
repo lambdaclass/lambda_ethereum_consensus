@@ -230,7 +230,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
 
       Task.Supervisor.start_child(
-        PruneStatesSupervisor,
+        StoreStatesSupervisor,
         fn -> StateDb.store_state_info(new_state_info) end
       )
 

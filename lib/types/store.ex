@@ -257,7 +257,7 @@ defmodule Types.Store do
 
       %StateInfo{beacon_state: state} ->
         if state.slot < target_slot do
-          # The only way this can fail is if target slot > state.slot, which is false by
+          # The only way this can fail is if state.slot < target_slot, which is false by
           # construction.
           {:ok, new_state} = StateTransition.process_slots(state, target_slot)
 

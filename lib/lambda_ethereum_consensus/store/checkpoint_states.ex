@@ -54,6 +54,7 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
 
   DEPRECATED.
   """
+  @deprecated "Use Store.get_checkpoint_state/2 instead"
   @spec compute_target_checkpoint_state(Types.epoch(), Types.root()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def compute_target_checkpoint_state(target_epoch, target_root) do
