@@ -72,8 +72,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   """
   @spec notify_head(t(), Types.slot(), Types.root()) :: t()
   def notify_head(set, slot, head_root) do
-    # TODO: Just for testing purposes, remove it later
-    Logger.info("[ValidatorSet] New Head", root: head_root, slot: slot)
+    Logger.debug("[ValidatorSet] New Head", root: head_root, slot: slot)
     epoch = Misc.compute_epoch_at_slot(slot)
 
     set
@@ -87,8 +86,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   """
   @spec notify_tick(t(), tuple()) :: t()
   def notify_tick(%{head_root: head_root} = set, {slot, third} = slot_data) do
-    # TODO: Just for testing purposes, remove it later
-    Logger.info("[ValidatorSet] Tick #{inspect(third)}", root: head_root, slot: slot)
+    Logger.debug("[ValidatorSet] Tick #{inspect(third)}", root: head_root, slot: slot)
     epoch = Misc.compute_epoch_at_slot(slot)
 
     set
@@ -138,18 +136,15 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   defp compute_duties_for_epoch!(set, {epoch, slot}, head_root) do
     beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
-    proposers = Duties.compute_proposers_for_epoch(beacon, epoch, set.validators)
-    attesters = Duties.compute_attesters_for_epoch(beacon, epoch, set.validators)
 
-    Logger.info(
-      "[Validator] Proposer duties for epoch #{epoch} are: #{inspect(proposers, pretty: true)}"
-    )
+    duties = %{
+      proposers: Duties.compute_proposers_for_epoch(beacon, epoch, set.validators),
+      attesters: Duties.compute_attesters_for_epoch(beacon, epoch, set.validators)
+    }
 
-    Logger.info(
-      "[Validator] Attester duties for epoch #{epoch} are: #{inspect(attesters, pretty: true)}"
-    )
+    Duties.log_duties_for_epoch(duties, epoch)
 
-    {epoch, %{proposers: proposers, attesters: attesters}}
+    {epoch, duties}
   end
 
   defp merge_duties_and_prune(new_duties, current_epoch, set) do
@@ -164,6 +159,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   # Block proposal
 
   defp build_payload(%{validators: validators} = set, slot, head_root) do
+    # We calculate payloads from a previous slot, we need to recompute the epoch
     epoch = Misc.compute_epoch_at_slot(slot)
 
     case Duties.current_proposer(set.duties, epoch, slot) do

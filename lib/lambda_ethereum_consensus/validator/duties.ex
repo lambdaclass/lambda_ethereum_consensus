@@ -157,6 +157,34 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   ############################
   # Helpers
 
+  @spec log_duties_for_epoch(duties(), Types.epoch()) :: :ok
+  def log_duties_for_epoch(%{proposers: proposers, attesters: attesters}, epoch) do
+    Logger.info("[Duties] Proposers for epoch #{epoch} (slot=>validator): #{inspect(proposers)}")
+
+    for {slot, att_duties} <- attesters do
+      Logger.info("[Duties] Attesters for epoch: #{epoch}, slot #{slot}:")
+
+      for %{
+            index_in_committee: ic,
+            committee_index: ci,
+            committee_length: cl,
+            subnet_id: si,
+            should_aggregate?: agg,
+            validator_index: vi
+          } <- att_duties do
+        Logger.info([
+          "[Duties] Validator: #{vi}, will attest in committee #{ci} ",
+          "as #{ic}/#{cl - 1} in subnet: #{si}#{if agg, do: " and should Aggregate"}."
+        ])
+      end
+    end
+
+    :ok
+  end
+
+  def log_duties_for_epoch(_duties, epoch),
+    do: Logger.info("[Duties] No duties for epoch: #{epoch}.")
+
   defp check_valid_epoch(state, epoch) do
     next_epoch = Accessors.get_current_epoch(state) + 1
 
