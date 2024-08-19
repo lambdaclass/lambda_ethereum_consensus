@@ -38,7 +38,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   end
 
   @doc """
-  Gets a {store, genesis_validators_root} tuple with the configured strategy.
+  Gets a store with the configured strategy.
   """
   @spec setup!() :: Store.t()
   def setup!(), do: setup!(get_strategy!())
