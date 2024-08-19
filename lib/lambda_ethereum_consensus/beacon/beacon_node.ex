@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Validator
+  alias LambdaEthereumConsensus.ValidatorSet
   alias Types.BeaconState
 
   def start_link(opts) do
@@ -27,13 +27,13 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     store = ForkChoice.init_store(store, time)
 
-    validators = Validator.Setup.init(store.head_slot, store.head_root)
+    validator_set = ValidatorSet.init(store.head_slot, store.head_root)
 
     StoreSetup.get_deposit_snapshot!()
     |> init_execution_chain(store.head_root)
 
     libp2p_args =
-      [genesis_time: store.genesis_time, validators: validators, store: store] ++
+      [genesis_time: store.genesis_time, validator_set: validator_set, store: store] ++
         get_libp2p_args()
 
     children =

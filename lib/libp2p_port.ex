@@ -23,6 +23,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Validator
+  alias LambdaEthereumConsensus.ValidatorSet
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command
   alias Libp2pProto.Enr
@@ -65,7 +66,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @type init_arg ::
           {:genesis_time, Types.uint64()}
-          | {:validators, %{}}
+          | {:validator_set, ValidatorSet.t()}
           | {:listen_addr, [String.t()]}
           | {:enable_discovery, boolean()}
           | {:discovery_addr, String.t()}
@@ -391,7 +392,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def init(args) do
     {genesis_time, args} = Keyword.pop!(args, :genesis_time)
-    {validators, args} = Keyword.pop(args, :validators, %{})
+    {validator_set, args} = Keyword.pop(args, :validator_set, %{})
     {join_init_topics, args} = Keyword.pop(args, :join_init_topics, false)
     {enable_request_handlers, args} = Keyword.pop(args, :enable_request_handlers, false)
     {store, args} = Keyword.pop!(args, :store)
@@ -420,7 +421,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {:ok,
      %{
        genesis_time: genesis_time,
-       validators: validators,
+       validator_set: validator_set,
        slot_data: nil,
        port: port,
        subscribers: %{},
@@ -523,11 +524,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_info({:new_head, slot, head_root}, %{validators: validators} = state) do
-    updated_validators =
-      Validator.Setup.notify_validators(validators, {:new_head, slot, head_root})
+  def handle_info({:new_head, slot, head_root}, %{validator_set: validator_set} = state) do
+    updated_validator_set =
+      ValidatorSet.notify_head(validator_set, slot, head_root)
 
-    {:noreply, %{state | validators: updated_validators}}
+    {:noreply, %{state | validator_set: updated_validator_set}}
   end
 
   @impl GenServer
@@ -549,46 +550,42 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_call(:get_keystores, _from, %{validators: validators} = state),
-    do: {:reply, Enum.map(validators, fn {_pubkey, validator} -> validator.keystore end), state}
+  def handle_call(:get_keystores, _from, %{validator_set: validator_set} = state),
+    do:
+      {:reply,
+       Enum.map(validator_set.validators, fn {_index, validator} -> validator.keystore end),
+       state}
 
   @impl GenServer
-  def handle_call({:delete_validator, pubkey}, _from, %{validators: validators} = state) do
-    case Map.fetch(validators, pubkey) do
-      {:ok, validator} ->
-        Logger.warning("[Libp2pPort] Deleting validator with index #{inspect(validator.index)}.")
+  def handle_call({:delete_validator, pubkey}, _from, %{validator_set: validator_set} = state) do
+    validator_set.validators
+    |> Enum.find(fn {_index, validator} -> validator.keystore.pubkey == pubkey end)
+    |> case do
+      {index, _validator} ->
+        Logger.warning("[Libp2pPort] Deleting validator with index #{inspect(index)}.")
+        updated_validators = Map.delete(validator_set.validators, index)
+        {:reply, :ok, Map.put(state.validator_set, :validators, updated_validators)}
 
-        {:reply, :ok, %{state | validators: Map.delete(validators, pubkey)}}
-
-      :error ->
+      _ ->
         {:error, "Pubkey #{inspect(pubkey)} not found."}
     end
   end
 
   @impl GenServer
   def handle_call(
-        {:add_validator, %Keystore{pubkey: pubkey} = keystore},
+        {:add_validator, keystore},
         _from,
-        %{validators: validators} = state
+        %{validator_set: %{head_root: head_root}, slot_data: {slot, _third}} =
+          state
       ) do
     # TODO (#1263): handle 0 validators
-    first_validator = validators |> Map.values() |> List.first()
-    validator = Validator.new({first_validator.slot, first_validator.root, keystore})
+    validator = Validator.new(keystore, slot, head_root)
 
     Logger.warning(
-      "[Libp2pPort] Adding validator with index #{inspect(validator.index)}. head_slot: #{inspect(validator.slot)}."
+      "[Libp2pPort] Adding validator with index #{inspect(validator.index)}. head_slot: #{inspect(slot)}."
     )
 
-    {:reply, :ok,
-     %{
-       state
-       | validators:
-           Map.put(
-             validators,
-             pubkey,
-             validator
-           )
-     }}
+    {:reply, :ok, put_in(state.validator_set, [:validators, validator.index], validator)}
   end
 
   ######################
@@ -801,10 +798,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       if slot_data == new_slot_data do
         state
       else
-        updated_validators =
-          Validator.Setup.notify_validators(state.validators, {:on_tick, new_slot_data})
+        updated_validator_set =
+          ValidatorSet.notify_tick(state.validator_set, new_slot_data)
 
-        %{state | slot_data: new_slot_data, validators: updated_validators}
+        %{state | slot_data: new_slot_data, validator_set: updated_validator_set}
       end
 
     maybe_log_new_slot(slot_data, new_slot_data)

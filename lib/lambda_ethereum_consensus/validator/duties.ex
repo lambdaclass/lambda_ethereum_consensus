@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator.Utils
+  alias LambdaEthereumConsensus.ValidatorSet
   alias Types.BeaconState
 
   require Logger
@@ -15,161 +16,125 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           selection_proof: Bls.signature(),
           signing_domain: Types.domain(),
           subnet_id: Types.uint64(),
-          slot: Types.slot(),
+          validator_index: Types.validator_index(),
           committee_index: Types.uint64(),
           committee_length: Types.uint64(),
           index_in_committee: Types.uint64()
         }
+
   @type proposer_duty :: Types.slot()
 
-  @type attester_duties :: list(:not_computed | attester_duty())
-  @type proposer_duties :: :not_computed | list(Types.slot())
+  @type attester_duties :: [attester_duty()]
+  @type proposer_duties :: [proposer_duty()]
 
-  @type duties :: %{
-          attester: attester_duties(),
-          proposer: proposer_duties()
-        }
+  @type attester_duties_per_slot :: %{Types.slot() => attester_duties()}
+  @type proposer_duties_per_slot :: %{Types.slot() => proposer_duties()}
 
-  @spec empty_duties() :: duties()
-  def empty_duties() do
-    %{
-      # Order is: previous epoch, current epoch, next epoch
-      attester: [:not_computed, :not_computed, :not_computed],
-      proposer: :not_computed
-    }
+  @type kind :: :proposers | :attesters
+  @type duties :: %{kind() => attester_duties_per_slot() | proposer_duties_per_slot()}
+
+  ############################
+  # Accessors
+
+  @spec current_proposer(duties(), Types.epoch(), Types.slot()) :: proposer_duty() | nil
+  def current_proposer(duties, epoch, slot),
+    do: get_in(duties, [epoch, :proposers, slot])
+
+  @spec current_attesters(duties(), Types.epoch(), Types.slot()) :: attester_duties()
+  def current_attesters(duties, epoch, slot) do
+    for %{attested?: false} = duty <- attesters(duties, epoch, slot) do
+      duty
+    end
   end
 
-  @spec get_current_attester_duty(duties :: duties(), current_slot :: Types.slot()) ::
-          attester_duty()
-  def get_current_attester_duty(%{attester: attester_duties}, current_slot) do
-    Enum.find(attester_duties, fn
-      :not_computed -> false
-      duty -> duty.slot == current_slot
-    end)
+  @spec current_aggregators(duties(), Types.epoch(), Types.slot()) :: attester_duties()
+  def current_aggregators(duties, epoch, slot) do
+    for %{should_aggregate?: true} = duty <- attesters(duties, epoch, slot) do
+      duty
+    end
   end
 
-  @spec replace_attester_duty(
-          duties :: duties(),
-          duty :: attester_duty(),
-          new_duty :: attester_duty()
+  defp attesters(duties, epoch, slot), do: get_in(duties, [epoch, :attesters, slot]) || []
+
+  ############################
+  # Update functions
+
+  @spec update_duties!(
+          duties(),
+          kind(),
+          Types.epoch(),
+          Types.slot(),
+          attester_duties() | proposer_duties()
         ) :: duties()
-  def replace_attester_duty(duties, duty, new_duty) do
-    attester_duties =
-      Enum.map(duties.attester, fn
-        ^duty -> new_duty
-        d -> d
-      end)
+  def update_duties!(duties, kind, epoch, slot, updated),
+    do: put_in(duties, [epoch, kind, slot], updated)
 
-    %{duties | attester: attester_duties}
-  end
+  @spec attested(attester_duty()) :: attester_duty()
+  def attested(duty), do: Map.put(duty, :attested?, true)
 
-  @spec log_duties(duties :: duties(), validator_index :: Types.validator_index()) :: :ok
-  def log_duties(%{attester: attester_duties, proposer: proposer_duties}, validator_index) do
-    attester_duties
-    # Drop the first element, which is the previous epoch's duty
-    |> Stream.drop(1)
-    |> Enum.each(fn %{
-                      index_in_committee: i,
-                      committee_index: ci,
-                      slot: slot,
-                      should_aggregate?: sa
-                    } ->
-      Logger.info(
-        "[Validator] #{validator_index} has to attest in committee #{ci} of slot #{slot} with index #{i}, and should_aggregate?: #{sa}"
-      )
-    end)
+  @spec aggregated(attester_duty()) :: attester_duty()
+  def aggregated(duty), do: Map.put(duty, :should_aggregate?, false)
 
-    Enum.each(proposer_duties, fn slot ->
-      Logger.info("[Validator] #{validator_index} has to propose a block in slot #{slot}!")
-    end)
-  end
+  ############################
+  # Main functions
 
-  @spec compute_proposer_duties(
-          beacon_state :: BeaconState.t(),
-          epoch :: Types.epoch(),
-          validator_index :: Types.validator_index()
-        ) :: proposer_duties()
-  def compute_proposer_duties(beacon_state, epoch, validator_index) do
-    start_slot = Misc.compute_start_slot_at_epoch(epoch)
-
-    start_slot..(start_slot + ChainSpec.get("SLOTS_PER_EPOCH") - 1)
-    |> Enum.flat_map(fn slot ->
-      # Can't fail
-      {:ok, proposer_index} = Accessors.get_beacon_proposer_index(beacon_state, slot)
-      if proposer_index == validator_index, do: [slot], else: []
-    end)
-  end
-
-  def maybe_update_duties(duties, beacon_state, epoch, validator_index, privkey) do
-    attester_duties =
-      maybe_update_attester_duties(duties.attester, beacon_state, epoch, validator_index, privkey)
-
-    proposer_duties = compute_proposer_duties(beacon_state, epoch, validator_index)
-    # To avoid edge-cases
-    old_duty =
-      case duties.proposer do
-        :not_computed -> []
-        old -> old |> Enum.reverse() |> Enum.take(1)
+  @spec compute_proposers_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
+          proposer_duties_per_slot()
+  def compute_proposers_for_epoch(%BeaconState{} = state, epoch, validators) do
+    with {:ok, epoch} <- check_valid_epoch(state, epoch),
+         {start_slot, end_slot} <- boundary_slots(epoch) do
+      for slot <- start_slot..end_slot,
+          {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state, slot),
+          Map.has_key?(validators, proposer_index),
+          into: %{} do
+        {slot, proposer_index}
       end
-
-    %{duties | attester: attester_duties, proposer: old_duty ++ proposer_duties}
-  end
-
-  defp maybe_update_attester_duties(
-         [epp, ep0, ep1],
-         beacon_state,
-         epoch,
-         validator_index,
-         privkey
-       ) do
-    duties =
-      Stream.with_index([ep0, ep1])
-      |> Enum.map(fn
-        {:not_computed, i} ->
-          compute_attester_duties(beacon_state, epoch + i, validator_index, privkey)
-
-        {d, _} ->
-          d
-      end)
-
-    [epp | duties]
-  end
-
-  def shift_duties(%{attester: [_ep0, ep1, ep2]} = duties, epoch, current_epoch) do
-    case current_epoch - epoch do
-      1 -> %{duties | attester: [ep1, ep2, :not_computed]}
-      2 -> %{duties | attester: [ep2, :not_computed, :not_computed]}
-      _ -> %{duties | attester: [:not_computed, :not_computed, :not_computed]}
     end
   end
 
-  @spec compute_attester_duties(
-          beacon_state :: BeaconState.t(),
-          epoch :: Types.epoch(),
-          validator_index :: non_neg_integer(),
-          privkey :: Bls.privkey()
-        ) :: attester_duty() | nil
-  defp compute_attester_duties(beacon_state, epoch, validator_index, privkey) do
-    # Can't fail
-    {:ok, duty} = get_committee_assignment(beacon_state, epoch, validator_index)
+  @spec compute_attesters_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
+          attester_duties_per_slot()
+  def compute_attesters_for_epoch(%BeaconState{} = state, epoch, validators) do
+    with {:ok, epoch} <- check_valid_epoch(state, epoch),
+         {start_slot, end_slot} <- boundary_slots(epoch) do
+      committee_count_per_slot = Accessors.get_committee_count_per_slot(state, epoch)
 
-    case duty do
-      nil ->
-        nil
-
-      duty ->
-        duty
-        |> Map.put(:attested?, false)
-        |> update_with_aggregation_duty(beacon_state, privkey)
-        |> update_with_subnet_id(beacon_state, epoch)
+      for slot <- start_slot..end_slot,
+          committee_i <- 0..(committee_count_per_slot - 1),
+          reduce: %{} do
+        acc ->
+          new_duties = compute_duties_per_committee(state, epoch, slot, validators, committee_i)
+          Map.update(acc, slot, new_duties, &(new_duties ++ &1))
+      end
     end
   end
 
-  defp update_with_aggregation_duty(duty, beacon_state, privkey) do
-    proof = Utils.get_slot_signature(beacon_state, duty.slot, privkey)
+  defp compute_duties_per_committee(state, epoch, slot, validators, committee_index) do
+    case Accessors.get_beacon_committee(state, slot, committee_index) do
+      {:ok, committee} ->
+        for {validator_index, index_in_committee} <- Enum.with_index(committee),
+            validator = Map.get(validators, validator_index) do
+          %{
+            validator_index: validator_index,
+            index_in_committee: index_in_committee,
+            committee_length: length(committee),
+            committee_index: committee_index,
+            attested?: false
+          }
+          |> update_with_aggregation_duty(state, slot, validator.keystore.privkey)
+          |> update_with_subnet_id(state, epoch, slot)
+        end
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  defp update_with_aggregation_duty(duty, beacon_state, slot, privkey) do
+    proof = Utils.get_slot_signature(beacon_state, slot, privkey)
 
     if Utils.aggregator?(proof, duty.committee_length) do
-      epoch = Misc.compute_epoch_at_slot(duty.slot)
+      epoch = Misc.compute_epoch_at_slot(slot)
       domain = Accessors.get_domain(beacon_state, Constants.domain_aggregate_and_proof(), epoch)
 
       Map.put(duty, :should_aggregate?, true)
@@ -180,70 +145,60 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
-  defp update_with_subnet_id(duty, beacon_state, epoch) do
+  defp update_with_subnet_id(duty, beacon_state, epoch, slot) do
     committees_per_slot = Accessors.get_committee_count_per_slot(beacon_state, epoch)
 
     subnet_id =
-      Utils.compute_subnet_for_attestation(committees_per_slot, duty.slot, duty.committee_index)
+      Utils.compute_subnet_for_attestation(committees_per_slot, slot, duty.committee_index)
 
     Map.put(duty, :subnet_id, subnet_id)
   end
 
-  @doc """
-    Return the committee assignment in the ``epoch`` for ``validator_index``.
-    ``assignment`` returned is a tuple of the following form:
-        * ``assignment[0]`` is the index of the validator in the committee
-        * ``assignment[1]`` is the index to which the committee is assigned
-        * ``assignment[2]`` is the slot at which the committee is assigned
-    Return `nil` if no assignment.
-  """
-  @spec get_committee_assignment(BeaconState.t(), Types.epoch(), Types.validator_index()) ::
-          {:ok, nil | attester_duty()} | {:error, String.t()}
-  def get_committee_assignment(%BeaconState{} = state, epoch, validator_index) do
+  ############################
+  # Helpers
+
+  @spec log_duties_for_epoch(duties(), Types.epoch()) :: :ok
+  def log_duties_for_epoch(%{proposers: proposers, attesters: attesters}, epoch) do
+    Logger.info("[Duties] Proposers for epoch #{epoch} (slot=>validator): #{inspect(proposers)}")
+
+    for {slot, att_duties} <- attesters do
+      Logger.info("[Duties] Attesters for epoch: #{epoch}, slot #{slot}:")
+
+      for %{
+            index_in_committee: ic,
+            committee_index: ci,
+            committee_length: cl,
+            subnet_id: si,
+            should_aggregate?: agg,
+            validator_index: vi
+          } <- att_duties do
+        Logger.info([
+          "[Duties] Validator: #{vi}, will attest in committee #{ci} ",
+          "as #{ic}/#{cl - 1} in subnet: #{si}#{if agg, do: " and should Aggregate"}."
+        ])
+      end
+    end
+
+    :ok
+  end
+
+  def log_duties_for_epoch(_duties, epoch),
+    do: Logger.info("[Duties] No duties for epoch: #{epoch}.")
+
+  defp check_valid_epoch(state, epoch) do
     next_epoch = Accessors.get_current_epoch(state) + 1
 
     if epoch > next_epoch do
       {:error, "epoch must be <= next_epoch"}
     else
-      start_slot = Misc.compute_start_slot_at_epoch(epoch)
-      committee_count_per_slot = Accessors.get_committee_count_per_slot(state, epoch)
-      end_slot = start_slot + ChainSpec.get("SLOTS_PER_EPOCH")
-
-      start_slot..end_slot
-      |> Stream.map(fn slot ->
-        0..(committee_count_per_slot - 1)
-        |> Stream.map(&compute_attester_duty(state, slot, validator_index, &1))
-        |> Enum.find(&(not is_nil(&1)))
-      end)
-      |> Enum.find(&(not is_nil(&1)))
-      |> then(&{:ok, &1})
+      {:ok, epoch}
     end
   end
 
-  @spec compute_attester_duty(
-          state :: BeaconState.t(),
-          slot :: Types.slot(),
-          validator_index :: Types.validator_index(),
-          committee_index :: Types.uint64()
-        ) :: attester_duty() | nil
-  defp compute_attester_duty(state, slot, validator_index, committee_index) do
-    case Accessors.get_beacon_committee(state, slot, committee_index) do
-      {:ok, committee} ->
-        case Enum.find_index(committee, &(&1 == validator_index)) do
-          nil ->
-            nil
+  defp boundary_slots(epoch) do
+    start_slot = Misc.compute_start_slot_at_epoch(epoch)
+    end_slot = start_slot + ChainSpec.get("SLOTS_PER_EPOCH") - 1
 
-          index ->
-            %{
-              index_in_committee: index,
-              committee_length: length(committee),
-              committee_index: committee_index,
-              slot: slot
-            }
-        end
-
-      {:error, _} ->
-        nil
-    end
+    {start_slot, end_slot}
   end
 end

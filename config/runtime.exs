@@ -185,7 +185,7 @@ if keystore_pass_dir != nil and not File.dir?(keystore_pass_dir) do
   System.halt(2)
 end
 
-config :lambda_ethereum_consensus, LambdaEthereumConsensus.Validator.Setup,
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.ValidatorSet,
   keystore_dir: keystore_dir,
   keystore_pass_dir: keystore_pass_dir
 
