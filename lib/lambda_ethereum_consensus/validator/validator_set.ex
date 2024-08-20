@@ -80,6 +80,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     |> update_state(epoch, slot, head_root)
     |> attests(epoch, slot, head_root)
     |> build_payload(slot + 1, head_root)
+    |> sync_committee_broadcasts(epoch, slot, head_root)
   end
 
   @doc """
@@ -103,6 +104,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     set
     |> attests(epoch, slot, head_root)
     |> build_payload(slot + 1, head_root)
+    |> sync_committee_broadcasts(epoch, slot, head_root)
   end
 
   defp process_tick(set, epoch, {slot, :last_third}) do
@@ -140,7 +142,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
     duties = %{
       proposers: Duties.compute_proposers_for_epoch(beacon, epoch, set.validators),
-      attesters: Duties.compute_attesters_for_epoch(beacon, epoch, set.validators)
+      attesters: Duties.compute_attesters_for_epoch(beacon, epoch, set.validators),
+      sync_committees: Duties.compute_current_sync_committees(beacon, set.validators)
     }
 
     Duties.log_duties_for_epoch(duties, epoch)
@@ -187,6 +190,29 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp update_validators(new_validators, set), do: %{set | validators: new_validators}
+
+  ##############################
+  # Sync committee
+
+  defp sync_committee_broadcasts(set, epoch, slot, head_root) do
+    case Duties.current_sync_committee(set.duties, epoch, slot) do
+      [] ->
+        set
+
+      sync_committee_duties ->
+        sync_committee_duties
+        |> Enum.map(&sync_committee_broadcast(&1, slot, head_root, set.validators))
+        |> update_duties(set, epoch, :sync_committees, slot)
+    end
+  end
+
+  defp sync_committee_broadcast(duty, slot, head_root, validators) do
+    validators
+    |> Map.get(duty.validator_index)
+    |> Validator.sync_committee_message_broadcast(duty, slot, head_root)
+
+    Duties.sync_committee_broadcasted(duty, slot)
+  end
 
   ##############################
   # Attestation

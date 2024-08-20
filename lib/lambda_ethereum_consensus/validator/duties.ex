@@ -22,16 +22,26 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           index_in_committee: Types.uint64()
         }
 
-  @type proposer_duty :: Types.slot()
+  @type proposer_duty :: Types.validator_index()
+
+  @type sync_committee_duty :: %{
+          last_slot_broadcasted: Types.slot(),
+          subnet_ids: [Types.uint64()],
+          validator_index: Types.validator_index()
+        }
 
   @type attester_duties :: [attester_duty()]
   @type proposer_duties :: [proposer_duty()]
+  @type sync_committee_duties :: [sync_committee_duty()]
 
   @type attester_duties_per_slot :: %{Types.slot() => attester_duties()}
   @type proposer_duties_per_slot :: %{Types.slot() => proposer_duties()}
 
-  @type kind :: :proposers | :attesters
-  @type duties :: %{kind() => attester_duties_per_slot() | proposer_duties_per_slot()}
+  @type kind :: :proposers | :attesters | :sync_committees
+  @type duties :: %{
+          kind() =>
+            attester_duties_per_slot() | proposer_duties_per_slot() | sync_committee_duties()
+        }
 
   ############################
   # Accessors
@@ -39,6 +49,15 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   @spec current_proposer(duties(), Types.epoch(), Types.slot()) :: proposer_duty() | nil
   def current_proposer(duties, epoch, slot),
     do: get_in(duties, [epoch, :proposers, slot])
+
+  @spec current_sync_committee(duties(), Types.epoch(), Types.slot()) ::
+          sync_committee_duties()
+  def current_sync_committee(duties, epoch, slot) do
+    for %{last_slot_broadcasted: last_slot} = duty <- sync_committee(duties, epoch),
+        last_slot < slot do
+      duty
+    end
+  end
 
   @spec current_attesters(duties(), Types.epoch(), Types.slot()) :: attester_duties()
   def current_attesters(duties, epoch, slot) do
@@ -54,6 +73,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
+  defp sync_committee(duties, epoch), do: get_in(duties, [epoch, :sync_committees]) || []
   defp attesters(duties, epoch, slot), do: get_in(duties, [epoch, :attesters, slot]) || []
 
   ############################
@@ -75,6 +95,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   @spec aggregated(attester_duty()) :: attester_duty()
   def aggregated(duty), do: Map.put(duty, :should_aggregate?, false)
 
+  @spec sync_committee_broadcasted(sync_committee_duty(), Types.slot()) :: sync_committee_duty()
+  def sync_committee_broadcasted(duty, slot), do: Map.put(duty, :last_slot_broadcasted, slot)
+
   ############################
   # Main functions
 
@@ -89,6 +112,19 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           into: %{} do
         {slot, proposer_index}
       end
+    end
+  end
+
+  @spec compute_current_sync_committees(BeaconState.t(), ValidatorSet.validators()) ::
+          sync_committee_duties()
+  def compute_current_sync_committees(%BeaconState{} = state, validators) do
+    for validator_index <- Map.keys(validators),
+        subnet_ids = Utils.compute_subnets_for_sync_committee(state, validator_index) do
+      %{
+        last_slot_broadcasted: -1,
+        subnet_ids: subnet_ids,
+        validator_index: validator_index
+      }
     end
   end
 

@@ -1,0 +1,26 @@
+defmodule LambdaEthereumConsensus.P2P.Gossip.SyncCommittee do
+  @moduledoc """
+  This module handles sync committee from specific gossip subnets.
+  Used by validators to fulfill aggregation duties.
+  """
+  alias LambdaEthereumConsensus.ForkChoice
+
+  require Logger
+
+  @spec publish(Types.SyncCommitteeMessage.t(), [non_neg_integer()]) :: :ok
+  def publish(%Types.SyncCommitteeMessage{} = message, subnet_ids) do
+    Enum.each(subnet_ids, fn subnet_id ->
+      topic = topic(subnet_id)
+
+      Logger.info(
+        "[SyncCommittee] Publishing attestation, topic: #{topic}, message #{inspect(message, pretty: true)}"
+      )
+    end)
+  end
+
+  defp topic(subnet_id) do
+    # TODO: this doesn't take into account fork digest changes
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
+    "/eth2/#{fork_context}/sync_committee_#{subnet_id}/ssz_snappy"
+  end
+end
