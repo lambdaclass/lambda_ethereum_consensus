@@ -86,6 +86,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           Types.slot(),
           attester_duties() | proposer_duties()
         ) :: duties()
+  def update_duties!(duties, :sync_committees, epoch, _slot, updated),
+    do: put_in(duties, [epoch, :sync_committees], updated)
+
   def update_duties!(duties, kind, epoch, slot, updated),
     do: put_in(duties, [epoch, kind, slot], updated)
 
