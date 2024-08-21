@@ -200,7 +200,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   def log_duties_for_epoch(%{proposers: proposers, attesters: attesters}, epoch) do
     Logger.info("[Duties] Proposers for epoch #{epoch} (slot=>validator): #{inspect(proposers)}")
 
-    for {slot, att_duties} <- attesters do
+    for {slot, att_duties} <- attesters,
+        length(att_duties) > 0 do
       Logger.info("[Duties] Attesters for epoch: #{epoch}, slot #{slot}:")
 
       for %{

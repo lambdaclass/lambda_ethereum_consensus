@@ -4,17 +4,18 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.SyncCommittee do
   Used by validators to fulfill aggregation duties.
   """
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.Libp2pPort
 
   require Logger
 
   @spec publish(Types.SyncCommitteeMessage.t(), [non_neg_integer()]) :: :ok
-  def publish(%Types.SyncCommitteeMessage{} = message, subnet_ids) do
+  def publish(%Types.SyncCommitteeMessage{} = sync_committee_msg, subnet_ids) do
     Enum.each(subnet_ids, fn subnet_id ->
       topic = topic(subnet_id)
 
-      Logger.info(
-        "[SyncCommittee] Publishing attestation, topic: #{topic}, message #{inspect(message, pretty: true)}"
-      )
+      {:ok, encoded} = SszEx.encode(sync_committee_msg, Types.SyncCommitteeMessage)
+      {:ok, message} = :snappyer.compress(encoded)
+      Libp2pPort.publish(topic, message)
     end)
   end
 
