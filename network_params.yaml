@@ -8,6 +8,8 @@ participants:
     cl_image: lambda_ethereum_consensus:latest
     use_separate_vc: false
     count: 1
-    validator_count: 32
+    validator_count: 15
     cl_max_mem: 4096
     keymanager_enabled: true
+network_params:
+  preset: minimal

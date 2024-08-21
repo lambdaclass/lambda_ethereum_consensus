@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Utils
   alias LambdaEthereumConsensus.ValidatorSet
   alias Types.BeaconState
@@ -44,69 +45,42 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
         }
 
   ############################
-  # Accessors
+  # Main Compute functions
 
-  @spec current_proposer(duties(), Types.epoch(), Types.slot()) :: proposer_duty() | nil
-  def current_proposer(duties, epoch, slot),
-    do: get_in(duties, [epoch, :proposers, slot])
-
-  @spec current_sync_committee(duties(), Types.epoch(), Types.slot()) ::
-          sync_committee_duties()
-  def current_sync_committee(duties, epoch, slot) do
-    for %{last_slot_broadcasted: last_slot} = duty <- sync_committee(duties, epoch),
-        last_slot < slot do
-      duty
-    end
-  end
-
-  @spec current_attesters(duties(), Types.epoch(), Types.slot()) :: attester_duties()
-  def current_attesters(duties, epoch, slot) do
-    for %{attested?: false} = duty <- attesters(duties, epoch, slot) do
-      duty
-    end
-  end
-
-  @spec current_aggregators(duties(), Types.epoch(), Types.slot()) :: attester_duties()
-  def current_aggregators(duties, epoch, slot) do
-    for %{should_aggregate?: true} = duty <- attesters(duties, epoch, slot) do
-      duty
-    end
-  end
-
-  defp sync_committee(duties, epoch), do: get_in(duties, [epoch, :sync_committees]) || []
-  defp attesters(duties, epoch, slot), do: get_in(duties, [epoch, :attesters, slot]) || []
-
-  ############################
-  # Update functions
-
-  @spec update_duties!(
-          duties(),
-          kind(),
-          Types.epoch(),
-          Types.slot(),
-          attester_duties() | proposer_duties()
+  @spec compute_duties_for_epochs(
+          %{Types.epoch() => duties()},
+          [{Types.epoch(), Types.slot()}],
+          Types.root(),
+          ValidatorSet.validators()
         ) :: duties()
-  def update_duties!(duties, :sync_committees, epoch, _slot, updated),
-    do: put_in(duties, [epoch, :sync_committees], updated)
+  def compute_duties_for_epochs(duties_map, epochs_and_start_slots, head_root, validators) do
+    for {epoch, slot} <- epochs_and_start_slots, reduce: duties_map do
+      duties_map ->
+        beacon = Validator.fetch_target_state_and_go_to_slot(slot, head_root)
+        last_epoch = Map.keys(duties_map) |> Enum.max(fn -> 0 end)
 
-  def update_duties!(duties, kind, epoch, slot, updated),
-    do: put_in(duties, [epoch, kind, slot], updated)
+        new_proposers = compute_proposers_for_epoch(beacon, epoch, validators)
+        new_attesters = compute_attesters_for_epoch(beacon, epoch, validators)
 
-  @spec attested(attester_duty()) :: attester_duty()
-  def attested(duty), do: Map.put(duty, :attested?, true)
+        new_sync_committees =
+          case sync_committee_compute_check(epoch, {last_epoch, Map.get(duties_map, last_epoch)}) do
+            {:already_computed, sync_committees} -> sync_committees
+            :not_computed -> compute_current_sync_committees(beacon, validators)
+          end
 
-  @spec aggregated(attester_duty()) :: attester_duty()
-  def aggregated(duty), do: Map.put(duty, :should_aggregate?, false)
+        new_duties = %{
+          proposers: new_proposers,
+          attesters: new_attesters,
+          sync_committees: new_sync_committees
+        }
 
-  @spec sync_committee_broadcasted(sync_committee_duty(), Types.slot()) :: sync_committee_duty()
-  def sync_committee_broadcasted(duty, slot), do: Map.put(duty, :last_slot_broadcasted, slot)
-
-  ############################
-  # Main functions
+        Map.put(duties_map, epoch, new_duties)
+    end
+  end
 
   @spec compute_proposers_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
           proposer_duties_per_slot()
-  def compute_proposers_for_epoch(%BeaconState{} = state, epoch, validators) do
+  defp compute_proposers_for_epoch(%BeaconState{} = state, epoch, validators) do
     with {:ok, epoch} <- check_valid_epoch(state, epoch),
          {start_slot, end_slot} <- boundary_slots(epoch) do
       for slot <- start_slot..end_slot,
@@ -120,7 +94,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @spec compute_current_sync_committees(BeaconState.t(), ValidatorSet.validators()) ::
           sync_committee_duties()
-  def compute_current_sync_committees(%BeaconState{} = state, validators) do
+  defp compute_current_sync_committees(%BeaconState{} = state, validators) do
     for validator_index <- Map.keys(validators),
         subnet_ids = Utils.compute_subnets_for_sync_committee(state, validator_index) do
       %{
@@ -131,9 +105,20 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
+  defp sync_committee_compute_check(_epoch, {_last_epoch, nil}), do: :not_computed
+
+  defp sync_committee_compute_check(epoch, {last_epoch, last_duties}) do
+    last_period = Misc.compute_sync_committee_period(last_epoch)
+    current_period = Misc.compute_sync_committee_period(epoch)
+
+    if last_period == current_period,
+      do: {:already_computed, last_duties.sync_committees},
+      else: :not_computed
+  end
+
   @spec compute_attesters_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
           attester_duties_per_slot()
-  def compute_attesters_for_epoch(%BeaconState{} = state, epoch, validators) do
+  defp compute_attesters_for_epoch(%BeaconState{} = state, epoch, validators) do
     with {:ok, epoch} <- check_valid_epoch(state, epoch),
          {start_slot, end_slot} <- boundary_slots(epoch) do
       committee_count_per_slot = Accessors.get_committee_count_per_slot(state, epoch)
@@ -192,6 +177,64 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
     Map.put(duty, :subnet_id, subnet_id)
   end
+
+  ############################
+  # Accessors
+
+  @spec current_proposer(duties(), Types.epoch(), Types.slot()) :: proposer_duty() | nil
+  def current_proposer(duties, epoch, slot),
+    do: get_in(duties, [epoch, :proposers, slot])
+
+  @spec current_sync_committee(duties(), Types.epoch(), Types.slot()) ::
+          sync_committee_duties()
+  def current_sync_committee(duties, epoch, slot) do
+    for %{last_slot_broadcasted: last_slot} = duty <- sync_committee(duties, epoch),
+        last_slot < slot do
+      duty
+    end
+  end
+
+  @spec current_attesters(duties(), Types.epoch(), Types.slot()) :: attester_duties()
+  def current_attesters(duties, epoch, slot) do
+    for %{attested?: false} = duty <- attesters(duties, epoch, slot) do
+      duty
+    end
+  end
+
+  @spec current_aggregators(duties(), Types.epoch(), Types.slot()) :: attester_duties()
+  def current_aggregators(duties, epoch, slot) do
+    for %{should_aggregate?: true} = duty <- attesters(duties, epoch, slot) do
+      duty
+    end
+  end
+
+  defp sync_committee(duties, epoch), do: get_in(duties, [epoch, :sync_committees]) || []
+  defp attesters(duties, epoch, slot), do: get_in(duties, [epoch, :attesters, slot]) || []
+
+  ############################
+  # Update functions
+
+  @spec update_duties!(
+          duties(),
+          kind(),
+          Types.epoch(),
+          Types.slot(),
+          attester_duties() | proposer_duties()
+        ) :: duties()
+  def update_duties!(duties, :sync_committees, epoch, _slot, updated),
+    do: put_in(duties, [epoch, :sync_committees], updated)
+
+  def update_duties!(duties, kind, epoch, slot, updated),
+    do: put_in(duties, [epoch, kind, slot], updated)
+
+  @spec attested(attester_duty()) :: attester_duty()
+  def attested(duty), do: Map.put(duty, :attested?, true)
+
+  @spec aggregated(attester_duty()) :: attester_duty()
+  def aggregated(duty), do: Map.put(duty, :should_aggregate?, false)
+
+  @spec sync_committee_broadcasted(sync_committee_duty(), Types.slot()) :: sync_committee_duty()
+  def sync_committee_broadcasted(duty, slot), do: Map.put(duty, :last_slot_broadcasted, slot)
 
   ############################
   # Helpers

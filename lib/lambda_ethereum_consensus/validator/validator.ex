@@ -38,8 +38,7 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @spec new(Keystore.t(), Types.slot(), Types.root()) :: t()
   def new(keystore, head_slot, head_root) do
-    epoch = Misc.compute_epoch_at_slot(head_slot)
-    beacon = fetch_target_state_and_go_to_slot(epoch, head_slot, head_root)
+    beacon = fetch_target_state_and_go_to_slot(head_slot, head_root)
 
     state = %__MODULE__{
       index: nil,
@@ -86,9 +85,11 @@ defmodule LambdaEthereumConsensus.Validator do
   ##########################
   # Target State
 
-  @spec fetch_target_state_and_go_to_slot(Types.epoch(), Types.slot(), Types.root()) ::
+  @spec fetch_target_state_and_go_to_slot(Types.slot(), Types.root()) ::
           Types.BeaconState.t()
-  def fetch_target_state_and_go_to_slot(epoch, slot, root) do
+  def fetch_target_state_and_go_to_slot(slot, root) do
+    epoch = Misc.compute_epoch_at_slot(slot)
+
     epoch |> fetch_target_state(root) |> go_to_slot(slot)
   end
 

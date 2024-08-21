@@ -132,23 +132,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
       [{epoch, slot}, {epoch + 1, Misc.compute_start_slot_at_epoch(epoch + 1)}]
       |> Enum.reject(&Map.has_key?(set.duties, elem(&1, 0)))
 
-    epochs_to_calculate
-    |> Map.new(&compute_duties_for_epoch!(set, &1, head_root))
+    set.duties
+    |> Duties.compute_duties_for_epochs(epochs_to_calculate, head_root, set.validators)
     |> merge_duties_and_prune(epoch, set)
-  end
-
-  defp compute_duties_for_epoch!(set, {epoch, slot}, head_root) do
-    beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
-
-    duties = %{
-      proposers: Duties.compute_proposers_for_epoch(beacon, epoch, set.validators),
-      attesters: Duties.compute_attesters_for_epoch(beacon, epoch, set.validators),
-      sync_committees: Duties.compute_current_sync_committees(beacon, set.validators)
-    }
-
-    Duties.log_duties_for_epoch(duties, epoch)
-
-    {epoch, duties}
   end
 
   defp merge_duties_and_prune(new_duties, current_epoch, set) do
