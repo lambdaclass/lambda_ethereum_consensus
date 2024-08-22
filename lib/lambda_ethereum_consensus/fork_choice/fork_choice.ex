@@ -176,7 +176,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       Logger.info("Pruning states before slot #{new_finalized_epoch}")
 
       new_finalized_slot =
-        new_finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+        Misc.compute_start_slot_at_epoch(new_finalized_epoch)
 
       Task.Supervisor.start_child(
         PruneStatesSupervisor,
