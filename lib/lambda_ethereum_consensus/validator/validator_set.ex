@@ -79,8 +79,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     # TODO: this doesn't take into account reorgs
     set
     |> update_state(epoch, slot, head_root)
-    |> attests(epoch, slot, head_root)
-    |> build_payload(slot + 1, head_root)
+    |> maybe_attests(epoch, slot, head_root)
+    |> maybe_build_payload(slot + 1, head_root)
   end
 
   @doc """
@@ -97,17 +97,17 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp process_tick(%{head_root: head_root} = set, epoch, {slot, :first_third}) do
-    propose(set, epoch, slot, head_root)
+    maybe_propose(set, epoch, slot, head_root)
   end
 
   defp process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
     set
-    |> attests(epoch, slot, head_root)
-    |> build_payload(slot + 1, head_root)
+    |> maybe_attests(epoch, slot, head_root)
+    |> maybe_build_payload(slot + 1, head_root)
   end
 
   defp process_tick(set, epoch, {slot, :last_third}) do
-    publish_aggregates(set, epoch, slot)
+    maybe_publish_aggregates(set, epoch, slot)
   end
 
   ##############################
@@ -160,7 +160,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   ##############################
   # Block proposal
 
-  defp build_payload(%{validators: validators} = set, slot, head_root) do
+  defp maybe_build_payload(%{validators: validators} = set, slot, head_root) do
     # We calculate payloads from a previous slot, we need to recompute the epoch
     epoch = Misc.compute_epoch_at_slot(slot)
 
@@ -175,7 +175,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     end
   end
 
-  defp propose(%{validators: validators} = set, epoch, slot, head_root) do
+  defp maybe_propose(%{validators: validators} = set, epoch, slot, head_root) do
     case Duties.current_proposer(set.duties, epoch, slot) do
       nil ->
         set
@@ -192,7 +192,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   ##############################
   # Attestation
 
-  defp attests(set, epoch, slot, head_root) do
+  defp maybe_attests(set, epoch, slot, head_root) do
     case Duties.current_attesters(set.duties, epoch, slot) do
       [] ->
         set
@@ -204,7 +204,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     end
   end
 
-  defp publish_aggregates(set, epoch, slot) do
+  defp maybe_publish_aggregates(set, epoch, slot) do
     case Duties.current_aggregators(set.duties, epoch, slot) do
       [] ->
         set
