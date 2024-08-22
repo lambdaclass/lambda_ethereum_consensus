@@ -64,12 +64,12 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
         {time_p, new_proposers} =
           :timer.tc(fn -> compute_proposers_for_epoch(beacon, epoch, validators) end)
 
-        Logger.info("[Duties] Time to compute proposers for epoch #{epoch}: #{time_p/1_000}ms")
+        Logger.info("[Duties] Time to compute proposers for epoch #{epoch}: #{time_p / 1_000}ms")
         # new_proposers = compute_proposers_for_epoch(beacon, epoch, validators)
         {time_a, new_attesters} =
           :timer.tc(fn -> compute_attesters_for_epoch(beacon, epoch, validators) end)
 
-        Logger.info("[Duties] Time to compute attesters for epoch #{epoch}: #{time_a/1_000}ms")
+        Logger.info("[Duties] Time to compute attesters for epoch #{epoch}: #{time_a / 1_000}ms")
         # new_attesters = compute_attesters_for_epoch(beacon, epoch, validators)
 
         # new_sync_committees =
@@ -94,7 +94,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
             end
           end)
 
-        Logger.info("[Duties] Time to compute sync committees for epoch #{epoch}: #{time_sc/1_000}ms, #{inspect(new_sync_committees, pretty: true)}")
+        Logger.info(
+          "[Duties] Time to compute sync committees for epoch #{epoch}: #{time_sc / 1_000}ms, #{inspect(new_sync_committees, pretty: true)}"
+        )
 
         new_duties = %{
           proposers: new_proposers,
