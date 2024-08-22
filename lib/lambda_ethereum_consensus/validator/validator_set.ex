@@ -54,10 +54,11 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
     validator_keystores = decode_validator_keystores(keystore_dir, keystore_pass_dir)
     epoch = Misc.compute_epoch_at_slot(slot)
+    beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
 
     validators =
       Map.new(validator_keystores, fn keystore ->
-        validator = Validator.new(keystore, slot, head_root)
+        validator = Validator.new(keystore, beacon)
         {validator.index, validator}
       end)
 

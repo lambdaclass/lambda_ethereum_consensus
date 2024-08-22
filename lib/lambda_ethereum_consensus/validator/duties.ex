@@ -12,6 +12,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @type attester_duty :: %{
           attested?: boolean(),
+          # should_aggregate? is used to check if aggregation is needed for this attestation.
+          # and also to avoid double aggregation.
           should_aggregate?: boolean(),
           selection_proof: Bls.signature(),
           signing_domain: Types.domain(),
@@ -73,6 +75,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   def attested(duty), do: Map.put(duty, :attested?, true)
 
   @spec aggregated(attester_duty()) :: attester_duty()
+  # should_aggregate? is set to false to avoid double aggregation.
   def aggregated(duty), do: Map.put(duty, :should_aggregate?, false)
 
   ############################
