@@ -13,6 +13,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @type attester_duty :: %{
           attested?: boolean(),
+          # should_aggregate? is used to check if aggregation is needed for this attestation.
+          # and also to avoid double aggregation.
           should_aggregate?: boolean(),
           selection_proof: Bls.signature(),
           signing_domain: Types.domain(),
@@ -58,7 +60,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
     for {epoch, slot} <- epochs_and_start_slots, reduce: duties_map do
       duties_map ->
-        beacon = Validator.fetch_target_state_and_go_to_slot(slot, head_root)
+        beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+        # If committees are not already calculated for the epoch, this is way faster than
+        # calculating them on the fly.
+        Accessors.maybe_prefetch_committees(beacon, epoch)
+
         last_epoch = Map.keys(duties_map) |> Enum.max(fn -> 0 end)
 
         {time_p, new_proposers} =
@@ -262,6 +268,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   def attested(duty), do: Map.put(duty, :attested?, true)
 
   @spec aggregated(attester_duty()) :: attester_duty()
+  # should_aggregate? is set to false to avoid double aggregation.
   def aggregated(duty), do: Map.put(duty, :should_aggregate?, false)
 
   @spec sync_committee_broadcasted(sync_committee_duty(), Types.slot()) :: sync_committee_duty()

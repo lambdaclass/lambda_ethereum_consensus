@@ -38,26 +38,10 @@ defmodule LambdaEthereumConsensus.Validator do
 
   @spec new(Keystore.t(), Types.slot(), Types.root()) :: t()
   def new(keystore, head_slot, head_root) do
-    beacon = fetch_target_state_and_go_to_slot(head_slot, head_root)
+    epoch = Misc.compute_epoch_at_slot(head_slot)
+    beacon = fetch_target_state_and_go_to_slot(epoch, head_slot, head_root)
 
-    state = %__MODULE__{
-      index: nil,
-      keystore: keystore,
-      payload_builder: nil
-    }
-
-    case fetch_validator_index(beacon, state.keystore.pubkey) do
-      nil ->
-        Logger.warning(
-          "[Validator] Public key #{state.keystore.pubkey} not found in the validator set"
-        )
-
-        state
-
-      validator_index ->
-        log_debug(validator_index, "Setup completed")
-        %{state | index: validator_index}
-    end
+    new(keystore, beacon)
   end
 
   @spec new(Keystore.t(), Types.BeaconState.t()) :: t()
@@ -85,11 +69,9 @@ defmodule LambdaEthereumConsensus.Validator do
   ##########################
   # Target State
 
-  @spec fetch_target_state_and_go_to_slot(Types.slot(), Types.root()) ::
+  @spec fetch_target_state_and_go_to_slot(Types.epoch(), Types.slot(), Types.root()) ::
           Types.BeaconState.t()
-  def fetch_target_state_and_go_to_slot(slot, root) do
-    epoch = Misc.compute_epoch_at_slot(slot)
-
+  def fetch_target_state_and_go_to_slot(epoch, slot, root) do
     epoch |> fetch_target_state(root) |> go_to_slot(slot)
   end
 
