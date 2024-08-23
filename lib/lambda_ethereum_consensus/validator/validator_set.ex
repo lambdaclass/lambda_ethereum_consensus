@@ -5,10 +5,11 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   simplify the delegation of work.
   """
 
-  defstruct head_root: nil, duties: %{}, validators: []
+  defstruct head_root: nil, duties: %{}, validators: %{}
 
   require Logger
 
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Duties
@@ -72,6 +73,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   Notify all validators of a new head.
   """
   @spec notify_head(t(), Types.slot(), Types.root()) :: t()
+  def notify_head(%{validators: validators} = state, _slot, _head_root) when validators == %{},
+    do: state
+
   def notify_head(set, slot, head_root) do
     Logger.debug("[ValidatorSet] New Head", root: head_root, slot: slot)
     epoch = Misc.compute_epoch_at_slot(slot)
@@ -87,6 +91,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   Notify all validators of a new tick.
   """
   @spec notify_tick(t(), tuple()) :: t()
+  def notify_tick(%{validators: validators} = state, _slot_data) when validators == %{},
+    do: state
+
   def notify_tick(%{head_root: head_root} = set, {slot, third} = slot_data) do
     Logger.debug("[ValidatorSet] Tick #{inspect(third)}", root: head_root, slot: slot)
     epoch = Misc.compute_epoch_at_slot(slot)
@@ -138,6 +145,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   defp compute_duties_for_epoch!(set, {epoch, slot}, head_root) do
     beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+    # If committees are not already calculated for the epoch, this is way faster than
+    # calculating them on the fly.
+    Accessors.maybe_prefetch_committees(beacon, epoch)
 
     duties = %{
       proposers: Duties.compute_proposers_for_epoch(beacon, epoch, set.validators),
