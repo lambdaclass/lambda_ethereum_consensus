@@ -67,42 +67,14 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
         last_epoch = Map.keys(duties_map) |> Enum.max(fn -> 0 end)
 
-        {time_p, new_proposers} =
-          :timer.tc(fn -> compute_proposers_for_epoch(beacon, epoch, validators) end)
+        new_proposers = compute_proposers_for_epoch(beacon, epoch, validators)
+        new_attesters = compute_attesters_for_epoch(beacon, epoch, validators)
 
-        Logger.info("[Duties] Time to compute proposers for epoch #{epoch}: #{time_p / 1_000}ms")
-        # new_proposers = compute_proposers_for_epoch(beacon, epoch, validators)
-        {time_a, new_attesters} =
-          :timer.tc(fn -> compute_attesters_for_epoch(beacon, epoch, validators) end)
-
-        Logger.info("[Duties] Time to compute attesters for epoch #{epoch}: #{time_a / 1_000}ms")
-        # new_attesters = compute_attesters_for_epoch(beacon, epoch, validators)
-
-        # new_sync_committees =
-        #   case sync_committee_compute_check(epoch, {last_epoch, Map.get(duties_map, last_epoch)}) do
-        #     {:already_computed, sync_committees} -> sync_committees
-        #     :not_computed -> compute_current_sync_committees(beacon, validators)
-        #   end
-        {time_sc, new_sync_committees} =
-          :timer.tc(fn ->
-            case sync_committee_compute_check(
-                   epoch,
-                   {last_epoch, Map.get(duties_map, last_epoch)}
-                 ) do
-              {:already_computed, sync_committees} ->
-                Logger.info("[Duties] Sync committees already computed for epoch #{epoch}.")
-                sync_committees
-
-              :not_computed ->
-                Logger.info("[Duties] Sync committees not computed for epoch #{epoch}.")
-
-                compute_current_sync_committees(beacon, validators)
-            end
-          end)
-
-        Logger.info(
-          "[Duties] Time to compute sync committees for epoch #{epoch}: #{time_sc / 1_000}ms, #{inspect(new_sync_committees, pretty: true)}"
-        )
+        new_sync_committees =
+          case sync_committee_compute_check(epoch, {last_epoch, Map.get(duties_map, last_epoch)}) do
+            {:already_computed, sync_committees} -> sync_committees
+            :not_computed -> compute_current_sync_committees(beacon, validators)
+          end
 
         new_duties = %{
           proposers: new_proposers,
@@ -110,6 +82,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           sync_committees: new_sync_committees
         }
 
+        log_duties_for_epoch(new_duties, epoch)
         Map.put(duties_map, epoch, new_duties)
     end
   end
@@ -278,8 +251,20 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   # Helpers
 
   @spec log_duties_for_epoch(duties(), Types.epoch()) :: :ok
-  def log_duties_for_epoch(%{proposers: proposers, attesters: attesters}, epoch) do
+  def log_duties_for_epoch(
+        %{proposers: proposers, attesters: attesters, sync_committees: sync_committees},
+        epoch
+      ) do
     Logger.info("[Duties] Proposers for epoch #{epoch} (slot=>validator): #{inspect(proposers)}")
+
+    for %{
+          subnet_ids: si,
+          validator_index: vi
+        } <- sync_committees do
+      Logger.info(
+        "[Duties] Sync committee for epoch: #{epoch}, validator_index: #{vi} will broadcast on subnet_ids: #{inspect(si)}."
+      )
+    end
 
     for {slot, att_duties} <- attesters,
         length(att_duties) > 0 do
