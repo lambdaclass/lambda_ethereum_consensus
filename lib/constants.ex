@@ -36,6 +36,9 @@ defmodule Constants do
   @spec target_aggregators_per_committee() :: non_neg_integer()
   def target_aggregators_per_committee(), do: 16
 
+  @spec target_aggregators_per_sync_subcommittee() :: non_neg_integer()
+  def target_aggregators_per_sync_subcommittee(), do: 16
+
   ### Withdrawal prefixes
 
   @spec bls_withdrawal_prefix() :: Types.bytes1()

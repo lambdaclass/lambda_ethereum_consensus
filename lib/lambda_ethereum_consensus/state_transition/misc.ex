@@ -282,6 +282,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   @doc """
+  Compute the sync committee period for the given ``epoch``. This is used to determine the
+  period in which a validator is assigned to the sync committee.
+  """
+  @spec compute_sync_committee_period(Types.epoch()) :: Types.uint64()
+  def compute_sync_committee_period(epoch) do
+    div(epoch, ChainSpec.get("EPOCHS_PER_SYNC_COMMITTEE_PERIOD"))
+  end
+
+  @doc """
   Return the 32-byte fork data root for the ``current_version`` and ``genesis_validators_root``.
   This is used primarily in signature domains to avoid collisions across forks/chains.
   """
