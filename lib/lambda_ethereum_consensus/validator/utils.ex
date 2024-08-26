@@ -102,6 +102,29 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     end
   end
 
+  @spec get_sync_committee_selection_proof(
+          BeaconState.t(),
+          Types.slot(),
+          non_neg_integer(),
+          Bls.privkey()
+        ) ::
+          Types.bls_signature()
+  def get_sync_committee_selection_proof(%BeaconState{} = state, slot, subcommittee_i, privkey) do
+    domain_sc_selection_proof = Constants.domain_sync_committee_selection_proof()
+    epoch = Misc.compute_epoch_at_slot(slot)
+    domain = Accessors.get_domain(state, domain_sc_selection_proof, epoch)
+
+    signing_data = %Types.SyncAggregatorSelectionData{
+      slot: slot,
+      subcommittee_index: subcommittee_i
+    }
+
+    signing_root = Misc.compute_signing_root(signing_data, domain)
+
+    {:ok, signature} = Bls.sign(privkey, signing_root)
+    signature
+  end
+
   # `is_sync_committee_aggregator` equivalent
   @spec sync_committee_aggregator?(Types.bls_signature()) :: boolean()
   def sync_committee_aggregator?(signature) do
