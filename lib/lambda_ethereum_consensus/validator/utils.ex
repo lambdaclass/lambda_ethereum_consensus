@@ -101,4 +101,19 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
               "Invalid epoch #{epoch}, should be in the current or next sync committee period"
     end
   end
+
+  # `is_sync_committee_aggregator` equivalent
+  @spec sync_committee_aggregator?(Types.bls_signature()) :: boolean()
+  def sync_committee_aggregator?(signature) do
+    modulo =
+      ChainSpec.get("SYNC_COMMITTEE_SIZE")
+      |> div(Constants.sync_committee_subnet_count())
+      |> div(Constants.target_aggregators_per_sync_subcommittee())
+      |> max(1)
+
+    SszEx.hash(signature)
+    |> binary_part(0, 8)
+    |> :binary.decode_unsigned(:little)
+    |> rem(modulo) == 0
+  end
 end
