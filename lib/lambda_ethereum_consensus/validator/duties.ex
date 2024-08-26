@@ -72,9 +72,12 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
         new_sync_committees =
           case sync_committee_compute_check(epoch, {last_epoch, Map.get(duties_map, last_epoch)}) do
-            {:already_computed, sync_committees} -> sync_committees
+            {:already_computed, sync_committees} ->
+              sync_committees
+
             {:not_computed, period} ->
-              Logger.debug("[Duties] Computing sync committees for period: #{period} and epoch: #{epoch}.")
+              Logger.debug("[Duties] Computing sync committees for period: #{period}.")
+
               compute_current_sync_committees(beacon, validators)
           end
 
