@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     |> update_state(epoch, slot, head_root)
     |> maybe_attests(epoch, slot, head_root)
     |> maybe_build_payload(slot + 1, head_root)
-    |> sync_committee_broadcasts(epoch, slot, head_root)
+    |> maybe_sync_committee_broadcasts(epoch, slot, head_root)
   end
 
   @doc """
@@ -111,7 +111,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     set
     |> maybe_attests(epoch, slot, head_root)
     |> maybe_build_payload(slot + 1, head_root)
-    |> sync_committee_broadcasts(epoch, slot, head_root)
+    |> maybe_sync_committee_broadcasts(epoch, slot, head_root)
   end
 
   defp process_tick(set, epoch, {slot, :last_third}) do
@@ -187,7 +187,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   ##############################
   # Sync committee
 
-  defp sync_committee_broadcasts(set, epoch, slot, head_root) do
+  defp maybe_sync_committee_broadcasts(set, epoch, slot, head_root) do
     case Duties.current_sync_committee(set.duties, epoch, slot) do
       [] ->
         set

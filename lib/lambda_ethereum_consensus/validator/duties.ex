@@ -261,14 +261,14 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           subnet_ids: si,
           validator_index: vi
         } <- sync_committees do
-      Logger.info(
+      Logger.debug(
         "[Duties] Sync committee for epoch: #{epoch}, validator_index: #{vi} will broadcast on subnet_ids: #{inspect(si)}."
       )
     end
 
     for {slot, att_duties} <- attesters,
         length(att_duties) > 0 do
-      Logger.info("[Duties] Attesters for epoch: #{epoch}, slot #{slot}:")
+      Logger.debug("[Duties] Attesters for epoch: #{epoch}, slot #{slot}:")
 
       for %{
             index_in_committee: ic,
@@ -278,7 +278,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
             should_aggregate?: agg,
             validator_index: vi
           } <- att_duties do
-        Logger.info([
+        Logger.debug([
           "[Duties] Validator: #{vi}, will attest in committee #{ci} ",
           "as #{ic}/#{cl - 1} in subnet: #{si}#{if agg, do: " and should Aggregate"}."
         ])
