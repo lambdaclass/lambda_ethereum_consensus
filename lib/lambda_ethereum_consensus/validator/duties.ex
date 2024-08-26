@@ -56,7 +56,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           ValidatorSet.validators()
         ) :: duties()
   def compute_duties_for_epochs(duties_map, epochs_and_start_slots, head_root, validators) do
-    Logger.info("[Duties] Computing duties for epochs: #{inspect(epochs_and_start_slots)}")
+    Logger.debug("[Duties] Computing duties for epochs: #{inspect(epochs_and_start_slots)}")
 
     for {epoch, slot} <- epochs_and_start_slots, reduce: duties_map do
       duties_map ->
@@ -73,7 +73,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
         new_sync_committees =
           case sync_committee_compute_check(epoch, {last_epoch, Map.get(duties_map, last_epoch)}) do
             {:already_computed, sync_committees} -> sync_committees
-            :not_computed -> compute_current_sync_committees(beacon, validators)
+            {:not_computed, period} ->
+              Logger.debug("[Duties] Computing sync committees for period: #{period} and epoch: #{epoch}.")
+              compute_current_sync_committees(beacon, validators)
           end
 
         new_duties = %{
@@ -123,7 +125,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
     if last_period == current_period,
       do: {:already_computed, last_duties.sync_committees},
-      else: :not_computed
+      else: {:not_computed, current_period}
   end
 
   @spec compute_attesters_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
