@@ -30,7 +30,15 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   @type sync_committee_duty :: %{
           last_slot_broadcasted: Types.slot(),
           subnet_ids: [Types.uint64()],
-          validator_index: Types.validator_index()
+          validator_index: Types.validator_index(),
+          aggregation: %{Type.slot() => [
+            %{
+              aggregated?: boolean(),
+              selection_proof: Bls.signature(),
+              signing_domain: Types.domain(),
+              subcommittee_index: Types.uint64()
+            }
+          ]}
         }
 
   @type attester_duties :: [attester_duty()]
@@ -109,18 +117,27 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   @spec compute_current_sync_committees(BeaconState.t(), ValidatorSet.validators()) ::
           sync_committee_duties()
   defp compute_current_sync_committees(%BeaconState{} = state, validators) do
+    epoch = Accessors.get_current_epoch(state)
+
     for validator_index <- Map.keys(validators),
         subnet_ids = Utils.compute_subnets_for_sync_committee(state, validator_index),
         length(subnet_ids) > 0 do
+      validator_privkey = Map.get(validators, validator_index).keystore.privkey
+
+      aggregation_data =
+        sync_committee_aggreagtion_data(state, epoch, subnet_ids, validator_privkey)
+
       %{
         last_slot_broadcasted: -1,
         subnet_ids: subnet_ids,
-        validator_index: validator_index
+        validator_index: validator_index,
+        aggregation: aggregation_data
       }
     end
   end
 
-  defp sync_committee_compute_check(_epoch, {_last_epoch, nil}), do: :not_computed
+  defp sync_committee_compute_check(epoch, {_last_epoch, nil}),
+    do: {:not_computed, Misc.compute_sync_committee_period(epoch)}
 
   defp sync_committee_compute_check(epoch, {last_epoch, last_duties}) do
     last_period = Misc.compute_sync_committee_period(last_epoch)
@@ -129,6 +146,26 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     if last_period == current_period,
       do: {:already_computed, last_duties.sync_committees},
       else: {:not_computed, current_period}
+  end
+
+  defp sync_committee_aggreagtion_data(beacon_state, epoch, subnet_ids, validator_privkey) do
+    {start_slot, end_slot} = boundary_slots(epoch)
+
+    for slot <- start_slot..end_slot,
+        subcommittee_index <- subnet_ids, reduce: %{} do
+      acc ->
+        proof = Utils.get_sync_committee_selection_proof(beacon_state, slot, subcommittee_index, validator_privkey)
+        domain_sc_selection_proof = Constants.domain_sync_committee_selection_proof()
+        domain = Accessors.get_domain(beacon_state, domain_sc_selection_proof, epoch)
+
+        if Utils.sync_committee_aggregator?(proof) do
+          aggregation = %{aggregated?: false, selection_proof: proof, signing_domain: domain, subcommittee_index: subcommittee_index}
+
+          Map.update(acc, slot, [], &[aggregation | &1])
+        else
+          acc
+        end
+    end
   end
 
   @spec compute_attesters_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
@@ -264,10 +301,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
     for %{
           subnet_ids: si,
-          validator_index: vi
+          validator_index: vi,
+          aggregation: agg
         } <- sync_committees do
-      Logger.debug(
-        "[Duties] Sync committee for epoch: #{epoch}, validator_index: #{vi} will broadcast on subnet_ids: #{inspect(si)}."
+      Logger.info(
+        "[Duties] Sync committee for epoch: #{epoch}, validator_index: #{vi} will broadcast on subnet_ids: #{inspect(si)}.\n#{inspect(agg, pretty: true)}"
       )
     end
 
