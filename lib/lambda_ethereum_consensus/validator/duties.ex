@@ -120,7 +120,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
-  defp sync_committee_compute_check(_epoch, {_last_epoch, nil}), do: :not_computed
+  defp sync_committee_compute_check(epoch, {_last_epoch, nil}),
+    do: {:not_computed, Misc.compute_sync_committee_period(epoch)}
 
   defp sync_committee_compute_check(epoch, {last_epoch, last_duties}) do
     last_period = Misc.compute_sync_committee_period(last_epoch)
