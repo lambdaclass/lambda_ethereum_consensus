@@ -232,10 +232,21 @@ defmodule LambdaEthereumConsensus.Validator do
     head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
     log_debug(validator_index, "broadcasting sync committee message", slot: slot)
 
-    head_state
-    |> get_sync_committee_message(head_root, validator_index, keystore.privkey)
+    message = get_sync_committee_message(head_state, head_root, validator_index, keystore.privkey)
+
+    message
     |> Gossip.SyncCommittee.publish(subnet_ids)
     |> log_info_result(validator_index, "published sync committee message", slot: slot)
+
+    aggregate_slot = current_duty |> Map.get(:aggregation) |> Map.get(slot)
+    if aggregate_slot && length(aggregate_slot) > 0 do
+      log_debug(validator_index, "collecting for future contribution", slot: slot)
+
+      aggregate_slot
+      |> Enum.map(& &1.subcommittee_index)
+      |> Gossip.SyncCommittee.collect(message)
+      |> log_debug_result(validator_index, "collected sync committee messages", slot: slot)
+    end
   end
 
   @spec get_sync_committee_message(
