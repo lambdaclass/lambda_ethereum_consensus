@@ -52,4 +52,53 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     |> :binary.decode_unsigned(:little)
     |> rem(modulo) == 0
   end
+
+  @spec compute_subnets_for_sync_committee(BeaconState.t(), Types.validator_index()) :: [
+          Types.uint64()
+        ]
+  def compute_subnets_for_sync_committee(%BeaconState{} = state, validator_index) do
+    target_pubkey = state.validators[validator_index].pubkey
+    current_epoch = Accessors.get_current_epoch(state)
+    next_slot_epoch = Misc.compute_epoch_at_slot(state.slot + 1)
+    current_sync_committee_period = Misc.compute_sync_committee_period(current_epoch)
+    next_slot_sync_committee_period = Misc.compute_sync_committee_period(next_slot_epoch)
+
+    sync_committee =
+      if current_sync_committee_period == next_slot_sync_committee_period,
+        do: state.current_sync_committee,
+        else: state.next_sync_committee
+
+    sync_committee_subnet_size =
+      div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count())
+
+    for {pubkey, index} <- Enum.with_index(sync_committee.pubkeys),
+        pubkey == target_pubkey do
+      div(index, sync_committee_subnet_size)
+    end
+    |> Enum.dedup()
+  end
+
+  # `is_assigned_to_sync_committee` equivalent
+  @spec assigned_to_sync_committee?(BeaconState.t(), Types.epoch(), Types.validator_index()) ::
+          boolean()
+  def assigned_to_sync_committee?(%BeaconState{} = state, epoch, validator_index) do
+    sync_committee_period = Misc.compute_sync_committee_period(epoch)
+    current_epoch = Accessors.get_current_epoch(state)
+    current_sync_committee_period = Misc.compute_sync_committee_period(current_epoch)
+    next_sync_committee_period = current_sync_committee_period + 1
+
+    pubkey = state.validators[validator_index].pubkey
+
+    case sync_committee_period do
+      ^current_sync_committee_period ->
+        Enum.member?(state.current_sync_committee.pubkeys, pubkey)
+
+      ^next_sync_committee_period ->
+        Enum.member?(state.next_sync_committee.pubkeys, pubkey)
+
+      _ ->
+        raise ArgumentError,
+              "Invalid epoch #{epoch}, should be in the current or next sync committee period"
+    end
+  end
 end

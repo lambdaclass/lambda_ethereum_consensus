@@ -9,7 +9,6 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   require Logger
 
-  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Duties
@@ -18,12 +17,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   @type t :: %__MODULE__{
           head_root: Types.root() | nil,
-          duties: %{
-            Types.epoch() => %{
-              proposers: Duties.proposer_duties(),
-              attesters: Duties.attester_duties()
-            }
-          },
+          duties: %{Types.epoch() => Duties.duties()},
           validators: validators()
         }
 
@@ -85,6 +79,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     |> update_state(epoch, slot, head_root)
     |> maybe_attests(epoch, slot, head_root)
     |> maybe_build_payload(slot + 1, head_root)
+    |> maybe_sync_committee_broadcasts(slot, head_root)
   end
 
   @doc """
@@ -111,6 +106,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     set
     |> maybe_attests(epoch, slot, head_root)
     |> maybe_build_payload(slot + 1, head_root)
+    |> maybe_sync_committee_broadcasts(slot, head_root)
   end
 
   defp process_tick(set, epoch, {slot, :last_third}) do
@@ -138,25 +134,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
       [{epoch, slot}, {epoch + 1, Misc.compute_start_slot_at_epoch(epoch + 1)}]
       |> Enum.reject(&Map.has_key?(set.duties, elem(&1, 0)))
 
-    epochs_to_calculate
-    |> Map.new(&compute_duties_for_epoch!(set, &1, head_root))
+    set.duties
+    |> Duties.compute_duties_for_epochs(epochs_to_calculate, head_root, set.validators)
     |> merge_duties_and_prune(epoch, set)
-  end
-
-  defp compute_duties_for_epoch!(set, {epoch, slot}, head_root) do
-    beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
-    # If committees are not already calculated for the epoch, this is way faster than
-    # calculating them on the fly.
-    Accessors.maybe_prefetch_committees(beacon, epoch)
-
-    duties = %{
-      proposers: Duties.compute_proposers_for_epoch(beacon, epoch, set.validators),
-      attesters: Duties.compute_attesters_for_epoch(beacon, epoch, set.validators)
-    }
-
-    Duties.log_duties_for_epoch(duties, epoch)
-
-    {epoch, duties}
   end
 
   defp merge_duties_and_prune(new_duties, current_epoch, set) do
@@ -198,6 +178,32 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp update_validators(new_validators, set), do: %{set | validators: new_validators}
+
+  ##############################
+  # Sync committee
+
+  defp maybe_sync_committee_broadcasts(set, slot, head_root) do
+    # Sync committee is broadcasted for the next slot, so we take the duties for the correct epoch.
+    epoch = Misc.compute_epoch_at_slot(slot + 1)
+
+    case Duties.current_sync_committee(set.duties, epoch, slot) do
+      [] ->
+        set
+
+      sync_committee_duties ->
+        sync_committee_duties
+        |> Enum.map(&sync_committee_broadcast(&1, slot, head_root, set.validators))
+        |> update_duties(set, epoch, :sync_committees, slot)
+    end
+  end
+
+  defp sync_committee_broadcast(duty, slot, head_root, validators) do
+    validators
+    |> Map.get(duty.validator_index)
+    |> Validator.sync_committee_message_broadcast(duty, slot, head_root)
+
+    Duties.sync_committee_broadcasted(duty, slot)
+  end
 
   ##############################
   # Attestation
