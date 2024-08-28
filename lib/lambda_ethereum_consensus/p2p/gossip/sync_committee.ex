@@ -39,7 +39,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.SyncCommittee do
     subnet_id = extract_subnet_id(topic)
 
     with {:ok, uncompressed} <- :snappyer.decompress(message),
-         {:ok, sync_committee_msg} <- Ssz.from_ssz(uncompressed, Types.Attestation) do
+         {:ok, sync_committee_msg} <- Ssz.from_ssz(uncompressed, Types.SyncCommitteeMessage) do
       # TODO: validate before accepting
       Libp2pPort.validate_message(msg_id, :accept)
 
