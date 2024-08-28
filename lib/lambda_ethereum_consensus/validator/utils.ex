@@ -119,7 +119,8 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
       subcommittee_index: subcommittee_i
     }
 
-    signing_root = Misc.compute_signing_root(signing_data, domain)
+    signing_root =
+      Misc.compute_signing_root(signing_data, Types.SyncAggregatorSelectionData, domain)
 
     {:ok, signature} = Bls.sign(privkey, signing_root)
     signature
