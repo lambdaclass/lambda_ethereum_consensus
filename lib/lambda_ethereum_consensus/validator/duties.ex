@@ -75,7 +75,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
         # calculating them on the fly.
         Accessors.maybe_prefetch_committees(beacon, epoch)
 
-        last_epoch = Map.keys(duties_map) |> Enum.max(fn -> 0 end)
+        _last_epoch = Map.keys(duties_map) |> Enum.max(fn -> 0 end)
 
         new_proposers = compute_proposers_for_epoch(beacon, epoch, validators)
         new_attesters = compute_attesters_for_epoch(beacon, epoch, validators)

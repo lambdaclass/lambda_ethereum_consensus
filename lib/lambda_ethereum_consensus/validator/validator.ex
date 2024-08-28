@@ -239,6 +239,7 @@ defmodule LambdaEthereumConsensus.Validator do
     |> log_info_result(validator_index, "published sync committee message", slot: slot)
 
     aggregate_slot = current_duty |> Map.get(:aggregation) |> Map.get(slot)
+
     if aggregate_slot && length(aggregate_slot) > 0 do
       log_debug(validator_index, "collecting for future contribution", slot: slot)
 

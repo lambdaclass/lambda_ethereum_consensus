@@ -1,13 +1,13 @@
 defmodule Unit.AttestationTest do
   alias LambdaEthereumConsensus.Store.Db
   alias Types.AttestationData
+  alias Types.AttSubnetInfo
   alias Types.Checkpoint
-  alias Types.SubnetInfo
 
   use ExUnit.Case
   use Patch
 
-  doctest SubnetInfo
+  doctest AttSubnetInfo
 
   setup %{tmp_dir: tmp_dir} do
     start_link_supervised!({Db, dir: tmp_dir})
@@ -50,9 +50,9 @@ defmodule Unit.AttestationTest do
       signature: <<>>
     }
 
-    SubnetInfo.new_subnet_with_attestation(subnet_id, expected_attestation)
+    AttSubnetInfo.new_subnet_with_attestation(subnet_id, expected_attestation)
 
-    {:ok, attestations} = SubnetInfo.stop_collecting(subnet_id)
+    {:ok, attestations} = AttSubnetInfo.stop_collecting(subnet_id)
 
     assert [expected_attestation] == attestations
   end
@@ -81,11 +81,11 @@ defmodule Unit.AttestationTest do
           2, 2, 2, 2, 2, 2, 2, 2, 2>>
     }
 
-    SubnetInfo.new_subnet_with_attestation(subnet_id, attestation1)
+    AttSubnetInfo.new_subnet_with_attestation(subnet_id, attestation1)
 
-    SubnetInfo.add_attestation!(subnet_id, attestation2)
+    AttSubnetInfo.add_attestation!(subnet_id, attestation2)
 
-    {:ok, attestations} = SubnetInfo.stop_collecting(subnet_id)
+    {:ok, attestations} = AttSubnetInfo.stop_collecting(subnet_id)
 
     assert [attestation2, attestation1] == attestations
   end
