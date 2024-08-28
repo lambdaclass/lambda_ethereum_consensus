@@ -140,17 +140,17 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
-  defp sync_committee_compute_check(epoch, {_last_epoch, nil}),
-    do: {:not_computed, Misc.compute_sync_committee_period(epoch)}
+  # defp sync_committee_compute_check(epoch, {_last_epoch, nil}),
+  #   do: {:not_computed, Misc.compute_sync_committee_period(epoch)}
 
-  defp sync_committee_compute_check(epoch, {last_epoch, last_duties}) do
-    last_period = Misc.compute_sync_committee_period(last_epoch)
-    current_period = Misc.compute_sync_committee_period(epoch)
+  # defp sync_committee_compute_check(epoch, {last_epoch, last_duties}) do
+  #   last_period = Misc.compute_sync_committee_period(last_epoch)
+  #   current_period = Misc.compute_sync_committee_period(epoch)
 
-    if last_period == current_period,
-      do: {:already_computed, last_duties.sync_committees},
-      else: {:not_computed, current_period}
-  end
+  #   if last_period == current_period,
+  #     do: {:already_computed, last_duties.sync_committees},
+  #     else: {:not_computed, current_period}
+  # end
 
   defp sync_committee_aggreagtion_data(beacon_state, epoch, subnet_ids, validator_privkey) do
     {start_slot, end_slot} = boundary_slots(epoch)
