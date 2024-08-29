@@ -28,6 +28,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   @type proposer_duty :: Types.validator_index()
 
   @type sync_committee_duty :: %{
+          # Given that we send messages in EVERY slot, instead
+          # of tracking them all, we just keep track of the last
+          # slot we broadcasted to avoid double publishs.
           last_slot_broadcasted: Types.slot(),
           subnet_ids: [Types.uint64()],
           validator_index: Types.validator_index(),

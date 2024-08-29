@@ -17,12 +17,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   @type t :: %__MODULE__{
           head_root: Types.root() | nil,
-          duties: %{
-            Types.epoch() => %{
-              proposers: Duties.proposer_duties(),
-              attesters: Duties.attester_duties()
-            }
-          },
+          duties: %{Types.epoch() => Duties.duties()},
           validators: validators()
         }
 
