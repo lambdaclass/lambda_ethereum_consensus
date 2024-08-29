@@ -264,6 +264,15 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
+  @spec current_sync_aggregators(duties(), Types.epoch(), Types.slot()) :: sync_committee_duties()
+  def current_sync_aggregators(duties, epoch, slot) do
+    for %{aggregation: aggregation} = duty <- sync_committee(duties, epoch),
+        Map.get(aggregation, slot),
+        Enum.any?(aggregation[slot], &(not Map.get(&1, :aggregated?))) do
+      duty
+    end
+  end
+
   @spec current_attesters(duties(), Types.epoch(), Types.slot()) :: attester_duties()
   def current_attesters(duties, epoch, slot) do
     for %{attested?: false} = duty <- attesters(duties, epoch, slot) do
@@ -306,6 +315,14 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @spec sync_committee_broadcasted(sync_committee_duty(), Types.slot()) :: sync_committee_duty()
   def sync_committee_broadcasted(duty, slot), do: Map.put(duty, :last_slot_broadcasted, slot)
+
+  @spec sync_committee_aggregated(sync_committee_duty(), Types.slot()) :: sync_committee_duty()
+  def sync_committee_aggregated(duty, slot) do
+    updated_aggreagtion =
+      Enum.map(duty.aggregation[slot], fn agg -> Map.put(agg, :aggregated?, true) end)
+
+    put_in(duty, [:aggregation, slot], updated_aggreagtion)
+  end
 
   ############################
   # Helpers

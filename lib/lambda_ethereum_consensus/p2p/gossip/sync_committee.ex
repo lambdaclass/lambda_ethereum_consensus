@@ -74,6 +74,17 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.SyncCommittee do
     :ok
   end
 
+  @spec stop_collecting(non_neg_integer()) ::
+          {:ok, list(Types.Attestation.t())} | {:error, String.t()}
+  def stop_collecting(subnet_id) do
+    # TODO from Attestation: implement some way to unsubscribe without leaving the topic
+    # TODO: This handle individual subnet_id while the other ones handle lists.
+    topic = topic(subnet_id)
+    Libp2pPort.leave_topic(topic)
+    Libp2pPort.join_topic(topic)
+    SyncSubnetInfo.stop_collecting(subnet_id)
+  end
+
   defp topic(subnet_id) do
     # TODO: this doesn't take into account fork digest changes
     fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)

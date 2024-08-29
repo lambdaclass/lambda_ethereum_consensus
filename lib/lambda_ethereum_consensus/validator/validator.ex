@@ -271,6 +271,38 @@ defmodule LambdaEthereumConsensus.Validator do
     }
   end
 
+  @spec publish_sync_aggregate(t(), Duties.sync_committee_duty(), Types.slot()) :: :ok
+  def publish_sync_aggregate(%{index: validator_index, keystore: _keystore}, duty, slot) do
+    for subnet_id <- duty.subnet_ids do
+      case Gossip.SyncCommittee.stop_collecting(subnet_id) do
+        {:ok, messages} ->
+          log_md = [slot: slot, messages: messages]
+          log_info(validator_index, "publishing sync committee aggregate", log_md)
+
+        # aggregate_messages(messages, subnet_id)
+        # |> append_proof(duty.selection_proof, validator_index)
+        # |> append_signature(duty.signing_domain, keystore)
+        # |> Gossip.SyncCommittee.publish_aggregate()
+        # |> log_info_result(validator_index, "published sync committee aggregate", log_md)
+
+        {:error, reason} ->
+          log_error(validator_index, "stop collecting sync committee messages", reason)
+          :ok
+      end
+    end
+
+    :ok
+  end
+
+  # defp aggregate_messages(messages, subnet_id) do
+  #   %Types.SyncCommitteeContribution{
+  #     slot: List.first(messages).slot,
+  #     beacon_block_root: List.first(messages).beacon_block_root,
+  #     subcommittee_index: subnet_id,
+  #     signature: Bls.aggregate(List.map(messages, & &1.signature))
+  #   }
+  # end
+
   ################################
   # Payload building and proposing
 
