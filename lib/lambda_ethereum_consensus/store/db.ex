@@ -2,7 +2,9 @@ defmodule LambdaEthereumConsensus.Store.Db do
   @moduledoc """
   Module that handles the key-value store.
   """
+
   require Logger
+
   # TODO: replace GenServer with :ets
   use GenServer
 
@@ -14,41 +16,33 @@ defmodule LambdaEthereumConsensus.Store.Db do
 
   @spec put(binary, binary) :: :ok
   def put(key, value) do
-    ref = GenServer.call(@registered_name, :get_ref)
-    Exleveldb.put(ref, key, value)
+    perform(:put, [key, value])
   end
 
   @spec delete(binary) :: :ok
   def delete(key) do
-    ref = GenServer.call(@registered_name, :get_ref)
-    Exleveldb.delete(ref, key)
+    perform(:delete, [key])
   end
 
   @spec get(binary) :: {:ok, binary} | :not_found
   def get(key) do
-    ref = GenServer.call(@registered_name, :get_ref)
-    Exleveldb.get(ref, key)
-  end
-
-  @spec size() :: non_neg_integer()
-  def size() do
-    ref = GenServer.call(@registered_name, :get_ref)
-    {:ok, size} = :eleveldb.status(ref, "leveldb.total-bytes")
-    String.to_integer(size)
+    perform(:get, [key])
   end
 
   @spec iterate() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
   def iterate() do
-    ref = GenServer.call(@registered_name, :get_ref)
-    # TODO: wrap cursor to make it DB-agnostic
-    Exleveldb.iterator(ref, [])
+    perform(:iterator, [[]])
   end
 
   @spec iterate_keys() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
   def iterate_keys() do
-    ref = GenServer.call(@registered_name, :get_ref)
-    # TODO: wrap cursor to make it DB-agnostic
-    Exleveldb.iterator(ref, [], :keys_only)
+    perform(:iterator, [[], :keys_only])
+  end
+
+  @spec size() :: non_neg_integer()
+  def size() do
+    {:ok, size} = :eleveldb.status(ref(), "leveldb.total-bytes")
+    String.to_integer(size)
   end
 
   @impl true
@@ -73,5 +67,13 @@ defmodule LambdaEthereumConsensus.Store.Db do
   defp get_dir() do
     Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)
     |> Keyword.fetch!(:dir)
+  end
+
+  defp perform(name, args) do
+    apply(Exleveldb, name, [ref() | args])
+  end
+
+  defp ref() do
+    GenServer.call(__MODULE__, :get_ref)
   end
 end
