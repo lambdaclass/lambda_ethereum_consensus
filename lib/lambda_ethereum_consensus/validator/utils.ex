@@ -82,24 +82,28 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   @spec assigned_to_sync_committee?(BeaconState.t(), Types.epoch(), Types.validator_index()) ::
           boolean()
   def assigned_to_sync_committee?(%BeaconState{} = state, epoch, validator_index) do
-    sync_committee_period = Misc.compute_sync_committee_period(epoch)
-    current_epoch = Accessors.get_current_epoch(state)
-    current_sync_committee_period = Misc.compute_sync_committee_period(current_epoch)
-    next_sync_committee_period = current_sync_committee_period + 1
+    target_pubkey = state.validators |> Map.get(validator_index, %{}) |> Map.get(:pubkey)
 
-    pubkey = state.validators[validator_index].pubkey
+    target_pubkey && target_pubkey in Accessors.get_sync_committee_for_epoch!(state, epoch)
+  end
 
-    case sync_committee_period do
-      ^current_sync_committee_period ->
-        Enum.member?(state.current_sync_committee.pubkeys, pubkey)
+  @spec participants_per_sync_subcommittee(BeaconState.t(), Types.epoch()) ::
+          %{non_neg_integer() => [Bls.pubkey()]}
+  def participants_per_sync_subcommittee(state, epoch) do
+    sync_committee_subnet_size =
+      div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count())
 
-      ^next_sync_committee_period ->
-        Enum.member?(state.next_sync_committee.pubkeys, pubkey)
+    state
+    |> Accessors.get_sync_committee_for_epoch!(epoch)
+    |> Map.get(:pubkeys)
+    |> Enum.chunk_every(sync_committee_subnet_size)
+    |> Enum.with_index()
+    |> Map.new(fn {pubkeys, i} ->
+      indices_by_pubkeys =
+        pubkeys |> Enum.with_index() |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
 
-      _ ->
-        raise ArgumentError,
-              "Invalid epoch #{epoch}, should be in the current or next sync committee period"
-    end
+      {i, indices_by_pubkeys}
+    end)
   end
 
   @spec get_sync_committee_selection_proof(

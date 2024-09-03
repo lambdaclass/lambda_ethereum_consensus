@@ -62,6 +62,15 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.SyncCommittee do
     :ok
   end
 
+  @spec publish_contribution(Types.SignedContributionAndProof.t()) :: :ok
+  def publish_contribution(%Types.SignedContributionAndProof{} = signed_contribution) do
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
+    topic = "/eth2/#{fork_context}/sync_committee_contribution_and_proof/ssz_snappy"
+    {:ok, encoded} = SszEx.encode(signed_contribution, Types.SignedContributionAndProof)
+    {:ok, message} = :snappyer.compress(encoded)
+    Libp2pPort.publish(topic, message)
+  end
+
   @spec collect([non_neg_integer()], Types.SyncCommitteeMessage.t()) :: :ok
   def collect(subnet_ids, message) do
     join(subnet_ids)

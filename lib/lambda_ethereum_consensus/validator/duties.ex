@@ -168,8 +168,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
             validator_privkey
           )
 
-        domain_sc_selection_proof = Constants.domain_sync_committee_selection_proof()
-        domain = Accessors.get_domain(beacon_state, domain_sc_selection_proof, epoch)
+        domain_contribution_and_proof = Constants.domain_contribution_and_proof()
+        domain = Accessors.get_domain(beacon_state, domain_contribution_and_proof, epoch)
 
         if Utils.sync_committee_aggregator?(proof) do
           aggregation = %{

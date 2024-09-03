@@ -271,19 +271,40 @@ defmodule LambdaEthereumConsensus.Validator do
     }
   end
 
-  @spec publish_sync_aggregate(t(), Duties.sync_committee_duty(), Types.slot()) :: :ok
-  def publish_sync_aggregate(%{index: validator_index, keystore: _keystore}, duty, slot) do
+  @spec publish_sync_aggregate(
+          t(),
+          Duties.sync_committee_duty(),
+          Types.epoch(),
+          Types.slot(),
+          Types.root()
+        ) :: :ok
+  def publish_sync_aggregate(
+        %{index: validator_index, keystore: keystore},
+        duty,
+        epoch,
+        slot,
+        head_root
+      ) do
+    head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
+
     for subnet_id <- duty.subnet_ids do
       case Gossip.SyncCommittee.stop_collecting(subnet_id) do
         {:ok, messages} ->
           log_md = [slot: slot, messages: messages]
           log_info(validator_index, "publishing sync committee aggregate", log_md)
 
-        # aggregate_messages(messages, subnet_id)
-        # |> append_proof(duty.selection_proof, validator_index)
-        # |> append_signature(duty.signing_domain, keystore)
-        # |> Gossip.SyncCommittee.publish_aggregate()
-        # |> log_info_result(validator_index, "published sync committee aggregate", log_md)
+          aggregation_bits =
+            sync_committee_aggregation_bits(head_state, subnet_id, epoch, messages)
+
+          aggregation_duty =
+            Enum.find(duty.aggregation[slot], &(&1.subcommittee_index == subnet_id))
+
+          messages
+          |> sync_committee_contribution(subnet_id, aggregation_bits)
+          |> append_sync_proof(aggregation_duty.selection_proof, validator_index)
+          |> append_sync_signature(aggregation_duty.signing_domain, keystore)
+          |> Gossip.SyncCommittee.publish_contribution()
+          |> log_info_result(validator_index, "published sync committee aggregate", log_md)
 
         {:error, reason} ->
           log_error(validator_index, "stop collecting sync committee messages", reason)
@@ -294,14 +315,46 @@ defmodule LambdaEthereumConsensus.Validator do
     :ok
   end
 
-  # defp aggregate_messages(messages, subnet_id) do
-  #   %Types.SyncCommitteeContribution{
-  #     slot: List.first(messages).slot,
-  #     beacon_block_root: List.first(messages).beacon_block_root,
-  #     subcommittee_index: subnet_id,
-  #     signature: Bls.aggregate(List.map(messages, & &1.signature))
-  #   }
-  # end
+  defp sync_committee_contribution(messages, subnet_id, aggregation_bits) do
+    {:ok, signature} = Bls.aggregate(Enum.map(messages, & &1.signature))
+
+    %Types.SyncCommitteeContribution{
+      slot: List.first(messages).slot,
+      beacon_block_root: List.first(messages).beacon_block_root,
+      subcommittee_index: subnet_id,
+      aggregation_bits: aggregation_bits,
+      signature: signature
+    }
+  end
+
+  defp append_sync_proof(contribution, proof, validator_index) do
+    %Types.ContributionAndProof{
+      aggregator_index: validator_index,
+      contribution: contribution,
+      selection_proof: proof
+    }
+  end
+
+  defp append_sync_signature(contribution_and_proof, signing_domain, %{privkey: privkey}) do
+    signing_root = Misc.compute_signing_root(contribution_and_proof, signing_domain)
+    {:ok, signature} = Bls.sign(privkey, signing_root)
+    %Types.SignedContributionAndProof{message: contribution_and_proof, signature: signature}
+  end
+
+  defp sync_committee_aggregation_bits(state, subnet_id, epoch, messages) do
+    indexes_in_subcommittee =
+      state
+      |> Utils.participants_per_sync_subcommittee(epoch)
+      |> Map.get(subnet_id)
+      |> Map.new(fn {pubkey, indexes} -> {fetch_validator_index(state, pubkey), indexes} end)
+
+    aggregation_bits = indexes_in_subcommittee |> Enum.count() |> BitList.zero()
+
+    for %{validator_index: validator_index} <- messages, reduce: aggregation_bits do
+      acc ->
+        BitList.set(acc, indexes_in_subcommittee |> Map.get(validator_index))
+    end
+  end
 
   ################################
   # Payload building and proposing
