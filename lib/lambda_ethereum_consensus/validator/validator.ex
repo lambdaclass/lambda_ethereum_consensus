@@ -287,7 +287,8 @@ defmodule LambdaEthereumConsensus.Validator do
       ) do
     head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
 
-    for subnet_id <- duty.subnet_ids do
+    for subnet_id <- duty.subnet_ids,
+        agg_duty = Enum.find(duty.aggregation[slot], &(&1.subcommittee_index == subnet_id)) do
       case Gossip.SyncCommittee.stop_collecting(subnet_id) do
         {:ok, messages} ->
           log_md = [slot: slot, messages: messages]
@@ -296,13 +297,10 @@ defmodule LambdaEthereumConsensus.Validator do
           aggregation_bits =
             sync_committee_aggregation_bits(head_state, subnet_id, epoch, messages)
 
-          aggregation_duty =
-            Enum.find(duty.aggregation[slot], &(&1.subcommittee_index == subnet_id))
-
           messages
           |> sync_committee_contribution(subnet_id, aggregation_bits)
-          |> append_sync_proof(aggregation_duty.selection_proof, validator_index)
-          |> append_sync_signature(aggregation_duty.signing_domain, keystore)
+          |> append_sync_proof(agg_duty.selection_proof, validator_index)
+          |> append_sync_signature(agg_duty.signing_domain, keystore)
           |> Gossip.SyncCommittee.publish_contribution()
           |> log_info_result(validator_index, "published sync committee aggregate", log_md)
 
@@ -348,7 +346,8 @@ defmodule LambdaEthereumConsensus.Validator do
       |> Map.get(subnet_id)
       |> Map.new(fn {pubkey, indexes} -> {fetch_validator_index(state, pubkey), indexes} end)
 
-    aggregation_bits = indexes_in_subcommittee |> Enum.count() |> BitList.zero()
+    # TODO: This calculation should be in another place.
+    aggregation_bits = div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count()) |> BitList.zero()
 
     for %{validator_index: validator_index} <- messages, reduce: aggregation_bits do
       acc ->
