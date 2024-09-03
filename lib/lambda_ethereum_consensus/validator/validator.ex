@@ -347,7 +347,9 @@ defmodule LambdaEthereumConsensus.Validator do
       |> Map.new(fn {pubkey, indexes} -> {fetch_validator_index(state, pubkey), indexes} end)
 
     # TODO: This calculation should be in another place.
-    aggregation_bits = div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count()) |> BitList.zero()
+    aggregation_bits =
+      div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count())
+      |> BitList.zero()
 
     for %{validator_index: validator_index} <- messages, reduce: aggregation_bits do
       acc ->
