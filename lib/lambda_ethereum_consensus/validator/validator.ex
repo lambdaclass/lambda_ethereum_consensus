@@ -212,6 +212,54 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   ################################
+  # Sync Committee
+
+  @spec sync_committee_message_broadcast(
+          t(),
+          Duties.sync_committee_duty(),
+          Types.slot(),
+          Types.root()
+        ) ::
+          :ok
+  def sync_committee_message_broadcast(
+        %{index: validator_index, keystore: keystore},
+        current_duty,
+        slot,
+        head_root
+      ) do
+    %{subnet_ids: subnet_ids} = current_duty
+
+    head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
+    log_debug(validator_index, "broadcasting sync committee message", slot: slot)
+
+    head_state
+    |> get_sync_committee_message(head_root, validator_index, keystore.privkey)
+    |> Gossip.SyncCommittee.publish(subnet_ids)
+    |> log_info_result(validator_index, "published sync committee message", slot: slot)
+  end
+
+  @spec get_sync_committee_message(
+          Types.BeaconState.t(),
+          Types.root(),
+          Types.validator_index(),
+          Bls.privkey()
+        ) ::
+          Types.SyncCommitteeMessage.t()
+  def get_sync_committee_message(head_state, head_root, validator_index, privkey) do
+    epoch = Accessors.get_current_epoch(head_state)
+    domain = Accessors.get_domain(head_state, Constants.domain_sync_committee(), epoch)
+    signing_root = Misc.compute_signing_root(head_root, domain)
+    {:ok, signature} = Bls.sign(privkey, signing_root)
+
+    %Types.SyncCommitteeMessage{
+      slot: head_state.slot,
+      beacon_block_root: head_root,
+      validator_index: validator_index,
+      signature: signature
+    }
+  end
+
+  ################################
   # Payload building and proposing
 
   @spec start_payload_builder(t(), Types.slot(), Types.root()) :: t()
