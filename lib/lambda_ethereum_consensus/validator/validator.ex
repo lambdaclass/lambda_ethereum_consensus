@@ -294,11 +294,11 @@ defmodule LambdaEthereumConsensus.Validator do
           log_md = [slot: slot, messages: messages]
           log_info(validator_index, "publishing sync committee aggregate", log_md)
 
-          aggregation_bits =
-            sync_committee_aggregation_bits(head_state, subnet_id, epoch, messages)
+          {aggregation_bits, indexes_in_subcomittee} =
+            sync_committee_aggregation_bits_and_indexes(head_state, subnet_id, epoch, messages)
 
           messages
-          |> sync_committee_contribution(subnet_id, aggregation_bits)
+          |> sync_committee_contribution(subnet_id, aggregation_bits, indexes_in_subcomittee)
           |> append_sync_proof(agg_duty.selection_proof, validator_index)
           |> append_sync_signature(agg_duty.signing_domain, keystore)
           |> Gossip.SyncCommittee.publish_contribution()
@@ -313,32 +313,46 @@ defmodule LambdaEthereumConsensus.Validator do
     :ok
   end
 
-  defp sync_committee_aggregation_bits(state, subnet_id, epoch, messages) do
+  defp sync_committee_aggregation_bits_and_indexes(state, subnet_id, epoch, messages) do
     indexes_in_subcommittee =
       state
       |> Utils.participants_per_sync_subcommittee(epoch)
       |> Map.get(subnet_id)
       |> Map.new(fn {pubkey, indexes} -> {fetch_validator_index(state, pubkey), indexes} end)
 
-    aggregation_bits = Misc.sync_subcommittee_size() |> BitList.zero()
+    aggregation_bits =
+      Enum.reduce(messages, BitList.zero(Misc.sync_subcommittee_size()), fn message, acc ->
+        BitList.set(acc, indexes_in_subcommittee |> Map.get(message.validator_index))
+      end)
 
-    for %{validator_index: validator_index} <- messages, reduce: aggregation_bits do
-      acc ->
-        BitList.set(acc, indexes_in_subcommittee |> Map.get(validator_index))
-    end
+    {aggregation_bits, indexes_in_subcommittee}
   end
 
-  defp sync_committee_contribution(messages, subnet_id, aggregation_bits) do
-    messages = Enum.uniq(messages)
-    {:ok, signature} = Bls.aggregate(Enum.map(messages, & &1.signature))
-
+  defp sync_committee_contribution(messages, subnet_id, aggregation_bits, indexes_in_subcommittee) do
     %Types.SyncCommitteeContribution{
       slot: List.first(messages).slot,
       beacon_block_root: List.first(messages).beacon_block_root,
       subcommittee_index: subnet_id,
       aggregation_bits: aggregation_bits,
-      signature: signature
+      signature: aggregate_sync_committee_signature(messages, indexes_in_subcommittee)
     }
+  end
+
+  defp aggregate_sync_committee_signature(messages, indexes_in_subcommittee) do
+    # TODO: as with attestations, we need to check why we recieve duplicate sync messages
+    unique_messages = messages |> Enum.uniq()
+
+    signatures_to_aggregate =
+      Enum.flat_map(unique_messages, fn message ->
+        # Here we duplicate the signature by n, being n the times a validator appears
+        # in the same subcommittee
+        indexes_in_subcommittee
+        |> Map.get(message.validator_index)
+        |> Enum.map(fn _ -> message.signature end)
+      end)
+
+    {:ok, signature} = Bls.aggregate(individual_signatures)
+    signature
   end
 
   defp append_sync_proof(contribution, proof, validator_index) do

@@ -52,6 +52,8 @@ KURTOSIS_GRAFANA_DASHBOARDS_DIR ?= $(KURTOSIS_DIR)/static_files/grafana-config/d
 KURTOSIS_COOKIE ?= secret
 # Name of the kurtosis service pointing to the lambdaconsesus node
 KURTOSIS_SERVICE ?= cl-3-lambda-geth
+# Name of the enclave to be used with kurtosis
+KURTOSIS_ENCLAVE ?= lambdanet
 
 ##### TARGETS #####
 
@@ -75,18 +77,18 @@ kurtosis.setup.lambdaconsensus:
 
 #💻 kurtosis.start: @ Starts the kurtosis environment
 kurtosis.start:
-	kurtosis run --enclave lambdanet $(KURTOSIS_DIR) --args-file network_params.yaml
+	kurtosis run --enclave $(KURTOSIS_ENCLAVE) $(KURTOSIS_DIR) --args-file network_params.yaml
 
 #💻 kurtosis.build-and-start: @ Builds the lambdaconsensus Docker image and starts the kurtosis environment.
 kurtosis.clean-start: kurtosis.clean kurtosis.setup.lambdaconsensus kurtosis.start
 
 #💻 kurtosis.stop: @ Stops the kurtosis environment
 kurtosis.stop:
-	kurtosis enclave stop lambdanet
+	kurtosis enclave stop $(KURTOSIS_ENCLAVE)
 
 #💻 kurtosis.remove: @ Removes the kurtosis environment
 kurtosis.remove:
-	kurtosis enclave rm lambdanet
+	kurtosis enclave rm $(KURTOSIS_ENCLAVE)
 
 #💻 kurtosis.clean: @ Clean the kurtosis environment
 kurtosis.clean:
@@ -97,7 +99,7 @@ kurtosis.purge: kurtosis.stop kurtosis.remove kurtosis.clean
 
 #💻 kurtosis.connect: @ Connects to the client running in kurtosis, KURTOSIS_SERVICE could be given
 kurtosis.connect:
-	kurtosis service shell lambdanet $(KURTOSIS_SERVICE)
+	kurtosis service shell $(KURTOSIS_ENCLAVE) $(KURTOSIS_SERVICE)
 
 #💻 kurtosis.connect.iex: @ Connects to iex ONCE INSIDE THE KURTOSIS SERVICE
 kurtosis.connect.iex:
