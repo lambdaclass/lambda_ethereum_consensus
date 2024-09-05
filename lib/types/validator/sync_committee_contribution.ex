@@ -4,6 +4,7 @@ defmodule Types.SyncCommitteeContribution do
   Related definitions in `native/ssz_nif/src/types/`.
   """
   use LambdaEthereumConsensus.Container
+  alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
 
   fields = [
@@ -31,12 +32,7 @@ defmodule Types.SyncCommitteeContribution do
       {:slot, TypeAliases.slot()},
       {:beacon_block_root, TypeAliases.root()},
       {:subcommittee_index, TypeAliases.uint64()},
-      {:aggregation_bits,
-       {:bitvector,
-        div(
-          ChainSpec.get("SYNC_COMMITTEE_SIZE"),
-          Constants.sync_committee_subnet_count()
-        )}},
+      {:aggregation_bits, {:bitvector, Misc.sync_subcommittee_size()}},
       {:signature, TypeAliases.bls_signature()}
     ]
   end
@@ -50,11 +46,7 @@ defmodule Types.SyncCommitteeContribution do
 
   def decode(%__MODULE__{} = map) do
     # NOTE: this isn't really needed
-    aggregation_bits_count =
-      div(
-        ChainSpec.get("SYNC_COMMITTEE_SIZE"),
-        Constants.sync_committee_subnet_count()
-      )
+    aggregation_bits_count = Misc.sync_subcommittee_size()
 
     map
     |> Map.update!(:aggregation_bits, &BitVector.new(&1, aggregation_bits_count))

@@ -112,7 +112,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp process_tick(%{head_root: head_root} = set, epoch, {slot, :last_third}) do
     set
     |> maybe_publish_attestation_aggregates(epoch, slot)
-    |> maybe_publish_sync_aggregates(epoch, slot, head_root)
+    |> maybe_publish_sync_aggregates(slot, head_root)
   end
 
   ##############################
@@ -199,7 +199,10 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     end
   end
 
-  defp maybe_publish_sync_aggregates(set, epoch, slot, head_root) do
+  defp maybe_publish_sync_aggregates(set, slot, head_root) do
+    # Sync committee is broadcasted for the next slot, so we take the duties for the correct epoch.
+    epoch = Misc.compute_epoch_at_slot(slot + 1)
+
     case Duties.current_sync_aggregators(set.duties, epoch, slot) do
       [] ->
         set

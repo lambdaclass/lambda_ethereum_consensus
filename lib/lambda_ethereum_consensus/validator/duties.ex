@@ -158,7 +158,10 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   defp sync_committee_aggreagtion_data(beacon_state, epoch, subnet_ids, validator_privkey) do
     {start_slot, end_slot} = boundary_slots(epoch)
 
-    for slot <- start_slot..end_slot, subcommittee_index <- subnet_ids, reduce: %{} do
+    # Slots for a particular epoch in sync committess go from start of the epoch - 1 to the end of the epoch - 1.
+    for slot <- max(0, start_slot - 1)..(end_slot - 1),
+        subcommittee_index <- subnet_ids,
+        reduce: %{} do
       acc ->
         proof =
           Utils.get_sync_committee_selection_proof(
@@ -332,7 +335,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
         %{proposers: proposers, attesters: attesters, sync_committees: sync_committees},
         epoch
       ) do
-    Logger.info("[Duties] Proposers for epoch #{epoch} (slot=>validator): #{inspect(proposers)}")
+    Logger.info(
+      "[Duties] Proposers for epoch #{epoch} (slot=>validator):\n #{inspect(proposers)}"
+    )
 
     for %{
           subnet_ids: si,
@@ -340,7 +345,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           aggregation: agg
         } <- sync_committees do
       Logger.info(
-        "[Duties] Sync committee for epoch: #{epoch}, validator_index: #{vi} will broadcast on subnet_ids: #{inspect(si)}.\n#{inspect(agg, pretty: true)}"
+        "[Duties] Sync committee for epoch: #{epoch}, validator_index: #{vi} will broadcast on subnet_ids: #{inspect(si)}.\n Slots: #{inspect(agg |> Map.keys() |> Enum.join(", "))}"
       )
     end
 

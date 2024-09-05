@@ -68,12 +68,9 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
         do: state.current_sync_committee,
         else: state.next_sync_committee
 
-    sync_committee_subnet_size =
-      div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count())
-
     for {pubkey, index} <- Enum.with_index(sync_committee.pubkeys),
         pubkey == target_pubkey do
-      div(index, sync_committee_subnet_size)
+      div(index, Misc.sync_subcommittee_size())
     end
     |> Enum.dedup()
   end
@@ -90,13 +87,10 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   @spec participants_per_sync_subcommittee(BeaconState.t(), Types.epoch()) ::
           %{non_neg_integer() => [Bls.pubkey()]}
   def participants_per_sync_subcommittee(state, epoch) do
-    sync_committee_subnet_size =
-      div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count())
-
     state
     |> Accessors.get_sync_committee_for_epoch!(epoch)
     |> Map.get(:pubkeys)
-    |> Enum.chunk_every(sync_committee_subnet_size)
+    |> Enum.chunk_every(Misc.sync_subcommittee_size())
     |> Enum.with_index()
     |> Map.new(fn {pubkeys, i} ->
       indices_by_pubkeys =

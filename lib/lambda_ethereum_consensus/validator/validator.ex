@@ -313,7 +313,23 @@ defmodule LambdaEthereumConsensus.Validator do
     :ok
   end
 
+  defp sync_committee_aggregation_bits(state, subnet_id, epoch, messages) do
+    indexes_in_subcommittee =
+      state
+      |> Utils.participants_per_sync_subcommittee(epoch)
+      |> Map.get(subnet_id)
+      |> Map.new(fn {pubkey, indexes} -> {fetch_validator_index(state, pubkey), indexes} end)
+
+    aggregation_bits = Misc.sync_subcommittee_size() |> BitList.zero()
+
+    for %{validator_index: validator_index} <- messages, reduce: aggregation_bits do
+      acc ->
+        BitList.set(acc, indexes_in_subcommittee |> Map.get(validator_index))
+    end
+  end
+
   defp sync_committee_contribution(messages, subnet_id, aggregation_bits) do
+    messages = Enum.uniq(messages)
     {:ok, signature} = Bls.aggregate(Enum.map(messages, & &1.signature))
 
     %Types.SyncCommitteeContribution{
@@ -337,24 +353,6 @@ defmodule LambdaEthereumConsensus.Validator do
     signing_root = Misc.compute_signing_root(contribution_and_proof, signing_domain)
     {:ok, signature} = Bls.sign(privkey, signing_root)
     %Types.SignedContributionAndProof{message: contribution_and_proof, signature: signature}
-  end
-
-  defp sync_committee_aggregation_bits(state, subnet_id, epoch, messages) do
-    indexes_in_subcommittee =
-      state
-      |> Utils.participants_per_sync_subcommittee(epoch)
-      |> Map.get(subnet_id)
-      |> Map.new(fn {pubkey, indexes} -> {fetch_validator_index(state, pubkey), indexes} end)
-
-    # TODO: This calculation should be in another place.
-    aggregation_bits =
-      div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count())
-      |> BitList.zero()
-
-    for %{validator_index: validator_index} <- messages, reduce: aggregation_bits do
-      acc ->
-        BitList.set(acc, indexes_in_subcommittee |> Map.get(validator_index))
-    end
   end
 
   ################################
