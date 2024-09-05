@@ -13,17 +13,15 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
-  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Validator.BlockBuilder
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias LambdaEthereumConsensus.Validator.Duties
   alias LambdaEthereumConsensus.Validator.Utils
+  alias LambdaEthereumConsensus.ValidatorSet
   alias Types.Attestation
 
   @default_graffiti_message "Lambda, so gentle, so good"
@@ -39,7 +37,8 @@ defmodule LambdaEthereumConsensus.Validator do
   @spec new(Keystore.t(), Types.slot(), Types.root()) :: t()
   def new(keystore, head_slot, head_root) do
     epoch = Misc.compute_epoch_at_slot(head_slot)
-    beacon = fetch_target_state_and_go_to_slot(epoch, head_slot, head_root)
+    # TODO: This should be handled in the ValidatorSet instead, part of #1281
+    beacon = ValidatorSet.fetch_target_state_and_go_to_slot(epoch, head_slot, head_root)
 
     new(keystore, beacon)
   end
@@ -67,35 +66,20 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   ##########################
-  # Target State
-
-  @spec fetch_target_state_and_go_to_slot(Types.epoch(), Types.slot(), Types.root()) ::
-          Types.BeaconState.t()
-  def fetch_target_state_and_go_to_slot(epoch, slot, root) do
-    epoch |> fetch_target_state(root) |> go_to_slot(slot)
-  end
-
-  defp fetch_target_state(epoch, root) do
-    {:ok, state} = CheckpointStates.compute_target_checkpoint_state(epoch, root)
-    state
-  end
-
-  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
-
-  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot < slot do
-    {:ok, st} = StateTransition.process_slots(state, slot)
-    st
-  end
-
-  ##########################
   # Attestations
 
-  @spec attest(t(), Duties.attester_duty(), Types.slot(), Types.root()) :: :ok
-  def attest(%{index: validator_index, keystore: keystore}, current_duty, slot, head_root) do
-    subnet_id = current_duty.subnet_id
+  @spec attest(t(), Duties.attester_duty(), Types.BeaconState.t(), Types.slot(), Types.root()) ::
+          :ok
+  def attest(
+        %{index: validator_index, keystore: keystore},
+        %{subnet_id: subnet_id} = current_duty,
+        head_state,
+        slot,
+        head_root
+      ) do
     log_debug(validator_index, "attesting", slot: slot, subnet_id: subnet_id)
 
-    attestation = produce_attestation(current_duty, slot, head_root, keystore.privkey)
+    attestation = produce_attestation(current_duty, head_state, slot, head_root, keystore.privkey)
 
     log_md = [slot: slot, attestation: attestation, subnet_id: subnet_id]
 
@@ -164,14 +148,13 @@ defmodule LambdaEthereumConsensus.Validator do
     %Types.SignedAggregateAndProof{message: aggregate_and_proof, signature: signature}
   end
 
-  defp produce_attestation(duty, slot, head_root, privkey) do
+  defp produce_attestation(duty, head_state, slot, head_root, privkey) do
     %{
       index_in_committee: index_in_committee,
       committee_length: committee_length,
       committee_index: committee_index
     } = duty
 
-    head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
     head_epoch = Misc.compute_epoch_at_slot(slot)
 
     epoch_boundary_block_root =
@@ -217,19 +200,18 @@ defmodule LambdaEthereumConsensus.Validator do
   @spec sync_committee_message_broadcast(
           t(),
           Duties.sync_committee_duty(),
+          Types.BeaconState.t(),
           Types.slot(),
           Types.root()
         ) ::
           :ok
   def sync_committee_message_broadcast(
         %{index: validator_index, keystore: keystore},
-        current_duty,
+        %{subnet_ids: subnet_ids} = current_duty,
+        head_state,
         slot,
         head_root
       ) do
-    %{subnet_ids: subnet_ids} = current_duty
-
-    head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
     log_debug(validator_index, "broadcasting sync committee message", slot: slot)
 
     message = get_sync_committee_message(head_state, head_root, validator_index, keystore.privkey)
@@ -274,19 +256,17 @@ defmodule LambdaEthereumConsensus.Validator do
   @spec publish_sync_aggregate(
           t(),
           Duties.sync_committee_duty(),
+          Types.BeaconState.t(),
           Types.epoch(),
-          Types.slot(),
-          Types.root()
+          Types.slot()
         ) :: :ok
   def publish_sync_aggregate(
         %{index: validator_index, keystore: keystore},
         duty,
+        %Types.BeaconState{} = head_state,
         epoch,
-        slot,
-        head_root
+        slot
       ) do
-    head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
-
     for subnet_id <- duty.subnet_ids,
         agg_duty = Enum.find(duty.aggregation[slot], &(&1.subcommittee_index == subnet_id)) do
       case Gossip.SyncCommittee.stop_collecting(subnet_id) do
@@ -351,7 +331,7 @@ defmodule LambdaEthereumConsensus.Validator do
         |> Enum.map(fn _ -> message.signature end)
       end)
 
-    {:ok, signature} = Bls.aggregate(individual_signatures)
+    {:ok, signature} = Bls.aggregate(signatures_to_aggregate)
     signature
   end
 

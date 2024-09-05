@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Utils
   alias LambdaEthereumConsensus.ValidatorSet
   alias Types.BeaconState
@@ -73,7 +72,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
     for {epoch, slot} <- epochs_and_start_slots, reduce: duties_map do
       duties_map ->
-        beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+        beacon = ValidatorSet.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
         # If committees are not already calculated for the epoch, this is way faster than
         # calculating them on the fly.
         Accessors.maybe_prefetch_committees(beacon, epoch)
@@ -298,7 +297,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @spec update_duties!(
           duties(),
-          kind(),
+          kind() | :sync_committees_contribution,
           Types.epoch(),
           Types.slot(),
           attester_duties() | proposer_duties()
@@ -306,8 +305,27 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   def update_duties!(duties, :sync_committees, epoch, _slot, updated),
     do: put_in(duties, [epoch, :sync_committees], updated)
 
+  def update_duties!(duties, :sync_committees_contribution, epoch, _slot, updated) do
+    to_update = get_in(duties, [epoch, :sync_committees])
+
+    updated_duties = Enum.reduce(updated, to_update, &replace_duty_in_list/2)
+
+    put_in(duties, [epoch, :sync_committees], updated_duties)
+  end
+
   def update_duties!(duties, kind, epoch, slot, updated),
     do: put_in(duties, [epoch, kind, slot], updated)
+
+  # FIXME: This is awful, The sync_committee duties structure is wrong and generates this complexities, I'll split it.
+  defp replace_duty_in_list(duty, list) do
+    Enum.map(list, fn d ->
+      if d.validator_index == duty.validator_index do
+        duty
+      else
+        d
+      end
+    end)
+  end
 
   @spec attested(attester_duty()) :: attester_duty()
   def attested(duty), do: Map.put(duty, :attested?, true)
