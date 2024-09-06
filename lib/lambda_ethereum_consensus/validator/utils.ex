@@ -8,6 +8,15 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   alias Types.BeaconState
 
   @doc """
+  Returns the index of a validator in the state's validator list given it's pubkey.
+  """
+  @spec fetch_validator_index(Types.BeaconState.t(), Bls.pubkey()) ::
+          non_neg_integer() | nil
+  def fetch_validator_index(state, pubkey) do
+    Enum.find_index(state.validators, &(&1.pubkey == pubkey))
+  end
+
+  @doc """
     Compute the correct subnet for an attestation.
   """
   @spec compute_subnet_for_attestation(Types.uint64(), Types.slot(), Types.uint64()) ::
@@ -84,6 +93,14 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     target_pubkey && target_pubkey in Accessors.get_sync_committee_for_epoch!(state, epoch)
   end
 
+  @doc """
+  Returns a map of subcommittee index wich had a map of each validator present and
+  their index in the subcommittee. E.g.:
+  %{0 => %{0 => [0], 1 => [1, 2]}, 1 => %{2 => [0, 2], 0 => [1]}}
+  For subcommittee 0, validator 0 is at index 0 and validator 1 is at index 1, 2
+  For subcommittee 1, validator 2 is at index 0 and 2, validator 0 is at index 1
+  ```
+  """
   @spec participants_per_sync_subcommittee(BeaconState.t(), Types.epoch()) ::
           %{non_neg_integer() => [Bls.pubkey()]}
   def participants_per_sync_subcommittee(state, epoch) do
@@ -93,10 +110,12 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     |> Enum.chunk_every(Misc.sync_subcommittee_size())
     |> Enum.with_index()
     |> Map.new(fn {pubkeys, i} ->
-      indices_by_pubkeys =
-        pubkeys |> Enum.with_index() |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+      indices_by_validator =
+        pubkeys
+        |> Enum.with_index()
+        |> Enum.group_by(&fetch_validator_index(state, elem(&1, 0)), &elem(&1, 1))
 
-      {i, indices_by_pubkeys}
+      {i, indices_by_validator}
     end)
   end
 

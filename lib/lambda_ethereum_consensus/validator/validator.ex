@@ -51,7 +51,7 @@ defmodule LambdaEthereumConsensus.Validator do
       payload_builder: nil
     }
 
-    case fetch_validator_index(beacon, state.keystore.pubkey) do
+    case Utils.fetch_validator_index(beacon, state.keystore.pubkey) do
       nil ->
         Logger.warning(
           "[Validator] Public key #{state.keystore.pubkey} not found in the validator set"
@@ -188,12 +188,6 @@ defmodule LambdaEthereumConsensus.Validator do
     }
   end
 
-  @spec fetch_validator_index(Types.BeaconState.t(), Bls.pubkey()) ::
-          non_neg_integer() | nil
-  defp fetch_validator_index(beacon, pubkey) do
-    Enum.find_index(beacon.validators, &(&1.pubkey == pubkey))
-  end
-
   ################################
   # Sync Committee
 
@@ -298,7 +292,6 @@ defmodule LambdaEthereumConsensus.Validator do
       state
       |> Utils.participants_per_sync_subcommittee(epoch)
       |> Map.get(subnet_id)
-      |> Map.new(fn {pubkey, indexes} -> {fetch_validator_index(state, pubkey), indexes} end)
 
     aggregation_bits =
       Enum.reduce(messages, BitList.zero(Misc.sync_subcommittee_size()), fn message, acc ->
