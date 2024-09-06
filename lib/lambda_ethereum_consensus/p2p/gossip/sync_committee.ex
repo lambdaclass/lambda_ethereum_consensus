@@ -3,7 +3,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.SyncCommittee do
   This module handles sync committee from specific gossip subnets.
   Used by validators to fulfill aggregation duties.
 
-  TODO: THIS IS EXACTLY THE SAME AS ATTSUBNET. ALSO NEEDS TESTS
+  TODO: This module borrows almost all of its logic from Attestation,
+  this could be refactored to a common module if needed in the future.
   """
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort

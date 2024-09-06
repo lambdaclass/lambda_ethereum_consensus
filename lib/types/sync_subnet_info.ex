@@ -3,6 +3,9 @@ defmodule Types.SyncSubnetInfo do
   Struct to hold subnet messages for easier db storing:
   - data: A Sync Committee message data (slot + root).
   - messages: List of all the collected SyncCommitteeMessages.
+
+  TODO: This module borrows almost all of its logic from AttSubnetInfo,
+  this could be refactored to a common module if needed in the future.
   """
   alias LambdaEthereumConsensus.Store.Db
 

@@ -94,12 +94,13 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   end
 
   @doc """
-  Returns a map of subcommittee index wich had a map of each validator present and
-  their index in the subcommittee. E.g.:
-  %{0 => %{0 => [0], 1 => [1, 2]}, 1 => %{2 => [0, 2], 0 => [1]}}
-  For subcommittee 0, validator 0 is at index 0 and validator 1 is at index 1, 2
-  For subcommittee 1, validator 2 is at index 0 and 2, validator 0 is at index 1
-  ```
+    Returns a map of subcommittee index every one of each had a map of the validators
+    present and their index in the subcommittee. E.g.:
+
+      %{0 => %{0 => [0], 1 => [1, 2]}, 1 => %{2 => [0, 2], 0 => [1]}}
+
+    - For subcommittee 0, validator 0 is at index 0 and validator 1 is at index 1, 2
+    - For subcommittee 1, validator 2 is at index 0 and 2, validator 0 is at index 1
   """
   @spec participants_per_sync_subcommittee(BeaconState.t(), Types.epoch()) ::
           %{non_neg_integer() => [Bls.pubkey()]}
@@ -109,13 +110,11 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     |> Map.get(:pubkeys)
     |> Enum.chunk_every(Misc.sync_subcommittee_size())
     |> Enum.with_index()
-    |> Map.new(fn {pubkeys, i} ->
-      indices_by_validator =
-        pubkeys
-        |> Enum.with_index()
-        |> Enum.group_by(&fetch_validator_index(state, elem(&1, 0)), &elem(&1, 1))
-
-      {i, indices_by_validator}
+    |> Map.new(fn {pubkeys, subcommittee_i} ->
+      pubkeys
+      |> Enum.with_index()
+      |> Enum.group_by(&fetch_validator_index(state, elem(&1, 0)), &elem(&1, 1))
+      |> then(fn indexes_by_validator -> {subcommittee_i, indexes_by_validator} end)
     end)
   end
 
