@@ -1,4 +1,4 @@
-defmodule Unit.AttestationTest do
+defmodule Unit.AttSubnetInfoTest do
   alias LambdaEthereumConsensus.Store.Db
   alias Types.AttestationData
   alias Types.AttSubnetInfo

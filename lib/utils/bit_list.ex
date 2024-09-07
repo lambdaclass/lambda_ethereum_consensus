@@ -68,12 +68,12 @@ defmodule LambdaEthereumConsensus.Utils.BitList do
 
   @doc """
   Set a bit or list of bits (turns them to 1).
-  Equivalent to bit_list[index] = 1. If indexes is a list,
+  Equivalent to bit_list[index] = 1. If indices is a list,
   it will do it for every index in the list.
   """
   @spec set(t, [non_neg_integer]) :: t
-  def set(bit_list, indexes) when is_list(indexes) do
-    Enum.reduce(indexes, bit_list, fn index, acc -> set(acc, index) end)
+  def set(bit_list, indices) when is_list(indices) do
+    Enum.reduce(indices, bit_list, fn index, acc -> set(acc, index) end)
   end
 
   @spec set(t, non_neg_integer) :: t

@@ -1,4 +1,4 @@
-defmodule Unit.AttestationTest do
+defmodule Unit.SyncSubnetInfoTest do
   alias LambdaEthereumConsensus.Store.Db
   alias Types.Checkpoint
   alias Types.SyncCommitteeMessage

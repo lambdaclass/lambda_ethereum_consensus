@@ -82,7 +82,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     |> update_state(epoch, slot, head_root)
     |> maybe_attests(head_state, epoch, slot, head_root)
     |> maybe_build_payload(slot + 1, head_root)
-    |> maybe_sync_committee_broadcasts(head_state, slot, head_root)
+    |> maybe_sync_committee_broadcasts(slot, head_root)
   end
 
   @doc """
@@ -95,28 +95,29 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   def notify_tick(%{head_root: head_root} = set, {slot, third} = slot_data) do
     Logger.debug("[ValidatorSet] Tick #{inspect(third)}", root: head_root, slot: slot)
     epoch = Misc.compute_epoch_at_slot(slot)
-    head_state = fetch_target_state_and_go_to_slot(epoch, slot, head_root)
 
     set
     |> update_state(epoch, slot, head_root)
-    |> process_tick(head_state, epoch, slot_data)
+    |> process_tick(epoch, slot_data)
   end
 
-  defp process_tick(%{head_root: head_root} = set, _head_state, epoch, {slot, :first_third}) do
+  defp process_tick(%{head_root: head_root} = set, epoch, {slot, :first_third}) do
     maybe_propose(set, epoch, slot, head_root)
   end
 
-  defp process_tick(%{head_root: head_root} = set, head_state, epoch, {slot, :second_third}) do
+  defp process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
+    head_state = fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+
     set
     |> maybe_attests(head_state, epoch, slot, head_root)
     |> maybe_build_payload(slot + 1, head_root)
-    |> maybe_sync_committee_broadcasts(head_state, slot, head_root)
+    |> maybe_sync_committee_broadcasts(slot, head_root)
   end
 
-  defp process_tick(set, head_state, epoch, {slot, :last_third}) do
+  defp process_tick(set, epoch, {slot, :last_third}) do
     set
     |> maybe_publish_attestation_aggregates(epoch, slot)
-    |> maybe_publish_sync_aggregates(head_state, slot)
+    |> maybe_publish_sync_aggregates(slot)
   end
 
   ##############################
@@ -188,7 +189,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   ##############################
   # Sync committee
 
-  defp maybe_sync_committee_broadcasts(set, head_state, slot, head_root) do
+  defp maybe_sync_committee_broadcasts(set, slot, head_root) do
     # Sync committee is broadcasted for the next slot, so we take the duties for the correct epoch.
     epoch = Misc.compute_epoch_at_slot(slot + 1)
 
@@ -198,14 +199,15 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
       sync_committee_duties ->
         sync_committee_duties
-        |> Enum.map(&sync_committee_broadcast(&1, head_state, slot, head_root, set.validators))
+        |> Enum.map(&sync_committee_broadcast(&1, slot, head_root, set.validators))
         |> update_duties(set, epoch, :sync_committees, slot)
     end
   end
 
-  defp maybe_publish_sync_aggregates(set, head_state, slot) do
+  defp maybe_publish_sync_aggregates(set, slot) do
     # Sync committee is broadcasted for the next slot, so we take the duties for the correct epoch.
     epoch = Misc.compute_epoch_at_slot(slot + 1)
+    %{sync_subcommittee_participants: participants} = Duties.misc_data(set.duties, epoch)
 
     case Duties.current_sync_aggregators(set.duties, epoch, slot) do
       [] ->
@@ -213,25 +215,25 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
       aggregator_duties ->
         aggregator_duties
-        |> Enum.map(&publish_sync_aggregate(&1, head_state, epoch, slot, set.validators))
-        |> update_duties(set, epoch, :sync_committees_contribution, slot)
+        |> Enum.map(&publish_sync_aggregate(&1, participants, slot, set.validators))
+        |> update_duties(set, epoch, :sync_committees, slot)
     end
   end
 
-  defp sync_committee_broadcast(duty, head_state, slot, head_root, validators) do
+  defp sync_committee_broadcast(duty, slot, head_root, validators) do
     validators
     |> Map.get(duty.validator_index)
-    |> Validator.sync_committee_message_broadcast(duty, head_state, slot, head_root)
+    |> Validator.sync_committee_message_broadcast(duty, slot, head_root)
 
     Duties.sync_committee_broadcasted(duty, slot)
   end
 
-  defp publish_sync_aggregate(duty, head_state, epoch, slot, validators) do
+  defp publish_sync_aggregate(duty, participants, slot, validators) do
     validators
     |> Map.get(duty.validator_index)
-    |> Validator.publish_sync_aggregate(duty, head_state, epoch, slot)
+    |> Validator.publish_sync_aggregate(duty, participants, slot)
 
-    Duties.sync_committee_aggregated(duty, slot)
+    Duties.sync_committee_aggregated(duty)
   end
 
   ##############################

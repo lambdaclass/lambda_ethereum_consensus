@@ -194,7 +194,6 @@ defmodule LambdaEthereumConsensus.Validator do
   @spec sync_committee_message_broadcast(
           t(),
           Duties.sync_committee_duty(),
-          Types.BeaconState.t(),
           Types.slot(),
           Types.root()
         ) ::
@@ -202,24 +201,24 @@ defmodule LambdaEthereumConsensus.Validator do
   def sync_committee_message_broadcast(
         %{index: validator_index, keystore: keystore},
         %{subnet_ids: subnet_ids} = current_duty,
-        head_state,
         slot,
         head_root
       ) do
     log_debug(validator_index, "broadcasting sync committee message", slot: slot)
 
-    message = get_sync_committee_message(head_state, head_root, validator_index, keystore.privkey)
+    message =
+      get_sync_committee_message(current_duty, slot, head_root, validator_index, keystore.privkey)
 
     message
     |> Gossip.SyncCommittee.publish(subnet_ids)
     |> log_info_result(validator_index, "published sync committee message", slot: slot)
 
-    aggregate_slot = current_duty |> Map.get(:aggregation) |> Map.get(slot)
+    aggregation = current_duty |> Map.get(:aggregation, [])
 
-    if aggregate_slot && length(aggregate_slot) > 0 do
+    if Enum.any?(aggregation, &(not &1.aggregated?)) do
       log_debug(validator_index, "collecting for future contribution", slot: slot)
 
-      aggregate_slot
+      aggregation
       |> Enum.map(& &1.subcommittee_index)
       |> Gossip.SyncCommittee.collect(message)
       |> log_debug_result(validator_index, "collected sync committee messages", slot: slot)
@@ -227,20 +226,25 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   @spec get_sync_committee_message(
-          Types.BeaconState.t(),
+          Duties.sync_committee_duty(),
+          Types.slot(),
           Types.root(),
           Types.validator_index(),
           Bls.privkey()
         ) ::
           Types.SyncCommitteeMessage.t()
-  def get_sync_committee_message(head_state, head_root, validator_index, privkey) do
-    epoch = Accessors.get_current_epoch(head_state)
-    domain = Accessors.get_domain(head_state, Constants.domain_sync_committee(), epoch)
+  def get_sync_committee_message(
+        %{message_domain: domain},
+        slot,
+        head_root,
+        validator_index,
+        privkey
+      ) do
     signing_root = Misc.compute_signing_root(head_root, domain)
     {:ok, signature} = Bls.sign(privkey, signing_root)
 
     %Types.SyncCommitteeMessage{
-      slot: head_state.slot,
+      slot: slot,
       beacon_block_root: head_root,
       validator_index: validator_index,
       signature: signature
@@ -250,31 +254,31 @@ defmodule LambdaEthereumConsensus.Validator do
   @spec publish_sync_aggregate(
           t(),
           Duties.sync_committee_duty(),
-          Types.BeaconState.t(),
-          Types.epoch(),
+          %{},
           Types.slot()
         ) :: :ok
   def publish_sync_aggregate(
         %{index: validator_index, keystore: keystore},
         duty,
-        %Types.BeaconState{} = head_state,
-        epoch,
+        sync_subcommittee_participants,
         slot
       ) do
-    for subnet_id <- duty.subnet_ids,
-        agg_duty = Enum.find(duty.aggregation[slot], &(&1.subcommittee_index == subnet_id)) do
+    for %{subcommittee_index: subnet_id} = aggregation_duty <- duty.aggregation do
       case Gossip.SyncCommittee.stop_collecting(subnet_id) do
         {:ok, messages} ->
           log_md = [slot: slot, messages: messages]
           log_info(validator_index, "publishing sync committee aggregate", log_md)
 
-          {aggregation_bits, indexes_in_subcomittee} =
-            sync_committee_aggregation_bits_and_indexes(head_state, subnet_id, epoch, messages)
+          indices_in_subcommittee =
+            sync_subcommittee_participants |> Map.get(subnet_id)
+
+          aggregation_bits =
+            sync_committee_aggregation_bits(indices_in_subcommittee, messages)
 
           messages
-          |> sync_committee_contribution(subnet_id, aggregation_bits, indexes_in_subcomittee)
-          |> append_sync_proof(agg_duty.selection_proof, validator_index)
-          |> append_sync_signature(agg_duty.signing_domain, keystore)
+          |> sync_committee_contribution(subnet_id, aggregation_bits, indices_in_subcommittee)
+          |> append_sync_proof(aggregation_duty.selection_proof, validator_index)
+          |> append_sync_signature(aggregation_duty.contribution_domain, keystore)
           |> Gossip.SyncCommittee.publish_contribution()
           |> log_info_result(validator_index, "published sync committee aggregate", log_md)
 
@@ -287,31 +291,23 @@ defmodule LambdaEthereumConsensus.Validator do
     :ok
   end
 
-  defp sync_committee_aggregation_bits_and_indexes(state, subnet_id, epoch, messages) do
-    indexes_in_subcommittee =
-      state
-      |> Utils.participants_per_sync_subcommittee(epoch)
-      |> Map.get(subnet_id)
-
-    aggregation_bits =
-      Enum.reduce(messages, BitList.zero(Misc.sync_subcommittee_size()), fn message, acc ->
-        BitList.set(acc, indexes_in_subcommittee |> Map.get(message.validator_index))
-      end)
-
-    {aggregation_bits, indexes_in_subcommittee}
+  defp sync_committee_aggregation_bits(indices_in_subcommittee, messages) do
+    Enum.reduce(messages, BitList.zero(Misc.sync_subcommittee_size()), fn message, acc ->
+      BitList.set(acc, indices_in_subcommittee |> Map.get(message.validator_index))
+    end)
   end
 
-  defp sync_committee_contribution(messages, subnet_id, aggregation_bits, indexes_in_subcommittee) do
+  defp sync_committee_contribution(messages, subnet_id, aggregation_bits, indices_in_subcommittee) do
     %Types.SyncCommitteeContribution{
       slot: List.first(messages).slot,
       beacon_block_root: List.first(messages).beacon_block_root,
       subcommittee_index: subnet_id,
       aggregation_bits: aggregation_bits,
-      signature: aggregate_sync_committee_signature(messages, indexes_in_subcommittee)
+      signature: aggregate_sync_committee_signature(messages, indices_in_subcommittee)
     }
   end
 
-  defp aggregate_sync_committee_signature(messages, indexes_in_subcommittee) do
+  defp aggregate_sync_committee_signature(messages, indices_in_subcommittee) do
     # TODO: as with attestations, we need to check why we recieve duplicate sync messages
     unique_messages = messages |> Enum.uniq()
 
@@ -319,7 +315,7 @@ defmodule LambdaEthereumConsensus.Validator do
       Enum.flat_map(unique_messages, fn message ->
         # Here we duplicate the signature by n, being n the times a validator appears
         # in the same subcommittee
-        indexes_in_subcommittee
+        indices_in_subcommittee
         |> Map.get(message.validator_index)
         |> Enum.map(fn _ -> message.signature end)
       end)

@@ -102,9 +102,9 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     - For subcommittee 0, validator 0 is at index 0 and validator 1 is at index 1, 2
     - For subcommittee 1, validator 2 is at index 0 and 2, validator 0 is at index 1
   """
-  @spec participants_per_sync_subcommittee(BeaconState.t(), Types.epoch()) ::
+  @spec sync_subcommittee_participants(BeaconState.t(), Types.epoch()) ::
           %{non_neg_integer() => [Bls.pubkey()]}
-  def participants_per_sync_subcommittee(state, epoch) do
+  def sync_subcommittee_participants(state, epoch) do
     state
     |> Accessors.get_sync_committee_for_epoch!(epoch)
     |> Map.get(:pubkeys)
@@ -114,7 +114,7 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
       pubkeys
       |> Enum.with_index()
       |> Enum.group_by(&fetch_validator_index(state, elem(&1, 0)), &elem(&1, 1))
-      |> then(fn indexes_by_validator -> {subcommittee_i, indexes_by_validator} end)
+      |> then(fn indices_by_validator -> {subcommittee_i, indices_by_validator} end)
     end)
   end
 
