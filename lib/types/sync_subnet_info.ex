@@ -1,41 +1,47 @@
-defmodule Types.AttSubnetInfo do
+defmodule Types.SyncSubnetInfo do
   @moduledoc """
-  Struct to hold subnet attestations for easier db storing:
-  - data: An attestation data.
-  - attestations: List of all the collected Attestations.
+  Struct to hold subnet messages for easier db storing:
+  - data: A Sync Committee message data (slot + root).
+  - messages: List of all the collected SyncCommitteeMessages.
+
+  TODO: This module borrows almost all of its logic from AttSubnetInfo,
+  this could be refactored to a common module if needed in the future.
   """
   alias LambdaEthereumConsensus.Store.Db
 
-  defstruct [:data, :attestations]
+  defstruct [:data, :messages]
 
   @type t :: %__MODULE__{
-          data: Types.AttestationData.t(),
-          attestations: list(Types.Attestation.t())
+          data: {Types.slot(), Types.root()},
+          messages: list(Types.SyncCommitteeMessage.t())
         }
 
-  @subnet_prefix "att_subnet"
+  @subnet_prefix "sync_subnet"
 
   @doc """
-  Creates a SubnetInfo from an Attestation and stores it into the database.
-  The attestation is typically built by a validator before starting to collect others' attestations.
-  This attestation will be used to filter other added attestations.
+  Creates a SubnetInfo from an SyncCommitteeMessage and stores it into the database.
+  The message is typically built by a validator before starting to collect others' messages.
+  This message will be used to filter other added messages.
   """
-  @spec new_subnet_with_attestation(non_neg_integer(), Types.Attestation.t()) :: :ok
-  def new_subnet_with_attestation(subnet_id, %Types.Attestation{data: data} = attestation) do
-    new_subnet_info = %__MODULE__{data: data, attestations: [attestation]}
+  @spec new_subnet_with_message(non_neg_integer(), Types.SyncCommitteeMessage.t()) :: :ok
+  def new_subnet_with_message(
+        subnet_id,
+        %Types.SyncCommitteeMessage{slot: slot, beacon_block_root: root} = message
+      ) do
+    new_subnet_info = %__MODULE__{data: {slot, root}, messages: [message]}
     persist_subnet_info(subnet_id, new_subnet_info)
   end
 
   @doc """
-  Removes the associated SubnetInfo from the database and returns all the collected attestations.
+  Removes the associated SubnetInfo from the database and returns all the collected messages.
   """
   @spec stop_collecting(non_neg_integer()) ::
-          {:ok, list(Types.Attestation.t())} | {:error, String.t()}
+          {:ok, list(Types.SyncCommitteeMessage.t())} | {:error, String.t()}
   def stop_collecting(subnet_id) do
     case fetch_subnet_info(subnet_id) do
       {:ok, subnet_info} ->
         delete_subnet(subnet_id)
-        {:ok, subnet_info.attestations}
+        {:ok, subnet_info.messages}
 
       :not_found ->
         {:error, "subnet not joined"}
@@ -43,17 +49,20 @@ defmodule Types.AttSubnetInfo do
   end
 
   @doc """
-  Adds a new Attestation to the SubnetInfo if the attestation's data matches the base one.
+  Adds a new SyncCommitteeMessage to the SubnetInfo if the message's data matches the base one.
   Assumes that the SubnetInfo already exists.
   """
-  @spec add_attestation!(non_neg_integer(), Types.Attestation.t()) :: :ok
-  def add_attestation!(subnet_id, attestation) do
+  @spec add_message!(non_neg_integer(), Types.SyncCommitteeMessage.t()) :: :ok
+  def add_message!(
+        subnet_id,
+        %Types.SyncCommitteeMessage{slot: slot, beacon_block_root: root} = message
+      ) do
     subnet_info = fetch_subnet_info!(subnet_id)
 
-    if subnet_info.data == attestation.data do
+    if subnet_info.data == {slot, root} do
       new_subnet_info = %__MODULE__{
         subnet_info
-        | attestations: [attestation | subnet_info.attestations]
+        | messages: [message | subnet_info.messages]
       }
 
       persist_subnet_info(subnet_id, new_subnet_info)
@@ -102,12 +111,12 @@ defmodule Types.AttSubnetInfo do
 
   @spec encode(t()) :: binary()
   defp encode(%__MODULE__{} = subnet_info) do
-    {subnet_info.data, subnet_info.attestations} |> :erlang.term_to_binary()
+    {subnet_info.data, subnet_info.messages} |> :erlang.term_to_binary()
   end
 
   @spec decode(binary()) :: t()
   defp decode(bin) do
-    {data, attestations} = :erlang.binary_to_term(bin)
-    %__MODULE__{data: data, attestations: attestations}
+    {data, messages} = :erlang.binary_to_term(bin)
+    %__MODULE__{data: data, messages: messages}
   end
 end

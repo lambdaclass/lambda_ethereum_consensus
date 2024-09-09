@@ -290,6 +290,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
     div(epoch, ChainSpec.get("EPOCHS_PER_SYNC_COMMITTEE_PERIOD"))
   end
 
+  @spec sync_subcommittee_size() :: Types.uint64()
+  def sync_subcommittee_size() do
+    div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count())
+  end
+
   @doc """
   Return the 32-byte fork data root for the ``current_version`` and ``genesis_validators_root``.
   This is used primarily in signature domains to avoid collisions across forks/chains.

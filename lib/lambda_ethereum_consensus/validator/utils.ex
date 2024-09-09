@@ -8,6 +8,15 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   alias Types.BeaconState
 
   @doc """
+  Returns the index of a validator in the state's validator list given it's pubkey.
+  """
+  @spec fetch_validator_index(Types.BeaconState.t(), Bls.pubkey()) ::
+          non_neg_integer() | nil
+  def fetch_validator_index(state, pubkey) do
+    Enum.find_index(state.validators, &(&1.pubkey == pubkey))
+  end
+
+  @doc """
     Compute the correct subnet for an attestation.
   """
   @spec compute_subnet_for_attestation(Types.uint64(), Types.slot(), Types.uint64()) ::
@@ -68,12 +77,9 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
         do: state.current_sync_committee,
         else: state.next_sync_committee
 
-    sync_committee_subnet_size =
-      div(ChainSpec.get("SYNC_COMMITTEE_SIZE"), Constants.sync_committee_subnet_count())
-
     for {pubkey, index} <- Enum.with_index(sync_committee.pubkeys),
         pubkey == target_pubkey do
-      div(index, sync_committee_subnet_size)
+      div(index, Misc.sync_subcommittee_size())
     end
     |> Enum.dedup()
   end
@@ -82,23 +88,72 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   @spec assigned_to_sync_committee?(BeaconState.t(), Types.epoch(), Types.validator_index()) ::
           boolean()
   def assigned_to_sync_committee?(%BeaconState{} = state, epoch, validator_index) do
-    sync_committee_period = Misc.compute_sync_committee_period(epoch)
-    current_epoch = Accessors.get_current_epoch(state)
-    current_sync_committee_period = Misc.compute_sync_committee_period(current_epoch)
-    next_sync_committee_period = current_sync_committee_period + 1
+    target_pubkey = state.validators |> Map.get(validator_index, %{}) |> Map.get(:pubkey)
 
-    pubkey = state.validators[validator_index].pubkey
+    target_pubkey && target_pubkey in Accessors.get_sync_committee_for_epoch!(state, epoch)
+  end
 
-    case sync_committee_period do
-      ^current_sync_committee_period ->
-        Enum.member?(state.current_sync_committee.pubkeys, pubkey)
+  @doc """
+    Returns a map of subcommittee index every one of each had a map of the validators
+    present and their index in the subcommittee. E.g.:
 
-      ^next_sync_committee_period ->
-        Enum.member?(state.next_sync_committee.pubkeys, pubkey)
+      %{0 => %{0 => [0], 1 => [1, 2]}, 1 => %{2 => [0, 2], 0 => [1]}}
 
-      _ ->
-        raise ArgumentError,
-              "Invalid epoch #{epoch}, should be in the current or next sync committee period"
-    end
+    - For subcommittee 0, validator 0 is at index 0 and validator 1 is at index 1, 2
+    - For subcommittee 1, validator 2 is at index 0 and 2, validator 0 is at index 1
+  """
+  @spec sync_subcommittee_participants(BeaconState.t(), Types.epoch()) ::
+          %{non_neg_integer() => [Bls.pubkey()]}
+  def sync_subcommittee_participants(state, epoch) do
+    state
+    |> Accessors.get_sync_committee_for_epoch!(epoch)
+    |> Map.get(:pubkeys)
+    |> Enum.chunk_every(Misc.sync_subcommittee_size())
+    |> Enum.with_index()
+    |> Map.new(fn {pubkeys, subcommittee_i} ->
+      pubkeys
+      |> Enum.with_index()
+      |> Enum.group_by(&fetch_validator_index(state, elem(&1, 0)), &elem(&1, 1))
+      |> then(fn indices_by_validator -> {subcommittee_i, indices_by_validator} end)
+    end)
+  end
+
+  @spec get_sync_committee_selection_proof(
+          BeaconState.t(),
+          Types.slot(),
+          non_neg_integer(),
+          Bls.privkey()
+        ) ::
+          Types.bls_signature()
+  def get_sync_committee_selection_proof(%BeaconState{} = state, slot, subcommittee_i, privkey) do
+    domain_sc_selection_proof = Constants.domain_sync_committee_selection_proof()
+    epoch = Misc.compute_epoch_at_slot(slot)
+    domain = Accessors.get_domain(state, domain_sc_selection_proof, epoch)
+
+    signing_data = %Types.SyncAggregatorSelectionData{
+      slot: slot,
+      subcommittee_index: subcommittee_i
+    }
+
+    signing_root =
+      Misc.compute_signing_root(signing_data, Types.SyncAggregatorSelectionData, domain)
+
+    {:ok, signature} = Bls.sign(privkey, signing_root)
+    signature
+  end
+
+  # `is_sync_committee_aggregator` equivalent
+  @spec sync_committee_aggregator?(Types.bls_signature()) :: boolean()
+  def sync_committee_aggregator?(signature) do
+    modulo =
+      ChainSpec.get("SYNC_COMMITTEE_SIZE")
+      |> div(Constants.sync_committee_subnet_count())
+      |> div(Constants.target_aggregators_per_sync_subcommittee())
+      |> max(1)
+
+    SszEx.hash(signature)
+    |> binary_part(0, 8)
+    |> :binary.decode_unsigned(:little)
+    |> rem(modulo) == 0
   end
 end
