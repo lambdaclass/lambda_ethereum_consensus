@@ -75,12 +75,11 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   def notify_head(set, slot, head_root) do
     Logger.debug("[ValidatorSet] New Head", root: head_root, slot: slot)
     epoch = Misc.compute_epoch_at_slot(slot)
-    head_state = fetch_target_state_and_go_to_slot(epoch, slot, head_root)
 
     # TODO: this doesn't take into account reorgs
     set
     |> update_state(epoch, slot, head_root)
-    |> maybe_attests(head_state, epoch, slot, head_root)
+    |> maybe_attests(epoch, slot, head_root)
     |> maybe_build_payload(slot + 1, head_root)
     |> maybe_sync_committee_broadcasts(slot, head_root)
   end
@@ -106,10 +105,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
-    head_state = fetch_target_state_and_go_to_slot(epoch, slot, head_root)
-
     set
-    |> maybe_attests(head_state, epoch, slot, head_root)
+    |> maybe_attests(epoch, slot, head_root)
     |> maybe_build_payload(slot + 1, head_root)
     |> maybe_sync_committee_broadcasts(slot, head_root)
   end
@@ -239,12 +236,14 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   ##############################
   # Attestation
 
-  defp maybe_attests(set, head_state, epoch, slot, head_root) do
+  defp maybe_attests(set, epoch, slot, head_root) do
     case Duties.current_attesters(set.duties, epoch, slot) do
       [] ->
         set
 
       attester_duties ->
+        head_state = fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+
         attester_duties
         |> Enum.map(&attest(&1, head_state, slot, head_root, set.validators))
         |> update_duties(set, epoch, :attesters, slot)
