@@ -10,12 +10,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
   alias LambdaEthereumConsensus.Utils.BitField
-  alias Types.Attestation
-  alias Types.AttesterSlashing
-  alias Types.BeaconBlock
-  alias Types.ProposerSlashing
-  alias Types.SignedBLSToExecutionChange
-  alias Types.SignedVoluntaryExit
 
   require Logger
 
@@ -29,7 +23,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     :attester_slashing,
     :proposer_slashing,
     :voluntary_exit,
-    :attestation
+    :attestation,
+    :sync_committee_contribution
   ]
 
   @topic_msgs [
@@ -37,7 +32,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     "voluntary_exit",
     "proposer_slashing",
     "attester_slashing",
-    "bls_to_execution_change"
+    "bls_to_execution_change",
+    "sync_committee_contribution_and_proof"
   ]
 
   def subscribe_to_topics() do
@@ -52,33 +48,40 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     end)
   end
 
-  @spec get_bls_to_execution_changes(non_neg_integer()) :: list(SignedBLSToExecutionChange.t())
+  @spec get_bls_to_execution_changes(non_neg_integer()) ::
+          list(Types.SignedBLSToExecutionChange.t())
   def get_bls_to_execution_changes(count) do
     get_operation(:bls_to_execution_change, count)
   end
 
-  @spec get_attester_slashings(non_neg_integer()) :: list(AttesterSlashing.t())
+  @spec get_attester_slashings(non_neg_integer()) :: list(Types.AttesterSlashing.t())
   def get_attester_slashings(count) do
     get_operation(:attester_slashing, count)
   end
 
-  @spec get_proposer_slashings(non_neg_integer()) :: list(ProposerSlashing.t())
+  @spec get_proposer_slashings(non_neg_integer()) :: list(Types.ProposerSlashing.t())
   def get_proposer_slashings(count) do
     get_operation(:proposer_slashing, count)
   end
 
-  @spec get_voluntary_exits(non_neg_integer()) :: list(SignedVoluntaryExit.t())
+  @spec get_voluntary_exits(non_neg_integer()) :: list(Types.SignedVoluntaryExit.t())
   def get_voluntary_exits(count) do
     get_operation(:voluntary_exit, count)
   end
 
-  @spec get_attestations(non_neg_integer()) :: list(Attestation.t())
+  @spec get_attestations(non_neg_integer()) :: list(Types.Attestation.t())
   def get_attestations(count) do
     get_operation(:attestation, count)
   end
 
-  @spec notify_new_block(BeaconBlock.t()) :: :ok
-  def notify_new_block(%BeaconBlock{} = block) do
+  @spec get_sync_committee_contributions() :: list(Types.SignedContributionAndProof.t())
+  def get_sync_committee_contributions() do
+    # TODO: count is not needed, for now it's just here to match the other functions
+    get_operation(:sync_committee_contribution, 1_000)
+  end
+
+  @spec notify_new_block(Types.BeaconBlock.t()) :: :ok
+  def notify_new_block(%Types.BeaconBlock{} = block) do
     indices =
       block.body.bls_to_execution_changes
       |> MapSet.new(& &1.message.validator_index)
@@ -218,6 +221,18 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
          {:ok, %Types.SignedBLSToExecutionChange{} = bls_to_execution_change} <-
            Ssz.from_ssz(uncompressed, Types.SignedBLSToExecutionChange) do
       handle_msg({:bls_to_execution_change, bls_to_execution_change})
+    end
+  end
+
+  def handle_gossip_message(
+        <<_::binary-size(15)>> <> "sync_committee_contribution_and_proof" <> _,
+        _msg_id,
+        message
+      ) do
+    with {:ok, uncompressed} <- :snappyer.decompress(message),
+         {:ok, %Types.SignedContributionAndProof{} = contribution_and_proof} <-
+           Ssz.from_ssz(uncompressed, Types.SignedContributionAndProof) do
+      handle_msg({:sync_committee_contribution, contribution_and_proof})
     end
   end
 
