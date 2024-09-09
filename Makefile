@@ -184,7 +184,7 @@ test: compile-all
 
 #🔴 test.wip: @ Run tests with the wip tag
 test.wip: compile-all
-       mix test --no-start --only wip
+	mix test --no-start --only wip
 
 #### BEACON NODE OAPI ####
 OAPI_NAME = beacon-node-oapi
