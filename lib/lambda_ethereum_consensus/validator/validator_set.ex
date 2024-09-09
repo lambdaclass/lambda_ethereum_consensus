@@ -245,6 +245,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
         set
 
       attester_duties ->
+        head_state = fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+
         attester_duties
         |> Enum.map(&attest(&1, head_state, slot, head_root, set.validators))
         |> update_duties(set, epoch, :attesters, slot)
