@@ -13,7 +13,6 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias Types.BeaconBlock
@@ -209,9 +208,9 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     # TODO: We need to calculate the best contribution (the more complete) for a particular subcommittee.
     # for now it just gets one of every subcommittee index given the order.
     _contributions =
-      Enum.uniq_by(contributions, & &1.message.contribution.subcommittee_index)
+      contributions
+      |> Enum.uniq_by(& &1.message.contribution.subcommittee_index)
       |> Enum.filter(&(&1.message.contribution.slot == slot - 1))
-      |> IO.inspect(label: "Contributions")
 
     %Types.SyncAggregate{
       sync_committee_bits: <<0::size(ChainSpec.get("SYNC_COMMITTEE_SIZE"))>>,
