@@ -254,14 +254,14 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     store_operation(operation, new_msgs)
   end
 
-  defp old_attestation?(%Attestation{data: data}, slot) do
+  defp old_attestation?(%Types.Attestation{data: data}, slot) do
     current_epoch = Misc.compute_epoch_at_slot(slot + 1)
     data.target.epoch not in [current_epoch, current_epoch - 1]
   end
 
-  defp ignore?(%Attestation{}, nil), do: false
+  defp ignore?(%Types.Attestation{}, nil), do: false
 
-  defp ignore?(%Attestation{data: data}, slot) do
+  defp ignore?(%Types.Attestation{data: data}, slot) do
     data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") > slot
   end
 
