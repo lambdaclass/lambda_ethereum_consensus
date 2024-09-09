@@ -182,9 +182,13 @@ gnosis: compile-all
 test: compile-all
 	mix test --no-start --exclude spectest
 
+#🔴 test.wip: @ Run tests with the wip tag
+test.wip: compile-all
+       mix test --no-start --only wip
+
 #### BEACON NODE OAPI ####
 OAPI_NAME = beacon-node-oapi
-OAPI_VERSION := $(shell cat .oapi_version)
+OAPI_VERSION := $(shell cat .oaqpi_version)
 $(OAPI_NAME).json: .oapi_version
 	curl -L -o "$@" \
 		"https://ethereum.github.io/beacon-APIs/releases/${OAPI_VERSION}/beacon-node-oapi.json"

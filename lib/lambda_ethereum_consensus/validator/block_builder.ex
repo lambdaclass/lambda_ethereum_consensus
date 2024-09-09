@@ -89,7 +89,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          voluntary_exits: block_request.voluntary_exits,
          bls_to_execution_changes: block_request.bls_to_execution_changes,
          blob_kzg_commitments: block_request.blob_kzg_commitments,
-         sync_aggregate: get_sync_aggregate(),
+         sync_aggregate:
+           get_sync_aggregate(block_request.sync_committee_contributions, block_request.slot),
          execution_payload: execution_payload
        }
      }}
@@ -151,6 +152,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
           proposer_slashings: [Types.ProposerSlashing.t()],
           attester_slashings: [Types.AttesterSlashing.t()],
           attestations: [Types.Attestation.t()],
+          sync_committee_contributions: [Types.SyncCommitteeContribution.t()],
           voluntary_exits: [Types.VoluntaryExit.t()],
           bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()]
         }
@@ -161,6 +163,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       attester_slashings:
         ChainSpec.get("MAX_ATTESTER_SLASHINGS") |> OperationsCollector.get_attester_slashings(),
       attestations: ChainSpec.get("MAX_ATTESTATIONS") |> OperationsCollector.get_attestations(),
+      sync_committee_contributions: OperationsCollector.get_sync_committee_contributions(),
       voluntary_exits:
         ChainSpec.get("MAX_VOLUNTARY_EXITS") |> OperationsCollector.get_voluntary_exits(),
       bls_to_execution_changes:
@@ -202,9 +205,16 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     signature
   end
 
-  defp get_sync_aggregate() do
+  defp get_sync_aggregate(contributions, slot) do
+    # TODO: We need to calculate the best contribution (the more complete) for a particular subcommittee.
+    # for now it just gets one of every subcommittee index given the order.
+    _contributions =
+      Enum.uniq_by(contributions, & &1.message.contribution.subcommittee_index)
+      |> Enum.filter(&(&1.message.contribution.slot == slot - 1))
+      |> IO.inspect(label: "Contributions")
+
     %Types.SyncAggregate{
-      sync_committee_bits: ChainSpec.get("SYNC_COMMITTEE_SIZE") |> BitVector.new(),
+      sync_committee_bits: <<0::size(ChainSpec.get("SYNC_COMMITTEE_SIZE"))>>,
       sync_committee_signature: <<192, 0::760>>
     }
   end
