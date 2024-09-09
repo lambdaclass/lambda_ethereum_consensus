@@ -30,12 +30,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           aggregated?: boolean(),
           selection_proof: Bls.signature(),
           contribution_domain: Types.domain(),
-          validator_index: Types.validator_index(),
           subcommittee_index: Types.uint64()
         }
 
   @type sync_committee_duty :: %{
-          last_slot_broadcasted: Types.slot(),
+          broadcasted?: boolean(),
           message_domain: Types.domain(),
           validator_index: Types.validator_index(),
           subnet_ids: [Types.uint64()],
@@ -46,10 +45,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @type attester_duties :: [attester_duty()]
   @type proposer_duties :: [proposer_duty()]
+  @type sync_committee_duties :: [sync_committee_duty()]
 
   @type attester_duties_per_slot :: %{Types.slot() => attester_duties()}
   @type proposer_duties_per_slot :: %{Types.slot() => proposer_duties()}
-  @type sync_committee_duties_per_slot :: %{Types.slot() => [sync_committee_duty()]}
+  @type sync_committee_duties_per_slot :: %{Types.slot() => sync_committee_duties()}
 
   @type kind :: :proposers | :attesters | :sync_committees | :misc_data
   @type duties :: %{
@@ -169,7 +169,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           )
 
         sync_committee = %{
-          last_slot_broadcasted: -1,
+          broadcasted?: false,
           message_domain: message_domain,
           validator_index: validator_index,
           subnet_ids: subnet_ids,
@@ -195,7 +195,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     message_domain = Accessors.get_domain(beacon, Constants.domain_sync_committee(), epoch)
     cont_domain = Accessors.get_domain(beacon, Constants.domain_contribution_and_proof(), epoch)
 
-    [{_, sync_committee_participants}] = Enum.take(sync_committee_duties, 1)
+    # We need to take the second slot because it wasn't yet updated,
+    # the first one corresponds to the previous epoch.
+    [_, {_, sync_committee_participants}] = Enum.take(sync_committee_duties, 2)
 
     for slot <- max(0, start_slot - 1)..(end_slot - 1),
         %{subnet_ids: subnet_ids, validator_index: validator_index} <-
@@ -213,7 +215,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           )
 
         sync_committee = %{
-          last_slot_broadcasted: -1,
+          broadcasted?: false,
           message_domain: message_domain,
           validator_index: validator_index,
           subnet_ids: subnet_ids,
@@ -240,7 +242,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
         aggregated?: false,
         selection_proof: proof,
         contribution_domain: domain,
-        validator_index: validator_i,
         subcommittee_index: subcommittee_index
       }
     end
@@ -318,8 +319,7 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   @spec current_sync_committee(duties(), Types.epoch(), Types.slot()) ::
           [sync_committee_duty()]
   def current_sync_committee(duties, epoch, slot) do
-    for %{last_slot_broadcasted: last} = duty <- sync_committee(duties, epoch, slot),
-        last < slot do
+    for %{broadcasted?: false} = duty <- sync_committee(duties, epoch, slot) do
       duty
     end
   end
@@ -363,10 +363,10 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           kind(),
           Types.epoch(),
           Types.slot(),
-          attester_duties() | proposer_duties()
+          attester_duties() | proposer_duties() | sync_committee_duties()
         ) :: duties()
-  def update_duties!(duties, kind, epoch, slot_or_atom, updated),
-    do: put_in(duties, [epoch, kind, slot_or_atom], updated)
+  def update_duties!(duties, kind, epoch, slot, updated),
+    do: put_in(duties, [epoch, kind, slot], updated)
 
   @spec attested(attester_duty()) :: attester_duty()
   def attested(duty), do: Map.put(duty, :attested?, true)
@@ -375,10 +375,10 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   # should_aggregate? is set to false to avoid double aggregation.
   def aggregated(duty), do: Map.put(duty, :should_aggregate?, false)
 
-  @spec sync_committee_broadcasted(sync_committee_duty(), Types.slot()) ::
+  @spec sync_committee_broadcasted(sync_committee_duty()) ::
           sync_committee_duty()
-  def sync_committee_broadcasted(duty, slot),
-    do: Map.put(duty, :last_slot_broadcasted, slot)
+  def sync_committee_broadcasted(duty),
+    do: Map.put(duty, :broadcasted?, true)
 
   @spec sync_committee_aggregated(sync_committee_duty()) ::
           sync_committee_duty()

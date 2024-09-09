@@ -225,7 +225,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     |> Map.get(duty.validator_index)
     |> Validator.sync_committee_message_broadcast(duty, slot, head_root)
 
-    Duties.sync_committee_broadcasted(duty, slot)
+    Duties.sync_committee_broadcasted(duty)
   end
 
   defp publish_sync_aggregate(duty, participants, slot, validators) do

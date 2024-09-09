@@ -234,7 +234,7 @@ defmodule LambdaEthereumConsensus.Validator do
         ) ::
           Types.SyncCommitteeMessage.t()
   def get_sync_committee_message(
-        %{message_domain: domain},
+        %{validator_index: validator_index, message_domain: domain},
         slot,
         head_root,
         validator_index,
@@ -259,7 +259,7 @@ defmodule LambdaEthereumConsensus.Validator do
         ) :: :ok
   def publish_sync_aggregate(
         %{index: validator_index, keystore: keystore},
-        duty,
+        %{validator_index: validator_index} = duty,
         sync_subcommittee_participants,
         slot
       ) do
