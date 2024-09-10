@@ -29,14 +29,7 @@ defmodule Unit.SyncSubnetInfoTest do
   test "stop collecting with one attestation" do
     subnet_id = 1
 
-    expected_message = %SyncCommitteeMessage{
-      slot: 5_057_010_135_270_197_978,
-      beacon_block_root:
-        <<31, 38, 101, 174, 248, 168, 116, 226, 15, 39, 218, 148, 42, 8, 80, 80, 241, 149, 162,
-          32, 176, 208, 120, 120, 89, 123, 136, 115, 154, 28, 21, 174>>,
-      validator_index: 0,
-      signature: <<>>
-    }
+    expected_message = sync_committee_message()
 
     SyncSubnetInfo.new_subnet_with_message(subnet_id, sync_committee_message())
 
@@ -49,23 +42,8 @@ defmodule Unit.SyncSubnetInfoTest do
   test "stop collecting with two attestations" do
     subnet_id = 1
 
-    expected_message_1 = %SyncCommitteeMessage{
-      slot: 5_057_010_135_270_197_978,
-      beacon_block_root:
-        <<31, 38, 101, 174, 248, 168, 116, 226, 15, 39, 218, 148, 42, 8, 80, 80, 241, 149, 162,
-          32, 176, 208, 120, 120, 89, 123, 136, 115, 154, 28, 21, 174>>,
-      validator_index: 1,
-      signature: <<>>
-    }
-
-    expected_message_2 = %SyncCommitteeMessage{
-      slot: 5_057_010_135_270_197_978,
-      beacon_block_root:
-        <<31, 38, 101, 174, 248, 168, 116, 226, 15, 39, 218, 148, 42, 8, 80, 80, 241, 149, 162,
-          32, 176, 208, 120, 120, 89, 123, 136, 115, 154, 28, 21, 174>>,
-      validator_index: 2,
-      signature: <<>>
-    }
+    expected_message_1 = sync_committee_message(1)
+    expected_message_2 = sync_committee_message(2)
 
     SyncSubnetInfo.new_subnet_with_message(subnet_id, sync_committee_message(1))
 
