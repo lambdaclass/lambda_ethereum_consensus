@@ -204,13 +204,14 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp maybe_publish_sync_aggregates(set, slot) do
     # Sync committee is broadcasted for the next slot, so we take the duties for the correct epoch.
     epoch = Misc.compute_epoch_at_slot(slot + 1)
-    %{sync_subcommittee_participants: participants} = Duties.misc_data(set.duties, epoch)
 
     case Duties.current_sync_aggregators(set.duties, epoch, slot) do
       [] ->
         set
 
       aggregator_duties ->
+        participants = Duties.sync_subcommittee_participants(set.duties, epoch)
+
         aggregator_duties
         |> Enum.map(&publish_sync_aggregate(&1, participants, slot, set.validators))
         |> update_duties(set, epoch, :sync_committees, slot)
@@ -286,7 +287,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   ##########################
   # Target State
-
+  # TODO: (#1278) This should be taken from the store as noted by arkenan.
   @spec fetch_target_state_and_go_to_slot(Types.epoch(), Types.slot(), Types.root()) ::
           Types.BeaconState.t()
   def fetch_target_state_and_go_to_slot(epoch, slot, root) do

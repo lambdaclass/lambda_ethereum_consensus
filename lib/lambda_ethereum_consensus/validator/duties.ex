@@ -41,7 +41,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           aggregation: [sync_committee_aggregator_duty()]
         }
 
-  @type misc_data :: %{sync_subcommittee_participants: %{}}
+  @typedoc "Useful precalculated data not tied to a particular slot/duty."
+  @type shared_data_for_duties :: %{sync_subcommittee_participants: %{}}
 
   @type attester_duties :: [attester_duty()]
   @type proposer_duties :: [proposer_duty()]
@@ -51,13 +52,13 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   @type proposer_duties_per_slot :: %{Types.slot() => proposer_duties()}
   @type sync_committee_duties_per_slot :: %{Types.slot() => sync_committee_duties()}
 
-  @type kind :: :proposers | :attesters | :sync_committees | :misc_data
+  @type kind :: :proposers | :attesters | :sync_committees | :shared
   @type duties :: %{
           kind() =>
             attester_duties_per_slot()
             | proposer_duties_per_slot()
             | sync_committee_duties_per_slot()
-            | misc_data()
+            | shared_data_for_duties()
         }
 
   ############################
@@ -84,26 +85,26 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
         new_proposers = compute_proposers_for_epoch(beacon, epoch, validators)
         new_attesters = compute_attesters_for_epoch(beacon, epoch, validators)
 
-        {new_sync_committees, new_misc_data} =
+        {new_sync_committees, sync_subcommittee_participants} =
           case sync_committee_compute_check(epoch, {last_epoch, Map.get(duties_map, last_epoch)}) do
             {:already_computed, sync_committee_duties} ->
               sync_committee_duties
               |> recompute_sync_committee_duties(beacon, epoch, validators)
-              |> then(&{&1, misc_data(duties_map, last_epoch)})
+              |> then(&{&1, sync_subcommittee_participants(duties_map, last_epoch)})
 
             {:not_computed, period} ->
               Logger.debug("[Duties] Computing sync committees for period: #{period}.")
 
               beacon
               |> compute_sync_committee_duties(epoch, validators)
-              |> then(&{&1, compute_misc_data(beacon, epoch)})
+              |> then(&{&1, compute_sync_subcommittee_participants(beacon, epoch)})
           end
 
         new_duties = %{
           proposers: new_proposers,
           attesters: new_attesters,
           sync_committees: new_sync_committees,
-          misc_data: new_misc_data
+          shared: %{sync_subcommittee_participants: sync_subcommittee_participants}
         }
 
         log_duties_for_epoch(new_duties, epoch)
@@ -125,12 +126,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
-  @spec compute_misc_data(BeaconState.t(), Types.epoch()) :: misc_data()
-  defp compute_misc_data(beacon, epoch) do
-    %{
-      sync_subcommittee_participants: Utils.sync_subcommittee_participants(beacon, epoch)
-    }
-  end
+  @spec compute_sync_subcommittee_participants(BeaconState.t(), Types.epoch()) :: %{
+          non_neg_integer() => [non_neg_integer()]
+        }
+  defp compute_sync_subcommittee_participants(beacon, epoch),
+    do: Utils.sync_subcommittee_participants(beacon, epoch)
 
   defp sync_committee_compute_check(epoch, {_last_epoch, nil}),
     do: {:not_computed, Misc.compute_sync_committee_period(epoch)}
@@ -347,8 +347,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
-  @spec misc_data(duties(), Types.epoch()) :: misc_data()
-  def misc_data(duties, epoch), do: get_in(duties, [epoch, :misc_data]) || %{}
+  @spec sync_subcommittee_participants(duties(), Types.epoch()) :: %{
+          non_neg_integer() => [non_neg_integer()]
+        }
+  def sync_subcommittee_participants(duties, epoch),
+    do: get_in(duties, [epoch, :shared, :sync_subcommittee_participants]) || %{}
 
   defp sync_committee(duties, epoch, slot),
     do: get_in(duties, [epoch, :sync_committees, slot]) || []

@@ -37,7 +37,7 @@ defmodule LambdaEthereumConsensus.Validator do
   @spec new(Keystore.t(), Types.slot(), Types.root()) :: t()
   def new(keystore, head_slot, head_root) do
     epoch = Misc.compute_epoch_at_slot(head_slot)
-    # TODO: This should be handled in the ValidatorSet instead, part of #1281
+    # TODO: (#1281) This should be handled in the ValidatorSet instead
     beacon = ValidatorSet.fetch_target_state_and_go_to_slot(epoch, head_slot, head_root)
 
     new(keystore, beacon)
@@ -102,6 +102,7 @@ defmodule LambdaEthereumConsensus.Validator do
   @spec publish_aggregate(t(), Duties.attester_duty(), Types.slot()) ::
           :ok
   def publish_aggregate(%{index: validator_index, keystore: keystore}, duty, slot) do
+    # TODO: (#1286) after stop collecting for the first validator in a slot the others are not able to publish
     case Gossip.Attestation.stop_collecting(duty.subnet_id) do
       {:ok, attestations} ->
         log_md = [slot: slot, attestations: attestations]
@@ -120,7 +121,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp aggregate_attestations(attestations) do
-    # TODO: We need to check why we are producing duplicate attestations, this was generating invalid signatures
+    # TODO: (#1254) We need to check why we are producing duplicate attestations, this was generating invalid signatures
     unique_attestations = attestations |> Enum.uniq()
 
     aggregation_bits =
@@ -263,6 +264,7 @@ defmodule LambdaEthereumConsensus.Validator do
         sync_subcommittee_participants,
         slot
       ) do
+    # TODO: (#1286) after stop collecting for the first validator in a slot the others are not able to publish
     for %{subcommittee_index: subnet_id} = aggregation_duty <- duty.aggregation do
       case Gossip.SyncCommittee.stop_collecting(subnet_id) do
         {:ok, messages} ->
@@ -308,7 +310,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp aggregate_sync_committee_signature(messages, indices_in_subcommittee) do
-    # TODO: as with attestations, we need to check why we recieve duplicate sync messages
+    # TODO: (#1254) as with attestations, we need to check why we recieve duplicate sync messages
     unique_messages = messages |> Enum.uniq()
 
     signatures_to_aggregate =

@@ -103,7 +103,7 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
     - For subcommittee 1, validator 2 is at index 0 and 2, validator 0 is at index 1
   """
   @spec sync_subcommittee_participants(BeaconState.t(), Types.epoch()) ::
-          %{non_neg_integer() => [Bls.pubkey()]}
+          %{non_neg_integer() => [non_neg_integer()]}
   def sync_subcommittee_participants(state, epoch) do
     state
     |> Accessors.get_sync_committee_for_epoch!(epoch)
