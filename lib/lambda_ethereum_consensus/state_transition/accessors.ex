@@ -20,6 +20,28 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @max_random_byte 2 ** 8 - 1
 
   @doc """
+  Compute the correct sync committee for a given `epoch`.
+  """
+  def get_sync_committee_for_epoch!(%BeaconState{} = state, epoch) do
+    sync_committee_period = Misc.compute_sync_committee_period(epoch)
+    current_epoch = get_current_epoch(state)
+    current_sync_committee_period = Misc.compute_sync_committee_period(current_epoch)
+    next_sync_committee_period = current_sync_committee_period + 1
+
+    case sync_committee_period do
+      ^current_sync_committee_period ->
+        state.current_sync_committee
+
+      ^next_sync_committee_period ->
+        state.next_sync_committee
+
+      _ ->
+        raise ArgumentError,
+              "Invalid epoch #{epoch}, should be in the current or next sync committee period"
+    end
+  end
+
+  @doc """
     Return the next sync committee, with possible pubkey duplicates.
   """
   @spec get_next_sync_committee(BeaconState.t()) ::

@@ -9,7 +9,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   require Logger
 
+  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Duties
 
@@ -49,7 +51,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
     validator_keystores = decode_validator_keystores(keystore_dir, keystore_pass_dir)
     epoch = Misc.compute_epoch_at_slot(slot)
-    beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+    beacon = fetch_target_state_and_go_to_slot(epoch, slot, head_root)
 
     validators =
       Map.new(validator_keystores, fn keystore ->
@@ -110,7 +112,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp process_tick(set, epoch, {slot, :last_third}) do
-    maybe_publish_aggregates(set, epoch, slot)
+    set
+    |> maybe_publish_attestation_aggregates(epoch, slot)
+    |> maybe_publish_sync_aggregates(slot)
   end
 
   ##############################
@@ -197,12 +201,37 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     end
   end
 
+  defp maybe_publish_sync_aggregates(set, slot) do
+    # Sync committee is broadcasted for the next slot, so we take the duties for the correct epoch.
+    epoch = Misc.compute_epoch_at_slot(slot + 1)
+
+    case Duties.current_sync_aggregators(set.duties, epoch, slot) do
+      [] ->
+        set
+
+      aggregator_duties ->
+        participants = Duties.sync_subcommittee_participants(set.duties, epoch)
+
+        aggregator_duties
+        |> Enum.map(&publish_sync_aggregate(&1, participants, slot, set.validators))
+        |> update_duties(set, epoch, :sync_committees, slot)
+    end
+  end
+
   defp sync_committee_broadcast(duty, slot, head_root, validators) do
     validators
     |> Map.get(duty.validator_index)
     |> Validator.sync_committee_message_broadcast(duty, slot, head_root)
 
-    Duties.sync_committee_broadcasted(duty, slot)
+    Duties.sync_committee_broadcasted(duty)
+  end
+
+  defp publish_sync_aggregate(duty, participants, slot, validators) do
+    validators
+    |> Map.get(duty.validator_index)
+    |> Validator.publish_sync_aggregate(duty, participants, slot)
+
+    Duties.sync_committee_aggregated(duty)
   end
 
   ##############################
@@ -214,13 +243,15 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
         set
 
       attester_duties ->
+        head_state = fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+
         attester_duties
-        |> Enum.map(&attest(&1, slot, head_root, set.validators))
+        |> Enum.map(&attest(&1, head_state, slot, head_root, set.validators))
         |> update_duties(set, epoch, :attesters, slot)
     end
   end
 
-  defp maybe_publish_aggregates(set, epoch, slot) do
+  defp maybe_publish_attestation_aggregates(set, epoch, slot) do
     case Duties.current_aggregators(set.duties, epoch, slot) do
       [] ->
         set
@@ -232,10 +263,10 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     end
   end
 
-  defp attest(duty, slot, head_root, validators) do
+  defp attest(duty, head_state, slot, head_root, validators) do
     validators
     |> Map.get(duty.validator_index)
-    |> Validator.attest(duty, slot, head_root)
+    |> Validator.attest(duty, head_state, slot, head_root)
 
     Duties.attested(duty)
   end
@@ -252,6 +283,37 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     set.duties
     |> Duties.update_duties!(kind, epoch, slot, new_duties)
     |> then(&%{set | duties: &1})
+  end
+
+  ##########################
+  # Target State
+  # TODO: (#1278) This should be taken from the store as noted by arkenan.
+  @spec fetch_target_state_and_go_to_slot(Types.epoch(), Types.slot(), Types.root()) ::
+          Types.BeaconState.t()
+  def fetch_target_state_and_go_to_slot(epoch, slot, root) do
+    {time, result} =
+      :timer.tc(fn ->
+        epoch |> fetch_target_state(root) |> go_to_slot(slot)
+      end)
+
+    Logger.debug("[Validator] Fetched target state in #{time / 1_000}ms",
+      epoch: epoch,
+      slot: slot
+    )
+
+    result
+  end
+
+  defp fetch_target_state(epoch, root) do
+    {:ok, state} = CheckpointStates.compute_target_checkpoint_state(epoch, root)
+    state
+  end
+
+  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
+
+  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot < slot do
+    {:ok, st} = StateTransition.process_slots(state, slot)
+    st
   end
 
   ##############################

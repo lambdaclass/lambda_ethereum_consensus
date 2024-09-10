@@ -1,4 +1,4 @@
-defmodule Types.SubnetInfo do
+defmodule Types.AttSubnetInfo do
   @moduledoc """
   Struct to hold subnet attestations for easier db storing:
   - data: An attestation data.
@@ -13,7 +13,7 @@ defmodule Types.SubnetInfo do
           attestations: list(Types.Attestation.t())
         }
 
-  @subnet_prefix "subnet"
+  @subnet_prefix "att_subnet"
 
   @doc """
   Creates a SubnetInfo from an Attestation and stores it into the database.
@@ -73,7 +73,7 @@ defmodule Types.SubnetInfo do
       {Db.put(
          key,
          value
-       ), %{module: "subnet", action: "persist"}}
+       ), %{module: @subnet_prefix, action: "persist"}}
     end)
   end
 
@@ -82,7 +82,7 @@ defmodule Types.SubnetInfo do
     result =
       :telemetry.span([:db, :latency], %{}, fn ->
         {Db.get(@subnet_prefix <> Integer.to_string(subnet_id)),
-         %{module: "subnet", action: "fetch"}}
+         %{module: @subnet_prefix, action: "fetch"}}
       end)
 
     case result do
