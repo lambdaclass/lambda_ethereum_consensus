@@ -13,6 +13,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias Types.BeaconBlock
@@ -207,15 +208,53 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   defp get_sync_aggregate(contributions, slot) do
     # TODO: We need to calculate the best contribution (the more complete) for a particular subcommittee.
     # for now it just gets one of every subcommittee index given the order.
-    _contributions =
+    contributions =
       contributions
       |> Enum.uniq_by(& &1.message.contribution.subcommittee_index)
       |> Enum.filter(&(&1.message.contribution.slot == slot - 1))
 
-    %Types.SyncAggregate{
+    sync_aggregate = %{
       sync_committee_bits: <<0::size(ChainSpec.get("SYNC_COMMITTEE_SIZE"))>>,
-      sync_committee_signature: <<192, 0::760>>
+      sync_committee_signature: []
     }
+
+    sync_subcommittee_size = Misc.sync_subcommittee_size()
+
+    for %{message: %{contribution: contribution}} <- contributions, reduce: sync_aggregate do
+      sync_aggregate ->
+        subcommittee_index = contribution.subcommittee_index
+        participant_index = sync_subcommittee_size * subcommittee_index
+
+        shifted_bits = <<contribution.aggregation_bits::bitstring, 0::size(participant_index)>>
+
+        aggregated_bits =
+          Bitwise.bor(
+            :binary.decode_unsigned(sync_aggregate.sync_committee_bits),
+            :binary.decode_unsigned(shifted_bits)
+          )
+          |> :binary.encode_unsigned()
+
+        %{
+          sync_aggregate
+          | sync_committee_bits: aggregated_bits,
+            sync_committee_signature: [
+              contribution.signature | sync_aggregate.sync_committee_signature
+            ]
+        }
+    end
+    |> then(fn sync_aggregate ->
+      Logger.info("SyncAggregate: #{inspect(sync_aggregate, pretty: true)}")
+
+      %Types.SyncAggregate{
+        sync_committee_bits:
+          BitVector.new(sync_aggregate.sync_committee_bits, ChainSpec.get("SYNC_COMMITTEE_SIZE")),
+        sync_committee_signature:
+          case sync_aggregate.sync_committee_signature do
+            [] -> <<192, 0::760>>
+            signatures -> Bls.aggregate(signatures) |> then(fn {:ok, signature} -> signature end)
+          end
+      }
+    end)
   end
 
   defp get_finalized_block_hash(state) do
