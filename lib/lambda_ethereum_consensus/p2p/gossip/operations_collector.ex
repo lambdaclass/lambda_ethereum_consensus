@@ -76,8 +76,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   @spec get_sync_committee_contributions() :: list(Types.SignedContributionAndProof.t())
   def get_sync_committee_contributions() do
-    # TODO: count is not needed, for now it's just here to match the other functions
-    get_operation(:sync_committee_contribution, 1_000)
+    get_operation(:sync_committee_contribution, :all)
   end
 
   @spec notify_new_block(Types.BeaconBlock.t()) :: :ok
@@ -139,10 +138,11 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
     slot = fetch_slot!()
 
-    operations =
-      fetch_operation!(operation) |> Stream.reject(&ignore?(&1, slot)) |> Enum.take(count)
+    operations = fetch_operation!(operation)
 
-    operations
+    if count == :all,
+      do: operations |> Enum.reject(&ignore?(&1, slot)),
+      else: operations |> Stream.reject(&ignore?(&1, slot)) |> Enum.take(count)
   end
 
   @impl true
