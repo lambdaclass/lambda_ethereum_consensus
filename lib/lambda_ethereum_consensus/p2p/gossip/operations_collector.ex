@@ -226,12 +226,15 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
 
   def handle_gossip_message(
         <<_::binary-size(15)>> <> "sync_committee_contribution_and_proof" <> _,
-        _msg_id,
+        msg_id,
         message
       ) do
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, %Types.SignedContributionAndProof{} = contribution_and_proof} <-
            Ssz.from_ssz(uncompressed, Types.SignedContributionAndProof) do
+      # TODO: (#1291) validate before accepting
+      Libp2pPort.validate_message(msg_id, :accept)
+
       handle_msg({:sync_committee_contribution, contribution_and_proof})
     end
   end

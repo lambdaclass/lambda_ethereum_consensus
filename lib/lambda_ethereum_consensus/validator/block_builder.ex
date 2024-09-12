@@ -219,7 +219,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
         )
       end)
 
-    Logger.info(
+    Logger.debug(
       "[BlockBuilder] Contributions to aggregate: #{inspect(contributions, pretty: true)}",
       slot: slot
     )
@@ -231,43 +231,43 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
     sync_subcommittee_size = Misc.sync_subcommittee_size()
 
-    for %{message: %{contribution: contribution}} <- contributions, reduce: aggregate_data do
-      aggregate_data ->
-        right_size = sync_subcommittee_size * contribution.subcommittee_index
+    aggregate_data =
+      for %{message: %{contribution: contribution}} <- contributions, reduce: aggregate_data do
+        aggregate_data ->
+          left_size = sync_subcommittee_size * contribution.subcommittee_index
 
-        left_size =
-          sync_subcommittee_size *
-            (Constants.sync_committee_subnet_count() - 1 - contribution.subcommittee_index)
+          right_size =
+            sync_subcommittee_size *
+              (Constants.sync_committee_subnet_count() - 1 - contribution.subcommittee_index)
 
-        placed_bits =
-          <<0::size(right_size), contribution.aggregation_bits::bitstring, 0::size(left_size)>>
+          placed_bits =
+            <<0::size(right_size), contribution.aggregation_bits::bitstring, 0::size(left_size)>>
 
-        aggregated_bits = BitVector.bitwise_or(aggregate_data.aggregation_bits, placed_bits)
+          aggregated_bits = BitVector.bitwise_or(aggregate_data.aggregation_bits, placed_bits)
 
-        %{
-          aggregate_data
-          | aggregation_bits: aggregated_bits,
-            signatures: [
-              contribution.signature | aggregate_data.signatures
-            ]
-        }
-    end
-    |> then(fn aggregate_data ->
-      Logger.info(
-        "[BlockBuilder] SyncAggregate to construct: #{inspect(aggregate_data, pretty: true)}",
-        slot: slot
-      )
+          %{
+            aggregate_data
+            | aggregation_bits: aggregated_bits,
+              signatures: [
+                contribution.signature | aggregate_data.signatures
+              ]
+          }
+      end
 
-      %Types.SyncAggregate{
-        sync_committee_bits:
-          BitVector.new(aggregate_data.aggregation_bits, ChainSpec.get("SYNC_COMMITTEE_SIZE")),
-        sync_committee_signature:
-          case aggregate_data.signatures do
-            [] -> <<192, 0::760>>
-            signatures -> Bls.aggregate(signatures) |> then(fn {:ok, signature} -> signature end)
-          end
-      }
-    end)
+    Logger.debug(
+      "[BlockBuilder] SyncAggregate to construct: #{inspect(aggregate_data.signatures, pretty: true)}",
+      bits: aggregate_data.aggregation_bits,
+      slot: slot
+    )
+
+    %Types.SyncAggregate{
+      sync_committee_bits: aggregate_data.aggregation_bits,
+      sync_committee_signature:
+        case aggregate_data.signatures do
+          [] -> <<192, 0::760>>
+          signatures -> Bls.aggregate(signatures) |> then(fn {:ok, signature} -> signature end)
+        end
+    }
   end
 
   defp get_finalized_block_hash(state) do
