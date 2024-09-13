@@ -53,7 +53,7 @@ defmodule LambdaEthereumConsensus.Utils do
   """
   @spec format_bitstring(bitstring) :: String.t()
   def format_bitstring(bitstring) do
-    # This coudl also be done with Bitwise.to_integer/1 and Integer.to_string/2 but
+    # This could also be done with Bitwise.to_integer/1 and Integer.to_string/2 but
     # it would lack the padding.
     bitstring
     |> :binary.bin_to_list()
