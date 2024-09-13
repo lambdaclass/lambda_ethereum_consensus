@@ -26,6 +26,53 @@ defmodule Keystore do
           readonly: boolean()
         }
 
+  require Logger
+
+  @doc """
+  Get validator keystores from the keystore directory.
+  This function expects two files for each validator:
+    - <keystore_dir>/<public_key>.json
+    - <keystore_pass_dir>/<public_key>.txt
+  """
+  @spec decode_validator_keystores(binary(), binary()) :: list(t())
+  def decode_validator_keystores(keystore_dir, keystore_pass_dir)
+      when is_nil(keystore_dir) or is_nil(keystore_pass_dir),
+      do: []
+
+  def decode_validator_keystores(keystore_dir, keystore_pass_dir)
+      when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
+    keystore_dir
+    |> File.ls!()
+    |> Enum.flat_map(&paths_from_filename(keystore_dir, keystore_pass_dir, &1, Path.extname(&1)))
+    |> Enum.flat_map(&decode_key/1)
+  end
+
+  defp paths_from_filename(keystore_dir, keystore_pass_dir, filename, ".json") do
+    basename = Path.basename(filename, ".json")
+
+    keystore_file = Path.join(keystore_dir, "#{basename}.json")
+    keystore_pass_file = Path.join(keystore_pass_dir, "#{basename}.txt")
+
+    [{keystore_file, keystore_pass_file}]
+  end
+
+  defp paths_from_filename(_keystore_dir, _keystore_pass_dir, basename, _ext) do
+    Logger.warning("[Keystore] Skipping file: #{basename}. Not a json keystore file.")
+    []
+  end
+
+  defp decode_key({keystore_file, keystore_pass_file}) do
+    # TODO: remove `try` and handle errors properly
+    [Keystore.decode_from_files!(keystore_file, keystore_pass_file)]
+  rescue
+    error ->
+      Logger.error(
+        "[Keystore] Failed to decode keystore file: #{keystore_file}. Pass file: #{keystore_pass_file} Error: #{inspect(error)}"
+      )
+
+      []
+  end
+
   @spec decode_from_files!(Path.t(), Path.t()) :: t()
   def decode_from_files!(json, password) do
     password = File.read!(password)

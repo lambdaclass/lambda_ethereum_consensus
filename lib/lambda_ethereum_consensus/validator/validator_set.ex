@@ -5,7 +5,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   simplify the delegation of work.
   """
 
-  defstruct head_root: nil, duties: %{}, validators: %{}
+  defstruct slot: nil, head_root: nil, duties: %{}, validators: %{}
 
   require Logger
 
@@ -18,6 +18,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   @type validators :: %{Validator.index() => Validator.t()}
 
   @type t :: %__MODULE__{
+          slot: Types.slot(),
           head_root: Types.root() | nil,
           duties: %{Types.epoch() => Duties.duties()},
           validators: validators()
@@ -36,41 +37,76 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     keystore_dir = Keyword.get(config, :keystore_dir)
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir)
 
-    setup_validators(slot, head_root, keystore_dir, keystore_pass_dir)
+    initial_keystores = Keystore.decode_validator_keystores(keystore_dir, keystore_pass_dir)
+    #initial_keystores = []
+    setup_validators(%__MODULE__{}, slot, head_root, initial_keystores)
   end
 
-  defp setup_validators(_s, _r, keystore_dir, keystore_pass_dir)
-       when is_nil(keystore_dir) or is_nil(keystore_pass_dir) do
-    Logger.warning(
-      "[Validator] No keystore_dir or keystore_pass_dir provided. Validators won't start."
-    )
+  defp setup_validators(set, _s, _r, []) do
+    Logger.warning("[ValidatorSet] No keystores provided. Validator's wont start.")
 
-    %__MODULE__{}
+    set
   end
 
-  defp setup_validators(slot, head_root, keystore_dir, keystore_pass_dir) do
-    validator_keystores = decode_validator_keystores(keystore_dir, keystore_pass_dir)
+  defp setup_validators(set, slot, head_root, validator_keystores) do
     epoch = Misc.compute_epoch_at_slot(slot)
     beacon = fetch_target_state_and_go_to_slot(epoch, slot, head_root)
 
-    validators =
+    new_validators =
       Map.new(validator_keystores, fn keystore ->
         validator = Validator.new(keystore, beacon)
         {validator.index, validator}
       end)
 
-    Logger.info("[Validator] Initialized #{Enum.count(validators)} validators")
+    Logger.info("[Validator] Initialized #{Enum.count(new_validators)} validators")
 
-    %__MODULE__{validators: validators}
+    %{set | validators: Map.merge(set.validators, new_validators)}
     |> update_state(epoch, slot, head_root)
   end
+
+  ##########################
+  # Validator management
+
+  @doc """
+  Get the validators keystores
+  """
+  @spec get_keystores(t()) :: list(Keystore.t())
+  def get_keystores(%{validators: validators}),
+    do: Enum.map(validators, fn {_index, validator} -> validator.keystore end)
+
+  @doc """
+  Add a validator to the set.
+  """
+  @spec add_validator(t(), Keystore.t()) :: t()
+  def add_validator(%{slot: slot, head_root: head_root} = set, validator_keystore),
+    do: setup_validators(set, slot, head_root, [validator_keystore])
+
+  @doc """
+  Remove a validator from the set.
+  """
+  @spec remove_validator(t(), Validator.index()) :: {:ok, t()} | {:error, :validator_not_found}
+  def remove_validator(%{validators: validators} = set, pubkey) do
+    validators
+    |> Enum.find(fn {_index, validator} -> validator.keystore.pubkey == pubkey end)
+    |> case do
+      {index, _validator} ->
+        updated_validators = Map.delete(set.validators, index)
+        {:ok, Map.put(set, :validators, updated_validators)}
+
+      _ ->
+        {:error, :validator_not_found}
+    end
+  end
+
+  ##########################
+  # Notify Tick & Head
 
   @doc """
   Notify all validators of a new head.
   """
   @spec notify_head(t(), Types.slot(), Types.root()) :: t()
-  def notify_head(%{validators: validators} = state, _slot, _head_root) when validators == %{},
-    do: state
+  def notify_head(%{validators: validators} = set, slot, head_root) when validators == %{},
+    do: update_state(set, Misc.compute_epoch_at_slot(slot), slot, head_root)
 
   def notify_head(set, slot, head_root) do
     Logger.debug("[ValidatorSet] New Head", root: head_root, slot: slot)
@@ -88,8 +124,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   Notify all validators of a new tick.
   """
   @spec notify_tick(t(), tuple()) :: t()
-  def notify_tick(%{validators: validators} = state, _slot_data) when validators == %{},
-    do: state
+  def notify_tick(%{validators: validators} = set, _slot_data) when validators == %{},
+    do: set
 
   def notify_tick(%{head_root: head_root} = set, {slot, third} = slot_data) do
     Logger.debug("[ValidatorSet] Tick #{inspect(third)}", root: head_root, slot: slot)
@@ -122,12 +158,16 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   defp update_state(set, epoch, slot, head_root) do
     set
-    |> update_head(head_root)
+    |> update_slot_and_head(slot, head_root)
     |> compute_duties(epoch, slot, head_root)
   end
 
-  defp update_head(%{head_root: head_root} = set, head_root), do: set
-  defp update_head(set, head_root), do: %{set | head_root: head_root}
+  defp update_slot_and_head(%{slot: slot, head_root: head_root} = set, slot, head_root), do: set
+  defp update_slot_and_head(set, slot, head_root), do: %{set | slot: slot, head_root: head_root}
+
+  defp compute_duties(%{validators: validators} = set, _epoch, _slot, _head_root)
+       when validators == %{},
+       do: set
 
   defp compute_duties(set, epoch, _slot, _head_root)
        when is_duties_computed(set, epoch) and is_duties_computed(set, epoch + 1),
@@ -314,50 +354,5 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot < slot do
     {:ok, st} = StateTransition.process_slots(state, slot)
     st
-  end
-
-  ##############################
-  # Key management
-
-  @doc """
-    Get validator keystores from the keystore directory.
-    This function expects two files for each validator:
-      - <keystore_dir>/<public_key>.json
-      - <keystore_pass_dir>/<public_key>.txt
-  """
-  @spec decode_validator_keystores(binary(), binary()) ::
-          list(Keystore.t())
-  def decode_validator_keystores(keystore_dir, keystore_pass_dir)
-      when is_binary(keystore_dir) and is_binary(keystore_pass_dir) do
-    keystore_dir
-    |> File.ls!()
-    |> Enum.flat_map(&paths_from_filename(keystore_dir, keystore_pass_dir, &1, Path.extname(&1)))
-    |> Enum.flat_map(&decode_key/1)
-  end
-
-  defp paths_from_filename(keystore_dir, keystore_pass_dir, filename, ".json") do
-    basename = Path.basename(filename, ".json")
-
-    keystore_file = Path.join(keystore_dir, "#{basename}.json")
-    keystore_pass_file = Path.join(keystore_pass_dir, "#{basename}.txt")
-
-    [{keystore_file, keystore_pass_file}]
-  end
-
-  defp paths_from_filename(_keystore_dir, _keystore_pass_dir, basename, _ext) do
-    Logger.warning("[Validator] Skipping file: #{basename}. Not a json keystore file.")
-    []
-  end
-
-  defp decode_key({keystore_file, keystore_pass_file}) do
-    # TODO: remove `try` and handle errors properly
-    [Keystore.decode_from_files!(keystore_file, keystore_pass_file)]
-  rescue
-    error ->
-      Logger.error(
-        "[Validator] Failed to decode keystore file: #{keystore_file}. Pass file: #{keystore_pass_file} Error: #{inspect(error)}"
-      )
-
-      []
   end
 end
