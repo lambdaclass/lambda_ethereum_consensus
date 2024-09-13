@@ -48,6 +48,18 @@ defmodule LambdaEthereumConsensus.Utils do
     "0x#{String.slice(encoded, 0, 3)}..#{String.slice(encoded, -4, 4)}"
   end
 
+  @doc """
+  Format a bitstring to a base 2 representation.
+  """
+  @spec format_bitstring(bitstring) :: String.t()
+  def format_bitstring(bitstring) do
+    # This could also be done with Bitwise.to_integer/1 and Integer.to_string/2 but
+    # it would lack the padding.
+    bitstring
+    |> :binary.bin_to_list()
+    |> Enum.map_join(" ", fn int -> Integer.to_string(int, 2) |> String.pad_leading(8, "0") end)
+  end
+
   def chunk_by_sizes(enum, sizes), do: chunk_by_sizes(enum, sizes, [], 0, [])
 
   # No more elements, there may be a leftover chunk to add.

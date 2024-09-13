@@ -50,6 +50,10 @@ defmodule ConsoleLogger do
     Utils.format_shorten_binary(root)
   end
 
+  def format_metadata_value(:bits, slot) do
+    Utils.format_bitstring(slot)
+  end
+
   def format_metadata_value(:slot, slot) do
     Integer.to_string(slot)
   end
