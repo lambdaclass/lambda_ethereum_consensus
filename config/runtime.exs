@@ -218,7 +218,9 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.PromExPlugin,
 case Keyword.get(args, :log_file) do
   nil ->
     # Use custom formatter for prettier logs
-    config :logger, :default_formatter, format: {ConsoleLogger, :format}, metadata: [:slot, :root]
+    config :logger, :default_formatter,
+      format: {ConsoleLogger, :format},
+      metadata: [:slot, :root, :bits]
 
   log_file ->
     # Log to file

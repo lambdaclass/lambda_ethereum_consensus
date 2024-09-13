@@ -33,7 +33,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
 
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, attestation} <- Ssz.from_ssz(uncompressed, Types.Attestation) do
-      # TODO: validate before accepting
+      # TODO: (#1291) validate before accepting
       Libp2pPort.validate_message(msg_id, :accept)
 
       AttSubnetInfo.add_attestation!(subnet_id, attestation)

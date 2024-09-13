@@ -131,4 +131,10 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   """
   @spec count(t) :: non_neg_integer()
   def count(bit_vector), do: BitField.count(bit_vector)
+
+  @doc """
+  Receives two BitVectors and returns the OR of both.
+  """
+  @spec bitwise_or(t, t) :: t
+  def bitwise_or(left, right), do: BitField.bitwise_or(left, right)
 end
