@@ -94,8 +94,8 @@ defmodule LambdaEthereumConsensus.Validator.Utils do
   end
 
   @doc """
-    Returns a map of subcommittee index every one of each had a map of the validators
-    present and their index in the subcommittee. E.g.:
+  Returns a map of subcommittee index every one of each had a map of the validators
+  present and their index in the subcommittee. E.g.:
 
       %{0 => %{0 => [0], 1 => [1, 2]}, 1 => %{2 => [0, 2], 0 => [1]}}
 
