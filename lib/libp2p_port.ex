@@ -524,7 +524,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_info({:new_head, slot, head_root}, %{validator_set: validator_set} = state) do
-    #Logger.info("[Libp2pPort] VS: #{inspect(validator_set.validators, pretty: true)} slot: #{validator_set.slot}.", root: validator_set.head_root)
     updated_validator_set =
       ValidatorSet.notify_head(validator_set, slot, head_root)
 

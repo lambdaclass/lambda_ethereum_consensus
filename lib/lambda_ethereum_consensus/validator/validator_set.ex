@@ -38,7 +38,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     keystore_pass_dir = Keyword.get(config, :keystore_pass_dir)
 
     initial_keystores = Keystore.decode_validator_keystores(keystore_dir, keystore_pass_dir)
-    #initial_keystores = []
+
     setup_validators(%__MODULE__{}, slot, head_root, initial_keystores)
   end
 
