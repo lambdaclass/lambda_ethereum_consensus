@@ -21,7 +21,6 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
   alias LambdaEthereumConsensus.Validator.Duties
   alias LambdaEthereumConsensus.Validator.Utils
-  alias LambdaEthereumConsensus.ValidatorSet
   alias Types.Attestation
 
   @default_graffiti_message "Lambda, so gentle, so good"
@@ -33,15 +32,6 @@ defmodule LambdaEthereumConsensus.Validator do
           keystore: Keystore.t(),
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
-
-  @spec new(Keystore.t(), Types.slot(), Types.root()) :: t()
-  def new(keystore, head_slot, head_root) do
-    epoch = Misc.compute_epoch_at_slot(head_slot)
-    # TODO: (#1281) This should be handled in the ValidatorSet instead
-    beacon = ValidatorSet.fetch_target_state_and_go_to_slot(epoch, head_slot, head_root)
-
-    new(keystore, beacon)
-  end
 
   @spec new(Keystore.t(), Types.BeaconState.t()) :: t()
   def new(keystore, beacon) do
