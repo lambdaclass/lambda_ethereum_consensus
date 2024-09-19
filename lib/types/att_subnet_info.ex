@@ -15,6 +15,8 @@ defmodule Types.AttSubnetInfo do
 
   @subnet_prefix "att_subnet"
 
+  require Logger
+
   @doc """
   Creates a SubnetInfo from an Attestation and stores it into the database.
   The attestation is typically built by a validator before starting to collect others' attestations.
@@ -44,13 +46,13 @@ defmodule Types.AttSubnetInfo do
 
   @doc """
   Adds a new Attestation to the SubnetInfo if the attestation's data matches the base one.
-  Assumes that the SubnetInfo already exists.
   """
   @spec add_attestation!(non_neg_integer(), Types.Attestation.t()) :: :ok
-  def add_attestation!(subnet_id, attestation) do
-    subnet_info = fetch_subnet_info!(subnet_id)
+  def add_attestation!(subnet_id, %{data: att_data} = attestation) do
+    %{slot: slot, beacon_block_root: root} = att_data
 
-    if subnet_info.data == attestation.data do
+    with {:ok, subnet_info} <- fetch_subnet_info(subnet_id),
+         ^att_data <- subnet_info.data do
       new_subnet_info = %__MODULE__{
         subnet_info
         | attestations: [attestation | subnet_info.attestations]
@@ -89,12 +91,6 @@ defmodule Types.AttSubnetInfo do
       {:ok, binary} -> {:ok, decode(binary)}
       :not_found -> result
     end
-  end
-
-  @spec fetch_subnet_info!(non_neg_integer()) :: t()
-  defp fetch_subnet_info!(subnet_id) do
-    {:ok, subnet_info} = fetch_subnet_info(subnet_id)
-    subnet_info
   end
 
   @spec delete_subnet(non_neg_integer()) :: :ok

@@ -392,7 +392,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   def current_subnets(duties, epoch, slot) do
     %{
       attesters: get_in(duties, [epoch, :shared, :subnets, :attesters, slot]) || [],
-      sync_committees: get_in(duties, [epoch, :shared, :subnets, :sync_committees, slot]) || []
+      sync_committees:
+        get_in(duties, [epoch, :shared, :subnets, :sync_committees, max(0, slot - 1)]) || []
     }
   end
 
@@ -445,22 +446,40 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @spec log_duties_for_epoch(duties(), Types.epoch()) :: :ok
   def log_duties_for_epoch(
-        %{proposers: proposers, attesters: attesters, sync_committees: sync_committees},
+        %{
+          proposers: proposers,
+          attesters: attesters,
+          sync_committees: sync_committees,
+          shared: shared
+        },
         epoch
       ) do
     Logger.info(
       "[Duties] Proposers for epoch #{epoch} (slot=>validator):\n #{inspect(proposers)}"
     )
 
-    for %{
-          subnet_ids: si,
-          validator_index: vi,
-          aggregation: agg
-        } <- sync_committees do
-      Logger.info(
-        "[Duties] Sync committee for epoch: #{epoch}, validator_index: #{vi} will broadcast on subnet_ids: #{inspect(si)}.\n Slots: #{inspect(agg |> Map.keys() |> Enum.join(", "))}"
-      )
+    Logger.debug(
+      "[Duties] SyncCommittees Subnets for epoch #{epoch}: #{inspect(shared.subnets.sync_committees)}"
+    )
+
+    for {slot, sync_duties} <- sync_committees,
+        length(sync_duties) > 0 do
+      Logger.debug("[Duties] Sync committee for epoch: #{epoch}, slot: #{slot}:")
+
+      for %{
+            validator_index: vi,
+            subnet_ids: si,
+            aggregation: agg
+          } <- sync_duties do
+        Logger.debug(
+          "[Duties] Validator: #{vi}, will broadcast in subnets: #{si} and aggregate in #{inspect(agg |> Enum.map(& &1.subcommittee_index))}."
+        )
+      end
     end
+
+    Logger.debug(
+      "[Duties] Attesters Subnets for epoch #{epoch}: #{inspect(shared.subnets.attesters)}"
+    )
 
     for {slot, att_duties} <- attesters,
         length(att_duties) > 0 do
