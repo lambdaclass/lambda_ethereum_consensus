@@ -118,6 +118,12 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
       |> Enum.reject(&old_attestation?(&1, block.slot))
     end)
 
+    # We only keep the last contributions for each slot, past ones are not needed
+    # since they are not included in the block when it is built.
+    update_operation(:sync_committee_contribution, fn values ->
+      Enum.reject(values, &(&1.message.contribution.slot < block.slot))
+    end)
+
     store_slot(block.slot)
   end
 

@@ -78,6 +78,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           ValidatorSet.validators()
         ) :: duties()
   def compute_duties_for_epochs(duties_map, epochs_and_start_slots, head_root, validators) do
+    # TODO: (#1299) This function needs to be measured and optimized if possible, the main point to look
+    # at is the beacon fetch and sync committees computation. Also this could be done asynchronusly
+    # given that except for the first time it always calculat 1 epoch ahead of time.
     Logger.debug("[Duties] Computing duties for epochs: #{inspect(epochs_and_start_slots)}")
 
     for {epoch, slot} <- epochs_and_start_slots, reduce: duties_map do
