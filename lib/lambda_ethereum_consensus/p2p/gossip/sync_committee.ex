@@ -72,13 +72,17 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.SyncCommittee do
     Libp2pPort.publish(topic, message)
   end
 
+  @spec subscribe(non_neg_integer()) :: :ok
+  def subscribe(subnet_id),
+    do: Libp2pPort.async_subscribe_to_topic(topic(subnet_id), __MODULE__)
+
   @spec collect([non_neg_integer()], Types.SyncCommitteeMessage.t()) :: :ok
   def collect(subnet_ids, message) do
     join(subnet_ids)
 
     for subnet_id <- subnet_ids do
       SyncSubnetInfo.new_subnet_with_message(subnet_id, message)
-      Libp2pPort.async_subscribe_to_topic(topic(subnet_id), __MODULE__)
+      subscribe(subnet_id)
     end
 
     :ok

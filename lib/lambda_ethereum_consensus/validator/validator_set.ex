@@ -9,6 +9,8 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
 
   require Logger
 
+  alias LambdaEthereumConsensus.P2P.Gossip.Attestation
+  alias LambdaEthereumConsensus.P2P.Gossip.SyncCommittee
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.CheckpointStates
@@ -137,7 +139,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp process_tick(%{head_root: head_root} = set, epoch, {slot, :first_third}) do
-    maybe_propose(set, epoch, slot, head_root)
+    set
+    |> maybe_subscribe_to_subnets(epoch, slot)
+    |> maybe_propose(epoch, slot, head_root)
   end
 
   defp process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
@@ -323,6 +327,21 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     set.duties
     |> Duties.update_duties!(kind, epoch, slot, new_duties)
     |> then(&%{set | duties: &1})
+  end
+
+  ##########################
+  # Subnets
+
+  defp maybe_subscribe_to_subnets(set, epoch, slot) do
+    case Duties.current_subnets(set.duties, epoch, slot) do
+      %{attesters: [], sync_committees: []} ->
+        set
+
+      %{attesters: att_subnet, sync_committees: sync_subnet} ->
+        Enum.each(att_subnet, &Attestation.subscribe/1)
+        Enum.each(sync_subnet, &SyncCommittee.subscribe/1)
+        set
+    end
   end
 
   ##########################
