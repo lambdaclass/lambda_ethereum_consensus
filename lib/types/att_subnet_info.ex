@@ -49,8 +49,6 @@ defmodule Types.AttSubnetInfo do
   """
   @spec add_attestation!(non_neg_integer(), Types.Attestation.t()) :: :ok
   def add_attestation!(subnet_id, %{data: att_data} = attestation) do
-    %{slot: slot, beacon_block_root: root} = att_data
-
     with {:ok, subnet_info} <- fetch_subnet_info(subnet_id),
          ^att_data <- subnet_info.data do
       new_subnet_info = %__MODULE__{
