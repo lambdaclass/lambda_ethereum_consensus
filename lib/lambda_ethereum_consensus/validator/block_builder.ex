@@ -90,7 +90,11 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          bls_to_execution_changes: block_request.bls_to_execution_changes,
          blob_kzg_commitments: block_request.blob_kzg_commitments,
          sync_aggregate:
-           get_sync_aggregate(block_request.sync_committee_contributions, block_request.slot),
+           get_sync_aggregate(
+             block_request.sync_committee_contributions,
+             block_request.slot,
+             block_request.parent_root
+           ),
          execution_payload: execution_payload
        }
      }}
@@ -205,12 +209,15 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     signature
   end
 
-  defp get_sync_aggregate(contributions, slot) do
+  defp get_sync_aggregate(contributions, slot, parent_root) do
     # We group by the contributions by subcommittee index, get only the ones related to the previous slot
     # and pick the one with the most amount of set bits in the aggregation bits.
     contributions =
       contributions
-      |> Enum.filter(&(&1.message.contribution.slot == slot - 1))
+      |> Enum.filter(
+        &(&1.message.contribution.slot == slot - 1 &&
+            &1.message.contribution.beacon_block_root == parent_root)
+      )
       |> Enum.group_by(& &1.message.contribution.subcommittee_index)
       |> Enum.map(fn {_, contributions} ->
         Enum.max_by(
@@ -221,7 +228,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
     Logger.debug(
       "[BlockBuilder] Contributions to aggregate: #{inspect(contributions, pretty: true)}",
-      slot: slot
+      slot: slot,
+      root: parent_root
     )
 
     aggregate_data = %{
@@ -257,7 +265,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     Logger.debug(
       "[BlockBuilder] SyncAggregate to construct: #{inspect(aggregate_data.signatures, pretty: true)}",
       bits: aggregate_data.aggregation_bits,
-      slot: slot
+      slot: slot,
+      root: parent_root
     )
 
     %Types.SyncAggregate{
