@@ -41,8 +41,16 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           aggregation: [sync_committee_aggregator_duty()]
         }
 
+  @type subnets :: MapSet.t(Types.uint64())
+
   @typedoc "Useful precalculated data not tied to a particular slot/duty."
-  @type shared_data_for_duties :: %{sync_subcommittee_participants: %{}}
+  @type shared_data_for_duties :: %{
+          subnets: %{
+            attesters: %{Types.slot() => subnets},
+            sync_committees: %{Types.slot() => subnets}
+          },
+          sync_subcommittee_participants: %{}
+        }
 
   @type attester_duties :: [attester_duty()]
   @type proposer_duties :: [proposer_duty()]
@@ -103,11 +111,20 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
               |> then(&{&1, compute_sync_subcommittee_participants(beacon, epoch)})
           end
 
+        new_subnets_for_attestations = compute_subnets_for_attestations(new_attesters)
+        new_subnets_for_sync_committees = compute_subnets_for_sync_committees(new_sync_committees)
+
         new_duties = %{
           proposers: new_proposers,
           attesters: new_attesters,
           sync_committees: new_sync_committees,
-          shared: %{sync_subcommittee_participants: sync_subcommittee_participants}
+          shared: %{
+            subnets: %{
+              attesters: new_subnets_for_attestations,
+              sync_committees: new_subnets_for_sync_committees
+            },
+            sync_subcommittee_participants: sync_subcommittee_participants
+          }
         }
 
         log_duties_for_epoch(new_duties, epoch)
@@ -312,6 +329,25 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     Map.put(duty, :subnet_id, subnet_id)
   end
 
+  defp compute_subnets_for_attestations(attester_duties) do
+    for {slot, duties} <- attester_duties,
+        %{should_aggregate?: true, committee_index: subnet_id} <- duties,
+        reduce: %{} do
+      acc ->
+        Map.update(acc, slot, MapSet.new([subnet_id]), &MapSet.put(&1, subnet_id))
+    end
+  end
+
+  defp compute_subnets_for_sync_committees(sync_committee_duties) do
+    for {slot, duties} <- sync_committee_duties,
+        %{aggregation: agg} when agg != [] <- duties,
+        %{subcommittee_index: subnet_id} <- agg,
+        reduce: %{} do
+      acc ->
+        Map.update(acc, slot, MapSet.new([subnet_id]), &MapSet.put(&1, subnet_id))
+    end
+  end
+
   ############################
   # Accessors
 
@@ -348,6 +384,17 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     for %{should_aggregate?: true} = duty <- attesters(duties, epoch, slot) do
       duty
     end
+  end
+
+  @spec current_subnets(duties(), Types.epoch(), Types.slot()) ::
+          %{attesters: subnets, sync_committees: subnets}
+  def current_subnets(duties, epoch, slot) do
+    %{
+      attesters: get_in(duties, [epoch, :shared, :subnets, :attesters, slot]) || MapSet.new(),
+      sync_committees:
+        get_in(duties, [epoch, :shared, :subnets, :sync_committees, max(0, slot - 1)]) ||
+          MapSet.new()
+    }
   end
 
   @spec sync_subcommittee_participants(duties(), Types.epoch()) :: %{
@@ -399,22 +446,40 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @spec log_duties_for_epoch(duties(), Types.epoch()) :: :ok
   def log_duties_for_epoch(
-        %{proposers: proposers, attesters: attesters, sync_committees: sync_committees},
+        %{
+          proposers: proposers,
+          attesters: attesters,
+          sync_committees: sync_committees,
+          shared: shared
+        },
         epoch
       ) do
     Logger.info(
       "[Duties] Proposers for epoch #{epoch} (slot=>validator):\n #{inspect(proposers)}"
     )
 
-    for %{
-          subnet_ids: si,
-          validator_index: vi,
-          aggregation: agg
-        } <- sync_committees do
-      Logger.info(
-        "[Duties] Sync committee for epoch: #{epoch}, validator_index: #{vi} will broadcast on subnet_ids: #{inspect(si)}.\n Slots: #{inspect(agg |> Map.keys() |> Enum.join(", "))}"
-      )
+    Logger.debug(
+      "[Duties] SyncCommittees Subnets for epoch #{epoch}: #{inspect(shared.subnets.sync_committees)}"
+    )
+
+    for {slot, sync_duties} <- sync_committees,
+        length(sync_duties) > 0 do
+      Logger.debug("[Duties] Sync committee for epoch: #{epoch}, slot: #{slot}:")
+
+      for %{
+            validator_index: vi,
+            subnet_ids: si,
+            aggregation: agg
+          } <- sync_duties do
+        Logger.debug(
+          "[Duties] Validator: #{vi}, will broadcast in subnets: #{si} and aggregate in #{inspect(agg |> Enum.map(& &1.subcommittee_index))}."
+        )
+      end
     end
+
+    Logger.debug(
+      "[Duties] Attesters Subnets for epoch #{epoch}: #{inspect(shared.subnets.attesters)}"
+    )
 
     for {slot, att_duties} <- attesters,
         length(att_duties) > 0 do
