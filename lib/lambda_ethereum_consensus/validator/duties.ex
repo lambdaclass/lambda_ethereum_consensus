@@ -41,7 +41,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           aggregation: [sync_committee_aggregator_duty()]
         }
 
-  @type subnets :: [Types.uint64()]
+  @type subnets :: MapSet.t(Types.uint64())
+
   @typedoc "Useful precalculated data not tied to a particular slot/duty."
   @type shared_data_for_duties :: %{
           subnets: %{
@@ -335,7 +336,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
       acc ->
         Map.update(acc, slot, MapSet.new([subnet_id]), &MapSet.put(&1, subnet_id))
     end
-    |> Map.new(fn {slot, subnets} -> {slot, MapSet.to_list(subnets)} end)
   end
 
   defp compute_subnets_for_sync_committees(sync_committee_duties) do
@@ -346,7 +346,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
       acc ->
         Map.update(acc, slot, MapSet.new([subnet_id]), &MapSet.put(&1, subnet_id))
     end
-    |> Map.new(fn {slot, subnets} -> {slot, MapSet.to_list(subnets)} end)
   end
 
   ############################
@@ -391,9 +390,9 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           %{attesters: subnets, sync_committees: subnets}
   def current_subnets(duties, epoch, slot) do
     %{
-      attesters: get_in(duties, [epoch, :shared, :subnets, :attesters, slot]) || [],
+      attesters: get_in(duties, [epoch, :shared, :subnets, :attesters, slot]) || MapSet.new(),
       sync_committees:
-        get_in(duties, [epoch, :shared, :subnets, :sync_committees, max(0, slot - 1)]) || []
+        get_in(duties, [epoch, :shared, :subnets, :sync_committees, max(0, slot - 1)]) || MapSet.new()
     }
   end
 
