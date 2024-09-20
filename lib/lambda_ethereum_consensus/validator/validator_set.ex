@@ -340,22 +340,22 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp maybe_resubscribe_to_subnets(set, epoch, slot) do
     %{subscribed_subnets: %{attesters: old_att_subnets, sync_committees: old_sync_subnets}} = set
 
-    %{attesters: new_att_subnets, sync_committees: new_sync_sunbnets} =
+    %{attesters: new_att_subnets, sync_committees: new_sync_subnets} =
       Duties.current_subnets(set.duties, epoch, slot)
 
     unsubscribe_att = MapSet.difference(old_att_subnets, new_att_subnets)
-    unsubscribe_sync = MapSet.difference(old_sync_subnets, new_sync_sunbnets)
+    unsubscribe_sync = MapSet.difference(old_sync_subnets, new_sync_subnets)
 
     Enum.each(unsubscribe_att, &Attestation.unsubscribe/1)
     Enum.each(unsubscribe_sync, &SyncCommittee.unsubscribe/1)
 
     subscribe_att = MapSet.difference(new_att_subnets, old_att_subnets)
-    subscribe_sync = MapSet.difference(new_sync_sunbnets, old_sync_subnets)
+    subscribe_sync = MapSet.difference(new_sync_subnets, old_sync_subnets)
 
     Enum.each(subscribe_att, &Attestation.subscribe/1)
     Enum.each(subscribe_sync, &SyncCommittee.subscribe/1)
 
-    %{set | subscribed_subnets: %{attesters: new_att_subnets, sync_committees: new_sync_sunbnets}}
+    %{set | subscribed_subnets: %{attesters: new_att_subnets, sync_committees: new_sync_subnets}}
   end
 
   ##########################
