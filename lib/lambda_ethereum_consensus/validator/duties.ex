@@ -392,7 +392,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     %{
       attesters: get_in(duties, [epoch, :shared, :subnets, :attesters, slot]) || MapSet.new(),
       sync_committees:
-        get_in(duties, [epoch, :shared, :subnets, :sync_committees, max(0, slot - 1)]) || MapSet.new()
+        get_in(duties, [epoch, :shared, :subnets, :sync_committees, max(0, slot - 1)]) ||
+          MapSet.new()
     }
   end
 

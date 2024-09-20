@@ -55,6 +55,8 @@ defmodule Types.SyncSubnetInfo do
   def add_message!(subnet_id, %Types.SyncCommitteeMessage{} = message) do
     %{slot: slot, beacon_block_root: root} = message
 
+    # TODO: (#1302) On delayed scenarios (past second third of the slot) we could discard useful
+    # messages and end up with empty aggregations due to the subnet not being created yet.
     with {:ok, subnet_info} <- fetch_subnet_info(subnet_id),
          {^slot, ^root} <- subnet_info.data do
       new_subnet_info = %__MODULE__{

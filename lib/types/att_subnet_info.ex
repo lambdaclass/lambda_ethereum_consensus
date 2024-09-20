@@ -47,6 +47,8 @@ defmodule Types.AttSubnetInfo do
   """
   @spec add_attestation!(non_neg_integer(), Types.Attestation.t()) :: :ok
   def add_attestation!(subnet_id, %{data: att_data} = attestation) do
+    # TODO: (#1302) On delayed scenarios (past second third of the slot) we could discard useful
+    # messages and end up with empty aggregations due to the subnet not being created yet.
     with {:ok, subnet_info} <- fetch_subnet_info(subnet_id),
          ^att_data <- subnet_info.data do
       new_subnet_info = %__MODULE__{
