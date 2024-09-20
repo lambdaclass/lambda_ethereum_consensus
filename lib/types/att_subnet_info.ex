@@ -15,8 +15,6 @@ defmodule Types.AttSubnetInfo do
 
   @subnet_prefix "att_subnet"
 
-  require Logger
-
   @doc """
   Creates a SubnetInfo from an Attestation and stores it into the database.
   The attestation is typically built by a validator before starting to collect others' attestations.

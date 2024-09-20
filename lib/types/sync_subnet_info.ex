@@ -18,8 +18,6 @@ defmodule Types.SyncSubnetInfo do
 
   @subnet_prefix "sync_subnet"
 
-  require Logger
-
   @doc """
   Creates a SubnetInfo from an SyncCommitteeMessage and stores it into the database.
   The message is typically built by a validator before starting to collect others' messages.
