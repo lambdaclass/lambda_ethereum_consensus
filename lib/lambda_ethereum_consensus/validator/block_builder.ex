@@ -166,7 +166,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
         ChainSpec.get("MAX_PROPOSER_SLASHINGS") |> OperationsCollector.get_proposer_slashings(),
       attester_slashings:
         ChainSpec.get("MAX_ATTESTER_SLASHINGS") |> OperationsCollector.get_attester_slashings(),
-      attestations: ChainSpec.get("MAX_ATTESTATIONS") |> OperationsCollector.get_attestations(slot),
+      attestations:
+        ChainSpec.get("MAX_ATTESTATIONS") |> OperationsCollector.get_attestations(slot),
       sync_committee_contributions: OperationsCollector.get_sync_committee_contributions(),
       voluntary_exits:
         ChainSpec.get("MAX_VOLUNTARY_EXITS") |> OperationsCollector.get_voluntary_exits(),

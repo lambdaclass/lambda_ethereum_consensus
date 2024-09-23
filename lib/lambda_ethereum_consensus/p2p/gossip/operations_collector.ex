@@ -173,14 +173,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
          {:ok,
           %Types.SignedAggregateAndProof{message: %Types.AggregateAndProof{aggregate: aggregate}}} <-
            Ssz.from_ssz(uncompressed, Types.SignedAggregateAndProof) do
-      votes = BitField.count(aggregate.aggregation_bits)
-      slot = aggregate.data.slot
-      root = aggregate.data.beacon_block_root
-
-      Logger.info(
-        "[Gossip] Aggregate decoded. Total attestations: #{votes}",
-        slot: slot,
-        root: root
+      Logger.debug(
+        "[Gossip] Aggregate decoded. Total attestations: #{BitField.count(aggregate.aggregation_bits)}",
+        slot: aggregate.data.slot,
+        root: aggregate.data.beacon_block_root
       )
 
       # We are getting ~500 attestations in half a second. This is overwhelming the store GenServer at the moment.
