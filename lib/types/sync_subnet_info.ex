@@ -50,16 +50,15 @@ defmodule Types.SyncSubnetInfo do
 
   @doc """
   Adds a new SyncCommitteeMessage to the SubnetInfo if the message's data matches the base one.
-  Assumes that the SubnetInfo already exists.
   """
   @spec add_message!(non_neg_integer(), Types.SyncCommitteeMessage.t()) :: :ok
-  def add_message!(
-        subnet_id,
-        %Types.SyncCommitteeMessage{slot: slot, beacon_block_root: root} = message
-      ) do
-    subnet_info = fetch_subnet_info!(subnet_id)
+  def add_message!(subnet_id, %Types.SyncCommitteeMessage{} = message) do
+    %{slot: slot, beacon_block_root: root} = message
 
-    if subnet_info.data == {slot, root} do
+    # TODO: (#1302) On delayed scenarios (past second third of the slot) we could discard useful
+    # messages and end up with empty aggregations due to the subnet not being created yet.
+    with {:ok, subnet_info} <- fetch_subnet_info(subnet_id),
+         {^slot, ^root} <- subnet_info.data do
       new_subnet_info = %__MODULE__{
         subnet_info
         | messages: [message | subnet_info.messages]
@@ -98,12 +97,6 @@ defmodule Types.SyncSubnetInfo do
       {:ok, binary} -> {:ok, decode(binary)}
       :not_found -> result
     end
-  end
-
-  @spec fetch_subnet_info!(non_neg_integer()) :: t()
-  defp fetch_subnet_info!(subnet_id) do
-    {:ok, subnet_info} = fetch_subnet_info(subnet_id)
-    subnet_info
   end
 
   @spec delete_subnet(non_neg_integer()) :: :ok
