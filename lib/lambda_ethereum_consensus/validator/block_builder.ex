@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          {:ok, eth1_vote} <- fetch_eth1_data(request.slot, mid_state),
          {:ok, block_request} <-
            request
-           |> Map.merge(fetch_operations_for_block())
+           |> Map.merge(fetch_operations_for_block(request.slot))
            |> Map.put_new_lazy(:deposits, fn -> fetch_deposits(mid_state, eth1_vote) end)
            |> Map.put(:blob_kzg_commitments, blobs_bundle.commitments)
            |> BuildBlockRequest.validate(pre_state),
@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          graffiti: block_request.graffiti_message,
          proposer_slashings: block_request.proposer_slashings,
          attester_slashings: block_request.attester_slashings,
-         attestations: block_request.attestations,
+         attestations: process_attestations(block_request.attestations),
          deposits: block_request.deposits,
          voluntary_exits: block_request.voluntary_exits,
          bls_to_execution_changes: block_request.bls_to_execution_changes,
@@ -152,7 +152,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     end
   end
 
-  @spec fetch_operations_for_block() :: %{
+  @spec fetch_operations_for_block(Types.slot()) :: %{
           proposer_slashings: [Types.ProposerSlashing.t()],
           attester_slashings: [Types.AttesterSlashing.t()],
           attestations: [Types.Attestation.t()],
@@ -160,13 +160,13 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
           voluntary_exits: [Types.VoluntaryExit.t()],
           bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()]
         }
-  defp fetch_operations_for_block() do
+  defp fetch_operations_for_block(slot) do
     %{
       proposer_slashings:
         ChainSpec.get("MAX_PROPOSER_SLASHINGS") |> OperationsCollector.get_proposer_slashings(),
       attester_slashings:
         ChainSpec.get("MAX_ATTESTER_SLASHINGS") |> OperationsCollector.get_attester_slashings(),
-      attestations: ChainSpec.get("MAX_ATTESTATIONS") |> OperationsCollector.get_attestations(),
+      attestations: ChainSpec.get("MAX_ATTESTATIONS") |> OperationsCollector.get_attestations(slot),
       sync_committee_contributions: OperationsCollector.get_sync_committee_contributions(),
       voluntary_exits:
         ChainSpec.get("MAX_VOLUNTARY_EXITS") |> OperationsCollector.get_voluntary_exits(),
@@ -207,6 +207,17 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     signing_root = Misc.compute_signing_root(block, domain)
     {:ok, signature} = Bls.sign(privkey, signing_root)
     signature
+  end
+
+  defp process_attestations(attestations) do
+    attestations
+    |> Enum.group_by(& &1.data.index)
+    |> Enum.map(fn {_, attestations} ->
+      Enum.max_by(
+        attestations,
+        &(&1.aggregation_bits |> BitVector.count())
+      )
+    end)
   end
 
   defp get_sync_aggregate(contributions, slot, parent_root) do

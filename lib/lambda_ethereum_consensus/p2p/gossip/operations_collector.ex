@@ -69,9 +69,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     get_operation(:voluntary_exit, count)
   end
 
-  @spec get_attestations(non_neg_integer()) :: list(Types.Attestation.t())
-  def get_attestations(count) do
-    get_operation(:attestation, count)
+  @spec get_attestations(non_neg_integer(), Types.slot()) :: list(Types.Attestation.t())
+  def get_attestations(count, slot) do
+    slot = slot || fetch_slot!()
+    get_operation(:attestation, count, &ignore?(&1, slot))
   end
 
   @spec get_sync_committee_contributions() :: list(Types.SignedContributionAndProof.t())
@@ -141,15 +142,21 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   defp get_operation(operation, count) when operation in @operations do
     # NOTE: we don't remove these from the db, since after a block is built
     #  :new_block will be called, and already added messages will be removed
-
-    slot = fetch_slot!()
-
-    operations = fetch_operation!(operation)
-
-    if count == :all,
-      do: operations |> Enum.reject(&ignore?(&1, slot)),
-      else: operations |> Stream.reject(&ignore?(&1, slot)) |> Enum.take(count)
+    operation
+    |> fetch_operation!()
+    |> cap_operations(count)
   end
+
+  defp get_operation(operation, count, filter) when operation in @operations do
+    operation
+    |> fetch_operation!()
+    |> Stream.reject(filter)
+    |> cap_operations(count)
+  end
+
+  defp cap_operations(%Stream{} = operations, :all), do: Enum.to_list(operations)
+  defp cap_operations(operations, :all), do: operations
+  defp cap_operations(operations, count), do: Enum.take(operations, count)
 
   @impl true
   def handle_gossip_message(store, topic, msg_id, message) do
@@ -168,9 +175,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
            Ssz.from_ssz(uncompressed, Types.SignedAggregateAndProof) do
       votes = BitField.count(aggregate.aggregation_bits)
       slot = aggregate.data.slot
-      root = aggregate.data.beacon_block_root |> Base.encode16()
+      root = aggregate.data.beacon_block_root
 
-      Logger.debug(
+      Logger.info(
         "[Gossip] Aggregate decoded. Total attestations: #{votes}",
         slot: slot,
         root: root
@@ -271,10 +278,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   defp ignore?(%Types.Attestation{}, nil), do: false
 
   defp ignore?(%Types.Attestation{data: data}, slot) do
+    # Right now this preset is 1, so we add every attestation ASAP, but it could be changed in the future
     data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") > slot
   end
-
-  defp ignore?(_, _), do: false
 
   defp update_operation(operation, f) when is_function(f) do
     fetch_operation!(operation)
