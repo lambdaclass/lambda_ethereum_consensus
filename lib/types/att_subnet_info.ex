@@ -44,13 +44,13 @@ defmodule Types.AttSubnetInfo do
 
   @doc """
   Adds a new Attestation to the SubnetInfo if the attestation's data matches the base one.
-  Assumes that the SubnetInfo already exists.
   """
   @spec add_attestation!(non_neg_integer(), Types.Attestation.t()) :: :ok
-  def add_attestation!(subnet_id, attestation) do
-    subnet_info = fetch_subnet_info!(subnet_id)
-
-    if subnet_info.data == attestation.data do
+  def add_attestation!(subnet_id, %{data: att_data} = attestation) do
+    # TODO: (#1302) On delayed scenarios (past second third of the slot) we could discard useful
+    # messages and end up with empty aggregations due to the subnet not being created yet.
+    with {:ok, subnet_info} <- fetch_subnet_info(subnet_id),
+         ^att_data <- subnet_info.data do
       new_subnet_info = %__MODULE__{
         subnet_info
         | attestations: [attestation | subnet_info.attestations]
@@ -89,12 +89,6 @@ defmodule Types.AttSubnetInfo do
       {:ok, binary} -> {:ok, decode(binary)}
       :not_found -> result
     end
-  end
-
-  @spec fetch_subnet_info!(non_neg_integer()) :: t()
-  defp fetch_subnet_info!(subnet_id) do
-    {:ok, subnet_info} = fetch_subnet_info(subnet_id)
-    subnet_info
   end
 
   @spec delete_subnet(non_neg_integer()) :: :ok

@@ -5,10 +5,16 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   simplify the delegation of work.
   """
 
-  defstruct slot: nil, head_root: nil, duties: %{}, validators: %{}
+  defstruct slot: nil,
+            head_root: nil,
+            duties: %{},
+            subscribed_subnets: %{attesters: MapSet.new(), sync_committees: MapSet.new()},
+            validators: %{}
 
   require Logger
 
+  alias LambdaEthereumConsensus.P2P.Gossip.Attestation
+  alias LambdaEthereumConsensus.P2P.Gossip.SyncCommittee
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.CheckpointStates
@@ -21,6 +27,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
           slot: Types.slot(),
           head_root: Types.root() | nil,
           duties: %{Types.epoch() => Duties.duties()},
+          subscribed_subnets: %{attesters: Duties.subnets(), sync_committees: Duties.subnets()},
           validators: validators()
         }
 
@@ -137,7 +144,9 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp process_tick(%{head_root: head_root} = set, epoch, {slot, :first_third}) do
-    maybe_propose(set, epoch, slot, head_root)
+    set
+    |> maybe_resubscribe_to_subnets(epoch, slot)
+    |> maybe_propose(epoch, slot, head_root)
   end
 
   defp process_tick(%{head_root: head_root} = set, epoch, {slot, :second_third}) do
@@ -323,6 +332,30 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
     set.duties
     |> Duties.update_duties!(kind, epoch, slot, new_duties)
     |> then(&%{set | duties: &1})
+  end
+
+  ##########################
+  # Subnets
+
+  defp maybe_resubscribe_to_subnets(set, epoch, slot) do
+    %{subscribed_subnets: %{attesters: old_att_subnets, sync_committees: old_sync_subnets}} = set
+
+    %{attesters: new_att_subnets, sync_committees: new_sync_subnets} =
+      Duties.current_subnets(set.duties, epoch, slot)
+
+    unsubscribe_att = MapSet.difference(old_att_subnets, new_att_subnets)
+    unsubscribe_sync = MapSet.difference(old_sync_subnets, new_sync_subnets)
+
+    Enum.each(unsubscribe_att, &Attestation.unsubscribe/1)
+    Enum.each(unsubscribe_sync, &SyncCommittee.unsubscribe/1)
+
+    subscribe_att = MapSet.difference(new_att_subnets, old_att_subnets)
+    subscribe_sync = MapSet.difference(new_sync_subnets, old_sync_subnets)
+
+    Enum.each(subscribe_att, &Attestation.subscribe/1)
+    Enum.each(subscribe_sync, &SyncCommittee.subscribe/1)
+
+    %{set | subscribed_subnets: %{attesters: new_att_subnets, sync_committees: new_sync_subnets}}
   end
 
   ##########################

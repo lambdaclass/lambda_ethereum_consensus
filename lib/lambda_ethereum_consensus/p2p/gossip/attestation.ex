@@ -67,20 +67,29 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     Libp2pPort.publish(topic, message)
   end
 
+  @spec subscribe(non_neg_integer()) :: :ok
+  def subscribe(subnet_id),
+    do: Libp2pPort.async_subscribe_to_topic(topic(subnet_id), __MODULE__)
+
   @spec collect(non_neg_integer(), Types.Attestation.t()) :: :ok
   def collect(subnet_id, attestation) do
     join(subnet_id)
     AttSubnetInfo.new_subnet_with_attestation(subnet_id, attestation)
-    Libp2pPort.async_subscribe_to_topic(topic(subnet_id), __MODULE__)
+    subscribe(subnet_id)
+  end
+
+  @spec unsubscribe(non_neg_integer()) :: :ok
+  def unsubscribe(subnet_id) do
+    # TODO: (#1289) implement some way to unsubscribe without leaving the topic
+    topic = topic(subnet_id)
+    Libp2pPort.leave_topic(topic)
+    Libp2pPort.join_topic(topic)
   end
 
   @spec stop_collecting(non_neg_integer()) ::
           {:ok, list(Types.Attestation.t())} | {:error, String.t()}
   def stop_collecting(subnet_id) do
-    # TODO: (#1289) implement some way to unsubscribe without leaving the topic
-    topic = topic(subnet_id)
-    Libp2pPort.leave_topic(topic)
-    Libp2pPort.join_topic(topic)
+    unsubscribe(subnet_id)
     AttSubnetInfo.stop_collecting(subnet_id)
   end
 
