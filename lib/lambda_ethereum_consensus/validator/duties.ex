@@ -41,7 +41,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           aggregation: [sync_committee_aggregator_duty()]
         }
 
-  @type subnets :: MapSet.t(Types.uint64())
+  @typedoc "Set of subnet indices for a particular slot, used in attestations and sync committees."
+  @type subnets :: MapSet.t(subnet_index :: Types.uint64())
 
   @typedoc "Useful precalculated data not tied to a particular slot/duty."
   @type shared_data_for_duties :: %{
