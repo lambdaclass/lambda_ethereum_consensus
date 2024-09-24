@@ -299,7 +299,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
         {:error, reason} ->
           # Default to the last eth1 data on error
           Logger.error("Failed to fetch eth1 vote: #{reason}")
-          head_state.eth1_data
+          head_state.eth1_data |> IO.inspect(label: "old eth1_data")
 
         {:ok, nil} ->
           head_state.eth1_data
