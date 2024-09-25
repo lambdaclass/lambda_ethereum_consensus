@@ -195,11 +195,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
            eth1_data_votes: seen_votes,
            deposit_tree: deposit_tree,
            current_eth1_data: default
-         } = state,
+         },
          slot
        ) do
-    Logger.info("Computing eth1 vote for slot #{slot}")
-    IO.inspect(state, label: "state", limit: :infinity, pretty: true)
     period_start = voting_period_start_time(slot)
 
     blocks_to_consider =
@@ -231,44 +229,42 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     {valid_votes, _last_tree, last_eth1_data} =
       blocks_to_consider
       |> Enum.reduce({MapSet.new(), deposit_tree, nil}, fn block, {set, tree, last_eth1_data} ->
-        IO.inspect(block.block_number, label: "block_number in get_first_valid_vote")
         new_tree =
           case grouped_deposits[block.block_number] do
             nil -> tree
             deposits -> update_tree_with_deposits(tree, deposits)
           end
 
-        data = get_eth1_data(block, new_tree) |> IO.inspect(label: "data in get_first_valid_vote")
+        data = get_eth1_data(block, new_tree)
 
-        if data.deposit_count >= default.deposit_count,
+        # Spec says: get_eth1_data(block).deposit_count >= state.eth1_data.deposit_count, but this clearly
+        # overrites eth1data even when no deposits ocurred, eth2book instead says:
+        # "Filter out any blocks that have a deposit count less than state.eth1_data.deposit_count: we've already seen these."
+        # Which make a lot more sense.
+        if data.deposit_count > default.deposit_count,
           do: {MapSet.put(set, data), new_tree, data},
           else: {set, new_tree, last_eth1_data}
       end)
 
-    IO.inspect(valid_votes, label: "valid_votes", limit: :infinity, pretty: true)
-    IO.inspect(seen_votes, label: "seen_votes", limit: :infinity, pretty: true)
-
     # Default vote on latest eth1 block data in the period range unless eth1 chain is not live
-    default_vote = last_eth1_data || default |> IO.inspect(label: "default_vote")
+    default_vote = (last_eth1_data || default)
 
     # Tiebreak by smallest distance to period start
     result =
       seen_votes
       |> Stream.filter(fn {eth1_data, _count_and_distance} -> MapSet.member?(valid_votes, eth1_data) end)
-      |> tap(&IO.inspect(&1 |> Enum.to_list(), label: "valid_votes_seen", limit: :infinity, pretty: true))
       |> Enum.max(fn {_, {count1, dist1}}, {_, {count2, dist2}} ->
         cond do
           count1 > count2 -> true
-          count1 == count2 && dist1 >= dist2 -> true
+          count1 == count2 && dist1 > dist2 -> true
           true -> false
         end
-      end, fn -> nil end) |> IO.inspect(label: "result")
+      end, fn -> nil end)
 
     case result do
       nil -> {:ok, default_vote}
       {eth1_data, _} -> {:ok, eth1_data}
     end
-    |> tap(&IO.inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(elem(&1, 1).block_hash), label: "result", pretty: true))
   end
 
   defp get_eth1_data(block, tree) do
@@ -286,10 +282,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   defp candidate_block?(timestamp, period_start) do
-    follow_time = ChainSpec.get("SECONDS_PER_ETH1_BLOCK") * 0 # ChainSpec.get("ETH1_FOLLOW_DISTANCE")
-    IO.inspect("ts: #{timestamp}, period_start: #{period_start}, follow_time: #{follow_time}", label: "candidate_block")
-    IO.inspect("current result: #{inspect(timestamp + follow_time <= period_start and timestamp + follow_time * 2 >= period_start)}")
-    IO.inspect("old result: #{inspect(timestamp in (period_start - follow_time * 2)..(period_start - follow_time))}")
+    follow_time = ChainSpec.get("SECONDS_PER_ETH1_BLOCK") * ChainSpec.get("ETH1_FOLLOW_DISTANCE")
     timestamp + follow_time <= period_start and timestamp + follow_time * 2 >= period_start
   end
 
