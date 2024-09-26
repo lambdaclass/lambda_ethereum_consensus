@@ -267,11 +267,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
 
       data = get_eth1_data(block, new_tree)
 
-      # Spec says: get_eth1_data(block).deposit_count >= state.eth1_data.deposit_count, but this clearly
-      # overrites eth1data even when no deposits ocurred, eth2book instead says:
-      # "Filter out any blocks that have a deposit count less than state.eth1_data.deposit_count:
-      # we've already seen these." Which make a lot more sense.
-      if data.deposit_count > default.deposit_count,
+      if data.deposit_count >= default.deposit_count,
         do: {MapSet.put(set, data), new_tree, data},
         else: {set, new_tree, last_eth1_data}
     end)
