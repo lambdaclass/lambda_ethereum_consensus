@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          graffiti: block_request.graffiti_message,
          proposer_slashings: block_request.proposer_slashings,
          attester_slashings: block_request.attester_slashings,
-         attestations: process_attestations(block_request.attestations),
+         attestations: select_best_aggregates(block_request.attestations),
          deposits: block_request.deposits,
          voluntary_exits: block_request.voluntary_exits,
          bls_to_execution_changes: block_request.bls_to_execution_changes,
@@ -210,7 +210,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     signature
   end
 
-  defp process_attestations(attestations) do
+  defp select_best_aggregates(attestations) do
     attestations
     |> Enum.group_by(& &1.data.index)
     |> Enum.map(fn {_, attestations} ->
