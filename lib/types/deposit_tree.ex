@@ -130,6 +130,7 @@ defmodule Types.DepositTree do
     {:node, {create_node(leaves_left, depth - 1), create_node(leaves_right, depth - 1)}}
   end
 
+  defp finalize_tree({:zero, depth}, 0 = _deposit_count, _), do: {:zero, depth}
   defp finalize_tree({:finalized, _} = node, _, _), do: node
   defp finalize_tree({:leaf, {hash, _}}, _, _), do: {:finalized, {hash, 1}}
 
