@@ -243,7 +243,7 @@ case Keyword.get(args, :log_file) do
     config :logger, :default_formatter,
       format: {LogfmtEx, :format},
       colors: [enabled: false],
-      metadata: [:mfa, :slot]
+      metadata: [:mfa, :pid, :slot]
 
     config :logfmt_ex, :opts,
       message_key: "msg",
