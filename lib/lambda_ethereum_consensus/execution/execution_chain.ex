@@ -247,7 +247,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
       end)
 
     # Default vote on latest eth1 block data in the period range unless eth1 chain is not live
-    default_vote = (last_eth1_data || default)
+    default_vote = last_eth1_data || default
 
     # Tiebreak by smallest distance to period start
     result =
