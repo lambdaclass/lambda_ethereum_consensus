@@ -223,48 +223,58 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   end
 
   defp get_first_valid_vote(blocks_to_consider, seen_votes, deposit_tree, new_deposits, default) do
-    Logger.info("Processing new deposits and get first valid vote")
-    grouped_deposits = Enum.group_by(new_deposits, &Map.fetch!(&1, :block_number))
+    Logger.debug(
+      "Processing new deposits: #{inspect(new_deposits)} and get first valid vote, with default: #{inspect(default)}"
+    )
 
-    {valid_votes, _last_tree, last_eth1_data} =
-      blocks_to_consider
-      |> Enum.reduce({MapSet.new(), deposit_tree, nil}, fn block, {set, tree, last_eth1_data} ->
-        new_tree =
-          case grouped_deposits[block.block_number] do
-            nil -> tree
-            deposits -> update_tree_with_deposits(tree, deposits)
-          end
-
-        data = get_eth1_data(block, new_tree)
-
-        # Spec says: get_eth1_data(block).deposit_count >= state.eth1_data.deposit_count, but this clearly
-        # overrites eth1data even when no deposits ocurred, eth2book instead says:
-        # "Filter out any blocks that have a deposit count less than state.eth1_data.deposit_count: we've already seen these."
-        # Which make a lot more sense.
-        if data.deposit_count > default.deposit_count,
-          do: {MapSet.put(set, data), new_tree, data},
-          else: {set, new_tree, last_eth1_data}
-      end)
+    {valid_votes, last_eth1_data} =
+      get_valid_votes(blocks_to_consider, deposit_tree, new_deposits, default)
 
     # Default vote on latest eth1 block data in the period range unless eth1 chain is not live
     default_vote = last_eth1_data || default
 
-    # Tiebreak by smallest distance to period start
+    # Tiebreak by smallest distance to period start seen_votes is a %{eth1_data -> {count, dist}}
     result =
       seen_votes
-      |> Stream.filter(fn {eth1_data, _count_and_distance} -> MapSet.member?(valid_votes, eth1_data) end)
-      |> Enum.max(fn {_, {count1, dist1}}, {_, {count2, dist2}} ->
-        cond do
-          count1 > count2 -> true
-          count1 == count2 && dist1 > dist2 -> true
-          true -> false
-        end
-      end, fn -> nil end)
+      |> Stream.filter(fn {eth1_data, _} -> MapSet.member?(valid_votes, eth1_data) end)
+      |> Enum.max(
+        fn {_, {count1, dist1}}, {_, {count2, dist2}} ->
+          cond do
+            count1 > count2 -> true
+            count1 == count2 && dist1 > dist2 -> true
+            true -> false
+          end
+        end,
+        fn -> nil end
+      )
 
     case result do
       nil -> {:ok, default_vote}
       {eth1_data, _} -> {:ok, eth1_data}
     end
+  end
+
+  defp get_valid_votes(blocks_to_consider, deposit_tree, new_deposits, default) do
+    grouped_deposits = Enum.group_by(new_deposits, &Map.fetch!(&1, :block_number))
+
+    blocks_to_consider
+    |> Enum.reduce({MapSet.new(), deposit_tree, nil}, fn block, {set, tree, last_eth1_data} ->
+      new_tree =
+        case grouped_deposits[block.block_number] do
+          nil -> tree
+          deposits -> update_tree_with_deposits(tree, deposits)
+        end
+
+      data = get_eth1_data(block, new_tree)
+
+      # Spec says: get_eth1_data(block).deposit_count >= state.eth1_data.deposit_count, but this clearly
+      # overrites eth1data even when no deposits ocurred, eth2book instead says:
+      # "Filter out any blocks that have a deposit count less than state.eth1_data.deposit_count:
+      # we've already seen these." Which make a lot more sense.
+      if data.deposit_count > default.deposit_count,
+        do: {MapSet.put(set, data), new_tree, data},
+        else: {set, new_tree, last_eth1_data}
+    end)
   end
 
   defp get_eth1_data(block, tree) do
