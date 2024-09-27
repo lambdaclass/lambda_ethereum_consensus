@@ -241,9 +241,9 @@ case Keyword.get(args, :log_file) do
     config :logger, utc_log: true
 
     config :logger, :default_formatter,
-      format: {LogfmtEx, :format},
+      format: {CustomLogfmtEx, :format},
       colors: [enabled: false],
-      metadata: [:mfa, :pid, :slot]
+      metadata: [:mfa, :pid, :slot, :root]
 
     config :logfmt_ex, :opts,
       message_key: "msg",
