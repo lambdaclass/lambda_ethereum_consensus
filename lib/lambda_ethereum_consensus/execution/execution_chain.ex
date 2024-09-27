@@ -138,7 +138,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
 
     if has_majority?(eth1_data_votes, eth1_data) do
       case update_deposit_tree(new_state, eth1_data) do
-        {:ok, new_tree} -> %{state | deposit_tree: new_tree, current_eth1_data: eth1_data}
+        {:ok, new_tree} -> %{new_state | deposit_tree: new_tree, current_eth1_data: eth1_data}
         _ -> new_state
       end
     else
@@ -193,16 +193,16 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
          %{
            eth1_chain: eth1_chain,
            eth1_data_votes: seen_votes,
-           deposit_tree: deposit_tree
+           deposit_tree: deposit_tree,
+           current_eth1_data: default
          },
          slot
        ) do
     period_start = voting_period_start_time(slot)
-    follow_time = ChainSpec.get("SECONDS_PER_ETH1_BLOCK") * ChainSpec.get("ETH1_FOLLOW_DISTANCE")
 
     blocks_to_consider =
       eth1_chain
-      |> Enum.filter(&candidate_block?(&1.timestamp, period_start, follow_time))
+      |> Enum.filter(&candidate_block?(&1.timestamp, period_start))
       |> Enum.reverse()
 
     # TODO: backfill chain
@@ -217,43 +217,68 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
       # TODO: fetch asynchronously
       with {:ok, new_deposits} <-
              ExecutionClient.get_deposit_logs(block_number_min..block_number_max) do
-        get_first_valid_vote(blocks_to_consider, seen_votes, deposit_tree, new_deposits)
+        get_first_valid_vote(blocks_to_consider, seen_votes, deposit_tree, new_deposits, default)
       end
     end
   end
 
-  defp get_first_valid_vote(blocks_to_consider, seen_votes, deposit_tree, new_deposits) do
-    grouped_deposits = Enum.group_by(new_deposits, &Map.fetch!(&1, :block_number))
+  defp get_first_valid_vote(blocks_to_consider, seen_votes, deposit_tree, new_deposits, default) do
+    Logger.debug(
+      "Processing new deposits: #{inspect(new_deposits)} and get first valid vote, with default: #{inspect(default)}"
+    )
 
-    {valid_votes, _last_tree} =
-      blocks_to_consider
-      |> Enum.reduce({MapSet.new(), deposit_tree}, fn block, {set, tree} ->
-        new_tree =
-          case grouped_deposits[block.block_number] do
-            nil -> tree
-            deposits -> update_tree_with_deposits(tree, deposits)
-          end
+    {valid_votes, last_eth1_data} =
+      get_valid_votes(blocks_to_consider, deposit_tree, new_deposits, default)
 
-        data = %Eth1Data{
-          deposit_root: DepositTree.get_root(new_tree),
-          deposit_count: DepositTree.get_deposit_count(new_tree),
-          block_hash: block.block_hash
-        }
+    # Default vote on latest eth1 block data in the period range unless eth1 chain is not live
+    default_vote = last_eth1_data || default
 
-        {MapSet.put(set, data), new_tree}
-      end)
-
-    # Tiebreak by smallest distance to period start
+    # Tiebreak by smallest distance to period start seen_votes is a %{eth1_data -> {count, dist}}
     result =
       seen_votes
-      |> Stream.filter(&MapSet.member?(valid_votes, &1))
-      |> Enum.max(fn {_, count1}, {_, count2} -> count1 >= count2 end, fn -> nil end)
+      |> Stream.filter(fn {eth1_data, _} -> MapSet.member?(valid_votes, eth1_data) end)
+      |> Enum.max(
+        fn {_, {count1, dist1}}, {_, {count2, dist2}} ->
+          cond do
+            count1 > count2 -> true
+            count1 == count2 && dist1 > dist2 -> true
+            true -> false
+          end
+        end,
+        fn -> nil end
+      )
 
     case result do
-      # Use the first vote if there is a tie
-      nil -> {:ok, List.last(valid_votes)}
+      nil -> {:ok, default_vote}
       {eth1_data, _} -> {:ok, eth1_data}
     end
+  end
+
+  defp get_valid_votes(blocks_to_consider, deposit_tree, new_deposits, default) do
+    grouped_deposits = Enum.group_by(new_deposits, &Map.fetch!(&1, :block_number))
+
+    blocks_to_consider
+    |> Enum.reduce({MapSet.new(), deposit_tree, nil}, fn block, {set, tree, last_eth1_data} ->
+      new_tree =
+        case grouped_deposits[block.block_number] do
+          nil -> tree
+          deposits -> update_tree_with_deposits(tree, deposits)
+        end
+
+      data = get_eth1_data(block, new_tree)
+
+      if data.deposit_count >= default.deposit_count,
+        do: {MapSet.put(set, data), new_tree, data},
+        else: {set, new_tree, last_eth1_data}
+    end)
+  end
+
+  defp get_eth1_data(block, tree) do
+    %Eth1Data{
+      deposit_root: DepositTree.get_root(tree),
+      deposit_count: DepositTree.get_deposit_count(tree),
+      block_hash: block.block_hash
+    }
   end
 
   defp update_tree_with_deposits(tree, []), do: tree
@@ -262,9 +287,9 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     DepositTree.push_leaf(tree, deposit.data) |> update_tree_with_deposits(rest)
   end
 
-  defp candidate_block?(timestamp, period_start, follow_time) do
-    # follow_time = SECONDS_PER_ETH1_BLOCK * ETH1_FOLLOW_DISTANCE
-    timestamp in (period_start - follow_time * 2)..(period_start - follow_time)
+  defp candidate_block?(timestamp, period_start) do
+    follow_time = ChainSpec.get("SECONDS_PER_ETH1_BLOCK") * ChainSpec.get("ETH1_FOLLOW_DISTANCE")
+    timestamp + follow_time <= period_start and timestamp + follow_time * 2 >= period_start
   end
 
   defp voting_period_start_time(slot) do
