@@ -219,7 +219,7 @@ case Keyword.get(args, :log_file) do
   nil ->
     # Use custom formatter for prettier logs
     config :logger, :default_formatter,
-      format: {ConsoleLogger, :format},
+      format: {CustomConsoleLogger, :format},
       metadata: [:slot, :root, :bits]
 
   log_file ->
