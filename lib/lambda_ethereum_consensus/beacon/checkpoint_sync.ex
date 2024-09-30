@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   def get_finalized_block_and_state(url, genesis_validators_root) do
     tasks = [Task.async(__MODULE__, :get_state, [url]), Task.async(__MODULE__, :get_block, [url])]
 
-    case Task.await_many(tasks, 60_000) do
+    case Task.await_many(tasks, 600_000) do
       [{:ok, state}, {:ok, block}] ->
         if state.genesis_validators_root == genesis_validators_root do
           check_match(url, state, block)
@@ -47,11 +47,17 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   """
   @spec get_state(String.t()) :: {:ok, BeaconState.t()} | {:error, any()}
   def get_state(url) do
+    start_time = System.monotonic_time()
     with {:error, err} <-
            get_ssz_from_url(url, "/eth/v2/debug/beacon/states/finalized", BeaconState) do
       Logger.error("There has been an error retrieving the last finalized state")
       {:error, err}
+    else
+      {:ok, state} ->
+        Logger.info("Retrieved the last finalized state in #{(System.monotonic_time() - start_time) / 1_000_000_000} s")
+        {:ok, state}
     end
+
   end
 
   @doc """
@@ -59,10 +65,15 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   """
   @spec get_block(String.t()) :: {:ok, SignedBeaconBlock.t()} | {:error, any()}
   def get_block(url, id \\ "finalized") do
+    start_time = System.monotonic_time()
     with {:error, err} <-
            get_ssz_from_url(url, "/eth/v2/beacon/blocks/#{id}", SignedBeaconBlock) do
       Logger.error("There has been an error retrieving the last finalized block")
       {:error, err}
+    else
+      {:ok, block} ->
+        Logger.info("Retrieved the last finalized block in #{(System.monotonic_time() - start_time) / 1_000_000_000} s")
+        {:ok, block}
     end
   end
 
