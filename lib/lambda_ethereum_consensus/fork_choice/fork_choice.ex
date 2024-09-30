@@ -104,10 +104,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec on_tick(Store.t(), Types.uint64()) :: Store.t()
   def on_tick(store, time) do
-    %Store{finalized_checkpoint: last_finalized_checkpoint} = store
+    %Store{finalized_checkpoint: _last_finalized_checkpoint} = store
 
     Handlers.on_tick(store, time)
-    |> prune_old_states(last_finalized_checkpoint.epoch)
+    # |> prune_old_states(last_finalized_checkpoint.epoch)
     |> tap(&StoreDb.persist_store/1)
   end
 
@@ -173,6 +173,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     new_finalized_epoch = store.finalized_checkpoint.epoch
 
     if last_finalized_epoch < new_finalized_epoch do
+
       Logger.info("Pruning states before slot #{new_finalized_epoch}")
 
       new_finalized_slot =
@@ -192,9 +193,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         PruneBlobsSupervisor,
         fn -> BlobDb.prune_old_blobs(new_finalized_slot) end
       )
-    end
 
-    Store.prune(store)
+      Store.prune(store)
+    else
+      store
+    end
   end
 
   def apply_handler(iter, state, handler) do

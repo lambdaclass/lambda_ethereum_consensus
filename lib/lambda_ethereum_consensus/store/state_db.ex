@@ -62,6 +62,7 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
 
     result =
       BlockRootBySlot.fold_keys(slot, 0, fn slot, acc ->
+        Logger.info("[StateDb] Pruning state for slot #{slot}.")
         case BlockRootBySlot.get(slot) do
           {:ok, _block_root} ->
             remove_state_by_slot(slot)
