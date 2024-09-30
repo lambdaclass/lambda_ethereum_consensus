@@ -24,6 +24,9 @@ scrape_configs:
             msg:
             mfa:
             process: registered_name
+            pid:
+            slot:
+            root:
       - timestamp:
           format: "2006-01-02T15:04:05.000"
           source: ts
@@ -31,5 +34,8 @@ scrape_configs:
           level:
           mfa:
           process:
+          pid:
+          slot:
+          root:
       - output:
           source: msg

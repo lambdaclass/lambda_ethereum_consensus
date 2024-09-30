@@ -1,4 +1,4 @@
-defmodule ConsoleLogger do
+defmodule CustomConsoleLogger do
   @moduledoc """
   Custom logger formatter for console output.
   """
