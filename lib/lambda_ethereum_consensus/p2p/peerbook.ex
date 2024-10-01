@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   alias LambdaEthereumConsensus.Store.KvSchema
 
   @initial_score 100
-  @penalize 5
+  @penalize 20
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
