@@ -46,7 +46,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Logger.info("[Fork choice] Adding new block", root: block_info.root, slot: slot)
 
-    %Store{finalized_checkpoint: _last_finalized_checkpoint} = store
+    %Store{finalized_checkpoint: last_finalized_checkpoint} = store
 
     result =
       :telemetry.span([:sync, :on_block], %{}, fn ->
@@ -61,7 +61,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         :telemetry.span([:fork_choice, :recompute_head], %{}, fn ->
           {recompute_head(new_store), %{}}
         end)
-        # |> prune_old_states(last_finalized_checkpoint.epoch)
+        |> prune_old_states(last_finalized_checkpoint.epoch)
         |> tap(fn store ->
           StoreDb.persist_store(store)
           Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
@@ -104,10 +104,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec on_tick(Store.t(), Types.uint64()) :: Store.t()
   def on_tick(store, time) do
-    %Store{finalized_checkpoint: _last_finalized_checkpoint} = store
+    %Store{finalized_checkpoint: last_finalized_checkpoint} = store
 
     Handlers.on_tick(store, time)
-    # |> prune_old_states(last_finalized_checkpoint.epoch)
+    |> prune_old_states(last_finalized_checkpoint.epoch)
     |> tap(&StoreDb.persist_store/1)
   end
 

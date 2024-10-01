@@ -144,8 +144,11 @@ defmodule Types.Store do
 
   @spec get_children(t(), Types.root()) :: [BeaconBlock.t()]
   def get_children(%__MODULE__{tree_cache: tree}, parent_root) do
-    Tree.get_children!(tree, parent_root)
-    |> Enum.map(&{&1, Blocks.get_block!(&1)})
+    Tree.get_children(tree, parent_root)
+    |> case do
+      {:ok, children} -> Enum.map(children, &{&1, Blocks.get_block!(&1)})
+      {:error, :not_found} -> []
+    end
   end
 
   @spec store_block_info(t(), BlockInfo.t()) :: t()
