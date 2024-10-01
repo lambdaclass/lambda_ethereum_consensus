@@ -7,7 +7,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   alias LambdaEthereumConsensus.Store.KvSchema
 
   @initial_score 100
-  @penalize 2
+  @penalize 5
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
@@ -43,14 +43,17 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   Get some peer from the peerbook.
   """
   def get_some_peer() do
-    # TODO: use some algorithm to pick a good peer, for now it's random
+    # TODO: This is a very naive implementation of a peer selection algorithm.
     peerbook = fetch_peerbook!()
 
     if peerbook == %{} do
       nil
     else
-      {peer_id, _score} = Enum.random(peerbook)
-      peer_id
+      peerbook
+      |> Enum.sort_by(fn {_peer_id, score} -> score end)
+      |> Enum.take(4)
+      |> Enum.random()
+      |> elem(0)
     end
   end
 

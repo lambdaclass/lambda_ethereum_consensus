@@ -3,6 +3,7 @@ defmodule Types.Store do
     The Store struct is used to track information required for the fork choice algorithm.
   """
 
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.ForkChoice.Simple.Tree
   alias LambdaEthereumConsensus.StateTransition
@@ -110,13 +111,9 @@ defmodule Types.Store do
     end
   end
 
-  def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
-    # NOTE: this assumes GENESIS_SLOT == 0
-    div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
-  end
-
+  # We probably want to move this to a more appropriate module
   def get_current_epoch(store) do
-    store |> get_current_slot() |> Misc.compute_epoch_at_slot()
+    store |> ForkChoice.get_current_slot() |> Misc.compute_epoch_at_slot()
   end
 
   def get_ancestor(%__MODULE__{} = store, root, slot) do
@@ -245,9 +242,15 @@ defmodule Types.Store do
     end
   end
 
-  defp update_head_info(store) do
+  @spec update_head_info(t()) :: t()
+  def update_head_info(store) do
     {:ok, head_root} = Head.get_head(store)
     %{slot: head_slot} = Blocks.get_block!(head_root)
+   update_head_info(store, head_slot, head_root)
+  end
+
+  @spec update_head_info(t(), Types.slot(), Types.root()) :: t()
+  def update_head_info(store, head_slot, head_root) do
     %{store | head_root: head_root, head_slot: head_slot}
   end
 
