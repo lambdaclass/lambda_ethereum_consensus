@@ -32,7 +32,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   def request_blobs_by_range(slot, count, on_blobs, retries) do
     Logger.debug("Requesting blobs", slot: slot)
 
-    # TODO: handle no-peers asynchronously?
+    # FIXME: handle no-peers asynchronously! this is hanging Libp2pPort when there are no peers
     peer_id = get_some_peer()
 
     # NOTE: BeaconBlocksByRangeRequest == BlobSidecarsByRangeRequest
@@ -62,7 +62,8 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
         P2P.Peerbook.penalize_peer(peer_id)
 
         if retries > 0 do
-          Logger.debug("Retrying request for #{count} blobs", slot: slot)
+          Logger.info("Retrying request for #{count} blobs, reason: #{inspect(reason)} in 2 second", slot: slot)
+          Process.sleep(2000)
           request_blobs_by_range(slot, count, on_blobs, retries - 1)
           {:ok, store}
         else
@@ -123,6 +124,9 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   defp get_some_peer() do
     case P2P.Peerbook.get_some_peer() do
       nil ->
+        stacktrace = Process.info(self(), :current_stacktrace)
+        IO.inspect(stacktrace, label: "Current stacktrace")
+
         Process.sleep(100)
         get_some_peer()
 

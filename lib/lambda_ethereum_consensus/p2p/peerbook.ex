@@ -2,10 +2,12 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   @moduledoc """
   General peer bookkeeping.
   """
+  require Logger
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Store.KvSchema
 
   @initial_score 100
+  @penalize 2
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
@@ -53,11 +55,29 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   end
 
   def penalize_peer(peer_id) do
-    fetch_peerbook!() |> Map.delete(peer_id) |> store_peerbook()
+    Logger.debug("Penalizing peer: #{inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(peer_id))}")
+    peer_score = fetch_peerbook!() |> Map.get(peer_id)
+
+    case peer_score do
+      nil ->
+        :ok
+
+      score when score - @penalize <= 0 ->
+        Logger.info("Removing peer: #{inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(peer_id))}")
+        fetch_peerbook!()
+        |> Map.delete(peer_id)
+        |> store_peerbook()
+
+      score ->
+        fetch_peerbook!()
+        |> Map.put(peer_id, score - @penalize)
+        |> store_peerbook()
+    end
   end
 
   def handle_new_peer(peer_id) do
     peerbook = fetch_peerbook!()
+    Logger.debug("New peer connected: #{inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(peer_id))}")
 
     if not Map.has_key?(peerbook, peer_id) do
       :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})
