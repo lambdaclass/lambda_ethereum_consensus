@@ -173,7 +173,11 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         if retries > 0 do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
           pretty_roots = Enum.map_join(roots, ", ", &Base.encode16/1)
-          Logger.debug("Retrying request (reason: #{inspect(reason)}) for blocks with roots #{pretty_roots}, in 2 second")
+
+          Logger.debug(
+            "Retrying request (reason: #{inspect(reason)}) for blocks with roots #{pretty_roots}, in 2 second"
+          )
+
           Process.sleep(2000)
           request_blocks_by_root(roots, on_blocks, retries - 1)
           {:ok, store}
@@ -187,9 +191,6 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   defp get_some_peer() do
     case P2P.Peerbook.get_some_peer() do
       nil ->
-        stacktrace = Process.info(self(), :current_stacktrace)
-        IO.inspect(stacktrace, label: "Current stacktrace")
-
         Process.sleep(100)
         get_some_peer()
 

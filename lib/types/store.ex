@@ -3,7 +3,6 @@ defmodule Types.Store do
     The Store struct is used to track information required for the fork choice algorithm.
   """
 
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.ForkChoice.Simple.Tree
   alias LambdaEthereumConsensus.StateTransition
@@ -246,15 +245,9 @@ defmodule Types.Store do
     end
   end
 
-  @spec update_head_info(t()) :: t()
-  def update_head_info(store) do
+  defp update_head_info(store) do
     {:ok, head_root} = Head.get_head(store)
     %{slot: head_slot} = Blocks.get_block!(head_root)
-   update_head_info(store, head_slot, head_root)
-  end
-
-  @spec update_head_info(t(), Types.slot(), Types.root()) :: t()
-  def update_head_info(store, head_slot, head_root) do
     %{store | head_root: head_root, head_slot: head_slot}
   end
 

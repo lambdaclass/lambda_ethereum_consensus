@@ -58,7 +58,10 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   end
 
   def penalize_peer(peer_id) do
-    Logger.debug("Penalizing peer: #{inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(peer_id))}")
+    Logger.debug(
+      "Penalizing peer: #{inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(peer_id))}"
+    )
+
     peer_score = fetch_peerbook!() |> Map.get(peer_id)
 
     case peer_score do
@@ -66,7 +69,10 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
         :ok
 
       score when score - @penalize <= 0 ->
-        Logger.info("Removing peer: #{inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(peer_id))}")
+        Logger.info(
+          "Removing peer: #{inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(peer_id))}"
+        )
+
         fetch_peerbook!()
         |> Map.delete(peer_id)
         |> store_peerbook()
@@ -80,7 +86,10 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   def handle_new_peer(peer_id) do
     peerbook = fetch_peerbook!()
-    Logger.debug("New peer connected: #{inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(peer_id))}")
+
+    Logger.debug(
+      "New peer connected: #{inspect(LambdaEthereumConsensus.Utils.format_shorten_binary(peer_id))}"
+    )
 
     if not Map.has_key?(peerbook, peer_id) do
       :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})

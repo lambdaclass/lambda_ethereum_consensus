@@ -62,7 +62,11 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
         P2P.Peerbook.penalize_peer(peer_id)
 
         if retries > 0 do
-          Logger.info("Retrying request for #{count} blobs, reason: #{inspect(reason)} in 2 second", slot: slot)
+          Logger.info(
+            "Retrying request for #{count} blobs, reason: #{inspect(reason)} in 2 second",
+            slot: slot
+          )
+
           Process.sleep(2000)
           request_blobs_by_range(slot, count, on_blobs, retries - 1)
           {:ok, store}
@@ -124,9 +128,6 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   defp get_some_peer() do
     case P2P.Peerbook.get_some_peer() do
       nil ->
-        stacktrace = Process.info(self(), :current_stacktrace)
-        IO.inspect(stacktrace, label: "Current stacktrace")
-
         Process.sleep(100)
         get_some_peer()
 
