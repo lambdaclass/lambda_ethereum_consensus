@@ -45,7 +45,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   """
   def get_some_peer() do
     # TODO: This is a very naive implementation of a peer selection algorithm,
-    # this sorts the peers every time.
+    # this sorts the peers every time. The same is true for the pruning.
     peerbook = fetch_peerbook!()
 
     if peerbook == %{} do
@@ -111,7 +111,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   defp prune() do
     peerbook = fetch_peerbook!()
     len = map_size(peerbook)
-    prune_size = if len > 0, do: calculate_prune_size(peerbook, len), else: 0
+    prune_size = if len > 0, do: calculate_prune_size(len), else: 0
 
     if prune_size > 0 do
       Logger.debug("[Peerbook] Pruning #{prune_size} peers by challenge")
@@ -119,11 +119,11 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
       peerbook
       |> Enum.sort_by(fn {_peer_id, score} -> -score end)
       |> Enum.take(prune_size)
-      |> Enum.each(fn peer_id -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
+      |> Enum.each(fn {peer_id, _score} -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
     end
   end
 
-  defp calculate_prune_size(peerbook, len) do
+  defp calculate_prune_size(len) do
     (len * @prune_percentage)
     |> round()
     |> min(@max_prune_size)
