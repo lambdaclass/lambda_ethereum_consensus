@@ -119,9 +119,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def get_current_slot(time, genesis_time),
     do: compute_current_slot(time, genesis_time)
 
-  # TODO: Some parts of the code calculate the current slot using the previous function given a time
-  # specifically from the store (this was previously in the Store type module). This one calculates
-  # it using the system time, we might need to unify.
+  # TODO: Some parts of the node calculate the current slot using the previous function given a time
+  # specifically from the store (this was previously in the Store type module). The following function
+  # calculates it using the system time, we might need to make sure that each case makes sense.
+  @doc """
+  Get the current chain slot based on the system time.
+  """
   @spec get_current_chain_slot() :: Types.slot()
   def get_current_chain_slot() do
     time = :os.system_time(:second)
@@ -130,15 +133,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @doc """
-  Check if a slot is in the future with respect to the current time.
+  Check if a slot is in the future with respect to the systems time.
   """
-  @spec future_slot?(Types.slot()) :: boolean()
-  def future_slot?(slot) do
-    time = :os.system_time(:second)
-    genesis_time = StoreDb.fetch_genesis_time!()
-
-    time
-    |> compute_currents_slots_within_disparity(genesis_time)
+  @spec future_chain_slot?(Types.slot()) :: boolean()
+  def future_chain_slot?(slot) do
+    :os.system_time(:millisecond)
+    |> compute_currents_slots_within_disparity(store.genesis_time)
     |> Enum.all?(fn possible_slot -> possible_slot < slot end)
   end
 
@@ -314,10 +314,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   defp compute_current_slot(time, genesis_time),
     do: div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
 
-  defp compute_currents_slots_within_disparity(time, genesis_time) do
+  defp compute_currents_slots_within_disparity(time_ms, genesis_time) do
+    min_time = div(time_ms - ChainSpec.get("MAXIMUM_GOSSIP_CLOCK_DISPARITY"), 1000)
+    max_time = div(time_ms + ChainSpec.get("MAXIMUM_GOSSIP_CLOCK_DISPARITY"), 1000)
+
     [
-      compute_current_slot(time - ChainSpec.get("MAXIMUM_GOSSIP_CLOCK_DISPARITY"), genesis_time),
-      compute_current_slot(time + ChainSpec.get("MAXIMUM_GOSSIP_CLOCK_DISPARITY"), genesis_time)
+      compute_current_slot(min_time, genesis_time),
+      compute_current_slot(max_time, genesis_time)
     ]
   end
 

@@ -243,7 +243,7 @@ defmodule Types.Store do
   def update_head_info(store) do
     {:ok, head_root} = Head.get_head(store)
     %{slot: head_slot} = Blocks.get_block!(head_root)
-   update_head_info(store, head_slot, head_root)
+    update_head_info(store, head_slot, head_root)
   end
 
   @spec update_head_info(t(), Types.slot(), Types.root()) :: t()

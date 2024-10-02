@@ -72,7 +72,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
         {:ignore,
          "Block too old: block.slot=#{block.slot}. Current slot: #{current_slot}. Minimum expected slot: #{min_slot}"}
 
-      ForkChoice.future_slot?(block.slot) ->
+      ForkChoice.future_chain_slot?(block.slot) ->
         {:ignore,
          "Block is from the future: block.slot=#{block.slot}. Current slot: #{current_slot}."}
 

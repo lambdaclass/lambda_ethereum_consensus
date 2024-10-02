@@ -4,8 +4,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Execution.ExecutionClient
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
@@ -70,7 +70,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
       # Blocks cannot be in the future. If they are, their
       # consideration must be delayed until they are in the past.
-      ForkChoice.future_slot?(block.slot) ->
+      ForkChoice.future_chain_slot?(block.slot) ->
         # TODO: handle this error somehow
         {:error, "block is from the future"}
 
@@ -236,8 +236,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       )
 
       is_first_block = new_store.proposer_boost_root == <<0::256>>
-      # TODO: store block timeliness data? we might need to take MAXIMUM_GOSSIP_CLOCK_DISPARITY into account
-      is_timely = ForkChoice.get_current_slot(new_store) == block.slot and is_before_attesting_interval
+
+      # TODO: store block timeliness data?
+      is_timely =
+        ForkChoice.get_current_slot(new_store) == block.slot and is_before_attesting_interval
 
       state = new_state_info.beacon_state
 
@@ -399,7 +401,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Attestations can only affect the fork choice of subsequent slots (that's why the - 1).
       # Delay consideration in the fork choice until their slot is in the past.
       # TODO: delay consideration
-      ForkChoice.future_slot?(attestation.data.slot - 1) ->
+      ForkChoice.future_chain_slot?(attestation.data.slot - 1) ->
         {:error, "attestation is for a future slot"}
 
       true ->
