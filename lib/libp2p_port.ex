@@ -9,8 +9,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
-  @tick_time 1000
-
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
@@ -84,7 +82,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           discovery_addresses: [String.t()]
         }
 
-  @sync_delay_millis 10_000
+  @tick_time 1000
+  @sync_delay_millis 15_000
 
   ######################
   ### API

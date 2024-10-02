@@ -66,7 +66,6 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   def request_blocks_by_range(slot, count, on_blocks, retries) do
     Logger.debug("Requesting block", slot: slot)
 
-    # FIXME: handle no-peers asynchronously! this is hanging Libp2pPort when there are no peers
     peer_id = get_some_peer()
 
     request =
@@ -174,11 +173,10 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
           pretty_roots = Enum.map_join(roots, ", ", &Base.encode16/1)
 
-          Logger.debug(
-            "Retrying request (reason: #{inspect(reason)}) for blocks with roots #{pretty_roots}, in 2 second"
+          Logger.info(
+            "Retrying request for blocks with roots #{pretty_roots}: #{inspect(reason)}"
           )
 
-          Process.sleep(2000)
           request_blocks_by_root(roots, on_blocks, retries - 1)
           {:ok, store}
         else
@@ -191,8 +189,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   defp get_some_peer() do
     case P2P.Peerbook.get_some_peer() do
       nil ->
-        Process.sleep(100)
-        get_some_peer()
+        # TODO: handle no-peers asynchronously
+        raise "No peers available to request blocks from."
 
       peer_id ->
         peer_id
