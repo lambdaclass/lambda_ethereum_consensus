@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     store = Handlers.on_tick(store, time)
 
-    :telemetry.execute([:sync, :store], %{slot: get_current_slot(store)})
+    :telemetry.execute([:sync, :store], %{slot: Store.get_current_slot(store)})
     :telemetry.execute([:sync, :on_block], %{slot: head_slot})
 
     Metrics.block_status(head_root, head_slot, :transitioned)
@@ -111,35 +111,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     |> tap(&StoreDb.persist_store/1)
   end
 
-  @spec get_current_slot(Types.Store.t()) :: Types.slot()
-  def get_current_slot(%Types.Store{} = store),
-    do: compute_current_slot(store.time, store.genesis_time)
-
-  @spec get_current_slot(Types.uint64(), Types.uint64()) :: Types.slot()
-  def get_current_slot(time, genesis_time),
-    do: compute_current_slot(time, genesis_time)
-
-  # TODO: Some parts of the code calculate the current slot using the previous function given a time
-  # specifically from the store (this was previously in the Store type module). This one calculates
-  # it using the system time, we might need to unify.
   @spec get_current_chain_slot() :: Types.slot()
   def get_current_chain_slot() do
     time = :os.system_time(:second)
     genesis_time = StoreDb.fetch_genesis_time!()
     compute_current_slot(time, genesis_time)
-  end
-
-  @doc """
-  Check if a slot is in the future with respect to the current time.
-  """
-  @spec future_slot?(Types.slot()) :: boolean()
-  def future_slot?(slot) do
-    time = :os.system_time(:second)
-    genesis_time = StoreDb.fetch_genesis_time!()
-
-    time
-    |> compute_currents_slots_within_disparity(genesis_time)
-    |> Enum.all?(fn possible_slot -> possible_slot < slot end)
   end
 
   @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
@@ -197,7 +173,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     new_finalized_epoch = store.finalized_checkpoint.epoch
 
     if last_finalized_epoch < new_finalized_epoch do
-
       Logger.info("Pruning states before slot #{new_finalized_epoch}")
 
       new_finalized_slot =
@@ -217,11 +192,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         PruneBlobsSupervisor,
         fn -> BlobDb.prune_old_blobs(new_finalized_slot) end
       )
-
-      Store.prune(store)
-    else
-      store
     end
+
+    Store.prune(store)
   end
 
   def apply_handler(iter, state, handler) do
@@ -306,7 +279,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
 
-    Store.update_head_info(store, slot, head_root)
+    %{
+      store
+      | head_root: head_root,
+        head_slot: slot
+    }
   end
 
   defp fetch_store!() do
@@ -316,13 +293,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   defp compute_current_slot(time, genesis_time),
     do: div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
-
-  defp compute_currents_slots_within_disparity(time, genesis_time) do
-    [
-      compute_current_slot(time - ChainSpec.get("MAXIMUM_GOSSIP_CLOCK_DISPARITY"), genesis_time),
-      compute_current_slot(time + ChainSpec.get("MAXIMUM_GOSSIP_CLOCK_DISPARITY"), genesis_time)
-    ]
-  end
 
   defp compute_fork_digest(slot, genesis_validators_root) do
     Misc.compute_epoch_at_slot(slot)

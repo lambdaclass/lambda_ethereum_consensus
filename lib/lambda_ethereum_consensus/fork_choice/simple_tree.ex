@@ -82,7 +82,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Simple.Tree do
   def get_children!(tree, parent_id) do
     case get_children(tree, parent_id) do
       {:error, :not_found} -> raise "Parent #{Base.encode16(parent_id)} not found in tree"
-      {:ok, res} -> res |> IO.inspect(label: "Children of #{Base.encode16(parent_id)}")
+      {:ok, res} -> res
     end
   end
 

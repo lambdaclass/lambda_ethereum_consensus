@@ -101,7 +101,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
         {true, Map.put(new_blocks, block_root, block)}
 
       not Enum.empty?(children) ->
-        {false, blocks}
+        {false, new_blocks}
 
       true ->
         filter_leaf_block(store, block_root, block, blocks)

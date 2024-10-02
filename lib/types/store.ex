@@ -111,9 +111,13 @@ defmodule Types.Store do
     end
   end
 
-  # We probably want to move this to a more appropriate module
+  def get_current_slot(%__MODULE__{time: time, genesis_time: genesis_time}) do
+    # NOTE: this assumes GENESIS_SLOT == 0
+    div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
+  end
+
   def get_current_epoch(store) do
-    store |> ForkChoice.get_current_slot() |> Misc.compute_epoch_at_slot()
+    store |> get_current_slot() |> Misc.compute_epoch_at_slot()
   end
 
   def get_ancestor(%__MODULE__{} = store, root, slot) do
