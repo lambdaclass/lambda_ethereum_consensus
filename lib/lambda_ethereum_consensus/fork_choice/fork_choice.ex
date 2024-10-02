@@ -115,10 +115,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def get_current_slot(%Types.Store{} = store),
     do: compute_current_slot(store.time, store.genesis_time)
 
-  @spec get_current_slot(Types.uint64(), Types.uint64()) :: Types.slot()
-  def get_current_slot(time, genesis_time),
-    do: compute_current_slot(time, genesis_time)
-
   # TODO: Some parts of the node calculate the current slot using the previous function given a time
   # specifically from the store (this was previously in the Store type module). The following function
   # calculates it using the system time, we might need to make sure that each case makes sense.
@@ -135,13 +131,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @doc """
   Check if a slot is in the future with respect to the systems time.
   """
-  @spec future_chain_slot?(Types.slot()) :: boolean()
-  def future_chain_slot?(slot) do
+  @spec future_slot?(Types.Store.t(), Types.slot()) :: boolean()
+  def future_slot?(%Types.Store{} = store, slot) do
+    # Due to ticks being every 1000ms, we need to use the system time instead of
+    # the store time to account for the 500ms of MAXIMUM_GOSSIP_CLOCK_DISPARITY.
+    # the time in the store will always be a whole second.
     time_ms = :os.system_time(:millisecond)
-    genesis_time = StoreDb.fetch_genesis_time!()
 
     time_ms
-    |> compute_currents_slots_within_disparity(genesis_time)
+    |> compute_currents_slots_within_disparity(store.genesis_time)
     |> Enum.all?(fn possible_slot -> possible_slot < slot end)
   end
 

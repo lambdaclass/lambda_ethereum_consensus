@@ -70,7 +70,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
       # Blocks cannot be in the future. If they are, their
       # consideration must be delayed until they are in the past.
-      ForkChoice.future_chain_slot?(block.slot) ->
+      ForkChoice.future_slot?(store, block.slot) ->
         # TODO: handle this error somehow
         {:error, "block is from the future"}
 
@@ -401,7 +401,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Attestations can only affect the fork choice of subsequent slots (that's why the - 1).
       # Delay consideration in the fork choice until their slot is in the past.
       # TODO: delay consideration
-      ForkChoice.future_chain_slot?(attestation.data.slot - 1) ->
+      ForkChoice.future_slot?(store, attestation.data.slot - 1) ->
         {:error, "attestation is for a future slot"}
 
       true ->
