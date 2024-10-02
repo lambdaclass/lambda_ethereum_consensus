@@ -115,32 +115,33 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def get_current_slot(%Types.Store{} = store),
     do: compute_current_slot(store.time, store.genesis_time)
 
-  # TODO: Some parts of the node calculate the current slot using the previous function given a time
-  # specifically from the store (this was previously in the Store type module). The following function
-  # calculates it using the system time, we might need to make sure that each case makes sense.
   @doc """
   Get the current chain slot based on the system time.
+
+  TODO: There are just 2 uses of this function outside this module:
+   - At the begining of SyncBlocks.run/1 function, to get the head slot
+   - In the Helpers.block_root_by_block_id/1 function
   """
   @spec get_current_chain_slot() :: Types.slot()
-  def get_current_chain_slot() do
-    time = :os.system_time(:second)
-    genesis_time = StoreDb.fetch_genesis_time!()
-    compute_current_slot(time, genesis_time)
-  end
+  def get_current_chain_slot(genesis_time \\ StoreDb.fetch_genesis_time!()),
+    do: compute_current_slot(:os.system_time(:second), genesis_time)
 
   @doc """
   Check if a slot is in the future with respect to the systems time.
   """
   @spec future_slot?(Types.Store.t(), Types.slot()) :: boolean()
   def future_slot?(%Types.Store{} = store, slot) do
-    # Due to ticks being every 1000ms, we need to use the system time instead of
-    # the store time to account for the 500ms of MAXIMUM_GOSSIP_CLOCK_DISPARITY.
-    # the time in the store will always be a whole second.
-    time_ms = :os.system_time(:millisecond)
-
-    time_ms
-    |> compute_currents_slots_within_disparity(store.genesis_time)
-    |> Enum.all?(fn possible_slot -> possible_slot < slot end)
+    if get_current_slot(store) < get_current_chain_slot(store.genesis_time) do
+      # If the store store slot is in the past, we can safely assume that MAXIMUM_GOSSIP_CLOCK_DISPARITY
+      # will not make a difference, store time is updated once every second and disparity is just 500ms.
+      get_current_slot(store) < slot
+    else
+      # If the store slot is not in the past we need to take the actual system time in milliseconds
+      # to calculate the current slot, having in mind the MAXIMUM_GOSSIP_CLOCK_DISPARITY.
+      :os.system_time(:millisecond)
+      |> compute_currents_slots_within_disparity(store.genesis_time)
+      |> Enum.all?(fn possible_slot -> possible_slot < slot end)
+    end
   end
 
   @spec get_finalized_checkpoint() :: Types.Checkpoint.t()

@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
 
   @spec validate(SignedBeaconBlock.t(), Types.Store.t()) :: :ok | {:ignore, String.t()}
   defp validate(%SignedBeaconBlock{message: block}, store) do
-    current_slot = ForkChoice.get_current_chain_slot()
+    current_slot = ForkChoice.get_current_slot(store)
     min_slot = current_slot - ChainSpec.get("SLOTS_PER_EPOCH")
 
     cond do
@@ -74,7 +74,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
 
       ForkChoice.future_slot?(store, block.slot) ->
         {:ignore,
-         "Block is from the future: block.slot=#{block.slot}. Current slot: #{current_slot}."}
+         "Block is from the future: block.slot=#{block.slot}. Current store calculated slot: #{current_slot}."}
 
       true ->
         :ok
