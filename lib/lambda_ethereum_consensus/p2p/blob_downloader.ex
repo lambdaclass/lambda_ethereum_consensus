@@ -61,8 +61,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
         P2P.Peerbook.penalize_peer(peer_id)
 
         if retries > 0 do
-          Logger.info("Retrying request for #{count} blobs: #{inspect(reason)}", slot: slot)
-
+          Logger.debug("Retrying request for #{count} blobs: #{inspect(reason)}", slot: slot)
           request_blobs_by_range(slot, count, on_blobs, retries - 1)
           {:ok, store}
         else

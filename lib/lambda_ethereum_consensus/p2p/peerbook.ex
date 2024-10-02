@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   alias LambdaEthereumConsensus.Utils
 
   @initial_score 100
-  @penalize 35
+  @penalizing_score 25
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
@@ -44,15 +44,16 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   Get some peer from the peerbook.
   """
   def get_some_peer() do
-    # TODO: This is a very naive implementation of a peer selection algorithm.
+    # TODO: This is a very naive implementation of a peer selection algorithm,
+    # this sorts the peers every time.
     peerbook = fetch_peerbook!()
 
     if peerbook == %{} do
       nil
     else
       peerbook
-      |> Enum.sort_by(fn {_peer_id, score} -> score end)
-      |> Enum.take(4)
+      |> Enum.sort_by(fn {_peer_id, score} -> -score end)
+      |> Enum.take(5)
       |> Enum.random()
       |> elem(0)
     end
@@ -67,7 +68,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
       nil ->
         :ok
 
-      score when score - @penalize <= 0 ->
+      score when score - @penalizing_score <= 0 ->
         Logger.debug("[Peerbook] Removing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
         fetch_peerbook!()
@@ -76,7 +77,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
       score ->
         fetch_peerbook!()
-        |> Map.put(peer_id, score - @penalize)
+        |> Map.put(peer_id, score - @penalizing_score)
         |> store_peerbook()
     end
   end
@@ -119,13 +120,12 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
         |> min(len - @target_peers)
         |> max(0)
 
-      n = :rand.uniform(len)
-
-      peerbook
-      |> Map.keys()
-      |> Stream.drop(n)
-      |> Stream.take(prune_size)
-      |> Enum.each(fn peer_id -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
+      if prune_size > 0 do
+        peerbook
+        |> Enum.sort_by(fn {_peer_id, score} -> -score end)
+        |> Enum.take(prune_size)
+        |> Enum.each(fn peer_id -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
+      end
     end
   end
 
