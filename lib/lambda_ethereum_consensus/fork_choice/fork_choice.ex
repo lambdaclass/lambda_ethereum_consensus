@@ -137,8 +137,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   """
   @spec future_chain_slot?(Types.slot()) :: boolean()
   def future_chain_slot?(slot) do
-    :os.system_time(:millisecond)
-    |> compute_currents_slots_within_disparity(store.genesis_time)
+    time_ms = :os.system_time(:millisecond)
+    genesis_time = StoreDb.fetch_genesis_time!()
+
+    time_ms
+    |> compute_currents_slots_within_disparity(genesis_time)
     |> Enum.all?(fn possible_slot -> possible_slot < slot end)
   end
 
