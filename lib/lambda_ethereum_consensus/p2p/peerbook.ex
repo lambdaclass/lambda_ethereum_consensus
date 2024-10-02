@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   alias LambdaEthereumConsensus.Utils
 
   @initial_score 100
-  @penalizing_score 25
+  @penalizing_score 15
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
@@ -116,10 +116,13 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     if prune_size > 0 do
       Logger.debug("[Peerbook] Pruning #{prune_size} peers by challenge")
 
+      n = :rand.uniform(len)
+
       peerbook
-      |> Enum.sort_by(fn {_peer_id, score} -> -score end)
-      |> Enum.take(prune_size)
-      |> Enum.each(fn {peer_id, _score} -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
+      |> Map.keys()
+      |> Stream.drop(n)
+      |> Stream.take(prune_size)
+      |> Enum.each(fn peer_id -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
     end
   end
 
