@@ -41,17 +41,14 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   Get some peer from the peerbook.
   """
   def get_some_peer() do
-    # TODO: This is a very naive implementation of a peer selection algorithm.
+    # TODO: use some algorithm to pick a good peer, for now it's random
     peerbook = fetch_peerbook!()
 
     if peerbook == %{} do
       nil
     else
-      peerbook
-      |> Enum.sort_by(fn {_peer_id, score} -> score end)
-      |> Enum.take(4)
-      |> Enum.random()
-      |> elem(0)
+      {peer_id, _score} = Enum.random(peerbook)
+      peer_id
     end
   end
 
