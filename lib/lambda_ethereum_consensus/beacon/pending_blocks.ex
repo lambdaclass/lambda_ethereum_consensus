@@ -106,11 +106,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       Logger.error("Called process block for a block that's not ready: #{block_info}")
     end
 
+    Logger.info("[PendingBlocks] Processing block #{inspect(block_info.root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}, with parent: #{inspect(block_info.signed_block.message.parent_root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}")
     parent_root = block_info.signed_block.message.parent_root
 
     case Blocks.get_block_info(parent_root) do
       nil ->
-        Logger.debug("[PendingBlocks] Add parent to download #{inspect(parent_root)}")
+        Logger.info("[PendingBlocks] Add parent to download #{inspect(parent_root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}")
         Blocks.add_block_to_download(parent_root)
 
         BlockDownloader.request_blocks_by_root(
