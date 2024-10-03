@@ -132,19 +132,25 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         {store, :invalid}
 
       %BlockInfo{status: :transitioned} ->
-        case ForkChoice.on_block(store, block_info) do
-          {:ok, store} ->
-            Blocks.change_status(block_info, :transitioned)
-            {store, :transitioned}
+        case Blocks.get_block_info(block_info.root) do
+          nil ->
+            case ForkChoice.on_block(store, block_info) do
+              {:ok, store} ->
+                Blocks.change_status(block_info, :transitioned)
+                {store, :transitioned}
 
-          {:error, reason, store} ->
-            Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
-              slot: block_info.signed_block.message.slot,
-              root: block_info.root
-            )
+              {:error, reason, store} ->
+                Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
+                  slot: block_info.signed_block.message.slot,
+                  root: block_info.root
+                )
 
-            Blocks.change_status(block_info, :invalid)
-            {store, :invalid}
+                Blocks.change_status(block_info, :invalid)
+                {store, :invalid}
+            end
+          %BlockInfo{} ->
+            Logger.error("[PendingBlocks] Block already processed!!!!!!!!!!!: #{block_info.root}")
+            {store, :ok}
         end
 
       _other ->
