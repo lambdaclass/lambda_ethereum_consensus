@@ -69,7 +69,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
         :ok
 
       score when score - @penalizing_score <= 0 ->
-        Logger.debug("[Peerbook] Removing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
+        Logger.info("[Peerbook] Removing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
         fetch_peerbook!()
         |> Map.delete(peer_id)
@@ -85,7 +85,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   def handle_new_peer(peer_id) do
     peerbook = fetch_peerbook!()
 
-    Logger.debug(
+    Logger.info(
       "[Peerbook] New peer connected: #{inspect(Utils.format_shorten_binary(peer_id))}"
     )
 
