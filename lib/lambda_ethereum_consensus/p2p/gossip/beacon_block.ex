@@ -17,11 +17,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
 
   @impl true
   def handle_gossip_message(store, _topic, msg_id, message) do
-    slot = ForkChoice.get_current_chain_slot()
-
     with {:ok, uncompressed} <- :snappyer.decompress(message),
          {:ok, signed_block} <- Ssz.from_ssz(uncompressed, SignedBeaconBlock),
-         :ok <- validate(signed_block, slot) do
+         :ok <- validate(signed_block, store) do
       Logger.info("[Gossip] Block received, block.slot: #{signed_block.message.slot}.")
       Libp2pPort.validate_message(msg_id, :accept)
       PendingBlocks.add_block(store, signed_block)
@@ -63,8 +61,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
   ### Private functions
   ##########################
 
-  @spec validate(SignedBeaconBlock.t(), Types.slot()) :: :ok | {:ignore, String.t()}
-  defp validate(%SignedBeaconBlock{message: block}, current_slot) do
+  @spec validate(SignedBeaconBlock.t(), Types.Store.t()) :: :ok | {:ignore, String.t()}
+  defp validate(%SignedBeaconBlock{message: block}, store) do
+    current_slot = ForkChoice.get_current_slot(store)
     min_slot = current_slot - ChainSpec.get("SLOTS_PER_EPOCH")
 
     cond do
@@ -73,9 +72,9 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BeaconBlock do
         {:ignore,
          "Block too old: block.slot=#{block.slot}. Current slot: #{current_slot}. Minimum expected slot: #{min_slot}"}
 
-      block.slot > current_slot ->
+      ForkChoice.future_slot?(store, block.slot) ->
         {:ignore,
-         "Block is from the future: block.slot=#{block.slot}. Current slot: #{current_slot}."}
+         "Block is from the future: block.slot=#{block.slot}. Current store calculated slot: #{current_slot}."}
 
       true ->
         :ok
