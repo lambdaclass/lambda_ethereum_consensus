@@ -147,8 +147,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             {store, :invalid}
         end
 
-      other ->
-        Logger.info("[PendingBlocks] Parent block is not ready: #{inspect(other, pretty: true)}")
+      _other ->
         {store, :ok}
     end
   end
