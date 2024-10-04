@@ -12,11 +12,13 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Utils
   alias Types.BlockInfo
   alias Types.SignedBeaconBlock
   alias Types.Store
 
-  @type block_status :: :transitioned | :pending | :invalid | :download | :download_blobs | :unknown
+  @type block_status ::
+          :transitioned | :pending | :invalid | :download | :download_blobs | :unknown
   @type block_info ::
           {SignedBeaconBlock.t(), :pending | :download_blobs}
           | {nil, :invalid | :download}
@@ -40,15 +42,18 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def add_block(store, signed_block) do
     block_info = BlockInfo.from_block(signed_block)
     loaded_block = Blocks.get_block_info(block_info.root)
+    log_md = [slot: signed_block.message.slot, root: block_info.root]
 
     # If the block is new or was to be downloaded, we store it.
     if is_nil(loaded_block) or loaded_block.status == :download do
       missing_blobs = missing_blobs(block_info)
 
       if Enum.empty?(missing_blobs) do
+        Logger.debug("[PendingBlocks] No missing blobs for block, process it", log_md)
         Blocks.new_block_info(block_info)
         process_block_and_check_children(store, block_info)
       else
+        Logger.debug("[PendingBlocks] Missing blobs for block, scheduling download", log_md)
         BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/2, @download_retries)
 
         block_info
@@ -72,6 +77,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       {:ok, blocks} ->
         blocks
         |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
+        # Could we process just one/a small amount of blocks at a time? would it make more sense?
         |> Enum.reduce(store, fn block_info, store ->
           {store, _state} = process_block(store, block_info)
           store
@@ -101,16 +107,28 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end
   end
 
-  defp process_block(store, block_info) do
+  defp process_block(store, %BlockInfo{signed_block: %{message: message}} = block_info) do
     if block_info.status != :pending do
-      Logger.error("[PendingBlocks] Called process block for a block that's not ready: #{block_info}")
+      Logger.error(
+        "[PendingBlocks] Called process block for a block that's not ready: #{block_info}"
+      )
     end
-    Logger.info("[PendingBlocks] Processing block #{inspect(block_info.root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}, with parent: #{inspect(block_info.signed_block.message.parent_root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}")
-    parent_root = block_info.signed_block.message.parent_root
+
+    log_md = [slot: message.slot, root: block_info.root]
+    parent_root = message.parent_root
+
+    Logger.debug(
+      "[PendingBlocks] Processing block, parent: #{Utils.format_binary(parent_root)}",
+      log_md
+    )
 
     case Blocks.get_block_info(parent_root) do
       nil ->
-        Logger.info("[PendingBlocks] Add parent to download #{inspect(parent_root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}")
+        Logger.debug(
+          "[PendingBlocks] Add parent with root: #{Utils.format_shorten_binary(parent_root)} to download",
+          log_md
+        )
+
         Blocks.add_block_to_download(parent_root)
 
         BlockDownloader.request_blocks_by_root(
@@ -127,20 +145,25 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         {store, :download_pending}
 
       %BlockInfo{status: :invalid} ->
-        Logger.info("[PendingBlocks] Parent block is invalid: #{inspect(parent_root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}, making it invalid also")
+        Logger.warning(
+          "[PendingBlocks] Parent block with root:#{Utils.format_shorten_binary(parent_root)} is invalid, making this block also invalid",
+          log_md
+        )
+
         Blocks.change_status(block_info, :invalid)
         {store, :invalid}
 
       %BlockInfo{status: :transitioned} ->
         case ForkChoice.on_block(store, block_info) do
           {:ok, store} ->
+            Logger.debug("[PendingBlocks] Block transitioned after ForkChoice.on_block/2", log_md)
             Blocks.change_status(block_info, :transitioned)
             {store, :transitioned}
 
           {:error, reason, store} ->
-            Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
-              slot: block_info.signed_block.message.slot,
-              root: block_info.root
+            Logger.error(
+              "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
+              log_md
             )
 
             Blocks.change_status(block_info, :invalid)
@@ -158,15 +181,15 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   defp process_downloaded_block(store, {:error, reason}) do
     # We might want to declare a block invalid here.
-    Logger.error("Error downloading block: #{inspect(reason)}")
+    Logger.error("[PendingBlocks] Error downloading block: #{inspect(reason)}")
     {:ok, store}
   end
 
-  defp process_blobs(store, {:ok, blobs}), do: {:ok, add_blobs(store, blobs)}
+  def process_blobs(store, {:ok, blobs}), do: {:ok, add_blobs(store, blobs)}
 
-  defp process_blobs(store, {:error, reason}) do
+  def process_blobs(store, {:error, reason}) do
     # We might want to declare a block invalid here.
-    Logger.error("Error downloading blobs: #{inspect(reason)}")
+    Logger.error("[PendingBlocks] Error downloading blobs: #{inspect(reason)}")
     {:ok, store}
   end
 
@@ -179,17 +202,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     |> Enum.map(&BlobDb.store_blob/1)
     |> Enum.uniq()
     |> Enum.reduce(store, fn root, store ->
-      with %BlockInfo{status: status} = block_info <- Blocks.get_block_info(root),
-           # Maybe just transitioned?? should we try to reprocess invalid blocks?
-           false <- status in [:transitioned, :invalid],
+      with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
            [] <- missing_blobs(block_info) do
         block_info
         |> Blocks.change_status(:pending)
         |> then(&process_block_and_check_children(store, &1))
       else
-        true ->
-          Logger.warning("[PendingBlocks] Blob added to block #{root |> LambdaEthereumConsensus.Utils.format_shorten_binary()} but its status is: #{Blocks.get_block_info(root).status}")
-          store
         _ ->
           store
       end
@@ -197,7 +215,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @spec missing_blobs(BlockInfo.t()) :: [Types.BlobIdentifier.t()]
-  defp missing_blobs(%BlockInfo{root: root, signed_block: signed_block}) do
+  def missing_blobs(%BlockInfo{root: root, signed_block: signed_block}) do
     signed_block.message.body.blob_kzg_commitments
     |> Stream.with_index()
     |> Enum.filter(&blob_needs_download?(&1, root))
