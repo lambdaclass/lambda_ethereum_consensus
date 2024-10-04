@@ -47,7 +47,7 @@ defmodule CustomConsoleLogger do
   end
 
   def format_metadata_value(:root, root) do
-    Utils.format_binary(root)
+    Utils.format_shorten_binary(root)
   end
 
   def format_metadata_value(:bits, slot) do

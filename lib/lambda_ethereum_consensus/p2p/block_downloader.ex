@@ -140,7 +140,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   def request_blocks_by_root([], _on_blocks, _retries), do: {:ok, []}
 
   def request_blocks_by_root(roots, on_blocks, retries) do
-    Logger.info("Requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
+    Logger.debug("Requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
 
     peer_id = get_some_peer()
 

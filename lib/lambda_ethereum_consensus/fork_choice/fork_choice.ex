@@ -64,15 +64,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         |> prune_old_states(last_finalized_checkpoint.epoch)
         |> tap(fn store ->
           StoreDb.persist_store(store)
+          Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
 
-          Logger.info(
-            "[Fork choice] Added new block: #{LambdaEthereumConsensus.Utils.format_shorten_binary(block_root)}",
-            slot: slot,
-            root: block_root
-          )
-
-          Logger.info(
-            "[Fork choice] Recomputed head: #{LambdaEthereumConsensus.Utils.format_shorten_binary(store.head_root)}",
+          Logger.info("[Fork choice] Recomputed head",
             slot: store.head_slot,
             root: store.head_root
           )
@@ -147,6 +141,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       # will not make a difference, store time is updated once every second and disparity is just 500ms.
       get_current_slot(store) < slot
     else
+      # If the store slot is not in the past we need to take the actual system time in milliseconds
+      # to calculate the current slot, having in mind the MAXIMUM_GOSSIP_CLOCK_DISPARITY.
       :os.system_time(:millisecond)
       |> compute_currents_slots_within_disparity(store.genesis_time)
       |> Enum.all?(fn possible_slot -> possible_slot < slot end)
