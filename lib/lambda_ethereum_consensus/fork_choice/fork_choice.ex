@@ -64,12 +64,18 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         |> prune_old_states(last_finalized_checkpoint.epoch)
         |> tap(fn store ->
           StoreDb.persist_store(store)
-          Logger.info("[Fork choice] Added new block: #{LambdaEthereumConsensus.Utils.format_shorten_binary(block_root)}", slot: slot, root: block_root)
-          Logger.info("[Fork choice] Recomputed head: #{LambdaEthereumConsensus.Utils.format_shorten_binary(store.head_root)}", slot: store.head_slot, root: store.head_root)
 
-          if block_root != store.head_root do
-            Logger.info("WTFFFFFFFFFFFFFFFFFFF", slot: store.head_slot, root: store.head_root)
-          end
+          Logger.info(
+            "[Fork choice] Added new block: #{LambdaEthereumConsensus.Utils.format_shorten_binary(block_root)}",
+            slot: slot,
+            root: block_root
+          )
+
+          Logger.info(
+            "[Fork choice] Recomputed head: #{LambdaEthereumConsensus.Utils.format_shorten_binary(store.head_root)}",
+            slot: store.head_slot,
+            root: store.head_root
+          )
         end)
         |> then(&{:ok, &1})
 
