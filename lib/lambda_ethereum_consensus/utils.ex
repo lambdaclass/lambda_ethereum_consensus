@@ -49,6 +49,14 @@ defmodule LambdaEthereumConsensus.Utils do
   end
 
   @doc """
+  Format a binary to its hexadecimal representation.
+  """
+  @spec format_binary(binary) :: String.t()
+  def format_binary(binary) do
+    "0x#{binary |> Base.encode16(case: :lower)}"
+  end
+
+  @doc """
   Format a bitstring to a base 2 representation.
   """
   @spec format_bitstring(bitstring) :: String.t()

@@ -16,7 +16,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias Types.SignedBeaconBlock
   alias Types.Store
 
-  @type block_status :: :pending | :invalid | :download | :download_blobs | :unknown
+  @type block_status :: :transitioned | :pending | :invalid | :download | :download_blobs | :unknown
   @type block_info ::
           {SignedBeaconBlock.t(), :pending | :download_blobs}
           | {nil, :invalid | :download}
@@ -103,9 +103,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   defp process_block(store, block_info) do
     if block_info.status != :pending do
-      Logger.error("Called process block for a block that's not ready: #{block_info}")
+      Logger.error("[PendingBlocks] Called process block for a block that's not ready: #{block_info}")
     end
-
     Logger.info("[PendingBlocks] Processing block #{inspect(block_info.root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}, with parent: #{inspect(block_info.signed_block.message.parent_root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}")
     parent_root = block_info.signed_block.message.parent_root
 
@@ -128,32 +127,28 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         {store, :download_pending}
 
       %BlockInfo{status: :invalid} ->
+        Logger.info("[PendingBlocks] Parent block is invalid: #{inspect(parent_root |> LambdaEthereumConsensus.Utils.format_shorten_binary())}, making it invalid also")
         Blocks.change_status(block_info, :invalid)
         {store, :invalid}
 
       %BlockInfo{status: :transitioned} ->
-        case Blocks.get_block_info(block_info.root) do
-          nil ->
-            case ForkChoice.on_block(store, block_info) do
-              {:ok, store} ->
-                Blocks.change_status(block_info, :transitioned)
-                {store, :transitioned}
+        case ForkChoice.on_block(store, block_info) do
+          {:ok, store} ->
+            Blocks.change_status(block_info, :transitioned)
+            {store, :transitioned}
 
-              {:error, reason, store} ->
-                Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
-                  slot: block_info.signed_block.message.slot,
-                  root: block_info.root
-                )
+          {:error, reason, store} ->
+            Logger.error("[PendingBlocks] Saving block as invalid #{reason}",
+              slot: block_info.signed_block.message.slot,
+              root: block_info.root
+            )
 
-                Blocks.change_status(block_info, :invalid)
-                {store, :invalid}
-            end
-          %BlockInfo{} ->
-            Logger.error("[PendingBlocks] Block already processed!!!!!!!!!!!: #{block_info.root}")
-            {store, :ok}
+            Blocks.change_status(block_info, :invalid)
+            {store, :invalid}
         end
 
-      _other ->
+      other ->
+        Logger.info("[PendingBlocks] Parent block is not ready: #{inspect(other, pretty: true)}")
         {store, :ok}
     end
   end
@@ -185,13 +180,19 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     |> Enum.map(&BlobDb.store_blob/1)
     |> Enum.uniq()
     |> Enum.reduce(store, fn root, store ->
-      with %BlockInfo{} = block_info <- Blocks.get_block_info(root),
+      with %BlockInfo{status: status} = block_info <- Blocks.get_block_info(root),
+           # Maybe just transitioned?? should we try to reprocess invalid blocks?
+           false <- status in [:transitioned, :invalid],
            [] <- missing_blobs(block_info) do
         block_info
         |> Blocks.change_status(:pending)
         |> then(&process_block_and_check_children(store, &1))
       else
-        _ -> store
+        true ->
+          Logger.warning("[PendingBlocks] Blob added to block #{root |> LambdaEthereumConsensus.Utils.format_shorten_binary()} but its status is: #{Blocks.get_block_info(root).status}")
+          store
+        _ ->
+          store
       end
     end)
   end
