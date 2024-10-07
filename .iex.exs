@@ -11,8 +11,6 @@ store = fn -> StoreDb.fetch_store() |> elem(1) end
 head_root = fn -> store.() |> Head.get_head() |> elem(1) |> Utils.format_binary() end
 head_slot = fn -> store.() |> Head.get_head() |> elem(1) |> Blocks.get_block_info() |> then(& &1.signed_block.message.slot) end
 
-store_root = fn -> store.().root end
-store_slot = fn -> store.().slot end
 store_calculated_slot = fn -> store.() |> ForkChoice.get_current_slot() end
 
 epoch = fn slot -> slot |> Misc.compute_epoch_at_slot() end

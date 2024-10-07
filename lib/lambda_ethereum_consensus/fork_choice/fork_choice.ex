@@ -123,7 +123,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @doc """
   Get the current chain slot based on the system time.
 
-  TODO: There are just 2 uses of this function outside this module:
+  There are just 2 uses of this function outside this module:
    - At the begining of SyncBlocks.run/1 function, to get the head slot
    - In the Helpers.block_root_by_block_id/1 function
   """
