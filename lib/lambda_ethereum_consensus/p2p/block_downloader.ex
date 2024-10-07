@@ -186,7 +186,7 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   defp get_some_peer() do
     case P2P.Peerbook.get_some_peer() do
       nil ->
-        # TODO: handle no-peers asynchronously
+        # TODO: (#1317) handle no-peers asynchronously
         raise "No peers available to request blocks from."
 
       peer_id ->
