@@ -65,6 +65,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         |> tap(fn store ->
           StoreDb.persist_store(store)
           Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
+
+          Logger.info("[Fork choice] Recomputed head",
+            slot: store.head_slot,
+            root: store.head_root
+          )
         end)
         |> then(&{:ok, &1})
 

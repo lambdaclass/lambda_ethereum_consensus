@@ -172,11 +172,7 @@ checkpoint-sync: compile-all
 
 #▶️ checkpoint-sync.logfile: @ Run an interactive terminal using checkpoint sync with a log file.
 checkpoint-sync.logfile: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/ --metrics --log-file ./logs/mainnet.log
-
-#▶️ checkpoint-sync.logfile: @ Run an interactive terminal using checkpoint sync with a log file.
-checkpoint-sync.logfile: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/ --metrics --log-file ./logs/mainnet.log
+	iex -S mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/ --metrics --log-file ./logs/mainnet.log --discovery-port $(DYSCOVERY_PORT)
 
 #▶️ sepolia: @ Run an interactive terminal using sepolia network
 sepolia: compile-all
@@ -184,11 +180,7 @@ sepolia: compile-all
 
 #▶️ sepolia.logfile: @ Run an interactive terminal using sepolia network with a log file
 sepolia.logfile: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia --metrics --log-file ./logs/sepolia.log
-
-#▶️ sepolia.logfile: @ Run an interactive terminal using sepolia network with a log file
-sepolia.logfile: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia --metrics --log-file ./logs/sepolia.log
+	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia --metrics --log-file ./logs/sepolia.log --discovery-port $(DYSCOVERY_PORT)
 
 #▶️ holesky: @ Run an interactive terminal using holesky network
 holesky: compile-all
@@ -196,11 +188,7 @@ holesky: compile-all
 
 #▶️ holesky.logfile: @ Run an interactive terminal using holesky network with a log file
 holesky.logfile: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky --log-file ./logs/holesky.log
-
-#▶️ holesky.logfile: @ Run an interactive terminal using holesky network with a log file
-holesky.logfile: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky --log-file ./logs/holesky.log
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky --log-file ./logs/holesky.log --discovery-port $(DYSCOVERY_PORT)
 
 #▶️ gnosis: @ Run an interactive terminal using gnosis network
 gnosis: compile-all
