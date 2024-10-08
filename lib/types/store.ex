@@ -3,6 +3,7 @@ defmodule Types.Store do
     The Store struct is used to track information required for the fork choice algorithm.
   """
 
+  require Logger
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.ForkChoice.Simple.Tree
@@ -117,12 +118,16 @@ defmodule Types.Store do
   end
 
   def get_ancestor(%__MODULE__{} = store, root, slot) do
-    block = Blocks.get_block!(root)
+    block = Blocks.get_block(root)
 
-    if block.slot > slot do
-      get_ancestor(store, block.parent_root, slot)
-    else
-      root
+    case block do
+      nil -> nil
+      block ->
+        if block.slot > slot do
+          get_ancestor(store, block.parent_root, slot)
+        else
+          root
+        end
     end
   end
 

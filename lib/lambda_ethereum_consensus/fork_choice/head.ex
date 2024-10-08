@@ -2,6 +2,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   @moduledoc """
     Utility functions for the fork choice.
   """
+  require Logger
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.Blocks
@@ -48,7 +49,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
 
         ancestors =
           Map.put_new_lazy(ancestors, vote_root, fn ->
-            Store.get_ancestor(store, vote_root, block.slot)
+            case Store.get_ancestor(store, vote_root, block.slot) do
+              nil ->
+                Logger.warning("No ancestor found for vote root: #{vote_root}")
+                Logger.warning("Previous ancestors: #{inspect(ancestors, pretty: true, limit: :infinity)}")
+                Logger.warning("Current block: #{inspect(block, pretty: true, limit: :infinity)}")
+                vote_root
+
+              ancestors -> ancestors
+            end
           end)
 
         delta =
