@@ -147,6 +147,27 @@ jobs:
         file: ./Dockerfile
         load: true # Important for building without pushing
 
+  ethereum-testnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          tags: lambda_ethereum_consensus:latest
+          load: true # Important for building without pushing
+      - uses: actions/checkout@v4
+      - name: Setup kurtosis testnet and run assertoor tests
+        uses: ethpandaops/kurtosis-assertoor-github-action@v1
+        with:
+          ethereum_package_url: 'https://github.com/lambdaclass/ethereum-package.git#lecc-integration'
+          ethereum_package_args: './assertoor/test-config.yml'
+          # Additional configurations as needed
+
   smoke:
     name: Start and stop the node
     needs: [compile-native, download-beacon-node-oapi]
