@@ -1,27 +1,15 @@
-# participants:
-  # - el_type: geth
-  #   cl_type: teku
-  # - el_type: nethermind
-  #   cl_type: prysm
-  # - el_type: erigon
-  #   cl_type: nimbus
-  # - el_type: besu
-  #   cl_type: lighthouse
 participants:
-  - el_type: geth
+  - el_type: nethermind
+    cl_type: prysm
+  - el_type: reth
     cl_type: lighthouse
-    count: 2
-    validator_count: 32
   - el_type: geth
     cl_type: lambda
     cl_image: lambda_ethereum_consensus:latest
     use_separate_vc: false
     count: 1
-    validator_count: 32
     cl_max_mem: 4096
     keymanager_enabled: true
-# network_params:
-#   preset: minimal
 additional_services:
   - assertoor
 assertoor_params:

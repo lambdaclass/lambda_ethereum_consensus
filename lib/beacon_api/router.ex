@@ -21,6 +21,8 @@ defmodule BeaconApi.Router do
       get("/health", NodeController, :health)
       get("/identity", NodeController, :identity)
       get("/version", NodeController, :version)
+      get("/syncing", NodeController, :syncing)
+      get("/peers", NodeController, :peers)
     end
   end
 
