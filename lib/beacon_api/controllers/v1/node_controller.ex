@@ -3,6 +3,7 @@ defmodule BeaconApi.V1.NodeController do
 
   alias BeaconApi.ApiSpec
   alias BeaconApi.Utils
+  alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Metadata
 
@@ -19,12 +20,20 @@ defmodule BeaconApi.V1.NodeController do
   def open_api_operation(:version),
     do: ApiSpec.spec().paths["/eth/v1/node/version"].get
 
-  @spec health(Plug.Conn.t(), any) :: Plug.Conn.t()
-  def health(conn, params) do
-    # TODO: respond with syncing status if we're still syncing
-    _syncing_status = Map.get(params, :syncing_status, 206)
+  def open_api_operation(:syncing),
+    do: ApiSpec.spec().paths["/eth/v1/node/syncing"].get
 
-    send_resp(conn, 200, "")
+  def open_api_operation(:peers),
+    do: ApiSpec.spec().paths["/eth/v1/node/peers"].get
+
+  @spec health(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def health(conn, _params) do
+    %{is_syncing: syncing?} = SyncBlocks.status()
+    syncing_status = if syncing?, do: 206, else: 200
+
+    send_resp(conn, syncing_status, "")
+  rescue
+    _ -> send_resp(conn, 503, "")
   end
 
   @spec identity(Plug.Conn.t(), any) :: Plug.Conn.t()
@@ -59,6 +68,37 @@ defmodule BeaconApi.V1.NodeController do
     |> json(%{
       "data" => %{
         "version" => "Lambda/#{version}/#{arch}"
+      }
+    })
+  end
+
+  @spec syncing(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def syncing(conn, _params) do
+    %{
+      is_syncing: is_syncing,
+      is_optimistic: is_optimistic,
+      el_offline: el_offline,
+      head_slot: head_slot,
+      sync_distance: sync_distance
+    } = SyncBlocks.status()
+
+    json(conn, %{"data" => %{
+      "is_syncing" => is_syncing,
+      "is_optimistic" => is_optimistic,
+      "el_offline" => el_offline,
+      "head_slot" => head_slot |> Integer.to_string(),
+      "sync_distance" => sync_distance |> Integer.to_string()
+    }})
+  end
+
+  @spec peers(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def peers(conn, _params) do
+    # TODO: (#1325) This is a stub.
+    conn
+    |> json(%{
+      "data" => [%{}],
+      "meta" => %{
+        "count" => 0
       }
     })
   end
