@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   alias LambdaEthereumConsensus.Utils
 
   @initial_score 100
-  @penalizing_score 15
+  @penalizing_score 50
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
