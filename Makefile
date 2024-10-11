@@ -185,11 +185,11 @@ sepolia.logfile: compile-all
 
 #▶️ holesky: @ Run an interactive terminal using holesky network
 holesky: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky --discovery-port $(DISCOVERY_PORT)
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --metrics --metrics-port $(METRICS_PORT) --network holesky --discovery-port $(DISCOVERY_PORT)
 
 #▶️ holesky.logfile: @ Run an interactive terminal using holesky network with a log file
 holesky.logfile: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky --log-file ./logs/holesky.log --discovery-port $(DISCOVERY_PORT)
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --metrics --metrics-port $(METRICS_PORT) --network holesky --log-file ./logs/holesky.log --discovery-port $(DISCOVERY_PORT)
 
 #▶️ gnosis: @ Run an interactive terminal using gnosis network
 gnosis: compile-all
