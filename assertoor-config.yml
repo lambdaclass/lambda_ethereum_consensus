@@ -12,3 +12,6 @@ participants:
     keymanager_enabled: true
 additional_services:
   - assertoor
+assertoor_params:
+  run_stability_check: false
+  run_block_proposal_check: false
