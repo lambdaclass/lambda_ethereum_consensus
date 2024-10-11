@@ -22,5 +22,7 @@ additional_services:
   - beacon_metrics_gazer
   - prometheus_grafana
 assertoor_params:
-  run_stability_check: true
+  run_stability_check: false
   run_block_proposal_check: false
+  tests:
+    - file: "./consensus-test.yaml"
