@@ -11,18 +11,5 @@ participants:
     validator_count: 32
     cl_max_mem: 4096
     keymanager_enabled: true
-# network_params:
-#   preset: minimal
-additional_services:
-  - assertoor
-  - tx_spammer
-  - blob_spammer
-  - el_forkmon
-  - dora
-  - beacon_metrics_gazer
-  - prometheus_grafana
-assertoor_params:
-  run_stability_check: false
-  run_block_proposal_check: false
-  tests:
-    - file: "./consensus-test.yaml"
+network_params:
+  preset: minimal
