@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   def get_finalized_block_and_state(url, genesis_validators_root) do
     tasks = [Task.async(__MODULE__, :get_state, [url]), Task.async(__MODULE__, :get_block, [url])]
 
-    case Task.await_many(tasks, 60_000) do
+    case Task.await_many(tasks, 90_000) do
       [{:ok, state}, {:ok, block}] ->
         if state.genesis_validators_root == genesis_validators_root do
           check_match(url, state, block)
@@ -92,8 +92,8 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   defp get_json_from_url(base_url, path) do
     full_url = concat_url(base_url, path)
 
-    with {:ok, response} <- get(full_url) do
-      {:ok, response.body |> Map.fetch!("data") |> parse_json()}
+    with {:ok, %{body: %{"data" => data}}} <- get(full_url) do
+      {:ok, parse_json(data)}
     end
   end
 

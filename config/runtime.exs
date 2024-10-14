@@ -259,3 +259,15 @@ if dsn do
 
   config :sentry, dsn: dsn, release: String.trim(git_sha)
 end
+
+# Peerbook penalization
+
+penalizing_score =
+  case network do
+    "sepolia" -> 20
+    "mainnet" -> 50
+    _ -> 30
+  end
+
+config :lambda_ethereum_consensus, LambdaEthereumConsensus.P2P.Peerbook,
+  penalizing_score: penalizing_score
