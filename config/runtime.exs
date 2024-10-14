@@ -261,10 +261,13 @@ if dsn do
 end
 
 # Peerbook penalization
+
+penalizing_score =
+  case network do
+    "sepolia" -> 20
+    "mainnet" -> 50
+    _ -> 30
+  end
+
 config :lambda_ethereum_consensus, LambdaEthereumConsensus.P2P.Peerbook,
-  penalizing_score:
-    case network do
-      "sepolia" -> 20
-      "mainnet" -> 50
-      _ -> 30
-    end
+  penalizing_score: penalizing_score
