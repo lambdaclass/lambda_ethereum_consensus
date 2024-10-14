@@ -33,7 +33,7 @@ defmodule LambdaEthereumConsensus.Application do
     :ok
   end
 
-  defp get_children(:db) do
+  defp get_children(:mixed) do
     CheckpointStates.new()
 
     [
@@ -43,8 +43,14 @@ defmodule LambdaEthereumConsensus.Application do
     ]
   end
 
+  defp get_children(:db) do
+    get_children(:mixed) ++ [
+      {Task.Supervisor, name: StoreStatesSupervisor}
+    ]
+  end
+
   defp get_children(:full) do
-    get_children(:db) ++
+    get_children(:mixed) ++
       [
         BeaconApi.Endpoint,
         KeyStoreApi.Endpoint,
