@@ -3,6 +3,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   General peer bookkeeping.
   """
   require Logger
+  alias IEx.App
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Store.KvSchema
   alias LambdaEthereumConsensus.Utils
@@ -63,12 +64,13 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     Logger.debug("[Peerbook] Penalizing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
     peer_score = fetch_peerbook!() |> Map.get(peer_id)
+    penalizing_score = penalazing_score()
 
     case peer_score do
       nil ->
         :ok
 
-      score when score - @penalizing_score <= 0 ->
+      score when score - penalizing_score <= 0 ->
         Logger.debug("[Peerbook] Removing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
         fetch_peerbook!()
@@ -77,7 +79,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
       score ->
         fetch_peerbook!()
-        |> Map.put(peer_id, score - @penalizing_score)
+        |> Map.put(peer_id, score - penalizing_score)
         |> store_peerbook()
     end
   end
@@ -141,5 +143,11 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   defp fetch_peerbook!() do
     {:ok, peerbook} = fetch_peerbook()
     peerbook
+  end
+
+  defp penalazing_score() do
+    :lambda_ethereum_consensus
+    |> Application.get_env(__MODULE__)
+    |> Keyword.get(:penalizing_score, @penalizing_score)
   end
 end
