@@ -15,3 +15,7 @@ additional_services:
 assertoor_params:
   run_stability_check: false
   run_block_proposal_check: false
+  run_transaction_test: false
+  run_blob_transaction_test: false
+  run_opcodes_transaction_test: false
+  run_lifecycle_test: false
