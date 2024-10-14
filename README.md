@@ -449,7 +449,7 @@ In that case, you can use [eFlambè](https://github.com/Stratus3D/eflambe) to ge
 The following code will capture information from 10 calls to `Handlers.on_block/2`, dumping it in different files named \<timestamp\>-eflambe-output.bggg.
 
 ```elixir
-:eflambe.capture({LambdaEthereumConsensus.ForkChoice.Handlers, :on_block, 2}, 10)
+:eflambe.capture({LambdaEthereumConsensus.ForkChoice, :on_block, 2}, 2)
 ```
 
 The files generated can be processed via common flamegraph tools.
