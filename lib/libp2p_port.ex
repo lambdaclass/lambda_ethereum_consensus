@@ -84,6 +84,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @tick_time 1000
   @sync_delay_millis 15_000
+  @head_drift_alert 12
 
   ######################
   ### API
@@ -792,8 +793,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     maybe_log_new_slot(slot_data, new_slot_data)
 
-    updated_state |> Map.put(:store, new_store)
+    updated_state
+    |> Map.put(:store, new_store)
+    |> update_syncing_status(new_slot_data, new_store)
   end
+
+  defp update_syncing_status(%{syncing: false} = state, {slot, _third}, %Types.Store{head_slot: head_slot})
+    when slot - head_slot >= @head_drift_alert do
+    Logger.error("[Libp2p] Head slot drifted by #{slot - head_slot} slots.")
+
+    # TODO: (#1194) The node is not yet ready to resync but this allows to avoid spamming errors after a drift.
+    %{state | syncing: true}
+  end
+
+  defp update_syncing_status(%{syncing: true, blocks_remaining: 0} = state, {slot, _third}, %Types.Store{head_slot: head_slot})
+    when slot - head_slot == 0, do: %{state | syncing: false}
+
+  defp update_syncing_status(state, _slot_data, _), do: state
 
   defp schedule_next_tick() do
     # For millisecond precision
