@@ -3,7 +3,6 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   General peer bookkeeping.
   """
   require Logger
-  alias IEx.App
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Store.KvSchema
   alias LambdaEthereumConsensus.Utils
