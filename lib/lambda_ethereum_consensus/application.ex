@@ -44,9 +44,10 @@ defmodule LambdaEthereumConsensus.Application do
   end
 
   defp get_children(:db) do
-    get_children(:mixed) ++ [
-      {Task.Supervisor, name: StoreStatesSupervisor}
-    ]
+    get_children(:mixed) ++
+      [
+        {Task.Supervisor, name: StoreStatesSupervisor}
+      ]
   end
 
   defp get_children(:full) do
