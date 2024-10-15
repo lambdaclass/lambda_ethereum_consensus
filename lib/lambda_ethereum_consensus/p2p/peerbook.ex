@@ -2,10 +2,13 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   @moduledoc """
   General peer bookkeeping.
   """
+  require Logger
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Store.KvSchema
+  alias LambdaEthereumConsensus.Utils
 
   @initial_score 100
+  @penalizing_score 15
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
@@ -41,23 +44,51 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   Get some peer from the peerbook.
   """
   def get_some_peer() do
-    # TODO: use some algorithm to pick a good peer, for now it's random
+    # TODO: This is a very naive implementation of a peer selection algorithm,
+    # this sorts the peers every time. The same is true for the pruning.
     peerbook = fetch_peerbook!()
 
     if peerbook == %{} do
       nil
     else
-      {peer_id, _score} = Enum.random(peerbook)
-      peer_id
+      peerbook
+      |> Enum.sort_by(fn {_peer_id, score} -> -score end)
+      |> Enum.take(5)
+      |> Enum.random()
+      |> elem(0)
     end
   end
 
   def penalize_peer(peer_id) do
-    fetch_peerbook!() |> Map.delete(peer_id) |> store_peerbook()
+    Logger.debug("[Peerbook] Penalizing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
+
+    peer_score = fetch_peerbook!() |> Map.get(peer_id)
+    penalizing_score = penalazing_score()
+
+    case peer_score do
+      nil ->
+        :ok
+
+      score when score - penalizing_score <= 0 ->
+        Logger.debug("[Peerbook] Removing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
+
+        fetch_peerbook!()
+        |> Map.delete(peer_id)
+        |> store_peerbook()
+
+      score ->
+        fetch_peerbook!()
+        |> Map.put(peer_id, score - penalizing_score)
+        |> store_peerbook()
+    end
   end
 
   def handle_new_peer(peer_id) do
     peerbook = fetch_peerbook!()
+
+    Logger.debug(
+      "[Peerbook] New peer connected: #{inspect(Utils.format_shorten_binary(peer_id))}"
+    )
 
     if not Map.has_key?(peerbook, peer_id) do
       :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})
@@ -81,14 +112,10 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   defp prune() do
     peerbook = fetch_peerbook!()
     len = map_size(peerbook)
+    prune_size = if len > 0, do: calculate_prune_size(len), else: 0
 
-    if len != 0 do
-      prune_size =
-        (len * @prune_percentage)
-        |> round()
-        |> min(@max_prune_size)
-        |> min(len - @target_peers)
-        |> max(0)
+    if prune_size > 0 do
+      Logger.debug("[Peerbook] Pruning #{prune_size} peers by challenge")
 
       n = :rand.uniform(len)
 
@@ -100,6 +127,14 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     end
   end
 
+  defp calculate_prune_size(len) do
+    (len * @prune_percentage)
+    |> round()
+    |> min(@max_prune_size)
+    |> min(len - @target_peers)
+    |> max(0)
+  end
+
   defp store_peerbook(peerbook), do: put("", peerbook)
 
   defp fetch_peerbook(), do: get("")
@@ -107,5 +142,11 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   defp fetch_peerbook!() do
     {:ok, peerbook} = fetch_peerbook()
     peerbook
+  end
+
+  defp penalazing_score() do
+    :lambda_ethereum_consensus
+    |> Application.get_env(__MODULE__)
+    |> Keyword.get(:penalizing_score, @penalizing_score)
   end
 end

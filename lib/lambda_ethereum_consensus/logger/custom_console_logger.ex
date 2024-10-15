@@ -1,4 +1,4 @@
-defmodule ConsoleLogger do
+defmodule CustomConsoleLogger do
   @moduledoc """
   Custom logger formatter for console output.
   """
@@ -48,6 +48,10 @@ defmodule ConsoleLogger do
 
   def format_metadata_value(:root, root) do
     Utils.format_shorten_binary(root)
+  end
+
+  def format_metadata_value(:bits, slot) do
+    Utils.format_bitstring(slot)
   end
 
   def format_metadata_value(:slot, slot) do

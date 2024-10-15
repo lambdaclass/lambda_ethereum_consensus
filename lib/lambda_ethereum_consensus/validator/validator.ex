@@ -13,11 +13,8 @@ defmodule LambdaEthereumConsensus.Validator do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Gossip
-  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Store.BlockStates
-  alias LambdaEthereumConsensus.Store.CheckpointStates
   alias LambdaEthereumConsensus.Utils.BitField
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Validator.BlockBuilder
@@ -36,14 +33,6 @@ defmodule LambdaEthereumConsensus.Validator do
           payload_builder: {Types.slot(), Types.root(), BlockBuilder.payload_id()} | nil
         }
 
-  @spec new(Keystore.t(), Types.slot(), Types.root()) :: t()
-  def new(keystore, head_slot, head_root) do
-    epoch = Misc.compute_epoch_at_slot(head_slot)
-    beacon = fetch_target_state_and_go_to_slot(epoch, head_slot, head_root)
-
-    new(keystore, beacon)
-  end
-
   @spec new(Keystore.t(), Types.BeaconState.t()) :: t()
   def new(keystore, beacon) do
     state = %__MODULE__{
@@ -52,7 +41,7 @@ defmodule LambdaEthereumConsensus.Validator do
       payload_builder: nil
     }
 
-    case fetch_validator_index(beacon, state.keystore.pubkey) do
+    case Utils.fetch_validator_index(beacon, state.keystore.pubkey) do
       nil ->
         Logger.warning(
           "[Validator] Public key #{state.keystore.pubkey} not found in the validator set"
@@ -67,35 +56,20 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   ##########################
-  # Target State
-
-  @spec fetch_target_state_and_go_to_slot(Types.epoch(), Types.slot(), Types.root()) ::
-          Types.BeaconState.t()
-  def fetch_target_state_and_go_to_slot(epoch, slot, root) do
-    epoch |> fetch_target_state(root) |> go_to_slot(slot)
-  end
-
-  defp fetch_target_state(epoch, root) do
-    {:ok, state} = CheckpointStates.compute_target_checkpoint_state(epoch, root)
-    state
-  end
-
-  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
-
-  defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot < slot do
-    {:ok, st} = StateTransition.process_slots(state, slot)
-    st
-  end
-
-  ##########################
   # Attestations
 
-  @spec attest(t(), Duties.attester_duty(), Types.slot(), Types.root()) :: :ok
-  def attest(%{index: validator_index, keystore: keystore}, current_duty, slot, head_root) do
-    subnet_id = current_duty.subnet_id
+  @spec attest(t(), Duties.attester_duty(), Types.BeaconState.t(), Types.slot(), Types.root()) ::
+          :ok
+  def attest(
+        %{index: validator_index, keystore: keystore},
+        %{subnet_id: subnet_id} = current_duty,
+        head_state,
+        slot,
+        head_root
+      ) do
     log_debug(validator_index, "attesting", slot: slot, subnet_id: subnet_id)
 
-    attestation = produce_attestation(current_duty, slot, head_root, keystore.privkey)
+    attestation = produce_attestation(current_duty, head_state, slot, head_root, keystore.privkey)
 
     log_md = [slot: slot, attestation: attestation, subnet_id: subnet_id]
 
@@ -118,6 +92,7 @@ defmodule LambdaEthereumConsensus.Validator do
   @spec publish_aggregate(t(), Duties.attester_duty(), Types.slot()) ::
           :ok
   def publish_aggregate(%{index: validator_index, keystore: keystore}, duty, slot) do
+    # TODO: (#1286) after stop collecting for the first validator in a slot the others are not able to publish
     case Gossip.Attestation.stop_collecting(duty.subnet_id) do
       {:ok, attestations} ->
         log_md = [slot: slot, attestations: attestations]
@@ -136,7 +111,7 @@ defmodule LambdaEthereumConsensus.Validator do
   end
 
   defp aggregate_attestations(attestations) do
-    # TODO: We need to check why we are producing duplicate attestations, this was generating invalid signatures
+    # TODO: (#1254) We need to check why we are producing duplicate attestations, this was generating invalid signatures
     unique_attestations = attestations |> Enum.uniq()
 
     aggregation_bits =
@@ -164,14 +139,13 @@ defmodule LambdaEthereumConsensus.Validator do
     %Types.SignedAggregateAndProof{message: aggregate_and_proof, signature: signature}
   end
 
-  defp produce_attestation(duty, slot, head_root, privkey) do
+  defp produce_attestation(duty, head_state, slot, head_root, privkey) do
     %{
       index_in_committee: index_in_committee,
       committee_length: committee_length,
       committee_index: committee_index
     } = duty
 
-    head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
     head_epoch = Misc.compute_epoch_at_slot(slot)
 
     epoch_boundary_block_root =
@@ -205,12 +179,6 @@ defmodule LambdaEthereumConsensus.Validator do
     }
   end
 
-  @spec fetch_validator_index(Types.BeaconState.t(), Bls.pubkey()) ::
-          non_neg_integer() | nil
-  defp fetch_validator_index(beacon, pubkey) do
-    Enum.find_index(beacon.validators, &(&1.pubkey == pubkey))
-  end
-
   ################################
   # Sync Committee
 
@@ -223,40 +191,143 @@ defmodule LambdaEthereumConsensus.Validator do
           :ok
   def sync_committee_message_broadcast(
         %{index: validator_index, keystore: keystore},
-        current_duty,
+        %{subnet_ids: subnet_ids} = current_duty,
         slot,
         head_root
       ) do
-    %{subnet_ids: subnet_ids} = current_duty
-
-    head_state = BlockStates.get_state_info!(head_root).beacon_state |> go_to_slot(slot)
     log_debug(validator_index, "broadcasting sync committee message", slot: slot)
 
-    head_state
-    |> get_sync_committee_message(head_root, validator_index, keystore.privkey)
+    message =
+      get_sync_committee_message(current_duty, slot, head_root, validator_index, keystore.privkey)
+
+    message
     |> Gossip.SyncCommittee.publish(subnet_ids)
     |> log_info_result(validator_index, "published sync committee message", slot: slot)
+
+    aggregation = current_duty |> Map.get(:aggregation, [])
+
+    if Enum.any?(aggregation, &(not &1.aggregated?)) do
+      log_debug(validator_index, "collecting for future contribution", slot: slot)
+
+      aggregation
+      |> Enum.map(& &1.subcommittee_index)
+      |> Gossip.SyncCommittee.collect(message)
+      |> log_debug_result(validator_index, "collected sync committee messages", slot: slot)
+    end
   end
 
   @spec get_sync_committee_message(
-          Types.BeaconState.t(),
+          Duties.sync_committee_duty(),
+          Types.slot(),
           Types.root(),
           Types.validator_index(),
           Bls.privkey()
         ) ::
           Types.SyncCommitteeMessage.t()
-  def get_sync_committee_message(head_state, head_root, validator_index, privkey) do
-    epoch = Accessors.get_current_epoch(head_state)
-    domain = Accessors.get_domain(head_state, Constants.domain_sync_committee(), epoch)
+  def get_sync_committee_message(
+        %{validator_index: validator_index, message_domain: domain},
+        slot,
+        head_root,
+        validator_index,
+        privkey
+      ) do
     signing_root = Misc.compute_signing_root(head_root, domain)
     {:ok, signature} = Bls.sign(privkey, signing_root)
 
     %Types.SyncCommitteeMessage{
-      slot: head_state.slot,
+      slot: slot,
       beacon_block_root: head_root,
       validator_index: validator_index,
       signature: signature
     }
+  end
+
+  @spec publish_sync_aggregate(
+          t(),
+          Duties.sync_committee_duty(),
+          %{},
+          Types.slot()
+        ) :: :ok
+  def publish_sync_aggregate(
+        %{index: validator_index, keystore: keystore},
+        %{validator_index: validator_index} = duty,
+        sync_subcommittee_participants,
+        slot
+      ) do
+    # TODO: (#1286) after stop collecting for the first validator in a slot the others are not able to publish
+    for %{subcommittee_index: subnet_id} = aggregation_duty <- duty.aggregation do
+      case Gossip.SyncCommittee.stop_collecting(subnet_id) do
+        {:ok, messages} ->
+          log_md = [slot: slot, messages: messages]
+          log_info(validator_index, "publishing sync committee aggregate", log_md)
+
+          indices_in_subcommittee =
+            sync_subcommittee_participants |> Map.get(subnet_id)
+
+          aggregation_bits =
+            sync_committee_aggregation_bits(indices_in_subcommittee, messages)
+
+          messages
+          |> sync_committee_contribution(subnet_id, aggregation_bits, indices_in_subcommittee)
+          |> append_sync_proof(aggregation_duty.selection_proof, validator_index)
+          |> append_sync_signature(aggregation_duty.contribution_domain, keystore)
+          |> Gossip.SyncCommittee.publish_contribution()
+          |> log_info_result(validator_index, "published sync committee aggregate", log_md)
+
+        {:error, reason} ->
+          log_error(validator_index, "stop collecting sync committee messages", reason)
+          :ok
+      end
+    end
+
+    :ok
+  end
+
+  defp sync_committee_aggregation_bits(indices_in_subcommittee, messages) do
+    Enum.reduce(messages, BitList.zero(Misc.sync_subcommittee_size()), fn message, acc ->
+      BitList.set(acc, indices_in_subcommittee |> Map.get(message.validator_index))
+    end)
+  end
+
+  defp sync_committee_contribution(messages, subnet_id, aggregation_bits, indices_in_subcommittee) do
+    %Types.SyncCommitteeContribution{
+      slot: List.first(messages).slot,
+      beacon_block_root: List.first(messages).beacon_block_root,
+      subcommittee_index: subnet_id,
+      aggregation_bits: aggregation_bits,
+      signature: aggregate_sync_committee_signature(messages, indices_in_subcommittee)
+    }
+  end
+
+  defp aggregate_sync_committee_signature(messages, indices_in_subcommittee) do
+    # TODO: (#1254) as with attestations, we need to check why we recieve duplicate sync messages
+    unique_messages = messages |> Enum.uniq()
+
+    signatures_to_aggregate =
+      Enum.flat_map(unique_messages, fn message ->
+        # Here we duplicate the signature by n, being n the times a validator appears
+        # in the same subcommittee
+        indices_in_subcommittee
+        |> Map.get(message.validator_index)
+        |> Enum.map(fn _ -> message.signature end)
+      end)
+
+    {:ok, signature} = Bls.aggregate(signatures_to_aggregate)
+    signature
+  end
+
+  defp append_sync_proof(contribution, proof, validator_index) do
+    %Types.ContributionAndProof{
+      aggregator_index: validator_index,
+      contribution: contribution,
+      selection_proof: proof
+    }
+  end
+
+  defp append_sync_signature(contribution_and_proof, signing_domain, %{privkey: privkey}) do
+    signing_root = Misc.compute_signing_root(contribution_and_proof, signing_domain)
+    {:ok, signature} = Bls.sign(privkey, signing_root)
+    %Types.SignedContributionAndProof{message: contribution_and_proof, signature: signature}
   end
 
   ################################

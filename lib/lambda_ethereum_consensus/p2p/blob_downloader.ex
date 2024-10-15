@@ -32,7 +32,6 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   def request_blobs_by_range(slot, count, on_blobs, retries) do
     Logger.debug("Requesting blobs", slot: slot)
 
-    # TODO: handle no-peers asynchronously?
     peer_id = get_some_peer()
 
     # NOTE: BeaconBlocksByRangeRequest == BlobSidecarsByRangeRequest
@@ -62,7 +61,7 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
         P2P.Peerbook.penalize_peer(peer_id)
 
         if retries > 0 do
-          Logger.debug("Retrying request for #{count} blobs", slot: slot)
+          Logger.debug("Retrying request for #{count} blobs: #{inspect(reason)}", slot: slot)
           request_blobs_by_range(slot, count, on_blobs, retries - 1)
           {:ok, store}
         else
@@ -123,8 +122,8 @@ defmodule LambdaEthereumConsensus.P2P.BlobDownloader do
   defp get_some_peer() do
     case P2P.Peerbook.get_some_peer() do
       nil ->
-        Process.sleep(100)
-        get_some_peer()
+        # TODO: (#1317) handle no-peers asynchronously
+        raise "No peers available to request blobs from."
 
       peer_id ->
         peer_id

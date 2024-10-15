@@ -31,7 +31,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     store = Handlers.on_tick(store, time)
 
-    :telemetry.execute([:sync, :store], %{slot: Store.get_current_slot(store)})
+    :telemetry.execute([:sync, :store], %{slot: get_current_slot(store)})
     :telemetry.execute([:sync, :on_block], %{slot: head_slot})
 
     Metrics.block_status(head_root, head_slot, :transitioned)
@@ -65,6 +65,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         |> tap(fn store ->
           StoreDb.persist_store(store)
           Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
+
+          Logger.info("[Fork choice] Recomputed head",
+            slot: store.head_slot,
+            root: store.head_root
+          )
         end)
         |> then(&{:ok, &1})
 
@@ -111,11 +116,37 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     |> tap(&StoreDb.persist_store/1)
   end
 
+  @spec get_current_slot(Types.Store.t()) :: Types.slot()
+  def get_current_slot(%Types.Store{} = store),
+    do: compute_current_slot(store.time, store.genesis_time)
+
+  @doc """
+  Get the current chain slot based on the system time.
+
+  There are just 2 uses of this function outside this module:
+   - At the begining of SyncBlocks.run/1 function, to get the head slot
+   - In the Helpers.block_root_by_block_id/1 function
+  """
   @spec get_current_chain_slot() :: Types.slot()
-  def get_current_chain_slot() do
-    time = :os.system_time(:second)
-    genesis_time = StoreDb.fetch_genesis_time!()
-    compute_current_slot(time, genesis_time)
+  def get_current_chain_slot(genesis_time \\ StoreDb.fetch_genesis_time!()),
+    do: compute_current_slot(:os.system_time(:second), genesis_time)
+
+  @doc """
+  Check if a slot is in the future with respect to the systems time.
+  """
+  @spec future_slot?(Types.Store.t(), Types.slot()) :: boolean()
+  def future_slot?(%Types.Store{} = store, slot) do
+    if get_current_slot(store) < get_current_chain_slot(store.genesis_time) do
+      # If the store store slot is in the past, we can safely assume that MAXIMUM_GOSSIP_CLOCK_DISPARITY
+      # will not make a difference, store time is updated once every second and disparity is just 500ms.
+      get_current_slot(store) < slot
+    else
+      # If the store slot is not in the past we need to take the actual system time in milliseconds
+      # to calculate the current slot, having in mind the MAXIMUM_GOSSIP_CLOCK_DISPARITY.
+      :os.system_time(:millisecond)
+      |> compute_currents_slots_within_disparity(store.genesis_time)
+      |> Enum.all?(fn possible_slot -> possible_slot < slot end)
+    end
   end
 
   @spec get_finalized_checkpoint() :: Types.Checkpoint.t()
@@ -279,11 +310,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
 
-    %{
-      store
-      | head_root: head_root,
-        head_slot: slot
-    }
+    Store.update_head_info(store, slot, head_root)
   end
 
   defp fetch_store!() do
@@ -293,6 +320,16 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   defp compute_current_slot(time, genesis_time),
     do: div(time - genesis_time, ChainSpec.get("SECONDS_PER_SLOT"))
+
+  defp compute_currents_slots_within_disparity(time_ms, genesis_time) do
+    min_time = div(time_ms - ChainSpec.get("MAXIMUM_GOSSIP_CLOCK_DISPARITY"), 1000)
+    max_time = div(time_ms + ChainSpec.get("MAXIMUM_GOSSIP_CLOCK_DISPARITY"), 1000)
+
+    [
+      compute_current_slot(min_time, genesis_time),
+      compute_current_slot(max_time, genesis_time)
+    ]
+  end
 
   defp compute_fork_digest(slot, genesis_validators_root) do
     Misc.compute_epoch_at_slot(slot)

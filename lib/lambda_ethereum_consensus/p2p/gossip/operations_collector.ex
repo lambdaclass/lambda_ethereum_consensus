@@ -10,12 +10,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.Utils
   alias LambdaEthereumConsensus.Utils.BitField
-  alias Types.Attestation
-  alias Types.AttesterSlashing
-  alias Types.BeaconBlock
-  alias Types.ProposerSlashing
-  alias Types.SignedBLSToExecutionChange
-  alias Types.SignedVoluntaryExit
 
   require Logger
 
@@ -29,7 +23,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     :attester_slashing,
     :proposer_slashing,
     :voluntary_exit,
-    :attestation
+    :attestation,
+    :sync_committee_contribution
   ]
 
   @topic_msgs [
@@ -37,7 +32,8 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     "voluntary_exit",
     "proposer_slashing",
     "attester_slashing",
-    "bls_to_execution_change"
+    "bls_to_execution_change",
+    "sync_committee_contribution_and_proof"
   ]
 
   def subscribe_to_topics() do
@@ -52,33 +48,40 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     end)
   end
 
-  @spec get_bls_to_execution_changes(non_neg_integer()) :: list(SignedBLSToExecutionChange.t())
+  @spec get_bls_to_execution_changes(non_neg_integer()) ::
+          list(Types.SignedBLSToExecutionChange.t())
   def get_bls_to_execution_changes(count) do
     get_operation(:bls_to_execution_change, count)
   end
 
-  @spec get_attester_slashings(non_neg_integer()) :: list(AttesterSlashing.t())
+  @spec get_attester_slashings(non_neg_integer()) :: list(Types.AttesterSlashing.t())
   def get_attester_slashings(count) do
     get_operation(:attester_slashing, count)
   end
 
-  @spec get_proposer_slashings(non_neg_integer()) :: list(ProposerSlashing.t())
+  @spec get_proposer_slashings(non_neg_integer()) :: list(Types.ProposerSlashing.t())
   def get_proposer_slashings(count) do
     get_operation(:proposer_slashing, count)
   end
 
-  @spec get_voluntary_exits(non_neg_integer()) :: list(SignedVoluntaryExit.t())
+  @spec get_voluntary_exits(non_neg_integer()) :: list(Types.SignedVoluntaryExit.t())
   def get_voluntary_exits(count) do
     get_operation(:voluntary_exit, count)
   end
 
-  @spec get_attestations(non_neg_integer()) :: list(Attestation.t())
-  def get_attestations(count) do
-    get_operation(:attestation, count)
+  @spec get_attestations(non_neg_integer(), Types.slot()) :: list(Types.Attestation.t())
+  def get_attestations(count, slot) do
+    slot = slot || fetch_slot!()
+    get_operation(:attestation, count, &ignore?(&1, slot))
   end
 
-  @spec notify_new_block(BeaconBlock.t()) :: :ok
-  def notify_new_block(%BeaconBlock{} = block) do
+  @spec get_sync_committee_contributions() :: list(Types.SignedContributionAndProof.t())
+  def get_sync_committee_contributions() do
+    get_operation(:sync_committee_contribution, :all)
+  end
+
+  @spec notify_new_block(Types.BeaconBlock.t()) :: :ok
+  def notify_new_block(%Types.BeaconBlock{} = block) do
     indices =
       block.body.bls_to_execution_changes
       |> MapSet.new(& &1.message.validator_index)
@@ -116,6 +119,12 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
       |> Enum.reject(&old_attestation?(&1, block.slot))
     end)
 
+    # We only keep the last contributions for each slot, past ones are not needed
+    # since they are not included in the block when it is built.
+    update_operation(:sync_committee_contribution, fn values ->
+      Enum.reject(values, &(&1.message.contribution.slot < block.slot))
+    end)
+
     store_slot(block.slot)
   end
 
@@ -133,14 +142,21 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
   defp get_operation(operation, count) when operation in @operations do
     # NOTE: we don't remove these from the db, since after a block is built
     #  :new_block will be called, and already added messages will be removed
-
-    slot = fetch_slot!()
-
-    operations =
-      fetch_operation!(operation) |> Stream.reject(&ignore?(&1, slot)) |> Enum.take(count)
-
-    operations
+    operation
+    |> fetch_operation!()
+    |> cap_operations(count)
   end
+
+  defp get_operation(operation, count, filter) when operation in @operations do
+    operation
+    |> fetch_operation!()
+    |> Stream.reject(filter)
+    |> cap_operations(count)
+  end
+
+  defp cap_operations(%Stream{} = operations, :all), do: Enum.to_list(operations)
+  defp cap_operations(operations, :all), do: operations
+  defp cap_operations(operations, count), do: Enum.take(operations, count)
 
   @impl true
   def handle_gossip_message(store, topic, msg_id, message) do
@@ -157,14 +173,10 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
          {:ok,
           %Types.SignedAggregateAndProof{message: %Types.AggregateAndProof{aggregate: aggregate}}} <-
            Ssz.from_ssz(uncompressed, Types.SignedAggregateAndProof) do
-      votes = BitField.count(aggregate.aggregation_bits)
-      slot = aggregate.data.slot
-      root = aggregate.data.beacon_block_root |> Base.encode16()
-
       Logger.debug(
-        "[Gossip] Aggregate decoded. Total attestations: #{votes}",
-        slot: slot,
-        root: root
+        "[Gossip] Aggregate decoded. Total attestations: #{BitField.count(aggregate.aggregation_bits)}",
+        slot: aggregate.data.slot,
+        root: aggregate.data.beacon_block_root
       )
 
       # We are getting ~500 attestations in half a second. This is overwhelming the store GenServer at the moment.
@@ -221,6 +233,21 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     end
   end
 
+  def handle_gossip_message(
+        <<_::binary-size(15)>> <> "sync_committee_contribution_and_proof" <> _,
+        msg_id,
+        message
+      ) do
+    with {:ok, uncompressed} <- :snappyer.decompress(message),
+         {:ok, %Types.SignedContributionAndProof{} = contribution_and_proof} <-
+           Ssz.from_ssz(uncompressed, Types.SignedContributionAndProof) do
+      # TODO: (#1291) validate before accepting
+      Libp2pPort.validate_message(msg_id, :accept)
+
+      handle_msg({:sync_committee_contribution, contribution_and_proof})
+    end
+  end
+
   def topics() do
     fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
 
@@ -239,18 +266,17 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.OperationsCollector do
     store_operation(operation, new_msgs)
   end
 
-  defp old_attestation?(%Attestation{data: data}, slot) do
+  defp old_attestation?(%Types.Attestation{data: data}, slot) do
     current_epoch = Misc.compute_epoch_at_slot(slot + 1)
     data.target.epoch not in [current_epoch, current_epoch - 1]
   end
 
-  defp ignore?(%Attestation{}, nil), do: false
+  defp ignore?(%Types.Attestation{}, nil), do: false
 
-  defp ignore?(%Attestation{data: data}, slot) do
+  defp ignore?(%Types.Attestation{data: data}, slot) do
+    # Right now this preset is 1, so we add every attestation ASAP, but it could be changed in the future
     data.slot + ChainSpec.get("MIN_ATTESTATION_INCLUSION_DELAY") > slot
   end
-
-  defp ignore?(_, _), do: false
 
   defp update_operation(operation, f) when is_function(f) do
     fetch_operation!(operation)

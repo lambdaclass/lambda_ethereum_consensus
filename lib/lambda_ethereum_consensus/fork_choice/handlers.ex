@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   require Logger
 
   alias LambdaEthereumConsensus.Execution.ExecutionClient
+  alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
@@ -38,7 +39,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     # to ensure that every previous slot is processed with ``on_tick_per_slot``
     seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
     tick_slot = div(time - store.genesis_time, seconds_per_slot)
-    current_slot = Store.get_current_slot(store)
+    current_slot = ForkChoice.get_current_slot(store)
     next_slot_start = (current_slot + 1) * seconds_per_slot
     last_slot_start = tick_slot * seconds_per_slot
 
@@ -69,7 +70,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
       # Blocks cannot be in the future. If they are, their
       # consideration must be delayed until they are in the past.
-      Store.get_current_slot(store) < block.slot ->
+      ForkChoice.future_slot?(store, block.slot) ->
         # TODO: handle this error somehow
         {:error, "block is from the future"}
 
@@ -235,8 +236,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       )
 
       is_first_block = new_store.proposer_boost_root == <<0::256>>
+
       # TODO: store block timeliness data?
-      is_timely = Store.get_current_slot(new_store) == block.slot and is_before_attesting_interval
+      is_timely =
+        ForkChoice.get_current_slot(new_store) == block.slot and is_before_attesting_interval
 
       state = new_state_info.beacon_state
 
@@ -283,12 +286,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   defp on_tick_per_slot(%Store{} = store, time) do
-    previous_slot = Store.get_current_slot(store)
+    previous_slot = ForkChoice.get_current_slot(store)
 
     # Update store time
     store = %Store{store | time: time}
 
-    current_slot = Store.get_current_slot(store)
+    # Why is this needed? the previous line shoud be immediate.
+    current_slot = ForkChoice.get_current_slot(store)
 
     store
     # If this is a new slot, reset store.proposer_boost_root
@@ -394,10 +398,10 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       target.root != Store.get_checkpoint_block(store, block_root, target.epoch) ->
         {:error, "mismatched head and target blocks"}
 
-      # Attestations can only affect the fork choice of subsequent slots.
+      # Attestations can only affect the fork choice of subsequent slots (that's why the - 1).
       # Delay consideration in the fork choice until their slot is in the past.
       # TODO: delay consideration
-      Store.get_current_slot(store) <= attestation.data.slot ->
+      ForkChoice.future_slot?(store, attestation.data.slot - 1) ->
         {:error, "attestation is for a future slot"}
 
       true ->

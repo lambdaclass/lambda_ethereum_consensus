@@ -66,7 +66,6 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   def request_blocks_by_range(slot, count, on_blocks, retries) do
     Logger.debug("Requesting block", slot: slot)
 
-    # TODO: handle no-peers asynchronously?
     peer_id = get_some_peer()
 
     request =
@@ -173,7 +172,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
         if retries > 0 do
           :telemetry.execute([:network, :request], %{blocks: 0}, Map.put(tags, :result, "retry"))
           pretty_roots = Enum.map_join(roots, ", ", &Base.encode16/1)
-          Logger.debug("Retrying request for blocks with roots #{pretty_roots}")
+
+          Logger.debug("Retrying request for block roots #{pretty_roots}: #{inspect(reason)}")
           request_blocks_by_root(roots, on_blocks, retries - 1)
           {:ok, store}
         else
@@ -186,8 +186,8 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   defp get_some_peer() do
     case P2P.Peerbook.get_some_peer() do
       nil ->
-        Process.sleep(100)
-        get_some_peer()
+        # TODO: (#1317) handle no-peers asynchronously
+        raise "No peers available to request blocks from."
 
       peer_id ->
         peer_id

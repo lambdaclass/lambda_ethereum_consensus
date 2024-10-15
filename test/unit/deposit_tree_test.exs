@@ -11,7 +11,17 @@ defmodule Unit.DepositTreeTest do
 
   doctest DepositTree
 
-  # Testcases taken from EIP-4881
+  # Testcases taken from EIP-4881 + empty case
+  @snapshot_empty %DepositTreeSnapshot{
+    finalized: [],
+    deposit_root:
+      Base.decode16!("D70A234731285C6804C2A4F56711DDB8C82C99740F207854891028AF34E27E5E"),
+    deposit_count: 0,
+    execution_block_hash:
+      Base.decode16!("C0B2CBA66FA21E555461E6B699E0F280A5C4A9CD7AE724D79F711E57460FFB2B"),
+    execution_block_height: 0
+  }
+
   @snapshot_1 %DepositTreeSnapshot{
     finalized: [
       Base.decode16!("7AF7DA533B0DC64B690CB0604F5A81E40ED83796DD14037EA3A55383B8F0976A")
@@ -107,5 +117,17 @@ defmodule Unit.DepositTreeTest do
     assert tree == DepositTree.from_snapshot(@snapshot_2)
 
     assert DepositTree.get_snapshot(tree) == @snapshot_2
+  end
+
+  test "finalizing an empty tree is equal to itself" do
+    eth1_data = %Eth1Data{
+      deposit_root: @snapshot_empty.deposit_root,
+      deposit_count: @snapshot_empty.deposit_count,
+      block_hash: @snapshot_empty.execution_block_hash
+    }
+
+    tree = DepositTree.from_snapshot(@snapshot_empty) |> DepositTree.finalize(eth1_data, 0)
+
+    assert tree == DepositTree.from_snapshot(@snapshot_empty)
   end
 end

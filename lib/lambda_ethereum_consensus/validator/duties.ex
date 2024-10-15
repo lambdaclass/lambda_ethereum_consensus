@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   """
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
-  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.Validator.Utils
   alias LambdaEthereumConsensus.ValidatorSet
   alias Types.BeaconState
@@ -27,13 +26,31 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @type proposer_duty :: Types.validator_index()
 
+  @type sync_committee_aggregator_duty :: %{
+          aggregated?: boolean(),
+          selection_proof: Bls.signature(),
+          contribution_domain: Types.domain(),
+          subcommittee_index: Types.uint64()
+        }
+
   @type sync_committee_duty :: %{
-          # Given that we send messages in EVERY slot, instead
-          # of tracking them all, we just keep track of the last
-          # slot we broadcasted to avoid double publishs.
-          last_slot_broadcasted: Types.slot(),
+          broadcasted?: boolean(),
+          message_domain: Types.domain(),
+          validator_index: Types.validator_index(),
           subnet_ids: [Types.uint64()],
-          validator_index: Types.validator_index()
+          aggregation: [sync_committee_aggregator_duty()]
+        }
+
+  @typedoc "Set of subnet indices for a particular slot, used in attestations and sync committees."
+  @type subnets :: MapSet.t(subnet_index :: Types.uint64())
+
+  @typedoc "Useful precalculated data not tied to a particular slot/duty."
+  @type shared_data_for_duties :: %{
+          subnets: %{
+            attesters: %{Types.slot() => subnets},
+            sync_committees: %{Types.slot() => subnets}
+          },
+          sync_subcommittee_participants: %{}
         }
 
   @type attester_duties :: [attester_duty()]
@@ -42,11 +59,15 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @type attester_duties_per_slot :: %{Types.slot() => attester_duties()}
   @type proposer_duties_per_slot :: %{Types.slot() => proposer_duties()}
+  @type sync_committee_duties_per_slot :: %{Types.slot() => sync_committee_duties()}
 
-  @type kind :: :proposers | :attesters | :sync_committees
+  @type kind :: :proposers | :attesters | :sync_committees | :shared
   @type duties :: %{
           kind() =>
-            attester_duties_per_slot() | proposer_duties_per_slot() | sync_committee_duties()
+            attester_duties_per_slot()
+            | proposer_duties_per_slot()
+            | sync_committee_duties_per_slot()
+            | shared_data_for_duties()
         }
 
   ############################
@@ -59,11 +80,14 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           ValidatorSet.validators()
         ) :: duties()
   def compute_duties_for_epochs(duties_map, epochs_and_start_slots, head_root, validators) do
+    # TODO: (#1299) This function needs to be measured and optimized if possible, the main point to look
+    # at is the beacon fetch and sync committees computation. Also this could be done asynchronusly
+    # given that except for the first time it always calculat 1 epoch ahead of time.
     Logger.debug("[Duties] Computing duties for epochs: #{inspect(epochs_and_start_slots)}")
 
     for {epoch, slot} <- epochs_and_start_slots, reduce: duties_map do
       duties_map ->
-        beacon = Validator.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
+        beacon = ValidatorSet.fetch_target_state_and_go_to_slot(epoch, slot, head_root)
         # If committees are not already calculated for the epoch, this is way faster than
         # calculating them on the fly.
         Accessors.maybe_prefetch_committees(beacon, epoch)
@@ -73,21 +97,35 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
         new_proposers = compute_proposers_for_epoch(beacon, epoch, validators)
         new_attesters = compute_attesters_for_epoch(beacon, epoch, validators)
 
-        new_sync_committees =
+        {new_sync_committees, sync_subcommittee_participants} =
           case sync_committee_compute_check(epoch, {last_epoch, Map.get(duties_map, last_epoch)}) do
-            {:already_computed, sync_committees} ->
-              sync_committees
+            {:already_computed, sync_committee_duties} ->
+              sync_committee_duties
+              |> recompute_sync_committee_duties(beacon, epoch, validators)
+              |> then(&{&1, sync_subcommittee_participants(duties_map, last_epoch)})
 
             {:not_computed, period} ->
               Logger.debug("[Duties] Computing sync committees for period: #{period}.")
 
-              compute_current_sync_committees(beacon, validators)
+              beacon
+              |> compute_sync_committee_duties(epoch, validators)
+              |> then(&{&1, compute_sync_subcommittee_participants(beacon, epoch)})
           end
+
+        new_subnets_for_attestations = compute_subnets_for_attestations(new_attesters)
+        new_subnets_for_sync_committees = compute_subnets_for_sync_committees(new_sync_committees)
 
         new_duties = %{
           proposers: new_proposers,
           attesters: new_attesters,
-          sync_committees: new_sync_committees
+          sync_committees: new_sync_committees,
+          shared: %{
+            subnets: %{
+              attesters: new_subnets_for_attestations,
+              sync_committees: new_subnets_for_sync_committees
+            },
+            sync_subcommittee_participants: sync_subcommittee_participants
+          }
         }
 
         log_duties_for_epoch(new_duties, epoch)
@@ -97,11 +135,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
 
   @spec compute_proposers_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
           proposer_duties_per_slot()
-  defp compute_proposers_for_epoch(%BeaconState{} = state, epoch, validators) do
-    with {:ok, epoch} <- check_valid_epoch(state, epoch),
+  defp compute_proposers_for_epoch(%BeaconState{} = beacon, epoch, validators) do
+    with {:ok, epoch} <- check_valid_epoch(beacon, epoch),
          {start_slot, end_slot} <- boundary_slots(epoch) do
       for slot <- start_slot..end_slot,
-          {:ok, proposer_index} = Accessors.get_beacon_proposer_index(state, slot),
+          {:ok, proposer_index} = Accessors.get_beacon_proposer_index(beacon, slot),
           Map.has_key?(validators, proposer_index),
           into: %{} do
         {slot, proposer_index}
@@ -109,19 +147,11 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
-  @spec compute_current_sync_committees(BeaconState.t(), ValidatorSet.validators()) ::
-          sync_committee_duties()
-  defp compute_current_sync_committees(%BeaconState{} = state, validators) do
-    for validator_index <- Map.keys(validators),
-        subnet_ids = Utils.compute_subnets_for_sync_committee(state, validator_index),
-        length(subnet_ids) > 0 do
-      %{
-        last_slot_broadcasted: -1,
-        subnet_ids: subnet_ids,
-        validator_index: validator_index
-      }
-    end
-  end
+  @spec compute_sync_subcommittee_participants(BeaconState.t(), Types.epoch()) :: %{
+          non_neg_integer() => [non_neg_integer()]
+        }
+  defp compute_sync_subcommittee_participants(beacon, epoch),
+    do: Utils.sync_subcommittee_participants(beacon, epoch)
 
   defp sync_committee_compute_check(epoch, {_last_epoch, nil}),
     do: {:not_computed, Misc.compute_sync_committee_period(epoch)}
@@ -133,6 +163,109 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     if last_period == current_period,
       do: {:already_computed, last_duties.sync_committees},
       else: {:not_computed, current_period}
+  end
+
+  @spec compute_sync_committee_duties(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
+          sync_committee_duties_per_slot()
+  defp compute_sync_committee_duties(%BeaconState{} = beacon, epoch, validators) do
+    {start_slot, end_slot} = boundary_slots(epoch)
+    message_domain = Accessors.get_domain(beacon, Constants.domain_sync_committee(), epoch)
+    cont_domain = Accessors.get_domain(beacon, Constants.domain_contribution_and_proof(), epoch)
+
+    # Slots for a particular epoch in sync committess go from start of the epoch - 1 to the end of the epoch - 1.
+    for slot <- max(0, start_slot - 1)..(end_slot - 1),
+        validator_index <- Map.keys(validators),
+        subnet_ids = Utils.compute_subnets_for_sync_committee(beacon, validator_index),
+        length(subnet_ids) > 0,
+        reduce: %{} do
+      acc ->
+        aggregation =
+          compute_sync_contribution(
+            beacon,
+            slot,
+            cont_domain,
+            subnet_ids,
+            validator_index,
+            validators
+          )
+
+        sync_committee = %{
+          broadcasted?: false,
+          message_domain: message_domain,
+          validator_index: validator_index,
+          subnet_ids: subnet_ids,
+          aggregation: aggregation
+        }
+
+        Map.update(acc, slot, [sync_committee], &[sync_committee | &1])
+    end
+  end
+
+  # Recomputes the sync committee duties for the given epoch without recalculating subnet_ids and
+  # ignoring validators already known to be outside the sync committee.
+  #
+  # Unfortunatelly, extracting the common logic between this function and `compute_sync_committee_duties`
+  # directly impacts readability.
+  defp recompute_sync_committee_duties(
+         sync_committee_duties,
+         %BeaconState{} = beacon,
+         epoch,
+         validators
+       ) do
+    {start_slot, end_slot} = boundary_slots(epoch)
+    message_domain = Accessors.get_domain(beacon, Constants.domain_sync_committee(), epoch)
+    cont_domain = Accessors.get_domain(beacon, Constants.domain_contribution_and_proof(), epoch)
+
+    # We need to take the second slot because it wasn't yet updated,
+    # the first one corresponds to the previous epoch.
+    [_, {_, sync_committee_participants}] = Enum.take(sync_committee_duties, 2)
+
+    for slot <- max(0, start_slot - 1)..(end_slot - 1),
+        %{subnet_ids: subnet_ids, validator_index: validator_index} <-
+          sync_committee_participants,
+        reduce: %{} do
+      acc ->
+        aggregation =
+          compute_sync_contribution(
+            beacon,
+            slot,
+            cont_domain,
+            subnet_ids,
+            validator_index,
+            validators
+          )
+
+        sync_committee = %{
+          broadcasted?: false,
+          message_domain: message_domain,
+          validator_index: validator_index,
+          subnet_ids: subnet_ids,
+          aggregation: aggregation
+        }
+
+        Map.update(acc, slot, [sync_committee], &[sync_committee | &1])
+    end
+  end
+
+  defp compute_sync_contribution(beacon, slot, domain, subnet_ids, validator_i, validators) do
+    validator_privkey = Map.get(validators, validator_i).keystore.privkey
+
+    for subcommittee_index <- subnet_ids,
+        proof =
+          Utils.get_sync_committee_selection_proof(
+            beacon,
+            slot,
+            subcommittee_index,
+            validator_privkey
+          ),
+        Utils.sync_committee_aggregator?(proof) do
+      %{
+        aggregated?: false,
+        selection_proof: proof,
+        contribution_domain: domain,
+        subcommittee_index: subcommittee_index
+      }
+    end
   end
 
   @spec compute_attesters_for_epoch(BeaconState.t(), Types.epoch(), ValidatorSet.validators()) ::
@@ -197,6 +330,25 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     Map.put(duty, :subnet_id, subnet_id)
   end
 
+  defp compute_subnets_for_attestations(attester_duties) do
+    for {slot, duties} <- attester_duties,
+        %{should_aggregate?: true, committee_index: subnet_id} <- duties,
+        reduce: %{} do
+      acc ->
+        Map.update(acc, slot, MapSet.new([subnet_id]), &MapSet.put(&1, subnet_id))
+    end
+  end
+
+  defp compute_subnets_for_sync_committees(sync_committee_duties) do
+    for {slot, duties} <- sync_committee_duties,
+        %{aggregation: agg} when agg != [] <- duties,
+        %{subcommittee_index: subnet_id} <- agg,
+        reduce: %{} do
+      acc ->
+        Map.update(acc, slot, MapSet.new([subnet_id]), &MapSet.put(&1, subnet_id))
+    end
+  end
+
   ############################
   # Accessors
 
@@ -205,10 +357,18 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     do: get_in(duties, [epoch, :proposers, slot])
 
   @spec current_sync_committee(duties(), Types.epoch(), Types.slot()) ::
-          sync_committee_duties()
+          [sync_committee_duty()]
   def current_sync_committee(duties, epoch, slot) do
-    for %{last_slot_broadcasted: last_slot} = duty <- sync_committee(duties, epoch),
-        last_slot < slot do
+    for %{broadcasted?: false} = duty <- sync_committee(duties, epoch, slot) do
+      duty
+    end
+  end
+
+  @spec current_sync_aggregators(duties(), Types.epoch(), Types.slot()) ::
+          [sync_committee_duty()]
+  def current_sync_aggregators(duties, epoch, slot) do
+    for duty <- sync_committee(duties, epoch, slot),
+        Enum.any?(duty.aggregation, &(not &1.aggregated?)) do
       duty
     end
   end
@@ -227,7 +387,26 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
     end
   end
 
-  defp sync_committee(duties, epoch), do: get_in(duties, [epoch, :sync_committees]) || []
+  @spec current_subnets(duties(), Types.epoch(), Types.slot()) ::
+          %{attesters: subnets, sync_committees: subnets}
+  def current_subnets(duties, epoch, slot) do
+    %{
+      attesters: get_in(duties, [epoch, :shared, :subnets, :attesters, slot]) || MapSet.new(),
+      sync_committees:
+        get_in(duties, [epoch, :shared, :subnets, :sync_committees, max(0, slot - 1)]) ||
+          MapSet.new()
+    }
+  end
+
+  @spec sync_subcommittee_participants(duties(), Types.epoch()) :: %{
+          non_neg_integer() => [non_neg_integer()]
+        }
+  def sync_subcommittee_participants(duties, epoch),
+    do: get_in(duties, [epoch, :shared, :sync_subcommittee_participants]) || %{}
+
+  defp sync_committee(duties, epoch, slot),
+    do: get_in(duties, [epoch, :sync_committees, slot]) || []
+
   defp attesters(duties, epoch, slot), do: get_in(duties, [epoch, :attesters, slot]) || []
 
   ############################
@@ -238,11 +417,8 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
           kind(),
           Types.epoch(),
           Types.slot(),
-          attester_duties() | proposer_duties()
+          attester_duties() | proposer_duties() | sync_committee_duties()
         ) :: duties()
-  def update_duties!(duties, :sync_committees, epoch, _slot, updated),
-    do: put_in(duties, [epoch, :sync_committees], updated)
-
   def update_duties!(duties, kind, epoch, slot, updated),
     do: put_in(duties, [epoch, kind, slot], updated)
 
@@ -253,27 +429,58 @@ defmodule LambdaEthereumConsensus.Validator.Duties do
   # should_aggregate? is set to false to avoid double aggregation.
   def aggregated(duty), do: Map.put(duty, :should_aggregate?, false)
 
-  @spec sync_committee_broadcasted(sync_committee_duty(), Types.slot()) :: sync_committee_duty()
-  def sync_committee_broadcasted(duty, slot), do: Map.put(duty, :last_slot_broadcasted, slot)
+  @spec sync_committee_broadcasted(sync_committee_duty()) ::
+          sync_committee_duty()
+  def sync_committee_broadcasted(duty),
+    do: Map.put(duty, :broadcasted?, true)
+
+  @spec sync_committee_aggregated(sync_committee_duty()) ::
+          sync_committee_duty()
+  def sync_committee_aggregated(duty) do
+    Map.update(duty, :aggregation, [], fn agg ->
+      Enum.map(agg, &Map.put(&1, :aggregated?, true))
+    end)
+  end
 
   ############################
   # Helpers
 
   @spec log_duties_for_epoch(duties(), Types.epoch()) :: :ok
   def log_duties_for_epoch(
-        %{proposers: proposers, attesters: attesters, sync_committees: sync_committees},
+        %{
+          proposers: proposers,
+          attesters: attesters,
+          sync_committees: sync_committees,
+          shared: shared
+        },
         epoch
       ) do
-    Logger.info("[Duties] Proposers for epoch #{epoch} (slot=>validator): #{inspect(proposers)}")
+    Logger.info(
+      "[Duties] Proposers for epoch #{epoch} (slot=>validator):\n #{inspect(proposers)}"
+    )
 
-    for %{
-          subnet_ids: si,
-          validator_index: vi
-        } <- sync_committees do
-      Logger.debug(
-        "[Duties] Sync committee for epoch: #{epoch}, validator_index: #{vi} will broadcast on subnet_ids: #{inspect(si)}."
-      )
+    Logger.debug(
+      "[Duties] SyncCommittees Subnets for epoch #{epoch}: #{inspect(shared.subnets.sync_committees)}"
+    )
+
+    for {slot, sync_duties} <- sync_committees,
+        length(sync_duties) > 0 do
+      Logger.debug("[Duties] Sync committee for epoch: #{epoch}, slot: #{slot}:")
+
+      for %{
+            validator_index: vi,
+            subnet_ids: si,
+            aggregation: agg
+          } <- sync_duties do
+        Logger.debug(
+          "[Duties] Validator: #{vi}, will broadcast in subnets: #{si} and aggregate in #{inspect(agg |> Enum.map(& &1.subcommittee_index))}."
+        )
+      end
     end
+
+    Logger.debug(
+      "[Duties] Attesters Subnets for epoch #{epoch}: #{inspect(shared.subnets.attesters)}"
+    )
 
     for {slot, att_duties} <- attesters,
         length(att_duties) > 0 do

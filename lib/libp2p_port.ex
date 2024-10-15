@@ -9,8 +9,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   use GenServer
 
-  @tick_time 1000
-
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.ForkChoice
@@ -22,7 +20,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.P2P.Peerbook
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Utils.BitVector
-  alias LambdaEthereumConsensus.Validator
   alias LambdaEthereumConsensus.ValidatorSet
   alias Libp2pProto.AddPeer
   alias Libp2pProto.Command
@@ -85,7 +82,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           discovery_addresses: [String.t()]
         }
 
-  @sync_delay_millis 10_000
+  @tick_time 1000
+  @sync_delay_millis 15_000
 
   ######################
   ### API
@@ -551,41 +549,29 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_call(:get_keystores, _from, %{validator_set: validator_set} = state),
-    do:
-      {:reply,
-       Enum.map(validator_set.validators, fn {_index, validator} -> validator.keystore end),
-       state}
+    do: {:reply, ValidatorSet.get_keystores(validator_set), state}
 
   @impl GenServer
   def handle_call({:delete_validator, pubkey}, _from, %{validator_set: validator_set} = state) do
-    validator_set.validators
-    |> Enum.find(fn {_index, validator} -> validator.keystore.pubkey == pubkey end)
-    |> case do
-      {index, _validator} ->
-        Logger.warning("[Libp2pPort] Deleting validator with index #{inspect(index)}.")
-        updated_validators = Map.delete(validator_set.validators, index)
-        {:reply, :ok, Map.put(state.validator_set, :validators, updated_validators)}
+    case ValidatorSet.remove_validator(validator_set, pubkey) do
+      {:ok, validator_set} ->
+        Logger.warning("[Libp2pPort] Deleted validator with pubkey #{inspect(pubkey)}.")
 
-      _ ->
-        {:error, "Pubkey #{inspect(pubkey)} not found."}
+        {:reply, :ok, %{state | validator_set: validator_set}}
+
+      {:error, :validator_not_found} ->
+        {:reply, {:error, "Validator #{inspect(pubkey)} not found."}, state}
     end
   end
 
   @impl GenServer
-  def handle_call(
-        {:add_validator, keystore},
-        _from,
-        %{validator_set: %{head_root: head_root}, slot_data: {slot, _third}} =
-          state
-      ) do
+  def handle_call({:add_validator, keystore}, _from, %{validator_set: validator_set} = state) do
     # TODO (#1263): handle 0 validators
-    validator = Validator.new(keystore, slot, head_root)
+    validator_set = ValidatorSet.add_validator(validator_set, keystore)
 
-    Logger.warning(
-      "[Libp2pPort] Adding validator with index #{inspect(validator.index)}. head_slot: #{inspect(slot)}."
-    )
+    Logger.warning("[Libp2pPort] Added validator #{keystore.pubkey} to the set.")
 
-    {:reply, :ok, put_in(state.validator_set, [:validators, validator.index], validator)}
+    {:reply, :ok, %{state | validator_set: validator_set}}
   end
 
   ######################

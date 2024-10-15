@@ -52,6 +52,8 @@ KURTOSIS_GRAFANA_DASHBOARDS_DIR ?= $(KURTOSIS_DIR)/static_files/grafana-config/d
 KURTOSIS_COOKIE ?= secret
 # Name of the kurtosis service pointing to the lambdaconsesus node
 KURTOSIS_SERVICE ?= cl-3-lambda-geth
+# Name of the enclave to be used with kurtosis
+KURTOSIS_ENCLAVE ?= lambdanet
 
 ##### TARGETS #####
 
@@ -75,18 +77,18 @@ kurtosis.setup.lambdaconsensus:
 
 #💻 kurtosis.start: @ Starts the kurtosis environment
 kurtosis.start:
-	kurtosis run --enclave lambdanet $(KURTOSIS_DIR) --args-file network_params.yaml
+	kurtosis run --enclave $(KURTOSIS_ENCLAVE) $(KURTOSIS_DIR) --args-file network_params.yaml
 
 #💻 kurtosis.build-and-start: @ Builds the lambdaconsensus Docker image and starts the kurtosis environment.
 kurtosis.clean-start: kurtosis.clean kurtosis.setup.lambdaconsensus kurtosis.start
 
 #💻 kurtosis.stop: @ Stops the kurtosis environment
 kurtosis.stop:
-	kurtosis enclave stop lambdanet
+	kurtosis enclave stop $(KURTOSIS_ENCLAVE)
 
 #💻 kurtosis.remove: @ Removes the kurtosis environment
 kurtosis.remove:
-	kurtosis enclave rm lambdanet
+	kurtosis enclave rm $(KURTOSIS_ENCLAVE)
 
 #💻 kurtosis.clean: @ Clean the kurtosis environment
 kurtosis.clean:
@@ -97,7 +99,7 @@ kurtosis.purge: kurtosis.stop kurtosis.remove kurtosis.clean
 
 #💻 kurtosis.connect: @ Connects to the client running in kurtosis, KURTOSIS_SERVICE could be given
 kurtosis.connect:
-	kurtosis service shell lambdanet $(KURTOSIS_SERVICE)
+	kurtosis service shell $(KURTOSIS_ENCLAVE) $(KURTOSIS_SERVICE)
 
 #💻 kurtosis.connect.iex: @ Connects to iex ONCE INSIDE THE KURTOSIS SERVICE
 kurtosis.connect.iex:
@@ -160,25 +162,53 @@ iex: compile-all
 test-iex:
 	MIX_ENV=test iex -S mix run -- --mode db
 
-#▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync.
-checkpoint-sync: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/ --metrics
+##################
+# NODE RUNNERS
+DISCOVERY_PORT ?= 9009
+METRICS_PORT ?= 9568
+
+#▶️ mainnet: @ Run an interactive terminal using checkpoint sync for mainnet.
+mainnet: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/ --metrics --metrics-port $(METRICS_PORT) --discovery-port $(DISCOVERY_PORT)
+
+#▶️ mainnet.logfile: @ Run an interactive terminal using checkpoint sync for mainnet with a log file.
+mainnet.logfile: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/ --metrics --metrics-port $(METRICS_PORT)  --log-file ./logs/mainnet.log --discovery-port $(DISCOVERY_PORT)
 
 #▶️ sepolia: @ Run an interactive terminal using sepolia network
 sepolia: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia --metrics
+	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia --metrics --metrics-port $(METRICS_PORT)  --discovery-port $(DISCOVERY_PORT)
+
+#▶️ sepolia.logfile: @ Run an interactive terminal using sepolia network with a log file
+sepolia.logfile: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia --metrics --metrics-port $(METRICS_PORT)  --log-file ./logs/sepolia.log --discovery-port $(DISCOVERY_PORT)
 
 #▶️ holesky: @ Run an interactive terminal using holesky network
 holesky: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky --metrics --metrics-port $(METRICS_PORT) --discovery-port $(DISCOVERY_PORT)
+
+#▶️ holesky.logfile: @ Run an interactive terminal using holesky network with a log file
+holesky.logfile: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.holesky.ethpandaops.io --network holesky --log-file ./logs/holesky.log --metrics --metrics-port $(METRICS_PORT) --discovery-port $(DISCOVERY_PORT)
 
 #▶️ gnosis: @ Run an interactive terminal using gnosis network
 gnosis: compile-all
-	iex -S mix run -- --checkpoint-sync-url https://checkpoint.gnosischain.com --network gnosis
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint.gnosischain.com --network gnosis --metrics --metrics-port $(METRICS_PORT) --discovery-port $(DISCOVERY_PORT)
+
+#▶️ gnosis.logfile: @ Run an interactive terminal using gnosis network with a log file
+gnosis.logfile: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint.gnosischain.com --network gnosis --metrics --metrics-port $(METRICS_PORT) --log-file ./logs/gnosis.log --discovery-port $(DISCOVERY_PORT)
+
+#▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync for mainnet.
+checkpoint-sync: mainnet
 
 #🔴 test: @ Run tests
 test: compile-all
 	mix test --no-start --exclude spectest
+
+#🔴 test.wip: @ Run tests with the wip tag
+test.wip: compile-all
+	mix test --no-start --only wip
 
 #### BEACON NODE OAPI ####
 OAPI_NAME = beacon-node-oapi

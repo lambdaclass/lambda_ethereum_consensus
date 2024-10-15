@@ -42,7 +42,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          {:ok, eth1_vote} <- fetch_eth1_data(request.slot, mid_state),
          {:ok, block_request} <-
            request
-           |> Map.merge(fetch_operations_for_block())
+           |> Map.merge(fetch_operations_for_block(request.slot))
            |> Map.put_new_lazy(:deposits, fn -> fetch_deposits(mid_state, eth1_vote) end)
            |> Map.put(:blob_kzg_commitments, blobs_bundle.commitments)
            |> BuildBlockRequest.validate(pre_state),
@@ -84,12 +84,17 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          graffiti: block_request.graffiti_message,
          proposer_slashings: block_request.proposer_slashings,
          attester_slashings: block_request.attester_slashings,
-         attestations: block_request.attestations,
+         attestations: select_best_aggregates(block_request.attestations),
          deposits: block_request.deposits,
          voluntary_exits: block_request.voluntary_exits,
          bls_to_execution_changes: block_request.bls_to_execution_changes,
          blob_kzg_commitments: block_request.blob_kzg_commitments,
-         sync_aggregate: get_sync_aggregate(),
+         sync_aggregate:
+           get_sync_aggregate(
+             block_request.sync_committee_contributions,
+             block_request.slot,
+             block_request.parent_root
+           ),
          execution_payload: execution_payload
        }
      }}
@@ -147,20 +152,23 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     end
   end
 
-  @spec fetch_operations_for_block() :: %{
+  @spec fetch_operations_for_block(Types.slot()) :: %{
           proposer_slashings: [Types.ProposerSlashing.t()],
           attester_slashings: [Types.AttesterSlashing.t()],
           attestations: [Types.Attestation.t()],
+          sync_committee_contributions: [Types.SyncCommitteeContribution.t()],
           voluntary_exits: [Types.VoluntaryExit.t()],
           bls_to_execution_changes: [Types.SignedBLSToExecutionChange.t()]
         }
-  defp fetch_operations_for_block() do
+  defp fetch_operations_for_block(slot) do
     %{
       proposer_slashings:
         ChainSpec.get("MAX_PROPOSER_SLASHINGS") |> OperationsCollector.get_proposer_slashings(),
       attester_slashings:
         ChainSpec.get("MAX_ATTESTER_SLASHINGS") |> OperationsCollector.get_attester_slashings(),
-      attestations: ChainSpec.get("MAX_ATTESTATIONS") |> OperationsCollector.get_attestations(),
+      attestations:
+        ChainSpec.get("MAX_ATTESTATIONS") |> OperationsCollector.get_attestations(slot),
+      sync_committee_contributions: OperationsCollector.get_sync_committee_contributions(),
       voluntary_exits:
         ChainSpec.get("MAX_VOLUNTARY_EXITS") |> OperationsCollector.get_voluntary_exits(),
       bls_to_execution_changes:
@@ -202,10 +210,84 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     signature
   end
 
-  defp get_sync_aggregate() do
+  defp select_best_aggregates(attestations) do
+    attestations
+    |> Enum.group_by(& &1.data.index)
+    |> Enum.map(fn {_, attestations} ->
+      Enum.max_by(
+        attestations,
+        &(&1.aggregation_bits |> BitVector.count())
+      )
+    end)
+  end
+
+  defp get_sync_aggregate(contributions, slot, parent_root) do
+    # We group by the contributions by subcommittee index, get only the ones related to the previous slot
+    # and pick the one with the most amount of set bits in the aggregation bits.
+    contributions =
+      contributions
+      |> Enum.filter(
+        &(&1.message.contribution.slot == slot - 1 &&
+            &1.message.contribution.beacon_block_root == parent_root)
+      )
+      |> Enum.group_by(& &1.message.contribution.subcommittee_index)
+      |> Enum.map(fn {_, contributions} ->
+        Enum.max_by(
+          contributions,
+          &(&1.message.contribution.aggregation_bits |> BitVector.count())
+        )
+      end)
+
+    Logger.debug(
+      "[BlockBuilder] Contributions to aggregate: #{inspect(contributions, pretty: true)}",
+      slot: slot,
+      root: parent_root
+    )
+
+    aggregate_data = %{
+      aggregation_bits: <<0::size(ChainSpec.get("SYNC_COMMITTEE_SIZE"))>>,
+      signatures: []
+    }
+
+    sync_subcommittee_size = Misc.sync_subcommittee_size()
+
+    aggregate_data =
+      for %{message: %{contribution: contribution}} <- contributions, reduce: aggregate_data do
+        aggregate_data ->
+          left_size = sync_subcommittee_size * contribution.subcommittee_index
+
+          right_size =
+            sync_subcommittee_size *
+              (Constants.sync_committee_subnet_count() - 1 - contribution.subcommittee_index)
+
+          placed_bits =
+            <<0::size(right_size), contribution.aggregation_bits::bitstring, 0::size(left_size)>>
+
+          aggregated_bits = BitVector.bitwise_or(aggregate_data.aggregation_bits, placed_bits)
+
+          %{
+            aggregate_data
+            | aggregation_bits: aggregated_bits,
+              signatures: [
+                contribution.signature | aggregate_data.signatures
+              ]
+          }
+      end
+
+    Logger.debug(
+      "[BlockBuilder] SyncAggregate to construct: #{inspect(aggregate_data.signatures, pretty: true)}",
+      bits: aggregate_data.aggregation_bits,
+      slot: slot,
+      root: parent_root
+    )
+
     %Types.SyncAggregate{
-      sync_committee_bits: ChainSpec.get("SYNC_COMMITTEE_SIZE") |> BitVector.new(),
-      sync_committee_signature: <<192, 0::760>>
+      sync_committee_bits: aggregate_data.aggregation_bits,
+      sync_committee_signature:
+        case aggregate_data.signatures do
+          [] -> <<192, 0::760>>
+          signatures -> Bls.aggregate(signatures) |> then(fn {:ok, signature} -> signature end)
+        end
     }
   end
 

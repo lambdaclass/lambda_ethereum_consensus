@@ -1,4 +1,4 @@
-defmodule Types.SubnetInfo do
+defmodule Types.AttSubnetInfo do
   @moduledoc """
   Struct to hold subnet attestations for easier db storing:
   - data: An attestation data.
@@ -13,7 +13,7 @@ defmodule Types.SubnetInfo do
           attestations: list(Types.Attestation.t())
         }
 
-  @subnet_prefix "subnet"
+  @subnet_prefix "att_subnet"
 
   @doc """
   Creates a SubnetInfo from an Attestation and stores it into the database.
@@ -44,13 +44,13 @@ defmodule Types.SubnetInfo do
 
   @doc """
   Adds a new Attestation to the SubnetInfo if the attestation's data matches the base one.
-  Assumes that the SubnetInfo already exists.
   """
   @spec add_attestation!(non_neg_integer(), Types.Attestation.t()) :: :ok
-  def add_attestation!(subnet_id, attestation) do
-    subnet_info = fetch_subnet_info!(subnet_id)
-
-    if subnet_info.data == attestation.data do
+  def add_attestation!(subnet_id, %{data: att_data} = attestation) do
+    # TODO: (#1302) On delayed scenarios (past second third of the slot) we could discard useful
+    # messages and end up with empty aggregations due to the subnet not being created yet.
+    with {:ok, subnet_info} <- fetch_subnet_info(subnet_id),
+         ^att_data <- subnet_info.data do
       new_subnet_info = %__MODULE__{
         subnet_info
         | attestations: [attestation | subnet_info.attestations]
@@ -73,7 +73,7 @@ defmodule Types.SubnetInfo do
       {Db.put(
          key,
          value
-       ), %{module: "subnet", action: "persist"}}
+       ), %{module: @subnet_prefix, action: "persist"}}
     end)
   end
 
@@ -82,19 +82,13 @@ defmodule Types.SubnetInfo do
     result =
       :telemetry.span([:db, :latency], %{}, fn ->
         {Db.get(@subnet_prefix <> Integer.to_string(subnet_id)),
-         %{module: "subnet", action: "fetch"}}
+         %{module: @subnet_prefix, action: "fetch"}}
       end)
 
     case result do
       {:ok, binary} -> {:ok, decode(binary)}
       :not_found -> result
     end
-  end
-
-  @spec fetch_subnet_info!(non_neg_integer()) :: t()
-  defp fetch_subnet_info!(subnet_id) do
-    {:ok, subnet_info} = fetch_subnet_info(subnet_id)
-    subnet_info
   end
 
   @spec delete_subnet(non_neg_integer()) :: :ok
