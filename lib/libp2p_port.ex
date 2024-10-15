@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @tick_time 1000
   @sync_delay_millis 15_000
-  @head_drift_alert 4
+  @head_drift_alert 12
 
   ######################
   ### API
