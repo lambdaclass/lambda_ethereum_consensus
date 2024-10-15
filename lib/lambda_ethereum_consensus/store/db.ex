@@ -29,7 +29,7 @@ defmodule LambdaEthereumConsensus.Store.Db do
 
   @spec size() :: non_neg_integer()
   def size() do
-    {:ok, size} = :eleveldb.status(ref(), ["leveldb.total-bytes"])
+    {:ok, size} = :eleveldb.status(ref(), "leveldb.total-bytes")
     String.to_integer(size)
   end
 
@@ -43,12 +43,18 @@ defmodule LambdaEthereumConsensus.Store.Db do
     Exleveldb.iterator(ref(), [], :keys_only)
   end
 
-  @spec iterator_close(binary) :: :ok
+  @spec iterator_close(:eleveldb.itr_ref()) :: :ok
   def iterator_close(iter_ref) do
     Exleveldb.iterator_close(iter_ref)
   end
 
-  @spec iterator_move(binary, Atom) :: {:ok, Atom, Atom} | {:error, any()}
+  @spec iterator_move(
+          :eleveldb.itr_ref(),
+          :first | :last | :next | :prefetch | :prefetch_stop | :prev | binary()
+        ) ::
+          {:error, :invalid_iterator | :iterator_closed}
+          | {:ok, binary()}
+          | {:ok, binary(), binary()}
   def iterator_move(iter_ref, action) do
     Exleveldb.iterator_move(iter_ref, action)
   end
