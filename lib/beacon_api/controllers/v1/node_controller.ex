@@ -1,6 +1,7 @@
 defmodule BeaconApi.V1.NodeController do
   use BeaconApi, :controller
 
+  require Logger
   alias BeaconApi.ApiSpec
   alias BeaconApi.Utils
   alias LambdaEthereumConsensus.Beacon.SyncBlocks
@@ -28,6 +29,7 @@ defmodule BeaconApi.V1.NodeController do
 
   @spec health(Plug.Conn.t(), any) :: Plug.Conn.t()
   def health(conn, _params) do
+    Logger.info("NODE: Health check")
     %{is_syncing: syncing?} = SyncBlocks.status()
     syncing_status = if syncing?, do: 206, else: 200
 
@@ -38,6 +40,7 @@ defmodule BeaconApi.V1.NodeController do
 
   @spec identity(Plug.Conn.t(), any) :: Plug.Conn.t()
   def identity(conn, _params) do
+    Logger.info("NODE: Identity check")
     metadata = Metadata.get_metadata() |> Utils.to_json()
 
     %{
@@ -61,6 +64,7 @@ defmodule BeaconApi.V1.NodeController do
 
   @spec version(Plug.Conn.t(), any) :: Plug.Conn.t()
   def version(conn, _params) do
+    Logger.info("NODE: Version check")
     version = Application.spec(:lambda_ethereum_consensus)[:vsn]
     arch = :erlang.system_info(:system_architecture)
 
@@ -74,6 +78,7 @@ defmodule BeaconApi.V1.NodeController do
 
   @spec syncing(Plug.Conn.t(), any) :: Plug.Conn.t()
   def syncing(conn, _params) do
+    Logger.info("NODE: Syncing check")
     %{
       is_syncing: is_syncing,
       is_optimistic: is_optimistic,
@@ -93,6 +98,7 @@ defmodule BeaconApi.V1.NodeController do
 
   @spec peers(Plug.Conn.t(), any) :: Plug.Conn.t()
   def peers(conn, _params) do
+    Logger.info("NODE: Peers check")
     # TODO: (#1325) This is a stub.
     conn
     |> json(%{
