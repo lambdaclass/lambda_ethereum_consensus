@@ -84,7 +84,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @tick_time 1000
   @sync_delay_millis 15_000
-  @head_drift_alert 12
+  @head_drift_alert 4
 
   ######################
   ### API
@@ -804,7 +804,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
        when slot - head_slot >= @head_drift_alert do
     Logger.error("[Libp2p] Head slot drifted by #{slot - head_slot} slots.")
 
-    # TODO: (#1194) The node is not yet ready to resync but this allows to avoid spamming errors after a drift.
+    # TODO: (#1194) This is a temporary fix to avoid the drift alert to be triggered and the resync to kick in
+    # when the node is not fully synced. We should have a better way to handle this.
+    Process.send_after(self(), :sync_blocks, 500)
+
     %{state | syncing: true}
   end
 
