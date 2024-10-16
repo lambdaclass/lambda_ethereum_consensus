@@ -146,7 +146,7 @@ jobs:
         context: .
         file: ./Dockerfile
         load: true # Important for building without pushing
-        
+
   smoke:
     name: Start and stop the node
     needs: [compile-native, download-beacon-node-oapi]

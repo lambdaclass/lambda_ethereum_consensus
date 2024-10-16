@@ -32,6 +32,8 @@ defmodule BeaconApi.V1.ConfigController do
   def open_api_operation(:get_spec),
     do: ApiSpec.spec().paths["/eth/v1/config/spec"].get
 
+  # TODO: This is still an incomplete implementation, it should return some constants
+  # along with the chain spec. It's enough for assertoor.
   @spec get_spec(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_spec(conn, _params), do: json(conn, %{"data" => chain_spec()})
 
