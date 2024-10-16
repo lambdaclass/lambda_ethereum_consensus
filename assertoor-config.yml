@@ -10,8 +10,8 @@ participants:
     count: 1
     cl_max_mem: 4096
     keymanager_enabled: true
-additional_services:
-  - assertoor
-assertoor_params:
-  run_stability_check: true
-  run_block_proposal_check: false
+# additional_services:
+#   - assertoor
+# assertoor_params:
+#   run_stability_check: true
+#   run_block_proposal_check: false

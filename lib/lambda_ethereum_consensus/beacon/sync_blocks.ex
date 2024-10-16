@@ -21,11 +21,10 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   finish, each block of those responses will be sent to libp2p port module individually using
   Libp2pPort.add_block/1.
   """
-  @spec run() :: non_neg_integer()
-  def run() do
-    %{head_slot: head_slot} = ForkChoice.get_current_status_message()
+  @spec run(Types.Store.t()) :: non_neg_integer()
+  def run(%{head_slot: head_slot} = store) do
     initial_slot = head_slot + 1
-    last_slot = ForkChoice.get_current_chain_slot()
+    last_slot = ForkChoice.get_current_slot(store)
 
     # If we're around genesis, we consider ourselves synced
     if last_slot <= 0 do
@@ -68,27 +67,5 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   defp on_chunk_downloaded(store, {:error, range, reason}) do
     Libp2pPort.notify_block_download_failed(range, reason)
     {:ok, store}
-  end
-
-  @doc """
-  Returns the current syncing status.
-
-  TODO: (#1325) This is a semi-stub. This is not the final implementation,
-  just in place for start using assertoor. Probably need to be moved to Libp2pPort.
-  """
-  def status() do
-    {:ok, %{head_slot: head_slot}} = StoreDb.fetch_store()
-    initial_slot = head_slot + 1
-    last_slot = ForkChoice.get_current_chain_slot()
-    distance = last_slot - initial_slot + 1
-    syncing? = distance > 0
-
-    %{
-      is_syncing: syncing?,
-      is_optimistic: syncing?,
-      el_offline: false,
-      head_slot: head_slot,
-      sync_distance: distance
-    }
   end
 end

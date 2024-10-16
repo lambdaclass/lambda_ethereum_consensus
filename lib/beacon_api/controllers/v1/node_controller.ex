@@ -3,7 +3,6 @@ defmodule BeaconApi.V1.NodeController do
 
   alias BeaconApi.ApiSpec
   alias BeaconApi.Utils
-  alias LambdaEthereumConsensus.Beacon.SyncBlocks
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.Metadata
 
@@ -27,9 +26,10 @@ defmodule BeaconApi.V1.NodeController do
     do: ApiSpec.spec().paths["/eth/v1/node/peers"].get
 
   @spec health(Plug.Conn.t(), any) :: Plug.Conn.t()
-  def health(conn, _params) do
-    %{is_syncing: syncing?} = SyncBlocks.status()
-    syncing_status = if syncing?, do: 206, else: 200
+  def health(conn, params) do
+    %{syncing?: syncing?} = Libp2pPort.sync_status()
+
+    syncing_status = if syncing?, do: Map.get(params, :syncing_status, 206), else: 200
 
     send_resp(conn, syncing_status, "")
   rescue
@@ -75,12 +75,12 @@ defmodule BeaconApi.V1.NodeController do
   @spec syncing(Plug.Conn.t(), any) :: Plug.Conn.t()
   def syncing(conn, _params) do
     %{
-      is_syncing: is_syncing,
-      is_optimistic: is_optimistic,
-      el_offline: el_offline,
+      syncing?: is_syncing,
+      optimistic?: is_optimistic,
+      el_offline?: el_offline,
       head_slot: head_slot,
       sync_distance: sync_distance
-    } = SyncBlocks.status()
+    } = Libp2pPort.sync_status()
 
     json(conn, %{
       "data" => %{
