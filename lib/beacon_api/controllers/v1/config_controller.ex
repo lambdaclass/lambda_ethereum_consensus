@@ -3,17 +3,18 @@ defmodule BeaconApi.V1.ConfigController do
   require Logger
 
   alias BeaconApi.ApiSpec
-  alias BeaconApi.ErrorController
-  alias BeaconApi.Helpers
   alias BeaconApi.Utils
-  alias LambdaEthereumConsensus.Store.BlockBySlot
-  alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.StoreDb
 
   plug(OpenApiSpex.Plug.CastAndValidate, json_render_error_v2: true)
 
-  @chain_spec_removed_keys ["ATTESTATION_SUBNET_COUNT", "KZG_COMMITMENT_INCLUSION_PROOF_DEPTH", "UPDATE_TIMEOUT"]
-  @chain_spec_renamed_keys [{"MAXIMUM_GOSSIP_CLOCK_DISPARITY", "MAXIMUM_GOSSIP_CLOCK_DISPARITY_MILLIS"}]
+  @chain_spec_removed_keys [
+    "ATTESTATION_SUBNET_COUNT",
+    "KZG_COMMITMENT_INCLUSION_PROOF_DEPTH",
+    "UPDATE_TIMEOUT"
+  ]
+  @chain_spec_renamed_keys [
+    {"MAXIMUM_GOSSIP_CLOCK_DISPARITY", "MAXIMUM_GOSSIP_CLOCK_DISPARITY_MILLIS"}
+  ]
   @chain_spec_hex_fields [
     "TERMINAL_BLOCK_HASH",
     "GENESIS_FORK_VERSION",
@@ -24,7 +25,7 @@ defmodule BeaconApi.V1.ConfigController do
     "ELECTRA_FORK_VERSION",
     "DEPOSIT_CONTRACT_ADDRESS",
     "MESSAGE_DOMAIN_INVALID_SNAPPY",
-    "MESSAGE_DOMAIN_VALID_SNAPPY",
+    "MESSAGE_DOMAIN_VALID_SNAPPY"
   ]
 
   # NOTE: this function is required by OpenApiSpex, and should return the information
@@ -49,7 +50,8 @@ defmodule BeaconApi.V1.ConfigController do
   end
 
   defp rename_keys(config, renamed_keys) do
-    renamed_keys |> Enum.reduce(config, fn {old_key, new_key}, config ->
+    renamed_keys
+    |> Enum.reduce(config, fn {old_key, new_key}, config ->
       case Map.get(config, old_key) do
         nil -> config
         value -> Map.put_new(config, new_key, value) |> Map.delete(old_key)

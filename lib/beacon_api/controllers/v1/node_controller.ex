@@ -82,12 +82,14 @@ defmodule BeaconApi.V1.NodeController do
       sync_distance: sync_distance
     } = SyncBlocks.status()
 
-    json(conn, %{"data" => %{
-      "is_syncing" => is_syncing,
-      "is_optimistic" => is_optimistic,
-      "el_offline" => el_offline,
-      "head_slot" => head_slot |> Integer.to_string(),
-      "sync_distance" => sync_distance |> Integer.to_string()
-    }})
+    json(conn, %{
+      "data" => %{
+        "is_syncing" => is_syncing,
+        "is_optimistic" => is_optimistic,
+        "el_offline" => el_offline,
+        "head_slot" => head_slot |> Integer.to_string(),
+        "sync_distance" => sync_distance |> Integer.to_string()
+      }
+    })
   end
 end

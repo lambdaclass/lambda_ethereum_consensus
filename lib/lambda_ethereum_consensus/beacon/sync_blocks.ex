@@ -83,10 +83,12 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
     distance = last_slot - initial_slot + 1
     syncing? = distance > 0
 
-    %{is_syncing: syncing?,
+    %{
+      is_syncing: syncing?,
       is_optimistic: syncing?,
       el_offline: false,
       head_slot: head_slot,
-      sync_distance: distance}
+      sync_distance: distance
+    }
   end
 end
