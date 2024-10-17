@@ -8,7 +8,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   alias LambdaEthereumConsensus.Utils
 
   @initial_score 100
-  @penalizing_score 50
+  @penalizing_score 15
   @target_peers 128
   @max_prune_size 8
   @prune_percentage 0.05
@@ -63,7 +63,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     Logger.debug("[Peerbook] Penalizing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
     peer_score = fetch_peerbook!() |> Map.get(peer_id)
-    penalizing_score = penalazing_score()
+    penalizing_score = penalizing_score()
 
     case peer_score do
       nil ->
@@ -144,7 +144,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
     peerbook
   end
 
-  defp penalazing_score() do
+  defp penalizing_score() do
     :lambda_ethereum_consensus
     |> Application.get_env(__MODULE__)
     |> Keyword.get(:penalizing_score, @penalizing_score)
