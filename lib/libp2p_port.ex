@@ -805,8 +805,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Logger.error("[Libp2p] Head slot drifted by #{slot - head_slot} slots.")
 
     # TODO: (#1194) This is a temporary fix to avoid the drift alert to be triggered and the resync to kick in
-    # when the node is not fully synced. We should have a better way to handle this.
-    Process.send_after(self(), :sync_blocks, 500)
+    # when the node is not fully synced. We should have a better way to handle this. Now we wait for half an hour
+    # before resyncing again just for testing.
+    Process.send_after(self(), :sync_blocks, 30 * 60 * 1000)
 
     %{state | syncing: true}
   end
