@@ -17,10 +17,16 @@ defmodule BeaconApi.Router do
       get("/states/:state_id/finality_checkpoints", BeaconController, :get_finality_checkpoints)
     end
 
+    scope "config" do
+      get("/spec", ConfigController, :get_spec)
+    end
+
     scope "/node" do
       get("/health", NodeController, :health)
       get("/identity", NodeController, :identity)
       get("/version", NodeController, :version)
+      get("/syncing", NodeController, :syncing)
+      get("/peers", NodeController, :peers)
     end
   end
 

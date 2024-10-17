@@ -384,6 +384,20 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     GenServer.cast(pid, {:error_downloading_chunk, range, reason})
   end
 
+  @doc """
+  Returns the current sync status.
+  """
+  @spec sync_status(pid | atom()) :: %{
+          syncing?: boolean(),
+          optimistic?: boolean(),
+          el_offline?: boolean(),
+          head_slot: Types.slot(),
+          sync_distance: non_neg_integer()
+        }
+  def sync_status(pid \\ __MODULE__) do
+    GenServer.call(pid, :sync_status)
+  end
+
   ########################
   ### GenServer Callbacks
   ########################
@@ -513,8 +527,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_info(:sync_blocks, state) do
-    blocks_to_download = SyncBlocks.run()
+  def handle_info(:sync_blocks, %{store: store} = state) do
+    blocks_to_download = SyncBlocks.run(store)
 
     new_state =
       state |> Map.put(:blocks_remaining, blocks_to_download) |> subscribe_if_no_blocks()
@@ -573,6 +587,25 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     Logger.warning("[Libp2pPort] Added validator #{keystore.pubkey} to the set.")
 
     {:reply, :ok, %{state | validator_set: validator_set}}
+  end
+
+  @impl GenServer
+  def handle_call(:sync_status, _from, %{syncing: syncing?, store: store} = state) do
+    # TODO: (#1325) This is not the final implementation, we are lacking the el check,
+    # this is just in place for start using assertoor.
+    head_slot = store.head_slot
+    current_slot = ForkChoice.get_current_slot(store)
+    distance = current_slot - head_slot
+
+    result = %{
+      syncing?: syncing?,
+      optimistic?: syncing?,
+      el_offline?: false,
+      head_slot: store.head_slot,
+      sync_distance: distance
+    }
+
+    {:reply, result, state}
   end
 
   ######################
