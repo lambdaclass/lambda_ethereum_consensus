@@ -1,6 +1,7 @@
 defmodule BeaconApi.V1.BeaconController do
   use BeaconApi, :controller
 
+  require Logger
   alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
   alias BeaconApi.Helpers
@@ -24,6 +25,9 @@ defmodule BeaconApi.V1.BeaconController do
 
   def open_api_operation(:get_finality_checkpoints),
     do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/finality_checkpoints"].get
+
+  def open_api_operation(:get_headers_by_block),
+    do: ApiSpec.spec().paths["/eth/v1/beacon/headers/{block_id}"].get
 
   @spec get_genesis(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_genesis(conn, _params) do
@@ -182,4 +186,34 @@ defmodule BeaconApi.V1.BeaconController do
       }
     })
   end
+
+  @spec get_headers_by_block(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def get_headers_by_block(conn, %{block_id: "head"}) do
+    Logger.info("[BEACONCONTROLLER] Fetching head block")
+    {:ok, store} = StoreDb.fetch_store()
+    head_root = store.head_root
+    %{signed_block: %{message: message, signature: signature}} = Blocks.get_block_info(head_root)
+
+    conn
+    |> json(%{
+      execution_optimistic: false, # This is a placeholder
+      finalized: false, # This is obviously false for the head, but should be derived
+      data: %{
+        root: head_root |> Utils.hex_encode(),
+        canonical: true, # This needs to be derived
+        header: %{
+          message: %{
+            slot: message.slot |> Integer.to_string(),
+            proposer_index: message.proposer_index |> Integer.to_string(),
+            parent_root: message.parent_root |> Utils.hex_encode(),
+            state_root: message.state_root |> Utils.hex_encode(),
+            body_root: SszEx.hash_tree_root!(message.body) |> Utils.hex_encode()
+          },
+          signature: signature |> Utils.hex_encode()
+        }
+      }
+    })
+  end
+
+  def get_headers_by_block(conn, _params), do: conn |> ErrorController.not_found(nil)
 end
