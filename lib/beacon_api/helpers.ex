@@ -154,10 +154,14 @@ defmodule BeaconApi.Helpers do
   @spec finality_checkpoint_by_id(state_id()) ::
           {:ok, finality_info()} | {:error, String.t()} | :not_found | :empty_slot | :invalid_id
   def finality_checkpoint_by_id(id) do
+    empty_checkpoint = %Types.Checkpoint{epoch: 0, root: <<0::256>>}
+
     with {:ok, {state, optimistic, finalized}} <- state_by_state_id(id) do
-      {:ok,
-       {state.previous_justified_checkpoint, state.current_justified_checkpoint,
-        state.finalized_checkpoint, optimistic, finalized}}
+      previous_justified_ck = Map.get(state, :previous_justified_checkpoint, empty_checkpoint)
+      current_justified_ck = Map.get(state, :current_justified_checkpoint, empty_checkpoint)
+      finalized_ck = Map.get(state, :finalized_checkpoint, empty_checkpoint)
+
+      {:ok, {previous_justified_ck, current_justified_ck, finalized_ck, optimistic, finalized}}
     end
   end
 

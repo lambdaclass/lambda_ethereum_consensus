@@ -591,7 +591,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_call(:sync_status, _from, %{syncing: syncing?, store: store} = state) do
+  def handle_call(:sync_status, _from, %{syncing: syncing?, store: %Types.Store{} = store} = state) do
     # TODO: (#1325) This is not the final implementation, we are lacking the el check,
     # this is just in place for start using assertoor.
     head_slot = store.head_slot
@@ -604,7 +604,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       el_offline?: false,
       head_slot: store.head_slot,
       sync_distance: distance,
-      blocks_remaining: state.blocks_remaining
+      blocks_remaining: Map.get(state, :blocks_remaining)
     }
 
     {:reply, result, state}
