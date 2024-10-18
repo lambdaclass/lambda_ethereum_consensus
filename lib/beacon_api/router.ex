@@ -5,7 +5,7 @@ defmodule BeaconApi.Router do
   pipeline :api do
     plug(:accepts, ["json"])
     plug(OpenApiSpex.Plug.PutApiSpec, module: BeaconApi.ApiSpec)
-    plug :log_requests, enabled: true
+    plug :log_requests
   end
 
   # Ethereum API Version 1
@@ -49,8 +49,6 @@ defmodule BeaconApi.Router do
 
   # Catch-all route outside of any scope
   match(:*, "/*path", BeaconApi.ErrorController, :not_found)
-
-  defp log_requests(conn, [enabled: false]), do: conn
 
   defp log_requests(conn, _opts) do
     base_message = "[BeaconAPI Router] Processing request: #{conn.method} - #{conn.request_path}"

@@ -1,7 +1,6 @@
 defmodule BeaconApi.V1.BeaconController do
   use BeaconApi, :controller
 
-  require Logger
   alias BeaconApi.ApiSpec
   alias BeaconApi.ErrorController
   alias BeaconApi.Helpers
@@ -189,7 +188,6 @@ defmodule BeaconApi.V1.BeaconController do
 
   @spec get_headers_by_block(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_headers_by_block(conn, %{block_id: "head"}) do
-    Logger.info("[BEACONCONTROLLER] Fetching head block")
     {:ok, store} = StoreDb.fetch_store()
     head_root = store.head_root
     %{signed_block: %{message: message, signature: signature}} = Blocks.get_block_info(head_root)
