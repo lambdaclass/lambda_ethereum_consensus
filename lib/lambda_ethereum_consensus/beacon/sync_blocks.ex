@@ -8,7 +8,6 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P.BlockDownloader
-  alias LambdaEthereumConsensus.Store.StoreDb
 
   @blocks_per_chunk 16
   @retries 50

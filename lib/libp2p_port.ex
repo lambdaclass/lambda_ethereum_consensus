@@ -392,7 +392,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           optimistic?: boolean(),
           el_offline?: boolean(),
           head_slot: Types.slot(),
-          sync_distance: non_neg_integer()
+          sync_distance: non_neg_integer(),
+          blocks_remaining: non_neg_integer()
         }
   def sync_status(pid \\ __MODULE__) do
     GenServer.call(pid, :sync_status)
@@ -602,7 +603,8 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       optimistic?: syncing?,
       el_offline?: false,
       head_slot: store.head_slot,
-      sync_distance: distance
+      sync_distance: distance,
+      blocks_remaining: state.blocks_remaining
     }
 
     {:reply, result, state}
