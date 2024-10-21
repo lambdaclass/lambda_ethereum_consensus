@@ -14,41 +14,49 @@ defmodule LambdaEthereumConsensus.Store.Db do
 
   @spec put(binary, binary) :: :ok
   def put(key, value) do
-    ref = GenServer.call(@registered_name, :get_ref)
-    Exleveldb.put(ref, key, value)
+    Exleveldb.put(ref(), key, value)
   end
 
   @spec delete(binary) :: :ok
   def delete(key) do
-    ref = GenServer.call(@registered_name, :get_ref)
-    Exleveldb.delete(ref, key)
+    Exleveldb.delete(ref(), key)
   end
 
   @spec get(binary) :: {:ok, binary} | :not_found
   def get(key) do
-    ref = GenServer.call(@registered_name, :get_ref)
-    Exleveldb.get(ref, key)
+    Exleveldb.get(ref(), key)
   end
 
   @spec size() :: non_neg_integer()
   def size() do
-    ref = GenServer.call(@registered_name, :get_ref)
-    {:ok, size} = :eleveldb.status(ref, "leveldb.total-bytes")
+    {:ok, size} = :eleveldb.status(ref(), "leveldb.total-bytes")
     String.to_integer(size)
   end
 
   @spec iterate() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
   def iterate() do
-    ref = GenServer.call(@registered_name, :get_ref)
-    # TODO: wrap cursor to make it DB-agnostic
-    Exleveldb.iterator(ref, [])
+    Exleveldb.iterator(ref(), [])
   end
 
   @spec iterate_keys() :: {:ok, :eleveldb.itr_ref()} | {:error, any()}
   def iterate_keys() do
-    ref = GenServer.call(@registered_name, :get_ref)
-    # TODO: wrap cursor to make it DB-agnostic
-    Exleveldb.iterator(ref, [], :keys_only)
+    Exleveldb.iterator(ref(), [], :keys_only)
+  end
+
+  @spec iterator_close(:eleveldb.itr_ref()) :: :ok
+  def iterator_close(iter_ref) do
+    Exleveldb.iterator_close(iter_ref)
+  end
+
+  @spec iterator_move(
+          :eleveldb.itr_ref(),
+          :first | :last | :next | :prefetch | :prefetch_stop | :prev | binary()
+        ) ::
+          {:error, :invalid_iterator | :iterator_closed}
+          | {:ok, binary()}
+          | {:ok, binary(), binary()}
+  def iterator_move(iter_ref, action) do
+    Exleveldb.iterator_move(iter_ref, action)
   end
 
   @impl true
@@ -73,5 +81,9 @@ defmodule LambdaEthereumConsensus.Store.Db do
   defp get_dir() do
     Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)
     |> Keyword.fetch!(:dir)
+  end
+
+  defp ref() do
+    GenServer.call(__MODULE__, :get_ref)
   end
 end
