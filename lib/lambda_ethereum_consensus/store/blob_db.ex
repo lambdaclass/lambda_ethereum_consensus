@@ -87,9 +87,9 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
 
     with {:ok, it} <- Db.iterate(),
          {:ok, @block_root_prefix <> _, _value} <-
-           Exleveldb.iterator_move(it, last_finalized_key),
+           Db.iterator_move(it, last_finalized_key),
          {:ok, keys_to_remove} <- get_block_root_keys_to_remove(it),
-         :ok <- Exleveldb.iterator_close(it) do
+         :ok <- Db.iterator_close(it) do
       total_removed =
         keys_to_remove
         |> Enum.reduce_while(0, fn
@@ -111,7 +111,7 @@ defmodule LambdaEthereumConsensus.Store.BlobDb do
   @spec get_block_root_keys_to_remove(list(binary()), :eleveldb.itr_ref()) ::
           {:ok, list(binary())}
   defp get_block_root_keys_to_remove(keys_to_remove \\ [], iterator) do
-    case Exleveldb.iterator_move(iterator, :prev) do
+    case Db.iterator_move(iterator, :prev) do
       {:ok, <<@block_root_prefix, _rest::binary>> = block_root_key, _root} ->
         [block_root_key | keys_to_remove] |> get_block_root_keys_to_remove(iterator)
 
