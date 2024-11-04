@@ -66,9 +66,9 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
 
           with {:ok, it} <- Db.iterate_keys(),
                {:ok, encoded_start} <- do_encode_key(start_key),
-               {:ok, ^encoded_start} <- Exleveldb.iterator_move(it, encoded_start) do
+               {:ok, ^encoded_start} <- Db.iterator_move(it, encoded_start) do
             res = iterate(it, starting_value, f, direction, encoded_start, include_first?)
-            Exleveldb.iterator_close(it)
+            Db.iterator_close(it)
             {:ok, res}
           else
             # The iterator moved for the first time to a place where it wasn't expected.
@@ -109,7 +109,7 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
       def first_key() do
         {:ok, it} = Db.iterate_keys()
 
-        case Exleveldb.iterator_move(it, @prefix) do
+        case Db.iterator_move(it, @prefix) do
           {:ok, @prefix <> _k = full_key} -> do_decode_key(full_key)
           {:ok, _other} -> :not_found
           {:error, :invalid_iterator} -> :not_found
@@ -135,7 +135,7 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
       defp key_iterator(key) do
         with {:ok, it} <- Db.iterate_keys(),
              {:ok, encoded_start} <- do_encode_key(key),
-             {:ok, ^encoded_start} <- Exleveldb.iterator_move(it, encoded_start) do
+             {:ok, ^encoded_start} <- Db.iterator_move(it, encoded_start) do
           {:first, it, key}
         else
           # The iterator moved for the first time to a place where it wasn't expected.
@@ -154,7 +154,7 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
       defp next_key({:first, it, key}, direction), do: {[key], {:next, it}}
 
       defp move_iterator(it, direction) do
-        case Exleveldb.iterator_move(it, direction) do
+        case Db.iterator_move(it, direction) do
           {:ok, @prefix <> _ = k} ->
             {:ok, decoded_key} = do_decode_key(k)
             {[decoded_key], {:next, it}}
@@ -168,7 +168,7 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
       defp next_key({:error, _}, _direction), do: nil
 
       defp close(nil), do: :ok
-      defp close(it), do: :ok == Exleveldb.iterator_close(it)
+      defp close(it), do: :ok == Db.iterator_close(it)
 
       defp iterate(it, acc, f, direction, _first_key, false) do
         iterate(it, acc, f, direction)
@@ -189,7 +189,7 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
       end
 
       defp accumulate(it, acc, f, direction) do
-        case Exleveldb.iterator_move(it, direction) do
+        case Db.iterator_move(it, direction) do
           {:ok, @prefix <> _ = k} ->
             {:ok, decoded_key} = do_decode_key(k)
             {:cont, f.(decoded_key, acc)}

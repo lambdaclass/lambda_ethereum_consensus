@@ -53,7 +53,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:logfmt_ex, "~> 0.4.2"},
       {:ex2ms, "~> 1.6", runtime: false},
       {:eflambe, "~> 0.3.1"},
-      {:patch, "~> 0.13.0", only: [:test]},
+      {:patch, "~> 0.14.0", only: [:test]},
       {:stream_data, "~> 1.0", only: [:test]},
       {:benchee, "~> 1.2", only: [:dev]},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
@@ -62,7 +62,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-32"},
       {:recode, "~> 0.7", only: [:dev, :test]},
       {:sentry, "~> 10.7.0"},
-      {:prom_ex, "~> 1.10.0"},
+      {:prom_ex, "~> 1.11.0"},
       {:flama, git: "https://github.com/lambdaclass/ht1223_tracer"},
       {:uuid, "~> 1.1"}
     ]
