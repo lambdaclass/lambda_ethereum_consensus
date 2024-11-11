@@ -1,7 +1,5 @@
 participants:
-  - el_type: nethermind
-    cl_type: prysm
-  - el_type: reth
+  - el_type: geth
     cl_type: lighthouse
   - el_type: geth
     cl_type: lambda
