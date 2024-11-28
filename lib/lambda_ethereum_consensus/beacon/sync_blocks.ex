@@ -20,11 +20,10 @@ defmodule LambdaEthereumConsensus.Beacon.SyncBlocks do
   finish, each block of those responses will be sent to libp2p port module individually using
   Libp2pPort.add_block/1.
   """
-  @spec run() :: non_neg_integer()
-  def run() do
-    %{head_slot: head_slot} = ForkChoice.get_current_status_message()
+  @spec run(Types.Store.t()) :: non_neg_integer()
+  def run(%{head_slot: head_slot} = store) do
     initial_slot = head_slot + 1
-    last_slot = ForkChoice.get_current_chain_slot()
+    last_slot = ForkChoice.get_current_slot(store)
 
     # If we're around genesis, we consider ourselves synced
     if last_slot <= 0 do
