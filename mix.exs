@@ -61,8 +61,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:open_api_spex, "~> 3.18"},
       {:crc32c, git: "https://github.com/lambdaclass/crc32c", branch: "bump-rustler-32"},
       {:recode, "~> 0.7", only: [:dev, :test]},
-      {:sentry, "~> 10.7.0"},
-      {:prom_ex, "~> 1.10.0"},
+      {:sentry, "~> 10.8.0"},
+      {:prom_ex, "~> 1.11.0"},
       {:flama, git: "https://github.com/lambdaclass/ht1223_tracer"},
       {:uuid, "~> 1.1"}
     ]
