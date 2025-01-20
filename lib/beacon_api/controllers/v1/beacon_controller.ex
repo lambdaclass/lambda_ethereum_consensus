@@ -171,15 +171,15 @@ defmodule BeaconApi.V1.BeaconController do
       finalized: finalized,
       data: %{
         previous_justified: %{
-          epoch: previous_justified_checkpoint.epoch,
+          epoch: previous_justified_checkpoint.epoch |> Integer.to_string(),
           root: Utils.hex_encode(previous_justified_checkpoint.root)
         },
         current_justified: %{
-          epoch: current_justified_checkpoint.epoch,
+          epoch: current_justified_checkpoint.epoch |> Integer.to_string(),
           root: Utils.hex_encode(current_justified_checkpoint.root)
         },
         finalized: %{
-          epoch: finalized_checkpoint.epoch,
+          epoch: finalized_checkpoint.epoch |> Integer.to_string(),
           root: Utils.hex_encode(finalized_checkpoint.root)
         }
       }
