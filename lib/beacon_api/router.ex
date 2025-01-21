@@ -2,7 +2,7 @@ defmodule BeaconApi.Router do
   use BeaconApi, :router
 
   pipeline :api do
-    plug(:accepts, ["json"])
+    plug(:accepts, ["json", "sse"])
     plug(OpenApiSpex.Plug.PutApiSpec, module: BeaconApi.ApiSpec)
   end
 
@@ -21,6 +21,10 @@ defmodule BeaconApi.Router do
       get("/health", NodeController, :health)
       get("/identity", NodeController, :identity)
       get("/version", NodeController, :version)
+    end
+
+    scope "/events" do
+      get("/", Events, :subscribe)
     end
   end
 

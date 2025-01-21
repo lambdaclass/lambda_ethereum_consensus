@@ -58,3 +58,7 @@ config :sse,
 
 config :event_bus,
   topics: [:finalized_checkpoint]
+
+config :mime, :types, %{
+  "text/event-stream" => ["sse"]
+}
