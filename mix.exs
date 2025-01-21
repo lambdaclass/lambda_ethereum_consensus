@@ -64,7 +64,10 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:sentry, "~> 10.8.0"},
       {:prom_ex, "~> 1.11.0"},
       {:flama, git: "https://github.com/lambdaclass/ht1223_tracer"},
-      {:uuid, "~> 1.1"}
+      {:uuid, "~> 1.1"},
+      # TODO: We might want to use phoenix_pubsub instead and do our implementation of SSE.
+      {:sse, "~> 0.4"},
+      {:event_bus, ">= 1.6.0"}
     ]
   end
 
