@@ -24,7 +24,7 @@ defmodule BeaconApi.Router do
     end
 
     scope "/events" do
-      get("/", Events, :subscribe)
+      get("/", EventsController, :subscribe)
     end
   end
 
