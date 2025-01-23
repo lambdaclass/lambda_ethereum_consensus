@@ -51,7 +51,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
           Map.put_new_lazy(ancestors, vote_root, fn ->
             case Store.get_ancestor(store, vote_root, block.slot) do
               nil ->
-                Logger.warning("No ancestor found for vote root: #{vote_root}")
+                Logger.warning("No ancestor found for vote root: ", root: vote_root, slot: block.slot)
                 Logger.warning("Previous ancestors: #{inspect(ancestors, pretty: true, limit: :infinity)}")
                 Logger.warning("Current block: #{inspect(block, pretty: true, limit: :infinity)}")
                 vote_root
