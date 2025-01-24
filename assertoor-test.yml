@@ -1,0 +1,22 @@
+web:
+  server:
+    host: "0.0.0.0"
+    port: 8080
+  api:
+    enabled: true # enable rest api
+  frontend:
+    enabled: true
+
+endpoints:
+  - name: "local"
+    executionUrl: http://localhost:57920
+    consensusUrl: http://localhost:58036
+
+tests:
+- name: "basic"
+  timeout: 48h
+  tasks:
+  - name: check_clients_are_healthy
+    title: "Consensus client is healthy"
+    config:
+      skipExecutionCheck: true
