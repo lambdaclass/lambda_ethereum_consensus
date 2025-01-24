@@ -16,13 +16,16 @@ participants:
 additional_services:
   - assertoor
   - tx_spammer
-  - blob_spammer
-  - el_forkmon
+  # - blob_spammer
   - dora
-  - beacon_metrics_gazer
+  # - beacon_metrics_gazer
   - prometheus_grafana
+
 assertoor_params:
   run_stability_check: false
   run_block_proposal_check: false
   tests:
-    - file: "./consensus-test.yaml"
+    - https://raw.githubusercontent.com/lambdaclass/ethrex/refs/heads/main/.github/config/assertoor/el-stability-check.yaml
+
+tx_spammer_params:
+  tx_spammer_extra_args: ["--txcount=3", "--accounts=80"]
