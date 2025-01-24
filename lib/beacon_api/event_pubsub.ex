@@ -2,7 +2,7 @@ defmodule BeaconApi.EventPubSub do
   @moduledoc """
   Event listener for aggregating and sending events for SSE subscribers.
 
-  TODO: This depends on `event_bus` and `sse`, but it could be easily switched later:
+  TODO: (#1368) This depends on `event_bus` and `sse`, but it could be easily switched later:
   - `event_bus` we could move to phoenix pubsub
   - `sse` we could just implement it ourselves using Plug.Conn.chunk and Plug.Conn.send_chunked
 
