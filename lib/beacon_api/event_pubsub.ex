@@ -2,7 +2,9 @@ defmodule BeaconApi.EventPubSub do
   @moduledoc """
   Event listener for aggregating and sending events for SSE subscribers.
 
-  This depends on `event_bus` and `sse`, but it could be easily switched later.
+  TODO: This depends on `event_bus` and `sse`, but it could be easily switched later:
+  - `event_bus` we could move to phoenix pubsub
+  - `sse` we could just implement it ourselves using Plug.Conn.chunk and Plug.Conn.send_chunked
 
   The idea is to have a single place to publish events, and then a method for a connection to subscribe to them.
   """
@@ -16,6 +18,14 @@ defmodule BeaconApi.EventPubSub do
   @type topic() :: atom()
   @type event_data() :: any()
 
+  # This is also dependant on the already needed event_bus compile time config
+  @implemented_topics Application.compile_env!(:event_bus, :topics)
+
+  defguard is_implemented_topic(topic) when topic in @implemented_topics
+
+  @spec implemented_topics() :: list(topic())
+  def implemented_topics(), do: @implemented_topics
+
   @doc """
   Publish an event to the event bus.
 
@@ -23,19 +33,20 @@ defmodule BeaconApi.EventPubSub do
   """
   @spec publish(topic(), event_data()) :: :ok | {:error, atom()}
   def publish(:finalized_checkpoint = topic, %{root: block_root, epoch: epoch}) do
-    with %StateInfo{root: state_root} = Store.BlockStates.get_state_info(block_root) do
-      data = %{
-        block: BeaconApi.Utils.hex_encode(block_root),
-        state: BeaconApi.Utils.hex_encode(state_root),
-        epoch: epoch,
-        execution_optimistic: false
-      }
+    case Store.BlockStates.get_state_info(block_root) do
+      %StateInfo{root: state_root} ->
+        data = %{
+          block: BeaconApi.Utils.hex_encode(block_root),
+          state: BeaconApi.Utils.hex_encode(state_root),
+          epoch: epoch,
+          execution_optimistic: false
+        }
 
-      chunk = %Chunk{event: topic, data: [Jason.encode!(data)]}
-      event = %Event{id: UUID.uuid4(), data: chunk, topic: topic}
+        chunk = %Chunk{event: topic, data: [Jason.encode!(data)]}
+        event = %Event{id: UUID.uuid4(), data: chunk, topic: topic}
 
-      EventBus.notify(event)
-    else
+        EventBus.notify(event)
+
       nil ->
         Logger.error("State not available for block", root: block_root)
 
@@ -51,7 +62,6 @@ defmodule BeaconApi.EventPubSub do
   @spec sse_subscribe(Plug.Conn.t(), topic()) :: Plug.Conn.t()
   def sse_subscribe(conn, topic) do
     conn
-    |> Plug.Conn.put_resp_header("cache-control", "no-cache")
     |> SSE.stream({[topic], %Chunk{data: []}})
   end
 end
