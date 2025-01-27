@@ -161,9 +161,6 @@ defmodule BeaconApi.Helpers do
     end
   end
 
-  @spec finalized_checkpoint() :: Types.Checkpoint.t()
-  def finalized_checkpoint(), do: ForkChoice.get_finalized_checkpoint()
-
   @spec get_state_root(Types.root()) :: Types.root() | nil
   def get_state_root(root) do
     with %{} = block <- Blocks.get_block(root) do
