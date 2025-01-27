@@ -15,30 +15,34 @@ defmodule BeaconApi.EventPubSub do
   alias SSE.Chunk
   alias Types.StateInfo
 
-  @type topic() :: atom()
+  # TODO: We need to use atoms here probably, so i need to make a couple of changes yet before merging this PR
+  @type topic() :: String.t()
+  @type topics() :: list(topic())
   @type event_data() :: any()
 
   # This is also dependant on the already needed event_bus compile time config
-  @implemented_topics Application.compile_env!(:event_bus, :topics)
+  @implemented_topics Application.compile_env!(:event_bus, :topics) |> Enum.map(&Atom.to_string/1)
 
-  defguard is_implemented_topic(topic) when topic in @implemented_topics
-
-  @spec implemented_topics() :: list(topic())
+  @spec implemented_topics() :: topics()
   def implemented_topics(), do: @implemented_topics
+
+  @spec implemented_topic?(topic()) :: boolean()
+  def implemented_topic?(topic), do: topic in @implemented_topics
 
   @doc """
   Publish an event to the event bus.
 
   TODO: We might want a noop if there are no subscribers for a topic.
   """
-  @spec publish(topic(), event_data()) :: :ok | {:error, atom()}
+  @spec publish(atom(), event_data()) :: :ok | {:error, atom()}
   def publish(:finalized_checkpoint = topic, %{root: block_root, epoch: epoch}) do
     case Store.BlockStates.get_state_info(block_root) do
       %StateInfo{root: state_root} ->
         data = %{
           block: BeaconApi.Utils.hex_encode(block_root),
           state: BeaconApi.Utils.hex_encode(state_root),
-          epoch: epoch,
+          epoch: Integer.to_string(epoch),
+          # TODO: this is a placeholder, we need to get if the execution is optimistic or not
           execution_optimistic: false
         }
 
@@ -54,14 +58,26 @@ defmodule BeaconApi.EventPubSub do
     end
   end
 
+  def publish(:block = topic, %{root: block_root, slot: slot}) do
+    data = %{
+      block: BeaconApi.Utils.hex_encode(block_root),
+      slot: Integer.to_string(slot),
+      # TODO: this is a placeholder, we need to get if the execution is optimistic or not
+      execution_optimistic: false
+    }
+
+    chunk = %Chunk{event: topic, data: [Jason.encode!(data)]}
+    event = %Event{id: UUID.uuid4(), data: chunk, topic: topic}
+
+    EventBus.notify(event)
+  end
+
   def publish(_topic, _event_data), do: {:error, :unsupported_topic}
 
   @doc """
   Subscribe to a topic for stream events in an sse connection.
   """
-  @spec sse_subscribe(Plug.Conn.t(), topic()) :: Plug.Conn.t()
-  def sse_subscribe(conn, topic) do
-    conn
-    |> SSE.stream({[topic], %Chunk{data: []}})
-  end
+  @spec sse_subscribe(Plug.Conn.t(), topics()) :: Plug.Conn.t()
+  def sse_subscribe(conn, topics) when is_list(topics),
+    do: SSE.stream(conn, {topics, %Chunk{data: []}})
 end
