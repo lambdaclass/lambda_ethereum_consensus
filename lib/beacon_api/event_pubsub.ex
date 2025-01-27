@@ -15,26 +15,26 @@ defmodule BeaconApi.EventPubSub do
   alias SSE.Chunk
   alias Types.StateInfo
 
-  # TODO: We need to use atoms here probably, so i need to make a couple of changes yet before merging this PR
-  @type topic() :: String.t()
+  @type topic() :: String.t() | atom()
   @type topics() :: list(topic())
   @type event_data() :: any()
 
-  # This is also dependant on the already needed event_bus compile time config
+  # This is also dependant on the already needed event_bus compile time config, we maintain them as strings for convienience
   @implemented_topics Application.compile_env!(:event_bus, :topics) |> Enum.map(&Atom.to_string/1)
 
   @spec implemented_topics() :: topics()
   def implemented_topics(), do: @implemented_topics
 
   @spec implemented_topic?(topic()) :: boolean()
-  def implemented_topic?(topic), do: topic in @implemented_topics
+  def implemented_topic?(topic) when is_atom(topic), do: implemented_topic?(Atom.to_string(topic))
+  def implemented_topic?(topic) when is_binary(topic), do: topic in @implemented_topics
 
   @doc """
   Publish an event to the event bus.
 
   TODO: We might want a noop if there are no subscribers for a topic.
   """
-  @spec publish(atom(), event_data()) :: :ok | {:error, atom()}
+  @spec publish(topic(), event_data()) :: :ok | {:error, atom()}
   def publish(:finalized_checkpoint = topic, %{root: block_root, epoch: epoch}) do
     case Store.BlockStates.get_state_info(block_root) do
       %StateInfo{root: state_root} ->
