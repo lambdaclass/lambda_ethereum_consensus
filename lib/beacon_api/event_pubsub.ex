@@ -19,7 +19,8 @@ defmodule BeaconApi.EventPubSub do
   @type topics() :: list(topic())
   @type event_data() :: any()
 
-  # This is also dependant on the already needed event_bus compile time config, we maintain them as strings for convienience
+  # This is also dependant on the already needed event_bus compile time config,
+  # we maintain them as strings for convienience
   @implemented_topics Application.compile_env!(:event_bus, :topics) |> Enum.map(&Atom.to_string/1)
 
   @spec implemented_topics() :: topics()
