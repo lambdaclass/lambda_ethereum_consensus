@@ -1,6 +1,8 @@
 defmodule Unit.ForkChoice.HandlersTest do
   use ExUnit.Case
 
+  use Patch
+
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.Utils.Diff
   alias Types.Store
@@ -44,6 +46,8 @@ defmodule Unit.ForkChoice.HandlersTest do
     end
 
     test "upgrades unrealized checkpoints" do
+      patch(BeaconApi.EventPubSub, :publish, fn _, _ -> :ok end)
+
       start_time = 0
       end_time = start_time + ChainSpec.get("SECONDS_PER_SLOT") * ChainSpec.get("SLOTS_PER_EPOCH")
 
