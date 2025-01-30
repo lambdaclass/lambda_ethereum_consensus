@@ -33,8 +33,9 @@ tasks:
     task:
       name: check_consensus_block_proposals
       title: "Wait for block proposal from ${validatorPairName}"
-      configVars:
+      config:
         minTransactionCount: 240
+      configVars:
         validatorNamePattern: "validatorPairName"
 
 - name: run_tasks_concurrent
