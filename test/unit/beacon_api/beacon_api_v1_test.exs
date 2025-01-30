@@ -109,15 +109,15 @@ defmodule Unit.BeaconApiTest.V1 do
       "execution_optimistic" => true,
       "data" => %{
         "previous_justified" => %{
-          "epoch" => beacon_state.previous_justified_checkpoint.epoch,
+          "epoch" => Integer.to_string(beacon_state.previous_justified_checkpoint.epoch),
           "root" => Utils.hex_encode(beacon_state.previous_justified_checkpoint.root)
         },
         "current_justified" => %{
-          "epoch" => beacon_state.current_justified_checkpoint.epoch,
+          "epoch" => Integer.to_string(beacon_state.current_justified_checkpoint.epoch),
           "root" => Utils.hex_encode(beacon_state.current_justified_checkpoint.root)
         },
         "finalized" => %{
-          "epoch" => beacon_state.finalized_checkpoint.epoch,
+          "epoch" => Integer.to_string(beacon_state.finalized_checkpoint.epoch),
           "root" => Utils.hex_encode(beacon_state.finalized_checkpoint.root)
         }
       }
@@ -191,7 +191,6 @@ defmodule Unit.BeaconApiTest.V1 do
   end
 
   test "node identity" do
-
     patch(BeaconApi.EventPubSub, :publish, fn _, _ -> :ok end)
     patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
 

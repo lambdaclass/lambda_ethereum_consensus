@@ -193,12 +193,17 @@ defmodule BeaconApi.V1.BeaconController do
     %{signed_block: %{message: message, signature: signature}} = Blocks.get_block_info(head_root)
 
     conn
+    # This is a placeholder
     |> json(%{
-      execution_optimistic: false, # This is a placeholder
-      finalized: false, # This is obviously false for the head, but should be derived
+      execution_optimistic: false,
+
+      # This is obviously false for the head, but should be derived
+      finalized: false,
       data: %{
         root: head_root |> Utils.hex_encode(),
-        canonical: true, # This needs to be derived
+
+        # This needs to be derived
+        canonical: true,
         header: %{
           message: %{
             slot: message.slot |> Integer.to_string(),
