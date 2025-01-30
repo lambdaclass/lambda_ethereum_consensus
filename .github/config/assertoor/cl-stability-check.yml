@@ -4,7 +4,7 @@
 #
 # For reference on each individual check see: https://github.com/ethpandaops/assertoor/wiki#supported-tasks-in-assertoor
 
-id: el-stability-check
+id: cl-stability-check
 name: "Check Execution Stability"
 timeout: 18m
 tasks:
