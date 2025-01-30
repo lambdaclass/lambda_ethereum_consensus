@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   """
   require Logger
 
+  alias BeaconApi.EventPubSub
   alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition
@@ -281,7 +282,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     |> if_then_update(
       finalized_checkpoint.epoch > store.finalized_checkpoint.epoch,
       # Update finalized checkpoint
-      &%Store{&1 | finalized_checkpoint: finalized_checkpoint}
+      fn store ->
+        EventPubSub.publish(:finalized_checkpoint, finalized_checkpoint)
+
+        %Store{store | finalized_checkpoint: finalized_checkpoint}
+      end
     )
   end
 

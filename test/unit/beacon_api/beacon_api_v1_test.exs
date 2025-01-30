@@ -191,6 +191,8 @@ defmodule Unit.BeaconApiTest.V1 do
   end
 
   test "node identity" do
+
+    patch(BeaconApi.EventPubSub, :publish, fn _, _ -> :ok end)
     patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
 
     start_link_supervised!({Libp2pPort, genesis_time: :os.system_time(:second), store: %Store{}})

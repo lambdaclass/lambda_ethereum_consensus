@@ -3,7 +3,7 @@ defmodule BeaconApi.Router do
   require Logger
 
   pipeline :api do
-    plug(:accepts, ["json"])
+    plug(:accepts, ["json", "sse"])
     plug(OpenApiSpex.Plug.PutApiSpec, module: BeaconApi.ApiSpec)
     plug :log_requests
   end
@@ -30,6 +30,10 @@ defmodule BeaconApi.Router do
       get("/version", NodeController, :version)
       get("/syncing", NodeController, :syncing)
       get("/peers", NodeController, :peers)
+    end
+
+    scope "/events" do
+      get("/", EventsController, :subscribe)
     end
   end
 

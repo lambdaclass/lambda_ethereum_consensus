@@ -150,7 +150,9 @@ config :lambda_ethereum_consensus, EngineApi,
 # Beacon API
 config :lambda_ethereum_consensus, BeaconApi.Endpoint,
   server: enable_beacon_api,
-  http: [port: beacon_api_port || 4000],
+  # We use an infinit idle timeout to avoid closing sse connections, if needed we can
+  # create a separate endpoint for them.
+  http: [port: beacon_api_port || 4000, protocol_options: [idle_timeout: :infinity]],
   url: [host: "localhost"],
   render_errors: [
     formats: [json: BeaconApi.ErrorJSON],
