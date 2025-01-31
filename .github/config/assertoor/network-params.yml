@@ -27,6 +27,10 @@ additional_services:
 assertoor_params:
   run_stability_check: false
   run_block_proposal_check: false
+  run_transaction_test: false
+  run_blob_transaction_test: false
+  run_opcodes_transaction_test: false
+  run_lifecycle_test: false
   tests: []
   #  - https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_consensus/refs/heads/main/.github/config/assertoor/cl-stability-check.yml
 
