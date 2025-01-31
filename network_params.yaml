@@ -14,21 +14,23 @@ participants:
     validator_count: 32
     cl_max_mem: 4096
     keymanager_enabled: true
+# Uncomment the following lines to run the the network with the minimal preset (which is various times faster)
 # network_params:
 #   preset: minimal
 additional_services:
-  - assertoor
   - tx_spammer
-  # - blob_spammer
+  - blob_spammer
   - dora
-  # - beacon_metrics_gazer
+  - beacon_metrics_gazer
   - prometheus_grafana
+# Uncomment the following lines to run the the network with the assertoor tests
+#   - assertoor
 
-assertoor_params:
-  run_stability_check: false
-  run_block_proposal_check: false
-  tests:
-    - https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_consensus/refs/heads/main/.github/config/assertoor/cl-stability-check.yml
+# assertoor_params:
+#   run_stability_check: false
+#   run_block_proposal_check: false
+#   tests:
+#     - https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_consensus/refs/heads/main/.github/config/assertoor/cl-stability-check.yml
 
-tx_spammer_params:
-  tx_spammer_extra_args: ["--txcount=3", "--accounts=80"]
+# tx_spammer_params:
+#   tx_spammer_extra_args: ["--txcount=3", "--accounts=80"]
