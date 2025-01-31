@@ -125,7 +125,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @doc """
   Get the current chain slot based on the system time.
 
-  There are just 1 use of this function outside this module:
+  There is just 1 use of this function outside this module:
    - In the Helpers.block_root_by_block_id/1 function
   """
   @spec get_current_chain_slot() :: Types.slot()
