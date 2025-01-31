@@ -16,7 +16,7 @@ defmodule BeaconApi.ErrorController do
 
   @spec not_found(Plug.Conn.t(), any) :: Plug.Conn.t()
   def not_found(conn, _params) do
-    Logger.error("Not found resource, path: #{conn.request_path}")
+    Logger.error("Resource not found, path: #{conn.request_path}")
 
     conn
     |> put_status(404)
