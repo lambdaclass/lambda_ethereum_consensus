@@ -193,7 +193,7 @@ defmodule BeaconApi.V1.BeaconController do
     %{signed_block: %{message: message, signature: signature}} = Blocks.get_block_info(head_root)
 
     conn
-    # This is a placeholder
+    # TODO: This is a placeholder, a minimum implementation to make assertoor run
     |> json(%{
       execution_optimistic: false,
 
