@@ -6,6 +6,8 @@ defmodule Unit.BeaconApiTest.V1 do
   alias BeaconApi.Router
   alias BeaconApi.Utils
   alias LambdaEthereumConsensus.ForkChoice
+  alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.P2P.Metadata
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Db
   alias LambdaEthereumConsensus.Store.StoreDb
@@ -107,15 +109,15 @@ defmodule Unit.BeaconApiTest.V1 do
       "execution_optimistic" => true,
       "data" => %{
         "previous_justified" => %{
-          "epoch" => beacon_state.previous_justified_checkpoint.epoch,
+          "epoch" => Integer.to_string(beacon_state.previous_justified_checkpoint.epoch),
           "root" => Utils.hex_encode(beacon_state.previous_justified_checkpoint.root)
         },
         "current_justified" => %{
-          "epoch" => beacon_state.current_justified_checkpoint.epoch,
+          "epoch" => Integer.to_string(beacon_state.current_justified_checkpoint.epoch),
           "root" => Utils.hex_encode(beacon_state.current_justified_checkpoint.root)
         },
         "finalized" => %{
-          "epoch" => beacon_state.finalized_checkpoint.epoch,
+          "epoch" => Integer.to_string(beacon_state.finalized_checkpoint.epoch),
           "root" => Utils.hex_encode(beacon_state.finalized_checkpoint.root)
         }
       }
@@ -134,7 +136,7 @@ defmodule Unit.BeaconApiTest.V1 do
   test "get genesis data" do
     expected_response = %{
       "data" => %{
-        "genesis_time" => StoreDb.fetch_genesis_time!(),
+        "genesis_time" => StoreDb.fetch_genesis_time!() |> Integer.to_string(),
         "genesis_validators_root" =>
           ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
         "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
@@ -149,16 +151,46 @@ defmodule Unit.BeaconApiTest.V1 do
   end
 
   test "node health" do
+    now = :os.system_time(:second)
+    patch(Libp2pPort, :on_tick, fn _time, state -> state end)
+
+    start_link_supervised!(
+      {Libp2pPort,
+       genesis_time: now - 24, store: %Store{genesis_time: now - 24, time: now, head_slot: 1}}
+    )
+
     conn = conn(:get, "/eth/v1/node/health", nil) |> Router.call(@opts)
     assert conn.state == :sent
-    assert conn.status == 200
+    assert conn.status == 206
     assert conn.resp_body == ""
   end
 
-  test "node identity" do
-    alias LambdaEthereumConsensus.Libp2pPort
-    alias LambdaEthereumConsensus.P2P.Metadata
+  test "node syncing" do
+    now = :os.system_time(:second)
+    patch(Libp2pPort, :on_tick, fn _time, state -> state end)
 
+    start_link_supervised!(
+      {Libp2pPort,
+       genesis_time: now - 24, store: %Store{genesis_time: now - 24, time: now, head_slot: 1}}
+    )
+
+    expected_response = %{
+      "data" => %{
+        "is_syncing" => true,
+        "is_optimistic" => true,
+        "el_offline" => false,
+        "head_slot" => "1",
+        "sync_distance" => "1"
+      }
+    }
+
+    conn = conn(:get, "/eth/v1/node/syncing", nil) |> Router.call(@opts)
+    assert conn.state == :sent
+    assert conn.status == 200
+    assert Jason.decode!(conn.resp_body) == expected_response
+  end
+
+  test "node identity" do
     patch(BeaconApi.EventPubSub, :publish, fn _, _ -> :ok end)
     patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
 
