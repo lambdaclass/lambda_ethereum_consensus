@@ -52,8 +52,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
             case Store.get_ancestor(store, vote_root, block.slot) do
               nil ->
                 Logger.warning("No ancestor found for vote root: ", root: vote_root, slot: block.slot)
-                Logger.warning("Previous ancestors: #{inspect(ancestors, pretty: true, limit: :infinity)}")
-                Logger.warning("Current block: #{inspect(block, pretty: true, limit: :infinity)}")
                 vote_root
 
               ancestors -> ancestors
