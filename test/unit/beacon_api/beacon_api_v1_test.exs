@@ -194,7 +194,12 @@ defmodule Unit.BeaconApiTest.V1 do
     patch(BeaconApi.EventPubSub, :publish, fn _, _ -> :ok end)
     patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
 
-    start_link_supervised!({Libp2pPort, genesis_time: :os.system_time(:second), store: %Store{}})
+    genesis_time = :os.system_time(:second)
+
+    start_link_supervised!(
+      {Libp2pPort, genesis_time: genesis_time, store: %Store{genesis_time: genesis_time}}
+    )
+
     Metadata.init()
     identity = Libp2pPort.get_node_identity()
     metadata = Metadata.get_metadata()
