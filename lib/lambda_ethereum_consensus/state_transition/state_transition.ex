@@ -9,7 +9,6 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Operations
-  alias Types.BeaconBlockHeader
   alias Types.BeaconState
   alias Types.BlockInfo
   alias Types.SignedBeaconBlock
@@ -74,34 +73,35 @@ defmodule LambdaEthereumConsensus.StateTransition do
   defp process_slot(%BeaconState{} = state) do
     start_time = System.monotonic_time(:millisecond)
 
-    # Cache state root
-    previous_state_root = Ssz.hash_tree_root!(state)
-    slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
-    cache_index = rem(state.slot, slots_per_historical_root)
-    roots = List.replace_at(state.state_roots, cache_index, previous_state_root)
-    state = %BeaconState{state | state_roots: roots}
+    # # Cache state root
+    # previous_state_root = Ssz.hash_tree_root!(state)
+    # slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
+    # cache_index = rem(state.slot, slots_per_historical_root)
+    # roots = List.replace_at(state.state_roots, cache_index, previous_state_root)
+    # state = %BeaconState{state | state_roots: roots}
 
-    # Cache latest block header state root
-    state =
-      if state.latest_block_header.state_root == <<0::256>> do
-        block_header = %BeaconBlockHeader{
-          state.latest_block_header
-          | state_root: previous_state_root
-        }
+    # # Cache latest block header state root
+    # state =
+    #   if state.latest_block_header.state_root == <<0::256>> do
+    #     block_header = %BeaconBlockHeader{
+    #       state.latest_block_header
+    #       | state_root: previous_state_root
+    #     }
 
-        %BeaconState{state | latest_block_header: block_header}
-      else
-        state
-      end
+    #     %BeaconState{state | latest_block_header: block_header}
+    #   else
+    #     state
+    #   end
 
-    # Cache block root
-    previous_block_root = Ssz.hash_tree_root!(state.latest_block_header)
-    roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
+    # # Cache block root
+    # previous_block_root = Ssz.hash_tree_root!(state.latest_block_header)
+    # roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
 
     end_time = System.monotonic_time(:millisecond)
-    Logger.debug("[Slot processing] took #{end_time - start_time} ms")
+    Logger.info("[Slot processing] took #{(end_time - start_time) / 1000} s")
 
-    {:ok, %BeaconState{state | block_roots: roots}}
+    # {:ok, %BeaconState{state | block_roots: roots}}
+    {:ok, state}
   end
 
   defp process_epoch(%BeaconState{} = state) do
@@ -128,7 +128,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> epoch_op(:sync_committee_updates, &EpochProcessing.process_sync_committee_updates/1)
     |> tap(fn _ ->
       end_time = System.monotonic_time(:millisecond)
-      Logger.debug("[Epoch processing] took #{end_time - start_time} ms")
+      Logger.debug("[Epoch processing] took #{(end_time - start_time) / 1000} s")
     end)
   end
 
@@ -155,7 +155,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     )
     |> tap(fn _ ->
       end_time = System.monotonic_time(:millisecond)
-      Logger.debug("[Block processing] took #{end_time - start_time} ms")
+      Logger.debug("[Block processing] took #{(end_time - start_time) / 1000} s")
     end)
   end
 
