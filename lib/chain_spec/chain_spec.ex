@@ -19,6 +19,8 @@ defmodule ChainSpec do
   # NOTE: this only works correctly for Capella
   def get(name), do: get_config().get(name)
 
+  def get_all(), do: get_config().get_all()
+
   def get_genesis_validators_root() do
     Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)
     |> Keyword.fetch!(:genesis_validators_root)
