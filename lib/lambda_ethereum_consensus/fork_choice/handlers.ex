@@ -254,6 +254,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
       # Eagerly compute unrealized justification and finality
       |> compute_pulled_up_tip(block_info.root, block_info.signed_block.message, state)
+      |> tap(fn _ ->
+        EventPubSub.publish(:block, %{
+          block_root: block_info.root,
+          state_root: new_state_info.root,
+          slot: block.slot
+        })
+      end)
     end
   end
 

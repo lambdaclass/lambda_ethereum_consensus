@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   """
 
   require Logger
-  alias BeaconApi.EventPubSub
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
@@ -61,25 +60,28 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         Logger.info("[Fork choice] Block processed. Recomputing head.")
         :telemetry.execute([:sync, :on_block], %{slot: slot})
 
+        block_end_time = System.monotonic_time(:millisecond)
+
         :telemetry.span([:fork_choice, :recompute_head], %{}, fn ->
           {recompute_head(new_store), %{}}
         end)
-        |> prune_old_states(last_finalized_checkpoint.epoch)
+        # |> prune_old_states(last_finalized_checkpoint.epoch)
         |> tap(fn store ->
+          recompute_end_time = System.monotonic_time(:millisecond)
           StoreDb.persist_store(store)
-          Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
-          EventPubSub.publish(:block, %{root: block_root, slot: slot})
 
-          block_end_time = System.monotonic_time(:millisecond)
+          Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
 
           Logger.info("[Fork choice] Recomputed head",
             slot: store.head_slot,
             root: store.head_root
           )
 
-          recompute_end_time = System.monotonic_time(:millisecond)
-
-          Logger.info("[Fork choice] Block processing time: #{(block_end_time - start_time) / 1000} s | Head recompute time: #{(recompute_end_time - block_end_time) / 1000} s")
+          Logger.info(
+            "[Fork choice] Block processing time: #{(block_end_time - start_time) / 1000} s | Head recompute time: #{(recompute_end_time - block_end_time) / 1000} s",
+            slot: slot,
+            root: block_root
+          )
         end)
         |> then(&{:ok, &1})
 

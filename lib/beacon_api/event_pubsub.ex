@@ -11,9 +11,7 @@ defmodule BeaconApi.EventPubSub do
 
   require Logger
   alias EventBus.Model.Event
-  alias LambdaEthereumConsensus.Store
   alias SSE.Chunk
-  alias Types.StateInfo
 
   @type topic() :: String.t() | atom()
   @type topics() :: list(topic())
@@ -35,28 +33,24 @@ defmodule BeaconApi.EventPubSub do
 
   TODO: We might want a noop if there are no subscribers for a topic.
   """
-  @spec publish(topic(), event_data()) :: :ok | {:error, atom()}
-  def publish(:finalized_checkpoint = topic, %{root: block_root, epoch: epoch}) do
-    case Store.BlockStates.get_state_info(block_root) do
-      %StateInfo{root: state_root} ->
-        data = %{
-          block: BeaconApi.Utils.hex_encode(block_root),
-          state: BeaconApi.Utils.hex_encode(state_root),
-          epoch: Integer.to_string(epoch),
-          # TODO: this is a placeholder, we need to get if the execution is optimistic or not
-          execution_optimistic: false
-        }
+  @spec publish(topic(), event_data()) :: :ok
+  def publish(:finalized_checkpoint = topic, %{
+        block_root: block_root,
+        state_root: state_root,
+        epoch: epoch
+      }) do
+    data = %{
+      block: BeaconApi.Utils.hex_encode(block_root),
+      state: BeaconApi.Utils.hex_encode(state_root),
+      epoch: Integer.to_string(epoch),
+      # TODO: this is a placeholder, we need to get if the execution is optimistic or not
+      execution_optimistic: false
+    }
 
-        chunk = %Chunk{event: topic, data: [Jason.encode!(data)]}
-        event = %Event{id: UUID.uuid4(), data: chunk, topic: topic}
+    chunk = %Chunk{event: topic, data: [Jason.encode!(data)]}
+    event = %Event{id: UUID.uuid4(), data: chunk, topic: topic}
 
-        EventBus.notify(event)
-
-      nil ->
-        Logger.error("State not available for block", root: block_root)
-
-        {:error, :state_not_available}
-    end
+    EventBus.notify(event)
   end
 
   def publish(:block = topic, %{root: block_root, slot: slot}) do
