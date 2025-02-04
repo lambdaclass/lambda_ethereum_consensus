@@ -128,7 +128,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> epoch_op(:sync_committee_updates, &EpochProcessing.process_sync_committee_updates/1)
     |> tap(fn _ ->
       end_time = System.monotonic_time(:millisecond)
-      Logger.debug("[Epoch processing] took #{(end_time - start_time) / 1000} s")
+      Logger.info("[Epoch processing] took #{(end_time - start_time) / 1000} s")
     end)
   end
 
@@ -139,23 +139,58 @@ defmodule LambdaEthereumConsensus.StateTransition do
     Bls.valid?(proposer.pubkey, signing_root, signed_block.signature)
   end
 
+  defp time(res, label, fun) do
+    start_time = System.monotonic_time(:millisecond)
+    res = fun.(res)
+    end_time = System.monotonic_time(:millisecond)
+    Logger.info("[#{label}] took #{(end_time - start_time) / 1000} s")
+    res
+  end
+
   def process_block(state, block) do
     start_time = System.monotonic_time(:millisecond)
 
     {:ok, state}
-    |> block_op(:block_header, &Operations.process_block_header(&1, block))
-    |> block_op(:withdrawals, &Operations.process_withdrawals(&1, block.body.execution_payload))
-    |> block_op(:execution_payload, &Operations.process_execution_payload(&1, block.body))
-    |> block_op(:randao, &Operations.process_randao(&1, block.body))
-    |> block_op(:eth1_data, &Operations.process_eth1_data(&1, block.body))
-    |> map_ok(&Operations.process_operations(&1, block.body))
-    |> block_op(
-      :sync_aggregate,
-      &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
-    )
+    # |> block_op(:block_header, &Operations.process_block_header(&1, block))
+    |> time(:header, fn res ->
+      block_op(res, :block_header, &Operations.process_block_header(&1, block))
+    end)
+    # |> block_op(:withdrawals, &Operations.process_withdrawals(&1, block.body.execution_payload))
+    |> time(:withdrawals, fn res ->
+      block_op(
+        res,
+        :withdrawals,
+        &Operations.process_withdrawals(&1, block.body.execution_payload)
+      )
+    end)
+    # |> block_op(:execution_payload, &Operations.process_execution_payload(&1, block.body))
+    |> time(:execution_payload, fn res ->
+      block_op(res, :execution_payload, &Operations.process_execution_payload(&1, block.body))
+    end)
+    # |> block_op(:randao, &Operations.process_randao(&1, block.body))
+    |> time(:randao, fn res ->
+      block_op(res, :randao, &Operations.process_randao(&1, block.body))
+    end)
+    # |> block_op(:eth1_data, &Operations.process_eth1_data(&1, block.body))
+    |> time(:eth1_data, fn res ->
+      block_op(res, :eth1_data, &Operations.process_eth1_data(&1, block.body))
+    end)
+    # |> map_ok(&Operations.process_operations(&1, block.body))
+    |> time(:operations, fn res -> map_ok(res, &Operations.process_operations(&1, block.body)) end)
+    # |> block_op(
+    #   :sync_aggregate,
+    #   &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
+    # )
+    |> time(:sync_aggregate, fn res ->
+      block_op(
+        res,
+        :sync_aggregate,
+        &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
+      )
+    end)
     |> tap(fn _ ->
       end_time = System.monotonic_time(:millisecond)
-      Logger.debug("[Block processing] took #{(end_time - start_time) / 1000} s")
+      Logger.info("[Block processing] took #{(end_time - start_time) / 1000} s")
     end)
   end
 
