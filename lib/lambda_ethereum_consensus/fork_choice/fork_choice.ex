@@ -48,7 +48,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Logger.info("[Fork choice] Adding new block", root: block_info.root, slot: slot)
 
-    %Store{finalized_checkpoint: last_finalized_checkpoint} = store
+    %Store{finalized_checkpoint: _last_finalized_checkpoint} = store
 
     result =
       :telemetry.span([:sync, :on_block], %{}, fn ->
