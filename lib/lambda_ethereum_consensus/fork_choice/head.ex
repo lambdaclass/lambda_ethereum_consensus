@@ -8,8 +8,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   alias Types.BeaconState
   alias Types.Store
 
-  require Logger
-
   @spec get_head(Store.t()) :: {:ok, Types.root()} | {:error, any}
   def get_head(%Store{} = store) do
     # Get filtered block tree that only includes viable branches
