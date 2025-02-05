@@ -20,14 +20,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
     {_store, %BeaconState{} = justified_state} =
       Store.get_checkpoint_state(store, store.justified_checkpoint)
 
-    start_time = System.monotonic_time(:millisecond)
-
     head = compute_head(store, filtered_blocks, head, justified_state)
-
-    Logger.info(
-      "Head computation took: #{(System.monotonic_time(:millisecond) - start_time) / 1000} s"
-    )
-
     {:ok, head}
   end
 
@@ -44,17 +37,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
 
       candidates ->
         # Choose the candidate with the maximal weight according to get_weight/3
-        start_time = System.monotonic_time(:millisecond)
-
         best_child =
           candidates
           # Ties broken by favoring block with lexicographically higher root
           |> Enum.sort(:desc)
           |> Enum.max_by(&get_weight(store, &1, justified_state))
-
-        Logger.info(
-          "Choosing best child took: #{(System.monotonic_time(:millisecond) - start_time) / 1000} s"
-        )
 
         compute_head(store, blocks, best_child, justified_state)
     end
@@ -105,11 +92,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
 
   # Retrieve a filtered block tree from ``store``, only returning branches
   # whose leaf state's justified/finalized info agrees with that in ``store``.
+  # Only return the roots and their parent roots.
   defp get_filtered_block_tree(%Store{} = store) do
     base = store.justified_checkpoint.root
     block = Blocks.get_block!(base)
     {_, blocks} = filter_block_tree(store, base, block, %{})
-    blocks |> Enum.map(fn {root, block} -> {root, block.parent_root} end)
+    Enum.map(blocks, fn {root, block} -> {root, block.parent_root} end)
   end
 
   defp filter_block_tree(%Store{} = store, block_root, block, blocks) do
