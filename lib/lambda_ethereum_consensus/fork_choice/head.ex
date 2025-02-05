@@ -21,6 +21,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
       Store.get_checkpoint_state(store, store.justified_checkpoint)
 
     start_time = System.monotonic_time(:millisecond)
+
     head = compute_head(store, filtered_blocks, head, justified_state)
 
     Logger.info(
@@ -31,7 +32,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   end
 
   defp compute_head(store, blocks, current_root, justified_state) do
-    children = for {parent_root, root} <- blocks, parent_root == current_root, do: root
+    children = for {root, parent_root} <- blocks, parent_root == current_root, do: root
 
     case children do
       [] ->
@@ -44,7 +45,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
       candidates ->
         # Choose the candidate with the maximal weight according to get_weight/3
         start_time = System.monotonic_time(:millisecond)
-        best_child = Enum.max_by(candidates, &get_weight(store, &1, justified_state))
+
+        best_child =
+          candidates
+          # Ties broken by favoring block with lexicographically higher root
+          |> Enum.sort(:desc)
+          |> Enum.max_by(&get_weight(store, &1, justified_state))
 
         Logger.info(
           "Choosing best child took: #{(System.monotonic_time(:millisecond) - start_time) / 1000} s"
