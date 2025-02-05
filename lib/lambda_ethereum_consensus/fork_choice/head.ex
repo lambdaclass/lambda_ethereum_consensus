@@ -12,16 +12,21 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
 
   @spec get_head(Store.t()) :: {:ok, Types.root()} | {:error, any}
   def get_head(%Store{} = store) do
-    # Get the justified state once
+    # Get filtered block tree that only includes viable branches
+    filtered_blocks = get_filtered_block_tree(store)
+    # Execute the LMD-GHOST fork choice
+    head = store.justified_checkpoint.root
+
     {_store, %BeaconState{} = justified_state} =
       Store.get_checkpoint_state(store, store.justified_checkpoint)
 
-    filtered_blocks = get_filtered_block_tree(store)
-
-    head = store.justified_checkpoint.root
     start_time = System.monotonic_time(:millisecond)
     head = compute_head(store, filtered_blocks, head, justified_state)
-    Logger.info("Head computation took: #{(System.monotonic_time(:millisecond) - start_time) /1000} s")
+
+    Logger.info(
+      "Head computation took: #{(System.monotonic_time(:millisecond) - start_time) / 1000} s"
+    )
+
     {:ok, head}
   end
 
@@ -40,7 +45,11 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
         # Choose the candidate with the maximal weight according to get_weight/3
         start_time = System.monotonic_time(:millisecond)
         best_child = Enum.max_by(candidates, &get_weight(store, &1, justified_state))
-        Logger.info("Choosing best child took: #{(System.monotonic_time(:millisecond) - start_time) /1000} s")
+
+        Logger.info(
+          "Choosing best child took: #{(System.monotonic_time(:millisecond) - start_time) / 1000} s"
+        )
+
         compute_head(store, blocks, best_child, justified_state)
     end
   end
