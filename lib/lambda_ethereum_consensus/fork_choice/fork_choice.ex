@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   """
 
   require Logger
+  alias BeaconApi.EventPubSub
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
@@ -65,6 +66,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         |> tap(fn store ->
           StoreDb.persist_store(store)
           Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
+          EventPubSub.publish(:block, %{root: block_root, slot: slot})
 
           Logger.info("[Fork choice] Recomputed head",
             slot: store.head_slot,
@@ -123,8 +125,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   @doc """
   Get the current chain slot based on the system time.
 
-  There are just 2 uses of this function outside this module:
-   - At the begining of SyncBlocks.run/1 function, to get the head slot
+  There is just 1 use of this function outside this module:
    - In the Helpers.block_root_by_block_id/1 function
   """
   @spec get_current_chain_slot() :: Types.slot()

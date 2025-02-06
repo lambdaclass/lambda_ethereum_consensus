@@ -12,27 +12,38 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   @spec get_head(Store.t()) :: {:ok, Types.root()} | {:error, any}
   def get_head(%Store{} = store) do
     # Get filtered block tree that only includes viable branches
-    blocks = get_filtered_block_tree(store)
+    filtered_blocks = get_filtered_block_tree(store)
     # Execute the LMD-GHOST fork choice
     head = store.justified_checkpoint.root
 
     {_store, %BeaconState{} = justified_state} =
       Store.get_checkpoint_state(store, store.justified_checkpoint)
 
-    # PERF: return just the parent root and the block root in `get_filtered_block_tree`
-    Stream.cycle([nil])
-    |> Enum.reduce_while(head, fn nil, head ->
-      blocks
-      |> Stream.filter(fn {_, block} -> block.parent_root == head end)
-      |> Stream.map(fn {root, _} -> root end)
-      # Ties broken by favoring block with lexicographically higher root
-      |> Enum.sort(:desc)
-      |> then(fn
-        [] -> {:halt, head}
-        c -> {:cont, Enum.max_by(c, &get_weight(store, &1, justified_state))}
-      end)
-    end)
-    |> then(&{:ok, &1})
+    head = compute_head(store, filtered_blocks, head, justified_state)
+    {:ok, head}
+  end
+
+  defp compute_head(store, blocks, current_root, justified_state) do
+    children = for {root, parent_root} <- blocks, parent_root == current_root, do: root
+
+    case children do
+      [] ->
+        current_root
+
+      [only_child] ->
+        # Directly continue without a max_by call
+        compute_head(store, blocks, only_child, justified_state)
+
+      candidates ->
+        # Choose the candidate with the maximal weight according to get_weight/3
+        best_child =
+          candidates
+          # Ties broken by favoring block with lexicographically higher root
+          |> Enum.sort(:desc)
+          |> Enum.max_by(&get_weight(store, &1, justified_state))
+
+        compute_head(store, blocks, best_child, justified_state)
+    end
   end
 
   defp get_weight(%Store{} = store, root, state) do
@@ -86,11 +97,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
 
   # Retrieve a filtered block tree from ``store``, only returning branches
   # whose leaf state's justified/finalized info agrees with that in ``store``.
+  # Only return the roots and their parent roots.
   defp get_filtered_block_tree(%Store{} = store) do
     base = store.justified_checkpoint.root
     block = Blocks.get_block!(base)
     {_, blocks} = filter_block_tree(store, base, block, %{})
-    blocks
+    Enum.map(blocks, fn {root, block} -> {root, block.parent_root} end)
   end
 
   defp filter_block_tree(%Store{} = store, block_root, block, blocks) do

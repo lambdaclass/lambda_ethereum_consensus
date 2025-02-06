@@ -19,7 +19,7 @@ RUN go build -o libp2p_port
 
 # Precompile rust crates
 # bls nif
-FROM rust:1.71.1 AS bls_nif_builder
+FROM rust:1.81.0 AS bls_nif_builder
 LABEL stage=builder
 
 RUN mkdir /bls_nif
@@ -31,7 +31,7 @@ RUN cargo build --release && \
     rm -rf target/
 
 # kzg nif
-FROM rust:1.71.1 AS kzg_nif_builder
+FROM rust:1.81.0 AS kzg_nif_builder
 LABEL stage=builder
 
 RUN mkdir /kzg_nif
@@ -43,7 +43,7 @@ RUN cargo build --release && \
     rm -rf target/
 
 # snappy nif
-FROM rust:1.71.1 AS snappy_nif_builder
+FROM rust:1.81.0 AS snappy_nif_builder
 LABEL stage=builder
 
 RUN mkdir /snappy_nif
@@ -55,7 +55,7 @@ RUN cargo build --release && \
     rm -rf target/
 
 # ssz nif
-FROM rust:1.71.1 AS ssz_nif_builder
+FROM rust:1.81.0 AS ssz_nif_builder
 LABEL stage=builder
 
 RUN mkdir /ssz_nif

@@ -52,3 +52,13 @@ if System.get_env("RUSTLER_SKIP_COMPILE") do
   config :lambda_ethereum_consensus, Snappy, skip_compilation?: true
   config :lambda_ethereum_consensus, Ssz, skip_compilation?: true
 end
+
+config :sse,
+  keep_alive: {:system, "SSE_KEEP_ALIVE_IN_MS", 55000}
+
+config :event_bus,
+  topics: [:finalized_checkpoint, :block]
+
+config :mime, :types, %{
+  "text/event-stream" => ["sse"]
+}

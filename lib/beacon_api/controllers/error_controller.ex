@@ -1,8 +1,11 @@
 defmodule BeaconApi.ErrorController do
+  require Logger
   use BeaconApi, :controller
 
   @spec bad_request(Plug.Conn.t(), binary()) :: Plug.Conn.t()
   def bad_request(conn, message) do
+    Logger.error("Bad request: #{message}, path: #{conn.request_path}")
+
     conn
     |> put_status(400)
     |> json(%{
@@ -13,6 +16,8 @@ defmodule BeaconApi.ErrorController do
 
   @spec not_found(Plug.Conn.t(), any) :: Plug.Conn.t()
   def not_found(conn, _params) do
+    Logger.error("Resource not found, path: #{conn.request_path}")
+
     conn
     |> put_status(404)
     |> json(%{
@@ -23,6 +28,8 @@ defmodule BeaconApi.ErrorController do
 
   @spec internal_error(Plug.Conn.t(), any) :: Plug.Conn.t()
   def internal_error(conn, _params) do
+    Logger.error("Internal server error, path: #{conn.request_path}")
+
     conn
     |> put_status(500)
     |> json(%{

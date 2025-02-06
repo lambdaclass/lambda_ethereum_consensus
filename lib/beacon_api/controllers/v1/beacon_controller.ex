@@ -25,12 +25,15 @@ defmodule BeaconApi.V1.BeaconController do
   def open_api_operation(:get_finality_checkpoints),
     do: ApiSpec.spec().paths["/eth/v1/beacon/states/{state_id}/finality_checkpoints"].get
 
+  def open_api_operation(:get_headers_by_block),
+    do: ApiSpec.spec().paths["/eth/v1/beacon/headers/{block_id}"].get
+
   @spec get_genesis(Plug.Conn.t(), any) :: Plug.Conn.t()
   def get_genesis(conn, _params) do
     conn
     |> json(%{
       "data" => %{
-        "genesis_time" => StoreDb.fetch_genesis_time!(),
+        "genesis_time" => StoreDb.fetch_genesis_time!() |> Integer.to_string(),
         "genesis_validators_root" =>
           ChainSpec.get_genesis_validators_root() |> Utils.hex_encode(),
         "genesis_fork_version" => ChainSpec.get("GENESIS_FORK_VERSION") |> Utils.hex_encode()
@@ -168,18 +171,52 @@ defmodule BeaconApi.V1.BeaconController do
       finalized: finalized,
       data: %{
         previous_justified: %{
-          epoch: previous_justified_checkpoint.epoch,
+          epoch: previous_justified_checkpoint.epoch |> Integer.to_string(),
           root: Utils.hex_encode(previous_justified_checkpoint.root)
         },
         current_justified: %{
-          epoch: current_justified_checkpoint.epoch,
+          epoch: current_justified_checkpoint.epoch |> Integer.to_string(),
           root: Utils.hex_encode(current_justified_checkpoint.root)
         },
         finalized: %{
-          epoch: finalized_checkpoint.epoch,
+          epoch: finalized_checkpoint.epoch |> Integer.to_string(),
           root: Utils.hex_encode(finalized_checkpoint.root)
         }
       }
     })
   end
+
+  @spec get_headers_by_block(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def get_headers_by_block(conn, %{block_id: "head"}) do
+    {:ok, store} = StoreDb.fetch_store()
+    head_root = store.head_root
+    %{signed_block: %{message: message, signature: signature}} = Blocks.get_block_info(head_root)
+
+    conn
+    # TODO: This is a placeholder, a minimum implementation to make assertoor run
+    |> json(%{
+      execution_optimistic: false,
+
+      # This is obviously false for the head, but should be derived
+      finalized: false,
+      data: %{
+        root: head_root |> Utils.hex_encode(),
+
+        # This needs to be derived
+        canonical: true,
+        header: %{
+          message: %{
+            slot: message.slot |> Integer.to_string(),
+            proposer_index: message.proposer_index |> Integer.to_string(),
+            parent_root: message.parent_root |> Utils.hex_encode(),
+            state_root: message.state_root |> Utils.hex_encode(),
+            body_root: SszEx.hash_tree_root!(message.body) |> Utils.hex_encode()
+          },
+          signature: signature |> Utils.hex_encode()
+        }
+      }
+    })
+  end
+
+  def get_headers_by_block(conn, _params), do: conn |> ErrorController.not_found(nil)
 end

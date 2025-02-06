@@ -19,12 +19,21 @@ defmodule BeaconApi.V1.NodeController do
   def open_api_operation(:version),
     do: ApiSpec.spec().paths["/eth/v1/node/version"].get
 
+  def open_api_operation(:syncing),
+    do: ApiSpec.spec().paths["/eth/v1/node/syncing"].get
+
+  def open_api_operation(:peers),
+    do: ApiSpec.spec().paths["/eth/v1/node/peers"].get
+
   @spec health(Plug.Conn.t(), any) :: Plug.Conn.t()
   def health(conn, params) do
-    # TODO: respond with syncing status if we're still syncing
-    _syncing_status = Map.get(params, :syncing_status, 206)
+    %{syncing?: syncing?} = Libp2pPort.sync_status()
 
-    send_resp(conn, 200, "")
+    syncing_status = if syncing?, do: Map.get(params, :syncing_status, 206), else: 200
+
+    send_resp(conn, syncing_status, "")
+  rescue
+    _ -> send_resp(conn, 503, "")
   end
 
   @spec identity(Plug.Conn.t(), any) :: Plug.Conn.t()
@@ -59,6 +68,27 @@ defmodule BeaconApi.V1.NodeController do
     |> json(%{
       "data" => %{
         "version" => "Lambda/#{version}/#{arch}"
+      }
+    })
+  end
+
+  @spec syncing(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def syncing(conn, _params) do
+    %{
+      syncing?: is_syncing,
+      optimistic?: is_optimistic,
+      el_offline?: el_offline,
+      head_slot: head_slot,
+      sync_distance: sync_distance
+    } = Libp2pPort.sync_status()
+
+    json(conn, %{
+      "data" => %{
+        "is_syncing" => is_syncing,
+        "is_optimistic" => is_optimistic,
+        "el_offline" => el_offline,
+        "head_slot" => head_slot |> Integer.to_string(),
+        "sync_distance" => sync_distance |> Integer.to_string()
       }
     })
   end

@@ -48,12 +48,12 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:recase, "~> 0.7"},
       {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
-      {:protobuf, "~> 0.13.0"},
+      {:protobuf, "~> 0.14.0"},
       {:aja, "~> 0.6"},
       {:logfmt_ex, "~> 0.4.2"},
       {:ex2ms, "~> 1.6", runtime: false},
       {:eflambe, "~> 0.3.1"},
-      {:patch, "~> 0.14.0", only: [:test]},
+      {:patch, "~> 0.15.0", only: [:test]},
       {:stream_data, "~> 1.0", only: [:test]},
       {:benchee, "~> 1.2", only: [:dev]},
       {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
@@ -64,7 +64,10 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:sentry, "~> 10.8.0"},
       {:prom_ex, "~> 1.11.0"},
       {:flama, git: "https://github.com/lambdaclass/ht1223_tracer"},
-      {:uuid, "~> 1.1"}
+      {:uuid, "~> 1.1"},
+      # TODO: (#1368) We might want to use phoenix_pubsub instead and do our implementation of SSE.
+      {:sse, "~> 0.4"},
+      {:event_bus, ">= 1.6.0"}
     ]
   end
 
