@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias Types.BeaconState
+  alias Types.BeaconBlockHeader
   alias Types.BlockInfo
   alias Types.SignedBeaconBlock
   alias Types.StateInfo
@@ -73,34 +74,42 @@ defmodule LambdaEthereumConsensus.StateTransition do
   defp process_slot(%BeaconState{} = state) do
     start_time = System.monotonic_time(:millisecond)
 
-    # # Cache state root
-    # previous_state_root = Ssz.hash_tree_root!(state)
-    # slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
-    # cache_index = rem(state.slot, slots_per_historical_root)
-    # roots = List.replace_at(state.state_roots, cache_index, previous_state_root)
-    # state = %BeaconState{state | state_roots: roots}
+    # Cache state root
+    slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
+    cache_index = rem(state.slot, slots_per_historical_root)
+    cache_state_root = Enum.at(state.state_roots, cache_index)
 
-    # # Cache latest block header state root
-    # state =
-    #   if state.latest_block_header.state_root == <<0::256>> do
-    #     block_header = %BeaconBlockHeader{
-    #       state.latest_block_header
-    #       | state_root: previous_state_root
-    #     }
+    state =
+      if cache_state_root || cache_state_root == <<0::256>> do
+        Logger.error("State root not already cached at index #{cache_index}")
 
-    #     %BeaconState{state | latest_block_header: block_header}
-    #   else
-    #     state
-    #   end
+        previous_state_root = Ssz.hash_tree_root!(state)
+        roots = List.replace_at(state.state_roots, cache_index, previous_state_root)
+        state = %BeaconState{state | state_roots: roots}
 
-    # # Cache block root
-    # previous_block_root = Ssz.hash_tree_root!(state.latest_block_header)
-    # roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
+        state =
+          if state.latest_block_header.state_root == <<0::256>> do
+            block_header = %BeaconBlockHeader{
+              state.latest_block_header
+              | state_root: previous_state_root
+            }
+
+            %BeaconState{state | latest_block_header: block_header}
+          else
+            state
+          end
+
+        previous_block_root = Ssz.hash_tree_root!(state.latest_block_header)
+        roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
+
+        %BeaconState{state | block_roots: roots}
+      else
+        state
+      end
 
     end_time = System.monotonic_time(:millisecond)
     Logger.info("[Slot processing] took #{(end_time - start_time) / 1000} s")
 
-    # {:ok, %BeaconState{state | block_roots: roots}}
     {:ok, state}
   end
 
@@ -139,55 +148,55 @@ defmodule LambdaEthereumConsensus.StateTransition do
     Bls.valid?(proposer.pubkey, signing_root, signed_block.signature)
   end
 
-  defp time(res, label, fun) do
-    start_time = System.monotonic_time(:millisecond)
-    res = fun.(res)
-    end_time = System.monotonic_time(:millisecond)
-    Logger.info("[#{label}] took #{(end_time - start_time) / 1000} s")
-    res
-  end
+  # defp time(res, label, fun) do
+  #   start_time = System.monotonic_time(:millisecond)
+  #   res = fun.(res)
+  #   end_time = System.monotonic_time(:millisecond)
+  #   Logger.info("[#{label}] took #{(end_time - start_time) / 1000} s")
+  #   res
+  # end
 
   def process_block(state, block) do
     start_time = System.monotonic_time(:millisecond)
 
     {:ok, state}
-    # |> block_op(:block_header, &Operations.process_block_header(&1, block))
-    |> time(:header, fn res ->
-      block_op(res, :block_header, &Operations.process_block_header(&1, block))
-    end)
-    # |> block_op(:withdrawals, &Operations.process_withdrawals(&1, block.body.execution_payload))
-    |> time(:withdrawals, fn res ->
-      block_op(
-        res,
-        :withdrawals,
-        &Operations.process_withdrawals(&1, block.body.execution_payload)
-      )
-    end)
-    # |> block_op(:execution_payload, &Operations.process_execution_payload(&1, block.body))
-    |> time(:execution_payload, fn res ->
-      block_op(res, :execution_payload, &Operations.process_execution_payload(&1, block.body))
-    end)
-    # |> block_op(:randao, &Operations.process_randao(&1, block.body))
-    |> time(:randao, fn res ->
-      block_op(res, :randao, &Operations.process_randao(&1, block.body))
-    end)
-    # |> block_op(:eth1_data, &Operations.process_eth1_data(&1, block.body))
-    |> time(:eth1_data, fn res ->
-      block_op(res, :eth1_data, &Operations.process_eth1_data(&1, block.body))
-    end)
-    # |> map_ok(&Operations.process_operations(&1, block.body))
-    |> time(:operations, fn res -> map_ok(res, &Operations.process_operations(&1, block.body)) end)
-    # |> block_op(
-    #   :sync_aggregate,
-    #   &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
-    # )
-    |> time(:sync_aggregate, fn res ->
-      block_op(
-        res,
-        :sync_aggregate,
-        &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
-      )
-    end)
+    |> block_op(:block_header, &Operations.process_block_header(&1, block))
+    # |> time(:header, fn res ->
+    #   block_op(res, :block_header, &Operations.process_block_header(&1, block))
+    # end)
+    |> block_op(:withdrawals, &Operations.process_withdrawals(&1, block.body.execution_payload))
+    # |> time(:withdrawals, fn res ->
+    #   block_op(
+    #     res,
+    #     :withdrawals,
+    #     &Operations.process_withdrawals(&1, block.body.execution_payload)
+    #   )
+    # end)
+    |> block_op(:execution_payload, &Operations.process_execution_payload(&1, block.body))
+    # |> time(:execution_payload, fn res ->
+    #   block_op(res, :execution_payload, &Operations.process_execution_payload(&1, block.body))
+    # end)
+    |> block_op(:randao, &Operations.process_randao(&1, block.body))
+    # |> time(:randao, fn res ->
+    #   block_op(res, :randao, &Operations.process_randao(&1, block.body))
+    # end)
+    |> block_op(:eth1_data, &Operations.process_eth1_data(&1, block.body))
+    # |> time(:eth1_data, fn res ->
+    #   block_op(res, :eth1_data, &Operations.process_eth1_data(&1, block.body))
+    # end)
+    |> map_ok(&Operations.process_operations(&1, block.body))
+    # |> time(:operations, fn res -> map_ok(res, &Operations.process_operations(&1, block.body)) end)
+    |> block_op(
+      :sync_aggregate,
+      &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
+    )
+    # |> time(:sync_aggregate, fn res ->
+    #   block_op(
+    #     res,
+    #     :sync_aggregate,
+    #     &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
+    #   )
+    # end)
     |> tap(fn _ ->
       end_time = System.monotonic_time(:millisecond)
       Logger.info("[Block processing] took #{(end_time - start_time) / 1000} s")
