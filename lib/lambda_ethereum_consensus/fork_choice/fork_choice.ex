@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   """
 
   require Logger
+  alias BeaconApi.EventPubSub
   alias LambdaEthereumConsensus.Execution.ExecutionChain
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
@@ -71,6 +72,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
           StoreDb.persist_store(store)
 
           Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
+          EventPubSub.publish(:block, %{root: block_root, slot: slot})
 
           Logger.info("[Fork choice] Recomputed head",
             slot: store.head_slot,
