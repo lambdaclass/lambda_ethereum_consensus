@@ -87,7 +87,7 @@ defmodule Types.StateInfo do
 
   @spec validate_term(term()) :: {:ok, binary(), Types.root(), Types.root()} | {:error, binary()}
   defp validate_term({ssz_encoded, root, block_root})
-       when is_binary(ssz_encoded) and is_binary(root) and is_binary(root) do
+       when is_binary(ssz_encoded) and is_binary(root) and is_binary(block_root) do
     {:ok, ssz_encoded, root, block_root}
   end
 
