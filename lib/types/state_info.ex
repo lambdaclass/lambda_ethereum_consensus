@@ -7,7 +7,6 @@ defmodule Types.StateInfo do
     state after
   Warning: Do not modify this manually. If you do, you may need to re-encode the beacon state using `from_beacon_state`.
   """
-  alias Types.BeaconBlockHeader
   alias Types.BeaconState
 
   defstruct [:root, :beacon_state, :encoded, :block_root]
@@ -21,45 +20,20 @@ defmodule Types.StateInfo do
 
   @spec from_beacon_state(Types.BeaconState.t(), keyword()) :: {:ok, t()} | {:error, binary()}
   def from_beacon_state(%BeaconState{} = state, fields \\ []) do
-    state_root = Ssz.hash_tree_root!(state)
-
-    slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
-    cache_index = rem(state.slot, slots_per_historical_root)
-    roots = List.replace_at(state.state_roots, cache_index, state_root)
-    state = %BeaconState{state | state_roots: roots}
-
-    # Cache latest block header state root
-    state =
-      if state.latest_block_header.state_root == <<0::256>> do
-        block_header = %BeaconBlockHeader{
-          state.latest_block_header
-          | state_root: state_root
-        }
-
-        %BeaconState{state | latest_block_header: block_header}
-      else
-        state
-      end
-
-    # Cache block root
-    {:ok, block_root} =
-      fetch_lazy(fields, :block_root, fn ->
-        # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
-        Ssz.hash_tree_root(state.latest_block_header)
-      end)
-
-    roots = List.replace_at(state.block_roots, cache_index, block_root)
-
-    state = %BeaconState{state | block_roots: roots}
-
-    with {:ok, encoded} <- fetch_lazy(fields, :encoded, fn -> Ssz.to_ssz(state) end) do
-      {:ok, from_beacon_state(state, encoded, state_root, block_root)}
+    with {:ok, encoded} <- fetch_lazy(fields, :encoded, fn -> Ssz.to_ssz(state) end),
+         {:ok, block_root} <-
+           fetch_lazy(fields, :block_root, fn ->
+             # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
+             Ssz.hash_tree_root(state.latest_block_header)
+           end) do
+      {:ok, from_beacon_state(state, encoded, block_root)}
     end
   end
 
-  @spec from_beacon_state(Types.BeaconState.t(), binary(), Types.root(), Types.root()) :: t()
-  def from_beacon_state(%BeaconState{} = state, encoded, state_root, block_root) do
-    %__MODULE__{root: state_root, beacon_state: state, encoded: encoded, block_root: block_root}
+  @spec from_beacon_state(Types.BeaconState.t(), binary(), Types.root()) :: t()
+  def from_beacon_state(%BeaconState{} = state, encoded, block_root) do
+    root = Ssz.hash_tree_root!(state)
+    %__MODULE__{root: root, beacon_state: state, encoded: encoded, block_root: block_root}
   end
 
   @spec encode(t()) :: binary()
@@ -87,7 +61,7 @@ defmodule Types.StateInfo do
 
   @spec validate_term(term()) :: {:ok, binary(), Types.root(), Types.root()} | {:error, binary()}
   defp validate_term({ssz_encoded, root, block_root})
-       when is_binary(ssz_encoded) and is_binary(root) and is_binary(block_root) do
+       when is_binary(ssz_encoded) and is_binary(root) and is_binary(root) do
     {:ok, ssz_encoded, root, block_root}
   end
 
