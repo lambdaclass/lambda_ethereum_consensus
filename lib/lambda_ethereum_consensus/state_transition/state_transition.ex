@@ -20,7 +20,13 @@ defmodule LambdaEthereumConsensus.StateTransition do
   @spec verified_transition(StateInfo.t() | BeaconState.t(), BlockInfo.t()) ::
           {:ok, StateInfo.t()} | {:error, String.t()}
   def verified_transition(%StateInfo{} = state_info, block_info) do
-    previous_roots = %{state_info.beacon_state.slot => %{state_root: state_info.root, block_root: state_info.block_root}}
+    previous_roots = %{
+      state_info.beacon_state.slot => %{
+        state_root: state_info.root,
+        block_root: state_info.block_root
+      }
+    }
+
     verified_transition(state_info.beacon_state, block_info, previous_roots)
   end
 
@@ -84,13 +90,17 @@ defmodule LambdaEthereumConsensus.StateTransition do
     slot_previous_roots = Map.get(previous_roots, state.slot, nil)
 
     # Cache state root
-    previous_state_root = if slot_previous_roots do
-      Logger.info("Processing slot #{state.slot}, previous state root", root: slot_previous_roots.state_root)
-      slot_previous_roots.state_root
-    else
-      Logger.warning("Processing slot #{state.slot}, no previous state root")
-      Ssz.hash_tree_root!(state)
-    end
+    previous_state_root =
+      if slot_previous_roots do
+        Logger.info("Processing slot #{state.slot}, previous state root",
+          root: slot_previous_roots.state_root
+        )
+
+        slot_previous_roots.state_root
+      else
+        Logger.warning("Processing slot #{state.slot}, no previous state root")
+        Ssz.hash_tree_root!(state)
+      end
 
     slots_per_historical_root = ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")
     cache_index = rem(state.slot, slots_per_historical_root)
@@ -111,13 +121,17 @@ defmodule LambdaEthereumConsensus.StateTransition do
       end
 
     # Cache block root
-    previous_block_root = if slot_previous_roots do
-      Logger.info("Processing slot #{state.slot}, previous block root", root: slot_previous_roots.block_root)
-      slot_previous_roots.block_root
-    else
-      Logger.warning("Processing slot #{state.slot}, no previous block root")
-      Ssz.hash_tree_root!(state.latest_block_header)
-    end
+    previous_block_root =
+      if slot_previous_roots do
+        Logger.info("Processing slot #{state.slot}, previous block root",
+          root: slot_previous_roots.block_root
+        )
+
+        slot_previous_roots.block_root
+      else
+        Logger.warning("Processing slot #{state.slot}, no previous block root")
+        Ssz.hash_tree_root!(state.latest_block_header)
+      end
 
     roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
 

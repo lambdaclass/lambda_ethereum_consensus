@@ -79,7 +79,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
             root: store.head_root
           )
 
-          Logger.info("[Fork choice] Block processing time: #{(block_end_time - start_time) / 1000} s | Head recompute time: #{(recompute_end_time - block_end_time) / 1000} s")
+          Logger.info(
+            "[Fork choice] Block processing time: #{(block_end_time - start_time) / 1000} s | Head recompute time: #{(recompute_end_time - block_end_time) / 1000} s"
+          )
         end)
         |> then(&{:ok, &1})
 
