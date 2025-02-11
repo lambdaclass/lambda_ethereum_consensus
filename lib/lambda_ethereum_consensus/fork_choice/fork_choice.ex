@@ -72,7 +72,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
             slot: store.head_slot,
             root: store.head_root
           )
-
         end)
         |> then(&{:ok, &1})
 
