@@ -75,7 +75,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
     Enum.reduce((old_slot + 1)..slot//1, {:ok, state}, fn next_slot, acc ->
       acc
-      |> map_ok(&process_slot(&1, previous_roots))
+      |> map_ok(&apply_process_slot(&1, previous_roots))
       # Process epoch on the start slot of the next epoch
       |> map_ok(&maybe_process_epoch(&1, rem(next_slot, slots_per_epoch)))
       |> map_ok(&{:ok, %BeaconState{&1 | slot: next_slot}})
@@ -84,6 +84,10 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   defp maybe_process_epoch(%BeaconState{} = state, 0), do: process_epoch(state)
   defp maybe_process_epoch(%BeaconState{} = state, _slot_in_epoch), do: {:ok, state}
+
+  defp apply_process_slot(state, previous_roots) do
+    Metrics.span_operation(:process_slot, nil, nil, fn -> process_slot(state, previous_roots) end)
+  end
 
   defp process_slot(%BeaconState{} = state, previous_roots) do
     start_time = System.monotonic_time(:millisecond)
