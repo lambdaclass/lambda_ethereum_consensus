@@ -1,5 +1,5 @@
-alias SszEx.Merkleization
 alias LambdaEthereumConsensus.Store.StateDb
+alias SszEx.Merkleization
 alias Types.BeaconState
 
 # To run these benchmarks, you need a BeaconState stored in the Db beforehand.
