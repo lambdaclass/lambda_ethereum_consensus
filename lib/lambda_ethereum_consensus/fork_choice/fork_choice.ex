@@ -42,8 +42,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec on_block(Store.t(), BlockInfo.t()) :: {:ok, Store.t()} | {:error, String.t(), Store.t()}
   def on_block(store, %BlockInfo{} = block_info) do
-    start_time = System.monotonic_time(:millisecond)
-
     slot = block_info.signed_block.message.slot
     block_root = block_info.root
 
@@ -55,8 +53,6 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       :telemetry.span([:sync, :on_block], %{}, fn ->
         {process_block(block_info, store), %{}}
       end)
-
-    block_end_time = System.monotonic_time(:millisecond)
 
     case result do
       {:ok, new_store} ->
@@ -72,16 +68,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
           Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
           EventPubSub.publish(:block, %{root: block_root, slot: slot})
 
-          recompute_end_time = System.monotonic_time(:millisecond)
-
           Logger.info("[Fork choice] Recomputed head",
             slot: store.head_slot,
             root: store.head_root
           )
 
-          Logger.info(
-            "[Fork choice] Block processing time: #{(block_end_time - start_time) / 1000} s | Head recompute time: #{(recompute_end_time - block_end_time) / 1000} s"
-          )
         end)
         |> then(&{:ok, &1})
 

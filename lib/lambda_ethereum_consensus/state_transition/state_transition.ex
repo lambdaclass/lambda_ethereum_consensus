@@ -21,6 +21,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
           {:ok, StateInfo.t()} | {:error, String.t()}
   def verified_transition(%StateInfo{} = state_info, block_info) do
     previous_roots = %{
+      # We store the roots indexed by slot number to ensure slot matches when reusing them.
       state_info.beacon_state.slot => %{
         state_root: state_info.root,
         block_root: state_info.block_root
