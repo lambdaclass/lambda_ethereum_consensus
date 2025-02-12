@@ -24,7 +24,7 @@ defmodule BitVectorTest do
       bv = BitVector.new(<<0, 0, 0, 1>>, 25)
       serialized_1 = BitVector.to_bytes(bv)
 
-      # As this is only 25 bits, a shift should make the bit dissappear.
+      # As this is only 25 bits, a shift should make the bit disappear.
       serialized_2 =
         bv
         |> BitVector.shift_higher(1)
