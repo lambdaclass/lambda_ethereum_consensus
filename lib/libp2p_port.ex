@@ -113,7 +113,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @spec notify_new_head(Types.slot(), Types.root()) :: :ok
   def notify_new_head(slot, head_root) do
-    # TODO: This is quick workarround to notify the libp2p port about new heads from within
+    # TODO: This is quick workaround to notify the libp2p port about new heads from within
     # the ForkChoice.recompute_head/1 without moving the validators to the store this
     # allows to deferr that move until we simplify the state and remove duplicates.
     # THIS IS NEEDED BECAUSE FORKCHOICE IS CURRENTLY RUNNING ON LIBP2P PORT.

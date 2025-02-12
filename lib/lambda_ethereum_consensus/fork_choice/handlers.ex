@@ -261,7 +261,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def notify_forkchoice_update(store, head_block) do
     finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)
 
-    # TODO: do someting with the result from the execution client
+    # TODO: do something with the result from the execution client
     ExecutionClient.notify_forkchoice_updated(%{
       finalized_block_hash: finalized_block.body.execution_payload.block_hash,
       head_block_hash: head_block.body.execution_payload.block_hash,
@@ -296,7 +296,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     # Update store time
     store = %Store{store | time: time}
 
-    # Why is this needed? the previous line shoud be immediate.
+    # Why is this needed? the previous line should be immediate.
     current_slot = ForkChoice.get_current_slot(store)
 
     store
