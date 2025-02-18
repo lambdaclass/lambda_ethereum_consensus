@@ -49,7 +49,7 @@ func (g GossipTracer) Join(topic string) {
 }
 
 func (g GossipTracer) Leave(topic string) {
-	notification := proto_helpers.LeaveNofication(topic)
+	notification := proto_helpers.LeaveNotification(topic)
 	g.port.SendNotification(&notification)
 }
 
