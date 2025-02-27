@@ -18,6 +18,7 @@ defmodule BeaconApi.Router do
       get("/blocks/:block_id/root", BeaconController, :get_block_root)
       get("/states/:state_id/finality_checkpoints", BeaconController, :get_finality_checkpoints)
       get("/headers/:block_id", BeaconController, :get_headers_by_block)
+      get("/headers", BeaconController, :get_headers)
     end
 
     scope "/config" do
