@@ -219,4 +219,77 @@ defmodule BeaconApi.V1.BeaconController do
   end
 
   def get_headers_by_block(conn, _params), do: conn |> ErrorController.not_found(nil)
+
+  @spec get_headers(Plug.Conn.t(), any) :: Plug.Conn.t()
+  def get_headers(conn, params) do
+    slot = if params["slot"], do: String.to_integer(params["slot"]), else: nil
+    parent_root = params["parent_root"]
+
+    result =
+      case {slot, parent_root} do
+        {nil, nil} ->
+          # No query params: return canonical head block.
+          with {:ok, {signed_block, exec_opt, finalized}} <- Helpers.block_by_block_id(:head),
+               {:ok, {root, _, _}} <- Helpers.block_root_by_block_id(:head) do
+            {:ok, {signed_block, root, exec_opt, finalized}}
+          end
+
+        {nil, parent_root} when is_binary(parent_root) ->
+          # Only parent_root provided: find parent's block info then search for the first non-empty block.
+          with {:ok, parent_info} <- BlockDb.get_block_info(parent_root),
+               parent_slot = parent_info.signed_block.message.slot,
+               {:ok, {signed_block, exec_opt, finalized}} <-
+                 Helpers.find_first_block(parent_slot + 1),
+               {:ok, {root, _, _}} <- Helpers.block_root_by_block_id(signed_block.message.slot) do
+            {:ok, {signed_block, root, exec_opt, finalized}}
+          end
+
+        {slot, parent_root} when is_integer(slot) ->
+          # Slot provided; if a parent_root is given, validate it.
+          with {:ok, {signed_block, exec_opt, finalized}} <- Helpers.block_by_block_id(slot),
+               {:ok, {root, _, _}} <- Helpers.block_root_by_block_id(slot) do
+            if parent_root && signed_block.message.parent_root != parent_root do
+              {:error, "No block at slot #{slot} with parent root #{parent_root}"}
+            else
+              {:ok, {signed_block, exec_opt, finalized}}
+            end
+          end
+      end
+
+    case result do
+      {:ok, {block, root, execution_optimistic, finalized}} ->
+        header_data = %{
+          root: root,
+          # NOTE: Assuming all returned blocks are canonical
+          canonical: true,
+          header: %{
+            message: %{
+              slot: block.message.slot,
+              proposer_index: block.message.proposer_index,
+              parent_root: block.message.parent_root,
+              state_root: block.message.state_root,
+              body_root: block.message.body_root
+            },
+            signature: block.signature
+          }
+        }
+
+        conn
+        |> json(%{
+          data: [header_data],
+          execution_optimistic: execution_optimistic,
+          finalized: finalized
+        })
+
+      {:error, message} ->
+        conn
+        |> put_status(404)
+        |> json(%{message: message})
+
+      _ ->
+        conn
+        |> put_status(404)
+        |> json(%{message: "Block not found"})
+    end
+  end
 end

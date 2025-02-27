@@ -176,4 +176,18 @@ defmodule BeaconApi.Helpers do
 
   defp check_valid_slot(slot, _current_slot),
     do: {:error, "slot #{slot} cannot be greater than current slot"}
+
+  def find_first_block(slot) do
+    case block_by_block_id(slot) do
+      :empty_slot ->
+        # If it's an empty slot, try the next slot.
+        find_first_block(slot + 1)
+
+      {:ok, {signed_block, execution_optimistic, finalized}} = result ->
+        result
+
+      error ->
+        error
+    end
+  end
 end
