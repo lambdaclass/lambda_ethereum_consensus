@@ -132,9 +132,6 @@ keys = ["8becf17451828f62a0a0552f224c6cbaff181cb8951fc42ea5012d1026b5be7dbf05129
 public_key =
     Base.decode16!(
       "a491d1b0ecd9bb917989f0e74f0dea0422eac4a873e5e2644f368dffb9a6e20fd6e10c1b77654d067c0618f6e5a7f79a",
-      #"c491d1b0ecd9bb917989f0e74f0dea0422eac4a873e5e2644f368dffb9a6e20fd6e10c1b77654d067c0618f6e5a7f79a",
-      #"c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      #"a4917989f0e74f0dea0422eac4a873e5e2644f368dffb9a6e20fd6e10c1b77654d067c0618f6e5a7f79a",
       case: :mixed
     )
 message =
@@ -148,24 +145,13 @@ signature =
     case: :mixed
   )
 
-# {:ok, result} = Bls.fast_aggregate_verify([public_key], message, signature)
-# Logger.info("Result: #{result}")
-
 all_keys = keys |> Enum.map(fn x -> Base.decode16!(x, case: :mixed) end)
 
 one_pk = [public_key]
 ten_pks = List.duplicate(public_key, 10)
-hundred_pks = all_keys
-hundred_and_twenty_eight_pks = List.duplicate(public_key, 128)
+hundred_pks = List.duplicate(public_key, 100)
+hundred_and_twenty_eight_pks = all_keys
 thousand_pks = List.duplicate(public_key, 1000)
-# generate = fn(n) -> for i <- 1..n, do: :rand.bytes(32) end
-
-# one_pk = generate.(1)
-# ten_pks = generate.(10)
-# hundred_pks = generate.(100)
-# thousand_pks = generate.(1000)
-
-
 
 Benchee.run(
   %{

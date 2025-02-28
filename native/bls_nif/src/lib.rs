@@ -12,18 +12,19 @@ pub(crate) fn bytes_to_binary<'env>(env: Env<'env>, bytes: &[u8]) -> Binary<'env
 
 // Deserialize a PublicKey from a slice of bytes.
 // Faster than PublicKey::deserialize() as it doesn't validate the key
-// Returns Error on invalid BLST encoding.
-// TODO: check if any of the other validations are required in some case
-//       eg. we are now allowing Infinity Public Key, which can actually be a non-issue
-// see (https://github.com/supranational/blst/issues/11)
+// Returns Error on invalid BLST encoding or on Infinity Public Key.
 fn fast_public_key_deserialize(pk: &[u8]) -> Result<PublicKey, String> {
-    bls::impls::blst::types::PublicKey::from_bytes(pk)
-        .map(|pk| {
-            PublicKey::deserialize_uncompressed(pk.serialize().as_slice())
-                // This unwrap() is safe as the Public Key is created from an uncompressed valid key
-                .unwrap()
-        })
-        .map_err(|err| format!("{:?}", err))
+    if pk == &bls::INFINITY_PUBLIC_KEY[..] {
+        Err("Infinity public Key".to_owned())
+    } else {
+        bls::impls::blst::types::PublicKey::from_bytes(pk)
+            .map(|pk| {
+                PublicKey::deserialize_uncompressed(pk.serialize().as_slice())
+                    // This unwrap() is safe as the Public Key is created from an uncompressed valid key
+                    .unwrap()
+            })
+            .map_err(|err| format!("{:?}", err))
+    }
 }
 
 #[rustler::nif]
