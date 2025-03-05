@@ -174,8 +174,7 @@ fn eth_aggregate_pubkeys<'env>(
 }
 #[rustler::nif]
 fn key_validate<'env>(public_key: Binary) -> Result<bool, String> {
-    let _pubkey =
-        fast_public_key_deserialize(public_key.as_slice())?;
+    let _pubkey = fast_public_key_deserialize(public_key.as_slice())?;
 
     Ok(true)
 }
