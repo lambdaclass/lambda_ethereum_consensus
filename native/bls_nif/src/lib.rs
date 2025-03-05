@@ -23,7 +23,7 @@ fn fast_public_key_deserialize(pk: &[u8]) -> Result<PublicKey, String> {
                     // This unwrap() is safe as the Public Key is created from an uncompressed valid key
                     .unwrap()
             })
-            .map_err(|err| format!("{:?}", err))
+            .map_err(|err| format!("BlstError({:?})", err))
     }
 }
 
@@ -175,7 +175,7 @@ fn eth_aggregate_pubkeys<'env>(
 #[rustler::nif]
 fn key_validate<'env>(public_key: Binary) -> Result<bool, String> {
     let _pubkey =
-        fast_public_key_deserialize(public_key.as_slice()).map_err(|err| format!("{:?}", err))?;
+        fast_public_key_deserialize(public_key.as_slice())?;
 
     Ok(true)
 }
