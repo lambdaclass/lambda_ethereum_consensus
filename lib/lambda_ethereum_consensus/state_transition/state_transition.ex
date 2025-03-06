@@ -97,13 +97,13 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Cache state root
     previous_state_root =
       if slot_previous_roots do
-        Logger.info("Processing slot #{state.slot}, previous state root",
+        Logger.debug("Slot #{state.slot}: previous state root in cache",
           root: slot_previous_roots.state_root
         )
 
         slot_previous_roots.state_root
       else
-        Logger.warning("Processing slot #{state.slot}, no previous state root")
+        Logger.warning("Slot #{state.slot}: no previous state root in cache")
         Ssz.hash_tree_root!(state)
       end
 
@@ -128,13 +128,13 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Cache block root
     previous_block_root =
       if slot_previous_roots do
-        Logger.info("Processing slot #{state.slot}, previous block root",
+        Logger.debug("Slot #{state.slot}, previous block root in cache",
           root: slot_previous_roots.block_root
         )
 
         slot_previous_roots.block_root
       else
-        Logger.warning("Processing slot #{state.slot}, no previous block root")
+        Logger.warning("Slot #{state.slot}, no previous block root in cache")
         Ssz.hash_tree_root!(state.latest_block_header)
       end
 
