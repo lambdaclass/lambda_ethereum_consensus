@@ -10,6 +10,23 @@ pub(crate) fn bytes_to_binary<'env>(env: Env<'env>, bytes: &[u8]) -> Binary<'env
     binary.into()
 }
 
+// Deserialize a PublicKey from a slice of bytes.
+// Faster than PublicKey::deserialize() as it doesn't validate the key
+// Returns Error on invalid BLST encoding or on Infinity Public Key.
+fn fast_public_key_deserialize(pk: &[u8]) -> Result<PublicKey, String> {
+    if pk == &bls::INFINITY_PUBLIC_KEY[..] {
+        Err("Infinity public Key".to_owned())
+    } else {
+        bls::impls::blst::types::PublicKey::from_bytes(pk)
+            .map_err(|err| format!("BlstError({:?})", err))
+            .and_then(|pk| {
+                PublicKey::deserialize_uncompressed(pk.serialize().as_slice())
+                    // This should never be an error as the pk is obtained from an uncompressed valid key
+                    .map_err(|e| format!("Deserialization error: {:?}", e))
+            })
+    }
+}
+
 #[rustler::nif]
 fn sign<'env>(
     env: Env<'env>,
@@ -59,7 +76,7 @@ fn verify<'env>(public_key: Binary, message: Binary, signature: Binary) -> Resul
     }
     let sig = Signature::deserialize(signature.as_slice()).map_err(|err| format!("{:?}", err))?;
     let pubkey =
-        PublicKey::deserialize(public_key.as_slice()).map_err(|err| format!("{:?}", err))?;
+        fast_public_key_deserialize(public_key.as_slice()).map_err(|err| format!("{:?}", err))?;
 
     Ok(sig.verify(&pubkey, Hash256::from_slice(message.as_slice())))
 }
@@ -74,7 +91,7 @@ fn aggregate_verify<'env>(
         .map_err(|err| format!("{:?}", err))?;
     let pubkeys_result = public_keys
         .iter()
-        .map(|pkb| PublicKey::deserialize(pkb.as_slice()))
+        .map(|pkb| fast_public_key_deserialize(pkb.as_slice()))
         .collect::<Result<Vec<PublicKey>, _>>();
     let pubkeys = pubkeys_result.map_err(|err| format!("{:?}", err))?;
 
@@ -86,7 +103,7 @@ fn aggregate_verify<'env>(
     Ok(aggregate_sig.aggregate_verify(&msgs, &pubkey_refs))
 }
 
-#[rustler::nif]
+#[rustler::nif(schedule = "DirtyCpu")]
 fn fast_aggregate_verify<'env>(
     public_keys: Vec<Binary>,
     message: Binary,
@@ -99,7 +116,8 @@ fn fast_aggregate_verify<'env>(
         .map_err(|err| format!("{:?}", err))?;
     let pubkeys_result = public_keys
         .iter()
-        .map(|pkb| PublicKey::deserialize(pkb.as_slice()))
+        .map(|pkb| fast_public_key_deserialize(pkb.as_slice()))
+        //.map(|pkb| PublicKey::deserialize(pkb.as_slice()))
         .collect::<Result<Vec<PublicKey>, _>>();
     let pubkeys = pubkeys_result.map_err(|err| format!("{:?}", err))?;
 
@@ -120,7 +138,7 @@ fn eth_fast_aggregate_verify<'env>(
         .map_err(|err| format!("{:?}", err))?;
     let pubkeys_result = public_keys
         .iter()
-        .map(|pkb| PublicKey::deserialize(pkb.as_slice()))
+        .map(|pkb| fast_public_key_deserialize(pkb.as_slice()))
         .collect::<Result<Vec<PublicKey>, _>>();
     let pubkeys = pubkeys_result.map_err(|err| format!("{:?}", err))?;
 
@@ -139,7 +157,7 @@ fn eth_aggregate_pubkeys<'env>(
         _ => {
             let pubkeys_result = public_keys
                 .iter()
-                .map(|pkb| PublicKey::deserialize(pkb.as_slice()))
+                .map(|pkb| fast_public_key_deserialize(pkb.as_slice()))
                 .collect::<Result<Vec<PublicKey>, _>>();
 
             let pubkeys = pubkeys_result.map_err(|err| format!("{:?}", err))?;
@@ -156,8 +174,7 @@ fn eth_aggregate_pubkeys<'env>(
 }
 #[rustler::nif]
 fn key_validate<'env>(public_key: Binary) -> Result<bool, String> {
-    let _pubkey =
-        PublicKey::deserialize(public_key.as_slice()).map_err(|err| format!("{:?}", err))?;
+    let _pubkey = fast_public_key_deserialize(public_key.as_slice())?;
 
     Ok(true)
 }
@@ -173,17 +190,4 @@ fn derive_pubkey<'env>(env: Env<'env>, private_key: Binary) -> Result<Binary<'en
     Ok(bytes_to_binary(env, &public_key_bytes))
 }
 
-rustler::init!(
-    "Elixir.Bls",
-    [
-        sign,
-        aggregate,
-        aggregate_verify,
-        fast_aggregate_verify,
-        eth_fast_aggregate_verify,
-        eth_aggregate_pubkeys,
-        verify,
-        key_validate,
-        derive_pubkey
-    ]
-);
+rustler::init!("Elixir.Bls");
