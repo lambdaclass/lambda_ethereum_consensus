@@ -18,12 +18,12 @@ fn fast_public_key_deserialize(pk: &[u8]) -> Result<PublicKey, String> {
         Err("Infinity public Key".to_owned())
     } else {
         bls::impls::blst::types::PublicKey::from_bytes(pk)
-            .map(|pk| {
-                PublicKey::deserialize_uncompressed(pk.serialize().as_slice())
-                    // This unwrap() is safe as the Public Key is created from an uncompressed valid key
-                    .unwrap()
-            })
             .map_err(|err| format!("BlstError({:?})", err))
+            .and_then(|pk| {
+                PublicKey::deserialize_uncompressed(pk.serialize().as_slice())
+                    // This should never be an error as the pk is obtained from an uncompressed valid key
+                    .map_err(|e| format!("Deserialization error: {:?}", e))
+            })
     }
 }
 
