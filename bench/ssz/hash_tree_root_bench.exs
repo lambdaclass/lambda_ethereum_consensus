@@ -1,12 +1,11 @@
-alias LambdaEthereumConsensus.SszEx
-alias LambdaEthereumConsensus.SszEx.Merkleization
 alias LambdaEthereumConsensus.Store.StateDb
+alias SszEx.Merkleization
 alias Types.BeaconState
 
 # To run these benchmarks, you need a BeaconState stored in the Db beforehand.
 # The --mode db flag is also needed.
 
-{:ok, state} = StateDb.get_latest_state()
+{:ok, %{beacon_state: state}} = StateDb.get_latest_state()
 :mainnet = ChainSpec.get_preset()
 
 Benchee.run(
