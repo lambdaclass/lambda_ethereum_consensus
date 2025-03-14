@@ -9,6 +9,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
@@ -156,9 +157,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   defp check_valid_indexed_attestation(target_state, indexed_attestation) do
-    if Predicates.valid_indexed_attestation?(target_state, indexed_attestation),
-      do: :ok,
-      else: {:error, "invalid indexed attestation"}
+    Cache.lazily_compute(
+      :valid_indexed_attestations,
+      {indexed_attestation.data.target.epoch, indexed_attestation},
+      fn ->
+        if Predicates.valid_indexed_attestation?(target_state, indexed_attestation),
+          do: :ok,
+          else: {:error, "invalid indexed attestation"}
+      end
+    )
   end
 
   @doc """
