@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Mutators
@@ -859,11 +860,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_valid_indexed_attestation(state, indexed_attestation) do
-    if Predicates.valid_indexed_attestation?(state, indexed_attestation) do
-      :ok
-    else
-      {:error, "Invalid signature"}
-    end
+    Cache.lazily_compute(
+      :valid_indexed_attestations,
+      {indexed_attestation.data.target.epoch, indexed_attestation},
+      fn ->
+        if Predicates.valid_indexed_attestation?(state, indexed_attestation) do
+          :ok
+        else
+          {:error, "Invalid signature"}
+        end
+      end
+    )
   end
 
   def process_bls_to_execution_change(state, signed_address_change) do
