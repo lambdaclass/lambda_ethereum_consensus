@@ -15,8 +15,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
     :beacon_committee,
     # k = {epoch, root} ; v = Aja.vec(index)
     :active_validator_indices,
-    #
-    :valid_indexed_attestations
+    # k = {epoch, attestation} ; v = boolean
+    :valid_indexed_attestations,
+    # k = {epoch, attestation} ; v = indexed_attestation
+    :indexed_attestations
   ]
 
   @epoch_retain_window 3
@@ -45,6 +47,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
   defp generate_cleanup_spec(:beacon_committee, key), do: cleanup_slot_ms(key)
   defp generate_cleanup_spec(:active_validator_indices, key), do: cleanup_epoch_ms(key)
   defp generate_cleanup_spec(:valid_indexed_attestations, key), do: cleanup_epoch_ms(key)
+  defp generate_cleanup_spec(:indexed_attestations, key), do: cleanup_epoch_ms(key)
 
   @spec initialize_cache() :: :ok
   def initialize_cache(), do: @tables |> Enum.each(&init_table/1)

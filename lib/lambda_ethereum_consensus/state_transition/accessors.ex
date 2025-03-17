@@ -552,27 +552,41 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   @spec get_indexed_attestation(BeaconState.t(), Attestation.t()) ::
           {:ok, IndexedAttestation.t()} | {:error, String.t()}
   def get_indexed_attestation(%BeaconState{} = state, attestation) do
-    with {:ok, indices} <-
-           get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
-      %IndexedAttestation{
-        attesting_indices: Enum.sort(indices),
-        data: attestation.data,
-        signature: attestation.signature
-      }
-      |> then(&{:ok, &1})
-    end
+    Cache.lazily_compute(
+      :indexed_attestations,
+      {attestation.data.target.epoch, attestation},
+      fn ->
+        with {:ok, indices} <-
+          get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
+          %IndexedAttestation{
+            attesting_indices: Enum.sort(indices),
+            data: attestation.data,
+            signature: attestation.signature
+          }
+          |> then(&{:ok, &1})
+        end
+      end
+    )
   end
 
   @spec get_committee_indexed_attestation([Types.validator_index()], Attestation.t()) ::
           IndexedAttestation.t()
   def get_committee_indexed_attestation(beacon_committee, attestation) do
-    indices = get_committee_attesting_indices(beacon_committee, attestation.aggregation_bits)
+    {:ok, result} = Cache.lazily_compute(
+      :indexed_attestations,
+      {attestation.data.target.epoch, attestation},
+      fn ->
+        indices = get_committee_attesting_indices(beacon_committee, attestation.aggregation_bits)
 
-    %IndexedAttestation{
-      attesting_indices: indices,
-      data: attestation.data,
-      signature: attestation.signature
-    }
+        %IndexedAttestation{
+          attesting_indices: indices,
+          data: attestation.data,
+          signature: attestation.signature
+        }
+        |> then(&{:ok, &1})
+      end
+    )
+    result
   end
 
   @doc """

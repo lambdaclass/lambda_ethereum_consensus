@@ -598,7 +598,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          :ok <- check_matching_aggregation_bits_length(attestation, beacon_committee) do
       beacon_committee
       |> Accessors.get_committee_indexed_attestation(attestation)
-      |> then(&check_valid_indexed_attestation(state, &1))
+      |> then(&check_valid_indexed_attestation(state, &1, attestation))
     end
   end
 
@@ -859,10 +859,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp check_valid_indexed_attestation(state, indexed_attestation) do
+  def check_valid_indexed_attestation(state, indexed_attestation, attestation) do
     Cache.lazily_compute(
       :valid_indexed_attestations,
-      {indexed_attestation.data.target.epoch, indexed_attestation},
+      {indexed_attestation.data.target.epoch, attestation},
       fn ->
         if Predicates.valid_indexed_attestation?(state, indexed_attestation) do
           :ok

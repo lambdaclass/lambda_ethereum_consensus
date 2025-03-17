@@ -9,9 +9,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
-  alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.StateTransition.Misc
+  alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
@@ -136,7 +136,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
          {new_store, target_state} <- Store.get_checkpoint_state(store, attestation.data.target),
          {:ok, indexed_attestation} <-
            Accessors.get_indexed_attestation(target_state, attestation),
-         :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do
+         :ok <- Operations.check_valid_indexed_attestation(target_state, indexed_attestation, attestation) do
       # Update latest messages for attesting indices
       update_latest_messages(new_store, indexed_attestation.attesting_indices, attestation)
     else
@@ -154,18 +154,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       v ->
         v
     end
-  end
-
-  defp check_valid_indexed_attestation(target_state, indexed_attestation) do
-    Cache.lazily_compute(
-      :valid_indexed_attestations,
-      {indexed_attestation.data.target.epoch, indexed_attestation},
-      fn ->
-        if Predicates.valid_indexed_attestation?(target_state, indexed_attestation),
-          do: :ok,
-          else: {:error, "invalid indexed attestation"}
-      end
-    )
   end
 
   @doc """
