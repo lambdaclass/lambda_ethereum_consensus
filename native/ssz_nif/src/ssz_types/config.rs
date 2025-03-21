@@ -45,6 +45,13 @@ pub(crate) trait Config {
     type FieldElementsPerBlob: Unsigned;
     type BytesPerFieldElement: Unsigned;
     type KzgCommitmentInclusionProofDepth: Unsigned;
+    // Electra added fields
+    type MaxConsolidationRequestsPerPayload: Unsigned;
+    type MaxDepositRequestsPerPayload: Unsigned;
+    type MaxWithdrawalRequestsPerPayload: Unsigned;
+    type PendingDepositsLimit: Unsigned;
+    type PendingPartialWithdrawalsLimit: Unsigned;
+    type PendingConsolidationsLimit: Unsigned;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize: Unsigned; // SYNC_COMMITTEE_SIZE / SYNC_COMMITTEE_SUBNET_COUNT
@@ -88,6 +95,13 @@ impl Config for Mainnet {
     type FieldElementsPerBlob = U4096;
     type BytesPerFieldElement = U32;
     type KzgCommitmentInclusionProofDepth = U17;
+    // Electra added fields
+    type MaxConsolidationRequestsPerPayload = U2;
+    type MaxDepositRequestsPerPayload = U8192;
+    type MaxWithdrawalRequestsPerPayload = U16;
+    type PendingDepositsLimit = U134217728;
+    type PendingPartialWithdrawalsLimit = U134217728;
+    type PendingConsolidationsLimit = U262144;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
@@ -111,6 +125,11 @@ impl Config for Minimal {
     type FieldElementsPerBlob = U4096;
     type MaxBlobCommitmentsPerBlock = U16;
     type KzgCommitmentInclusionProofDepth = U9;
+    // Electra added fields
+    type MaxDepositRequestsPerPayload = U4;
+    type MaxWithdrawalRequestsPerPayload = U2;
+    type PendingPartialWithdrawalsLimit = U64;
+    type PendingConsolidationsLimit = U64;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
@@ -142,7 +161,9 @@ impl Config for Minimal {
         MaxExtraDataBytes,
         MaxBlsToExecutionChanges,
         MaxBlobsPerBlock,
-        BytesPerFieldElement
+        BytesPerFieldElement,
+        MaxConsolidationRequestsPerPayload,
+        PendingDepositsLimit
     });
 }
 
@@ -181,6 +202,13 @@ impl Config for Gnosis {
     type FieldElementsPerBlob = U4096;
     type BytesPerFieldElement = U32;
     type KzgCommitmentInclusionProofDepth = U17;
+    // Electra added fields
+    type MaxConsolidationRequestsPerPayload = U2;
+    type MaxDepositRequestsPerPayload = U8192;
+    type MaxWithdrawalRequestsPerPayload = U16;
+    type PendingDepositsLimit = U134217728;
+    type PendingPartialWithdrawalsLimit = U134217728;
+    type PendingConsolidationsLimit = U262144;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =

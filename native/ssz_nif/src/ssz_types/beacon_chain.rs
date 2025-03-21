@@ -241,6 +241,68 @@ pub(crate) struct SyncCommittee<C: Config> {
     pub(crate) aggregate_pubkey: BLSPubkey,
 }
 
+// New Electra container types
+
+// For EIP7251
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct PendingDeposit {
+    pub(crate) pubkey: BLSPubkey,
+    pub(crate) withdrawal_credentials: Bytes32,
+    pub(crate) amount: Gwei,
+    pub(crate) signature: BLSSignature,
+    pub(crate) slot: Slot,
+}
+
+// For EIP7251
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct PendingPartialWithdrawal {
+    pub(crate) validator_index: ValidatorIndex,
+    pub(crate) amount: Gwei,
+    pub(crate) withdrawable_epoch: Epoch,
+}
+
+// For EIP7251
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct PendingConsolidation {
+    pub(crate) source_index: ValidatorIndex,
+    pub(crate) target_index: ValidatorIndex,
+}
+
+// For EIP6110
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct DepositRequest {
+    pub(crate) pubkey: BLSPubkey,
+    pub(crate) withdrawal_credentials: Bytes32,
+    pub(crate) amount: Gwei,
+    pub(crate) signature: BLSSignature,
+    pub(crate) index: u64,
+}
+
+// For EIP7251:EIP7002
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct WithdrawalRequest {
+    pub(crate) source_address: ExecutionAddress,
+    pub(crate) validator_pubkey: BLSPubkey,
+    pub(crate) amount: Gwei,
+}
+
+// For EIP7251
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct ConsolidationRequest {
+    pub(crate) source_address: ExecutionAddress,
+    pub(crate) source_pubkey: BLSPubkey,
+    pub(crate) target_pubkey: BLSPubkey,
+}
+
+// For Electra
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct ExecutionRequests<C: Config> {
+    pub(crate) deposits: VariableList<DepositRequest, C::MaxDepositRequestsPerPayload>,
+    pub(crate) withdrawals: VariableList<WithdrawalRequest, C::MaxWithdrawalRequestsPerPayload>,
+    pub(crate) consolidations:
+        VariableList<ConsolidationRequest, C::MaxConsolidationRequestsPerPayload>,
+}
+
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct BeaconBlockBody<C: Config> {
     pub(crate) randao_reveal: BLSSignature,
@@ -256,6 +318,7 @@ pub(crate) struct BeaconBlockBody<C: Config> {
     pub(crate) bls_to_execution_changes:
         VariableList<SignedBLSToExecutionChange, C::MaxBlsToExecutionChanges>,
     pub(crate) blob_kzg_commitments: VariableList<KZGCommitment, C::MaxBlobCommitmentsPerBlock>,
+    pub(crate) execution_requests: ExecutionRequests<C>,
 }
 
 #[derive(Encode, Decode, TreeHash)]
@@ -303,4 +366,16 @@ pub(crate) struct BeaconState<C: Config> {
     pub(crate) next_withdrawal_validator_index: ValidatorIndex, // [New in Capella]
     // Deep history valid from Capella onwards
     pub(crate) historical_summaries: VariableList<HistoricalSummary, C::HistoricalRootsLimit>, // [New in Capella]
+    // Electra fields
+    pub(crate) deposit_requests_start_index: u64, // [New in Electra:EIP6110]
+    pub(crate) deposit_balance_to_consume: Gwei,  // [New in Electra:EIP7251]
+    pub(crate) exit_balance_to_consume: Gwei,     // [New in Electra:EIP7251]
+    pub(crate) earliest_exit_epoch: Epoch,        // [New in Electra:EIP7251]
+    pub(crate) consolidation_balance_to_consume: Gwei, // [New in Electra:EIP7251]
+    pub(crate) earliest_consolidation_epoch: Epoch, // [New in Electra:EIP7251]
+    pub(crate) pending_deposits: VariableList<PendingDeposit, C::PendingDepositsLimit>, // [New in Electra:EIP7251]
+    pub(crate) pending_partial_withdrawals:
+        VariableList<PendingPartialWithdrawal, C::PendingPartialWithdrawalsLimit>, // [New in Electra:EIP7251]
+    pub(crate) pending_consolidations:
+        VariableList<PendingConsolidation, C::PendingConsolidationsLimit>, // [New in Electra:EIP7251]
 }

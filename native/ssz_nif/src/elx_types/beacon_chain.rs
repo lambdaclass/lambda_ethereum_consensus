@@ -329,6 +329,79 @@ gen_struct_with_config!(
     }
 );
 
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.PendingDeposit"]
+    pub(crate) struct PendingDeposit<'a> {
+        pubkey: BLSPubkey<'a>,
+        withdrawal_credentials: Bytes32<'a>,
+        amount: Gwei,
+        signature: BLSSignature<'a>,
+        slot: Slot,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.PendingPartialWithdrawal"]
+    pub(crate) struct PendingPartialWithdrawal {
+        validator_index: ValidatorIndex,
+        amount: Gwei,
+        withdrawable_epoch: Epoch,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.PendingConsolidation"]
+    pub(crate) struct PendingConsolidation {
+        source_index: ValidatorIndex,
+        target_index: ValidatorIndex,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.DepositRequest"]
+    pub(crate) struct DepositRequest<'a> {
+        pubkey: BLSPubkey<'a>,
+        withdrawal_credentials: Bytes32<'a>,
+        amount: Gwei,
+        signature: BLSSignature<'a>,
+        index: u64,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.WithdrawalRequest"]
+    pub(crate) struct WithdrawalRequest<'a> {
+        source_address: ExecutionAddress<'a>,
+        validator_pubkey: BLSPubkey<'a>,
+        amount: Gwei,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.ConsolidationRequest"]
+    pub(crate) struct ConsolidationRequest<'a> {
+        source_address: ExecutionAddress<'a>,
+        source_pubkey: BLSPubkey<'a>,
+        target_pubkey: BLSPubkey<'a>,
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "Types.ExecutionRequests"]
+    pub(crate) struct ExecutionRequests<'a> {
+        deposits: Vec<DepositRequest<'a>>,
+        withdrawals: Vec<WithdrawalRequest<'a>>,
+        consolidations: Vec<ConsolidationRequest<'a>>,
+    }
+);
+
 gen_struct_with_config!(
     #[derive(NifStruct)]
     #[module = "Types.BeaconState"]
@@ -374,6 +447,16 @@ gen_struct_with_config!(
         next_withdrawal_validator_index: ValidatorIndex, // [New in Capella]
         // Deep history valid from Capella onwards
         historical_summaries: Vec<HistoricalSummary<'a>>, // [New in Capella]
+        // Electra fields
+        deposit_requests_start_index: u64, // [New in Electra:EIP6110]
+        deposit_balance_to_consume: Gwei,  // [New in Electra:EIP7251]
+        exit_balance_to_consume: Gwei,     // [New in Electra:EIP7251]
+        earliest_exit_epoch: Epoch,        // [New in Electra:EIP7251]
+        consolidation_balance_to_consume: Gwei, // [New in Electra:EIP7251]
+        earliest_consolidation_epoch: Epoch, // [New in Electra:EIP7251]
+        pending_deposits: Vec<PendingDeposit<'a>>, // [New in Electra:EIP7251]
+        pending_partial_withdrawals: Vec<PendingPartialWithdrawal>, // [New in Electra:EIP7251]
+        pending_consolidations: Vec<PendingConsolidation>, // [New in Electra:EIP7251]
     }
 );
 
@@ -393,5 +476,6 @@ gen_struct_with_config!(
         execution_payload: ExecutionPayload<'a>,
         bls_to_execution_changes: Vec<SignedBLSToExecutionChange<'a>>,
         blob_kzg_commitments: Vec<KZGCommitment<'a>>,
+        execution_requests: ExecutionRequests<'a>, // [New in Electra]
     }
 );
