@@ -152,6 +152,7 @@ gen_struct_with_config!(
         aggregation_bits: Binary<'a>,
         data: AttestationData<'a>,
         signature: BLSSignature<'a>,
+        committee_bits: Binary<'a>,
     }
 );
 
@@ -399,6 +400,17 @@ gen_struct_with_config!(
         deposits: Vec<DepositRequest<'a>>,
         withdrawals: Vec<WithdrawalRequest<'a>>,
         consolidations: Vec<ConsolidationRequest<'a>>,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.SingleAttestation"]
+    pub(crate) struct SingleAttestation<'a> {
+        committee_index: CommitteeIndex,
+        attester_index: ValidatorIndex,
+        data: AttestationData<'a>,
+        signature: BLSSignature<'a>,
     }
 );
 

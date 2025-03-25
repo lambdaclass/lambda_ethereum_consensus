@@ -23,7 +23,7 @@ defmodule Types.IndexedAttestation do
   defstruct fields
 
   @type t :: %__MODULE__{
-          # max size is MAX_VALIDATORS_PER_COMMITTEE
+          # [Modified in Electra:EIP7549]
           attesting_indices: list(Types.validator_index()),
           data: Types.AttestationData.t(),
           signature: Types.bls_signature()
@@ -33,7 +33,7 @@ defmodule Types.IndexedAttestation do
   def schema() do
     [
       {:attesting_indices,
-       {:list, TypeAliases.validator_index(), ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE")}},
+       {:list, TypeAliases.validator_index(), ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE") * ChainSpec.get("MAX_COMMITTEES_PER_SLOT")}},
       {:data, Types.AttestationData},
       {:signature, TypeAliases.bls_signature()}
     ]

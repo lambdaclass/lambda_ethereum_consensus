@@ -46,7 +46,7 @@ pub(crate) struct AttestationData {
 
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct IndexedAttestation<C: Config> {
-    pub(crate) attesting_indices: VariableList<ValidatorIndex, C::MaxValidatorsPerCommittee>,
+    pub(crate) attesting_indices: VariableList<ValidatorIndex, C::MaxValidatorsPerCommitteePerMaxCommitteesPerSlot>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
@@ -107,9 +107,10 @@ pub(crate) struct VoluntaryExit {
 
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct Attestation<C: Config> {
-    pub(crate) aggregation_bits: BitList<C::MaxValidatorsPerCommittee>,
+    pub(crate) aggregation_bits: BitList<C::MaxValidatorsPerCommitteePerMaxCommitteesPerSlot>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
+    pub(crate) committee_bits: BitList<C::MaxCommitteesPerSlot>,
 }
 
 #[derive(Encode, Decode, TreeHash)]
@@ -302,6 +303,14 @@ pub(crate) struct ExecutionRequests<C: Config> {
     pub(crate) consolidations:
         VariableList<ConsolidationRequest, C::MaxConsolidationRequestsPerPayload>,
 }
+// For Electra
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct SingleAttestation {
+    pub(crate) committee_index: CommitteeIndex,
+    pub(crate) attester_index: ValidatorIndex,
+    pub(crate) data: AttestationData,
+    pub(crate) signature: BLSSignature,
+}
 
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct BeaconBlockBody<C: Config> {
@@ -309,8 +318,8 @@ pub(crate) struct BeaconBlockBody<C: Config> {
     pub(crate) eth1_data: Eth1Data,
     pub(crate) graffiti: Bytes32,
     pub(crate) proposer_slashings: VariableList<ProposerSlashing, C::MaxProposerSlashings>,
-    pub(crate) attester_slashings: VariableList<AttesterSlashing<C>, C::MaxAttesterSlashings>,
-    pub(crate) attestations: VariableList<Attestation<C>, C::MaxAttestations>,
+    pub(crate) attester_slashings: VariableList<AttesterSlashing<C>, C::MaxAttesterSlashingsElectra>,
+    pub(crate) attestations: VariableList<Attestation<C>, C::MaxAttestationsElectra>,
     pub(crate) deposits: VariableList<Deposit, C::MaxDeposits>,
     pub(crate) voluntary_exits: VariableList<SignedVoluntaryExit, C::MaxVoluntaryExits>,
     pub(crate) sync_aggregate: SyncAggregate<C>,
