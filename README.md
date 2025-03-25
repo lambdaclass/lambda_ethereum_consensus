@@ -79,6 +79,7 @@ There are Makefile targets for these tasks.
 
 > [!TIP]
 > You can list the available targets with `make help`
+
 > [!NOTE]
 > If `make deps` is failing with `protoc-gen-go: program not found or is not executable` you might need to run
 > ```Shell
