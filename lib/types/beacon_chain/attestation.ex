@@ -7,6 +7,7 @@ defmodule Types.Attestation do
   the validator corresponding to that bit participated in attesting.
   """
   alias LambdaEthereumConsensus.Utils.BitList
+  alias LambdaEthereumConsensus.Utils.BitVector
 
   use LambdaEthereumConsensus.Container
 
@@ -26,7 +27,7 @@ defmodule Types.Attestation do
           data: Types.AttestationData.t(),
           signature: Types.bls_signature(),
           # [New in Electra:EIP7549]
-          committee_bits: Types.bitlist()
+          committee_bits: BitVector.t()
         }
 
   @impl LambdaEthereumConsensus.Container
@@ -37,19 +38,21 @@ defmodule Types.Attestation do
         ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE") * ChainSpec.get("MAX_COMMITTEES_PER_SLOT")}},
       {:data, Types.AttestationData},
       {:signature, TypeAliases.bls_signature()},
-      {:committee_bits, {:bitlist, ChainSpec.get("MAX_COMMITTEES_PER_SLOT")}}
+      {:committee_bits, {:bitvector, ChainSpec.get("MAX_COMMITTEES_PER_SLOT")}}
     ]
   end
 
   def encode(%__MODULE__{} = map) do
     map
     |> Map.update!(:aggregation_bits, &BitList.to_bytes/1)
-    |> Map.update!(:committee_bits, &BitList.to_bytes/1)
+    |> Map.update!(:committee_bits, &BitVector.to_bytes/1)
   end
 
   def decode(%__MODULE__{} = map) do
     map
     |> Map.update!(:aggregation_bits, &BitList.new/1)
-    |> Map.update!(:committee_bits, &BitList.new/1)
+    |> Map.update!(:committee_bits, fn bits ->
+      BitVector.new(bits, ChainSpec.get("MAX_COMMITTEES_PER_SLOT"))
+    end)
   end
 end

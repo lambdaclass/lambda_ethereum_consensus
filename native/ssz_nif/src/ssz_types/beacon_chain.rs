@@ -111,7 +111,7 @@ pub(crate) struct Attestation<C: Config> {
     pub(crate) aggregation_bits: BitList<C::MaxValidatorsPerCommitteePerMaxCommitteesPerSlot>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
-    pub(crate) committee_bits: BitList<C::MaxCommitteesPerSlot>,
+    pub(crate) committee_bits: BitVector<C::MaxCommitteesPerSlot>,
 }
 
 #[derive(Encode, Decode, TreeHash)]
