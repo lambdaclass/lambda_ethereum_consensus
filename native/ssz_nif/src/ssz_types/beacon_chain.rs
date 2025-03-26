@@ -46,7 +46,8 @@ pub(crate) struct AttestationData {
 
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct IndexedAttestation<C: Config> {
-    pub(crate) attesting_indices: VariableList<ValidatorIndex, C::MaxValidatorsPerCommitteePerMaxCommitteesPerSlot>,
+    pub(crate) attesting_indices:
+        VariableList<ValidatorIndex, C::MaxValidatorsPerCommitteePerMaxCommitteesPerSlot>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
@@ -318,7 +319,8 @@ pub(crate) struct BeaconBlockBody<C: Config> {
     pub(crate) eth1_data: Eth1Data,
     pub(crate) graffiti: Bytes32,
     pub(crate) proposer_slashings: VariableList<ProposerSlashing, C::MaxProposerSlashings>,
-    pub(crate) attester_slashings: VariableList<AttesterSlashing<C>, C::MaxAttesterSlashingsElectra>,
+    pub(crate) attester_slashings:
+        VariableList<AttesterSlashing<C>, C::MaxAttesterSlashingsElectra>,
     pub(crate) attestations: VariableList<Attestation<C>, C::MaxAttestationsElectra>,
     pub(crate) deposits: VariableList<Deposit, C::MaxDeposits>,
     pub(crate) voluntary_exits: VariableList<SignedVoluntaryExit, C::MaxVoluntaryExits>,

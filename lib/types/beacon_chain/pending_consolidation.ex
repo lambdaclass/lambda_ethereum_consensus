@@ -6,8 +6,9 @@ defmodule Types.PendingConsolidation do
 
   use LambdaEthereumConsensus.Container
 
-  @enforce_keys [:source_index, :target_index]
-  defstruct [:source_index, :target_index]
+  fields = [:source_index, :target_index]
+  @enforce_keys fields
+  defstruct fields
 
   @type t :: %__MODULE__{
           source_index: Types.validator_index(),

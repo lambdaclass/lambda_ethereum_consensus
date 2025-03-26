@@ -139,7 +139,7 @@ impl Config for Minimal {
     type MaxWithdrawalRequestsPerPayload = U2;
     type PendingPartialWithdrawalsLimit = U64;
     type PendingConsolidationsLimit = U64;
-    type MaxValidatorsPerCommitteePerMaxCommitteesPerSlot = U8192; // 2048 * 4, this as the rest is fixed and we need to be really carefull about any change    
+    type MaxValidatorsPerCommitteePerMaxCommitteesPerSlot = U8192; // 2048 * 4, this as the rest is fixed and we need to be really carefull about any change
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =

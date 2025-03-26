@@ -181,12 +181,11 @@ defmodule Types.BeaconState do
       {:earliest_exit_epoch, TypeAliases.epoch()},
       {:consolidation_balance_to_consume, TypeAliases.gwei()},
       {:earliest_consolidation_epoch, TypeAliases.epoch()},
-      {:pending_deposits,
-        {:list, Types.PendingDeposit, ChainSpec.get("PENDING_DEPOSITS_LIMIT")}},
+      {:pending_deposits, {:list, Types.PendingDeposit, ChainSpec.get("PENDING_DEPOSITS_LIMIT")}},
       {:pending_partial_withdrawals,
-        {:list, Types.PendingPartialWithdrawal, ChainSpec.get("PENDING_PARTIAL_WITHDRAWALS_LIMIT")}},
+       {:list, Types.PendingPartialWithdrawal, ChainSpec.get("PENDING_PARTIAL_WITHDRAWALS_LIMIT")}},
       {:pending_consolidations,
-        {:list, Types.PendingConsolidation, ChainSpec.get("PENDING_CONSOLIDATIONS_LIMIT")}}
+       {:list, Types.PendingConsolidation, ChainSpec.get("PENDING_CONSOLIDATIONS_LIMIT")}}
     ]
   end
 

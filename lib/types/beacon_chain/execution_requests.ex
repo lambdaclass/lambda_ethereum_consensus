@@ -6,8 +6,9 @@ defmodule Types.ExecutionRequests do
 
   use LambdaEthereumConsensus.Container
 
-  @enforce_keys [:deposits, :withdrawals, :consolidations]
-  defstruct [:deposits, :withdrawals, :consolidations]
+  fields = [:deposits, :withdrawals, :consolidations]
+  @enforce_keys fields
+  defstruct fields
 
   @type t :: %__MODULE__{
           deposits: list(Types.DepositRequest.t()),
@@ -23,7 +24,8 @@ defmodule Types.ExecutionRequests do
       {:withdrawals,
        {:list, Types.WithdrawalRequest, ChainSpec.get("MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD")}},
       {:consolidations,
-       {:list, Types.ConsolidationRequest, ChainSpec.get("MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD")}}
+       {:list, Types.ConsolidationRequest,
+        ChainSpec.get("MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD")}}
     ]
   end
 end

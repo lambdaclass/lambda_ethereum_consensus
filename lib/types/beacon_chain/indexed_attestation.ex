@@ -33,7 +33,8 @@ defmodule Types.IndexedAttestation do
   def schema() do
     [
       {:attesting_indices,
-       {:list, TypeAliases.validator_index(), ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE") * ChainSpec.get("MAX_COMMITTEES_PER_SLOT")}},
+       {:list, TypeAliases.validator_index(),
+        ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE") * ChainSpec.get("MAX_COMMITTEES_PER_SLOT")}},
       {:data, Types.AttestationData},
       {:signature, TypeAliases.bls_signature()}
     ]

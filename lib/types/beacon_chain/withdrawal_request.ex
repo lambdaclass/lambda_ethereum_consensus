@@ -6,8 +6,9 @@ defmodule Types.WithdrawalRequest do
 
   use LambdaEthereumConsensus.Container
 
-  @enforce_keys [:source_address, :validator_pubkey, :amount]
-  defstruct [:source_address, :validator_pubkey, :amount]
+  fields = [:source_address, :validator_pubkey, :amount]
+  @enforce_keys fields
+  defstruct fields
 
   @type t :: %__MODULE__{
           source_address: Types.execution_address(),

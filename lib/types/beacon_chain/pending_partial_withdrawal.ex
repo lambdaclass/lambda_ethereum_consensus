@@ -6,8 +6,9 @@ defmodule Types.PendingPartialWithdrawal do
 
   use LambdaEthereumConsensus.Container
 
-  @enforce_keys [:validator_index, :amount, :withdrawable_epoch]
-  defstruct [:validator_index, :amount, :withdrawable_epoch]
+  fields = [:validator_index, :amount, :withdrawable_epoch]
+  @enforce_keys fields
+  defstruct fields
 
   @type t :: %__MODULE__{
           validator_index: Types.validator_index(),

@@ -32,7 +32,9 @@ defmodule Types.Attestation do
   @impl LambdaEthereumConsensus.Container
   def schema() do
     [
-      {:aggregation_bits, {:bitlist, ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE") * ChainSpec.get("MAX_COMMITTEES_PER_SLOT")}},
+      {:aggregation_bits,
+       {:bitlist,
+        ChainSpec.get("MAX_VALIDATORS_PER_COMMITTEE") * ChainSpec.get("MAX_COMMITTEES_PER_SLOT")}},
       {:data, Types.AttestationData},
       {:signature, TypeAliases.bls_signature()},
       {:committee_bits, {:bitlist, ChainSpec.get("MAX_COMMITTEES_PER_SLOT")}}

@@ -6,8 +6,9 @@ defmodule Types.PendingDeposit do
 
   use LambdaEthereumConsensus.Container
 
-  @enforce_keys [:pubkey, :withdrawal_credentials, :amount, :signature, :slot]
-  defstruct [:pubkey, :withdrawal_credentials, :amount, :signature, :slot]
+  fields = [:pubkey, :withdrawal_credentials, :amount, :signature, :slot]
+  @enforce_keys fields
+  defstruct fields
 
   @type t :: %__MODULE__{
           pubkey: Types.bls_pubkey(),

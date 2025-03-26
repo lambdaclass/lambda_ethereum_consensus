@@ -6,8 +6,9 @@ defmodule Types.ConsolidationRequest do
 
   use LambdaEthereumConsensus.Container
 
-  @enforce_keys [:source_address, :source_pubkey, :target_pubkey]
-  defstruct [:source_address, :source_pubkey, :target_pubkey]
+  fields = [:source_address, :source_pubkey, :target_pubkey]
+  @enforce_keys fields
+  defstruct fields
 
   @type t :: %__MODULE__{
           source_address: Types.execution_address(),

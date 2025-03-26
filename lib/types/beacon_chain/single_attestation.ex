@@ -10,18 +10,17 @@ defmodule Types.SingleAttestation do
     :committee_index,
     :attester_index,
     :data,
-    :signature,
+    :signature
   ]
 
   @enforce_keys fields
   defstruct fields
 
   @type t :: %__MODULE__{
-
           committee_index: Types.commitee_index(),
           attester_index: Types.validator_index(),
           data: Types.AttestationData.t(),
-          signature: Types.bls_signature(),
+          signature: Types.bls_signature()
         }
 
   @impl LambdaEthereumConsensus.Container
@@ -30,7 +29,7 @@ defmodule Types.SingleAttestation do
       {:committee_index, TypeAliases.commitee_index()},
       {:attester_index, TypeAliases.validator_index()},
       {:data, Types.AttestationData},
-      {:signature, TypeAliases.bls_signature()},
+      {:signature, TypeAliases.bls_signature()}
     ]
   end
 end

@@ -6,8 +6,9 @@ defmodule Types.DepositRequest do
 
   use LambdaEthereumConsensus.Container
 
-  @enforce_keys [:pubkey, :withdrawal_credentials, :amount, :signature, :index]
-  defstruct [:pubkey, :withdrawal_credentials, :amount, :signature, :index]
+  fields = [:pubkey, :withdrawal_credentials, :amount, :signature, :index]
+  @enforce_keys fields
+  defstruct fields
 
   @type t :: %__MODULE__{
           pubkey: Types.bls_pubkey(),
