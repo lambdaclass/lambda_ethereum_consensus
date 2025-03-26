@@ -1,4 +1,7 @@
 defmodule LambdaEthereumConsensus.Store.Blobs do
+  @moduledoc """
+  Interface to `Store.Blobs`.
+  """
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
