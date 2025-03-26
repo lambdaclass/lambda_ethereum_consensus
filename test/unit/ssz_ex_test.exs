@@ -632,7 +632,8 @@ defmodule Unit.SSZExTest do
           excess_blob_gas: 0
         },
         bls_to_execution_changes: [],
-        blob_kzg_commitments: []
+        blob_kzg_commitments: [],
+        execution_requests: []
       }
     }
 
