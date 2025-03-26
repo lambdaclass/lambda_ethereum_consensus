@@ -10,7 +10,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.P2P.BlockDownloader
-  alias LambdaEthereumConsensus.Store.BlobDb
+  alias LambdaEthereumConsensus.Store.Blobs
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Utils
   alias Types.BlockInfo
@@ -46,7 +46,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
     # If the block is new or was to be downloaded, we store it.
     if is_nil(loaded_block) or loaded_block.status == :download do
-      missing_blobs = missing_blobs(block_info)
+      missing_blobs = Blobs.missing_blobs(block_info)
 
       if Enum.empty?(missing_blobs) do
         Logger.debug("[PendingBlocks] No missing blobs for block, process it", log_md)
@@ -54,7 +54,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         process_block_and_check_children(store, block_info)
       else
         Logger.debug("[PendingBlocks] Missing blobs for block, scheduling download", log_md)
-        BlobDownloader.request_blobs_by_root(missing_blobs, &process_blobs/2, @download_retries)
+
+        BlobDownloader.request_blobs_by_root(
+          missing_blobs,
+          &Blobs.process_blobs/2,
+          @download_retries
+        )
 
         block_info
         |> BlockInfo.change_status(:download_blobs)
@@ -92,20 +97,20 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end
   end
 
-  ##########################
-  ### Private Functions
-  ##########################
-
   # Processes a block. If it was transitioned or declared invalid, then process_blocks
   # is called to check if there's any children that can now be processed. This function
   # is only to be called when a new block is saved as pending, not when processing blocks
   # in batch, to avoid unneeded recursion.
-  defp process_block_and_check_children(store, block_info) do
+  def process_block_and_check_children(store, block_info) do
     case process_block(store, block_info) do
       {store, result} when result in [:transitioned, :invalid] -> process_blocks(store)
       {store, _other} -> store
     end
   end
+
+  ##########################
+  ### Private Functions
+  ##########################
 
   defp process_block(store, %BlockInfo{signed_block: %{message: message}} = block_info) do
     if block_info.status != :pending do
@@ -183,52 +188,5 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     # We might want to declare a block invalid here.
     Logger.error("[PendingBlocks] Error downloading block: #{inspect(reason)}")
     {:ok, store}
-  end
-
-  def process_blobs(store, {:ok, blobs}), do: {:ok, add_blobs(store, blobs)}
-
-  def process_blobs(store, {:error, reason}) do
-    # We might want to declare a block invalid here.
-    Logger.error("[PendingBlocks] Error downloading blobs: #{inspect(reason)}")
-    {:ok, store}
-  end
-
-  def add_blob(store, blob), do: add_blobs(store, [blob])
-
-  # To be used when a series of blobs are downloaded. Stores each blob.
-  # If there are blocks that can be processed, does so immediately.
-  defp add_blobs(store, blobs) do
-    blobs
-    |> Enum.map(&BlobDb.store_blob/1)
-    |> Enum.uniq()
-    |> Enum.reduce(store, fn root, store ->
-      with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
-           [] <- missing_blobs(block_info) do
-        block_info
-        |> Blocks.change_status(:pending)
-        |> then(&process_block_and_check_children(store, &1))
-      else
-        _ ->
-          store
-      end
-    end)
-  end
-
-  @spec missing_blobs(BlockInfo.t()) :: [Types.BlobIdentifier.t()]
-  def missing_blobs(%BlockInfo{root: root, signed_block: signed_block}) do
-    signed_block.message.body.blob_kzg_commitments
-    |> Stream.with_index()
-    |> Enum.filter(&blob_needs_download?(&1, root))
-    |> Enum.map(&%Types.BlobIdentifier{block_root: root, index: elem(&1, 1)})
-  end
-
-  defp blob_needs_download?({commitment, index}, block_root) do
-    case BlobDb.get_blob_sidecar(block_root, index) do
-      {:ok, %{kzg_commitment: ^commitment}} ->
-        false
-
-      _ ->
-        true
-    end
   end
 end
