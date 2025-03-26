@@ -176,7 +176,8 @@ defmodule LambdaEthereumConsensus.Validator do
       data: attestation_data,
       aggregation_bits: bits,
       signature: signature,
-      committee_bits: BitList.zero(committee_length) |> BitList.set(committee_index)
+      # Not implemented yet, part of EIP7549
+      committee_bits: BitList.zero(committee_length)
     }
   end
 
