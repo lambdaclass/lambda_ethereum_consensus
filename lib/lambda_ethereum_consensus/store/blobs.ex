@@ -4,7 +4,6 @@ defmodule LambdaEthereumConsensus.Store.Blobs do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.Beacon.PendingBlocks
   alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
@@ -21,22 +20,19 @@ defmodule LambdaEthereumConsensus.Store.Blobs do
   def add_blob(store, blob), do: add_blobs(store, [blob])
 
   # To be used when a series of blobs are downloaded. Stores each blob.
-  # If there are blocks that can be processed, does so immediately.
   def add_blobs(store, blobs) do
     blobs
     |> Enum.map(&BlobDb.store_blob/1)
     |> Enum.uniq()
-    |> Enum.reduce(store, fn root, store ->
+    |> Enum.each(fn root ->
       with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
            [] <- missing_for_block(block_info) do
         block_info
         |> Blocks.change_status(:pending)
-        |> then(&PendingBlocks.process_block_and_check_children(store, &1))
-      else
-        _ ->
-          store
       end
     end)
+
+    store
   end
 
   @spec missing_for_block(BlockInfo.t()) :: [Types.BlobIdentifier.t()]

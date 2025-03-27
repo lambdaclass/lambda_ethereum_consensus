@@ -92,20 +92,20 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end
   end
 
+  ##########################
+  ### Private Functions
+  ##########################
+
   # Processes a block. If it was transitioned or declared invalid, then process_blocks
   # is called to check if there's any children that can now be processed. This function
   # is only to be called when a new block is saved as pending, not when processing blocks
   # in batch, to avoid unneeded recursion.
-  def process_block_and_check_children(store, block_info) do
+  defp process_block_and_check_children(store, block_info) do
     case process_block(store, block_info) do
       {store, result} when result in [:transitioned, :invalid] -> process_blocks(store)
       {store, _other} -> store
     end
   end
-
-  ##########################
-  ### Private Functions
-  ##########################
 
   defp process_block(store, %BlockInfo{signed_block: %{message: message}} = block_info) do
     if block_info.status != :pending do
