@@ -27,8 +27,7 @@ defmodule LambdaEthereumConsensus.Store.Blobs do
     |> Enum.each(fn root ->
       with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
            [] <- missing_for_block(block_info) do
-        block_info
-        |> Blocks.change_status(:pending)
+        block_info |> Blocks.change_status(:pending) |> Blocks.new_block_info()
       end
     end)
 
