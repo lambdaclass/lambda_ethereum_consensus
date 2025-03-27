@@ -106,10 +106,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         block_info
         |> Blocks.change_status(:pending)
         |> then(&process_block_and_check_children(store, &1))
+
+        {:ok, store}
+      else
+        _ -> {:ok, store}
       end
     end)
-
-    {:ok, store}
   end
 
   def process_blobs(store, {:error, reason}) do
