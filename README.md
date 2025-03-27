@@ -15,6 +15,12 @@ For more details, please refer to our [Security Policy](./.github/SECURITY.md).
 
 ## Prerequisites
 
+### Basic Tools
+
+- [Git](https://git-scm.com/)
+- [wget](https://www.gnu.org/software/wget/)
+- [CMake](https://cmake.org/)
+
 ### Direct Installation
 
 You can install the necessary components directly from official sources:
@@ -73,6 +79,12 @@ There are Makefile targets for these tasks.
 
 > [!TIP]
 > You can list the available targets with `make help`
+
+> [!NOTE]
+> If `make deps` is failing with `protoc-gen-go: program not found or is not executable` you might need to run
+> ```Shell
+> export PATH=$PATH:~/go/bin
+> ```
 
 ```shell
 make deps # Installs dependencies
