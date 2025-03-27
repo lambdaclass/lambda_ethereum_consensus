@@ -8,7 +8,6 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Metrics
-  alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.Blobs
   alias LambdaEthereumConsensus.Store.Blocks
@@ -55,11 +54,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       else
         Logger.debug("[PendingBlocks] Missing blobs for block, scheduling download", log_md)
 
-        BlobDownloader.request_blobs_by_root(
-          missing_blobs,
-          &Blobs.process_blobs/2,
-          @download_retries
-        )
+        Blobs.schedule_blob_download(missing_blobs, @download_retries)
 
         block_info
         |> BlockInfo.change_status(:download_blobs)

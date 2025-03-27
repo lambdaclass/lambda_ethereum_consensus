@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.Store.Blobs do
   require Logger
 
   alias LambdaEthereumConsensus.Beacon.PendingBlocks
+  alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias Types.BlockInfo
@@ -54,5 +55,15 @@ defmodule LambdaEthereumConsensus.Store.Blobs do
       _ ->
         true
     end
+  end
+
+  def schedule_blob_download(missing_blobs, retries) do
+    BlobDownloader.request_blobs_by_root(
+      missing_blobs,
+      &process_blobs/2,
+      retries
+    )
+
+    :ok
   end
 end
