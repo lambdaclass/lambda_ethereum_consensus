@@ -23,7 +23,7 @@ defmodule Unit.BlobsTest do
       # Blob sidecar from spec test
       blob_sidecar =
         SpecTestUtils.read_ssz_from_file!(
-          "test/fixtures/validator/proposer/blob_sidecar.ssz_snappy",
+          "test/fixtures/blobs/blob_sidecar.ssz_snappy",
           BlobSidecar
         )
 
@@ -39,7 +39,7 @@ defmodule Unit.BlobsTest do
     test "One missing blob from block, then add, then no missing blobs" do
       blob_sidecar =
         SpecTestUtils.read_ssz_from_file!(
-          "test/fixtures/validator/proposer/blob_sidecar.ssz_snappy",
+          "test/fixtures/blobs/blob_sidecar.ssz_snappy",
           BlobSidecar
         )
 
