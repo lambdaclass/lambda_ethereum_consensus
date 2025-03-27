@@ -10,7 +10,15 @@ defmodule Unit.BlobsTest do
   setup %{tmp_dir: tmp_dir} do
     start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
     start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
-    :ok
+
+    # Blob sidecar from spec test
+    blob_sidecar =
+      SpecTestUtils.read_ssz_from_file!(
+        "test/fixtures/blobs/blob_sidecar.ssz_snappy",
+        BlobSidecar
+      )
+
+    {:ok, blob_sidecar: blob_sidecar}
   end
 
   defp new_block_info() do
@@ -19,15 +27,8 @@ defmodule Unit.BlobsTest do
 
   describe "Blobs unit tests" do
     @tag :tmp_dir
-    test "Basic blobs saving and loading" do
-      # Blob sidecar from spec test
-      blob_sidecar =
-        SpecTestUtils.read_ssz_from_file!(
-          "test/fixtures/blobs/blob_sidecar.ssz_snappy",
-          BlobSidecar
-        )
-
-      Blobs.process_blobs(nil, {:ok, [blob_sidecar]})
+    test "Basic blobs saving and loading", %{blob_sidecar: blob_sidecar} do
+      Blobs.add_blob(blob_sidecar)
       block_root = Ssz.hash_tree_root!(blob_sidecar.signed_block_header.message)
       index = blob_sidecar.index
       {:ok, recovered_blob} = BlobDb.get_blob_sidecar(block_root, index)
@@ -36,13 +37,9 @@ defmodule Unit.BlobsTest do
     end
 
     @tag :tmp_dir
-    test "One missing blob from block, then add, then no missing blobs" do
-      blob_sidecar =
-        SpecTestUtils.read_ssz_from_file!(
-          "test/fixtures/blobs/blob_sidecar.ssz_snappy",
-          BlobSidecar
-        )
-
+    test "One missing blob from block, then add, then no missing blobs", %{
+      blob_sidecar: blob_sidecar
+    } do
       blob_sidecar = %BlobSidecar{blob_sidecar | index: 0}
 
       # Create random block info
@@ -64,7 +61,7 @@ defmodule Unit.BlobsTest do
       missing = Blobs.missing_for_block(block_info)
       assert(length(missing) == 1)
       # add blob to db
-      Blobs.add_blob(nil, blob_sidecar)
+      Blobs.add_blob(blob_sidecar)
       # check that the blob is not missing
       missing = Blobs.missing_for_block(block_info)
       assert(Enum.empty?(missing))
