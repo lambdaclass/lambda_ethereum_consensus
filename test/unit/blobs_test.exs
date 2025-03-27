@@ -61,12 +61,12 @@ defmodule Unit.BlobsTest do
       }
 
       # check that the blob is detetected as missing
-      missing = Blobs.missing_blobs(block_info)
+      missing = Blobs.missing_for_block(block_info)
       assert(length(missing) == 1)
       # add blob to db
       Blobs.add_blob(nil, blob_sidecar)
       # check that the blob is not missing
-      missing = Blobs.missing_blobs(block_info)
+      missing = Blobs.missing_for_block(block_info)
       assert(Enum.empty?(missing))
     end
   end

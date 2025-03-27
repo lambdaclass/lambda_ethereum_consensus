@@ -45,7 +45,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
     # If the block is new or was to be downloaded, we store it.
     if is_nil(loaded_block) or loaded_block.status == :download do
-      missing_blobs = Blobs.missing_blobs(block_info)
+      missing_blobs = Blobs.missing_for_block(block_info)
 
       if Enum.empty?(missing_blobs) do
         Logger.debug("[PendingBlocks] No missing blobs for block, process it", log_md)

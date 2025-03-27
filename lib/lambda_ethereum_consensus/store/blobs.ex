@@ -28,7 +28,7 @@ defmodule LambdaEthereumConsensus.Store.Blobs do
     |> Enum.uniq()
     |> Enum.reduce(store, fn root, store ->
       with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
-           [] <- missing_blobs(block_info) do
+           [] <- missing_for_block(block_info) do
         block_info
         |> Blocks.change_status(:pending)
         |> then(&PendingBlocks.process_block_and_check_children(store, &1))
@@ -39,8 +39,8 @@ defmodule LambdaEthereumConsensus.Store.Blobs do
     end)
   end
 
-  @spec missing_blobs(BlockInfo.t()) :: [Types.BlobIdentifier.t()]
-  def missing_blobs(%BlockInfo{root: root, signed_block: signed_block}) do
+  @spec missing_for_block(BlockInfo.t()) :: [Types.BlobIdentifier.t()]
+  def missing_for_block(%BlockInfo{root: root, signed_block: signed_block}) do
     signed_block.message.body.blob_kzg_commitments
     |> Stream.with_index()
     |> Enum.filter(&present?(&1, root))
