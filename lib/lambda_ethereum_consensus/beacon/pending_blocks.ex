@@ -8,6 +8,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.Metrics
+  alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.P2P.BlockDownloader
   alias LambdaEthereumConsensus.Store.Blobs
   alias LambdaEthereumConsensus.Store.Blocks
@@ -54,7 +55,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       else
         Logger.debug("[PendingBlocks] Missing blobs for block, scheduling download", log_md)
 
-        Blobs.schedule_blob_download(missing_blobs, @download_retries)
+        BlobDownloader.request_blobs_by_root(
+          missing_blobs,
+          &process_blobs/2,
+          @download_retries
+        )
 
         block_info
         |> BlockInfo.change_status(:download_blobs)
@@ -90,6 +95,27 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
         store
     end
+  end
+
+  # Process incoming blobs if the block can be processed does so immediately.
+  def process_blobs(store, {:ok, blobs}) do
+    Blobs.add_blobs(blobs)
+    |> Enum.reduce(store, fn root, store ->
+      with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
+           [] <- Blobs.missing_for_block(block_info) do
+        block_info
+        |> Blocks.change_status(:pending)
+        |> then(&process_block_and_check_children(store, &1))
+      end
+    end)
+
+    {:ok, store}
+  end
+
+  def process_blobs(store, {:error, reason}) do
+    # We might want to declare a block invalid here.
+    Logger.error("[PendingBlocks] Error downloading blobs: #{inspect(reason)}")
+    {:ok, store}
   end
 
   ##########################
