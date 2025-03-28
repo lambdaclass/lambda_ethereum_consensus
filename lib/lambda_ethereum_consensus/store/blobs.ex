@@ -7,8 +7,6 @@ defmodule LambdaEthereumConsensus.Store.Blobs do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias Types.BlockInfo
 
-  def add_blob(blob), do: add_blobs([blob])
-
   # To be used when a series of blobs are downloaded. Stores each blob.
   def add_blobs(blobs) do
     blobs

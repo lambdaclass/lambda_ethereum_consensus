@@ -28,7 +28,7 @@ defmodule Unit.BlobsTest do
   describe "Blobs unit tests" do
     @tag :tmp_dir
     test "Basic blobs saving and loading", %{blob_sidecar: blob_sidecar} do
-      Blobs.add_blob(blob_sidecar)
+      Blobs.add_blobs([blob_sidecar])
       block_root = Ssz.hash_tree_root!(blob_sidecar.signed_block_header.message)
       index = blob_sidecar.index
       {:ok, recovered_blob} = BlobDb.get_blob_sidecar(block_root, index)
@@ -61,7 +61,7 @@ defmodule Unit.BlobsTest do
       missing = Blobs.missing_for_block(block_info)
       assert(length(missing) == 1)
       # add blob to db
-      Blobs.add_blob(blob_sidecar)
+      Blobs.add_blobs([blob_sidecar])
       # check that the blob is not missing
       missing = Blobs.missing_for_block(block_info)
       assert(Enum.empty?(missing))
