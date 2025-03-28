@@ -99,7 +99,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
   # Process incoming blobs if the block can be processed does so immediately.
   def process_blobs(store, {:ok, blobs}) do
-    Blobs.add_blobs(blobs)
+    blobs
+    |> Blobs.add_blobs()
     |> Enum.reduce(store, fn root, store ->
       with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
            [] <- Blobs.missing_for_block(block_info) do
