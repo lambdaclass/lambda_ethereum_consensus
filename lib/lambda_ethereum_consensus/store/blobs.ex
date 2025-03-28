@@ -5,9 +5,13 @@ defmodule LambdaEthereumConsensus.Store.Blobs do
   require Logger
 
   alias LambdaEthereumConsensus.Store.BlobDb
+  alias Types.BlobSidecar
   alias Types.BlockInfo
 
-  # To be used when a series of blobs are downloaded. Stores each blob.
+  @doc """
+  To be used when a series of blobs are downloaded. Stores each blob.
+  """
+  @spec add_blobs([BlobSidecar.t()]) :: [Types.root()]
   def add_blobs(blobs) do
     blobs
     |> Enum.map(&BlobDb.store_blob/1)

@@ -77,6 +77,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   module after receiving a new block, but there are some other cases like at node startup, as there
   may be pending blocks from prior executions.
   """
+  @spec process_blocks(Store.t()) :: Store.t()
   def process_blocks(store) do
     case Blocks.get_blocks_with_status(:pending) do
       {:ok, blocks} ->
@@ -97,7 +98,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end
   end
 
-  # Process incoming blobs if the block can be processed does so immediately.
+  @doc """
+  Process incoming blobs if the block can be processed does so immediately.
+  """
+  @spec process_blobs(Store.t(), {:ok, [Types.BlobSidecar.t()]}) :: {:ok, Store.t()}
   def process_blobs(store, {:ok, blobs}) do
     blobs
     |> Blobs.add_blobs()
@@ -115,6 +119,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end)
   end
 
+  @spec process_blobs(Store.t(), {:error, any()}) :: {:ok, Store.t()}
   def process_blobs(store, {:error, reason}) do
     # We might want to declare a block invalid here.
     Logger.error("[PendingBlocks] Error downloading blobs: #{inspect(reason)}")
