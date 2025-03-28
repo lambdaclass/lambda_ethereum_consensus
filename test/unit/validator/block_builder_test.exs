@@ -27,7 +27,7 @@ defmodule Unit.Validator.BlockBuilderTest do
 
     spec_block =
       SpecTestUtils.read_ssz_from_file!(
-        "test/fixtures/validator/proposer/empty_block.ssz_snappy",
+        "test/fixtures/validator/proposer/empty_signed_beacon_block.ssz_snappy",
         SignedBeaconBlock
       )
 
@@ -69,7 +69,7 @@ defmodule Unit.Validator.BlockBuilderTest do
   test "prove commitments" do
     spec_block =
       SpecTestUtils.read_ssz_from_file!(
-        "test/fixtures/validator/proposer/empty_block.ssz_snappy",
+        "test/fixtures/validator/proposer/empty_signed_beacon_block.ssz_snappy",
         SignedBeaconBlock
       )
 
