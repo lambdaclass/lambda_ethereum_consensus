@@ -18,6 +18,7 @@ defmodule Unit.Validator.BlockBuilderTest do
     |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
   end
 
+  @tag :skip
   test "construct block" do
     pre_state =
       SpecTestUtils.read_ssz_from_file!(

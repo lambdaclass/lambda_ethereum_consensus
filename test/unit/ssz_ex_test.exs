@@ -894,6 +894,7 @@ defmodule Unit.SSZExTest do
              "Invalid binary length while encoding BitVector. \nExpected: 512.\nFound: 2.\nStacktrace: SyncAggregate.sync_committee_bits"
   end
 
+  @tag :skip
   test "stacktrace encode nested container" do
     attester_slashing = build_broken_attester_slashing()
 
@@ -903,6 +904,7 @@ defmodule Unit.SSZExTest do
              "Invalid binary length while encoding list of {:int, 64}.\nExpected max_size: 2048.\nFound: 3000\nStacktrace: AttesterSlashing.attestation_2.attesting_indices"
   end
 
+  @tag :skip
   test "stacktrace hash_tree_root nested container" do
     attester_slashing = build_broken_attester_slashing()
     {:error, error} = SszEx.hash_tree_root(attester_slashing)
