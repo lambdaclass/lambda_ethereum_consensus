@@ -633,7 +633,11 @@ defmodule Unit.SSZExTest do
         },
         bls_to_execution_changes: [],
         blob_kzg_commitments: [],
-        execution_requests: []
+        execution_requests:  %Types.ExecutionRequests{
+          deposits: [],
+          withdrawals: [],
+          consolidations: []
+        }
       }
     }
 
