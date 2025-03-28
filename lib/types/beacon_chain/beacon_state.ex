@@ -39,7 +39,17 @@ defmodule Types.BeaconState do
     :latest_execution_payload_header,
     :next_withdrawal_index,
     :next_withdrawal_validator_index,
-    :historical_summaries
+    :historical_summaries,
+    # New Electra fields
+    :deposit_requests_start_index,
+    :deposit_balance_to_consume,
+    :exit_balance_to_consume,
+    :earliest_exit_epoch,
+    :consolidation_balance_to_consume,
+    :earliest_consolidation_epoch,
+    :pending_deposits,
+    :pending_partial_withdrawals,
+    :pending_consolidations
   ]
 
   @enforce_keys fields
@@ -105,7 +115,25 @@ defmodule Types.BeaconState do
           # Deep history valid from Capella onwards
           # [New in Capella]
           # HISTORICAL_ROOTS_LIMIT
-          historical_summaries: list(Types.HistoricalSummary.t())
+          historical_summaries: list(Types.HistoricalSummary.t()),
+          # [New in Electra:EIP6110]
+          deposit_requests_start_index: Types.uint64(),
+          # [New in Electra:EIP7251]
+          deposit_balance_to_consume: Types.gwei(),
+          # [New in Electra:EIP7251]
+          exit_balance_to_consume: Types.gwei(),
+          # [New in Electra:EIP7251]
+          earliest_exit_epoch: Types.epoch(),
+          # [New in Electra:EIP7251]
+          consolidation_balance_to_consume: Types.gwei(),
+          # [New in Electra:EIP7251]
+          earliest_consolidation_epoch: Types.epoch(),
+          # [New in Electra:EIP7251]
+          pending_deposits: list(Types.PendingDeposit.t()),
+          # [New in Electra:EIP7251]
+          pending_partial_withdrawals: list(Types.PendingPartialWithdrawal.t()),
+          # [New in Electra:EIP7251]
+          pending_consolidations: list(Types.PendingConsolidation.t())
         }
 
   @impl LambdaEthereumConsensus.Container
@@ -145,7 +173,19 @@ defmodule Types.BeaconState do
       {:next_withdrawal_index, TypeAliases.withdrawal_index()},
       {:next_withdrawal_validator_index, TypeAliases.validator_index()},
       {:historical_summaries,
-       {:list, Types.HistoricalSummary, ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}}
+       {:list, Types.HistoricalSummary, ChainSpec.get("HISTORICAL_ROOTS_LIMIT")}},
+      # New Electra fields
+      {:deposit_requests_start_index, TypeAliases.uint64()},
+      {:deposit_balance_to_consume, TypeAliases.gwei()},
+      {:exit_balance_to_consume, TypeAliases.gwei()},
+      {:earliest_exit_epoch, TypeAliases.epoch()},
+      {:consolidation_balance_to_consume, TypeAliases.gwei()},
+      {:earliest_consolidation_epoch, TypeAliases.epoch()},
+      {:pending_deposits, {:list, Types.PendingDeposit, ChainSpec.get("PENDING_DEPOSITS_LIMIT")}},
+      {:pending_partial_withdrawals,
+       {:list, Types.PendingPartialWithdrawal, ChainSpec.get("PENDING_PARTIAL_WITHDRAWALS_LIMIT")}},
+      {:pending_consolidations,
+       {:list, Types.PendingConsolidation, ChainSpec.get("PENDING_CONSOLIDATIONS_LIMIT")}}
     ]
   end
 
