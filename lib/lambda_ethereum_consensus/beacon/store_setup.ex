@@ -28,7 +28,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   - :db : the genesis state and store can only be recovered from the db.
   """
   def make_strategy!(nil, nil), do: :db
-  def make_strategy!(nil, url) when is_binary(url), do: {:checkpoint_sync_url, url}
+  def make_strategy!(nil, urls) when is_list(urls), do: {:checkpoint_sync_url, urls}
 
   def make_strategy!(dir, nil) when is_binary(dir) do
     Path.join(dir, "genesis.ssz")
@@ -55,14 +55,14 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
     store
   end
 
-  def setup!({:checkpoint_sync_url, checkpoint_url}) do
+  def setup!({:checkpoint_sync_url, checkpoint_urls}) do
     case restore_state_from_db() do
       {:ok, store} ->
         Logger.warning("[Checkpoint sync] Recent state found. Ignoring the checkpoint URL.")
         store
 
       _ ->
-        fetch_state_from_url(checkpoint_url)
+        fetch_and_compare_state_from_urls(checkpoint_urls)
     end
   end
 
@@ -87,8 +87,12 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   @spec get_deposit_snapshot!() :: DepositTreeSnapshot.t() | nil
   def get_deposit_snapshot!(), do: get_deposit_snapshot!(get_strategy!())
 
+  # The endpoint for deposit snapshots is deprecated in electra and will be removed in Fulu
+  # https://github.com/ethereum/beacon-APIs/pull/494
+  # For this reason we don't compare the deposits from the urls as most checkpoints are returning error 500
   @spec get_deposit_snapshot!(store_setup_strategy()) :: DepositTreeSnapshot.t() | nil
-  def get_deposit_snapshot!({:checkpoint_sync_url, url}), do: fetch_deposit_snapshot(url)
+  def get_deposit_snapshot!({:checkpoint_sync_url, urls}),
+    do: fetch_deposit_snapshot(List.first(urls))
 
   def get_deposit_snapshot!(:db) do
     case StoreDb.fetch_deposits_snapshot() do
@@ -129,28 +133,56 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
     end
   end
 
-  defp fetch_state_from_url(url) do
+  defp fetch_and_compare_state_from_urls(urls) do
     Logger.info("[Checkpoint sync] Initiating checkpoint sync")
 
     genesis_validators_root = ChainSpec.get_genesis_validators_root()
 
+    states =
+      urls
+      |> Enum.map(&fetch_state_from_url(genesis_validators_root, &1))
+
+    case Enum.uniq(states) do
+      [_] ->
+        Logger.info(
+          "[Checkpoin sync] Received the same state from #{length(states)} checkpoint nodes"
+        )
+
+      _ ->
+        Logger.error(
+          "[Checkpoint sync] Received inconsistent states from #{length(states)} checkpoint nodes"
+        )
+
+        Logger.flush()
+        System.halt(1)
+    end
+
+    # All states are the same so we can use the first one
+    {anchor_state, anchor_block} = List.first(states)
+
+    # We already checked block and state match
+    {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
+
+    # Save store in DB
+    StoreDb.persist_store(store)
+
+    store
+  end
+
+  defp fetch_state_from_url(genesis_validators_root, url) do
     case CheckpointSync.get_finalized_block_and_state(url, genesis_validators_root) do
       {:ok, {anchor_state, anchor_block}} ->
         Logger.info(
-          "[Checkpoint sync] Received beacon state and block",
+          "[Checkpoint sync] Received beacon state and block from URL #{url}",
           slot: anchor_state.slot
         )
 
-        # We already checked block and state match
-        {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
-
-        # Save store in DB
-        StoreDb.persist_store(store)
-
-        store
+        {anchor_state, anchor_block}
 
       _ ->
-        Logger.error("[Checkpoint sync] Failed to fetch the latest finalized state and block")
+        Logger.error(
+          "[Checkpoint sync] Failed to fetch the latest finalized state and block for URL: #{url}"
+        )
 
         Logger.flush()
         System.halt(1)
