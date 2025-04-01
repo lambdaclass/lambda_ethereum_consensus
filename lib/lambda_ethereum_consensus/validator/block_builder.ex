@@ -100,7 +100,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
            deposits: [],
            withdrawals: [],
            consolidations: []
-        }
+         }
        }
      }}
   end
