@@ -20,11 +20,11 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   @doc """
   Args: at least one can be nil.
   - testnet_dir: directory of a testnet configuration, including ssz and yaml config.
-  - checkpoint_sync_url: a url where checkpoint sync can be performed.
+  - checkpoint_sync_url: list of urls where checkpoint sync can be performed.
 
   Return value: a store setup strategy, which is one of the following:
   - {:file, anchor_state}: path of an ssz file to get the genesis state from.
-  - {:checkpoint_sync_url, url}: url to get the genesis state from if performing checkpoint sync.
+  - {:checkpoint_sync_url, url}: list of urls to get the genesis state from if performing checkpoint sync.
   - :db : the genesis state and store can only be recovered from the db.
   """
   def make_strategy!(nil, nil), do: :db
