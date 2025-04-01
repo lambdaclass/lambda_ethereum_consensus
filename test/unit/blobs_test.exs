@@ -11,6 +11,10 @@ defmodule Unit.BlobsTest do
     start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
     start_link_supervised!(LambdaEthereumConsensus.Store.Blocks)
 
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.put(:config, MainnetConfig)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
+
     # Blob sidecar from spec test
     blob_sidecar =
       SpecTestUtils.read_ssz_from_file!(
