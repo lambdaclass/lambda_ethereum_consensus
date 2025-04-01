@@ -136,29 +136,39 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   defp fetch_and_compare_state_from_urls(urls) do
     Logger.info("[Checkpoint sync] Initiating checkpoint sync")
 
-    genesis_validators_root = ChainSpec.get_genesis_validators_root()
+    # Fetch last finalized block for all urls
+    blocks = for {:ok, res} <- Enum.map(urls, &CheckpointSync.get_block/1), do: res
 
-    states =
-      urls
-      |> Enum.map(&fetch_state_from_url(genesis_validators_root, &1))
-
-    case Enum.uniq(states) do
+    case Enum.uniq(blocks) do
       [_] ->
         Logger.info(
-          "[Checkpoin sync] Received the same state from #{length(states)} checkpoint nodes"
+          "[Checkpoin sync] Received the same last finalized block from #{length(blocks)} checkpoint nodes"
         )
 
       _ ->
         Logger.error(
-          "[Checkpoint sync] Received inconsistent states from #{length(states)} checkpoint nodes"
+          "[Checkpoint sync] Received inconsistent last finalized block from #{length(blocks)} checkpoint nodes"
         )
 
         Logger.flush()
         System.halt(1)
     end
 
-    # All states are the same so we can use the first one
-    {anchor_state, anchor_block} = List.first(states)
+    genesis_validators_root = ChainSpec.get_genesis_validators_root()
+
+    # All urls returned the same last finalized block, we will trust the first to get the state
+    {anchor_state, anchor_block} = fetch_state_from_url(genesis_validators_root, List.first(urls))
+
+    first_block = List.first(blocks)
+
+    if anchor_state.latest_block_header.parent_root != first_block.message.parent_root do
+      Logger.error(
+        "[Checkpoint sync] Root mismatch when comparing latest finalized block with downloaded state"
+      )
+
+      Logger.flush()
+      System.halt(1)
+    end
 
     # We already checked block and state match
     {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
