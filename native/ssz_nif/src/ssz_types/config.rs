@@ -55,7 +55,7 @@ pub(crate) trait Config {
     type PendingConsolidationsLimit: Unsigned;
     type MaxAttesterSlashingsElectra: Unsigned;
     type MaxAttestationsElectra: Unsigned;
-    type MaxValidatorsPerCommitteePerMaxCommitteesPerSlot: Unsigned;
+    type MaxValidatorsPerSlot: Unsigned;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize: Unsigned; // SYNC_COMMITTEE_SIZE / SYNC_COMMITTEE_SUBNET_COUNT
@@ -109,7 +109,7 @@ impl Config for Mainnet {
     type PendingConsolidationsLimit = U262144;
     type MaxAttesterSlashingsElectra = U1;
     type MaxAttestationsElectra = U8;
-    type MaxValidatorsPerCommitteePerMaxCommitteesPerSlot = U131072; // 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
+    type MaxValidatorsPerSlot = U131072; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
@@ -139,7 +139,7 @@ impl Config for Minimal {
     type MaxWithdrawalRequestsPerPayload = U2;
     type PendingPartialWithdrawalsLimit = U64;
     type PendingConsolidationsLimit = U64;
-    type MaxValidatorsPerCommitteePerMaxCommitteesPerSlot = U8192; // 2048 * 4, this as the rest is fixed and we need to be really carefull about any change
+    type MaxValidatorsPerSlot = U8192; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 4, this as the rest is fixed and we need to be really carefull about any change
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
@@ -224,7 +224,7 @@ impl Config for Gnosis {
     type PendingConsolidationsLimit = U262144;
     type MaxAttesterSlashingsElectra = U1;
     type MaxAttestationsElectra = U8;
-    type MaxValidatorsPerCommitteePerMaxCommitteesPerSlot = U131072; // 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
+    type MaxValidatorsPerSlot = U131072; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =

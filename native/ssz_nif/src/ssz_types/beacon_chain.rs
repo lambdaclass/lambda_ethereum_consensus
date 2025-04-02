@@ -46,8 +46,7 @@ pub(crate) struct AttestationData {
 
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct IndexedAttestation<C: Config> {
-    pub(crate) attesting_indices:
-        VariableList<ValidatorIndex, C::MaxValidatorsPerCommitteePerMaxCommitteesPerSlot>,
+    pub(crate) attesting_indices: VariableList<ValidatorIndex, C::MaxValidatorsPerSlot>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
 }
@@ -108,7 +107,7 @@ pub(crate) struct VoluntaryExit {
 
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct Attestation<C: Config> {
-    pub(crate) aggregation_bits: BitList<C::MaxValidatorsPerCommitteePerMaxCommitteesPerSlot>,
+    pub(crate) aggregation_bits: BitList<C::MaxValidatorsPerSlot>,
     pub(crate) data: AttestationData,
     pub(crate) signature: BLSSignature,
     pub(crate) committee_bits: BitVector<C::MaxCommitteesPerSlot>,
