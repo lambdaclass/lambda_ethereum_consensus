@@ -95,7 +95,12 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
              block_request.slot,
              block_request.parent_root
            ),
-         execution_payload: execution_payload
+         execution_payload: execution_payload,
+         execution_requests: %Types.ExecutionRequests{
+           deposits: [],
+           withdrawals: [],
+           consolidations: []
+         }
        }
      }}
   end
