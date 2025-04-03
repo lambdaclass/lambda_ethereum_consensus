@@ -103,7 +103,13 @@ config :lambda_ethereum_consensus, LambdaEthereumConsensus.Store.Db, dir: datadi
 # We use put_env here as we need this immediately after to read the state.
 Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: chain_config)
 
-strategy = StoreSetup.make_strategy!(testnet_dir, checkpoint_sync_url)
+checkpoint_urls =
+  case checkpoint_sync_url do
+    urls when is_binary(urls) -> urls |> String.split(",") |> Enum.map(&String.trim/1)
+    nil -> nil
+  end
+
+strategy = StoreSetup.make_strategy!(testnet_dir, checkpoint_urls)
 
 genesis_validators_root =
   case strategy do
