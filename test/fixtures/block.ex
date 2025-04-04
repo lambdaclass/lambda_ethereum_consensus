@@ -53,7 +53,8 @@ defmodule Fixtures.Block do
       sync_aggregate: sync_aggregate(),
       execution_payload: execution_payload(),
       bls_to_execution_changes: [],
-      blob_kzg_commitments: []
+      blob_kzg_commitments: [],
+      execution_requests: execution_requests()
     ]
 
     struct!(BeaconBlockBody, fields)
@@ -99,6 +100,15 @@ defmodule Fixtures.Block do
     ]
 
     struct!(ExecutionPayload, fields)
+  end
+
+  @spec execution_requests :: Types.ExecutionRequests.t()
+  def execution_requests() do
+    %Types.ExecutionRequests{
+      deposits: [],
+      withdrawals: [],
+      consolidations: []
+    }
   end
 
   @spec fork :: Types.Fork.t()
@@ -200,7 +210,17 @@ defmodule Fixtures.Block do
       latest_execution_payload_header: execution_payload_header(),
       next_withdrawal_index: Random.uint64(),
       next_withdrawal_validator_index: Random.uint64(),
-      historical_summaries: []
+      historical_summaries: [],
+      # New Electra fields
+      deposit_requests_start_index: Random.uint64(),
+      deposit_balance_to_consume: Random.uint64(),
+      exit_balance_to_consume: Random.uint64(),
+      earliest_exit_epoch: Random.uint64(),
+      consolidation_balance_to_consume: Random.uint64(),
+      earliest_consolidation_epoch: Random.uint64(),
+      pending_deposits: [],
+      pending_partial_withdrawals: [],
+      pending_consolidations: []
     }
   end
 

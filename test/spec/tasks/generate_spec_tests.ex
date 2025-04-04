@@ -97,7 +97,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
   defp generate_case(runner_module, testcase) do
     """
       @tag :tmp_dir
-      #{if runner_module.skip?(testcase), do: "\n@tag :skip", else: ""}
+      #{if runner_module.skip?(testcase), do: "@tag :skip", else: ""}
       test "#{SpecTestCase.name(testcase)}" do
         testcase = #{inspect(testcase)}
         #{runner_module}.run_test_case(testcase)
