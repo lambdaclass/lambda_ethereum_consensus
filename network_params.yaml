@@ -34,3 +34,6 @@ additional_services:
 
 # tx_spammer_params:
 #   tx_spammer_extra_args: ["--txcount=3", "--accounts=80"]
+
+network_params:
+  electra_fork_epoch: 0
