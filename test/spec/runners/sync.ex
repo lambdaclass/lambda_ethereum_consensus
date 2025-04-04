@@ -32,6 +32,14 @@ defmodule SyncTestRunner do
   def run_test_case(%SpecTestCase{} = testcase) do
     original_engine_api_config = Application.fetch_env!(:lambda_ethereum_consensus, EngineApi)
 
+    on_exit(fn ->
+      Application.put_env(
+        :lambda_ethereum_consensus,
+        EngineApi,
+        original_engine_api_config
+      )
+    end)
+
     Application.put_env(
       :lambda_ethereum_consensus,
       EngineApi,
@@ -41,13 +49,6 @@ defmodule SyncTestRunner do
     {:ok, _pid} = SyncTestRunner.EngineApiMock.start_link([])
 
     ForkChoiceTestRunner.run_test_case(testcase)
-
-    # TODO: we should do this cleanup even if the test crashes/fails
-    Application.put_env(
-      :lambda_ethereum_consensus,
-      EngineApi,
-      original_engine_api_config
-    )
   end
 end
 
