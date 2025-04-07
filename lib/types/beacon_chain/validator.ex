@@ -87,4 +87,12 @@ defmodule Types.Validator do
     <<first_byte::binary-size(1), _::binary>> = withdrawal_credentials
     first_byte == Constants.compounding_withdrawal_prefix()
   end
+
+  @doc """
+  Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal credential.
+  """
+  @spec has_compounding_withdrawal_credential(t()) :: boolean()
+  def has_compounding_withdrawal_credential(validator) do
+    compounding_withdrawal_credential?(validator.withdrawal_credential)
+  end
 end
