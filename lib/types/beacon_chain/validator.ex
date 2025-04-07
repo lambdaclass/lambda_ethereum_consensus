@@ -51,7 +51,7 @@ defmodule Types.Validator do
         balance,
         epoch
       ) do
-    has_eth1_withdrawal_credential(validator) && withdrawable_epoch <= epoch && balance > 0
+    has_execution_withdrawal_credential(validator) && withdrawable_epoch <= epoch && balance > 0
   end
 
   @doc """
