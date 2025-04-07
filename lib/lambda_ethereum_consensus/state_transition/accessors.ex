@@ -650,4 +650,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     |> Enum.filter(fn {bit, _index} -> bit == 1 end)
     |> Enum.map(fn {_bit, index} -> index end)
   end
+
+  @doc """
+  Return the churn limit for the current epoch.
+  """
+  @spec get_balance_churn_limit(Types.BeaconState.t()) :: Types.gwei()
+  def get_balance_churn_limit(state) do
+    churn =
+      max(
+        ChainSpec.get("MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA"),
+        div(get_total_active_balance(state), ChainSpec.get("CHURN_LIMIT_QUOTIENT"))
+      )
+
+    churn - rem(churn, ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
+  end
 end
