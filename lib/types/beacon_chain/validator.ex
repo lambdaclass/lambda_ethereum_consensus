@@ -95,4 +95,12 @@ defmodule Types.Validator do
   def has_compounding_withdrawal_credential(validator) do
     compounding_withdrawal_credential?(validator.withdrawal_credential)
   end
+
+  @doc """
+  Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
+  """
+  @spec has_execution_withdrawal_credential(t()) :: boolean()
+  def has_execution_withdrawal_credential(validator) do
+    has_compounding_withdrawal_credential(validator) || has_eth1_withdrawal_credential(validator)
+  end
 end
