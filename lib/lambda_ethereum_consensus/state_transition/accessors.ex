@@ -556,7 +556,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           {:ok, IndexedAttestation.t()} | {:error, String.t()}
   def get_indexed_attestation(%BeaconState{} = state, attestation) do
     with {:ok, indices} <-
-           get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
+           get_attesting_indices(state, attestation) do
       %IndexedAttestation{
         attesting_indices: Enum.sort(indices),
         data: attestation.data,
@@ -585,17 +585,28 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   that slot) and then filters the ones that actually participated. It returns an unordered MapSet,
   which is useful for checking inclusion, but should be ordered if used to validate an attestation.
   """
-  @spec get_attesting_indices(BeaconState.t(), Types.AttestationData.t(), Types.bitlist()) ::
+  @spec get_attesting_indices(BeaconState.t(), Types.Attestation.t()) ::
           {:ok, MapSet.t()} | {:error, String.t()}
-  def get_attesting_indices(%BeaconState{} = state, data, bits) do
-    with {:ok, committee} <- get_beacon_committee(state, data.slot, data.index) do
-      committee
-      |> Stream.with_index()
-      |> Stream.filter(fn {_value, index} -> participated?(bits, index) end)
-      |> Stream.map(fn {value, _index} -> value end)
-      |> MapSet.new()
-      |> then(&{:ok, &1})
-    end
+  def get_attesting_indices(%BeaconState{} = state, %Attestation{
+        data: data,
+        aggregation_bits: aggregation_bits,
+        committee_bits: committee_bits
+      }) do
+    committee_bits
+    |> get_committee_indices()
+    |> Enum.reduce({MapSet.new(), 0}, fn index, {old_set, offset} ->
+      with {:ok, committee} <- get_beacon_committee(state, data.slot, index) do
+        committee
+        |> Stream.with_index()
+        |> Stream.filter(fn {_value, index} ->
+          participated?(aggregation_bits, offset + index)
+        end)
+        |> Stream.map(fn {value, _index} -> value end)
+        |> MapSet.new()
+        |> then(&{MapSet.union(&1, old_set), offset + length(committee)})
+      end
+    end)
+    |> then(fn {map, _offset} -> {:ok, map} end)
   end
 
   @spec get_committee_attesting_indices([Types.validator_index()], Types.bitlist()) ::
