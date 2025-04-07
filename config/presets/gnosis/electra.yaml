@@ -48,3 +48,10 @@ MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP: 8
 # ---------------------------------------------------------------
 # 2**4 ( = 4) pending deposits
 MAX_PENDING_DEPOSITS_PER_EPOCH: 16
+
+# Validator cycle
+# ---------------------------------------------------------------
+# 2**7 * 10**9 (= 128,000,000,000) Gwei
+MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA: 128000000000
+# 2**8 * 10**9) (= 256,000,000,000) Gwei
+MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT: 256000000000

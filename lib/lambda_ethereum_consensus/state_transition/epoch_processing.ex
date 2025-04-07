@@ -185,7 +185,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   defp eject_validator(state, validator, index, true) do
-    with {:ok, ejected_validator} <- Mutators.initiate_validator_exit(state, validator) do
+    with {:ok, state, ejected_validator} <- Mutators.initiate_validator_exit(state, validator) do
       {:ok,
        %{state | validators: Aja.Vector.replace_at!(state.validators, index, ejected_validator)}}
     end
