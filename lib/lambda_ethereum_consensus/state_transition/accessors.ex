@@ -664,4 +664,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     churn - rem(churn, ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
   end
+
+  @doc """
+  Return the churn limit for the current epoch dedicated to activations and exits.
+  """
+  @spec get_activation_exit_churn_limit(Types.BeaconState.t()) :: Types.gwei()
+  def get_activation_exit_churn_limit(state) do
+    min(
+      ChainSpec.get("MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT"),
+      get_balance_churn_limit(state)
+    )
+  end
 end
