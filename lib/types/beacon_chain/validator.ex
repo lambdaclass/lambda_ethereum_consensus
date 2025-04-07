@@ -95,7 +95,7 @@ defmodule Types.Validator do
   """
   @spec has_compounding_withdrawal_credential(t()) :: boolean()
   def has_compounding_withdrawal_credential(validator) do
-    compounding_withdrawal_credential?(validator.withdrawal_credential)
+    compounding_withdrawal_credential?(validator.withdrawal_credentials)
   end
 
   @doc """
