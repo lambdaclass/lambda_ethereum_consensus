@@ -81,4 +81,10 @@ defmodule Types.Validator do
       {:withdrawable_epoch, TypeAliases.epoch()}
     ]
   end
+
+  @spec compounding_withdrawal_credential?(Types.bytes32()) :: boolean()
+  def compounding_withdrawal_credential?(withdrawal_credentials) do
+    <<first_byte::binary-size(1), _::binary>> = withdrawal_credentials
+    first_byte == Constants.compounding_withdrawal_prefix()
+  end
 end
