@@ -62,10 +62,12 @@ defmodule Types.Validator do
         %{effective_balance: effective_balance} = validator,
         balance
       ) do
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+    max_effective_balance = get_max_effective_balance(validator)
     has_max_effective_balance = effective_balance == max_effective_balance
     has_excess_balance = balance > max_effective_balance
-    has_eth1_withdrawal_credential(validator) && has_max_effective_balance && has_excess_balance
+
+    has_execution_withdrawal_credential(validator) && has_max_effective_balance &&
+      has_excess_balance
   end
 
   @impl LambdaEthereumConsensus.Container
