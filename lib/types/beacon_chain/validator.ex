@@ -103,4 +103,16 @@ defmodule Types.Validator do
   def has_execution_withdrawal_credential(validator) do
     has_compounding_withdrawal_credential(validator) || has_eth1_withdrawal_credential(validator)
   end
+
+  @doc """
+  Get max effective balance for ``validator``.
+  """
+  @spec get_max_effective_balance(t()) :: Types.gwei()
+  def get_max_effective_balance(validator) do
+    if(has_compounding_withdrawal_credential(validator)) do
+      ChainSpec.get("MAX_EFFECTIVE_BALANCE_ELECTRA")
+    else
+      ChainSpec.get("MIN_ACTIVATION_BALANCE")
+    end
+  end
 end
