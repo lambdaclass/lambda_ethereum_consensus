@@ -629,4 +629,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
   end
+
+  @spec get_committee_indices(Types.bitvector()) :: Enumerable.t(Types.commitee_index())
+  def get_committee_indices(committee_bits) do
+    committee_bits
+    |> :binary.bin_to_list()
+    |> Enum.reverse()
+    |> Enum.with_index()
+    |> Enum.filter(fn {bit, _index} -> bit == 1 end)
+    |> Enum.map(fn {_bit, index} -> index end)
+  end
 end
