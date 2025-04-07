@@ -187,4 +187,41 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     )
     |> then(&{:ok, &1})
   end
+
+  @spec compute_exit_epoch_and_update_churn(Types.BeaconState.t(), Types.gwei()) ::
+          Types.BeaconState.t()
+  def compute_exit_epoch_and_update_churn(state, exit_balance) do
+    current_epoch = Accessors.get_current_epoch(state)
+
+    earliest_exit_epoch =
+      max(state.earliest_exit_epoch, Misc.compute_activation_exit_epoch(current_epoch))
+
+    per_epoch_churn = Accessors.get_activation_exit_churn_limit(state)
+
+    exit_balance_to_consume =
+      if state.earliest_exit_epoch < earliest_exit_epoch do
+        per_epoch_churn
+      else
+        state.exit_balance_to_consume
+      end
+
+    {earliest_exit_epoch, exit_balance_to_consume} =
+      if exit_balance > exit_balance_to_consume do
+        balance_to_process = exit_balance - exit_balance_to_consume
+        additional_epochs = div(balance_to_process - 1, per_epoch_churn + 1)
+
+        {
+          earliest_exit_epoch + additional_epochs,
+          exit_balance_to_consume + additional_epochs * per_epoch_churn
+        }
+      else
+        {earliest_exit_epoch, exit_balance_to_consume}
+      end
+
+    %BeaconState{
+      state
+      | exit_balance_to_consume: exit_balance_to_consume,
+        earliest_exit_epoch: earliest_exit_epoch
+    }
+  end
 end
