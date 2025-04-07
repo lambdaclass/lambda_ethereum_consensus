@@ -83,12 +83,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
          {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
       slashing_penalty =
         validator.effective_balance
-        |> div(ChainSpec.get("MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX"))
+        |> div(ChainSpec.get("MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA"))
 
       whistleblower_index = whistleblower_index(whistleblower_index, proposer_index)
 
       whistleblower_reward =
-        div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
+        div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA"))
 
       proposer_reward =
         (whistleblower_reward * Constants.proposer_weight())
