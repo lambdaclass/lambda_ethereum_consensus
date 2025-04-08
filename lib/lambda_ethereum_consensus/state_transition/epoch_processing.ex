@@ -432,4 +432,14 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       max(balance + delta, 0)
     end)
   end
+
+  @spec process_pending_deposits(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_pending_deposits(%BeaconState{} = state) do
+    {:ok, state}
+  end
+
+  @spec process_pending_consolidations(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_pending_consolidations(%BeaconState{} = state) do
+    {:ok, state}
+  end
 end
