@@ -12,8 +12,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   alias LambdaEthereumConsensus.Utils
   alias Types.BeaconState
 
-  # Modified in Electra
-
   @max_random_byte 2 ** 16 - 1
 
   @doc """

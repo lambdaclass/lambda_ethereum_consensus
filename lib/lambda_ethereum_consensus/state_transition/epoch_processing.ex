@@ -127,7 +127,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         if validator.slashed and
              epoch + div(epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
           effective_balance_increments = div(validator.effective_balance, increment)
-          # [Modified in Electra:EIP7251]
           penalty = penalty_per_effective_balance_increment * effective_balance_increments
 
           BeaconState.decrease_balance(acc, index, penalty)
