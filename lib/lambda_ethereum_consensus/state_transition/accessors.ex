@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias Types.SyncCommittee
   alias Types.Validator
 
-  @max_random_byte 2 ** 8 - 1
+  @max_random_byte 2 ** 16 - 1
 
   @doc """
   Compute the correct sync committee for a given `epoch`.
@@ -118,13 +118,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
            |> Misc.compute_shuffled_index(active_validator_count, seed) do
       candidate_index = Aja.Vector.at!(active_validator_indices, shuffled_index)
 
-      <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
-        SszEx.hash(seed <> Misc.uint64_to_bytes(div(index, 32)))
+      random_bytes = SszEx.hash(seed <> Misc.uint_to_bytes(div(index, 16), 64))
+      offset = rem(index, 16) * 2
 
-      max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+      bytes = binary_part(random_bytes, offset, 2) <> <<0::48>>
+      random_value = Misc.bytes_to_uint64(bytes)
+
+      max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE_ELECTRA")
       effective_balance = Aja.Vector.at!(validators, candidate_index).effective_balance
 
-      if effective_balance * @max_random_byte >= max_effective_balance * random_byte do
+      if effective_balance * @max_random_byte >= max_effective_balance * random_value do
         {:ok, sync_committee_indices |> List.insert_at(0, candidate_index)}
       else
         {:ok, sync_committee_indices}
