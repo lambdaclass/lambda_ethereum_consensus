@@ -117,17 +117,17 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     adjusted_total_slashing_balance =
       min(slashed_sum * proportional_slashing_multiplier, total_balance)
 
+    penalty_per_effective_balance_increment =
+      div(adjusted_total_slashing_balance, div(total_balance, increment))
+
     new_state =
       validators
       |> Stream.with_index()
       |> Enum.reduce(state, fn {validator, index}, acc ->
         if validator.slashed and
              epoch + div(epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
-          # increment factored out from penalty numerator to avoid uint64 overflow
-          penalty_numerator =
-            div(validator.effective_balance, increment) * adjusted_total_slashing_balance
-
-          penalty = div(penalty_numerator, total_balance) * increment
+          effective_balance_increments = div(validator.effective_balance, increment)
+          penalty = penalty_per_effective_balance_increment * effective_balance_increments
 
           BeaconState.decrease_balance(acc, index, penalty)
         else
