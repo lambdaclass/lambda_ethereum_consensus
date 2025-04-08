@@ -193,7 +193,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
 
     %BeaconState{
       state
-      | exit_balance_to_consume: exit_balance_to_consume,
+      | exit_balance_to_consume: exit_balance_to_consume - exit_balance,
         earliest_exit_epoch: earliest_exit_epoch
     }
   end
