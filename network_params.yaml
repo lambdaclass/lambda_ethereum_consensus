@@ -15,10 +15,20 @@ participants:
     cl_max_mem: 4096
     keymanager_enabled: true
 
+network_params:
+  electra_fork_epoch: 0
+# Uncomment the following line to run the the network with the minimal preset (which is various times faster)
+  # preset: minimal
+
 additional_services:
   - tx_fuzz
   - dora
   - prometheus_grafana
+# Uncomment the following lines to run the the network with the assertoor tests
+#   - assertoor
 
-network_params:
-  electra_fork_epoch: 0
+# assertoor_params:
+#   run_stability_check: false
+#   run_block_proposal_check: false
+#   tests:
+#     - https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_consensus/refs/heads/main/.github/config/assertoor/cl-stability-check.yml

@@ -31,28 +31,10 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   def make_strategy!(nil, url) when is_binary(url), do: {:checkpoint_sync_url, url}
 
   def make_strategy!(dir, nil) when is_binary(dir) do
-    ssz_path = Path.join(dir, "genesis.ssz")
-    ssz_data = File.read!(ssz_path)
-    Logger.info("[Store Setup] Genesis state file found at #{ssz_path |> Path.expand()}")
-
-    # First try with SszEx
-    case SszEx.decode(ssz_data, Types.BeaconState) do
-      {:ok, state} ->
-        Logger.info("[Store Setup] Decoded genesis state with SszEx")
-        {:file, state}
-      {:error, error} ->
-        # If SszEx fails, try with Ssz
-        Logger.warning("[Store Setup] Failed to decode with SszEx: #{inspect(error)}. Trying with Ssz...")
-        case Ssz.from_ssz(ssz_data, Types.BeaconState) do
-          {:ok, state} ->
-            Logger.info("[Store Setup] Decoded genesis state with Ssz")
-            {:file, state}
-          {:error, ssz_error} ->
-            error_msg = "Failed to decode genesis state with both SszEx and Ssz: #{inspect(error)}, #{inspect(ssz_error)}"
-            Logger.error("[Store Setup] #{error_msg}")
-            raise error_msg
-        end
-    end
+    Path.join(dir, "genesis.ssz")
+    |> File.read!()
+    |> SszEx.decode(Types.BeaconState)
+    |> then(fn {:ok, state} -> {:file, state} end)
   end
 
   @doc """
