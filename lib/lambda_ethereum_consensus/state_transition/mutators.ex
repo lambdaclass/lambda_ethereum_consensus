@@ -181,7 +181,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     {earliest_exit_epoch, exit_balance_to_consume} =
       if exit_balance > exit_balance_to_consume do
         balance_to_process = exit_balance - exit_balance_to_consume
-        additional_epochs = div(balance_to_process - 1, per_epoch_churn + 1)
+        additional_epochs = div(balance_to_process - 1, per_epoch_churn) + 1
 
         {
           earliest_exit_epoch + additional_epochs,
