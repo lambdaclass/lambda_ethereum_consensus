@@ -22,7 +22,6 @@ participants:
 additional_services:
   - assertoor
   - tx_fuzz
-  - blob_fuzz
   - dora
 
 assertoor_params:
