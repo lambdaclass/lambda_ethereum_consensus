@@ -19,6 +19,9 @@ participants:
     cl_max_mem: 4096
     keymanager_enabled: true
 
+network_params:
+  electra_fork_epoch: 0
+  
 additional_services:
   - assertoor
   - tx_fuzz
