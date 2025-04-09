@@ -32,3 +32,6 @@ additional_services:
 #   run_block_proposal_check: false
 #   tests:
 #     - https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_consensus/refs/heads/main/.github/config/assertoor/cl-stability-check.yml
+
+# tx_fuzz_params:
+#   tx_fuzz_extra_args: ["--txcount=3", "--accounts=80"]
