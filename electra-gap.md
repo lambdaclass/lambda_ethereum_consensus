@@ -30,12 +30,12 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [x] New `has_compounding_withdrawal_credential` ([Spec](docs/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] New `has_execution_withdrawal_credential` ([Spec](docs/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] Modified `is_fully_withdrawable_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_fully_withdrawable_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
-- [x] Modified `is_partially_withdrawable_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
+- [ ] Modified `is_partially_withdrawable_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 
 
 ## Beacon State Accessors
 
-- [x] Modified `get_attesting_indices` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_attesting_indices))
+- [x] Modified `get_attesting_indices` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_attesting_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] Modified `get_next_sync_committee_indices` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
 - [ ] New `get_balance_churn_limit` ([Spec](docs/specs/electra/beacon-chain.md#new-get_balance_churn_limit))
 - [ ] New `get_activation_exit_churn_limit` ([Spec](docs/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit))
@@ -54,7 +54,7 @@ This document outlines the gaps in the current implementation of the Electra. It
 ## Miscellaneous
 
 - [x] New `get_committee_indices` ([Spec](docs/specs/electra/beacon-chain.md#new-get_committee_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
-- [x] Modified `compute_proposer_index` ([Implementation](lib/lambda_ethereum_consensus/state_transition/operations.ex#L462), [Spec](docs/specs/electra/beacon-chain.md#modified-compute_proposer_index), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
+- [x] Modified `compute_proposer_index` ([Spec](docs/specs/electra/beacon-chain.md#modified-compute_proposer_index), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
 - [ ] New `get_max_effective_balance` ([Spec](docs/specs/electra/beacon-chain.md#new-get_max_effective_balance))
 
 ## Epoch Processing
