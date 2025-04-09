@@ -133,7 +133,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     }
 
     pending_deposits =
-      if !Enum.member?(state.validators, fn validator -> validator.pubkey == pubkey end) do
+      if Enum.member?(state.validators, fn validator -> validator.pubkey == pubkey end) do
+        state.pending_deposits ++ [deposit]
+      else
         if DepositMessage.valid_deposit_signature?(
              pubkey,
              withdrawal_credentials,
@@ -145,8 +147,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         else
           state.pending_deposits
         end
-      else
-        state.pending_deposits ++ [deposit]
       end
 
     {:ok,
