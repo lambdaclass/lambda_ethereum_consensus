@@ -195,7 +195,7 @@ jobs:
       run: mix compile --warnings-as-errors
     - name: Run the node
       # NOTE: this starts and then stops the application. It should catch simple runtime errors
-      run: make sepolia
+      run: mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia
 
   test:
     name: Test
