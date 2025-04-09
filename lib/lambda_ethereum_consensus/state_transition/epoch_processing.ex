@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias Types.BeaconState
+  alias Types.DepositMessage
   alias Types.HistoricalSummary
   alias Types.Validator
 
@@ -441,5 +442,29 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   @spec process_pending_consolidations(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_pending_consolidations(%BeaconState{} = state) do
     {:ok, state}
+  end
+
+  defp apply_pending_deposit(state, deposit) do
+    case Enum.find_index(state.validators, fn validator -> validator.pubkey == deposit.pubkey end) do
+      index when is_number(index) ->
+        {:ok, BeaconState.increase_balance(state, index, deposit.amount)}
+
+      _ ->
+        if DepositMessage.valid_deposit_signature?(
+             deposit.pubkey,
+             deposit.withdrawal_credentials,
+             deposit.amount,
+             deposit.signature
+           ) do
+          Mutators.apply_initial_deposit(
+            state,
+            deposit.pubkey,
+            deposit.withdrawal_credentials,
+            deposit.amount
+          )
+        else
+          {:ok, state}
+        end
+    end
   end
 end
