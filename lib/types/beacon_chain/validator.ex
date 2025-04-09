@@ -5,8 +5,6 @@ defmodule Types.Validator do
   """
   use LambdaEthereumConsensus.Container
 
-  @eth1_address_withdrawal_prefix <<0x01>>
-
   fields = [
     :pubkey,
     :withdrawal_credentials,
@@ -38,7 +36,7 @@ defmodule Types.Validator do
   @spec has_eth1_withdrawal_credential(t()) :: boolean
   def has_eth1_withdrawal_credential(%{withdrawal_credentials: withdrawal_credentials}) do
     <<first_byte_of_withdrawal_credentials::binary-size(1), _::binary>> = withdrawal_credentials
-    first_byte_of_withdrawal_credentials == @eth1_address_withdrawal_prefix
+    first_byte_of_withdrawal_credentials == Constants.eth1_address_withdrawal_prefix()
   end
 
   @doc """
