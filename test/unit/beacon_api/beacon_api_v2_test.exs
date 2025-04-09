@@ -1,7 +1,8 @@
 defmodule Unit.BeaconApiTest.V2 do
   use ExUnit.Case
-  use Plug.Test
   use Patch
+
+  import Plug.Test
 
   alias BeaconApi.Router
   alias LambdaEthereumConsensus.Store.BlockDb
