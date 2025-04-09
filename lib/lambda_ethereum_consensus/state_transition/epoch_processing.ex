@@ -436,7 +436,96 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_pending_deposits(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_pending_deposits(%BeaconState{} = state) do
-    {:ok, state}
+    far_future_epoch = Constants.far_future_epoch()
+    next_epoch = Accessors.get_current_epoch(state)
+
+    available_for_processing =
+      state.deposit_balance_to_consume + Accessors.get_activation_exit_churn_limit(state)
+
+    finalized_slot = Misc.compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
+
+    {state, churn_limit_reached, processed_amount, deposits_to_postpone, last_processed_index} =
+      state.pending_deposits
+      |> Enum.with_index()
+      |> Enum.reduce_while({state, false, 0, [], 0}, fn {deposit, index},
+                                                        {state, churn_limit_reached,
+                                                         processed_amount, deposits_to_postpone,
+                                                         _last_processed_index} ->
+        cond do
+          # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
+          deposit.slot > Constants.genesis_slot() &&
+              state.eth1_deposit_index < state.deposit_requests_start_index ->
+            {:halt,
+             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+
+          # Check if deposit has been finalized, otherwise, stop processing.
+          deposit.slot > finalized_slot ->
+            {:halt,
+             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+
+          # Check if number of processed deposits has not reached the limit, otherwise, stop processing.
+          index >= ChainSpec.get("MAX_PENDING_DEPOSITS_PER_EPOCH") ->
+            {:halt,
+             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+
+          true ->
+            {is_validator_exited, is_validator_withdrawn} =
+              case Enum.find(state.validators, fn v -> v.pubkey == deposit.pubkey end) do
+                %Validator{} = validator ->
+                  {validator.exit_epoch < far_future_epoch,
+                   validator.withdrawable_epoch < next_epoch}
+
+                _ ->
+                  {false, false}
+              end
+
+            cond do
+              # Deposited balance will never become active. Increase balance but do not consume churn
+              is_validator_withdrawn ->
+                {:ok, state} = apply_pending_deposit(state, deposit)
+
+                {:cont,
+                 {state, churn_limit_reached, processed_amount, deposits_to_postpone, index}}
+
+              # Validator is exiting, postpone the deposit until after withdrawable epoch
+              is_validator_exited ->
+                deposits_to_postpone = Enum.concat(deposits_to_postpone, [deposit])
+
+                {:cont,
+                 {state, churn_limit_reached, processed_amount, deposits_to_postpone, index}}
+
+              true ->
+                # Check if deposit fits in the churn, otherwise, do no more deposit processing in this epoch.
+                is_churn_limit_reached =
+                  processed_amount + deposit.amount > available_for_processing
+
+                if is_churn_limit_reached do
+                  {:halt, {state, true, processed_amount, deposits_to_postpone, index - 1}}
+                else
+                  # Consume churn and apply deposit.
+                  processed_amount = processed_amount + deposit.amount
+                  {:ok, state} = apply_pending_deposit(state, deposit)
+                  {:cont, {state, false, processed_amount, deposits_to_postpone, index}}
+                end
+            end
+        end
+      end)
+
+    deposit_balance_to_consume =
+      if churn_limit_reached do
+        available_for_processing - processed_amount
+      else
+        0
+      end
+
+    {:ok,
+     %BeaconState{
+       state
+       | pending_deposits:
+           Enum.drop(state.pending_deposits, last_processed_index + 1)
+           |> Enum.concat(deposits_to_postpone),
+         deposit_balance_to_consume: deposit_balance_to_consume
+     }}
   end
 
   @spec process_pending_consolidations(BeaconState.t()) :: {:ok, BeaconState.t()}
