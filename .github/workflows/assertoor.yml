@@ -31,5 +31,5 @@ jobs:
           enclave_name: "elixir-consensus-assertoor"
           kurtosis_version: "1.4.2"
           ethereum_package_url: 'github.com/lambdaclass/ethereum-package'
-          ethereum_package_branch: 'lecc-integration-and-assertoor'
+          ethereum_package_branch: 'lecc-integration-electra'
           ethereum_package_args: './.github/config/assertoor/network-params.yml'

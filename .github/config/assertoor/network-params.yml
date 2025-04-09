@@ -21,8 +21,8 @@ participants:
 
 additional_services:
   - assertoor
-  - tx_spammer
-  - blob_spammer
+  - tx_fuzz
+  - blob_fuzz
   - dora
 
 assertoor_params:
@@ -31,5 +31,5 @@ assertoor_params:
  tests:
    - https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_consensus/refs/heads/main/.github/config/assertoor/cl-stability-check.yml
 
-tx_spammer_params:
-  tx_spammer_extra_args: ["--txcount=3", "--accounts=80"]
+tx_fuzz_params:
+  tx_fuzz_extra_args: ["--txcount=3", "--accounts=80"]
