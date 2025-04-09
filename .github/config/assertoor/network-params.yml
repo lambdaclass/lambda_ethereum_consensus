@@ -4,11 +4,7 @@ participants:
     cl_type: lighthouse
     cl_image: sigp/lighthouse:v7.0.0-beta.5
     validator_count: 32
-  - el_type: geth
-    el_image: ethereum/client-go:v1.15.6
-    cl_type: lighthouse
-    cl_image: sigp/lighthouse:v7.0.0-beta.5
-    validator_count: 32
+    count: 2
   - el_type: geth
     el_image: ethereum/client-go:v1.15.6
     cl_type: lambda
@@ -19,6 +15,9 @@ participants:
     cl_max_mem: 4096
     keymanager_enabled: true
 
+network_params:
+  electra_fork_epoch: 0
+  
 additional_services:
   - assertoor
   - tx_fuzz
