@@ -30,7 +30,7 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [x] New `has_compounding_withdrawal_credential` ([Spec](docs/specs/electra/beacon-chain.md#new-has_compounding_withdrawal_credential), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] New `has_execution_withdrawal_credential` ([Spec](docs/specs/electra/beacon-chain.md#new-has_execution_withdrawal_credential), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] Modified `is_fully_withdrawable_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_fully_withdrawable_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
-- [ ] Modified `is_partially_withdrawable_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
+- [x] Modified `is_partially_withdrawable_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 
 
 ## Beacon State Accessors
@@ -55,12 +55,12 @@ This document outlines the gaps in the current implementation of the Electra. It
 
 - [x] New `get_committee_indices` ([Spec](docs/specs/electra/beacon-chain.md#new-get_committee_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] Modified `compute_proposer_index` ([Spec](docs/specs/electra/beacon-chain.md#modified-compute_proposer_index), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
-- [ ] New `get_max_effective_balance` ([Spec](docs/specs/electra/beacon-chain.md#new-get_max_effective_balance))
+- [x] New `get_max_effective_balance` ([Spec](docs/specs/electra/beacon-chain.md#new-get_max_effective_balance), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 
 ## Epoch Processing
 
-- [x] Modified `process_epoch` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_epoch))
-- [x] Modified `process_registry_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_registry_updates))
+- [ ] Modified `process_epoch` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_epoch))
+- [ ] Modified `process_registry_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_registry_updates))
 - [x] Modified `process_slashings` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_slashings), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
 - [ ] New `apply_pending_deposit` ([Spec](docs/specs/electra/beacon-chain.md#new-apply_pending_deposit))
 - [ ] New `process_pending_deposits` ([Spec](docs/specs/electra/beacon-chain.md#new-process_pending_deposits))
@@ -69,10 +69,9 @@ This document outlines the gaps in the current implementation of the Electra. It
 
 ## Block Processing
 
-### Implemented
-- [x] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals))
-- [x] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
-- [x] Modified `process_operations` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_operations))
+- [ ] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals))
+- [ ] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
+- [ ] Modified `process_operations` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_operations))
 - [ ] Modified `process_attestation` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_attestation))
 - [ ] Modified `process_deposit` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_deposit))
 - [ ] Modified `process_voluntary_exit` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_voluntary_exit))
