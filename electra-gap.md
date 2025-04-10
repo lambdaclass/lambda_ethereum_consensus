@@ -37,19 +37,19 @@ This document outlines the gaps in the current implementation of the Electra. It
 
 - [x] Modified `get_attesting_indices` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_attesting_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] Modified `get_next_sync_committee_indices` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
-- [ ] New `get_balance_churn_limit` ([Spec](docs/specs/electra/beacon-chain.md#new-get_balance_churn_limit))
-- [ ] New `get_activation_exit_churn_limit` ([Spec](docs/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit))
+- [x] New `get_balance_churn_limit` ([Spec](docs/specs/electra/beacon-chain.md#new-get_balance_churn_limit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
+- [x] New `get_activation_exit_churn_limit` ([Spec](docs/specs/electra/beacon-chain.md#new-get_activation_exit_churn_limit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
 - [ ] New `get_consolidation_churn_limit` ([Spec](docs/specs/electra/beacon-chain.md#new-get_consolidation_churn_limit))
 - [ ] New `get_pending_balance_to_withdraw` ([Spec](docs/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw))
 
 ## Beacon State Mutators
 
-- [ ] Modified `initiate_validator_exit` ([Spec](docs/specs/electra/beacon-chain.md#modified-initiate_validator_exit))
+- [x] Modified `initiate_validator_exit` ([Spec](docs/specs/electra/beacon-chain.md#modified-initiate_validator_exit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
 - [ ] New `switch_to_compounding_validator` ([Spec](docs/specs/electra/beacon-chain.md#new-switch_to_compounding_validator))
 - [ ] New `queue_excess_active_balance` ([Spec](docs/specs/electra/beacon-chain.md#new-queue_excess_active_balance))
-- [ ] New `compute_exit_epoch_and_update_churn` ([Spec](docs/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn))
+- [x] New `compute_exit_epoch_and_update_churn` ([Spec](docs/specs/electra/beacon-chain.md#new-compute_exit_epoch_and_update_churn), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
 - [ ] New `compute_consolidation_epoch_and_update_churn` ([Spec](docs/specs/electra/beacon-chain.md#new-compute_consolidation_epoch_and_update_churn))
-- [ ] Modified `slash_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-slash_validator))
+- [x] Modified `slash_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-slash_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
 
 ## Miscellaneous
 
@@ -60,7 +60,7 @@ This document outlines the gaps in the current implementation of the Electra. It
 ## Epoch Processing
 
 - [ ] Modified `process_epoch` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_epoch))
-- [ ] Modified `process_registry_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_registry_updates))
+- [x] Modified `process_registry_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_registry_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
 - [x] Modified `process_slashings` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_slashings), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
 - [ ] New `apply_pending_deposit` ([Spec](docs/specs/electra/beacon-chain.md#new-apply_pending_deposit))
 - [ ] New `process_pending_deposits` ([Spec](docs/specs/electra/beacon-chain.md#new-process_pending_deposits))
