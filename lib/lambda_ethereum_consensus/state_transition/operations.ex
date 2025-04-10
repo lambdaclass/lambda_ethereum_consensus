@@ -19,11 +19,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias Types.BeaconBlockBody
   alias Types.BeaconBlockHeader
   alias Types.BeaconState
+  alias Types.ConsolidationRequest
+  alias Types.DepositRequest
   alias Types.ExecutionPayload
   alias Types.ExecutionPayloadHeader
   alias Types.SyncAggregate
   alias Types.Validator
   alias Types.Withdrawal
+  alias Types.WithdrawalRequest
 
   @spec process_block_header(BeaconState.t(), BeaconBlock.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
@@ -918,6 +921,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
+  @spec process_deposit_request(BeaconState.t(), DepositRequest.t()) :: {:ok, BeaconState.t()}
+  def process_deposit_request(state, _deposit_request) do
+    {:ok, state}
+  end
+
+  @spec process_withdrawal_request(BeaconState.t(), WithdrawalRequest.t()) ::
+          {:ok, BeaconState.t()}
+  def process_withdrawal_request(state, _withdrawal_request) do
+    {:ok, state}
+  end
+
+  @spec process_consolidation_request(BeaconState.t(), ConsolidationRequest.t()) ::
+          {:ok, BeaconState.t()}
+  def process_consolidation_request(state, _consolidation_request) do
+    {:ok, state}
+  end
+
   @spec process_operations(BeaconState.t(), BeaconBlockBody.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def process_operations(state, body) do
@@ -933,6 +953,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         :bls_to_execution_change,
         body.bls_to_execution_changes,
         &process_bls_to_execution_change/2
+      )
+      |> for_ops(:deposit_request, body.execution_requests.deposits, &process_deposit_request/2)
+      |> for_ops(
+        :withdrawal_request,
+        body.execution_requests.withdrawals,
+        &process_withdrawal_request/2
+      )
+      |> for_ops(
+        :consolidation_request,
+        body.execution_requests.consolidations,
+        &process_consolidation_request/2
       )
     end
   end
@@ -954,13 +985,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec verify_deposits(BeaconState.t(), BeaconBlockBody.t()) :: :ok | {:error, String.t()}
   defp verify_deposits(state, body) do
-    deposit_count = state.eth1_data.deposit_count - state.eth1_deposit_index
-    deposit_limit = min(ChainSpec.get("MAX_DEPOSITS"), deposit_count)
+    eth1_deposit_index_limit =
+      min(state.eth1_data.deposit_count, state.deposit_requests_start_index)
 
-    if length(body.deposits) == deposit_limit do
-      :ok
-    else
-      {:error, "deposits length mismatch"}
+    max_deposits = ChainSpec.get("MAX_DEPOSITS")
+
+    cond do
+      state.eth1_deposit_index < eth1_deposit_index_limit and
+          length(body.deposits) ==
+            min(max_deposits, eth1_deposit_index_limit - state.eth1_deposit_index) ->
+        :ok
+
+      Enum.empty?(body.deposits) ->
+        :ok
+
+      true ->
+        {:error, "Invalid deposits"}
     end
   end
 end
