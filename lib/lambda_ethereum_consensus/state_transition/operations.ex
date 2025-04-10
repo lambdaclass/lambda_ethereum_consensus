@@ -565,6 +565,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
         {:error, "validator cannot exit yet"}
 
+      Accessors.get_pending_balance_to_withdraw(state, voluntary_exit.validator_index) != 0 ->
+        {:error, "validator has pending withdrawals in the queue"}
+
       not (Misc.compute_domain(
              Constants.domain_voluntary_exit(),
              fork_version: ChainSpec.get("CAPELLA_FORK_VERSION"),
