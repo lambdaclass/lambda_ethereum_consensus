@@ -597,12 +597,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     |> Enum.reduce_while({MapSet.new(), 0}, fn committee_index, {attesters, offset} ->
       case get_beacon_committee(state, data.slot, committee_index) do
         {:ok, committee} ->
-          committee_attesters =
-            committee
-            |> Stream.with_index(offset)
-            |> Stream.filter(fn {_validator, pos} -> participated?(aggregation_bits, pos) end)
-            |> Stream.map(fn {validator, _} -> validator end)
-            |> MapSet.new()
+          committee_attesters = compute_committee_attesters(committee, aggregation_bits, offset)
 
           {:cont, {MapSet.union(attesters, committee_attesters), offset + length(committee)}}
 
@@ -614,6 +609,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       {:error, error} -> {:error, error}
       {attesters, _offset} -> {:ok, attesters}
     end
+  end
+
+  defp compute_committee_attesters(committee, aggregation_bits, offset) do
+    committee
+    |> Stream.with_index(offset)
+    |> Stream.filter(fn {_validator, pos} -> participated?(aggregation_bits, pos) end)
+    |> Stream.map(fn {validator, _} -> validator end)
+    |> MapSet.new()
   end
 
   @spec get_committee_attesting_indices([Types.validator_index()], Types.bitlist()) ::
