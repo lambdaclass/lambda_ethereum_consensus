@@ -594,19 +594,29 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       }) do
     committee_bits
     |> get_committee_indices()
-    |> Enum.reduce({MapSet.new(), 0}, fn index, {old_set, offset} ->
-      with {:ok, committee} <- get_beacon_committee(state, data.slot, index) do
-        committee
-        |> Stream.with_index()
-        |> Stream.filter(fn {_value, index} ->
-          participated?(aggregation_bits, offset + index)
-        end)
-        |> Stream.map(fn {value, _index} -> value end)
-        |> MapSet.new()
-        |> then(&{MapSet.union(&1, old_set), offset + length(committee)})
+    |> Enum.reduce_while({MapSet.new(), 0}, fn committee_index, {attesters, offset} ->
+      case get_beacon_committee(state, data.slot, committee_index) do
+        {:ok, committee} ->
+          committee_attesters = compute_committee_attesters(committee, aggregation_bits, offset)
+
+          {:cont, {MapSet.union(attesters, committee_attesters), offset + length(committee)}}
+
+        error ->
+          {:halt, error}
       end
     end)
-    |> then(fn {map, _offset} -> {:ok, map} end)
+    |> case do
+      {:error, error} -> {:error, error}
+      {attesters, _offset} -> {:ok, attesters}
+    end
+  end
+
+  defp compute_committee_attesters(committee, aggregation_bits, offset) do
+    committee
+    |> Stream.with_index(offset)
+    |> Stream.filter(fn {_validator, pos} -> participated?(aggregation_bits, pos) end)
+    |> Stream.map(fn {validator, _} -> validator end)
+    |> MapSet.new()
   end
 
   @spec get_committee_attesting_indices([Types.validator_index()], Types.bitlist()) ::
@@ -643,11 +653,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   @spec get_committee_indices(Types.bitvector()) :: Enumerable.t(Types.commitee_index())
   def get_committee_indices(committee_bits) do
-    committee_bits
-    |> :binary.bin_to_list()
-    |> Enum.reverse()
-    |> Enum.with_index()
-    |> Enum.filter(fn {bit, _index} -> bit == 1 end)
-    |> Enum.map(fn {_bit, index} -> index end)
+    bitlist = committee_bits |> :binary.bin_to_list() |> Enum.reverse()
+
+    for {bit, index} <- Enum.with_index(bitlist), bit == 1, do: index
   end
 end
