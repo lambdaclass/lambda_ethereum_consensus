@@ -556,7 +556,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           {:ok, IndexedAttestation.t()} | {:error, String.t()}
   def get_indexed_attestation(%BeaconState{} = state, attestation) do
     with {:ok, indices} <-
-           get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
+           get_attesting_indices(state, attestation) do
       %IndexedAttestation{
         attesting_indices: Enum.sort(indices),
         data: attestation.data,
@@ -585,16 +585,34 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   that slot) and then filters the ones that actually participated. It returns an unordered MapSet,
   which is useful for checking inclusion, but should be ordered if used to validate an attestation.
   """
-  @spec get_attesting_indices(BeaconState.t(), Types.AttestationData.t(), Types.bitlist()) ::
+  @spec get_attesting_indices(BeaconState.t(), Types.Attestation.t()) ::
           {:ok, MapSet.t()} | {:error, String.t()}
-  def get_attesting_indices(%BeaconState{} = state, data, bits) do
-    with {:ok, committee} <- get_beacon_committee(state, data.slot, data.index) do
-      committee
-      |> Stream.with_index()
-      |> Stream.filter(fn {_value, index} -> participated?(bits, index) end)
-      |> Stream.map(fn {value, _index} -> value end)
-      |> MapSet.new()
-      |> then(&{:ok, &1})
+  def get_attesting_indices(%BeaconState{} = state, %Attestation{
+        data: data,
+        aggregation_bits: aggregation_bits,
+        committee_bits: committee_bits
+      }) do
+    committee_bits
+    |> get_committee_indices()
+    |> Enum.reduce_while({MapSet.new(), 0}, fn committee_index, {attesters, offset} ->
+      case get_beacon_committee(state, data.slot, committee_index) do
+        {:ok, committee} ->
+          committee_attesters =
+            committee
+            |> Stream.with_index(offset)
+            |> Stream.filter(fn {_validator, pos} -> participated?(aggregation_bits, pos) end)
+            |> Stream.map(fn {validator, _} -> validator end)
+            |> MapSet.new()
+
+          {:cont, {MapSet.union(attesters, committee_attesters), offset + length(committee)}}
+
+        error ->
+          {:halt, error}
+      end
+    end)
+    |> case do
+      {:error, error} -> {:error, error}
+      {attesters, _offset} -> {:ok, attesters}
     end
   end
 
@@ -628,5 +646,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
+  end
+
+  @spec get_committee_indices(Types.bitvector()) :: Enumerable.t(Types.commitee_index())
+  def get_committee_indices(committee_bits) do
+    bitlist = committee_bits |> :binary.bin_to_list() |> Enum.reverse()
+
+    for {bit, index} <- Enum.with_index(bitlist), bit == 1, do: index
   end
 end
