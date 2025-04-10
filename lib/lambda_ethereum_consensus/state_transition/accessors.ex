@@ -653,7 +653,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   @spec get_committee_indices(Types.bitvector()) :: Enumerable.t(Types.commitee_index())
   def get_committee_indices(committee_bits) do
-    bitlist = committee_bits |> :binary.bin_to_list() |> Enum.reverse()
+    bitlist =
+      for <<bit::1 <- committee_bits>> do
+        bit
+      end
+      |> Enum.reverse()
 
     for {bit, index} <- Enum.with_index(bitlist), bit == 1, do: index
   end
