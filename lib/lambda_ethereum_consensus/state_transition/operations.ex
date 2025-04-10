@@ -592,16 +592,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec validate_attestation(BeaconState.t(), Attestation.t()) :: :ok | {:error, String.t()}
-  def validate_attestation(state, %Attestation{data: data} = attestation) do
+  def validate_attestation(
+        state,
+        %Attestation{data: data, aggregation_bits: aggregation_bits} = attestation
+      ) do
     with :ok <- check_valid_target_epoch(data, state),
          :ok <- check_epoch_matches(data),
          :ok <- check_valid_slot_range(data, state),
-         :ok <- check_committee_count(data, state),
-         {:ok, beacon_committee} <- Accessors.get_beacon_committee(state, data.slot, data.index),
-         :ok <- check_matching_aggregation_bits_length(attestation, beacon_committee) do
-      beacon_committee
-      |> Accessors.get_committee_indexed_attestation(attestation)
-      |> then(&check_valid_indexed_attestation(state, &1))
+         :ok <- check_data_index_zero(data),
+         committee_indices <- Accessors.get_committee_indices(attestation.committee_bits),
+         {:ok, committee_offset} =
+           check_committee_indices(committee_indices, aggregation_bits, data, state),
+         :ok <- check_matching_aggregation_bits_length(aggregation_bits, committee_offset),
+         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
+      check_valid_indexed_attestation(state, indexed_attestation)
     end
   end
 
@@ -842,23 +846,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp check_committee_count(data, state) do
-    if data.index >= Accessors.get_committee_count_per_slot(state, data.target.epoch) do
-      {:error, "Index exceeds committee count"}
+  defp check_committee_count(comittee_index, data, state) do
+    if comittee_index >= Accessors.get_committee_count_per_slot(state, data.target.epoch) do
+      {:error, "Comitee index exceeds committee count"}
     else
       :ok
     end
   end
 
-  defp check_matching_aggregation_bits_length(attestation, beacon_committee) do
-    aggregation_bits_length = BitList.length(attestation.aggregation_bits)
-    beacon_committee_length = length(beacon_committee)
+  defp check_matching_aggregation_bits_length(aggregation_bits, committe_offset) do
+    aggregation_bits_length = BitList.length(aggregation_bits)
 
-    if aggregation_bits_length == beacon_committee_length do
+    if aggregation_bits_length == committe_offset do
       :ok
     else
       {:error,
-       "Mismatched length. aggregation_bits: #{aggregation_bits_length}. beacon_committee: #{beacon_committee_length}"}
+       "Mismatched length. aggregation_bits: #{aggregation_bits_length}. committee_offset: #{committe_offset}"}
     end
   end
 
@@ -868,6 +871,38 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     else
       {:error, "Invalid signature"}
     end
+  end
+
+  defp check_data_index_zero(data) do
+    if data.index == 0 do
+      :ok
+    else
+      {:error, "Data index shoul be zero"}
+    end
+  end
+
+  defp check_committee_indices(committee_indices, aggregation_bits, data, state) do
+    committee_indices
+    |> Enum.reduce_while({:ok, 0}, fn committee_index, {:ok, committee_offset} ->
+      with :ok <- check_committee_count(committee_index, data, state),
+           {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, committee_index) do
+        committee_attesters =
+          for(
+            {attester_index, index} <- Enum.with_index(committee),
+            BitList.set(aggregation_bits, index + committee_offset),
+            do: attester_index
+          )
+          |> MapSet.new()
+
+        if Enum.empty?(committee_attesters) do
+          {:halt, {:error, "Empty committee attesters"}}
+        else
+          {:cont, {:ok, committee_offset + length(committee)}}
+        end
+      else
+        error -> {:halt, error}
+      end
+    end)
   end
 
   def process_bls_to_execution_change(state, signed_address_change) do
