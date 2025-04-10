@@ -1020,7 +1020,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
             min(max_deposits, eth1_deposit_index_limit - state.eth1_deposit_index) ->
         :ok
 
-      Enum.empty?(body.deposits) ->
+      state.eth1_deposit_index >= eth1_deposit_index_limit and Enum.empty?(body.deposits) ->
         :ok
 
       true ->
