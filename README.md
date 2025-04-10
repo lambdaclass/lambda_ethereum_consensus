@@ -12,6 +12,9 @@ We take security seriously. If you discover a vulnerability in this project, ple
 
 For more details, please refer to our [Security Policy](./.github/SECURITY.md).
 
+## Electra Support
+
+We are working on the electra support in [this branch](https://github.com/lambdaclass/lambda_ethereum_consensus/tree/electra-support) and the current progress is updated in [this document](https://github.com/lambdaclass/lambda_ethereum_consensus/tree/electra-support/electra-gap.md)
 
 ## Prerequisites
 
