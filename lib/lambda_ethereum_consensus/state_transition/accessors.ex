@@ -686,4 +686,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       get_balance_churn_limit(state)
     )
   end
+
+  @spec get_pending_balance_to_withdraw(BeaconState.t(), Types.validator_index()) :: Types.gwei()
+  def get_pending_balance_to_withdraw(state, validator_index) do
+    for(
+      withdrawal <- state.pending_partial_withdrawals,
+      withdrawal.validator_index == validator_index,
+      do: withdrawal.amount
+    )
+    |> Enum.sum()
+  end
 end
