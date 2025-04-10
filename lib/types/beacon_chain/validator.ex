@@ -5,8 +5,6 @@ defmodule Types.Validator do
   """
   use LambdaEthereumConsensus.Container
 
-  @eth1_address_withdrawal_prefix <<0x01>>
-
   fields = [
     :pubkey,
     :withdrawal_credentials,
@@ -38,7 +36,7 @@ defmodule Types.Validator do
   @spec has_eth1_withdrawal_credential(t()) :: boolean
   def has_eth1_withdrawal_credential(%{withdrawal_credentials: withdrawal_credentials}) do
     <<first_byte_of_withdrawal_credentials::binary-size(1), _::binary>> = withdrawal_credentials
-    first_byte_of_withdrawal_credentials == @eth1_address_withdrawal_prefix
+    first_byte_of_withdrawal_credentials == Constants.eth1_address_withdrawal_prefix()
   end
 
   @doc """
@@ -51,7 +49,7 @@ defmodule Types.Validator do
         balance,
         epoch
       ) do
-    has_eth1_withdrawal_credential(validator) && withdrawable_epoch <= epoch && balance > 0
+    has_execution_withdrawal_credential(validator) && withdrawable_epoch <= epoch && balance > 0
   end
 
   @doc """
@@ -62,10 +60,12 @@ defmodule Types.Validator do
         %{effective_balance: effective_balance} = validator,
         balance
       ) do
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+    max_effective_balance = get_max_effective_balance(validator)
     has_max_effective_balance = effective_balance == max_effective_balance
     has_excess_balance = balance > max_effective_balance
-    has_eth1_withdrawal_credential(validator) && has_max_effective_balance && has_excess_balance
+
+    has_execution_withdrawal_credential(validator) && has_max_effective_balance &&
+      has_excess_balance
   end
 
   @impl LambdaEthereumConsensus.Container
@@ -80,5 +80,39 @@ defmodule Types.Validator do
       {:exit_epoch, TypeAliases.epoch()},
       {:withdrawable_epoch, TypeAliases.epoch()}
     ]
+  end
+
+  @spec compounding_withdrawal_credential?(Types.bytes32()) :: boolean()
+  def compounding_withdrawal_credential?(withdrawal_credentials) do
+    <<first_byte::binary-size(1), _::binary>> = withdrawal_credentials
+    first_byte == Constants.compounding_withdrawal_prefix()
+  end
+
+  @doc """
+  Check if ``validator`` has an 0x02 prefixed "compounding" withdrawal credential.
+  """
+  @spec has_compounding_withdrawal_credential(t()) :: boolean()
+  def has_compounding_withdrawal_credential(validator) do
+    compounding_withdrawal_credential?(validator.withdrawal_credentials)
+  end
+
+  @doc """
+  Check if ``validator`` has a 0x01 or 0x02 prefixed withdrawal credential.
+  """
+  @spec has_execution_withdrawal_credential(t()) :: boolean()
+  def has_execution_withdrawal_credential(validator) do
+    has_compounding_withdrawal_credential(validator) || has_eth1_withdrawal_credential(validator)
+  end
+
+  @doc """
+  Get max effective balance for ``validator``.
+  """
+  @spec get_max_effective_balance(t()) :: Types.gwei()
+  def get_max_effective_balance(validator) do
+    if has_compounding_withdrawal_credential(validator) do
+      ChainSpec.get("MAX_EFFECTIVE_BALANCE_ELECTRA")
+    else
+      ChainSpec.get("MIN_ACTIVATION_BALANCE")
+    end
   end
 end
