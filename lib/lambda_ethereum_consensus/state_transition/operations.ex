@@ -13,6 +13,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
+  alias Types.PendingDeposit
 
   alias Types.Attestation
   alias Types.BeaconBlock
@@ -922,8 +923,31 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec process_deposit_request(BeaconState.t(), DepositRequest.t()) :: {:ok, BeaconState.t()}
-  def process_deposit_request(state, _deposit_request) do
-    {:ok, state}
+  def process_deposit_request(state, deposit_request) do
+    deposit = %PendingDeposit{
+      pubkey: deposit_request.pubkey,
+      withdrawal_credentials: deposit_request.withdrawal_credentials,
+      amount: deposit_request.amount,
+      signature: deposit_request.signature,
+      slot: state.slot
+    }
+
+    updated_state = %BeaconState{
+      state
+      | pending_deposits: state.pending_deposits ++ [deposit]
+    }
+
+    updated_state =
+      if state.deposit_requests_start_index == Constants.unset_deposit_requests_start_index() do
+        %BeaconState{
+          state
+          | deposit_requests_start_index: deposit_request.index
+        }
+      else
+        updated_state
+      end
+
+    {:ok, updated_state}
   end
 
   @spec process_withdrawal_request(BeaconState.t(), WithdrawalRequest.t()) ::
