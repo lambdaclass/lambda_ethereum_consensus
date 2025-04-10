@@ -1,7 +1,8 @@
 defmodule Unit.BeaconApiTest.V1 do
   use ExUnit.Case
-  use Plug.Test
   use Patch
+
+  import Plug.Test
 
   alias BeaconApi.Router
   alias BeaconApi.Utils
