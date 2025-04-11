@@ -210,4 +210,35 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         earliest_exit_epoch: earliest_exit_epoch
     }
   end
+
+  @spec queue_excess_active_balance(BeaconState.t(), Types.validator_index()) ::
+          BeaconState.t()
+  def queue_excess_active_balance(state, index) do
+    min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
+    balance = Aja.Vector.at(state.balances, index)
+
+    if balance > min_activation_balance do
+      excess_balance = balance - min_activation_balance
+      validator = Aja.Vector.at(state.validators, index)
+
+      updated_balances = Aja.Vector.replace_at(state.balances, index, min_activation_balance)
+      # Use bls.G2_POINT_AT_INFINITY as a signature field placeholder
+      # and GENESIS_SLOT to distinguish from a pending deposit request
+      pending_deposit = %PendingDeposit{
+        pubkey: validator.pubkey,
+        withdrawal_credentials: validator.withdrawal_credentials,
+        amount: excess_balance,
+        signature: Constants.g2_point_at_infinity(),
+        slot: Constants.genesis_slot()
+      }
+
+      %BeaconState{
+        state
+        | balances: updated_balances,
+          pending_deposits: state.pending_deposits ++ [pending_deposit]
+      }
+    else
+      state
+    end
+  end
 end
