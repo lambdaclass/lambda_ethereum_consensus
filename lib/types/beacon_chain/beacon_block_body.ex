@@ -17,7 +17,9 @@ defmodule Types.BeaconBlockBody do
     :sync_aggregate,
     :execution_payload,
     :bls_to_execution_changes,
-    :blob_kzg_commitments
+    :blob_kzg_commitments,
+    # New Electra fields
+    :execution_requests
   ]
 
   @enforce_keys fields
@@ -42,7 +44,9 @@ defmodule Types.BeaconBlockBody do
           # max MAX_BLS_TO_EXECUTION_CHANGES
           bls_to_execution_changes: list(Types.SignedBLSToExecutionChange.t()),
           # max MAX_BLOB_COMMITMENTS_PER_BLOCK
-          blob_kzg_commitments: list(Types.kzg_commitment())
+          blob_kzg_commitments: list(Types.kzg_commitment()),
+          # New in Electra
+          execution_requests: Types.ExecutionRequests.t()
         }
 
   @impl LambdaEthereumConsensus.Container
@@ -53,9 +57,11 @@ defmodule Types.BeaconBlockBody do
       graffiti: TypeAliases.bytes32(),
       proposer_slashings:
         {:list, Types.ProposerSlashing, ChainSpec.get("MAX_PROPOSER_SLASHINGS")},
+      # [Modified in Electra:EIP7549]
       attester_slashings:
-        {:list, Types.AttesterSlashing, ChainSpec.get("MAX_ATTESTER_SLASHINGS")},
-      attestations: {:list, Types.Attestation, ChainSpec.get("MAX_ATTESTATIONS")},
+        {:list, Types.AttesterSlashing, ChainSpec.get("MAX_ATTESTER_SLASHINGS_ELECTRA")},
+      # [Modified in Electra:EIP7549]
+      attestations: {:list, Types.Attestation, ChainSpec.get("MAX_ATTESTATIONS_ELECTRA")},
       deposits: {:list, Types.Deposit, ChainSpec.get("MAX_DEPOSITS")},
       voluntary_exits: {:list, Types.SignedVoluntaryExit, ChainSpec.get("MAX_VOLUNTARY_EXITS")},
       sync_aggregate: Types.SyncAggregate,
@@ -63,7 +69,9 @@ defmodule Types.BeaconBlockBody do
       bls_to_execution_changes:
         {:list, Types.SignedBLSToExecutionChange, ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")},
       blob_kzg_commitments:
-        {:list, TypeAliases.kzg_commitment(), ChainSpec.get("MAX_BLOB_COMMITMENTS_PER_BLOCK")}
+        {:list, TypeAliases.kzg_commitment(), ChainSpec.get("MAX_BLOB_COMMITMENTS_PER_BLOCK")},
+      # New in Electra
+      execution_requests: Types.ExecutionRequests
     ]
   end
 end

@@ -11,59 +11,33 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   Initiate the exit of the validator with index ``index``.
   """
   @spec initiate_validator_exit(BeaconState.t(), integer()) ::
-          {:ok, Validator.t()} | {:error, String.t()}
+          {:ok, {BeaconState.t(), Validator.t()}} | {:error, String.t()}
   def initiate_validator_exit(%BeaconState{} = state, index) when is_integer(index) do
     initiate_validator_exit(state, Aja.Vector.at!(state.validators, index))
   end
 
   @spec initiate_validator_exit(BeaconState.t(), Validator.t()) ::
-          {:ok, Validator.t()} | {:error, String.t()}
+          {:ok, {BeaconState.t(), Validator.t()}} | {:error, String.t()}
   def initiate_validator_exit(%BeaconState{} = state, %Validator{} = validator) do
     far_future_epoch = Constants.far_future_epoch()
     min_validator_withdrawability_delay = ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
 
     if validator.exit_epoch != far_future_epoch do
-      {:ok, validator}
+      {:ok, {state, validator}}
     else
-      exit_epochs =
-        state.validators
-        |> Stream.filter(fn validator ->
-          validator.exit_epoch != far_future_epoch
-        end)
-        |> Stream.map(fn validator -> validator.exit_epoch end)
-        |> Enum.to_list()
+      state = compute_exit_epoch_and_update_churn(state, validator.effective_balance)
+      exit_queue_epoch = state.earliest_exit_epoch
 
-      exit_queue_epoch =
-        Enum.max(
-          exit_epochs ++ [Misc.compute_activation_exit_epoch(Accessors.get_current_epoch(state))]
-        )
-
-      exit_queue_churn =
-        state.validators
-        |> Stream.filter(fn validator ->
-          validator.exit_epoch == exit_queue_epoch
-        end)
-        |> Enum.to_list()
-        |> length()
-
-      exit_queue_epoch =
-        if exit_queue_churn >= Accessors.get_validator_churn_limit(state) do
-          exit_queue_epoch + 1
-        else
-          exit_queue_epoch
-        end
-
-      next_withdrawable_epoch = exit_queue_epoch + min_validator_withdrawability_delay
-
-      if next_withdrawable_epoch > Constants.far_future_epoch() do
-        {:error, "withdrawable_epoch_too_large"}
+      if exit_queue_epoch + min_validator_withdrawability_delay > 2 ** 64 do
+        {:error, "withdrawable_epoch overflow"}
       else
         {:ok,
-         %{
-           validator
-           | exit_epoch: exit_queue_epoch,
-             withdrawable_epoch: next_withdrawable_epoch
-         }}
+         {state,
+          %{
+            validator
+            | exit_epoch: exit_queue_epoch,
+              withdrawable_epoch: exit_queue_epoch + min_validator_withdrawability_delay
+          }}}
       end
     end
   end
@@ -78,17 +52,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         ) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def slash_validator(state, slashed_index, whistleblower_index \\ nil) do
-    with {:ok, validator} <- initiate_validator_exit(state, slashed_index),
+    with {:ok, {state, validator}} <- initiate_validator_exit(state, slashed_index),
          state = add_slashing(state, validator, slashed_index),
          {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
       slashing_penalty =
         validator.effective_balance
-        |> div(ChainSpec.get("MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX"))
+        |> div(ChainSpec.get("MIN_SLASHING_PENALTY_QUOTIENT_ELECTRA"))
 
       whistleblower_index = whistleblower_index(whistleblower_index, proposer_index)
 
       whistleblower_reward =
-        div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT"))
+        div(validator.effective_balance, ChainSpec.get("WHISTLEBLOWER_REWARD_QUOTIENT_ELECTRA"))
 
       proposer_reward =
         (whistleblower_reward * Constants.proposer_weight())
@@ -186,5 +160,42 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       }
     )
     |> then(&{:ok, &1})
+  end
+
+  @spec compute_exit_epoch_and_update_churn(Types.BeaconState.t(), Types.gwei()) ::
+          Types.BeaconState.t()
+  def compute_exit_epoch_and_update_churn(state, exit_balance) do
+    current_epoch = Accessors.get_current_epoch(state)
+
+    earliest_exit_epoch =
+      max(state.earliest_exit_epoch, Misc.compute_activation_exit_epoch(current_epoch))
+
+    per_epoch_churn = Accessors.get_activation_exit_churn_limit(state)
+
+    exit_balance_to_consume =
+      if state.earliest_exit_epoch < earliest_exit_epoch do
+        per_epoch_churn
+      else
+        state.exit_balance_to_consume
+      end
+
+    {earliest_exit_epoch, exit_balance_to_consume} =
+      if exit_balance > exit_balance_to_consume do
+        balance_to_process = exit_balance - exit_balance_to_consume
+        additional_epochs = div(balance_to_process - 1, per_epoch_churn) + 1
+
+        {
+          earliest_exit_epoch + additional_epochs,
+          exit_balance_to_consume + additional_epochs * per_epoch_churn
+        }
+      else
+        {earliest_exit_epoch, exit_balance_to_consume}
+      end
+
+    %BeaconState{
+      state
+      | exit_balance_to_consume: exit_balance_to_consume - exit_balance,
+        earliest_exit_epoch: earliest_exit_epoch
+    }
   end
 end

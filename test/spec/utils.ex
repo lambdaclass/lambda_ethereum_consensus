@@ -35,7 +35,7 @@ defmodule SpecTestUtils do
   end
 
   def sanitize_yaml({k, v}), do: {String.to_atom(k), sanitize_yaml(v)}
-  def sanitize_yaml("0x"), do: <<0>>
+  def sanitize_yaml("0x"), do: []
   def sanitize_yaml("0x" <> hash), do: Base.decode16!(hash, case: :lower)
 
   def sanitize_yaml(x) when is_binary(x) do

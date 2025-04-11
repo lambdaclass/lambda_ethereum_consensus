@@ -12,7 +12,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   alias LambdaEthereumConsensus.Utils
   alias Types.BeaconState
 
-  @max_random_byte 2 ** 8 - 1
+  @max_random_byte 2 ** 16 - 1
 
   @doc """
   Returns the Unix timestamp at the start of the given slot
@@ -130,7 +130,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
         ) ::
           {:ok, Types.validator_index()}
   def compute_proposer_index(state, indices, seed) do
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE_ELECTRA")
     total = Aja.Vector.size(indices)
 
     Stream.iterate(0, &(&1 + 1))
@@ -138,15 +138,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
       {:ok, index} = compute_shuffled_index(rem(i, total), total, seed)
       candidate_index = Aja.Vector.at!(indices, index)
 
-      <<_::binary-size(rem(i, 32)), random_byte, _::binary>> =
-        SszEx.hash(seed <> uint_to_bytes(div(i, 32), 64))
+      random_bytes = SszEx.hash(seed <> uint_to_bytes(div(i, 16), 64))
+      offset = rem(i, 16) * 2
+
+      bytes = binary_part(random_bytes, offset, 2) <> <<0::48>>
+      random_value = bytes_to_uint64(bytes)
 
       effective_balance = Aja.Vector.at(state.validators, candidate_index).effective_balance
 
-      {effective_balance, random_byte, candidate_index}
+      {effective_balance, random_value, candidate_index}
     end)
-    |> Stream.filter(fn {effective_balance, random_byte, _} ->
-      effective_balance * @max_random_byte >= max_effective_balance * random_byte
+    |> Stream.filter(fn {effective_balance, random_value, _} ->
+      effective_balance * @max_random_byte >= max_effective_balance * random_value
     end)
     |> Enum.take(1)
     |> then(fn [{_, _, candidate_index}] -> {:ok, candidate_index} end)

@@ -122,7 +122,7 @@ where
 
             for item in vec {
                 hasher
-                    .write(item.tree_hash_root().as_bytes())
+                    .write(item.tree_hash_root().as_slice())
                     .expect("ssz_types vec should not contain more elements than max");
             }
 

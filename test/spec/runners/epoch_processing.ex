@@ -38,8 +38,7 @@ defmodule EpochProcessingTestRunner do
 
   @impl TestRunner
   def skip?(%SpecTestCase{fork: "deneb"}), do: false
-
-  @impl TestRunner
+  def skip?(%SpecTestCase{fork: "electra"}), do: false
   def skip?(_), do: true
 
   @impl TestRunner

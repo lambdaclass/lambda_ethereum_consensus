@@ -9,6 +9,7 @@ defmodule RandomTestRunner do
   @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella"}), do: false
   def skip?(%SpecTestCase{fork: "deneb"}), do: false
+  def skip?(%SpecTestCase{fork: "electra"}), do: false
   def skip?(_), do: true
 
   @impl TestRunner

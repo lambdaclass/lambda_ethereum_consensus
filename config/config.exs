@@ -10,6 +10,7 @@ fork_raw = File.read!(".fork_version") |> String.trim()
 fork =
   case fork_raw do
     "deneb" -> :deneb
+    "electra" -> :electra
     v -> raise "Invalid fork specified: #{v}"
   end
 
