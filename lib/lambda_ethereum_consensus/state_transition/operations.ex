@@ -1007,7 +1007,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       is_nil(validator) ->
         {:ok, state}
 
-      invalid_withdrawal_credentials?(validator, withdrawal_request) ->
+      invalid_withdrawal_credentials?(validator, withdrawal_request.source_address) ->
         {:ok, state}
 
       !Predicates.active_validator?(validator, current_epoch) ->
@@ -1035,12 +1035,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       ChainSpec.get("PENDING_PARTIAL_WITHDRAWALS_LIMIT") && !is_full_exit_request
   end
 
-  defp invalid_withdrawal_credentials?(validator, withdrawal_request) do
+  defp invalid_withdrawal_credentials?(validator, address) do
     has_correct_credential = Validator.has_execution_withdrawal_credential(validator)
 
     is_correct_source_address =
       case validator.withdrawal_credentials do
-        <<_::binary-size(12), rest>> -> rest == withdrawal_request.source_address
+        <<_::binary-size(12), rest>> -> rest == address
         _ -> false
       end
 
