@@ -187,7 +187,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       Predicates.active_validator?(validator, current_epoch) &&
           validator.effective_balance <= ejection_balance ->
         case Mutators.initiate_validator_exit(state, validator) do
-          {:ok, state, ejected_validator} ->
+          {:ok, {state, ejected_validator}} ->
             updated_state = %{
               state
               | validators: Aja.Vector.replace_at!(state.validators, idx, ejected_validator)
