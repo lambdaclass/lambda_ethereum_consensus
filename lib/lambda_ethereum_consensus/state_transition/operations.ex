@@ -998,14 +998,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     current_epoch = Accessors.get_current_epoch(state)
     far_future_epoch = Constants.far_future_epoch()
 
-    {validator, validator_index} =
-      state.validators
-      |> Enum.with_index()
-      |> Enum.find(fn {validator, _idx} -> validator.pubkey == request_pubkey end)
-      |> then(fn
-        nil -> {nil, nil}
-        {validator, idx} -> {validator, idx}
-      end)
+    {validator, validator_index} = find_validator(state, request_pubkey)
 
     cond do
       partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request) ->
@@ -1052,6 +1045,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       end
 
     !(has_correct_credential && is_correct_source_address)
+  end
+
+  @spec find_validator(Types.BeaconState.t(), Types.bls_pubkey()) ::
+          {Types.Validator.t(), non_neg_integer()} | {nil, nil}
+  def find_validator(state, request_pubkey) do
+    state.validators
+    |> Enum.with_index()
+    |> Enum.find(fn {validator, _idx} -> validator.pubkey == request_pubkey end)
+    |> then(fn
+      nil -> {nil, nil}
+      {validator, idx} -> {validator, idx}
+    end)
   end
 
   defp handle_valid_withdrawal_request(
