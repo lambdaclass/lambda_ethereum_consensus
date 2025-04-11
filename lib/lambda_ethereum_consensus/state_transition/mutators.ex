@@ -211,6 +211,28 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     }
   end
 
+  @spec switch_to_compounding_validator(BeaconState.t(), Types.validator_index()) ::
+          BeaconState.t()
+  def switch_to_compounding_validator(state, index) do
+    validator = Aja.Enum.at(state.validators, index)
+    <<_first_byte::binary-size(1), rest::binary>> = validator.withdrawal_credentials
+
+    withdrawal_credentials =
+      Constants.compounding_withdrawal_prefix() <> rest
+
+    updated_validator = %Validator{
+      validator
+      | withdrawal_credentials: withdrawal_credentials
+    }
+
+    state = %BeaconState{
+      state
+      | validators: Aja.Vector.replace_at(state.validators, index, updated_validator)
+    }
+
+    queue_excess_active_balance(state, index)
+  end
+
   @spec queue_excess_active_balance(BeaconState.t(), Types.validator_index()) ::
           BeaconState.t()
   def queue_excess_active_balance(state, index) do
