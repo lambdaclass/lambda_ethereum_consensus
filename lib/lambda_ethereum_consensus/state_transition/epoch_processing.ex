@@ -144,49 +144,75 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     current_epoch = Accessors.get_current_epoch(state)
     activation_exit_epoch = Misc.compute_activation_exit_epoch(current_epoch)
 
-    churn_limit = Accessors.get_validator_activation_churn_limit(state)
-
-    result =
-      validators
-      |> Stream.with_index()
-      |> Stream.map(fn {v, i} ->
-        {{v, i}, Predicates.eligible_for_activation_queue?(v),
-         Predicates.active_validator?(v, current_epoch) and
-           v.effective_balance <= ejection_balance}
-      end)
-      |> Stream.filter(&(elem(&1, 1) or elem(&1, 2)))
-      |> Stream.map(fn
-        {{v, i}, true, b} -> {{%{v | activation_eligibility_epoch: current_epoch + 1}, i}, b}
-        {{v, i}, false = _is_eligible, b} -> {{v, i}, b}
-      end)
-      |> Enum.reduce({:ok, state}, fn
-        _, {:error, _} = err -> err
-        {{v, i}, should_be_ejected}, {:ok, st} -> eject_validator(st, v, i, should_be_ejected)
-        {err, _}, _ -> err
-      end)
-
-    with {:ok, new_state} <- result do
-      new_state.validators
-      |> Stream.with_index()
-      |> Stream.filter(fn {v, _} -> Predicates.eligible_for_activation?(state, v) end)
-      |> Enum.sort_by(fn {%{activation_eligibility_epoch: ep}, i} -> {ep, i} end)
-      |> Enum.take(churn_limit)
-      |> Enum.reduce(new_state.validators, fn {v, i}, acc ->
-        %{v | activation_epoch: activation_exit_epoch}
-        |> then(&Aja.Vector.replace_at!(acc, i, &1))
-      end)
-      |> then(&{:ok, %BeaconState{new_state | validators: &1}})
-    end
+    validators
+    |> Enum.with_index()
+    |> Enum.reduce_while(state, fn {validator, idx}, state ->
+      handle_validator_registry_update(
+        state,
+        validator,
+        idx,
+        current_epoch,
+        activation_exit_epoch,
+        ejection_balance
+      )
+    end)
+    |> then(fn
+      %BeaconState{} = state -> {:ok, state}
+      {:error, reason} -> {:error, reason}
+    end)
   end
 
-  defp eject_validator(state, validator, index, false) do
-    {:ok, %{state | validators: Aja.Vector.replace_at!(state.validators, index, validator)}}
-  end
+  defp handle_validator_registry_update(
+         state,
+         validator,
+         idx,
+         current_epoch,
+         activation_exit_epoch,
+         ejection_balance
+       ) do
+    cond do
+      Predicates.eligible_for_activation_queue?(validator) ->
+        updated_validator = %Validator{
+          validator
+          | activation_eligibility_epoch: current_epoch + 1
+        }
 
-  defp eject_validator(state, validator, index, true) do
-    with {:ok, ejected_validator} <- Mutators.initiate_validator_exit(state, validator) do
-      {:ok,
-       %{state | validators: Aja.Vector.replace_at!(state.validators, index, ejected_validator)}}
+        {:cont,
+         %BeaconState{
+           state
+           | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
+         }}
+
+      Predicates.active_validator?(validator, current_epoch) &&
+          validator.effective_balance <= ejection_balance ->
+        case Mutators.initiate_validator_exit(state, validator) do
+          {:ok, {state, ejected_validator}} ->
+            updated_state = %{
+              state
+              | validators: Aja.Vector.replace_at!(state.validators, idx, ejected_validator)
+            }
+
+            {:cont, updated_state}
+
+          {:error, msg} ->
+            {:halt, {:error, msg}}
+        end
+
+      Predicates.eligible_for_activation?(state, validator) ->
+        updated_validator = %Validator{
+          validator
+          | activation_epoch: activation_exit_epoch
+        }
+
+        updated_state = %BeaconState{
+          state
+          | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
+        }
+
+        {:cont, updated_state}
+
+      true ->
+        {:cont, state}
     end
   end
 
