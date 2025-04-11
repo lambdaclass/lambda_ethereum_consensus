@@ -13,19 +13,21 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   Initiate the exit of the validator with index ``index``.
   """
   @spec initiate_validator_exit(BeaconState.t(), integer()) ::
-          {:ok, BeaconState.t(), Validator.t()} | {:error, String.t()}
+          {:ok, {BeaconState.t(), Validator.t()}} | {:error, String.t()}
+
   def initiate_validator_exit(%BeaconState{} = state, index) when is_integer(index) do
     initiate_validator_exit(state, Aja.Vector.at!(state.validators, index))
   end
 
   @spec initiate_validator_exit(BeaconState.t(), Validator.t()) ::
-          {:ok, BeaconState.t(), Validator.t()} | {:error, String.t()}
+          {:ok, {BeaconState.t(), Validator.t()}} | {:error, String.t()}
+
   def initiate_validator_exit(%BeaconState{} = state, %Validator{} = validator) do
     far_future_epoch = Constants.far_future_epoch()
     min_validator_withdrawability_delay = ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
 
     if validator.exit_epoch != far_future_epoch do
-      {:ok, state, validator}
+      {:ok, {state, validator}}
     else
       state = compute_exit_epoch_and_update_churn(state, validator.effective_balance)
       exit_queue_epoch = state.earliest_exit_epoch
@@ -33,12 +35,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       if exit_queue_epoch + min_validator_withdrawability_delay > 2 ** 64 do
         {:error, "withdrawable_epoch overflow"}
       else
-        {:ok, state,
-         %{
-           validator
-           | exit_epoch: exit_queue_epoch,
-             withdrawable_epoch: exit_queue_epoch + min_validator_withdrawability_delay
-         }}
+        {:ok,
+         {state,
+          %{
+            validator
+            | exit_epoch: exit_queue_epoch,
+              withdrawable_epoch: exit_queue_epoch + min_validator_withdrawability_delay
+          }}}
       end
     end
   end
@@ -53,7 +56,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         ) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
   def slash_validator(state, slashed_index, whistleblower_index \\ nil) do
-    with {:ok, state, validator} <- initiate_validator_exit(state, slashed_index),
+    with {:ok, {state, validator}} <- initiate_validator_exit(state, slashed_index),
          state = add_slashing(state, validator, slashed_index),
          {:ok, proposer_index} <- Accessors.get_beacon_proposer_index(state) do
       slashing_penalty =
