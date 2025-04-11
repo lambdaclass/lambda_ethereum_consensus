@@ -14,6 +14,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias Types.PendingDeposit
+  alias Types.PendingPartialWithdrawal
 
   alias Types.Attestation
   alias Types.BeaconBlock
@@ -989,9 +990,128 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec process_withdrawal_request(BeaconState.t(), WithdrawalRequest.t()) ::
-          {:ok, BeaconState.t()}
-  def process_withdrawal_request(state, _withdrawal_request) do
-    {:ok, state}
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_withdrawal_request(state, withdrawal_request) do
+    amount = withdrawal_request.amount
+    is_full_exit_request = amount == Constants.full_exit_request_amount()
+    request_pubkey = withdrawal_request.validator_pubkey
+    current_epoch = Accessors.get_current_epoch(state)
+    far_future_epoch = Constants.far_future_epoch()
+
+    {validator, validator_index} =
+      state.validators
+      |> Enum.with_index()
+      |> Enum.find(fn {validator, _idx} -> validator.pubkey == request_pubkey end)
+      |> then(fn
+        nil -> {nil, nil}
+        {validator, idx} -> {validator, idx}
+      end)
+
+    cond do
+      partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request) ->
+        {:ok, state}
+
+      is_nil(validator) ->
+        {:ok, state}
+
+      invalid_withdrawal_credentials?(validator, withdrawal_request) ->
+        {:ok, state}
+
+      !Predicates.active_validator?(validator, current_epoch) ->
+        {:ok, state}
+
+      validator.exit_epoch == far_future_epoch ->
+        {:ok, state}
+
+      current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
+        {:ok, state}
+
+      true ->
+        handle_valid_withdrawal_request(
+          state,
+          validator,
+          validator_index,
+          amount,
+          is_full_exit_request
+        )
+    end
+  end
+
+  defp partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request) do
+    length(state.pending_partial_withdrawals) ==
+      ChainSpec.get("PENDING_PARTIAL_WITHDRAWALS_LIMIT") && !is_full_exit_request
+  end
+
+  defp invalid_withdrawal_credentials?(validator, withdrawal_request) do
+    has_correct_credential = Validator.has_execution_withdrawal_credential(validator)
+
+    is_correct_source_address =
+      case validator.withdrawal_credentials do
+        <<_::binary-size(12), rest>> -> rest == withdrawal_request.source_address
+        _ -> false
+      end
+
+    !(has_correct_credential && is_correct_source_address)
+  end
+
+  defp handle_valid_withdrawal_request(
+         state,
+         validator,
+         validator_index,
+         amount,
+         is_full_exit_request
+       ) do
+    pending_balance_to_withdraw =
+      Accessors.get_pending_balance_to_withdraw(state, validator_index)
+
+    cond do
+      is_full_exit_request && pending_balance_to_withdraw == 0 ->
+        Mutators.initiate_validator_exit(state, validator_index)
+
+      is_full_exit_request ->
+        {:ok, state}
+
+      true ->
+        min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
+
+        has_sufficient_effective_balance =
+          validator.effective_balance >= min_activation_balance
+
+        has_excess_balance =
+          Enum.at(state.balances, validator_index) >
+            min_activation_balance + pending_balance_to_withdraw
+
+        if Validator.has_compounding_withdrawal_credential(validator) &&
+             has_sufficient_effective_balance && has_excess_balance do
+          to_withdraw =
+            min(
+              Enum.at(state.balances, validator_index) - min_activation_balance -
+                pending_balance_to_withdraw,
+              amount
+            )
+
+          state = Mutators.compute_exit_epoch_and_update_churn(state, to_withdraw)
+          exit_queue_epoch = state.earliest_exit_epoch
+
+          withdrawable_epoch =
+            exit_queue_epoch + ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
+
+          pending_partial_withdrawal = %PendingPartialWithdrawal{
+            validator_index: validator_index,
+            amount: to_withdraw,
+            withdrawable_epoch: withdrawable_epoch
+          }
+
+          {:ok,
+           %BeaconState{
+             state
+             | pending_partial_withdrawals:
+                 state.pending_partial_withdrawals ++ [pending_partial_withdrawal]
+           }}
+        else
+          {:ok, state}
+        end
+    end
   end
 
   @spec process_consolidation_request(BeaconState.t(), ConsolidationRequest.t()) ::
