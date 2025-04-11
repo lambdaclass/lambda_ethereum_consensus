@@ -3,6 +3,7 @@ defmodule Types.DepositMessage do
   Struct definition for `DepositMessage`.
   Related definitions in `native/ssz_nif/src/types/`.
   """
+  alias LambdaEthereumConsensus.StateTransition.Misc
   use LambdaEthereumConsensus.Container
 
   fields = [
@@ -27,5 +28,24 @@ defmodule Types.DepositMessage do
       {:withdrawal_credentials, TypeAliases.bytes32()},
       {:amount, TypeAliases.gwei()}
     ]
+  end
+
+  @spec valid_deposit_signature?(
+          Types.bls_pubkey(),
+          Types.bytes32(),
+          Types.gwei(),
+          Types.bls_signature()
+        ) :: boolean()
+  def valid_deposit_signature?(pubkey, withdrawal_credentials, amount, signature) do
+    deposit_message = %__MODULE__{
+      pubkey: pubkey,
+      withdrawal_credentials: withdrawal_credentials,
+      amount: amount
+    }
+
+    domain = Misc.compute_domain(Constants.domain_deposit())
+    signing_root = Misc.compute_signing_root(deposit_message, domain)
+
+    Bls.valid?(pubkey, signing_root, signature)
   end
 end
