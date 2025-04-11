@@ -13,6 +13,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
+  alias Types.PendingConsolidation
   alias Types.PendingDeposit
   alias Types.PendingPartialWithdrawal
 
@@ -1121,8 +1122,163 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec process_consolidation_request(BeaconState.t(), ConsolidationRequest.t()) ::
           {:ok, BeaconState.t()}
-  def process_consolidation_request(state, _consolidation_request) do
+  def process_consolidation_request(state, consolidation_request) do
+    cond do
+      valid_switch_to_compounding_request?(state, consolidation_request) ->
+        {_source_validator, source_index} =
+          find_validator(state, consolidation_request.source_pubkey)
+
+        Mutators.switch_to_compounding_validator(state, source_index)
+
+      # Verify that source != target, so a consolidation cannot be used as an exit
+      consolidation_request.source_pubkey == consolidation_request.target_pubkey ->
+        {:ok, state}
+
+      # If the pending consolidations queue is full, consolidation requests are ignored
+      length(state.pending_consolidations) == ChainSpec.get("PENDING_CONSOLIDATIONS_LIMIT") ->
+        {:ok, state}
+
+      # If there is too little available consolidation churn limit, consolidation requests are ignored
+      Accessors.get_consolidation_churn_limit(state) <= ChainSpec.get("MIN_ACTIVATION_BALANCE") ->
+        {:ok, state}
+
+      true ->
+        handle_valid_consolidation_request(state, consolidation_request)
+    end
+
     {:ok, state}
+  end
+
+  defp handle_valid_consolidation_request(state, consolidation_request) do
+    {source_validator, source_index} = find_validator(state, consolidation_request.source_pubkey)
+    {target_validator, target_index} = find_validator(state, consolidation_request.target_pubkey)
+    current_epoch = Accessors.get_current_epoch(state)
+
+    cond do
+      # Verify pubkeys exists
+      invalid_pubkeys?(source_validator, target_validator) ->
+        {:ok, state}
+
+      # Verify source withdrawal credentials
+      invalid_withdrawal_credentials?(source_validator, consolidation_request) ->
+        {:ok, state}
+
+      # Verify that target has compounding withdrawal credentials
+      not Validator.has_compounding_withdrawal_credential(target_validator) ->
+        {:ok, state}
+
+      # Verify the source and the target are active
+      validators_not_active?(source_validator, target_validator, current_epoch) ->
+        {:ok, state}
+
+      # Verify exits for source and target have not been initiated
+      validators_exiting?(source_validator, target_validator) ->
+        {:ok, state}
+
+      # Verify the source has been active long enough
+      current_epoch < source_validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
+        {:ok, state}
+
+      # Verify the source has no pending withdrawals in the queue
+      Accessors.get_pending_balance_to_withdraw(state, source_index) > 0 ->
+        {:ok, state}
+
+      # Initiate source validator exit and append pending consolidation
+      true ->
+        initiate_validator_exit_add_consolidation_request(
+          state,
+          source_validator,
+          source_index,
+          target_index
+        )
+    end
+  end
+
+  defp invalid_pubkeys?(source_validator, target_validator),
+    do: is_nil(source_validator) || is_nil(target_validator)
+
+  defp validators_not_active?(source_validator, target_validator, current_epoch) do
+    !Predicates.active_validator?(source_validator, current_epoch) ||
+      !Predicates.active_validator?(target_validator, current_epoch)
+  end
+
+  defp validators_exiting?(source_validator, target_validator) do
+    far_future_epoch = Constants.far_future_epoch()
+
+    source_validator.exit_epoch != far_future_epoch ||
+      target_validator.exit_epoch != far_future_epoch
+  end
+
+  defp initiate_validator_exit_add_consolidation_request(
+         state,
+         source_validator,
+         source_index,
+         target_index
+       ) do
+    state =
+      Mutators.compute_exit_epoch_and_update_churn(state, source_validator.effective_balance)
+
+    exit_epoch = state.earliest_exit_epoch
+    withdrawable_epoch = exit_epoch + ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
+
+    updated_source_validator = %Validator{
+      source_validator
+      | exit_epoch: exit_epoch,
+        withdrawable_epoch: withdrawable_epoch
+    }
+
+    pending_consolidation = %PendingConsolidation{
+      source_index: source_index,
+      target_index: target_index
+    }
+
+    updated_state = %BeaconState{
+      state
+      | validators:
+          Aja.Vector.replace_at(state.validators, source_index, updated_source_validator),
+        pending_consolidations: state.pending_consolidations ++ [pending_consolidation]
+    }
+
+    {:ok, updated_state}
+  end
+
+  @spec valid_switch_to_compounding_request?(BeaconState.t(), ConsolidationRequest.t()) ::
+          boolean()
+  def valid_switch_to_compounding_request?(state, consolidation_request) do
+    {source_validator, _source_index} =
+      find_validator(state, consolidation_request.source_pubkey)
+
+    current_epoch = Accessors.get_current_epoch(state)
+    far_future_epoch = Constants.far_future_epoch()
+
+    cond do
+      # Switch to compounding requires source and target be equal
+      consolidation_request.source_pubkey != consolidation_request.target_pubkey ->
+        false
+
+      # Verify pubkey exists
+      is_nil(source_validator) ->
+        false
+
+      # Verify request has been authorized
+      invalid_withdrawal_credentials?(source_validator, consolidation_request.source_address) ->
+        false
+
+      # Verify source withdrawal credentials
+      !Validator.has_eth1_withdrawal_credential(source_validator) ->
+        false
+
+      # Verify the source is active
+      !Predicates.active_validator?(source_validator, current_epoch) ->
+        false
+
+      # Verify exit for source has not been initiated
+      source_validator.exit_epoch != far_future_epoch ->
+        false
+
+      true ->
+        true
+    end
   end
 
   @spec process_operations(BeaconState.t(), BeaconBlockBody.t()) ::
