@@ -696,4 +696,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
     )
     |> Enum.sum()
   end
+
+  @spec get_consolidation_churn_limit(BeaconState.t()) :: Types.gwei()
+  def get_consolidation_churn_limit(state) do
+    get_balance_churn_limit(state) - get_activation_exit_churn_limit(state)
+  end
 end
