@@ -571,7 +571,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         {:error, "invalid signature"}
 
       true ->
-        with {:ok, state, validator} <- Mutators.initiate_validator_exit(state, validator_index) do
+        with {:ok, {state, validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
           Aja.Vector.replace_at!(state.validators, validator_index, validator)
           |> then(&{:ok, %BeaconState{state | validators: &1}})
         end
