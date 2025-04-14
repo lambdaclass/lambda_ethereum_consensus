@@ -9,7 +9,6 @@ defmodule ShufflingTestRunner do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Shuffling
 
-
   @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella"}), do: false
   def skip?(%SpecTestCase{fork: "deneb"}), do: false

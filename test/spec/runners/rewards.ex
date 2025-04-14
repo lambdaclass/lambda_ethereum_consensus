@@ -6,7 +6,6 @@ defmodule RewardsTestRunner do
   use TestRunner
   alias Types.BeaconState
 
-
   @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella"}), do: false
   def skip?(%SpecTestCase{fork: "deneb"}), do: false

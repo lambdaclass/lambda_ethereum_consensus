@@ -22,13 +22,16 @@ defmodule SanityTestRunner do
 
   @impl TestRunner
   def skip?(%SpecTestCase{fork: "capella", handler: handler, case: testcase})
-    when handler in @handlers, do: Enum.member?(@disabled_cases, testcase)
+      when handler in @handlers,
+      do: Enum.member?(@disabled_cases, testcase)
 
   def skip?(%SpecTestCase{fork: "deneb", handler: handler, case: testcase})
-    when handler in @handlers, do: Enum.member?(@disabled_cases, testcase)
+      when handler in @handlers,
+      do: Enum.member?(@disabled_cases, testcase)
 
   def skip?(%SpecTestCase{fork: "electra", handler: handler, case: testcase})
-    when handler in @handlers, do: Enum.member?(@disabled_cases, testcase)
+      when handler in @handlers,
+      do: Enum.member?(@disabled_cases, testcase)
 
   def skip?(_), do: true
 
