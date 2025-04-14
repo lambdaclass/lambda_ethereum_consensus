@@ -214,6 +214,44 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     }
   end
 
+  @spec compute_consolidation_epoch_and_update_churn(Types.BeaconState.t(), Types.gwei()) ::
+          Types.BeaconState.t()
+  def compute_consolidation_epoch_and_update_churn(state, consolidation_balance) do
+    current_epoch = Accessors.get_current_epoch(state)
+
+    earliest_consolidation_epoch =
+      max(state.earliest_consolidation_epoch, Misc.compute_activation_exit_epoch(current_epoch))
+
+    per_epoch_consolidation_churn = Accessors.get_consolidation_churn_limit(state)
+
+    consolidation_balance_to_consume =
+      if state.earliest_consolidation_epoch < earliest_consolidation_epoch do
+        per_epoch_consolidation_churn
+      else
+        state.consolidation_balance_to_consume
+      end
+
+    {earliest_consolidation_epoch, consolidation_balance_to_consume} =
+      if consolidation_balance > consolidation_balance_to_consume do
+        balance_to_process = consolidation_balance - consolidation_balance_to_consume
+        additional_epochs = div(balance_to_process - 1, per_epoch_consolidation_churn) + 1
+
+        {
+          earliest_consolidation_epoch + additional_epochs,
+          consolidation_balance_to_consume + additional_epochs * per_epoch_consolidation_churn
+        }
+      else
+        {earliest_consolidation_epoch, consolidation_balance_to_consume}
+      end
+
+    %BeaconState{
+      state
+      | consolidation_balance_to_consume:
+          consolidation_balance_to_consume - consolidation_balance,
+        earliest_consolidation_epoch: earliest_consolidation_epoch
+    }
+  end
+
   @spec switch_to_compounding_validator(BeaconState.t(), Types.validator_index()) ::
           BeaconState.t()
   def switch_to_compounding_validator(state, index) do
