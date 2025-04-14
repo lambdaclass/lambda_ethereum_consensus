@@ -9,22 +9,9 @@ defmodule EpochProcessingTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-  # Remove handler from here once you implement the corresponding functions
+  # TODO: We need to make sure this 2 are still needed to be here
   @disabled_handlers [
-    # "justification_and_finalization",
-    # "inactivity_updates",
-    # "rewards_and_penalties",
-    # "registry_updates",
-    # "slashings",
-    # "effective_balance_updates",
-    # "eth1_data_reset",
-    # "slashings_reset",
-    # "randao_mixes_reset",
-    # "historical_summaries_update",
     "participation_record_updates"
-
-    # "participation_flag_updates",
-    # "sync_committee_updates"
   ]
 
   @deprecated_handlers [
@@ -36,7 +23,6 @@ defmodule EpochProcessingTestRunner do
     Enum.member?(@disabled_handlers ++ @deprecated_handlers, handler)
   end
 
-  @impl TestRunner
   def skip?(%SpecTestCase{fork: "deneb"}), do: false
   def skip?(%SpecTestCase{fork: "electra"}), do: false
   def skip?(_), do: true

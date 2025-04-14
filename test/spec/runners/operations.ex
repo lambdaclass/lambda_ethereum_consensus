@@ -53,48 +53,11 @@ defmodule OperationsTestRunner do
     # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
 
-  # Remove handler from here once you implement the corresponding functions
-  # "deposit_receipt" handler is not yet implemented
-  @disabled_handlers [
-    # "attester_slashing",
-    # "attestation",
-    # "block_header",
-    # "deposit",
-    # "proposer_slashing",
-    # "voluntary_exit",
-    # "sync_aggregate",
-    # "execution_payload",
-    # "withdrawals",
-    # "bls_to_execution_change"
-  ]
-
-  @disabled_handlers_deneb [
-    # "attester_slashing",
-    # "attestation",
-    # "block_header",
-    # "deposit",
-    # "proposer_slashing",
-    # "voluntary_exit"
-    # "sync_aggregate",
-    # "execution_payload",
-    # "withdrawals",
-    # "bls_to_execution_change"
-  ]
-
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
-    Enum.member?(@disabled_handlers, handler)
-  end
-
-  @impl TestRunner
-  def skip?(%SpecTestCase{fork: "deneb", handler: handler}) do
-    Enum.member?(@disabled_handlers_deneb, handler)
-  end
-
-  @impl TestRunner
-  def skip?(_testcase) do
-    true
-  end
+  def skip?(%SpecTestCase{fork: "capella"}), do: false
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
+  def skip?(%SpecTestCase{fork: "electra"}), do: false
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{handler: handler} = testcase) do

@@ -9,15 +9,12 @@ defmodule ShufflingTestRunner do
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Shuffling
 
-  # Remove handler from here once you implement the corresponding functions
-  @disabled_handlers [
-    # "core"
-  ]
 
   @impl TestRunner
-  def skip?(%SpecTestCase{} = testcase) do
-    Enum.member?(@disabled_handlers, testcase.handler)
-  end
+  def skip?(%SpecTestCase{fork: "capella"}), do: false
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
+  def skip?(%SpecTestCase{fork: "electra"}), do: false
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do

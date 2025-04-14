@@ -6,25 +6,10 @@ defmodule FinalityTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-  @disabled_cases [
-    # "finality_no_updates_at_genesis",
-    # "finality_rule_1",
-    # "finality_rule_2",
-    # "finality_rule_3",
-    # "finality_rule_4"
-  ]
-
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella", case: testcase}) do
-    Enum.member?(@disabled_cases, testcase)
-  end
-
-  @impl TestRunner
-  def skip?(%SpecTestCase{fork: "deneb", case: testcase}) do
-    Enum.member?(@disabled_cases, testcase)
-  end
-
-  @impl TestRunner
+  def skip?(%SpecTestCase{fork: "capella"}), do: false
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
+  def skip?(%SpecTestCase{fork: "electra"}), do: false
   def skip?(_), do: true
 
   @impl TestRunner

@@ -5,29 +5,11 @@ defmodule SszGenericTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-  @disabled_handlers [
-    # "basic_vector",
-    # "bitlist",
-    # "bitvector"
-    # "boolean",
-    # "containers"
-    # "uints"
-  ]
-
-  @disabled_containers [
-    # "SingleFieldTestStruct",
-    # "SmallTestStruct",
-    # "FixedTestStruct",
-    # "VarTestStruct",
-    # "ComplexTestStruct"
-    # "BitsStruct"
-  ]
-
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler, case: cse}) do
-    skip_container? = Enum.any?(@disabled_containers, &String.contains?(cse, &1))
-    fork != "phase0" or Enum.member?(@disabled_handlers, handler) or skip_container?
-  end
+  def skip?(%SpecTestCase{fork: "capella"}), do: false
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
+  def skip?(%SpecTestCase{fork: "electra"}), do: false
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do

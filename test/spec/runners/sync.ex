@@ -8,10 +8,6 @@ defmodule SyncTestRunner do
 
   alias LambdaEthereumConsensus.Execution.EngineApi
 
-  @disabled_cases [
-    # "from_syncing_to_invalid"
-  ]
-
   @impl TestRunner
   def setup() do
     # Start this supervisor, necessary for post state tasks.
@@ -20,10 +16,7 @@ defmodule SyncTestRunner do
   end
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella"} = testcase) do
-    Enum.member?(@disabled_cases, testcase.case)
-  end
-
+  def skip?(%SpecTestCase{fork: "capella"}), do: false
   def skip?(%SpecTestCase{fork: "deneb"}), do: false
   def skip?(%SpecTestCase{fork: "electra"}), do: false
   def skip?(_testcase), do: true
