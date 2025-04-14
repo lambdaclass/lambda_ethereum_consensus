@@ -569,7 +569,45 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_pending_consolidations(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_pending_consolidations(%BeaconState{} = state) do
-    {:ok, state}
+    next_epoch = Accessors.get_current_epoch(state) + 1
+
+    {next_pending_consolidation, state} =
+      state.pending_consolidations
+      |> Enum.reduce_while({0, state}, fn pending_consolidation,
+                                          {next_pending_consolidation, state} ->
+        source_index = pending_consolidation.source_index
+        target_index = pending_consolidation.target_index
+        source_validator = state.validators |> Aja.Vector.at(source_index)
+
+        cond do
+          source_validator.slashed ->
+            {:cont, {next_pending_consolidation + 1, state}}
+
+          source_validator.withdrawable_epoch > next_epoch ->
+            {:halt, {next_pending_consolidation, state}}
+
+          true ->
+            source_effective_balance =
+              min(
+                Aja.Vector.at(state.balances, source_index),
+                source_validator.effective_balance
+              )
+
+            updated_state =
+              state
+              |> BeaconState.decrease_balance(source_index, source_effective_balance)
+              |> BeaconState.increase_balance(target_index, source_effective_balance)
+
+            {:cont, {next_pending_consolidation + 1, updated_state}}
+        end
+      end)
+
+    {:ok,
+     %BeaconState{
+       state
+       | pending_consolidations:
+           Enum.drop(state.pending_consolidations, next_pending_consolidation)
+     }}
   end
 
   defp apply_pending_deposit(state, deposit) do
