@@ -44,7 +44,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     hysteresis_quotient = ChainSpec.get("HYSTERESIS_QUOTIENT")
     hysteresis_downward_multiplier = ChainSpec.get("HYSTERESIS_DOWNWARD_MULTIPLIER")
     hysteresis_upward_multiplier = ChainSpec.get("HYSTERESIS_UPWARD_MULTIPLIER")
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
     hysteresis_increment = div(effective_balance_increment, hysteresis_quotient)
     downward_threshold = hysteresis_increment * hysteresis_downward_multiplier
@@ -55,7 +54,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       |> Aja.Vector.zip_with(balances, fn %Validator{} = validator, balance ->
         if balance + downward_threshold < validator.effective_balance or
              validator.effective_balance + upward_threshold < balance do
-          min(balance - rem(balance, effective_balance_increment), max_effective_balance)
+          min(
+            balance - rem(balance, effective_balance_increment),
+            Validator.get_max_effective_balance(validator)
+          )
           |> then(&%{validator | effective_balance: &1})
         else
           validator
