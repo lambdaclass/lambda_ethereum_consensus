@@ -1144,14 +1144,19 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          {:ok, source_validator} <-
            validate_validators(state, source_index, target_index, consolidation_request) do
       state =
-        Mutators.compute_exit_epoch_and_update_churn(state, source_validator.effective_balance)
+        Mutators.compute_consolidation_epoch_and_update_churn(
+          state,
+          source_validator.effective_balance
+        )
 
-      exit_epoch = state.earliest_exit_epoch
-      withdrawable_epoch = exit_epoch + ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
+      consolidation_epoch = state.conslidation_epoch
+
+      withdrawable_epoch =
+        consolidation_epoch + ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
 
       updated_source_validator = %Validator{
         source_validator
-        | exit_epoch: exit_epoch,
+        | exit_epoch: consolidation_epoch,
           withdrawable_epoch: withdrawable_epoch
       }
 
