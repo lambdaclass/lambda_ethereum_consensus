@@ -294,11 +294,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         %BeaconState{validators: validators} = state,
         %ExecutionPayload{withdrawals: withdrawals}
       ) do
-    expected_withdrawals = get_expected_withdrawals(state)
+    {expected_withdrawals, processed_partial_withdrawals_count} = get_expected_withdrawals(state)
 
     with :ok <- check_withdrawals(withdrawals, expected_withdrawals) do
       state
       |> Map.update!(:balances, &decrease_balances(&1, withdrawals))
+      |> then(
+        &%BeaconState{
+          &1
+          | pending_partial_withdrawals:
+              Enum.drop(&1.pending_partial_withdrawals, processed_partial_withdrawals_count)
+        }
+      )
       |> update_next_withdrawal_index(withdrawals)
       |> update_next_withdrawal_validator_index(withdrawals, Aja.Vector.size(validators))
       |> then(&{:ok, &1})
