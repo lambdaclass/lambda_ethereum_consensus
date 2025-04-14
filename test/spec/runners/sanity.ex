@@ -15,26 +15,12 @@ defmodule SanityTestRunner do
     "historical_accumulator"
   ]
 
-  @handlers [
-    "blocks",
-    "slots"
-  ]
-
-  @forks [
-    "capella",
-    "deneb",
-    "electra"
-  ]
-
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: fork, handler: handler, case: testcase})
-      when handler in @handlers and fork in @forks do
-    if handler == "slots",
-      do: Enum.member?(@disabled_slot_cases, testcase),
-      else: false
+  def skip?(%SpecTestCase{handler: "slots", case: testcase}) do
+    Enum.member?(@disabled_slot_cases, testcase)
   end
 
-  def skip?(_), do: true
+  def skip?(_), do: false
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{handler: "slots"} = testcase) do

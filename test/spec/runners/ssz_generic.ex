@@ -6,9 +6,6 @@ defmodule SszGenericTestRunner do
   use TestRunner
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "phase0"}), do: true
-
-  @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 

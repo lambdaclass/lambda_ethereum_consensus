@@ -21,7 +21,6 @@ defmodule LightClientTestRunner do
 
   # TODO: We didn't implement lightclient functions yet
   def skip?(%SpecTestCase{fork: fork}) when fork in ["deneb", "electra"], do: true
-  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
