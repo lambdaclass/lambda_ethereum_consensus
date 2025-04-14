@@ -7,9 +7,6 @@ defmodule KzgTestRunner do
   use TestRunner
 
   @impl TestRunner
-  def skip?(_), do: false
-
-  @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
 

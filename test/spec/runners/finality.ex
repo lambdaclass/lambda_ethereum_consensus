@@ -7,7 +7,10 @@ defmodule FinalityTestRunner do
   use TestRunner
 
   @impl TestRunner
-  def skip?(_), do: false
+  def skip?(%SpecTestCase{fork: "capella"}), do: false
+  def skip?(%SpecTestCase{fork: "deneb"}), do: false
+  def skip?(%SpecTestCase{fork: "electra"}), do: false
+  def skip?(_), do: true
 
   @impl TestRunner
   def run_test_case(testcase) do

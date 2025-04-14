@@ -11,7 +11,7 @@ defmodule SanityTestRunner do
   alias Types.BeaconState
 
   # TODO: We need to make sure this is still needed to be here
-  @disabled_cases [
+  @disabled_slot_cases [
     "historical_accumulator"
   ]
 
@@ -20,18 +20,19 @@ defmodule SanityTestRunner do
     "slots"
   ]
 
+  @forks [
+    "capella",
+    "deneb",
+    "electra"
+  ]
+
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella", handler: handler, case: testcase})
-      when handler in @handlers,
-      do: Enum.member?(@disabled_cases, testcase)
-
-  def skip?(%SpecTestCase{fork: "deneb", handler: handler, case: testcase})
-      when handler in @handlers,
-      do: Enum.member?(@disabled_cases, testcase)
-
-  def skip?(%SpecTestCase{fork: "electra", handler: handler, case: testcase})
-      when handler in @handlers,
-      do: Enum.member?(@disabled_cases, testcase)
+  def skip?(%SpecTestCase{fork: fork, handler: handler, case: testcase})
+      when handler in @handlers and fork in @forks do
+    if handler == "slots",
+      do: Enum.member?(@disabled_slot_cases, testcase),
+      else: false
+  end
 
   def skip?(_), do: true
 
