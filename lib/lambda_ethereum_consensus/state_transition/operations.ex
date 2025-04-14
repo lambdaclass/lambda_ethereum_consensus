@@ -1149,7 +1149,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           source_validator.effective_balance
         )
 
-      consolidation_epoch = state.consolidation_epoch
+      consolidation_epoch = state.earliest_consolidation_epoch
 
       withdrawable_epoch =
         consolidation_epoch + ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
