@@ -7,10 +7,7 @@ defmodule KzgTestRunner do
   use TestRunner
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella"}), do: false
-  def skip?(%SpecTestCase{fork: "deneb"}), do: false
-  def skip?(%SpecTestCase{fork: "electra"}), do: false
-  def skip?(_), do: true
+  def skip?(_), do: false
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
