@@ -1001,33 +1001,37 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     {validator, validator_index} = find_validator(state, request_pubkey)
 
-    cond do
-      partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request) ->
-        {:ok, state}
+    with false <- partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request),
+         false <- is_nil(validator),
+         false <- invalid_withdrawal_credentials?(validator, withdrawal_request.source_address),
+         false <- not Predicates.active_validator?(validator, current_epoch),
+         false <- validator.exit_epoch == far_future_epoch,
+         false <-
+           current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") do
+      pending_balance_to_withdraw =
+        Accessors.get_pending_balance_to_withdraw(state, validator_index)
 
-      is_nil(validator) ->
-        {:ok, state}
+      withdrawal_request_type =
+        if is_full_exit_request do
+          if pending_balance_to_withdraw == 0 do
+            :full_exit
+          else
+            :full_exit_with_pending_balance
+          end
+        else
+          :partial_exit
+        end
 
-      invalid_withdrawal_credentials?(validator, withdrawal_request.source_address) ->
+      handle_valid_withdrawal_request(
+        state,
+        validator,
+        validator_index,
+        amount,
+        withdrawal_request_type
+      )
+    else
+      _ ->
         {:ok, state}
-
-      !Predicates.active_validator?(validator, current_epoch) ->
-        {:ok, state}
-
-      validator.exit_epoch == far_future_epoch ->
-        {:ok, state}
-
-      current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") ->
-        {:ok, state}
-
-      true ->
-        handle_valid_withdrawal_request(
-          state,
-          validator,
-          validator_index,
-          amount,
-          is_full_exit_request
-        )
     end
   end
 
@@ -1060,63 +1064,60 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end)
   end
 
+  defp handle_valid_withdrawal_request(state, _, validator_index, _, :full_exit),
+    do: Mutators.initiate_validator_exit(state, validator_index)
+
+  defp handle_valid_withdrawal_request(state, _, _, _, :full_exit_with_pending_balance),
+    do: {:ok, state}
+
   defp handle_valid_withdrawal_request(
          state,
          validator,
          validator_index,
          amount,
-         is_full_exit_request
+         :partial_exit
        ) do
     pending_balance_to_withdraw =
       Accessors.get_pending_balance_to_withdraw(state, validator_index)
 
-    cond do
-      is_full_exit_request && pending_balance_to_withdraw == 0 ->
-        Mutators.initiate_validator_exit(state, validator_index)
+    min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
 
-      is_full_exit_request ->
-        {:ok, state}
+    has_sufficient_effective_balance =
+      validator.effective_balance >= min_activation_balance
 
-      true ->
-        min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
+    has_excess_balance =
+      Enum.at(state.balances, validator_index) >
+        min_activation_balance + pending_balance_to_withdraw
 
-        has_sufficient_effective_balance =
-          validator.effective_balance >= min_activation_balance
+    if Validator.has_compounding_withdrawal_credential(validator) &&
+         has_sufficient_effective_balance && has_excess_balance do
+      to_withdraw =
+        min(
+          Enum.at(state.balances, validator_index) - min_activation_balance -
+            pending_balance_to_withdraw,
+          amount
+        )
 
-        has_excess_balance =
-          Enum.at(state.balances, validator_index) >
-            min_activation_balance + pending_balance_to_withdraw
+      state = Mutators.compute_exit_epoch_and_update_churn(state, to_withdraw)
+      exit_queue_epoch = state.earliest_exit_epoch
 
-        if Validator.has_compounding_withdrawal_credential(validator) &&
-             has_sufficient_effective_balance && has_excess_balance do
-          to_withdraw =
-            min(
-              Enum.at(state.balances, validator_index) - min_activation_balance -
-                pending_balance_to_withdraw,
-              amount
-            )
+      withdrawable_epoch =
+        exit_queue_epoch + ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
 
-          state = Mutators.compute_exit_epoch_and_update_churn(state, to_withdraw)
-          exit_queue_epoch = state.earliest_exit_epoch
+      pending_partial_withdrawal = %PendingPartialWithdrawal{
+        validator_index: validator_index,
+        amount: to_withdraw,
+        withdrawable_epoch: withdrawable_epoch
+      }
 
-          withdrawable_epoch =
-            exit_queue_epoch + ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
-
-          pending_partial_withdrawal = %PendingPartialWithdrawal{
-            validator_index: validator_index,
-            amount: to_withdraw,
-            withdrawable_epoch: withdrawable_epoch
-          }
-
-          {:ok,
-           %BeaconState{
-             state
-             | pending_partial_withdrawals:
-                 state.pending_partial_withdrawals ++ [pending_partial_withdrawal]
-           }}
-        else
-          {:ok, state}
-        end
+      {:ok,
+       %BeaconState{
+         state
+         | pending_partial_withdrawals:
+             state.pending_partial_withdrawals ++ [pending_partial_withdrawal]
+       }}
+    else
+      {:ok, state}
     end
   end
 
