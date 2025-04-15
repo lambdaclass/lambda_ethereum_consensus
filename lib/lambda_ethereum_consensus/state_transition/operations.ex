@@ -1109,7 +1109,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          false <- is_nil(validator),
          false <- invalid_withdrawal_credentials?(validator, withdrawal_request.source_address),
          false <- not Predicates.active_validator?(validator, current_epoch),
-         false <- validator.exit_epoch == far_future_epoch,
+         false <- validator.exit_epoch != far_future_epoch,
          false <-
            current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") do
       pending_balance_to_withdraw =
