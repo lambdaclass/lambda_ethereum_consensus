@@ -472,8 +472,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
        ) do
     far_future_epoch = Constants.far_future_epoch()
     min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
-    validator_index = state.next_withdrawal_validator_index
-    validator = Aja.Vector.at(state.validators, validator_index)
+    validator = Aja.Vector.at(state.validators, withdrawal.validator_index)
     has_sufficient_effective_balance = validator.effective_balance >= min_activation_balance
 
     has_excess_balance =
