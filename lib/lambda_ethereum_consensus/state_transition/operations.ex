@@ -431,7 +431,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       end)
 
     complete_withdrawals =
-      (pending_partial_withdrawals ++ non_partial_withdrawals)
+      (pending_partial_withdrawals ++ Enum.to_list(non_partial_withdrawals))
       |> Enum.take(max_withdrawals_per_payload)
 
     {complete_withdrawals, processed_partial_withdrawals_count}
