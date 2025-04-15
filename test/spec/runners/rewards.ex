@@ -6,21 +6,6 @@ defmodule RewardsTestRunner do
   use TestRunner
   alias Types.BeaconState
 
-  @disabled [
-    # "basic",
-    # "leak",
-    # "random"
-  ]
-
-  @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
-    Enum.member?(@disabled, handler)
-  end
-
-  def skip?(%SpecTestCase{fork: "deneb"}), do: false
-  def skip?(%SpecTestCase{fork: "electra"}), do: false
-  def skip?(_), do: true
-
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
