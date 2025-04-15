@@ -24,12 +24,6 @@ defmodule ForkChoiceTestRunner do
   end
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella"}), do: false
-  def skip?(%SpecTestCase{fork: "deneb"}), do: false
-  def skip?(%SpecTestCase{fork: "electra"}), do: false
-  def skip?(_testcase), do: true
-
-  @impl TestRunner
   def run_test_case(testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
