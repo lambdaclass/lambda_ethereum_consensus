@@ -1064,8 +1064,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end)
   end
 
-  defp handle_valid_withdrawal_request(state, _, validator_index, _, :full_exit),
-    do: Mutators.initiate_validator_exit(state, validator_index)
+  defp handle_valid_withdrawal_request(state, _, validator_index, _, :full_exit) do
+    with {:ok, {state, _validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
+      {:ok, state}
+    end
+  end
 
   defp handle_valid_withdrawal_request(state, _, _, _, :full_exit_with_pending_balance),
     do: {:ok, state}
