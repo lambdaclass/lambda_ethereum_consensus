@@ -392,7 +392,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       Stream.zip([state.validators, state.balances])
       |> Stream.with_index()
       |> Stream.cycle()
-      |> Stream.drop(withdrawal_index)
+      |> Stream.drop(state.next_withdrawal_validator_index)
       |> Stream.take(bound)
       |> Stream.map(fn {{validator, balance}, index} ->
         partially_withdrawn_balance =
