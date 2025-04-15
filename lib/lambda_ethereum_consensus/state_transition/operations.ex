@@ -1149,7 +1149,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     is_correct_source_address =
       case validator.withdrawal_credentials do
-        <<_::binary-size(12), rest>> -> rest == address
+        <<_::binary-size(12), validator_address::binary>> -> validator_address == address
         _ -> false
       end
 
