@@ -488,7 +488,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           withdrawal.amount
         )
 
-      <<_::binary-size(12), address>> = validator.withdrawal_credentials
+      <<_::binary-size(12), address::binary>> = validator.withdrawal_credentials
 
       withdrawal = %Withdrawal{
         index: withdrawal_index,
