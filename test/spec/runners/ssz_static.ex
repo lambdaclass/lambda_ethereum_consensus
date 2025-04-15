@@ -17,47 +17,6 @@ defmodule SszStaticTestRunner do
   @only_ssz_ex [Types.Eth1Block, Types.SyncAggregatorSelectionData]
 
   @disabled [
-    # "DepositData",
-    # "DepositMessage",
-    # "Eth1Data",
-    # "ProposerSlashing",
-    # "SignedBeaconBlockHeader",
-    # "SignedVoluntaryExit",
-    # "Validator",
-    # "VoluntaryExit",
-    # "Attestation",
-    # "AttestationData",
-    # "BLSToExecutionChange",
-    # "BeaconBlockHeader",
-    # "Checkpoint",
-    # "Deposit",
-    # "SignedBLSToExecutionChange",
-    # "SigningData",
-    # "SyncCommittee",
-    # "SyncCommitteeMessage",
-    # "Withdrawal",
-    # "AttesterSlashing",
-    # "HistoricalSummary",
-    # "PendingAttestation",
-    # "Fork",
-    # "ForkData",
-    # "HistoricalBatch",
-    # "IndexedAttestation",
-    # "ExecutionPayload",
-    # "ExecutionPayloadHeader",
-    # "SignedBeaconBlock",
-    # "SyncAggregate",
-    # "AggregateAndProof",
-    # "BeaconBlock",
-    # "BeaconBlockBody",
-    # "BeaconState",
-    # "SignedAggregateAndProof",
-    # "Eth1Block",
-    # "SyncAggregatorSelectionData",
-    # "SignedContributionAndProof",
-    # "SyncCommitteeContribution",
-    # "ContributionAndProof",
-    # -- not defined yet
     "LightClientBootstrap",
     "LightClientOptimisticUpdate",
     "LightClientUpdate",
@@ -76,15 +35,8 @@ defmodule SszStaticTestRunner do
   }
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
-    Enum.member?(@disabled, handler)
-  end
-
-  def skip?(%SpecTestCase{fork: "deneb", handler: handler}) do
-    Enum.member?(@disabled, handler)
-  end
-
-  def skip?(_), do: true
+  def skip?(%SpecTestCase{handler: handler}) when handler in @disabled, do: true
+  def skip?(_), do: false
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do

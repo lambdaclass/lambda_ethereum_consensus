@@ -6,22 +6,6 @@ defmodule BlsTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-  # Remove handler from here once you implement the corresponding functions
-  @disabled_handlers [
-    # "sign",
-    # "verify",
-    # "aggregate",
-    # "fast_aggregate_verify",
-    # "aggregate_verify",
-    # "eth_aggregate_pubkeys"
-    # "eth_fast_aggregate_verify"
-  ]
-
-  @impl TestRunner
-  def skip?(%SpecTestCase{} = testcase) do
-    Enum.member?(@disabled_handlers, testcase.handler)
-  end
-
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
