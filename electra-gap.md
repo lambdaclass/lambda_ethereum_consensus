@@ -70,7 +70,7 @@ This document outlines the gaps in the current implementation of the Electra. It
 
 ## Block Processing
 
-- [ ] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals))
+- [x] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1431))
 - [ ] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
 - [x] Modified `process_operations` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_operations), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [x] Modified `process_attestation` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_attestation), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
@@ -82,6 +82,8 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [x] New `is_valid_deposit_signature` ([Spec](docs/specs/electra/beacon-chain.md#new-is_valid_deposit_signature), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [x] Modified `add_validator_to_registry` ([Spec](docs/specs/electra/beacon-chain.md#modified-add_validator_to_registry), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [x] Modified `apply_deposit` ([Spec](docs/specs/electra/beacon-chain.md#modified-apply_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
+- [x] Modified `get_expected_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_expected_withdrawals), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1431))
+
 ## Execution Engine
 
 - [ ] Modified `is_valid_block_hash` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_valid_block_hash))
