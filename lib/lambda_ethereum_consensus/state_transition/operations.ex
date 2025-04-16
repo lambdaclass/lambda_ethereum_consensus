@@ -606,7 +606,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          :ok <- check_valid_slot_range(data, state),
          :ok <- check_data_index_zero(data),
          committee_indices <- Accessors.get_committee_indices(attestation.committee_bits),
-         {:ok, committee_offset} =
+         {:ok, committee_offset} <-
            check_committee_indices(committee_indices, aggregation_bits, data, state),
          :ok <- check_matching_aggregation_bits_length(aggregation_bits, committee_offset),
          {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
@@ -892,7 +892,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         committee_attesters =
           for(
             {attester_index, index} <- Enum.with_index(committee),
-            BitList.set(aggregation_bits, index + committee_offset),
+            BitList.set?(aggregation_bits, index + committee_offset),
             do: attester_index
           )
           |> MapSet.new()
