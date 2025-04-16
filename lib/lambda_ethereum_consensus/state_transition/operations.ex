@@ -980,7 +980,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     updated_state =
       if state.deposit_requests_start_index == Constants.unset_deposit_requests_start_index() do
         %BeaconState{
-          state
+          updated_state
           | deposit_requests_start_index: deposit_request.index
         }
       else
