@@ -569,6 +569,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_pending_consolidations(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_pending_consolidations(%BeaconState{} = state) do
+    # TODO: Not implemented yet
     {:ok, state}
   end
 
