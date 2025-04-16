@@ -126,37 +126,35 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
           Types.uint64(),
           Types.bls_signature()
         ) :: {:ok, BeaconState.t()} | {:error, String.t()}
-  def apply_deposit(state, pubkey, withdrawal_credentials, amount, signature) do
+  def apply_deposit(state, pubkey, withdrawal_credentials, amount, sig) do
     deposit = %PendingDeposit{
       pubkey: pubkey,
       withdrawal_credentials: withdrawal_credentials,
       amount: amount,
-      signature: signature,
+      signature: sig,
       slot: Constants.genesis_slot()
     }
 
-    pending_deposits =
-      if Enum.member?(state.validators, fn validator -> validator.pubkey == pubkey end) do
-        state.pending_deposits ++ [deposit]
+    if Enum.member?(state.validators, fn validator -> validator.pubkey == pubkey end) do
+      {:ok,
+       %BeaconState{
+         state
+         | pending_deposits: state.pending_deposits ++ [deposit]
+       }}
+    else
+      with true <-
+             DepositMessage.valid_deposit_signature?(pubkey, withdrawal_credentials, amount, sig),
+           {:ok, state} <- apply_initial_deposit(state, pubkey, withdrawal_credentials, 0) do
+        {:ok,
+         %BeaconState{
+           state
+           | pending_deposits: state.pending_deposits ++ [deposit]
+         }}
       else
-        if DepositMessage.valid_deposit_signature?(
-             pubkey,
-             withdrawal_credentials,
-             amount,
-             signature
-           ) do
-          {:ok, state} = apply_initial_deposit(state, pubkey, withdrawal_credentials, amount)
-          state.pending_deposits ++ [deposit]
-        else
-          state.pending_deposits
-        end
+        _ ->
+          {:ok, state}
       end
-
-    {:ok,
-     %BeaconState{
-       state
-       | pending_deposits: pending_deposits
-     }}
+    end
   end
 
   @spec apply_initial_deposit(BeaconState.t(), Types.bls_pubkey(), Types.bytes32(), Types.gwei()) ::
