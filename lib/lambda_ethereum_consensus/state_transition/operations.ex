@@ -980,7 +980,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     updated_state =
       if state.deposit_requests_start_index == Constants.unset_deposit_requests_start_index() do
         %BeaconState{
-          state
+          updated_state
           | deposit_requests_start_index: deposit_request.index
         }
       else
@@ -1065,8 +1065,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp handle_valid_withdrawal_request(state, _, validator_index, _, :full_exit) do
-    with {:ok, {state, _validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
-      {:ok, state}
+    with {:ok, {state, validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
+      {:ok,
+       %Types.BeaconState{
+         state
+         | validators: Aja.Vector.replace_at(state.validators, validator_index, validator)
+       }}
     end
   end
 
@@ -1137,7 +1141,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   defp do_process_consolidation_request(state, consolidation_request, :compounding) do
     {_validator, validator_index} = find_validator(state, consolidation_request.source_pubkey)
-    {:process, Mutators.switch_to_compounding_validator(state, validator_index)}
+    {:ok, Mutators.switch_to_compounding_validator(state, validator_index)}
   end
 
   defp do_process_consolidation_request(state, consolidation_request, :consolidation) do
@@ -1257,16 +1261,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          target_validator,
          consolidation_request
        ) do
-    cond do
-      invalid_withdrawal_credentials?(source_validator, consolidation_request) ->
-        false
-
-      not Validator.has_compounding_withdrawal_credential(target_validator) ->
-        false
-
-      true ->
-        true
-    end
+    invalid_withdrawal_credentials?(source_validator, consolidation_request.source_address) ||
+      not Validator.has_compounding_withdrawal_credential(target_validator)
   end
 
   @spec valid_switch_to_compounding_request?(BeaconState.t(), ConsolidationRequest.t()) ::

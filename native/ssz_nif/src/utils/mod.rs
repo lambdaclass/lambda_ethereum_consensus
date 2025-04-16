@@ -53,6 +53,14 @@ macro_rules! schema_match {
                 Epoch,
                 BlobSidecar<C>,
                 BlobIdentifier,
+                PendingDeposit,
+                PendingPartialWithdrawal,
+                PendingConsolidation,
+                DepositRequest,
+                WithdrawalRequest,
+                ConsolidationRequest,
+                ExecutionRequests<C>,
+                SingleAttestation,
             }
         )
     };
