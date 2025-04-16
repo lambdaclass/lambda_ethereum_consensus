@@ -953,12 +953,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec process_withdrawal_request(BeaconState.t(), WithdrawalRequest.t()) ::
           {:ok, BeaconState.t()}
   def process_withdrawal_request(state, _withdrawal_request) do
+    # TODO: Not implemented yet
     {:ok, state}
   end
 
   @spec process_consolidation_request(BeaconState.t(), ConsolidationRequest.t()) ::
           {:ok, BeaconState.t()}
   def process_consolidation_request(state, _consolidation_request) do
+    # TODO: Not implemented yet
     {:ok, state}
   end
 
