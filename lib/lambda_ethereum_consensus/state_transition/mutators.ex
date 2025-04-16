@@ -5,6 +5,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconState
+  alias Types.DepositMessage
+  alias Types.PendingDeposit
   alias Types.Validator
 
   @doc """
@@ -122,31 +124,49 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
           Types.uint64(),
           Types.bls_signature()
         ) :: {:ok, BeaconState.t()} | {:error, String.t()}
-  def apply_deposit(state, pubkey, withdrawal_credentials, amount, signature) do
-    case Enum.find_index(state.validators, fn validator -> validator.pubkey == pubkey end) do
-      index when is_number(index) ->
-        {:ok, BeaconState.increase_balance(state, index, amount)}
+  def apply_deposit(state, pubkey, withdrawal_credentials, amount, sig) do
+    current_validator? = Enum.any?(state.validators, &(&1.pubkey == pubkey))
 
-      _ ->
-        deposit_message = %Types.DepositMessage{
-          pubkey: pubkey,
-          withdrawal_credentials: withdrawal_credentials,
-          amount: amount
-        }
+    valid_signature? =
+      current_validator? ||
+        DepositMessage.valid_deposit_signature?(pubkey, withdrawal_credentials, amount, sig)
 
-        domain = Misc.compute_domain(Constants.domain_deposit())
-
-        signing_root = Misc.compute_signing_root(deposit_message, domain)
-
-        if Bls.valid?(pubkey, signing_root, signature) do
-          apply_initial_deposit(state, pubkey, withdrawal_credentials, amount)
+    if !current_validator? && !valid_signature? do
+      # Neither a validator nor have a valid signature, we do not apply the deposit
+      {:ok, state}
+    else
+      updated_state =
+        if current_validator? do
+          state
         else
-          {:ok, state}
+          {:ok, state} = add_validator_to_registry(state, pubkey, withdrawal_credentials, 0)
+          state
         end
+
+      deposit = %PendingDeposit{
+        pubkey: pubkey,
+        withdrawal_credentials: withdrawal_credentials,
+        amount: amount,
+        signature: sig,
+        slot: Constants.genesis_slot()
+      }
+
+      {:ok,
+       %BeaconState{
+         updated_state
+         | pending_deposits: updated_state.pending_deposits ++ [deposit]
+       }}
     end
   end
 
-  defp apply_initial_deposit(%BeaconState{} = state, pubkey, withdrawal_credentials, amount) do
+  @spec add_validator_to_registry(
+          BeaconState.t(),
+          Types.bls_pubkey(),
+          Types.bytes32(),
+          Types.gwei()
+        ) ::
+          {:ok, BeaconState.t()}
+  def add_validator_to_registry(%BeaconState{} = state, pubkey, withdrawal_credentials, amount) do
     Types.Deposit.get_validator_from_deposit(pubkey, withdrawal_credentials, amount)
     |> then(&Aja.Vector.append(state.validators, &1))
     |> then(

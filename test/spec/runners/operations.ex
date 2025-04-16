@@ -5,6 +5,9 @@ defmodule OperationsTestRunner do
 
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Utils.Diff
+  alias Types.ConsolidationRequest
+  alias Types.DepositRequest
+  alias Types.WithdrawalRequest
 
   alias Types.Attestation
   alias Types.AttesterSlashing
@@ -32,7 +35,10 @@ defmodule OperationsTestRunner do
     "sync_aggregate" => SyncAggregate,
     "execution_payload" => BeaconBlockBody,
     "withdrawals" => ExecutionPayload,
-    "bls_to_execution_change" => SignedBLSToExecutionChange
+    "bls_to_execution_change" => SignedBLSToExecutionChange,
+    "consolidation_request" => ConsolidationRequest,
+    "withdrawal_request" => WithdrawalRequest,
+    "deposit_request" => DepositRequest
 
     # "deposit_receipt" => "DepositReceipt" Not yet implemented
   }
@@ -48,7 +54,10 @@ defmodule OperationsTestRunner do
     "sync_aggregate" => "sync_aggregate",
     "execution_payload" => "body",
     "withdrawals" => "execution_payload",
-    "bls_to_execution_change" => "address_change"
+    "bls_to_execution_change" => "address_change",
+    "consolidation_request" => "consolidation_request",
+    "withdrawal_request" => "withdrawal_request",
+    "deposit_request" => "deposit_request"
 
     # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
