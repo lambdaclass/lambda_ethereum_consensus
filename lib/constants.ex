@@ -151,4 +151,7 @@ defmodule Constants do
 
   @spec consolidation_request_type() :: Types.bytes1()
   def consolidation_request_type(), do: <<2>>
+
+  @spec g2_point_at_infinity() :: Types.bls_signature()
+  def g2_point_at_infinity(), do: <<0xC0, 0::8*95>>
 end
