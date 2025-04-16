@@ -85,7 +85,7 @@ defmodule Unit.Validator.BlockBuilderTest do
     commitment_root = SszEx.hash_tree_root!(commitment, TypeAliases.kzg_commitment())
 
     # Manually computed generalized index of the commitment in the body
-    index = 0b101100000
+    index = 0b1011000000
 
     valid? =
       Predicates.valid_merkle_branch?(commitment_root, proof, length(proof), index, body_root)
