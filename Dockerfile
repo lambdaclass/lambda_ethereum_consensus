@@ -3,7 +3,7 @@ FROM golang:1.24 AS libp2p_builder
 LABEL stage=builder
 
 # Install dependencies
-RUN apt-get update && apt-get install -y protobuf-compiler
+RUN apt-get update && apt-get install -y protobuf-compiler --fix-missing
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
 RUN mkdir /libp2p_port
