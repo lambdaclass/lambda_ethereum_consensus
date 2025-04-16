@@ -135,7 +135,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       slot: Constants.genesis_slot()
     }
 
-    if Enum.member?(state.validators, fn validator -> validator.pubkey == pubkey end) do
+    if Enum.any?(state.validators, fn validator -> validator.pubkey == pubkey end) do
       {:ok,
        %BeaconState{
          state
