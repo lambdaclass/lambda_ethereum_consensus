@@ -1261,16 +1261,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          target_validator,
          consolidation_request
        ) do
-    cond do
-      invalid_withdrawal_credentials?(source_validator, consolidation_request) ->
-        false
-
-      not Validator.has_compounding_withdrawal_credential(target_validator) ->
-        false
-
-      true ->
-        true
-    end
+    invalid_withdrawal_credentials?(source_validator, consolidation_request.source_address) ||
+      not Validator.has_compounding_withdrawal_credential(target_validator)
   end
 
   @spec valid_switch_to_compounding_request?(BeaconState.t(), ConsolidationRequest.t()) ::
