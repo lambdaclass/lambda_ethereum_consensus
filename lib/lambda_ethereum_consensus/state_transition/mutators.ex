@@ -139,7 +139,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         if current_validator? do
           state
         else
-          {:ok, state} = apply_initial_deposit(state, pubkey, withdrawal_credentials, 0)
+          {:ok, state} = add_validator_to_registry(state, pubkey, withdrawal_credentials, 0)
           state
         end
 
@@ -159,9 +159,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     end
   end
 
-  @spec apply_initial_deposit(BeaconState.t(), Types.bls_pubkey(), Types.bytes32(), Types.gwei()) ::
+  @spec add_validator_to_registry(
+          BeaconState.t(),
+          Types.bls_pubkey(),
+          Types.bytes32(),
+          Types.gwei()
+        ) ::
           {:ok, BeaconState.t()}
-  def apply_initial_deposit(%BeaconState{} = state, pubkey, withdrawal_credentials, amount) do
+  def add_validator_to_registry(%BeaconState{} = state, pubkey, withdrawal_credentials, amount) do
     Types.Deposit.get_validator_from_deposit(pubkey, withdrawal_credentials, amount)
     |> then(&Aja.Vector.append(state.validators, &1))
     |> then(

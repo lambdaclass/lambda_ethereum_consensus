@@ -593,7 +593,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         {:ok, BeaconState.increase_balance(state, index, deposit.amount)}
 
       !current_validator? && valid_signature? ->
-        Mutators.apply_initial_deposit(
+        Mutators.add_validator_to_registry(
           state,
           deposit.pubkey,
           deposit.withdrawal_credentials,
