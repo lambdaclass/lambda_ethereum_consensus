@@ -80,7 +80,7 @@ defmodule Unit.Validator.BlockBuilderTest do
 
     [proof] = BlockBuilder.compute_inclusion_proofs(body)
 
-    assert length(proof) == 9
+    assert length(proof) == 10
 
     commitment_root = SszEx.hash_tree_root!(commitment, TypeAliases.kzg_commitment())
 
