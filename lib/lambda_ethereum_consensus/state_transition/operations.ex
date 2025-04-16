@@ -1065,8 +1065,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp handle_valid_withdrawal_request(state, _, validator_index, _, :full_exit) do
-    with {:ok, {state, _validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
-      {:ok, state}
+    with {:ok, {state, validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
+      {:ok,
+       %Types.BeaconState{
+         state
+         | validators: Aja.Vector.replace_at(state.validators, validator_index, validator)
+       }}
     end
   end
 
