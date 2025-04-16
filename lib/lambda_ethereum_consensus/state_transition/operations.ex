@@ -1137,7 +1137,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   defp do_process_consolidation_request(state, consolidation_request, :compounding) do
     {_validator, validator_index} = find_validator(state, consolidation_request.source_pubkey)
-    {:process, Mutators.switch_to_compounding_validator(state, validator_index)}
+    {:ok, Mutators.switch_to_compounding_validator(state, validator_index)}
   end
 
   defp do_process_consolidation_request(state, consolidation_request, :consolidation) do
