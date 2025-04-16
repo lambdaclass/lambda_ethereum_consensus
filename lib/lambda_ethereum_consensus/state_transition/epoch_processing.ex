@@ -573,26 +573,35 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   defp apply_pending_deposit(state, deposit) do
-    case Enum.find_index(state.validators, fn validator -> validator.pubkey == deposit.pubkey end) do
-      index when is_number(index) ->
+    index =
+      Enum.find_index(state.validators, fn validator -> validator.pubkey == deposit.pubkey end)
+
+    current_validator? = is_number(index)
+
+    valid_signature? =
+      current_validator? ||
+        DepositMessage.valid_deposit_signature?(
+          deposit.pubkey,
+          deposit.withdrawal_credentials,
+          deposit.amount,
+          deposit.signature
+        )
+
+    cond do
+      current_validator? ->
         {:ok, BeaconState.increase_balance(state, index, deposit.amount)}
 
-      _ ->
-        if DepositMessage.valid_deposit_signature?(
-             deposit.pubkey,
-             deposit.withdrawal_credentials,
-             deposit.amount,
-             deposit.signature
-           ) do
-          Mutators.apply_initial_deposit(
-            state,
-            deposit.pubkey,
-            deposit.withdrawal_credentials,
-            deposit.amount
-          )
-        else
-          {:ok, state}
-        end
+      !current_validator? && valid_signature? ->
+        Mutators.apply_initial_deposit(
+          state,
+          deposit.pubkey,
+          deposit.withdrawal_credentials,
+          deposit.amount
+        )
+
+      true ->
+        # Neither a validator nor have a valid signature, we do not apply the deposit
+        {:ok, state}
     end
   end
 end
