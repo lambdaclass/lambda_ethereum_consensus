@@ -131,8 +131,8 @@ impl Config for Minimal {
     type SyncCommitteeSize = U32;
     type MaxWithdrawalsPerPayload = U4;
     type FieldElementsPerBlob = U4096;
-    type MaxBlobCommitmentsPerBlock = U16;
-    type KzgCommitmentInclusionProofDepth = U9;
+    type MaxBlobCommitmentsPerBlock = U32;
+    type KzgCommitmentInclusionProofDepth = U10;
     type MaxCommitteesPerSlot = U4;
     // Electra added fields
     type MaxDepositRequestsPerPayload = U4;

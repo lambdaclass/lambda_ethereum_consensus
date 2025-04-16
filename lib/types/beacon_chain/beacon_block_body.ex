@@ -38,7 +38,7 @@ defmodule Types.BeaconBlockBody do
           # max MAX_DEPOSITS
           deposits: list(Types.Deposit.t()),
           # max MAX_VOLUNTARY_EXITS
-          voluntary_exits: list(Types.VoluntaryExit.t()),
+          voluntary_exits: list(Types.SignedVoluntaryExit.t()),
           sync_aggregate: Types.SyncAggregate.t(),
           execution_payload: Types.ExecutionPayload.t(),
           # max MAX_BLS_TO_EXECUTION_CHANGES
