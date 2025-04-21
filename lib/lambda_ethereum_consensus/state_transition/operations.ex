@@ -241,7 +241,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       payload.timestamp != Misc.compute_timestamp_at_slot(state, state.slot) ->
         {:error, "Timestamp verification failed"}
 
-      body.blob_kzg_commitments |> length() > ChainSpec.get("MAX_BLOBS_PER_BLOCK") ->
+      body.blob_kzg_commitments |> length() > ChainSpec.get("MAX_BLOBS_PER_BLOCK_ELECTRA") ->
         {:error, "Too many commitments"}
 
       # Cache execution payload header
