@@ -62,23 +62,26 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [ ] Modified `process_epoch` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_epoch))
 - [x] Modified `process_registry_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_registry_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
 - [x] Modified `process_slashings` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_slashings), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
-- [ ] New `apply_pending_deposit` ([Spec](docs/specs/electra/beacon-chain.md#new-apply_pending_deposit))
-- [ ] New `process_pending_deposits` ([Spec](docs/specs/electra/beacon-chain.md#new-process_pending_deposits))
+- [x] New `apply_pending_deposit` ([Spec](docs/specs/electra/beacon-chain.md#new-apply_pending_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
+- [x] New `process_pending_deposits` ([Spec](docs/specs/electra/beacon-chain.md#new-process_pending_deposits), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [ ] New `process_pending_consolidations` ([Spec](docs/specs/electra/beacon-chain.md#new-process_pending_consolidations))
 - [ ] Modified `process_effective_balance_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_effective_balance_updates))
+- [x] Modified `get_validator_from_deposit` ([Spec](docs/specs/electra/beacon-chains.md#modified-get_validator_from_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 
 ## Block Processing
 
 - [ ] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals))
 - [ ] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
-- [ ] Modified `process_operations` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_operations))
+- [x] Modified `process_operations` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_operations), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [ ] Modified `process_attestation` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_attestation))
-- [ ] Modified `process_deposit` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_deposit))
+- [x] Modified `process_deposit` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [ ] Modified `process_voluntary_exit` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_voluntary_exit))
 - [ ] New `process_withdrawal_request` ([Spec](docs/specs/electra/beacon-chain.md#new-process_withdrawal_request))
-- [ ] New `process_deposit_request` ([Spec](docs/specs/electra/beacon-chain.md#new-process_deposit_request))
+- [x] New `process_deposit_request` ([Spec](docs/specs/electra/beacon-chain.md#new-process_deposit_request), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [ ] New `process_consolidation_request` ([Spec](docs/specs/electra/beacon-chain.md#new-process_consolidation_request))
-
+- [x] New `is_valid_deposit_signature` ([Spec](docs/specs/electra/beacon-chain.md#new-is_valid_deposit_signature), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
+- [x] Modified `add_validator_to_registry` ([Spec](docs/specs/electra/beacon-chain.md#modified-add_validator_to_registry), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
+- [x] Modified `apply_deposit` ([Spec](docs/specs/electra/beacon-chain.md#modified-apply_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 ## Execution Engine
 
 - [ ] Modified `is_valid_block_hash` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_valid_block_hash))
