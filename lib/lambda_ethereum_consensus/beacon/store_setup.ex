@@ -161,7 +161,14 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
 
     first_block = List.first(blocks)
 
-    if anchor_state.latest_block_header.parent_root != first_block.message.parent_root do
+    if anchor_state.latest_block_header.parent_root == first_block.message.parent_root do
+      {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
+
+      # Save store in DB
+      StoreDb.persist_store(store)
+
+      store
+    else
       Logger.error(
         "[Checkpoint sync] Root mismatch when comparing latest finalized block with downloaded state"
       )
@@ -169,14 +176,6 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
       Logger.flush()
       System.halt(1)
     end
-
-    # We already checked block and state match
-    {:ok, store} = Store.get_forkchoice_store(anchor_state, anchor_block)
-
-    # Save store in DB
-    StoreDb.persist_store(store)
-
-    store
   end
 
   defp fetch_state_from_url(genesis_validators_root, url) do
