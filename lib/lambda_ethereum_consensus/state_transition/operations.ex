@@ -13,7 +13,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
-
   alias Types.PendingConsolidation
   alias Types.PendingDeposit
   alias Types.PendingPartialWithdrawal
@@ -1126,7 +1125,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec process_consolidation_request(BeaconState.t(), ConsolidationRequest.t()) ::
           {:ok, BeaconState.t()}
-
   def process_consolidation_request(state, consolidation_request) do
     request_type =
       if valid_switch_to_compounding_request?(state, consolidation_request),
