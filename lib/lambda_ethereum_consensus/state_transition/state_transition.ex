@@ -156,6 +156,8 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> epoch_op(:registry_updates, &EpochProcessing.process_registry_updates/1)
     |> epoch_op(:slashings, &EpochProcessing.process_slashings/1)
     |> epoch_op(:eth1_data_reset, &EpochProcessing.process_eth1_data_reset/1)
+    |> epoch_op(:pending_deposits, &EpochProcessing.process_pending_deposits/1)
+    |> epoch_op(:pending_consolidations, &EpochProcessing.process_pending_consolidations/1)
     |> epoch_op(:effective_balance_updates, &EpochProcessing.process_effective_balance_updates/1)
     |> epoch_op(:slashings_reset, &EpochProcessing.process_slashings_reset/1)
     |> epoch_op(:randao_mixes_reset, &EpochProcessing.process_randao_mixes_reset/1)
