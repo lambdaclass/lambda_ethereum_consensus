@@ -14,14 +14,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
   """
   @spec initiate_validator_exit(BeaconState.t(), integer()) ::
           {:ok, {BeaconState.t(), Validator.t()}} | {:error, String.t()}
-
   def initiate_validator_exit(%BeaconState{} = state, index) when is_integer(index) do
     initiate_validator_exit(state, Aja.Vector.at!(state.validators, index))
   end
 
   @spec initiate_validator_exit(BeaconState.t(), Validator.t()) ::
           {:ok, {BeaconState.t(), Validator.t()}} | {:error, String.t()}
-
   def initiate_validator_exit(%BeaconState{} = state, %Validator{} = validator) do
     far_future_epoch = Constants.far_future_epoch()
     min_validator_withdrawability_delay = ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
