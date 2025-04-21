@@ -13,6 +13,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   alias LambdaEthereumConsensus.Utils.BitList
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
+
   alias Types.PendingConsolidation
   alias Types.PendingDeposit
   alias Types.PendingPartialWithdrawal
@@ -964,6 +965,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec process_deposit_request(BeaconState.t(), DepositRequest.t()) :: {:ok, BeaconState.t()}
   def process_deposit_request(state, deposit_request) do
+    start_index =
+      if state.deposit_requests_start_index == Constants.unset_deposit_requests_start_index(),
+        do: deposit_request.index,
+        else: state.deposit_requests_start_index
+
     deposit = %PendingDeposit{
       pubkey: deposit_request.pubkey,
       withdrawal_credentials: deposit_request.withdrawal_credentials,
@@ -972,22 +978,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       slot: state.slot
     }
 
-    updated_state = %BeaconState{
-      state
-      | pending_deposits: state.pending_deposits ++ [deposit]
-    }
-
-    updated_state =
-      if state.deposit_requests_start_index == Constants.unset_deposit_requests_start_index() do
-        %BeaconState{
-          updated_state
-          | deposit_requests_start_index: deposit_request.index
-        }
-      else
-        updated_state
-      end
-
-    {:ok, updated_state}
+    {:ok,
+     %BeaconState{
+       state
+       | deposit_requests_start_index: start_index,
+         pending_deposits: state.pending_deposits ++ [deposit]
+     }}
   end
 
   @spec process_withdrawal_request(BeaconState.t(), WithdrawalRequest.t()) ::
@@ -1130,6 +1126,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec process_consolidation_request(BeaconState.t(), ConsolidationRequest.t()) ::
           {:ok, BeaconState.t()}
+
   def process_consolidation_request(state, consolidation_request) do
     request_type =
       if valid_switch_to_compounding_request?(state, consolidation_request),
