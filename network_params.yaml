@@ -18,10 +18,8 @@ participants:
 # network_params:
 #   preset: minimal
 additional_services:
-  - tx_spammer
-  - blob_spammer
+  - tx_fuzz
   - dora
-  - beacon_metrics_gazer
   - prometheus_grafana
 # Uncomment the following lines to run the the network with the assertoor tests
 #   - assertoor
@@ -32,5 +30,5 @@ additional_services:
 #   tests:
 #     - https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_consensus/refs/heads/main/.github/config/assertoor/cl-stability-check.yml
 
-# tx_spammer_params:
-#   tx_spammer_extra_args: ["--txcount=3", "--accounts=80"]
+# tx_fuzz_params:
+#   tx_fuzz_extra_args: ["--txcount=3", "--accounts=80"]
