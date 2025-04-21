@@ -708,7 +708,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   def fast_process_attestation(
         state,
-        %Attestation{data: data, aggregation_bits: aggregation_bits} = att,
+        %Attestation{data: data} = att,
         previous_epoch_updates,
         current_epoch_updates,
         attestation_index
@@ -717,10 +717,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          slot = state.slot - data.slot,
          {:ok, flag_indices} <-
            Accessors.get_attestation_participation_flag_indices(state, data, slot),
-         {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, data.index) do
-      attesting_indices =
-        Accessors.get_committee_attesting_indices(committee, aggregation_bits)
-
+         {:ok, attesting_indices} <- Accessors.get_attesting_indices(state, att) do
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       epoch_updates = if is_current_epoch, do: current_epoch_updates, else: previous_epoch_updates
 
@@ -735,6 +732,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       new_epoch_updates =
         attesting_indices
+        |> Enum.to_list()
         |> Enum.reduce(epoch_updates, fn i, epoch_updates ->
           Map.update(epoch_updates, i, [v], &merge_masks(&1, v))
         end)
@@ -882,7 +880,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     if data.index == 0 do
       :ok
     else
-      {:error, "Data index shoul be zero"}
+      {:error, "Data index should be zero"}
     end
   end
 
@@ -899,7 +897,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           )
           |> MapSet.new()
 
-        if Enum.empty?(committee_attesters) do
+        if MapSet.size(committee_attesters) == 0 do
           {:halt, {:error, "Empty committee attesters"}}
         else
           {:cont, {:ok, committee_offset + length(committee)}}
