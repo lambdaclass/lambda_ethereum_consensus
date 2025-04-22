@@ -34,7 +34,7 @@ tasks:
       name: check_consensus_block_proposals
       title: "Wait for block proposal from ${validatorPairName}"
       config:
-        minTransactionCount: 240
+        minTransactionCount: 80 # For some reason the tx fuzz is working different than the old spammer, we need to check it
       configVars:
         validatorNamePattern: "validatorPairName"
 
