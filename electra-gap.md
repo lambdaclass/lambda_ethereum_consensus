@@ -6,9 +6,9 @@ This document will guide you through our step-by-step plan for the implementatio
 
 | Status | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
 |:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|:---------------------------------------------------|
-| 🏗️   | [Phase 1: Beacon Chain Implementation](#phase-1-beacon-chain-implementation-4057---70)     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
-| ⌛   | [Phase 2: P2P & Sepolia Long-Running Sessions](#phase-2-p2p--sepolia-long-running-sessions-08---0)   | Ensure stability on Sepolia                          | • Implement the P2P changes <br> • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Sepolia|
-| ⌛   | [Phase 3: Validator Upgrades](#phase-3-validator-upgrades-09---0) | Ensure validators duties on devnets              |• Implement the honest validator changes<br>• Make assertoor work<br> • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertoor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
+| 🏗️   | [Phase 1: Beacon Chain Implementation](#phase-1-beacon-chain-implementation)     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
+| ⌛   | [Phase 2: P2P & Sepolia Long-Running Sessions](#phase-2-p2p--sepolia-long-running-sessions)   | Ensure stability on Sepolia                          | • Implement the P2P changes <br> • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Sepolia|
+| ⌛   | [Phase 3: Validator Upgrades](#phase-3-validator-upgrades) | Ensure validators duties on devnets              |• Implement the honest validator changes<br>• Make assertoor work<br> • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertoor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
 
 ### Why this Order
 
@@ -23,7 +23,7 @@ Once we finish the whole electra upgrade we have a clear path to follow for the 
 
 ## Current Status
 
-Right now we are at the [Beacon Chain Implementation](#phase-1-beacon-chain-implementation-4057---70) phase, our current spec test results for the past weeks are:
+Right now we are at the [Beacon Chain Implementation](#phase-1-beacon-chain-implementation) phase, our current spec test results for the past weeks are:
 
 - **April 15th, 2025:** `11370 tests, 2003 failures, 784 skipped`
 - **April 22th, 2025:** `11370 tests, 165 failures, 784 skipped`
@@ -34,7 +34,7 @@ Right now we are at the [Beacon Chain Implementation](#phase-1-beacon-chain-impl
 
 Here we will detail the current implementation gaps with the specs and the way to test every phase. The initial one is the larger to implement but it has the most clear way to validate it (spec-tests). The next phases are smaller but they need to be validated on long running sessions both in devnets and testnets.
 
-### Phase 1: Beacon Chain Implementation (40/57 - 70%)
+### Phase 1: Beacon Chain Implementation
 
 We are at `40/57` (70%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md), and most of the remaining functions are already in progress. We have still `165/11370` spec test failures, but we are working on them. The skipped tests were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase. Our aim as mentioned before is to reach `0` failures before going to the next phase.
 
@@ -123,7 +123,7 @@ The current status of the implementation in the [electra-support](https://github
 - [ ] Modified `notify_new_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-notify_new_payload))
 - [ ] Modified `verify_and_notify_new_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-verify_and_notify_new_payload))
 
-## Phase 2: P2P & Sepolia Long-Running Sessions (0/8 - 0%)
+## Phase 2: P2P & Sepolia Long-Running Sessions
 
 We didn't start this phase yet, its goals are:
 
@@ -144,7 +144,7 @@ The aim is to have the node running on Sepolia uninterrupted for 72+ hrs. The fo
 - [ ] Updated `BlobSidecarsByRange v1` ([Spec](docs/specs/electra/p2p-interface.md#blobsidecarsbyrange-v1))
 - [ ] Updated `BlobSidecarsByRoot v1` ([Spec](docs/specs/electra/p2p-interface.md#blobsidecarsbyroot-v1))
 
-## Phase 3: Validator Upgrades (0/9 - 0%)
+## Phase 3: Validator Upgrades
 
 We didn't start this phase yet, its goals are:
 - [Honest validator changes](docs/specs/electra/validator.md) implemented.
