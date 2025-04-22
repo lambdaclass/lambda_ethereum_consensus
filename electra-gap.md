@@ -12,7 +12,7 @@ This document will guide you through our step-by-step plan for the implementatio
 
 ### Why This Order
 
-We kick off with the beacon chain implementation because passing the full spec test suite is critical for protocol correctness and a solid foundation. Once all tests are green, we move to Phase 2 for prolonged Sepolia sessions, ensuring real-world stability before mainnet moves to electra which would limit our network options if we don't finish the upgrade. This will allow us to continue running long session on our servers and monitor the Node execution given that just the block/epoch processing and state transitions are needed for this. With a stable node confirmed, Phase 3 begins, upgrading networking and validator logic, tested through Kurtosis and Assertoor to finalize the electra upgrade roadmap.
+We kick off with the beacon chain implementation because passing the full spec test suite is critical for protocol correctness and a solid foundation. Once all tests are green, we move to Phase 2 for prolonged Sepolia sessions, ensuring real-world testnet stability before mainnet moves to electra which would limit our network options if we don't finish the upgrade. This will allow us to continue running long session on our servers and monitor the Node execution given that just the block/epoch processing and state transitions are needed for this. With a stable node confirmed, Phase 3 begins, upgrading networking and validator logic, tested through Kurtosis and Assertoor to finalize the electra upgrade roadmap.
 
 ### Next Steps
 
@@ -151,3 +151,7 @@ For the next phases we have the following gaps to cover:
 - [ ] Modified `compute_fork_version` ([Spec](docs/specs/electra/fork.md#modified-compute_fork_version))
 - [ ] New `upgrade_to_electra` ([Spec](docs/specs/electra/fork.md#upgrade_to_electra))
 
+
+## Changelog
+- **April 10th, 2025:** Created the document with the implementation gap.
+- **April 22th, 2025:** Updated the document with a clear roadmap, next steps and detailed current status.
