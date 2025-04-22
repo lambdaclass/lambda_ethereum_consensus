@@ -37,10 +37,17 @@ defmodule BeaconApi.V1.ConfigController do
     |> Map.drop(@chain_spec_removed_keys)
     |> rename_keys(@chain_spec_renamed_keys)
     |> Map.new(fn
-      {k, v} when is_integer(v) -> {k, Integer.to_string(v)}
-      {k, v} when k in @chain_spec_hex_fields -> {k, Utils.hex_encode(v)}
-      {k, v} when is_binary(v) -> if String.ends_with?(k, "_FORK_VERSION"), do: {k, Utils.hex_encode(v)}, else: {k, v}
-      {k, v} -> {k, v}
+      {k, v} when is_integer(v) ->
+        {k, Integer.to_string(v)}
+
+      {k, v} when k in @chain_spec_hex_fields ->
+        {k, Utils.hex_encode(v)}
+
+      {k, v} when is_binary(v) ->
+        if String.ends_with?(k, "_FORK_VERSION"), do: {k, Utils.hex_encode(v)}, else: {k, v}
+
+      {k, v} ->
+        {k, v}
     end)
   end
 
