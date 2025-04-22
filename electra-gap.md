@@ -1,25 +1,25 @@
-# Implementation Gaps for Electra Upgrade
+# Implementation Gaps for electra Upgrade
 
 This document will guide you through our step-by-step plan for the implementation of the new electra fork. We’ve broken the work into three clear phases to make our goals and priorities easy to follow. This is a living document, so we will update it as we progress through the implementation.
 
 ## Roadmap
 
-| Icon | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
+| Status | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
 |:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|:---------------------------------------------------|
-| 🚀   | Phase 1: Beacon Chain Implementation     | Build the Electra-upgraded beacon chain core         | • Apply Electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
-| 🔄   | Phase 2: Sepolia Long-Running Sessions   | Ensure stability on Sepolia                          | • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Spolia|
-| 🛠️   | Phase 3: Networking & Validator Upgrades | Upgrade P2P network & honest validator logic                | • Implement the P2P changes <br>• Implement the honest validator changes<br>• Make assertoor work • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
+| 🏗️   | Phase 1: Beacon Chain Implementation     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
+| ⌛   | Phase 2: Sepolia Long-Running Sessions   | Ensure stability on Sepolia                          | • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Sepolia|
+| ⌛   | Phase 3: Networking & Validator Upgrades | Upgrade P2P network & honest validator logic                | • Implement the P2P changes <br>• Implement the honest validator changes<br>• Make assertoor work • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertoor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
 
 ### Why This Order
 
-We kick off with the beacon chain implementation because passing the full spec test suite is critical for protocol correctness and a solid foundation. Once all tests are green, we move to Phase 2 for prolonged Sepolia sessions, ensuring real-world stability before mainnet moves to electra which would limit our network options if we don't finish the upgrade. This will allow us to continue running long session on our servers and monitor the Node execution given that just the block/epoch processing and state transitions are needed for this. With a stable node confirmed, Phase 3 begins, upgrading networking and validator logic, tested through Kurtosis and Assertoor to finalize the Electra upgrade roadmap.
+We kick off with the beacon chain implementation because passing the full spec test suite is critical for protocol correctness and a solid foundation. Once all tests are green, we move to Phase 2 for prolonged Sepolia sessions, ensuring real-world stability before mainnet moves to electra which would limit our network options if we don't finish the upgrade. This will allow us to continue running long session on our servers and monitor the Node execution given that just the block/epoch processing and state transitions are needed for this. With a stable node confirmed, Phase 3 begins, upgrading networking and validator logic, tested through Kurtosis and Assertoor to finalize the electra upgrade roadmap.
 
 ### Next Steps
 
 Once we finish the whole electra upgrade we have a clear path to follow for the next steps:
 - **Hooli long running sessions:** Right now Holesky was not an option for us because of performance issues, we need to test on Hooli and see if we can run the node on it on acceptable performance. This effort will be in parallel to the performance optimization one.
 - **Performance optimization:** We need to run the node on Hooli and mainnet to identify and fix the current bottlenecks, specially on block and epoch processing.
-- **Electra code enhancement:** During the implementation, some complex functions were identified that could be simplified. They are mostly related to how to manage early returns in already large python reference functions and port the logic to elixir. We will work on those to improve the code quality and make it easier to maintain in the future.
+- **electra code enhancement:** During the implementation, some complex functions were identified that could be simplified. They are mostly related to how to manage early returns in already large python reference functions and port the logic to elixir. We will work on those to improve the code quality and make it easier to maintain in the future.
 
 ## Current Status
 
@@ -30,7 +30,7 @@ Right now we are at the Beacon Chain implementation phase, our current spec test
 
 **Note:** The aim is to reach `0` failures before next week, so we can start the long running sessions on Sepolia. Also, we want to validate the 784 test skipped (which were already skipped before started working on the electra update).
 
-## Electra Implementation Gap
+## electra Implementation Gap
 
 ### Beacon Chain - Current phase gap (40/57 - 70% Complete)
 
