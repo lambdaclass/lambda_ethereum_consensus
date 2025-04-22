@@ -4,18 +4,23 @@ This document will guide you through our step-by-step plan for the implementatio
 
 ## Roadmap
 
-| Icon | Phase                                    | What & Why                                           | Key Steps                                                                 |
-|:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|
-| 🚀   | Phase 1: Beacon Chain Implementation     | Build the Electra-upgraded beacon chain core         | • Apply Electra-specific changes<br>• Run & pass full spec tests           |
-| 🔄   | Phase 2: Sepolia Long-Running Sessions   | Ensure stability before mainnet migration to electra | • Deploy & monitor node on Sepolia<br>• Validate extended uptime before lockout |
-| 🛠️   | Phase 3: Networking & Validator Upgrades | Upgrade P2P network & validator logic                | • Integrate P2P interface & validator changes<br>• Test via Kurtosis (Holesky limits)<br>• Explore Hooli testnet with fewer validators |
+| Icon | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
+|:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|:---------------------------------------------------|
+| 🚀   | Phase 1: Beacon Chain Implementation     | Build the Electra-upgraded beacon chain core         | • Apply Electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec_test`), aim for 0 failures |
+| 🔄   | Phase 2: Sepolia Long-Running Sessions   | Ensure stability on Sepolia                          | • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Spolia|
+| 🛠️   | Phase 3: Networking & Validator Upgrades | Upgrade P2P network & honest validator logic                | • Implement the P2P changes <br>• Implement the honest validator changes<br>• Make assertoor work • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
 
-**Why This Order**: We kick off with the beacon chain implementation because passing the full spec test suite is critical for protocol correctness and a solid foundation. Once all tests are green, we move to Phase 2 for prolonged Sepolia sessions, ensuring real-world stability before mainnet deprecation limits our network options. With a stable node confirmed, Phase 3 begins—upgrading networking and validator logic, tested through Kurtosis (and Hooli as a lightweight alternative)—to finalize the Electra upgrade roadmap.
+### Why This Order
 
-## Difference Between Updated and Modified
+We kick off with the beacon chain implementation because passing the full spec test suite is critical for protocol correctness and a solid foundation. Once all tests are green, we move to Phase 2 for prolonged Sepolia sessions, ensuring real-world stability before mainnet moves to electra which would limit our network options if we don't finish the upgrade. This will allow us to continue running long session on our servers and monitor the Node execution given that just the block/epoch processing and state transitions are needed for this. With a stable node confirmed, Phase 3 begins, upgrading networking and validator logic, tested through Kurtosis and Assertoor to finalize the Electra upgrade roadmap.
 
-- **Updated**: Changes in validation rules, protocols, or external behaviors. These changes may not directly alter the logic of the implementation.
-- **Modified**: Refers to direct changes made to the code or logic of an existing function, container, or process to accommodate new requirements or features.
+### Next Steps
+
+Once we finish the whole electra upgrade we have a clear path to follow for the next steps:
+- Hooli integration: Right now Holesky was not an option for us because of performance issues, we need to test on Hooli and see if we can run the node on it on acceptable performance.
+
+## Current Status
+
 
 ## Beacon Chain (40/54 - 74% Complete)
 
