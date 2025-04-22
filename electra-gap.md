@@ -6,9 +6,9 @@ This document will guide you through our step-by-step plan for the implementatio
 
 | Status | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
 |:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|:---------------------------------------------------|
-| 🏗️   | Phase 1: Beacon Chain Implementation     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
-| ⌛   | Phase 2: P2P & Sepolia Long-Running Sessions   | Ensure stability on Sepolia                          | • Implement the P2P changes <br> • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Sepolia|
-| ⌛   | Phase 3: Validator Upgrades | Ensure validators duties on devnets              |• Implement the honest validator changes<br>• Make assertoor work<br> • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertoor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
+| 🏗️   | [Phase 1: Beacon Chain Implementation](#phase-1-beacon-chain-implementation-4057---70)     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
+| ⌛   | [Phase 2: P2P & Sepolia Long-Running Sessions](#phase-2-p2p--sepolia-long-running-sessions-08---0)   | Ensure stability on Sepolia                          | • Implement the P2P changes <br> • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Sepolia|
+| ⌛   | [Phase 3: Validator Upgrades](#phase-3-validator-upgrades-09---0) | Ensure validators duties on devnets              |• Implement the honest validator changes<br>• Make assertoor work<br> • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertoor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
 
 ### Why this Order
 
@@ -144,7 +144,7 @@ The aim is to have the node running on Sepolia uninterrupted for 72+ hrs. The fo
 - [ ] Updated `BlobSidecarsByRange v1` ([Spec](docs/specs/electra/p2p-interface.md#blobsidecarsbyrange-v1))
 - [ ] Updated `BlobSidecarsByRoot v1` ([Spec](docs/specs/electra/p2p-interface.md#blobsidecarsbyroot-v1))
 
-## Phase 3: Networking & Validator Upgrades
+## Phase 3: Validator Upgrades (0/9 - 0%)
 
 We didn't start this phase yet, its goals are:
 - [Honest validator changes](docs/specs/electra/validator.md) implemented.
