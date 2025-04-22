@@ -1,12 +1,12 @@
 # Implementation Gaps for Electra Upgrade
 
-This document will guide you through our step-by-step plan for the implementation of the new electra fork. We’ve broken the work into three clear phases to make our goals and priorities easy to follow.
+This document will guide you through our step-by-step plan for the implementation of the new electra fork. We’ve broken the work into three clear phases to make our goals and priorities easy to follow. This is a living document, so we will update it as we progress through the implementation.
 
 ## Roadmap
 
 | Icon | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
 |:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|:---------------------------------------------------|
-| 🚀   | Phase 1: Beacon Chain Implementation     | Build the Electra-upgraded beacon chain core         | • Apply Electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec_test`), aim for 0 failures |
+| 🚀   | Phase 1: Beacon Chain Implementation     | Build the Electra-upgraded beacon chain core         | • Apply Electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
 | 🔄   | Phase 2: Sepolia Long-Running Sessions   | Ensure stability on Sepolia                          | • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Spolia|
 | 🛠️   | Phase 3: Networking & Validator Upgrades | Upgrade P2P network & honest validator logic                | • Implement the P2P changes <br>• Implement the honest validator changes<br>• Make assertoor work • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
 
