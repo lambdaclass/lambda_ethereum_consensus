@@ -23,7 +23,7 @@ Once we finish the whole electra upgrade we have a clear path to follow for the 
 
 ## Current Status
 
-Right now we are at the Beacon Chain implementation phase, our current spec test results for the past week are:
+Right now we are at the [Beacon Chain Implementation](#phase-1-beacon-chain-implementation-4057---70) phase, our current spec test results for the past weeks are:
 
 - **April 15th, 2025:** `11370 tests, 2003 failures, 784 skipped`
 - **April 22th, 2025:** `11370 tests, 165 failures, 784 skipped`
