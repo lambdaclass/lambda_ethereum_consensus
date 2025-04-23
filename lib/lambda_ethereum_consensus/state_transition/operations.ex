@@ -1000,14 +1000,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         Accessors.get_pending_balance_to_withdraw(state, validator_index)
 
       withdrawal_request_type =
-        if is_full_exit_request do
-          if pending_balance_to_withdraw == 0 do
-            :full_exit
-          else
-            :full_exit_with_pending_balance
-          end
-        else
-          :partial_exit
+        cond do
+          is_full_exit_request and pending_balance_to_withdraw == 0 -> :full_exit
+          is_full_exit_request -> :full_exit_with_pending_balance
+          true -> :partial_exit
         end
 
       handle_valid_withdrawal_request(
