@@ -990,11 +990,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     with false <- partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request),
          false <- is_nil(validator),
-         false <- invalid_withdrawal_credentials?(validator, withdrawal_request.source_address),
-         false <- not Predicates.active_validator?(validator, current_epoch),
-         false <- validator.exit_epoch == far_future_epoch,
-         false <-
-           current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") do
+         true <-
+           not invalid_withdrawal_credentials?(validator, withdrawal_request.source_address),
+         true <- Predicates.active_validator?(validator, current_epoch),
+         true <- validator.exit_epoch == far_future_epoch,
+         true <-
+           current_epoch >= validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") do
       pending_balance_to_withdraw =
         Accessors.get_pending_balance_to_withdraw(state, validator_index)
 
