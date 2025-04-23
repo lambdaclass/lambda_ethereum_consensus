@@ -879,24 +879,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp check_data_index_zero(%{index: 0}), do: :ok
   defp check_data_index_zero(_data), do: {:error, "Data index should be zero"}
 
+  defp check_committee_attesters_exists(committee, aggregation_bits, committee_offset) do
+    committee
+    |> Enum.with_index()
+    |> Enum.any?(&BitList.set?(aggregation_bits, elem(&1, 1) + committee_offset))
+    |> case do
+      true -> :ok
+      false -> {:error, "No committee attesters exist"}
+    end
+  end
+
   defp check_committee_indices(committee_indices, aggregation_bits, data, state) do
     committee_indices
     |> Enum.reduce_while({:ok, 0}, fn committee_index, {:ok, committee_offset} ->
       with :ok <- check_committee_count(committee_index, data, state),
-           {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, committee_index) do
-        committee_attesters =
-          for(
-            {attester_index, index} <- Enum.with_index(committee),
-            BitList.set?(aggregation_bits, index + committee_offset),
-            do: attester_index
-          )
-          |> MapSet.new()
-
-        if MapSet.size(committee_attesters) == 0 do
-          {:halt, {:error, "Empty committee attesters"}}
-        else
-          {:cont, {:ok, committee_offset + length(committee)}}
-        end
+           {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, committee_index),
+           :ok <- check_committee_attesters_exists(committee, aggregation_bits, committee_offset) do
+        {:cont, {:ok, committee_offset + length(committee)}}
       else
         error -> {:halt, error}
       end
