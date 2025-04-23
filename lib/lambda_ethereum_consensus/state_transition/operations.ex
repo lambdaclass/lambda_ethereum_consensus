@@ -876,13 +876,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp check_data_index_zero(data) do
-    if data.index == 0 do
-      :ok
-    else
-      {:error, "Data index should be zero"}
-    end
-  end
+  defp check_data_index_zero(%{index: 0}), do: :ok
+  defp check_data_index_zero(_data), do: {:error, "Data index should be zero"}
 
   defp check_committee_indices(committee_indices, aggregation_bits, data, state) do
     committee_indices
