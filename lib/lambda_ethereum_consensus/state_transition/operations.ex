@@ -605,9 +605,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          :ok <- check_epoch_matches(data),
          :ok <- check_valid_slot_range(data, state),
          :ok <- check_data_index_zero(data),
-         committee_indices <- Accessors.get_committee_indices(attestation.committee_bits),
-         {:ok, committee_offset} <-
-           check_committee_indices(committee_indices, aggregation_bits, data, state),
+         {:ok, committee_offset} <- check_committee_indices(attestation, state),
          :ok <- check_matching_aggregation_bits_length(aggregation_bits, committee_offset),
          {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
       check_valid_indexed_attestation(state, indexed_attestation)
@@ -889,12 +887,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp check_committee_indices(committee_indices, aggregation_bits, data, state) do
-    committee_indices
+  defp check_committee_indices(attestation, state) do
+    Accessors.get_committee_indices(attestation.committee_bits)
     |> Enum.reduce_while({:ok, 0}, fn committee_index, {:ok, committee_offset} ->
-      with :ok <- check_committee_count(committee_index, data, state),
-           {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, committee_index),
-           :ok <- check_committee_attesters_exists(committee, aggregation_bits, committee_offset) do
+      with :ok <- check_committee_count(committee_index, attestation.data, state),
+           {:ok, committee} <-
+             Accessors.get_beacon_committee(state, attestation.data.slot, committee_index),
+           :ok <-
+             check_committee_attesters_exists(
+               committee,
+               attestation.aggregation_bits,
+               committee_offset
+             ) do
         {:cont, {:ok, committee_offset + length(committee)}}
       else
         error -> {:halt, error}
