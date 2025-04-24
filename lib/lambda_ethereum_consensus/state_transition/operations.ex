@@ -1134,13 +1134,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp do_process_consolidation_request(state, consolidation_request, :consolidation) do
-    with :ok <- validate_consolidation_request(state, consolidation_request),
+    with :ok <- verify_consolidation_request(state, consolidation_request),
          {_source_validator, source_index} <-
            find_validator(state, consolidation_request.source_pubkey),
          {_target_validator, target_index} <-
            find_validator(state, consolidation_request.target_pubkey),
          {:ok, source_validator} <-
-           validate_validators(state, source_index, target_index, consolidation_request) do
+           verify_consolidation_validators(
+             state,
+             source_index,
+             target_index,
+             consolidation_request
+           ) do
       state =
         Mutators.compute_consolidation_epoch_and_update_churn(
           state,
@@ -1176,7 +1181,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp validate_consolidation_request(state, consolidation_request) do
+  defp verify_consolidation_request(state, consolidation_request) do
     cond do
       consolidation_request.source_pubkey == consolidation_request.target_pubkey ->
         {:error, :source_target_same}
@@ -1194,7 +1199,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp validate_validators(state, source_index, target_index, consolidation_request) do
+  defp verify_consolidation_validators(state, source_index, target_index, consolidation_request) do
     source_validator = Aja.Vector.at(state.validators, source_index)
     target_validator = Aja.Vector.at(state.validators, target_index)
     current_epoch = Accessors.get_current_epoch(state)
