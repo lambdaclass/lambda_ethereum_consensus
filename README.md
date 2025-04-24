@@ -109,6 +109,14 @@ You can specify a URL to fetch it from with the "--checkpoint-sync-url" flag:
 iex -S mix run -- --checkpoint-sync-url <your_url_here>
 ```
 
+or you can specify mulitple urls by passing a comma separated list of urls:
+
+```shell
+iex -S mix run -- --checkpoint-sync-url "<url1>, <url2>, ..."
+```
+
+If multiple urls are provided the downloaded state will be compared for all urls and fail if even one of them differs from the rest
+
 Some public endpoints can be found in [eth-clients.github.io/checkpoint-sync-endpoints](https://eth-clients.github.io/checkpoint-sync-endpoints/).
 
 > [!IMPORTANT]

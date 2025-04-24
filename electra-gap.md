@@ -1,13 +1,47 @@
-# Implementation Gaps for Electra Upgrade
+# Implementation Gaps for electra Upgrade
 
-This document outlines the gaps in the current implementation of the Electra. It's still a WIP.
+This document will guide you through our step-by-step plan for the implementation of the new electra fork. We’ve broken the work into three clear phases to make our goals and priorities easy to follow. This is a living document, so we will update it as we progress through the implementation.
 
-## Difference Between Updated and Modified
+## Roadmap
 
-- **Updated**: Changes in validation rules, protocols, or external behaviors. These changes may not directly alter the logic of the implementation.
-- **Modified**: Refers to direct changes made to the code or logic of an existing function, container, or process to accommodate new requirements or features.
+| Status | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
+|:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|:---------------------------------------------------|
+| 🏗️   | [Phase 1: Beacon Chain Implementation](#phase-1-beacon-chain-implementation)     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
+| ⌛   | [Phase 2: P2P & Sepolia Long-Running Sessions](#phase-2-p2p--sepolia-long-running-sessions)   | Ensure stability on Sepolia                          | • Implement the P2P changes <br> • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Sepolia|
+| ⌛   | [Phase 3: Validator Upgrades](#phase-3-validator-upgrades) | Ensure validators duties on devnets              |• Implement the honest validator changes<br>• Make assertoor work<br> • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertoor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
 
-## Containers
+### Why this Order
+
+We kick off with the beacon chain implementation because passing the full spec test suite is critical for protocol correctness and a solid foundation. Once all tests are green, we move to Phase 2 for prolonged Sepolia sessions and the implementation of the p2p interface changes, ensuring real-world testnet stability before mainnet moves to electra which would limit our network options before we upgrade. This will allow us to continue running long session on our servers and monitor the node execution given that just the block/epoch processing and state transitions are needed for this. With a stable node confirmed, Phase 3 begins, upgrading the validator logic, tested through Kurtosis and Assertoor to finalize the electra upgrade roadmap.
+
+### Next Steps
+
+Once we finish the whole electra upgrade we have a clear path to follow for the next steps:
+- **Hooli long running sessions:** Right now Holesky was not an option for us because of performance issues, we need to test on Hooli and see if we can run the node on it on acceptable performance. This effort will be in parallel to the performance optimization one.
+- **Performance optimization:** We need to run the node on Hooli and mainnet to identify and fix the current bottlenecks, specially on block and epoch processing.
+- **Electra code enhancements:** During the implementation, some complex functions were identified that could be simplified. They are mostly related to how to manage early returns in already large python reference functions and port the logic to elixir. We will work on those to improve the code quality and make it easier to maintain in the future.
+
+## Current Status
+
+Right now we are at the [Beacon Chain Implementation](#phase-1-beacon-chain-implementation) phase, our current spec test results for the past weeks are:
+
+- **April 15th, 2025:** `11370 tests, 2003 failures, 784 skipped`
+- **April 22th, 2025:** `11370 tests, 165 failures, 784 skipped`
+
+**Note:** The aim is to reach `0` failures before next week, so we can start the long running sessions on Sepolia. Also, we want to validate the 784 test skipped on the second phase.
+
+## Implementation Gap
+
+Here we will detail the current implementation gaps with the specs and the way to test every phase. The initial one is the larger to implement but it has the most clear way to validate it (spec-tests). The next phases are smaller but they need to be validated on long running sessions both in devnets and testnets.
+
+### Phase 1: Beacon Chain Implementation
+
+We are at `49/57` (86%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md), and most of the remaining functions are already in progress. We have still `108/11370` spec test failures, but we are working on them. The skipped tests were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase. Our aim as mentioned before is to reach `0` failures before going to the next phase.
+
+
+The current status of the implementation in the [electra-support](https://github.com/lambdaclass/lambda_ethereum_consensus/tree/electra-support) branch is as follows:
+
+#### Containers (13/13 - 100%)
 
 - [x] New `PendingDeposit` ([Spec](docs/specs/electra/beacon-chain.md#pendingdeposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1400))
 - [x] New `PendingPartialWithdrawal` ([Spec](docs/specs/electra/beacon-chain.md#pendingpartialwithdrawal), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1400))
@@ -23,7 +57,7 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [x] Modified `IndexedAttestation` ([Spec](docs/specs/electra/beacon-chain.md#indexedattestation), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1400))
 - [x] Modified `BeaconState` ([Spec](docs/specs/electra/beacon-chain.md#beaconstate), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1400))
 
-## Predicates
+#### Predicates (6/6 - 100%)
 
 - [x] Modified `is_eligible_for_activation_queue` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_eligible_for_activation_queue), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] New `is_compounding_withdrawal_credential` ([Spec](docs/specs/electra/beacon-chain.md#new-is_compounding_withdrawal_credential), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
@@ -33,7 +67,7 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [x] Modified `is_partially_withdrawable_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 
 
-## Beacon State Accessors
+#### Beacon State Accessors (6/6 - 100%)
 
 - [x] Modified `get_attesting_indices` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_attesting_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] Modified `get_next_sync_committee_indices` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
@@ -42,7 +76,7 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [x] New `get_consolidation_churn_limit` ([Spec](docs/specs/electra/beacon-chain.md#new-get_consolidation_churn_limit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
 - [x] New `get_pending_balance_to_withdraw` ([Spec](docs/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
 
-## Beacon State Mutators
+#### Beacon State Mutators (6/6 - 100%)
 
 - [x] Modified `initiate_validator_exit` ([Spec](docs/specs/electra/beacon-chain.md#modified-initiate_validator_exit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
 - [x] New `switch_to_compounding_validator` ([Spec](docs/specs/electra/beacon-chain.md#new-switch_to_compounding_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
@@ -51,13 +85,13 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [x] New `compute_consolidation_epoch_and_update_churn` ([Spec](docs/specs/electra/beacon-chain.md#new-compute_consolidation_epoch_and_update_churn), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
 - [x] Modified `slash_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-slash_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
 
-## Miscellaneous
+#### Miscellaneous (3/3 - 100%)
 
 - [x] New `get_committee_indices` ([Spec](docs/specs/electra/beacon-chain.md#new-get_committee_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] Modified `compute_proposer_index` ([Spec](docs/specs/electra/beacon-chain.md#modified-compute_proposer_index), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
 - [x] New `get_max_effective_balance` ([Spec](docs/specs/electra/beacon-chain.md#new-get_max_effective_balance), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 
-## Epoch Processing
+#### Epoch Processing (5/8 - 63%)
 
 - [x] Modified `process_epoch` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_epoch), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
 - [x] Modified `process_registry_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_registry_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
@@ -68,7 +102,7 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [x] Modified `process_effective_balance_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_effective_balance_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
 - [x] Modified `get_validator_from_deposit` ([Spec](docs/specs/electra/beacon-chains.md#modified-get_validator_from_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 
-## Block Processing
+#### Block Processing (10/13 - 83%)
 
 - [x] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1431))
 - [ ] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
@@ -86,11 +120,23 @@ This document outlines the gaps in the current implementation of the Electra. It
 
 ## Execution Engine
 
+#### Execution Engine (0/3 - 0%)
+
 - [ ] Modified `is_valid_block_hash` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_valid_block_hash))
 - [ ] Modified `notify_new_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-notify_new_payload))
 - [ ] Modified `verify_and_notify_new_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-verify_and_notify_new_payload))
 
-## Networking
+## Phase 2: P2P & Sepolia Long-Running Sessions
+
+We didn't start this phase yet, its goals are:
+
+- [P2P electra changes](docs/specs/electra/p2p-interface.md) implementated.
+- To have a stable node processing state transitions in testnets, especially Sepolia. 
+- Validate the remaining 784 skipped tests to make sure they are not masking any issues.
+
+The aim is to have the node running on Sepolia uninterrupted for 72+ hrs. The following is the implementation gap for this phase:
+
+### Networking (0/8 - 0% Complete)
 
 - [ ] Updated `beacon_block` topic validation ([Spec](docs/specs/electra/p2p-interface.md#beacon_block))
 - [ ] Updated `beacon_aggregate_and_proof` topic validation ([Spec](docs/specs/electra/p2p-interface.md#beacon_aggregate_and_proof))
@@ -101,7 +147,16 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [ ] Updated `BlobSidecarsByRange v1` ([Spec](docs/specs/electra/p2p-interface.md#blobsidecarsbyrange-v1))
 - [ ] Updated `BlobSidecarsByRoot v1` ([Spec](docs/specs/electra/p2p-interface.md#blobsidecarsbyroot-v1))
 
-## Honest Validator
+## Phase 3: Validator Upgrades
+
+We didn't start this phase yet, its goals are:
+- [Honest validator changes](docs/specs/electra/validator.md) implemented.
+- To have a stable node processing validator duties in a kurtosis devnet.
+- Have assertoor working with automatic test for the validator duties.
+
+The aim is to have the node running on kurtosis uninterrupted for 72+ hrs. The following is the implementation gap for this phase:
+
+### Honest Validator (0/9 - 0% Complete)
 
 - [ ] Modified `GetPayloadResponse` ([Spec](docs/specs/electra/validator.md#modified-getpayloadresponse))
 - [ ] Modified `AggregateAndProof` ([Spec](docs/specs/electra/validator.md#aggregateandproof))
@@ -113,7 +168,7 @@ This document outlines the gaps in the current implementation of the Electra. It
 - [ ] Updated `construct attestation` ([Spec](docs/specs/electra/validator.md#construct-attestation))
 - [ ] Updated `construct aggregate` ([Spec](docs/specs/electra/validator.md#construct-aggregate))
 
-## Fork Logic
 
-- [ ] Modified `compute_fork_version` ([Spec](docs/specs/electra/fork.md#modified-compute_fork_version))
-- [ ] New `upgrade_to_electra` ([Spec](docs/specs/electra/fork.md#upgrade_to_electra))
+## Changelog
+- **April 10th, 2025:** Created the document with the implementation gap.
+- **April 22th, 2025:** Updated the document with a clear roadmap, next steps and detailed current status.
