@@ -3,7 +3,7 @@
 		spec-test-% spec-test spec-test-config-% spec-test-runner-% \
 		spec-test-mainnet-% spec-test-minimal-% spec-test-general-% \
 		clean-tests gen-spec compile-all download-beacon-node-oapi test-iex \
-		sepolia holesky gnosis
+		sepolia holesky gnosis hoodi
 
 # Delete current file when command fails
 .DELETE_ON_ERROR:
@@ -199,6 +199,14 @@ gnosis: compile-all
 #▶️ gnosis.logfile: @ Run an interactive terminal using gnosis network with a log file
 gnosis.logfile: compile-all
 	iex -S mix run -- --checkpoint-sync-url https://checkpoint.gnosischain.com --network gnosis --metrics --metrics-port $(METRICS_PORT) --log-file ./logs/gnosis.log --discovery-port $(DISCOVERY_PORT) --mode $(MODE)
+
+#▶️ hoodi: @ Run an interactive terminal using hoodi network
+hoodi: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.hoodi.ethpandaops.io --network hoodi --metrics --metrics-port $(METRICS_PORT) --discovery-port $(DISCOVERY_PORT) --mode $(MODE)
+
+#▶️ hoodi.logfile: @ Run an interactive terminal using hoodi network with a log file
+hoodi.logfile: compile-all
+	iex -S mix run -- --checkpoint-sync-url https://checkpoint-sync.hoodi.ethpandaops.io --network hoodi --metrics --metrics-port $(METRICS_PORT) --log-file ./logs/hoodi.log --discovery-port $(DISCOVERY_PORT) --mode $(MODE)
 
 #▶️ checkpoint-sync: @ Run an interactive terminal using checkpoint sync for mainnet.
 checkpoint-sync: mainnet
