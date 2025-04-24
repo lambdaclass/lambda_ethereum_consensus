@@ -888,17 +888,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp check_committee_indices(attestation, state) do
-    Accessors.get_committee_indices(attestation.committee_bits)
+    %Attestation{data: data, aggregation_bits: aggregation_bits, committee_bits: committee_bits} =
+      attestation
+
+    committee_bits
+    |> Accessors.get_committee_indices()
     |> Enum.reduce_while({:ok, 0}, fn committee_index, {:ok, committee_offset} ->
-      with :ok <- check_committee_count(committee_index, attestation.data, state),
-           {:ok, committee} <-
-             Accessors.get_beacon_committee(state, attestation.data.slot, committee_index),
-           :ok <-
-             check_committee_attesters_exists(
-               committee,
-               attestation.aggregation_bits,
-               committee_offset
-             ) do
+      with :ok <- check_committee_count(committee_index, data, state),
+           {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, committee_index),
+           :ok <- check_committee_attesters_exists(committee, aggregation_bits, committee_offset) do
         {:cont, {:ok, committee_offset + length(committee)}}
       else
         error -> {:halt, error}
