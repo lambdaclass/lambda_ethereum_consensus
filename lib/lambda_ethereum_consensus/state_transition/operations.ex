@@ -986,10 +986,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     current_epoch = Accessors.get_current_epoch(state)
     far_future_epoch = Constants.far_future_epoch()
 
-    {validator, validator_index} = find_validator(state, request_pubkey)
-
     with false <- partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request),
-         false <- is_nil(validator),
+         {validator, validator_index} <- find_validator(state, request_pubkey),
          true <-
            not invalid_withdrawal_credentials?(validator, withdrawal_request.source_address),
          true <- Predicates.active_validator?(validator, current_epoch),
@@ -1037,14 +1035,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec find_validator(Types.BeaconState.t(), Types.bls_pubkey()) ::
-          {Types.Validator.t(), non_neg_integer()} | {nil, nil}
-  def find_validator(state, request_pubkey) do
+          {Types.Validator.t(), non_neg_integer()} | nil
+  defp find_validator(state, request_pubkey) do
     state.validators
-    |> Enum.with_index()
-    |> Enum.find(fn {validator, _idx} -> validator.pubkey == request_pubkey end)
+    |> Aja.Enum.find_index(fn validator -> validator.pubkey == request_pubkey end)
     |> then(fn
-      nil -> {nil, nil}
-      {validator, idx} -> {validator, idx}
+      nil -> nil
+      index -> {Aja.Vector.at(state.validators, index), index}
     end)
   end
 
@@ -1124,14 +1121,21 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp do_process_consolidation_request(state, consolidation_request, :compounding) do
-    {_validator, validator_index} = find_validator(state, consolidation_request.source_pubkey)
-    {:ok, Mutators.switch_to_compounding_validator(state, validator_index)}
+    case find_validator(state, consolidation_request.source_pubkey) do
+      {_validator, validator_index} ->
+        {:ok, Mutators.switch_to_compounding_validator(state, validator_index)}
+
+      nil ->
+        {:ok, state}
+    end
   end
 
   defp do_process_consolidation_request(state, consolidation_request, :consolidation) do
     with :ok <- validate_consolidation_request(state, consolidation_request),
-         {:ok, %{source_index: source_index, target_index: target_index}} <-
-           find_validator_indices(state, consolidation_request),
+         {_source_validator, source_index} <-
+           find_validator(state, consolidation_request.source_pubkey),
+         {_target_validator, target_index} <-
+           find_validator(state, consolidation_request.target_pubkey),
          {:ok, source_validator} <-
            validate_validators(state, source_index, target_index, consolidation_request) do
       state =
@@ -1187,20 +1191,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp find_validator_indices(state, consolidation_request) do
-    validator_pubkeys = Enum.map(state.validators, & &1.pubkey)
-
-    source_index =
-      Enum.find_index(validator_pubkeys, &(&1 == consolidation_request.source_pubkey))
-
-    target_index =
-      Enum.find_index(validator_pubkeys, &(&1 == consolidation_request.target_pubkey))
-
-    if is_nil(source_index) or is_nil(target_index),
-      do: {:error, :validator_not_found},
-      else: {:ok, %{source_index: source_index, target_index: target_index}}
-  end
-
   defp validate_validators(state, source_index, target_index, consolidation_request) do
     source_validator = Enum.at(state.validators, source_index)
     target_validator = Enum.at(state.validators, target_index)
@@ -1252,39 +1242,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec valid_switch_to_compounding_request?(BeaconState.t(), ConsolidationRequest.t()) ::
           boolean()
   def valid_switch_to_compounding_request?(state, consolidation_request) do
-    {source_validator, _source_index} =
-      find_validator(state, consolidation_request.source_pubkey)
-
     current_epoch = Accessors.get_current_epoch(state)
     far_future_epoch = Constants.far_future_epoch()
 
-    cond do
-      # Switch to compounding requires source and target be equal
-      consolidation_request.source_pubkey != consolidation_request.target_pubkey ->
+    # Verify pubkey exists
+    with {source_validator, _source_index} <-
+           find_validator(state, consolidation_request.source_pubkey),
+         # Switch to compounding requires source and target be equal
+         true <- consolidation_request.source_pubkey == consolidation_request.target_pubkey,
+         # Verify request has been authorized
+         true <-
+           not invalid_withdrawal_credentials?(
+             source_validator,
+             consolidation_request.source_address
+           ),
+         # Verify source withdrawal credentials
+         true <- Validator.has_eth1_withdrawal_credential(source_validator),
+         # Verify the source is active
+         true <- Predicates.active_validator?(source_validator, current_epoch),
+         # Verify exit for source has not been initiated
+         true <- source_validator.exit_epoch == far_future_epoch do
+      true
+    else
+      _ ->
         false
-
-      # Verify pubkey exists
-      is_nil(source_validator) ->
-        false
-
-      # Verify request has been authorized
-      invalid_withdrawal_credentials?(source_validator, consolidation_request.source_address) ->
-        false
-
-      # Verify source withdrawal credentials
-      !Validator.has_eth1_withdrawal_credential(source_validator) ->
-        false
-
-      # Verify the source is active
-      !Predicates.active_validator?(source_validator, current_epoch) ->
-        false
-
-      # Verify exit for source has not been initiated
-      source_validator.exit_epoch != far_future_epoch ->
-        false
-
-      true ->
-        true
     end
   end
 
