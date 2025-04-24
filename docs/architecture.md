@@ -1,4 +1,4 @@
-# Architecture of the consensus node
+# Architecture
 
 ## Processes summary
 
