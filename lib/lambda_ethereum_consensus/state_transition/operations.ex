@@ -1077,14 +1077,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       validator.effective_balance >= min_activation_balance
 
     has_excess_balance =
-      Enum.at(state.balances, validator_index) >
+      Aja.Vector.at(state.balances, validator_index) >
         min_activation_balance + pending_balance_to_withdraw
 
     if Validator.has_compounding_withdrawal_credential(validator) &&
          has_sufficient_effective_balance && has_excess_balance do
       to_withdraw =
         min(
-          Enum.at(state.balances, validator_index) - min_activation_balance -
+          Aja.Vector.at(state.balances, validator_index) - min_activation_balance -
             pending_balance_to_withdraw,
           amount
         )
@@ -1195,8 +1195,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp validate_validators(state, source_index, target_index, consolidation_request) do
-    source_validator = Enum.at(state.validators, source_index)
-    target_validator = Enum.at(state.validators, target_index)
+    source_validator = Aja.Vector.at(state.validators, source_index)
+    target_validator = Aja.Vector.at(state.validators, target_index)
     current_epoch = Accessors.get_current_epoch(state)
     far_future_epoch = Constants.far_future_epoch()
 
