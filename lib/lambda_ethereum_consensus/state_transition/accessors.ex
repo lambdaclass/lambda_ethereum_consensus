@@ -653,7 +653,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   @spec get_committee_indices(Types.bitvector()) :: Enumerable.t(Types.commitee_index())
   def get_committee_indices(committee_bits) do
-    bitlist = committee_bits |> :binary.bin_to_list() |> Enum.reverse()
+    bitlist =
+      for <<bit::1 <- committee_bits>> do
+        bit
+      end
+      |> Enum.reverse()
 
     for {bit, index} <- Enum.with_index(bitlist), bit == 1, do: index
   end
@@ -681,5 +685,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       ChainSpec.get("MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT"),
       get_balance_churn_limit(state)
     )
+  end
+
+  @spec get_pending_balance_to_withdraw(BeaconState.t(), Types.validator_index()) :: Types.gwei()
+  def get_pending_balance_to_withdraw(state, validator_index) do
+    for(
+      withdrawal <- state.pending_partial_withdrawals,
+      withdrawal.validator_index == validator_index,
+      do: withdrawal.amount
+    )
+    |> Enum.sum()
+  end
+
+  @spec get_consolidation_churn_limit(BeaconState.t()) :: Types.gwei()
+  def get_consolidation_churn_limit(state) do
+    get_balance_churn_limit(state) - get_activation_exit_churn_limit(state)
   end
 end

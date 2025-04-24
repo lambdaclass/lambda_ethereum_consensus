@@ -218,4 +218,95 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         earliest_exit_epoch: earliest_exit_epoch
     }
   end
+
+  @spec compute_consolidation_epoch_and_update_churn(Types.BeaconState.t(), Types.gwei()) ::
+          Types.BeaconState.t()
+  def compute_consolidation_epoch_and_update_churn(state, consolidation_balance) do
+    current_epoch = Accessors.get_current_epoch(state)
+
+    earliest_consolidation_epoch =
+      max(state.earliest_consolidation_epoch, Misc.compute_activation_exit_epoch(current_epoch))
+
+    per_epoch_consolidation_churn = Accessors.get_consolidation_churn_limit(state)
+
+    consolidation_balance_to_consume =
+      if state.earliest_consolidation_epoch < earliest_consolidation_epoch do
+        per_epoch_consolidation_churn
+      else
+        state.consolidation_balance_to_consume
+      end
+
+    {earliest_consolidation_epoch, consolidation_balance_to_consume} =
+      if consolidation_balance > consolidation_balance_to_consume do
+        balance_to_process = consolidation_balance - consolidation_balance_to_consume
+        additional_epochs = div(balance_to_process - 1, per_epoch_consolidation_churn) + 1
+
+        {
+          earliest_consolidation_epoch + additional_epochs,
+          consolidation_balance_to_consume + additional_epochs * per_epoch_consolidation_churn
+        }
+      else
+        {earliest_consolidation_epoch, consolidation_balance_to_consume}
+      end
+
+    %BeaconState{
+      state
+      | consolidation_balance_to_consume:
+          consolidation_balance_to_consume - consolidation_balance,
+        earliest_consolidation_epoch: earliest_consolidation_epoch
+    }
+  end
+
+  @spec switch_to_compounding_validator(BeaconState.t(), Types.validator_index()) ::
+          BeaconState.t()
+  def switch_to_compounding_validator(state, index) do
+    validator = Aja.Enum.at(state.validators, index)
+    <<_first_byte::binary-size(1), rest::binary>> = validator.withdrawal_credentials
+
+    withdrawal_credentials =
+      Constants.compounding_withdrawal_prefix() <> rest
+
+    updated_validator = %Validator{
+      validator
+      | withdrawal_credentials: withdrawal_credentials
+    }
+
+    state = %BeaconState{
+      state
+      | validators: Aja.Vector.replace_at(state.validators, index, updated_validator)
+    }
+
+    queue_excess_active_balance(state, index)
+  end
+
+  @spec queue_excess_active_balance(BeaconState.t(), Types.validator_index()) ::
+          BeaconState.t()
+  def queue_excess_active_balance(state, index) do
+    min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
+    balance = Aja.Vector.at(state.balances, index)
+
+    if balance > min_activation_balance do
+      excess_balance = balance - min_activation_balance
+      validator = Aja.Vector.at(state.validators, index)
+
+      updated_balances = Aja.Vector.replace_at(state.balances, index, min_activation_balance)
+      # Use bls.G2_POINT_AT_INFINITY as a signature field placeholder
+      # and GENESIS_SLOT to distinguish from a pending deposit request
+      pending_deposit = %PendingDeposit{
+        pubkey: validator.pubkey,
+        withdrawal_credentials: validator.withdrawal_credentials,
+        amount: excess_balance,
+        signature: Constants.g2_point_at_infinity(),
+        slot: Constants.genesis_slot()
+      }
+
+      %BeaconState{
+        state
+        | balances: updated_balances,
+          pending_deposits: state.pending_deposits ++ [pending_deposit]
+      }
+    else
+      state
+    end
+  end
 end
