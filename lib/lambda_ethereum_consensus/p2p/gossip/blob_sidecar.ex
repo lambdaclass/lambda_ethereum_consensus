@@ -19,7 +19,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.BlobSideCar do
       Logger.debug("[Gossip] Blob sidecar received, with index #{blob_index}")
       Libp2pPort.validate_message(msg_id, :accept)
       # TODO: (#1406) Enhance the API to reduce unnecessary wrappers (:ok + list)
-      PendingBlocks.process_blobs(store, {:ok, [blob]})
+      PendingBlocks.process_blobs(store, {:ok, [blob]}) |> then(&elem(&1, 1))
     else
       {:error, reason} ->
         Logger.warning("[Gossip] Blob rejected, reason: #{inspect(reason)}")
