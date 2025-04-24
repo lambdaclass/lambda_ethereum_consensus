@@ -605,9 +605,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          :ok <- check_epoch_matches(data),
          :ok <- check_valid_slot_range(data, state),
          :ok <- check_data_index_zero(data),
-         committee_indices <- Accessors.get_committee_indices(attestation.committee_bits),
-         {:ok, committee_offset} <-
-           check_committee_indices(committee_indices, aggregation_bits, data, state),
+         {:ok, committee_offset} <- check_committee_indices(attestation, state),
          :ok <- check_matching_aggregation_bits_length(aggregation_bits, committee_offset),
          {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
       check_valid_indexed_attestation(state, indexed_attestation)
@@ -876,32 +874,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp check_data_index_zero(data) do
-    if data.index == 0 do
-      :ok
-    else
-      {:error, "Data index should be zero"}
+  defp check_data_index_zero(%{index: 0}), do: :ok
+  defp check_data_index_zero(_data), do: {:error, "Data index should be zero"}
+
+  defp check_committee_attesters_exists(committee, aggregation_bits, committee_offset) do
+    committee
+    |> Enum.with_index()
+    |> Enum.any?(&BitList.set?(aggregation_bits, elem(&1, 1) + committee_offset))
+    |> case do
+      true -> :ok
+      false -> {:error, "No committee attesters exist"}
     end
   end
 
-  defp check_committee_indices(committee_indices, aggregation_bits, data, state) do
-    committee_indices
+  defp check_committee_indices(attestation, state) do
+    %Attestation{data: data, aggregation_bits: aggregation_bits, committee_bits: committee_bits} =
+      attestation
+
+    committee_bits
+    |> Accessors.get_committee_indices()
     |> Enum.reduce_while({:ok, 0}, fn committee_index, {:ok, committee_offset} ->
       with :ok <- check_committee_count(committee_index, data, state),
-           {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, committee_index) do
-        committee_attesters =
-          for(
-            {attester_index, index} <- Enum.with_index(committee),
-            BitList.set?(aggregation_bits, index + committee_offset),
-            do: attester_index
-          )
-          |> MapSet.new()
-
-        if MapSet.size(committee_attesters) == 0 do
-          {:halt, {:error, "Empty committee attesters"}}
-        else
-          {:cont, {:ok, committee_offset + length(committee)}}
-        end
+           {:ok, committee} <- Accessors.get_beacon_committee(state, data.slot, committee_index),
+           :ok <- check_committee_attesters_exists(committee, aggregation_bits, committee_offset) do
+        {:cont, {:ok, committee_offset + length(committee)}}
       else
         error -> {:halt, error}
       end
@@ -992,27 +988,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     current_epoch = Accessors.get_current_epoch(state)
     far_future_epoch = Constants.far_future_epoch()
 
-    {validator, validator_index} = find_validator(state, request_pubkey)
-
-    with false <- partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request),
-         false <- is_nil(validator),
-         false <- invalid_withdrawal_credentials?(validator, withdrawal_request.source_address),
-         false <- not Predicates.active_validator?(validator, current_epoch),
-         false <- validator.exit_epoch == far_future_epoch,
-         false <-
-           current_epoch < validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") do
+    with false <- partial_withdrawal_on_full_queue?(state, is_full_exit_request),
+         {validator, validator_index} <- find_validator(state, request_pubkey),
+         true <-
+           not invalid_withdrawal_credentials?(validator, withdrawal_request.source_address),
+         true <- Predicates.active_validator?(validator, current_epoch),
+         true <- validator.exit_epoch == far_future_epoch,
+         true <-
+           current_epoch >= validator.activation_epoch + ChainSpec.get("SHARD_COMMITTEE_PERIOD") do
       pending_balance_to_withdraw =
         Accessors.get_pending_balance_to_withdraw(state, validator_index)
 
       withdrawal_request_type =
-        if is_full_exit_request do
-          if pending_balance_to_withdraw == 0 do
-            :full_exit
-          else
-            :full_exit_with_pending_balance
-          end
-        else
-          :partial_exit
+        cond do
+          is_full_exit_request and pending_balance_to_withdraw == 0 -> :full_exit
+          is_full_exit_request -> :full_exit_with_pending_balance
+          true -> :partial_exit
         end
 
       handle_valid_withdrawal_request(
@@ -1020,6 +1011,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         validator,
         validator_index,
         amount,
+        pending_balance_to_withdraw,
         withdrawal_request_type
       )
     else
@@ -1028,7 +1020,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request) do
+  defp partial_withdrawal_on_full_queue?(state, is_full_exit_request) do
     length(state.pending_partial_withdrawals) ==
       ChainSpec.get("PENDING_PARTIAL_WITHDRAWALS_LIMIT") && !is_full_exit_request
   end
@@ -1046,18 +1038,17 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec find_validator(Types.BeaconState.t(), Types.bls_pubkey()) ::
-          {Types.Validator.t(), non_neg_integer()} | {nil, nil}
-  def find_validator(state, request_pubkey) do
+          {Types.Validator.t(), non_neg_integer()} | nil
+  defp find_validator(state, request_pubkey) do
     state.validators
-    |> Enum.with_index()
-    |> Enum.find(fn {validator, _idx} -> validator.pubkey == request_pubkey end)
+    |> Aja.Enum.find_index(fn validator -> validator.pubkey == request_pubkey end)
     |> then(fn
-      nil -> {nil, nil}
-      {validator, idx} -> {validator, idx}
+      nil -> nil
+      index -> {Aja.Vector.at(state.validators, index), index}
     end)
   end
 
-  defp handle_valid_withdrawal_request(state, _, validator_index, _, :full_exit) do
+  defp handle_valid_withdrawal_request(state, _, validator_index, _, _, :full_exit) do
     with {:ok, {state, validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
       {:ok,
        %Types.BeaconState{
@@ -1067,7 +1058,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp handle_valid_withdrawal_request(state, _, _, _, :full_exit_with_pending_balance),
+  defp handle_valid_withdrawal_request(state, _, _, _, _, :full_exit_with_pending_balance),
     do: {:ok, state}
 
   defp handle_valid_withdrawal_request(
@@ -1075,25 +1066,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          validator,
          validator_index,
          amount,
+         pending_balance_to_withdraw,
          :partial_exit
        ) do
-    pending_balance_to_withdraw =
-      Accessors.get_pending_balance_to_withdraw(state, validator_index)
-
     min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
 
     has_sufficient_effective_balance =
       validator.effective_balance >= min_activation_balance
 
     has_excess_balance =
-      Enum.at(state.balances, validator_index) >
+      Aja.Vector.at(state.balances, validator_index) >
         min_activation_balance + pending_balance_to_withdraw
 
     if Validator.has_compounding_withdrawal_credential(validator) &&
          has_sufficient_effective_balance && has_excess_balance do
       to_withdraw =
         min(
-          Enum.at(state.balances, validator_index) - min_activation_balance -
+          Aja.Vector.at(state.balances, validator_index) - min_activation_balance -
             pending_balance_to_withdraw,
           amount
         )
@@ -1133,16 +1122,28 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   defp do_process_consolidation_request(state, consolidation_request, :compounding) do
-    {_validator, validator_index} = find_validator(state, consolidation_request.source_pubkey)
-    {:ok, Mutators.switch_to_compounding_validator(state, validator_index)}
+    case find_validator(state, consolidation_request.source_pubkey) do
+      {_validator, validator_index} ->
+        {:ok, Mutators.switch_to_compounding_validator(state, validator_index)}
+
+      nil ->
+        {:ok, state}
+    end
   end
 
   defp do_process_consolidation_request(state, consolidation_request, :consolidation) do
-    with :ok <- validate_consolidation_request(state, consolidation_request),
-         {:ok, %{source_index: source_index, target_index: target_index}} <-
-           find_validator_indices(state, consolidation_request),
-         {:ok, source_validator} <-
-           validate_validators(state, source_index, target_index, consolidation_request) do
+    with :ok <- verify_consolidation_request(state, consolidation_request),
+         {source_validator, source_index} <-
+           find_validator(state, consolidation_request.source_pubkey),
+         {_target_validator, target_index} <-
+           find_validator(state, consolidation_request.target_pubkey),
+         :ok <-
+           verify_consolidation_validators(
+             state,
+             source_index,
+             target_index,
+             consolidation_request
+           ) do
       state =
         Mutators.compute_consolidation_epoch_and_update_churn(
           state,
@@ -1178,7 +1179,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp validate_consolidation_request(state, consolidation_request) do
+  defp verify_consolidation_request(state, consolidation_request) do
     cond do
       consolidation_request.source_pubkey == consolidation_request.target_pubkey ->
         {:error, :source_target_same}
@@ -1196,23 +1197,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp find_validator_indices(state, consolidation_request) do
-    validator_pubkeys = Enum.map(state.validators, & &1.pubkey)
+  defp verify_consolidation_validators(state, source_index, target_index, consolidation_request) do
+    source_validator = Aja.Vector.at(state.validators, source_index)
+    target_validator = Aja.Vector.at(state.validators, target_index)
 
-    source_index =
-      Enum.find_index(validator_pubkeys, &(&1 == consolidation_request.source_pubkey))
-
-    target_index =
-      Enum.find_index(validator_pubkeys, &(&1 == consolidation_request.target_pubkey))
-
-    if is_nil(source_index) or is_nil(target_index),
-      do: {:error, :validator_not_found},
-      else: {:ok, %{source_index: source_index, target_index: target_index}}
-  end
-
-  defp validate_validators(state, source_index, target_index, consolidation_request) do
-    source_validator = Enum.at(state.validators, source_index)
-    target_validator = Enum.at(state.validators, target_index)
     current_epoch = Accessors.get_current_epoch(state)
     far_future_epoch = Constants.far_future_epoch()
 
@@ -1245,7 +1233,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       # Initiate source validator exit and append pending consolidation
       true ->
-        {:ok, source_validator}
+        :ok
     end
   end
 
@@ -1261,39 +1249,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec valid_switch_to_compounding_request?(BeaconState.t(), ConsolidationRequest.t()) ::
           boolean()
   def valid_switch_to_compounding_request?(state, consolidation_request) do
-    {source_validator, _source_index} =
-      find_validator(state, consolidation_request.source_pubkey)
-
     current_epoch = Accessors.get_current_epoch(state)
     far_future_epoch = Constants.far_future_epoch()
 
-    cond do
-      # Switch to compounding requires source and target be equal
-      consolidation_request.source_pubkey != consolidation_request.target_pubkey ->
+    # Verify pubkey exists
+    with {source_validator, _source_index} <-
+           find_validator(state, consolidation_request.source_pubkey),
+         # Switch to compounding requires source and target be equal
+         true <- consolidation_request.source_pubkey == consolidation_request.target_pubkey,
+         # Verify request has been authorized
+         true <-
+           not invalid_withdrawal_credentials?(
+             source_validator,
+             consolidation_request.source_address
+           ),
+         # Verify source withdrawal credentials
+         true <- Validator.has_eth1_withdrawal_credential(source_validator),
+         # Verify the source is active
+         true <- Predicates.active_validator?(source_validator, current_epoch),
+         # Verify exit for source has not been initiated
+         true <- source_validator.exit_epoch == far_future_epoch do
+      true
+    else
+      _ ->
         false
-
-      # Verify pubkey exists
-      is_nil(source_validator) ->
-        false
-
-      # Verify request has been authorized
-      invalid_withdrawal_credentials?(source_validator, consolidation_request.source_address) ->
-        false
-
-      # Verify source withdrawal credentials
-      !Validator.has_eth1_withdrawal_credential(source_validator) ->
-        false
-
-      # Verify the source is active
-      !Predicates.active_validator?(source_validator, current_epoch) ->
-        false
-
-      # Verify exit for source has not been initiated
-      source_validator.exit_epoch != far_future_epoch ->
-        false
-
-      true ->
-        true
     end
   end
 
