@@ -105,6 +105,10 @@ kurtosis.connect:
 kurtosis.connect.iex:
 	iex --sname client --remsh lambdaconsensus --cookie $(KURTOSIS_COOKIE)
 
+#💻 kurtosis.assertoor: @ Execute the assertoor network params in .github
+kurtosis.assertoor: kurtosis.clean kurtosis.setup.lambdaconsensus
+	kurtosis run --enclave $(KURTOSIS_ENCLAVE) $(KURTOSIS_DIR) --args-file .github/config/assertoor/network-params.yml
+
 #💻 nix: @ Start a nix environment.
 nix:
 	nix develop
