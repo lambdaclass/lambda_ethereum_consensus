@@ -67,7 +67,7 @@ The current status of the implementation in the [electra-support](https://github
 - [x] Modified `is_partially_withdrawable_validator` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_partially_withdrawable_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 
 
-#### Beacon State Accessors (4/6 - 67%)
+#### Beacon State Accessors (6/6 - 100%)
 
 - [x] Modified `get_attesting_indices` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_attesting_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 - [x] Modified `get_next_sync_committee_indices` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_next_sync_committee_indices), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
@@ -76,7 +76,7 @@ The current status of the implementation in the [electra-support](https://github
 - [x] New `get_consolidation_churn_limit` ([Spec](docs/specs/electra/beacon-chain.md#new-get_consolidation_churn_limit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
 - [x] New `get_pending_balance_to_withdraw` ([Spec](docs/specs/electra/beacon-chain.md#new-get_pending_balance_to_withdraw), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
 
-#### Beacon State Mutators (3/6 - 50%)
+#### Beacon State Mutators (6/6 - 100%)
 
 - [x] Modified `initiate_validator_exit` ([Spec](docs/specs/electra/beacon-chain.md#modified-initiate_validator_exit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
 - [x] New `switch_to_compounding_validator` ([Spec](docs/specs/electra/beacon-chain.md#new-switch_to_compounding_validator), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
@@ -91,7 +91,7 @@ The current status of the implementation in the [electra-support](https://github
 - [x] Modified `compute_proposer_index` ([Spec](docs/specs/electra/beacon-chain.md#modified-compute_proposer_index), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
 - [x] New `get_max_effective_balance` ([Spec](docs/specs/electra/beacon-chain.md#new-get_max_effective_balance), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 
-#### Epoch Processing (5/8 - 63%)
+#### Epoch Processing (8/8 - 100%)
 
 - [x] Modified `process_epoch` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_epoch), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
 - [x] Modified `process_registry_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_registry_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
@@ -102,7 +102,7 @@ The current status of the implementation in the [electra-support](https://github
 - [x] Modified `process_effective_balance_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_effective_balance_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
 - [x] Modified `get_validator_from_deposit` ([Spec](docs/specs/electra/beacon-chains.md#modified-get_validator_from_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 
-#### Block Processing (6/12 - 50%)
+#### Block Processing (10/12 - 83%)
 
 - [ ] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals))
 - [ ] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
