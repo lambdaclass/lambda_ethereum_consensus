@@ -12,38 +12,39 @@ tasks:
   title: "Check if all clients are ready"
   timeout: 1m
 
-- name: run_tasks_concurrent
-  title: "Check if all EL & CL clients are synced and the tx spammer is working"
-  timeout: 5m
-  config:
-    tasks:
-    - name: check_consensus_sync_status
-      title: "Check if CL clients are synced"
-    - name: check_execution_sync_status
-      title: "Check if EL clients are synced"
+# TODO(#1413) The following tasks are not working yet, this will be part of the 3rd electra phase
+# - name: run_tasks_concurrent
+#   title: "Check if all EL & CL clients are synced and the tx spammer is working"
+#   timeout: 5m
+#   config:
+#     tasks:
+#     - name: check_consensus_sync_status
+#       title: "Check if CL clients are synced"
+#     - name: check_execution_sync_status
+#       title: "Check if EL clients are synced"
 
-- name: run_task_matrix
-  title: "Check block proposals from all client pairs"
-  timeout: 6m
-  configVars:
-    matrixValues: "validatorPairNames"
-  config:
-    runConcurrent: true
-    matrixVar: "validatorPairName"
-    task:
-      name: check_consensus_block_proposals
-      title: "Wait for block proposal from ${validatorPairName}"
-      config:
-        minTransactionCount: 80 # For some reason the tx fuzz is working different than the old spammer, we need to check it
-      configVars:
-        validatorNamePattern: "validatorPairName"
+# - name: run_task_matrix
+#   title: "Check block proposals from all client pairs"
+#   timeout: 6m
+#   configVars:
+#     matrixValues: "validatorPairNames"
+#   config:
+#     runConcurrent: true
+#     matrixVar: "validatorPairName"
+#     task:
+#       name: check_consensus_block_proposals
+#       title: "Wait for block proposal from ${validatorPairName}"
+#       config:
+#         minTransactionCount: 80 # For some reason the tx fuzz is working different than the old spammer, we need to check it
+#       configVars:
+#         validatorNamePattern: "validatorPairName"
 
-- name: run_tasks_concurrent
-  title: "Check chain stability (reorgs and forks)"
-  timeout: 7m
-  config:
-    tasks:
-    - name: check_consensus_reorgs
-      title: "Check consensus reorgs"
-    - name: check_consensus_forks
-      title: "Check consensus forks"
+# - name: run_tasks_concurrent
+#   title: "Check chain stability (reorgs and forks)"
+#   timeout: 7m
+#   config:
+#     tasks:
+#     - name: check_consensus_reorgs
+#       title: "Check consensus reorgs"
+#     - name: check_consensus_forks
+#       title: "Check consensus forks"
