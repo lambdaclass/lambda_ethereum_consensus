@@ -1013,6 +1013,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         validator,
         validator_index,
         amount,
+        pending_balance_to_withdraw,
         withdrawal_request_type
       )
     else
@@ -1049,7 +1050,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end)
   end
 
-  defp handle_valid_withdrawal_request(state, _, validator_index, _, :full_exit) do
+  defp handle_valid_withdrawal_request(state, _, validator_index, _, _, :full_exit) do
     with {:ok, {state, validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
       {:ok,
        %Types.BeaconState{
@@ -1059,7 +1060,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp handle_valid_withdrawal_request(state, _, _, _, :full_exit_with_pending_balance),
+  defp handle_valid_withdrawal_request(state, _, _, _, _, :full_exit_with_pending_balance),
     do: {:ok, state}
 
   defp handle_valid_withdrawal_request(
@@ -1067,11 +1068,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
          validator,
          validator_index,
          amount,
+         pending_balance_to_withdraw,
          :partial_exit
        ) do
-    pending_balance_to_withdraw =
-      Accessors.get_pending_balance_to_withdraw(state, validator_index)
-
     min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
 
     has_sufficient_effective_balance =
