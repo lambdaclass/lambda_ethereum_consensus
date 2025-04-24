@@ -44,7 +44,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     hysteresis_quotient = ChainSpec.get("HYSTERESIS_QUOTIENT")
     hysteresis_downward_multiplier = ChainSpec.get("HYSTERESIS_DOWNWARD_MULTIPLIER")
     hysteresis_upward_multiplier = ChainSpec.get("HYSTERESIS_UPWARD_MULTIPLIER")
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
     hysteresis_increment = div(effective_balance_increment, hysteresis_quotient)
     downward_threshold = hysteresis_increment * hysteresis_downward_multiplier
@@ -55,7 +54,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       |> Aja.Vector.zip_with(balances, fn %Validator{} = validator, balance ->
         if balance + downward_threshold < validator.effective_balance or
              validator.effective_balance + upward_threshold < balance do
-          min(balance - rem(balance, effective_balance_increment), max_effective_balance)
+          min(
+            balance - rem(balance, effective_balance_increment),
+            Validator.get_max_effective_balance(validator)
+          )
           |> then(&%{validator | effective_balance: &1})
         else
           validator
@@ -569,8 +571,45 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_pending_consolidations(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_pending_consolidations(%BeaconState{} = state) do
-    # TODO: Not implemented yet
-    {:ok, state}
+    next_epoch = Accessors.get_current_epoch(state) + 1
+
+    {next_pending_consolidation, state} =
+      state.pending_consolidations
+      |> Enum.reduce_while({0, state}, fn pending_consolidation,
+                                          {next_pending_consolidation, state} ->
+        source_index = pending_consolidation.source_index
+        target_index = pending_consolidation.target_index
+        source_validator = state.validators |> Aja.Vector.at(source_index)
+
+        cond do
+          source_validator.slashed ->
+            {:cont, {next_pending_consolidation + 1, state}}
+
+          source_validator.withdrawable_epoch > next_epoch ->
+            {:halt, {next_pending_consolidation, state}}
+
+          true ->
+            source_effective_balance =
+              min(
+                Aja.Vector.at(state.balances, source_index),
+                source_validator.effective_balance
+              )
+
+            updated_state =
+              state
+              |> BeaconState.decrease_balance(source_index, source_effective_balance)
+              |> BeaconState.increase_balance(target_index, source_effective_balance)
+
+            {:cont, {next_pending_consolidation + 1, updated_state}}
+        end
+      end)
+
+    {:ok,
+     %BeaconState{
+       state
+       | pending_consolidations:
+           Enum.drop(state.pending_consolidations, next_pending_consolidation)
+     }}
   end
 
   defp apply_pending_deposit(state, deposit) do
