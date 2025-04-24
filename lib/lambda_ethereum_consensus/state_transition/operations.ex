@@ -1135,11 +1135,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   defp do_process_consolidation_request(state, consolidation_request, :consolidation) do
     with :ok <- verify_consolidation_request(state, consolidation_request),
-         {_source_validator, source_index} <-
+         {source_validator, source_index} <-
            find_validator(state, consolidation_request.source_pubkey),
          {_target_validator, target_index} <-
            find_validator(state, consolidation_request.target_pubkey),
-         {:ok, source_validator} <-
+         :ok <-
            verify_consolidation_validators(
              state,
              source_index,
@@ -1234,7 +1234,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       # Initiate source validator exit and append pending consolidation
       true ->
-        {:ok, source_validator}
+        :ok
     end
   end
 
