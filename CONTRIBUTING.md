@@ -1,19 +1,15 @@
-### Getting Started
+# Getting Started
 
-#### 1. **Installation**
+## How to contribute
 
-- **Prerequisites**: Before diving in, ensure you have the necessary tools installed. Check out the [Prerequisites](#prerequisites) section for guidance.
-  
-- **Clone the Repository**:
+Found an issue you're passionate about? Comment with `"I'd like to tackle this!"` to claim it. Once assigned, you can begin your work. After completing your contribution, submit a pull request for review. Our team and other contributors will be able to provide feedback, and once approved, your contribution will be merged.
 
-  ```shell
-  git clone [REPO_URL]
-  cd lambda_ethereum_consensus
-  ```
+Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification when crafting PR titles. Also, run `make fmt` to format source code according to the configured style guide. The repo enforces these automatically via GitHub Actions.
 
-- **Setup**: Once you've cloned the repository, follow the steps in the [Installing and running](#installing-and-running) section to set up your environment.
+> [!IMPORTANT]  
+> We believe in fostering an inclusive, welcoming, and respectful community. All contributors are expected to adhere to our [Code of Conduct](#code-of-conduct). Please familiarize yourself with its contents before participating.
 
-#### 2. **Prerequisite Knowledge**
+## Prerequisite Knowledge
 
 To contribute effectively, you'll need a foundational understanding of both the Ethereum protocol and the Elixir language, including the Erlang VM (BEAM). If you're new to these areas, we've curated a list of resources to get you started:
 
@@ -77,36 +73,27 @@ Truly mastering the Ethereum protocol is a complex endeavor. The list provided h
 
 If you come across any resource that you find invaluable and believe should be added to this list, please don't hesitate to suggest its inclusion.
 
-#### 3. **Dive In**
+## Dive In
 
 With your newfound knowledge, explore the various areas of our project. Whether you're interested in the core consensus layer, networking, CLI, documentation, testing, or tooling, there's a place for you.
 
 Start by browsing our [issues](https://github.com/lambdaclass/lambda_ethereum_consensus/issues), especially those tagged as `good first issue`. These are beginner-friendly and a great way to familiarize yourself with our codebase.
 
-### How to contribute
-
-Found an issue you're passionate about? Comment with `"I'd like to tackle this!"` to claim it. Once assigned, you can begin your work. After completing your contribution, submit a pull request for review. Our team and other contributors will be able to provide feedback, and once approved, your contribution will be merged.
-
-Please adhere to the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification when crafting PR titles. Also, run `make fmt` to format source code according to the configured style guide. The repo enforces these automatically via GitHub Actions.
-
-> [!IMPORTANT]  
-> We believe in fostering an inclusive, welcoming, and respectful community. All contributors are expected to adhere to our [Code of Conduct](#code-of-conduct). Please familiarize yourself with its contents before participating.
-
-### Communication
+## Communication
 
 **Open communication** is key to the success of any project. We encourage all contributors to join our [Telegram chat](https://t.me/lambdaconsensus) for real-time discussions, updates, and collaboration.
 
 **For more structured discussions or proposals**, consider opening an issue or a discussion on the GitHub repository.
 
-### Recognition
+## Recognition
 
 We value every contribution, no matter how small. All contributors will be recognized in our project's documentation. Additionally, consistent and significant contributors may be offered more formal roles within the project over time.
 
-### Support
+## Support
 
 If you encounter any issues or have questions, don't hesitate to reach out. Our team and the community are here to help. You can ask questions in our Telegram chat or open an issue on GitHub for technical challenges.
 
-### Conclusion
+## Conclusion
 
 Lambda Ethereum Consensus is more than just a project; it's a community-driven initiative to bring the power and reliability of Elixir to the Ethereum ecosystem. With your help, we can make this vision a reality. Dive in, contribute, learn, and let's shape the future of Ethereum together!
 
@@ -114,15 +101,15 @@ Lambda Ethereum Consensus is more than just a project; it's a community-driven i
 
 **Thank you for being a part of our journey. Let's build an amazing future for Ethereum together! 🚀🌍**
 
-## Code of Conduct
+# Code of Conduct
 
-### Our Pledge
+## Our Pledge
 
 We, as members, contributors, and leaders of open source communities and projects pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
 
 We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community and project.
 
-### Our Standards
+## Our Standards
 
 Examples of behavior that contributes to a positive environment for our community include:
 
@@ -140,16 +127,16 @@ Examples of unacceptable behavior include:
 - Publishing others' private information, such as a physical or electronic address, without their explicit permission.
 - Other conduct which could reasonably be considered inappropriate in a professional setting.
 
-## Enforcement Responsibilities
+# Enforcement Responsibilities
 
 Maintainers are responsible for clarifying and enforcing standards of acceptable behavior and will take appropriate and fair corrective action.
 
 Project maintainers have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct, or to ban temporarily or permanently any contributor for behaviors that they deem inappropriate, threatening, offensive, or harmful.
 
-## Enforcement
+# Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported with proof to the maintainers through Telegram. All complaints will be reviewed and investigated promptly, fairly and anonymously.
 
-## Attribution
+# Attribution
 
 This Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html), version 2.1.
