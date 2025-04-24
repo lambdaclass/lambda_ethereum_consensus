@@ -990,7 +990,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     current_epoch = Accessors.get_current_epoch(state)
     far_future_epoch = Constants.far_future_epoch()
 
-    with false <- partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request),
+    with false <- partial_withdrawal_on_full_queue?(state, is_full_exit_request),
          {validator, validator_index} <- find_validator(state, request_pubkey),
          true <-
            not invalid_withdrawal_credentials?(validator, withdrawal_request.source_address),
@@ -1021,7 +1021,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end
   end
 
-  defp partial_exit_with_partial_withdrawal_queue_full?(state, is_full_exit_request) do
+  defp partial_withdrawal_on_full_queue?(state, is_full_exit_request) do
     length(state.pending_partial_withdrawals) ==
       ChainSpec.get("PENDING_PARTIAL_WITHDRAWALS_LIMIT") && !is_full_exit_request
   end
