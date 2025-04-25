@@ -5,6 +5,9 @@ defmodule OperationsTestRunner do
 
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Utils.Diff
+  alias Types.ConsolidationRequest
+  alias Types.DepositRequest
+  alias Types.WithdrawalRequest
 
   alias Types.Attestation
   alias Types.AttesterSlashing
@@ -32,7 +35,10 @@ defmodule OperationsTestRunner do
     "sync_aggregate" => SyncAggregate,
     "execution_payload" => BeaconBlockBody,
     "withdrawals" => ExecutionPayload,
-    "bls_to_execution_change" => SignedBLSToExecutionChange
+    "bls_to_execution_change" => SignedBLSToExecutionChange,
+    "consolidation_request" => ConsolidationRequest,
+    "withdrawal_request" => WithdrawalRequest,
+    "deposit_request" => DepositRequest
 
     # "deposit_receipt" => "DepositReceipt" Not yet implemented
   }
@@ -48,53 +54,13 @@ defmodule OperationsTestRunner do
     "sync_aggregate" => "sync_aggregate",
     "execution_payload" => "body",
     "withdrawals" => "execution_payload",
-    "bls_to_execution_change" => "address_change"
+    "bls_to_execution_change" => "address_change",
+    "consolidation_request" => "consolidation_request",
+    "withdrawal_request" => "withdrawal_request",
+    "deposit_request" => "deposit_request"
 
     # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
-
-  # Remove handler from here once you implement the corresponding functions
-  # "deposit_receipt" handler is not yet implemented
-  @disabled_handlers [
-    # "attester_slashing",
-    # "attestation",
-    # "block_header",
-    # "deposit",
-    # "proposer_slashing",
-    # "voluntary_exit",
-    # "sync_aggregate",
-    # "execution_payload",
-    # "withdrawals",
-    # "bls_to_execution_change"
-  ]
-
-  @disabled_handlers_deneb [
-    # "attester_slashing",
-    # "attestation",
-    # "block_header",
-    # "deposit",
-    # "proposer_slashing",
-    # "voluntary_exit"
-    # "sync_aggregate",
-    # "execution_payload",
-    # "withdrawals",
-    # "bls_to_execution_change"
-  ]
-
-  @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella", handler: handler}) do
-    Enum.member?(@disabled_handlers, handler)
-  end
-
-  @impl TestRunner
-  def skip?(%SpecTestCase{fork: "deneb", handler: handler}) do
-    Enum.member?(@disabled_handlers_deneb, handler)
-  end
-
-  @impl TestRunner
-  def skip?(_testcase) do
-    true
-  end
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{handler: handler} = testcase) do

@@ -132,4 +132,26 @@ defmodule Constants do
 
   @spec versioned_hash_version_kzg() :: <<_::8>>
   def versioned_hash_version_kzg(), do: <<1>>
+
+  # New in Electra
+  @spec unset_deposit_requests_start_index() :: Types.uint64()
+  def unset_deposit_requests_start_index(), do: 2 ** 64 - 1
+
+  @spec full_exit_request_amount() :: Types.uint64()
+  def full_exit_request_amount(), do: 0
+
+  @spec compounding_withdrawal_prefix() :: Types.bytes1()
+  def compounding_withdrawal_prefix(), do: <<2>>
+
+  @spec deposit_request_type() :: Types.bytes1()
+  def deposit_request_type(), do: <<0>>
+
+  @spec withdrawal_request_type() :: Types.bytes1()
+  def withdrawal_request_type(), do: <<1>>
+
+  @spec consolidation_request_type() :: Types.bytes1()
+  def consolidation_request_type(), do: <<2>>
+
+  @spec g2_point_at_infinity() :: Types.bls_signature()
+  def g2_point_at_infinity(), do: <<0xC0, 0::8*95>>
 end

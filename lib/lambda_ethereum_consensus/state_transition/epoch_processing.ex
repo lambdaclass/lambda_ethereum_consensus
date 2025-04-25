@@ -10,6 +10,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias Types.BeaconState
+  alias Types.DepositMessage
   alias Types.HistoricalSummary
   alias Types.Validator
 
@@ -43,7 +44,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     hysteresis_quotient = ChainSpec.get("HYSTERESIS_QUOTIENT")
     hysteresis_downward_multiplier = ChainSpec.get("HYSTERESIS_DOWNWARD_MULTIPLIER")
     hysteresis_upward_multiplier = ChainSpec.get("HYSTERESIS_UPWARD_MULTIPLIER")
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
 
     hysteresis_increment = div(effective_balance_increment, hysteresis_quotient)
     downward_threshold = hysteresis_increment * hysteresis_downward_multiplier
@@ -54,7 +54,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       |> Aja.Vector.zip_with(balances, fn %Validator{} = validator, balance ->
         if balance + downward_threshold < validator.effective_balance or
              validator.effective_balance + upward_threshold < balance do
-          min(balance - rem(balance, effective_balance_increment), max_effective_balance)
+          min(
+            balance - rem(balance, effective_balance_increment),
+            Validator.get_max_effective_balance(validator)
+          )
           |> then(&%{validator | effective_balance: &1})
         else
           validator
@@ -117,17 +120,17 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     adjusted_total_slashing_balance =
       min(slashed_sum * proportional_slashing_multiplier, total_balance)
 
+    penalty_per_effective_balance_increment =
+      div(adjusted_total_slashing_balance, div(total_balance, increment))
+
     new_state =
       validators
       |> Stream.with_index()
       |> Enum.reduce(state, fn {validator, index}, acc ->
         if validator.slashed and
              epoch + div(epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
-          # increment factored out from penalty numerator to avoid uint64 overflow
-          penalty_numerator =
-            div(validator.effective_balance, increment) * adjusted_total_slashing_balance
-
-          penalty = div(penalty_numerator, total_balance) * increment
+          effective_balance_increments = div(validator.effective_balance, increment)
+          penalty = penalty_per_effective_balance_increment * effective_balance_increments
 
           BeaconState.decrease_balance(acc, index, penalty)
         else
@@ -144,49 +147,75 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     current_epoch = Accessors.get_current_epoch(state)
     activation_exit_epoch = Misc.compute_activation_exit_epoch(current_epoch)
 
-    churn_limit = Accessors.get_validator_activation_churn_limit(state)
-
-    result =
-      validators
-      |> Stream.with_index()
-      |> Stream.map(fn {v, i} ->
-        {{v, i}, Predicates.eligible_for_activation_queue?(v),
-         Predicates.active_validator?(v, current_epoch) and
-           v.effective_balance <= ejection_balance}
-      end)
-      |> Stream.filter(&(elem(&1, 1) or elem(&1, 2)))
-      |> Stream.map(fn
-        {{v, i}, true, b} -> {{%{v | activation_eligibility_epoch: current_epoch + 1}, i}, b}
-        {{v, i}, false = _is_eligible, b} -> {{v, i}, b}
-      end)
-      |> Enum.reduce({:ok, state}, fn
-        _, {:error, _} = err -> err
-        {{v, i}, should_be_ejected}, {:ok, st} -> eject_validator(st, v, i, should_be_ejected)
-        {err, _}, _ -> err
-      end)
-
-    with {:ok, new_state} <- result do
-      new_state.validators
-      |> Stream.with_index()
-      |> Stream.filter(fn {v, _} -> Predicates.eligible_for_activation?(state, v) end)
-      |> Enum.sort_by(fn {%{activation_eligibility_epoch: ep}, i} -> {ep, i} end)
-      |> Enum.take(churn_limit)
-      |> Enum.reduce(new_state.validators, fn {v, i}, acc ->
-        %{v | activation_epoch: activation_exit_epoch}
-        |> then(&Aja.Vector.replace_at!(acc, i, &1))
-      end)
-      |> then(&{:ok, %BeaconState{new_state | validators: &1}})
-    end
+    validators
+    |> Enum.with_index()
+    |> Enum.reduce_while(state, fn {validator, idx}, state ->
+      handle_validator_registry_update(
+        state,
+        validator,
+        idx,
+        current_epoch,
+        activation_exit_epoch,
+        ejection_balance
+      )
+    end)
+    |> then(fn
+      %BeaconState{} = state -> {:ok, state}
+      {:error, reason} -> {:error, reason}
+    end)
   end
 
-  defp eject_validator(state, validator, index, false) do
-    {:ok, %{state | validators: Aja.Vector.replace_at!(state.validators, index, validator)}}
-  end
+  defp handle_validator_registry_update(
+         state,
+         validator,
+         idx,
+         current_epoch,
+         activation_exit_epoch,
+         ejection_balance
+       ) do
+    cond do
+      Predicates.eligible_for_activation_queue?(validator) ->
+        updated_validator = %Validator{
+          validator
+          | activation_eligibility_epoch: current_epoch + 1
+        }
 
-  defp eject_validator(state, validator, index, true) do
-    with {:ok, ejected_validator} <- Mutators.initiate_validator_exit(state, validator) do
-      {:ok,
-       %{state | validators: Aja.Vector.replace_at!(state.validators, index, ejected_validator)}}
+        {:cont,
+         %BeaconState{
+           state
+           | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
+         }}
+
+      Predicates.active_validator?(validator, current_epoch) &&
+          validator.effective_balance <= ejection_balance ->
+        case Mutators.initiate_validator_exit(state, validator) do
+          {:ok, {state, ejected_validator}} ->
+            updated_state = %{
+              state
+              | validators: Aja.Vector.replace_at!(state.validators, idx, ejected_validator)
+            }
+
+            {:cont, updated_state}
+
+          {:error, msg} ->
+            {:halt, {:error, msg}}
+        end
+
+      Predicates.eligible_for_activation?(state, validator) ->
+        updated_validator = %Validator{
+          validator
+          | activation_epoch: activation_exit_epoch
+        }
+
+        updated_state = %BeaconState{
+          state
+          | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
+        }
+
+        {:cont, updated_state}
+
+      true ->
+        {:cont, state}
     end
   end
 
@@ -427,5 +456,192 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     |> Enum.reduce(balance, fn delta, balance ->
       max(balance + delta, 0)
     end)
+  end
+
+  @spec process_pending_deposits(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_pending_deposits(%BeaconState{} = state) do
+    available_for_processing =
+      state.deposit_balance_to_consume + Accessors.get_activation_exit_churn_limit(state)
+
+    finalized_slot = Misc.compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
+
+    {state, churn_limit_reached, processed_amount, deposits_to_postpone, last_processed_index} =
+      state.pending_deposits
+      |> Enum.with_index()
+      |> Enum.reduce_while({state, false, 0, [], 0}, fn {deposit, index},
+                                                        {state, churn_limit_reached,
+                                                         processed_amount, deposits_to_postpone,
+                                                         _last_processed_index} ->
+        cond do
+          # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
+          deposit.slot > Constants.genesis_slot() &&
+              state.eth1_deposit_index < state.deposit_requests_start_index ->
+            {:halt,
+             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+
+          # Check if deposit has been finalized, otherwise, stop processing.
+          deposit.slot > finalized_slot ->
+            {:halt,
+             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+
+          # Check if number of processed deposits has not reached the limit, otherwise, stop processing.
+          index >= ChainSpec.get("MAX_PENDING_DEPOSITS_PER_EPOCH") ->
+            {:halt,
+             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+
+          true ->
+            handle_pending_deposit(
+              deposit,
+              state,
+              churn_limit_reached,
+              processed_amount,
+              deposits_to_postpone,
+              index,
+              available_for_processing
+            )
+        end
+      end)
+
+    deposit_balance_to_consume =
+      if churn_limit_reached do
+        available_for_processing - processed_amount
+      else
+        0
+      end
+
+    {:ok,
+     %BeaconState{
+       state
+       | pending_deposits:
+           Enum.drop(state.pending_deposits, last_processed_index + 1)
+           |> Enum.concat(deposits_to_postpone),
+         deposit_balance_to_consume: deposit_balance_to_consume
+     }}
+  end
+
+  defp handle_pending_deposit(
+         deposit,
+         state,
+         churn_limit_reached,
+         processed_amount,
+         deposits_to_postpone,
+         index,
+         available_for_processing
+       ) do
+    far_future_epoch = Constants.far_future_epoch()
+    next_epoch = Accessors.get_current_epoch(state)
+
+    {is_validator_exited, is_validator_withdrawn} =
+      case Enum.find(state.validators, fn v -> v.pubkey == deposit.pubkey end) do
+        %Validator{} = validator ->
+          {validator.exit_epoch < far_future_epoch, validator.withdrawable_epoch < next_epoch}
+
+        _ ->
+          {false, false}
+      end
+
+    cond do
+      # Deposited balance will never become active. Increase balance but do not consume churn
+      is_validator_withdrawn ->
+        {:ok, state} = apply_pending_deposit(state, deposit)
+
+        {:cont, {state, churn_limit_reached, processed_amount, deposits_to_postpone, index}}
+
+      # Validator is exiting, postpone the deposit until after withdrawable epoch
+      is_validator_exited ->
+        deposits_to_postpone = Enum.concat(deposits_to_postpone, [deposit])
+
+        {:cont, {state, churn_limit_reached, processed_amount, deposits_to_postpone, index}}
+
+      true ->
+        # Check if deposit fits in the churn, otherwise, do no more deposit processing in this epoch.
+        is_churn_limit_reached =
+          processed_amount + deposit.amount > available_for_processing
+
+        if is_churn_limit_reached do
+          {:halt, {state, true, processed_amount, deposits_to_postpone, index - 1}}
+        else
+          # Consume churn and apply deposit.
+          processed_amount = processed_amount + deposit.amount
+          {:ok, state} = apply_pending_deposit(state, deposit)
+          {:cont, {state, false, processed_amount, deposits_to_postpone, index}}
+        end
+    end
+  end
+
+  @spec process_pending_consolidations(BeaconState.t()) :: {:ok, BeaconState.t()}
+  def process_pending_consolidations(%BeaconState{} = state) do
+    next_epoch = Accessors.get_current_epoch(state) + 1
+
+    {next_pending_consolidation, state} =
+      state.pending_consolidations
+      |> Enum.reduce_while({0, state}, fn pending_consolidation,
+                                          {next_pending_consolidation, state} ->
+        source_index = pending_consolidation.source_index
+        target_index = pending_consolidation.target_index
+        source_validator = state.validators |> Aja.Vector.at(source_index)
+
+        cond do
+          source_validator.slashed ->
+            {:cont, {next_pending_consolidation + 1, state}}
+
+          source_validator.withdrawable_epoch > next_epoch ->
+            {:halt, {next_pending_consolidation, state}}
+
+          true ->
+            source_effective_balance =
+              min(
+                Aja.Vector.at(state.balances, source_index),
+                source_validator.effective_balance
+              )
+
+            updated_state =
+              state
+              |> BeaconState.decrease_balance(source_index, source_effective_balance)
+              |> BeaconState.increase_balance(target_index, source_effective_balance)
+
+            {:cont, {next_pending_consolidation + 1, updated_state}}
+        end
+      end)
+
+    {:ok,
+     %BeaconState{
+       state
+       | pending_consolidations:
+           Enum.drop(state.pending_consolidations, next_pending_consolidation)
+     }}
+  end
+
+  defp apply_pending_deposit(state, deposit) do
+    index =
+      Enum.find_index(state.validators, fn validator -> validator.pubkey == deposit.pubkey end)
+
+    current_validator? = is_number(index)
+
+    valid_signature? =
+      current_validator? ||
+        DepositMessage.valid_deposit_signature?(
+          deposit.pubkey,
+          deposit.withdrawal_credentials,
+          deposit.amount,
+          deposit.signature
+        )
+
+    cond do
+      current_validator? ->
+        {:ok, BeaconState.increase_balance(state, index, deposit.amount)}
+
+      !current_validator? && valid_signature? ->
+        Mutators.add_validator_to_registry(
+          state,
+          deposit.pubkey,
+          deposit.withdrawal_credentials,
+          deposit.amount
+        )
+
+      true ->
+        # Neither a validator nor have a valid signature, we do not apply the deposit
+        {:ok, state}
+    end
   end
 end

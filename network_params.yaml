@@ -14,9 +14,12 @@ participants:
     validator_count: 32
     cl_max_mem: 4096
     keymanager_enabled: true
-# Uncomment the following lines to run the the network with the minimal preset (which is various times faster)
-# network_params:
-#   preset: minimal
+
+network_params:
+  electra_fork_epoch: 0
+# Uncomment the following line to run the the network with the minimal preset (which is various times faster)
+  # preset: minimal
+
 additional_services:
   - tx_fuzz
   - dora

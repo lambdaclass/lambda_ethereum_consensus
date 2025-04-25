@@ -17,7 +17,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias Types.SyncCommittee
   alias Types.Validator
 
-  @max_random_byte 2 ** 8 - 1
+  @max_random_byte 2 ** 16 - 1
 
   @doc """
   Compute the correct sync committee for a given `epoch`.
@@ -118,13 +118,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
            |> Misc.compute_shuffled_index(active_validator_count, seed) do
       candidate_index = Aja.Vector.at!(active_validator_indices, shuffled_index)
 
-      <<_::binary-size(rem(index, 32)), random_byte, _::binary>> =
-        SszEx.hash(seed <> Misc.uint64_to_bytes(div(index, 32)))
+      random_bytes = SszEx.hash(seed <> Misc.uint_to_bytes(div(index, 16), 64))
+      offset = rem(index, 16) * 2
 
-      max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+      bytes = binary_part(random_bytes, offset, 2) <> <<0::48>>
+      random_value = Misc.bytes_to_uint64(bytes)
+
+      max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE_ELECTRA")
       effective_balance = Aja.Vector.at!(validators, candidate_index).effective_balance
 
-      if effective_balance * @max_random_byte >= max_effective_balance * random_byte do
+      if effective_balance * @max_random_byte >= max_effective_balance * random_value do
         {:ok, sync_committee_indices |> List.insert_at(0, candidate_index)}
       else
         {:ok, sync_committee_indices}
@@ -553,7 +556,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           {:ok, IndexedAttestation.t()} | {:error, String.t()}
   def get_indexed_attestation(%BeaconState{} = state, attestation) do
     with {:ok, indices} <-
-           get_attesting_indices(state, attestation.data, attestation.aggregation_bits) do
+           get_attesting_indices(state, attestation) do
       %IndexedAttestation{
         attesting_indices: Enum.sort(indices),
         data: attestation.data,
@@ -582,17 +585,38 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   that slot) and then filters the ones that actually participated. It returns an unordered MapSet,
   which is useful for checking inclusion, but should be ordered if used to validate an attestation.
   """
-  @spec get_attesting_indices(BeaconState.t(), Types.AttestationData.t(), Types.bitlist()) ::
+  @spec get_attesting_indices(BeaconState.t(), Types.Attestation.t()) ::
           {:ok, MapSet.t()} | {:error, String.t()}
-  def get_attesting_indices(%BeaconState{} = state, data, bits) do
-    with {:ok, committee} <- get_beacon_committee(state, data.slot, data.index) do
-      committee
-      |> Stream.with_index()
-      |> Stream.filter(fn {_value, index} -> participated?(bits, index) end)
-      |> Stream.map(fn {value, _index} -> value end)
-      |> MapSet.new()
-      |> then(&{:ok, &1})
+  def get_attesting_indices(%BeaconState{} = state, %Attestation{
+        data: data,
+        aggregation_bits: aggregation_bits,
+        committee_bits: committee_bits
+      }) do
+    committee_bits
+    |> get_committee_indices()
+    |> Enum.reduce_while({MapSet.new(), 0}, fn committee_index, {attesters, offset} ->
+      case get_beacon_committee(state, data.slot, committee_index) do
+        {:ok, committee} ->
+          committee_attesters = compute_committee_attesters(committee, aggregation_bits, offset)
+
+          {:cont, {MapSet.union(attesters, committee_attesters), offset + length(committee)}}
+
+        error ->
+          {:halt, error}
+      end
+    end)
+    |> case do
+      {:error, error} -> {:error, error}
+      {attesters, _offset} -> {:ok, attesters}
     end
+  end
+
+  defp compute_committee_attesters(committee, aggregation_bits, offset) do
+    committee
+    |> Stream.with_index(offset)
+    |> Stream.filter(fn {_validator, pos} -> participated?(aggregation_bits, pos) end)
+    |> Stream.map(fn {validator, _} -> validator end)
+    |> MapSet.new()
   end
 
   @spec get_committee_attesting_indices([Types.validator_index()], Types.bitlist()) ::
@@ -625,5 +649,56 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       |> Enum.sum()
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
+  end
+
+  @spec get_committee_indices(Types.bitvector()) :: Enumerable.t(Types.commitee_index())
+  def get_committee_indices(committee_bits) do
+    bitlist =
+      for <<bit::1 <- committee_bits>> do
+        bit
+      end
+      |> Enum.reverse()
+
+    for {bit, index} <- Enum.with_index(bitlist), bit == 1, do: index
+  end
+
+  @doc """
+  Return the churn limit for the current epoch.
+  """
+  @spec get_balance_churn_limit(Types.BeaconState.t()) :: Types.gwei()
+  def get_balance_churn_limit(state) do
+    churn =
+      max(
+        ChainSpec.get("MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA"),
+        div(get_total_active_balance(state), ChainSpec.get("CHURN_LIMIT_QUOTIENT"))
+      )
+
+    churn - rem(churn, ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"))
+  end
+
+  @doc """
+  Return the churn limit for the current epoch dedicated to activations and exits.
+  """
+  @spec get_activation_exit_churn_limit(Types.BeaconState.t()) :: Types.gwei()
+  def get_activation_exit_churn_limit(state) do
+    min(
+      ChainSpec.get("MAX_PER_EPOCH_ACTIVATION_EXIT_CHURN_LIMIT"),
+      get_balance_churn_limit(state)
+    )
+  end
+
+  @spec get_pending_balance_to_withdraw(BeaconState.t(), Types.validator_index()) :: Types.gwei()
+  def get_pending_balance_to_withdraw(state, validator_index) do
+    for(
+      withdrawal <- state.pending_partial_withdrawals,
+      withdrawal.validator_index == validator_index,
+      do: withdrawal.amount
+    )
+    |> Enum.sum()
+  end
+
+  @spec get_consolidation_churn_limit(BeaconState.t()) :: Types.gwei()
+  def get_consolidation_churn_limit(state) do
+    get_balance_churn_limit(state) - get_activation_exit_churn_limit(state)
   end
 end

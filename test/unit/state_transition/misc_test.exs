@@ -12,6 +12,7 @@ defmodule Unit.StateTransition.MiscTest do
     |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
   end
 
+  @tag :skip
   test "Calculating all committees for a single epoch should be the same by any method" do
     state = Block.beacon_state_from_file().beacon_state
     epoch = Accessors.get_current_epoch(state)

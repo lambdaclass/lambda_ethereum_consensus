@@ -19,15 +19,8 @@ defmodule LightClientTestRunner do
     Enum.member?(@disabled_handlers, testcase.handler)
   end
 
-  def skip?(%SpecTestCase{fork: "deneb"} = _testcase) do
-    # TODO: all of them fail
-    true
-  end
-
-  @impl TestRunner
-  def skip?(_testcase) do
-    true
-  end
+  # TODO: We didn't implement lightclient functions yet
+  def skip?(%SpecTestCase{fork: fork}) when fork in ["deneb", "electra"], do: true
 
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do

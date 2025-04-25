@@ -37,10 +37,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Predicates do
   @spec eligible_for_activation_queue?(Validator.t()) :: boolean
   def eligible_for_activation_queue?(%Validator{} = validator) do
     far_future_epoch = Constants.far_future_epoch()
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+    min_effective_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
 
     validator.activation_eligibility_epoch == far_future_epoch &&
-      validator.effective_balance == max_effective_balance
+      validator.effective_balance >= min_effective_balance
   end
 
   @doc """

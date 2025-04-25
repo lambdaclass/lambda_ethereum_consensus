@@ -45,6 +45,17 @@ pub(crate) trait Config {
     type FieldElementsPerBlob: Unsigned;
     type BytesPerFieldElement: Unsigned;
     type KzgCommitmentInclusionProofDepth: Unsigned;
+    type MaxCommitteesPerSlot: Unsigned;
+    // Electra added fields
+    type MaxConsolidationRequestsPerPayload: Unsigned;
+    type MaxDepositRequestsPerPayload: Unsigned;
+    type MaxWithdrawalRequestsPerPayload: Unsigned;
+    type PendingDepositsLimit: Unsigned;
+    type PendingPartialWithdrawalsLimit: Unsigned;
+    type PendingConsolidationsLimit: Unsigned;
+    type MaxAttesterSlashingsElectra: Unsigned;
+    type MaxAttestationsElectra: Unsigned;
+    type MaxValidatorsPerSlot: Unsigned;
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize: Unsigned; // SYNC_COMMITTEE_SIZE / SYNC_COMMITTEE_SUBNET_COUNT
@@ -88,6 +99,17 @@ impl Config for Mainnet {
     type FieldElementsPerBlob = U4096;
     type BytesPerFieldElement = U32;
     type KzgCommitmentInclusionProofDepth = U17;
+    type MaxCommitteesPerSlot = U64;
+    // Electra added fields
+    type MaxConsolidationRequestsPerPayload = U2;
+    type MaxDepositRequestsPerPayload = U8192;
+    type MaxWithdrawalRequestsPerPayload = U16;
+    type PendingDepositsLimit = U134217728;
+    type PendingPartialWithdrawalsLimit = U134217728;
+    type PendingConsolidationsLimit = U262144;
+    type MaxAttesterSlashingsElectra = U1;
+    type MaxAttestationsElectra = U8;
+    type MaxValidatorsPerSlot = U131072; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
@@ -109,8 +131,15 @@ impl Config for Minimal {
     type SyncCommitteeSize = U32;
     type MaxWithdrawalsPerPayload = U4;
     type FieldElementsPerBlob = U4096;
-    type MaxBlobCommitmentsPerBlock = U16;
-    type KzgCommitmentInclusionProofDepth = U9;
+    type MaxBlobCommitmentsPerBlock = U32;
+    type KzgCommitmentInclusionProofDepth = U10;
+    type MaxCommitteesPerSlot = U4;
+    // Electra added fields
+    type MaxDepositRequestsPerPayload = U4;
+    type MaxWithdrawalRequestsPerPayload = U2;
+    type PendingPartialWithdrawalsLimit = U64;
+    type PendingConsolidationsLimit = U64;
+    type MaxValidatorsPerSlot = U8192; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 4, this as the rest is fixed and we need to be really carefull about any change
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
@@ -142,7 +171,11 @@ impl Config for Minimal {
         MaxExtraDataBytes,
         MaxBlsToExecutionChanges,
         MaxBlobsPerBlock,
-        BytesPerFieldElement
+        BytesPerFieldElement,
+        MaxConsolidationRequestsPerPayload,
+        PendingDepositsLimit,
+        MaxAttesterSlashingsElectra,
+        MaxAttestationsElectra
     });
 }
 
@@ -181,6 +214,17 @@ impl Config for Gnosis {
     type FieldElementsPerBlob = U4096;
     type BytesPerFieldElement = U32;
     type KzgCommitmentInclusionProofDepth = U17;
+    type MaxCommitteesPerSlot = U64;
+    // Electra added fields
+    type MaxConsolidationRequestsPerPayload = U2;
+    type MaxDepositRequestsPerPayload = U8192;
+    type MaxWithdrawalRequestsPerPayload = U16;
+    type PendingDepositsLimit = U134217728;
+    type PendingPartialWithdrawalsLimit = U134217728;
+    type PendingConsolidationsLimit = U262144;
+    type MaxAttesterSlashingsElectra = U1;
+    type MaxAttestationsElectra = U8;
+    type MaxValidatorsPerSlot = U131072; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
 
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
