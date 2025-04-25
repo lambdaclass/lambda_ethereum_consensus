@@ -49,11 +49,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       missing_blobs = Blobs.missing_for_block(block_info)
 
       if Enum.empty?(missing_blobs) do
-        Logger.debug("[PendingBlocks] No missing blobs for block, process it", log_md)
+        Logger.info("[PendingBlocks] No missing blobs for block, process it", log_md)
         Blocks.new_block_info(block_info)
         process_block_and_check_children(store, block_info)
       else
-        Logger.debug("[PendingBlocks] Missing blobs for block, scheduling download", log_md)
+        Logger.info("[PendingBlocks] Missing blobs for block, scheduling download", log_md)
 
         BlobDownloader.request_blobs_by_root(
           missing_blobs,
@@ -61,11 +61,13 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
           @download_retries
         )
 
-        block_info
-        |> BlockInfo.change_status(:download_blobs)
-        |> Blocks.new_block_info()
+        Blocks.new_block_info(block_info)
+        process_block_and_check_children(store, block_info)
+        # block_info
+        # |> BlockInfo.change_status(:download_blobs)
+        # |> Blocks.new_block_info()
 
-        store
+        # store
       end
     else
       store
@@ -188,20 +190,29 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         {store, :invalid}
 
       %BlockInfo{status: :transitioned} ->
-        case ForkChoice.on_block(store, block_info) do
-          {:ok, store} ->
-            Logger.debug("[PendingBlocks] Block transitioned after ForkChoice.on_block/2", log_md)
-            Blocks.change_status(block_info, :transitioned)
-            {store, :transitioned}
+        if ForkChoice.future_slot?(store, message.slot) do
+          Logger.info("block from the future delay processing")
+          {store, :pending}
+        else
+          case ForkChoice.on_block(store, block_info) do
+            {:ok, store} ->
+              Logger.debug(
+                "[PendingBlocks] Block transitioned after ForkChoice.on_block/2",
+                log_md
+              )
 
-          {:error, reason, store} ->
-            Logger.error(
-              "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
-              log_md
-            )
+              Blocks.change_status(block_info, :transitioned)
+              {store, :transitioned}
 
-            Blocks.change_status(block_info, :invalid)
-            {store, :invalid}
+            {:error, reason, store} ->
+              Logger.error(
+                "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
+                log_md
+              )
+
+              Blocks.change_status(block_info, :invalid)
+              {store, :invalid}
+          end
         end
 
       _other ->

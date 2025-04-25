@@ -83,8 +83,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       finalized_root != Store.get_checkpoint_block(store, block.parent_root, finalized_epoch) ->
         {:error, "block isn't descendant of latest finalized block"}
 
-      not (block_info.root |> data_available?(block.body.blob_kzg_commitments)) ->
-        {:error, "blob data not available"}
+      # not (block_info.root |> data_available?(block.body.blob_kzg_commitments)) ->
+      #   {:error, "blob data not available"}
 
       true ->
         compute_post_state(store, block_info, base_state)

@@ -60,27 +60,28 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   end
 
   def penalize_peer(peer_id) do
-    Logger.debug("[Peerbook] Penalizing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
+    fetch_peerbook!()
+    # Logger.debug("[Peerbook] Penalizing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
-    peer_score = fetch_peerbook!() |> Map.get(peer_id)
-    penalizing_score = penalazing_score()
+    # peer_score = fetch_peerbook!() |> Map.get(peer_id)
+    # penalizing_score = penalazing_score()
 
-    case peer_score do
-      nil ->
-        :ok
+    # case peer_score do
+    #   nil ->
+    #     :ok
 
-      score when score - penalizing_score <= 0 ->
-        Logger.debug("[Peerbook] Removing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
+    #   score when score - penalizing_score <= 0 ->
+    #     Logger.debug("[Peerbook] Removing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
-        fetch_peerbook!()
-        |> Map.delete(peer_id)
-        |> store_peerbook()
+    #     fetch_peerbook!()
+    #     |> Map.delete(peer_id)
+    #     |> store_peerbook()
 
-      score ->
-        fetch_peerbook!()
-        |> Map.put(peer_id, score - penalizing_score)
-        |> store_peerbook()
-    end
+    #   score ->
+    #     fetch_peerbook!()
+    #     |> Map.put(peer_id, score - penalizing_score)
+    #     |> store_peerbook()
+    # end
   end
 
   def handle_new_peer(peer_id) do
