@@ -36,8 +36,7 @@ Here we will detail the current implementation gaps with the specs and the way t
 
 ### Phase 1: Beacon Chain Implementation
 
-We are at `54/58` (91%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md), and most of the remaining functions are already in progress. We have still `4/11370` spec test failures, but we are working on them. The skipped tests were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase. Our aim as mentioned before is to reach `0` failures before going to the next phase.
-
+We are at `54/58` (91%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md), and most of the remaining functions are already in progress. We have fixed all `11370` spec tests. The skipped tests were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase.
 
 The current status of the implementation in the [electra-support](https://github.com/lambdaclass/lambda_ethereum_consensus/tree/electra-support) branch is as follows:
 

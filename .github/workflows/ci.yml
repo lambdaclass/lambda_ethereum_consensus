@@ -293,7 +293,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fork: ["deneb"]
+        fork: ["electra"]
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-24.04
     steps:
