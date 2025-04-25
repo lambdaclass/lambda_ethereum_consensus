@@ -36,7 +36,7 @@ Here we will detail the current implementation gaps with the specs and the way t
 
 ### Phase 1: Beacon Chain Implementation
 
-We are at `52/57` (91%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md), and most of the remaining functions are already in progress. We have still `73/11370` spec test failures, but we are working on them. The skipped tests were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase. Our aim as mentioned before is to reach `0` failures before going to the next phase.
+We are at `54/58` (91%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md), and most of the remaining functions are already in progress. We have still `4/11370` spec test failures, but we are working on them. The skipped tests were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase. Our aim as mentioned before is to reach `0` failures before going to the next phase.
 
 
 The current status of the implementation in the [electra-support](https://github.com/lambdaclass/lambda_ethereum_consensus/tree/electra-support) branch is as follows:
@@ -102,9 +102,9 @@ The current status of the implementation in the [electra-support](https://github
 - [x] Modified `process_effective_balance_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_effective_balance_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
 - [x] Modified `get_validator_from_deposit` ([Spec](docs/specs/electra/beacon-chains.md#modified-get_validator_from_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 
-#### Block Processing (10/12 - 83%)
+#### Block Processing (12/13 - 92%)
 
-- [ ] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals))
+- [x] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1431))
 - [ ] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
 - [x] Modified `process_operations` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_operations), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [x] Modified `process_attestation` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_attestation), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
@@ -116,6 +116,9 @@ The current status of the implementation in the [electra-support](https://github
 - [x] New `is_valid_deposit_signature` ([Spec](docs/specs/electra/beacon-chain.md#new-is_valid_deposit_signature), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [x] Modified `add_validator_to_registry` ([Spec](docs/specs/electra/beacon-chain.md#modified-add_validator_to_registry), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [x] Modified `apply_deposit` ([Spec](docs/specs/electra/beacon-chain.md#modified-apply_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
+- [x] Modified `get_expected_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_expected_withdrawals), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1431))
+
+## Execution Engine
 
 #### Execution Engine (0/3 - 0%)
 
