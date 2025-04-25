@@ -1304,7 +1304,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp verify_consolidation_validators(state, source_index, target_index, consolidation_request) do
     source_validator = Aja.Vector.at(state.validators, source_index)
     target_validator = Aja.Vector.at(state.validators, target_index)
-
     current_epoch = Accessors.get_current_epoch(state)
     far_future_epoch = Constants.far_future_epoch()
 
