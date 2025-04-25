@@ -294,11 +294,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         %BeaconState{validators: validators} = state,
         %ExecutionPayload{withdrawals: withdrawals}
       ) do
-    expected_withdrawals = get_expected_withdrawals(state)
+    {expected_withdrawals, processed_partial_withdrawals_count} = get_expected_withdrawals(state)
 
     with :ok <- check_withdrawals(withdrawals, expected_withdrawals) do
       state
       |> Map.update!(:balances, &decrease_balances(&1, withdrawals))
+      |> then(
+        &%BeaconState{
+          &1
+          | pending_partial_withdrawals:
+              Enum.drop(&1.pending_partial_withdrawals, processed_partial_withdrawals_count)
+        }
+      )
       |> update_next_withdrawal_index(withdrawals)
       |> update_next_withdrawal_validator_index(withdrawals, Aja.Vector.size(validators))
       |> then(&{:ok, &1})
@@ -355,49 +362,147 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     end)
   end
 
-  @spec get_expected_withdrawals(BeaconState.t()) :: list(Withdrawal.t())
+  @spec get_expected_withdrawals(BeaconState.t()) ::
+          {list(Withdrawal.t()), non_neg_integer()}
   def get_expected_withdrawals(%BeaconState{} = state) do
     # Compute the next batch of withdrawals which should be included in a block.
     epoch = Accessors.get_current_epoch(state)
 
     max_validators_per_withdrawals_sweep = ChainSpec.get("MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP")
     max_withdrawals_per_payload = ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD")
-    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE")
+    # Consume pending partial withdrawals
+    {processed_partial_withdrawals_count, withdrawal_index, pending_partial_withdrawals} =
+      state.pending_partial_withdrawals
+      |> Enum.reduce_while({0, state.next_withdrawal_index, []}, fn withdrawal,
+                                                                    {processed_partial_withdrawals_count,
+                                                                     withdrawal_index,
+                                                                     withdrawals} ->
+        process_partial_withdrawal(
+          state,
+          withdrawal,
+          processed_partial_withdrawals_count,
+          withdrawal_index,
+          withdrawals
+        )
+      end)
 
     bound = state.validators |> Aja.Vector.size() |> min(max_validators_per_withdrawals_sweep)
+    # Sweep for remaining.
+    non_partial_withdrawals =
+      Stream.zip([state.validators, state.balances])
+      |> Stream.with_index()
+      |> Stream.cycle()
+      |> Stream.drop(state.next_withdrawal_validator_index)
+      |> Stream.take(bound)
+      |> Stream.map(fn {{validator, balance}, index} ->
+        partially_withdrawn_balance =
+          Enum.sum(
+            for withdrawal <- pending_partial_withdrawals,
+                withdrawal.validator_index == index,
+                do: withdrawal.amount
+          )
 
-    Stream.zip([state.validators, state.balances])
-    |> Stream.with_index()
-    |> Stream.cycle()
-    |> Stream.drop(state.next_withdrawal_validator_index)
-    |> Stream.take(bound)
-    |> Stream.map(fn {{validator, balance}, index} ->
-      cond do
-        Validator.fully_withdrawable_validator?(validator, balance, epoch) ->
-          {validator, balance, index}
+        balance = balance - partially_withdrawn_balance
 
-        Validator.partially_withdrawable_validator?(validator, balance) ->
-          {validator, balance - max_effective_balance, index}
+        cond do
+          Validator.fully_withdrawable_validator?(validator, balance, epoch) ->
+            {validator, balance, index}
 
-        true ->
-          nil
-      end
-    end)
-    |> Stream.reject(&is_nil/1)
-    |> Stream.with_index()
-    |> Stream.map(fn {{validator, balance, validator_index}, index} ->
-      %Validator{withdrawal_credentials: withdrawal_credentials} = validator
+          Validator.partially_withdrawable_validator?(validator, balance) ->
+            {validator, balance - Validator.get_max_effective_balance(validator), index}
 
-      <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
+          true ->
+            nil
+        end
+      end)
+      |> Stream.reject(&is_nil/1)
+      |> Stream.with_index()
+      |> Stream.map(fn {{validator, balance, validator_index}, index} ->
+        %Validator{withdrawal_credentials: withdrawal_credentials} = validator
 
-      %Withdrawal{
-        index: index + state.next_withdrawal_index,
-        validator_index: validator_index,
-        address: execution_address,
-        amount: balance
+        <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
+
+        %Withdrawal{
+          index: index + withdrawal_index,
+          validator_index: validator_index,
+          address: execution_address,
+          amount: balance
+        }
+      end)
+
+    complete_withdrawals =
+      (pending_partial_withdrawals ++ Enum.to_list(non_partial_withdrawals))
+      |> Enum.take(max_withdrawals_per_payload)
+
+    {complete_withdrawals, processed_partial_withdrawals_count}
+  end
+
+  defp process_partial_withdrawal(
+         state,
+         withdrawal,
+         processed_partial_withdrawals_count,
+         withdrawal_index,
+         withdrawals
+       ) do
+    epoch = Accessors.get_current_epoch(state)
+
+    max_pending_partials_per_withdrawals_sweep =
+      ChainSpec.get("MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP")
+
+    # We expect partial withdrawals to be ordered by withdrawable epoch
+    if withdrawal.withdrawable_epoch > epoch ||
+         processed_partial_withdrawals_count == max_pending_partials_per_withdrawals_sweep do
+      {:halt, {processed_partial_withdrawals_count, withdrawal_index, withdrawals}}
+    else
+      do_process_partial_withdrawal(
+        state,
+        withdrawal,
+        processed_partial_withdrawals_count,
+        withdrawal_index,
+        withdrawals
+      )
+    end
+  end
+
+  defp do_process_partial_withdrawal(
+         state,
+         withdrawal,
+         processed_partial_withdrawals_count,
+         withdrawal_index,
+         withdrawals
+       ) do
+    far_future_epoch = Constants.far_future_epoch()
+    min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
+    validator = Aja.Vector.at(state.validators, withdrawal.validator_index)
+    has_sufficient_effective_balance = validator.effective_balance >= min_activation_balance
+
+    has_excess_balance =
+      Aja.Vector.at(state.balances, withdrawal.validator_index) > min_activation_balance
+
+    if validator.exit_epoch == far_future_epoch && has_sufficient_effective_balance &&
+         has_excess_balance do
+      withdrawable_balance =
+        min(
+          Aja.Vector.at(state.balances, withdrawal.validator_index) -
+            min_activation_balance,
+          withdrawal.amount
+        )
+
+      <<_::binary-size(12), address::binary>> = validator.withdrawal_credentials
+
+      withdrawal = %Withdrawal{
+        index: withdrawal_index,
+        validator_index: withdrawal.validator_index,
+        address: address,
+        amount: withdrawable_balance
       }
-    end)
-    |> Enum.take(max_withdrawals_per_payload)
+
+      {:cont,
+       {processed_partial_withdrawals_count + 1, withdrawal_index + 1,
+        withdrawals ++ [withdrawal]}}
+    else
+      {:cont, {processed_partial_withdrawals_count + 1, withdrawal_index, withdrawals}}
+    end
   end
 
   @spec process_proposer_slashing(BeaconState.t(), Types.ProposerSlashing.t()) ::
@@ -1030,7 +1135,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
     is_correct_source_address =
       case validator.withdrawal_credentials do
-        <<_::binary-size(12), rest>> -> rest == address
+        <<_::binary-size(12), validator_address::binary>> -> validator_address == address
         _ -> false
       end
 
@@ -1102,7 +1207,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:ok,
        %BeaconState{
          state
-         | pending_partial_withdrawals:
+         | # We should make sure that partial withdrawals are ordered by withdrawable epoch
+           pending_partial_withdrawals:
              state.pending_partial_withdrawals ++ [pending_partial_withdrawal]
        }}
     else
