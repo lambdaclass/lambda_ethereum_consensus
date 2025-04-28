@@ -135,7 +135,7 @@
   ## Usage
 
   Here you'll find both basic and advanced usage examples.  
-  For implementation details, refer to the [Architecture](./docs/ARCHITECTURE.md) documentation.
+  For implementation details, refer to the [Architecture](./docs/architecture.md) documentation.
 
   ### Basic usage
   
