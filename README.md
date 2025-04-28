@@ -5,7 +5,7 @@
 
   ## Overview
 
-  Lambda Ethereum Consensus Client is an Elixir-based Ethereum consensus layer client. It leverages the fault tolerance and distributed system capabilities of the BEAM VM to provide a reliable and predictable consensus client for Ethereum.
+  Lambda Ethereum Consensus Client is an Elixir-based Ethereum consensus layer client. It leverages the fault tolerance and distributed system capabilities of the BEAM VM as well as the succint and easy to understand syntax of Elixir.
 
   Besides pushing for client diversity in the Ethereum ecosystem, our goal is to create a clear landscape for anyone who is interested either in Ethereum or Elixir
 
@@ -51,28 +51,29 @@
   This project is under active development and the roadmap can be split into two different goals:
 
   ### Electra support
-  Top priority right now is adding Electra support, wehere.
+  Our top priority right now is adding Electra support.
 
   We setted up 3 stages to track the progress of the upgrade
   | Status | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
   |:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|:---------------------------------------------------|
-  | 🏗️   | [Phase 1: Beacon Chain Implementation](#phase-1-beacon-chain-implementation)     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
-  | ⌛   | [Phase 2: P2P & Sepolia Long-Running Sessions](#phase-2-p2p--sepolia-long-running-sessions)   | Ensure stability on Sepolia                          | • Implement the P2P changes <br> • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Sepolia|
-  | ⌛   | [Phase 3: Validator Upgrades](#phase-3-validator-upgrades) | Ensure validators duties on devnets              |• Implement the honest validator changes<br>• Make assertoor work<br> • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertoor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
+  | ✅   | [Phase 1: Beacon Chain Implementation](./electra-gap.md#phase-1-beacon-chain-implementation)     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
+  | ⌛   | [Phase 2: P2P & Sepolia Long-Running Sessions](./electra-gap.md#phase-2-p2p--sepolia-long-running-sessions)   | Ensure stability on Sepolia                          | • Implement the P2P changes <br> • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Sepolia|
+  | ⌛   | [Phase 3: Validator Upgrades](./electra-gap.md#phase-3-validator-upgrades) | Ensure validators duties on devnets              |• Implement the honest validator changes<br>• Make assertoor work<br> • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertoor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
 
   For more details, see the [Implementation Gaps for electra Upgrade](./electra-gap.md).
 
 
-  ### Deneb and previous forks support
-  We prioritize Electra support over being 100% compatible with previous forks. Some issues will be address while making Electra work, but we can present the current status as follows: 
+  ### Road to the MVP
+  Once an initial version of electra is in place we'll need to work on some missing component before reaching the MVP state: 
 
   #### Without Validators
-  - [✅] Sync Sepolia in Daneb.
+  - [✅] Sync and run the node on Sepolia for validating state transitions 
   - [🏗️] Implementation of the Beacon API
-  - [  ] Improve performance to process blocks and epochs for other networks
+  - [  ] Improve performance to process blocks and epochs for other networks (specially Holesky/Hoodi/Mainnet)
 
   #### With Validators
-  - [🏗️] Run devnet using kurtosis being validator
+  - [🏗️] Run devnets using kurtosis handling validator duties for long running sessions
+  - [ ] Run and handle validator duties in testnets (i.e. Holesky/Hoodi/Mainnet)
 
 
 
@@ -102,7 +103,7 @@
 
   You can install the necessary components directly from official sources or alternatively, use **asdf** for version management. 
 
-  See [Prerequisites](./docs/INSTALLATION.md#prerequisites) for detailed instructions.
+  See [Prerequisites](./docs/PREREQUISITES.md) for detailed instructions.
 
   ## Installing and running
 
