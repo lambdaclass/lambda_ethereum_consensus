@@ -449,6 +449,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     max_pending_partials_per_withdrawals_sweep =
       ChainSpec.get("MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP")
 
+    # We expect partial withdrawals to be ordered by withdrawable epoch
     if withdrawal.withdrawable_epoch > epoch ||
          processed_partial_withdrawals_count == max_pending_partials_per_withdrawals_sweep do
       {:halt, {processed_partial_withdrawals_count, withdrawal_index, withdrawals}}
@@ -1206,7 +1207,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       {:ok,
        %BeaconState{
          state
-         | pending_partial_withdrawals:
+         | # We should make sure that partial withdrawals are ordered by withdrawable epoch
+           pending_partial_withdrawals:
              state.pending_partial_withdrawals ++ [pending_partial_withdrawal]
        }}
     else
