@@ -36,8 +36,7 @@ Here we will detail the current implementation gaps with the specs and the way t
 
 ### Phase 1: Beacon Chain Implementation
 
-We are at `49/57` (86%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md), and most of the remaining functions are already in progress. We have still `108/11370` spec test failures, but we are working on them. The skipped tests were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase. Our aim as mentioned before is to reach `0` failures before going to the next phase.
-
+We are at `54/58` (91%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md), and most of the remaining functions are already in progress. We have fixed all `11370` spec tests. The skipped tests were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase.
 
 The current status of the implementation in the [electra-support](https://github.com/lambdaclass/lambda_ethereum_consensus/tree/electra-support) branch is as follows:
 
@@ -91,7 +90,7 @@ The current status of the implementation in the [electra-support](https://github
 - [x] Modified `compute_proposer_index` ([Spec](docs/specs/electra/beacon-chain.md#modified-compute_proposer_index), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1417))
 - [x] New `get_max_effective_balance` ([Spec](docs/specs/electra/beacon-chain.md#new-get_max_effective_balance), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1419))
 
-#### Epoch Processing (5/8 - 63%)
+#### Epoch Processing (8/8 - 100%)
 
 - [x] Modified `process_epoch` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_epoch), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
 - [x] Modified `process_registry_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_registry_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1420))
@@ -102,7 +101,7 @@ The current status of the implementation in the [electra-support](https://github
 - [x] Modified `process_effective_balance_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_effective_balance_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
 - [x] Modified `get_validator_from_deposit` ([Spec](docs/specs/electra/beacon-chains.md#modified-get_validator_from_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 
-#### Block Processing (10/13 - 83%)
+#### Block Processing (12/13 - 92%)
 
 - [x] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1431))
 - [ ] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
