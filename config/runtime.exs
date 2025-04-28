@@ -204,6 +204,7 @@ block_time_ms =
     "mainnet" -> 12_000
     "sepolia" -> 100
     "holesky" -> 24_000
+    "hoodi" -> 12_000
     # Default to mainnet
     _ -> 12_000
   end

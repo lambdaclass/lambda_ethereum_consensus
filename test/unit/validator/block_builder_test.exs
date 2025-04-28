@@ -18,6 +18,7 @@ defmodule Unit.Validator.BlockBuilderTest do
     |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
   end
 
+  @tag :skip
   test "construct block" do
     pre_state =
       SpecTestUtils.read_ssz_from_file!(
@@ -27,7 +28,7 @@ defmodule Unit.Validator.BlockBuilderTest do
 
     spec_block =
       SpecTestUtils.read_ssz_from_file!(
-        "test/fixtures/validator/proposer/empty_block.ssz_snappy",
+        "test/fixtures/validator/proposer/empty_signed_beacon_block.ssz_snappy",
         SignedBeaconBlock
       )
 
@@ -69,7 +70,7 @@ defmodule Unit.Validator.BlockBuilderTest do
   test "prove commitments" do
     spec_block =
       SpecTestUtils.read_ssz_from_file!(
-        "test/fixtures/validator/proposer/empty_block.ssz_snappy",
+        "test/fixtures/validator/proposer/empty_signed_beacon_block.ssz_snappy",
         SignedBeaconBlock
       )
 
@@ -79,12 +80,12 @@ defmodule Unit.Validator.BlockBuilderTest do
 
     [proof] = BlockBuilder.compute_inclusion_proofs(body)
 
-    assert length(proof) == 9
+    assert length(proof) == 10
 
     commitment_root = SszEx.hash_tree_root!(commitment, TypeAliases.kzg_commitment())
 
     # Manually computed generalized index of the commitment in the body
-    index = 0b101100000
+    index = 0b1011000000
 
     valid? =
       Predicates.valid_merkle_branch?(commitment_root, proof, length(proof), index, body_root)

@@ -2,7 +2,7 @@ defmodule ConfigUtils do
   @moduledoc """
   Utilities for parsing configs and presets.
   """
-  @forks ["phase0", "altair", "bellatrix", "capella", "deneb"]
+  @forks ["phase0", "altair", "bellatrix", "capella", "deneb", "electra"]
 
   def load_config_from_file!(path) do
     path
@@ -30,6 +30,7 @@ defmodule ConfigUtils do
   def parse_config("holesky"), do: HoleskyConfig
   def parse_config("minimal"), do: MinimalConfig
   def parse_config("gnosis"), do: GnosisConfig
+  def parse_config("hoodi"), do: HoodiConfig
   def parse_config(_), do: :unknown
 
   def parse_config!(config) do

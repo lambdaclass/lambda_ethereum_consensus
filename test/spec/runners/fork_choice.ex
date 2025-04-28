@@ -24,11 +24,6 @@ defmodule ForkChoiceTestRunner do
   end
 
   @impl TestRunner
-  def skip?(%SpecTestCase{fork: "capella"}), do: false
-  def skip?(%SpecTestCase{fork: "deneb"}), do: false
-  def skip?(_testcase), do: true
-
-  @impl TestRunner
   def run_test_case(testcase) do
     case_dir = SpecTestCase.dir(testcase)
 
@@ -177,7 +172,7 @@ defmodule ForkChoiceTestRunner do
 
   # TODO: validate the filename's hash
   defp load_blob_data(case_dir, block, %{blobs: "blobs_0x" <> _hash = blobs_file, proofs: proofs}) do
-    schema = {:list, TypeAliases.blob(), ChainSpec.get("MAX_BLOBS_PER_BLOCK")}
+    schema = {:list, TypeAliases.blob(), ChainSpec.get("MAX_BLOBS_PER_BLOCK_ELECTRA")}
 
     blobs = SpecTestUtils.read_ssz_ex_from_file!(case_dir <> "/#{blobs_file}.ssz_snappy", schema)
 

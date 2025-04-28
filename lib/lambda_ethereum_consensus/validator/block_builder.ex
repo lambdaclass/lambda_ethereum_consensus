@@ -95,7 +95,12 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
              block_request.slot,
              block_request.parent_root
            ),
-         execution_payload: execution_payload
+         execution_payload: execution_payload,
+         execution_requests: %Types.ExecutionRequests{
+           deposits: [],
+           withdrawals: [],
+           consolidations: []
+         }
        }
      }}
   end
@@ -132,7 +137,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
         prev_randao: Randao.get_randao_mix(mid_state.randao_mixes, current_epoch),
         # TODO: add suggested fee recipient
         suggested_fee_recipient: <<0::160>>,
-        withdrawals: Operations.get_expected_withdrawals(mid_state),
+        withdrawals: elem(Operations.get_expected_withdrawals(mid_state), 0),
         parent_beacon_block_root: head_root
       }
 

@@ -1,5 +1,5 @@
 # libp2p port
-FROM golang:1.22 AS libp2p_builder
+FROM golang:1.24 AS libp2p_builder
 LABEL stage=builder
 
 # Install dependencies

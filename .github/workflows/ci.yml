@@ -30,14 +30,14 @@ permissions:
 jobs:
   compile-native:
     name: Build native libraries
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Set up Go
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.24"
           cache-dependency-path: |
             native/libp2p_port/go.sum
       - name: Cache output artifacts
@@ -58,7 +58,7 @@ jobs:
 
   download-beacon-node-oapi:
     name: Download Beacon Node OAPI
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Cache Beacon Node OAPI
@@ -75,7 +75,7 @@ jobs:
   build:
     name: Build project
     needs: [compile-native, download-beacon-node-oapi]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - name: Set up Elixir
@@ -135,7 +135,7 @@ jobs:
 
   docker-build:
     name: Build Docker image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - name: Set up Docker Buildx
@@ -150,7 +150,7 @@ jobs:
   smoke:
     name: Start and stop the node
     needs: [compile-native, download-beacon-node-oapi]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - name: Set up Elixir
@@ -195,12 +195,12 @@ jobs:
       run: mix compile --warnings-as-errors
     - name: Run the node
       # NOTE: this starts and then stops the application. It should catch simple runtime errors
-      run: mix run -- --checkpoint-sync-url https://mainnet-checkpoint-sync.stakely.io/
+      run: mix run -- --checkpoint-sync-url https://sepolia.beaconstate.info --network sepolia
 
   test:
     name: Test
     needs: [compile-native, download-beacon-node-oapi]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - name: Set up Elixir
@@ -245,7 +245,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
     - name: Set up Elixir
@@ -273,7 +273,7 @@ jobs:
 
   download-spectests:
     name: Download spectests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Cache compressed spectests
@@ -293,9 +293,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fork: ["deneb"]
+        fork: ["electra"]
         config: ["minimal", "general", "mainnet"]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Set up Elixir
@@ -357,7 +357,7 @@ jobs:
   spectests-success:
     name: All spec-tests passed
     needs: spectests-matrix
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: always()
     steps:
       - if: needs.spectests-matrix.result == 'success'
