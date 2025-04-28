@@ -9,10 +9,10 @@ defmodule ChainSpec do
   def get_preset(), do: get_config().get("PRESET_BASE") |> String.to_atom()
 
   def get_fork_version_for_epoch(epoch) do
-    if epoch >= get("DENEB_FORK_EPOCH") do
-      get("DENEB_FORK_VERSION")
+    if epoch >= get("ELECTRA_FORK_EPOCH") do
+      get("ELECTRA_FORK_VERSION")
     else
-      raise "Forks before Deneb are not supported"
+      raise "Forks before Electra are not supported"
     end
   end
 
