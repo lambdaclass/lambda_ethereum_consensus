@@ -6,7 +6,7 @@ This document will guide you through our step-by-step plan for the implementatio
 
 | Status | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
 |:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|:---------------------------------------------------|
-| 🏗️   | [Phase 1: Beacon Chain Implementation](#phase-1-beacon-chain-implementation)     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
+| ✅   | [Phase 1: Beacon Chain Implementation](#phase-1-beacon-chain-implementation)     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
 | ⌛   | [Phase 2: P2P & Sepolia Long-Running Sessions](#phase-2-p2p--sepolia-long-running-sessions)   | Ensure stability on Sepolia                          | • Implement the P2P changes <br> • Deploy the node on our server pointing to Sepolia<br>• Fix every issue we found that interrupts the node execution | Continuous uptime checks & up-to-date block processing for 72+ hrs in Sepolia|
 | ⌛   | [Phase 3: Validator Upgrades](#phase-3-validator-upgrades) | Ensure validators duties on devnets              |• Implement the honest validator changes<br>• Make assertoor work<br> • Test via Kurtosis & Assertoor | Execute Kurtosis scenarios & Assertoor with continuous uptime checks and up-to-date validation duties for 72+ hrs on kurtosis   |
 
@@ -27,6 +27,7 @@ Right now we are at the [Beacon Chain Implementation](#phase-1-beacon-chain-impl
 
 - **April 15th, 2025:** `11370 tests, 2003 failures, 784 skipped`
 - **April 22th, 2025:** `11370 tests, 165 failures, 784 skipped`
+- **April 29th, 2025:** `11370 tests, 0 failures, 784 skipped`
 
 **Note:** The aim is to reach `0` failures before next week, so we can start the long running sessions on Sepolia. Also, we want to validate the 784 test skipped on the second phase.
 
@@ -36,9 +37,9 @@ Here we will detail the current implementation gaps with the specs and the way t
 
 ### Phase 1: Beacon Chain Implementation
 
-We are at `54/58` (91%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md), and most of the remaining functions are already in progress. We have fixed all `11370` spec tests. The skipped tests were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase.
+We are at `54/58` (92%) of the [beacon chain changes](docs/specs/electra/beacon-chain.md) having implemented all functions needed for phase 1. We have fixed all failing spec tests. The skipped ones were there previous to the electra upgrade, so we will work on them if needed after we finish the first phase.
 
-The current status of the implementation in the [electra-support](https://github.com/lambdaclass/lambda_ethereum_consensus/tree/electra-support) branch is as follows:
+The current status of the implementation is as follows:
 
 #### Containers (13/13 - 100%)
 
@@ -101,10 +102,9 @@ The current status of the implementation in the [electra-support](https://github
 - [x] Modified `process_effective_balance_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_effective_balance_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
 - [x] Modified `get_validator_from_deposit` ([Spec](docs/specs/electra/beacon-chains.md#modified-get_validator_from_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 
-#### Block Processing (12/13 - 92%)
+#### Block Processing (12/12 - 100%)
 
 - [x] Modified `process_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_withdrawals), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1431))
-- [ ] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
 - [x] Modified `process_operations` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_operations), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [x] Modified `process_attestation` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_attestation), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1426))
 - [x] Modified `process_deposit` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
@@ -117,23 +117,30 @@ The current status of the implementation in the [electra-support](https://github
 - [x] Modified `apply_deposit` ([Spec](docs/specs/electra/beacon-chain.md#modified-apply_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [x] Modified `get_expected_withdrawals` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_expected_withdrawals), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1431))
 
-## Execution Engine
-
-#### Execution Engine (0/3 - 0%)
-
-- [ ] Modified `is_valid_block_hash` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_valid_block_hash))
-- [ ] Modified `notify_new_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-notify_new_payload))
-- [ ] Modified `verify_and_notify_new_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-verify_and_notify_new_payload))
 
 ## Phase 2: P2P & Sepolia Long-Running Sessions
 
 We didn't start this phase yet, its goals are:
 
+- Missing execution engine [changes from the beacon chain](docs/specs/electra/beacon-chain.md) implemented.
 - [P2P electra changes](docs/specs/electra/p2p-interface.md) implementated.
 - To have a stable node processing state transitions in testnets, especially Sepolia. 
 - Validate the remaining 784 skipped tests to make sure they are not masking any issues.
 
 The aim is to have the node running on Sepolia uninterrupted for 72+ hrs. The following is the implementation gap for this phase:
+
+### Beacon Chain
+
+#### Block Processing (0/1 - 0%)
+- [ ] Modified `process_execution_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_execution_payload))
+
+#### Execution Engine (0/3 - 0%)
+`
+- [ ] Modified `is_valid_block_hash` ([Spec](docs/specs/electra/beacon-chain.md#modified-is_valid_block_hash))
+- [ ] Modified `notify_new_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-notify_new_payload))
+- [ ] Modified `verify_and_notify_new_payload` ([Spec](docs/specs/electra/beacon-chain.md#modified-verify_and_notify_new_payload))
+
+### P2P Interface
 
 ### Networking (0/8 - 0% Complete)
 
@@ -171,3 +178,4 @@ The aim is to have the node running on kurtosis uninterrupted for 72+ hrs. The f
 ## Changelog
 - **April 10th, 2025:** Created the document with the implementation gap.
 - **April 22th, 2025:** Updated the document with a clear roadmap, next steps and detailed current status.
+- **April 29th, 2025:** Updated the document with the execution engine implementation as part of phase 2
