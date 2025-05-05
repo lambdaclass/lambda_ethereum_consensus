@@ -254,7 +254,7 @@ dependencies = [
 [[package]]
 name = "bls"
 version = "0.2.0"
-source = "git+https://github.com/sigp/lighthouse?rev=v7.0.0#54f7bc5b2c153963084a4c6edb6c4acfb2317159"
+source = "git+https://github.com/sigp/lighthouse?rev=v7.0.1#e42406d7b79a85ad4622f3a7440ff6468ac4c9e1"
 dependencies = [
  "alloy-primitives",
  "arbitrary",
@@ -586,7 +586,7 @@ dependencies = [
 [[package]]
 name = "fixed_bytes"
 version = "0.1.0"
-source = "git+https://github.com/sigp/lighthouse?rev=v7.0.0#54f7bc5b2c153963084a4c6edb6c4acfb2317159"
+source = "git+https://github.com/sigp/lighthouse?rev=v7.0.1#e42406d7b79a85ad4622f3a7440ff6468ac4c9e1"
 dependencies = [
  "alloy-primitives",
  "safe_arith",
@@ -1202,7 +1202,7 @@ checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
 [[package]]
 name = "safe_arith"
 version = "0.1.0"
-source = "git+https://github.com/sigp/lighthouse?rev=v7.0.0#54f7bc5b2c153963084a4c6edb6c4acfb2317159"
+source = "git+https://github.com/sigp/lighthouse?rev=v7.0.1#e42406d7b79a85ad4622f3a7440ff6468ac4c9e1"
 
 [[package]]
 name = "sec1"
