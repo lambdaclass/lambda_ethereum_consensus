@@ -5,7 +5,7 @@
 
   ## Overview
 
-  Lambda Ethereum Consensus Client is an Elixir-based Ethereum consensus layer client. It leverages the fault tolerance and distributed system capabilities of the BEAM VM as well as the succint and easy to understand syntax of Elixir.
+  Lambda Ethereum Consensus Client is an Elixir-based Ethereum consensus layer client. It leverages the fault tolerance and distributed system capabilities of the BEAM VM as well as the succinct and easy to understand syntax of Elixir.
 
   Besides pushing for client diversity in the Ethereum ecosystem, our goal is to create a clear landscape for anyone who is interested either in Ethereum or Elixir
 
@@ -53,7 +53,7 @@
   ### Electra support
   Our top priority right now is adding Electra support.
 
-  We setted up 3 stages to track the progress of the upgrade
+  We set up 3 stages to track the progress of the upgrade
   | Status | Phase                                    | What & Why                                           | Key Steps                                                                 | Testing                                            |
   |:----:|:------------------------------------------|:------------------------------------------------------|:---------------------------------------------------------------------------|:---------------------------------------------------|
   | ✅   | [Phase 1: Beacon Chain Implementation](./electra-gap.md#phase-1-beacon-chain-implementation)     | Build the electra-upgraded beacon chain core         | • Apply electra-specific changes<br>• Run & pass full spec tests           | Run spec suite (`make spec-test`), aim for 0 failures |
@@ -130,7 +130,7 @@
   > In case checkpoint-sync is needed, `make iex` will end immediately with an error.
 
 
-  For more details about installing dependecies, see [Installing](./docs/PREREQUISITES.md).
+  For more details about installing dependencies, see [Installing](./docs/PREREQUISITES.md).
 
   ## Usage
 
@@ -150,7 +150,7 @@
   iex -S mix run -- --checkpoint-sync-url <your_url_here>
   ```
 
-  or you can specify mulitple urls by passing a comma separated list of urls:
+  or you can specify multiple urls by passing a comma separated list of urls:
 
   ```shell
   iex -S mix run -- --checkpoint-sync-url "<url1>, <url2>, ..."
