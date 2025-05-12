@@ -123,7 +123,7 @@ The current status of the implementation is as follows:
 We didn't start this phase yet, its goals are:
 
 - Missing execution engine [changes from the beacon chain](docs/specs/electra/beacon-chain.md) implemented.
-- [P2P electra changes](docs/specs/electra/p2p-interface.md) implementated.
+- [P2P electra changes](docs/specs/electra/p2p-interface.md) implemented.
 - To have a stable node processing state transitions in testnets, especially Sepolia. 
 - Validate the remaining 784 skipped tests to make sure they are not masking any issues.
 
