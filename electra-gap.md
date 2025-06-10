@@ -100,7 +100,7 @@ The current status of the implementation is as follows:
 - [x] New `process_pending_deposits` ([Spec](docs/specs/electra/beacon-chain.md#new-process_pending_deposits), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 - [x] New `process_pending_consolidations` ([Spec](docs/specs/electra/beacon-chain.md#new-process_pending_consolidations), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
 - [x] Modified `process_effective_balance_updates` ([Spec](docs/specs/electra/beacon-chain.md#modified-process_effective_balance_updates), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1428))
-- [x] Modified `get_validator_from_deposit` ([Spec](docs/specs/electra/beacon-chains.md#modified-get_validator_from_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
+- [x] Modified `get_validator_from_deposit` ([Spec](docs/specs/electra/beacon-chain.md#modified-get_validator_from_deposit), [PR](https://github.com/lambdaclass/lambda_ethereum_consensus/pull/1424))
 
 #### Block Processing (12/12 - 100%)
 
