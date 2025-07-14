@@ -254,7 +254,7 @@ dependencies = [
 [[package]]
 name = "bls"
 version = "0.2.0"
-source = "git+https://github.com/sigp/lighthouse?rev=v7.0.1#e42406d7b79a85ad4622f3a7440ff6468ac4c9e1"
+source = "git+https://github.com/sigp/lighthouse?rev=v7.1.0#cfb1f7331064b758c6786e4e1dc15507af5ff5d1"
 dependencies = [
  "alloy-primitives",
  "arbitrary",
@@ -535,13 +535,17 @@ dependencies = [
 
 [[package]]
 name = "ethereum_ssz"
-version = "0.7.1"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e999563461faea0ab9bc0024e5e66adcee35881f3d5062f52f31a4070fe1522"
+checksum = "86da3096d1304f5f28476ce383005385459afeaf0eea08592b65ddbc9b258d16"
 dependencies = [
  "alloy-primitives",
+ "ethereum_serde_utils",
  "itertools 0.13.0",
+ "serde",
+ "serde_derive",
  "smallvec",
+ "typenum",
 ]
 
 [[package]]
@@ -586,7 +590,7 @@ dependencies = [
 [[package]]
 name = "fixed_bytes"
 version = "0.1.0"
-source = "git+https://github.com/sigp/lighthouse?rev=v7.0.1#e42406d7b79a85ad4622f3a7440ff6468ac4c9e1"
+source = "git+https://github.com/sigp/lighthouse?rev=v7.1.0#cfb1f7331064b758c6786e4e1dc15507af5ff5d1"
 dependencies = [
  "alloy-primitives",
  "safe_arith",
@@ -1202,7 +1206,7 @@ checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
 [[package]]
 name = "safe_arith"
 version = "0.1.0"
-source = "git+https://github.com/sigp/lighthouse?rev=v7.0.1#e42406d7b79a85ad4622f3a7440ff6468ac4c9e1"
+source = "git+https://github.com/sigp/lighthouse?rev=v7.1.0#cfb1f7331064b758c6786e4e1dc15507af5ff5d1"
 
 [[package]]
 name = "sec1"
@@ -1446,13 +1450,15 @@ dependencies = [
 
 [[package]]
 name = "tree_hash"
-version = "0.8.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "373495c23db675a5192de8b610395e1bec324d596f9e6111192ce903dc11403a"
+checksum = "6c58eb0f518840670270d90d97ffee702d8662d9c5494870c9e1e9e0fa00f668"
 dependencies = [
  "alloy-primitives",
  "ethereum_hashing",
+ "ethereum_ssz",
  "smallvec",
+ "typenum",
 ]
 
 [[package]]
