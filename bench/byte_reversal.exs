@@ -12,7 +12,7 @@ reverse_comprehension = fn bits ->
   for <<byte <- bits>>, do: <<byte>>, into: <<>>
 end
 
-bits = for i <- 1..512, do: <<i>>, into: <<>>
+bits = for i <- 1..512, do: <<rem(i, 256)>>, into: <<>>
 
 Benchee.run(
   %{
