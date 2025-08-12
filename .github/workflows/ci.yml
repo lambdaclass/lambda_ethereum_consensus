@@ -32,7 +32,7 @@ jobs:
     name: Build native libraries
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Go
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v5
@@ -60,7 +60,7 @@ jobs:
     name: Download Beacon Node OAPI
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache Beacon Node OAPI
         id: output-cache
         uses: actions/cache@v4
@@ -77,7 +77,7 @@ jobs:
     needs: [compile-native, download-beacon-node-oapi]
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Elixir
       id: setup-beam
       uses: erlef/setup-beam@v1
@@ -137,7 +137,7 @@ jobs:
     name: Build Docker image
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     - name: Build Docker image
@@ -152,7 +152,7 @@ jobs:
     needs: [compile-native, download-beacon-node-oapi]
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
@@ -202,7 +202,7 @@ jobs:
     needs: [compile-native, download-beacon-node-oapi]
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
@@ -247,7 +247,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
@@ -275,7 +275,7 @@ jobs:
     name: Download spectests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache compressed spectests
         id: output-cache
         uses: actions/cache@v4
@@ -297,7 +297,7 @@ jobs:
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
