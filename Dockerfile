@@ -30,18 +30,6 @@ RUN cargo build --release && \
     mv target/release/libbls_nif.so ./libbls_nif.so && \
     rm -rf target/
 
-# kzg nif
-FROM rust:1.81.0 AS kzg_nif_builder
-LABEL stage=builder
-
-RUN mkdir /kzg_nif
-WORKDIR /kzg_nif
-
-COPY ./native/kzg_nif /kzg_nif
-RUN cargo build --release && \
-    mv target/release/libkzg_nif.so ./libkzg_nif.so && \
-    rm -rf target/
-
 # snappy nif
 FROM rust:1.81.0 AS snappy_nif_builder
 LABEL stage=builder
@@ -106,7 +94,6 @@ COPY --from=libp2p_builder /libp2p_port/libp2p_port /consensus/priv/native/libp2
 # TODO: only copy artifacts
 # Copy precompiled rust crates. Rustler stores targets under _build
 COPY --from=bls_nif_builder /bls_nif/libbls_nif.so /consensus/priv/native/libbls_nif.so
-COPY --from=kzg_nif_builder /kzg_nif/libkzg_nif.so /consensus/priv/native/libkzg_nif.so
 COPY --from=snappy_nif_builder /snappy_nif/libsnappy_nif.so /consensus/priv/native/libsnappy_nif.so
 COPY --from=ssz_nif_builder /ssz_nif/libssz_nif.so /consensus/priv/native/libssz_nif.so
 

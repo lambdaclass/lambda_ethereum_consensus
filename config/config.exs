@@ -49,7 +49,6 @@ config :lambda_ethereum_consensus, :logger, [
 # Avoid compiling Rustler NIFs when `RUSTLER_SKIP_COMPILE` is set
 if System.get_env("RUSTLER_SKIP_COMPILE") do
   config :lambda_ethereum_consensus, Bls, skip_compilation?: true
-  config :lambda_ethereum_consensus, Kzg, skip_compilation?: true
   config :lambda_ethereum_consensus, Snappy, skip_compilation?: true
   config :lambda_ethereum_consensus, Ssz, skip_compilation?: true
 end

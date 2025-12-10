@@ -67,7 +67,8 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:uuid, "~> 1.1"},
       # TODO: (#1368) We might want to use phoenix_pubsub instead and do our implementation of SSE.
       {:sse, "~> 0.4"},
-      {:event_bus, ">= 1.6.0"}
+      {:event_bus, ">= 1.6.0"},
+      {:ckzg, github: "ethereum/c-kzg-4844", ref: "cfa04bb"}
     ]
   end
 
