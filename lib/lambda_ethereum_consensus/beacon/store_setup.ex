@@ -142,7 +142,7 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
     case Enum.uniq(blocks) do
       [_] ->
         Logger.info(
-          "[Checkpoin sync] Received the same last finalized block from #{length(blocks)} checkpoint nodes"
+          "[Checkpoint sync] Received the same last finalized block from #{length(blocks)} checkpoint nodes"
         )
 
       _ ->
