@@ -49,6 +49,14 @@ defmodule Types do
   @type bls_signature :: Bls.signature()
   @type bls_pubkey :: Bls.pubkey()
 
+  # Fulu / PeerDAS (EIP-7594)
+  @type column_index :: uint64
+  @type row_index :: uint64
+  @type custody_index :: uint64
+  @type cell_index :: uint64
+  # FIELD_ELEMENTS_PER_CELL * BYTES_PER_FIELD_ELEMENT = 64 * 32 = 2048 bytes
+  @type cell :: <<_::16384>>
+
   defmodule Guards do
     @moduledoc """
     Module defining guards for some types. Added as needed.

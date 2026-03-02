@@ -1,0 +1,12 @@
+# Mainnet preset - Fulu (PeerDAS / EIP-7594)
+
+# Misc
+# ---------------------------------------------------------------
+# `uint64(64)`
+FIELD_ELEMENTS_PER_CELL: 64
+# `uint64(2 * FIELD_ELEMENTS_PER_BLOB)` (= 8192)
+FIELD_ELEMENTS_PER_EXT_BLOB: 8192
+# `floorlog2(get_generalized_index(DataColumnSidecar, 'kzg_commitments')) + 1 + ceillog2(MAX_BLOB_COMMITMENTS_PER_BLOCK)` = 4
+KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH: 4
+# `uint64(12)`
+MAX_BLOBS_PER_BLOCK_FULU: 12

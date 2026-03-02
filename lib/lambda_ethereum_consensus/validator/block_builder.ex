@@ -8,10 +8,12 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
@@ -54,7 +56,13 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
              eth1_vote
            ),
          {:ok, signed_block} <- seal_block(pre_state, block, block_request.privkey) do
-      sidecars = generate_sidecars(signed_block, blobs_bundle)
+      sidecars =
+        if HardForkAliasInjection.fulu?() do
+          generate_data_column_sidecars(signed_block, blobs_bundle)
+        else
+          generate_sidecars(signed_block, blobs_bundle)
+        end
+
       {:ok, {signed_block, sidecars}}
     end
   end
@@ -359,6 +367,33 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       }
       |> tap(&BlobDb.store_blob/1)
     end)
+  end
+
+  # Fulu: generate all 128 DataColumnSidecars from the blobs, store them in the DB,
+  # and return the list (all 128, not just custody columns — the proposer serves them all).
+  @spec generate_data_column_sidecars(SignedBeaconBlock.t(), BlobsBundle.t()) ::
+          [Types.DataColumnSidecar.t()]
+  defp generate_data_column_sidecars(%SignedBeaconBlock{} = signed_block, %BlobsBundle{} = blobs_bundle) do
+    %BlobsBundle{blobs: blobs} = blobs_bundle
+
+    cells_and_proofs_result =
+      Enum.reduce_while(blobs, {:ok, []}, fn blob, {:ok, acc} ->
+        case Kzg.compute_cells_and_kzg_proofs(blob) do
+          {:ok, pair} -> {:cont, {:ok, acc ++ [pair]}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+
+    case cells_and_proofs_result do
+      {:ok, cells_and_proofs} ->
+        {:ok, sidecars} = DasCore.get_data_column_sidecars(signed_block, cells_and_proofs)
+        Enum.each(sidecars, &DataColumnDb.store_data_column/1)
+        sidecars
+
+      {:error, reason} ->
+        Logger.error("[BlockBuilder] Failed to compute KZG cells for data columns: #{reason}")
+        []
+    end
   end
 
   def compute_inclusion_proofs(%BeaconBlockBody{blob_kzg_commitments: []}), do: []

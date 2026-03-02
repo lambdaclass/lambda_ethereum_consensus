@@ -9,18 +9,31 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
   alias LambdaEthereumConsensus.P2P.ReqResp
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.DataColumnDb
 
   require Logger
 
   @request_prefix "/eth2/beacon_chain/req/"
+
+  # On Fulu, advertise the metadata/3 version (adds custody_group_count) and the
+  # two new data column req/resp protocols.
   @request_names [
-    "status/1",
-    "goodbye/1",
-    "ping/1",
-    "beacon_blocks_by_range/2",
-    "beacon_blocks_by_root/2",
-    "metadata/2"
-  ]
+                   "status/1",
+                   "goodbye/1",
+                   "ping/1",
+                   "beacon_blocks_by_range/2",
+                   "beacon_blocks_by_root/2",
+                   "metadata/2"
+                 ] ++
+                   if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu do
+                     [
+                       "metadata/3",
+                       "data_column_sidecars_by_range/1",
+                       "data_column_sidecars_by_root/1"
+                     ]
+                   else
+                     []
+                   end
 
   @spec protocol_ids() :: list(String.t())
   def protocol_ids() do
@@ -129,10 +142,51 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     end
   end
 
+  defp handle_req("metadata/3/ssz_snappy", message_id, _message) do
+    # MetadataV3 (Fulu): adds custody_group_count to the metadata response.
+    payload = Metadata.get_metadata() |> ReqResp.encode_ok()
+    {:ok, {message_id, payload}}
+  end
+
+  defp handle_req("data_column_sidecars_by_root/1/ssz_snappy", message_id, message) do
+    with {:ok, identifiers} <-
+           ReqResp.decode_request(message, TypeAliases.data_column_sidecars_by_root_request()) do
+      count = length(identifiers)
+      Logger.info("[DataColumnsByRoot] requested #{count} columns")
+      truncated_count = min(count, ChainSpec.get("MAX_REQUEST_DATA_COLUMN_SIDECARS"))
+
+      response_chunk =
+        identifiers
+        |> Enum.take(truncated_count)
+        |> Enum.map(fn %{block_root: root, index: column_index} ->
+          DataColumnDb.get_data_column_sidecar(root, column_index)
+        end)
+        |> Enum.map(&map_column_result/1)
+        |> Enum.reject(&(&1 == :skip))
+        |> ReqResp.encode_response()
+
+      {:ok, {message_id, response_chunk}}
+    end
+  end
+
+  defp handle_req("data_column_sidecars_by_range/1/ssz_snappy", message_id, message) do
+    # DataColumnSidecarsByRangeRequest has: start_slot, count, columns.
+    # We serve stored sidecars for the requested slot range and column indices.
+    # TODO: implement full range serving once DataColumnDb supports slot-indexed iteration.
+    Logger.info("[DataColumnsByRange] received request (not yet fully implemented)")
+    {:ok, {message_id, ReqResp.encode_response([])}}
+  end
+
   defp handle_req(protocol, _message_id, _message) do
     # This should never happen, since Libp2p only accepts registered protocols
     {:error, "Unsupported protocol: #{protocol}"}
   end
+
+  defp map_column_result({:ok, column}),
+    do: {:ok, {column, ForkChoice.get_fork_digest_for_slot(column.signed_block_header.message.slot)}}
+
+  defp map_column_result(:not_found), do: {:error, {3, "Resource Unavailable"}}
+  defp map_column_result({:error, _}), do: {:error, {2, "Server Error"}}
 
   defp map_block_result(:not_found), do: map_block_result(nil)
   defp map_block_result(nil), do: {:error, {3, "Resource Unavailable"}}

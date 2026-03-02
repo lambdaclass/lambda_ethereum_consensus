@@ -49,6 +49,10 @@ type KZGProof = Bytes48;
 type BlobIndex = u64;
 type Blob<C> = FixedVector<u8, <C as Config>::BytesPerBlob>;
 
+// Fulu / PeerDAS
+type ColumnIndex = u64;
+type Cell<C> = FixedVector<u8, <C as Config>::BytesPerCell>;
+
 // This type is a little-endian encoded uint256.
 // We use this to because of Erlang's NIF limitations.
 #[derive(Clone, Copy, Encode, Decode)]

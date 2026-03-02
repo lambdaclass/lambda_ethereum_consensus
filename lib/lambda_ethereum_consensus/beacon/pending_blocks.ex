@@ -10,17 +10,20 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.BlobDownloader
   alias LambdaEthereumConsensus.P2P.BlockDownloader
+  alias LambdaEthereumConsensus.P2P.DataColumnDownloader
+  alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.Store.Blobs
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.DataColumns
   alias LambdaEthereumConsensus.Utils
   alias Types.BlockInfo
   alias Types.SignedBeaconBlock
   alias Types.Store
 
   @type block_status ::
-          :transitioned | :pending | :invalid | :download | :download_blobs | :unknown
+          :transitioned | :pending | :invalid | :download | :download_blobs | :download_columns | :unknown
   @type block_info ::
-          {SignedBeaconBlock.t(), :pending | :download_blobs}
+          {SignedBeaconBlock.t(), :pending | :download_blobs | :download_columns}
           | {nil, :invalid | :download}
   @type state :: nil
 
@@ -36,7 +39,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   If the new state enables older blocks that were pending to be processed, they will be processed
   immediately.
 
-  If blobs are missing, they will be requested.
+  On Electra: if blobs are missing, they will be requested.
+  On Fulu: if custody data columns are missing, they will be requested.
   """
   @spec add_block(Store.t(), SignedBeaconBlock.t()) :: Store.t()
   def add_block(store, signed_block) do
@@ -46,28 +50,63 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
     # If the block is new or was to be downloaded, we store it.
     if is_nil(loaded_block) or loaded_block.status == :download do
-      missing_blobs = Blobs.missing_for_block(block_info)
-
-      if Enum.empty?(missing_blobs) do
-        Logger.debug("[PendingBlocks] No missing blobs for block, process it", log_md)
-        Blocks.new_block_info(block_info)
-        process_block_and_check_children(store, block_info)
+      if HardForkAliasInjection.fulu?() do
+        add_block_fulu(store, block_info, log_md)
       else
-        Logger.debug("[PendingBlocks] Missing blobs for block, scheduling download", log_md)
-
-        BlobDownloader.request_blobs_by_root(
-          missing_blobs,
-          &process_blobs/2,
-          @download_retries
-        )
-
-        block_info
-        |> BlockInfo.change_status(:download_blobs)
-        |> Blocks.new_block_info()
-
-        store
+        add_block_electra(store, block_info, log_md)
       end
     else
+      store
+    end
+  end
+
+  defp add_block_electra(store, block_info, log_md) do
+    missing_blobs = Blobs.missing_for_block(block_info)
+
+    if Enum.empty?(missing_blobs) do
+      Logger.debug("[PendingBlocks] No missing blobs for block, process it", log_md)
+      Blocks.new_block_info(block_info)
+      process_block_and_check_children(store, block_info)
+    else
+      Logger.debug("[PendingBlocks] Missing blobs for block, scheduling download", log_md)
+
+      BlobDownloader.request_blobs_by_root(
+        missing_blobs,
+        &process_blobs/2,
+        @download_retries
+      )
+
+      block_info
+      |> BlockInfo.change_status(:download_blobs)
+      |> Blocks.new_block_info()
+
+      store
+    end
+  end
+
+  defp add_block_fulu(store, block_info, log_md) do
+    missing_columns = DataColumns.missing_columns_for_block(block_info, custody_column_indices())
+
+    if Enum.empty?(missing_columns) do
+      Logger.debug("[PendingBlocks] No missing data columns for block, process it", log_md)
+      Blocks.new_block_info(block_info)
+      process_block_and_check_children(store, block_info)
+    else
+      Logger.debug(
+        "[PendingBlocks] Missing data columns for block, scheduling download",
+        log_md
+      )
+
+      DataColumnDownloader.request_columns_by_root(
+        missing_columns,
+        &process_data_columns/2,
+        @download_retries
+      )
+
+      block_info
+      |> BlockInfo.change_status(:download_columns)
+      |> Blocks.new_block_info()
+
       store
     end
   end
@@ -123,6 +162,35 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def process_blobs(store, {:error, reason}) do
     # We might want to declare a block invalid here.
     Logger.error("[PendingBlocks] Error downloading blobs: #{inspect(reason)}")
+    {:ok, store}
+  end
+
+  @doc """
+  Process incoming data column sidecars (Fulu). If the block now has all custody columns,
+  move it to pending and process it.
+  """
+  @spec process_data_columns(Store.t(), {:ok, [Types.DataColumnSidecar.t()]}) :: {:ok, Store.t()}
+  def process_data_columns(store, {:ok, sidecars}) do
+    sidecars
+    |> DataColumns.add_columns()
+    |> Enum.reduce(store, fn root, store ->
+      with %BlockInfo{status: :download_columns} = block_info <- Blocks.get_block_info(root),
+           [] <-
+             DataColumns.missing_columns_for_block(block_info, custody_column_indices()) do
+        block_info
+        |> Blocks.change_status(:pending)
+        |> then(&process_block_and_check_children(store, &1))
+
+        {:ok, store}
+      else
+        _ -> {:ok, store}
+      end
+    end)
+  end
+
+  @spec process_data_columns(Store.t(), {:error, any()}) :: {:ok, Store.t()}
+  def process_data_columns(store, {:error, reason}) do
+    Logger.error("[PendingBlocks] Error downloading data columns: #{inspect(reason)}")
     {:ok, store}
   end
 
@@ -217,5 +285,13 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     # We might want to declare a block invalid here.
     Logger.error("[PendingBlocks] Error downloading block: #{inspect(reason)}")
     {:ok, store}
+  end
+
+  # Returns the column indices this node is responsible for.
+  # node_id comes from the libp2p ENR; defaults to 0 until Phase 5 wires it up.
+  defp custody_column_indices() do
+    node_id = Application.get_env(:lambda_ethereum_consensus, :node_id, 0)
+    custody_group_count = ChainSpec.get("CUSTODY_REQUIREMENT")
+    DasCore.get_custody_columns(node_id, custody_group_count)
   end
 end

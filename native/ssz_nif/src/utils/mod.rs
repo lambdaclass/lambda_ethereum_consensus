@@ -53,6 +53,8 @@ macro_rules! schema_match {
                 Epoch,
                 BlobSidecar<C>,
                 BlobIdentifier,
+                DataColumnSidecar<C>,
+                DataColumnIdentifier,
                 PendingDeposit,
                 PendingPartialWithdrawal,
                 PendingConsolidation,

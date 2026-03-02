@@ -2,36 +2,67 @@ defmodule Types.Metadata do
   @moduledoc """
   Struct definition for `Metadata`.
   Related definitions in `native/ssz_nif/src/types/`.
+
+  On Electra this is MetaDataV2 (seq_number, attnets, syncnets).
+  On Fulu this is MetaDataV3, which adds `custody_group_count`.
   """
 
   alias LambdaEthereumConsensus.Utils.BitVector
 
-  fields = [
-    :seq_number,
-    :attnets,
-    :syncnets
-  ]
+  # Fulu (MetaDataV3) adds custody_group_count.
+  fulu_fields =
+    if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu,
+      do: [:custody_group_count],
+      else: []
+
+  fields = [:seq_number, :attnets, :syncnets] ++ fulu_fields
 
   @enforce_keys fields
   defstruct fields
 
-  @type t :: %__MODULE__{
-          seq_number: Types.uint64(),
-          attnets: Types.bitvector(),
-          syncnets: Types.bitvector()
-        }
+  if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu do
+    @type t :: %__MODULE__{
+            seq_number: Types.uint64(),
+            attnets: Types.bitvector(),
+            syncnets: Types.bitvector(),
+            custody_group_count: Types.uint64()
+          }
+  else
+    @type t :: %__MODULE__{
+            seq_number: Types.uint64(),
+            attnets: Types.bitvector(),
+            syncnets: Types.bitvector()
+          }
+  end
 
-  def schema(),
-    do: [
+  def schema() do
+    base = [
       seq_number: TypeAliases.uint64(),
       attnets: {:bitvector, ChainSpec.get("ATTESTATION_SUBNET_COUNT")},
       syncnets: {:bitvector, Constants.sync_committee_subnet_count()}
     ]
 
+    if HardForkAliasInjection.fulu?() do
+      base ++ [custody_group_count: TypeAliases.uint64()]
+    else
+      base
+    end
+  end
+
   def empty() do
     attnets = ChainSpec.get("ATTESTATION_SUBNET_COUNT") |> BitVector.new()
     syncnets = Constants.sync_committee_subnet_count() |> BitVector.new()
-    %__MODULE__{seq_number: 0, attnets: attnets, syncnets: syncnets}
+
+    if HardForkAliasInjection.fulu?() do
+      %__MODULE__{
+        seq_number: 0,
+        attnets: attnets,
+        syncnets: syncnets,
+        custody_group_count: ChainSpec.get("CUSTODY_REQUIREMENT")
+      }
+    else
+      %__MODULE__{seq_number: 0, attnets: attnets, syncnets: syncnets}
+    end
   end
 
   def encode(%__MODULE__{} = map) do

@@ -12,7 +12,7 @@ defmodule Mix.Tasks.GenerateSpecTests do
   alias Spec.MetaUtils
 
   @configs ["mainnet", "minimal", "general"]
-  @forks ["phase0", "altair", "bellatrix", "capella", "deneb"]
+  @forks ["phase0", "altair", "bellatrix", "capella", "deneb", "electra", "fulu"]
   @current_fork Application.compile_env!(:lambda_ethereum_consensus, :fork) |> Atom.to_string()
 
   @shortdoc "Generates tests for spec test files"

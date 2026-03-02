@@ -12,7 +12,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
+  alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.Store.BlobDb
+  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.StateDb
   alias Types.Attestation
@@ -84,7 +86,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {:error, "block isn't descendant of latest finalized block"}
 
       not (block_info.root |> data_available?(block.body.blob_kzg_commitments)) ->
-        {:error, "blob data not available"}
+        {:error, "data not available"}
 
       true ->
         compute_post_state(store, block_info, base_state)
@@ -93,15 +95,26 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   @doc """
   Equivalent to `is_data_available` from the spec.
-  Returns true if the blob's data is available from the network.
+
+  On Electra: verifies KZG proofs for all blob sidecars in the block.
+  On Fulu: verifies KZG cell proofs for all custody data column sidecars.
   """
   @spec data_available?(Types.root(), [Types.kzg_commitment()]) :: boolean()
   def data_available?(_beacon_block_root, []), do: true
 
   def data_available?(beacon_block_root, blob_kzg_commitments) do
-    # TODO: the p2p network does not guarantee sidecar retrieval
-    # outside of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`. Should we
-    # handle that case somehow here?
+    if HardForkAliasInjection.fulu?() do
+      columns_data_available?(beacon_block_root)
+    else
+      blobs_data_available?(beacon_block_root, blob_kzg_commitments)
+    end
+  end
+
+  # Electra path: verify KZG proofs for all blob sidecars.
+  # TODO: the p2p network does not guarantee sidecar retrieval
+  # outside of `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS`. Should we
+  # handle that case somehow here?
+  defp blobs_data_available?(beacon_block_root, blob_kzg_commitments) do
     blobs =
       0..(length(blob_kzg_commitments) - 1)//1
       |> Enum.map(&BlobDb.get_blob_with_proof(beacon_block_root, &1))
@@ -115,6 +128,30 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     else
       false
     end
+  end
+
+  # Fulu path: verify KZG cell proofs for all custody data column sidecars.
+  # All custody columns must be present in the DB and pass batch KZG verification.
+  defp columns_data_available?(beacon_block_root) do
+    column_indices = custody_column_indices()
+
+    results =
+      Enum.map(column_indices, &DataColumnDb.get_data_column_sidecar(beacon_block_root, &1))
+
+    if Enum.all?(results, &match?({:ok, _}, &1)) do
+      sidecars = Enum.map(results, fn {:ok, s} -> s end)
+      DasCore.columns_data_available?(beacon_block_root, sidecars)
+    else
+      false
+    end
+  end
+
+  # Returns the column indices this node is responsible for.
+  # node_id comes from the libp2p ENR; defaults to 0 until Phase 5 wires it up.
+  defp custody_column_indices() do
+    node_id = Application.get_env(:lambda_ethereum_consensus, :node_id, 0)
+    custody_group_count = ChainSpec.get("CUSTODY_REQUIREMENT")
+    DasCore.get_custody_columns(node_id, custody_group_count)
   end
 
   @doc """

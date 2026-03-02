@@ -57,11 +57,17 @@ pub(crate) trait Config {
     type MaxAttestationsElectra: Unsigned;
     type MaxValidatorsPerSlot: Unsigned;
 
+    // Fulu / PeerDAS (EIP-7594) added fields
+    type FieldElementsPerCell: Unsigned; // 64 for all presets
+    type MaxBlobsPerBlockFulu: Unsigned; // 12 mainnet/gnosis, 6 minimal
+    type KzgCommitmentsInclusionProofDepth: Unsigned; // 4 for all presets
+
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize: Unsigned; // SYNC_COMMITTEE_SIZE / SYNC_COMMITTEE_SUBNET_COUNT
     type MaxPendingAttestations: Unsigned; // MAX_ATTESTATIONS * SLOTS_PER_EPOCH
     type SlotsPerEth1VotingPeriod: Unsigned; // EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
     type BytesPerBlob: Unsigned; // FIELD_ELEMENTS_PER_BLOB * BYTES_PER_FIELD_ELEMENT
+    type BytesPerCell: Unsigned; // FIELD_ELEMENTS_PER_CELL * BYTES_PER_FIELD_ELEMENT
 }
 
 pub(crate) struct Mainnet;
@@ -111,6 +117,11 @@ impl Config for Mainnet {
     type MaxAttestationsElectra = U8;
     type MaxValidatorsPerSlot = U131072; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
 
+    // Fulu / PeerDAS
+    type FieldElementsPerCell = U64;
+    type MaxBlobsPerBlockFulu = U12;
+    type KzgCommitmentsInclusionProofDepth = U4;
+
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
         typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 512 committee size / 4 sync committee subnet count
@@ -118,6 +129,7 @@ impl Config for Mainnet {
     type SlotsPerEth1VotingPeriod =
         typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 64 epochs * 32 slots per epoch
     type BytesPerBlob = typenum::Prod<Self::FieldElementsPerBlob, Self::BytesPerFieldElement>;
+    type BytesPerCell = typenum::Prod<Self::FieldElementsPerCell, Self::BytesPerFieldElement>; // 64 * 32 = 2048
 }
 
 pub(crate) struct Minimal;
@@ -141,6 +153,9 @@ impl Config for Minimal {
     type PendingConsolidationsLimit = U64;
     type MaxValidatorsPerSlot = U8192; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 4, this as the rest is fixed and we need to be really carefull about any change
 
+    // Fulu / PeerDAS (customized: 6 blobs for minimal)
+    type MaxBlobsPerBlockFulu = U6;
+
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
         typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 32 committee size / 4 sync committee subnet count
@@ -148,6 +163,7 @@ impl Config for Minimal {
     type SlotsPerEth1VotingPeriod =
         typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 4 epochs * 8 slots per epoch
     type BytesPerBlob = typenum::Prod<Self::FieldElementsPerBlob, Self::BytesPerFieldElement>;
+    type BytesPerCell = typenum::Prod<Self::FieldElementsPerCell, Self::BytesPerFieldElement>; // 64 * 32 = 2048
 
     inherit_from!(Mainnet {
         JustificationBitsLength,
@@ -175,7 +191,9 @@ impl Config for Minimal {
         MaxConsolidationRequestsPerPayload,
         PendingDepositsLimit,
         MaxAttesterSlashingsElectra,
-        MaxAttestationsElectra
+        MaxAttestationsElectra,
+        FieldElementsPerCell,
+        KzgCommitmentsInclusionProofDepth
     });
 }
 
@@ -226,6 +244,11 @@ impl Config for Gnosis {
     type MaxAttestationsElectra = U8;
     type MaxValidatorsPerSlot = U131072; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
 
+    // Fulu / PeerDAS
+    type FieldElementsPerCell = U64;
+    type MaxBlobsPerBlockFulu = U12;
+    type KzgCommitmentsInclusionProofDepth = U4;
+
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize =
         typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 512 committee size / 4 sync committee subnet count
@@ -233,4 +256,5 @@ impl Config for Gnosis {
     type SlotsPerEth1VotingPeriod =
         typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 64 epochs * 32 slots per epoch
     type BytesPerBlob = typenum::Prod<Self::FieldElementsPerBlob, Self::BytesPerFieldElement>;
+    type BytesPerCell = typenum::Prod<Self::FieldElementsPerCell, Self::BytesPerFieldElement>; // 64 * 32 = 2048
 }

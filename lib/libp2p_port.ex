@@ -15,6 +15,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
+  alias LambdaEthereumConsensus.P2P.Gossip.DataColumnSidecar
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.P2P.IncomingRequestsHandler
   alias LambdaEthereumConsensus.P2P.Peerbook
@@ -348,7 +349,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @spec join_init_topics(port()) :: :ok | {:error, String.t()}
   defp join_init_topics(port) do
-    topics = [BeaconBlock.topic()] ++ BlobSideCar.topics()
+    # On Fulu, join data column sidecar topics instead of blob sidecar topics.
+    data_topics =
+      if HardForkAliasInjection.fulu?(),
+        do: DataColumnSidecar.topics(),
+        else: BlobSideCar.topics()
+
+    topics = [BeaconBlock.topic()] ++ data_topics
 
     topics
     |> Enum.each(fn topic_name ->
@@ -798,9 +805,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp subscribe_to_gossip_topics(state) do
+    # On Fulu, subscribe to data column sidecar topics instead of blob sidecar topics.
+    data_gossip_module =
+      if HardForkAliasInjection.fulu?(),
+        do: LambdaEthereumConsensus.P2P.Gossip.DataColumnSidecar,
+        else: LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
+
     [
       LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
-      LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
+      data_gossip_module,
       LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
     ]
     |> Enum.flat_map(&topics_for_module/1)

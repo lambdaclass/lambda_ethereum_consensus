@@ -11,6 +11,7 @@ fork =
   case fork_raw do
     "deneb" -> :deneb
     "electra" -> :electra
+    "fulu" -> :fulu
     v -> raise "Invalid fork specified: #{v}"
   end
 

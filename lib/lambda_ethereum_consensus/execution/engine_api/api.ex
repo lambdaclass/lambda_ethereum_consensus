@@ -8,6 +8,9 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
 
+  # TODO (Phase 7 / Fulu): upgrade to engine_newPayloadV4 / engine_forkchoiceUpdatedV4 once
+  # the Fusaka Engine API spec is finalised. V3 methods remain compatible with Fulu blocks
+  # during the initial implementation phase.
   @supported_methods ["engine_newPayloadV3", "engine_forkchoiceUpdatedV3"]
 
   @doc """

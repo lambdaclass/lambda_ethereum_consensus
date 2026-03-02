@@ -14,6 +14,7 @@ defmodule Types.BlockInfo do
           | :invalid
           | :download
           | :download_blobs
+          | :download_columns
           | :unknown
           | :transitioned
 
@@ -31,6 +32,7 @@ defmodule Types.BlockInfo do
                   :processing,
                   :download,
                   :download_blobs,
+                  :download_columns,
                   :unknown,
                   :transitioned
                 ]

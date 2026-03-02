@@ -76,10 +76,37 @@ defmodule LambdaEthereumConsensus.StateTransition do
     Enum.reduce((old_slot + 1)..slot//1, {:ok, state}, fn next_slot, acc ->
       acc
       |> map_ok(&apply_process_slot(&1, previous_roots))
-      # Process epoch on the start slot of the next epoch
+      # Process epoch on the first slot of the next epoch
       |> map_ok(&maybe_process_epoch(&1, rem(next_slot, slots_per_epoch)))
       |> map_ok(&{:ok, %BeaconState{&1 | slot: next_slot}})
+      # Apply fork upgrade at the first slot of FULU_FORK_EPOCH (if compiled for Fulu)
+      |> map_ok(&maybe_upgrade_to_fulu(&1, next_slot))
     end)
+  end
+
+  # Fulu fork upgrade: triggered at the first slot of FULU_FORK_EPOCH.
+  # On Electra builds this is compiled away (HardForkAliasInjection.fulu?() is false).
+  defp maybe_upgrade_to_fulu(%BeaconState{} = state, next_slot) do
+    if HardForkAliasInjection.fulu?() and
+         next_slot == Misc.compute_start_slot_at_epoch(ChainSpec.get("FULU_FORK_EPOCH")) do
+      {:ok, upgrade_to_fulu(state)}
+    else
+      {:ok, state}
+    end
+  end
+
+  # Spec: upgrade_to_fulu(pre) in fulu/fork.md
+  # Fulu adds no new BeaconState fields; only the fork version is updated.
+  defp upgrade_to_fulu(%BeaconState{fork: %{current_version: current_version}} = state) do
+    epoch = Accessors.get_current_epoch(state)
+
+    new_fork = %Types.Fork{
+      previous_version: current_version,
+      current_version: ChainSpec.get("FULU_FORK_VERSION"),
+      epoch: epoch
+    }
+
+    %BeaconState{state | fork: new_fork}
   end
 
   defp maybe_process_epoch(%BeaconState{} = state, 0), do: process_epoch(state)
