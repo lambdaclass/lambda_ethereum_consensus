@@ -8,6 +8,7 @@ defmodule Types.Metadata do
   """
 
   alias LambdaEthereumConsensus.Utils.BitVector
+  require HardForkAliasInjection
 
   # Fulu (MetaDataV3) adds custody_group_count.
   fulu_fields =
@@ -53,16 +54,15 @@ defmodule Types.Metadata do
     attnets = ChainSpec.get("ATTESTATION_SUBNET_COUNT") |> BitVector.new()
     syncnets = Constants.sync_committee_subnet_count() |> BitVector.new()
 
-    if HardForkAliasInjection.fulu?() do
-      %__MODULE__{
+    HardForkAliasInjection.on_fulu(
+      do: %__MODULE__{
         seq_number: 0,
         attnets: attnets,
         syncnets: syncnets,
         custody_group_count: ChainSpec.get("CUSTODY_REQUIREMENT")
-      }
-    else
-      %__MODULE__{seq_number: 0, attnets: attnets, syncnets: syncnets}
-    end
+      },
+      else: %__MODULE__{seq_number: 0, attnets: attnets, syncnets: syncnets}
+    )
   end
 
   def encode(%__MODULE__{} = map) do

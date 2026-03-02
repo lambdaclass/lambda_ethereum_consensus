@@ -164,7 +164,7 @@ fn compute_cells_and_kzg_proofs<'env>(
 
     let cell_binaries: Vec<Binary<'env>> = cells
         .iter()
-        .map(|c| bytes_to_binary(env, c.as_ref()))
+        .map(|c| bytes_to_binary(env, &c.to_bytes()))
         .collect();
     let proof_binaries: Vec<Binary<'env>> = proofs
         .iter()
@@ -229,7 +229,7 @@ fn recover_cells_and_kzg_proofs<'env>(
 
     let cell_binaries: Vec<Binary<'env>> = recovered_cells
         .iter()
-        .map(|c| bytes_to_binary(env, c.as_ref()))
+        .map(|c| bytes_to_binary(env, &c.to_bytes()))
         .collect();
     let proof_binaries: Vec<Binary<'env>> = recovered_proofs
         .iter()

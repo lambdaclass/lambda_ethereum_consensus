@@ -17,23 +17,25 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
 
   # On Fulu, advertise the metadata/3 version (adds custody_group_count) and the
   # two new data column req/resp protocols.
-  @request_names [
-                   "status/1",
-                   "goodbye/1",
-                   "ping/1",
-                   "beacon_blocks_by_range/2",
-                   "beacon_blocks_by_root/2",
-                   "metadata/2"
-                 ] ++
-                   if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu do
-                     [
-                       "metadata/3",
-                       "data_column_sidecars_by_range/1",
-                       "data_column_sidecars_by_root/1"
-                     ]
-                   else
-                     []
-                   end
+  @request_names (
+    [
+      "status/1",
+      "goodbye/1",
+      "ping/1",
+      "beacon_blocks_by_range/2",
+      "beacon_blocks_by_root/2",
+      "metadata/2"
+    ] ++
+      if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu do
+        [
+          "metadata/3",
+          "data_column_sidecars_by_range/1",
+          "data_column_sidecars_by_root/1"
+        ]
+      else
+        []
+      end
+  )
 
   @spec protocol_ids() :: list(String.t())
   def protocol_ids() do
