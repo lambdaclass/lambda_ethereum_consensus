@@ -93,20 +93,7 @@ defmodule LambdaEthereumConsensus.StateTransition.DasCore do
     |> Enum.reduce_while({:ok, []}, fn {blob, row_index}, {:ok, acc} ->
       case Kzg.compute_cells_and_kzg_proofs(blob) do
         {:ok, {cells, proofs}} ->
-          entries =
-            cells
-            |> Enum.zip(proofs)
-            |> Enum.with_index()
-            |> Enum.map(fn {{cell, proof}, column_index} ->
-              %MatrixEntry{
-                cell: cell,
-                kzg_proof: proof,
-                column_index: column_index,
-                row_index: row_index
-              }
-            end)
-
-          {:cont, {:ok, acc ++ entries}}
+          {:cont, {:ok, acc ++ cells_to_entries(cells, proofs, row_index)}}
 
         {:error, reason} ->
           {:halt, {:error, reason}}
@@ -135,36 +122,28 @@ defmodule LambdaEthereumConsensus.StateTransition.DasCore do
     |> Enum.reduce_while({:ok, []}, fn row_index, {:ok, acc} ->
       row_entries = Map.get(by_row, row_index, [])
 
-      if length(row_entries) == n_columns do
-        # Row is already complete
-        {:cont, {:ok, acc ++ row_entries}}
-      else
-        # Attempt erasure recovery
-        cell_indices = Enum.map(row_entries, & &1.column_index)
-        cells = Enum.map(row_entries, & &1.cell)
-
-        case Kzg.recover_cells_and_kzg_proofs(cell_indices, cells) do
-          {:ok, {recovered_cells, recovered_proofs}} ->
-            recovered_entries =
-              recovered_cells
-              |> Enum.zip(recovered_proofs)
-              |> Enum.with_index()
-              |> Enum.map(fn {{cell, proof}, column_index} ->
-                %MatrixEntry{
-                  cell: cell,
-                  kzg_proof: proof,
-                  column_index: column_index,
-                  row_index: row_index
-                }
-              end)
-
-            {:cont, {:ok, acc ++ recovered_entries}}
-
-          {:error, reason} ->
-            {:halt, {:error, "row #{row_index}: #{reason}"}}
-        end
+      case recover_row(row_entries, row_index, n_columns) do
+        {:ok, entries} -> {:cont, {:ok, acc ++ entries}}
+        {:error, _} = err -> {:halt, err}
       end
     end)
+  end
+
+  defp recover_row(row_entries, _row_index, n_columns) when length(row_entries) == n_columns do
+    {:ok, row_entries}
+  end
+
+  defp recover_row(row_entries, row_index, _n_columns) do
+    cell_indices = Enum.map(row_entries, & &1.column_index)
+    cells = Enum.map(row_entries, & &1.cell)
+
+    case Kzg.recover_cells_and_kzg_proofs(cell_indices, cells) do
+      {:ok, {recovered_cells, recovered_proofs}} ->
+        {:ok, cells_to_entries(recovered_cells, recovered_proofs, row_index)}
+
+      {:error, reason} ->
+        {:error, "row #{row_index}: #{reason}"}
+    end
   end
 
   @doc """
@@ -229,11 +208,25 @@ defmodule LambdaEthereumConsensus.StateTransition.DasCore do
         sidecar_root == block_root
       end)
 
-    if not all_for_block do
-      false
-    else
+    if all_for_block do
       verify_data_column_sidecars_kzg(sidecars)
+    else
+      false
     end
+  end
+
+  defp cells_to_entries(cells, proofs, row_index) do
+    cells
+    |> Enum.zip(proofs)
+    |> Enum.with_index()
+    |> Enum.map(fn {{cell, proof}, column_index} ->
+      %MatrixEntry{
+        cell: cell,
+        kzg_proof: proof,
+        column_index: column_index,
+        row_index: row_index
+      }
+    end)
   end
 
   # Batch-verifies cell KZG proofs for all given sidecars.

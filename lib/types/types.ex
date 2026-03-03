@@ -55,7 +55,7 @@ defmodule Types do
   @type custody_index :: uint64
   @type cell_index :: uint64
   # FIELD_ELEMENTS_PER_CELL * BYTES_PER_FIELD_ELEMENT = 64 * 32 = 2048 bytes
-  @type cell :: <<_::16384>>
+  @type cell :: <<_::16_384>>
 
   defmodule Guards do
     @moduledoc """
