@@ -5,12 +5,8 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   """
   require Logger
 
-  alias LambdaEthereumConsensus.Execution.ExecutionClient
   alias LambdaEthereumConsensus.Store.KvSchema
   alias LambdaEthereumConsensus.Store.StoreDb
-  alias Types.Deposit
-  alias Types.DepositTree
-  alias Types.DepositTreeSnapshot
   alias Types.Eth1Data
   alias Types.ExecutionPayload
 
@@ -20,7 +16,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
           eth1_data_votes: map(),
           eth1_chain: list(map()),
           current_eth1_data: %Types.Eth1Data{},
-          deposit_tree: %Types.DepositTree{},
           last_period: integer()
         }
 
@@ -46,30 +41,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     compute_eth1_vote(state, slot)
   end
 
-  @spec get_deposit_snapshot() :: DepositTreeSnapshot.t()
-  def get_deposit_snapshot() do
-    state = fetch_execution_state!()
-    DepositTree.get_snapshot(state.deposit_tree)
-  end
-
-  @spec get_deposits(Eth1Data.t(), Eth1Data.t(), Range.t()) ::
-          {:ok, [Deposit.t()] | nil} | {:error, any}
-  def get_deposits(current_eth1_data, eth1_vote, deposit_range) do
-    if Range.size(deposit_range) == 0 do
-      {:ok, []}
-    else
-      state = fetch_execution_state!()
-      votes = state.eth1_data_votes
-
-      eth1_data =
-        if Map.has_key?(votes, eth1_vote) and has_majority?(votes, eth1_vote),
-          do: eth1_vote,
-          else: current_eth1_data
-
-      compute_deposits(state, eth1_data, deposit_range)
-    end
-  end
-
   @spec notify_new_block(Types.slot(), Eth1Data.t(), ExecutionPayload.t()) :: :ok
   def notify_new_block(slot, eth1_data, %ExecutionPayload{} = execution_payload) do
     payload_info = Map.take(execution_payload, [:block_hash, :block_number, :timestamp])
@@ -84,19 +55,16 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
   @doc """
     Initializes the table in the db by storing the initial state of the execution chain.
   """
-  def init(%DepositTreeSnapshot{} = snapshot, eth1_votes) do
+  def init(%Eth1Data{} = eth1_data, eth1_votes) do
     state = %{
       # PERF: we could use some kind of ordered map for storing votes
       eth1_data_votes: %{},
       eth1_chain: [],
-      current_eth1_data: DepositTreeSnapshot.get_eth1_data(snapshot),
-      deposit_tree: DepositTree.from_snapshot(snapshot),
+      current_eth1_data: eth1_data,
       last_period: 0
     }
 
     updated_state = Enum.reduce(eth1_votes, state, &update_state_with_vote(&2, &1))
-
-    StoreDb.persist_deposits_snapshot(snapshot)
 
     persist_execution_state(updated_state)
   end
@@ -137,10 +105,7 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     new_state = %{state | eth1_data_votes: eth1_data_votes}
 
     if has_majority?(eth1_data_votes, eth1_data) do
-      case update_deposit_tree(new_state, eth1_data) do
-        {:ok, new_tree} -> %{new_state | deposit_tree: new_tree, current_eth1_data: eth1_data}
-        _ -> new_state
-      end
+      %{new_state | current_eth1_data: eth1_data}
     else
       new_state
     end
@@ -150,42 +115,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     (eth1_data_votes |> Map.fetch!(eth1_data) |> elem(0)) * 2 > slots_per_eth1_voting_period()
   end
 
-  defp update_deposit_tree(%{current_eth1_data: eth1_data, deposit_tree: tree}, eth1_data),
-    do: {:ok, tree}
-
-  defp update_deposit_tree(state, %{block_hash: new_block}) do
-    old_eth1_data = state.current_eth1_data
-    old_block = old_eth1_data.block_hash
-
-    with {:ok, %{block_number: start_block}} <- ExecutionClient.get_block_metadata(old_block),
-         {:ok, %{block_number: end_block}} <- ExecutionClient.get_block_metadata(new_block),
-         {:ok, deposits} <- ExecutionClient.get_deposit_logs(start_block..end_block) do
-      # TODO: check if the result should be sorted by index
-      deposit_tree = DepositTree.finalize(state.deposit_tree, old_eth1_data, start_block)
-      # TODO: delay persisting until it's finalized
-      deposit_tree |> DepositTree.get_snapshot() |> StoreDb.persist_deposits_snapshot()
-      {:ok, update_tree_with_deposits(deposit_tree, deposits)}
-    end
-  end
-
-  defp compute_deposits(state, eth1_data, deposit_range) do
-    with :ok <- validate_range(eth1_data, deposit_range),
-         {:ok, updated_tree} <- update_deposit_tree(state, eth1_data) do
-      proofs =
-        Enum.map(deposit_range, fn i ->
-          {:ok, deposit} = DepositTree.get_deposit(updated_tree, i)
-          deposit
-        end)
-
-      {:ok, proofs}
-    end
-  end
-
-  defp validate_range(%{deposit_count: count}, _..deposit_end//_) when deposit_end >= count,
-    do: :ok
-
-  defp validate_range(_, _), do: {:error, "deposit range out of bounds"}
-
   defp compute_eth1_vote(%{eth1_data_votes: map}, _) when map == %{}, do: {:ok, nil}
   defp compute_eth1_vote(%{eth1_chain: []}, _), do: {:ok, nil}
 
@@ -193,7 +122,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
          %{
            eth1_chain: eth1_chain,
            eth1_data_votes: seen_votes,
-           deposit_tree: deposit_tree,
            current_eth1_data: default
          },
          slot
@@ -209,26 +137,13 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     if Enum.empty?(blocks_to_consider) do
       {:error, "no execution payloads to consider"}
     else
-      {block_number_min, block_number_max} =
-        blocks_to_consider
-        |> Stream.map(&Map.fetch!(&1, :block_number))
-        |> Enum.min_max()
-
-      # TODO: fetch asynchronously
-      with {:ok, new_deposits} <-
-             ExecutionClient.get_deposit_logs(block_number_min..block_number_max) do
-        get_first_valid_vote(blocks_to_consider, seen_votes, deposit_tree, new_deposits, default)
-      end
+      get_first_valid_vote(blocks_to_consider, seen_votes, default)
     end
   end
 
-  defp get_first_valid_vote(blocks_to_consider, seen_votes, deposit_tree, new_deposits, default) do
-    Logger.debug(
-      "Processing new deposits: #{inspect(new_deposits)} and get first valid vote, with default: #{inspect(default)}"
-    )
-
+  defp get_first_valid_vote(blocks_to_consider, seen_votes, default) do
     {valid_votes, last_eth1_data} =
-      get_valid_votes(blocks_to_consider, deposit_tree, new_deposits, default)
+      get_valid_votes(blocks_to_consider, default)
 
     # Default vote on latest eth1 block data in the period range unless eth1 chain is not live
     default_vote = last_eth1_data || default
@@ -254,37 +169,19 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionChain do
     end
   end
 
-  defp get_valid_votes(blocks_to_consider, deposit_tree, new_deposits, default) do
-    grouped_deposits = Enum.group_by(new_deposits, &Map.fetch!(&1, :block_number))
-
+  # In Fulu, deposit_root and deposit_count are frozen (no new deposits via the deposit contract).
+  # Build Eth1Data candidates using the frozen values combined with each block's block_hash.
+  defp get_valid_votes(blocks_to_consider, default) do
     blocks_to_consider
-    |> Enum.reduce({MapSet.new(), deposit_tree, nil}, fn block, {set, tree, last_eth1_data} ->
-      new_tree =
-        case grouped_deposits[block.block_number] do
-          nil -> tree
-          deposits -> update_tree_with_deposits(tree, deposits)
-        end
+    |> Enum.reduce({MapSet.new(), nil}, fn block, {set, _last} ->
+      data = %Eth1Data{
+        deposit_root: default.deposit_root,
+        deposit_count: default.deposit_count,
+        block_hash: block.block_hash
+      }
 
-      data = get_eth1_data(block, new_tree)
-
-      if data.deposit_count >= default.deposit_count,
-        do: {MapSet.put(set, data), new_tree, data},
-        else: {set, new_tree, last_eth1_data}
+      {MapSet.put(set, data), data}
     end)
-  end
-
-  defp get_eth1_data(block, tree) do
-    %Eth1Data{
-      deposit_root: DepositTree.get_root(tree),
-      deposit_count: DepositTree.get_deposit_count(tree),
-      block_hash: block.block_hash
-    }
-  end
-
-  defp update_tree_with_deposits(tree, []), do: tree
-
-  defp update_tree_with_deposits(tree, [deposit | rest]) do
-    DepositTree.push_leaf(tree, deposit.data) |> update_tree_with_deposits(rest)
   end
 
   defp candidate_block?(timestamp, period_start) do

@@ -45,7 +45,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
          {:ok, block_request} <-
            request
            |> Map.merge(fetch_operations_for_block(request.slot))
-           |> Map.put_new_lazy(:deposits, fn -> fetch_deposits(mid_state, eth1_vote) end)
+           |> Map.put_new(:deposits, [])
            |> Map.put(:blob_kzg_commitments, blobs_bundle.commitments)
            |> BuildBlockRequest.validate(pre_state),
          {:ok, block} <-
@@ -188,15 +188,6 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
         ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")
         |> OperationsCollector.get_bls_to_execution_changes()
     }
-  end
-
-  defp fetch_deposits(state, eth1_vote) do
-    %{eth1_data: eth1_data, eth1_deposit_index: range_start} = state
-
-    processable_deposits = eth1_data.deposit_count - range_start
-    range_end = min(processable_deposits, ChainSpec.get("MAX_DEPOSITS")) + range_start - 1
-
-    ExecutionChain.get_deposits(eth1_data, eth1_vote, range_start..range_end//1)
   end
 
   defp sign_block(block, state, privkey) do

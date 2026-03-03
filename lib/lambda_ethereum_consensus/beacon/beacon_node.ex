@@ -29,8 +29,7 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
 
     validator_set = ValidatorSet.init(store.head_slot, store.head_root)
 
-    StoreSetup.get_deposit_snapshot!()
-    |> init_execution_chain(store.head_root)
+    init_execution_chain(store.head_root)
 
     libp2p_args =
       [genesis_time: store.genesis_time, validator_set: validator_set, store: store] ++
@@ -48,14 +47,11 @@ defmodule LambdaEthereumConsensus.Beacon.BeaconNode do
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  defp init_execution_chain(nil, _) do
-    Logger.warning("Deposit data not found. Validator will be disabled.")
-    []
-  end
+  defp init_execution_chain(head_root) do
+    %BeaconState{eth1_data: eth1_data, eth1_data_votes: votes} =
+      BlockStates.get_state_info!(head_root).beacon_state
 
-  defp init_execution_chain(snapshot, head_root) do
-    %BeaconState{eth1_data_votes: votes} = BlockStates.get_state_info!(head_root).beacon_state
-    LambdaEthereumConsensus.Execution.ExecutionChain.init(snapshot, votes)
+    LambdaEthereumConsensus.Execution.ExecutionChain.init(eth1_data, votes)
   end
 
   defp get_libp2p_args() do

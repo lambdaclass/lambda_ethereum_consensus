@@ -16,7 +16,5 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
 
   def get_block_header(block_id), do: impl().get_block_header(block_id)
 
-  def get_deposit_logs(block_number_range), do: impl().get_deposit_logs(block_number_range)
-
   defp impl(), do: Application.fetch_env!(:lambda_ethereum_consensus, __MODULE__)[:implementation]
 end

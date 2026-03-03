@@ -6,7 +6,6 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   alias Types.Store
 
   @store_prefix "store"
-  @snapshot_prefix "snapshot"
 
   @spec fetch_store() :: {:ok, Types.Store.t()} | :not_found
   def fetch_store() do
@@ -33,14 +32,6 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   def fetch_genesis_time!() do
     {:ok, %{genesis_time: genesis_time}} = fetch_store()
     genesis_time
-  end
-
-  @spec fetch_deposits_snapshot() :: {:ok, Types.DepositTreeSnapshot.t()} | :not_found
-  def fetch_deposits_snapshot(), do: get(@snapshot_prefix)
-
-  @spec persist_deposits_snapshot(Types.DepositTreeSnapshot.t()) :: :ok
-  def persist_deposits_snapshot(%Types.DepositTreeSnapshot{} = snapshot) do
-    put(@snapshot_prefix, snapshot)
   end
 
   defp get(key) do

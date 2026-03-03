@@ -6,8 +6,6 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
   alias LambdaEthereumConsensus.Beacon.CheckpointSync
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.StoreDb
-  alias Types.DepositTreeSnapshot
-  alias Types.Eth1Data
   alias Types.Store
 
   @type store_setup_strategy ::
@@ -78,35 +76,6 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
 
       {_, store} ->
         store
-    end
-  end
-
-  @doc """
-  Gets the deposit tree snapshot. Will return nil unless the strategy is checkpoint sync.
-  """
-  @spec get_deposit_snapshot!() :: DepositTreeSnapshot.t() | nil
-  def get_deposit_snapshot!(), do: get_deposit_snapshot!(get_strategy!())
-
-  # The endpoint for deposit snapshots is deprecated in electra and will be removed in Fulu
-  # https://github.com/ethereum/beacon-APIs/pull/494
-  # For this reason we don't compare the deposits from the urls as most checkpoints are returning error 500
-  @spec get_deposit_snapshot!(store_setup_strategy()) :: DepositTreeSnapshot.t() | nil
-  def get_deposit_snapshot!({:checkpoint_sync_url, urls}),
-    do: fetch_deposit_snapshot(List.first(urls))
-
-  def get_deposit_snapshot!(:db) do
-    case StoreDb.fetch_deposits_snapshot() do
-      {:ok, snapshot} -> snapshot
-      _ -> nil
-    end
-  end
-
-  def get_deposit_snapshot!({:file, %{eth1_data: %Eth1Data{} = eth1_data}}) do
-    if eth1_data.deposit_count == 0 do
-      # TODO: parse block height from deploy_block.txt
-      DepositTreeSnapshot.for_empty_tree(eth1_data.block_hash, 0)
-    else
-      nil
     end
   end
 
@@ -202,18 +171,5 @@ defmodule LambdaEthereumConsensus.Beacon.StoreSetup do
     (:os.system_time(:second) - store.genesis_time)
     |> div(ChainSpec.get("SECONDS_PER_SLOT"))
     |> Misc.compute_epoch_at_slot()
-  end
-
-  defp fetch_deposit_snapshot(url) do
-    case CheckpointSync.get_deposit_snapshot(url) do
-      {:ok, snapshot} ->
-        snapshot
-
-      _ ->
-        Logger.error("[Checkpoint sync] Failed to fetch the deposit snapshot")
-
-        Logger.flush()
-        System.halt(1)
-    end
   end
 end
