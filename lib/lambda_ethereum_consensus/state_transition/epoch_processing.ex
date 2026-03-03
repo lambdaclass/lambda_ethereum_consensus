@@ -569,6 +569,25 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     end
   end
 
+  @doc """
+  Shift out the first epoch's proposer indices and append new ones for the
+  furthest lookahead epoch.
+  Spec: process_proposer_lookahead (Fulu, EIP-7917)
+  """
+  @spec process_proposer_lookahead(BeaconState.t()) ::
+          {:ok, BeaconState.t()} | {:error, String.t()}
+  def process_proposer_lookahead(%BeaconState{} = state) do
+    slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
+    # Shift out the first epoch's worth of proposers
+    shifted = Enum.drop(state.proposer_lookahead, slots_per_epoch)
+    # Compute new proposers for the furthest lookahead epoch
+    next_epoch = Accessors.get_current_epoch(state) + ChainSpec.get("MIN_SEED_LOOKAHEAD") + 1
+
+    with {:ok, new_proposers} <- Accessors.get_beacon_proposer_indices(state, next_epoch) do
+      {:ok, %BeaconState{state | proposer_lookahead: shifted ++ new_proposers}}
+    end
+  end
+
   @spec process_pending_consolidations(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_pending_consolidations(%BeaconState{} = state) do
     next_epoch = Accessors.get_current_epoch(state) + 1

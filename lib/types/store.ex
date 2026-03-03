@@ -19,6 +19,9 @@ defmodule Types.Store do
   alias Types.SignedBeaconBlock
   alias Types.StateInfo
 
+  # Suppress opaque-type warning: MapSet.new() in struct literal is seen through by dialyzer.
+  @dialyzer {:no_opaque, get_forkchoice_store: 2}
+
   defstruct [
     :time,
     :genesis_time,

@@ -1,7 +1,7 @@
 defmodule Types.MatrixEntry do
   @moduledoc """
-  In-memory struct for `MatrixEntry` (Fulu / PeerDAS, EIP-7594).
-  Not SSZ-serialized; used internally by DAS core logic.
+  SSZ Container for `MatrixEntry` (Fulu / PeerDAS, EIP-7594).
+  Also used internally by DAS core logic.
 
   The extended matrix is a 2D grid of cells:
   - rows correspond to blobs (up to MAX_BLOBS_PER_BLOCK_FULU)
@@ -10,6 +10,7 @@ defmodule Types.MatrixEntry do
   A MatrixEntry holds one cell at position (row_index, column_index) together
   with its KZG proof and the blob/column indices needed for proof verification.
   """
+  use LambdaEthereumConsensus.Container
 
   fields = [
     :cell,
@@ -27,4 +28,14 @@ defmodule Types.MatrixEntry do
           column_index: Types.column_index(),
           row_index: Types.row_index()
         }
+
+  @impl LambdaEthereumConsensus.Container
+  def schema() do
+    [
+      {:cell, TypeAliases.cell()},
+      {:kzg_proof, TypeAliases.kzg_proof()},
+      {:column_index, TypeAliases.column_index()},
+      {:row_index, TypeAliases.row_index()}
+    ]
+  end
 end

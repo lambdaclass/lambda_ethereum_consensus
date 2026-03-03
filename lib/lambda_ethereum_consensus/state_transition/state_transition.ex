@@ -17,6 +17,10 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
 
+  # Suppress dialyzer warning for fork-gate dead code: HardForkAliasInjection.fulu?()
+  # is a compile-time constant, so the `false` branch of `if fulu?() and ...` is dead.
+  @dialyzer {:no_match, maybe_upgrade_to_fulu: 2}
+
   @spec verified_transition(StateInfo.t() | BeaconState.t(), BlockInfo.t()) ::
           {:ok, StateInfo.t()} | {:error, String.t()}
   def verified_transition(%StateInfo{} = state_info, block_info) do
@@ -89,7 +93,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   defp maybe_upgrade_to_fulu(%BeaconState{} = state, next_slot) do
     if HardForkAliasInjection.fulu?() and
          next_slot == Misc.compute_start_slot_at_epoch(ChainSpec.get("FULU_FORK_EPOCH")) do
-      {:ok, upgrade_to_fulu(state)}
+      upgrade_to_fulu(state)
     else
       {:ok, state}
     end
@@ -106,13 +110,27 @@ defmodule LambdaEthereumConsensus.StateTransition do
       epoch: epoch
     }
 
-    proposer_lookahead_length = 2 * ChainSpec.get("SLOTS_PER_EPOCH")
+    state = %BeaconState{state | fork: new_fork}
 
-    %BeaconState{
-      state
-      | fork: new_fork,
-        proposer_lookahead: List.duplicate(0, proposer_lookahead_length)
-    }
+    # Spec: proposer_lookahead=initialize_proposer_lookahead(pre)
+    with {:ok, lookahead} <- initialize_proposer_lookahead(state) do
+      {:ok, %BeaconState{state | proposer_lookahead: lookahead}}
+    end
+  end
+
+  # Spec: initialize_proposer_lookahead (fulu/fork.md)
+  # Computes proposer indices for current..current+MIN_SEED_LOOKAHEAD epochs.
+  defp initialize_proposer_lookahead(%BeaconState{} = state) do
+    current_epoch = Accessors.get_current_epoch(state)
+    min_seed_lookahead = ChainSpec.get("MIN_SEED_LOOKAHEAD")
+
+    0..min_seed_lookahead
+    |> Enum.reduce_while({:ok, []}, fn i, {:ok, acc} ->
+      case Accessors.get_beacon_proposer_indices(state, current_epoch + i) do
+        {:ok, indices} -> {:cont, {:ok, acc ++ indices}}
+        {:error, _} = err -> {:halt, err}
+      end
+    end)
   end
 
   defp maybe_process_epoch(%BeaconState{} = state, 0), do: process_epoch(state)
@@ -203,10 +221,21 @@ defmodule LambdaEthereumConsensus.StateTransition do
       &EpochProcessing.process_participation_flag_updates/1
     )
     |> epoch_op(:sync_committee_updates, &EpochProcessing.process_sync_committee_updates/1)
+    |> maybe_proposer_lookahead()
     |> tap(fn _ ->
       end_time = System.monotonic_time(:millisecond)
       Logger.debug("[Epoch processing] took #{end_time - start_time} ms")
     end)
+  end
+
+  # Only run process_proposer_lookahead on Fulu (EIP-7917).
+  # Compiled away on Electra builds.
+  defp maybe_proposer_lookahead(state) do
+    if HardForkAliasInjection.fulu?() do
+      epoch_op(state, :proposer_lookahead, &EpochProcessing.process_proposer_lookahead/1)
+    else
+      state
+    end
   end
 
   def block_signature_valid?(%BeaconState{} = state, %SignedBeaconBlock{} = signed_block) do

@@ -10,9 +10,11 @@ defmodule ForkChoiceTestRunner do
   alias LambdaEthereumConsensus.ForkChoice.Head
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.BlockInfo
+  alias Types.DataColumnSidecar
   alias Types.SignedBeaconBlock
   alias Types.Store
 
@@ -185,7 +187,23 @@ defmodule ForkChoiceTestRunner do
     end)
   end
 
+  # Fulu / PeerDAS: load column sidecars from test vectors
+  defp load_blob_data(case_dir, _block, %{columns: columns}) do
+    Enum.each(columns, fn "column_0x" <> _hash = column_file ->
+      column_sidecar =
+        SpecTestUtils.read_ssz_from_file!(
+          case_dir <> "/#{column_file}.ssz_snappy",
+          DataColumnSidecar
+        )
+
+      DataColumnDb.store_data_column(column_sidecar)
+    end)
+  end
+
   defp load_blob_data(_case_dir, block, %{}) do
-    assert Enum.empty?(block.message.body.blob_kzg_commitments)
+    # On Fulu, blocks may have KZG commitments without blob data (PeerDAS uses columns instead)
+    if not HardForkAliasInjection.fulu?() do
+      assert Enum.empty?(block.message.body.blob_kzg_commitments)
+    end
   end
 end

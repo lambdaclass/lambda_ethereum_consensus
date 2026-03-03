@@ -25,23 +25,26 @@ defmodule LambdaEthereumConsensus.StateTransition.DasCore do
   @spec get_custody_groups(Types.uint256(), non_neg_integer()) :: [Types.custody_index()]
   def get_custody_groups(node_id, custody_group_count) do
     n_groups = ChainSpec.get("NUMBER_OF_CUSTODY_GROUPS")
-    collect_custody_groups(node_id, n_groups, custody_group_count, MapSet.new())
+    collect_custody_groups(node_id, n_groups, custody_group_count, %{}, 0)
   end
 
-  defp collect_custody_groups(current_id, n_groups, count, seen) when map_size(seen) < count do
+  defp collect_custody_groups(_current_id, _n_groups, count, seen, seen_size)
+       when seen_size >= count do
+    Map.keys(seen)
+  end
+
+  defp collect_custody_groups(current_id, n_groups, count, seen, seen_size) do
     # Hash the 8-byte little-endian encoding of the low 64 bits of current_id
     seed = :crypto.hash(:sha256, <<current_id &&& 0xFFFFFFFFFFFFFFFF::little-size(64)>>)
     index = rem(current_id, n_groups)
     {:ok, shuffled} = Misc.compute_shuffled_index(index, n_groups, seed)
 
-    new_seen =
-      if MapSet.member?(seen, shuffled), do: seen, else: MapSet.put(seen, shuffled)
+    {new_seen, new_size} =
+      if Map.has_key?(seen, shuffled),
+        do: {seen, seen_size},
+        else: {Map.put(seen, shuffled, true), seen_size + 1}
 
-    collect_custody_groups(current_id + 1, n_groups, count, new_seen)
-  end
-
-  defp collect_custody_groups(_current_id, _n_groups, _count, seen) do
-    MapSet.to_list(seen)
+    collect_custody_groups(current_id + 1, n_groups, count, new_seen, new_size)
   end
 
   @doc """

@@ -38,14 +38,13 @@ defmodule Types.DataColumnSidecar do
 
   @impl LambdaEthereumConsensus.Container
   def schema() do
-    max_blobs = ChainSpec.get("MAX_BLOBS_PER_BLOCK_FULU")
     max_blob_commitments = ChainSpec.get("MAX_BLOB_COMMITMENTS_PER_BLOCK")
 
     [
       index: TypeAliases.column_index(),
-      column: {:list, TypeAliases.cell(), max_blobs},
+      column: {:list, TypeAliases.cell(), max_blob_commitments},
       kzg_commitments: {:list, TypeAliases.kzg_commitment(), max_blob_commitments},
-      kzg_proofs: {:list, TypeAliases.kzg_proof(), max_blobs},
+      kzg_proofs: {:list, TypeAliases.kzg_proof(), max_blob_commitments},
       signed_block_header: Types.SignedBeaconBlockHeader,
       kzg_commitments_inclusion_proof:
         {:vector, TypeAliases.bytes32(), ChainSpec.get("KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH")}

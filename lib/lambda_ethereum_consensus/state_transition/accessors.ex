@@ -17,6 +17,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias Types.SyncCommittee
   alias Types.Validator
 
+  # Suppress dialyzer warning for fork-gate dead code: HardForkAliasInjection.fulu?()
+  # is a compile-time constant, so the `false` branch of `if fulu?() and ...` is dead.
+  @dialyzer {:no_match, get_beacon_proposer_index: 2}
+
   @max_random_byte 2 ** 16 - 1
 
   @doc """
@@ -274,12 +278,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   @doc """
   Return the beacon proposer index at the current slot.
+  On Fulu, reads directly from state.proposer_lookahead for the current epoch.
+  For arbitrary slots or pre-Fulu, computes on-demand.
   """
   @spec get_beacon_proposer_index(BeaconState.t()) ::
           {:ok, Types.validator_index()} | {:error, String.t()}
   def get_beacon_proposer_index(%BeaconState{slot: state_slot} = state, slot \\ nil) do
     slot = if is_nil(slot), do: state_slot, else: slot
-    # NOTE: slot should be within the state's current epoch, otherwise the result can change
+
+    if HardForkAliasInjection.fulu?() and slot == state_slot do
+      slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
+      {:ok, Enum.at(state.proposer_lookahead, rem(slot, slots_per_epoch))}
+    else
+      compute_beacon_proposer_index(state, slot)
+    end
+  end
+
+  defp compute_beacon_proposer_index(state, slot) do
     epoch = Misc.compute_epoch_at_slot(slot)
 
     {:ok, root} = get_epoch_root(state, epoch)
@@ -292,6 +307,47 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
       |> then(&SszEx.hash(&1 <> Misc.uint64_to_bytes(slot)))
       |> then(&Misc.compute_proposer_index(state, indices, &1))
     end)
+  end
+
+  @doc """
+  Return the proposer indices for the given epoch.
+  Spec: get_beacon_proposer_indices (Fulu, EIP-7917)
+  """
+  @spec get_beacon_proposer_indices(BeaconState.t(), Types.epoch()) ::
+          {:ok, list(Types.validator_index())} | {:error, String.t()}
+  def get_beacon_proposer_indices(%BeaconState{} = state, epoch) do
+    indices = get_active_validator_indices(state, epoch)
+    seed = get_seed(state, epoch, Constants.domain_beacon_proposer())
+    compute_proposer_indices(state, epoch, seed, indices)
+  end
+
+  @doc """
+  Compute proposer index for each slot in the epoch using per-slot hash seeds.
+  Spec: compute_proposer_indices (Fulu, EIP-7917)
+  """
+  @spec compute_proposer_indices(
+          BeaconState.t(),
+          Types.epoch(),
+          Types.bytes32(),
+          Aja.Vector.t(Types.validator_index())
+        ) :: {:ok, list(Types.validator_index())} | {:error, String.t()}
+  def compute_proposer_indices(state, epoch, seed, indices) do
+    start_slot = Misc.compute_start_slot_at_epoch(epoch)
+    slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
+
+    0..(slots_per_epoch - 1)
+    |> Enum.reduce_while({:ok, []}, fn i, {:ok, acc} ->
+      slot_seed = SszEx.hash(seed <> Misc.uint64_to_bytes(start_slot + i))
+
+      case Misc.compute_proposer_index(state, indices, slot_seed) do
+        {:ok, proposer_index} -> {:cont, {:ok, [proposer_index | acc]}}
+        {:error, _} = err -> {:halt, err}
+      end
+    end)
+    |> case do
+      {:ok, reversed} -> {:ok, Enum.reverse(reversed)}
+      {:error, _} = err -> err
+    end
   end
 
   defp get_state_epoch_root(state) do

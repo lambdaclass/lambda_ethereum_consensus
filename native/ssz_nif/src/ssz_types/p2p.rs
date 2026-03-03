@@ -47,9 +47,9 @@ pub(crate) struct BlobIdentifier {
 #[derive(Encode, Decode, TreeHash)]
 pub(crate) struct DataColumnSidecar<C: Config> {
     pub(crate) index: ColumnIndex,
-    pub(crate) column: VariableList<Cell<C>, C::MaxBlobsPerBlockFulu>,
+    pub(crate) column: VariableList<Cell<C>, C::MaxBlobCommitmentsPerBlock>,
     pub(crate) kzg_commitments: VariableList<KZGCommitment, C::MaxBlobCommitmentsPerBlock>,
-    pub(crate) kzg_proofs: VariableList<KZGProof, C::MaxBlobsPerBlockFulu>,
+    pub(crate) kzg_proofs: VariableList<KZGProof, C::MaxBlobCommitmentsPerBlock>,
     pub(crate) signed_block_header: SignedBeaconBlockHeader,
     pub(crate) kzg_commitments_inclusion_proof:
         FixedVector<Bytes32, C::KzgCommitmentsInclusionProofDepth>,

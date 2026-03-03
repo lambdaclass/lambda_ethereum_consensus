@@ -80,7 +80,8 @@ defmodule LambdaEthereumConsensus.MixProject do
     [
       # https://elixirforum.com/t/help-with-dialyzer-output/15202/5
       plt_add_apps: [:ex_unit, :mix],
-      plt_file: {:no_warn, "priv/plts/project.plt"}
+      plt_file: {:no_warn, "priv/plts/project.plt"},
+      ignore_warnings: ".dialyzer_ignore.exs"
     ]
   end
 
