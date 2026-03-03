@@ -9,10 +9,10 @@ defmodule LambdaEthereumConsensus.StateTransition.DasCore do
   import Bitwise
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconBlockBody
+  alias Types.BeaconBlockHeader
   alias Types.DataColumnSidecar
   alias Types.MatrixEntry
   alias Types.SignedBeaconBlockHeader
-  alias Types.BeaconBlockHeader
 
   @doc """
   Returns the set of custody groups for a node given its node_id.

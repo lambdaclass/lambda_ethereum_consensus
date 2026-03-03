@@ -21,7 +21,13 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias Types.Store
 
   @type block_status ::
-          :transitioned | :pending | :invalid | :download | :download_blobs | :download_columns | :unknown
+          :transitioned
+          | :pending
+          | :invalid
+          | :download
+          | :download_blobs
+          | :download_columns
+          | :unknown
   @type block_info ::
           {SignedBeaconBlock.t(), :pending | :download_blobs | :download_columns}
           | {nil, :invalid | :download}

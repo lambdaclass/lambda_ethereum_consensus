@@ -48,8 +48,7 @@ defmodule Types.DataColumnSidecar do
       kzg_proofs: {:list, TypeAliases.kzg_proof(), max_blobs},
       signed_block_header: Types.SignedBeaconBlockHeader,
       kzg_commitments_inclusion_proof:
-        {:vector, TypeAliases.bytes32(),
-         ChainSpec.get("KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH")}
+        {:vector, TypeAliases.bytes32(), ChainSpec.get("KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH")}
     ]
   end
 end

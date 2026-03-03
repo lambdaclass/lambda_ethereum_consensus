@@ -389,6 +389,5 @@ pub(crate) struct BeaconState<C: Config> {
     pub(crate) pending_consolidations:
         VariableList<PendingConsolidation, C::PendingConsolidationsLimit>, // [New in Electra:EIP7251]
     // Fulu fields
-    pub(crate) proposer_lookahead:
-        FixedVector<ValidatorIndex, C::ProposerLookaheadLength>, // [New in Fulu:EIP7917]
+    pub(crate) proposer_lookahead: FixedVector<ValidatorIndex, C::ProposerLookaheadLength>, // [New in Fulu:EIP7917]
 }

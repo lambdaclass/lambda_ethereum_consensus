@@ -13,8 +13,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
-  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
@@ -373,7 +373,10 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   # and return the list (all 128, not just custody columns — the proposer serves them all).
   @spec generate_data_column_sidecars(SignedBeaconBlock.t(), BlobsBundle.t()) ::
           [Types.DataColumnSidecar.t()]
-  defp generate_data_column_sidecars(%SignedBeaconBlock{} = signed_block, %BlobsBundle{} = blobs_bundle) do
+  defp generate_data_column_sidecars(
+         %SignedBeaconBlock{} = signed_block,
+         %BlobsBundle{} = blobs_bundle
+       ) do
     %BlobsBundle{blobs: blobs} = blobs_bundle
 
     cells_and_proofs_result =
@@ -425,7 +428,9 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
     body_proof =
       BeaconBlockBody.schema()
-      |> Enum.map(fn {name, schema} -> Map.fetch!(body, name) |> SszEx.hash_tree_root!(schema) end)
+      |> Enum.map(fn {name, schema} ->
+        Map.fetch!(body, name) |> SszEx.hash_tree_root!(schema)
+      end)
       |> SszEx.Merkleization.compute_merkle_proof(commitments_tree_index, body_height)
 
     mix_in_length = <<commitment_number::little-size(256)>>

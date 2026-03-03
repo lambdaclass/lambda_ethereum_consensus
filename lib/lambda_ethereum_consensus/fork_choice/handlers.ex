@@ -9,13 +9,13 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Predicates
-  alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.Store.BlobDb
-  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Store.StateDb
   alias Types.Attestation
   alias Types.AttestationData

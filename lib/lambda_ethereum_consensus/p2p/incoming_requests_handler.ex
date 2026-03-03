@@ -17,25 +17,23 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
 
   # On Fulu, advertise the metadata/3 version (adds custody_group_count) and the
   # two new data column req/resp protocols.
-  @request_names (
-    [
-      "status/1",
-      "goodbye/1",
-      "ping/1",
-      "beacon_blocks_by_range/2",
-      "beacon_blocks_by_root/2",
-      "metadata/2"
-    ] ++
-      if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu do
-        [
-          "metadata/3",
-          "data_column_sidecars_by_range/1",
-          "data_column_sidecars_by_root/1"
-        ]
-      else
-        []
-      end
-  )
+  @request_names [
+                   "status/1",
+                   "goodbye/1",
+                   "ping/1",
+                   "beacon_blocks_by_range/2",
+                   "beacon_blocks_by_root/2",
+                   "metadata/2"
+                 ] ++
+                   (if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu do
+                      [
+                        "metadata/3",
+                        "data_column_sidecars_by_range/1",
+                        "data_column_sidecars_by_root/1"
+                      ]
+                    else
+                      []
+                    end)
 
   @spec protocol_ids() :: list(String.t())
   def protocol_ids() do
@@ -185,7 +183,9 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
   end
 
   defp map_column_result({:ok, column}),
-    do: {:ok, {column, ForkChoice.get_fork_digest_for_slot(column.signed_block_header.message.slot)}}
+    do:
+      {:ok,
+       {column, ForkChoice.get_fork_digest_for_slot(column.signed_block_header.message.slot)}}
 
   defp map_column_result(:not_found), do: {:error, {3, "Resource Unavailable"}}
   defp map_column_result({:error, _}), do: {:error, {2, "Server Error"}}

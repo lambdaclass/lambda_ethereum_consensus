@@ -35,7 +35,13 @@ defmodule LambdaEthereumConsensus.P2P.DataColumnDownloader do
           on_columns(),
           non_neg_integer()
         ) :: :ok
-  def request_columns_by_range(slot, count, column_indices, on_columns, retries \\ @default_retries)
+  def request_columns_by_range(
+        slot,
+        count,
+        column_indices,
+        on_columns,
+        retries \\ @default_retries
+      )
 
   def request_columns_by_range(_slot, 0, _column_indices, _on_columns, _retries), do: {:ok, []}
   def request_columns_by_range(_slot, _count, [], _on_columns, _retries), do: {:ok, []}

@@ -243,9 +243,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       body.blob_kzg_commitments
       |> length() >
-        if HardForkAliasInjection.fulu?(),
-          do: ChainSpec.get("MAX_BLOBS_PER_BLOCK_FULU"),
-          else: ChainSpec.get("MAX_BLOBS_PER_BLOCK_ELECTRA") ->
+          if(HardForkAliasInjection.fulu?(),
+            do: ChainSpec.get("MAX_BLOBS_PER_BLOCK_FULU"),
+            else: ChainSpec.get("MAX_BLOBS_PER_BLOCK_ELECTRA")
+          ) ->
         {:error, "Too many commitments"}
 
       # Cache execution payload header

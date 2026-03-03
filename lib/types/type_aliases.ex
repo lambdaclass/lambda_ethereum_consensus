@@ -54,7 +54,9 @@ defmodule TypeAliases do
 
   # FIELD_ELEMENTS_PER_CELL * BYTES_PER_FIELD_ELEMENT = 64 * 32 = 2048 bytes
   def cell(),
-    do: {:byte_vector, ChainSpec.get("FIELD_ELEMENTS_PER_CELL") * Constants.bytes_per_field_element()}
+    do:
+      {:byte_vector,
+       ChainSpec.get("FIELD_ELEMENTS_PER_CELL") * Constants.bytes_per_field_element()}
 
   def data_column_sidecars_by_root_request(),
     do: {:list, Types.DataColumnIdentifier, ChainSpec.get("MAX_REQUEST_DATA_COLUMN_SIDECARS")}
