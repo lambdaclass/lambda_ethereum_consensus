@@ -10,8 +10,13 @@ defmodule LambdaEthereumConsensus.MixProject do
       deps: deps(),
       dialyzer: dialyzer(),
       elixirc_paths: compiler_paths(Mix.env()),
-      warn_test_pattern: "_remove_warning.exs",
-      preferred_cli_env: [
+      warn_test_pattern: "_remove_warning.exs"
+    ]
+  end
+
+  def cli() do
+    [
+      preferred_envs: [
         dialyzer: :test,
         generate_spec_tests: :test,
         check_enabled_tests: :test

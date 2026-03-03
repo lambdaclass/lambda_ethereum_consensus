@@ -239,17 +239,4 @@ fn recover_cells_and_kzg_proofs<'env>(
     Ok((cell_binaries, proof_binaries))
 }
 
-rustler::init!(
-    "Elixir.Kzg",
-    [
-        blob_to_kzg_commitment,
-        compute_kzg_proof,
-        verify_kzg_proof,
-        compute_blob_kzg_proof,
-        verify_blob_kzg_proof,
-        verify_blob_kzg_proof_batch,
-        compute_cells_and_kzg_proofs,
-        verify_cell_kzg_proof_batch,
-        recover_cells_and_kzg_proofs
-    ]
-);
+rustler::init!("Elixir.Kzg");

@@ -45,7 +45,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   def get_block_header(block_id) when is_binary(block_id),
     do: call("eth_getBlockByHash", [RPC.normalize(block_id), false])
 
-  def get_deposit_logs(from_block..to_block) do
+  def get_deposit_logs(from_block..to_block//_) do
     deposit_contract = ChainSpec.get("DEPOSIT_CONTRACT_ADDRESS")
 
     # `keccak("DepositEvent(bytes,bytes,bytes,bytes,bytes)")`

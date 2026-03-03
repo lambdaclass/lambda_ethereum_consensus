@@ -171,7 +171,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     end
   end
 
-  defp handle_req("data_column_sidecars_by_range/1/ssz_snappy", message_id, message) do
+  defp handle_req("data_column_sidecars_by_range/1/ssz_snappy", message_id, _message) do
     # DataColumnSidecarsByRangeRequest has: start_slot, count, columns.
     # We serve stored sidecars for the requested slot range and column indices.
     # TODO: implement full range serving once DataColumnDb supports slot-indexed iteration.
