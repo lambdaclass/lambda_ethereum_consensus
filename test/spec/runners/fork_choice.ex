@@ -202,7 +202,7 @@ defmodule ForkChoiceTestRunner do
 
   defp load_blob_data(_case_dir, block, %{}) do
     # On Fulu, blocks may have KZG commitments without blob data (PeerDAS uses columns instead)
-    if not HardForkAliasInjection.fulu?() do
+    unless HardForkAliasInjection.fulu?() do
       assert Enum.empty?(block.message.body.blob_kzg_commitments)
     end
   end

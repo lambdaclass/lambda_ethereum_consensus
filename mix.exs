@@ -9,8 +9,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       dialyzer: dialyzer(),
-      elixirc_paths: compiler_paths(Mix.env()),
-      warn_test_pattern: "_remove_warning.exs"
+      elixirc_paths: compiler_paths(Mix.env())
     ]
   end
 

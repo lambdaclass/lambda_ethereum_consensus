@@ -4,22 +4,18 @@ defmodule LambdaEthereumConsensus.StateTransition do
   """
 
   require Logger
+  require HardForkAliasInjection
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Operations
-  alias Types.BeaconBlockHeader
   alias Types.BeaconState
   alias Types.BlockInfo
   alias Types.SignedBeaconBlock
   alias Types.StateInfo
 
   import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
-
-  # Suppress dialyzer warning for fork-gate dead code: HardForkAliasInjection.fulu?()
-  # is a compile-time constant, so the `false` branch of `if fulu?() and ...` is dead.
-  @dialyzer {:no_match, maybe_upgrade_to_fulu: 2}
 
   @spec verified_transition(StateInfo.t() | BeaconState.t(), BlockInfo.t()) ::
           {:ok, StateInfo.t()} | {:error, String.t()}
@@ -82,18 +78,21 @@ defmodule LambdaEthereumConsensus.StateTransition do
       |> map_ok(&apply_process_slot(&1, previous_roots))
       # Process epoch on the first slot of the next epoch
       |> map_ok(&maybe_process_epoch(&1, rem(next_slot, slots_per_epoch)))
-      |> map_ok(&{:ok, %BeaconState{&1 | slot: next_slot}})
+      |> map_ok(&{:ok, %{&1 | slot: next_slot}})
       # Apply fork upgrade at the first slot of FULU_FORK_EPOCH (if compiled for Fulu)
       |> map_ok(&maybe_upgrade_to_fulu(&1, next_slot))
     end)
   end
 
   # Fulu fork upgrade: triggered at the first slot of FULU_FORK_EPOCH.
-  # On Electra builds this is compiled away (HardForkAliasInjection.fulu?() is false).
+  # On Electra builds this is compiled away (on_fulu expands to the else branch).
   defp maybe_upgrade_to_fulu(%BeaconState{} = state, next_slot) do
-    if HardForkAliasInjection.fulu?() and
-         next_slot == Misc.compute_start_slot_at_epoch(ChainSpec.get("FULU_FORK_EPOCH")) do
-      upgrade_to_fulu(state)
+    HardForkAliasInjection.on_fulu do
+      if next_slot == Misc.compute_start_slot_at_epoch(ChainSpec.get("FULU_FORK_EPOCH")) do
+        upgrade_to_fulu(state)
+      else
+        {:ok, state}
+      end
     else
       {:ok, state}
     end
@@ -166,7 +165,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
     # Cache latest block header state root
     state =
       if state.latest_block_header.state_root == <<0::256>> do
-        block_header = %BeaconBlockHeader{
+        block_header = %{
           state.latest_block_header
           | state_root: previous_state_root
         }

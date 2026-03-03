@@ -68,13 +68,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   @spec process_eth1_data_reset(BeaconState.t()) :: {:ok, BeaconState.t()}
-  def process_eth1_data_reset(state) do
+  def process_eth1_data_reset(%BeaconState{} = state) do
     next_epoch = Accessors.get_current_epoch(state) + 1
     epochs_per_eth1_voting_period = ChainSpec.get("EPOCHS_PER_ETH1_VOTING_PERIOD")
 
     new_state =
       if rem(next_epoch, epochs_per_eth1_voting_period) == 0 do
-        %BeaconState{state | eth1_data_votes: []}
+        %{state | eth1_data_votes: []}
       else
         state
       end
@@ -166,8 +166,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   defp handle_validator_registry_update(
-         state,
-         validator,
+         %BeaconState{} = state,
+         %Validator{} = validator,
          idx,
          current_epoch,
          activation_exit_epoch,
@@ -175,13 +175,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
        ) do
     cond do
       Predicates.eligible_for_activation_queue?(validator) ->
-        updated_validator = %Validator{
+        updated_validator = %{
           validator
           | activation_eligibility_epoch: current_epoch + 1
         }
 
         {:cont,
-         %BeaconState{
+         %{
            state
            | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
          }}
@@ -202,12 +202,12 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
         end
 
       Predicates.eligible_for_activation?(state, validator) ->
-        updated_validator = %Validator{
+        updated_validator = %{
           validator
           | activation_epoch: activation_exit_epoch
         }
 
-        updated_state = %BeaconState{
+        updated_state = %{
           state
           | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
         }
@@ -220,13 +220,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   @spec process_participation_flag_updates(BeaconState.t()) :: {:ok, BeaconState.t()}
-  def process_participation_flag_updates(state) do
+  def process_participation_flag_updates(%BeaconState{} = state) do
     %BeaconState{current_epoch_participation: current_epoch_participation, validators: validators} =
       state
 
     new_current_epoch_participation = Aja.Vector.duplicate(0, Aja.Vector.size(validators))
 
-    new_state = %BeaconState{
+    new_state = %{
       state
       | previous_epoch_participation: current_epoch_participation,
         current_epoch_participation: new_current_epoch_participation
@@ -389,8 +389,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     end
   end
 
-  defp update_first_bit(state) do
-    %BeaconState{
+  defp update_first_bit(%BeaconState{} = state) do
+    %{
       state
       | previous_justified_checkpoint: state.current_justified_checkpoint,
         justification_bits: BitVector.shift_higher(state.justification_bits, 1)
@@ -413,7 +413,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   defp update_checkpoint_finalization(
-         state,
+         %BeaconState{} = state,
          old_justified_checkpoint,
          current_epoch,
          range,
@@ -422,7 +422,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     bits_set = BitVector.all?(state.justification_bits, range)
 
     if bits_set and old_justified_checkpoint.epoch + offset == current_epoch do
-      %BeaconState{state | finalized_checkpoint: old_justified_checkpoint}
+      %{state | finalized_checkpoint: old_justified_checkpoint}
     else
       state
     end
@@ -510,7 +510,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       end
 
     {:ok,
-     %BeaconState{
+     %{
        state
        | pending_deposits:
            Enum.drop(state.pending_deposits, last_processed_index + 1)
@@ -624,7 +624,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       end)
 
     {:ok,
-     %BeaconState{
+     %{
        state
        | pending_consolidations:
            Enum.drop(state.pending_consolidations, next_pending_consolidation)

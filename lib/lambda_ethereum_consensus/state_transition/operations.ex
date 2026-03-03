@@ -105,7 +105,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   @spec cache_current_block(BeaconState.t(), BeaconBlock.t()) ::
           {:ok, BeaconState.t()} | {:error, String.t()}
-  defp cache_current_block(state, block) do
+  defp cache_current_block(%BeaconState{} = state, block) do
     # Cache current block as the new latest block
     with {:ok, root} <- Ssz.hash_tree_root(block.body) do
       latest_block_header = %BeaconBlockHeader{
@@ -116,7 +116,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         body_root: root
       }
 
-      {:ok, %BeaconState{state | latest_block_header: latest_block_header}}
+      {:ok, %{state | latest_block_header: latest_block_header}}
     end
   end
 
@@ -285,7 +285,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
           header = struct!(ExecutionPayloadHeader, fields)
 
-          {:ok, %BeaconState{state | latest_execution_payload_header: header}}
+          {:ok, %{state | latest_execution_payload_header: header}}
         end
     end
   end
@@ -305,7 +305,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       state
       |> Map.update!(:balances, &decrease_balances(&1, withdrawals))
       |> then(
-        &%BeaconState{
+        &%{
           &1
           | pending_partial_withdrawals:
               Enum.drop(&1.pending_partial_withdrawals, processed_partial_withdrawals_count)
@@ -321,14 +321,14 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   @spec update_next_withdrawal_index(BeaconState.t(), list(Withdrawal.t())) :: BeaconState.t()
   defp update_next_withdrawal_index(state, []), do: state
 
-  defp update_next_withdrawal_index(state, withdrawals) do
+  defp update_next_withdrawal_index(%BeaconState{} = state, withdrawals) do
     latest_withdrawal = List.last(withdrawals)
-    %BeaconState{state | next_withdrawal_index: latest_withdrawal.index + 1}
+    %{state | next_withdrawal_index: latest_withdrawal.index + 1}
   end
 
   @spec update_next_withdrawal_validator_index(BeaconState.t(), list(Withdrawal.t()), integer()) ::
           BeaconState.t()
-  defp update_next_withdrawal_validator_index(state, withdrawals, validator_len) do
+  defp update_next_withdrawal_validator_index(%BeaconState{} = state, withdrawals, validator_len) do
     next_index =
       if length(withdrawals) == ChainSpec.get("MAX_WITHDRAWALS_PER_PAYLOAD") do
         # Update the next validator index to start the next withdrawal sweep
@@ -341,7 +341,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       end
 
     next_validator_index = rem(next_index, validator_len)
-    %BeaconState{state | next_withdrawal_validator_index: next_validator_index}
+    %{state | next_withdrawal_validator_index: next_validator_index}
   end
 
   @spec check_withdrawals(list(Withdrawal.t()), list(Withdrawal.t())) ::
@@ -692,7 +692,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       true ->
         with {:ok, {state, validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
           Aja.Vector.replace_at!(state.validators, validator_index, validator)
-          |> then(&{:ok, %BeaconState{state | validators: &1}})
+          |> then(&{:ok, %{state | validators: &1}})
         end
     end
   end
@@ -1038,9 +1038,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           address_change.to_execution_address
         ]
         |> Enum.join()
-        |> then(&%Validator{validator | withdrawal_credentials: &1})
+        |> then(&%{validator | withdrawal_credentials: &1})
         |> then(&Aja.Vector.replace_at!(state.validators, address_change.validator_index, &1))
-        |> then(&{:ok, %BeaconState{state | validators: &1}})
+        |> then(&{:ok, %{state | validators: &1}})
       else
         {:error, "bls verification failed"}
       end
@@ -1082,7 +1082,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     }
 
     {:ok,
-     %BeaconState{
+     %{
        state
        | deposit_requests_start_index: start_index,
          pending_deposits: state.pending_deposits ++ [deposit]
@@ -1161,7 +1161,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   defp handle_valid_withdrawal_request(state, _, validator_index, _, _, :full_exit) do
     with {:ok, {state, validator}} <- Mutators.initiate_validator_exit(state, validator_index) do
       {:ok,
-       %Types.BeaconState{
+       %{
          state
          | validators: Aja.Vector.replace_at(state.validators, validator_index, validator)
        }}
@@ -1210,7 +1210,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       }
 
       {:ok,
-       %BeaconState{
+       %{
          state
          | # We should make sure that partial withdrawals are ordered by withdrawable epoch
            pending_partial_withdrawals:
@@ -1266,7 +1266,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       withdrawable_epoch =
         consolidation_epoch + ChainSpec.get("MIN_VALIDATOR_WITHDRAWABILITY_DELAY")
 
-      updated_source_validator = %Validator{
+      updated_source_validator = %{
         source_validator
         | exit_epoch: consolidation_epoch,
           withdrawable_epoch: withdrawable_epoch
@@ -1277,7 +1277,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         target_index: target_index
       }
 
-      updated_state = %BeaconState{
+      updated_state = %{
         state
         | validators:
             Aja.Vector.replace_at(state.validators, source_index, updated_source_validator),

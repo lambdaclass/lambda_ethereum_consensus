@@ -286,7 +286,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       |> Store.store_block_info(block_info)
       |> if_then_update(
         is_timely and is_first_block,
-        &%Store{&1 | proposer_boost_root: block_info.root}
+        &%{&1 | proposer_boost_root: block_info.root}
       )
       # Update checkpoints in store if necessary
       |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
@@ -315,7 +315,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     |> if_then_update(
       justified_checkpoint.epoch > store.justified_checkpoint.epoch,
       # Update justified checkpoint
-      &%Store{&1 | justified_checkpoint: justified_checkpoint}
+      &%{&1 | justified_checkpoint: justified_checkpoint}
     )
     |> if_then_update(
       finalized_checkpoint.epoch > store.finalized_checkpoint.epoch,
@@ -323,7 +323,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       fn store ->
         EventPubSub.publish(:finalized_checkpoint, finalized_checkpoint)
 
-        %Store{store | finalized_checkpoint: finalized_checkpoint}
+        %{store | finalized_checkpoint: finalized_checkpoint}
       end
     )
   end
@@ -332,7 +332,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     previous_slot = ForkChoice.get_current_slot(store)
 
     # Update store time
-    store = %Store{store | time: time}
+    store = %{store | time: time}
 
     # Why is this needed? the previous line shoud be immediate.
     current_slot = ForkChoice.get_current_slot(store)
@@ -340,7 +340,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     store
     # If this is a new slot, reset store.proposer_boost_root
     |> if_then_update(current_slot > previous_slot, fn store ->
-      %Store{store | proposer_boost_root: <<0::256>>}
+      %{store | proposer_boost_root: <<0::256>>}
       # If a new epoch, pull-up justification and finalization from previous epoch
       |> if_then_update(compute_slots_since_epoch_start(current_slot) == 0, fn store ->
         update_checkpoints(
@@ -385,12 +385,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     |> if_then_update(
       unrealized_justified_checkpoint.epoch > store.unrealized_justified_checkpoint.epoch,
       # Update unrealized justified checkpoint
-      &%Store{&1 | unrealized_justified_checkpoint: unrealized_justified_checkpoint}
+      &%{&1 | unrealized_justified_checkpoint: unrealized_justified_checkpoint}
     )
     |> if_then_update(
       unrealized_finalized_checkpoint.epoch > store.unrealized_finalized_checkpoint.epoch,
       # Update unrealized finalized checkpoint
-      &%Store{&1 | unrealized_finalized_checkpoint: unrealized_finalized_checkpoint}
+      &%{&1 | unrealized_finalized_checkpoint: unrealized_finalized_checkpoint}
     )
   end
 

@@ -159,7 +159,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
 
     with {:ok, post_state} <- StateTransition.transition(pre_state, wrapped_block) do
-      %BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}
+      %{block | state_root: Ssz.hash_tree_root!(post_state)}
       |> sign_block(post_state, privkey)
       |> then(&{:ok, &1})
     end

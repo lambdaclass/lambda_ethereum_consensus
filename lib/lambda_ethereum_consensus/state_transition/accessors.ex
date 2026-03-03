@@ -4,6 +4,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
 
   require Logger
+  require HardForkAliasInjection
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -16,10 +17,6 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   alias Types.IndexedAttestation
   alias Types.SyncCommittee
   alias Types.Validator
-
-  # Suppress dialyzer warning for fork-gate dead code: HardForkAliasInjection.fulu?()
-  # is a compile-time constant, so the `false` branch of `if fulu?() and ...` is dead.
-  @dialyzer {:no_match, get_beacon_proposer_index: 2}
 
   @max_random_byte 2 ** 16 - 1
 
@@ -286,9 +283,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   def get_beacon_proposer_index(%BeaconState{slot: state_slot} = state, slot \\ nil) do
     slot = if is_nil(slot), do: state_slot, else: slot
 
-    if HardForkAliasInjection.fulu?() and slot == state_slot do
-      slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
-      {:ok, Enum.at(state.proposer_lookahead, rem(slot, slots_per_epoch))}
+    HardForkAliasInjection.on_fulu do
+      if slot == state_slot do
+        slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
+        {:ok, Enum.at(state.proposer_lookahead, rem(slot, slots_per_epoch))}
+      else
+        compute_beacon_proposer_index(state, slot)
+      end
     else
       compute_beacon_proposer_index(state, slot)
     end
