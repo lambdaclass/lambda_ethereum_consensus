@@ -388,4 +388,7 @@ pub(crate) struct BeaconState<C: Config> {
         VariableList<PendingPartialWithdrawal, C::PendingPartialWithdrawalsLimit>, // [New in Electra:EIP7251]
     pub(crate) pending_consolidations:
         VariableList<PendingConsolidation, C::PendingConsolidationsLimit>, // [New in Electra:EIP7251]
+    // Fulu fields
+    pub(crate) proposer_lookahead:
+        FixedVector<ValidatorIndex, C::ProposerLookaheadLength>, // [New in Fulu:EIP7917]
 }

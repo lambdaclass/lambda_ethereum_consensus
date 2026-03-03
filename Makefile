@@ -254,7 +254,7 @@ $(CONFIG_FILE): $(FORK_VERSION_FILE)
 
 $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz:
 	curl -L -o "$@" \
-		"https://github.com/ethereum/consensus-spec-tests/releases/download/${SPECTEST_VERSION}/$*.tar.gz"
+		"https://github.com/ethereum/consensus-specs/releases/download/${SPECTEST_VERSION}/$*.tar.gz"
 
 $(VECTORS_DIR)/%: $(SPECTEST_ROOTDIR)/%_${SPECTEST_VERSION}.tar.gz .spectest_version
 	-rm -rf $@

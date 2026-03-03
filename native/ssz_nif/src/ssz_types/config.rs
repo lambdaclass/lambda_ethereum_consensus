@@ -62,6 +62,9 @@ pub(crate) trait Config {
     type MaxBlobsPerBlockFulu: Unsigned; // 12 mainnet/gnosis, 6 minimal
     type KzgCommitmentsInclusionProofDepth: Unsigned; // 4 for all presets
 
+    // Fulu / EIP-7917 (proposer lookahead)
+    type ProposerLookaheadLength: Unsigned; // 2 * SLOTS_PER_EPOCH
+
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize: Unsigned; // SYNC_COMMITTEE_SIZE / SYNC_COMMITTEE_SUBNET_COUNT
     type MaxPendingAttestations: Unsigned; // MAX_ATTESTATIONS * SLOTS_PER_EPOCH
@@ -123,6 +126,7 @@ impl Config for Mainnet {
     type KzgCommitmentsInclusionProofDepth = U4;
 
     // Derived constants. Ideally, this would be trait defaults.
+    type ProposerLookaheadLength = typenum::Prod<typenum::U2, Self::SlotsPerEpoch>; // 2 * 32 = 64
     type SyncSubcommitteeSize =
         typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 512 committee size / 4 sync committee subnet count
     type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 32 slots per epoch
@@ -157,6 +161,7 @@ impl Config for Minimal {
     type MaxBlobsPerBlockFulu = U6;
 
     // Derived constants. Ideally, this would be trait defaults.
+    type ProposerLookaheadLength = typenum::Prod<typenum::U2, Self::SlotsPerEpoch>; // 2 * 8 = 16
     type SyncSubcommitteeSize =
         typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 32 committee size / 4 sync committee subnet count
     type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 8 slots per epoch
@@ -250,6 +255,7 @@ impl Config for Gnosis {
     type KzgCommitmentsInclusionProofDepth = U4;
 
     // Derived constants. Ideally, this would be trait defaults.
+    type ProposerLookaheadLength = typenum::Prod<typenum::U2, Self::SlotsPerEpoch>; // 2 * 16 = 32
     type SyncSubcommitteeSize =
         typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 512 committee size / 4 sync committee subnet count
     type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 32 slots per epoch

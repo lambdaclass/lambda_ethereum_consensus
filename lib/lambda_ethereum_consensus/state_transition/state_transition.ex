@@ -96,7 +96,7 @@ defmodule LambdaEthereumConsensus.StateTransition do
   end
 
   # Spec: upgrade_to_fulu(pre) in fulu/fork.md
-  # Fulu adds no new BeaconState fields; only the fork version is updated.
+  # Fulu adds proposer_lookahead (EIP-7917) and updates the fork version.
   defp upgrade_to_fulu(%BeaconState{fork: %{current_version: current_version}} = state) do
     epoch = Accessors.get_current_epoch(state)
 
@@ -106,7 +106,13 @@ defmodule LambdaEthereumConsensus.StateTransition do
       epoch: epoch
     }
 
-    %BeaconState{state | fork: new_fork}
+    proposer_lookahead_length = 2 * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    %BeaconState{
+      state
+      | fork: new_fork,
+        proposer_lookahead: List.duplicate(0, proposer_lookahead_length)
+    }
   end
 
   defp maybe_process_epoch(%BeaconState{} = state, 0), do: process_epoch(state)

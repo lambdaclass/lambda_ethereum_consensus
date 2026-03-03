@@ -11,6 +11,14 @@ defmodule Types.BeaconState do
   alias LambdaEthereumConsensus.Utils.BitVector
   alias Types.ExecutionPayloadHeader
 
+  require HardForkAliasInjection
+
+  # Fulu (EIP-7917) adds proposer_lookahead
+  fulu_fields =
+    if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu,
+      do: [:proposer_lookahead],
+      else: []
+
   fields = [
     :genesis_time,
     :genesis_validators_root,
@@ -50,7 +58,7 @@ defmodule Types.BeaconState do
     :pending_deposits,
     :pending_partial_withdrawals,
     :pending_consolidations
-  ]
+  ] ++ fulu_fields
 
   @enforce_keys fields
   defstruct fields
@@ -133,12 +141,15 @@ defmodule Types.BeaconState do
           # [New in Electra:EIP7251]
           pending_partial_withdrawals: list(Types.PendingPartialWithdrawal.t()),
           # [New in Electra:EIP7251]
-          pending_consolidations: list(Types.PendingConsolidation.t())
+          pending_consolidations: list(Types.PendingConsolidation.t()),
+          # [New in Fulu:EIP7917]
+          # Vector of proposer indices, length = 2 * SLOTS_PER_EPOCH
+          proposer_lookahead: list(Types.validator_index())
         }
 
   @impl LambdaEthereumConsensus.Container
   def schema() do
-    [
+    base = [
       {:genesis_time, TypeAliases.uint64()},
       {:genesis_validators_root, TypeAliases.root()},
       {:slot, TypeAliases.slot()},
@@ -187,6 +198,17 @@ defmodule Types.BeaconState do
       {:pending_consolidations,
        {:list, Types.PendingConsolidation, ChainSpec.get("PENDING_CONSOLIDATIONS_LIMIT")}}
     ]
+
+    if HardForkAliasInjection.fulu?() do
+      base ++
+        [
+          # New Fulu fields (EIP-7917)
+          {:proposer_lookahead,
+           {:vector, TypeAliases.validator_index(), 2 * ChainSpec.get("SLOTS_PER_EPOCH")}}
+        ]
+    else
+      base
+    end
   end
 
   def encode(%__MODULE__{} = map) do

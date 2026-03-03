@@ -220,7 +220,9 @@ defmodule Fixtures.Block do
       earliest_consolidation_epoch: Random.uint64(),
       pending_deposits: [],
       pending_partial_withdrawals: [],
-      pending_consolidations: []
+      pending_consolidations: [],
+      # New Fulu field (EIP-7917)
+      proposer_lookahead: List.duplicate(0, 2 * ChainSpec.get("SLOTS_PER_EPOCH"))
     }
   end
 

@@ -469,6 +469,8 @@ gen_struct_with_config!(
         pending_deposits: Vec<PendingDeposit<'a>>, // [New in Electra:EIP7251]
         pending_partial_withdrawals: Vec<PendingPartialWithdrawal>, // [New in Electra:EIP7251]
         pending_consolidations: Vec<PendingConsolidation>, // [New in Electra:EIP7251]
+        // Fulu fields
+        proposer_lookahead: Vec<ValidatorIndex>, // [New in Fulu:EIP7917]
     }
 );
 
