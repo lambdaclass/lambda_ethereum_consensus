@@ -243,10 +243,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       body.blob_kzg_commitments
       |> length() >
-          if(HardForkAliasInjection.fulu?(),
-            do: ChainSpec.get("MAX_BLOBS_PER_BLOCK_FULU"),
-            else: ChainSpec.get("MAX_BLOBS_PER_BLOCK_ELECTRA")
-          ) ->
+          Misc.get_blob_parameters(Accessors.get_current_epoch(state)).max_blobs_per_block ->
         {:error, "Too many commitments"}
 
       # Cache execution payload header
@@ -454,9 +451,10 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     max_pending_partials_per_withdrawals_sweep =
       ChainSpec.get("MAX_PENDING_PARTIALS_PER_WITHDRAWALS_SWEEP")
 
-    # We expect partial withdrawals to be ordered by withdrawable epoch
+    # Bug fix: spec checks length(withdrawals) (actual withdrawals produced),
+    # not processed_partial_withdrawals_count (entries examined including skipped).
     if withdrawal.withdrawable_epoch > epoch ||
-         processed_partial_withdrawals_count == max_pending_partials_per_withdrawals_sweep do
+         length(withdrawals) == max_pending_partials_per_withdrawals_sweep do
       {:halt, {processed_partial_withdrawals_count, withdrawal_index, withdrawals}}
     else
       do_process_partial_withdrawal(
@@ -481,15 +479,23 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     validator = Aja.Vector.at(state.validators, withdrawal.validator_index)
     has_sufficient_effective_balance = validator.effective_balance >= min_activation_balance
 
-    has_excess_balance =
-      Aja.Vector.at(state.balances, withdrawal.validator_index) > min_activation_balance
+    # Track total already withdrawn for this validator in this sweep,
+    # so multiple partial withdrawals for the same validator are handled correctly.
+    total_withdrawn =
+      Enum.sum(
+        for w <- withdrawals,
+            w.validator_index == withdrawal.validator_index,
+            do: w.amount
+      )
+
+    balance = Aja.Vector.at(state.balances, withdrawal.validator_index) - total_withdrawn
+    has_excess_balance = balance > min_activation_balance
 
     if validator.exit_epoch == far_future_epoch && has_sufficient_effective_balance &&
          has_excess_balance do
       withdrawable_balance =
         min(
-          Aja.Vector.at(state.balances, withdrawal.validator_index) -
-            min_activation_balance,
+          balance - min_activation_balance,
           withdrawal.amount
         )
 

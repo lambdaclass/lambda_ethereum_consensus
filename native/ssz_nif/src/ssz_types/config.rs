@@ -59,7 +59,6 @@ pub(crate) trait Config {
 
     // Fulu / PeerDAS (EIP-7594) added fields
     type FieldElementsPerCell: Unsigned; // 64 for all presets
-    type MaxBlobsPerBlockFulu: Unsigned; // 12 mainnet/gnosis, 6 minimal
     type KzgCommitmentsInclusionProofDepth: Unsigned; // 4 for all presets
 
     // Fulu / EIP-7917 (proposer lookahead)
@@ -122,7 +121,6 @@ impl Config for Mainnet {
 
     // Fulu / PeerDAS
     type FieldElementsPerCell = U64;
-    type MaxBlobsPerBlockFulu = U12;
     type KzgCommitmentsInclusionProofDepth = U4;
 
     // Derived constants. Ideally, this would be trait defaults.
@@ -147,18 +145,15 @@ impl Config for Minimal {
     type SyncCommitteeSize = U32;
     type MaxWithdrawalsPerPayload = U4;
     type FieldElementsPerBlob = U4096;
-    type MaxBlobCommitmentsPerBlock = U32;
-    type KzgCommitmentInclusionProofDepth = U10;
+    type MaxBlobCommitmentsPerBlock = U4096;
+    type KzgCommitmentInclusionProofDepth = U17;
     type MaxCommitteesPerSlot = U4;
     // Electra added fields
-    type MaxDepositRequestsPerPayload = U4;
-    type MaxWithdrawalRequestsPerPayload = U2;
+    type MaxDepositRequestsPerPayload = U8192;
+    type MaxWithdrawalRequestsPerPayload = U16;
     type PendingPartialWithdrawalsLimit = U64;
     type PendingConsolidationsLimit = U64;
     type MaxValidatorsPerSlot = U8192; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 4, this as the rest is fixed and we need to be really carefull about any change
-
-    // Fulu / PeerDAS (customized: 6 blobs for minimal)
-    type MaxBlobsPerBlockFulu = U6;
 
     // Derived constants. Ideally, this would be trait defaults.
     type ProposerLookaheadLength = typenum::Prod<typenum::U2, Self::SlotsPerEpoch>; // 2 * 8 = 16
@@ -251,7 +246,6 @@ impl Config for Gnosis {
 
     // Fulu / PeerDAS
     type FieldElementsPerCell = U64;
-    type MaxBlobsPerBlockFulu = U12;
     type KzgCommitmentsInclusionProofDepth = U4;
 
     // Derived constants. Ideally, this would be trait defaults.

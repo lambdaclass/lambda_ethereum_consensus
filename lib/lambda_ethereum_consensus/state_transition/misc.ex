@@ -24,6 +24,35 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   @doc """
+  Returns the blob parameters for the given epoch, based on the BLOB_SCHEDULE config.
+  Falls back to ELECTRA_FORK_EPOCH / MAX_BLOBS_PER_BLOCK_ELECTRA if no schedule entry matches.
+  """
+  @spec get_blob_parameters(Types.epoch()) :: %{
+          epoch: Types.epoch(),
+          max_blobs_per_block: non_neg_integer()
+        }
+  def get_blob_parameters(epoch) do
+    blob_schedule = ChainSpec.get("BLOB_SCHEDULE")
+
+    blob_schedule
+    |> Enum.sort_by(& &1["EPOCH"], :desc)
+    |> Enum.find(fn entry -> epoch >= entry["EPOCH"] end)
+    |> case do
+      nil ->
+        %{
+          epoch: ChainSpec.get("ELECTRA_FORK_EPOCH"),
+          max_blobs_per_block: ChainSpec.get("MAX_BLOBS_PER_BLOCK_ELECTRA")
+        }
+
+      entry ->
+        %{
+          epoch: entry["EPOCH"],
+          max_blobs_per_block: entry["MAX_BLOBS_PER_BLOCK"]
+        }
+    end
+  end
+
+  @doc """
   Returns the epoch number at slot.
   """
   @spec compute_epoch_at_slot(Types.slot()) :: Types.epoch()

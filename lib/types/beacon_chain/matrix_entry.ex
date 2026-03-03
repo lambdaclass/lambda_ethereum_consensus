@@ -4,7 +4,7 @@ defmodule Types.MatrixEntry do
   Also used internally by DAS core logic.
 
   The extended matrix is a 2D grid of cells:
-  - rows correspond to blobs (up to MAX_BLOBS_PER_BLOCK_FULU)
+  - rows correspond to blobs
   - columns correspond to the NUMBER_OF_COLUMNS (128) data columns
 
   A MatrixEntry holds one cell at position (row_index, column_index) together

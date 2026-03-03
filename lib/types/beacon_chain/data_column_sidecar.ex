@@ -24,7 +24,7 @@ defmodule Types.DataColumnSidecar do
 
   @type t :: %__MODULE__{
           index: Types.column_index(),
-          # List of cells, one per blob in the block (up to MAX_BLOBS_PER_BLOCK_FULU)
+          # List of cells, one per blob in the block
           column: list(Types.cell()),
           # KZG commitments for each blob, matching the block body
           kzg_commitments: list(Types.kzg_commitment()),
