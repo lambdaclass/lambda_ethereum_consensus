@@ -51,9 +51,12 @@ defmodule LambdaEthereumConsensus.P2P.DataColumnDownloader do
 
     peer_id = get_some_peer()
 
-    # DataColumnSidecarsByRangeRequest: {start_slot, count, columns}
     request =
-      %{start_slot: slot, count: count, columns: column_indices}
+      %Types.DataColumnSidecarsByRangeRequest{
+        start_slot: slot,
+        count: count,
+        columns: column_indices
+      }
       |> ReqResp.encode_request()
 
     Libp2pPort.send_async_request(
