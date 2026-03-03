@@ -17,6 +17,7 @@
   {"lib/libp2p_port.ex", :guard_fail},
   {"lib/types/beacon_chain/beacon_state.ex", :guard_fail},
   {"lib/types/p2p/metadata.ex", :guard_fail},
+  {"test/spec/runners/fork_choice.ex", :guard_fail},
 
   # --- Fork-gate dead code: unused functions from non-fulu branches ---
   {"lib/lambda_ethereum_consensus/beacon/pending_blocks.ex", :unused_fun},
