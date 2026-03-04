@@ -8,6 +8,8 @@ defmodule KzgTestRunner do
 
   # Fiat-Shamir domain separator for cell KZG batch challenges (16 bytes)
   @random_challenge_kzg_cell_batch_domain "RCKZGCBATCH__V1_"
+  # Fiat-Shamir domain separator for single blob KZG challenges (16 bytes)
+  @fiat_shamir_protocol_domain "FSBLOBVERIFY_V1_"
   # BLS12-381 scalar field modulus
   @bls_modulus 52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513
   # KZG preset constants (fixed across all configs)
@@ -171,6 +173,12 @@ defmodule KzgTestRunner do
     end
   end
 
+  # compute_challenge: Fiat-Shamir challenge for a single blob+commitment (EIP-4844/Deneb spec)
+  defp handle_case("compute_challenge", %{blob: blob, commitment: commitment}, output) do
+    challenge = compute_blob_challenge(blob, commitment)
+    assert challenge == output
+  end
+
   defp handle_case(
          "compute_verify_cell_kzg_proof_batch_challenge",
          %{
@@ -214,6 +222,25 @@ defmodule KzgTestRunner do
         <<length(cell_indices)::big-unsigned-64>> <>
         Enum.join(commitments) <>
         per_item
+
+    hash_value = :crypto.hash(:sha256, hash_input)
+    field_int = :binary.decode_unsigned(hash_value, :big)
+    reduced = rem(field_int, @bls_modulus)
+    <<reduced::big-unsigned-256>>
+  end
+
+  # Computes the Fiat-Shamir evaluation challenge z for a single blob+commitment.
+  # Implements compute_challenge from the c-kzg reference implementation (eip4844.c):
+  # domain || hi_u64(0) || lo_u64(FIELD_ELEMENTS_PER_BLOB) || blob || commitment
+  # The polynomial degree is encoded as a 128-bit big-endian integer split across two u64s.
+  # Result: SHA-256(input) as big-endian integer mod BLS_MODULUS, padded to 32 bytes.
+  defp compute_blob_challenge(blob, commitment) do
+    hash_input =
+      @fiat_shamir_protocol_domain <>
+        <<0::big-unsigned-64>> <>
+        <<@field_elements_per_blob::big-unsigned-64>> <>
+        blob <>
+        commitment
 
     hash_value = :crypto.hash(:sha256, hash_input)
     field_int = :binary.decode_unsigned(hash_value, :big)

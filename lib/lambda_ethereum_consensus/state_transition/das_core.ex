@@ -192,26 +192,29 @@ defmodule LambdaEthereumConsensus.StateTransition.DasCore do
 
   @doc """
   Verifies that all custody column sidecars for a block are valid by
-  batch-verifying their KZG cell proofs.
+  checking structural constraints and batch-verifying their KZG cell proofs.
 
-  Returns true if all proofs are valid.
+  Returns true if all sidecars are structurally valid and all proofs pass.
   """
-  @spec columns_data_available?(Types.root(), [DataColumnSidecar.t()]) :: boolean()
-  def columns_data_available?(_block_root, []), do: true
+  @spec columns_data_available?(Types.root(), [Types.kzg_commitment()], [DataColumnSidecar.t()]) ::
+          boolean()
+  def columns_data_available?(_block_root, _blob_kzg_commitments, []), do: true
 
-  def columns_data_available?(block_root, sidecars) do
-    # Verify all sidecars belong to the expected block
-    all_for_block =
-      Enum.all?(sidecars, fn %DataColumnSidecar{
-                               signed_block_header: %{message: %{body_root: _}}
-                             } = sidecar ->
+  def columns_data_available?(block_root, blob_kzg_commitments, sidecars) do
+    n = length(blob_kzg_commitments)
+
+    all_valid =
+      Enum.all?(sidecars, fn sidecar ->
         sidecar_root =
           SszEx.hash_tree_root!(sidecar.signed_block_header.message, Types.BeaconBlockHeader)
 
-        sidecar_root == block_root
+        sidecar_root == block_root and
+          sidecar.kzg_commitments == blob_kzg_commitments and
+          length(sidecar.column) == n and
+          length(sidecar.kzg_proofs) == n
       end)
 
-    if all_for_block do
+    if all_valid do
       verify_data_column_sidecars_kzg(sidecars)
     else
       false

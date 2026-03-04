@@ -104,7 +104,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   def data_available?(beacon_block_root, blob_kzg_commitments) do
     if HardForkAliasInjection.fulu?() do
-      columns_data_available?(beacon_block_root)
+      columns_data_available?(beacon_block_root, blob_kzg_commitments)
     else
       blobs_data_available?(beacon_block_root, blob_kzg_commitments)
     end
@@ -131,16 +131,27 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Fulu path: verify KZG cell proofs for all custody data column sidecars.
-  # All custody columns must be present in the DB and pass batch KZG verification.
-  defp columns_data_available?(beacon_block_root) do
+  # All custody columns must be present in the DB, have valid indices, and pass batch KZG verification.
+  defp columns_data_available?(beacon_block_root, blob_kzg_commitments) do
     column_indices = custody_column_indices()
 
-    results =
-      Enum.map(column_indices, &DataColumnDb.get_data_column_sidecar(beacon_block_root, &1))
+    indexed_results =
+      Enum.map(column_indices, fn ci ->
+        {ci, DataColumnDb.get_data_column_sidecar(beacon_block_root, ci)}
+      end)
 
-    if Enum.all?(results, &match?({:ok, _}, &1)) do
-      sidecars = Enum.map(results, fn {:ok, s} -> s end)
-      DasCore.columns_data_available?(beacon_block_root, sidecars)
+    if Enum.all?(indexed_results, &match?({_, {:ok, _}}, &1)) do
+      {indices, sidecars} =
+        indexed_results
+        |> Enum.map(fn {ci, {:ok, s}} -> {ci, s} end)
+        |> Enum.unzip()
+
+      # Verify each sidecar's declared index matches the requested column index
+      if Enum.all?(Enum.zip(indices, sidecars), fn {ci, s} -> s.index == ci end) do
+        DasCore.columns_data_available?(beacon_block_root, blob_kzg_commitments, sidecars)
+      else
+        false
+      end
     else
       false
     end
