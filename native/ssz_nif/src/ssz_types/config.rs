@@ -60,6 +60,7 @@ pub(crate) trait Config {
     // Fulu / PeerDAS (EIP-7594) added fields
     type FieldElementsPerCell: Unsigned; // 64 for all presets
     type KzgCommitmentsInclusionProofDepth: Unsigned; // 4 for all presets
+    type NumberOfColumns: Unsigned; // 128 for all presets
 
     // Fulu / EIP-7917 (proposer lookahead)
     type ProposerLookaheadLength: Unsigned; // 2 * SLOTS_PER_EPOCH
@@ -122,6 +123,7 @@ impl Config for Mainnet {
     // Fulu / PeerDAS
     type FieldElementsPerCell = U64;
     type KzgCommitmentsInclusionProofDepth = U4;
+    type NumberOfColumns = U128;
 
     // Derived constants. Ideally, this would be trait defaults.
     type ProposerLookaheadLength = typenum::Prod<typenum::U2, Self::SlotsPerEpoch>; // 2 * 32 = 64
@@ -193,7 +195,8 @@ impl Config for Minimal {
         MaxAttesterSlashingsElectra,
         MaxAttestationsElectra,
         FieldElementsPerCell,
-        KzgCommitmentsInclusionProofDepth
+        KzgCommitmentsInclusionProofDepth,
+        NumberOfColumns
     });
 }
 
@@ -247,6 +250,7 @@ impl Config for Gnosis {
     // Fulu / PeerDAS
     type FieldElementsPerCell = U64;
     type KzgCommitmentsInclusionProofDepth = U4;
+    type NumberOfColumns = U128;
 
     // Derived constants. Ideally, this would be trait defaults.
     type ProposerLookaheadLength = typenum::Prod<typenum::U2, Self::SlotsPerEpoch>; // 2 * 16 = 32

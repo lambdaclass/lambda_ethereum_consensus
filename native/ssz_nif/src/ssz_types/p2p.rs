@@ -61,3 +61,9 @@ pub(crate) struct DataColumnIdentifier {
     pub(crate) block_root: Root,
     pub(crate) index: ColumnIndex,
 }
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct DataColumnsByRootIdentifier<C: Config> {
+    pub(crate) block_root: Root,
+    pub(crate) columns: VariableList<ColumnIndex, C::NumberOfColumns>,
+}

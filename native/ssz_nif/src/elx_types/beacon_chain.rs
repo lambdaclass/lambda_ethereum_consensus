@@ -493,3 +493,33 @@ gen_struct_with_config!(
         execution_requests: ExecutionRequests<'a>, // [New in Electra]
     }
 );
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.Eth1Block"]
+    pub(crate) struct Eth1Block<'a> {
+        timestamp: u64,
+        deposit_root: Root<'a>,
+        deposit_count: u64,
+    }
+);
+
+gen_struct!(
+    #[derive(NifStruct)]
+    #[module = "Types.SyncAggregatorSelectionData"]
+    pub(crate) struct SyncAggregatorSelectionData {
+        slot: Slot,
+        subcommittee_index: u64,
+    }
+);
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "Types.MatrixEntry"]
+    pub(crate) struct MatrixEntry<'a> {
+        cell: Cell<'a>,
+        kzg_proof: KZGProof<'a>,
+        column_index: ColumnIndex,
+        row_index: u64,
+    }
+);

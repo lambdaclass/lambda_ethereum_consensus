@@ -39,8 +39,6 @@ defmodule OperationsTestRunner do
     "consolidation_request" => ConsolidationRequest,
     "withdrawal_request" => WithdrawalRequest,
     "deposit_request" => DepositRequest
-
-    # "deposit_receipt" => "DepositReceipt" Not yet implemented
   }
 
   # Map the operation-name to the associated input name
@@ -58,8 +56,6 @@ defmodule OperationsTestRunner do
     "consolidation_request" => "consolidation_request",
     "withdrawal_request" => "withdrawal_request",
     "deposit_request" => "deposit_request"
-
-    # "deposit_receipt" => "deposit_receipt" Not yet implemented
   }
 
   @impl TestRunner

@@ -391,3 +391,24 @@ pub(crate) struct BeaconState<C: Config> {
     // Fulu fields
     pub(crate) proposer_lookahead: FixedVector<ValidatorIndex, C::ProposerLookaheadLength>, // [New in Fulu:EIP7917]
 }
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct Eth1Block {
+    pub(crate) timestamp: u64,
+    pub(crate) deposit_root: Root,
+    pub(crate) deposit_count: u64,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct SyncAggregatorSelectionData {
+    pub(crate) slot: Slot,
+    pub(crate) subcommittee_index: u64,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct MatrixEntry<C: Config> {
+    pub(crate) cell: Cell<C>,
+    pub(crate) kzg_proof: KZGProof,
+    pub(crate) column_index: ColumnIndex,
+    pub(crate) row_index: u64,
+}

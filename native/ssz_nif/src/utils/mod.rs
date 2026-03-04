@@ -63,6 +63,10 @@ macro_rules! schema_match {
                 ConsolidationRequest,
                 ExecutionRequests<C>,
                 SingleAttestation,
+                Eth1Block,
+                SyncAggregatorSelectionData,
+                MatrixEntry<C>,
+                DataColumnsByRootIdentifier<C>,
             }
         )
     };

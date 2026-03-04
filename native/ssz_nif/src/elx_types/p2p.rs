@@ -81,3 +81,12 @@ gen_struct!(
         index: ColumnIndex,
     }
 );
+
+gen_struct_with_config!(
+    #[derive(NifStruct)]
+    #[module = "Types.DataColumnsByRootIdentifier"]
+    pub(crate) struct DataColumnsByRootIdentifier<'a> {
+        block_root: Root<'a>,
+        columns: Vec<ColumnIndex>,
+    }
+);

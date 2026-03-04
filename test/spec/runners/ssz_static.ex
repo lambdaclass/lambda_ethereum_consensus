@@ -14,12 +14,7 @@ defmodule SszStaticTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
-  @only_ssz_ex [
-    Types.Eth1Block,
-    Types.SyncAggregatorSelectionData,
-    Types.MatrixEntry,
-    Types.DataColumnsByRootIdentifier
-  ]
+  @only_ssz_ex []
 
   @disabled [
     "LightClientBootstrap",
