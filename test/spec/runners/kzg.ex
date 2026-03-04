@@ -206,13 +206,12 @@ defmodule KzgTestRunner do
     per_item =
       [commitment_indices, cell_indices, cosets_evals, proofs]
       |> Enum.zip()
-      |> Enum.map(fn {ci, ki, evals, proof} ->
+      |> Enum.map_join("", fn {ci, ki, evals, proof} ->
         <<ci::big-unsigned-64>> <>
           <<ki::big-unsigned-64>> <>
           Enum.join(evals) <>
           proof
       end)
-      |> Enum.join()
 
     hash_input =
       @random_challenge_kzg_cell_batch_domain <>

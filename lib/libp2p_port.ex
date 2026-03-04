@@ -426,16 +426,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
-    current_version = ForkChoice.get_fork_version()
-
-    fork_digest =
-      Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())
+    enr_fork_id = ForkChoice.compute_enr_fork_id()
 
     Logger.info(
-      "[Libp2pPort] Fork version: #{inspect(current_version)}, fork digest: #{Base.encode16(fork_digest)}"
+      "[Libp2pPort] Fork version: #{inspect(enr_fork_id.next_fork_version)}, fork digest: #{Base.encode16(enr_fork_id.fork_digest)}"
     )
 
-    ([initial_enr: compute_initial_enr(current_version)] ++ args)
+    ([initial_enr: compute_initial_enr(enr_fork_id)] ++ args)
     |> parse_args()
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
@@ -780,12 +777,22 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       SszEx.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
 
     if HardForkAliasInjection.fulu?() do
+      nfd =
+        if enr_fork_id.next_fork_epoch == Constants.far_future_epoch() do
+          <<0, 0, 0, 0>>
+        else
+          Misc.compute_fork_digest(
+            ChainSpec.get_genesis_validators_root(),
+            enr_fork_id.next_fork_epoch
+          )
+        end
+
       %Enr{
         eth2: eth2,
         attnets: attnets,
         syncnets: syncnets,
         cgc: encode_cgc(ChainSpec.get("CUSTODY_REQUIREMENT")),
-        nfd: compute_nfd()
+        nfd: nfd
       }
     else
       %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets, cgc: <<>>, nfd: <<>>}
@@ -797,22 +804,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   defp encode_cgc(0), do: <<>>
   defp encode_cgc(value), do: :binary.encode_unsigned(value, :big)
 
-  # Returns the next-fork digest. Fulu is the latest fork, so there is no next fork.
-  defp compute_nfd(), do: <<0, 0, 0, 0>>
-
-  defp compute_initial_enr(current_version) do
-    fork_digest =
-      Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())
-
+  defp compute_initial_enr(%EnrForkId{} = enr_fork_id) do
     attnets = BitVector.new(ChainSpec.get("ATTESTATION_SUBNET_COUNT"))
     syncnets = BitVector.new(Constants.sync_committee_subnet_count())
-
-    %EnrForkId{
-      fork_digest: fork_digest,
-      next_fork_version: current_version,
-      next_fork_epoch: Constants.far_future_epoch()
-    }
-    |> encode_enr(attnets, syncnets)
+    encode_enr(enr_fork_id, attnets, syncnets)
   end
 
   defp add_subscriber(state, topic, module) do

@@ -340,14 +340,60 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   end
 
   @doc """
-  Return the 4-byte fork digest for the ``current_version`` and ``genesis_validators_root``.
-  This is a digest primarily used for domain separation on the p2p layer.
-  4-bytes suffices for practical separation of forks/chains.
+  Return the 4-byte fork digest.
+
+  Two arities are supported:
+
+  - `compute_fork_digest(current_version, genesis_validators_root)` — classic form used for
+    domain separation in signatures. Both arguments are binaries.
+
+  - `compute_fork_digest(genesis_validators_root, epoch)` — EIP-7892 epoch-based form used
+    on the P2P layer. Starting from Fulu, XORs the base digest with the first 4 bytes of
+    SHA-256(le_uint64(blob_params.epoch) ++ le_uint64(blob_params.max_blobs_per_block)).
+    Pre-Fulu epochs use the classic algorithm (no XOR).
   """
+  # Epoch-based clause must come first: the binary clause has no guard and would otherwise
+  # always match before this one.
+  @spec compute_fork_digest(Types.root(), Types.epoch()) :: Types.fork_digest()
+  def compute_fork_digest(genesis_validators_root, epoch) when is_integer(epoch) do
+    fork_version = ChainSpec.get_fork_version_for_epoch(epoch)
+    base_digest = compute_fork_data_root(fork_version, genesis_validators_root)
+
+    # [Modified in Fulu:EIP7892] Always XOR with hash of blob parameters.
+    # get_blob_parameters/1 falls back to Electra values when no BLOB_SCHEDULE entry matches.
+    if HardForkAliasInjection.fulu?() do
+      blob_params = get_blob_parameters(epoch)
+
+      input =
+        <<blob_params.epoch::little-unsigned-size(64),
+          blob_params.max_blobs_per_block::little-unsigned-size(64)>>
+
+      mask = :crypto.hash(:sha256, input)
+      :crypto.exor(binary_part(base_digest, 0, 4), binary_part(mask, 0, 4))
+    else
+      binary_part(base_digest, 0, 4)
+    end
+  end
+
   @spec compute_fork_digest(Types.version(), Types.root()) :: Types.fork_digest()
   def compute_fork_digest(current_version, genesis_validators_root) do
     compute_fork_data_root(current_version, genesis_validators_root)
     |> binary_part(0, 4)
+  end
+
+  @doc """
+  Returns the next epoch strictly after `current_epoch` where the fork digest changes
+  due to a BLOB_SCHEDULE entry, or nil if no such epoch exists. Only relevant in Fulu+.
+  """
+  @spec next_digest_change_epoch(Types.epoch()) :: Types.epoch() | nil
+  def next_digest_change_epoch(current_epoch) do
+    ChainSpec.get("BLOB_SCHEDULE")
+    |> Enum.map(& &1["EPOCH"])
+    |> Enum.filter(&(&1 > current_epoch))
+    |> case do
+      [] -> nil
+      epochs -> Enum.min(epochs)
+    end
   end
 
   @doc """

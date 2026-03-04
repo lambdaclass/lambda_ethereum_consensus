@@ -12,8 +12,23 @@ defmodule Unit.Libp2pPortTest do
   doctest Libp2pPort
 
   setup %{tmp_dir: tmp_dir} do
-    patch(ForkChoice, :get_fork_version, fn -> ChainSpec.get("DENEB_FORK_VERSION") end)
+    version = ChainSpec.get("DENEB_FORK_VERSION")
+    gvr = <<0::256>>
+
+    patch(ForkChoice, :compute_enr_fork_id, fn ->
+      %Types.EnrForkId{
+        fork_digest: <<0::32>>,
+        next_fork_version: version,
+        next_fork_epoch: Constants.far_future_epoch()
+      }
+    end)
+
     start_link_supervised!({LambdaEthereumConsensus.Store.Db, dir: tmp_dir})
+
+    Application.fetch_env!(:lambda_ethereum_consensus, ChainSpec)
+    |> Keyword.put(:genesis_validators_root, gvr)
+    |> then(&Application.put_env(:lambda_ethereum_consensus, ChainSpec, &1))
+
     :ok
   end
 

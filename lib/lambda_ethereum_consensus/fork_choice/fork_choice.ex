@@ -180,6 +180,34 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     |> ChainSpec.get_fork_version_for_epoch()
   end
 
+  @doc """
+  Builds the EnrForkId struct for the current epoch using the EIP-7892 fork digest.
+  Sets next_fork_epoch to the next BLOB_SCHEDULE epoch (on Fulu+) or FAR_FUTURE_EPOCH.
+  """
+  @spec compute_enr_fork_id() :: Types.EnrForkId.t()
+  def compute_enr_fork_id() do
+    current_epoch = get_current_chain_slot() |> Misc.compute_epoch_at_slot()
+    genesis_validators_root = ChainSpec.get_genesis_validators_root()
+    fork_digest = Misc.compute_fork_digest(genesis_validators_root, current_epoch)
+    current_version = ChainSpec.get_fork_version_for_epoch(current_epoch)
+
+    next_fork_epoch =
+      if HardForkAliasInjection.fulu?() do
+        case Misc.next_digest_change_epoch(current_epoch) do
+          nil -> Constants.far_future_epoch()
+          epoch -> epoch
+        end
+      else
+        Constants.far_future_epoch()
+      end
+
+    %Types.EnrForkId{
+      fork_digest: fork_digest,
+      next_fork_version: current_version,
+      next_fork_epoch: next_fork_epoch
+    }
+  end
+
   @spec get_current_status_message() :: Types.StatusMessage.t()
   def get_current_status_message() do
     %{
@@ -356,8 +384,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   defp compute_fork_digest(slot, genesis_validators_root) do
-    Misc.compute_epoch_at_slot(slot)
-    |> ChainSpec.get_fork_version_for_epoch()
-    |> Misc.compute_fork_digest(genesis_validators_root)
+    epoch = Misc.compute_epoch_at_slot(slot)
+    Misc.compute_fork_digest(genesis_validators_root, epoch)
   end
 end

@@ -140,18 +140,16 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         {ci, DataColumnDb.get_data_column_sidecar(beacon_block_root, ci)}
       end)
 
-    if Enum.all?(indexed_results, &match?({_, {:ok, _}}, &1)) do
-      {indices, sidecars} =
-        indexed_results
-        |> Enum.map(fn {ci, {:ok, s}} -> {ci, s} end)
-        |> Enum.unzip()
+    # Both checks in one pass: pattern match ensures {:ok, s} is present AND index matches
+    all_valid? =
+      Enum.all?(indexed_results, fn
+        {ci, {:ok, s}} -> s.index == ci
+        _ -> false
+      end)
 
-      # Verify each sidecar's declared index matches the requested column index
-      if Enum.all?(Enum.zip(indices, sidecars), fn {ci, s} -> s.index == ci end) do
-        DasCore.columns_data_available?(beacon_block_root, blob_kzg_commitments, sidecars)
-      else
-        false
-      end
+    if all_valid? do
+      sidecars = Enum.map(indexed_results, fn {_ci, {:ok, s}} -> s end)
+      DasCore.columns_data_available?(beacon_block_root, blob_kzg_commitments, sidecars)
     else
       false
     end

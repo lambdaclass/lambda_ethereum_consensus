@@ -8,7 +8,6 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.P2P
   alias LambdaEthereumConsensus.P2P.Gossip.Handler
-  alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.AttSubnetInfo
 
   @behaviour Handler
@@ -105,18 +104,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.Attestation do
     Libp2pPort.update_enr(enr_fork_id, attnets, syncnets)
   end
 
-  defp compute_enr_fork_id() do
-    current_version = ForkChoice.get_fork_version()
-
-    fork_digest =
-      Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())
-
-    %Types.EnrForkId{
-      fork_digest: fork_digest,
-      next_fork_version: current_version,
-      next_fork_epoch: Constants.far_future_epoch()
-    }
-  end
+  defp compute_enr_fork_id(), do: ForkChoice.compute_enr_fork_id()
 
   @subnet_id_start byte_size("/eth2/00000000/beacon_attestation_")
 
