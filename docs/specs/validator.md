@@ -1,6 +1,6 @@
-# Honest Validator
+# Honest Validator -- Fulu
 
-This is an accompanying document to [The Beacon Chain](./beacon-chain.md), which describes the expected actions of a "validator" participating in the Ethereum proof-of-stake protocol.
+This is an accompanying document to [The Beacon Chain](./beacon-chain.md), which describes the expected actions of a "validator" participating in the Ethereum proof-of-stake protocol. This document reflects the consolidated specification through **Fulu** (incorporating Altair, Bellatrix, Capella, Deneb, Electra, and Fulu changes).
 
 ## Table of contents
 
@@ -12,10 +12,25 @@ This is an accompanying document to [The Beacon Chain](./beacon-chain.md), which
 - [Prerequisites](#prerequisites)
 - [Constants](#constants)
   - [Misc](#misc)
+- [Configuration](#configuration)
+  - [Custody setting](#custody-setting)
 - [Containers](#containers)
   - [`Eth1Block`](#eth1block)
   - [`AggregateAndProof`](#aggregateandproof)
   - [`SignedAggregateAndProof`](#signedaggregateandproof)
+  - [`SyncCommitteeMessage`](#synccommitteemessage)
+  - [`SyncCommitteeContribution`](#synccommitteecontribution)
+  - [`ContributionAndProof`](#contributionandproof)
+  - [`SignedContributionAndProof`](#signedcontributionandproof)
+  - [`SyncAggregatorSelectionData`](#syncaggregatorselectiondata)
+  - [`BlobsBundle`](#blobsbundle)
+  - [`GetPayloadResponse`](#getpayloadresponse)
+- [Helpers](#helpers)
+  - [`get_pow_block_at_terminal_total_difficulty`](#get_pow_block_at_terminal_total_difficulty)
+  - [`get_terminal_pow_block`](#get_terminal_pow_block)
+- [Protocols](#protocols)
+  - [`ExecutionEngine`](#executionengine)
+    - [`get_payload`](#get_payload)
 - [Becoming a validator](#becoming-a-validator)
   - [Initialization](#initialization)
     - [BLS public key](#bls-public-key)
@@ -29,7 +44,8 @@ This is an accompanying document to [The Beacon Chain](./beacon-chain.md), which
 - [Validator assignments](#validator-assignments)
   - [Lookahead](#lookahead)
 - [Beacon chain responsibilities](#beacon-chain-responsibilities)
-  - [Block proposal](#block-proposal)
+  - [Validator custody](#validator-custody)
+  - [Block and sidecar proposal](#block-and-sidecar-proposal)
     - [Preparing for a `BeaconBlock`](#preparing-for-a-beaconblock)
       - [Slot](#slot)
       - [Proposer index](#proposer-index)
@@ -41,8 +57,23 @@ This is an accompanying document to [The Beacon Chain](./beacon-chain.md), which
       - [Proposer slashings](#proposer-slashings)
       - [Attester slashings](#attester-slashings)
       - [Attestations](#attestations)
+        - [`compute_on_chain_aggregate`](#compute_on_chain_aggregate)
       - [Deposits](#deposits)
+        - [`get_eth1_pending_deposit_count`](#get_eth1_pending_deposit_count)
       - [Voluntary exits](#voluntary-exits)
+      - [Sync committee](#sync-committee)
+      - [ExecutionPayload](#executionpayload)
+      - [Blob KZG commitments](#blob-kzg-commitments)
+      - [Execution Requests](#execution-requests)
+        - [`get_execution_requests`](#get_execution_requests)
+      - [BLS to execution changes](#bls-to-execution-changes)
+    - [Constructing the `DataColumnSidecar`s](#constructing-the-datacolumnsidecars)
+      - [`get_data_column_sidecars`](#get_data_column_sidecars)
+      - [`get_data_column_sidecars_from_block`](#get_data_column_sidecars_from_block)
+      - [`get_data_column_sidecars_from_column_sidecar`](#get_data_column_sidecars_from_column_sidecar)
+    - [Sidecar publishing](#sidecar-publishing)
+    - [Sidecar retention](#sidecar-retention)
+    - [Changing from BLS to execution withdrawal credentials](#changing-from-bls-to-execution-withdrawal-credentials)
     - [Packaging into a `SignedBeaconBlock`](#packaging-into-a-signedbeaconblock)
       - [State root](#state-root)
       - [Signature](#signature)
@@ -63,10 +94,20 @@ This is an accompanying document to [The Beacon Chain](./beacon-chain.md), which
       - [Aggregation bits](#aggregation-bits-1)
       - [Aggregate signature](#aggregate-signature-1)
     - [Broadcast aggregate](#broadcast-aggregate)
+  - [Sync committees](#sync-committees)
+    - [Sync committee messages](#sync-committee-messages)
+      - [Prepare sync committee message](#prepare-sync-committee-message)
+      - [Broadcast sync committee message](#broadcast-sync-committee-message)
+    - [Sync committee contributions](#sync-committee-contributions)
+      - [Aggregation selection](#aggregation-selection-1)
+      - [Construct sync committee contribution](#construct-sync-committee-contribution)
+      - [Broadcast sync committee contribution](#broadcast-sync-committee-contribution)
 - [How to avoid slashing](#how-to-avoid-slashing)
   - [Proposer slashing](#proposer-slashing)
   - [Attester slashing](#attester-slashing)
 - [Protection best practices](#protection-best-practices)
+- [Sync committee subnet stability](#sync-committee-subnet-stability)
+- [Enabling validator withdrawals](#enabling-validator-withdrawals)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 <!-- /TOC -->
@@ -82,9 +123,11 @@ See the [sync protocol](./light-client/sync-protocol.md) for further details on 
 Under this network upgrade, validators track their participation in this new committee type and produce the relevant signatures as required.
 Block proposers incorporate the (aggregated) sync committee signatures into each block they produce.
 
+Fulu introduces PeerDAS (EIP-7594): blobs are now erasure-coded into data columns and distributed via `DataColumnSidecar` objects. Validators have an enhanced custody requirement proportional to their total effective balance. Blob sidecars are replaced by data column sidecars in the block proposal flow.
+
 ## Prerequisites
 
-All terminology, constants, functions, and protocol mechanics defined in the [The Beacon Chain](./beacon-chain.md) and [Deposit Contract](./deposit-contract.md) doc are requisite for this document and used throughout.
+All terminology, constants, functions, and protocol mechanics defined in the [The Beacon Chain](./beacon-chain.md), [Deposit Contract](./deposit-contract.md), [Fulu -- Beacon Chain](./fulu/beacon-chain.md), and [Fulu -- Data Availability Sampling Core](./fulu/das-core.md) docs are requisite for this document and used throughout.
 
 ## Constants
 
@@ -95,6 +138,17 @@ All terminology, constants, functions, and protocol mechanics defined in the [Th
 | `TARGET_AGGREGATORS_PER_COMMITTEE` | `2**4` (= 16) | validators |
 | `TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE` | `2**4` (= 16) | validators |
 | `SYNC_COMMITTEE_SUBNET_COUNT` | `4` | The number of sync committee subnets used in the gossipsub aggregation protocol. |
+
+## Configuration
+
+### Custody setting
+
+*[New in Fulu:EIP7594]*
+
+| Name | Value | Description |
+| - | - | - |
+| `VALIDATOR_CUSTODY_REQUIREMENT` | `8` | Minimum number of custody groups an honest node with validators attached custodies and serves samples from |
+| `BALANCE_PER_ADDITIONAL_CUSTODY_GROUP` | `Gwei(32 * 10**9)` | Effective balance increment corresponding to one additional group to custody |
 
 ## Containers
 
@@ -113,6 +167,7 @@ class Eth1Block(Container):
 ```python
 class AggregateAndProof(Container):
     aggregator_index: ValidatorIndex
+    # [Modified in Electra:EIP7549]
     aggregate: Attestation
     selection_proof: BLSSignature
 ```
@@ -121,6 +176,7 @@ class AggregateAndProof(Container):
 
 ```python
 class SignedAggregateAndProof(Container):
+    # [Modified in Electra:EIP7549]
     message: AggregateAndProof
     signature: BLSSignature
 ```
@@ -183,24 +239,32 @@ class SyncAggregatorSelectionData(Container):
 
 ### `BlobsBundle`
 
-*[New in Deneb:EIP4844]*
+*[Modified in Fulu:EIP7594]*
+
+The `BlobsBundle` object is modified to include cell KZG proofs instead of blob KZG proofs. The `proofs` field now has size `FIELD_ELEMENTS_PER_EXT_BLOB * MAX_BLOB_COMMITMENTS_PER_BLOCK` to accommodate one KZG proof per cell per blob.
 
 ```python
 @dataclass
 class BlobsBundle(object):
-    commitments: Sequence[KZGCommitment]
-    proofs: Sequence[KZGProof]
-    blobs: Sequence[Blob]
+    commitments: List[KZGCommitment, MAX_BLOB_COMMITMENTS_PER_BLOCK]
+    # [Modified in Fulu:EIP7594] Cell KZG proofs, one per cell per blob
+    proofs: List[KZGProof, FIELD_ELEMENTS_PER_EXT_BLOB * MAX_BLOB_COMMITMENTS_PER_BLOCK]
+    blobs: List[Blob, MAX_BLOB_COMMITMENTS_PER_BLOCK]
 ```
 
 ### `GetPayloadResponse`
+
+*[Modified in Fulu:EIP7594]*
 
 ```python
 @dataclass
 class GetPayloadResponse(object):
     execution_payload: ExecutionPayload
     block_value: uint256
-    blobs_bundle: BlobsBundle  # [New in Deneb:EIP4844]
+    # [Modified in Fulu:EIP7594] Uses updated BlobsBundle with cell KZG proofs
+    blobs_bundle: BlobsBundle
+    # [New in Electra]
+    execution_requests: Sequence[bytes]
 ```
 
 ## Helpers
@@ -252,14 +316,18 @@ The Engine API may be used to implement it with an external execution engine.
 
 #### `get_payload`
 
+*[Modified in Fulu:EIP7594]*
+
 Given the `payload_id`, `get_payload` returns `GetPayloadResponse` with the most recent version of
 the execution payload that has been built since the corresponding call to `notify_forkchoice_updated` method.
+As of Fulu, the response uses `engine_getPayloadV5` and includes cell KZG proofs in the `BlobsBundle`.
 
 ```python
 def get_payload(self: ExecutionEngine, payload_id: PayloadId) -> GetPayloadResponse:
     """
     Return ExecutionPayload, uint256, BlobsBundle objects.
     """
+    # pylint: disable=unused-argument
     ...
 ```
 
@@ -461,9 +529,69 @@ Specifically, a validator should:
 
 ## Beacon chain responsibilities
 
-A validator has two primary responsibilities to the beacon chain: [proposing blocks](#block-proposal) and [creating attestations](#attesting). Proposals happen infrequently, whereas attestations should be created once per epoch.
+A validator has two primary responsibilities to the beacon chain: [proposing blocks](#block-and-sidecar-proposal) and [creating attestations](#attesting). Proposals happen infrequently, whereas attestations should be created once per epoch.
 
 *Note*: A validator must not propose on or attest to a block that isn't deemed valid, i.e. hasn't yet passed the beacon chain state transition and execution validations. In future upgrades, an "execution Proof-of-Custody" will be integrated to prevent outsourcing of execution payload validations.
+
+### Validator custody
+
+*[New in Fulu:EIP7594]*
+
+A node with validators attached downloads and custodies a higher minimum of
+custody groups per slot, determined by
+`get_validators_custody_requirement(state, validator_indices)`. Here, `state` is
+the latest finalized `BeaconState` and `validator_indices` is the list of
+indices corresponding to validators attached to the node. Any node with at least
+one validator attached, and with the sum of the effective balances of all
+attached validators being `total_node_balance`, downloads and custodies
+`total_node_balance // BALANCE_PER_ADDITIONAL_CUSTODY_GROUP` custody groups per
+slot, with a minimum of `VALIDATOR_CUSTODY_REQUIREMENT` and of course a maximum
+of `NUMBER_OF_CUSTODY_GROUPS`.
+
+```python
+def get_validators_custody_requirement(
+    state: BeaconState, validator_indices: Sequence[ValidatorIndex]
+) -> uint64:
+    total_node_balance = sum(
+        state.validators[index].effective_balance for index in validator_indices
+    )
+    count = total_node_balance // BALANCE_PER_ADDITIONAL_CUSTODY_GROUP
+    return min(max(count, VALIDATOR_CUSTODY_REQUIREMENT), NUMBER_OF_CUSTODY_GROUPS)
+```
+
+This higher custody is advertised in the node's Metadata by setting a higher
+`custody_group_count` and in the node's ENR by setting a higher
+`custody_group_count`. As with the regular custody requirement, a node with
+validators MAY still choose to custody, advertise and serve more than this
+minimum. As with the regular custody requirement, a node MUST backfill columns
+when syncing.
+
+A node SHOULD dynamically adjust its custody groups (without any input from the
+user) following any changes to the total effective balances of attached
+validators.
+
+If the node's custody requirements are increased, it SHOULD immediately
+advertise the updated `custody_group_count`. It MAY backfill custody groups as a
+result of this change.
+
+If a node's custody requirements decrease, it SHOULD NOT update the
+`custody_group_count` to reflect this reduction. The node SHOULD continue to
+custody and advertise the previous (highest) `custody_group_count`. The node
+SHOULD continue to respond to any `DataColumnSidecar` request corresponding to
+the previous (highest) `custody_group_count`. The previous (highest)
+`custody_group_count` SHOULD persist across node restarts.
+
+Nodes SHOULD be capable of handling multiple changes to custody requirements
+within the same retention period (e.g., an increase in one epoch followed by a
+decrease in the next).
+
+When a value for `custody_group_count` is set, the `earliest_available_slot`
+field in the status RPC message SHOULD reflect the slot at which the
+`custody_group_count` was updated.
+
+If the node decides to backfill due to the `custody_group_count` change, the
+`earliest_available_slot` field in the status RPC message MAY be updated with
+progressively lower values as the backfill process advances.
 
 ### Block and sidecar proposal
 
@@ -561,12 +689,19 @@ def is_candidate_block(block: Eth1Block, period_start: uint64) -> bool:
     )
 ```
 
+*[Modified in Electra:EIP6110]*
+
 ```python
 def get_eth1_vote(state: BeaconState, eth1_chain: Sequence[Eth1Block]) -> Eth1Data:
+    # [New in Electra:EIP6110] Once the deposit transition is complete, always return current eth1_data
+    if state.eth1_deposit_index == state.deposit_requests_start_index:
+        return state.eth1_data
+
     period_start = voting_period_start_time(state)
     # `eth1_chain` abstractly represents all blocks in the eth1 chain sorted by ascending block height
     votes_to_consider = [
-        get_eth1_data(block) for block in eth1_chain
+        get_eth1_data(block)
+        for block in eth1_chain
         if (
             is_candidate_block(block, period_start)
             # Ensure cannot move back to earlier deposit contract states
@@ -580,12 +715,18 @@ def get_eth1_vote(state: BeaconState, eth1_chain: Sequence[Eth1Block]) -> Eth1Da
     # Default vote on latest eth1 block data in the period range unless eth1 chain is not live
     # Non-substantive casting for linter
     state_eth1_data: Eth1Data = state.eth1_data
-    default_vote = votes_to_consider[len(votes_to_consider) - 1] if any(votes_to_consider) else state_eth1_data
+    default_vote = (
+        votes_to_consider[len(votes_to_consider) - 1] if any(votes_to_consider) else state_eth1_data
+    )
 
     return max(
         valid_votes,
-        key=lambda v: (valid_votes.count(v), -valid_votes.index(v)),  # Tiebreak by smallest distance
-        default=default_vote
+        # Tiebreak by smallest distance
+        key=lambda v: (
+            valid_votes.count(v),
+            -valid_votes.index(v),
+        ),
+        default=default_vote,
     )
 ```
 
@@ -595,15 +736,78 @@ Up to `MAX_PROPOSER_SLASHINGS`, [`ProposerSlashing`](./beacon-chain.md#proposers
 
 ##### Attester slashings
 
-Up to `MAX_ATTESTER_SLASHINGS`, [`AttesterSlashing`](./beacon-chain.md#attesterslashing) objects can be included in the `block`. The attester slashings must satisfy the verification conditions found in [attester slashings processing](./beacon-chain.md#attester-slashings). The validator receives a small "whistleblower" reward for each attester slashing found and included.
+*[Modified in Electra]* The max attester slashings size is `MAX_ATTESTER_SLASHINGS_ELECTRA`.
+
+Up to `MAX_ATTESTER_SLASHINGS_ELECTRA`, [`AttesterSlashing`](./beacon-chain.md#attesterslashing) objects can be included in the `block`. The attester slashings must satisfy the verification conditions found in [attester slashings processing](./beacon-chain.md#attester-slashings). The validator receives a small "whistleblower" reward for each attester slashing found and included.
 
 ##### Attestations
 
-Up to `MAX_ATTESTATIONS`, aggregate attestations can be included in the `block`. The attestations added must satisfy the verification conditions found in [attestation processing](./beacon-chain.md#attestations). To maximize profit, the validator should attempt to gather aggregate attestations that include singular attestations from the largest number of validators whose signatures from the same epoch have not previously been added on chain.
+*[Modified in Electra]* The max attestations size is `MAX_ATTESTATIONS_ELECTRA`.
+
+Up to `MAX_ATTESTATIONS_ELECTRA`, aggregate attestations can be included in the `block`. The attestations added must satisfy the verification conditions found in [attestation processing](./beacon-chain.md#attestations). To maximize profit, the validator should attempt to gather aggregate attestations that include singular attestations from the largest number of validators whose signatures from the same epoch have not previously been added on chain.
+
+The network attestation aggregates contain only the assigned committee
+attestations. Attestation aggregates received by the block proposer from the
+committee aggregators with disjoint `committee_bits` sets and equal
+`AttestationData` SHOULD be consolidated into a single `Attestation` object. The
+proposer should run the following function to construct an on chain final
+aggregate from a list of network aggregates with equal `AttestationData`:
+
+###### `compute_on_chain_aggregate`
+
+*[New in Electra:EIP7549]*
+
+```python
+def compute_on_chain_aggregate(network_aggregates: Sequence[Attestation]) -> Attestation:
+    aggregates = sorted(
+        network_aggregates, key=lambda a: get_committee_indices(a.committee_bits)[0]
+    )
+
+    data = aggregates[0].data
+    aggregation_bits = Bitlist[MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]()
+    for a in aggregates:
+        for b in a.aggregation_bits:
+            aggregation_bits.append(b)
+
+    signature = bls.Aggregate([a.signature for a in aggregates])
+
+    committee_indices = [get_committee_indices(a.committee_bits)[0] for a in aggregates]
+    committee_flags = [(index in committee_indices) for index in range(0, MAX_COMMITTEES_PER_SLOT)]
+    committee_bits = Bitvector[MAX_COMMITTEES_PER_SLOT](committee_flags)
+
+    return Attestation(
+        aggregation_bits=aggregation_bits,
+        data=data,
+        committee_bits=committee_bits,
+        signature=signature,
+    )
+```
 
 ##### Deposits
 
-If there are any unprocessed deposits for the existing `state.eth1_data` (i.e. `state.eth1_data.deposit_count > state.eth1_deposit_index`), then pending deposits *must* be added to the block. The expected number of deposits is exactly `min(MAX_DEPOSITS, eth1_data.deposit_count - state.eth1_deposit_index)`.  These [`deposits`](./beacon-chain.md#deposit) are constructed from the `Deposit` logs from the [deposit contract](./deposit-contract.md) and must be processed in sequential order. The deposits included in the `block` must satisfy the verification conditions found in [deposits processing](./beacon-chain.md#deposits).
+*[Modified in Electra:EIP6110]* The expected number of deposits MUST be changed from
+`min(MAX_DEPOSITS, eth1_data.deposit_count - state.eth1_deposit_index)` to the
+result of `get_eth1_pending_deposit_count(state)`.
+
+###### `get_eth1_pending_deposit_count`
+
+```python
+def get_eth1_pending_deposit_count(state: BeaconState) -> uint64:
+    eth1_deposit_index_limit = min(
+        state.eth1_data.deposit_count, state.deposit_requests_start_index
+    )
+    if state.eth1_deposit_index < eth1_deposit_index_limit:
+        return min(MAX_DEPOSITS, eth1_deposit_index_limit - state.eth1_deposit_index)
+    else:
+        return uint64(0)
+```
+
+*Note*: Clients will be able to remove the `Eth1Data` polling mechanism in an
+uncoordinated fashion once the transition period is finished. The transition
+period is considered finished when a network reaches the point where
+`state.eth1_deposit_index == state.deposit_requests_start_index`.
+
+If there are any unprocessed deposits for the existing `state.eth1_data`, then pending deposits *must* be added to the block. These [`deposits`](./beacon-chain.md#deposit) are constructed from the `Deposit` logs from the [deposit contract](./deposit-contract.md) and must be processed in sequential order. The deposits included in the `block` must satisfy the verification conditions found in [deposits processing](./beacon-chain.md#deposits).
 
 The `proof` for each deposit must be constructed against the deposit root contained in `state.eth1_data` rather than the deposit root at the time the deposit was initially logged from the execution chain. This entails storing a full deposit merkle tree locally and computing updated proofs against the `eth1_data.deposit_root` as needed. See [`minimal_merkle.py`](https://github.com/ethereum/research/blob/master/spec_pythonizer/utils/merkle_minimal.py) for a sample implementation.
 
@@ -657,29 +861,36 @@ In particular, this means `SyncCommitteeContribution`s received from gossip must
 
 To obtain an execution payload, a block proposer building a block on top of a `state` must take the following actions:
 
-1. Set `payload_id = prepare_execution_payload(state, pow_chain, safe_block_hash, finalized_block_hash, suggested_fee_recipient, execution_engine)`, where:
+1. Set `payload_id = prepare_execution_payload(state, safe_block_hash, finalized_block_hash, suggested_fee_recipient, execution_engine)`, where:
 
-    - `state` is the state object after applying `process_slots(state, slot)` transition to the resulting state of the parent blockprocessingdictionary key
+    - `state` is the state object after applying `process_slots(state, slot)` transition to the resulting state of the parent block processing
     - `safe_block_hash` is the return value of the `get_safe_execution_payload_hash(store: Store)` function call
     - `finalized_block_hash` is the hash of the latest finalized execution payload (`Hash32()` if none yet finalized)
     - `suggested_fee_recipient` is the value suggested to be used for the `fee_recipient` field of the execution payload
 
+*[Modified in Electra:EIP7251]*
+
 ```python
-def prepare_execution_payload(state: BeaconState,
-                              safe_block_hash: Hash32,
-                              finalized_block_hash: Hash32,
-                              suggested_fee_recipient: ExecutionAddress,
-                              execution_engine: ExecutionEngine) -> Optional[PayloadId]:
+def prepare_execution_payload(
+    state: BeaconState,
+    safe_block_hash: Hash32,
+    finalized_block_hash: Hash32,
+    suggested_fee_recipient: ExecutionAddress,
+    execution_engine: ExecutionEngine,
+) -> Optional[PayloadId]:
     # Verify consistency of the parent hash with respect to the previous execution payload header
     parent_hash = state.latest_execution_payload_header.block_hash
 
+    # [Modified in EIP7251]
     # Set the forkchoice head and initiate the payload build process
+    withdrawals, _ = get_expected_withdrawals(state)
+
     payload_attributes = PayloadAttributes(
-        timestamp=compute_timestamp_at_slot(state, state.slot),
+        timestamp=compute_time_at_slot(state, state.slot),
         prev_randao=get_randao_mix(state, get_current_epoch(state)),
         suggested_fee_recipient=suggested_fee_recipient,
-        withdrawals=get_expected_withdrawals(state),
-        parent_beacon_block_root=hash_tree_root(state.latest_block_header),  # [New in Deneb:EIP4788]
+        withdrawals=withdrawals,
+        parent_beacon_block_root=hash_tree_root(state.latest_block_header),
     )
     return execution_engine.notify_forkchoice_updated(
         head_block_hash=parent_hash,
@@ -707,68 +918,222 @@ and make subsequent calls to this function when any of these parameters gets upd
 
 *[New in Deneb:EIP4844]*
 
-1. The execution payload is obtained from the execution engine as defined above using `payload_id`. The response also includes a `blobs_bundle` entry containing the corresponding `blobs`, `commitments`, and `proofs`.
+1. The execution payload is obtained from the execution engine as defined above using `payload_id`. The response also includes a `blobs_bundle` entry containing the corresponding `blobs`, `commitments`, and `proofs`. As of Fulu, `proofs` contains cell KZG proofs (one per cell per blob) rather than blob KZG proofs.
 2. Set `block.body.blob_kzg_commitments = commitments`.
+
+##### Execution Requests
+
+*[New in Electra]*
+
+1. The execution payload is obtained from the execution engine as defined above
+   using `payload_id`. The response also includes an `execution_requests` entry
+   containing a list of bytes. Each element on the list corresponds to one SSZ
+   list of requests as defined in
+   [EIP-7685](https://eips.ethereum.org/EIPS/eip-7685). The first byte of each
+   request is used to determine the request type. Requests must be ordered by
+   request type in ascending order. As a result, there can only be at most one
+   instance of each request type.
+2. Set
+   `block.body.execution_requests = get_execution_requests(execution_requests)`,
+   where:
+
+###### `get_execution_requests`
+
+```python
+def get_execution_requests(execution_requests_list: Sequence[bytes]) -> ExecutionRequests:
+    deposits = []
+    withdrawals = []
+    consolidations = []
+
+    request_types = [
+        DEPOSIT_REQUEST_TYPE,
+        WITHDRAWAL_REQUEST_TYPE,
+        CONSOLIDATION_REQUEST_TYPE,
+    ]
+
+    prev_request_type = None
+    for request in execution_requests_list:
+        request_type, request_data = request[0:1], request[1:]
+
+        # Check that the request type is valid
+        assert request_type in request_types
+        # Check that the request data is not empty
+        assert len(request_data) != 0
+        # Check that requests are in strictly ascending order
+        # Each successive type must be greater than the last with no duplicates
+        assert prev_request_type is None or prev_request_type < request_type
+        prev_request_type = request_type
+
+        if request_type == DEPOSIT_REQUEST_TYPE:
+            deposits = ssz_deserialize(
+                List[DepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD], request_data
+            )
+        elif request_type == WITHDRAWAL_REQUEST_TYPE:
+            withdrawals = ssz_deserialize(
+                List[WithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD], request_data
+            )
+        elif request_type == CONSOLIDATION_REQUEST_TYPE:
+            consolidations = ssz_deserialize(
+                List[ConsolidationRequest, MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD], request_data
+            )
+
+    return ExecutionRequests(
+        deposits=deposits,
+        withdrawals=withdrawals,
+        consolidations=consolidations,
+    )
+```
 
 ##### BLS to execution changes
 
 Up to `MAX_BLS_TO_EXECUTION_CHANGES`, [`BLSToExecutionChange`](./beacon-chain.md#blstoexecutionchange) objects can be included in the `block`. The BLS to execution changes must satisfy the verification conditions found in [BLS to execution change processing](./beacon-chain.md#new-process_bls_to_execution_change).
 
-#### Constructing the `BlobSidecar`s
+#### Constructing the `DataColumnSidecar`s
 
-*[New in Deneb:EIP4844]*
+*[New in Fulu:EIP7594]*
 
-To construct a `BlobSidecar`, a `blob_sidecar` is defined with the necessary context for block and sidecar proposal.
+For a block proposal, blobs associated with a block are packaged into many
+`DataColumnSidecar` objects for distribution to the associated sidecar topic,
+the `data_column_sidecar_{subnet_id}` pubsub topic. A `DataColumnSidecar` can be
+viewed as a vertical slice of all blobs stacked on top of each other, with extra
+fields for the necessary context.
 
-##### Sidecar
+The blob sidecars used in previous forks (Deneb, Electra) are replaced by data
+column sidecars in Fulu. Validators no longer publish `BlobSidecar` objects;
+they publish `DataColumnSidecar` objects instead.
 
-Blobs associated with a block are packaged into sidecar objects for distribution to the associated sidecar topic, the `blob_sidecar_{subnet_id}` pubsub topic.
+##### `get_data_column_sidecars`
 
-Each `sidecar` is obtained from:
+The sidecars associated with a block can be created by calling
+[`engine_getPayloadV5`](https://github.com/ethereum/execution-apis/blob/main/src/engine/osaka.md#engine_getpayloadv5),
+then constructing the list of cells and proofs for each blob (as defined in the
+example below) using the blobs bundle in the response, and finally by calling
+`get_data_column_sidecars_from_block(signed_block, cells_and_kzg_proofs)`.
+
+<!-- eth2spec: skip -->
+
 ```python
-def get_blob_sidecars(signed_block: SignedBeaconBlock,
-                      blobs: Sequence[Blob],
-                      blob_kzg_proofs: Sequence[KZGProof]) -> Sequence[BlobSidecar]:
-    block = signed_block.message
-    block_header = BeaconBlockHeader(
-        slot=block.slot,
-        proposer_index=block.proposer_index,
-        parent_root=block.parent_root,
-        state_root=block.state_root,
-        body_root=hash_tree_root(block.body),
-    )
-    signed_block_header = SignedBeaconBlockHeader(message=block_header, signature=signed_block.signature)
-    return [
-        BlobSidecar(
-            index=index,
-            blob=blob,
-            kzg_commitment=block.body.blob_kzg_commitments[index],
-            kzg_proof=blob_kzg_proofs[index],
-            signed_block_header=signed_block_header,
-            kzg_commitment_inclusion_proof=compute_merkle_proof(
-                block.body,
-                get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments', index),
-            ),
+cells_and_kzg_proofs = []
+for i, blob in enumerate(blobs_bundle.blobs):
+    start = i * CELLS_PER_EXT_BLOB
+    end = (i + 1) * CELLS_PER_EXT_BLOB
+    cell_proofs = zip(compute_cells(blob), blobs_bundle.proofs[start:end])
+    cells_and_kzg_proofs.extend(cell_proofs)
+```
+
+Moreover, the full sequence of sidecars can also be computed from
+`cells_and_kzg_proofs` and any single `sidecar` by calling
+`get_data_column_sidecars_from_column_sidecar(sidecar, cells_and_kzg_proofs)`.
+This can be used in distributed blob publishing, to reconstruct all sidecars
+from any sidecar received on the wire, assuming all cells and kzg proofs could
+be retrieved from the local execution layer client.
+
+```python
+def get_data_column_sidecars(
+    signed_block_header: SignedBeaconBlockHeader,
+    kzg_commitments: List[KZGCommitment, MAX_BLOB_COMMITMENTS_PER_BLOCK],
+    kzg_commitments_inclusion_proof: Vector[Bytes32, KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH],
+    cells_and_kzg_proofs: Sequence[
+        Tuple[Vector[Cell, CELLS_PER_EXT_BLOB], Vector[KZGProof, CELLS_PER_EXT_BLOB]]
+    ],
+) -> Sequence[DataColumnSidecar]:
+    """
+    Given a signed block header and the commitments, inclusion proof, cells/proofs associated with
+    each blob in the block, assemble the sidecars which can be distributed to peers.
+    """
+    assert len(cells_and_kzg_proofs) == len(kzg_commitments)
+
+    sidecars = []
+    for column_index in range(NUMBER_OF_COLUMNS):
+        column_cells, column_proofs = [], []
+        for cells, proofs in cells_and_kzg_proofs:
+            column_cells.append(cells[column_index])
+            column_proofs.append(proofs[column_index])
+        sidecars.append(
+            DataColumnSidecar(
+                index=column_index,
+                column=column_cells,
+                kzg_commitments=kzg_commitments,
+                kzg_proofs=column_proofs,
+                signed_block_header=signed_block_header,
+                kzg_commitments_inclusion_proof=kzg_commitments_inclusion_proof,
+            )
         )
-        for index, blob in enumerate(blobs)
-    ]
+    return sidecars
 ```
 
-The `subnet_id` for the `blob_sidecar` is calculated with:
-- Let `blob_index = blob_sidecar.index`.
-- Let `subnet_id = compute_subnet_for_blob_sidecar(blob_index)`.
+##### `get_data_column_sidecars_from_block`
 
 ```python
-def compute_subnet_for_blob_sidecar(blob_index: BlobIndex) -> SubnetID:
-    return SubnetID(blob_index % BLOB_SIDECAR_SUBNET_COUNT)
+def get_data_column_sidecars_from_block(
+    signed_block: SignedBeaconBlock,
+    cells_and_kzg_proofs: Sequence[
+        Tuple[Vector[Cell, CELLS_PER_EXT_BLOB], Vector[KZGProof, CELLS_PER_EXT_BLOB]]
+    ],
+) -> Sequence[DataColumnSidecar]:
+    """
+    Given a signed block and the cells/proofs associated with each blob in the
+    block, assemble the sidecars which can be distributed to peers.
+    """
+    blob_kzg_commitments = signed_block.message.body.blob_kzg_commitments
+    signed_block_header = compute_signed_block_header(signed_block)
+    kzg_commitments_inclusion_proof = compute_merkle_proof(
+        signed_block.message.body,
+        get_generalized_index(BeaconBlockBody, "blob_kzg_commitments"),
+    )
+    return get_data_column_sidecars(
+        signed_block_header,
+        blob_kzg_commitments,
+        kzg_commitments_inclusion_proof,
+        cells_and_kzg_proofs,
+    )
 ```
 
-After publishing the peers on the network may request the sidecar through sync-requests, or a local user may be interested.
+##### `get_data_column_sidecars_from_column_sidecar`
 
-The validator MUST hold on to sidecars for `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` epochs and serve when capable,
-to ensure the data-availability of these blobs throughout the network.
+```python
+def get_data_column_sidecars_from_column_sidecar(
+    sidecar: DataColumnSidecar,
+    cells_and_kzg_proofs: Sequence[
+        Tuple[Vector[Cell, CELLS_PER_EXT_BLOB], Vector[KZGProof, CELLS_PER_EXT_BLOB]]
+    ],
+) -> Sequence[DataColumnSidecar]:
+    """
+    Given a DataColumnSidecar and the cells/proofs associated with each blob corresponding
+    to the commitments it contains, assemble all sidecars for distribution to peers.
+    """
+    assert len(cells_and_kzg_proofs) == len(sidecar.kzg_commitments)
 
-After `MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS` nodes MAY prune the sidecars and/or stop serving them.
+    return get_data_column_sidecars(
+        sidecar.signed_block_header,
+        sidecar.kzg_commitments,
+        sidecar.kzg_commitments_inclusion_proof,
+        cells_and_kzg_proofs,
+    )
+```
+
+#### Sidecar publishing
+
+*[New in Fulu:EIP7594]*
+
+The `subnet_id` for the `data_column_sidecar` is calculated with:
+
+- Let `column_index = data_column_sidecar.index`.
+- Let `subnet_id = compute_subnet_for_data_column_sidecar(column_index)`.
+
+After publishing all columns to their respective subnets, peers on the network
+may request the sidecar through sync-requests, or a local user may be interested.
+
+#### Sidecar retention
+
+*[New in Fulu:EIP7594]*
+
+The validator MUST hold on to sidecars for
+`MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS` epochs and serve when capable, to
+ensure the data-availability of these blobs throughout the network.
+
+After `MIN_EPOCHS_FOR_DATA_COLUMN_SIDECARS_REQUESTS` nodes MAY prune the
+sidecars and/or stop serving them.
 
 ### Changing from BLS to execution withdrawal credentials
 
@@ -837,7 +1202,7 @@ First, the validator should construct `attestation_data`, an [`AttestationData`]
 ##### General
 
 - Set `attestation_data.slot = slot` where `slot` is the assigned slot.
-- Set `attestation_data.index = index` where `index` is the index associated with the validator's committee.
+- Set `attestation_data.index = 0`. *[Modified in Electra:EIP7549]*
 
 ##### LMD GHOST vote
 
@@ -855,7 +1220,13 @@ Set `attestation_data.beacon_block_root = hash_tree_root(head_block)`.
 
 #### Construct attestation
 
-Next, the validator creates `attestation`, an [`Attestation`](./beacon-chain.md#attestation) object.
+*[Modified in Electra:EIP7549]*
+
+The validator creates `attestation` as a `SingleAttestation` container with the following field assignments:
+
+- Set `attestation_data.index = 0`.
+- Set `attestation.committee_index` to the index associated with the validator's committee.
+- Set `attestation.attester_index` to the index of the validator.
 
 ##### Data
 
@@ -901,6 +1272,13 @@ def compute_subnet_for_attestation(committees_per_slot: uint64,
     return SubnetID((committees_since_epoch_start + committee_index) % ATTESTATION_SUBNET_COUNT)
 ```
 
+*[Modified in Electra:EIP7691]* The `subnet_id` for blob sidecars (now replaced by data column sidecars in Fulu) was computed as:
+
+```python
+def compute_subnet_for_blob_sidecar(blob_index: BlobIndex) -> SubnetID:
+    return SubnetID(blob_index % BLOB_SIDECAR_SUBNET_COUNT_ELECTRA)
+```
+
 ### Attestation aggregation
 
 Some validators are selected to locally aggregate attestations with a similar `attestation_data` to their constructed `attestation` for the assigned `slot`.
@@ -925,17 +1303,21 @@ def is_aggregator(state: BeaconState, slot: Slot, index: CommitteeIndex, slot_si
 
 #### Construct aggregate
 
+*[Modified in Electra:EIP7549]*
+
 If the validator is selected to aggregate (`is_aggregator()`), they construct an aggregate attestation via the following.
 
 Collect `attestations` seen via gossip during the `slot` that have an equivalent `attestation_data` to that constructed by the validator. If `len(attestations) > 0`, create an `aggregate_attestation: Attestation` with the following fields.
 
 ##### Data
 
-Set `aggregate_attestation.data = attestation_data` where `attestation_data` is the `AttestationData` object that is the same for each individual attestation being aggregated.
+- Set `attestation_data.index = 0`.
+- Set `aggregate_attestation.data = attestation_data` where `attestation_data` is the `AttestationData` object that is the same for each individual attestation being aggregated.
 
 ##### Aggregation bits
 
-Let `aggregate_attestation.aggregation_bits` be a `Bitlist[MAX_VALIDATORS_PER_COMMITTEE]` of length `len(committee)`, where each bit set from each individual attestation is set to `0b1`.
+- Let `aggregation_bits` be a `Bitlist[MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT]` of length `len(committee)`, where each bit set from each individual attestation is set to `0b1`.
+- Set `attestation.committee_bits = committee_bits`, where `committee_bits` has the bit set corresponding to `committee_index` in each individual attestation.
 
 ##### Aggregate signature
 
@@ -1215,7 +1597,7 @@ Validator balances are withdrawn periodically via an automatic process. For exit
 There is one prerequisite for this automated process:
 the validator's withdrawal credentials pointing to an execution layer address, i.e. having an `ETH1_ADDRESS_WITHDRAWAL_PREFIX`.
 
-If a validator has a `BLS_WITHDRAWAL_PREFIX` withdrawal credential prefix, to participate in withdrawals the validator must 
+If a validator has a `BLS_WITHDRAWAL_PREFIX` withdrawal credential prefix, to participate in withdrawals the validator must
 create a one-time message to change their withdrawal credential from the version authenticated with a BLS key to the
 version compatible with the execution layer. This message -- a `BLSToExecutionChange` -- is available starting in Capella
 

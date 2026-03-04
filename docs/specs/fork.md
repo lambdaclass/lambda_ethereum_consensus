@@ -10,15 +10,32 @@
 - [Helper functions](#helper-functions)
   - [Misc](#misc)
     - [`compute_fork_version`](#compute_fork_version)
+    - [`initialize_proposer_lookahead`](#initialize_proposer_lookahead)
 - [Fork to Altair](#fork-to-altair)
   - [Fork trigger](#fork-trigger)
   - [Upgrading the state](#upgrading-the-state)
+- [Fork to Bellatrix](#fork-to-bellatrix)
+  - [Fork trigger](#fork-trigger-1)
+  - [Upgrading the state](#upgrading-the-state-1)
+- [Fork to Capella](#fork-to-capella)
+  - [Fork trigger](#fork-trigger-2)
+  - [Upgrading the state](#upgrading-the-state-2)
+- [Fork to Deneb](#fork-to-deneb)
+  - [Fork trigger](#fork-trigger-3)
+  - [Upgrading the state](#upgrading-the-state-3)
+- [Fork to Electra](#fork-to-electra)
+  - [Fork trigger](#fork-trigger-4)
+  - [Upgrading the state](#upgrading-the-state-4)
+- [Fork to Fulu](#fork-to-fulu)
+  - [Fork trigger](#fork-trigger-5)
+  - [Upgrading the state](#upgrading-the-state-5)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Introduction
 
-This document describes the process of the upgrade of the beacon chain.
+This document describes the process of the upgrade of the beacon chain, covering
+all fork transitions from Phase 0 through Fulu.
 
 ## Configuration
 
@@ -26,6 +43,7 @@ Warning: this configuration is not definitive.
 
 | Name | Value |
 | - | - |
+| `GENESIS_FORK_VERSION` | `Version('0x00000000')` |
 | `ALTAIR_FORK_VERSION` | `Version('0x01000000')` |
 | `ALTAIR_FORK_EPOCH` | `Epoch(74240)` (Oct 27, 2021, 10:56:23am UTC) |
 | `BELLATRIX_FORK_VERSION` | `Version('0x02000000')` |
@@ -34,6 +52,10 @@ Warning: this configuration is not definitive.
 | `CAPELLA_FORK_EPOCH` | `Epoch(194048)` (April 12, 2023, 10:27:35pm UTC) |
 | `DENEB_FORK_VERSION` | `Version('0x04000000')` |
 | `DENEB_FORK_EPOCH` | `Epoch(269568)` (March 13, 2024, 01:55:35pm UTC) |
+| `ELECTRA_FORK_VERSION` | `Version('0x05000000')` |
+| `ELECTRA_FORK_EPOCH` | `Epoch(364032)` (May 7, 2025, 10:05:11am UTC) |
+| `FULU_FORK_VERSION` | `Version('0x06000000')` |
+| `FULU_FORK_EPOCH` | `Epoch(411392)` (December 3, 2025, 09:49:11pm UTC) |
 
 ## Helper functions
 
@@ -46,6 +68,10 @@ def compute_fork_version(epoch: Epoch) -> Version:
     """
     Return the fork version at the given ``epoch``.
     """
+    if epoch >= FULU_FORK_EPOCH:
+        return FULU_FORK_VERSION
+    if epoch >= ELECTRA_FORK_EPOCH:
+        return ELECTRA_FORK_VERSION
     if epoch >= DENEB_FORK_EPOCH:
         return DENEB_FORK_VERSION
     if epoch >= CAPELLA_FORK_EPOCH:
@@ -55,6 +81,23 @@ def compute_fork_version(epoch: Epoch) -> Version:
     if epoch >= ALTAIR_FORK_EPOCH:
         return ALTAIR_FORK_VERSION
     return GENESIS_FORK_VERSION
+```
+
+#### `initialize_proposer_lookahead`
+
+```python
+def initialize_proposer_lookahead(
+    state: electra.BeaconState,
+) -> Vector[ValidatorIndex, (MIN_SEED_LOOKAHEAD + 1) * SLOTS_PER_EPOCH]:
+    """
+    Return the proposer indices for the full available lookahead starting from current epoch.
+    Used to initialize the ``proposer_lookahead`` field in the beacon state at genesis and after forks.
+    """
+    current_epoch = get_current_epoch(state)
+    lookahead = []
+    for i in range(MIN_SEED_LOOKAHEAD + 1):
+        lookahead.extend(get_beacon_proposer_indices(state, Epoch(current_epoch + i)))
+    return lookahead
 ```
 
 ## Fork to Altair
@@ -372,6 +415,194 @@ def upgrade_to_deneb(pre: capella.BeaconState) -> BeaconState:
         next_withdrawal_validator_index=pre.next_withdrawal_validator_index,
         # Deep history valid from Capella onwards
         historical_summaries=pre.historical_summaries,
+    )
+
+    return post
+```
+
+## Fork to Electra
+
+### Fork trigger
+
+The fork is triggered at epoch `ELECTRA_FORK_EPOCH`.
+
+*Note*: For the pure Electra networks, the `upgrade_to_electra` function is
+applied to transition the genesis state to this fork.
+
+### Upgrading the state
+
+If `state.slot % SLOTS_PER_EPOCH == 0` and
+`compute_epoch_at_slot(state.slot) == ELECTRA_FORK_EPOCH`, an irregular state
+change is made to upgrade to Electra.
+
+```python
+def upgrade_to_electra(pre: deneb.BeaconState) -> BeaconState:
+    epoch = deneb.get_current_epoch(pre)
+
+    earliest_exit_epoch = compute_activation_exit_epoch(get_current_epoch(pre))
+    for validator in pre.validators:
+        if validator.exit_epoch != FAR_FUTURE_EPOCH:
+            if validator.exit_epoch > earliest_exit_epoch:
+                earliest_exit_epoch = validator.exit_epoch
+    earliest_exit_epoch += Epoch(1)
+
+    post = BeaconState(
+        genesis_time=pre.genesis_time,
+        genesis_validators_root=pre.genesis_validators_root,
+        slot=pre.slot,
+        fork=Fork(
+            previous_version=pre.fork.current_version,
+            # [Modified in Electra]
+            current_version=ELECTRA_FORK_VERSION,
+            epoch=epoch,
+        ),
+        latest_block_header=pre.latest_block_header,
+        block_roots=pre.block_roots,
+        state_roots=pre.state_roots,
+        historical_roots=pre.historical_roots,
+        eth1_data=pre.eth1_data,
+        eth1_data_votes=pre.eth1_data_votes,
+        eth1_deposit_index=pre.eth1_deposit_index,
+        validators=pre.validators,
+        balances=pre.balances,
+        randao_mixes=pre.randao_mixes,
+        slashings=pre.slashings,
+        previous_epoch_participation=pre.previous_epoch_participation,
+        current_epoch_participation=pre.current_epoch_participation,
+        justification_bits=pre.justification_bits,
+        previous_justified_checkpoint=pre.previous_justified_checkpoint,
+        current_justified_checkpoint=pre.current_justified_checkpoint,
+        finalized_checkpoint=pre.finalized_checkpoint,
+        inactivity_scores=pre.inactivity_scores,
+        current_sync_committee=pre.current_sync_committee,
+        next_sync_committee=pre.next_sync_committee,
+        latest_execution_payload_header=pre.latest_execution_payload_header,
+        next_withdrawal_index=pre.next_withdrawal_index,
+        next_withdrawal_validator_index=pre.next_withdrawal_validator_index,
+        historical_summaries=pre.historical_summaries,
+        # [New in Electra:EIP6110]
+        deposit_requests_start_index=UNSET_DEPOSIT_REQUESTS_START_INDEX,
+        # [New in Electra:EIP7251]
+        deposit_balance_to_consume=0,
+        # [New in Electra:EIP7251]
+        exit_balance_to_consume=0,
+        # [New in Electra:EIP7251]
+        earliest_exit_epoch=earliest_exit_epoch,
+        # [New in Electra:EIP7251]
+        consolidation_balance_to_consume=0,
+        # [New in Electra:EIP7251]
+        earliest_consolidation_epoch=compute_activation_exit_epoch(get_current_epoch(pre)),
+        # [New in Electra:EIP7251]
+        pending_deposits=[],
+        # [New in Electra:EIP7251]
+        pending_partial_withdrawals=[],
+        # [New in Electra:EIP7251]
+        pending_consolidations=[],
+    )
+
+    post.exit_balance_to_consume = get_activation_exit_churn_limit(post)
+    post.consolidation_balance_to_consume = get_consolidation_churn_limit(post)
+
+    # [New in Electra:EIP7251]
+    # add validators that are not yet active to pending balance deposits
+    pre_activation = sorted(
+        [
+            index
+            for index, validator in enumerate(post.validators)
+            if validator.activation_epoch == FAR_FUTURE_EPOCH
+        ],
+        key=lambda index: (post.validators[index].activation_eligibility_epoch, index),
+    )
+
+    for index in pre_activation:
+        balance = post.balances[index]
+        post.balances[index] = 0
+        validator = post.validators[index]
+        validator.effective_balance = 0
+        validator.activation_eligibility_epoch = FAR_FUTURE_EPOCH
+        # Use bls.G2_POINT_AT_INFINITY as a signature field placeholder
+        # and GENESIS_SLOT to distinguish from a pending deposit request
+        post.pending_deposits.append(
+            PendingDeposit(
+                pubkey=validator.pubkey,
+                withdrawal_credentials=validator.withdrawal_credentials,
+                amount=balance,
+                signature=bls.G2_POINT_AT_INFINITY,
+                slot=GENESIS_SLOT,
+            )
+        )
+
+    # Ensure early adopters of compounding credentials go through the activation churn
+    for index, validator in enumerate(post.validators):
+        if has_compounding_withdrawal_credential(validator):
+            queue_excess_active_balance(post, ValidatorIndex(index))
+
+    return post
+```
+
+## Fork to Fulu
+
+### Fork trigger
+
+The fork is triggered at epoch `FULU_FORK_EPOCH`.
+
+*Note*: For the pure Fulu networks, the `upgrade_to_fulu` function is applied to
+transition the genesis state to this fork.
+
+### Upgrading the state
+
+If `state.slot % SLOTS_PER_EPOCH == 0` and
+`compute_epoch_at_slot(state.slot) == FULU_FORK_EPOCH`, an irregular state
+change is made to upgrade to Fulu.
+
+```python
+def upgrade_to_fulu(pre: electra.BeaconState) -> BeaconState:
+    epoch = electra.get_current_epoch(pre)
+    post = BeaconState(
+        genesis_time=pre.genesis_time,
+        genesis_validators_root=pre.genesis_validators_root,
+        slot=pre.slot,
+        fork=Fork(
+            previous_version=pre.fork.current_version,
+            # [Modified in Fulu]
+            current_version=FULU_FORK_VERSION,
+            epoch=epoch,
+        ),
+        latest_block_header=pre.latest_block_header,
+        block_roots=pre.block_roots,
+        state_roots=pre.state_roots,
+        historical_roots=pre.historical_roots,
+        eth1_data=pre.eth1_data,
+        eth1_data_votes=pre.eth1_data_votes,
+        eth1_deposit_index=pre.eth1_deposit_index,
+        validators=pre.validators,
+        balances=pre.balances,
+        randao_mixes=pre.randao_mixes,
+        slashings=pre.slashings,
+        previous_epoch_participation=pre.previous_epoch_participation,
+        current_epoch_participation=pre.current_epoch_participation,
+        justification_bits=pre.justification_bits,
+        previous_justified_checkpoint=pre.previous_justified_checkpoint,
+        current_justified_checkpoint=pre.current_justified_checkpoint,
+        finalized_checkpoint=pre.finalized_checkpoint,
+        inactivity_scores=pre.inactivity_scores,
+        current_sync_committee=pre.current_sync_committee,
+        next_sync_committee=pre.next_sync_committee,
+        latest_execution_payload_header=pre.latest_execution_payload_header,
+        next_withdrawal_index=pre.next_withdrawal_index,
+        next_withdrawal_validator_index=pre.next_withdrawal_validator_index,
+        historical_summaries=pre.historical_summaries,
+        deposit_requests_start_index=pre.deposit_requests_start_index,
+        deposit_balance_to_consume=pre.deposit_balance_to_consume,
+        exit_balance_to_consume=pre.exit_balance_to_consume,
+        earliest_exit_epoch=pre.earliest_exit_epoch,
+        consolidation_balance_to_consume=pre.consolidation_balance_to_consume,
+        earliest_consolidation_epoch=pre.earliest_consolidation_epoch,
+        pending_deposits=pre.pending_deposits,
+        pending_partial_withdrawals=pre.pending_partial_withdrawals,
+        pending_consolidations=pre.pending_consolidations,
+        # [New in Fulu:EIP7917]
+        proposer_lookahead=initialize_proposer_lookahead(pre),
     )
 
     return post
