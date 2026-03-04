@@ -6,6 +6,14 @@ defmodule KzgTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
+  # Fiat-Shamir domain separator for cell KZG batch challenges (16 bytes)
+  @random_challenge_kzg_cell_batch_domain "RCKZGCBATCH__V1_"
+  # BLS12-381 scalar field modulus
+  @bls_modulus 52_435_875_175_126_190_479_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_513
+  # KZG preset constants (fixed across all configs)
+  @field_elements_per_blob 4096
+  @field_elements_per_cell 64
+
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)
@@ -99,5 +107,117 @@ defmodule KzgTestRunner do
         assert {:ok, status} = Kzg.verify_blob_kzg_proof_batch(blobs, commitments, proofs)
         assert status == output
     end
+  end
+
+  defp handle_case("compute_cells_and_kzg_proofs", %{blob: blob}, output) do
+    case output do
+      nil ->
+        assert {result, _error_msg} = Kzg.compute_cells_and_kzg_proofs(blob)
+        assert result == :error
+
+      output ->
+        assert {:ok, {cells, proofs}} = Kzg.compute_cells_and_kzg_proofs(blob)
+        assert [cells, proofs] == output
+    end
+  end
+
+  defp handle_case("compute_cells", %{blob: blob}, output) do
+    case output do
+      nil ->
+        assert {result, _error_msg} = Kzg.compute_cells_and_kzg_proofs(blob)
+        assert result == :error
+
+      output ->
+        assert {:ok, {cells, _proofs}} = Kzg.compute_cells_and_kzg_proofs(blob)
+        assert cells == output
+    end
+  end
+
+  defp handle_case(
+         "recover_cells_and_kzg_proofs",
+         %{cell_indices: cell_indices, cells: cells},
+         output
+       ) do
+    case output do
+      nil ->
+        assert {result, _error_msg} = Kzg.recover_cells_and_kzg_proofs(cell_indices, cells)
+        assert result == :error
+
+      output ->
+        assert {:ok, {recovered_cells, recovered_proofs}} =
+                 Kzg.recover_cells_and_kzg_proofs(cell_indices, cells)
+
+        assert [recovered_cells, recovered_proofs] == output
+    end
+  end
+
+  defp handle_case(
+         "verify_cell_kzg_proof_batch",
+         %{commitments: commitments, cell_indices: cell_indices, cells: cells, proofs: proofs},
+         output
+       ) do
+    case output do
+      nil ->
+        assert {result, _error_msg} =
+                 Kzg.verify_cell_kzg_proof_batch(commitments, cell_indices, cells, proofs)
+
+        assert result == :error
+
+      output ->
+        assert {:ok, status} =
+                 Kzg.verify_cell_kzg_proof_batch(commitments, cell_indices, cells, proofs)
+
+        assert status == output
+    end
+  end
+
+  defp handle_case(
+         "compute_verify_cell_kzg_proof_batch_challenge",
+         %{
+           commitments: commitments,
+           commitment_indices: commitment_indices,
+           cell_indices: cell_indices,
+           cosets_evals: cosets_evals,
+           proofs: proofs
+         },
+         output
+       ) do
+    challenge =
+      compute_challenge(commitments, commitment_indices, cell_indices, cosets_evals, proofs)
+
+    assert challenge == output
+  end
+
+  # Computes the Fiat-Shamir challenge for verify_cell_kzg_proof_batch.
+  # Implements compute_verify_cell_kzg_proof_batch_challenge from the Fulu spec:
+  # domain || FIELD_ELEMENTS_PER_BLOB || FIELD_ELEMENTS_PER_CELL ||
+  # len(commitments) || len(cell_indices) || commitments ||
+  # [commitment_index || cell_index || coset_evals || proof] per entry
+  # Result: SHA-256(input) as big-endian integer mod BLS_MODULUS, padded to 32 bytes.
+  defp compute_challenge(commitments, commitment_indices, cell_indices, cosets_evals, proofs) do
+    per_item =
+      [commitment_indices, cell_indices, cosets_evals, proofs]
+      |> Enum.zip()
+      |> Enum.map(fn {ci, ki, evals, proof} ->
+        <<ci::big-unsigned-64>> <>
+          <<ki::big-unsigned-64>> <>
+          Enum.join(evals) <>
+          proof
+      end)
+      |> Enum.join()
+
+    hash_input =
+      @random_challenge_kzg_cell_batch_domain <>
+        <<@field_elements_per_blob::big-unsigned-64>> <>
+        <<@field_elements_per_cell::big-unsigned-64>> <>
+        <<length(commitments)::big-unsigned-64>> <>
+        <<length(cell_indices)::big-unsigned-64>> <>
+        Enum.join(commitments) <>
+        per_item
+
+    hash_value = :crypto.hash(:sha256, hash_input)
+    field_int = :binary.decode_unsigned(hash_value, :big)
+    reduced = rem(field_int, @bls_modulus)
+    <<reduced::big-unsigned-256>>
   end
 end

@@ -15,8 +15,8 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
 
   @request_prefix "/eth2/beacon_chain/req/"
 
-  # On Fulu, advertise the metadata/3 version (adds custody_group_count) and the
-  # two new data column req/resp protocols.
+  # On Fulu, advertise status/2 (adds earliest_available_slot), metadata/3
+  # (adds custody_group_count), and the two new data column req/resp protocols.
   @request_names [
                    "status/1",
                    "goodbye/1",
@@ -27,6 +27,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
                  ] ++
                    (if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu do
                       [
+                        "status/2",
                         "metadata/3",
                         "data_column_sidecars_by_range/1",
                         "data_column_sidecars_by_root/1"
@@ -63,6 +64,14 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     with {:ok, request} <- ReqResp.decode_request(message, Types.StatusMessage) do
       Logger.debug("[Status] '#{inspect(request)}'")
       payload = ForkChoice.get_current_status_message() |> ReqResp.encode_ok()
+      {:ok, {message_id, payload}}
+    end
+  end
+
+  defp handle_req("status/2/ssz_snappy", message_id, message) do
+    with {:ok, request} <- ReqResp.decode_request(message, Types.StatusMessageV2) do
+      Logger.debug("[StatusV2] '#{inspect(request)}'")
+      payload = ForkChoice.get_current_status_message_v2() |> ReqResp.encode_ok()
       {:ok, {message_id, payload}}
     end
   end

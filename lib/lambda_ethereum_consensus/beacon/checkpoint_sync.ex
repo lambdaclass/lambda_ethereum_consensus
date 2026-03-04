@@ -84,5 +84,4 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
     |> URI.append_path(path)
     |> URI.to_string()
   end
-
 end

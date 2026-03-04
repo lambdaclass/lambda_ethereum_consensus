@@ -48,5 +48,4 @@ defmodule Unit.ExecutionTest do
     patch(EngineApi, :get_block_header, fn nil -> {:ok, nil} end)
     assert {:ok, nil} = ExecutionClient.get_block_metadata(nil)
   end
-
 end

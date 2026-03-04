@@ -197,6 +197,29 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     }
   end
 
+  @spec get_current_status_message_v2() :: Types.StatusMessageV2.t()
+  def get_current_status_message_v2() do
+    %{
+      head_root: head_root,
+      head_slot: head_slot,
+      finalized_checkpoint: %{root: finalized_root, epoch: finalized_epoch}
+    } = fetch_store!()
+
+    # Conservatively report the start of the finalized epoch as the earliest
+    # available slot. TODO: track the checkpoint sync start slot explicitly for
+    # a more accurate value.
+    earliest_available_slot = finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
+
+    %Types.StatusMessageV2{
+      fork_digest: compute_fork_digest(head_slot, ChainSpec.get_genesis_validators_root()),
+      finalized_root: finalized_root,
+      finalized_epoch: finalized_epoch,
+      head_root: head_root,
+      head_slot: head_slot,
+      earliest_available_slot: earliest_available_slot
+    }
+  end
+
   ##########################
   ### Private Functions
   ##########################
