@@ -133,7 +133,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   # Fulu path: verify KZG cell proofs for all custody data column sidecars.
   # All custody columns must be present in the DB, have valid indices, and pass batch KZG verification.
   defp columns_data_available?(beacon_block_root, blob_kzg_commitments) do
-    column_indices = custody_column_indices()
+    column_indices = DasCore.get_local_custody_columns()
 
     indexed_results =
       Enum.map(column_indices, fn ci ->
@@ -153,15 +153,6 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     else
       false
     end
-  end
-
-  # Returns the column indices this node is responsible for.
-  # node_id is stored by Libp2pPort at startup from the discv5 local node.
-  # Falls back to 0 if unavailable (e.g. discovery disabled or before port is ready).
-  defp custody_column_indices() do
-    node_id = Application.get_env(:lambda_ethereum_consensus, :node_id, 0)
-    custody_group_count = ChainSpec.get("CUSTODY_REQUIREMENT")
-    DasCore.get_custody_columns(node_id, custody_group_count)
   end
 
   @doc """

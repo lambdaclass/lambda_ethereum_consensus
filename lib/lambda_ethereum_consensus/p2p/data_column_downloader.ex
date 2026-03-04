@@ -54,42 +54,46 @@ defmodule LambdaEthereumConsensus.P2P.DataColumnDownloader do
         P2P.Peerbook.get_peerdas_peer() ||
         get_some_peer()
 
-    if peer_id == nil do
-      on_columns.(nil, {:error, :no_peers})
-      :ok
-    else
-      request =
-        %Types.DataColumnSidecarsByRangeRequest{
-          start_slot: slot,
-          count: count,
-          columns: column_indices
-        }
-        |> ReqResp.encode_request()
+    do_send_columns_by_range(peer_id, slot, count, column_indices, on_columns, retries)
+  end
 
-      Libp2pPort.send_async_request(
-        peer_id,
-        @columns_by_range_protocol_id,
-        request,
-        fn store, response ->
-          Metrics.handler_span(
-            "response_handler",
-            "data_column_sidecars_by_range",
-            fn ->
-              handle_columns_by_range_response(
-                store,
-                response,
-                peer_id,
-                count,
-                slot,
-                column_indices,
-                retries,
-                on_columns
-              )
-            end
-          )
-        end
-      )
-    end
+  defp do_send_columns_by_range(nil, _slot, _count, _column_indices, on_columns, _retries) do
+    on_columns.(nil, {:error, :no_peers})
+    :ok
+  end
+
+  defp do_send_columns_by_range(peer_id, slot, count, column_indices, on_columns, retries) do
+    request =
+      %Types.DataColumnSidecarsByRangeRequest{
+        start_slot: slot,
+        count: count,
+        columns: column_indices
+      }
+      |> ReqResp.encode_request()
+
+    Libp2pPort.send_async_request(
+      peer_id,
+      @columns_by_range_protocol_id,
+      request,
+      fn store, response ->
+        Metrics.handler_span(
+          "response_handler",
+          "data_column_sidecars_by_range",
+          fn ->
+            handle_columns_by_range_response(
+              store,
+              response,
+              peer_id,
+              count,
+              slot,
+              column_indices,
+              retries,
+              on_columns
+            )
+          end
+        )
+      end
+    )
   end
 
   defp handle_columns_by_range_response(
@@ -138,31 +142,34 @@ defmodule LambdaEthereumConsensus.P2P.DataColumnDownloader do
 
     peer_id =
       Enum.find_value(column_indices, fn idx -> P2P.Peerbook.get_peer_for_column(idx) end) ||
-        P2P.Peerbook.get_peerdas_peer() ||
-        get_some_peer()
+        P2P.Peerbook.get_peerdas_peer()
 
-    if peer_id == nil do
-      on_columns.(nil, {:error, :no_peers})
-      :ok
-    else
-      request =
-        ReqResp.encode_request({identifiers, TypeAliases.data_column_sidecars_by_root_request()})
+    do_send_columns_by_root(peer_id, identifiers, on_columns, retries)
+  end
 
-      Libp2pPort.send_async_request(
-        peer_id,
-        @columns_by_root_protocol_id,
-        request,
-        fn store, response ->
-          Metrics.handler_span(
-            "response_handler",
-            "data_column_sidecars_by_root",
-            fn ->
-              handle_columns_by_root(store, response, peer_id, identifiers, retries, on_columns)
-            end
-          )
-        end
-      )
-    end
+  defp do_send_columns_by_root(nil, _identifiers, on_columns, _retries) do
+    on_columns.(nil, {:error, :no_peers})
+    :ok
+  end
+
+  defp do_send_columns_by_root(peer_id, identifiers, on_columns, retries) do
+    request =
+      ReqResp.encode_request({identifiers, TypeAliases.data_column_sidecars_by_root_request()})
+
+    Libp2pPort.send_async_request(
+      peer_id,
+      @columns_by_root_protocol_id,
+      request,
+      fn store, response ->
+        Metrics.handler_span(
+          "response_handler",
+          "data_column_sidecars_by_root",
+          fn ->
+            handle_columns_by_root(store, response, peer_id, identifiers, retries, on_columns)
+          end
+        )
+      end
+    )
   end
 
   def handle_columns_by_root(store, response, peer_id, identifiers, retries, on_columns) do

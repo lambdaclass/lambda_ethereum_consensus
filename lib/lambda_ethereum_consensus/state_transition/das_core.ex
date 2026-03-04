@@ -6,45 +6,60 @@ defmodule LambdaEthereumConsensus.StateTransition.DasCore do
   No networking or DB access is done here.
   """
 
-  import Bitwise
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconBlockBody
+
+  # 2^256 - 1, the maximum value of a uint256, used for overflow prevention
+  # in get_custody_groups as specified in das-core.md.
+  @uint256_max (1 <<< 256) - 1
   alias Types.BeaconBlockHeader
   alias Types.DataColumnSidecar
   alias Types.MatrixEntry
   alias Types.SignedBeaconBlockHeader
 
   @doc """
-  Returns the set of custody groups for a node given its node_id.
+  Returns the sorted set of custody groups for a node given its node_id.
 
   The `node_id` is a 256-bit integer (derived from the node's ENR key).
-  Uses the swap-or-not shuffle algorithm over NUMBER_OF_CUSTODY_GROUPS.
+  Uses SHA256(uint256_le(current_id))[0:8] mod NUMBER_OF_CUSTODY_GROUPS
+  to assign custody groups, iterating until the required count is reached.
 
   Spec: get_custody_groups(node_id, custody_group_count) in das-core.md
   """
   @spec get_custody_groups(Types.uint256(), non_neg_integer()) :: [Types.custody_index()]
   def get_custody_groups(node_id, custody_group_count) do
     n_groups = ChainSpec.get("NUMBER_OF_CUSTODY_GROUPS")
-    collect_custody_groups(node_id, n_groups, custody_group_count, %{}, 0)
+
+    if custody_group_count > n_groups do
+      raise ArgumentError,
+            "custody_group_count (#{custody_group_count}) > NUMBER_OF_CUSTODY_GROUPS (#{n_groups})"
+    end
+
+    if custody_group_count == n_groups do
+      Enum.to_list(0..(n_groups - 1))
+    else
+      collect_custody_groups(node_id, n_groups, custody_group_count, %{}, 0)
+    end
   end
 
   defp collect_custody_groups(_current_id, _n_groups, count, seen, seen_size)
        when seen_size >= count do
-    Map.keys(seen)
+    seen |> Map.keys() |> Enum.sort()
   end
 
   defp collect_custody_groups(current_id, n_groups, count, seen, seen_size) do
-    # Hash the 8-byte little-endian encoding of the low 64 bits of current_id
-    seed = :crypto.hash(:sha256, <<current_id &&& 0xFFFFFFFFFFFFFFFF::little-size(64)>>)
-    index = rem(current_id, n_groups)
-    {:ok, shuffled} = Misc.compute_shuffled_index(index, n_groups, seed)
+    # Spec: hash(uint_to_bytes(current_id)) where current_id is uint256 little-endian.
+    # Take first 8 bytes as uint64, then modulo NUMBER_OF_CUSTODY_GROUPS.
+    hash = SszEx.hash(<<current_id::unsigned-integer-little-size(256)>>)
+    custody_group = Misc.bytes_to_uint64(hash) |> rem(n_groups)
 
     {new_seen, new_size} =
-      if Map.has_key?(seen, shuffled),
+      if Map.has_key?(seen, custody_group),
         do: {seen, seen_size},
-        else: {Map.put(seen, shuffled, true), seen_size + 1}
+        else: {Map.put(seen, custody_group, true), seen_size + 1}
 
-    collect_custody_groups(current_id + 1, n_groups, count, new_seen, new_size)
+    next_id = if current_id == @uint256_max, do: 0, else: current_id + 1
+    collect_custody_groups(next_id, n_groups, count, new_seen, new_size)
   end
 
   @doc """
@@ -79,6 +94,21 @@ defmodule LambdaEthereumConsensus.StateTransition.DasCore do
   def get_custody_columns(node_id, custody_group_count) do
     get_custody_groups(node_id, custody_group_count)
     |> Enum.flat_map(&compute_columns_for_custody_group/1)
+  end
+
+  @doc """
+  Returns the custody column indices for this node, reading node_id from
+  the Application environment (set by Libp2pPort at startup) and
+  CUSTODY_REQUIREMENT from ChainSpec.
+
+  Falls back to node_id=0 if discovery is disabled or the port has not
+  yet reported its identity; in that case Libp2pPort logs a warning.
+  """
+  @spec get_local_custody_columns() :: [Types.column_index()]
+  def get_local_custody_columns() do
+    node_id = Application.get_env(:lambda_ethereum_consensus, :node_id, 0)
+    custody_group_count = ChainSpec.get("CUSTODY_REQUIREMENT")
+    get_custody_columns(node_id, custody_group_count)
   end
 
   @doc """

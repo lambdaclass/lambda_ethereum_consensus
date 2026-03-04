@@ -161,22 +161,18 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   defp parse_and_store_peer_metadata(peer_id, response) do
     case ReqResp.decode_response_chunk(response, Types.Metadata) do
-      {:ok, metadata} ->
-        cgc = Map.get(metadata, :custody_group_count)
+      {:ok, %{custody_group_count: cgc}} when cgc != nil ->
+        Logger.debug(
+          "[Peerbook] PeerDAS peer discovered, custody_group_count=#{cgc}: #{inspect(Utils.format_shorten_binary(peer_id))}"
+        )
 
-        if cgc != nil do
-          Logger.debug(
-            "[Peerbook] PeerDAS peer discovered, custody_group_count=#{cgc}: #{inspect(Utils.format_shorten_binary(peer_id))}"
-          )
-
-          fetch_peerbook!()
-          |> Map.update(
-            peer_id,
-            %{score: @initial_score, node_id: nil, custody_group_count: cgc},
-            fn e -> %{e | custody_group_count: cgc} end
-          )
-          |> store_peerbook()
-        end
+        fetch_peerbook!()
+        |> Map.update(
+          peer_id,
+          %{score: @initial_score, node_id: nil, custody_group_count: cgc},
+          fn e -> %{e | custody_group_count: cgc} end
+        )
+        |> store_peerbook()
 
       _ ->
         :ok

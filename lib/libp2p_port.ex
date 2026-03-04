@@ -562,7 +562,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           Logger.info("[Libp2pPort] Local PeerDAS node_id: #{node_id_int}")
 
         _ ->
-          Logger.warning("[Libp2pPort] node_id unavailable (discovery disabled?); custody columns will use node_id=0")
+          Logger.warning(
+            "[Libp2pPort] node_id unavailable (discovery disabled?); custody columns will use node_id=0"
+          )
       end
     end)
 

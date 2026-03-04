@@ -9,8 +9,9 @@
   # --- Fork-gate dead code: "Guard test true =:= nil can never succeed" ---
   # All from `if HardForkAliasInjection.fulu?()` being always true.
   {"lib/lambda_ethereum_consensus/beacon/pending_blocks.ex", :guard_fail},
+  {"lib/lambda_ethereum_consensus/fork_choice/fork_choice.ex", :guard_fail},
   {"lib/lambda_ethereum_consensus/fork_choice/handlers.ex", :guard_fail},
-  {"lib/lambda_ethereum_consensus/state_transition/operations.ex", :guard_fail},
+  {"lib/lambda_ethereum_consensus/state_transition/misc.ex", :guard_fail},
   {"lib/lambda_ethereum_consensus/state_transition/state_transition.ex", :guard_fail},
   {"lib/lambda_ethereum_consensus/validator/block_builder.ex", :guard_fail},
   {"lib/lambda_ethereum_consensus/validator/validator.ex", :guard_fail},

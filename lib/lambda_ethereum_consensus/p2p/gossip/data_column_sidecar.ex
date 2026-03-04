@@ -56,7 +56,7 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.DataColumnSidecar do
     # TODO: this doesn't take into account fork digest changes
     fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
 
-    custody_column_indices()
+    DasCore.get_local_custody_columns()
     |> Enum.map(&column_index_to_subnet_id/1)
     |> Enum.uniq()
     |> Enum.map(fn subnet_id ->
@@ -73,12 +73,4 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.DataColumnSidecar do
     div(column_index * subnet_count, n_columns)
   end
 
-  # Returns the column indices this node is responsible for.
-  # node_id is stored by Libp2pPort at startup from the discv5 local node.
-  # Falls back to 0 if unavailable (e.g. discovery disabled or before port is ready).
-  defp custody_column_indices() do
-    node_id = Application.get_env(:lambda_ethereum_consensus, :node_id, 0)
-    custody_group_count = ChainSpec.get("CUSTODY_REQUIREMENT")
-    DasCore.get_custody_columns(node_id, custody_group_count)
-  end
 end

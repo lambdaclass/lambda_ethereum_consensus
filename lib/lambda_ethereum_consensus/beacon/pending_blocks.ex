@@ -91,7 +91,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   defp add_block_fulu(store, block_info, log_md) do
-    missing_columns = DataColumns.missing_columns_for_block(block_info, custody_column_indices())
+    missing_columns = DataColumns.missing_columns_for_block(block_info, DasCore.get_local_custody_columns())
 
     if Enum.empty?(missing_columns) do
       Logger.debug("[PendingBlocks] No missing data columns for block, process it", log_md)
@@ -182,7 +182,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     |> Enum.reduce(store, fn root, store ->
       with %BlockInfo{status: :download_columns} = block_info <- Blocks.get_block_info(root),
            [] <-
-             DataColumns.missing_columns_for_block(block_info, custody_column_indices()) do
+             DataColumns.missing_columns_for_block(block_info, DasCore.get_local_custody_columns()) do
         block_info
         |> Blocks.change_status(:pending)
         |> then(&process_block_and_check_children(store, &1))
@@ -293,12 +293,4 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     {:ok, store}
   end
 
-  # Returns the column indices this node is responsible for.
-  # node_id is stored by Libp2pPort at startup from the discv5 local node.
-  # Falls back to 0 if unavailable (e.g. discovery disabled or before port is ready).
-  defp custody_column_indices() do
-    node_id = Application.get_env(:lambda_ethereum_consensus, :node_id, 0)
-    custody_group_count = ChainSpec.get("CUSTODY_REQUIREMENT")
-    DasCore.get_custody_columns(node_id, custody_group_count)
-  end
 end
