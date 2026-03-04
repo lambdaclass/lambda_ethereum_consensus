@@ -99,6 +99,8 @@ message Enr {
     bytes eth2 = 1;
     bytes attnets = 2;
     bytes syncnets = 3;
+    bytes cgc = 4;
+    bytes nfd = 5;
 }
 
 message GetNodeIdentity {}

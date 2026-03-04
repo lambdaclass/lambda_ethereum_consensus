@@ -5,6 +5,22 @@ defmodule SszGenericTestRunner do
   use ExUnit.CaseTemplate
   use TestRunner
 
+  # EIP-7495 (StableContainer / Progressive SSZ) is not yet implemented.
+  @impl TestRunner
+  def skip?(%SpecTestCase{handler: handler})
+      when handler in [
+             "progressive_containers",
+             "basic_progressive_list",
+             "progressive_bitlist",
+             "compatible_unions"
+           ],
+      do: true
+
+  def skip?(%SpecTestCase{handler: "containers", case: cse}),
+    do: String.starts_with?(cse, "Progressive")
+
+  def skip?(_), do: false
+
   @impl TestRunner
   def run_test_case(%SpecTestCase{} = testcase) do
     case_dir = SpecTestCase.dir(testcase)

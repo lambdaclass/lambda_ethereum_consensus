@@ -87,11 +87,12 @@ defmodule Unit.SSZTests do
 
   test "serialize and deserialize Metadata" do
     assert_roundtrip(
-      "E1ED6200000000009989AFAE2372EC4C07",
+      "E1ED6200000000009989AFAE2372EC4C070400000000000000",
       %Types.Metadata{
         seq_number: 6_483_425,
         attnets: Base.decode16!("9989AFAE2372EC4C") |> BitVector.new(64),
-        syncnets: Base.decode16!("07") |> BitVector.new(4)
+        syncnets: Base.decode16!("07") |> BitVector.new(4),
+        custody_group_count: 4
       }
     )
   end

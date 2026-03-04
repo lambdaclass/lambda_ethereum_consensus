@@ -150,7 +150,7 @@ defmodule Fixtures.Block do
   @spec sync_committee :: Types.SyncCommittee.t()
   def sync_committee() do
     %Types.SyncCommittee{
-      pubkeys: [],
+      pubkeys: List.duplicate(Random.binary(48), ChainSpec.get("SYNC_COMMITTEE_SIZE")),
       aggregate_pubkey: Random.binary(48)
     }
   end
@@ -188,19 +188,20 @@ defmodule Fixtures.Block do
       slot: Random.uint64(),
       fork: fork(),
       latest_block_header: beacon_block_header(),
-      block_roots: [],
-      state_roots: [],
+      block_roots: List.duplicate(<<0::256>>, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")),
+      state_roots: List.duplicate(<<0::256>>, ChainSpec.get("SLOTS_PER_HISTORICAL_ROOT")),
       historical_roots: [],
       eth1_data: eth1_data(),
       eth1_data_votes: [],
       eth1_deposit_index: Random.uint64(),
       validators: Aja.Vector.new(),
       balances: Aja.Vector.new(),
-      randao_mixes: Aja.Vector.new(),
-      slashings: [],
+      randao_mixes:
+        Aja.Vector.new(List.duplicate(<<0::256>>, ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR"))),
+      slashings: List.duplicate(0, ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")),
       previous_epoch_participation: Aja.Vector.new(),
       current_epoch_participation: Aja.Vector.new(),
-      justification_bits: BitVector.to_bytes(BitVector.new(4)),
+      justification_bits: BitVector.new(4),
       previous_justified_checkpoint: checkpoint(),
       current_justified_checkpoint: checkpoint(),
       finalized_checkpoint: checkpoint(),

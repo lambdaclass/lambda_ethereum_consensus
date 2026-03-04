@@ -13,6 +13,8 @@ type Enr struct {
 	Eth2     []byte
 	Attnets  []byte
 	Syncnets []byte
+	Cgc      []byte
+	Nfd      []byte
 }
 
 type Config struct {
@@ -44,7 +46,7 @@ func generatePrivkey() *ecdsa.PrivateKey {
 }
 
 func LoadEnr(enr *proto_defs.Enr) Enr {
-	return Enr{Eth2: enr.Eth2, Attnets: enr.Attnets, Syncnets: enr.Syncnets}
+	return Enr{Eth2: enr.Eth2, Attnets: enr.Attnets, Syncnets: enr.Syncnets, Cgc: enr.Cgc, Nfd: enr.Nfd}
 }
 
 func AddPeerNotification() proto_defs.Notification {

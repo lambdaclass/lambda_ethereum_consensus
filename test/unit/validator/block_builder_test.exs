@@ -80,12 +80,15 @@ defmodule Unit.Validator.BlockBuilderTest do
 
     [proof] = BlockBuilder.compute_inclusion_proofs(body)
 
-    assert length(proof) == 10
+    assert length(proof) == 17
 
     commitment_root = SszEx.hash_tree_root!(commitment, TypeAliases.kzg_commitment())
 
-    # Manually computed generalized index of the commitment in the body
-    index = 0b1011000000
+    # Manually computed index for commitment 0 in blob_kzg_commitments (field 11 in body).
+    # Body tree depth = 4 (16 virtual leaves), commitment tree depth = 12 (4096 max).
+    # Bit layout: [bits 0-11: commitment pos 0] [bit 12: content side] [bits 13-16: field 11 in body]
+    # Field 11 = 0b1011 → bits 13,14,16 set. index = 2^13 + 2^14 + 2^16 = 90112
+    index = 0b10110000000000000
 
     valid? =
       Predicates.valid_merkle_branch?(commitment_root, proof, length(proof), index, body_root)

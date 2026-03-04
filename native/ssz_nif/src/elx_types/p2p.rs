@@ -33,6 +33,7 @@ gen_struct_with_config!(
         seq_number: u64,
         attnets: Binary<'a>,
         syncnets: Binary<'a>,
+        custody_group_count: u64,
     }
 );
 

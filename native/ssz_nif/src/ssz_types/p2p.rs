@@ -24,6 +24,7 @@ pub(crate) struct Metadata<C: Config> {
     pub(crate) seq_number: u64,
     pub(crate) attnets: BitVector<C::AttestationSubnetCount>,
     pub(crate) syncnets: BitVector<C::SyncCommitteeSubnetCount>,
+    pub(crate) custody_group_count: u64,
 }
 
 #[derive(Encode, Decode, TreeHash)]

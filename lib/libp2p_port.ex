@@ -59,7 +59,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     enable_discovery: false,
     discovery_addr: "",
     bootnodes: [],
-    initial_enr: %Enr{eth2: <<0::128>>, attnets: <<0::64>>, syncnets: <<0::8>>}
+    initial_enr: %Enr{
+      eth2: <<0::128>>,
+      attnets: <<0::64>>,
+      syncnets: <<0::8>>,
+      cgc: <<>>,
+      nfd: <<>>
+    }
   ]
 
   @type init_arg ::
@@ -766,8 +772,26 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {:ok, syncnets} =
       SszEx.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
 
-    %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets}
+    if HardForkAliasInjection.fulu?() do
+      %Enr{
+        eth2: eth2,
+        attnets: attnets,
+        syncnets: syncnets,
+        cgc: encode_cgc(ChainSpec.get("CUSTODY_REQUIREMENT")),
+        nfd: compute_nfd()
+      }
+    else
+      %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets, cgc: <<>>, nfd: <<>>}
+    end
   end
+
+  # Encodes the custody group count as a minimal big-endian uint64 (no leading zero bytes).
+  # Zero encodes as empty binary, per the Fulu P2P spec.
+  defp encode_cgc(0), do: <<>>
+  defp encode_cgc(value), do: :binary.encode_unsigned(value, :big)
+
+  # Returns the next-fork digest. Fulu is the latest fork, so there is no next fork.
+  defp compute_nfd(), do: <<0, 0, 0, 0>>
 
   defp compute_initial_enr(current_version) do
     fork_digest =

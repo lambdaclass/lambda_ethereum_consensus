@@ -187,6 +187,12 @@ func updateEnr(localNode *enode.LocalNode, e proto_helpers.Enr) {
 	localNode.Set(enr.WithEntry("eth2", e.Eth2))
 	localNode.Set(enr.WithEntry("attnets", e.Attnets))
 	localNode.Set(enr.WithEntry("syncnets", e.Syncnets))
+	if len(e.Cgc) > 0 {
+		localNode.Set(enr.WithEntry("cgc", e.Cgc))
+	}
+	if len(e.Nfd) > 0 {
+		localNode.Set(enr.WithEntry("nfd", e.Nfd))
+	}
 }
 
 func convertToAddrInfo(node *enode.Node) (*peer.AddrInfo, error) {
