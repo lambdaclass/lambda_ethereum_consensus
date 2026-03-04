@@ -428,6 +428,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     current_version = ForkChoice.get_fork_version()
 
+    fork_digest =
+      Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())
+
+    Logger.info(
+      "[Libp2pPort] Fork version: #{inspect(current_version)}, fork digest: #{Base.encode16(fork_digest)}"
+    )
+
     ([initial_enr: compute_initial_enr(current_version)] ++ args)
     |> parse_args()
     |> InitArgs.encode()

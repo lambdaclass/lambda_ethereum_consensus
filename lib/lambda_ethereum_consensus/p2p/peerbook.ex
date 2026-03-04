@@ -13,7 +13,11 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   @max_prune_size 8
   @prune_percentage 0.05
 
-  @metadata_protocol_id "/eth2/beacon_chain/req/metadata/2/ssz_snappy"
+  if HardForkAliasInjection.fulu?() do
+    @metadata_protocol_id "/eth2/beacon_chain/req/metadata/3/ssz_snappy"
+  else
+    @metadata_protocol_id "/eth2/beacon_chain/req/metadata/2/ssz_snappy"
+  end
 
   use KvSchema, prefix: "peerbook"
 
@@ -100,7 +104,7 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   def challenge_peer(peer_id) do
     case Libp2pPort.send_request(peer_id, @metadata_protocol_id, "") do
-      {:ok, <<0, 17>> <> _payload} ->
+      {:ok, <<0, _::binary>>} ->
         :telemetry.execute([:peers, :challenge], %{}, %{result: "passed"})
 
       _ ->
