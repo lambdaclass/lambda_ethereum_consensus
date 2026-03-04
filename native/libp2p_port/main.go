@@ -56,8 +56,9 @@ func getNodeIdentity(listener *reqresp.Listener, discoverer *discovery.Discovere
 	enr := discoverer.GetEnr()
 	p2pAddresses := listener.GetAddresses()
 	discoveryAddresses := discoverer.GetAddresses()
+	nodeId := discoverer.GetNodeId()
 
-	return &proto_defs.NodeIdentity{PeerId: []byte(peerId), Enr: enr, P2PAddresses: p2pAddresses, DiscoveryAddresses: discoveryAddresses, PrettyPeerId: prettyPeerId}
+	return &proto_defs.NodeIdentity{PeerId: []byte(peerId), Enr: enr, P2PAddresses: p2pAddresses, DiscoveryAddresses: discoveryAddresses, PrettyPeerId: prettyPeerId, NodeId: nodeId}
 }
 
 func commandServer() {

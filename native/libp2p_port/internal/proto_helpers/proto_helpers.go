@@ -120,8 +120,8 @@ func GossipNotification(topic string, handler, msgId, message []byte) proto_defs
 	return proto_defs.Notification{N: &proto_defs.Notification_Gossip{Gossip: gossipSubNotification}}
 }
 
-func NewPeerNotification(id []byte) proto_defs.Notification {
-	newPeerNotification := &proto_defs.NewPeer{PeerId: id}
+func NewPeerNotification(id []byte, nodeId []byte) proto_defs.Notification {
+	newPeerNotification := &proto_defs.NewPeer{PeerId: id, NodeId: nodeId}
 	return proto_defs.Notification{N: &proto_defs.Notification_NewPeer{NewPeer: newPeerNotification}}
 }
 

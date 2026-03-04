@@ -79,13 +79,13 @@ func (l *Listener) AddPeer(id []byte, addrs []string, ttl int64) {
 		}
 	}
 	if len(addrInfo.Addrs) != 0 {
-		l.AddPeerWithAddrInfo(addrInfo, ttl)
+		l.AddPeerWithAddrInfo(addrInfo, ttl, nil)
 	}
 }
 
-func (l *Listener) AddPeerWithAddrInfo(addrInfo peer.AddrInfo, ttl int64) {
+func (l *Listener) AddPeerWithAddrInfo(addrInfo peer.AddrInfo, ttl int64, nodeId []byte) {
 	l.hostHandle.Connect(context.TODO(), addrInfo)
-	notification := proto_helpers.NewPeerNotification([]byte(addrInfo.ID))
+	notification := proto_helpers.NewPeerNotification([]byte(addrInfo.ID), nodeId)
 	l.port.SendNotification(&notification)
 }
 

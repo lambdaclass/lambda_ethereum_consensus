@@ -99,7 +99,7 @@ func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, forkUpdates c
 			log.Printf("[discovery] stats: %d discovered, %d accepted, rejections: %v (fork_digest=%x)", total, accepted, rejectionCounts, currentForkDigest)
 		}
 		go func() {
-			listener.AddPeerWithAddrInfo(*addrInfo, peerstore.PermanentAddrTTL)
+			listener.AddPeerWithAddrInfo(*addrInfo, peerstore.PermanentAddrTTL, node.ID().Bytes())
 		}()
 	}
 }
@@ -185,6 +185,14 @@ func (d *Discoverer) GetAddresses() [][]byte {
 		serializedAddresses[i] = []byte(addrs[i].String())
 	}
 	return serializedAddresses
+}
+
+func (d *Discoverer) GetNodeId() []byte {
+	if d == nil {
+		return []byte{}
+	}
+	id := d.discv5_service.LocalNode().Node().ID()
+	return id[:]
 }
 
 func (d *Discoverer) GetEnr() []byte {

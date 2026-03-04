@@ -86,7 +86,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           pretty_peer_id: String.t(),
           enr: String.t(),
           p2p_addresses: [String.t()],
-          discovery_addresses: [String.t()]
+          discovery_addresses: [String.t()],
+          # 32-byte discv5 node ID (keccak256 of secp256k1 pubkey), used for PeerDAS custody
+          node_id: binary()
         }
 
   @tick_time 1000
@@ -139,7 +141,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     })
 
     call_command(pid, {:get_node_identity, %GetNodeIdentity{}})
-    |> Map.take([:peer_id, :pretty_peer_id, :enr, :p2p_addresses, :discovery_addresses])
+    |> Map.take([:peer_id, :pretty_peer_id, :enr, :p2p_addresses, :discovery_addresses, :node_id])
   end
 
   # Sets libp2pport as the Req/Resp handler for the given protocol ID.
@@ -441,6 +443,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     if enable_request_handlers, do: enable_request_handlers(port)
 
     Peerbook.init()
+    send(self(), :fetch_node_id)
     Process.send_after(self(), :sync_blocks, @sync_delay_millis)
 
     Logger.info(
@@ -542,6 +545,28 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     time = :os.system_time(:second)
 
     {:noreply, on_tick(time, state)}
+  end
+
+  # Spawn a Task to fetch and store the local node_id for PeerDAS custody calculation.
+  # Must be done in a Task because call_command uses receive_response(), which would
+  # deadlock if called directly from a GenServer callback.
+  @impl GenServer
+  def handle_info(:fetch_node_id, state) do
+    Task.start(fn ->
+      identity = get_node_identity()
+
+      case identity do
+        %{node_id: node_id} when is_binary(node_id) and byte_size(node_id) > 0 ->
+          node_id_int = :binary.decode_unsigned(node_id)
+          Application.put_env(:lambda_ethereum_consensus, :node_id, node_id_int)
+          Logger.info("[Libp2pPort] Local PeerDAS node_id: #{node_id_int}")
+
+        _ ->
+          Logger.warning("[Libp2pPort] node_id unavailable (discovery disabled?); custody columns will use node_id=0")
+      end
+    end)
+
+    {:noreply, state}
   end
 
   @impl GenServer
@@ -680,13 +705,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     state
   end
 
-  defp handle_notification(%NewPeer{peer_id: peer_id}, state) do
+  defp handle_notification(%NewPeer{peer_id: peer_id, node_id: node_id}, state) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "new peer",
       direction: "->elixir"
     })
 
-    Peerbook.handle_new_peer(peer_id)
+    # node_id is nil when the peer was added via AddPeer command (not discovery).
+    # Discovery-sourced peers carry their 32-byte discv5 node_id for PeerDAS custody routing.
+    Peerbook.handle_new_peer(peer_id, node_id)
     state
   end
 

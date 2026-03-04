@@ -50,7 +50,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp setup_validators(set, _s, _r, []) do
-    Logger.warning("[ValidatorSet] No keystores provided. Validator's wont start.")
+    Logger.warning("[ValidatorSet] No keystores provided. Validators won't start.")
 
     set
   end

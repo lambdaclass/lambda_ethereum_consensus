@@ -156,7 +156,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Returns the column indices this node is responsible for.
-  # node_id comes from the libp2p ENR; defaults to 0 until Phase 5 wires it up.
+  # node_id is stored by Libp2pPort at startup from the discv5 local node.
+  # Falls back to 0 if unavailable (e.g. discovery disabled or before port is ready).
   defp custody_column_indices() do
     node_id = Application.get_env(:lambda_ethereum_consensus, :node_id, 0)
     custody_group_count = ChainSpec.get("CUSTODY_REQUIREMENT")

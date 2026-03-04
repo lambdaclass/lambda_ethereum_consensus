@@ -49,39 +49,47 @@ defmodule LambdaEthereumConsensus.P2P.DataColumnDownloader do
   def request_columns_by_range(slot, count, column_indices, on_columns, retries) do
     Logger.debug("Requesting data columns by range", slot: slot)
 
-    peer_id = get_some_peer()
+    peer_id =
+      Enum.find_value(column_indices, fn idx -> P2P.Peerbook.get_peer_for_column(idx) end) ||
+        P2P.Peerbook.get_peerdas_peer() ||
+        get_some_peer()
 
-    request =
-      %Types.DataColumnSidecarsByRangeRequest{
-        start_slot: slot,
-        count: count,
-        columns: column_indices
-      }
-      |> ReqResp.encode_request()
+    if peer_id == nil do
+      on_columns.(nil, {:error, :no_peers})
+      :ok
+    else
+      request =
+        %Types.DataColumnSidecarsByRangeRequest{
+          start_slot: slot,
+          count: count,
+          columns: column_indices
+        }
+        |> ReqResp.encode_request()
 
-    Libp2pPort.send_async_request(
-      peer_id,
-      @columns_by_range_protocol_id,
-      request,
-      fn store, response ->
-        Metrics.handler_span(
-          "response_handler",
-          "data_column_sidecars_by_range",
-          fn ->
-            handle_columns_by_range_response(
-              store,
-              response,
-              peer_id,
-              count,
-              slot,
-              column_indices,
-              retries,
-              on_columns
-            )
-          end
-        )
-      end
-    )
+      Libp2pPort.send_async_request(
+        peer_id,
+        @columns_by_range_protocol_id,
+        request,
+        fn store, response ->
+          Metrics.handler_span(
+            "response_handler",
+            "data_column_sidecars_by_range",
+            fn ->
+              handle_columns_by_range_response(
+                store,
+                response,
+                peer_id,
+                count,
+                slot,
+                column_indices,
+                retries,
+                on_columns
+              )
+            end
+          )
+        end
+      )
+    end
   end
 
   defp handle_columns_by_range_response(
@@ -126,25 +134,35 @@ defmodule LambdaEthereumConsensus.P2P.DataColumnDownloader do
   def request_columns_by_root(identifiers, on_columns, retries) do
     Logger.debug("Requesting #{length(identifiers)} data columns.")
 
-    peer_id = get_some_peer()
+    column_indices = Enum.map(identifiers, & &1.index) |> Enum.uniq()
 
-    request =
-      ReqResp.encode_request({identifiers, TypeAliases.data_column_sidecars_by_root_request()})
+    peer_id =
+      Enum.find_value(column_indices, fn idx -> P2P.Peerbook.get_peer_for_column(idx) end) ||
+        P2P.Peerbook.get_peerdas_peer() ||
+        get_some_peer()
 
-    Libp2pPort.send_async_request(
-      peer_id,
-      @columns_by_root_protocol_id,
-      request,
-      fn store, response ->
-        Metrics.handler_span(
-          "response_handler",
-          "data_column_sidecars_by_root",
-          fn ->
-            handle_columns_by_root(store, response, peer_id, identifiers, retries, on_columns)
-          end
-        )
-      end
-    )
+    if peer_id == nil do
+      on_columns.(nil, {:error, :no_peers})
+      :ok
+    else
+      request =
+        ReqResp.encode_request({identifiers, TypeAliases.data_column_sidecars_by_root_request()})
+
+      Libp2pPort.send_async_request(
+        peer_id,
+        @columns_by_root_protocol_id,
+        request,
+        fn store, response ->
+          Metrics.handler_span(
+            "response_handler",
+            "data_column_sidecars_by_root",
+            fn ->
+              handle_columns_by_root(store, response, peer_id, identifiers, retries, on_columns)
+            end
+          )
+        end
+      )
+    end
   end
 
   def handle_columns_by_root(store, response, peer_id, identifiers, retries, on_columns) do
@@ -166,13 +184,7 @@ defmodule LambdaEthereumConsensus.P2P.DataColumnDownloader do
   end
 
   defp get_some_peer() do
-    case P2P.Peerbook.get_some_peer() do
-      nil ->
-        # TODO: (#1317) handle no-peers asynchronously
-        raise "No peers available to request data columns from."
-
-      peer_id ->
-        peer_id
-    end
+    # TODO: (#1317) handle no-peers asynchronously
+    P2P.Peerbook.get_some_peer()
   end
 end
