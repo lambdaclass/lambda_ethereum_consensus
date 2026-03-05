@@ -31,7 +31,7 @@
               pkgs.gotools
               otp.erlang
               otp.elixir_1_19
-              pkgs.elixir_ls
+              pkgs.elixir-ls
               pkgs.glibcLocales
               pkgs.protobuf
               pkgs.cmake
