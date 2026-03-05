@@ -273,18 +273,36 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             {store, :transitioned}
 
           {:error, reason, store} ->
-            Logger.error(
-              "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
-              log_md
-            )
+            if execution_layer_error?(reason) do
+              # Transient EL error (connectivity, auth, etc.) — keep block as :pending
+              # so the next process_blocks tick retries it automatically.
+              Logger.warning(
+                "[PendingBlocks] Transient EL error, will retry block: #{reason}",
+                log_md
+              )
 
-            Blocks.change_status(block_info, :invalid)
-            {store, :invalid}
+              {store, :ok}
+            else
+              Logger.error(
+                "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
+                log_md
+              )
+
+              Blocks.change_status(block_info, :invalid)
+              {store, :invalid}
+            end
         end
 
       _other ->
         {store, :ok}
     end
+  end
+
+  # Errors from the execution layer (connectivity, auth, etc.) are transient and should not
+  # permanently invalidate a block. Only errors from the EL explicitly rejecting the payload
+  # (e.g. "Invalid execution payload") or from the state transition are permanent.
+  defp execution_layer_error?(reason) do
+    String.starts_with?(reason, "Error when calling execution client:")
   end
 
   defp process_downloaded_block(store, {:ok, [block]}) do
