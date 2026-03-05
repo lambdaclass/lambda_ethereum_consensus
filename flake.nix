@@ -46,6 +46,9 @@
               fi
 
               export PATH="$HOME/go/bin:$HOME/.mix/escripts:$PATH"
+              # eleveldb vendors snappy 1.1.9 whose CMakeLists.txt requires VERSION 3.1,
+              # which CMake 4.x rejects. This tells CMake to accept the old policy.
+              export CMAKE_POLICY_VERSION_MINIMUM=3.5
             '';
           };
         }
