@@ -35,7 +35,6 @@
               pkgs.glibcLocales
               pkgs.protobuf3_24
               pkgs.cmake
-              pkgs.snappy
             ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libiconv ])
               ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
               CoreFoundation
