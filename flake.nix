@@ -35,12 +35,7 @@
               pkgs.glibcLocales
               pkgs.protobuf
               pkgs.cmake
-            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libiconv ])
-              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
-              CoreFoundation
-              CoreServices
-              Security
-             ]);
+            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libiconv ]);
 
             shellHook = ''
               if [ -f ~/.git-prompt.sh ]; then
