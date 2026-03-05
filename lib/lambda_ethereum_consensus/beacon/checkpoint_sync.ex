@@ -18,7 +18,7 @@ defmodule LambdaEthereumConsensus.Beacon.CheckpointSync do
   def get_finalized_block_and_state(url, genesis_validators_root) do
     tasks = [Task.async(__MODULE__, :get_state, [url]), Task.async(__MODULE__, :get_block, [url])]
 
-    case Task.await_many(tasks, 90_000) do
+    case Task.await_many(tasks, 180_000) do
       [{:ok, state}, {:ok, block}] ->
         if state.genesis_validators_root == genesis_validators_root do
           check_match(url, state, block)
