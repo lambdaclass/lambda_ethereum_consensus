@@ -18,8 +18,8 @@
             inherit system overlays;
           };
 
-          rustToolchain = pkgs.rust-bin.stable."1.71.1".default;
-          otp = pkgs.beam.packages.erlang_26;
+          rustToolchain = pkgs.rust-bin.stable."1.93.1".default;
+          otp = pkgs.beam.packages.erlang_28;
 
         in 
         {
@@ -27,13 +27,13 @@
 
             buildInputs =  [
               rustToolchain
-              pkgs.go_1_23
+              pkgs.go_1_26
               pkgs.gotools
               otp.erlang
-              otp.elixir_1_16
+              otp.elixir_1_19
               pkgs.elixir_ls
               pkgs.glibcLocales
-              pkgs.protobuf3_24
+              pkgs.protobuf
               pkgs.cmake
             ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libiconv ])
               ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [

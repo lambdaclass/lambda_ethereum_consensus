@@ -1,5 +1,5 @@
 # libp2p port
-FROM golang:1.24 AS libp2p_builder
+FROM golang:1.26 AS libp2p_builder
 LABEL stage=builder
 
 # Install dependencies
@@ -19,7 +19,7 @@ RUN go build -o libp2p_port
 
 # Precompile rust crates
 # bls nif
-FROM rust:1.81.0 AS bls_nif_builder
+FROM rust:1.93.1 AS bls_nif_builder
 LABEL stage=builder
 
 RUN mkdir /bls_nif
@@ -31,7 +31,7 @@ RUN cargo build --release && \
     rm -rf target/
 
 # kzg nif
-FROM rust:1.81.0 AS kzg_nif_builder
+FROM rust:1.93.1 AS kzg_nif_builder
 LABEL stage=builder
 
 RUN mkdir /kzg_nif
@@ -43,7 +43,7 @@ RUN cargo build --release && \
     rm -rf target/
 
 # snappy nif
-FROM rust:1.81.0 AS snappy_nif_builder
+FROM rust:1.93.1 AS snappy_nif_builder
 LABEL stage=builder
 
 RUN mkdir /snappy_nif
@@ -55,7 +55,7 @@ RUN cargo build --release && \
     rm -rf target/
 
 # ssz nif
-FROM rust:1.81.0 AS ssz_nif_builder
+FROM rust:1.93.1 AS ssz_nif_builder
 LABEL stage=builder
 
 RUN mkdir /ssz_nif
@@ -67,7 +67,7 @@ RUN cargo build --release && \
     rm -rf target/
 
 # Main image
-FROM elixir:1.16.2-otp-26
+FROM elixir:1.19.4-otp-28
 
 RUN mkdir /consensus
 WORKDIR /consensus
