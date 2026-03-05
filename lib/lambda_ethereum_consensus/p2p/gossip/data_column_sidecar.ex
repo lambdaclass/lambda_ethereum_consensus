@@ -72,5 +72,4 @@ defmodule LambdaEthereumConsensus.P2P.Gossip.DataColumnSidecar do
     n_columns = ChainSpec.get("NUMBER_OF_COLUMNS")
     div(column_index * subnet_count, n_columns)
   end
-
 end

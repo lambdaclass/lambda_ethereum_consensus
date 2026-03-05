@@ -6,6 +6,8 @@ defmodule LambdaEthereumConsensus.StateTransition.DasCore do
   No networking or DB access is done here.
   """
 
+  import Bitwise
+
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias Types.BeaconBlockBody
 

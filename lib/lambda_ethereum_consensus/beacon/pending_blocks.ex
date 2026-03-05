@@ -91,7 +91,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   defp add_block_fulu(store, block_info, log_md) do
-    missing_columns = DataColumns.missing_columns_for_block(block_info, DasCore.get_local_custody_columns())
+    missing_columns =
+      DataColumns.missing_columns_for_block(block_info, DasCore.get_local_custody_columns())
 
     if Enum.empty?(missing_columns) do
       Logger.debug("[PendingBlocks] No missing data columns for block, process it", log_md)
@@ -182,7 +183,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     |> Enum.reduce(store, fn root, store ->
       with %BlockInfo{status: :download_columns} = block_info <- Blocks.get_block_info(root),
            [] <-
-             DataColumns.missing_columns_for_block(block_info, DasCore.get_local_custody_columns()) do
+             DataColumns.missing_columns_for_block(
+               block_info,
+               DasCore.get_local_custody_columns()
+             ) do
         block_info
         |> Blocks.change_status(:pending)
         |> then(&process_block_and_check_children(store, &1))
@@ -292,5 +296,4 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     Logger.error("[PendingBlocks] Error downloading block: #{inspect(reason)}")
     {:ok, store}
   end
-
 end
