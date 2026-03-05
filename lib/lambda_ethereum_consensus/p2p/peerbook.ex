@@ -109,22 +109,22 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   def penalize_peer(peer_id) do
     Logger.debug("[Peerbook] Penalizing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
-    entry = fetch_peerbook!() |> Map.get(peer_id)
+    peerbook = fetch_peerbook!()
     penalizing_score = penalazing_score()
 
-    case entry do
+    case Map.get(peerbook, peer_id) do
       nil ->
         :ok
 
       %{score: score} when score - penalizing_score <= 0 ->
         Logger.debug("[Peerbook] Removing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
-        fetch_peerbook!()
+        peerbook
         |> Map.delete(peer_id)
         |> store_peerbook()
 
       %{score: score} ->
-        fetch_peerbook!()
+        peerbook
         |> Map.update!(peer_id, fn e -> %{e | score: score - penalizing_score} end)
         |> store_peerbook()
     end
