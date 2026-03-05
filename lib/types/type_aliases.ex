@@ -59,5 +59,5 @@ defmodule TypeAliases do
        ChainSpec.get("FIELD_ELEMENTS_PER_CELL") * Constants.bytes_per_field_element()}
 
   def data_column_sidecars_by_root_request(),
-    do: {:list, Types.DataColumnIdentifier, ChainSpec.get("MAX_REQUEST_DATA_COLUMN_SIDECARS")}
+    do: {:list, Types.DataColumnsByRootIdentifier, ChainSpec.get("MAX_REQUEST_BLOCKS_DENEB")}
 end

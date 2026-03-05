@@ -160,14 +160,22 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
   defp handle_req("data_column_sidecars_by_root/1/ssz_snappy", message_id, message) do
     with {:ok, identifiers} <-
            ReqResp.decode_request(message, TypeAliases.data_column_sidecars_by_root_request()) do
-      count = length(identifiers)
-      Logger.info("[DataColumnsByRoot] requested #{count} columns")
-      truncated_count = min(count, ChainSpec.get("MAX_REQUEST_DATA_COLUMN_SIDECARS"))
+      # Each DataColumnsByRootIdentifier has block_root + columns (list of indices).
+      # Flatten into individual (root, column_index) pairs and apply the total cap.
+      max_columns = ChainSpec.get("MAX_REQUEST_DATA_COLUMN_SIDECARS")
+
+      pairs =
+        identifiers
+        |> Enum.flat_map(fn %{block_root: root, columns: cols} ->
+          Enum.map(cols, &{root, &1})
+        end)
+        |> Enum.take(max_columns)
+
+      Logger.info("[DataColumnsByRoot] requested #{length(pairs)} columns")
 
       response_chunk =
-        identifiers
-        |> Enum.take(truncated_count)
-        |> Enum.map(fn %{block_root: root, index: column_index} ->
+        pairs
+        |> Enum.map(fn {root, column_index} ->
           DataColumnDb.get_data_column_sidecar(root, column_index)
         end)
         |> Enum.map(&map_column_result/1)

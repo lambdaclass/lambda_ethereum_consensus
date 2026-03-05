@@ -144,17 +144,27 @@ defmodule LambdaEthereumConsensus.P2P.DataColumnDownloader do
       Enum.find_value(column_indices, fn idx -> P2P.Peerbook.get_peer_for_column(idx) end) ||
         P2P.Peerbook.get_peerdas_peer()
 
-    do_send_columns_by_root(peer_id, identifiers, on_columns, retries)
+    # Group by block_root and convert to DataColumnsByRootIdentifier (spec format).
+    by_root_identifiers =
+      identifiers
+      |> Enum.group_by(& &1.block_root, & &1.index)
+      |> Enum.map(fn {root, cols} ->
+        %Types.DataColumnsByRootIdentifier{block_root: root, columns: cols}
+      end)
+
+    do_send_columns_by_root(peer_id, by_root_identifiers, identifiers, on_columns, retries)
   end
 
-  defp do_send_columns_by_root(nil, _identifiers, on_columns, _retries) do
+  defp do_send_columns_by_root(nil, _by_root_identifiers, _identifiers, on_columns, _retries) do
     on_columns.(nil, {:error, :no_peers})
     :ok
   end
 
-  defp do_send_columns_by_root(peer_id, identifiers, on_columns, retries) do
+  defp do_send_columns_by_root(peer_id, by_root_identifiers, identifiers, on_columns, retries) do
     request =
-      ReqResp.encode_request({identifiers, TypeAliases.data_column_sidecars_by_root_request()})
+      ReqResp.encode_request(
+        {by_root_identifiers, TypeAliases.data_column_sidecars_by_root_request()}
+      )
 
     Libp2pPort.send_async_request(
       peer_id,
