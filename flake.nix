@@ -34,6 +34,7 @@
               pkgs.elixir_ls
               pkgs.glibcLocales
               pkgs.protobuf3_24
+              pkgs.cmake
             ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libiconv ])
               ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
               CoreFoundation
