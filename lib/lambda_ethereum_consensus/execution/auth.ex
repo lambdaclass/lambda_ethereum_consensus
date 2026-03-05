@@ -4,8 +4,9 @@ defmodule LambdaEthereumConsensus.Execution.Auth do
   """
   use Joken.Config
 
-  # Set default expiry to 60s
-  def token_config(), do: default_claims(default_exp: 60)
+  # The Engine API spec requires only the `iat` claim (issued-at).
+  # Joken's default_claims adds aud, iss, jti, nbf, exp which some EL clients reject.
+  def token_config(), do: default_claims(skip: [:aud, :iss, :jti, :nbf, :exp])
 
   # JWT Authentication is necessary for the EL <> CL communication through Engine API
   # Following the specs here: https://github.com/ethereum/execution-apis/blob/main/src/engine/authentication.md

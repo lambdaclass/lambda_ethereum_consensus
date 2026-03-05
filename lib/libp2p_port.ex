@@ -600,6 +600,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     do: Process.exit(self(), status)
 
   @impl GenServer
+  def handle_info(:retry_pending_blocks, state) do
+    {:noreply, update_in(state.store, &PendingBlocks.process_blocks/1)}
+  end
+
+  @impl GenServer
   def handle_info(other, state) do
     :telemetry.execute([:port, :message], %{}, %{function: "other", direction: "->elixir"})
 

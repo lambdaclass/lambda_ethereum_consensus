@@ -274,13 +274,15 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
           {:error, reason, store} ->
             if execution_layer_error?(reason) do
-              # Transient EL error (connectivity, auth, etc.) — keep block as :pending
-              # so the next process_blocks tick retries it automatically.
+              # Transient EL error (connectivity, auth, etc.) — keep block as :pending.
+              # process_blocks is only triggered by :transitioned/:invalid events, so we
+              # schedule a delayed retry message to the calling GenServer (Libp2pPort).
               Logger.warning(
-                "[PendingBlocks] Transient EL error, will retry block: #{reason}",
+                "[PendingBlocks] Transient EL error, scheduling retry: #{reason}",
                 log_md
               )
 
+              Process.send_after(self(), :retry_pending_blocks, 10_000)
               {store, :ok}
             else
               Logger.error(
