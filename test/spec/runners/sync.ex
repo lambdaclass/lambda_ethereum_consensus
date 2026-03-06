@@ -68,6 +68,14 @@ defmodule SyncTestRunner.EngineApiMock do
   end
 
   def new_payload(payload, _versioned_hashes, _parent_beacon_block_root) do
+    do_new_payload(payload)
+  end
+
+  def new_payload(payload, _versioned_hashes, _parent_beacon_block_root, _execution_requests) do
+    do_new_payload(payload)
+  end
+
+  defp do_new_payload(payload) do
     Agent.get(__MODULE__, fn state ->
       payload_status = Map.get(state.new_payload, payload.block_hash)
 
