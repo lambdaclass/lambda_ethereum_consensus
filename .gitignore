@@ -66,3 +66,6 @@ callgrind.out.*
 # beacon node oapi json file
 beacon-node-oapi.json
 flamegraphs/
+
+# benchmark data
+/bench/data/
