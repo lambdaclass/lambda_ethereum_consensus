@@ -64,89 +64,89 @@ defmodule Types.BeaconState do
   @enforce_keys fields
   defstruct fields
 
-  @type t :: %__MODULE__{
-          # Versioning
-          genesis_time: Types.uint64(),
-          genesis_validators_root: Types.root(),
-          slot: Types.slot(),
-          fork: Types.Fork.t(),
-          # History
-          latest_block_header: Types.BeaconBlockHeader.t(),
-          # size SLOTS_PER_HISTORICAL_ROOT 8192
-          block_roots: list(Types.root()),
-          # size SLOTS_PER_HISTORICAL_ROOT 8192
-          state_roots: list(Types.root()),
-          # Frozen in Capella, replaced by historical_summaries
-          # size HISTORICAL_ROOTS_LIMIT 16777216
-          historical_roots: list(Types.root()),
-          # Eth1
-          eth1_data: Types.Eth1Data.t(),
-          # size EPOCHS_PER_ETH1_VOTING_PERIOD (64) * SLOTS_PER_EPOCH (32) = 2048
-          eth1_data_votes: list(Types.Eth1Data.t()),
-          eth1_deposit_index: Types.uint64(),
-          # Registry
-          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
-          validators: Aja.Vector.t(Types.Validator.t()),
-          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
-          balances: Aja.Vector.t(Types.gwei()),
-          # Randomness
-          # size EPOCHS_PER_HISTORICAL_VECTOR 65_536
-          randao_mixes: Aja.Vector.t(Types.bytes32()),
-          # Slashings
-          # Per-epoch sums of slashed effective balances
-          # size EPOCHS_PER_SLASHINGS_VECTOR 8192
-          slashings: list(Types.gwei()),
-          # Participation
-          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
-          previous_epoch_participation: Aja.Vector.t(Types.participation_flags()),
-          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
-          current_epoch_participation: Aja.Vector.t(Types.participation_flags()),
-          # Finality
-          # Bit set for every recent justified epoch size 4
-          justification_bits: BitVector.t(),
-          previous_justified_checkpoint: Types.Checkpoint.t(),
-          current_justified_checkpoint: Types.Checkpoint.t(),
-          finalized_checkpoint: Types.Checkpoint.t(),
-          # Inactivity
-          # size VALIDATOR_REGISTRY_LIMIT 1099511627776
-          inactivity_scores: list(Types.uint64()),
-          # Sync
-          current_sync_committee: Types.SyncCommittee.t(),
-          next_sync_committee: Types.SyncCommittee.t(),
-          # Execution
-          # [Modified in Capella]
-          latest_execution_payload_header: ExecutionPayloadHeader.t(),
-          # Withdrawals
-          # [New in Capella]
-          next_withdrawal_index: Types.withdrawal_index(),
-          # [New in Capella]
-          next_withdrawal_validator_index: Types.withdrawal_index(),
-          # Deep history valid from Capella onwards
-          # [New in Capella]
-          # HISTORICAL_ROOTS_LIMIT
-          historical_summaries: list(Types.HistoricalSummary.t()),
-          # [New in Electra:EIP6110]
-          deposit_requests_start_index: Types.uint64(),
-          # [New in Electra:EIP7251]
-          deposit_balance_to_consume: Types.gwei(),
-          # [New in Electra:EIP7251]
-          exit_balance_to_consume: Types.gwei(),
-          # [New in Electra:EIP7251]
-          earliest_exit_epoch: Types.epoch(),
-          # [New in Electra:EIP7251]
-          consolidation_balance_to_consume: Types.gwei(),
-          # [New in Electra:EIP7251]
-          earliest_consolidation_epoch: Types.epoch(),
-          # [New in Electra:EIP7251]
-          pending_deposits: list(Types.PendingDeposit.t()),
-          # [New in Electra:EIP7251]
-          pending_partial_withdrawals: list(Types.PendingPartialWithdrawal.t()),
-          # [New in Electra:EIP7251]
-          pending_consolidations: list(Types.PendingConsolidation.t()),
-          # [New in Fulu:EIP7917]
-          # Vector of proposer indices, length = 2 * SLOTS_PER_EPOCH
-          proposer_lookahead: list(Types.validator_index())
-        }
+  if Application.compile_env!(:lambda_ethereum_consensus, :fork) == :fulu do
+    @type t :: %__MODULE__{
+            genesis_time: Types.uint64(),
+            genesis_validators_root: Types.root(),
+            slot: Types.slot(),
+            fork: Types.Fork.t(),
+            latest_block_header: Types.BeaconBlockHeader.t(),
+            block_roots: list(Types.root()),
+            state_roots: list(Types.root()),
+            historical_roots: list(Types.root()),
+            eth1_data: Types.Eth1Data.t(),
+            eth1_data_votes: list(Types.Eth1Data.t()),
+            eth1_deposit_index: Types.uint64(),
+            validators: Aja.Vector.t(Types.Validator.t()),
+            balances: Aja.Vector.t(Types.gwei()),
+            randao_mixes: Aja.Vector.t(Types.bytes32()),
+            slashings: list(Types.gwei()),
+            previous_epoch_participation: Aja.Vector.t(Types.participation_flags()),
+            current_epoch_participation: Aja.Vector.t(Types.participation_flags()),
+            justification_bits: BitVector.t(),
+            previous_justified_checkpoint: Types.Checkpoint.t(),
+            current_justified_checkpoint: Types.Checkpoint.t(),
+            finalized_checkpoint: Types.Checkpoint.t(),
+            inactivity_scores: list(Types.uint64()),
+            current_sync_committee: Types.SyncCommittee.t(),
+            next_sync_committee: Types.SyncCommittee.t(),
+            latest_execution_payload_header: ExecutionPayloadHeader.t(),
+            next_withdrawal_index: Types.withdrawal_index(),
+            next_withdrawal_validator_index: Types.withdrawal_index(),
+            historical_summaries: list(Types.HistoricalSummary.t()),
+            deposit_requests_start_index: Types.uint64(),
+            deposit_balance_to_consume: Types.gwei(),
+            exit_balance_to_consume: Types.gwei(),
+            earliest_exit_epoch: Types.epoch(),
+            consolidation_balance_to_consume: Types.gwei(),
+            earliest_consolidation_epoch: Types.epoch(),
+            pending_deposits: list(Types.PendingDeposit.t()),
+            pending_partial_withdrawals: list(Types.PendingPartialWithdrawal.t()),
+            pending_consolidations: list(Types.PendingConsolidation.t()),
+            # [New in Fulu:EIP7917]
+            proposer_lookahead: list(Types.validator_index())
+          }
+  else
+    @type t :: %__MODULE__{
+            genesis_time: Types.uint64(),
+            genesis_validators_root: Types.root(),
+            slot: Types.slot(),
+            fork: Types.Fork.t(),
+            latest_block_header: Types.BeaconBlockHeader.t(),
+            block_roots: list(Types.root()),
+            state_roots: list(Types.root()),
+            historical_roots: list(Types.root()),
+            eth1_data: Types.Eth1Data.t(),
+            eth1_data_votes: list(Types.Eth1Data.t()),
+            eth1_deposit_index: Types.uint64(),
+            validators: Aja.Vector.t(Types.Validator.t()),
+            balances: Aja.Vector.t(Types.gwei()),
+            randao_mixes: Aja.Vector.t(Types.bytes32()),
+            slashings: list(Types.gwei()),
+            previous_epoch_participation: Aja.Vector.t(Types.participation_flags()),
+            current_epoch_participation: Aja.Vector.t(Types.participation_flags()),
+            justification_bits: BitVector.t(),
+            previous_justified_checkpoint: Types.Checkpoint.t(),
+            current_justified_checkpoint: Types.Checkpoint.t(),
+            finalized_checkpoint: Types.Checkpoint.t(),
+            inactivity_scores: list(Types.uint64()),
+            current_sync_committee: Types.SyncCommittee.t(),
+            next_sync_committee: Types.SyncCommittee.t(),
+            latest_execution_payload_header: ExecutionPayloadHeader.t(),
+            next_withdrawal_index: Types.withdrawal_index(),
+            next_withdrawal_validator_index: Types.withdrawal_index(),
+            historical_summaries: list(Types.HistoricalSummary.t()),
+            deposit_requests_start_index: Types.uint64(),
+            deposit_balance_to_consume: Types.gwei(),
+            exit_balance_to_consume: Types.gwei(),
+            earliest_exit_epoch: Types.epoch(),
+            consolidation_balance_to_consume: Types.gwei(),
+            earliest_consolidation_epoch: Types.epoch(),
+            pending_deposits: list(Types.PendingDeposit.t()),
+            pending_partial_withdrawals: list(Types.PendingPartialWithdrawal.t()),
+            pending_consolidations: list(Types.PendingConsolidation.t())
+          }
+  end
 
   @impl LambdaEthereumConsensus.Container
   def schema() do
