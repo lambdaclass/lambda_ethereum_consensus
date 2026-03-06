@@ -4,6 +4,7 @@ defmodule RewardsTestRunner do
   """
   use ExUnit.CaseTemplate
   use TestRunner
+  alias LambdaEthereumConsensus.StateTransition.Accessors
   alias Types.BeaconState
 
   @impl TestRunner
@@ -53,13 +54,26 @@ defmodule RewardsTestRunner do
       |> Stream.map(&Enum.map(&1, fn {reward, penalty} -> reward - penalty end))
       |> Enum.zip()
 
+    previous_epoch = Accessors.get_previous_epoch(pre_state)
+    {flag_sets, flag_balances} =
+      BeaconState.compute_all_participation_data(pre_state, previous_epoch)
+
+    target_index = Constants.timely_target_flag_index()
+    target_participating_indices = Enum.at(flag_sets, target_index)
+
     calculated_deltas =
       Constants.participation_flag_weights()
       |> Stream.with_index()
       |> Stream.map(fn {weight, index} ->
-        BeaconState.get_flag_index_deltas(pre_state, weight, index)
+        BeaconState.get_flag_index_deltas(
+          pre_state, weight, index,
+          Enum.at(flag_sets, index),
+          Enum.at(flag_balances, index)
+        )
       end)
-      |> Stream.concat([BeaconState.get_inactivity_penalty_deltas(pre_state)])
+      |> Stream.concat([
+        BeaconState.get_inactivity_penalty_deltas(pre_state, target_participating_indices)
+      ])
       |> Stream.zip()
       |> Enum.to_list()
 

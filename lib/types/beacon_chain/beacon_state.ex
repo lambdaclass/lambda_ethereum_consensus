@@ -271,6 +271,43 @@ defmodule Types.BeaconState do
   end
 
   @doc """
+  Compute all participation sets and their total balances in a single pass over validators.
+  Returns {[mapset0, mapset1, mapset2], [balance0, balance1, balance2]}.
+  This avoids 6 separate scans (3 for participation sets + 3 for balance totals).
+  """
+  @spec compute_all_participation_data(t(), Types.epoch()) ::
+          {list(MapSet.t()), list(Types.gwei())}
+  def compute_all_participation_data(%__MODULE__{} = state, previous_epoch) do
+    epoch_participation = state.previous_epoch_participation
+    num_flags = length(Constants.participation_flag_weights())
+
+    {sets, balances} =
+      state.validators
+      |> Aja.Vector.zip_with(epoch_participation, fn v, p -> {v, p} end)
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.reduce(
+        {List.duplicate(MapSet.new(), num_flags), List.duplicate(0, num_flags)},
+        fn {{v, participation}, index}, {sets, balances} ->
+          if not v.slashed and Predicates.active_validator?(v, previous_epoch) do
+            Enum.reduce(0..(num_flags - 1), {sets, balances}, fn flag_index, {sets, balances} ->
+              if Predicates.has_flag(participation, flag_index) do
+                {List.update_at(sets, flag_index, &MapSet.put(&1, index)),
+                 List.update_at(balances, flag_index, &(&1 + v.effective_balance))}
+              else
+                {sets, balances}
+              end
+            end)
+          else
+            {sets, balances}
+          end
+        end
+      )
+
+    ebi = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+    {sets, Enum.map(balances, &max(ebi, &1))}
+  end
+
+  @doc """
   Return the deltas for a given ``flag_index`` by scanning through the participation flags.
   """
   @spec get_flag_index_deltas(t(), integer(), integer()) ::
@@ -326,16 +363,65 @@ defmodule Types.BeaconState do
   end
 
   @doc """
+  Like get_flag_index_deltas/3, but uses pre-computed participation data to avoid redundant scans.
+  """
+  @spec get_flag_index_deltas(t(), integer(), integer(), MapSet.t(), Types.gwei()) ::
+          Enumerable.t(integer())
+  def get_flag_index_deltas(
+        state,
+        weight,
+        flag_index,
+        unslashed_participating_indices,
+        unslashed_participating_balance
+      ) do
+    previous_epoch = Accessors.get_previous_epoch(state)
+
+    effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+
+    unslashed_participating_increments =
+      div(unslashed_participating_balance, effective_balance_increment)
+
+    active_increments =
+      div(Accessors.get_total_active_balance(state), effective_balance_increment)
+
+    weight_denominator = Constants.weight_denominator()
+
+    process_reward_and_penalty = fn index ->
+      base_reward = Accessors.get_base_reward(state, index)
+      is_unslashed = MapSet.member?(unslashed_participating_indices, index)
+
+      cond do
+        is_unslashed and Predicates.in_inactivity_leak?(state) ->
+          0
+
+        is_unslashed ->
+          reward_numerator = base_reward * weight * unslashed_participating_increments
+          div(reward_numerator, active_increments * weight_denominator)
+
+        flag_index != Constants.timely_head_flag_index() ->
+          -div(base_reward * weight, weight_denominator)
+
+        true ->
+          0
+      end
+    end
+
+    state.validators
+    |> Stream.with_index()
+    |> Stream.map(fn {validator, index} ->
+      if Predicates.eligible_validator?(validator, previous_epoch),
+        do: process_reward_and_penalty.(index),
+        else: 0
+    end)
+  end
+
+  @doc """
   Return the inactivity penalty deltas by considering timely
   target participation flags and inactivity scores.
   """
-  @spec get_inactivity_penalty_deltas(t()) :: Enumerable.t({Types.gwei(), Types.gwei()})
-  def get_inactivity_penalty_deltas(%__MODULE__{} = state) do
+  @spec get_inactivity_penalty_deltas(t(), MapSet.t()) :: Enumerable.t({Types.gwei(), Types.gwei()})
+  def get_inactivity_penalty_deltas(%__MODULE__{} = state, matching_target_indices) do
     previous_epoch = Accessors.get_previous_epoch(state)
-    target_index = Constants.timely_target_flag_index()
-
-    {:ok, matching_target_indices} =
-      Accessors.get_unslashed_participating_indices(state, target_index, previous_epoch)
 
     penalty_denominator =
       ChainSpec.get("INACTIVITY_SCORE_BIAS") *
