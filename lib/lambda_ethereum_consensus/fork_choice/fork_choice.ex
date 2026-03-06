@@ -30,10 +30,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def init_store(%Store{head_slot: head_slot, head_root: head_root} = store, time) do
     Logger.info("[Fork choice] Initialized store.", slot: head_slot)
 
-    store = Handlers.on_tick(store, time)
+    store =
+      store
+      |> Handlers.on_tick(time)
+      |> rebuild_tree()
 
     :telemetry.execute([:sync, :store], %{slot: get_current_slot(store)})
-    :telemetry.execute([:sync, :on_block], %{slot: head_slot})
+    :telemetry.execute([:sync, :on_block], %{slot: store.head_slot})
 
     Metrics.block_status(head_root, head_slot, :transitioned)
 
@@ -251,6 +254,47 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ##########################
   ### Private Functions
   ##########################
+
+  # On startup, the persisted Store may have an empty tree_cache (e.g. after a crash
+  # before StoreDb.persist_store ran, or after checkpoint sync). Rebuild it from the
+  # durable :transitioned blocks in BlockDb so LMD-GHOST can trace the chain.
+  @spec rebuild_tree(Store.t()) :: Store.t()
+  defp rebuild_tree(store) do
+    case Blocks.get_blocks_with_status(:transitioned) do
+      {:ok, []} ->
+        store
+
+      {:ok, transitioned} ->
+        Logger.info(
+          "[Fork choice] Rebuilding tree_cache from #{length(transitioned)} transitioned blocks."
+        )
+
+        rebuilt =
+          transitioned
+          |> Enum.sort_by(& &1.signed_block.message.slot)
+          |> Enum.reduce(store, fn block_info, acc ->
+            Store.store_block_info(acc, block_info)
+          end)
+
+        try do
+          Store.update_head_info(rebuilt)
+        rescue
+          e ->
+            Logger.warning(
+              "[Fork choice] Failed to recompute head after tree rebuild: #{inspect(e)}"
+            )
+
+            rebuilt
+        end
+
+      {:error, reason} ->
+        Logger.warning(
+          "[Fork choice] Failed to load transitioned blocks for tree rebuild: #{reason}"
+        )
+
+        store
+    end
+  end
 
   defp prune_old_states(store, last_finalized_epoch) do
     new_finalized_epoch = store.finalized_checkpoint.epoch

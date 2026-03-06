@@ -605,6 +605,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
+  def handle_info(:retry_download_columns, state) do
+    {:noreply, update_in(state.store, &PendingBlocks.retry_download_columns/1)}
+  end
+
+  @impl GenServer
   def handle_info(other, state) do
     :telemetry.execute([:port, :message], %{}, %{function: "other", direction: "->elixir"})
 

@@ -198,10 +198,46 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     end)
   end
 
+  @spec process_data_columns(Store.t(), {:error, :no_peers}) :: {:ok, Store.t()}
+  def process_data_columns(store, {:error, :no_peers}) do
+    Logger.warning("[PendingBlocks] No peers for data column download, scheduling retry")
+    Process.send_after(self(), :retry_download_columns, 30_000)
+    {:ok, store}
+  end
+
   @spec process_data_columns(Store.t(), {:error, any()}) :: {:ok, Store.t()}
   def process_data_columns(store, {:error, reason}) do
     Logger.error("[PendingBlocks] Error downloading data columns: #{inspect(reason)}")
     {:ok, store}
+  end
+
+  @doc """
+  Re-triggers data column downloads for all blocks stuck in :download_columns status.
+  Called when peers become available after an earlier :no_peers failure.
+  """
+  @spec retry_download_columns(Store.t()) :: Store.t()
+  def retry_download_columns(store) do
+    case Blocks.get_blocks_with_status(:download_columns) do
+      {:ok, blocks} ->
+        custody_cols = DasCore.get_local_custody_columns()
+
+        Enum.each(blocks, fn block_info ->
+          missing = DataColumns.missing_columns_for_block(block_info, custody_cols)
+
+          unless Enum.empty?(missing) do
+            DataColumnDownloader.request_columns_by_root(
+              missing,
+              &process_data_columns/2,
+              @download_retries
+            )
+          end
+        end)
+
+      {:error, reason} ->
+        Logger.error("[PendingBlocks] Failed to get :download_columns blocks: #{reason}")
+    end
+
+    store
   end
 
   ##########################
