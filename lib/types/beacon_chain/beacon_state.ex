@@ -276,13 +276,12 @@ defmodule Types.BeaconState do
   @spec get_flag_index_deltas(t(), integer(), integer()) ::
           Enumerable.t({Types.gwei(), Types.gwei()})
   def get_flag_index_deltas(state, weight, flag_index) do
+    alias LambdaEthereumConsensus.StateTransition.AtomicBitVector
+
     previous_epoch = Accessors.get_previous_epoch(state)
 
-    {:ok, unslashed_participating_indices} =
-      Accessors.get_unslashed_participating_indices(state, flag_index, previous_epoch)
-
-    unslashed_participating_balance =
-      Accessors.get_total_balance(state, unslashed_participating_indices)
+    {:ok, unslashed_participating_bv, unslashed_participating_balance} =
+      Accessors.get_unslashed_participating_bitvector(state, flag_index, previous_epoch)
 
     effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
 
@@ -294,11 +293,9 @@ defmodule Types.BeaconState do
 
     weight_denominator = Constants.weight_denominator()
 
-    previous_epoch = Accessors.get_previous_epoch(state)
-
     process_reward_and_penalty = fn index ->
       base_reward = Accessors.get_base_reward(state, index)
-      is_unslashed = MapSet.member?(unslashed_participating_indices, index)
+      is_unslashed = AtomicBitVector.member?(unslashed_participating_bv, index)
 
       cond do
         is_unslashed and Predicates.in_inactivity_leak?(state) ->
@@ -331,11 +328,13 @@ defmodule Types.BeaconState do
   """
   @spec get_inactivity_penalty_deltas(t()) :: Enumerable.t({Types.gwei(), Types.gwei()})
   def get_inactivity_penalty_deltas(%__MODULE__{} = state) do
+    alias LambdaEthereumConsensus.StateTransition.AtomicBitVector
+
     previous_epoch = Accessors.get_previous_epoch(state)
     target_index = Constants.timely_target_flag_index()
 
-    {:ok, matching_target_indices} =
-      Accessors.get_unslashed_participating_indices(state, target_index, previous_epoch)
+    {:ok, matching_target_bv, _balance} =
+      Accessors.get_unslashed_participating_bitvector(state, target_index, previous_epoch)
 
     penalty_denominator =
       ChainSpec.get("INACTIVITY_SCORE_BIAS") *
@@ -346,7 +345,7 @@ defmodule Types.BeaconState do
     |> Stream.with_index()
     |> Stream.map(fn {{validator, inactivity_score}, index} ->
       if Predicates.eligible_validator?(validator, previous_epoch) and
-           not MapSet.member?(matching_target_indices, index) do
+           not AtomicBitVector.member?(matching_target_bv, index) do
         penalty_numerator = validator.effective_balance * inactivity_score
         -div(penalty_numerator, penalty_denominator)
       else

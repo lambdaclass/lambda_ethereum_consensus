@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
   require Logger
   require HardForkAliasInjection
+  alias LambdaEthereumConsensus.StateTransition.AtomicBitVector
   alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -204,6 +205,47 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         |> MapSet.new()
 
       {:ok, participating_indices}
+    else
+      {:error, "epoch is not current or previous epochs"}
+    end
+  end
+
+  @doc """
+  Like `get_unslashed_participating_indices/3` but returns an `AtomicBitVector`
+  for O(1) membership tests. Also returns the total balance of participating
+  validators to avoid a second scan over the validator set.
+  """
+  @spec get_unslashed_participating_bitvector(BeaconState.t(), integer, Types.epoch()) ::
+          {:ok, AtomicBitVector.t(), Types.gwei()} | {:error, String.t()}
+  def get_unslashed_participating_bitvector(%BeaconState{} = state, flag_index, epoch) do
+    if epoch in [get_previous_epoch(state), get_current_epoch(state)] do
+      epoch_participation =
+        if epoch == get_current_epoch(state) do
+          state.current_epoch_participation
+        else
+          state.previous_epoch_participation
+        end
+
+      bv = AtomicBitVector.new(Aja.Vector.size(state.validators))
+
+      total_balance =
+        state.validators
+        |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
+          {v, participation}
+        end)
+        |> Aja.Vector.with_index()
+        |> Aja.Vector.reduce(0, fn {{v, participation}, index}, acc ->
+          if not v.slashed and Predicates.active_validator?(v, epoch) and
+               Predicates.has_flag(participation, flag_index) do
+            AtomicBitVector.set(bv, index)
+            acc + v.effective_balance
+          else
+            acc
+          end
+        end)
+
+      total_balance = max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
+      {:ok, bv, total_balance}
     else
       {:error, "epoch is not current or previous epochs"}
     end
