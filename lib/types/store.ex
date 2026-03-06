@@ -2,6 +2,7 @@ defmodule Types.Store do
   @moduledoc """
     The Store struct is used to track information required for the fork choice algorithm.
   """
+  require Logger
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.ForkChoice.Head
@@ -142,10 +143,19 @@ defmodule Types.Store do
     Tree.has_block?(tree, block_root)
   end
 
-  @spec get_children(t(), Types.root()) :: [BeaconBlock.t()]
+  @spec get_children(t(), Types.root()) :: [{Types.root(), BeaconBlock.t()}]
   def get_children(%__MODULE__{tree_cache: tree}, parent_root) do
-    Tree.get_children!(tree, parent_root)
-    |> Enum.map(&{&1, Blocks.get_block!(&1)})
+    case Tree.get_children(tree, parent_root) do
+      {:ok, children} ->
+        Enum.map(children, &{&1, Blocks.get_block!(&1)})
+
+      {:error, :not_found} ->
+        Logger.warning(
+          "[Store] Block #{Base.encode16(parent_root)} not found in tree during get_children"
+        )
+
+        []
+    end
   end
 
   @spec store_block_info(t(), BlockInfo.t()) :: t()
@@ -237,8 +247,9 @@ defmodule Types.Store do
 
     case Tree.add_block(tree, block_root, parent_root) do
       {:ok, new_tree} -> %{store | tree_cache: new_tree}
-      # Block is older than current finalized block
-      {:error, :not_found} -> store
+      # Block is older than current finalized block, or parent not in tree.
+      # Still save the pruned tree so tree_cache stays in sync with finalized_checkpoint.
+      {:error, :not_found} -> %{store | tree_cache: tree}
     end
   end
 
