@@ -446,8 +446,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     pairs =
       timings
       |> Enum.sort_by(fn {_k, v} -> v end, :desc)
-      |> Enum.map(fn {k, v} -> "#{k}=#{v}ms" end)
-      |> Enum.join(" ")
+      |> Enum.map_join(" ", fn {k, v} -> "#{k}=#{v}ms" end)
 
     Logger.info("[on_block] slot=#{slot} root=#{hex_root} epoch=#{has_epoch} #{pairs}")
   end
