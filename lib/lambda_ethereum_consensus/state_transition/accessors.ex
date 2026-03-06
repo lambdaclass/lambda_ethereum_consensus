@@ -695,6 +695,16 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   """
   @spec get_total_balance(BeaconState.t(), Enumerable.t(Types.validator_index())) ::
           Types.gwei()
+  def get_total_balance(state, %MapSet{} = indices) do
+    total_balance =
+      indices
+      |> Enum.reduce(0, fn index, acc ->
+        acc + Aja.Vector.at!(state.validators, index).effective_balance
+      end)
+
+    max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
+  end
+
   def get_total_balance(state, indices) do
     indices = MapSet.new(indices)
 
