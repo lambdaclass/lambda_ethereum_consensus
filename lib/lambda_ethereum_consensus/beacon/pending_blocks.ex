@@ -110,6 +110,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         @download_retries
       )
 
+      # Ensure the retry heartbeat is running so partial/empty responses
+      # or transient errors don't leave this block permanently stuck.
+      Process.send_after(self(), :retry_download_columns, 60_000)
+
       block_info
       |> BlockInfo.change_status(:download_columns)
       |> Blocks.new_block_info()
@@ -208,6 +212,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @spec process_data_columns(Store.t(), {:error, any()}) :: {:ok, Store.t()}
   def process_data_columns(store, {:error, reason}) do
     Logger.error("[PendingBlocks] Error downloading data columns: #{inspect(reason)}")
+    Process.send_after(self(), :retry_download_columns, 30_000)
     {:ok, store}
   end
 

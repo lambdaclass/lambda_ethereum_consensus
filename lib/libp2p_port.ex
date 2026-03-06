@@ -606,6 +606,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_info(:retry_download_columns, state) do
+    # Self-sustaining heartbeat: always reschedule so stuck :download_columns
+    # blocks are retried regardless of failure mode (no_peers, partial/empty response, error).
+    Process.send_after(self(), :retry_download_columns, 60_000)
     {:noreply, update_in(state.store, &PendingBlocks.retry_download_columns/1)}
   end
 
