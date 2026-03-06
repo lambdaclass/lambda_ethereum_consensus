@@ -8,10 +8,7 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
 
-  # TODO (Phase 7 / Fulu): upgrade to engine_newPayloadV4 / engine_forkchoiceUpdatedV4 once
-  # the Fusaka Engine API spec is finalised. V3 methods remain compatible with Fulu blocks
-  # during the initial implementation phase.
-  @supported_methods ["engine_newPayloadV3", "engine_forkchoiceUpdatedV3"]
+  @supported_methods ["engine_newPayloadV4", "engine_newPayloadV3", "engine_forkchoiceUpdatedV3"]
 
   @doc """
   Using this method Execution and consensus layer client software may
@@ -26,6 +23,44 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Api do
       "engine_newPayloadV3",
       RPC.normalize([execution_payload, versioned_hashes, parent_beacon_block_root])
     )
+  end
+
+  def new_payload(
+        execution_payload,
+        versioned_hashes,
+        parent_beacon_block_root,
+        execution_requests
+      ) do
+    encoded_requests = encode_execution_requests(execution_requests)
+
+    call(
+      "engine_newPayloadV4",
+      RPC.normalize([execution_payload, versioned_hashes, parent_beacon_block_root]) ++
+        [encoded_requests]
+    )
+  end
+
+  # Per EIP-7685: each non-empty request list is serialized as type_byte ++ ssz_list,
+  # then hex-encoded. Empty lists are omitted.
+  defp encode_execution_requests(%Types.ExecutionRequests{
+         deposits: deposits,
+         withdrawals: withdrawals,
+         consolidations: consolidations
+       }) do
+    [
+      {0, deposits,
+       {:list, Types.DepositRequest, ChainSpec.get("MAX_DEPOSIT_REQUESTS_PER_PAYLOAD")}},
+      {1, withdrawals,
+       {:list, Types.WithdrawalRequest, ChainSpec.get("MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD")}},
+      {2, consolidations,
+       {:list, Types.ConsolidationRequest,
+        ChainSpec.get("MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD")}}
+    ]
+    |> Enum.reject(fn {_type, list, _schema} -> Enum.empty?(list) end)
+    |> Enum.map(fn {type_id, list, schema} ->
+      {:ok, encoded} = SszEx.encode(list, schema)
+      RPC.encode_binary(<<type_id>> <> encoded)
+    end)
   end
 
   def get_payload(payload_id) do

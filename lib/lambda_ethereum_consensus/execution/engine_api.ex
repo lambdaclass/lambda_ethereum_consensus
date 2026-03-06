@@ -9,6 +9,20 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi do
   def new_payload(execution_payload, versioned_hashes, parent_beacon_block_root),
     do: impl().new_payload(execution_payload, versioned_hashes, parent_beacon_block_root)
 
+  def new_payload(
+        execution_payload,
+        versioned_hashes,
+        parent_beacon_block_root,
+        execution_requests
+      ),
+      do:
+        impl().new_payload(
+          execution_payload,
+          versioned_hashes,
+          parent_beacon_block_root,
+          execution_requests
+        )
+
   def get_payload(payload_id), do: impl().get_payload(payload_id)
 
   def forkchoice_updated(forkchoice_state, payload_attributes),

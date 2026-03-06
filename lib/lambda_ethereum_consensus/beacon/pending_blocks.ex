@@ -273,30 +273,34 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             {store, :transitioned}
 
           {:error, reason, store} ->
-            if execution_layer_error?(reason) do
-              # Transient EL error (connectivity, auth, etc.) — keep block as :pending.
-              # process_blocks is only triggered by :transitioned/:invalid events, so we
-              # schedule a delayed retry message to the calling GenServer (Libp2pPort).
-              Logger.warning(
-                "[PendingBlocks] Transient EL error, scheduling retry: #{reason}",
-                log_md
-              )
-
-              Process.send_after(self(), :retry_pending_blocks, 10_000)
-              {store, :ok}
-            else
-              Logger.error(
-                "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
-                log_md
-              )
-
-              Blocks.change_status(block_info, :invalid)
-              {store, :invalid}
-            end
+            handle_on_block_error(store, block_info, reason, log_md)
         end
 
       _other ->
         {store, :ok}
+    end
+  end
+
+  defp handle_on_block_error(store, block_info, reason, log_md) do
+    if execution_layer_error?(reason) do
+      # Transient EL error (connectivity, auth, etc.) — keep block as :pending.
+      # process_blocks is only triggered by :transitioned/:invalid events, so we
+      # schedule a delayed retry message to the calling GenServer (Libp2pPort).
+      Logger.warning(
+        "[PendingBlocks] Transient EL error, scheduling retry: #{reason}",
+        log_md
+      )
+
+      Process.send_after(self(), :retry_pending_blocks, 10_000)
+      {store, :ok}
+    else
+      Logger.error(
+        "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
+        log_md
+      )
+
+      Blocks.change_status(block_info, :invalid)
+      {store, :invalid}
     end
   end
 

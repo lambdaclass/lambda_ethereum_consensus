@@ -34,9 +34,31 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   def notify_new_payload(%NewPayloadRequest{
         execution_payload: execution_payload,
         versioned_hashes: versioned_hashes,
-        parent_beacon_block_root: parent_beacon_block_root
+        parent_beacon_block_root: parent_beacon_block_root,
+        execution_requests: nil
       }) do
     case EngineApi.new_payload(execution_payload, versioned_hashes, parent_beacon_block_root) do
+      {:ok, %{"status" => status}} ->
+        {:ok, parse_status(status)}
+
+      {:error, reason} ->
+        Logger.warning("Error when calling notify new payload: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def notify_new_payload(%NewPayloadRequest{
+        execution_payload: execution_payload,
+        versioned_hashes: versioned_hashes,
+        parent_beacon_block_root: parent_beacon_block_root,
+        execution_requests: execution_requests
+      }) do
+    case EngineApi.new_payload(
+           execution_payload,
+           versioned_hashes,
+           parent_beacon_block_root,
+           execution_requests
+         ) do
       {:ok, %{"status" => status}} ->
         {:ok, parse_status(status)}
 

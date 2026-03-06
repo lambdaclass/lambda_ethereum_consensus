@@ -249,10 +249,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           block.body.blob_kzg_commitments
           |> Enum.map(&Misc.kzg_commitment_to_versioned_hash/1)
 
+        execution_requests =
+          if HardForkAliasInjection.fulu?(), do: block.body.execution_requests, else: nil
+
         %NewPayloadRequest{
           execution_payload: payload,
           parent_beacon_block_root: parent_beacon_block_root,
-          versioned_hashes: versioned_hashes
+          versioned_hashes: versioned_hashes,
+          execution_requests: execution_requests
         }
         |> ExecutionClient.verify_and_notify_new_payload()
         |> handle_verify_payload_result()
