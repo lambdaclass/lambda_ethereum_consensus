@@ -11,6 +11,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Libp2pPort
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
+  alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.Store.BlobDb
@@ -45,6 +46,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   @spec on_block(Store.t(), BlockInfo.t()) :: {:ok, Store.t()} | {:error, String.t(), Store.t()}
   def on_block(store, %BlockInfo{} = block_info) do
+    total_start = System.monotonic_time(:millisecond)
     slot = block_info.signed_block.message.slot
     block_root = block_info.root
 
@@ -52,34 +54,44 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     %Store{finalized_checkpoint: last_finalized_checkpoint} = store
 
-    result =
-      :telemetry.span([:sync, :on_block], %{}, fn ->
-        {process_block(block_info, store), %{}}
-      end)
+    result = process_block(block_info, store)
 
     case result do
-      {:ok, new_store} ->
-        Logger.info("[Fork choice] Block processed. Recomputing head.")
+      {:ok, new_store, timings} ->
+        {new_store, timings} =
+          StateTransition.timed(:recompute_head, timings, fn ->
+            recompute_head(new_store)
+          end)
+
+        new_store = prune_old_states(new_store, last_finalized_checkpoint.epoch)
+
+        {_, timings} =
+          StateTransition.timed(:store_persist, timings, fn ->
+            StoreDb.persist_store(new_store)
+          end)
+
+        total = System.monotonic_time(:millisecond) - total_start
+        timings = Map.put(timings, :total, total)
+
         :telemetry.execute([:sync, :on_block], %{slot: slot})
+        emit_block_log(slot, block_root, timings)
+        emit_block_metrics(slot, timings)
 
-        :telemetry.span([:fork_choice, :recompute_head], %{}, fn ->
-          {recompute_head(new_store), %{}}
-        end)
-        |> prune_old_states(last_finalized_checkpoint.epoch)
-        |> tap(fn store ->
-          StoreDb.persist_store(store)
-          Logger.info("[Fork choice] Added new block", slot: slot, root: block_root)
-          EventPubSub.publish(:block, %{root: block_root, slot: slot})
+        EventPubSub.publish(:block, %{root: block_root, slot: slot})
 
-          Logger.info("[Fork choice] Recomputed head",
-            slot: store.head_slot,
-            root: store.head_root
-          )
-        end)
-        |> then(&{:ok, &1})
+        Logger.info("[Fork choice] Recomputed head",
+          slot: new_store.head_slot,
+          root: new_store.head_root
+        )
+
+        {:ok, new_store}
 
       {:error, reason} ->
-        Logger.error("[Fork choice] Failed to add block: #{reason}", slot: slot, root: block_root)
+        Logger.error("[Fork choice] Failed to add block: #{reason}",
+          slot: slot,
+          root: block_root
+        )
+
         {:error, reason, store}
     end
   end
@@ -332,14 +344,15 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end)
   end
 
-  @spec process_block(BlockInfo.t(), Store.t()) :: Store.t()
+  @spec process_block(BlockInfo.t(), Store.t()) ::
+          {:ok, Store.t(), StateTransition.timings()} | {:error, String.t()}
   def process_block(%BlockInfo{signed_block: signed_block} = block_info, store) do
     attestations = signed_block.message.body.attestations
     attester_slashings = signed_block.message.body.attester_slashings
 
     # Prefetch relevant states.
-    states =
-      Metrics.span_operation(:prefetch_states, nil, nil, fn ->
+    {states, timings} =
+      StateTransition.timed(:prefetch_states, %{}, fn ->
         attestations
         |> Enum.map(& &1.data.target)
         |> Enum.uniq()
@@ -347,18 +360,23 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       end)
 
     # Prefetch committees for all relevant epochs.
-    Metrics.span_operation(:prefetch_committees, nil, nil, fn ->
-      for {checkpoint, state} <- states do
-        Accessors.maybe_prefetch_committees(state, checkpoint.epoch)
-      end
-    end)
+    {_, timings} =
+      StateTransition.timed(:prefetch_committees, timings, fn ->
+        for {checkpoint, state} <- states do
+          Accessors.maybe_prefetch_committees(state, checkpoint.epoch)
+        end
+      end)
 
     new_store = update_in(store.checkpoint_states, fn cs -> Map.merge(cs, Map.new(states)) end)
 
-    with {:ok, new_store} <- apply_on_block(new_store, block_info),
-         {:ok, new_store} <- process_attestations(new_store, attestations),
-         {:ok, new_store} <- process_attester_slashings(new_store, attester_slashings) do
-      {:ok, new_store}
+    with {:ok, new_store, handler_timings} <- apply_on_block(new_store, block_info) do
+      timings = Map.merge(timings, handler_timings)
+
+      with {:ok, new_store, timings} <- process_attestations(new_store, attestations, timings),
+           {:ok, new_store, timings} <-
+             process_attester_slashings(new_store, attester_slashings, timings) do
+        {:ok, new_store, timings}
+      end
     end
   end
 
@@ -370,23 +388,35 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   defp apply_on_block(store, block_info) do
-    Metrics.span_operation(:on_block, nil, nil, fn -> Handlers.on_block(store, block_info) end)
+    Handlers.on_block(store, block_info)
   end
 
-  defp process_attester_slashings(store, attester_slashings) do
-    Metrics.span_operation(:attester_slashings, nil, nil, fn ->
-      apply_handler(attester_slashings, store, &Handlers.on_attester_slashing/2)
-    end)
+  defp process_attester_slashings(store, attester_slashings, timings) do
+    {result, timings} =
+      StateTransition.timed(:attester_slashings, timings, fn ->
+        apply_handler(attester_slashings, store, &Handlers.on_attester_slashing/2)
+      end)
+
+    case result do
+      {:ok, store} -> {:ok, store, timings}
+      err -> err
+    end
   end
 
-  defp process_attestations(store, attestations) do
-    Metrics.span_operation(:attestations, nil, nil, fn ->
-      apply_handler(
-        attestations,
-        store,
-        &Handlers.on_attestation(&1, &2, true)
-      )
-    end)
+  defp process_attestations(store, attestations, timings) do
+    {result, timings} =
+      StateTransition.timed(:attestations, timings, fn ->
+        apply_handler(
+          attestations,
+          store,
+          &Handlers.on_attestation(&1, &2, true)
+        )
+      end)
+
+    case result do
+      {:ok, store} -> {:ok, store, timings}
+      err -> err
+    end
   end
 
   # Recomputes the head in the store and sends the new head to others (libP2P,
@@ -407,6 +437,52 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
 
     Store.update_head_info(store, slot, head_root)
+  end
+
+  defp emit_block_log(slot, root, timings) do
+    hex_root = root |> Base.encode16() |> String.slice(0, 8)
+    has_epoch = Map.has_key?(timings, :"epoch.justification_and_finalization")
+
+    pairs =
+      timings
+      |> Enum.sort_by(fn {_k, v} -> v end, :desc)
+      |> Enum.map(fn {k, v} -> "#{k}=#{v}ms" end)
+      |> Enum.join(" ")
+
+    Logger.info("[on_block] slot=#{slot} root=#{hex_root} epoch=#{has_epoch} #{pairs}")
+  end
+
+  defp emit_block_metrics(_slot, timings) do
+    # Map timing keys to the original handler/transition/operation metadata
+    # that Metrics.span_operation used to emit via :telemetry.span.
+    for {key, ms} <- timings do
+      {handler, transition, operation} = timing_key_metadata(key)
+
+      :telemetry.execute(
+        [:fork_choice, :latency, :stop],
+        %{duration: ms * 1_000_000},
+        %{handler: handler, transition: transition, operation: operation}
+      )
+    end
+  end
+
+  # Maps timing key atoms back to the {handler, transition, operation} metadata
+  # that the old Metrics.span_operation calls used.
+  defp timing_key_metadata(key) do
+    key_str = Atom.to_string(key)
+
+    cond do
+      String.starts_with?(key_str, "epoch.") ->
+        op = key_str |> String.replace_prefix("epoch.", "") |> String.to_atom()
+        {:on_block, :epoch, op}
+
+      String.starts_with?(key_str, "block.") ->
+        op = key_str |> String.replace_prefix("block.", "") |> String.to_atom()
+        {:on_block, :process_block, op}
+
+      true ->
+        {key, nil, nil}
+    end
   end
 
   defp fetch_store!() do

@@ -34,7 +34,7 @@ defmodule Helpers.ProcessBlocks do
       blocks
       |> Enum.reduce_while({:ok, pre}, fn block, {:ok, state} ->
         case StateTransition.verified_transition(state, BlockInfo.from_block(block)) do
-          {:ok, post_state} -> {:cont, {:ok, post_state.beacon_state}}
+          {:ok, post_state, _timings} -> {:cont, {:ok, post_state.beacon_state}}
           {:error, error} -> {:halt, {:error, error}}
         end
       end)

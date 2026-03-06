@@ -62,7 +62,10 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
     case BlockStates.get_state_info(target_root) do
       %StateInfo{beacon_state: state} ->
         if state.slot < target_slot do
-          StateTransition.process_slots(state, target_slot)
+          case StateTransition.process_slots(state, target_slot) do
+            {:ok, state, _timings} -> {:ok, state}
+            err -> err
+          end
         else
           {:ok, state}
         end

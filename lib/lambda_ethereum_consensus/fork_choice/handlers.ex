@@ -57,7 +57,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   A block that is asserted as invalid due to unavailable PoW block may be valid at a later time,
   consider scheduling it for later processing in such case.
   """
-  @spec on_block(Store.t(), BlockInfo.t()) :: {:ok, Store.t()} | {:error, String.t()}
+  @spec on_block(Store.t(), BlockInfo.t()) ::
+          {:ok, Store.t(), StateTransition.timings()} | {:error, String.t()}
   def on_block(%Store{} = store, %BlockInfo{} = block_info) do
     block = block_info.signed_block.message
     %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
@@ -85,11 +86,17 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       finalized_root != Store.get_checkpoint_block(store, block.parent_root, finalized_epoch) ->
         {:error, "block isn't descendant of latest finalized block"}
 
-      not (block_info.root |> data_available?(block.body.blob_kzg_commitments)) ->
-        {:error, "data not available"}
-
       true ->
-        compute_post_state(store, block_info, base_state)
+        {da_ok?, timings} =
+          StateTransition.timed(:data_available, %{}, fn ->
+            data_available?(block_info.root, block.body.blob_kzg_commitments)
+          end)
+
+        if da_ok? do
+          compute_post_state(store, block_info, base_state, timings)
+        else
+          {:error, "data not available"}
+        end
     end
   end
 
@@ -236,7 +243,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   end
 
   # Check the block is valid and compute the post-state.
-  def compute_post_state(%Store{} = store, %BlockInfo{} = block_info, %StateInfo{} = state_info) do
+  def compute_post_state(
+        %Store{} = store,
+        %BlockInfo{} = block_info,
+        %StateInfo{} = state_info,
+        timings
+      ) do
     block = block_info.signed_block.message
 
     payload = block.body.execution_payload
@@ -262,41 +274,53 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         |> handle_verify_payload_result()
       end)
 
-    with {:ok, new_state_info} <-
-           StateTransition.verified_transition(state_info, block_info),
-         {:ok, _execution_status} <- Task.await(payload_verification_task) do
-      seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
-      intervals_per_slot = Constants.intervals_per_slot()
-      # Add proposer score boost if the block is timely
-      time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
-      is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
+    with {:ok, new_state_info, transition_timings} <-
+           StateTransition.verified_transition(state_info, block_info) do
+      timings = Map.merge(timings, transition_timings)
 
-      # Add new block and state to the store
-      new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
+      {payload_result, timings} =
+        StateTransition.timed(:payload_await, timings, fn ->
+          Task.await(payload_verification_task)
+        end)
 
-      Task.Supervisor.start_child(
-        StoreStatesSupervisor,
-        fn -> StateDb.store_state_info(new_state_info) end
-      )
+      with {:ok, _execution_status} <- payload_result do
+        seconds_per_slot = ChainSpec.get("SECONDS_PER_SLOT")
+        intervals_per_slot = Constants.intervals_per_slot()
+        # Add proposer score boost if the block is timely
+        time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
+        is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
-      is_first_block = new_store.proposer_boost_root == <<0::256>>
+        # Add new block and state to the store
+        new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
 
-      # TODO: store block timeliness data?
-      is_timely =
-        ForkChoice.get_current_slot(new_store) == block.slot and is_before_attesting_interval
+        Task.Supervisor.start_child(
+          StoreStatesSupervisor,
+          fn -> StateDb.store_state_info(new_state_info) end
+        )
 
-      state = new_state_info.beacon_state
+        is_first_block = new_store.proposer_boost_root == <<0::256>>
 
-      new_store
-      |> Store.store_block_info(block_info)
-      |> if_then_update(
-        is_timely and is_first_block,
-        &%{&1 | proposer_boost_root: block_info.root}
-      )
-      # Update checkpoints in store if necessary
-      |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
-      # Eagerly compute unrealized justification and finality
-      |> compute_pulled_up_tip(block_info.root, block_info.signed_block.message, state)
+        # TODO: store block timeliness data?
+        is_timely =
+          ForkChoice.get_current_slot(new_store) == block.slot and is_before_attesting_interval
+
+        state = new_state_info.beacon_state
+
+        new_store
+        |> Store.store_block_info(block_info)
+        |> if_then_update(
+          is_timely and is_first_block,
+          &%{&1 | proposer_boost_root: block_info.root}
+        )
+        # Update checkpoints in store if necessary
+        |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
+        # Eagerly compute unrealized justification and finality
+        |> compute_pulled_up_tip(block_info.root, block_info.signed_block.message, state)
+        |> case do
+          {:ok, store} -> {:ok, store, timings}
+          err -> err
+        end
+      end
     end
   end
 

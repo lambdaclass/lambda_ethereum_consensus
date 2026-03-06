@@ -5,7 +5,6 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
   require Logger
   require HardForkAliasInjection
-  alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.StateTransition.Accessors
   alias LambdaEthereumConsensus.StateTransition.EpochProcessing
   alias LambdaEthereumConsensus.StateTransition.Misc
@@ -15,10 +14,23 @@ defmodule LambdaEthereumConsensus.StateTransition do
   alias Types.SignedBeaconBlock
   alias Types.StateInfo
 
-  import LambdaEthereumConsensus.Utils, only: [map_ok: 2]
+  @type timings :: %{atom() => non_neg_integer()}
+
+  @doc """
+  Times `fun`, storing the elapsed milliseconds under `label` in `timings`.
+  If `label` already exists, the durations are summed (useful for repeated calls like slot processing).
+  Returns `{result_of_fun, updated_timings}`.
+  """
+  @spec timed(atom(), timings(), (-> result)) :: {result, timings()} when result: any()
+  def timed(label, timings, fun) do
+    start = System.monotonic_time(:millisecond)
+    result = fun.()
+    elapsed = System.monotonic_time(:millisecond) - start
+    {result, Map.update(timings, label, elapsed, &(&1 + elapsed))}
+  end
 
   @spec verified_transition(StateInfo.t() | BeaconState.t(), BlockInfo.t()) ::
-          {:ok, StateInfo.t()} | {:error, String.t()}
+          {:ok, StateInfo.t(), timings()} | {:error, String.t()}
   def verified_transition(%StateInfo{} = state_info, block_info) do
     previous_roots = %{
       # We store the roots indexed by slot number to ensure slot matches when reusing them.
@@ -32,37 +44,40 @@ defmodule LambdaEthereumConsensus.StateTransition do
   end
 
   def verified_transition(%BeaconState{} = state, block_info, previous_roots \\ %{}) do
-    state
-    |> transition(block_info.signed_block, previous_roots)
-    # Verify signature
-    |> map_ok(fn st ->
-      if block_signature_valid?(st, block_info.signed_block) do
-        {:ok, st}
-      else
-        {:error, "invalid block signature"}
-      end
-    end)
-    |> map_ok(fn new_state ->
-      with {:ok, new_state_info} <-
-             StateInfo.from_beacon_state(new_state, block_root: block_info.root) do
-        if block_info.signed_block.message.state_root == new_state_info.root do
-          {:ok, new_state_info}
-        else
-          {:error, "mismatched state roots"}
+    with {:ok, st, timings} <- transition(state, block_info.signed_block, previous_roots) do
+      {sig_result, timings} =
+        timed(:signature_verify, timings, fn ->
+          if block_signature_valid?(st, block_info.signed_block),
+            do: {:ok, st},
+            else: {:error, "invalid block signature"}
+        end)
+
+      with {:ok, st} <- sig_result do
+        {merkle_result, timings} =
+          timed(:merkleization, timings, fn ->
+            StateInfo.from_beacon_state(st, block_root: block_info.root)
+          end)
+
+        with {:ok, new_state_info} <- merkle_result do
+          if block_info.signed_block.message.state_root == new_state_info.root do
+            {:ok, new_state_info, timings}
+          else
+            {:error, "mismatched state roots"}
+          end
         end
       end
-    end)
+    end
   end
 
-  @spec transition(BeaconState.t(), SignedBeaconBlock.t()) :: {:ok, BeaconState.t()}
+  @spec transition(BeaconState.t(), SignedBeaconBlock.t()) ::
+          {:ok, BeaconState.t(), timings()}
   def transition(beacon_state, signed_block, previous_roots \\ %{}) do
     block = signed_block.message
 
-    beacon_state
-    # Process slots (including those with no blocks) since block
-    |> process_slots(block.slot, previous_roots)
-    # Process block
-    |> map_ok(&process_block(&1, block))
+    with {:ok, state, slot_timings} <- process_slots(beacon_state, block.slot, previous_roots),
+         {:ok, state, block_timings} <- process_block(state, block) do
+      {:ok, state, Map.merge(slot_timings, block_timings)}
+    end
   end
 
   def process_slots(state, slot, previous_roots \\ %{})
@@ -73,14 +88,20 @@ defmodule LambdaEthereumConsensus.StateTransition do
   def process_slots(%BeaconState{slot: old_slot} = state, slot, previous_roots) do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
 
-    Enum.reduce((old_slot + 1)..slot//1, {:ok, state}, fn next_slot, acc ->
-      acc
-      |> map_ok(&apply_process_slot(&1, previous_roots))
-      # Process epoch on the first slot of the next epoch
-      |> map_ok(&maybe_process_epoch(&1, rem(next_slot, slots_per_epoch)))
-      |> map_ok(&{:ok, %{&1 | slot: next_slot}})
-      # Apply fork upgrade at the first slot of FULU_FORK_EPOCH (if compiled for Fulu)
-      |> map_ok(&maybe_upgrade_to_fulu(&1, next_slot))
+    Enum.reduce((old_slot + 1)..slot//1, {:ok, state, %{}}, fn next_slot, acc ->
+      with {:ok, st, timings} <- acc do
+        {slot_result, timings} =
+          timed(:slot_processing, timings, fn ->
+            process_slot(st, previous_roots)
+          end)
+
+        with {:ok, st} <- slot_result,
+             {:ok, st, timings} <-
+               maybe_process_epoch(st, rem(next_slot, slots_per_epoch), timings),
+             {:ok, st} <- maybe_upgrade_to_fulu(%{st | slot: next_slot}, next_slot) do
+          {:ok, st, timings}
+        end
+      end
     end)
   end
 
@@ -132,16 +153,17 @@ defmodule LambdaEthereumConsensus.StateTransition do
     end)
   end
 
-  defp maybe_process_epoch(%BeaconState{} = state, 0), do: process_epoch(state)
-  defp maybe_process_epoch(%BeaconState{} = state, _slot_in_epoch), do: {:ok, state}
-
-  defp apply_process_slot(state, previous_roots) do
-    Metrics.span_operation(:process_slot, nil, nil, fn -> process_slot(state, previous_roots) end)
+  defp maybe_process_epoch(%BeaconState{} = state, 0, timings) do
+    case process_epoch(state) do
+      {:ok, state, epoch_timings} -> {:ok, state, Map.merge(timings, epoch_timings)}
+      err -> err
+    end
   end
 
-  defp process_slot(%BeaconState{} = state, previous_roots) do
-    start_time = System.monotonic_time(:millisecond)
+  defp maybe_process_epoch(%BeaconState{} = state, _slot_in_epoch, timings),
+    do: {:ok, state, timings}
 
+  defp process_slot(%BeaconState{} = state, previous_roots) do
     slot_previous_roots = Map.get(previous_roots, state.slot, nil)
 
     # Cache state root
@@ -190,17 +212,15 @@ defmodule LambdaEthereumConsensus.StateTransition do
 
     roots = List.replace_at(state.block_roots, cache_index, previous_block_root)
 
-    end_time = System.monotonic_time(:millisecond)
-    Logger.debug("[Slot processing] took #{end_time - start_time} ms")
-
     {:ok, %BeaconState{state | block_roots: roots}}
   end
 
   defp process_epoch(%BeaconState{} = state) do
-    start_time = System.monotonic_time(:millisecond)
-
-    state
-    |> EpochProcessing.process_justification_and_finalization()
+    {:ok, state, %{}}
+    |> epoch_op(
+      :justification_and_finalization,
+      &EpochProcessing.process_justification_and_finalization/1
+    )
     |> epoch_op(:inactivity_updates, &EpochProcessing.process_inactivity_updates/1)
     |> epoch_op(:rewards_and_penalties, &EpochProcessing.process_rewards_and_penalties/1)
     |> epoch_op(:registry_updates, &EpochProcessing.process_registry_updates/1)
@@ -221,10 +241,6 @@ defmodule LambdaEthereumConsensus.StateTransition do
     )
     |> epoch_op(:sync_committee_updates, &EpochProcessing.process_sync_committee_updates/1)
     |> maybe_proposer_lookahead()
-    |> tap(fn _ ->
-      end_time = System.monotonic_time(:millisecond)
-      Logger.debug("[Epoch processing] took #{end_time - start_time} ms")
-    end)
   end
 
   # Only run process_proposer_lookahead on Fulu (EIP-7917).
@@ -245,29 +261,42 @@ defmodule LambdaEthereumConsensus.StateTransition do
   end
 
   def process_block(state, block) do
-    start_time = System.monotonic_time(:millisecond)
-
-    {:ok, state}
+    {:ok, state, %{}}
     |> block_op(:block_header, &Operations.process_block_header(&1, block))
     |> block_op(:withdrawals, &Operations.process_withdrawals(&1, block.body.execution_payload))
     |> block_op(:execution_payload, &Operations.process_execution_payload(&1, block.body))
     |> block_op(:randao, &Operations.process_randao(&1, block.body))
     |> block_op(:eth1_data, &Operations.process_eth1_data(&1, block.body))
-    |> map_ok(&Operations.process_operations(&1, block.body))
+    |> block_op(:operations, &Operations.process_operations(&1, block.body))
     |> block_op(
       :sync_aggregate,
       &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
     )
-    |> tap(fn _ ->
-      end_time = System.monotonic_time(:millisecond)
-      Logger.debug("[Block processing] took #{end_time - start_time} ms")
-    end)
   end
 
-  def block_op(state, operation, f), do: apply_op(state, :process_block, operation, f)
-  def epoch_op(state, operation, f), do: apply_op(state, :epoch, operation, f)
+  def epoch_op({:ok, state, timings}, operation, f) do
+    key = :"epoch.#{operation}"
 
-  def apply_op(state, transition, operation, f) do
-    Metrics.span_operation(:on_block, transition, operation, fn -> map_ok(state, f) end)
+    {result, timings} = timed(key, timings, fn -> f.(state) end)
+
+    case result do
+      {:ok, new_state} -> {:ok, new_state, timings}
+      {:error, _} = err -> err
+    end
   end
+
+  def epoch_op({:error, _} = err, _operation, _f), do: err
+
+  def block_op({:ok, state, timings}, operation, f) do
+    key = :"block.#{operation}"
+
+    {result, timings} = timed(key, timings, fn -> f.(state) end)
+
+    case result do
+      {:ok, new_state} -> {:ok, new_state, timings}
+      {:error, _} = err -> err
+    end
+  end
+
+  def block_op({:error, _} = err, _operation, _f), do: err
 end

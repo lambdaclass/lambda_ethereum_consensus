@@ -39,7 +39,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   def build_block(%BuildBlockRequest{parent_root: parent_root} = request, payload_id) do
     pre_state = BlockStates.get_state_info!(parent_root).beacon_state
 
-    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, request.slot),
+    with {:ok, mid_state, _timings} <- StateTransition.process_slots(pre_state, request.slot),
          {:ok, {execution_payload, blobs_bundle}} <- ExecutionClient.get_payload(payload_id),
          {:ok, eth1_vote} <- fetch_eth1_data(request.slot, mid_state),
          {:ok, block_request} <-
@@ -129,7 +129,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       end
 
     with {:ok, %{block_hash: head_payload_hash}} <- head_payload_data,
-         {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
+         {:ok, mid_state, _timings} <- StateTransition.process_slots(pre_state, proposed_slot),
          {:ok, finalized_payload_hash} <- get_finalized_block_hash(mid_state) do
       forkchoice_state = %{
         finalized_block_hash: finalized_payload_hash,
@@ -158,7 +158,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   def seal_block(pre_state, block, privkey) do
     wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
 
-    with {:ok, post_state} <- StateTransition.transition(pre_state, wrapped_block) do
+    with {:ok, post_state, _timings} <- StateTransition.transition(pre_state, wrapped_block) do
       %{block | state_root: Ssz.hash_tree_root!(post_state)}
       |> sign_block(post_state, privkey)
       |> then(&{:ok, &1})

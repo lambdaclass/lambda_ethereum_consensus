@@ -276,7 +276,7 @@ defmodule Types.Store do
         if state.slot < target_slot do
           # The only way this can fail is if state.slot < target_slot, which is false by
           # construction.
-          {:ok, new_state} = StateTransition.process_slots(state, target_slot)
+          {:ok, new_state, _timings} = StateTransition.process_slots(state, target_slot)
 
           {update_in(store.checkpoint_states, fn s -> Map.put(s, checkpoint, new_state) end),
            new_state}
