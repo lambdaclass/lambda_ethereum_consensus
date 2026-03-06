@@ -434,13 +434,21 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     if Accessors.get_current_epoch(state) == Constants.genesis_epoch() do
       {:ok, state}
     else
+      previous_epoch = Accessors.get_previous_epoch(state)
+      target_index = Constants.timely_target_flag_index()
+
+      {:ok, target_participating_indices} =
+        Accessors.get_unslashed_participating_indices(state, target_index, previous_epoch)
+
       deltas =
         Constants.participation_flag_weights()
         |> Stream.with_index()
         |> Stream.map(fn {weight, index} ->
           BeaconState.get_flag_index_deltas(state, weight, index)
         end)
-        |> Stream.concat([BeaconState.get_inactivity_penalty_deltas(state)])
+        |> Stream.concat([
+          BeaconState.get_inactivity_penalty_deltas(state, target_participating_indices)
+        ])
         |> Stream.zip()
         |> Aja.Vector.new()
 
