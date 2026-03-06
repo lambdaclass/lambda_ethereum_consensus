@@ -19,6 +19,10 @@
   {"lib/types/beacon_chain/beacon_state.ex", :guard_fail},
   {"lib/types/p2p/metadata.ex", :guard_fail},
   {"test/spec/runners/fork_choice.ex", :guard_fail},
+  {"test/spec/runners/fork_choice.ex", :pattern_match},
+
+  # --- Defensive error-handling: dialyzer infers these branches can't match ---
+  {"lib/lambda_ethereum_consensus/fork_choice/handlers.ex", :pattern_match_cov},
 
   # --- Fork-gate dead code: unused functions from non-fulu branches ---
   {"lib/lambda_ethereum_consensus/beacon/pending_blocks.ex", :unused_fun},

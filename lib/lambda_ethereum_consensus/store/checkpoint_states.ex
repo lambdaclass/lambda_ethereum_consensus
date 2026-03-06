@@ -60,18 +60,17 @@ defmodule LambdaEthereumConsensus.Store.CheckpointStates do
     target_slot = Misc.compute_start_slot_at_epoch(target_epoch)
 
     case BlockStates.get_state_info(target_root) do
-      %StateInfo{beacon_state: state} ->
-        if state.slot < target_slot do
-          case StateTransition.process_slots(state, target_slot) do
-            {:ok, state, _timings} -> {:ok, state}
-            err -> err
-          end
-        else
-          {:ok, state}
-        end
-
-      nil ->
-        {:error, "Checkpoint state for the target root not found"}
+      %StateInfo{beacon_state: state} -> maybe_process_slots(state, target_slot)
+      nil -> {:error, "Checkpoint state for the target root not found"}
     end
   end
+
+  defp maybe_process_slots(state, target_slot) when state.slot < target_slot do
+    case StateTransition.process_slots(state, target_slot) do
+      {:ok, state, _timings} -> {:ok, state}
+      err -> err
+    end
+  end
+
+  defp maybe_process_slots(state, _target_slot), do: {:ok, state}
 end
