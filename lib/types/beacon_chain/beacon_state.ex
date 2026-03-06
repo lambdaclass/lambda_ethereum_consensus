@@ -293,35 +293,34 @@ defmodule Types.BeaconState do
       div(Accessors.get_total_active_balance(state), effective_balance_increment)
 
     weight_denominator = Constants.weight_denominator()
-
-    previous_epoch = Accessors.get_previous_epoch(state)
-
-    process_reward_and_penalty = fn index ->
-      base_reward = Accessors.get_base_reward(state, index)
-      is_unslashed = MapSet.member?(unslashed_participating_indices, index)
-
-      cond do
-        is_unslashed and Predicates.in_inactivity_leak?(state) ->
-          0
-
-        is_unslashed ->
-          reward_numerator = base_reward * weight * unslashed_participating_increments
-          div(reward_numerator, active_increments * weight_denominator)
-
-        flag_index != Constants.timely_head_flag_index() ->
-          -div(base_reward * weight, weight_denominator)
-
-        true ->
-          0
-      end
-    end
+    base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
+    in_inactivity_leak = Predicates.in_inactivity_leak?(state)
+    timely_head_flag_index = Constants.timely_head_flag_index()
 
     state.validators
     |> Stream.with_index()
     |> Stream.map(fn {validator, index} ->
-      if Predicates.eligible_validator?(validator, previous_epoch),
-        do: process_reward_and_penalty.(index),
-        else: 0
+      if Predicates.eligible_validator?(validator, previous_epoch) do
+        base_reward = Accessors.get_base_reward(validator, base_reward_per_increment)
+        is_unslashed = MapSet.member?(unslashed_participating_indices, index)
+
+        cond do
+          is_unslashed and in_inactivity_leak ->
+            0
+
+          is_unslashed ->
+            reward_numerator = base_reward * weight * unslashed_participating_increments
+            div(reward_numerator, active_increments * weight_denominator)
+
+          flag_index != timely_head_flag_index ->
+            -div(base_reward * weight, weight_denominator)
+
+          true ->
+            0
+        end
+      else
+        0
+      end
     end)
   end
 
