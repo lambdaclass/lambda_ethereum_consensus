@@ -434,28 +434,117 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     if Accessors.get_current_epoch(state) == Constants.genesis_epoch() do
       {:ok, state}
     else
-      deltas =
-        Constants.participation_flag_weights()
-        |> Stream.with_index()
-        |> Stream.map(fn {weight, index} ->
-          BeaconState.get_flag_index_deltas(state, weight, index)
-        end)
-        |> Stream.concat([BeaconState.get_inactivity_penalty_deltas(state)])
-        |> Stream.zip()
-        |> Aja.Vector.new()
+      previous_epoch = Accessors.get_previous_epoch(state)
+      epoch_participation = state.previous_epoch_participation
 
-      state.balances
-      |> Aja.Vector.zip_with(deltas, &update_balance/2)
-      |> then(&{:ok, %BeaconState{state | balances: &1}})
+      # Pass 1: compute participation sets and balances for all 3 flags in one scan
+      {flag_sets, flag_balances} =
+        compute_all_participation_data(state, previous_epoch, epoch_participation)
+
+      # Precompute all loop-invariant values
+      effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+      base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
+      total_active_balance = Accessors.get_total_active_balance(state)
+      active_increments = div(total_active_balance, effective_balance_increment)
+      weight_denominator = Constants.weight_denominator()
+      weights = Constants.participation_flag_weights()
+      in_inactivity_leak = Predicates.in_inactivity_leak?(state)
+      timely_head_flag_index = Constants.timely_head_flag_index()
+      target_index = Constants.timely_target_flag_index()
+      target_set = Enum.at(flag_sets, target_index)
+
+      participating_increments =
+        flag_balances
+        |> Enum.map(&div(&1, effective_balance_increment))
+
+      penalty_denominator =
+        ChainSpec.get("INACTIVITY_SCORE_BIAS") *
+          ChainSpec.get("INACTIVITY_PENALTY_QUOTIENT_BELLATRIX")
+
+      # Pass 2: compute combined delta per validator and apply to balances
+      new_balances =
+        state.validators
+        |> Aja.Vector.zip_with(state.inactivity_scores, fn v, score -> {v, score} end)
+        |> Aja.Vector.zip_with(state.balances, fn {v, score}, balance -> {v, score, balance} end)
+        |> Aja.Vector.with_index()
+        |> Aja.Vector.map(fn {{validator, inactivity_score, balance}, index} ->
+          if not Predicates.eligible_validator?(validator, previous_epoch) do
+            balance
+          else
+            base_reward = Accessors.get_base_reward(validator, base_reward_per_increment)
+
+            # Apply each flag delta with per-step clamping (matches spec semantics)
+            balance =
+              weights
+              |> Enum.with_index()
+              |> Enum.reduce(balance, fn {weight, flag_index}, bal ->
+                is_unslashed = MapSet.member?(Enum.at(flag_sets, flag_index), index)
+
+                delta =
+                  cond do
+                    is_unslashed and in_inactivity_leak ->
+                      0
+
+                    is_unslashed ->
+                      reward_numerator =
+                        base_reward * weight * Enum.at(participating_increments, flag_index)
+
+                      div(reward_numerator, active_increments * weight_denominator)
+
+                    flag_index != timely_head_flag_index ->
+                      -div(base_reward * weight, weight_denominator)
+
+                    true ->
+                      0
+                  end
+
+                max(bal + delta, 0)
+              end)
+
+            # Apply inactivity penalty with clamping
+            inactivity_delta =
+              if not MapSet.member?(target_set, index) do
+                -div(validator.effective_balance * inactivity_score, penalty_denominator)
+              else
+                0
+              end
+
+            max(balance + inactivity_delta, 0)
+          end
+        end)
+
+      {:ok, %BeaconState{state | balances: new_balances}}
     end
   end
 
-  defp update_balance(balance, deltas) do
-    deltas
-    |> Tuple.to_list()
-    |> Enum.reduce(balance, fn delta, balance ->
-      max(balance + delta, 0)
-    end)
+  # Single-pass computation of all participation sets and their total balances
+  defp compute_all_participation_data(state, previous_epoch, epoch_participation) do
+    num_flags = length(Constants.participation_flag_weights())
+
+    {sets, balances} =
+      state.validators
+      |> Aja.Vector.zip_with(epoch_participation, fn v, p -> {v, p} end)
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.reduce(
+        {List.duplicate(MapSet.new(), num_flags), List.duplicate(0, num_flags)},
+        fn {{v, participation}, index}, {sets, balances} ->
+          if not v.slashed and Predicates.active_validator?(v, previous_epoch) do
+            Enum.reduce(0..(num_flags - 1), {sets, balances}, fn flag_index, {sets, balances} ->
+              if Predicates.has_flag(participation, flag_index) do
+                {List.update_at(sets, flag_index, &MapSet.put(&1, index)),
+                 List.update_at(balances, flag_index, &(&1 + v.effective_balance))}
+              else
+                {sets, balances}
+              end
+            end)
+          else
+            {sets, balances}
+          end
+        end
+      )
+
+    ebi = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+    {sets, Enum.map(balances, &max(ebi, &1))}
   end
 
   @spec process_pending_deposits(BeaconState.t()) :: {:ok, BeaconState.t()}
