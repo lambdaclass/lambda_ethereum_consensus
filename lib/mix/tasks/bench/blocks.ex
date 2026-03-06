@@ -67,6 +67,13 @@ defmodule Mix.Tasks.Bench.Blocks do
     Logger.info("Loaded anchor state at slot #{anchor_state.slot}")
     Logger.info("Loaded #{length(blocks)} blocks, #{column_count} data columns")
 
+    # Skip data availability check when no columns were downloaded
+    # (e.g. blobs pruned on source node, or pre-Fulu data)
+    if column_count == 0 do
+      Application.put_env(:lambda_ethereum_consensus, :skip_data_availability, true)
+      Logger.info("No columns found, skipping data availability checks")
+    end
+
     {:ok, store} = Types.Store.get_forkchoice_store(anchor_state, anchor_block)
     store = Handlers.on_tick(store, :os.system_time(:second))
 
@@ -87,6 +94,7 @@ defmodule Mix.Tasks.Bench.Blocks do
   defp boot_infrastructure(network) do
     Application.ensure_all_started(:snappyer)
     Application.ensure_all_started(:jason)
+    Application.ensure_all_started(:telemetry)
 
     # Configure ChainSpec
     config = ConfigUtils.parse_config!(network)
