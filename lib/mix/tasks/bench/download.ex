@@ -55,8 +55,10 @@ defmodule Mix.Tasks.Bench.Download do
     data_dir = opts[:data_dir] || "bench/data"
     network = opts[:network] || "mainnet"
 
-    # Start required applications
-    Mix.Task.run("app.start", ["--no-start"])
+    # Start required dependency applications.
+    # We don't use app.start because runtime.exs parses System.argv()
+    # with strict validation, rejecting our custom flags.
+    # We only need the deps loaded and our own config set below.
     Application.ensure_all_started(:jason)
     Application.ensure_all_started(:hackney)
     Application.ensure_all_started(:tesla)

@@ -52,7 +52,9 @@ defmodule Mix.Tasks.Bench.Blocks do
     start_slot = metadata["start_slot"]
     count = metadata["count"]
 
-    Mix.Task.run("app.start", ["--no-start"])
+    # We skip app.start because runtime.exs parses System.argv()
+    # with strict validation, rejecting our custom flags.
+    # boot_infrastructure starts everything we need directly.
 
     network = metadata["network"] || "mainnet"
     boot_infrastructure(network)
