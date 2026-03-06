@@ -110,10 +110,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def data_available?(_beacon_block_root, []), do: true
 
   def data_available?(beacon_block_root, blob_kzg_commitments) do
-    if HardForkAliasInjection.fulu?() do
-      columns_data_available?(beacon_block_root, blob_kzg_commitments)
+    if Application.get_env(:lambda_ethereum_consensus, :skip_data_availability, false) do
+      true
     else
-      blobs_data_available?(beacon_block_root, blob_kzg_commitments)
+      if HardForkAliasInjection.fulu?() do
+        columns_data_available?(beacon_block_root, blob_kzg_commitments)
+      else
+        blobs_data_available?(beacon_block_root, blob_kzg_commitments)
+      end
     end
   end
 
