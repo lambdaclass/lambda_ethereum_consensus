@@ -184,7 +184,7 @@ defmodule Fixtures.Block do
 
   @spec beacon_state :: BeaconState.t()
   def beacon_state() do
-    base = %BeaconState{
+    fields = [
       genesis_time: Random.uint64(),
       genesis_validators_root: Random.root(),
       slot: Random.uint64(),
@@ -224,12 +224,17 @@ defmodule Fixtures.Block do
       pending_deposits: [],
       pending_partial_withdrawals: [],
       pending_consolidations: []
-    }
+    ]
 
-    HardForkAliasInjection.on_fulu(
-      do: %{base | proposer_lookahead: List.duplicate(0, 2 * ChainSpec.get("SLOTS_PER_EPOCH"))},
-      else: base
-    )
+    fields =
+      HardForkAliasInjection.on_fulu(
+        do:
+          fields ++
+            [proposer_lookahead: List.duplicate(0, 2 * ChainSpec.get("SLOTS_PER_EPOCH"))],
+        else: fields
+      )
+
+    struct!(BeaconState, fields)
   end
 
   def beacon_state_from_file() do
