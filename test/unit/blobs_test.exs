@@ -42,14 +42,15 @@ defmodule Unit.BlobsTest do
 
     @tag :tmp_dir
     test "One missing blob from block, then add, then no missing blobs", %{
-      blob_sidecar: blob_sidecar
+      blob_sidecar: %BlobSidecar{} = blob_sidecar
     } do
       blob_sidecar = %BlobSidecar{blob_sidecar | index: 0}
 
       # Create random block info
       block_info = new_block_info()
       # add blob_sidecar kzg_commitment to the block_info
-      block_info =
+      %BlockInfo{} =
+        block_info =
         put_in(
           block_info.signed_block.message.body.blob_kzg_commitments,
           [blob_sidecar.kzg_commitment]
