@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Mutators
@@ -146,20 +147,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       total_proposer_reward = BitVector.count(aggregate.sync_committee_bits) * proposer_reward
 
-      # PERF: make Map with committee_index by pubkey, then
-      # Enum.map validators -> new balance all in place, without map_reduce
-      state.validators
-      |> get_sync_committee_indices(committee_pubkeys)
-      |> Stream.with_index()
-      |> Stream.map(fn {validator_index, committee_index} ->
-        if BitVector.set?(aggregate.sync_committee_bits, committee_index),
-          do: {validator_index, participant_reward},
-          else: {validator_index, -participant_reward}
-      end)
-      |> Enum.reduce(state.balances, fn {validator_index, delta}, balances ->
-        Aja.Vector.update_at!(balances, validator_index, &max(&1 + delta, 0))
-      end)
-      |> then(&%{state | balances: &1})
+      # Cache sync committee indices (stable within a sync committee period)
+      committee_indices = get_cached_sync_committee_indices(state, committee_pubkeys)
+
+      balances =
+        committee_indices
+        |> Enum.with_index()
+        |> Enum.reduce(state.balances, fn {validator_index, committee_index}, balances ->
+          delta =
+            if BitVector.set?(aggregate.sync_committee_bits, committee_index),
+              do: participant_reward,
+              else: -participant_reward
+
+          Aja.Vector.update_at!(balances, validator_index, &max(&1 + delta, 0))
+        end)
+
+      %{state | balances: balances}
       |> BeaconState.increase_balance(proposer_index, total_proposer_reward)
       |> then(&{:ok, &1})
     end
@@ -199,23 +202,44 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     {participant_reward, proposer_reward}
   end
 
+  defp get_cached_sync_committee_indices(state, committee_pubkeys) do
+    epoch = Accessors.get_current_epoch(state)
+
+    compute_fn = fn ->
+      get_sync_committee_indices(state.validators, committee_pubkeys)
+    end
+
+    case Accessors.get_block_root_at_slot(
+           state,
+           max(Misc.compute_start_slot_at_epoch(epoch), 1) - 1
+         ) do
+      {:ok, root} -> Cache.lazily_compute(:sync_committee_indices, {epoch, root}, compute_fn)
+      _ -> compute_fn.()
+    end
+  end
+
   @spec get_sync_committee_indices(Aja.Vector.t(Validator.t()), list(Types.bls_pubkey())) ::
           list(Types.validator_index())
   defp get_sync_committee_indices(validators, committee_pubkeys) do
+    # Build map of committee pubkey -> [committee_indices] (only 512 entries)
     pk_map =
       committee_pubkeys
-      |> Stream.with_index()
+      |> Enum.with_index()
       |> Enum.reduce(%{}, fn {pk, i}, map ->
         Map.update(map, pk, [i], &[i | &1])
       end)
 
+    # Scan validators to resolve pubkeys to validator indices
     validators
-    |> Stream.with_index()
-    |> Stream.map(fn {%Validator{pubkey: pubkey}, i} -> {Map.get(pk_map, pubkey), i} end)
-    |> Stream.reject(fn {v, _} -> is_nil(v) end)
-    |> Stream.flat_map(fn {list, i} -> list |> Stream.map(&{&1, i}) end)
-    |> Enum.sort(fn {v1, _}, {v2, _} -> v1 <= v2 end)
-    |> Enum.map(fn {_, i} -> i end)
+    |> Aja.Vector.with_index()
+    |> Aja.Vector.foldl([], fn {%Validator{pubkey: pubkey}, validator_idx}, acc ->
+      case Map.get(pk_map, pubkey) do
+        nil -> acc
+        committee_indices -> Enum.reduce(committee_indices, acc, &[{&1, validator_idx} | &2])
+      end
+    end)
+    |> Enum.sort()
+    |> Enum.map(fn {_committee_idx, validator_idx} -> validator_idx end)
   end
 
   @doc """
