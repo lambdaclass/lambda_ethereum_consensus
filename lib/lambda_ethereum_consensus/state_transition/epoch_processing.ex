@@ -525,7 +525,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       state.validators
       |> Aja.Vector.zip_with(epoch_participation, fn v, p -> {v, p} end)
       |> Aja.Vector.with_index()
-      |> Aja.Vector.reduce(
+      |> Aja.Vector.foldl(
         {List.duplicate(MapSet.new(), num_flags), List.duplicate(0, num_flags)},
         fn {{v, participation}, index}, {sets, balances} ->
           if not v.slashed and Predicates.active_validator?(v, previous_epoch) do
