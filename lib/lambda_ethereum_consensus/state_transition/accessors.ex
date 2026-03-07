@@ -234,7 +234,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
           {v, participation}
         end)
         |> Aja.Vector.with_index()
-        |> Aja.Vector.reduce(0, fn {{v, participation}, index}, acc ->
+        |> Aja.Vector.foldl(0, fn {{v, participation}, index}, acc ->
           if not v.slashed and Predicates.active_validator?(v, epoch) and
                Predicates.has_flag(participation, flag_index) do
             AtomicBitVector.set(bv, index)
