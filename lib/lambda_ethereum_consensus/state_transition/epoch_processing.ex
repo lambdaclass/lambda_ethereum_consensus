@@ -142,80 +142,70 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   @spec process_registry_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_registry_updates(%BeaconState{validators: validators} = state) do
+  def process_registry_updates(%BeaconState{} = state) do
     ejection_balance = ChainSpec.get("EJECTION_BALANCE")
     current_epoch = Accessors.get_current_epoch(state)
     activation_exit_epoch = Misc.compute_activation_exit_epoch(current_epoch)
 
-    validators
-    |> Enum.with_index()
-    |> Enum.reduce_while(state, fn {validator, idx}, state ->
-      handle_validator_registry_update(
-        state,
-        validator,
-        idx,
-        current_epoch,
-        activation_exit_epoch,
-        ejection_balance
-      )
-    end)
-    |> then(fn
-      %BeaconState{} = state -> {:ok, state}
-      {:error, reason} -> {:error, reason}
-    end)
-  end
+    # Hoist constants from predicates to avoid per-validator lookups
+    far_future_epoch = Constants.far_future_epoch()
+    min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
+    finalized_epoch = state.finalized_checkpoint.epoch
 
-  defp handle_validator_registry_update(
-         %BeaconState{} = state,
-         %Validator{} = validator,
-         idx,
-         current_epoch,
-         activation_exit_epoch,
-         ejection_balance
-       ) do
-    cond do
-      Predicates.eligible_for_activation_queue?(validator) ->
-        updated_validator = %{
-          validator
-          | activation_eligibility_epoch: current_epoch + 1
-        }
-
-        {:cont,
-         %{
-           state
-           | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
-         }}
-
-      Predicates.active_validator?(validator, current_epoch) &&
-          validator.effective_balance <= ejection_balance ->
-        case Mutators.initiate_validator_exit(state, validator) do
-          {:ok, {state, ejected_validator}} ->
-            updated_state = %{
-              state
-              | validators: Aja.Vector.replace_at!(state.validators, idx, ejected_validator)
+    # Use Aja.Vector.foldl instead of Enum.with_index + Enum.reduce_while
+    # to avoid materializing the vector to a list (~24MB allocation)
+    try do
+      state.validators
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.foldl(state, fn {validator, idx}, state ->
+        cond do
+          # Inlined eligible_for_activation_queue?
+          validator.activation_eligibility_epoch == far_future_epoch &&
+              validator.effective_balance >= min_activation_balance ->
+            updated_validator = %{
+              validator
+              | activation_eligibility_epoch: current_epoch + 1
             }
 
-            {:cont, updated_state}
+            %{
+              state
+              | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
+            }
 
-          {:error, msg} ->
-            {:halt, {:error, msg}}
+          # Inlined active_validator? + ejection check
+          Predicates.active_validator?(validator, current_epoch) &&
+              validator.effective_balance <= ejection_balance ->
+            case Mutators.initiate_validator_exit(state, validator) do
+              {:ok, {state, ejected_validator}} ->
+                %{
+                  state
+                  | validators: Aja.Vector.replace_at!(state.validators, idx, ejected_validator)
+                }
+
+              {:error, msg} ->
+                throw({:error, msg})
+            end
+
+          # Inlined eligible_for_activation?
+          validator.activation_eligibility_epoch <= finalized_epoch &&
+              validator.activation_epoch == far_future_epoch ->
+            updated_validator = %{
+              validator
+              | activation_epoch: activation_exit_epoch
+            }
+
+            %{
+              state
+              | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
+            }
+
+          true ->
+            state
         end
-
-      Predicates.eligible_for_activation?(state, validator) ->
-        updated_validator = %{
-          validator
-          | activation_epoch: activation_exit_epoch
-        }
-
-        updated_state = %{
-          state
-          | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
-        }
-
-        {:cont, updated_state}
-
-      true ->
-        {:cont, state}
+      end)
+      |> then(&{:ok, &1})
+    catch
+      {:error, _} = err -> err
     end
   end
 
