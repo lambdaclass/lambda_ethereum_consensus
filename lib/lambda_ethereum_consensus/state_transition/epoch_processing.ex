@@ -244,34 +244,39 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     inactivity_score_bias = ChainSpec.get("INACTIVITY_SCORE_BIAS")
     inactivity_score_recovery_rate = ChainSpec.get("INACTIVITY_SCORE_RECOVERY_RATE")
     previous_epoch = Accessors.get_previous_epoch(state)
-
-    # PERF: this can be inlined and combined with the next pipeline
-    {:ok, unslashed_participating_indices} =
-      Accessors.get_unslashed_participating_indices(state, timely_target_index, previous_epoch)
-
     state_in_inactivity_leak? = Predicates.in_inactivity_leak?(state)
 
-    state.inactivity_scores
-    |> Stream.zip(state.validators)
-    |> Stream.with_index()
-    |> Enum.map(fn {{inactivity_score, validator}, index} ->
-      if Predicates.eligible_validator?(validator, previous_epoch) do
-        inactivity_score
-        |> Misc.increase_inactivity_score(
-          index,
-          unslashed_participating_indices,
-          inactivity_score_bias
-        )
-        |> Misc.decrease_inactivity_score(
-          state_in_inactivity_leak?,
-          inactivity_score_recovery_rate
-        )
-      else
-        inactivity_score
-      end
-    end)
-    |> then(&{:ok, %{state | inactivity_scores: &1}})
+    # Single pass: inline participation check instead of building a MapSet first
+    new_scores =
+      state.validators
+      |> Aja.Vector.zip_with(state.previous_epoch_participation, fn v, p -> {v, p} end)
+      |> Aja.Vector.to_list()
+      |> Enum.zip(state.inactivity_scores)
+      |> Enum.map(fn {{validator, participation}, inactivity_score} ->
+        if Predicates.eligible_validator?(validator, previous_epoch) do
+          # Inline the unslashed participating check (replaces MapSet lookup)
+          is_unslashed_participating =
+            not validator.slashed and
+              Predicates.has_flag(participation, timely_target_index)
+
+          inactivity_score
+          |> update_inactivity_increase(is_unslashed_participating, inactivity_score_bias)
+          |> update_inactivity_decrease(state_in_inactivity_leak?, inactivity_score_recovery_rate)
+        else
+          inactivity_score
+        end
+      end)
+
+    {:ok, %{state | inactivity_scores: new_scores}}
   end
+
+  # If participating: decrease by 1 (clamped to 0). If not: increase by bias.
+  defp update_inactivity_increase(score, true, _bias), do: score - min(1, score)
+  defp update_inactivity_increase(score, false, bias), do: score + bias
+
+  # If in inactivity leak: no decrease. Otherwise: decrease by recovery rate (clamped to 0).
+  defp update_inactivity_decrease(score, true, _rate), do: score
+  defp update_inactivity_decrease(score, false, rate), do: score - min(rate, score)
 
   @spec process_historical_summaries_update(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_historical_summaries_update(%BeaconState{} = state) do
