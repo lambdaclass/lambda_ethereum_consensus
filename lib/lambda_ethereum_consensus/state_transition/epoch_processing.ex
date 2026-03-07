@@ -462,9 +462,11 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           ChainSpec.get("INACTIVITY_PENALTY_QUOTIENT_BELLATRIX")
 
       # Pass 2: compute combined delta per validator and apply to balances
+      inactivity_scores_vec = Aja.Vector.new(state.inactivity_scores)
+
       new_balances =
         state.validators
-        |> Aja.Vector.zip_with(state.inactivity_scores, fn v, score -> {v, score} end)
+        |> Aja.Vector.zip_with(inactivity_scores_vec, fn v, score -> {v, score} end)
         |> Aja.Vector.zip_with(state.balances, fn {v, score}, balance -> {v, score, balance} end)
         |> Aja.Vector.with_index()
         |> Aja.Vector.map(fn {{validator, inactivity_score, balance}, index} ->
