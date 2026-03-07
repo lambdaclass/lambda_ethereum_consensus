@@ -8,6 +8,8 @@ defmodule Fixtures.Block do
   alias Types.BlockInfo
   alias Types.StateInfo
 
+  require HardForkAliasInjection
+
   alias Types.BeaconBlock
   alias Types.BeaconBlockBody
   alias Types.BeaconState
@@ -182,7 +184,7 @@ defmodule Fixtures.Block do
 
   @spec beacon_state :: BeaconState.t()
   def beacon_state() do
-    %BeaconState{
+    fields = [
       genesis_time: Random.uint64(),
       genesis_validators_root: Random.root(),
       slot: Random.uint64(),
@@ -221,10 +223,18 @@ defmodule Fixtures.Block do
       earliest_consolidation_epoch: Random.uint64(),
       pending_deposits: [],
       pending_partial_withdrawals: [],
-      pending_consolidations: [],
-      # New Fulu field (EIP-7917)
-      proposer_lookahead: List.duplicate(0, 2 * ChainSpec.get("SLOTS_PER_EPOCH"))
-    }
+      pending_consolidations: []
+    ]
+
+    fields =
+      HardForkAliasInjection.on_fulu(
+        do:
+          fields ++
+            [proposer_lookahead: List.duplicate(0, 2 * ChainSpec.get("SLOTS_PER_EPOCH"))],
+        else: fields
+      )
+
+    struct!(BeaconState, fields)
   end
 
   def beacon_state_from_file() do

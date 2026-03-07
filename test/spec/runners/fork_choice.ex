@@ -85,7 +85,7 @@ defmodule ForkChoiceTestRunner do
     block_info = BlockInfo.from_block(block)
 
     with :ok <- load_blob_data(case_dir, block_info.root, block, step),
-         {:ok, new_store} <- Handlers.on_block(store, block_info),
+         {:ok, new_store, _timings} <- Handlers.on_block(store, block_info),
          {:ok, new_store} <-
            block.message.body.attestations
            |> Enum.reduce_while({:ok, new_store}, fn
