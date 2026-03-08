@@ -66,7 +66,8 @@ defmodule LambdaEthereumConsensus.StateTransition do
         # Determine which field hashes can be reused from the previous state.
         # On epoch boundary blocks, most fields change — don't cache anything.
         # On non-epoch blocks, cache expensive fields that don't change.
-        cached_field_hashes = cacheable_field_hashes(timings, prev_field_hashes)
+        cached_field_hashes =
+          cacheable_field_hashes(timings, block_info.signed_block.message, prev_field_hashes)
 
         {merkle_result, timings} =
           timed(:merkleization, timings, fn ->
@@ -87,25 +88,49 @@ defmodule LambdaEthereumConsensus.StateTransition do
     end
   end
 
-  # Fields that are safe to cache on non-epoch blocks (they don't change during
-  # slot processing or typical block operations):
-  # 11 = validators, 21 = inactivity_scores, 22 = current_sync_committee,
-  # 23 = next_sync_committee, 7 = historical_roots (frozen)
+  # Fields safe to cache on non-epoch blocks when no block operations modify validators.
+  # 7 = historical_roots (frozen), 11 = validators, 21 = inactivity_scores,
+  # 22 = current_sync_committee, 23 = next_sync_committee
   @cacheable_non_epoch_fields [7, 11, 21, 22, 23]
 
-  defp cacheable_field_hashes(_timings, prev_field_hashes)
+  # When block operations DO modify validators (slashings, exits, BLS changes,
+  # consolidations), field 11 must be excluded from the cache.
+  @cacheable_non_epoch_fields_no_validators [7, 21, 22, 23]
+
+  defp cacheable_field_hashes(_timings, _block, prev_field_hashes)
        when prev_field_hashes == %{},
        do: %{}
 
-  defp cacheable_field_hashes(timings, prev_field_hashes) do
+  defp cacheable_field_hashes(timings, block, prev_field_hashes) do
     # If epoch processing happened, don't cache anything (most fields change)
     epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
 
     if epoch_processed? do
       %{}
     else
-      Map.take(prev_field_hashes, @cacheable_non_epoch_fields)
+      fields =
+        if block_modifies_validators?(block),
+          do: @cacheable_non_epoch_fields_no_validators,
+          else: @cacheable_non_epoch_fields
+
+      Map.take(prev_field_hashes, fields)
     end
+  end
+
+  # Check if a block contains operations that can modify state.validators.
+  # Slashings, exits, BLS-to-execution changes, withdrawal requests (full exits),
+  # consolidation requests, and legacy deposits can all modify the validators vector.
+  # Deposit requests (execution_requests.deposits) only modify pending_deposits, not validators.
+  defp block_modifies_validators?(block) do
+    body = block.body
+
+    body.proposer_slashings != [] or
+      body.attester_slashings != [] or
+      body.voluntary_exits != [] or
+      body.bls_to_execution_changes != [] or
+      body.deposits != [] or
+      body.execution_requests.withdrawals != [] or
+      body.execution_requests.consolidations != []
   end
 
   @spec transition(BeaconState.t(), SignedBeaconBlock.t()) ::
