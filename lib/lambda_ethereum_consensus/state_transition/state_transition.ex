@@ -88,14 +88,22 @@ defmodule LambdaEthereumConsensus.StateTransition do
     end
   end
 
-  # Fields safe to cache on non-epoch blocks when no block operations modify validators.
-  # 7 = historical_roots (frozen), 11 = validators, 21 = inactivity_scores,
-  # 22 = current_sync_committee, 23 = next_sync_committee
-  @cacheable_non_epoch_fields [7, 11, 21, 22, 23]
+  # Fields safe to cache on non-epoch blocks when no validator-modifying operations present.
+  # These fields are only modified during epoch processing (not block operations):
+  #  7 = historical_roots (frozen), 11 = validators, 14 = slashings,
+  # 17 = justification_bits, 18 = previous_justified_checkpoint,
+  # 19 = current_justified_checkpoint, 20 = finalized_checkpoint,
+  # 21 = inactivity_scores, 22 = current_sync_committee,
+  # 23 = next_sync_committee, 27 = historical_summaries, 37 = proposer_lookahead
+  # NOTE: field 15 (previous_epoch_participation) is NOT cacheable — attestation
+  # processing updates it on every block for previous-epoch attestations.
+  @cacheable_non_epoch_fields [7, 11, 14, 17, 18, 19, 20, 21, 22, 23, 27, 37]
 
   # When block operations DO modify validators (slashings, exits, BLS changes,
-  # consolidations), field 11 must be excluded from the cache.
-  @cacheable_non_epoch_fields_no_validators [7, 21, 22, 23]
+  # consolidations, deposits), exclude fields also modified by those operations:
+  # 11 = validators (slashings/exits/BLS changes), 14 = slashings (slash_validator),
+  # 21 = inactivity_scores (add_validator_to_registry appends on new deposits)
+  @cacheable_non_epoch_fields_no_validators [7, 17, 18, 19, 20, 22, 23, 27, 37]
 
   defp cacheable_field_hashes(_timings, _block, prev_field_hashes)
        when prev_field_hashes == %{},
