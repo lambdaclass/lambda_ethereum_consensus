@@ -201,15 +201,31 @@ fn compute_field_hash<'a, C: Config>(field_index: usize, field: Term<'a>) -> Nif
             C::ValidatorRegistryLimit,
         >(field),
         // balances: VariableList<u64, ValidatorRegistryLimit>
-        12 => convert_and_hash_list::<u64, u64, C::ValidatorRegistryLimit>(field),
+        // Use incremental merkle cache: decode the Vec<u64> and hand it to the
+        // balance cache which diffs against its previous state and only rehashes
+        // the changed chunks.
+        12 => {
+            let balances: Vec<u64> = Decoder::decode(field)?;
+            Ok(crate::utils::balance_cache::hash_balances_incremental(
+                &balances,
+            ))
+        }
         // randao_mixes: FixedVector<Bytes32, EpochsPerHistoricalVector>
         13 => convert_and_hash_vector::<Binary, [u8; 32], C::EpochsPerHistoricalVector>(field),
         // slashings: FixedVector<u64, EpochsPerSlashingsVector>
         14 => convert_and_hash_vector::<u64, u64, C::EpochsPerSlashingsVector>(field),
         // previous_epoch_participation: VariableList<u8, ValidatorRegistryLimit>
-        15 => convert_and_hash_list::<u8, u8, C::ValidatorRegistryLimit>(field),
+        // Use incremental merkle cache: decode the Vec<u8> and hand it to the
+        // participation cache which diffs against its previous state.
+        15 => {
+            let values: Vec<u8> = Decoder::decode(field)?;
+            Ok(crate::utils::participation_cache::hash_participation_incremental(15, &values))
+        }
         // current_epoch_participation: VariableList<u8, ValidatorRegistryLimit>
-        16 => convert_and_hash_list::<u8, u8, C::ValidatorRegistryLimit>(field),
+        16 => {
+            let values: Vec<u8> = Decoder::decode(field)?;
+            Ok(crate::utils::participation_cache::hash_participation_incremental(16, &values))
+        }
         // justification_bits: BitVector
         17 => convert_and_hash_bitvector::<C::JustificationBitsLength>(field),
         // Checkpoints

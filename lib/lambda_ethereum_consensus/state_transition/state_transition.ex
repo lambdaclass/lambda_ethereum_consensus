@@ -69,6 +69,25 @@ defmodule LambdaEthereumConsensus.StateTransition do
         cached_field_hashes =
           cacheable_field_hashes(timings, block_info.signed_block.message, prev_field_hashes)
 
+        # Try incremental hashing for large Aja.Vector fields: collect changed indices
+        # from the block, apply them to the cached tree, and put hashes in cached_field_hashes.
+        # This avoids the expensive Aja.Vector.to_list + NIF decode for 2.2M entries.
+        cached_field_hashes =
+          maybe_incremental_balance_hash(
+            cached_field_hashes,
+            timings,
+            block_info.signed_block.message,
+            st
+          )
+
+        cached_field_hashes =
+          maybe_incremental_participation_hash(
+            cached_field_hashes,
+            timings,
+            block_info.signed_block.message,
+            st
+          )
+
         {merkle_result, timings} =
           timed(:merkleization, timings, fn ->
             StateInfo.from_beacon_state(st,
@@ -139,6 +158,149 @@ defmodule LambdaEthereumConsensus.StateTransition do
       body.deposits != [] or
       body.execution_requests.withdrawals != [] or
       body.execution_requests.consolidations != []
+  end
+
+  # Try to compute the balance field hash incrementally by passing only changed
+  # balance indices to the Rust NIF, avoiding the expensive Aja.Vector.to_list
+  # + NIF decode for 2.2M balances. Falls back gracefully on cache miss.
+  defp maybe_incremental_balance_hash(cached_field_hashes, timings, block, state) do
+    epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
+
+    if epoch_processed? or cached_field_hashes == %{} do
+      cached_field_hashes
+    else
+      case collect_changed_balance_indices(block, state) do
+        {:ok, indices} ->
+          updates =
+            indices
+            |> Enum.uniq()
+            |> Enum.map(fn idx -> {idx, Aja.Vector.at!(state.balances, idx)} end)
+
+          case Ssz.update_balance_cache(updates, Aja.Vector.size(state.balances)) do
+            {:ok, hash} -> Map.put(cached_field_hashes, 12, hash)
+            {:error, :cache_miss} -> cached_field_hashes
+          end
+
+        :skip ->
+          cached_field_hashes
+      end
+    end
+  end
+
+  # Collect all validator indices whose balances changed during block processing.
+  # Sources: sync committee (512), withdrawals (<=16), proposer rewards, slashings.
+  defp collect_changed_balance_indices(block, state) do
+    # If slashings occurred, the slashed validator's balance changes AND the
+    # whistleblower/proposer reward is spread — hard to track precisely. Skip.
+    if block.body.proposer_slashings != [] or block.body.attester_slashings != [] do
+      :skip
+    else
+      epoch = Accessors.get_current_epoch(state)
+
+      # Sync committee indices: look up from ETS cache (populated by process_sync_aggregate)
+      sync_indices =
+        case Accessors.get_block_root_at_slot(
+               state,
+               max(Misc.compute_start_slot_at_epoch(epoch), 1) - 1
+             ) do
+          {:ok, root} ->
+            case :ets.lookup(:sync_committee_indices, {epoch, root}) do
+              [{{^epoch, ^root}, indices}] -> indices
+              [] -> :miss
+            end
+
+          _ ->
+            :miss
+        end
+
+      case sync_indices do
+        :miss ->
+          :skip
+
+        indices when is_list(indices) ->
+          # Withdrawal validator indices
+          withdrawal_indices =
+            Enum.map(block.body.execution_payload.withdrawals, & &1.validator_index)
+
+          # Proposer gets rewards from sync aggregate + attestations
+          {:ok, Enum.concat([indices, withdrawal_indices, [block.proposer_index]])}
+      end
+    end
+  end
+
+  # Try to compute the participation field hashes incrementally (fields 15, 16).
+  # Collects attesting validator indices from the block's attestations, reads
+  # their new participation values, and passes to the NIF for incremental update.
+  defp maybe_incremental_participation_hash(cached_field_hashes, timings, block, state) do
+    epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
+
+    if epoch_processed? or cached_field_hashes == %{} do
+      cached_field_hashes
+    else
+      epoch = Accessors.get_current_epoch(state)
+
+      # Collect attesting validator indices, split by target epoch
+      {prev_indices, curr_indices} =
+        collect_attesting_indices(block.body.attestations, state, epoch)
+
+      cached_field_hashes =
+        try_incremental_participation(
+          cached_field_hashes,
+          15,
+          prev_indices,
+          state.previous_epoch_participation
+        )
+
+      try_incremental_participation(
+        cached_field_hashes,
+        16,
+        curr_indices,
+        state.current_epoch_participation
+      )
+    end
+  end
+
+  defp try_incremental_participation(cached_field_hashes, field_num, indices, participation) do
+    if indices == [] do
+      # No changes to this participation field — but the NIF still has a stale cache.
+      # We need to tell the NIF there are no changes so it returns the same hash.
+      # Pass empty updates to get the current hash from the cache.
+      case Ssz.update_participation_cache(field_num, [], Aja.Vector.size(participation)) do
+        {:ok, hash} -> Map.put(cached_field_hashes, field_num, hash)
+        {:error, :cache_miss} -> cached_field_hashes
+      end
+    else
+      updates =
+        indices
+        |> Enum.uniq()
+        |> Enum.map(fn idx -> {idx, Aja.Vector.at!(participation, idx)} end)
+
+      case Ssz.update_participation_cache(field_num, updates, Aja.Vector.size(participation)) do
+        {:ok, hash} -> Map.put(cached_field_hashes, field_num, hash)
+        {:error, :cache_miss} -> cached_field_hashes
+      end
+    end
+  end
+
+  # Collect attesting validator indices from block attestations, split by target epoch.
+  # Returns {previous_epoch_indices, current_epoch_indices}.
+  # Uses cached beacon committees from ETS for efficient lookup.
+  defp collect_attesting_indices(attestations, state, current_epoch) do
+    Enum.reduce(attestations, {[], []}, fn att, {prev_acc, curr_acc} ->
+      is_current = att.data.target.epoch == current_epoch
+
+      case Accessors.get_attesting_indices(state, att) do
+        {:ok, indices} ->
+          idx_list = MapSet.to_list(indices)
+
+          if is_current,
+            do: {prev_acc, idx_list ++ curr_acc},
+            else: {idx_list ++ prev_acc, curr_acc}
+
+        _ ->
+          {prev_acc, curr_acc}
+      end
+    end)
   end
 
   @spec transition(BeaconState.t(), SignedBeaconBlock.t()) ::

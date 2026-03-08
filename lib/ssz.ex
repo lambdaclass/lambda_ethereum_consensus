@@ -190,6 +190,35 @@ defmodule Ssz do
       ),
       do: error()
 
+  @doc """
+  Apply targeted balance updates to the cached incremental balance merkle tree.
+  Returns `{:ok, hash}` or `{:error, :cache_miss}`.
+  `updates` is a list of `{index, new_value}` tuples.
+  """
+  @spec update_balance_cache(list({non_neg_integer(), non_neg_integer()}), non_neg_integer()) ::
+          {:ok, binary()} | {:error, :cache_miss}
+  def update_balance_cache(updates, balance_count),
+    do: update_balance_cache_rs(updates, balance_count)
+
+  def update_balance_cache_rs(_updates, _balance_count), do: error()
+
+  @doc """
+  Apply targeted participation updates to the cached incremental participation merkle tree.
+  Returns `{:ok, hash}` or `{:error, :cache_miss}`.
+  `field_num` is 15 (previous_epoch_participation) or 16 (current_epoch_participation).
+  `updates` is a list of `{index, new_value}` tuples.
+  """
+  @spec update_participation_cache(
+          15 | 16,
+          list({non_neg_integer(), non_neg_integer()}),
+          non_neg_integer()
+        ) ::
+          {:ok, binary()} | {:error, :cache_miss}
+  def update_participation_cache(field_num, updates, value_count),
+    do: update_participation_cache_rs(field_num, updates, value_count)
+
+  def update_participation_cache_rs(_field_num, _updates, _value_count), do: error()
+
   ##### Utils
   defp error(), do: :erlang.nif_error(:nif_not_loaded)
 
@@ -203,10 +232,6 @@ defmodule Ssz do
       |> Enum.map(fn {k, v} -> {k, encode(v)} end)
       |> then(&struct!(name, &1))
     end
-  end
-
-  defp encode(list) when is_list(list) do
-    Enum.map(list, &encode/1)
   end
 
   defp encode(list) when is_list(list), do: list |> Enum.map(&encode/1)
