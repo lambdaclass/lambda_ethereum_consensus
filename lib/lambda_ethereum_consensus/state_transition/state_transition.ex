@@ -40,10 +40,20 @@ defmodule LambdaEthereumConsensus.StateTransition do
       }
     }
 
-    verified_transition(state_info.beacon_state, block_info, previous_roots)
+    verified_transition(
+      state_info.beacon_state,
+      block_info,
+      previous_roots,
+      state_info.field_hashes
+    )
   end
 
-  def verified_transition(%BeaconState{} = state, block_info, previous_roots \\ %{}) do
+  def verified_transition(
+        %BeaconState{} = state,
+        block_info,
+        previous_roots \\ %{},
+        prev_field_hashes \\ %{}
+      ) do
     with {:ok, st, timings} <- transition(state, block_info.signed_block, previous_roots) do
       {sig_result, timings} =
         timed(:signature_verify, timings, fn ->
@@ -53,9 +63,17 @@ defmodule LambdaEthereumConsensus.StateTransition do
         end)
 
       with {:ok, st} <- sig_result do
+        # Determine which field hashes can be reused from the previous state.
+        # On epoch boundary blocks, most fields change — don't cache anything.
+        # On non-epoch blocks, cache expensive fields that don't change.
+        cached_field_hashes = cacheable_field_hashes(timings, prev_field_hashes)
+
         {merkle_result, timings} =
           timed(:merkleization, timings, fn ->
-            StateInfo.from_beacon_state(st, block_root: block_info.root)
+            StateInfo.from_beacon_state(st,
+              block_root: block_info.root,
+              cached_field_hashes: cached_field_hashes
+            )
           end)
 
         with {:ok, new_state_info} <- merkle_result do
@@ -66,6 +84,27 @@ defmodule LambdaEthereumConsensus.StateTransition do
           end
         end
       end
+    end
+  end
+
+  # Fields that are safe to cache on non-epoch blocks (they don't change during
+  # slot processing or typical block operations):
+  # 11 = validators, 21 = inactivity_scores, 22 = current_sync_committee,
+  # 23 = next_sync_committee, 7 = historical_roots (frozen)
+  @cacheable_non_epoch_fields [7, 11, 21, 22, 23]
+
+  defp cacheable_field_hashes(_timings, prev_field_hashes)
+       when prev_field_hashes == %{},
+       do: %{}
+
+  defp cacheable_field_hashes(timings, prev_field_hashes) do
+    # If epoch processing happened, don't cache anything (most fields change)
+    epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
+
+    if epoch_processed? do
+      %{}
+    else
+      Map.take(prev_field_hashes, @cacheable_non_epoch_fields)
     end
   end
 

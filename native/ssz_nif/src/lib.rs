@@ -11,6 +11,7 @@ pub(crate) mod utils;
 
 use crate::utils::{helpers::bytes_to_binary, schema_match};
 use rustler::{Atom, Binary, Encoder, Env, NifResult, Term};
+use std::collections::HashMap;
 
 mod atoms {
     use rustler::atoms;
@@ -131,6 +132,51 @@ fn hash_tree_root_vector_rs<'env>(
     Ok((atoms::ok(), bytes_to_binary(env, &serialized?)).encode(env))
 }
 
+/// Parse a map of {u32 => Binary} into a HashMap of {u32 => [u8; 32]}.
+fn decode_cached_hashes(cached_hashes_map: Term) -> NifResult<HashMap<u32, [u8; 32]>> {
+    let cached_raw: HashMap<u32, Binary> = cached_hashes_map.decode()?;
+    let mut cached: HashMap<u32, [u8; 32]> = HashMap::with_capacity(cached_raw.len());
+    for (k, v) in cached_raw {
+        let arr: [u8; 32] = v
+            .as_slice()
+            .try_into()
+            .map_err(|_| rustler::Error::BadArg)?;
+        cached.insert(k, arr);
+    }
+    Ok(cached)
+}
+
+#[rustler::nif(schedule = "DirtyCpu")]
+fn hash_beacon_state_cached_rs<'a>(
+    env: Env<'a>,
+    state: Term<'a>,
+    cached_hashes_map: Term<'a>,
+    config: Atom,
+) -> NifResult<Term<'a>> {
+    let config_str = config.to_term(env).atom_to_string()?;
+    let cached = decode_cached_hashes(cached_hashes_map)?;
+
+    let result = match config_str.as_str() {
+        "mainnet" => crate::utils::cached_hash::hash_beacon_state_cached::<
+            crate::ssz_types::config::Mainnet,
+        >(env, state, &cached)?,
+        "minimal" => crate::utils::cached_hash::hash_beacon_state_cached::<
+            crate::ssz_types::config::Minimal,
+        >(env, state, &cached)?,
+        "gnosis" => crate::utils::cached_hash::hash_beacon_state_cached::<
+            crate::ssz_types::config::Gnosis,
+        >(env, state, &cached)?,
+        _ => return Err(rustler::Error::BadArg),
+    };
+
+    Ok((
+        atoms::ok(),
+        bytes_to_binary(env, &result.root),
+        bytes_to_binary(env, &result.field_hashes),
+    )
+        .encode(env))
+}
+
 rustler::init!(
     "Elixir.Ssz",
     [
@@ -140,5 +186,6 @@ rustler::init!(
         hash_tree_root_rs,
         hash_tree_root_list_rs,
         hash_tree_root_vector_rs,
+        hash_beacon_state_cached_rs,
     ]
 );

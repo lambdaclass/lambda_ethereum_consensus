@@ -105,6 +105,59 @@ defmodule Ssz do
     |> hash_tree_root_vector_rs(max_size, schema)
   end
 
+  @doc """
+  Hash a BeaconState with cached field hashes.
+  `cached_field_hashes` is a map of `%{field_index => 32-byte hash}` for fields
+  whose hash can be reused from a previous computation.
+  Returns `{:ok, root, field_hashes_binary}` where field_hashes_binary contains
+  all individual field hashes (num_fields * 32 bytes) for caching.
+  """
+  @spec hash_beacon_state_cached(struct, map) ::
+          {:ok, Types.root(), binary()} | {:error, String.t()}
+  def hash_beacon_state_cached(%Types.BeaconState{} = state, cached_field_hashes \\ %{}) do
+    state
+    |> encode_beacon_state_selective(cached_field_hashes)
+    |> hash_beacon_state_cached_rs(cached_field_hashes)
+  end
+
+  # Encode BeaconState, but skip expensive conversions for cached fields.
+  # Cached fields get placeholder values since the NIF won't read them.
+  # Field indices: 11=validators, 12=balances, 13=randao_mixes,
+  #                15=prev_participation, 16=curr_participation
+  defp encode_beacon_state_selective(%Types.BeaconState{} = state, cached) do
+    alias LambdaEthereumConsensus.Utils.BitVector
+
+    state =
+      if Map.has_key?(cached, 11),
+        do: state,
+        else: Map.update!(state, :validators, &Aja.Vector.to_list/1)
+
+    state =
+      if Map.has_key?(cached, 12),
+        do: state,
+        else: Map.update!(state, :balances, &Aja.Vector.to_list/1)
+
+    state =
+      if Map.has_key?(cached, 13),
+        do: state,
+        else: Map.update!(state, :randao_mixes, &Aja.Vector.to_list/1)
+
+    state =
+      if Map.has_key?(cached, 15),
+        do: state,
+        else: Map.update!(state, :previous_epoch_participation, &Aja.Vector.to_list/1)
+
+    state =
+      if Map.has_key?(cached, 16),
+        do: state,
+        else: Map.update!(state, :current_epoch_participation, &Aja.Vector.to_list/1)
+
+    # These conversions are always needed (small fields)
+    state
+    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
+    |> Map.update!(:justification_bits, &BitVector.to_bytes/1)
+  end
+
   ##### Rust-side function stubs
   @spec to_ssz_rs(map | list, module, module) :: {:ok, binary} | {:error, String.t()}
   def to_ssz_rs(_term, _schema, _config \\ ChainSpec.get_preset()), do: error()
@@ -127,6 +180,15 @@ defmodule Ssz do
           {:ok, Types.root()} | {:error, String.t()}
   def hash_tree_root_vector_rs(_vector, _max_size, _schema, _config \\ ChainSpec.get_preset()),
     do: error()
+
+  @spec hash_beacon_state_cached_rs(map, map, module) ::
+          {:ok, Types.root()} | {:error, String.t()}
+  def hash_beacon_state_cached_rs(
+        _state,
+        _cached_hashes,
+        _config \\ ChainSpec.get_preset()
+      ),
+      do: error()
 
   ##### Utils
   defp error(), do: :erlang.nif_error(:nif_not_loaded)
