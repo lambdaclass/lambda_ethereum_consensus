@@ -171,19 +171,23 @@ defmodule LambdaEthereumConsensus.StateTransition do
     else
       case collect_changed_balance_indices(block, state) do
         {:ok, indices} ->
-          updates =
-            indices
-            |> Enum.uniq()
-            |> Enum.map(fn idx -> {idx, Aja.Vector.at!(state.balances, idx)} end)
-
-          case Ssz.update_balance_cache(updates, Aja.Vector.size(state.balances)) do
-            {:ok, hash} -> Map.put(cached_field_hashes, 12, hash)
-            {:error, :cache_miss} -> cached_field_hashes
-          end
+          apply_incremental_balance_updates(indices, state, cached_field_hashes)
 
         :skip ->
           cached_field_hashes
       end
+    end
+  end
+
+  defp apply_incremental_balance_updates(indices, state, cached_field_hashes) do
+    updates =
+      indices
+      |> Enum.uniq()
+      |> Enum.map(fn idx -> {idx, Aja.Vector.at!(state.balances, idx)} end)
+
+    case Ssz.update_balance_cache(updates, Aja.Vector.size(state.balances)) do
+      {:ok, hash} -> Map.put(cached_field_hashes, 12, hash)
+      {:error, :cache_miss} -> cached_field_hashes
     end
   end
 
@@ -197,34 +201,29 @@ defmodule LambdaEthereumConsensus.StateTransition do
     else
       epoch = Accessors.get_current_epoch(state)
 
-      # Sync committee indices: look up from ETS cache (populated by process_sync_aggregate)
-      sync_indices =
-        case Accessors.get_block_root_at_slot(
-               state,
-               max(Misc.compute_start_slot_at_epoch(epoch), 1) - 1
-             ) do
-          {:ok, root} ->
-            case :ets.lookup(:sync_committee_indices, {epoch, root}) do
-              [{{^epoch, ^root}, indices}] -> indices
-              [] -> :miss
-            end
-
-          _ ->
-            :miss
-        end
-
-      case sync_indices do
+      case lookup_sync_committee_indices(state, epoch) do
         :miss ->
           :skip
 
         indices when is_list(indices) ->
-          # Withdrawal validator indices
           withdrawal_indices =
             Enum.map(block.body.execution_payload.withdrawals, & &1.validator_index)
 
-          # Proposer gets rewards from sync aggregate + attestations
           {:ok, Enum.concat([indices, withdrawal_indices, [block.proposer_index]])}
       end
+    end
+  end
+
+  defp lookup_sync_committee_indices(state, epoch) do
+    with {:ok, root} <-
+           Accessors.get_block_root_at_slot(
+             state,
+             max(Misc.compute_start_slot_at_epoch(epoch), 1) - 1
+           ),
+         [{{^epoch, ^root}, indices}] <- :ets.lookup(:sync_committee_indices, {epoch, root}) do
+      indices
+    else
+      _ -> :miss
     end
   end
 
@@ -287,20 +286,22 @@ defmodule LambdaEthereumConsensus.StateTransition do
   # Uses cached beacon committees from ETS for efficient lookup.
   defp collect_attesting_indices(attestations, state, current_epoch) do
     Enum.reduce(attestations, {[], []}, fn att, {prev_acc, curr_acc} ->
-      is_current = att.data.target.epoch == current_epoch
-
-      case Accessors.get_attesting_indices(state, att) do
-        {:ok, indices} ->
-          idx_list = MapSet.to_list(indices)
-
-          if is_current,
-            do: {prev_acc, idx_list ++ curr_acc},
-            else: {idx_list ++ prev_acc, curr_acc}
-
-        _ ->
-          {prev_acc, curr_acc}
-      end
+      classify_attestation_indices(att, state, current_epoch, prev_acc, curr_acc)
     end)
+  end
+
+  defp classify_attestation_indices(att, state, current_epoch, prev_acc, curr_acc) do
+    case Accessors.get_attesting_indices(state, att) do
+      {:ok, indices} ->
+        idx_list = MapSet.to_list(indices)
+
+        if att.data.target.epoch == current_epoch,
+          do: {prev_acc, idx_list ++ curr_acc},
+          else: {idx_list ++ prev_acc, curr_acc}
+
+      _ ->
+        {prev_acc, curr_acc}
+    end
   end
 
   @spec transition(BeaconState.t(), SignedBeaconBlock.t()) ::

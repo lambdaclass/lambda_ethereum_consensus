@@ -152,60 +152,62 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
     finalized_epoch = state.finalized_checkpoint.epoch
 
+    ctx =
+      {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
+       min_activation_balance, finalized_epoch}
+
     # Use Aja.Vector.foldl instead of Enum.with_index + Enum.reduce_while
     # to avoid materializing the vector to a list (~24MB allocation)
     try do
       state.validators
       |> Aja.Vector.with_index()
       |> Aja.Vector.foldl(state, fn {validator, idx}, state ->
-        cond do
-          # Inlined eligible_for_activation_queue?
-          validator.activation_eligibility_epoch == far_future_epoch &&
-              validator.effective_balance >= min_activation_balance ->
-            updated_validator = %{
-              validator
-              | activation_eligibility_epoch: current_epoch + 1
-            }
-
-            %{
-              state
-              | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
-            }
-
-          # Inlined active_validator? + ejection check
-          Predicates.active_validator?(validator, current_epoch) &&
-              validator.effective_balance <= ejection_balance ->
-            case Mutators.initiate_validator_exit(state, validator) do
-              {:ok, {state, ejected_validator}} ->
-                %{
-                  state
-                  | validators: Aja.Vector.replace_at!(state.validators, idx, ejected_validator)
-                }
-
-              {:error, msg} ->
-                throw({:error, msg})
-            end
-
-          # Inlined eligible_for_activation?
-          validator.activation_eligibility_epoch <= finalized_epoch &&
-              validator.activation_epoch == far_future_epoch ->
-            updated_validator = %{
-              validator
-              | activation_epoch: activation_exit_epoch
-            }
-
-            %{
-              state
-              | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
-            }
-
-          true ->
-            state
-        end
+        update_registry_for_validator(validator, idx, state, ctx)
       end)
       |> then(&{:ok, &1})
     catch
       {:error, _} = err -> err
+    end
+  end
+
+  defp update_registry_for_validator(
+         validator,
+         idx,
+         state,
+         {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
+          min_activation_balance, finalized_epoch}
+       ) do
+    cond do
+      validator.activation_eligibility_epoch == far_future_epoch &&
+          validator.effective_balance >= min_activation_balance ->
+        updated = %{validator | activation_eligibility_epoch: current_epoch + 1}
+        replace_validator(state, idx, updated)
+
+      Predicates.active_validator?(validator, current_epoch) &&
+          validator.effective_balance <= ejection_balance ->
+        eject_validator(state, idx, validator)
+
+      validator.activation_eligibility_epoch <= finalized_epoch &&
+          validator.activation_epoch == far_future_epoch ->
+        updated = %{validator | activation_epoch: activation_exit_epoch}
+        replace_validator(state, idx, updated)
+
+      true ->
+        state
+    end
+  end
+
+  defp replace_validator(state, idx, updated_validator) do
+    %{state | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)}
+  end
+
+  defp eject_validator(state, idx, validator) do
+    case Mutators.initiate_validator_exit(state, validator) do
+      {:ok, {state, ejected}} ->
+        replace_validator(state, idx, ejected)
+
+      {:error, msg} ->
+        throw({:error, msg})
     end
   end
 
@@ -536,14 +538,14 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     else
       validators
       |> Aja.Vector.with_index()
-      |> Aja.Vector.foldl(%{}, fn {validator, idx}, acc ->
-        if MapSet.member?(deposit_pubkeys, validator.pubkey) do
-          Map.put_new(acc, validator.pubkey, idx)
-        else
-          acc
-        end
-      end)
+      |> Aja.Vector.foldl(%{}, &match_deposit_pubkey(&1, &2, deposit_pubkeys))
     end
+  end
+
+  defp match_deposit_pubkey({validator, idx}, acc, deposit_pubkeys) do
+    if MapSet.member?(deposit_pubkeys, validator.pubkey),
+      do: Map.put_new(acc, validator.pubkey, idx),
+      else: acc
   end
 
   defp handle_pending_deposit(
