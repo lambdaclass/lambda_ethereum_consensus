@@ -219,6 +219,14 @@ defmodule Ssz do
 
   def update_participation_cache_rs(_field_num, _updates, _value_count), do: error()
 
+  @spec compute_shuffled_index_rs(
+          Types.uint64(),
+          Types.uint64(),
+          Types.bytes32(),
+          Types.uint64()
+        ) :: {:ok, Types.uint64()}
+  def compute_shuffled_index_rs(_index, _index_count, _seed, _shuffle_round_count), do: error()
+
   ##### Utils
   defp error(), do: :erlang.nif_error(:nif_not_loaded)
 

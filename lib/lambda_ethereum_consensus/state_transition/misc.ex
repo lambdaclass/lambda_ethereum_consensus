@@ -74,34 +74,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Misc do
   Return the shuffled index corresponding to ``seed`` (and ``index_count``).
   """
   @spec compute_shuffled_index(Types.uint64(), Types.uint64(), Types.bytes32()) ::
-          {:error, String.t()}
+          {:error, String.t()} | {:ok, Types.uint64()}
   def compute_shuffled_index(index, index_count, _seed)
       when index >= index_count or index_count == 0 do
     {:error, "invalid index_count"}
   end
 
-  @spec compute_shuffled_index(Types.uint64(), Types.uint64(), Types.bytes32()) ::
-          {:ok, Types.uint64()}
   def compute_shuffled_index(index, index_count, seed) do
     shuffle_round_count = ChainSpec.get("SHUFFLE_ROUND_COUNT")
-
-    0..(shuffle_round_count - 1)
-    |> Enum.reduce(index, fn round, current_index ->
-      pivot = SszEx.hash(seed <> <<round>>) |> bytes_to_uint64() |> rem(index_count)
-
-      flip = rem(pivot + index_count - current_index, index_count)
-      position = max(current_index, flip)
-
-      position_div_256 = position |> div(256) |> uint_to_bytes(32)
-
-      source = SszEx.hash(seed <> <<round>> <> position_div_256)
-
-      bit_index = rem(position, 256) + 7 - 2 * rem(position, 8)
-      <<_::size(bit_index), bit::1, _::bits>> = source
-
-      if bit == 1, do: flip, else: current_index
-    end)
-    |> then(&{:ok, &1})
+    Ssz.compute_shuffled_index_rs(index, index_count, seed, shuffle_round_count)
   end
 
   @spec increase_inactivity_score(Types.uint64(), integer, MapSet.t(), Types.uint64()) ::

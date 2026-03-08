@@ -227,6 +227,60 @@ fn update_participation_cache_rs<'a>(
     }
 }
 
+/// Compute the shuffled index using the swap-or-not shuffle algorithm.
+/// Equivalent to Ethereum consensus spec `compute_shuffled_index`.
+#[rustler::nif]
+fn compute_shuffled_index_rs(
+    index: u64,
+    index_count: u64,
+    seed: Binary,
+    shuffle_round_count: u64,
+) -> NifResult<(Atom, u64)> {
+    use sha2::{Digest, Sha256};
+
+    if index >= index_count || index_count == 0 {
+        return Err(rustler::Error::BadArg);
+    }
+
+    let seed_bytes = seed.as_slice();
+    if seed_bytes.len() != 32 {
+        return Err(rustler::Error::BadArg);
+    }
+
+    let mut current_index = index;
+
+    for round in 0..shuffle_round_count as u8 {
+        // pivot = hash(seed ++ round)[0..8] mod index_count
+        let mut hasher = Sha256::new();
+        hasher.update(seed_bytes);
+        hasher.update([round]);
+        let pivot_hash = hasher.finalize();
+        let pivot = u64::from_le_bytes(pivot_hash[0..8].try_into().unwrap()) % index_count;
+
+        let flip = (pivot + index_count - current_index) % index_count;
+        let position = std::cmp::max(current_index, flip);
+
+        // source = hash(seed ++ round ++ position_div_256_as_le_u32)
+        let position_div_256 = (position / 256) as u32;
+        let mut hasher = Sha256::new();
+        hasher.update(seed_bytes);
+        hasher.update([round]);
+        hasher.update(position_div_256.to_le_bytes());
+        let source = hasher.finalize();
+
+        // Extract bit at position % 256, using the same bit indexing as the spec
+        let byte_idx = ((position % 256) / 8) as usize;
+        let bit_idx = (position % 8) as usize;
+        let bit = (source[byte_idx] >> bit_idx) & 1;
+
+        if bit == 1 {
+            current_index = flip;
+        }
+    }
+
+    Ok((atoms::ok(), current_index))
+}
+
 rustler::init!(
     "Elixir.Ssz",
     [
@@ -239,5 +293,6 @@ rustler::init!(
         hash_beacon_state_cached_rs,
         update_balance_cache_rs,
         update_participation_cache_rs,
+        compute_shuffled_index_rs,
     ]
 );

@@ -17,3 +17,4 @@ ethereum_hashing = { version = "0.7.0", features = ["zero_hash_cache"] }
 ssz_types = "0.10.1"
 tree_hash = "0.9.1"
 tree_hash_derive = "0.9.1"
+sha2 = "0.10"
