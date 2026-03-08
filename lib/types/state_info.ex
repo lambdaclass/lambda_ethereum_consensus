@@ -14,7 +14,7 @@ defmodule Types.StateInfo do
   @type t :: %__MODULE__{
           beacon_state: Types.BeaconState.t(),
           root: Types.root(),
-          encoded: binary(),
+          encoded: binary() | nil,
           block_root: Types.root(),
           field_hashes: %{non_neg_integer() => binary()}
         }
@@ -23,13 +23,14 @@ defmodule Types.StateInfo do
   def from_beacon_state(%BeaconState{} = state, fields \\ []) do
     cached_field_hashes = Keyword.get(fields, :cached_field_hashes, %{})
 
-    with {:ok, encoded} <- fetch_lazy(fields, :encoded, fn -> Ssz.to_ssz(state) end),
-         {:ok, block_root} <-
+    with {:ok, block_root} <-
            fetch_lazy(fields, :block_root, fn ->
              # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
              Ssz.hash_tree_root(state.latest_block_header)
            end) do
-      {:ok, from_beacon_state(state, encoded, block_root, cached_field_hashes)}
+      # SSZ encoding is deferred — it's only needed for DB persistence,
+      # which happens asynchronously. This saves ~2s per block.
+      {:ok, from_beacon_state(state, nil, block_root, cached_field_hashes)}
     end
   end
 
@@ -58,6 +59,11 @@ defmodule Types.StateInfo do
   end
 
   @spec encode(t()) :: binary()
+  def encode(%__MODULE__{encoded: nil} = state_info) do
+    {:ok, encoded} = Ssz.to_ssz(state_info.beacon_state)
+    {encoded, state_info.root, state_info.block_root} |> :erlang.term_to_binary()
+  end
+
   def encode(%__MODULE__{} = state_info) do
     {state_info.encoded, state_info.root, state_info.block_root} |> :erlang.term_to_binary()
   end
