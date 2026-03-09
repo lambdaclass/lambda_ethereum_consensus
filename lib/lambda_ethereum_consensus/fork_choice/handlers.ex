@@ -15,6 +15,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   alias LambdaEthereumConsensus.StateTransition.Predicates
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Store.StateDb
   alias Types.Attestation
@@ -301,6 +302,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
         # Add new block and state to the store
         new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
+        BlockStates.store_state_info(new_state_info)
 
         Task.Supervisor.start_child(
           StoreStatesSupervisor,
