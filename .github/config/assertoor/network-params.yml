@@ -1,13 +1,13 @@
 participants:
   - el_type: geth
-    el_image: ethereum/client-go:v1.15.6
+    el_image: ethereum/client-go:latest
     cl_type: lighthouse
     cl_image: sigp/lighthouse:v8.1.1
     validator_count: 32
     supernode: true
     count: 2
   - el_type: geth
-    el_image: ethereum/client-go:v1.15.6
+    el_image: ethereum/client-go:latest
     cl_type: lambda
     cl_image: lambda_ethereum_consensus:latest
     use_separate_vc: false
