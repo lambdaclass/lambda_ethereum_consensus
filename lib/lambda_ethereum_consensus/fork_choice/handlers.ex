@@ -185,16 +185,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Update latest messages for attesting indices
       update_latest_messages(new_store, indexed_attestation.attesting_indices, attestation)
     else
+      # Block attestations were already validated during state transition.
+      # Fork choice registration is best-effort: if the target state or block
+      # is unavailable (pruned, not yet cached), skip the attestation rather
+      # than failing the entire block. This matches Lighthouse's approach:
+      # https://github.com/sigp/lighthouse/blob/3deab9b0410233c1d57bddfaa9903cc6fbdaa958/beacon_node/beacon_chain/src/block_verification.rs#L1680-L1682
+      {%Store{} = _store, nil} when is_from_block ->
+        {:ok, store}
+
+      {:unknown_block, _} when is_from_block ->
+        {:ok, store}
+
+      {:error, _} when is_from_block ->
+        {:ok, store}
+
       {%Store{} = _store, nil} ->
         {:error, "Target state not found for the checkpoint while validating attestation"}
 
       {:unknown_block, _} ->
-        # TODO: this is just a patch, we should fetch blocks preemptively
-        if is_from_block do
-          {:ok, store}
-        else
-          {:error, "unknown block"}
-        end
+        {:error, "unknown block"}
 
       v ->
         v
