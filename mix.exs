@@ -32,7 +32,7 @@ defmodule LambdaEthereumConsensus.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps() do
     [
-      {:phoenix, "~> 1.7.7"},
+      {:phoenix, "~> 1.8.5"},
       {:plug_cowboy, "~> 2.5"},
       {:tesla, "~> 1.4"},
       {:exleveldb, "~> 0.14"},
