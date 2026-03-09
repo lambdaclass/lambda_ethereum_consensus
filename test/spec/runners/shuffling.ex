@@ -22,7 +22,7 @@ defmodule ShufflingTestRunner do
 
   defp handle("core", seed, index_count, indices) do
     # Testing permute-index by running it for every index in 0..(index_count - 1) and check against expected mapping[i]
-    for index <- 0..(index_count - 1) do
+    for index <- 0..(index_count - 1)//1 do
       result = Misc.compute_shuffled_index(index, index_count, seed)
 
       if index >= index_count or index_count == 0 do
