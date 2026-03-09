@@ -9,7 +9,12 @@ defmodule LambdaEthereumConsensus.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       dialyzer: dialyzer(),
-      elixirc_paths: compiler_paths(Mix.env())
+      elixirc_paths: compiler_paths(Mix.env()),
+      # Match the generated tests to avoid warnings when running `make spec-test`
+      test_load_filters: [
+        &String.ends_with?(&1, "_test.exs"),
+        &String.starts_with?(&1, "test/generated/")
+      ]
     ]
   end
 
