@@ -343,7 +343,9 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     end
   end
 
-  # NOTE: epoch must be the current or previous one
+  # Single-pass: zip_with produces integers (0 or balance), foldl sums them.
+  # Avoids the tuple creation + filter + reduce pattern (3 passes → 2 passes,
+  # no intermediate filtered vector).
   defp get_total_participating_balance(state, flag_index, epoch) do
     epoch_participation =
       if epoch == Accessors.get_current_epoch(state) do
@@ -354,11 +356,12 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     state.validators
     |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
-      {not v.slashed and Predicates.active_validator?(v, epoch) and
-         Predicates.has_flag(participation, flag_index), v.effective_balance}
+      if not v.slashed and Predicates.active_validator?(v, epoch) and
+           Predicates.has_flag(participation, flag_index),
+         do: v.effective_balance,
+         else: 0
     end)
-    |> Aja.Vector.filter(&elem(&1, 0))
-    |> Aja.Enum.reduce(0, fn {true, balance}, acc -> acc + balance end)
+    |> Aja.Vector.foldl(0, fn balance, acc -> acc + balance end)
   end
 
   defp weigh_justification_and_finalization(
