@@ -169,6 +169,10 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
        min_activation_balance, finalized_epoch}
 
+    ctx =
+      {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
+       min_activation_balance, finalized_epoch}
+
     # Use Aja.Vector.foldl instead of Enum.with_index + Enum.reduce_while
     # to avoid materializing the vector to a list (~24MB allocation)
     try do
@@ -568,14 +572,14 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     else
       validators
       |> Aja.Vector.with_index()
-      |> Aja.Vector.foldl(%{}, fn {validator, idx}, acc ->
-        if MapSet.member?(deposit_pubkeys, validator.pubkey) do
-          Map.put_new(acc, validator.pubkey, idx)
-        else
-          acc
-        end
-      end)
+      |> Aja.Vector.foldl(%{}, &match_deposit_pubkey(&1, &2, deposit_pubkeys))
     end
+  end
+
+  defp match_deposit_pubkey({validator, idx}, acc, deposit_pubkeys) do
+    if MapSet.member?(deposit_pubkeys, validator.pubkey),
+      do: Map.put_new(acc, validator.pubkey, idx),
+      else: acc
   end
 
   defp handle_pending_deposit(
