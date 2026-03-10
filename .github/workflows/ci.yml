@@ -37,7 +37,7 @@ jobs:
         # NOTE: this action comes with caching by default
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.26"
           cache-dependency-path: |
             native/libp2p_port/go.sum
       - name: Cache output artifacts
@@ -293,7 +293,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        fork: ["electra"]
+        fork: ["fulu"]
         config: ["minimal", "general", "mainnet"]
     runs-on: ubuntu-24.04
     steps:

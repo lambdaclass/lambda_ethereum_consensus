@@ -36,8 +36,13 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Behaviour do
               {:ok, {ExecutionPayload.t(), BlobsBundle.t()}} | {:error, any}
   @callback new_payload(ExecutionPayload.t(), [Types.root()], Types.root()) ::
               {:ok, any} | {:error, any}
+  @callback new_payload(
+              ExecutionPayload.t(),
+              [Types.root()],
+              Types.root(),
+              Types.ExecutionRequests.t()
+            ) :: {:ok, any} | {:error, any}
   @callback forkchoice_updated(forkchoice_state_v1(), payload_attributes_v3() | nil) ::
               {:ok, forkchoice_updated_v3_result()} | {:error, any}
   @callback get_block_header(nil | Types.uint64() | Types.root()) :: {:ok, any} | {:error, any}
-  @callback get_deposit_logs(Range.t()) :: {:ok, list(any)} | {:error, any}
 end

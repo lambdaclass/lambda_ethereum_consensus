@@ -1,0 +1,15 @@
+# Gnosis preset - Fulu (PeerDAS / EIP-7594)
+# https://github.com/gnosischain/specs
+
+# Misc
+# ---------------------------------------------------------------
+# `uint64(64)`
+FIELD_ELEMENTS_PER_CELL: 64
+# `uint64(2 * FIELD_ELEMENTS_PER_BLOB)` (= 8192)
+FIELD_ELEMENTS_PER_EXT_BLOB: 8192
+# `uint64(128)`
+CELLS_PER_EXT_BLOB: 128
+# `uint64(128)`
+NUMBER_OF_COLUMNS: 128
+# floorlog2(get_generalized_index(BeaconBlockBody, 'blob_kzg_commitments')) in SignedBeaconBlock = 4
+KZG_COMMITMENTS_INCLUSION_PROOF_DEPTH: 4

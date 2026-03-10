@@ -12,19 +12,25 @@ defmodule LambdaEthereumConsensus.Store.Db do
     GenServer.start_link(__MODULE__, opts, name: @registered_name)
   end
 
+  # NOTE: We call :eleveldb directly instead of through Exleveldb because
+  # Exleveldb has broken typespecs (e.g. `@type db_key :: Atom | Bitstring`
+  # uses module names instead of types, and the @spec for put/3 maps
+  # write_options to the val parameter). This causes ~50 cascading dialyzer
+  # no_return warnings across the codebase.
+
   @spec put(binary, binary) :: :ok
   def put(key, value) do
-    Exleveldb.put(ref(), key, value)
+    :eleveldb.put(ref(), key, value, [])
   end
 
   @spec delete(binary) :: :ok
   def delete(key) do
-    Exleveldb.delete(ref(), key)
+    :eleveldb.delete(ref(), key, [])
   end
 
   @spec get(binary) :: {:ok, binary} | :not_found
   def get(key) do
-    Exleveldb.get(ref(), key)
+    :eleveldb.get(ref(), key, [])
   end
 
   @spec size() :: non_neg_integer()

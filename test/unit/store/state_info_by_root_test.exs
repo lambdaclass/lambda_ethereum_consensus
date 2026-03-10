@@ -1,7 +1,6 @@
 defmodule Unit.Store.StateInfoByRoot do
   alias Fixtures.Random
   alias LambdaEthereumConsensus.Store.StateDb.StateInfoByRoot
-  alias Types.BeaconState
   alias Types.StateInfo
 
   use ExUnit.Case
@@ -18,12 +17,7 @@ defmodule Unit.Store.StateInfoByRoot do
   end
 
   defp get_state_info() do
-    {:ok, encoded} =
-      File.read!("test/fixtures/validator/proposer/beacon_state.ssz_snappy")
-      |> :snappyer.decompress()
-
-    {:ok, decoded} = SszEx.decode(encoded, BeaconState)
-    {:ok, state_info} = StateInfo.from_beacon_state(decoded)
+    {:ok, state_info} = Fixtures.Block.beacon_state() |> StateInfo.from_beacon_state()
     state_info
   end
 

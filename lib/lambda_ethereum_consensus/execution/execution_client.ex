@@ -5,7 +5,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   alias LambdaEthereumConsensus.Execution.EngineApi
   alias LambdaEthereumConsensus.Execution.RPC
   alias Types.BlobsBundle
-  alias Types.DepositData
   alias Types.ExecutionPayload
   alias Types.NewPayloadRequest
   alias Types.Withdrawal
@@ -35,9 +34,31 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   def notify_new_payload(%NewPayloadRequest{
         execution_payload: execution_payload,
         versioned_hashes: versioned_hashes,
-        parent_beacon_block_root: parent_beacon_block_root
+        parent_beacon_block_root: parent_beacon_block_root,
+        execution_requests: nil
       }) do
     case EngineApi.new_payload(execution_payload, versioned_hashes, parent_beacon_block_root) do
+      {:ok, %{"status" => status}} ->
+        {:ok, parse_status(status)}
+
+      {:error, reason} ->
+        Logger.warning("Error when calling notify new payload: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  def notify_new_payload(%NewPayloadRequest{
+        execution_payload: execution_payload,
+        versioned_hashes: versioned_hashes,
+        parent_beacon_block_root: parent_beacon_block_root,
+        execution_requests: execution_requests
+      }) do
+    case EngineApi.new_payload(
+           execution_payload,
+           versioned_hashes,
+           parent_beacon_block_root,
+           execution_requests
+         ) do
       {:ok, %{"status" => status}} ->
         {:ok, parse_status(status)}
 
@@ -126,19 +147,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
     end
   end
 
-  @type deposit_log :: %{
-          data: DepositData.t(),
-          block_number: Types.uint64(),
-          index: Types.uint64()
-        }
-
-  @spec get_deposit_logs(Range.t()) :: {:ok, [deposit_log()]} | {:error, any}
-  def get_deposit_logs(block_range) do
-    with {:ok, raw_logs} <- EngineApi.get_deposit_logs(block_range) do
-      parse_raw_logs(raw_logs)
-    end
-  end
-
   defp parse_block_metadata(nil), do: {:ok, nil}
 
   defp parse_block_metadata(%{
@@ -160,36 +168,6 @@ defmodule LambdaEthereumConsensus.Execution.ExecutionClient do
   end
 
   defp parse_block_metadata(_), do: {:error, "invalid block format"}
-
-  defp parse_raw_logs(raw_logs) do
-    {:ok, Enum.map(raw_logs, &parse_raw_log/1)}
-  end
-
-  @min_hex_data_byte_size 1104
-
-  defp parse_raw_log(%{"data" => "0x" <> hex_data, "blockNumber" => "0x" <> hex_block_number})
-       when byte_size(hex_data) >= @min_hex_data_byte_size do
-    # TODO: we might want to move this parsing behind the EngineApi module (and maybe rename it).
-    data = Base.decode16!(hex_data, case: :mixed)
-
-    # These magic numbers correspond to the start and length of each field in the deposit log data.
-    pubkey = binary_part(data, 192, 48)
-    withdrawal_credentials = binary_part(data, 288, 32)
-    {:ok, amount} = binary_part(data, 352, 8) |> SszEx.decode(TypeAliases.uint64())
-    signature = binary_part(data, 416, 96)
-    {:ok, index} = binary_part(data, 544, 8) |> SszEx.decode(TypeAliases.uint64())
-
-    block_number = String.to_integer(hex_block_number, 16)
-
-    deposit_data = %DepositData{
-      pubkey: pubkey,
-      withdrawal_credentials: withdrawal_credentials,
-      amount: amount,
-      signature: signature
-    }
-
-    %{data: deposit_data, block_number: block_number, index: index}
-  end
 
   defp parse_raw_payload(raw_payload) do
     %{

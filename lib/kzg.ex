@@ -51,6 +51,34 @@ defmodule Kzg do
     :erlang.nif_error(:nif_not_loaded)
   end
 
+  # ──────────────────────────────────────────────────────────────────
+  # Fulu / PeerDAS NIFs (EIP-7594)
+  # ──────────────────────────────────────────────────────────────────
+
+  @spec compute_cells_and_kzg_proofs(Types.blob()) ::
+          {:ok, {list(Types.cell()), list(proof())}} | {:error, binary()}
+  def compute_cells_and_kzg_proofs(_blob) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  @spec verify_cell_kzg_proof_batch(
+          list(commitment()),
+          list(Types.cell_index()),
+          list(Types.cell()),
+          list(proof())
+        ) :: {:ok, boolean()} | {:error, binary()}
+  def verify_cell_kzg_proof_batch(_commitments, _cell_indices, _cells, _proofs) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
+  @spec recover_cells_and_kzg_proofs(
+          list(Types.cell_index()),
+          list(Types.cell())
+        ) :: {:ok, {list(Types.cell()), list(proof())}} | {:error, binary()}
+  def recover_cells_and_kzg_proofs(_cell_indices, _cells) do
+    :erlang.nif_error(:nif_not_loaded)
+  end
+
   ################
   ### Wrappers ###
   ################
@@ -62,6 +90,23 @@ defmodule Kzg do
         ) :: boolean()
   def blob_kzg_proof_batch_valid?(blobs, kzg_commitments, kzg_proofs) do
     case verify_blob_kzg_proof_batch(blobs, kzg_commitments, kzg_proofs) do
+      {:ok, result} -> result
+      {:error, _} -> false
+    end
+  end
+
+  @doc """
+  Returns true if all cell KZG proofs in the batch are valid.
+  Used by `is_data_available` in the Fulu fork choice handler.
+  """
+  @spec cell_kzg_proof_batch_valid?(
+          list(commitment()),
+          list(Types.cell_index()),
+          list(Types.cell()),
+          list(proof())
+        ) :: boolean()
+  def cell_kzg_proof_batch_valid?(commitments, cell_indices, cells, proofs) do
+    case verify_cell_kzg_proof_batch(commitments, cell_indices, cells, proofs) do
       {:ok, result} -> result
       {:error, _} -> false
     end

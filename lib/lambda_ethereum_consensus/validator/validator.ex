@@ -382,9 +382,14 @@ defmodule LambdaEthereumConsensus.Validator do
       )
 
     case build_result do
-      {:ok, {signed_block, blob_sidecars}} ->
+      {:ok, {signed_block, sidecars}} ->
         publish_block(validator_index, signed_block)
-        Enum.each(blob_sidecars, &publish_sidecar(validator_index, &1))
+
+        if HardForkAliasInjection.fulu?() do
+          Enum.each(sidecars, &publish_data_column_sidecar(validator_index, &1))
+        else
+          Enum.each(sidecars, &publish_sidecar(validator_index, &1))
+        end
 
       {:error, reason} ->
         log_error(validator_index, "build block", reason, slot: proposed_slot)
@@ -436,6 +441,33 @@ defmodule LambdaEthereumConsensus.Validator do
 
   defp compute_subnet_for_blob_sidecar(blob_index) do
     rem(blob_index, ChainSpec.get("BLOB_SIDECAR_SUBNET_COUNT"))
+  end
+
+  # Fulu: publish a DataColumnSidecar to the correct gossip subnet.
+  # subnet_id = floor(column_index * DATA_COLUMN_SIDECAR_SUBNET_COUNT / NUMBER_OF_COLUMNS)
+  defp publish_data_column_sidecar(
+         validator_index,
+         %Types.DataColumnSidecar{index: column_index} = sidecar
+       ) do
+    {:ok, ssz_encoded} = Ssz.to_ssz(sidecar)
+    {:ok, encoded_msg} = :snappyer.compress(ssz_encoded)
+    fork_context = ForkChoice.get_fork_digest() |> Base.encode16(case: :lower)
+
+    subnet_id =
+      div(
+        column_index * ChainSpec.get("DATA_COLUMN_SIDECAR_SUBNET_COUNT"),
+        ChainSpec.get("NUMBER_OF_COLUMNS")
+      )
+
+    log_debug(validator_index, "publishing data column sidecar", column_index: column_index)
+
+    Libp2pPort.publish(
+      "/eth2/#{fork_context}/data_column_sidecar_#{subnet_id}/ssz_snappy",
+      encoded_msg
+    )
+    |> log_debug_result(validator_index, "published data column sidecar",
+      column_index: column_index
+    )
   end
 
   ################################

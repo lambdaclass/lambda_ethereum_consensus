@@ -82,7 +82,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     end
   end
 
-  defp add_slashing(state, validator, slashed_index) do
+  defp add_slashing(%BeaconState{} = state, validator, slashed_index) do
     epoch = Accessors.get_current_epoch(state)
     epochs_per_slashings_vector = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
 
@@ -97,7 +97,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         v
       )
 
-    %Validator{
+    %{
       validator
       | slashed: true,
         withdrawable_epoch:
@@ -105,7 +105,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
           |> max(epoch + epochs_per_slashings_vector)
     }
     |> then(
-      &%BeaconState{
+      &%{
         state
         | validators: Aja.Vector.replace_at!(state.validators, slashed_index, &1),
           slashings: new_slashings
@@ -152,7 +152,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
       }
 
       {:ok,
-       %BeaconState{
+       %{
          updated_state
          | pending_deposits: updated_state.pending_deposits ++ [deposit]
        }}
@@ -212,7 +212,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         {earliest_exit_epoch, exit_balance_to_consume}
       end
 
-    %BeaconState{
+    %{
       state
       | exit_balance_to_consume: exit_balance_to_consume - exit_balance,
         earliest_exit_epoch: earliest_exit_epoch
@@ -249,7 +249,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         {earliest_consolidation_epoch, consolidation_balance_to_consume}
       end
 
-    %BeaconState{
+    %{
       state
       | consolidation_balance_to_consume:
           consolidation_balance_to_consume - consolidation_balance,
@@ -266,12 +266,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
     withdrawal_credentials =
       Constants.compounding_withdrawal_prefix() <> rest
 
-    updated_validator = %Validator{
+    updated_validator = %{
       validator
       | withdrawal_credentials: withdrawal_credentials
     }
 
-    state = %BeaconState{
+    state = %{
       state
       | validators: Aja.Vector.replace_at(state.validators, index, updated_validator)
     }
@@ -300,7 +300,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Mutators do
         slot: Constants.genesis_slot()
       }
 
-      %BeaconState{
+      %{
         state
         | balances: updated_balances,
           pending_deposits: state.pending_deposits ++ [pending_deposit]

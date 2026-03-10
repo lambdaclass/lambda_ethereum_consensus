@@ -68,6 +68,14 @@ defmodule SyncTestRunner.EngineApiMock do
   end
 
   def new_payload(payload, _versioned_hashes, _parent_beacon_block_root) do
+    do_new_payload(payload)
+  end
+
+  def new_payload(payload, _versioned_hashes, _parent_beacon_block_root, _execution_requests) do
+    do_new_payload(payload)
+  end
+
+  defp do_new_payload(payload) do
     Agent.get(__MODULE__, fn state ->
       payload_status = Map.get(state.new_payload, payload.block_hash)
 
@@ -94,5 +102,4 @@ defmodule SyncTestRunner.EngineApiMock do
   def get_payload(_payload_id), do: raise("Not implemented")
   def exchange_capabilities(), do: raise("Not implemented")
   def get_block_header(_block_id), do: raise("Not implemented")
-  def get_deposit_logs(_range), do: raise("Not implemented")
 end

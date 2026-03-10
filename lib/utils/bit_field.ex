@@ -20,7 +20,7 @@ defmodule LambdaEthereumConsensus.Utils.BitField do
   Equivalent to all(bit_field[first..last]) in the specs.
   """
   @spec all?(t, Range.t()) :: boolean
-  def all?(bit_field, first..last) do
+  def all?(bit_field, first..last//_) do
     skip = bit_size(bit_field) - last
     range_size = last - first
     target = 2 ** range_size - 1

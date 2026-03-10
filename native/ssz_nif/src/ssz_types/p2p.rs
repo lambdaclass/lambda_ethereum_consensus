@@ -24,6 +24,7 @@ pub(crate) struct Metadata<C: Config> {
     pub(crate) seq_number: u64,
     pub(crate) attnets: BitVector<C::AttestationSubnetCount>,
     pub(crate) syncnets: BitVector<C::SyncCommitteeSubnetCount>,
+    pub(crate) custody_group_count: u64,
 }
 
 #[derive(Encode, Decode, TreeHash)]
@@ -41,4 +42,28 @@ pub(crate) struct BlobSidecar<C: Config> {
 pub(crate) struct BlobIdentifier {
     pub(crate) block_root: Root,
     pub(crate) index: BlobIndex,
+}
+
+// Fulu / PeerDAS (EIP-7594)
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct DataColumnSidecar<C: Config> {
+    pub(crate) index: ColumnIndex,
+    pub(crate) column: VariableList<Cell<C>, C::MaxBlobCommitmentsPerBlock>,
+    pub(crate) kzg_commitments: VariableList<KZGCommitment, C::MaxBlobCommitmentsPerBlock>,
+    pub(crate) kzg_proofs: VariableList<KZGProof, C::MaxBlobCommitmentsPerBlock>,
+    pub(crate) signed_block_header: SignedBeaconBlockHeader,
+    pub(crate) kzg_commitments_inclusion_proof:
+        FixedVector<Bytes32, C::KzgCommitmentsInclusionProofDepth>,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct DataColumnIdentifier {
+    pub(crate) block_root: Root,
+    pub(crate) index: ColumnIndex,
+}
+
+#[derive(Encode, Decode, TreeHash)]
+pub(crate) struct DataColumnsByRootIdentifier<C: Config> {
+    pub(crate) block_root: Root,
+    pub(crate) columns: VariableList<ColumnIndex, C::NumberOfColumns>,
 }

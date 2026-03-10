@@ -57,11 +57,20 @@ pub(crate) trait Config {
     type MaxAttestationsElectra: Unsigned;
     type MaxValidatorsPerSlot: Unsigned;
 
+    // Fulu / PeerDAS (EIP-7594) added fields
+    type FieldElementsPerCell: Unsigned; // 64 for all presets
+    type KzgCommitmentsInclusionProofDepth: Unsigned; // 4 for all presets
+    type NumberOfColumns: Unsigned; // 128 for all presets
+
+    // Fulu / EIP-7917 (proposer lookahead)
+    type ProposerLookaheadLength: Unsigned; // 2 * SLOTS_PER_EPOCH
+
     // Derived constants. Ideally, this would be trait defaults.
     type SyncSubcommitteeSize: Unsigned; // SYNC_COMMITTEE_SIZE / SYNC_COMMITTEE_SUBNET_COUNT
     type MaxPendingAttestations: Unsigned; // MAX_ATTESTATIONS * SLOTS_PER_EPOCH
     type SlotsPerEth1VotingPeriod: Unsigned; // EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH
     type BytesPerBlob: Unsigned; // FIELD_ELEMENTS_PER_BLOB * BYTES_PER_FIELD_ELEMENT
+    type BytesPerCell: Unsigned; // FIELD_ELEMENTS_PER_CELL * BYTES_PER_FIELD_ELEMENT
 }
 
 pub(crate) struct Mainnet;
@@ -111,13 +120,20 @@ impl Config for Mainnet {
     type MaxAttestationsElectra = U8;
     type MaxValidatorsPerSlot = U131072; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
 
+    // Fulu / PeerDAS
+    type FieldElementsPerCell = U64;
+    type KzgCommitmentsInclusionProofDepth = U4;
+    type NumberOfColumns = U128;
+
     // Derived constants. Ideally, this would be trait defaults.
+    type ProposerLookaheadLength = typenum::Prod<typenum::U2, Self::SlotsPerEpoch>; // 2 * 32 = 64
     type SyncSubcommitteeSize =
         typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 512 committee size / 4 sync committee subnet count
     type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 32 slots per epoch
     type SlotsPerEth1VotingPeriod =
         typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 64 epochs * 32 slots per epoch
     type BytesPerBlob = typenum::Prod<Self::FieldElementsPerBlob, Self::BytesPerFieldElement>;
+    type BytesPerCell = typenum::Prod<Self::FieldElementsPerCell, Self::BytesPerFieldElement>; // 64 * 32 = 2048
 }
 
 pub(crate) struct Minimal;
@@ -131,23 +147,25 @@ impl Config for Minimal {
     type SyncCommitteeSize = U32;
     type MaxWithdrawalsPerPayload = U4;
     type FieldElementsPerBlob = U4096;
-    type MaxBlobCommitmentsPerBlock = U32;
-    type KzgCommitmentInclusionProofDepth = U10;
+    type MaxBlobCommitmentsPerBlock = U4096;
+    type KzgCommitmentInclusionProofDepth = U17;
     type MaxCommitteesPerSlot = U4;
     // Electra added fields
-    type MaxDepositRequestsPerPayload = U4;
-    type MaxWithdrawalRequestsPerPayload = U2;
+    type MaxDepositRequestsPerPayload = U8192;
+    type MaxWithdrawalRequestsPerPayload = U16;
     type PendingPartialWithdrawalsLimit = U64;
     type PendingConsolidationsLimit = U64;
     type MaxValidatorsPerSlot = U8192; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 4, this as the rest is fixed and we need to be really carefull about any change
 
     // Derived constants. Ideally, this would be trait defaults.
+    type ProposerLookaheadLength = typenum::Prod<typenum::U2, Self::SlotsPerEpoch>; // 2 * 8 = 16
     type SyncSubcommitteeSize =
         typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 32 committee size / 4 sync committee subnet count
     type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 8 slots per epoch
     type SlotsPerEth1VotingPeriod =
         typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 4 epochs * 8 slots per epoch
     type BytesPerBlob = typenum::Prod<Self::FieldElementsPerBlob, Self::BytesPerFieldElement>;
+    type BytesPerCell = typenum::Prod<Self::FieldElementsPerCell, Self::BytesPerFieldElement>; // 64 * 32 = 2048
 
     inherit_from!(Mainnet {
         JustificationBitsLength,
@@ -175,7 +193,10 @@ impl Config for Minimal {
         MaxConsolidationRequestsPerPayload,
         PendingDepositsLimit,
         MaxAttesterSlashingsElectra,
-        MaxAttestationsElectra
+        MaxAttestationsElectra,
+        FieldElementsPerCell,
+        KzgCommitmentsInclusionProofDepth,
+        NumberOfColumns
     });
 }
 
@@ -226,11 +247,18 @@ impl Config for Gnosis {
     type MaxAttestationsElectra = U8;
     type MaxValidatorsPerSlot = U131072; // MaxValidatorsPerCommittee * MaxCommitteesPerSlot - 2048 * 64, this as the rest is fixed and we need to be really carefull about any change
 
+    // Fulu / PeerDAS
+    type FieldElementsPerCell = U64;
+    type KzgCommitmentsInclusionProofDepth = U4;
+    type NumberOfColumns = U128;
+
     // Derived constants. Ideally, this would be trait defaults.
+    type ProposerLookaheadLength = typenum::Prod<typenum::U2, Self::SlotsPerEpoch>; // 2 * 16 = 32
     type SyncSubcommitteeSize =
         typenum::Quot<Self::SyncCommitteeSize, Self::SyncCommitteeSubnetCount>; // 512 committee size / 4 sync committee subnet count
     type MaxPendingAttestations = typenum::Prod<Self::MaxAttestations, Self::SlotsPerEpoch>; // 128 max attestations * 32 slots per epoch
     type SlotsPerEth1VotingPeriod =
         typenum::Prod<Self::EpochsPerEth1VotingPeriod, Self::SlotsPerEpoch>; // 64 epochs * 32 slots per epoch
     type BytesPerBlob = typenum::Prod<Self::FieldElementsPerBlob, Self::BytesPerFieldElement>;
+    type BytesPerCell = typenum::Prod<Self::FieldElementsPerCell, Self::BytesPerFieldElement>; // 64 * 32 = 2048
 }

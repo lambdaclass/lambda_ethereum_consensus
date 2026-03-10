@@ -88,7 +88,7 @@ defmodule LambdaEthereumConsensus.Utils.BitVector do
   Equivalent to all(bit_vector[first..last]) in the specs.
   """
   @spec all?(t, Range.t()) :: boolean
-  def all?(bit_vector, first..last), do: BitField.all?(bit_vector, first..last)
+  def all?(bit_vector, first..last//_), do: BitField.all?(bit_vector, first..last)
 
   @doc """
   Sets a bit (turns it to 1).

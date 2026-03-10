@@ -52,6 +52,7 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   def get_block_info!(block_root) do
     case LRUCache.get(@table, block_root, &fetch_block_info/1) do
       nil -> raise "Block not found: 0x#{Base.encode16(block_root, case: :lower)}"
+      block_info -> block_info
     end
   end
 

@@ -30,13 +30,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Simple.Tree do
   @spec add_block(t(), Node.id(), Node.id()) :: {:ok, t()} | {:error, :not_found}
   def add_block(%__MODULE__{} = tree, block_root, parent_root)
       when is_binary(block_root) and is_binary(parent_root) do
-    node = %Node{
-      parent_id: parent_root,
-      children_ids: []
-    }
+    # Skip if the block is already in the tree to avoid overwriting its children_ids.
+    # This is important during rebuild_tree where transitioned blocks are re-added.
+    if Map.has_key?(tree.nodes, block_root) do
+      {:ok, tree}
+    else
+      node = %Node{
+        parent_id: parent_root,
+        children_ids: []
+      }
 
-    with {:ok, new_nodes} <- add_node_to_tree(tree.nodes, block_root, node) do
-      {:ok, %{tree | nodes: new_nodes}}
+      with {:ok, new_nodes} <- add_node_to_tree(tree.nodes, block_root, node) do
+        {:ok, %{tree | nodes: new_nodes}}
+      end
     end
   end
 

@@ -8,6 +8,7 @@ import (
 	"libp2p_port/internal/proto_helpers"
 	"libp2p_port/internal/reqresp"
 	"libp2p_port/internal/utils"
+	"log"
 	"net"
 	"time"
 
@@ -71,20 +72,34 @@ func NewDiscoverer(p *port.Port, listener *reqresp.Listener, config *proto_helpe
 
 func lookForPeers(iter enode.Iterator, listener *reqresp.Listener, forkUpdates chan [4]byte) {
 	currentForkDigest := <-forkUpdates
+	log.Printf("[discovery] starting peer discovery loop (fork_digest=%x)", currentForkDigest)
+	var total, accepted int
+	rejectionCounts := make(map[string]int)
 	for iter.Next() {
 		node := iter.Node()
 		time.Sleep(1 * time.Millisecond)
 		updateForkDigest(currentForkDigest[:], forkUpdates)
 
-		if !filterPeer(node, currentForkDigest[:], listener) {
+		total++
+		ok, reason := filterPeer(node, currentForkDigest[:], listener)
+		if !ok {
+			rejectionCounts[reason]++
+			if total%100 == 0 {
+				log.Printf("[discovery] stats: %d discovered, %d accepted, rejections: %v (fork_digest=%x)", total, accepted, rejectionCounts, currentForkDigest)
+			}
 			continue
 		}
+		accepted++
 		addrInfo, err := convertToAddrInfo(node)
 		if err != nil {
 			continue
 		}
+		log.Printf("[discovery] accepted peer %s (fork_digest=%x)", node.ID(), currentForkDigest)
+		if total%100 == 0 {
+			log.Printf("[discovery] stats: %d discovered, %d accepted, rejections: %v (fork_digest=%x)", total, accepted, rejectionCounts, currentForkDigest)
+		}
 		go func() {
-			listener.AddPeerWithAddrInfo(*addrInfo, peerstore.PermanentAddrTTL)
+			listener.AddPeerWithAddrInfo(*addrInfo, peerstore.PermanentAddrTTL, node.ID().Bytes())
 		}()
 	}
 }
@@ -111,31 +126,39 @@ func updateForkDigest(currentForkDigest []byte, forkUpdates chan [4]byte) {
 //  5. ~Peer is ready to receive incoming connections.~
 //  6. Peer's fork digest in their ENR matches that of
 //     our localnodes.
-func filterPeer(node *enode.Node, currentForkDigest []byte, listener *reqresp.Listener) bool {
+func filterPeer(node *enode.Node, currentForkDigest []byte, listener *reqresp.Listener) (bool, string) {
 	// Ignore nil node entries passed in.
 	if node == nil {
-		return false
+		return false, "nil node"
 	}
 	// ignore nodes with no ip address stored.
 	if node.IP() == nil {
-		return false
+		return false, "no IP"
 	}
 	nodeENR := node.Record()
 	// do not dial nodes with their tcp ports not set
 	if err := nodeENR.Load(enr.WithEntry("tcp", new(enr.TCP))); err != nil {
-		return false
+		return false, "no TCP port"
 	}
 	peerData, err := convertToAddrInfo(node)
-	if err != nil || listener.Host().Network().Connectedness(peerData.ID) == network.Connected {
-		return false
+	if err != nil {
+		return false, "addr error"
+	}
+	if listener.Host().Network().Connectedness(peerData.ID) == network.Connected {
+		return false, "already connected"
 	}
 	// Decide whether or not to connect to peer that does not
 	// match the proper fork ENR data with our local node.
 	sszEncodedForkEntry := make([]byte, 16)
 	entry := enr.WithEntry("eth2", &sszEncodedForkEntry)
-	nodeENR.Load(entry)
+	if err := nodeENR.Load(entry); err != nil {
+		return false, "no eth2 field"
+	}
 	forkDigest := sszEncodedForkEntry[:4]
-	return bytes.Equal(currentForkDigest, forkDigest)
+	if !bytes.Equal(currentForkDigest, forkDigest) {
+		return false, fmt.Sprintf("fork=%x", forkDigest)
+	}
+	return true, ""
 }
 
 // SerializeENR takes the enr record in its key-value form and serializes it.
@@ -164,6 +187,14 @@ func (d *Discoverer) GetAddresses() [][]byte {
 	return serializedAddresses
 }
 
+func (d *Discoverer) GetNodeId() []byte {
+	if d == nil {
+		return []byte{}
+	}
+	id := d.discv5_service.LocalNode().Node().ID()
+	return id[:]
+}
+
 func (d *Discoverer) GetEnr() []byte {
 	if d == nil {
 		return []byte{}
@@ -187,6 +218,12 @@ func updateEnr(localNode *enode.LocalNode, e proto_helpers.Enr) {
 	localNode.Set(enr.WithEntry("eth2", e.Eth2))
 	localNode.Set(enr.WithEntry("attnets", e.Attnets))
 	localNode.Set(enr.WithEntry("syncnets", e.Syncnets))
+	if len(e.Cgc) > 0 {
+		localNode.Set(enr.WithEntry("cgc", e.Cgc))
+	}
+	if len(e.Nfd) > 0 {
+		localNode.Set(enr.WithEntry("nfd", e.Nfd))
+	}
 }
 
 func convertToAddrInfo(node *enode.Node) (*peer.AddrInfo, error) {

@@ -8,11 +8,13 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.StateTransition
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Operations
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
+  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Utils.BitVector
   alias LambdaEthereumConsensus.Utils.Randao
   alias LambdaEthereumConsensus.Validator.BuildBlockRequest
@@ -37,13 +39,13 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   def build_block(%BuildBlockRequest{parent_root: parent_root} = request, payload_id) do
     pre_state = BlockStates.get_state_info!(parent_root).beacon_state
 
-    with {:ok, mid_state} <- StateTransition.process_slots(pre_state, request.slot),
+    with {:ok, mid_state, _timings} <- StateTransition.process_slots(pre_state, request.slot),
          {:ok, {execution_payload, blobs_bundle}} <- ExecutionClient.get_payload(payload_id),
          {:ok, eth1_vote} <- fetch_eth1_data(request.slot, mid_state),
          {:ok, block_request} <-
            request
            |> Map.merge(fetch_operations_for_block(request.slot))
-           |> Map.put_new_lazy(:deposits, fn -> fetch_deposits(mid_state, eth1_vote) end)
+           |> Map.put_new(:deposits, [])
            |> Map.put(:blob_kzg_commitments, blobs_bundle.commitments)
            |> BuildBlockRequest.validate(pre_state),
          {:ok, block} <-
@@ -54,7 +56,13 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
              eth1_vote
            ),
          {:ok, signed_block} <- seal_block(pre_state, block, block_request.privkey) do
-      sidecars = generate_sidecars(signed_block, blobs_bundle)
+      sidecars =
+        if HardForkAliasInjection.fulu?() do
+          generate_data_column_sidecars(signed_block, blobs_bundle)
+        else
+          generate_sidecars(signed_block, blobs_bundle)
+        end
+
       {:ok, {signed_block, sidecars}}
     end
   end
@@ -121,7 +129,7 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
       end
 
     with {:ok, %{block_hash: head_payload_hash}} <- head_payload_data,
-         {:ok, mid_state} <- StateTransition.process_slots(pre_state, proposed_slot),
+         {:ok, mid_state, _timings} <- StateTransition.process_slots(pre_state, proposed_slot),
          {:ok, finalized_payload_hash} <- get_finalized_block_hash(mid_state) do
       forkchoice_state = %{
         finalized_block_hash: finalized_payload_hash,
@@ -150,8 +158,8 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
   def seal_block(pre_state, block, privkey) do
     wrapped_block = %SignedBeaconBlock{message: block, signature: <<0::768>>}
 
-    with {:ok, post_state} <- StateTransition.transition(pre_state, wrapped_block) do
-      %BeaconBlock{block | state_root: Ssz.hash_tree_root!(post_state)}
+    with {:ok, post_state, _timings} <- StateTransition.transition(pre_state, wrapped_block) do
+      %{block | state_root: Ssz.hash_tree_root!(post_state)}
       |> sign_block(post_state, privkey)
       |> then(&{:ok, &1})
     end
@@ -180,15 +188,6 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
         ChainSpec.get("MAX_BLS_TO_EXECUTION_CHANGES")
         |> OperationsCollector.get_bls_to_execution_changes()
     }
-  end
-
-  defp fetch_deposits(state, eth1_vote) do
-    %{eth1_data: eth1_data, eth1_deposit_index: range_start} = state
-
-    processable_deposits = eth1_data.deposit_count - range_start
-    range_end = min(processable_deposits, ChainSpec.get("MAX_DEPOSITS")) + range_start - 1
-
-    ExecutionChain.get_deposits(eth1_data, eth1_vote, range_start..range_end//1)
   end
 
   defp sign_block(block, state, privkey) do
@@ -361,6 +360,36 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
     end)
   end
 
+  # Fulu: generate all 128 DataColumnSidecars from the blobs, store them in the DB,
+  # and return the list (all 128, not just custody columns — the proposer serves them all).
+  @spec generate_data_column_sidecars(SignedBeaconBlock.t(), BlobsBundle.t()) ::
+          [Types.DataColumnSidecar.t()]
+  defp generate_data_column_sidecars(
+         %SignedBeaconBlock{} = signed_block,
+         %BlobsBundle{} = blobs_bundle
+       ) do
+    %BlobsBundle{blobs: blobs} = blobs_bundle
+
+    cells_and_proofs_result =
+      Enum.reduce_while(blobs, {:ok, []}, fn blob, {:ok, acc} ->
+        case Kzg.compute_cells_and_kzg_proofs(blob) do
+          {:ok, pair} -> {:cont, {:ok, acc ++ [pair]}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+
+    case cells_and_proofs_result do
+      {:ok, cells_and_proofs} ->
+        {:ok, sidecars} = DasCore.get_data_column_sidecars(signed_block, cells_and_proofs)
+        Enum.each(sidecars, &DataColumnDb.store_data_column/1)
+        sidecars
+
+      {:error, reason} ->
+        Logger.error("[BlockBuilder] Failed to compute KZG cells for data columns: #{reason}")
+        []
+    end
+  end
+
   def compute_inclusion_proofs(%BeaconBlockBody{blob_kzg_commitments: []}), do: []
 
   def compute_inclusion_proofs(%BeaconBlockBody{} = body) do
@@ -390,7 +419,9 @@ defmodule LambdaEthereumConsensus.Validator.BlockBuilder do
 
     body_proof =
       BeaconBlockBody.schema()
-      |> Enum.map(fn {name, schema} -> Map.fetch!(body, name) |> SszEx.hash_tree_root!(schema) end)
+      |> Enum.map(fn {name, schema} ->
+        Map.fetch!(body, name) |> SszEx.hash_tree_root!(schema)
+      end)
       |> SszEx.Merkleization.compute_merkle_proof(commitments_tree_index, body_height)
 
     mix_in_length = <<commitment_number::little-size(256)>>

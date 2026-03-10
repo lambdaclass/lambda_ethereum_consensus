@@ -1,12 +1,13 @@
 participants:
   - el_type: geth
-    el_image: ethereum/client-go:v1.15.6
+    el_image: ethereum/client-go:latest
     cl_type: lighthouse
-    cl_image: sigp/lighthouse:v7.0.0-beta.5
+    cl_image: sigp/lighthouse:v8.1.1
     validator_count: 32
+    supernode: true
     count: 2
   - el_type: geth
-    el_image: ethereum/client-go:v1.15.6
+    el_image: ethereum/client-go:latest
     cl_type: lambda
     cl_image: lambda_ethereum_consensus:latest
     use_separate_vc: false
@@ -16,7 +17,7 @@ participants:
     keymanager_enabled: true
 
 network_params:
-  electra_fork_epoch: 0
+  fulu_fork_epoch: 0
   
 additional_services:
   - assertoor

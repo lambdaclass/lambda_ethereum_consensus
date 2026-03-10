@@ -50,7 +50,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   end
 
   defp setup_validators(set, _s, _r, []) do
-    Logger.warning("[ValidatorSet] No keystores provided. Validator's wont start.")
+    Logger.warning("[ValidatorSet] No keystores provided. Validators won't start.")
 
     set
   end
@@ -385,7 +385,7 @@ defmodule LambdaEthereumConsensus.ValidatorSet do
   defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot == slot, do: state
 
   defp go_to_slot(%{slot: old_slot} = state, slot) when old_slot < slot do
-    {:ok, st} = StateTransition.process_slots(state, slot)
+    {:ok, st, _timings} = StateTransition.process_slots(state, slot)
     st
   end
 end

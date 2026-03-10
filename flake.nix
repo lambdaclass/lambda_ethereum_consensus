@@ -18,8 +18,8 @@
             inherit system overlays;
           };
 
-          rustToolchain = pkgs.rust-bin.stable."1.71.1".default;
-          otp = pkgs.beam.packages.erlang_26;
+          rustToolchain = pkgs.rust-bin.stable."1.93.1".default;
+          otp = pkgs.beam.packages.erlang_28;
 
         in 
         {
@@ -27,19 +27,15 @@
 
             buildInputs =  [
               rustToolchain
-              pkgs.go_1_21
+              pkgs.go_1_26
               pkgs.gotools
               otp.erlang
-              nixpkgs.legacyPackages.aarch64-darwin.elixir_1_16
-              pkgs.elixir_ls
+              otp.elixir_1_19
+              pkgs.elixir-ls
               pkgs.glibcLocales
-              pkgs.protobuf3_24
-            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libiconv ])
-              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
-              CoreFoundation
-              CoreServices
-              Security
-             ]);
+              pkgs.protobuf
+              pkgs.cmake
+            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs; [ libiconv ]);
 
             shellHook = ''
               if [ -f ~/.git-prompt.sh ]; then
@@ -50,6 +46,9 @@
               fi
 
               export PATH="$HOME/go/bin:$HOME/.mix/escripts:$PATH"
+              # eleveldb vendors snappy 1.1.9 whose CMakeLists.txt requires VERSION 3.1,
+              # which CMake 4.x rejects. This tells CMake to accept the old policy.
+              export CMAKE_POLICY_VERSION_MINIMUM=3.5
             '';
           };
         }

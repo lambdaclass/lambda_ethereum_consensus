@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"io"
+	"log"
+	"os"
 
 	"libp2p_port/internal/discovery"
 	"libp2p_port/internal/port"
@@ -54,8 +56,9 @@ func getNodeIdentity(listener *reqresp.Listener, discoverer *discovery.Discovere
 	enr := discoverer.GetEnr()
 	p2pAddresses := listener.GetAddresses()
 	discoveryAddresses := discoverer.GetAddresses()
+	nodeId := discoverer.GetNodeId()
 
-	return &proto_defs.NodeIdentity{PeerId: []byte(peerId), Enr: enr, P2PAddresses: p2pAddresses, DiscoveryAddresses: discoveryAddresses, PrettyPeerId: prettyPeerId}
+	return &proto_defs.NodeIdentity{PeerId: []byte(peerId), Enr: enr, P2PAddresses: p2pAddresses, DiscoveryAddresses: discoveryAddresses, PrettyPeerId: prettyPeerId, NodeId: nodeId}
 }
 
 func commandServer() {
@@ -87,5 +90,11 @@ func commandServer() {
 }
 
 func main() {
+	os.MkdirAll("logs", 0755)
+	f, err := os.OpenFile("logs/libp2p_port.log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err == nil {
+		log.SetOutput(f)
+		defer f.Close()
+	}
 	commandServer()
 }

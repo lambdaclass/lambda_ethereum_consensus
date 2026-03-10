@@ -214,7 +214,8 @@ defmodule Unit.BeaconApiTest.V1 do
         "metadata" => %{
           "seq_number" => Utils.to_json(metadata.seq_number),
           "attnets" => Utils.to_json(metadata.attnets),
-          "syncnets" => Utils.to_json(metadata.syncnets)
+          "syncnets" => Utils.to_json(metadata.syncnets),
+          "custody_group_count" => Utils.to_json(metadata.custody_group_count)
         }
       }
     }

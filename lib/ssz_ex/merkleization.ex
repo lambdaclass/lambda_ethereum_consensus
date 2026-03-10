@@ -220,7 +220,7 @@ defmodule SszEx.Merkleization do
       first_layer = chunks |> convert_to_next_pow_of_two(leaf_count)
 
       final_layer =
-        (height - 1)..1
+        (height - 1)..1//-1
         |> Enum.reduce(first_layer, fn _i, acc_layer ->
           get_parent_layer(acc_layer)
         end)

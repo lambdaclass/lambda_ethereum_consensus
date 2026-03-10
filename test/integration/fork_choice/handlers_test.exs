@@ -32,6 +32,6 @@ defmodule Integration.ForkChoice.HandlersTest do
     assert {:ok, store} = Types.Store.get_forkchoice_store(state, signed_block)
     new_store = Handlers.on_tick(store, :os.system_time(:second))
 
-    assert {:ok, _} = Handlers.on_block(new_store, new_signed_block)
+    assert {:ok, _, _} = Handlers.on_block(new_store, new_signed_block)
   end
 end

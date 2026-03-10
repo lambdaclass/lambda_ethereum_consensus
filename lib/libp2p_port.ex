@@ -15,6 +15,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.P2P.Gossip.BeaconBlock
   alias LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
+  alias LambdaEthereumConsensus.P2P.Gossip.DataColumnSidecar
   alias LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
   alias LambdaEthereumConsensus.P2P.IncomingRequestsHandler
   alias LambdaEthereumConsensus.P2P.Peerbook
@@ -58,7 +59,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     enable_discovery: false,
     discovery_addr: "",
     bootnodes: [],
-    initial_enr: %Enr{eth2: <<0::128>>, attnets: <<0::64>>, syncnets: <<0::8>>}
+    initial_enr: %Enr{
+      eth2: <<0::128>>,
+      attnets: <<0::64>>,
+      syncnets: <<0::8>>,
+      cgc: <<>>,
+      nfd: <<>>
+    }
   ]
 
   @type init_arg ::
@@ -79,7 +86,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
           pretty_peer_id: String.t(),
           enr: String.t(),
           p2p_addresses: [String.t()],
-          discovery_addresses: [String.t()]
+          discovery_addresses: [String.t()],
+          # 32-byte discv5 node ID (keccak256 of secp256k1 pubkey), used for PeerDAS custody
+          node_id: binary()
         }
 
   @tick_time 1000
@@ -132,7 +141,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     })
 
     call_command(pid, {:get_node_identity, %GetNodeIdentity{}})
-    |> Map.take([:peer_id, :pretty_peer_id, :enr, :p2p_addresses, :discovery_addresses])
+    |> Map.take([:peer_id, :pretty_peer_id, :enr, :p2p_addresses, :discovery_addresses, :node_id])
   end
 
   # Sets libp2pport as the Req/Resp handler for the given protocol ID.
@@ -348,7 +357,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @spec join_init_topics(port()) :: :ok | {:error, String.t()}
   defp join_init_topics(port) do
-    topics = [BeaconBlock.topic()] ++ BlobSideCar.topics()
+    # On Fulu, join data column sidecar topics instead of blob sidecar topics.
+    data_topics =
+      if HardForkAliasInjection.fulu?(),
+        do: DataColumnSidecar.topics(),
+        else: BlobSideCar.topics()
+
+    topics = [BeaconBlock.topic()] ++ data_topics
 
     topics
     |> Enum.each(fn topic_name ->
@@ -413,9 +428,13 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     port = Port.open({:spawn, @port_name}, [:binary, {:packet, 4}, :exit_status])
 
-    current_version = ForkChoice.get_fork_version()
+    enr_fork_id = ForkChoice.compute_enr_fork_id()
 
-    ([initial_enr: compute_initial_enr(current_version)] ++ args)
+    Logger.info(
+      "[Libp2pPort] Fork version: #{inspect(enr_fork_id.next_fork_version)}, fork digest: #{Base.encode16(enr_fork_id.fork_digest)}"
+    )
+
+    ([initial_enr: compute_initial_enr(enr_fork_id)] ++ args)
     |> parse_args()
     |> InitArgs.encode()
     |> then(&send_data(port, &1))
@@ -424,6 +443,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     if enable_request_handlers, do: enable_request_handlers(port)
 
     Peerbook.init()
+    send(self(), :fetch_node_id)
     Process.send_after(self(), :sync_blocks, @sync_delay_millis)
 
     Logger.info(
@@ -527,6 +547,30 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {:noreply, on_tick(time, state)}
   end
 
+  # Spawn a Task to fetch and store the local node_id for PeerDAS custody calculation.
+  # Must be done in a Task because call_command uses receive_response(), which would
+  # deadlock if called directly from a GenServer callback.
+  @impl GenServer
+  def handle_info(:fetch_node_id, state) do
+    Task.start(fn ->
+      identity = get_node_identity()
+
+      case identity do
+        %{node_id: node_id} when is_binary(node_id) and byte_size(node_id) > 0 ->
+          node_id_int = :binary.decode_unsigned(node_id)
+          Application.put_env(:lambda_ethereum_consensus, :node_id, node_id_int)
+          Logger.info("[Libp2pPort] Local PeerDAS node_id: #{node_id_int}")
+
+        _ ->
+          Logger.warning(
+            "[Libp2pPort] node_id unavailable (discovery disabled?); custody columns will use node_id=0"
+          )
+      end
+    end)
+
+    {:noreply, state}
+  end
+
   @impl GenServer
   def handle_info(:sync_blocks, %{store: store} = state) do
     blocks_to_download = SyncBlocks.run(store)
@@ -554,6 +598,23 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @impl GenServer
   def handle_info({_port, {:exit_status, status}}, _state),
     do: Process.exit(self(), status)
+
+  @impl GenServer
+  def handle_info(:retry_pending_blocks, state) do
+    {:noreply, update_in(state.store, &PendingBlocks.process_blocks/1)}
+  end
+
+  @impl GenServer
+  def handle_info(:retry_download_columns, state) do
+    # Drain duplicate :retry_download_columns messages from the mailbox to avoid
+    # redundant scans when many blocks schedule their own retry timers.
+    drain_messages(:retry_download_columns)
+
+    # Self-sustaining heartbeat: always reschedule so stuck :download_columns
+    # blocks are retried regardless of failure mode (no_peers, partial/empty response, error).
+    Process.send_after(self(), :retry_download_columns, 60_000)
+    {:noreply, update_in(state.store, &PendingBlocks.retry_download_columns/1)}
+  end
 
   @impl GenServer
   def handle_info(other, state) do
@@ -663,13 +724,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     state
   end
 
-  defp handle_notification(%NewPeer{peer_id: peer_id}, state) do
+  defp handle_notification(%NewPeer{peer_id: peer_id, node_id: node_id}, state) do
     :telemetry.execute([:port, :message], %{}, %{
       function: "new peer",
       direction: "->elixir"
     })
 
-    Peerbook.handle_new_peer(peer_id)
+    # node_id is nil when the peer was added via AddPeer command (not discovery).
+    # Discovery-sourced peers carry their 32-byte discv5 node_id for PeerDAS custody routing.
+    Peerbook.handle_new_peer(peer_id, node_id)
     state
   end
 
@@ -759,22 +822,38 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     {:ok, syncnets} =
       SszEx.encode(syncnets_bv, {:bitvector, Constants.sync_committee_subnet_count()})
 
-    %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets}
+    if HardForkAliasInjection.fulu?() do
+      nfd =
+        if enr_fork_id.next_fork_epoch == Constants.far_future_epoch() do
+          <<0, 0, 0, 0>>
+        else
+          Misc.compute_fork_digest(
+            ChainSpec.get_genesis_validators_root(),
+            enr_fork_id.next_fork_epoch
+          )
+        end
+
+      %Enr{
+        eth2: eth2,
+        attnets: attnets,
+        syncnets: syncnets,
+        cgc: encode_cgc(ChainSpec.get("CUSTODY_REQUIREMENT")),
+        nfd: nfd
+      }
+    else
+      %Enr{eth2: eth2, attnets: attnets, syncnets: syncnets, cgc: <<>>, nfd: <<>>}
+    end
   end
 
-  defp compute_initial_enr(current_version) do
-    fork_digest =
-      Misc.compute_fork_digest(current_version, ChainSpec.get_genesis_validators_root())
+  # Encodes the custody group count as a minimal big-endian uint64 (no leading zero bytes).
+  # Zero encodes as empty binary, per the Fulu P2P spec.
+  defp encode_cgc(0), do: <<>>
+  defp encode_cgc(value), do: :binary.encode_unsigned(value, :big)
 
+  defp compute_initial_enr(%EnrForkId{} = enr_fork_id) do
     attnets = BitVector.new(ChainSpec.get("ATTESTATION_SUBNET_COUNT"))
     syncnets = BitVector.new(Constants.sync_committee_subnet_count())
-
-    %EnrForkId{
-      fork_digest: fork_digest,
-      next_fork_version: current_version,
-      next_fork_epoch: Constants.far_future_epoch()
-    }
-    |> encode_enr(attnets, syncnets)
+    encode_enr(enr_fork_id, attnets, syncnets)
   end
 
   defp add_subscriber(state, topic, module) do
@@ -798,9 +877,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp subscribe_to_gossip_topics(state) do
+    # On Fulu, subscribe to data column sidecar topics instead of blob sidecar topics.
+    data_gossip_module =
+      if HardForkAliasInjection.fulu?(),
+        do: LambdaEthereumConsensus.P2P.Gossip.DataColumnSidecar,
+        else: LambdaEthereumConsensus.P2P.Gossip.BlobSideCar
+
     [
       LambdaEthereumConsensus.P2P.Gossip.BeaconBlock,
-      LambdaEthereumConsensus.P2P.Gossip.BlobSideCar,
+      data_gossip_module,
       LambdaEthereumConsensus.P2P.Gossip.OperationsCollector
     ]
     |> Enum.flat_map(&topics_for_module/1)
@@ -924,4 +1009,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp maybe_log_new_slot(_, _), do: :ok
+
+  # Drains all pending messages of the given type from the process mailbox.
+  # Used to deduplicate timer-based messages when many sources schedule the same event.
+  defp drain_messages(msg) do
+    receive do
+      ^msg -> drain_messages(msg)
+    after
+      0 -> :ok
+    end
+  end
 end

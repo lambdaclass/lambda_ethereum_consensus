@@ -36,7 +36,7 @@ defmodule SanityTestRunner do
     assert is_integer(slots_to_process)
 
     case StateTransition.process_slots(pre, pre.slot + slots_to_process) do
-      {:ok, state} ->
+      {:ok, state, _timings} ->
         assert Diff.diff(state, post) == :unchanged
 
       {:error, error} ->

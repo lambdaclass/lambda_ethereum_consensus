@@ -135,6 +135,7 @@ defmodule LambdaEthereumConsensus.Metrics do
   defp map_color(:transitioned), do: "blue"
   defp map_color(:pending), do: "green"
   defp map_color(:download_blobs), do: "yellow"
+  defp map_color(:download_columns), do: "yellow"
   defp map_color(:download), do: "orange"
   defp map_color(:invalid), do: "red"
 end

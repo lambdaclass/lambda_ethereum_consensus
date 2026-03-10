@@ -27,8 +27,12 @@ defmodule Unit.ReqRespTest do
   defp assert_u64(message, expected),
     do: assert_decode_equals(message, TypeAliases.uint64(), expected)
 
-  def assert_metadata(message, expected),
-    do: assert_decode_equals(message, Types.Metadata, expected)
+  defp assert_metadata_roundtrip(metadata) do
+    encoded = ReqResp.encode_ok(metadata)
+    assert {:ok, ^metadata} = ReqResp.decode_response_chunk(encoded, Types.Metadata)
+    <<0>> <> rest = encoded
+    assert {:ok, ^metadata} = ReqResp.decode_request(rest, Types.Metadata)
+  end
 
   test "Ping 0",
     do: assert_u64("0008FF060000734E61507059010C0000290398070000000000000000", 0)
@@ -53,36 +57,30 @@ defmodule Unit.ReqRespTest do
   end
 
   test "GetMetadata 0" do
-    assert_metadata(
-      "0011FF060000734E6150705901150000F1D17CFF0008000000000000FFFFFFFFFFFFFFFF0F",
-      %Types.Metadata{
-        seq_number: 2048,
-        attnets: BitVector.new(0xFFFFFFFFFFFFFFFF, 64),
-        syncnets: BitVector.new(0xF, 4)
-      }
-    )
+    assert_metadata_roundtrip(%Types.Metadata{
+      seq_number: 2048,
+      attnets: BitVector.new(0xFFFFFFFFFFFFFFFF, 64),
+      syncnets: BitVector.new(0xF, 4),
+      custody_group_count: 0
+    })
   end
 
   test "GetMetadata 1" do
-    assert_metadata(
-      "0011FF060000734E6150705901150000CD11E7D53A03000000000000FFFFFFFFFFFFFFFF0F",
-      %Types.Metadata{
-        seq_number: 826,
-        attnets: BitVector.new(0xFFFFFFFFFFFFFFFF, 64),
-        syncnets: BitVector.new(0xF, 4)
-      }
-    )
+    assert_metadata_roundtrip(%Types.Metadata{
+      seq_number: 826,
+      attnets: BitVector.new(0xFFFFFFFFFFFFFFFF, 64),
+      syncnets: BitVector.new(0xF, 4),
+      custody_group_count: 0
+    })
   end
 
   test "GetMetadata 2" do
-    assert_metadata(
-      "0011FF060000734E61507059000A0000B3A056EA1100003E0100",
-      %Types.Metadata{
-        seq_number: 0,
-        attnets: BitVector.new(0, 64),
-        syncnets: BitVector.new(0, 4)
-      }
-    )
+    assert_metadata_roundtrip(%Types.Metadata{
+      seq_number: 0,
+      attnets: BitVector.new(0, 64),
+      syncnets: BitVector.new(0, 4),
+      custody_group_count: 0
+    })
   end
 
   defp assert_complex_request_roundtrip(request, request_type, response) do

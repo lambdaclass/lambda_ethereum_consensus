@@ -2,6 +2,7 @@ defmodule Types.Store do
   @moduledoc """
     The Store struct is used to track information required for the fork choice algorithm.
   """
+  require Logger
 
   alias LambdaEthereumConsensus.ForkChoice
   alias LambdaEthereumConsensus.ForkChoice.Head
@@ -18,6 +19,9 @@ defmodule Types.Store do
   alias Types.Checkpoint
   alias Types.SignedBeaconBlock
   alias Types.StateInfo
+
+  # Suppress opaque-type warning: MapSet.new() in struct literal is seen through by dialyzer.
+  @dialyzer {:no_opaque, get_forkchoice_store: 2}
 
   defstruct [
     :time,
@@ -139,10 +143,19 @@ defmodule Types.Store do
     Tree.has_block?(tree, block_root)
   end
 
-  @spec get_children(t(), Types.root()) :: [BeaconBlock.t()]
+  @spec get_children(t(), Types.root()) :: [{Types.root(), BeaconBlock.t()}]
   def get_children(%__MODULE__{tree_cache: tree}, parent_root) do
-    Tree.get_children!(tree, parent_root)
-    |> Enum.map(&{&1, Blocks.get_block!(&1)})
+    case Tree.get_children(tree, parent_root) do
+      {:ok, children} ->
+        Enum.map(children, &{&1, Blocks.get_block!(&1)})
+
+      {:error, :not_found} ->
+        Logger.warning(
+          "[Store] Block #{Base.encode16(parent_root)} not found in tree during get_children"
+        )
+
+        []
+    end
   end
 
   @spec store_block_info(t(), BlockInfo.t()) :: t()
@@ -234,8 +247,9 @@ defmodule Types.Store do
 
     case Tree.add_block(tree, block_root, parent_root) do
       {:ok, new_tree} -> %{store | tree_cache: new_tree}
-      # Block is older than current finalized block
-      {:error, :not_found} -> store
+      # Block is older than current finalized block, or parent not in tree.
+      # Still save the pruned tree so tree_cache stays in sync with finalized_checkpoint.
+      {:error, :not_found} -> %{store | tree_cache: tree}
     end
   end
 
@@ -262,7 +276,7 @@ defmodule Types.Store do
         if state.slot < target_slot do
           # The only way this can fail is if state.slot < target_slot, which is false by
           # construction.
-          {:ok, new_state} = StateTransition.process_slots(state, target_slot)
+          {:ok, new_state, _timings} = StateTransition.process_slots(state, target_slot)
 
           {update_in(store.checkpoint_states, fn s -> Map.put(s, checkpoint, new_state) end),
            new_state}

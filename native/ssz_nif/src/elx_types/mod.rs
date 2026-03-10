@@ -45,5 +45,9 @@ type KZGProof<'a> = Bytes48<'a>;
 type BlobIndex = u64;
 type Blob<'a> = Binary<'a>;
 
+// Fulu / PeerDAS
+type ColumnIndex = u64;
+type Cell<'a> = Binary<'a>;
+
 // This type should be a little-endian encoded uint256.
 type Uint256<'a> = Binary<'a>;

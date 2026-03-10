@@ -45,4 +45,19 @@ defmodule TypeAliases do
     do: {:list, Types.BlobIdentifier, ChainSpec.get("MAX_REQUEST_BLOB_SIDECARS")}
 
   def error_message(), do: {:byte_list, 256}
+
+  # Fulu / PeerDAS (EIP-7594)
+  def column_index(), do: uint64()
+  def row_index(), do: uint64()
+  def custody_index(), do: uint64()
+  def cell_index(), do: uint64()
+
+  # FIELD_ELEMENTS_PER_CELL * BYTES_PER_FIELD_ELEMENT = 64 * 32 = 2048 bytes
+  def cell(),
+    do:
+      {:byte_vector,
+       ChainSpec.get("FIELD_ELEMENTS_PER_CELL") * Constants.bytes_per_field_element()}
+
+  def data_column_sidecars_by_root_request(),
+    do: {:list, Types.DataColumnsByRootIdentifier, ChainSpec.get("MAX_REQUEST_BLOCKS_DENEB")}
 end

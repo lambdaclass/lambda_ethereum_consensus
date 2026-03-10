@@ -10,8 +10,17 @@ defmodule LambdaEthereumConsensus.MixProject do
       deps: deps(),
       dialyzer: dialyzer(),
       elixirc_paths: compiler_paths(Mix.env()),
-      warn_test_pattern: "_remove_warning.exs",
-      preferred_cli_env: [
+      # Match the generated tests to avoid warnings when running `make spec-test`
+      test_load_filters: [
+        &String.ends_with?(&1, "_test.exs"),
+        &String.starts_with?(&1, "test/generated/")
+      ]
+    ]
+  end
+
+  def cli() do
+    [
+      preferred_envs: [
         dialyzer: :test,
         generate_spec_tests: :test,
         check_enabled_tests: :test
@@ -48,7 +57,7 @@ defmodule LambdaEthereumConsensus.MixProject do
       {:recase, "~> 0.7"},
       {:rexbug, "~> 1.0"},
       {:eep, git: "https://github.com/virtan/eep", branch: "master"},
-      {:protobuf, "~> 0.14.0"},
+      {:protobuf, "~> 0.15"},
       {:aja, "~> 0.6"},
       {:logfmt_ex, "~> 0.4.2"},
       {:ex2ms, "~> 1.6", runtime: false},
@@ -75,7 +84,8 @@ defmodule LambdaEthereumConsensus.MixProject do
     [
       # https://elixirforum.com/t/help-with-dialyzer-output/15202/5
       plt_add_apps: [:ex_unit, :mix],
-      plt_file: {:no_warn, "priv/plts/project.plt"}
+      plt_file: {:no_warn, "priv/plts/project.plt"},
+      ignore_warnings: ".dialyzer_ignore.exs"
     ]
   end
 

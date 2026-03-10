@@ -99,6 +99,8 @@ message Enr {
     bytes eth2 = 1;
     bytes attnets = 2;
     bytes syncnets = 3;
+    bytes cgc = 4;
+    bytes nfd = 5;
 }
 
 message GetNodeIdentity {}
@@ -161,6 +163,7 @@ message Request {
 // A new peer was added.
 message NewPeer {
     bytes peer_id = 1;
+    bytes node_id = 2;  // 32-byte discv5 node ID (optional, from discovery)
 }
 
 message ResultMessage {
@@ -173,6 +176,7 @@ message NodeIdentity {
     repeated bytes p2p_addresses = 3;
     repeated bytes discovery_addresses = 4;
     bytes pretty_peer_id = 5;
+    bytes node_id = 6;  // 32-byte discv5 node ID (keccak256 of secp256k1 pubkey)
 }
 
 // A result from a command.

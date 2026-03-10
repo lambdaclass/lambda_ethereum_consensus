@@ -372,8 +372,11 @@ defmodule SszEx.Decode do
       end
     end)
     |> then(fn {_rest_bytes, fixed_parts, offsets, items_index} ->
-      Tuple.append(flatten_container_results(fixed_parts), Enum.reverse(offsets))
-      |> Tuple.append(items_index)
+      result = flatten_container_results(fixed_parts)
+
+      result
+      |> Tuple.insert_at(tuple_size(result), Enum.reverse(offsets))
+      |> Tuple.insert_at(tuple_size(result) + 1, items_index)
     end)
   end
 

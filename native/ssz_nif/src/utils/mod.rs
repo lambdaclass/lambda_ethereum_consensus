@@ -53,6 +53,8 @@ macro_rules! schema_match {
                 Epoch,
                 BlobSidecar<C>,
                 BlobIdentifier,
+                DataColumnSidecar<C>,
+                DataColumnIdentifier,
                 PendingDeposit,
                 PendingPartialWithdrawal,
                 PendingConsolidation,
@@ -61,6 +63,10 @@ macro_rules! schema_match {
                 ConsolidationRequest,
                 ExecutionRequests<C>,
                 SingleAttestation,
+                Eth1Block,
+                SyncAggregatorSelectionData,
+                MatrixEntry<C>,
+                DataColumnsByRootIdentifier<C>,
             }
         )
     };

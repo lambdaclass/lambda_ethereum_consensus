@@ -8,11 +8,14 @@ defmodule ForkChoiceTestRunner do
 
   alias LambdaEthereumConsensus.ForkChoice.Handlers
   alias LambdaEthereumConsensus.ForkChoice.Head
+  alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.BlockInfo
+  alias Types.DataColumnSidecar
   alias Types.SignedBeaconBlock
   alias Types.Store
 
@@ -79,11 +82,10 @@ defmodule ForkChoiceTestRunner do
 
     assert Ssz.hash_tree_root!(block) == Base.decode16!(hash, case: :mixed)
 
-    load_blob_data(case_dir, block, step)
-
     block_info = BlockInfo.from_block(block)
 
-    with {:ok, new_store} <- Handlers.on_block(store, block_info),
+    with :ok <- load_blob_data(case_dir, block_info.root, block, step),
+         {:ok, new_store, _timings} <- Handlers.on_block(store, block_info),
          {:ok, new_store} <-
            block.message.body.attestations
            |> Enum.reduce_while({:ok, new_store}, fn
@@ -171,21 +173,49 @@ defmodule ForkChoiceTestRunner do
   end
 
   # TODO: validate the filename's hash
-  defp load_blob_data(case_dir, block, %{blobs: "blobs_0x" <> _hash = blobs_file, proofs: proofs}) do
+  defp load_blob_data(case_dir, block_root, _block, %{
+         blobs: "blobs_0x" <> _hash = blobs_file,
+         proofs: proofs
+       }) do
     schema = {:list, TypeAliases.blob(), ChainSpec.get("MAX_BLOBS_PER_BLOCK_ELECTRA")}
-
     blobs = SpecTestUtils.read_ssz_ex_from_file!(case_dir <> "/#{blobs_file}.ssz_snappy", schema)
-
-    block_root = Ssz.hash_tree_root!(block.message)
 
     Stream.zip([proofs, blobs])
     |> Stream.with_index()
     |> Enum.each(fn {{proof, blob}, i} ->
       BlobDb.store_blob_with_proof(block_root, i, blob, proof)
     end)
+
+    :ok
   end
 
-  defp load_blob_data(_case_dir, block, %{}) do
-    assert Enum.empty?(block.message.body.blob_kzg_commitments)
+  # Fulu / PeerDAS: validate ALL provided column sidecars before storing.
+  # Spec tests supply all 128 columns; any invalid column must reject the block.
+  defp load_blob_data(case_dir, block_root, block, %{columns: columns}) do
+    blob_kzg_commitments = block.message.body.blob_kzg_commitments
+
+    sidecars =
+      Enum.map(columns, fn "column_0x" <> _hash = column_file ->
+        SpecTestUtils.read_ssz_from_file!(
+          case_dir <> "/#{column_file}.ssz_snappy",
+          DataColumnSidecar
+        )
+      end)
+
+    if DasCore.columns_data_available?(block_root, blob_kzg_commitments, sidecars) do
+      Enum.each(sidecars, &DataColumnDb.store_data_column/1)
+      :ok
+    else
+      {:error, "data not available"}
+    end
+  end
+
+  defp load_blob_data(_case_dir, _block_root, block, %{}) do
+    # On Fulu, blocks may have KZG commitments without blob data (PeerDAS uses columns instead)
+    unless HardForkAliasInjection.fulu?() do
+      assert Enum.empty?(block.message.body.blob_kzg_commitments)
+    end
+
+    :ok
   end
 end

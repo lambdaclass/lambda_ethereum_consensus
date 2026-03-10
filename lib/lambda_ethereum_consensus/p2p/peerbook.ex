@@ -4,6 +4,8 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   """
   require Logger
   alias LambdaEthereumConsensus.Libp2pPort
+  alias LambdaEthereumConsensus.P2P.ReqResp
+  alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.Store.KvSchema
   alias LambdaEthereumConsensus.Utils
 
@@ -13,7 +15,11 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   @max_prune_size 8
   @prune_percentage 0.05
 
-  @metadata_protocol_id "/eth2/beacon_chain/req/metadata/2/ssz_snappy"
+  if HardForkAliasInjection.fulu?() do
+    @metadata_protocol_id "/eth2/beacon_chain/req/metadata/3/ssz_snappy"
+  else
+    @metadata_protocol_id "/eth2/beacon_chain/req/metadata/2/ssz_snappy"
+  end
 
   use KvSchema, prefix: "peerbook"
 
@@ -52,38 +58,79 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
       nil
     else
       peerbook
-      |> Enum.sort_by(fn {_peer_id, score} -> -score end)
+      |> Enum.sort_by(fn {_peer_id, %{score: score}} -> -score end)
       |> Enum.take(5)
       |> Enum.random()
       |> elem(0)
     end
   end
 
+  @doc "Get a peer that custodies the given column index."
+  def get_peer_for_column(column_index) do
+    peerbook = fetch_peerbook!()
+
+    peerbook
+    |> Enum.filter(fn {_id, %{node_id: nid, custody_group_count: cgc}} ->
+      nid != nil and cgc != nil and
+        column_index in DasCore.get_custody_columns(:binary.decode_unsigned(nid), cgc)
+    end)
+    |> case do
+      [] ->
+        nil
+
+      peers ->
+        peers
+        |> Enum.sort_by(fn {_id, %{score: s}} -> -s end)
+        |> Enum.take(5)
+        |> Enum.random()
+        |> elem(0)
+    end
+  end
+
+  @doc "Get any peer known to support PeerDAS (has custody_group_count set)."
+  def get_peerdas_peer() do
+    peerbook = fetch_peerbook!()
+
+    peerbook
+    |> Enum.filter(fn {_id, %{custody_group_count: cgc}} -> cgc != nil end)
+    |> case do
+      [] ->
+        nil
+
+      peers ->
+        peers
+        |> Enum.sort_by(fn {_id, %{score: s}} -> -s end)
+        |> Enum.take(5)
+        |> Enum.random()
+        |> elem(0)
+    end
+  end
+
   def penalize_peer(peer_id) do
     Logger.debug("[Peerbook] Penalizing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
-    peer_score = fetch_peerbook!() |> Map.get(peer_id)
+    peerbook = fetch_peerbook!()
     penalizing_score = penalazing_score()
 
-    case peer_score do
+    case Map.get(peerbook, peer_id) do
       nil ->
         :ok
 
-      score when score - penalizing_score <= 0 ->
+      %{score: score} when score - penalizing_score <= 0 ->
         Logger.debug("[Peerbook] Removing peer: #{inspect(Utils.format_shorten_binary(peer_id))}")
 
-        fetch_peerbook!()
+        peerbook
         |> Map.delete(peer_id)
         |> store_peerbook()
 
-      score ->
-        fetch_peerbook!()
-        |> Map.put(peer_id, score - penalizing_score)
+      %{score: score} ->
+        peerbook
+        |> Map.update!(peer_id, fn e -> %{e | score: score - penalizing_score} end)
         |> store_peerbook()
     end
   end
 
-  def handle_new_peer(peer_id) do
+  def handle_new_peer(peer_id, node_id \\ nil) do
     peerbook = fetch_peerbook!()
 
     Logger.debug(
@@ -92,7 +139,9 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
     if not Map.has_key?(peerbook, peer_id) do
       :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})
-      Map.put(peerbook, peer_id, @initial_score) |> store_peerbook()
+      entry = %{score: @initial_score, node_id: node_id, custody_group_count: nil}
+      Map.put(peerbook, peer_id, entry) |> store_peerbook()
+      Task.start(__MODULE__, :challenge_peer, [peer_id])
     end
 
     prune()
@@ -100,12 +149,33 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   def challenge_peer(peer_id) do
     case Libp2pPort.send_request(peer_id, @metadata_protocol_id, "") do
-      {:ok, <<0, 17>> <> _payload} ->
+      {:ok, <<0, _::binary>> = response} ->
         :telemetry.execute([:peers, :challenge], %{}, %{result: "passed"})
+        parse_and_store_peer_metadata(peer_id, response)
 
       _ ->
         :telemetry.execute([:peers, :challenge], %{}, %{result: "failed"})
         penalize_peer(peer_id)
+    end
+  end
+
+  defp parse_and_store_peer_metadata(peer_id, response) do
+    case ReqResp.decode_response_chunk(response, Types.Metadata) do
+      {:ok, %{custody_group_count: cgc}} when cgc != nil ->
+        Logger.debug(
+          "[Peerbook] PeerDAS peer discovered, custody_group_count=#{cgc}: #{inspect(Utils.format_shorten_binary(peer_id))}"
+        )
+
+        fetch_peerbook!()
+        |> Map.update(
+          peer_id,
+          %{score: @initial_score, node_id: nil, custody_group_count: cgc},
+          fn e -> %{e | custody_group_count: cgc} end
+        )
+        |> store_peerbook()
+
+      _ ->
+        :ok
     end
   end
 

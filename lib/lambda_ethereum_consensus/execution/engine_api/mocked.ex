@@ -16,6 +16,15 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
     {:ok, %{"status" => "VALID"}}
   end
 
+  def new_payload(
+        _execution_payload,
+        _versioned_hashes,
+        _parent_beacon_block_root,
+        _execution_requests
+      ) do
+    {:ok, %{"status" => "VALID"}}
+  end
+
   def forkchoice_updated(_forkchoice_state, _payload_attributes) do
     {:ok, %{"payload_id" => nil, "payload_status" => %{"status" => "VALID"}}}
   end
@@ -24,7 +33,4 @@ defmodule LambdaEthereumConsensus.Execution.EngineApi.Mocked do
 
   # TODO: should we mock this too?
   def get_block_header(_block_id), do: {:error, "not supported"}
-
-  # TODO: should we mock this too?
-  def get_deposit_logs(_range), do: {:error, "not supported"}
 end
