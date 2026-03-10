@@ -466,10 +466,11 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   # There may be pending blocks from a prior execution, regardless of the optimistic sync
-  # state. We should run a process_blocks round. If no pending blocks are available, this
-  # call is a noop.
+  # state. First recover any blocks that were wrongly marked :invalid due to transient
+  # failures, then run a process_blocks round.
   @impl GenServer
   def handle_continue(:check_pending_blocks, state) do
+    PendingBlocks.recover_invalid_blocks()
     {:noreply, update_in(state.store, &PendingBlocks.process_blocks/1)}
   end
 

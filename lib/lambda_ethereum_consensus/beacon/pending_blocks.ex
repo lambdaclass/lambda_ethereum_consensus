@@ -124,6 +124,40 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   @doc """
+  On startup, resets blocks that were marked :invalid due to transient failures
+  (e.g. data not available during catch-up sync). Blocks with signed_block data
+  are moved back to :download_columns (Fulu) so they can be re-evaluated.
+  Blocks without signed_block data (download markers) remain :invalid.
+  """
+  @spec recover_invalid_blocks() :: :ok
+  def recover_invalid_blocks() do
+    case Blocks.get_blocks_with_status(:invalid) do
+      {:ok, blocks} ->
+        blocks
+        |> Enum.filter(fn %BlockInfo{signed_block: sb} -> not is_nil(sb) end)
+        |> recover_blocks()
+
+      {:error, reason} ->
+        Logger.warning("[PendingBlocks] Failed to get invalid blocks for recovery: #{reason}")
+    end
+
+    :ok
+  end
+
+  defp recover_blocks([]), do: :ok
+
+  defp recover_blocks(recoverable) do
+    Logger.info(
+      "[PendingBlocks] Recovering #{length(recoverable)} previously-invalid blocks on startup"
+    )
+
+    target_status =
+      if HardForkAliasInjection.fulu?(), do: :download_columns, else: :download_blobs
+
+    Enum.each(recoverable, &Blocks.change_status(&1, target_status))
+  end
+
+  @doc """
   Sends any blocks that are ready to block processing. This should usually be called only by this
   module after receiving a new block, but there are some other cases like at node startup, as there
   may be pending blocks from prior executions.
