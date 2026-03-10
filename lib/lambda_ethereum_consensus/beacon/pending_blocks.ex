@@ -34,6 +34,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @type state :: nil
 
   @download_retries 100
+  # Max blocks to process per retry_download_columns invocation.
+  # Keeps memory bounded by yielding the GenServer between batches,
+  # allowing GC to reclaim BeaconState objects (~300MB each).
+  @retry_batch_size 5
 
   @doc """
   If the block is not present, it will be stored as pending.
@@ -266,13 +270,29 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
             DataColumns.missing_columns_for_block(block_info, custody_cols) == []
           end)
 
-        # Blocks whose columns are already present: move to :pending and process.
+        # Process only a small batch to prevent OOM from accumulating
+        # BeaconStates (~300MB each) in memory. Yielding the GenServer
+        # between batches allows GC and prevents message queue buildup.
+        {batch, rest} = Enum.split(ready, @retry_batch_size)
+
+        if batch != [] do
+          Logger.info(
+            "[PendingBlocks] Processing #{length(batch)} of #{length(ready)} ready blocks" <>
+              " (#{length(need_download)} still downloading)"
+          )
+        end
+
         store =
-          Enum.reduce(ready, store, fn block_info, acc ->
+          Enum.reduce(batch, store, fn block_info, acc ->
             block_info
             |> Blocks.change_status(:pending)
             |> then(&process_block_and_check_children(acc, &1))
           end)
+
+        # Schedule a quick follow-up for remaining ready blocks.
+        if rest != [] do
+          Process.send_after(self(), :retry_download_columns, 1_000)
+        end
 
         # Blocks still missing columns: re-request downloads.
         Enum.each(need_download, &request_missing_columns(&1, custody_cols))
