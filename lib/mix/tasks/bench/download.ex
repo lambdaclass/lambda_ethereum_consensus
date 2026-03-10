@@ -38,6 +38,24 @@ defmodule Mix.Tasks.Bench.Download do
 
   @impl Mix.Task
   def run(args) do
+    {url, start_slot, count, out_dir} = parse_and_setup(args)
+
+    fetch_anchor_data!(url, start_slot, out_dir)
+
+    results = fetch_block_range(url, start_slot, count, out_dir)
+
+    Mix.shell().info("""
+
+    Download complete!
+      Directory: #{out_dir}
+      Blocks found: #{results.blocks}
+      Empty slots: #{results.empty}
+      Total blobs: #{results.blobs}
+      Total columns generated: #{results.columns}
+    """)
+  end
+
+  defp parse_and_setup(args) do
     {opts, _, _} =
       OptionParser.parse(args,
         strict: [
@@ -55,24 +73,13 @@ defmodule Mix.Tasks.Bench.Download do
     data_dir = opts[:data_dir] || "bench/data"
     network = opts[:network] || "mainnet"
 
-    # Start required dependency applications.
-    # We don't use app.start because runtime.exs parses System.argv()
-    # with strict validation, rejecting our custom flags.
-    # We only need the deps loaded and our own config set below.
-    Application.ensure_all_started(:jason)
-    Application.ensure_all_started(:hackney)
-    Application.ensure_all_started(:tesla)
-    Application.ensure_all_started(:snappyer)
+    for app <- [:jason, :hackney, :tesla, :snappyer], do: Application.ensure_all_started(app)
 
-    # Configure ChainSpec (needed for DasCore/SSZ)
     config = ConfigUtils.parse_config!(network)
     Application.put_env(:lambda_ethereum_consensus, ChainSpec, config: config)
-
-    # Ensure Rust NIFs are loaded
     Code.ensure_loaded!(Ssz)
     Code.ensure_loaded!(Kzg)
 
-    # Warn if start_slot is not an epoch boundary
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
 
     if rem(start_slot, slots_per_epoch) != 0 do
@@ -81,11 +88,9 @@ defmodule Mix.Tasks.Bench.Download do
       )
     end
 
-    # Create output directory
     out_dir = Path.join(data_dir, "slot_#{start_slot}_#{count}")
     File.mkdir_p!(out_dir)
 
-    # Write metadata
     metadata = %{
       url: url,
       start_slot: start_slot,
@@ -96,7 +101,10 @@ defmodule Mix.Tasks.Bench.Download do
 
     File.write!(Path.join(out_dir, "metadata.json"), Jason.encode!(metadata, pretty: true))
 
-    # Fetch state
+    {url, start_slot, count, out_dir}
+  end
+
+  defp fetch_anchor_data!(url, start_slot, out_dir) do
     Mix.shell().info("Fetching state at slot #{start_slot}...")
 
     case get_ssz_from_url(url, "/eth/v2/debug/beacon/states/#{start_slot}", BeaconState) do
@@ -108,7 +116,6 @@ defmodule Mix.Tasks.Bench.Download do
         Mix.raise("Failed to fetch state: #{inspect(reason)}")
     end
 
-    # Fetch anchor block at start-slot
     Mix.shell().info("Fetching anchor block at slot #{start_slot}...")
 
     case get_ssz_from_url(url, "/eth/v2/beacon/blocks/#{start_slot}", SignedBeaconBlock) do
@@ -119,37 +126,25 @@ defmodule Mix.Tasks.Bench.Download do
       {:error, reason} ->
         Mix.raise("Failed to fetch anchor block: #{inspect(reason)}")
     end
+  end
 
-    # Fetch blocks and blobs for the range after the anchor
+  defp fetch_block_range(url, start_slot, count, out_dir) do
     slots = (start_slot + 1)..(start_slot + count)
 
-    results =
-      Enum.reduce(slots, %{blocks: 0, empty: 0, blobs: 0, columns: 0}, fn slot, acc ->
-        Mix.shell().info("Fetching slot #{slot}...")
+    Enum.reduce(slots, %{blocks: 0, empty: 0, blobs: 0, columns: 0}, fn slot, acc ->
+      Mix.shell().info("Fetching slot #{slot}...")
 
-        case get_ssz_from_url(url, "/eth/v2/beacon/blocks/#{slot}", SignedBeaconBlock) do
-          {:ok, signed_block} ->
-            write_ssz_snappy!(Path.join(out_dir, "block_#{slot}.ssz_snappy"), signed_block)
+      case get_ssz_from_url(url, "/eth/v2/beacon/blocks/#{slot}", SignedBeaconBlock) do
+        {:ok, signed_block} ->
+          write_ssz_snappy!(Path.join(out_dir, "block_#{slot}.ssz_snappy"), signed_block)
+          acc = %{acc | blocks: acc.blocks + 1}
+          fetch_and_convert_blobs(url, slot, signed_block, out_dir, acc)
 
-            acc = %{acc | blocks: acc.blocks + 1}
-            fetch_and_convert_blobs(url, slot, signed_block, out_dir, acc)
-
-          {:error, _} ->
-            Mix.shell().info("  Slot #{slot}: empty (no block)")
-            %{acc | empty: acc.empty + 1}
-        end
-      end)
-
-    # Print summary
-    Mix.shell().info("""
-
-    Download complete!
-      Directory: #{out_dir}
-      Blocks found: #{results.blocks}
-      Empty slots: #{results.empty}
-      Total blobs: #{results.blobs}
-      Total columns generated: #{results.columns}
-    """)
+        {:error, _} ->
+          Mix.shell().info("  Slot #{slot}: empty (no block)")
+          %{acc | empty: acc.empty + 1}
+      end
+    end)
   end
 
   defp fetch_and_convert_blobs(url, slot, signed_block, out_dir, acc) do

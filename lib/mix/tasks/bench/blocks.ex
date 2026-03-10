@@ -183,28 +183,31 @@ defmodule Mix.Tasks.Bench.Blocks do
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
 
     Enum.reduce(blocks, {store, []}, fn {slot, signed_block}, {store, results} ->
-      block_info = BlockInfo.from_block(signed_block, :pending)
-
-      start_time = System.monotonic_time(:millisecond)
-
-      case ForkChoice.process_block(block_info, store) do
-        {:ok, new_store, _timings} ->
-          elapsed = System.monotonic_time(:millisecond) - start_time
-          epoch_boundary? = rem(slot, slots_per_epoch) == 0
-
-          Logger.info(
-            "Slot #{slot}: #{elapsed}ms#{if epoch_boundary?, do: " [epoch boundary]", else: ""}"
-          )
-
-          {new_store, [{slot, elapsed, epoch_boundary?} | results]}
-
-        {:error, reason} ->
-          elapsed = System.monotonic_time(:millisecond) - start_time
-          Logger.error("Slot #{slot}: failed after #{elapsed}ms: #{inspect(reason)}")
-          {store, results}
-      end
+      process_single_block(slot, signed_block, store, results, slots_per_epoch)
     end)
     |> then(fn {store, results} -> {store, Enum.reverse(results)} end)
+  end
+
+  defp process_single_block(slot, signed_block, store, results, slots_per_epoch) do
+    block_info = BlockInfo.from_block(signed_block, :pending)
+    start_time = System.monotonic_time(:millisecond)
+
+    case ForkChoice.process_block(block_info, store) do
+      {:ok, new_store, _timings} ->
+        elapsed = System.monotonic_time(:millisecond) - start_time
+        epoch_boundary? = rem(slot, slots_per_epoch) == 0
+
+        Logger.info(
+          "Slot #{slot}: #{elapsed}ms#{if epoch_boundary?, do: " [epoch boundary]", else: ""}"
+        )
+
+        {new_store, [{slot, elapsed, epoch_boundary?} | results]}
+
+      {:error, reason} ->
+        elapsed = System.monotonic_time(:millisecond) - start_time
+        Logger.error("Slot #{slot}: failed after #{elapsed}ms: #{inspect(reason)}")
+        {store, results}
+    end
   end
 
   defp print_summary(results, start_slot, count) do
@@ -236,8 +239,7 @@ defmodule Mix.Tasks.Bench.Blocks do
     if epoch_results != [] do
       epoch_details =
         epoch_results
-        |> Enum.map(fn {slot, ms, _} -> "slot #{slot}: #{format_time(ms)}" end)
-        |> Enum.join(", ")
+        |> Enum.map_join(", ", fn {slot, ms, _} -> "slot #{slot}: #{format_time(ms)}" end)
 
       IO.puts("Epoch blocks:   [#{epoch_details}]")
     end

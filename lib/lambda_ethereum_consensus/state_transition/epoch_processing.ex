@@ -165,57 +165,62 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     end)
   end
 
-  defp handle_validator_registry_update(
-         %BeaconState{} = state,
-         %Validator{} = validator,
+    ctx =
+      {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
+       min_activation_balance, finalized_epoch}
+
+    # Use Aja.Vector.foldl instead of Enum.with_index + Enum.reduce_while
+    # to avoid materializing the vector to a list (~24MB allocation)
+    try do
+      state.validators
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.foldl(state, fn {validator, idx}, state ->
+        update_registry_for_validator(validator, idx, state, ctx)
+      end)
+      |> then(&{:ok, &1})
+    catch
+      {:error, _} = err -> err
+    end
+  end
+
+  defp update_registry_for_validator(
+         validator,
          idx,
-         current_epoch,
-         activation_exit_epoch,
-         ejection_balance
+         state,
+         {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
+          min_activation_balance, finalized_epoch}
        ) do
     cond do
-      Predicates.eligible_for_activation_queue?(validator) ->
-        updated_validator = %{
-          validator
-          | activation_eligibility_epoch: current_epoch + 1
-        }
-
-        {:cont,
-         %{
-           state
-           | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
-         }}
+      validator.activation_eligibility_epoch == far_future_epoch &&
+          validator.effective_balance >= min_activation_balance ->
+        updated = %{validator | activation_eligibility_epoch: current_epoch + 1}
+        replace_validator(state, idx, updated)
 
       Predicates.active_validator?(validator, current_epoch) &&
           validator.effective_balance <= ejection_balance ->
-        case Mutators.initiate_validator_exit(state, validator) do
-          {:ok, {state, ejected_validator}} ->
-            updated_state = %{
-              state
-              | validators: Aja.Vector.replace_at!(state.validators, idx, ejected_validator)
-            }
+        eject_validator(state, idx, validator)
 
-            {:cont, updated_state}
-
-          {:error, msg} ->
-            {:halt, {:error, msg}}
-        end
-
-      Predicates.eligible_for_activation?(state, validator) ->
-        updated_validator = %{
-          validator
-          | activation_epoch: activation_exit_epoch
-        }
-
-        updated_state = %{
-          state
-          | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
-        }
-
-        {:cont, updated_state}
+      validator.activation_eligibility_epoch <= finalized_epoch &&
+          validator.activation_epoch == far_future_epoch ->
+        updated = %{validator | activation_epoch: activation_exit_epoch}
+        replace_validator(state, idx, updated)
 
       true ->
-        {:cont, state}
+        state
+    end
+  end
+
+  defp replace_validator(state, idx, updated_validator) do
+    %{state | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)}
+  end
+
+  defp eject_validator(state, idx, validator) do
+    case Mutators.initiate_validator_exit(state, validator) do
+      {:ok, {state, ejected}} ->
+        replace_validator(state, idx, ejected)
+
+      {:error, msg} ->
+        throw({:error, msg})
     end
   end
 
@@ -520,6 +525,23 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
            |> Enum.concat(deposits_to_postpone),
          deposit_balance_to_consume: deposit_balance_to_consume
      }}
+  end
+
+  # Single scan of validators to find indices for a small set of deposit pubkeys
+  defp build_deposit_pubkey_index(validators, deposit_pubkeys) do
+    if MapSet.size(deposit_pubkeys) == 0 do
+      %{}
+    else
+      validators
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.foldl(%{}, &match_deposit_pubkey(&1, &2, deposit_pubkeys))
+    end
+  end
+
+  defp match_deposit_pubkey({validator, idx}, acc, deposit_pubkeys) do
+    if MapSet.member?(deposit_pubkeys, validator.pubkey),
+      do: Map.put_new(acc, validator.pubkey, idx),
+      else: acc
   end
 
   defp handle_pending_deposit(
