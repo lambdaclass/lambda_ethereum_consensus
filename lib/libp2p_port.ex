@@ -467,10 +467,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   # There may be pending blocks from a prior execution, regardless of the optimistic sync
   # state. First recover any blocks that were wrongly marked :invalid due to transient
-  # failures, then run a process_blocks round.
+  # failures, then run a process_blocks round. Schedule a column download retry so
+  # recovered blocks in :download_columns get their columns checked.
   @impl GenServer
   def handle_continue(:check_pending_blocks, state) do
-    PendingBlocks.recover_invalid_blocks()
+    if PendingBlocks.recover_invalid_blocks() == :recovered do
+      Process.send_after(self(), :retry_download_columns, 5_000)
+    end
+
     {:noreply, update_in(state.store, &PendingBlocks.process_blocks/1)}
   end
 

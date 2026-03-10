@@ -129,7 +129,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   are moved back to :download_columns (Fulu) so they can be re-evaluated.
   Blocks without signed_block data (download markers) remain :invalid.
   """
-  @spec recover_invalid_blocks() :: :ok
+  @spec recover_invalid_blocks() :: :ok | :recovered
   def recover_invalid_blocks() do
     case Blocks.get_blocks_with_status(:invalid) do
       {:ok, blocks} ->
@@ -139,9 +139,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
       {:error, reason} ->
         Logger.warning("[PendingBlocks] Failed to get invalid blocks for recovery: #{reason}")
+        :ok
     end
-
-    :ok
   end
 
   defp recover_blocks([]), do: :ok
@@ -155,6 +154,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       if HardForkAliasInjection.fulu?(), do: :download_columns, else: :download_blobs
 
     Enum.each(recoverable, &Blocks.change_status(&1, target_status))
+    :recovered
   end
 
   @doc """
