@@ -242,8 +242,21 @@ defmodule Types.Store do
   end
 
   defp update_tree(%__MODULE__{} = store, block_root, parent_root) do
-    # We expect the finalized block to be in the tree
-    tree = Tree.update_root!(store.tree_cache, store.finalized_checkpoint.root)
+    finalized_root = store.finalized_checkpoint.root
+
+    tree =
+      case Tree.update_root(store.tree_cache, finalized_root) do
+        {:ok, pruned} ->
+          pruned
+
+        {:error, :not_found} ->
+          # Tree is stale (e.g. after restart/recovery). Rebuild from finalized root.
+          Logger.warning(
+            "[Store] Finalized root #{Base.encode16(finalized_root)} not in tree, rebuilding"
+          )
+
+          Tree.new(finalized_root)
+      end
 
     case Tree.add_block(tree, block_root, parent_root) do
       {:ok, new_tree} -> %{store | tree_cache: new_tree}
