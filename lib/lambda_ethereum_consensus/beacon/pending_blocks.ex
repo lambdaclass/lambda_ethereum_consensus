@@ -54,8 +54,9 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     loaded_block = Blocks.get_block_info(block_info.root)
     log_md = [slot: signed_block.message.slot, root: block_info.root]
 
-    # If the block is new or was to be downloaded, we store it.
-    if is_nil(loaded_block) or loaded_block.status == :download do
+    # If the block is new, was to be downloaded, or was previously marked invalid
+    # (e.g. due to transient data availability failures), we (re-)process it.
+    if is_nil(loaded_block) or loaded_block.status in [:download, :invalid] do
       if HardForkAliasInjection.fulu?() do
         add_block_fulu(store, block_info, log_md)
       else
@@ -324,25 +325,41 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   end
 
   defp handle_on_block_error(store, block_info, reason, log_md) do
-    if execution_layer_error?(reason) do
-      # Transient EL error (connectivity, auth, etc.) — keep block as :pending.
-      # process_blocks is only triggered by :transitioned/:invalid events, so we
-      # schedule a delayed retry message to the calling GenServer (Libp2pPort).
-      Logger.warning(
-        "[PendingBlocks] Transient EL error, scheduling retry: #{reason}",
-        log_md
-      )
+    cond do
+      execution_layer_error?(reason) ->
+        # Transient EL error (connectivity, auth, etc.) — keep block as :pending.
+        # process_blocks is only triggered by :transitioned/:invalid events, so we
+        # schedule a delayed retry message to the calling GenServer (Libp2pPort).
+        Logger.warning(
+          "[PendingBlocks] Transient EL error, scheduling retry: #{reason}",
+          log_md
+        )
 
-      Process.send_after(self(), :retry_pending_blocks, 10_000)
-      {store, :ok}
-    else
-      Logger.error(
-        "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
-        log_md
-      )
+        Process.send_after(self(), :retry_pending_blocks, 10_000)
+        {store, :ok}
 
-      Blocks.change_status(block_info, :invalid)
-      {store, :invalid}
+      data_availability_error?(reason) ->
+        # Data columns may not have been downloaded yet (common during catch-up sync).
+        # Move the block back to :download_columns and schedule a retry rather than
+        # permanently invalidating it and all its descendants.
+        Logger.warning(
+          "[PendingBlocks] Data not available, moving back to download_columns for retry",
+          log_md
+        )
+
+        Blocks.change_status(block_info, :download_columns)
+        request_missing_columns(block_info, DasCore.get_local_custody_columns())
+        Process.send_after(self(), :retry_download_columns, 30_000)
+        {store, :ok}
+
+      true ->
+        Logger.error(
+          "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
+          log_md
+        )
+
+        Blocks.change_status(block_info, :invalid)
+        {store, :invalid}
     end
   end
 
@@ -351,6 +368,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   # (e.g. "Invalid execution payload") or from the state transition are permanent.
   defp execution_layer_error?(reason) do
     String.starts_with?(reason, "Error when calling execution client:")
+  end
+
+  # Data availability failures are transient during catch-up sync — custody columns
+  # may not have been downloaded yet. The block should be retried, not invalidated.
+  defp data_availability_error?(reason) do
+    reason == "data not available"
   end
 
   defp process_downloaded_block(store, {:ok, [block]}) do
