@@ -46,9 +46,6 @@ defmodule LambdaEthereumConsensus.Store.DataColumns do
   end
 
   defp column_present?(block_root, column_index) do
-    case DataColumnDb.get_data_column_sidecar(block_root, column_index) do
-      {:ok, %DataColumnSidecar{}} -> true
-      _ -> false
-    end
+    DataColumnDb.has_column?(block_root, column_index)
   end
 end

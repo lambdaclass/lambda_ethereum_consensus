@@ -44,6 +44,15 @@ defmodule LambdaEthereumConsensus.Store.DataColumnDb do
     end
   end
 
+  @doc """
+  Checks whether a data column sidecar exists in the DB without deserializing it.
+  """
+  @spec has_column?(Types.root(), Types.column_index()) :: boolean()
+  def has_column?(block_root, column_index) do
+    key = sidecar_key(block_root, column_index)
+    match?({:ok, _}, Db.get(key))
+  end
+
   @spec prune_old_data_columns(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
   def prune_old_data_columns(current_finalized_slot) do
     slot =

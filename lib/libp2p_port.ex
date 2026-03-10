@@ -606,6 +606,10 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_info(:retry_download_columns, state) do
+    # Drain duplicate :retry_download_columns messages from the mailbox to avoid
+    # redundant scans when many blocks schedule their own retry timers.
+    drain_messages(:retry_download_columns)
+
     # Self-sustaining heartbeat: always reschedule so stuck :download_columns
     # blocks are retried regardless of failure mode (no_peers, partial/empty response, error).
     Process.send_after(self(), :retry_download_columns, 60_000)
@@ -1005,4 +1009,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   defp maybe_log_new_slot(_, _), do: :ok
+
+  # Drains all pending messages of the given type from the process mailbox.
+  # Used to deduplicate timer-based messages when many sources schedule the same event.
+  defp drain_messages(msg) do
+    receive do
+      ^msg -> drain_messages(msg)
+    after
+      0 -> :ok
+    end
+  end
 end
