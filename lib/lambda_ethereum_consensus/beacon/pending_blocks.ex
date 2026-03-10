@@ -260,13 +260,28 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     case Blocks.get_blocks_with_status(:download_columns) do
       {:ok, blocks} ->
         custody_cols = DasCore.get_local_custody_columns()
-        Enum.each(blocks, &request_missing_columns(&1, custody_cols))
+
+        {ready, need_download} =
+          Enum.split_with(blocks, fn block_info ->
+            DataColumns.missing_columns_for_block(block_info, custody_cols) == []
+          end)
+
+        # Blocks whose columns are already present: move to :pending and process.
+        store =
+          Enum.reduce(ready, store, fn block_info, acc ->
+            block_info
+            |> Blocks.change_status(:pending)
+            |> then(&process_block_and_check_children(acc, &1))
+          end)
+
+        # Blocks still missing columns: re-request downloads.
+        Enum.each(need_download, &request_missing_columns(&1, custody_cols))
+        store
 
       {:error, reason} ->
         Logger.error("[PendingBlocks] Failed to get :download_columns blocks: #{reason}")
+        store
     end
-
-    store
   end
 
   defp request_missing_columns(block_info, custody_cols) do
