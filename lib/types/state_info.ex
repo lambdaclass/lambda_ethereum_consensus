@@ -9,31 +9,52 @@ defmodule Types.StateInfo do
   """
   alias Types.BeaconState
 
-  defstruct [:root, :beacon_state, :encoded, :block_root]
+  defstruct [:root, :beacon_state, :encoded, :block_root, field_hashes: %{}]
 
   @type t :: %__MODULE__{
           beacon_state: Types.BeaconState.t(),
           root: Types.root(),
           encoded: binary(),
-          block_root: Types.root()
+          block_root: Types.root(),
+          field_hashes: %{non_neg_integer() => binary()}
         }
 
   @spec from_beacon_state(Types.BeaconState.t(), keyword()) :: {:ok, t()} | {:error, binary()}
   def from_beacon_state(%BeaconState{} = state, fields \\ []) do
+    cached_field_hashes = Keyword.get(fields, :cached_field_hashes, %{})
+
     with {:ok, encoded} <- fetch_lazy(fields, :encoded, fn -> Ssz.to_ssz(state) end),
          {:ok, block_root} <-
            fetch_lazy(fields, :block_root, fn ->
              # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
              Ssz.hash_tree_root(state.latest_block_header)
            end) do
-      {:ok, from_beacon_state(state, encoded, block_root)}
+      {:ok, from_beacon_state(state, encoded, block_root, cached_field_hashes)}
     end
   end
 
-  @spec from_beacon_state(Types.BeaconState.t(), binary(), Types.root()) :: t()
-  def from_beacon_state(%BeaconState{} = state, encoded, block_root) do
-    root = Ssz.hash_tree_root!(state)
-    %__MODULE__{root: root, beacon_state: state, encoded: encoded, block_root: block_root}
+  @spec from_beacon_state(Types.BeaconState.t(), binary(), Types.root(), map()) :: t()
+  def from_beacon_state(%BeaconState{} = state, encoded, block_root, cached_field_hashes \\ %{}) do
+    {:ok, root, field_hashes_binary} =
+      Ssz.hash_beacon_state_cached(state, cached_field_hashes)
+
+    # Parse the field_hashes_binary into a map of %{index => 32-byte hash}
+    field_hashes = parse_field_hashes(field_hashes_binary, 0, %{})
+
+    %__MODULE__{
+      root: root,
+      beacon_state: state,
+      encoded: encoded,
+      block_root: block_root,
+      field_hashes: field_hashes
+    }
+  end
+
+  # Parse concatenated 32-byte hashes into a map of %{field_index => hash}
+  defp parse_field_hashes(<<>>, _idx, acc), do: acc
+
+  defp parse_field_hashes(<<hash::binary-size(32), rest::binary>>, idx, acc) do
+    parse_field_hashes(rest, idx + 1, Map.put(acc, idx, hash))
   end
 
   @spec encode(t()) :: binary()

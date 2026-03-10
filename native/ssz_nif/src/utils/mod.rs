@@ -1,3 +1,4 @@
+pub(crate) mod cached_hash;
 pub(crate) mod from_elx;
 pub(crate) mod from_ssz;
 pub(crate) mod helpers;
