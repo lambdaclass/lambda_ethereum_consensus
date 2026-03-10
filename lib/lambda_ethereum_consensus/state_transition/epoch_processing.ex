@@ -472,43 +472,60 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       state.deposit_balance_to_consume + Accessors.get_activation_exit_churn_limit(state)
 
     finalized_slot = Misc.compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
+    max_pending = ChainSpec.get("MAX_PENDING_DEPOSITS_PER_EPOCH")
 
-    {state, churn_limit_reached, processed_amount, deposits_to_postpone, last_processed_index} =
+    # Pre-build a pubkey→index map for deposit pubkeys with ONE validator scan.
+    # At most 16 deposits, so the lookup set and result map are tiny.
+    deposit_pubkeys =
+      state.pending_deposits
+      |> Enum.take(max_pending)
+      |> MapSet.new(& &1.pubkey)
+
+    pubkey_to_index = build_deposit_pubkey_index(state.validators, deposit_pubkeys)
+
+    {state, churn_limit_reached, processed_amount, deposits_to_postpone, last_processed_index,
+     _pubkey_to_index} =
       state.pending_deposits
       |> Enum.with_index()
-      |> Enum.reduce_while({state, false, 0, [], 0}, fn {deposit, index},
-                                                        {state, churn_limit_reached,
-                                                         processed_amount, deposits_to_postpone,
-                                                         _last_processed_index} ->
-        cond do
-          # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
-          deposit.slot > Constants.genesis_slot() &&
-              state.eth1_deposit_index < state.deposit_requests_start_index ->
-            {:halt,
-             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+      |> Enum.reduce_while(
+        {state, false, 0, [], 0, pubkey_to_index},
+        fn {deposit, index},
+           {state, churn_limit_reached, processed_amount, deposits_to_postpone,
+            _last_processed_index, pubkey_to_index} ->
+          cond do
+            # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
+            deposit.slot > Constants.genesis_slot() &&
+                state.eth1_deposit_index < state.deposit_requests_start_index ->
+              {:halt,
+               {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1,
+                pubkey_to_index}}
 
-          # Check if deposit has been finalized, otherwise, stop processing.
-          deposit.slot > finalized_slot ->
-            {:halt,
-             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+            # Check if deposit has been finalized, otherwise, stop processing.
+            deposit.slot > finalized_slot ->
+              {:halt,
+               {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1,
+                pubkey_to_index}}
 
-          # Check if number of processed deposits has not reached the limit, otherwise, stop processing.
-          index >= ChainSpec.get("MAX_PENDING_DEPOSITS_PER_EPOCH") ->
-            {:halt,
-             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+            # Check if number of processed deposits has not reached the limit, otherwise, stop processing.
+            index >= max_pending ->
+              {:halt,
+               {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1,
+                pubkey_to_index}}
 
-          true ->
-            handle_pending_deposit(
-              deposit,
-              state,
-              churn_limit_reached,
-              processed_amount,
-              deposits_to_postpone,
-              index,
-              available_for_processing
-            )
+            true ->
+              handle_pending_deposit(
+                deposit,
+                state,
+                churn_limit_reached,
+                processed_amount,
+                deposits_to_postpone,
+                index,
+                available_for_processing,
+                pubkey_to_index
+              )
+          end
         end
-      end)
+      )
 
     deposit_balance_to_consume =
       if churn_limit_reached do
@@ -544,6 +561,23 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       else: acc
   end
 
+  # Single scan of validators to find indices for a small set of deposit pubkeys
+  defp build_deposit_pubkey_index(validators, deposit_pubkeys) do
+    if MapSet.size(deposit_pubkeys) == 0 do
+      %{}
+    else
+      validators
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.foldl(%{}, fn {validator, idx}, acc ->
+        if MapSet.member?(deposit_pubkeys, validator.pubkey) do
+          Map.put_new(acc, validator.pubkey, idx)
+        else
+          acc
+        end
+      end)
+    end
+  end
+
   defp handle_pending_deposit(
          deposit,
          state,
@@ -551,32 +585,38 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
          processed_amount,
          deposits_to_postpone,
          index,
-         available_for_processing
+         available_for_processing,
+         pubkey_to_index
        ) do
     far_future_epoch = Constants.far_future_epoch()
     next_epoch = Accessors.get_current_epoch(state)
 
     {is_validator_exited, is_validator_withdrawn} =
-      case Enum.find(state.validators, fn v -> v.pubkey == deposit.pubkey end) do
-        %Validator{} = validator ->
-          {validator.exit_epoch < far_future_epoch, validator.withdrawable_epoch < next_epoch}
-
-        _ ->
+      case Map.get(pubkey_to_index, deposit.pubkey) do
+        nil ->
           {false, false}
+
+        validator_index ->
+          validator = Aja.Vector.at!(state.validators, validator_index)
+          {validator.exit_epoch < far_future_epoch, validator.withdrawable_epoch < next_epoch}
       end
 
     cond do
       # Deposited balance will never become active. Increase balance but do not consume churn
       is_validator_withdrawn ->
-        {:ok, state} = apply_pending_deposit(state, deposit)
+        {:ok, state, pubkey_to_index} = apply_pending_deposit(state, deposit, pubkey_to_index)
 
-        {:cont, {state, churn_limit_reached, processed_amount, deposits_to_postpone, index}}
+        {:cont,
+         {state, churn_limit_reached, processed_amount, deposits_to_postpone, index,
+          pubkey_to_index}}
 
       # Validator is exiting, postpone the deposit until after withdrawable epoch
       is_validator_exited ->
         deposits_to_postpone = Enum.concat(deposits_to_postpone, [deposit])
 
-        {:cont, {state, churn_limit_reached, processed_amount, deposits_to_postpone, index}}
+        {:cont,
+         {state, churn_limit_reached, processed_amount, deposits_to_postpone, index,
+          pubkey_to_index}}
 
       true ->
         # Check if deposit fits in the churn, otherwise, do no more deposit processing in this epoch.
@@ -584,12 +624,14 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           processed_amount + deposit.amount > available_for_processing
 
         if is_churn_limit_reached do
-          {:halt, {state, true, processed_amount, deposits_to_postpone, index - 1}}
+          {:halt,
+           {state, true, processed_amount, deposits_to_postpone, index - 1, pubkey_to_index}}
         else
           # Consume churn and apply deposit.
           processed_amount = processed_amount + deposit.amount
-          {:ok, state} = apply_pending_deposit(state, deposit)
-          {:cont, {state, false, processed_amount, deposits_to_postpone, index}}
+          {:ok, state, pubkey_to_index} = apply_pending_deposit(state, deposit, pubkey_to_index)
+
+          {:cont, {state, false, processed_amount, deposits_to_postpone, index, pubkey_to_index}}
         end
     end
   end
@@ -656,9 +698,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
      }}
   end
 
-  defp apply_pending_deposit(state, deposit) do
-    index =
-      Enum.find_index(state.validators, fn validator -> validator.pubkey == deposit.pubkey end)
+  defp apply_pending_deposit(state, deposit, pubkey_to_index) do
+    index = Map.get(pubkey_to_index, deposit.pubkey)
 
     current_validator? = is_number(index)
 
@@ -673,19 +714,24 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     cond do
       current_validator? ->
-        {:ok, BeaconState.increase_balance(state, index, deposit.amount)}
+        {:ok, BeaconState.increase_balance(state, index, deposit.amount), pubkey_to_index}
 
       !current_validator? && valid_signature? ->
-        Mutators.add_validator_to_registry(
-          state,
-          deposit.pubkey,
-          deposit.withdrawal_credentials,
-          deposit.amount
-        )
+        {:ok, new_state} =
+          Mutators.add_validator_to_registry(
+            state,
+            deposit.pubkey,
+            deposit.withdrawal_credentials,
+            deposit.amount
+          )
+
+        # Update map so subsequent deposits for this pubkey find the new validator
+        new_index = Aja.Vector.size(state.validators)
+        {:ok, new_state, Map.put(pubkey_to_index, deposit.pubkey, new_index)}
 
       true ->
         # Neither a validator nor have a valid signature, we do not apply the deposit
-        {:ok, state}
+        {:ok, state, pubkey_to_index}
     end
   end
 end
