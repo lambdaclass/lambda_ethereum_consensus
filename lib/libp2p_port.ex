@@ -718,7 +718,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "->elixir"
     })
 
-    case IncomingRequestsHandler.handle(protocol_id, request_id, message) do
+    case IncomingRequestsHandler.handle(protocol_id, request_id, message, state.store) do
       {:ok, response} ->
         send_response(response, port)
 
