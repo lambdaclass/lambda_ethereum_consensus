@@ -27,28 +27,19 @@ defmodule Types.StateInfo do
            fetch_lazy(fields, :block_root, fn ->
              # NOTE: due to how SSZ-hashing works, hash(block) == hash(header)
              Ssz.hash_tree_root(state.latest_block_header)
-           end) do
-      # SSZ encoding is deferred — it's only needed for DB persistence,
-      # which happens asynchronously. This saves ~2s per block.
-      {:ok, from_beacon_state(state, nil, block_root, cached_field_hashes)}
+           end),
+         {:ok, root, field_hashes_binary} <-
+           Ssz.hash_beacon_state_cached(state, cached_field_hashes) do
+      field_hashes = parse_field_hashes(field_hashes_binary, 0, %{})
+
+      {:ok,
+       %__MODULE__{
+         root: root,
+         beacon_state: state,
+         block_root: block_root,
+         field_hashes: field_hashes
+       }}
     end
-  end
-
-  @spec from_beacon_state(Types.BeaconState.t(), binary(), Types.root(), map()) :: t()
-  def from_beacon_state(%BeaconState{} = state, encoded, block_root, cached_field_hashes \\ %{}) do
-    {:ok, root, field_hashes_binary} =
-      Ssz.hash_beacon_state_cached(state, cached_field_hashes)
-
-    # Parse the field_hashes_binary into a map of %{index => 32-byte hash}
-    field_hashes = parse_field_hashes(field_hashes_binary, 0, %{})
-
-    %__MODULE__{
-      root: root,
-      beacon_state: state,
-      encoded: encoded,
-      block_root: block_root,
-      field_hashes: field_hashes
-    }
   end
 
   # Parse concatenated 32-byte hashes into a map of %{field_index => hash}

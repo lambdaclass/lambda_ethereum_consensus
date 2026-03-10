@@ -182,7 +182,7 @@ defmodule Ssz do
     do: error()
 
   @spec hash_beacon_state_cached_rs(map, map, module) ::
-          {:ok, Types.root()} | {:error, String.t()}
+          {:ok, Types.root(), binary()} | {:error, String.t()}
   def hash_beacon_state_cached_rs(
         _state,
         _cached_hashes,
