@@ -186,7 +186,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
            Store.get_checkpoint_state(store, attestation.data.target),
          {:ok, indexed_attestation} <-
            Accessors.get_indexed_attestation(target_state, attestation),
-         :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do
+         # Block attestations were already BLS-verified during state transition.
+         :ok <-
+           if(is_from_block,
+             do: :ok,
+             else: check_valid_indexed_attestation(target_state, indexed_attestation)
+           ) do
       # Update latest messages for attesting indices
       update_latest_messages(new_store, indexed_attestation.attesting_indices, attestation)
     else
