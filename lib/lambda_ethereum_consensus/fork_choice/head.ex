@@ -121,43 +121,45 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   end
 
   defp filter_leaf_block(%Store{} = store, block_root, block, blocks) do
-    current_epoch = Store.get_current_epoch(store)
-    voting_source = get_voting_source(store, block_root)
-
-    # The voting source should be at the same height as the store's justified checkpoint
-    correct_justified =
-      store.justified_checkpoint.epoch == Constants.genesis_epoch() or
-        voting_source.epoch == store.justified_checkpoint.epoch or
-        voting_source.epoch + 2 >= current_epoch
-
-    # If the previous epoch is justified, the block should be pulled-up. In this case, check that unrealized
-    # justification is higher than the store and that the voting source is not more than two epochs ago
-    correct_justified =
-      if not correct_justified and previous_epoch_justified?(store) do
-        store.unrealized_justifications[block_root].epoch >= store.justified_checkpoint.epoch and
-          voting_source.epoch + 2 >= current_epoch
-      else
-        correct_justified
-      end
-
-    finalized_checkpoint_block =
-      Store.get_checkpoint_block(
-        store,
-        block_root,
-        store.finalized_checkpoint.epoch
-      )
-
-    correct_finalized =
-      store.finalized_checkpoint.epoch == Constants.genesis_epoch() or
-        store.finalized_checkpoint.root == finalized_checkpoint_block
+    correct_justified = justified_check(store, block_root)
+    correct_finalized = finalized_check(store, block_root)
 
     # If expected finalized/justified, add to viable block-tree and signal viability to parent.
     if correct_justified and correct_finalized do
       {true, Map.put(blocks, block_root, block)}
     else
-      # Otherwise, branch not viable
       {false, blocks}
     end
+  end
+
+  defp justified_check(%Store{} = store, block_root) do
+    current_epoch = Store.get_current_epoch(store)
+    voting_source = get_voting_source(store, block_root)
+
+    correct =
+      store.justified_checkpoint.epoch == Constants.genesis_epoch() or
+        voting_source.epoch == store.justified_checkpoint.epoch or
+        voting_source.epoch + 2 >= current_epoch
+
+    if not correct and previous_epoch_justified?(store) do
+      pulled_up_check(store, block_root, voting_source, current_epoch)
+    else
+      correct
+    end
+  end
+
+  defp pulled_up_check(store, block_root, voting_source, current_epoch) do
+    unrealized = store.unrealized_justifications[block_root]
+
+    unrealized != nil and
+      unrealized.epoch >= store.justified_checkpoint.epoch and
+      voting_source.epoch + 2 >= current_epoch
+  end
+
+  defp finalized_check(%Store{} = store, block_root) do
+    store.finalized_checkpoint.epoch == Constants.genesis_epoch() or
+      store.finalized_checkpoint.root ==
+        Store.get_checkpoint_block(store, block_root, store.finalized_checkpoint.epoch)
   end
 
   # Compute the voting source checkpoint in event that block with root ``block_root`` is the head block
@@ -167,12 +169,22 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
     block_epoch = Misc.compute_epoch_at_slot(block.slot)
 
     if current_epoch > block_epoch do
-      # The block is from a prior epoch, the voting source will be pulled-up
-      store.unrealized_justifications[block_root]
+      # The block is from a prior epoch, the voting source will be pulled-up.
+      # After restart/recovery, unrealized_justifications may not have this root
+      # (rebuild_tree doesn't populate it). Fall back to the block's state.
+      store.unrealized_justifications[block_root] ||
+        voting_source_fallback(store, block_root)
     else
       # The block is not from a prior epoch, therefore the voting source is not pulled up
       head_state = Store.get_state!(store, block_root).beacon_state
       head_state.current_justified_checkpoint
+    end
+  end
+
+  defp voting_source_fallback(store, block_root) do
+    case Store.get_state(store, block_root) do
+      %{beacon_state: state} -> state.current_justified_checkpoint
+      nil -> store.justified_checkpoint
     end
   end
 
