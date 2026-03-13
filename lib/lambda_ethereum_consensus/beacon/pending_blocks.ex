@@ -212,20 +212,21 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   """
   @spec process_blobs(Store.t(), {:ok, [Types.BlobSidecar.t()]}) :: {:ok, Store.t()}
   def process_blobs(store, {:ok, blobs}) do
-    blobs
-    |> Blobs.add_blobs()
-    |> Enum.reduce(store, fn root, store ->
-      with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
-           [] <- Blobs.missing_for_block(block_info) do
-        block_info
-        |> Blocks.change_status(:pending)
-        |> then(&process_block_and_check_children(store, &1))
+    new_store =
+      blobs
+      |> Blobs.add_blobs()
+      |> Enum.reduce(store, fn root, store ->
+        with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
+             [] <- Blobs.missing_for_block(block_info) do
+          block_info
+          |> Blocks.change_status(:pending)
+          |> then(&process_block_and_check_children(store, &1))
+        else
+          _ -> store
+        end
+      end)
 
-        {:ok, store}
-      else
-        _ -> {:ok, store}
-      end
-    end)
+    {:ok, new_store}
   end
 
   @spec process_blobs(Store.t(), {:error, any()}) :: {:ok, Store.t()}
@@ -241,24 +242,25 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   """
   @spec process_data_columns(Store.t(), {:ok, [Types.DataColumnSidecar.t()]}) :: {:ok, Store.t()}
   def process_data_columns(store, {:ok, sidecars}) do
-    sidecars
-    |> DataColumns.add_columns()
-    |> Enum.reduce(store, fn root, store ->
-      with %BlockInfo{status: :download_columns} = block_info <- Blocks.get_block_info(root),
-           [] <-
-             DataColumns.missing_columns_for_block(
-               block_info,
-               DasCore.get_local_custody_columns()
-             ) do
-        block_info
-        |> Blocks.change_status(:pending)
-        |> then(&process_block_and_check_children(store, &1))
+    new_store =
+      sidecars
+      |> DataColumns.add_columns()
+      |> Enum.reduce(store, fn root, store ->
+        with %BlockInfo{status: :download_columns} = block_info <- Blocks.get_block_info(root),
+             [] <-
+               DataColumns.missing_columns_for_block(
+                 block_info,
+                 DasCore.get_local_custody_columns()
+               ) do
+          block_info
+          |> Blocks.change_status(:pending)
+          |> then(&process_block_and_check_children(store, &1))
+        else
+          _ -> store
+        end
+      end)
 
-        {:ok, store}
-      else
-        _ -> {:ok, store}
-      end
-    end)
+    {:ok, new_store}
   end
 
   @spec process_data_columns(Store.t(), {:error, :no_peers}) :: {:ok, Store.t()}
