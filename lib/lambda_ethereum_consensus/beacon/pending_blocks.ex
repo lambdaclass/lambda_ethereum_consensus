@@ -14,6 +14,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.Store.Blobs
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Store.DataColumns
   alias LambdaEthereumConsensus.Utils
   alias Types.BlockInfo
@@ -408,16 +409,32 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         {store, :ok}
 
       data_availability_error?(reason) ->
-        # Data columns may not have been downloaded yet (common during catch-up sync).
-        # Move the block back to :download_columns and schedule a retry rather than
-        # permanently invalidating it and all its descendants.
-        Logger.warning(
-          "[PendingBlocks] Data not available, moving back to download_columns for retry",
-          log_md
-        )
+        # Check whether columns are genuinely missing (transient — retry download)
+        # or all present but verification failed (likely corrupted download).
+        custody_cols = DasCore.get_local_custody_columns()
+        missing = DataColumns.missing_columns_for_block(block_info, custody_cols)
+
+        if missing != [] do
+          Logger.warning(
+            "[PendingBlocks] Data not available (#{length(missing)} columns missing)," <>
+              " moving back to download_columns for retry",
+            log_md
+          )
+        else
+          # All columns present but KZG verification failed — purge stored columns
+          # so they get re-downloaded fresh. Without this, retry_download_columns
+          # would see "no missing columns", move the block to :pending, and loop.
+          Logger.warning(
+            "[PendingBlocks] Data not available but all #{length(custody_cols)} custody" <>
+              " columns present — purging columns for re-download",
+            log_md
+          )
+
+          DataColumnDb.delete_columns_for_block(block_info.root, custody_cols)
+        end
 
         Blocks.change_status(block_info, :download_columns)
-        request_missing_columns(block_info, DasCore.get_local_custody_columns())
+        request_missing_columns(block_info, custody_cols)
         Process.send_after(self(), :retry_download_columns, 30_000)
         {store, :ok}
 

@@ -53,6 +53,17 @@ defmodule LambdaEthereumConsensus.Store.DataColumnDb do
     match?({:ok, _}, Db.get(key))
   end
 
+  @doc """
+  Deletes stored data column sidecars for a block root at the given column indices.
+  Used to purge potentially corrupted columns so they can be re-downloaded.
+  """
+  @spec delete_columns_for_block(Types.root(), [Types.column_index()]) :: :ok
+  def delete_columns_for_block(block_root, column_indices) do
+    Enum.each(column_indices, fn ci ->
+      Db.delete(sidecar_key(block_root, ci))
+    end)
+  end
+
   @spec prune_old_data_columns(non_neg_integer()) :: :ok | {:error, String.t()} | :not_found
   def prune_old_data_columns(current_finalized_slot) do
     slot =
