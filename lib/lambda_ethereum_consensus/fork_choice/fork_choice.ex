@@ -364,24 +364,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       if catching_up? do
         {[], %{}}
       else
-        # Prefetch relevant states.
-        {states, timings} =
-          StateTransition.timed(:prefetch_states, %{}, fn ->
-            attestations
-            |> Enum.map(& &1.data.target)
-            |> Enum.uniq()
-            |> Enum.flat_map(fn ch -> fetch_checkpoint_state(store, ch) end)
-          end)
-
-        # Prefetch committees for all relevant epochs.
-        {_, timings} =
-          StateTransition.timed(:prefetch_committees, timings, fn ->
-            for {checkpoint, state} <- states do
-              Accessors.maybe_prefetch_committees(state, checkpoint.epoch)
-            end
-          end)
-
-        {states, timings}
+        prefetch_states_and_committees(store, attestations)
       end
 
     new_store = update_in(store.checkpoint_states, fn cs -> Map.merge(cs, Map.new(states)) end)
@@ -401,6 +384,27 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         end
       end
     end
+  end
+
+  defp prefetch_states_and_committees(store, attestations) do
+    # Prefetch relevant states.
+    {states, timings} =
+      StateTransition.timed(:prefetch_states, %{}, fn ->
+        attestations
+        |> Enum.map(& &1.data.target)
+        |> Enum.uniq()
+        |> Enum.flat_map(fn ch -> fetch_checkpoint_state(store, ch) end)
+      end)
+
+    # Prefetch committees for all relevant epochs.
+    {_, timings} =
+      StateTransition.timed(:prefetch_committees, timings, fn ->
+        for {checkpoint, state} <- states do
+          Accessors.maybe_prefetch_committees(state, checkpoint.epoch)
+        end
+      end)
+
+    {states, timings}
   end
 
   def fetch_checkpoint_state(store, checkpoint) do

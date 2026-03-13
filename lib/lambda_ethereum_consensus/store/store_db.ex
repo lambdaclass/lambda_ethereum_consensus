@@ -53,7 +53,7 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
     end
   end
 
-  defp cached_genesis_time do
+  defp cached_genesis_time() do
     :persistent_term.get(@genesis_time_key, nil)
   end
 
