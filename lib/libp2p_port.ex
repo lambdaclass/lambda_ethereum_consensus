@@ -1005,6 +1005,28 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
        when slot - head_slot == 0,
        do: %{state | syncing: false}
 
+  defp update_syncing_status(
+         %{syncing: true, blocks_remaining: 0} = state,
+         {slot, _third},
+         %Types.Store{head_slot: head_slot}
+       )
+       when slot - head_slot > 2 do
+    last_resync_head = Map.get(state, :last_resync_head)
+
+    if last_resync_head == head_slot do
+      # Already triggered a resync and head hasn't moved yet (blocks still processing).
+      # Wait for the processing pipeline to make progress before re-syncing.
+      state
+    else
+      Logger.info(
+        "[Libp2p] Sync batch complete but still #{slot - head_slot} slots behind, re-syncing"
+      )
+
+      Process.send_after(self(), :sync_blocks, 500)
+      state |> Map.put(:blocks_remaining, -1) |> Map.put(:last_resync_head, head_slot)
+    end
+  end
+
   defp update_syncing_status(state, _slot_data, _), do: state
 
   defp schedule_next_tick() do
