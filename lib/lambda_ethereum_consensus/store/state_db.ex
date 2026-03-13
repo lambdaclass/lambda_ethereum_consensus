@@ -71,6 +71,8 @@ defmodule LambdaEthereumConsensus.Store.StateDb do
             Logger.error(
               "[Block pruning] Failed to remove block from slot #{inspect(slot)}. Reason: #{inspect(other)}"
             )
+
+            acc
         end
       end)
 
