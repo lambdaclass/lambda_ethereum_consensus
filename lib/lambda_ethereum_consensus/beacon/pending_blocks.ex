@@ -39,6 +39,10 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   # Keeps memory bounded by yielding the GenServer between batches,
   # allowing GC to reclaim BeaconState objects (~300MB each).
   @retry_batch_size 5
+  # Max blocks to process per process_blocks invocation.
+  # Yielding the GenServer between batches allows load shedding and
+  # GC to run, preventing unbounded message queue growth during catch-up.
+  @process_batch_size 5
 
   @doc """
   If the block is not present, it will be stored as pending.
@@ -171,13 +175,28 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def process_blocks(store) do
     case Blocks.get_blocks_with_status(:pending) do
       {:ok, blocks} ->
-        blocks
-        |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
-        # Could we process just one/a small amount of blocks at a time? would it make more sense?
-        |> Enum.reduce(store, fn block_info, store ->
-          {store, _state} = process_block(store, block_info)
-          store
-        end)
+        sorted =
+          Enum.sort_by(blocks, fn %BlockInfo{} = block_info ->
+            block_info.signed_block.message.slot
+          end)
+
+        # Process blocks in small batches, yielding the GenServer between
+        # batches so load shedding, GC, and other handlers can run.
+        # Without batching, processing 60+ blocks in one callback kept
+        # the GenServer busy for 3-5 minutes, causing mailbox overflow.
+        {batch, rest} = Enum.split(sorted, @process_batch_size)
+
+        store =
+          Enum.reduce(batch, store, fn block_info, store ->
+            {store, _state} = process_block(store, block_info)
+            store
+          end)
+
+        if rest != [] do
+          Process.send_after(self(), :retry_pending_blocks, 100)
+        end
+
+        store
 
       {:error, reason} ->
         Logger.error(
