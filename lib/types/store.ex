@@ -121,12 +121,19 @@ defmodule Types.Store do
   end
 
   def get_ancestor(%__MODULE__{} = store, root, slot) do
-    block = Blocks.get_block!(root)
+    case Blocks.get_block(root) do
+      nil ->
+        # Block has been pruned. Return the root as-is so callers
+        # that compare ancestors (get_weight, finalized_check) will
+        # see a non-matching root and correctly discard the entry.
+        root
 
-    if block.slot > slot do
-      get_ancestor(store, block.parent_root, slot)
-    else
-      root
+      block ->
+        if block.slot > slot do
+          get_ancestor(store, block.parent_root, slot)
+        else
+          root
+        end
     end
   end
 
