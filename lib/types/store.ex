@@ -13,6 +13,7 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.CheckpointStates
+  alias LambdaEthereumConsensus.Store.StateDb
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.BlockInfo
@@ -87,6 +88,8 @@ defmodule Types.Store do
       time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
 
       BlockStates.store_state_info(state_info)
+      # Persist anchor state to LevelDB (BlockStates LRU no longer writes to DB)
+      Task.start(fn -> StateDb.store_state_info(state_info) end)
       CheckpointStates.put(anchor_checkpoint, anchor_state)
 
       %__MODULE__{

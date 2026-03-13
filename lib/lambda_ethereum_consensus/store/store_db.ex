@@ -6,6 +6,7 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
   alias Types.Store
 
   @store_prefix "store"
+  @genesis_time_key {__MODULE__, :genesis_time}
 
   @spec fetch_store() :: {:ok, Types.Store.t()} | :not_found
   def fetch_store() do
@@ -16,6 +17,10 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
 
   @spec persist_store(Types.Store.t()) :: :ok
   def persist_store(%Types.Store{} = store) do
+    # Cache genesis_time in persistent_term for fast access.
+    # This avoids deserializing the entire store just to read genesis_time.
+    cache_genesis_time(store.genesis_time)
+
     :telemetry.span([:db, :latency], %{}, fn ->
       {put(@store_prefix, Store.remove_cache(store)), %{module: "fork_choice", action: "persist"}}
     end)
@@ -23,15 +28,37 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
 
   @spec fetch_genesis_time() :: {:ok, Types.uint64()} | :not_found
   def fetch_genesis_time() do
-    with {:ok, store} <- fetch_store() do
-      store.genesis_time
+    case cached_genesis_time() do
+      nil ->
+        with {:ok, store} <- fetch_store() do
+          cache_genesis_time(store.genesis_time)
+          store.genesis_time
+        end
+
+      time ->
+        {:ok, time}
     end
   end
 
   @spec fetch_genesis_time!() :: Types.uint64()
   def fetch_genesis_time!() do
-    {:ok, %{genesis_time: genesis_time}} = fetch_store()
-    genesis_time
+    case cached_genesis_time() do
+      nil ->
+        {:ok, %{genesis_time: genesis_time}} = fetch_store()
+        cache_genesis_time(genesis_time)
+        genesis_time
+
+      time ->
+        time
+    end
+  end
+
+  defp cached_genesis_time do
+    :persistent_term.get(@genesis_time_key, nil)
+  end
+
+  defp cache_genesis_time(genesis_time) do
+    :persistent_term.put(@genesis_time_key, genesis_time)
   end
 
   defp get(key) do

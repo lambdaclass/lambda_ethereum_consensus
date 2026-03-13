@@ -22,7 +22,11 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
       table: @table,
       max_entries: @max_entries,
       batch_prune_size: @batch_prune_size,
-      store_func: fn _k, v -> StateDb.store_state_info(v) end
+      # NOTE: LevelDB persistence is handled by the caller (handlers.ex uses
+      # Task.Supervisor for async writes). The LRU cache only manages ETS caching.
+      # Previously this was synchronous and blocked the Libp2pPort GenServer for
+      # 30-60s during state serialization+write.
+      store_func: fn _k, _v -> :ok end
     )
   end
 
