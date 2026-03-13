@@ -425,10 +425,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     wall_slot = get_current_chain_slot(store.genesis_time)
 
     head_root =
-      if wall_slot - block_slot > 4 do
-        # During catch-up (more than 4 slots behind), head is always the latest
-        # processed block. Skip expensive LMD-GHOST since there are no competing
-        # forks — we only have the canonical chain from peers.
+      if wall_slot - block_slot > 1 do
+        # When behind the chain tip (>1 slot), head is the latest processed
+        # block. Skip expensive LMD-GHOST (~3-4s) since during catch-up there
+        # are no competing forks — we only have the canonical chain from peers.
         block_root
       else
         {:ok, root} = Head.get_head(store)

@@ -398,14 +398,34 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         {store, :invalid}
 
       %BlockInfo{status: :transitioned} ->
-        case ForkChoice.on_block(store, block_info) do
-          {:ok, store} ->
-            Logger.debug("[PendingBlocks] Block transitioned after ForkChoice.on_block/2", log_md)
-            Blocks.change_status(block_info, :transitioned)
-            {store, :transitioned}
+        # Skip blocks that are far behind the current head. During catch-up,
+        # sync batches download blocks that may already be superseded by the
+        # canonical chain. Processing them triggers expensive epoch processing
+        # (10+ minutes for rewards_and_penalties + committee computation with
+        # 2.2M validators) while blocking the Libp2pPort GenServer, causing
+        # massive message queue buildup (50K-100K+).
+        if message.slot + 2 < store.head_slot do
+          Logger.info(
+            "[PendingBlocks] Skipping block behind head (slot #{message.slot} vs head #{store.head_slot})",
+            log_md
+          )
 
-          {:error, reason, store} ->
-            handle_on_block_error(store, block_info, reason, log_md)
+          Blocks.change_status(block_info, :transitioned)
+          {store, :transitioned}
+        else
+          case ForkChoice.on_block(store, block_info) do
+            {:ok, store} ->
+              Logger.debug(
+                "[PendingBlocks] Block transitioned after ForkChoice.on_block/2",
+                log_md
+              )
+
+              Blocks.change_status(block_info, :transitioned)
+              {store, :transitioned}
+
+            {:error, reason, store} ->
+              handle_on_block_error(store, block_info, reason, log_md)
+          end
         end
 
       _other ->
