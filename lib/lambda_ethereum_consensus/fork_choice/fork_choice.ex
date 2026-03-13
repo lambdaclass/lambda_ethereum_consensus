@@ -348,33 +348,55 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def process_block(%BlockInfo{signed_block: signed_block} = block_info, store) do
     attestations = signed_block.message.body.attestations
     attester_slashings = signed_block.message.body.attester_slashings
+    block_slot = signed_block.message.slot
+    wall_slot = get_current_chain_slot(store.genesis_time)
 
-    # Prefetch relevant states.
+    # During catch-up (>1 epoch behind), skip expensive prefetch_states and
+    # attestation processing. Prefetching checkpoint states from LevelDB takes
+    # 28-35s per block (300MB BeaconState deserialization), and committee
+    # computation takes 10s. Attestation processing has no value during catch-up
+    # since LMD-GHOST is already skipped.
+    catching_up? = wall_slot - block_slot > ChainSpec.get("SLOTS_PER_EPOCH")
+
     {states, timings} =
-      StateTransition.timed(:prefetch_states, %{}, fn ->
-        attestations
-        |> Enum.map(& &1.data.target)
-        |> Enum.uniq()
-        |> Enum.flat_map(fn ch -> fetch_checkpoint_state(store, ch) end)
-      end)
+      if catching_up? do
+        {[], %{}}
+      else
+        # Prefetch relevant states.
+        {states, timings} =
+          StateTransition.timed(:prefetch_states, %{}, fn ->
+            attestations
+            |> Enum.map(& &1.data.target)
+            |> Enum.uniq()
+            |> Enum.flat_map(fn ch -> fetch_checkpoint_state(store, ch) end)
+          end)
 
-    # Prefetch committees for all relevant epochs.
-    {_, timings} =
-      StateTransition.timed(:prefetch_committees, timings, fn ->
-        for {checkpoint, state} <- states do
-          Accessors.maybe_prefetch_committees(state, checkpoint.epoch)
-        end
-      end)
+        # Prefetch committees for all relevant epochs.
+        {_, timings} =
+          StateTransition.timed(:prefetch_committees, timings, fn ->
+            for {checkpoint, state} <- states do
+              Accessors.maybe_prefetch_committees(state, checkpoint.epoch)
+            end
+          end)
+
+        {states, timings}
+      end
 
     new_store = update_in(store.checkpoint_states, fn cs -> Map.merge(cs, Map.new(states)) end)
 
     with {:ok, new_store, handler_timings} <- apply_on_block(new_store, block_info) do
       timings = Map.merge(timings, handler_timings)
 
-      with {:ok, new_store, timings} <- process_attestations(new_store, attestations, timings),
-           {:ok, new_store, timings} <-
-             process_attester_slashings(new_store, attester_slashings, timings) do
+      if catching_up? do
+        # Skip attestation processing during catch-up — attestations from old
+        # blocks don't contribute to fork choice when LMD-GHOST is skipped.
         {:ok, new_store, timings}
+      else
+        with {:ok, new_store, timings} <- process_attestations(new_store, attestations, timings),
+             {:ok, new_store, timings} <-
+               process_attester_slashings(new_store, attester_slashings, timings) do
+          {:ok, new_store, timings}
+        end
       end
     end
   end
