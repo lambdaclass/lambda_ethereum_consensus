@@ -259,10 +259,61 @@ defmodule Types.Store do
       end
 
     case Tree.add_block(tree, block_root, parent_root) do
-      {:ok, new_tree} -> %{store | tree_cache: new_tree}
-      # Block is older than current finalized block, or parent not in tree.
-      # Still save the pruned tree so tree_cache stays in sync with finalized_checkpoint.
-      {:error, :not_found} -> %{store | tree_cache: tree}
+      {:ok, new_tree} ->
+        %{store | tree_cache: new_tree}
+
+      {:error, :not_found} ->
+        # Parent not in tree. Walk the parent chain from parent_root back to
+        # the finalized root and add all intermediate blocks. This repairs the
+        # tree after it was rebuilt with only the finalized root, or after
+        # blocks were pruned but the chain wasn't maintained.
+        repaired = repair_tree_chain(tree, finalized_root, parent_root)
+
+        case Tree.add_block(repaired, block_root, parent_root) do
+          {:ok, new_tree} -> %{store | tree_cache: new_tree}
+          {:error, :not_found} -> %{store | tree_cache: repaired}
+        end
+    end
+  end
+
+  # Repair a tree by walking the parent chain from target_root back to
+  # finalized_root and adding all intermediate blocks. This fills in gaps
+  # when the tree only has the finalized root but blocks have been processed
+  # beyond it (e.g., after a Tree.new rebuild or finalization advance).
+  defp repair_tree_chain(tree, finalized_root, target_root) do
+    chain = collect_parent_chain(target_root, finalized_root, [])
+
+    if chain != [] do
+      Logger.info("[Store] Repairing tree: adding #{length(chain)} blocks from parent chain")
+    end
+
+    Enum.reduce(chain, tree, fn {root, parent}, acc ->
+      case Tree.add_block(acc, root, parent) do
+        {:ok, t} -> t
+        {:error, _} -> acc
+      end
+    end)
+  end
+
+  # Walk from current_root back to finalized_root, collecting {root, parent} pairs.
+  # Returns the chain in order from finalized_root's child down to current_root.
+  defp collect_parent_chain(current_root, finalized_root, acc)
+       when current_root == finalized_root,
+       do: acc
+
+  defp collect_parent_chain(current_root, finalized_root, acc) do
+    case Blocks.get_block_info(current_root) do
+      %BlockInfo{signed_block: %{message: %{parent_root: parent}}} ->
+        collect_parent_chain(parent, finalized_root, [{current_root, parent} | acc])
+
+      _ ->
+        # Can't walk further (block not found or pruned), return what we have
+        Logger.warning(
+          "[Store] Parent chain walk stopped at #{Base.encode16(current_root)}, " <>
+            "#{length(acc)} blocks collected"
+        )
+
+        acc
     end
   end
 
