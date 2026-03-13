@@ -142,32 +142,13 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
   end
 
   @spec process_registry_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_registry_updates(%BeaconState{validators: validators} = state) do
+  def process_registry_updates(%BeaconState{} = state) do
     ejection_balance = ChainSpec.get("EJECTION_BALANCE")
     current_epoch = Accessors.get_current_epoch(state)
     activation_exit_epoch = Misc.compute_activation_exit_epoch(current_epoch)
-
-    validators
-    |> Enum.with_index()
-    |> Enum.reduce_while(state, fn {validator, idx}, state ->
-      handle_validator_registry_update(
-        state,
-        validator,
-        idx,
-        current_epoch,
-        activation_exit_epoch,
-        ejection_balance
-      )
-    end)
-    |> then(fn
-      %BeaconState{} = state -> {:ok, state}
-      {:error, reason} -> {:error, reason}
-    end)
-  end
-
-    ctx =
-      {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
-       min_activation_balance, finalized_epoch}
+    far_future_epoch = Constants.far_future_epoch()
+    min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
+    finalized_epoch = state.finalized_checkpoint.epoch
 
     ctx =
       {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
@@ -546,23 +527,6 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
            |> Enum.concat(deposits_to_postpone),
          deposit_balance_to_consume: deposit_balance_to_consume
      }}
-  end
-
-  # Single scan of validators to find indices for a small set of deposit pubkeys
-  defp build_deposit_pubkey_index(validators, deposit_pubkeys) do
-    if MapSet.size(deposit_pubkeys) == 0 do
-      %{}
-    else
-      validators
-      |> Aja.Vector.with_index()
-      |> Aja.Vector.foldl(%{}, &match_deposit_pubkey(&1, &2, deposit_pubkeys))
-    end
-  end
-
-  defp match_deposit_pubkey({validator, idx}, acc, deposit_pubkeys) do
-    if MapSet.member?(deposit_pubkeys, validator.pubkey),
-      do: Map.put_new(acc, validator.pubkey, idx),
-      else: acc
   end
 
   # Single scan of validators to find indices for a small set of deposit pubkeys
