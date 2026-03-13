@@ -729,11 +729,12 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ### PRIVATE FUNCTIONS
   ######################
 
-  # Load shedding: when the mailbox is overloaded, only process essential messages
-  # (responses and results from our own requests). Gossip, incoming peer requests,
-  # new peer notifications, and tracer messages are dropped to prevent unbounded
-  # queue growth and eventual OOM.
-  defp shed_load?(type) when type in [:response, :result], do: false
+  # Load shedding: when the mailbox is overloaded, only process essential messages.
+  # Always process: responses/results (our request replies), new_peer (PeerDAS routing).
+  # Drop when overloaded: gossip, incoming requests, tracer messages.
+  # new_peer MUST be processed because the Peerbook needs node_ids for PeerDAS
+  # custody column routing — without them, DataColumnDownloader reports :no_peers.
+  defp shed_load?(type) when type in [:response, :result, :new_peer], do: false
 
   defp shed_load?(_type) do
     {:message_queue_len, len} = Process.info(self(), :message_queue_len)
