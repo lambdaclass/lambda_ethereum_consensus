@@ -95,6 +95,14 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @sync_delay_millis 15_000
   @head_drift_alert 12
 
+  # When the message queue exceeds this length, non-essential messages
+  # (gossip, incoming requests, peer notifications, tracer) are dropped
+  # to prevent unbounded queue growth and OOM. Responses and results
+  # (replies to our own requests) are always processed.
+  @max_queue_before_shedding 2000
+  # Log load-shedding warnings at most every N dropped messages
+  @shed_log_interval 1000
+
   ######################
   ### API
   ######################
@@ -549,6 +557,27 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
     schedule_next_tick()
     time = :os.system_time(:second)
 
+    # Reset shed count and log recovery when queue drains below threshold
+    shed_count = Map.get(state, :shed_count, 0)
+
+    state =
+      if shed_count > 0 do
+        {:message_queue_len, len} = Process.info(self(), :message_queue_len)
+
+        if len <= @max_queue_before_shedding do
+          Logger.info(
+            "[Libp2pPort] Load shedding ended: dropped #{shed_count} messages total, " <>
+              "queue_len=#{len}"
+          )
+
+          Map.put(state, :shed_count, 0)
+        else
+          state
+        end
+      else
+        state
+      end
+
     {:noreply, on_tick(time, state)}
   end
 
@@ -596,8 +625,24 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_info({_port, {:data, data}}, state) do
-    %Notification{n: {_, payload}} = Notification.decode(data)
-    {:noreply, handle_notification(payload, state)}
+    %Notification{n: {type, payload}} = Notification.decode(data)
+
+    if shed_load?(type) do
+      dropped = Map.get(state, :shed_count, 0) + 1
+
+      if rem(dropped, @shed_log_interval) == 1 do
+        {:message_queue_len, len} = Process.info(self(), :message_queue_len)
+
+        Logger.warning(
+          "[Libp2pPort] Load shedding active: dropped #{dropped} non-essential messages, " <>
+            "queue_len=#{len}"
+        )
+      end
+
+      {:noreply, Map.put(state, :shed_count, dropped)}
+    else
+      {:noreply, handle_notification(payload, state)}
+    end
   end
 
   @impl GenServer
@@ -683,6 +728,17 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ######################
   ### PRIVATE FUNCTIONS
   ######################
+
+  # Load shedding: when the mailbox is overloaded, only process essential messages
+  # (responses and results from our own requests). Gossip, incoming peer requests,
+  # new peer notifications, and tracer messages are dropped to prevent unbounded
+  # queue growth and eventual OOM.
+  defp shed_load?(type) when type in [:response, :result], do: false
+
+  defp shed_load?(_type) do
+    {:message_queue_len, len} = Process.info(self(), :message_queue_len)
+    len > @max_queue_before_shedding
+  end
 
   defp handle_notification(%GossipSub{} = gs, %{subscribers: subscribers} = state) do
     :telemetry.execute([:port, :message], %{}, %{
