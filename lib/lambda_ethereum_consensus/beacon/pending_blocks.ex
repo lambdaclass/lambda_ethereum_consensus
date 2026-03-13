@@ -438,6 +438,18 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         Process.send_after(self(), :retry_download_columns, 30_000)
         {store, :ok}
 
+      timing_error?(reason) ->
+        # "block is from the future" happens after GenServer restart when the
+        # store's time hasn't caught up via on_tick yet. Keep block as :pending
+        # and retry after a delay — the time will advance and the block will pass.
+        Logger.warning(
+          "[PendingBlocks] Transient timing error, scheduling retry: #{reason}",
+          log_md
+        )
+
+        Process.send_after(self(), :retry_pending_blocks, 12_000)
+        {store, :ok}
+
       true ->
         Logger.error(
           "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
@@ -460,6 +472,13 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   # may not have been downloaded yet. The block should be retried, not invalidated.
   defp data_availability_error?(reason) do
     reason == "data not available"
+  end
+
+  # Timing errors happen after GenServer restart when the store's time hasn't
+  # been advanced by on_tick yet. The block is valid but appears to be "from
+  # the future" relative to the stale store time.
+  defp timing_error?(reason) do
+    reason == "block is from the future"
   end
 
   defp process_downloaded_block(store, {:ok, [block]}) do
