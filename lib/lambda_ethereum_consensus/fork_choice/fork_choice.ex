@@ -351,12 +351,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     block_slot = signed_block.message.slot
     wall_slot = get_current_chain_slot(store.genesis_time)
 
-    # During catch-up (>1 epoch behind), skip expensive prefetch_states and
+    # During catch-up (>4 slots behind), skip expensive prefetch_states and
     # attestation processing. Prefetching checkpoint states from LevelDB takes
     # 28-35s per block (300MB BeaconState deserialization), and committee
     # computation takes 10s. Attestation processing has no value during catch-up
-    # since LMD-GHOST is already skipped.
-    catching_up? = wall_slot - block_slot > ChainSpec.get("SLOTS_PER_EPOCH")
+    # since LMD-GHOST is already skipped. Using a small threshold (4 slots)
+    # instead of SLOTS_PER_EPOCH prevents the 25-35s prefetch_states cost at
+    # every epoch boundary during the transition from catch-up to normal mode.
+    catching_up? = wall_slot - block_slot > 4
 
     {states, timings} =
       if catching_up? do
