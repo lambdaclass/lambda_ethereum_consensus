@@ -38,7 +38,7 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   end
 
   @spec store_state_info(StateInfo.t()) :: :ok
-  def store_state_info(state_info), do: LRUCache.put(@table, state_info.root, state_info)
+  def store_state_info(state_info), do: LRUCache.put_cache(@table, state_info.root, state_info)
 
   @spec get_state_info(Types.root()) :: StateInfo.t() | nil
   def get_state_info(block_root), do: LRUCache.get(@table, block_root, &fetch_state/1)

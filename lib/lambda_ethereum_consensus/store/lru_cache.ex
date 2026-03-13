@@ -38,6 +38,19 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
     :ok
   end
 
+  @doc """
+  Insert a value into the ETS cache without calling the store_func.
+  The ETS insert is immediate (public table), and TTL management is
+  deferred via GenServer.cast (non-blocking). Use this when LevelDB
+  persistence is handled separately by the caller.
+  """
+  @spec put_cache(atom(), key(), value()) :: :ok
+  def put_cache(table, key, value) do
+    :ets.insert(table, {key, value, nil})
+    GenServer.cast(table, {:touch_entry, key})
+    :ok
+  end
+
   @spec get(atom(), key(), (key() -> value() | nil)) :: value() | nil
   def get(table, key, fetch_func) do
     case :ets.lookup_element(table, key, 2, nil) do

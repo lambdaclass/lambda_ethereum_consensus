@@ -60,7 +60,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       {:ok, new_store, timings} ->
         {new_store, timings} =
           StateTransition.timed(:recompute_head, timings, fn ->
-            recompute_head(new_store)
+            recompute_head(new_store, block_root, slot)
           end)
 
         new_store = prune_old_states(new_store, last_finalized_checkpoint.epoch)
@@ -420,9 +420,20 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   # Recomputes the head in the store and sends the new head to others (libP2P,
   # operations collector db, execution chain db).
-  @spec recompute_head(Store.t()) :: Store.t()
-  defp recompute_head(store) do
-    {:ok, head_root} = Head.get_head(store)
+  @spec recompute_head(Store.t(), Types.root(), Types.slot()) :: Store.t()
+  defp recompute_head(store, block_root, block_slot) do
+    wall_slot = get_current_chain_slot(store.genesis_time)
+
+    head_root =
+      if wall_slot - block_slot > 16 do
+        # During catch-up, head is always the latest processed block.
+        # Skip expensive LMD-GHOST (2-12s) since there are no competing forks.
+        block_root
+      else
+        {:ok, root} = Head.get_head(store)
+        root
+      end
+
     head_block = Blocks.get_block!(head_root)
 
     Handlers.notify_forkchoice_update(store, head_block)
