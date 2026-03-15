@@ -254,6 +254,37 @@ defmodule Ssz do
 
   def shuffle_list_rs(_indices, _seed, _rounds), do: error()
 
+  @spec compute_proposer_indices(
+          binary(),
+          non_neg_integer(),
+          non_neg_integer(),
+          [non_neg_integer()],
+          [non_neg_integer()],
+          non_neg_integer(),
+          non_neg_integer()
+        ) :: [non_neg_integer()]
+  def compute_proposer_indices(
+        epoch_seed,
+        start_slot,
+        slots_per_epoch,
+        active_indices,
+        effective_balances,
+        max_effective_balance,
+        rounds
+      ),
+      do:
+        compute_proposer_indices_rs(
+          epoch_seed,
+          start_slot,
+          slots_per_epoch,
+          active_indices,
+          effective_balances,
+          max_effective_balance,
+          rounds
+        )
+
+  def compute_proposer_indices_rs(_, _, _, _, _, _, _), do: error()
+
   ##### Utils
   defp error(), do: :erlang.nif_error(:nif_not_loaded)
 

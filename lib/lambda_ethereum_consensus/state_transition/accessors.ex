@@ -374,20 +374,30 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   def compute_proposer_indices(state, epoch, seed, indices) do
     start_slot = Misc.compute_start_slot_at_epoch(epoch)
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
+    rounds = ChainSpec.get("SHUFFLE_ROUND_COUNT")
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE_ELECTRA")
 
-    0..(slots_per_epoch - 1)
-    |> Enum.reduce_while({:ok, []}, fn i, {:ok, acc} ->
-      slot_seed = SszEx.hash(seed <> Misc.uint64_to_bytes(start_slot + i))
+    # Extract effective balances from validators (not state.balances!) as a flat list.
+    # The spec uses validator.effective_balance for the proposer selection threshold.
+    effective_balances =
+      state.validators
+      |> Aja.Vector.map(& &1.effective_balance)
+      |> Aja.Vector.to_list()
 
-      case Misc.compute_proposer_index(state, indices, slot_seed) do
-        {:ok, proposer_index} -> {:cont, {:ok, [proposer_index | acc]}}
-        {:error, _} = err -> {:halt, err}
-      end
-    end)
-    |> case do
-      {:ok, reversed} -> {:ok, Enum.reverse(reversed)}
-      {:error, _} = err -> err
-    end
+    active_indices_list = Aja.Vector.to_list(indices)
+
+    result =
+      Ssz.compute_proposer_indices(
+        seed,
+        start_slot,
+        slots_per_epoch,
+        active_indices_list,
+        effective_balances,
+        max_effective_balance,
+        rounds
+      )
+
+    {:ok, result}
   end
 
   defp get_state_epoch_root(state) do

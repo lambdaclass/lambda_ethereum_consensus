@@ -280,6 +280,34 @@ fn update_randao_cache_rs<'a>(
 }
 
 #[rustler::nif(schedule = "DirtyCpu")]
+fn compute_proposer_indices_rs(
+    epoch_seed: Binary,
+    start_slot: u64,
+    slots_per_epoch: u32,
+    active_indices: Vec<u64>,
+    effective_balances: Vec<u64>,
+    max_effective_balance: u64,
+    rounds: u32,
+) -> NifResult<Vec<u64>> {
+    if epoch_seed.len() != 32 {
+        return Err(rustler::Error::BadArg);
+    }
+    let seed: &[u8; 32] = epoch_seed
+        .as_slice()
+        .try_into()
+        .map_err(|_| rustler::Error::BadArg)?;
+    Ok(crate::utils::shuffle::compute_proposer_indices(
+        seed,
+        start_slot,
+        slots_per_epoch,
+        &active_indices,
+        &effective_balances,
+        max_effective_balance,
+        rounds,
+    ))
+}
+
+#[rustler::nif(schedule = "DirtyCpu")]
 fn shuffle_list_rs<'env>(
     env: Env<'env>,
     indices: Vec<u64>,
@@ -312,5 +340,6 @@ rustler::init!(
         update_participation_cache_rs,
         update_randao_cache_rs,
         shuffle_list_rs,
+        compute_proposer_indices_rs,
     ]
 );
