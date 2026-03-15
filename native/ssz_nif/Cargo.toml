@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 rustler = "0.32.1"
 ethereum_ssz_derive = "0.8.3"
 ethereum_ssz = "0.8.3"
+ethereum_hashing = { version = "0.7.0", features = ["zero_hash_cache"] }
 ssz_types = "0.10.1"
 tree_hash = "0.9.1"
 tree_hash_derive = "0.9.1"

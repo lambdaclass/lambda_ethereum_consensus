@@ -190,6 +190,60 @@ defmodule Ssz do
       ),
       do: error()
 
+  @doc """
+  Apply targeted balance updates to the cached incremental balance merkle tree.
+  Returns `{:ok, hash}` or `{:error, :cache_miss}`.
+  `updates` is a list of `{index, new_value}` tuples.
+  """
+  @spec update_balance_cache(
+          list({non_neg_integer(), non_neg_integer()}),
+          non_neg_integer(),
+          binary()
+        ) ::
+          {:ok, binary()} | {:error, :cache_miss}
+  def update_balance_cache(updates, balance_count, expected_prev_hash),
+    do: update_balance_cache_rs(updates, balance_count, expected_prev_hash)
+
+  def update_balance_cache_rs(_updates, _balance_count, _expected_prev_hash), do: error()
+
+  @doc """
+  Apply targeted participation updates to the cached incremental participation merkle tree.
+  Returns `{:ok, hash}` or `{:error, :cache_miss}`.
+  `field_num` is 15 (previous_epoch_participation) or 16 (current_epoch_participation).
+  `updates` is a list of `{index, new_value}` tuples.
+  `expected_prev_hash` validates the cache matches the expected parent state.
+  """
+  @spec update_participation_cache(
+          15 | 16,
+          list({non_neg_integer(), non_neg_integer()}),
+          non_neg_integer(),
+          binary()
+        ) ::
+          {:ok, binary()} | {:error, :cache_miss}
+  def update_participation_cache(field_num, updates, value_count, expected_prev_hash),
+    do: update_participation_cache_rs(field_num, updates, value_count, expected_prev_hash)
+
+  def update_participation_cache_rs(_field_num, _updates, _value_count, _expected_prev_hash),
+    do: error()
+
+  @doc """
+  Apply a targeted randao_mixes update to the cached incremental merkle tree.
+  Returns `{:ok, hash}` or `{:error, :cache_miss}`.
+  `index` is the position to update, `new_value` is the new 32-byte entry.
+  `expected_prev_hash` validates the cache matches the expected parent state.
+  """
+  @spec update_randao_cache(
+          non_neg_integer(),
+          binary(),
+          non_neg_integer(),
+          binary()
+        ) ::
+          {:ok, binary()} | {:error, :cache_miss}
+  def update_randao_cache(index, new_value, total_count, expected_prev_hash),
+    do: update_randao_cache_rs(index, new_value, total_count, expected_prev_hash)
+
+  def update_randao_cache_rs(_index, _new_value, _total_count, _expected_prev_hash), do: error()
+
   ##### Utils
   defp error(), do: :erlang.nif_error(:nif_not_loaded)
 
@@ -203,10 +257,6 @@ defmodule Ssz do
       |> Enum.map(fn {k, v} -> {k, encode(v)} end)
       |> then(&struct!(name, &1))
     end
-  end
-
-  defp encode(list) when is_list(list) do
-    Enum.map(list, &encode/1)
   end
 
   defp encode(list) when is_list(list), do: list |> Enum.map(&encode/1)

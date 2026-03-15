@@ -52,23 +52,28 @@ defmodule Types.StateInfo do
   @spec encode(t()) :: binary()
   def encode(%__MODULE__{encoded: nil} = state_info) do
     {:ok, encoded} = Ssz.to_ssz(state_info.beacon_state)
-    {encoded, state_info.root, state_info.block_root} |> :erlang.term_to_binary()
+
+    {encoded, state_info.root, state_info.block_root, state_info.field_hashes}
+    |> :erlang.term_to_binary()
   end
 
   def encode(%__MODULE__{} = state_info) do
-    {state_info.encoded, state_info.root, state_info.block_root} |> :erlang.term_to_binary()
+    {state_info.encoded, state_info.root, state_info.block_root, state_info.field_hashes}
+    |> :erlang.term_to_binary()
   end
 
   @spec decode(binary()) :: {:ok, t()} | {:error, binary()}
   def decode(bin) do
-    with {:ok, encoded, root, block_root} <- :erlang.binary_to_term(bin) |> validate_term(),
+    with {:ok, encoded, root, block_root, field_hashes} <-
+           :erlang.binary_to_term(bin) |> validate_term(),
          {:ok, beacon_state} <- Ssz.from_ssz(encoded, BeaconState) do
       {:ok,
        %__MODULE__{
          beacon_state: beacon_state,
          root: root,
          block_root: block_root,
-         encoded: encoded
+         encoded: encoded,
+         field_hashes: field_hashes
        }}
     end
   end
@@ -77,14 +82,23 @@ defmodule Types.StateInfo do
     with :error <- Keyword.fetch(keyword, key), do: fun.()
   end
 
-  @spec validate_term(term()) :: {:ok, binary(), Types.root(), Types.root()} | {:error, binary()}
+  @spec validate_term(term()) ::
+          {:ok, binary(), Types.root(), Types.root(), %{non_neg_integer() => binary()}}
+          | {:error, binary()}
+  defp validate_term({ssz_encoded, root, block_root, field_hashes})
+       when is_binary(ssz_encoded) and is_binary(root) and is_binary(block_root) and
+              is_map(field_hashes) do
+    {:ok, ssz_encoded, root, block_root, field_hashes}
+  end
+
+  # Backwards compatibility: old 3-tuple format without field_hashes
   defp validate_term({ssz_encoded, root, block_root})
-       when is_binary(ssz_encoded) and is_binary(root) and is_binary(root) do
-    {:ok, ssz_encoded, root, block_root}
+       when is_binary(ssz_encoded) and is_binary(root) and is_binary(block_root) do
+    {:ok, ssz_encoded, root, block_root, %{}}
   end
 
   defp validate_term(other) do
     {:error,
-     "Error when decoding state info binary. Expected a {binary(), binary()} tuple. Found: #{inspect(other)}"}
+     "Error when decoding state info binary. Expected a {binary(), binary(), binary(), map()} tuple. Found: #{inspect(other)}"}
   end
 end

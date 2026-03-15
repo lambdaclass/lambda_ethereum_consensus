@@ -177,6 +177,108 @@ fn hash_beacon_state_cached_rs<'a>(
         .encode(env))
 }
 
+/// Apply targeted balance updates to the cached incremental balance merkle tree.
+/// Returns `{:ok, hash}` if the cache is valid, or `{:error, :cache_miss}` if the cache
+/// needs to be rebuilt (caller should fall through to the full hash path).
+///
+/// `updates` is a list of `{index :: u32, new_value :: u64}` tuples.
+/// `balance_count` is the current total number of balances (for mix_in_length).
+#[rustler::nif(schedule = "DirtyCpu")]
+fn update_balance_cache_rs<'a>(
+    env: Env<'a>,
+    updates: Vec<(u32, u64)>,
+    balance_count: u64,
+    expected_prev_hash: Binary<'a>,
+) -> NifResult<Term<'a>> {
+    let prev_hash: &[u8; 32] = expected_prev_hash
+        .as_slice()
+        .try_into()
+        .map_err(|_| rustler::Error::BadArg)?;
+    match crate::utils::balance_cache::apply_updates_and_hash(
+        &updates,
+        balance_count as usize,
+        prev_hash,
+    ) {
+        Some(hash) => Ok((atoms::ok(), bytes_to_binary(env, &hash)).encode(env)),
+        None => {
+            let error_atom = Atom::from_str(env, "error")?;
+            let miss_atom = Atom::from_str(env, "cache_miss")?;
+            Ok((error_atom, miss_atom).encode(env))
+        }
+    }
+}
+
+/// Apply targeted participation updates to the cached incremental participation merkle tree.
+/// Returns `{:ok, hash}` if the cache is valid, or `{:error, :cache_miss}` if the cache
+/// needs to be rebuilt (caller should fall through to the full hash path).
+///
+/// `field_num` is 15 (previous_epoch_participation) or 16 (current_epoch_participation).
+/// `updates` is a list of `{index :: u32, new_value :: u8}` tuples.
+/// `value_count` is the current total number of participation entries (for mix_in_length).
+#[rustler::nif(schedule = "DirtyCpu")]
+fn update_participation_cache_rs<'a>(
+    env: Env<'a>,
+    field_num: u32,
+    updates: Vec<(u32, u8)>,
+    value_count: u64,
+    expected_prev_hash: Binary<'a>,
+) -> NifResult<Term<'a>> {
+    let prev_hash: &[u8; 32] = expected_prev_hash
+        .as_slice()
+        .try_into()
+        .map_err(|_| rustler::Error::BadArg)?;
+    match crate::utils::participation_cache::apply_participation_updates(
+        field_num,
+        &updates,
+        value_count as usize,
+        prev_hash,
+    ) {
+        Some(hash) => Ok((atoms::ok(), bytes_to_binary(env, &hash)).encode(env)),
+        None => {
+            let error_atom = Atom::from_str(env, "error")?;
+            let miss_atom = Atom::from_str(env, "cache_miss")?;
+            Ok((error_atom, miss_atom).encode(env))
+        }
+    }
+}
+
+/// Apply a single targeted randao_mixes update to the cached incremental merkle tree.
+/// Returns `{:ok, hash}` if the cache is valid, or `{:error, :cache_miss}` on miss.
+///
+/// `index` is the position to update, `new_value` is the new 32-byte entry.
+/// `total_count` is the total number of randao mix entries.
+/// `expected_prev_hash` validates the cache matches the expected parent state.
+#[rustler::nif(schedule = "DirtyCpu")]
+fn update_randao_cache_rs<'a>(
+    env: Env<'a>,
+    index: u64,
+    new_value: Binary<'a>,
+    total_count: u64,
+    expected_prev_hash: Binary<'a>,
+) -> NifResult<Term<'a>> {
+    let value: &[u8; 32] = new_value
+        .as_slice()
+        .try_into()
+        .map_err(|_| rustler::Error::BadArg)?;
+    let prev_hash: &[u8; 32] = expected_prev_hash
+        .as_slice()
+        .try_into()
+        .map_err(|_| rustler::Error::BadArg)?;
+    match crate::utils::randao_cache::apply_randao_update(
+        index as usize,
+        value,
+        total_count as usize,
+        prev_hash,
+    ) {
+        Some(hash) => Ok((atoms::ok(), bytes_to_binary(env, &hash)).encode(env)),
+        None => {
+            let error_atom = Atom::from_str(env, "error")?;
+            let miss_atom = Atom::from_str(env, "cache_miss")?;
+            Ok((error_atom, miss_atom).encode(env))
+        }
+    }
+}
+
 rustler::init!(
     "Elixir.Ssz",
     [
@@ -187,5 +289,8 @@ rustler::init!(
         hash_tree_root_list_rs,
         hash_tree_root_vector_rs,
         hash_beacon_state_cached_rs,
+        update_balance_cache_rs,
+        update_participation_cache_rs,
+        update_randao_cache_rs,
     ]
 );
