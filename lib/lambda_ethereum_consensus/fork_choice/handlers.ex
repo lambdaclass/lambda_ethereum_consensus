@@ -58,9 +58,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   A block that is asserted as invalid due to unavailable PoW block may be valid at a later time,
   consider scheduling it for later processing in such case.
   """
-  @spec on_block(Store.t(), BlockInfo.t()) ::
+  @spec on_block(Store.t(), BlockInfo.t(), keyword()) ::
           {:ok, Store.t(), StateTransition.timings()} | {:error, String.t()}
-  def on_block(%Store{} = store, %BlockInfo{} = block_info) do
+  def on_block(%Store{} = store, %BlockInfo{} = block_info, opts \\ []) do
     block = block_info.signed_block.message
     %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
     finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
@@ -94,7 +94,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           end)
 
         if da_ok? do
-          compute_post_state(store, block_info, base_state, timings)
+          compute_post_state(store, block_info, base_state, timings, opts)
         else
           {:error, "data not available"}
         end
@@ -266,7 +266,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         %Store{} = store,
         %BlockInfo{} = block_info,
         %StateInfo{} = state_info,
-        timings
+        timings,
+        opts \\ []
       ) do
     block = block_info.signed_block.message
 
@@ -342,20 +343,27 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
             |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
           end)
 
-        # Eagerly compute unrealized justification and finality
-        {result, timings} =
-          StateTransition.timed(:pulled_up_tip, timings, fn ->
-            compute_pulled_up_tip(
-              new_store,
-              block_info.root,
-              block_info.signed_block.message,
-              state
-            )
-          end)
+        # Eagerly compute unrealized justification and finality.
+        # Skip during catch-up: unrealized checkpoints are only needed for
+        # fork choice head computation, which doesn't run during catch-up sync.
+        # Each call scans 2.2M validators twice (~210ms per block).
+        if Keyword.get(opts, :skip_pulled_up_tip, false) do
+          {:ok, new_store, timings}
+        else
+          {result, timings} =
+            StateTransition.timed(:pulled_up_tip, timings, fn ->
+              compute_pulled_up_tip(
+                new_store,
+                block_info.root,
+                block_info.signed_block.message,
+                state
+              )
+            end)
 
-        case result do
-          {:ok, store} -> {:ok, store, timings}
-          err -> err
+          case result do
+            {:ok, store} -> {:ok, store, timings}
+            err -> err
+          end
         end
       end
     end

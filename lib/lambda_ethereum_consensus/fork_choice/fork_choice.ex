@@ -369,7 +369,9 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     new_store = update_in(store.checkpoint_states, fn cs -> Map.merge(cs, Map.new(states)) end)
 
-    with {:ok, new_store, handler_timings} <- apply_on_block(new_store, block_info) do
+    on_block_opts = if catching_up?, do: [skip_pulled_up_tip: true], else: []
+
+    with {:ok, new_store, handler_timings} <- apply_on_block(new_store, block_info, on_block_opts) do
       timings = Map.merge(timings, handler_timings)
 
       if catching_up? do
@@ -414,8 +416,8 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     end
   end
 
-  defp apply_on_block(store, block_info) do
-    Handlers.on_block(store, block_info)
+  defp apply_on_block(store, block_info, opts \\ []) do
+    Handlers.on_block(store, block_info, opts)
   end
 
   defp process_attester_slashings(store, attester_slashings, timings) do
