@@ -421,18 +421,20 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         Map.update(acc, w.validator_index, w.amount, &(&1 + w.amount))
       end)
 
-    # Sweep using direct indexed access instead of Stream.cycle/drop/take
+    # Extract the sweep range as lists for O(1) sequential access instead of
+    # per-element Aja.Vector.at! (O(log N)). Handles wrap-around at validator_count.
     start_index = state.next_withdrawal_validator_index
 
+    {validator_list, balance_list, index_list} =
+      extract_sweep_range(state.validators, state.balances, start_index, validator_count, bound)
+
     non_partial_withdrawals =
-      sweep_validators(
-        state.validators,
-        state.balances,
+      sweep_validator_list(
+        validator_list,
+        balance_list,
+        index_list,
         partial_amounts,
         epoch,
-        start_index,
-        validator_count,
-        bound,
         withdrawal_index,
         []
       )
@@ -444,37 +446,50 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     {complete_withdrawals, processed_partial_withdrawals_count}
   end
 
-  # Direct indexed sweep over validators using Aja.Vector.at! instead of
-  # Stream.cycle/drop/take which materializes and drops up to V elements.
-  # Wraps around using rem/2 for the circular sweep.
-  defp sweep_validators(
-         _validators,
-         _balances,
-         _partial_amounts,
-         _epoch,
-         _current,
-         _validator_count,
-         0,
-         _withdrawal_index,
-         acc
-       ) do
+  # Extract the sweep range as plain lists for O(1) sequential traversal.
+  # Handles wrap-around when start + bound > validator_count.
+  defp extract_sweep_range(validators, balances, start, count, bound) do
+    end_index = start + bound
+
+    if end_index <= count do
+      # No wrap-around: single contiguous slice
+      vl = validators |> Aja.Vector.slice(start..(end_index - 1)) |> Aja.Vector.to_list()
+      bl = balances |> Aja.Vector.slice(start..(end_index - 1)) |> Aja.Vector.to_list()
+      il = Enum.to_list(start..(end_index - 1))
+      {vl, bl, il}
+    else
+      # Wrap-around: two slices
+      first_len = count - start
+      second_len = bound - first_len
+
+      vl =
+        Aja.Vector.to_list(Aja.Vector.slice(validators, start..(count - 1))) ++
+          Aja.Vector.to_list(Aja.Vector.slice(validators, 0..(second_len - 1)))
+
+      bl =
+        Aja.Vector.to_list(Aja.Vector.slice(balances, start..(count - 1))) ++
+          Aja.Vector.to_list(Aja.Vector.slice(balances, 0..(second_len - 1)))
+
+      il = Enum.to_list(start..(count - 1)) ++ Enum.to_list(0..(second_len - 1))
+      {vl, bl, il}
+    end
+  end
+
+  # Sweep over pre-extracted lists with O(1) sequential access.
+  defp sweep_validator_list([], [], [], _partial_amounts, _epoch, _withdrawal_index, acc) do
     Enum.reverse(acc)
   end
 
-  defp sweep_validators(
-         validators,
-         balances,
+  defp sweep_validator_list(
+         [validator | vrest],
+         [raw_balance | brest],
+         [index | irest],
          partial_amounts,
          epoch,
-         current,
-         validator_count,
-         remaining,
          withdrawal_index,
          acc
        ) do
-    index = rem(current, validator_count)
-    validator = Aja.Vector.at!(validators, index)
-    balance = Aja.Vector.at!(balances, index) - Map.get(partial_amounts, index, 0)
+    balance = raw_balance - Map.get(partial_amounts, index, 0)
 
     acc =
       cond do
@@ -508,17 +523,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
           acc
       end
 
-    sweep_validators(
-      validators,
-      balances,
-      partial_amounts,
-      epoch,
-      current + 1,
-      validator_count,
-      remaining - 1,
-      withdrawal_index,
-      acc
-    )
+    sweep_validator_list(vrest, brest, irest, partial_amounts, epoch, withdrawal_index, acc)
   end
 
   defp process_partial_withdrawal(
