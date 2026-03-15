@@ -310,18 +310,30 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
         is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
-        # Add new block and state to the store
-        {new_store, timings} =
-          StateTransition.timed(:store_state, timings, fn ->
-            s = Store.store_state(store, new_state_info.block_root, new_state_info)
-            BlockStates.store_state_info(new_state_info)
-            s
-          end)
+        # Add new block and state to the in-memory store map (O(1)).
+        new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
+        catching_up? = Keyword.get(opts, :skip_pulled_up_tip, false)
 
-        Task.Supervisor.start_child(
-          StoreStatesSupervisor,
-          fn -> StateDb.store_state_info(new_state_info) end
-        )
+        # During catch-up, skip ETS insert (~230ms per block) and LevelDB write.
+        # The state is accessible via store.states for sequential block processing.
+        # ETS/LevelDB are only needed for external lookups (API, validators, fork choice)
+        # which don't run during catch-up sync.
+        timings =
+          if catching_up? do
+            timings
+          else
+            {_, timings} =
+              StateTransition.timed(:store_state, timings, fn ->
+                BlockStates.store_state_info(new_state_info)
+              end)
+
+            Task.Supervisor.start_child(
+              StoreStatesSupervisor,
+              fn -> StateDb.store_state_info(new_state_info) end
+            )
+
+            timings
+          end
 
         is_first_block = new_store.proposer_boost_root == <<0::256>>
 
