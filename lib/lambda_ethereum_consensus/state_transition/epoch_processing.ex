@@ -439,45 +439,105 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     else
       previous_epoch = Accessors.get_previous_epoch(state)
       base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
+      effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+      weights = Constants.participation_flag_weights()
+      weight_denominator = Constants.weight_denominator()
+      in_inactivity_leak? = Predicates.in_inactivity_leak?(state)
+      timely_head_flag_index = Constants.timely_head_flag_index()
+      timely_target_flag_index = Constants.timely_target_flag_index()
 
-      # Single O(V) pass to compute all 3 unslashed participating index sets
-      unslashed_by_flag =
-        Accessors.get_all_unslashed_participating_indices(state, previous_epoch)
+      penalty_denominator =
+        ChainSpec.get("INACTIVITY_SCORE_BIAS") *
+          ChainSpec.get("INACTIVITY_PENALTY_QUOTIENT_BELLATRIX")
 
-      deltas =
-        Constants.participation_flag_weights()
-        |> Stream.with_index()
-        |> Stream.map(fn {weight, flag_index} ->
-          BeaconState.get_flag_index_deltas(
-            state,
-            weight,
-            flag_index,
-            Enum.at(unslashed_by_flag, flag_index),
-            base_reward_per_increment
-          )
+      active_increments =
+        div(Accessors.get_total_active_balance(state), effective_balance_increment)
+
+      participation = state.previous_epoch_participation
+
+      # Pass 1: compute participating balances for each flag (single O(V) scan)
+      {bal0, bal1, bal2} =
+        state.validators
+        |> Aja.Vector.zip_with(participation, fn v, p -> {v, p} end)
+        |> Aja.Vector.foldl({0, 0, 0}, fn {v, p}, {b0, b1, b2} ->
+          if not v.slashed and Predicates.active_validator?(v, previous_epoch) do
+            eb = v.effective_balance
+            b0 = if Predicates.has_flag(p, 0), do: b0 + eb, else: b0
+            b1 = if Predicates.has_flag(p, 1), do: b1 + eb, else: b1
+            b2 = if Predicates.has_flag(p, 2), do: b2 + eb, else: b2
+            {b0, b1, b2}
+          else
+            {b0, b1, b2}
+          end
         end)
-        # Reuse target flag (index 1) for inactivity penalties (avoids 4th V-scan)
-        |> Stream.concat([
-          BeaconState.get_inactivity_penalty_deltas(
-            state,
-            Enum.at(unslashed_by_flag, Constants.timely_target_flag_index())
-          )
-        ])
-        |> Stream.zip()
-        |> Aja.Vector.new()
 
-      state.balances
-      |> Aja.Vector.zip_with(deltas, &update_balance/2)
-      |> then(&{:ok, %BeaconState{state | balances: &1}})
+      participating_increments = [
+        div(max(effective_balance_increment, bal0), effective_balance_increment),
+        div(max(effective_balance_increment, bal1), effective_balance_increment),
+        div(max(effective_balance_increment, bal2), effective_balance_increment)
+      ]
+
+      ctx =
+        {weights, participating_increments, active_increments, effective_balance_increment,
+         base_reward_per_increment, weight_denominator, in_inactivity_leak?,
+         timely_head_flag_index, timely_target_flag_index, penalty_denominator, previous_epoch}
+
+      # Pass 2: compute all deltas + apply to balances (single O(V) scan)
+      new_balances =
+        state.validators
+        |> Aja.Vector.zip_with(participation, fn v, p -> {v, p} end)
+        |> Aja.Vector.zip_with(state.balances, fn {v, p}, bal -> {v, p, bal} end)
+        |> Aja.Vector.zip_with(
+          Aja.Vector.new(state.inactivity_scores),
+          fn {v, p, bal}, iscore -> {v, p, bal, iscore} end
+        )
+        |> Aja.Vector.map(fn {validator, part_flags, balance, inactivity_score} ->
+          compute_and_apply_deltas(validator, part_flags, balance, inactivity_score, ctx)
+        end)
+
+      {:ok, %BeaconState{state | balances: new_balances}}
     end
   end
 
-  defp update_balance(balance, deltas) do
-    deltas
-    |> Tuple.to_list()
-    |> Enum.reduce(balance, fn delta, balance ->
-      max(balance + delta, 0)
-    end)
+  defp compute_and_apply_deltas(validator, part_flags, balance, inactivity_score, ctx) do
+    {weights, pi_list, ai, ebi, brpi, wd, in_leak?, thfi, ttfi, pd, prev_epoch} = ctx
+
+    if not Predicates.eligible_validator?(validator, prev_epoch) do
+      balance
+    else
+      base_reward = div(validator.effective_balance, ebi) * brpi
+
+      # Apply 3 flag deltas with per-delta clamping
+      balance =
+        weights
+        |> Enum.with_index()
+        |> Enum.reduce(balance, fn {weight, flag_index}, bal ->
+          upi = Enum.at(pi_list, flag_index)
+          is_unslashed = not validator.slashed and Predicates.has_flag(part_flags, flag_index)
+
+          delta =
+            cond do
+              is_unslashed and in_leak? -> 0
+              is_unslashed -> div(base_reward * weight * upi, ai * wd)
+              flag_index != thfi -> -div(base_reward * weight, wd)
+              true -> 0
+            end
+
+          max(bal + delta, 0)
+        end)
+
+      # Apply inactivity penalty delta with per-delta clamping
+      is_target_unslashed = not validator.slashed and Predicates.has_flag(part_flags, ttfi)
+
+      inactivity_delta =
+        if not is_target_unslashed do
+          -div(validator.effective_balance * inactivity_score, pd)
+        else
+          0
+        end
+
+      max(balance + inactivity_delta, 0)
+    end
   end
 
   @spec process_pending_deposits(BeaconState.t()) :: {:ok, BeaconState.t()}
