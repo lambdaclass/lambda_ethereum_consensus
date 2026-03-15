@@ -242,33 +242,43 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     inactivity_score_bias = ChainSpec.get("INACTIVITY_SCORE_BIAS")
     inactivity_score_recovery_rate = ChainSpec.get("INACTIVITY_SCORE_RECOVERY_RATE")
     previous_epoch = Accessors.get_previous_epoch(state)
-
-    # PERF: this can be inlined and combined with the next pipeline
-    {:ok, unslashed_participating_indices} =
-      Accessors.get_unslashed_participating_indices(state, timely_target_index, previous_epoch)
-
     state_in_inactivity_leak? = Predicates.in_inactivity_leak?(state)
 
-    state.inactivity_scores
-    |> Stream.zip(state.validators)
-    |> Stream.with_index()
-    |> Enum.map(fn {{inactivity_score, validator}, index} ->
-      if Predicates.eligible_validator?(validator, previous_epoch) do
-        inactivity_score
-        |> Misc.increase_inactivity_score(
-          index,
-          unslashed_participating_indices,
-          inactivity_score_bias
-        )
-        |> Misc.decrease_inactivity_score(
-          state_in_inactivity_leak?,
-          inactivity_score_recovery_rate
-        )
-      else
-        inactivity_score
-      end
-    end)
-    |> then(&{:ok, %{state | inactivity_scores: &1}})
+    # Single-pass: inline the participation check directly instead of building
+    # a MapSet of 2.2M entries then doing MapSet.member? lookups.
+    # Zip validators, participation flags, and inactivity_scores together.
+    participation = state.previous_epoch_participation
+
+    new_scores =
+      state.inactivity_scores
+      |> Stream.zip(Aja.Vector.to_list(state.validators))
+      |> Stream.zip(Aja.Vector.to_list(participation))
+      |> Enum.map(fn {{inactivity_score, validator}, part_flags} ->
+        if Predicates.eligible_validator?(validator, previous_epoch) do
+          # Inline the unslashed participating check:
+          # not slashed AND active (already checked by eligible_validator?) AND has target flag
+          is_unslashed_participating =
+            not validator.slashed and
+              Predicates.has_flag(part_flags, timely_target_index)
+
+          inactivity_score =
+            if is_unslashed_participating do
+              inactivity_score - min(1, inactivity_score)
+            else
+              inactivity_score + inactivity_score_bias
+            end
+
+          if state_in_inactivity_leak? do
+            inactivity_score
+          else
+            inactivity_score - min(inactivity_score_recovery_rate, inactivity_score)
+          end
+        else
+          inactivity_score
+        end
+      end)
+
+    {:ok, %{state | inactivity_scores: new_scores}}
   end
 
   @spec process_historical_summaries_update(BeaconState.t()) :: {:ok, BeaconState.t()}
