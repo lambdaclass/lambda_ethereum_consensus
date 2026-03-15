@@ -339,12 +339,30 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> block_op(:execution_payload, &Operations.process_execution_payload(&1, block.body))
     |> block_op(:randao, &Operations.process_randao(&1, block.body))
     |> block_op(:eth1_data, &Operations.process_eth1_data(&1, block.body))
+    |> prefetch_committees_for_block()
     |> block_op(:operations, &Operations.process_operations(&1, block.body))
     |> block_op(
       :sync_aggregate,
       &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
     )
   end
+
+  # Ensure beacon committees for the current epoch are cached before processing
+  # attestations. Without this, each attestation triggers an expensive on-demand
+  # committee computation (~650ms × 8 committees = ~5.2s per block). The full
+  # epoch prefetch (~10s) amortizes to ~312ms per block across 32 blocks.
+  defp prefetch_committees_for_block({:ok, state, timings}) do
+    epoch = Misc.compute_epoch_at_slot(state.slot)
+
+    {_, timings} =
+      timed(:prefetch_committees, timings, fn ->
+        Accessors.maybe_prefetch_committees(state, epoch)
+      end)
+
+    {:ok, state, timings}
+  end
+
+  defp prefetch_committees_for_block(err), do: err
 
   def epoch_op({:ok, state, timings}, operation, f) do
     key = :"epoch.#{operation}"

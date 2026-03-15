@@ -193,12 +193,17 @@ defmodule Mix.Tasks.Bench.Blocks do
     start_time = System.monotonic_time(:millisecond)
 
     case ForkChoice.process_block(block_info, store) do
-      {:ok, new_store, _timings} ->
+      {:ok, new_store, timings} ->
         elapsed = System.monotonic_time(:millisecond) - start_time
         epoch_boundary? = rem(slot, slots_per_epoch) == 0
 
+        pairs =
+          timings
+          |> Enum.sort_by(fn {_k, v} -> v end, :desc)
+          |> Enum.map_join(" ", fn {k, v} -> "#{k}=#{v}ms" end)
+
         Logger.info(
-          "Slot #{slot}: #{elapsed}ms#{if epoch_boundary?, do: " [epoch boundary]", else: ""}"
+          "Slot #{slot}: #{elapsed}ms#{if epoch_boundary?, do: " [epoch boundary]", else: ""} #{pairs}"
         )
 
         {new_store, [{slot, elapsed, epoch_boundary?} | results]}
