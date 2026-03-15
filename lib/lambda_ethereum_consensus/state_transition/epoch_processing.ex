@@ -108,37 +108,44 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_slashings(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_slashings(%BeaconState{validators: validators, slashings: slashings} = state) do
-    epoch = Accessors.get_current_epoch(state)
-    total_balance = Accessors.get_total_active_balance(state)
-
-    proportional_slashing_multiplier = ChainSpec.get("PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX")
-    epochs_per_slashings_vector = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
-    increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
-
     slashed_sum = Enum.reduce(slashings, 0, &+/2)
 
-    adjusted_total_slashing_balance =
-      min(slashed_sum * proportional_slashing_multiplier, total_balance)
+    # Short-circuit: when no slashings occurred, penalty is 0 for all validators.
+    # Avoids scanning 2.2M validators on the common case (no slashings on mainnet).
+    if slashed_sum == 0 do
+      {:ok, state}
+    else
+      epoch = Accessors.get_current_epoch(state)
+      total_balance = Accessors.get_total_active_balance(state)
 
-    penalty_per_effective_balance_increment =
-      div(adjusted_total_slashing_balance, div(total_balance, increment))
+      proportional_slashing_multiplier =
+        ChainSpec.get("PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX")
 
-    new_state =
-      validators
-      |> Stream.with_index()
-      |> Enum.reduce(state, fn {validator, index}, acc ->
-        if validator.slashed and
-             epoch + div(epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
-          effective_balance_increments = div(validator.effective_balance, increment)
-          penalty = penalty_per_effective_balance_increment * effective_balance_increments
+      epochs_per_slashings_vector = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
+      increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
 
-          BeaconState.decrease_balance(acc, index, penalty)
-        else
-          acc
-        end
-      end)
+      adjusted_total_slashing_balance =
+        min(slashed_sum * proportional_slashing_multiplier, total_balance)
 
-    {:ok, new_state}
+      penalty_per_ebi =
+        div(adjusted_total_slashing_balance, div(total_balance, increment))
+
+      target_withdrawable_epoch = epoch + div(epochs_per_slashings_vector, 2)
+
+      new_state =
+        validators
+        |> Aja.Vector.with_index()
+        |> Aja.Vector.foldl(state, fn {validator, index}, acc ->
+          if validator.slashed and validator.withdrawable_epoch == target_withdrawable_epoch do
+            penalty = penalty_per_ebi * div(validator.effective_balance, increment)
+            BeaconState.decrease_balance(acc, index, penalty)
+          else
+            acc
+          end
+        end)
+
+      {:ok, new_state}
+    end
   end
 
   @spec process_registry_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, String.t()}
@@ -330,7 +337,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       previous_target_balance =
         get_total_participating_balance(state, target_index, previous_epoch)
 
-      current_target_balance = get_total_participating_balance(state, target_index, current_epoch)
+      current_target_balance =
+        get_total_participating_balance(state, target_index, current_epoch)
 
       total_active_balance = Accessors.get_total_active_balance(state)
 
@@ -343,9 +351,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     end
   end
 
-  # Single-pass: zip_with produces integers (0 or balance), foldl sums them.
-  # Avoids the tuple creation + filter + reduce pattern (3 passes → 2 passes,
-  # no intermediate filtered vector).
+  # Single-pass per epoch: zip_with produces integers (0 or balance), foldl sums them.
   defp get_total_participating_balance(state, flag_index, epoch) do
     epoch_participation =
       if epoch == Accessors.get_current_epoch(state) do

@@ -310,8 +310,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
         # Add new block and state to the store
-        new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
-        BlockStates.store_state_info(new_state_info)
+        {new_store, timings} =
+          StateTransition.timed(:store_state, timings, fn ->
+            s = Store.store_state(store, new_state_info.block_root, new_state_info)
+            BlockStates.store_state_info(new_state_info)
+            s
+          end)
 
         Task.Supervisor.start_child(
           StoreStatesSupervisor,
@@ -326,17 +330,30 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
         state = new_state_info.beacon_state
 
-        new_store
-        |> Store.store_block_info(block_info)
-        |> if_then_update(
-          is_timely and is_first_block,
-          &%{&1 | proposer_boost_root: block_info.root}
-        )
-        # Update checkpoints in store if necessary
-        |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
+        {new_store, timings} =
+          StateTransition.timed(:store_block, timings, fn ->
+            new_store
+            |> Store.store_block_info(block_info)
+            |> if_then_update(
+              is_timely and is_first_block,
+              &%{&1 | proposer_boost_root: block_info.root}
+            )
+            # Update checkpoints in store if necessary
+            |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
+          end)
+
         # Eagerly compute unrealized justification and finality
-        |> compute_pulled_up_tip(block_info.root, block_info.signed_block.message, state)
-        |> case do
+        {result, timings} =
+          StateTransition.timed(:pulled_up_tip, timings, fn ->
+            compute_pulled_up_tip(
+              new_store,
+              block_info.root,
+              block_info.signed_block.message,
+              state
+            )
+          end)
+
+        case result do
           {:ok, store} -> {:ok, store, timings}
           err -> err
         end
