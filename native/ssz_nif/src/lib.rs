@@ -279,6 +279,25 @@ fn update_randao_cache_rs<'a>(
     }
 }
 
+#[rustler::nif(schedule = "DirtyCpu")]
+fn shuffle_list_rs<'env>(
+    env: Env<'env>,
+    indices: Vec<u64>,
+    seed: Binary,
+    rounds: u32,
+) -> NifResult<Vec<u64>> {
+    if seed.len() != 32 {
+        return Err(rustler::Error::BadArg);
+    }
+    let seed_arr: &[u8; 32] = seed
+        .as_slice()
+        .try_into()
+        .map_err(|_| rustler::Error::BadArg)?;
+    let mut arr = indices;
+    crate::utils::shuffle::shuffle_list(&mut arr, seed_arr, rounds);
+    Ok(arr)
+}
+
 rustler::init!(
     "Elixir.Ssz",
     [
@@ -292,5 +311,6 @@ rustler::init!(
         update_balance_cache_rs,
         update_participation_cache_rs,
         update_randao_cache_rs,
+        shuffle_list_rs,
     ]
 );

@@ -1355,6 +1355,7 @@ dependencies = [
  "ethereum_ssz",
  "ethereum_ssz_derive",
  "rustler",
+ "sha2",
  "ssz_types",
  "tree_hash",
  "tree_hash_derive",

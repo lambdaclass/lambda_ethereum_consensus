@@ -244,6 +244,16 @@ defmodule Ssz do
 
   def update_randao_cache_rs(_index, _new_value, _total_count, _expected_prev_hash), do: error()
 
+  @doc """
+  Perform the full eth2 shuffle in Rust NIF. Takes a list of validator indices,
+  a 32-byte seed, and the number of shuffle rounds. Returns the shuffled list.
+  Runs on DirtyCpu scheduler to avoid blocking normal schedulers.
+  """
+  @spec shuffle_list([non_neg_integer()], binary(), non_neg_integer()) :: [non_neg_integer()]
+  def shuffle_list(indices, seed, rounds), do: shuffle_list_rs(indices, seed, rounds)
+
+  def shuffle_list_rs(_indices, _seed, _rounds), do: error()
+
   ##### Utils
   defp error(), do: :erlang.nif_error(:nif_not_loaded)
 
