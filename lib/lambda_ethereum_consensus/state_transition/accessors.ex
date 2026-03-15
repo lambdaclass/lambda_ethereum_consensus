@@ -210,6 +210,45 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
+  Compute unslashed participating index sets for all 3 flag indices in a single O(V) pass.
+  Returns a list of 3 MapSets, one per flag index (0, 1, 2).
+  """
+  @spec get_all_unslashed_participating_indices(BeaconState.t(), Types.epoch()) ::
+          [MapSet.t()]
+  def get_all_unslashed_participating_indices(%BeaconState{} = state, epoch) do
+    epoch_participation =
+      if epoch == get_current_epoch(state) do
+        state.current_epoch_participation
+      else
+        state.previous_epoch_participation
+      end
+
+    state.validators
+    |> Aja.Vector.zip_with(epoch_participation, &{&1, &2})
+    |> Aja.Vector.with_index()
+    |> Aja.Vector.foldl(
+      {MapSet.new(), MapSet.new(), MapSet.new()},
+      &accumulate_participating_flags(&1, &2, epoch)
+    )
+    |> Tuple.to_list()
+  end
+
+  defp accumulate_participating_flags(
+         {{v, participation}, index},
+         {set0, set1, set2},
+         epoch
+       ) do
+    if not v.slashed and Predicates.active_validator?(v, epoch) do
+      set0 = if Predicates.has_flag(participation, 0), do: MapSet.put(set0, index), else: set0
+      set1 = if Predicates.has_flag(participation, 1), do: MapSet.put(set1, index), else: set1
+      set2 = if Predicates.has_flag(participation, 2), do: MapSet.put(set2, index), else: set2
+      {set0, set1, set2}
+    else
+      {set0, set1, set2}
+    end
+  end
+
+  @doc """
   Return the combined effective balance of the active validators.
   Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   """
@@ -693,17 +732,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   Math safe up to ~10B ETH, after which this overflows uint64.
   """
-  @spec get_total_balance(BeaconState.t(), Enumerable.t(Types.validator_index())) ::
+  @spec get_total_balance(BeaconState.t(), MapSet.t(Types.validator_index())) ::
           Types.gwei()
-  def get_total_balance(state, indices) do
-    indices = MapSet.new(indices)
-
+  def get_total_balance(state, %MapSet{} = indices) do
     total_balance =
-      state.validators
-      |> Stream.with_index()
-      |> Stream.filter(fn {_, index} -> MapSet.member?(indices, index) end)
-      |> Stream.map(fn {%Types.Validator{effective_balance: n}, _} -> n end)
-      |> Enum.sum()
+      Enum.reduce(indices, 0, fn index, acc ->
+        acc + Aja.Vector.at!(state.validators, index).effective_balance
+      end)
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
   end

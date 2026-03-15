@@ -427,13 +427,32 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     if Accessors.get_current_epoch(state) == Constants.genesis_epoch() do
       {:ok, state}
     else
+      previous_epoch = Accessors.get_previous_epoch(state)
+      base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
+
+      # Single O(V) pass to compute all 3 unslashed participating index sets
+      unslashed_by_flag =
+        Accessors.get_all_unslashed_participating_indices(state, previous_epoch)
+
       deltas =
         Constants.participation_flag_weights()
         |> Stream.with_index()
-        |> Stream.map(fn {weight, index} ->
-          BeaconState.get_flag_index_deltas(state, weight, index)
+        |> Stream.map(fn {weight, flag_index} ->
+          BeaconState.get_flag_index_deltas(
+            state,
+            weight,
+            flag_index,
+            Enum.at(unslashed_by_flag, flag_index),
+            base_reward_per_increment
+          )
         end)
-        |> Stream.concat([BeaconState.get_inactivity_penalty_deltas(state)])
+        # Reuse target flag (index 1) for inactivity penalties (avoids 4th V-scan)
+        |> Stream.concat([
+          BeaconState.get_inactivity_penalty_deltas(
+            state,
+            Enum.at(unslashed_by_flag, Constants.timely_target_flag_index())
+          )
+        ])
         |> Stream.zip()
         |> Aja.Vector.new()
 
