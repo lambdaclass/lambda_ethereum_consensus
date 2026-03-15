@@ -354,7 +354,12 @@ defmodule LambdaEthereumConsensus.StateTransition do
       index = rem(epoch, epochs_per_historical_vector)
       new_value = Aja.Vector.at!(state.randao_mixes, index)
 
-      case Ssz.update_randao_cache(index, new_value, Aja.Vector.size(state.randao_mixes), prev_hash) do
+      case Ssz.update_randao_cache(
+             index,
+             new_value,
+             Aja.Vector.size(state.randao_mixes),
+             prev_hash
+           ) do
         {:ok, hash} -> Map.put(cached_field_hashes, 13, hash)
         {:error, :cache_miss} -> cached_field_hashes
       end
@@ -529,6 +534,11 @@ defmodule LambdaEthereumConsensus.StateTransition do
   end
 
   defp process_epoch(%BeaconState{} = state) do
+    # Force GC before epoch processing to start with a clean heap.
+    # Epoch processing allocates many large temporaries (Aja.Vectors, lists).
+    # Without this, deferred GC can cause 1-2s pauses mid-processing.
+    :erlang.garbage_collect()
+
     {:ok, state, %{}}
     |> epoch_op(
       :justification_and_finalization,
