@@ -77,6 +77,13 @@ defmodule Mix.Tasks.Bench.Blocks do
     {:ok, store} = Types.Store.get_forkchoice_store(anchor_state, anchor_block)
     store = Handlers.on_tick(store, :os.system_time(:second))
 
+    # Pre-warm committee cache to simulate steady-state conditions.
+    # In production, committees are cached from the prior epoch's blocks.
+    alias LambdaEthereumConsensus.StateTransition.Accessors
+    epoch = Accessors.get_current_epoch(anchor_state)
+    Accessors.maybe_prefetch_committees(anchor_state, epoch)
+    Logger.info("Pre-warmed committee cache for epoch #{epoch}")
+
     {_store, results} = process_blocks(blocks, store)
 
     print_summary(results, start_slot, count)
