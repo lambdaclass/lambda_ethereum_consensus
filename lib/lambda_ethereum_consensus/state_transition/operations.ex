@@ -412,55 +412,113 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         )
       end)
 
-    bound = state.validators |> Aja.Vector.size() |> min(max_validators_per_withdrawals_sweep)
-    # Sweep for remaining.
+    validator_count = Aja.Vector.size(state.validators)
+    bound = min(validator_count, max_validators_per_withdrawals_sweep)
+
+    # Pre-build partial withdrawal amounts by validator index for O(1) lookup
+    partial_amounts =
+      Enum.reduce(pending_partial_withdrawals, %{}, fn w, acc ->
+        Map.update(acc, w.validator_index, w.amount, &(&1 + w.amount))
+      end)
+
+    # Sweep using direct indexed access instead of Stream.cycle/drop/take
+    start_index = state.next_withdrawal_validator_index
+
     non_partial_withdrawals =
-      Stream.zip([state.validators, state.balances])
-      |> Stream.with_index()
-      |> Stream.cycle()
-      |> Stream.drop(state.next_withdrawal_validator_index)
-      |> Stream.take(bound)
-      |> Stream.map(fn {{validator, balance}, index} ->
-        partially_withdrawn_balance =
-          Enum.sum(
-            for withdrawal <- pending_partial_withdrawals,
-                withdrawal.validator_index == index,
-                do: withdrawal.amount
-          )
-
-        balance = balance - partially_withdrawn_balance
-
-        cond do
-          Validator.fully_withdrawable_validator?(validator, balance, epoch) ->
-            {validator, balance, index}
-
-          Validator.partially_withdrawable_validator?(validator, balance) ->
-            {validator, balance - Validator.get_max_effective_balance(validator), index}
-
-          true ->
-            nil
-        end
-      end)
-      |> Stream.reject(&is_nil/1)
-      |> Stream.with_index()
-      |> Stream.map(fn {{validator, balance, validator_index}, index} ->
-        %Validator{withdrawal_credentials: withdrawal_credentials} = validator
-
-        <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
-
-        %Withdrawal{
-          index: index + withdrawal_index,
-          validator_index: validator_index,
-          address: execution_address,
-          amount: balance
-        }
-      end)
+      sweep_validators(
+        state.validators,
+        state.balances,
+        partial_amounts,
+        epoch,
+        start_index,
+        validator_count,
+        bound,
+        withdrawal_index,
+        []
+      )
 
     complete_withdrawals =
-      (pending_partial_withdrawals ++ Enum.to_list(non_partial_withdrawals))
+      (pending_partial_withdrawals ++ non_partial_withdrawals)
       |> Enum.take(max_withdrawals_per_payload)
 
     {complete_withdrawals, processed_partial_withdrawals_count}
+  end
+
+  # Direct indexed sweep over validators using Aja.Vector.at! instead of
+  # Stream.cycle/drop/take which materializes and drops up to V elements.
+  # Wraps around using rem/2 for the circular sweep.
+  defp sweep_validators(
+         _validators,
+         _balances,
+         _partial_amounts,
+         _epoch,
+         _current,
+         _validator_count,
+         0,
+         _withdrawal_index,
+         acc
+       ) do
+    Enum.reverse(acc)
+  end
+
+  defp sweep_validators(
+         validators,
+         balances,
+         partial_amounts,
+         epoch,
+         current,
+         validator_count,
+         remaining,
+         withdrawal_index,
+         acc
+       ) do
+    index = rem(current, validator_count)
+    validator = Aja.Vector.at!(validators, index)
+    balance = Aja.Vector.at!(balances, index) - Map.get(partial_amounts, index, 0)
+
+    acc =
+      cond do
+        Validator.fully_withdrawable_validator?(validator, balance, epoch) ->
+          <<_::binary-size(12), addr::binary>> = validator.withdrawal_credentials
+
+          [
+            %Withdrawal{
+              index: withdrawal_index + length(acc),
+              validator_index: index,
+              address: addr,
+              amount: balance
+            }
+            | acc
+          ]
+
+        Validator.partially_withdrawable_validator?(validator, balance) ->
+          <<_::binary-size(12), addr::binary>> = validator.withdrawal_credentials
+
+          [
+            %Withdrawal{
+              index: withdrawal_index + length(acc),
+              validator_index: index,
+              address: addr,
+              amount: balance - Validator.get_max_effective_balance(validator)
+            }
+            | acc
+          ]
+
+        true ->
+          acc
+      end
+
+    sweep_validators(
+      validators,
+      balances,
+      partial_amounts,
+      epoch,
+      current + 1,
+      validator_count,
+      remaining - 1,
+      withdrawal_index,
+      acc
+    )
   end
 
   defp process_partial_withdrawal(
