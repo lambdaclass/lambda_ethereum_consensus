@@ -800,18 +800,25 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec validate_attestation(BeaconState.t(), Attestation.t()) :: :ok | {:error, String.t()}
-  def validate_attestation(
-        state,
-        %Attestation{data: data, aggregation_bits: aggregation_bits} = attestation
-      ) do
+  def validate_attestation(state, attestation) do
+    with {:ok, indexed_attestation} <- validate_attestation_structure(state, attestation) do
+      check_valid_indexed_attestation(state, indexed_attestation)
+    end
+  end
+
+  # Validate attestation structure (cheap checks + committee lookups) and return
+  # the indexed attestation for BLS verification and attesting indices extraction.
+  defp validate_attestation_structure(
+         state,
+         %Attestation{data: data, aggregation_bits: aggregation_bits} = attestation
+       ) do
     with :ok <- check_valid_target_epoch(data, state),
          :ok <- check_epoch_matches(data),
          :ok <- check_valid_slot_range(data, state),
          :ok <- check_data_index_zero(data),
          {:ok, committee_offset} <- check_committee_indices(attestation, state),
-         :ok <- check_matching_aggregation_bits_length(aggregation_bits, committee_offset),
-         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
-      check_valid_indexed_attestation(state, indexed_attestation)
+         :ok <- check_matching_aggregation_bits_length(aggregation_bits, committee_offset) do
+      Accessors.get_indexed_attestation(state, attestation)
     end
   end
 
@@ -914,11 +921,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         current_epoch_updates,
         attestation_index
       ) do
-    with :ok <- validate_attestation(state, att),
+    # Validate structure and get indexed attestation in one pass, then extract
+    # attesting_indices from it. This avoids calling get_attesting_indices twice
+    # (once inside validate_attestation, once here).
+    with {:ok, indexed_attestation} <- validate_attestation_structure(state, att),
+         :ok <- check_valid_indexed_attestation(state, indexed_attestation),
          slot = state.slot - data.slot,
          {:ok, flag_indices} <-
-           Accessors.get_attestation_participation_flag_indices(state, data, slot),
-         {:ok, attesting_indices} <- Accessors.get_attesting_indices(state, att) do
+           Accessors.get_attestation_participation_flag_indices(state, data, slot) do
+      attesting_indices = MapSet.new(indexed_attestation.attesting_indices)
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       epoch_updates = if is_current_epoch, do: current_epoch_updates, else: previous_epoch_updates
 
@@ -932,9 +943,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       v = {attestation_index, weights_mask}
 
       new_epoch_updates =
-        attesting_indices
-        |> Enum.to_list()
-        |> Enum.reduce(epoch_updates, fn i, epoch_updates ->
+        Enum.reduce(attesting_indices, epoch_updates, fn i, epoch_updates ->
           Map.update(epoch_updates, i, [v], &merge_masks(&1, v))
         end)
 
