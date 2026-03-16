@@ -112,7 +112,34 @@ defmodule LambdaEthereumConsensus.StateTransition do
           if block_info.signed_block.message.state_root == new_state_info.root do
             {:ok, new_state_info, timings}
           else
-            {:error, "mismatched state roots"}
+            # Incremental cache may have produced a wrong hash. Retry with full
+            # merkleization (no cached field hashes) before declaring the block invalid.
+            if cached_field_hashes != %{} do
+              require Logger
+
+              Logger.warning(
+                "[StateTransition] Incremental cache produced wrong state root for " <>
+                  "slot #{block_info.signed_block.message.slot}, retrying with full merkleization"
+              )
+
+              {retry_result, timings} =
+                timed(:merkleization, timings, fn ->
+                  StateInfo.from_beacon_state(st,
+                    block_root: block_info.root,
+                    cached_field_hashes: %{}
+                  )
+                end)
+
+              with {:ok, retry_state_info} <- retry_result do
+                if block_info.signed_block.message.state_root == retry_state_info.root do
+                  {:ok, retry_state_info, timings}
+                else
+                  {:error, "mismatched state roots"}
+                end
+              end
+            else
+              {:error, "mismatched state roots"}
+            end
           end
         end
       end
