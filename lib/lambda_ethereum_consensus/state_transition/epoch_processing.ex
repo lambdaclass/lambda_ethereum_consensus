@@ -652,7 +652,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
          pubkey_to_index
        ) do
     far_future_epoch = Constants.far_future_epoch()
-    next_epoch = Accessors.get_current_epoch(state)
+    # Spec: next_epoch = Epoch(get_current_epoch(state) + 1)
+    next_epoch = Accessors.get_current_epoch(state) + 1
 
     {is_validator_exited, is_validator_withdrawn} =
       case Map.get(pubkey_to_index, deposit.pubkey) do
