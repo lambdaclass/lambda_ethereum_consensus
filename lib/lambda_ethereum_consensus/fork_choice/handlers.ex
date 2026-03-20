@@ -314,26 +314,25 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
         catching_up? = Keyword.get(opts, :skip_pulled_up_tip, false)
 
-        # During catch-up, skip ETS insert (~230ms per block) and LevelDB write.
-        # The state is accessible via store.states for sequential block processing.
-        # ETS/LevelDB are only needed for external lookups (API, validators, fork choice)
-        # which don't run during catch-up sync.
-        timings =
-          if catching_up? do
-            timings
-          else
-            {_, timings} =
-              StateTransition.timed(:store_state, timings, fn ->
-                BlockStates.store_state_info(new_state_info)
-              end)
+        # Always write to ETS cache so the state is available for fork choice
+        # lookups even after catch-up transitions. The ETS insert takes ~160ms
+        # which is acceptable even during catch-up (blocks process in 1-2s).
+        # Without this, states processed during catch-up are only in store.states
+        # (in-memory map) which gets pruned after finalization, permanently losing
+        # the state and causing cascade invalid block failures.
+        {_, timings} =
+          StateTransition.timed(:store_state, timings, fn ->
+            BlockStates.store_state_info(new_state_info)
+          end)
 
-            Task.Supervisor.start_child(
-              StoreStatesSupervisor,
-              fn -> StateDb.store_state_info(new_state_info) end
-            )
-
-            timings
-          end
+        # LevelDB write is expensive (~30-60s for serialization), skip during
+        # catch-up when sequential processing doesn't need persistence.
+        if not catching_up? do
+          Task.Supervisor.start_child(
+            StoreStatesSupervisor,
+            fn -> StateDb.store_state_info(new_state_info) end
+          )
+        end
 
         is_first_block = new_store.proposer_boost_root == <<0::256>>
 
