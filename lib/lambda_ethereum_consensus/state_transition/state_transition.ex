@@ -109,14 +109,22 @@ defmodule LambdaEthereumConsensus.StateTransition do
           end)
 
         with {:ok, new_state_info} <- merkle_result do
+          # DIAGNOSTIC: at every epoch boundary, cross-check hash_beacon_state_cached
+          # against the generic hash_tree_root to detect merkleization divergence.
+          epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
+
+          if epoch_processed? do
+            cross_check_merkle_roots(st, new_state_info, block_info.signed_block.message.slot)
+          end
+
           if block_info.signed_block.message.state_root == new_state_info.root do
             {:ok, new_state_info, timings}
           else
             # Incremental cache may have produced a wrong hash. Retry with full
             # merkleization (no cached field hashes) before declaring the block invalid.
-            if cached_field_hashes != %{} do
-              require Logger
+            require Logger
 
+            if cached_field_hashes != %{} do
               Logger.warning(
                 "[StateTransition] Incremental cache produced wrong state root for " <>
                   "slot #{block_info.signed_block.message.slot}, retrying with full merkleization"
@@ -134,16 +142,142 @@ defmodule LambdaEthereumConsensus.StateTransition do
                 if block_info.signed_block.message.state_root == retry_state_info.root do
                   {:ok, retry_state_info, timings}
                 else
+                  diagnose_state_root_mismatch(st, block_info, retry_state_info)
                   {:error, "mismatched state roots"}
                 end
               end
             else
+              diagnose_state_root_mismatch(st, block_info, new_state_info)
               {:error, "mismatched state roots"}
             end
           end
         end
       end
     end
+  end
+
+  # Proactive diagnostic: at every epoch boundary, compare hash_beacon_state_cached result
+  # against the generic hash_tree_root to detect which NIF path diverges.
+  defp cross_check_merkle_roots(state, state_info, slot) do
+    require Logger
+
+    case Ssz.hash_tree_root(state) do
+      {:ok, generic_root} ->
+        if generic_root == state_info.root do
+          Logger.info(
+            "[StateTransition] MERKLE CROSS-CHECK slot #{slot}: MATCH " <>
+              "(both 0x#{Base.encode16(generic_root, case: :lower) |> String.slice(0, 16)}...)"
+          )
+        else
+          Logger.error(
+            "[StateTransition] MERKLE CROSS-CHECK slot #{slot}: MISMATCH! " <>
+              "cached=0x#{Base.encode16(state_info.root, case: :lower) |> String.slice(0, 16)}..., " <>
+              "generic=0x#{Base.encode16(generic_root, case: :lower) |> String.slice(0, 16)}..."
+          )
+
+          # Identify which fields differ
+          diagnose_field_hashes(state, state_info.field_hashes)
+        end
+
+      {:error, err} ->
+        Logger.error("[StateTransition] MERKLE CROSS-CHECK failed: #{inspect(err)}")
+    end
+  end
+
+  # Diagnostic: when state root mismatches, compare hash_beacon_state_cached (field-by-field)
+  # against the generic hash_tree_root (full struct hashing) to isolate the bug.
+  defp diagnose_state_root_mismatch(state, block_info, state_info) do
+    slot = block_info.signed_block.message.slot
+    expected = block_info.signed_block.message.state_root
+    cached_root = state_info.root
+
+    Logger.error(
+      "[StateTransition] DIAGNOSTIC: state root mismatch at slot #{slot}. " <>
+        "Expected: 0x#{Base.encode16(expected, case: :lower)}, " <>
+        "cached_hash_root: 0x#{Base.encode16(cached_root, case: :lower)}"
+    )
+
+    # Compare against the generic hash_tree_root (completely different NIF path)
+    case Ssz.hash_tree_root(state) do
+      {:ok, generic_root} ->
+        if generic_root == cached_root do
+          Logger.error(
+            "[StateTransition] DIAGNOSTIC: generic hash_tree_root AGREES with cached_hash " <>
+              "(both 0x#{Base.encode16(generic_root, case: :lower)}). " <>
+              "Bug is in STATE TRANSITION, not merkleization."
+          )
+        else
+          Logger.error(
+            "[StateTransition] DIAGNOSTIC: generic hash_tree_root DISAGREES! " <>
+              "generic=0x#{Base.encode16(generic_root, case: :lower)}, " <>
+              "cached=0x#{Base.encode16(cached_root, case: :lower)}. " <>
+              "Bug is in hash_beacon_state_cached NIF."
+          )
+
+          # Find which field(s) differ
+          diagnose_field_hashes(state, state_info.field_hashes)
+        end
+
+      {:error, err} ->
+        Logger.error("[StateTransition] DIAGNOSTIC: hash_tree_root failed: #{inspect(err)}")
+    end
+  end
+
+  # Compare individual field hashes to find which field is wrong
+  defp diagnose_field_hashes(state, cached_field_hashes) do
+    field_names = [
+      {0, :genesis_time},
+      {1, :genesis_validators_root},
+      {2, :slot},
+      {3, :fork},
+      {4, :latest_block_header},
+      {5, :block_roots},
+      {6, :state_roots},
+      {7, :historical_roots},
+      {8, :eth1_data},
+      {9, :eth1_data_votes},
+      {10, :eth1_deposit_index},
+      {11, :validators},
+      {12, :balances},
+      {13, :randao_mixes},
+      {14, :slashings},
+      {15, :previous_epoch_participation},
+      {16, :current_epoch_participation},
+      {17, :justification_bits},
+      {18, :previous_justified_checkpoint},
+      {19, :current_justified_checkpoint},
+      {20, :finalized_checkpoint},
+      {21, :inactivity_scores},
+      {22, :current_sync_committee},
+      {23, :next_sync_committee},
+      {24, :latest_execution_payload_header},
+      {25, :next_withdrawal_index},
+      {26, :next_withdrawal_validator_index},
+      {27, :historical_summaries},
+      {28, :deposit_requests_start_index},
+      {29, :deposit_balance_to_consume},
+      {30, :exit_balance_to_consume},
+      {31, :earliest_exit_epoch},
+      {32, :consolidation_balance_to_consume},
+      {33, :earliest_consolidation_epoch},
+      {34, :pending_deposits},
+      {35, :pending_partial_withdrawals},
+      {36, :pending_consolidations},
+      {37, :proposer_lookahead}
+    ]
+
+    for {idx, name} <- field_names do
+      cached_hash = Map.get(cached_field_hashes, idx)
+
+      if cached_hash != nil do
+        Logger.error(
+          "[StateTransition] DIAGNOSTIC: field #{idx} (#{name}) " <>
+            "cached_hash=0x#{Base.encode16(cached_hash, case: :lower) |> String.slice(0, 16)}..."
+        )
+      end
+    end
+
+    :ok
   end
 
   # Fields safe to cache on non-epoch blocks when no validator-modifying operations present.
@@ -242,7 +376,14 @@ defmodule LambdaEthereumConsensus.StateTransition do
   defp collect_changed_balance_indices(block, state) do
     # If slashings occurred, the slashed validator's balance changes AND the
     # whistleblower/proposer reward is spread — hard to track precisely. Skip.
-    if block.body.proposer_slashings != [] or block.body.attester_slashings != [] do
+    # Also skip when withdrawal/consolidation requests exist — these can trigger
+    # switch_to_compounding_validator → queue_excess_active_balance, which modifies
+    # balances at indices we can't easily predict.
+    body = block.body
+
+    if body.proposer_slashings != [] or body.attester_slashings != [] or
+         body.execution_requests.withdrawals != [] or
+         body.execution_requests.consolidations != [] do
       :skip
     else
       epoch = Accessors.get_current_epoch(state)
