@@ -43,6 +43,11 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   # Yielding the GenServer between batches allows load shedding and
   # GC to run, preventing unbounded message queue growth during catch-up.
   @process_batch_size 5
+  # Max retries for "parent state not found" errors before marking invalid.
+  # Each retry is delayed by 5 seconds. This gives the async LevelDB write
+  # time to complete (~15 seconds total) while preventing infinite spin loops
+  # when the state is truly lost (e.g., processed during catch-up mode).
+  @max_state_retries 3
 
   @doc """
   If the block is not present, it will be stored as pending.
@@ -499,14 +504,33 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         # Parent state not found can be transient: the async LevelDB write may
         # not have completed yet, or the state was evicted from the 16-entry ETS
         # cache during expensive checkpoint state computation (epoch boundaries).
-        # Retrying after a short delay allows the async write to complete.
-        Logger.warning(
-          "[PendingBlocks] Parent state not found, scheduling retry: #{reason}",
-          log_md
-        )
+        # Retry a few times to let the async write complete, but give up after
+        # @max_state_retries to avoid spinning forever when the state is truly lost
+        # (e.g., processed during catch-up mode where ETS/LevelDB writes are skipped).
+        retry_key = {:state_retry, block_info.root}
+        retries = Process.get(retry_key, 0)
 
-        Process.send_after(self(), :retry_pending_blocks, 5_000)
-        {store, :ok}
+        if retries < @max_state_retries do
+          Process.put(retry_key, retries + 1)
+
+          Logger.warning(
+            "[PendingBlocks] Parent state not found (attempt #{retries + 1}/#{@max_state_retries}), scheduling retry: #{reason}",
+            log_md
+          )
+
+          Process.send_after(self(), :retry_pending_blocks, 5_000)
+          {store, :ok}
+        else
+          Process.delete(retry_key)
+
+          Logger.error(
+            "[PendingBlocks] Parent state permanently unavailable after #{@max_state_retries} retries, marking invalid: #{reason}",
+            log_md
+          )
+
+          Blocks.change_status(block_info, :invalid)
+          {store, :invalid}
+        end
 
       true ->
         Logger.error(
