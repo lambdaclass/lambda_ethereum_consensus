@@ -495,6 +495,19 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         Process.send_after(self(), :retry_pending_blocks, 12_000)
         {store, :ok}
 
+      parent_state_missing_error?(reason) ->
+        # Parent state not found can be transient: the async LevelDB write may
+        # not have completed yet, or the state was evicted from the 16-entry ETS
+        # cache during expensive checkpoint state computation (epoch boundaries).
+        # Retrying after a short delay allows the async write to complete.
+        Logger.warning(
+          "[PendingBlocks] Parent state not found, scheduling retry: #{reason}",
+          log_md
+        )
+
+        Process.send_after(self(), :retry_pending_blocks, 5_000)
+        {store, :ok}
+
       true ->
         Logger.error(
           "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
@@ -524,6 +537,15 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   # the future" relative to the stale store time.
   defp timing_error?(reason) do
     reason == "block is from the future"
+  end
+
+  # Parent state missing errors are transient: they occur when the ETS LRU
+  # cache (16 entries) evicts the parent state during expensive checkpoint
+  # state computation, and the async LevelDB write hasn't completed yet.
+  # After a short delay, the LevelDB write should finish and the state
+  # becomes retrievable.
+  defp parent_state_missing_error?(reason) do
+    String.contains?(reason, "not found in store")
   end
 
   defp process_downloaded_block(store, {:ok, [block]}) do
