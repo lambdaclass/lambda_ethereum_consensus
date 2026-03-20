@@ -51,6 +51,13 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
     end
   end
 
+  @doc """
+  Touch a cache entry to refresh its TTL without fetching or inserting.
+  Used to prevent parent state eviction during long prefetch operations.
+  """
+  @spec touch(Types.root()) :: :ok
+  def touch(block_root), do: LRUCache.touch(@table, block_root)
+
   ##########################
   ### Private Functions
   ##########################

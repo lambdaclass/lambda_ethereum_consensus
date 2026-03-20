@@ -51,6 +51,21 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
     :ok
   end
 
+  @doc """
+  Touch a cache entry to refresh its TTL without fetching or returning it.
+  No-op if the key is not in the cache. Used to prevent eviction of
+  critical entries (e.g., parent state) during long operations.
+  """
+  @spec touch(atom(), key()) :: :ok
+  def touch(table, key) do
+    case :ets.lookup_element(table, key, 2, nil) do
+      nil -> :ok
+      _v -> GenServer.cast(table, {:touch_entry, key})
+    end
+
+    :ok
+  end
+
   @spec get(atom(), key(), (key() -> value() | nil)) :: value() | nil
   def get(table, key, fetch_func) do
     case :ets.lookup_element(table, key, 2, nil) do

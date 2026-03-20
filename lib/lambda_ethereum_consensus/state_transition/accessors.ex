@@ -386,7 +386,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
 
     active_indices_list = Aja.Vector.to_list(indices)
 
-    result =
+    rust_result =
       Ssz.compute_proposer_indices(
         seed,
         start_slot,
@@ -397,7 +397,38 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
         rounds
       )
 
-    {:ok, result}
+    # Cross-check: verify the Rust NIF result against the pure Elixir
+    # implementation for the first slot. If they disagree, fall back to
+    # Elixir for the entire epoch (slower but correct).
+    slot_seed = SszEx.hash(seed <> Misc.uint64_to_bytes(start_slot))
+
+    case Misc.compute_proposer_index(state, indices, slot_seed) do
+      {:ok, elixir_first} ->
+        rust_first = List.first(rust_result)
+
+        if elixir_first != rust_first do
+          Logger.error(
+            "[Accessors] Rust NIF proposer index mismatch at epoch #{epoch}! " <>
+              "Rust=#{rust_first}, Elixir=#{elixir_first}. Falling back to Elixir."
+          )
+
+          # Fall back to pure Elixir for correctness
+          elixir_result =
+            Enum.map(0..(slots_per_epoch - 1), fn i ->
+              slot = start_slot + i
+              ss = SszEx.hash(seed <> Misc.uint64_to_bytes(slot))
+              {:ok, idx} = Misc.compute_proposer_index(state, indices, ss)
+              idx
+            end)
+
+          {:ok, elixir_result}
+        else
+          {:ok, rust_result}
+        end
+
+      _ ->
+        {:ok, rust_result}
+    end
   end
 
   defp get_state_epoch_root(state) do

@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Attestation
@@ -366,6 +367,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       else
         prefetch_states_and_committees(store, attestations)
       end
+
+    # After prefetch_states (which can take 90-170s), re-touch the parent
+    # state in ETS so its TTL is fresh. Without this, the parent state's
+    # LRU entry goes stale during the long prefetch and gets evicted when
+    # the next prune runs, causing "parent state not found" cascade failures.
+    if not catching_up? do
+      BlockStates.touch(signed_block.message.parent_root)
+    end
 
     new_store = update_in(store.checkpoint_states, fn cs -> Map.merge(cs, Map.new(states)) end)
 
