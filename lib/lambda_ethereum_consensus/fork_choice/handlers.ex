@@ -325,14 +325,15 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
             BlockStates.store_state_info(new_state_info)
           end)
 
-        # LevelDB write is expensive (~30-60s for serialization), skip during
-        # catch-up when sequential processing doesn't need persistence.
-        if not catching_up? do
-          Task.Supervisor.start_child(
-            StoreStatesSupervisor,
-            fn -> StateDb.store_state_info(new_state_info) end
-          )
-        end
+        # LevelDB write is expensive (~30-60s for serialization) but must always
+        # happen so the state survives ETS LRU eviction. The async Task ensures
+        # it doesn't block block processing. Without this, states processed during
+        # catch-up exist only in the 16-entry ETS cache and are permanently lost
+        # when evicted, causing "parent state not found" cascade failures.
+        Task.Supervisor.start_child(
+          StoreStatesSupervisor,
+          fn -> StateDb.store_state_info(new_state_info) end
+        )
 
         is_first_block = new_store.proposer_boost_root == <<0::256>>
 
