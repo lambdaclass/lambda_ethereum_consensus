@@ -102,6 +102,7 @@ defmodule LambdaEthereumConsensus.PromExPlugin do
     [
       Polling.build(:periodic_measurements, poll_rate, {__MODULE__, :periodic_measurements, []}, [
         last_value([:db, :size, :total], unit: :byte),
+        last_value([:peerbook, :peers, :count], []),
         last_value([:vm, :message_queue, :length], tags: [:process])
       ])
     ]
@@ -110,11 +111,17 @@ defmodule LambdaEthereumConsensus.PromExPlugin do
   def periodic_measurements() do
     message_queue_lengths()
     db_size()
+    peer_count()
   end
 
   def db_size() do
     db_size = Db.size()
     :telemetry.execute([:db, :size], %{total: db_size})
+  end
+
+  def peer_count() do
+    count = LambdaEthereumConsensus.P2P.Peerbook.peer_count()
+    :telemetry.execute([:peerbook, :peers], %{count: count})
   end
 
   defp register_queue_length(name, len) do

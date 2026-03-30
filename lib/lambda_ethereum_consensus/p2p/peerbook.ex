@@ -52,6 +52,11 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   @doc """
   Get some peer from the peerbook.
   """
+  @doc "Returns the number of peers currently in the peerbook."
+  def peer_count() do
+    fetch_peerbook!() |> map_size()
+  end
+
   def get_some_peer() do
     # TODO: This is a very naive implementation of a peer selection algorithm,
     # this sorts the peers every time. The same is true for the pruning.
