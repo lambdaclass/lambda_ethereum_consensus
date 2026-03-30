@@ -28,6 +28,40 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ### Public API
   ##########################
 
+  # Persist the store asynchronously to avoid blocking the Libp2pPort GenServer.
+  # On mainnet, :erlang.term_to_binary + eleveldb.write can stall for minutes
+  # during LevelDB compaction, causing message queue explosion (observed 54K+ msgs).
+  #
+  # During catch-up sync (head_slot far behind wall clock), persist is skipped
+  # entirely because:
+  #   1. Deep-copying the Store struct (1.2M latest_messages) to a new process
+  #      takes 1-9 seconds and can cause OOM on 62 GB systems
+  #   2. LevelDB is already under heavy write pressure from state/block writes
+  #   3. The store can be recovered from checkpoint + replay if the node crashes
+  #
+  # Once caught up (<= 2 slots behind), persists on every epoch boundary (32 slots).
+  # At steady state with 1 block/12s, the overhead is acceptable.
+  @persist_interval 32
+  @max_behind_slots 2
+  defp async_persist_store(store) do
+    current_slot = compute_current_slot(store.time, store.genesis_time)
+    head_slot = store.head_slot || 0
+    catching_up? = current_slot - head_slot > @max_behind_slots
+
+    cond do
+      catching_up? ->
+        # Skip persist during catch-up to avoid OOM and reduce memory pressure
+        :skip
+
+      rem(head_slot, @persist_interval) == 0 ->
+        # Persist on epoch boundaries when caught up
+        spawn(fn -> StoreDb.persist_store(store) end)
+
+      true ->
+        :skip
+    end
+  end
+
   @spec init_store(Store.t(), Types.uint64()) :: Store.t()
   def init_store(%Store{head_slot: head_slot, head_root: head_root} = store, time) do
     Logger.info("[Fork choice] Initialized store.", slot: head_slot)
@@ -68,7 +102,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
         {_, timings} =
           StateTransition.timed(:store_persist, timings, fn ->
-            StoreDb.persist_store(new_store)
+            async_persist_store(new_store)
           end)
 
         total = System.monotonic_time(:millisecond) - total_start
@@ -108,7 +142,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         _ -> store
       end
 
-    tap(store, &StoreDb.persist_store/1)
+    tap(store, &async_persist_store/1)
   end
 
   @spec on_attester_slashing(Store.t(), Types.AttesterSlashing.t()) :: Store.t()
@@ -117,7 +151,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     case Handlers.on_attester_slashing(store, attester_slashing) do
       {:ok, new_store} ->
-        tap(new_store, &StoreDb.persist_store/1)
+        tap(new_store, &async_persist_store/1)
 
       _ ->
         Logger.error("[Fork choice] Failed to add attester slashing to the store")
@@ -131,7 +165,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Handlers.on_tick(store, time)
     |> prune_old_states(last_finalized_checkpoint.epoch)
-    |> tap(&StoreDb.persist_store/1)
+    |> tap(&async_persist_store/1)
   end
 
   @spec get_current_slot(Types.Store.t()) :: Types.slot()
