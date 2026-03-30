@@ -11,9 +11,12 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
 
   @initial_score 100
   @penalizing_score 15
-  @target_peers 128
-  @max_prune_size 8
-  @prune_percentage 0.05
+  # Hard cap: reject new peers above this limit to prevent Libp2pPort overload.
+  @max_peers 100
+  # Soft target: start evicting low-value peers when above this count.
+  @target_peers 80
+  @max_prune_size 10
+  @prune_percentage 0.10
 
   if HardForkAliasInjection.fulu?() do
     @metadata_protocol_id "/eth2/beacon_chain/req/metadata/3/ssz_snappy"
@@ -137,14 +140,57 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
       "[Peerbook] New peer connected: #{inspect(Utils.format_shorten_binary(peer_id))}"
     )
 
-    if not Map.has_key?(peerbook, peer_id) do
-      :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})
-      entry = %{score: @initial_score, node_id: node_id, custody_group_count: nil}
-      Map.put(peerbook, peer_id, entry) |> store_peerbook()
-      Task.start(__MODULE__, :challenge_peer, [peer_id])
+    cond do
+      Map.has_key?(peerbook, peer_id) ->
+        # Already known, just update node_id if we got one from discovery
+        if node_id != nil and peerbook[peer_id].node_id == nil do
+          Map.update!(peerbook, peer_id, fn e -> %{e | node_id: node_id} end)
+          |> store_peerbook()
+        end
+
+      map_size(peerbook) >= @max_peers ->
+        # Hard cap reached. Only accept if we can evict a lower-value peer.
+        evict_and_add(peerbook, peer_id, node_id)
+
+      true ->
+        :telemetry.execute([:peers, :connection], %{id: peer_id}, %{result: "success"})
+        entry = %{score: @initial_score, node_id: node_id, custody_group_count: nil}
+        Map.put(peerbook, peer_id, entry) |> store_peerbook()
+        Task.start(__MODULE__, :challenge_peer, [peer_id])
     end
 
     prune()
+  end
+
+  # When at max_peers, evict the lowest-scoring non-PeerDAS peer to make room.
+  # PeerDAS peers (with custody_group_count set) are protected from eviction.
+  defp evict_and_add(peerbook, new_peer_id, node_id) do
+    # Find lowest-scoring non-PeerDAS peer
+    victim =
+      peerbook
+      |> Enum.filter(fn {_id, %{custody_group_count: cgc}} -> cgc == nil end)
+      |> Enum.min_by(fn {_id, %{score: s}} -> s end, fn -> nil end)
+
+    case victim do
+      {victim_id, _} ->
+        Logger.debug(
+          "[Peerbook] At max_peers (#{@max_peers}), evicting #{inspect(Utils.format_shorten_binary(victim_id))} for new peer"
+        )
+
+        :telemetry.execute([:peers, :connection], %{id: new_peer_id}, %{result: "success"})
+        entry = %{score: @initial_score, node_id: node_id, custody_group_count: nil}
+
+        peerbook
+        |> Map.delete(victim_id)
+        |> Map.put(new_peer_id, entry)
+        |> store_peerbook()
+
+        Task.start(__MODULE__, :challenge_peer, [new_peer_id])
+
+      nil ->
+        # All peers are PeerDAS peers — don't evict, just drop the new one
+        Logger.debug("[Peerbook] At max_peers (#{@max_peers}), all PeerDAS — ignoring new peer")
+    end
   end
 
   def challenge_peer(peer_id) do
@@ -182,18 +228,43 @@ defmodule LambdaEthereumConsensus.P2P.Peerbook do
   defp prune() do
     peerbook = fetch_peerbook!()
     len = map_size(peerbook)
-    prune_size = if len > 0, do: calculate_prune_size(len), else: 0
+    excess = len - @target_peers
 
-    if prune_size > 0 do
-      Logger.debug("[Peerbook] Pruning #{prune_size} peers by challenge")
+    cond do
+      excess > @max_prune_size ->
+        # Well above target: immediately evict lowest-scoring non-PeerDAS peers.
+        evict_count = min(excess, @max_prune_size)
 
-      n = :rand.uniform(len)
+        victims =
+          peerbook
+          |> Enum.filter(fn {_id, %{custody_group_count: cgc}} -> cgc == nil end)
+          |> Enum.sort_by(fn {_id, %{score: s}} -> s end)
+          |> Enum.take(evict_count)
 
-      peerbook
-      |> Map.keys()
-      |> Stream.drop(n)
-      |> Stream.take(prune_size)
-      |> Enum.each(fn peer_id -> Task.start(__MODULE__, :challenge_peer, [peer_id]) end)
+        if victims != [] do
+          Logger.info(
+            "[Peerbook] Evicting #{length(victims)} low-score peers (#{len} total, target #{@target_peers})"
+          )
+
+          pruned = Enum.reduce(victims, peerbook, fn {id, _}, pb -> Map.delete(pb, id) end)
+          store_peerbook(pruned)
+        end
+
+      excess > 0 ->
+        # Slightly above target: challenge random peers (existing behavior).
+        prune_size = calculate_prune_size(len)
+
+        if prune_size > 0 do
+          peerbook
+          |> Enum.shuffle()
+          |> Enum.take(prune_size)
+          |> Enum.each(fn {peer_id, _} ->
+            Task.start(__MODULE__, :challenge_peer, [peer_id])
+          end)
+        end
+
+      true ->
+        :ok
     end
   end
 
