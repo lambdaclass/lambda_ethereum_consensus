@@ -142,7 +142,8 @@ defmodule LambdaEthereumConsensus.P2P.DataColumnDownloader do
 
     peer_id =
       Enum.find_value(column_indices, fn idx -> P2P.Peerbook.get_peer_for_column(idx) end) ||
-        P2P.Peerbook.get_peerdas_peer()
+        P2P.Peerbook.get_peerdas_peer() ||
+        get_some_peer()
 
     # Group by block_root and convert to DataColumnsByRootIdentifier (spec format).
     by_root_identifiers =

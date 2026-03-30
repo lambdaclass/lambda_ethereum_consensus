@@ -127,7 +127,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
       # Ensure the retry heartbeat is running so partial/empty responses
       # or transient errors don't leave this block permanently stuck.
-      Process.send_after(self(), :retry_download_columns, 60_000)
+      Process.send_after(self(), :retry_download_columns, 12_000)
 
       block_info
       |> BlockInfo.change_status(:download_columns)
@@ -247,21 +247,33 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   """
   @spec process_data_columns(Store.t(), {:ok, [Types.DataColumnSidecar.t()]}) :: {:ok, Store.t()}
   def process_data_columns(store, {:ok, sidecars}) do
+    custody_cols = DasCore.get_local_custody_columns()
+
     new_store =
       sidecars
       |> DataColumns.add_columns()
       |> Enum.reduce(store, fn root, store ->
         with %BlockInfo{status: :download_columns} = block_info <- Blocks.get_block_info(root),
              [] <-
-               DataColumns.missing_columns_for_block(
-                 block_info,
-                 DasCore.get_local_custody_columns()
-               ) do
+               DataColumns.missing_columns_for_block(block_info, custody_cols) do
           block_info
           |> Blocks.change_status(:pending)
           |> then(&process_block_and_check_children(store, &1))
         else
-          _ -> store
+          # Partial response: some columns received but others still missing.
+          # Immediately re-request the remaining columns instead of waiting
+          # 30-60s for the retry timer. This is the most common case on mainnet
+          # where a peer custodies some but not all of our required columns.
+          still_missing when is_list(still_missing) and still_missing != [] ->
+            Logger.debug(
+              "[PendingBlocks] Partial column response, #{length(still_missing)} still missing. Re-requesting immediately."
+            )
+
+            request_missing_columns(Blocks.get_block_info(root), custody_cols)
+            store
+
+          _ ->
+            store
         end
       end)
 
@@ -271,14 +283,14 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @spec process_data_columns(Store.t(), {:error, :no_peers}) :: {:ok, Store.t()}
   def process_data_columns(store, {:error, :no_peers}) do
     Logger.warning("[PendingBlocks] No peers for data column download, scheduling retry")
-    Process.send_after(self(), :retry_download_columns, 30_000)
+    Process.send_after(self(), :retry_download_columns, 5_000)
     {:ok, store}
   end
 
   @spec process_data_columns(Store.t(), {:error, any()}) :: {:ok, Store.t()}
   def process_data_columns(store, {:error, reason}) do
     Logger.error("[PendingBlocks] Error downloading data columns: #{inspect(reason)}")
-    Process.send_after(self(), :retry_download_columns, 30_000)
+    Process.send_after(self(), :retry_download_columns, 5_000)
     {:ok, store}
   end
 
@@ -485,7 +497,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
         Blocks.change_status(block_info, :download_columns)
         request_missing_columns(block_info, custody_cols)
-        Process.send_after(self(), :retry_download_columns, 30_000)
+        Process.send_after(self(), :retry_download_columns, 5_000)
         {store, :ok}
 
       timing_error?(reason) ->
