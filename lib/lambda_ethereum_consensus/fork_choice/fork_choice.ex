@@ -39,9 +39,12 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   #   2. LevelDB is already under heavy write pressure from state/block writes
   #   3. The store can be recovered from checkpoint + replay if the node crashes
   #
-  # Once caught up (<= 2 slots behind), persists on every epoch boundary (32 slots).
-  # At steady state with 1 block/12s, the overhead is acceptable.
-  @persist_interval 32
+  # Once caught up (<= 2 slots behind), persists once per epoch at mid-epoch
+  # (slot mod 32 == 16). We must avoid slots near epoch boundaries because:
+  #   - slot mod 32 == 0: epoch processing uses peak memory (rewards, merkleization)
+  #   - slot mod 32 == 1: epoch memory hasn't been GC'd yet
+  # Mid-epoch gives maximum time for GC to reclaim epoch processing memory.
+  @slots_per_epoch 32
   @max_behind_slots 2
   defp async_persist_store(store) do
     current_slot = compute_current_slot(store.time, store.genesis_time)
@@ -53,9 +56,10 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         # Skip persist during catch-up to avoid OOM and reduce memory pressure
         :skip
 
-      rem(head_slot, @persist_interval) == 0 ->
-        # Persist on epoch boundaries when caught up
-        spawn(fn -> StoreDb.persist_store(store) end)
+      rem(head_slot, @slots_per_epoch) == 16 ->
+        # Persist at mid-epoch. Serializes in-process (avoids Store deep-copy
+        # which takes 15s + 3-5 GB), then spawns only the LevelDB write.
+        StoreDb.persist_store_async(store)
 
       true ->
         :skip

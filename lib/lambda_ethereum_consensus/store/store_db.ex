@@ -26,6 +26,21 @@ defmodule LambdaEthereumConsensus.Store.StoreDb do
     end)
   end
 
+  @doc """
+  Serialize the store in the calling process, then spawn a process to write it
+  to LevelDB. This avoids the deep-copy overhead of spawning with the full Store
+  struct (~1.2M latest_messages on mainnet = 15s copy + 3-5 GB extra memory).
+  The serialized binary is a refc binary shared between processes without copying.
+  """
+  @spec persist_store_async(Types.Store.t()) :: pid()
+  def persist_store_async(%Types.Store{} = store) do
+    cache_genesis_time(store.genesis_time)
+    # Serialize in-process (no deep copy needed, ~7-9s on mainnet with compression)
+    binary = :erlang.term_to_binary(Store.remove_cache(store), [{:compressed, 1}])
+    # Spawn only the LevelDB write — binary is shared via refc, no copy
+    spawn(fn -> Db.put(@store_prefix, binary) end)
+  end
+
   @spec fetch_genesis_time() :: {:ok, Types.uint64()} | :not_found
   def fetch_genesis_time() do
     case cached_genesis_time() do

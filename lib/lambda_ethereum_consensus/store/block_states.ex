@@ -7,10 +7,12 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   alias Types.StateInfo
 
   @table :states_by_block_hash
-  # Each BeaconState is ~460MB in ETS. With 16 entries, the cache uses ~7.4GB.
-  # Previously 128, which consumed 55+ GB and caused swap thrashing.
-  @max_entries 16
-  @batch_prune_size 4
+  # Each BeaconState is ~460MB on Hoodi (~200K validators) and ~775MB on mainnet
+  # (~1.2M validators). With 6 entries on mainnet, the cache uses ~4.6GB.
+  # Previously 16 (12.4 GB on mainnet, causing OOM during epoch processing)
+  # and before that 128 (55+ GB, swap thrashing).
+  @max_entries 6
+  @batch_prune_size 2
 
   ##########################
   ### Public API
