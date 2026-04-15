@@ -325,15 +325,24 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
             BlockStates.store_state_info(new_state_info)
           end)
 
-        # LevelDB write is expensive (~30-60s for serialization) but must always
-        # happen so the state survives ETS LRU eviction. The async Task ensures
-        # it doesn't block block processing. Without this, states processed during
-        # catch-up exist only in the 16-entry ETS cache and are permanently lost
-        # when evicted, causing "parent state not found" cascade failures.
-        Task.Supervisor.start_child(
-          StoreStatesSupervisor,
-          fn -> StateDb.store_state_info(new_state_info) end
-        )
+        # LevelDB write is expensive (~30-60s for serialization) and continuous
+        # writes cause compaction storms (448MB SST tables) that block reads for
+        # 6-12+ minutes on mainnet. Only persist every 4th block to reduce write
+        # pressure by 75% while still having recent recovery points. Epoch
+        # boundary blocks always persist since they're needed for checkpoint state
+        # computation and are the most expensive to re-derive.
+        # The ETS LRU cache (10 entries) provides the primary fast-path storage;
+        # LevelDB is only the fallback for cache misses after eviction.
+        should_persist =
+          rem(block.slot, 4) == 0 or
+            rem(block.slot, ChainSpec.get("SLOTS_PER_EPOCH")) == 0
+
+        if should_persist do
+          Task.Supervisor.start_child(
+            StoreStatesSupervisor,
+            fn -> StateDb.store_state_info(new_state_info) end
+          )
+        end
 
         is_first_block = new_store.proposer_boost_root == <<0::256>>
 
