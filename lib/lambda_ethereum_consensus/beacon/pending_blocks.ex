@@ -65,7 +65,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @spec add_block(Store.t(), SignedBeaconBlock.t()) :: Store.t()
   def add_block(store, signed_block) do
     block_info = BlockInfo.from_block(signed_block)
-    loaded_block = Blocks.get_block_info(block_info.root)
+    loaded_block = Blocks.get_block_info_cached(block_info.root)
     log_md = [slot: signed_block.message.slot, root: block_info.root]
 
     # If the block is new, was to be downloaded, or was previously marked invalid
@@ -221,7 +221,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       blobs
       |> Blobs.add_blobs()
       |> Enum.reduce(store, fn root, store ->
-        with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
+        with %BlockInfo{status: :download_blobs} = block_info <-
+               Blocks.get_block_info_cached(root),
              [] <- Blobs.missing_for_block(block_info) do
           block_info
           |> Blocks.change_status(:pending)
@@ -253,7 +254,8 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       sidecars
       |> DataColumns.add_columns()
       |> Enum.reduce(store, fn root, store ->
-        with %BlockInfo{status: :download_columns} = block_info <- Blocks.get_block_info(root),
+        with %BlockInfo{status: :download_columns} = block_info <-
+               Blocks.get_block_info_cached(root),
              [] <-
                DataColumns.missing_columns_for_block(block_info, custody_cols) do
           block_info
@@ -269,7 +271,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
               "[PendingBlocks] Partial column response, #{length(still_missing)} still missing. Re-requesting immediately."
             )
 
-            request_missing_columns(Blocks.get_block_info(root), custody_cols)
+            request_missing_columns(Blocks.get_block_info_cached(root), custody_cols)
             store
 
           _ ->
@@ -385,7 +387,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       log_md
     )
 
-    case Blocks.get_block_info(parent_root) do
+    case Blocks.get_block_info_cached(parent_root) do
       nil ->
         Logger.debug(
           "[PendingBlocks] Add parent with root: #{Utils.format_shorten_binary(parent_root)} to download",
