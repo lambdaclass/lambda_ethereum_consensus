@@ -524,7 +524,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   defp check_attestation_valid(%Store{} = store, %Attestation{} = attestation, true) do
     target = attestation.data.target
     block_root = attestation.data.beacon_block_root
-    head_block = Blocks.get_block(block_root)
+    # Cache-only lookups — avoid blocking Libp2pPort on eleveldb.get/3.
+    # If block data isn't in the 512-entry LRU, treat as unknown and skip.
+    head_block = Blocks.get_block_cached(block_root)
 
     # NOTE: we use cond instead of an `and` chain for better formatting
     cond do
@@ -535,7 +537,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Attestation target must be for a known block.
       # If target block is unknown, delay consideration until block is found
       # TODO: delay consideration until block is found
-      Blocks.get_block(target.root) |> is_nil() ->
+      Blocks.get_block_cached(target.root) |> is_nil() ->
         {:unknown_block, target.root}
 
       # Attestations must be for a known block. If block is unknown, delay consideration until the block is found
