@@ -15,11 +15,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
     # Execute the LMD-GHOST fork choice
     head = store.justified_checkpoint.root
 
-    {_store, %BeaconState{} = justified_state} =
-      Store.get_checkpoint_state(store, store.justified_checkpoint)
+    # Cache-only checkpoint state lookup to avoid Libp2pPort stalling on
+    # eleveldb.get/3 (10+ min NIF blocks). If justified state isn't cached,
+    # fall back to returning the justified checkpoint root as head without
+    # running LMD-GHOST weight computation. This is conservative and safe —
+    # next block will re-attempt with a warm cache.
+    case Store.get_checkpoint_state_cached(store, store.justified_checkpoint) do
+      {_store, %BeaconState{} = justified_state} ->
+        head = compute_head(store, filtered_blocks, head, justified_state)
+        {:ok, head}
 
-    head = compute_head(store, filtered_blocks, head, justified_state)
-    {:ok, head}
+      {_store, nil} ->
+        {:ok, store.head_root || store.justified_checkpoint.root}
+    end
   end
 
   defp compute_head(store, blocks, current_root, justified_state) do
@@ -175,14 +183,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
       store.unrealized_justifications[block_root] ||
         voting_source_fallback(store, block_root)
     else
-      # The block is not from a prior epoch, therefore the voting source is not pulled up
-      head_state = Store.get_state!(store, block_root).beacon_state
-      head_state.current_justified_checkpoint
+      # The block is not from a prior epoch, therefore the voting source is not pulled up.
+      # Use cache-only lookup to avoid Libp2pPort stalling on LevelDB reads.
+      # On cache miss, fall back to voting_source_fallback which also uses cached
+      # lookups and returns store.justified_checkpoint if no state is available.
+      case Store.get_state_cached(store, block_root) do
+        %{beacon_state: state} -> state.current_justified_checkpoint
+        nil -> voting_source_fallback(store, block_root)
+      end
     end
   end
 
   defp voting_source_fallback(store, block_root) do
-    case Store.get_state(store, block_root) do
+    case Store.get_state_cached(store, block_root) do
       %{beacon_state: state} -> state.current_justified_checkpoint
       nil -> store.justified_checkpoint
     end
