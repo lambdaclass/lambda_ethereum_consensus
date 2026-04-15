@@ -65,10 +65,17 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
     %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
     finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
 
-    base_state = Store.get_state(store, block.parent_root)
+    # Use cache-only lookup to avoid blocking Libp2pPort on LevelDB reads.
+    # On ETS cache miss, we drop the block (returning an error). Optimistic
+    # sync will re-pull blocks in sequence, at which point each parent is
+    # freshly cached from the previous block's processing. This prevents
+    # 10+ minute stalls from eleveldb.get/3 NIF calls of 775MB mainnet
+    # BeaconStates that block the scheduler.
+    base_state = Store.get_state_cached(store, block.parent_root)
 
     cond do
-      # Parent block must be known
+      # Parent block must be known (or parent state evicted from cache —
+      # drop block, optimistic sync will recover)
       base_state |> is_nil() ->
         {:error,
          "parent state (block root = #{Base.encode16(block.parent_root)}) not found in store"}
