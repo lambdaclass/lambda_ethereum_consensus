@@ -15,6 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	ma "github.com/multiformats/go-multiaddr"
@@ -33,6 +34,17 @@ type Listener struct {
 func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
 	ifaceKey, err := utils.ConvertToInterfacePrivkey(config.Privkey)
 	utils.PanicIfError(err)
+
+	// Bound peer connections to prevent message queue overflow in the Elixir
+	// Libp2pPort GenServer. Without limits, Go accepts hundreds of peers whose
+	// gossip messages flood the port, causing 500K+ message queue buildup.
+	cm, err := connmgr.NewConnManager(
+		60,  // LowWater: start pruning when above this many peers
+		80,  // HighWater: aggressively prune down to LowWater above this
+		connmgr.WithGracePeriod(time.Minute), // new peers get 1 min grace
+	)
+	utils.PanicIfError(err)
+
 	// as per the spec
 	optionsSlice := []libp2p.Option{
 		libp2p.DefaultMuxers,
@@ -42,6 +54,7 @@ func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
 		libp2p.DisableRelay(),
 		libp2p.NATPortMap(), // Allow to use UPnP
 		libp2p.Ping(false),
+		libp2p.ConnectionManager(cm),
 		libp2p.ListenAddrStrings(config.ListenAddr...),
 		libp2p.Identity(ifaceKey),
 	}
