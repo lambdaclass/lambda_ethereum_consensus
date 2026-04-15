@@ -406,13 +406,13 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         prefetch_states_and_committees(store, attestations)
       end
 
-    # After prefetch_states (which can take 90-170s), re-touch the parent
-    # state in ETS so its TTL is fresh. Without this, the parent state's
-    # LRU entry goes stale during the long prefetch and gets evicted when
-    # the next prune runs, causing "parent state not found" cascade failures.
-    if not catching_up? do
-      BlockStates.touch(signed_block.message.parent_root)
-    end
+    # Re-touch the parent state in ETS so its TTL is fresh. This prevents
+    # eviction of the parent state during both prefetch_states (which can take
+    # seconds) and catch-up mode (where rapid sequential block processing can
+    # fill the 10-entry LRU cache, evicting the parent before the next block
+    # needs it). Without this, cache misses fall through to LevelDB reads
+    # that take 30s-10min+ on mainnet (775MB state deserialization + compaction).
+    BlockStates.touch(signed_block.message.parent_root)
 
     new_store = update_in(store.checkpoint_states, fn cs -> Map.merge(cs, Map.new(states)) end)
 
