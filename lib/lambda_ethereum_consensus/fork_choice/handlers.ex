@@ -325,19 +325,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
             BlockStates.store_state_info(new_state_info)
           end)
 
-        # LevelDB write is expensive (~30-60s for serialization) and continuous
-        # writes cause compaction storms (448MB SST tables) that block reads for
-        # 6-12+ minutes on mainnet. Only persist every 4th block to reduce write
-        # pressure by 75% while still having recent recovery points. Epoch
-        # boundary blocks always persist since they're needed for checkpoint state
-        # computation and are the most expensive to re-derive.
-        # The ETS LRU cache (10 entries) provides the primary fast-path storage;
-        # LevelDB is only the fallback for cache misses after eviction.
-        should_persist =
-          rem(block.slot, 4) == 0 or
-            rem(block.slot, ChainSpec.get("SLOTS_PER_EPOCH")) == 0
-
-        if should_persist do
+        # LevelDB write is expensive (~30-60s for serialization) and even
+        # infrequent writes cause compaction of 448MB SST tables that block
+        # concurrent reads for 5-10+ minutes on mainnet. Only persist at epoch
+        # boundaries (~every 6.4 min) and only when at head. This gives ~1
+        # LevelDB write per epoch instead of 8 (every 4th block) or 32 (every
+        # block). The ETS LRU cache (10 entries) is the primary storage;
+        # LevelDB is only for crash recovery to the nearest epoch boundary.
+        if not catching_up? and rem(block.slot, ChainSpec.get("SLOTS_PER_EPOCH")) == 0 do
           Task.Supervisor.start_child(
             StoreStatesSupervisor,
             fn -> StateDb.store_state_info(new_state_info) end
