@@ -516,15 +516,20 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         root
       end
 
-    head_block = Blocks.get_block!(head_root)
+    # Cache-only — avoid blocking Libp2pPort on LevelDB reads.
+    head_block = Blocks.get_block_cached(head_root)
 
-    Handlers.notify_forkchoice_update(store, head_block)
+    if head_block do
+      Handlers.notify_forkchoice_update(store, head_block)
 
-    %{slot: slot, body: body} = head_block
+      %{slot: slot, body: body} = head_block
 
-    OperationsCollector.notify_new_block(head_block)
-    Libp2pPort.notify_new_head(slot, head_root)
-    ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
+      OperationsCollector.notify_new_block(head_block)
+      Libp2pPort.notify_new_head(slot, head_root)
+      ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
+    end
+
+    slot = if head_block, do: head_block.slot, else: store.head_slot || 0
 
     Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
 

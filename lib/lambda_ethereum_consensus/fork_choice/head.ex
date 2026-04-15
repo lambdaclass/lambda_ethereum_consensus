@@ -111,10 +111,16 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   # Only return the roots and their parent roots.
   defp get_filtered_block_tree(%Store{} = store) do
     base = store.justified_checkpoint.root
-    # Cache-only — justified root should always be cached.
-    block = Blocks.get_block_cached(base) || Blocks.get_block!(base)
-    {_, blocks} = filter_block_tree(store, base, block, %{})
-    Enum.map(blocks, fn {root, block} -> {root, block.parent_root} end)
+    # Cache-only — justified root should almost always be cached.
+    block = Blocks.get_block_cached(base)
+
+    if is_nil(block) do
+      # Return empty tree — head defaults to justified root.
+      []
+    else
+      {_, blocks} = filter_block_tree(store, base, block, %{})
+      Enum.map(blocks, fn {root, block} -> {root, block.parent_root} end)
+    end
   end
 
   defp filter_block_tree(%Store{} = store, block_root, block, blocks) do

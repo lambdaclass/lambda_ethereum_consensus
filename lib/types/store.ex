@@ -343,7 +343,7 @@ defmodule Types.Store do
        do: acc
 
   defp collect_parent_chain(current_root, finalized_root, acc) do
-    case Blocks.get_block_info(current_root) do
+    case Blocks.get_block_info_cached(current_root) do
       %BlockInfo{signed_block: %{message: %{parent_root: parent}}} ->
         collect_parent_chain(parent, finalized_root, [{current_root, parent} | acc])
 

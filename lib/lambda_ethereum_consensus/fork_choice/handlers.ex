@@ -407,14 +407,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   @spec notify_forkchoice_update(Store.t(), BeaconBlock.t()) :: {:ok, any()} | {:error, any()}
   def notify_forkchoice_update(store, head_block) do
-    finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)
+    # Cache-only — avoid blocking Libp2pPort on LevelDB reads.
+    finalized_block = Blocks.get_block_cached(store.finalized_checkpoint.root)
+    safe_block = Blocks.get_block_cached(store.finalized_checkpoint.root)
 
-    # TODO: do someting with the result from the execution client
-    ExecutionClient.notify_forkchoice_updated(%{
-      finalized_block_hash: finalized_block.body.execution_payload.block_hash,
-      head_block_hash: head_block.body.execution_payload.block_hash,
-      safe_block_hash: Store.get_safe_execution_payload_hash(store)
-    })
+    if is_nil(finalized_block) or is_nil(safe_block) do
+      {:error, "finalized/safe block not cached"}
+    else
+      # TODO: do someting with the result from the execution client
+      ExecutionClient.notify_forkchoice_updated(%{
+        finalized_block_hash: finalized_block.body.execution_payload.block_hash,
+        head_block_hash: head_block.body.execution_payload.block_hash,
+        safe_block_hash: safe_block.body.execution_payload.block_hash
+      })
+    end
   end
 
   ### Private functions ###
