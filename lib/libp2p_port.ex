@@ -624,15 +624,20 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_info({_port, {:data, data}}, state) do
+  def handle_info({port, {:data, data}}, state) do
     %Notification{n: {type, payload}} = Notification.decode(data)
 
     if shed_load?(type) do
-      dropped = Map.get(state, :shed_count, 0) + 1
+      # Batch drain: when shedding, process ALL queued port messages in one
+      # tight loop instead of returning {:noreply, state} for each one.
+      # Without this, the GenServer overhead of one callback per message can't
+      # keep up with incoming gossip, and the queue grows to 100K+ messages.
+      {state, batch_dropped} = batch_drain_port_messages(port, state, 0)
+      dropped = Map.get(state, :shed_count, 0) + 1 + batch_dropped
 
-      if rem(dropped, @shed_log_interval) == 1 do
-        {:message_queue_len, len} = Process.info(self(), :message_queue_len)
+      {:message_queue_len, len} = Process.info(self(), :message_queue_len)
 
+      if rem(dropped, @shed_log_interval) < batch_dropped + 1 do
         Logger.warning(
           "[Libp2pPort] Load shedding active: dropped #{dropped} non-essential messages, " <>
             "queue_len=#{len}"
@@ -662,7 +667,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     # Self-sustaining heartbeat: always reschedule so stuck :download_columns
     # blocks are retried regardless of failure mode (no_peers, partial/empty response, error).
-    Process.send_after(self(), :retry_download_columns, 60_000)
+    Process.send_after(self(), :retry_download_columns, 12_000)
     {:noreply, update_in(state.store, &PendingBlocks.retry_download_columns/1)}
   end
 
@@ -728,6 +733,28 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ######################
   ### PRIVATE FUNCTIONS
   ######################
+
+  # Batch drain: pull all queued port data messages from the mailbox in a tight
+  # loop, processing essential ones (response/result/new_peer) and dropping the
+  # rest. This avoids the GenServer callback overhead per message which can't
+  # keep up when 10K+ messages are queued.
+  defp batch_drain_port_messages(port, state, dropped) do
+    receive do
+      {^port, {:data, data}} ->
+        %Notification{n: {type, payload}} = Notification.decode(data)
+
+        if type in [:response, :result, :new_peer] do
+          state = handle_notification(payload, state)
+          batch_drain_port_messages(port, state, dropped)
+        else
+          batch_drain_port_messages(port, state, dropped + 1)
+        end
+    after
+      0 ->
+        # No more port messages in the mailbox
+        {state, dropped}
+    end
+  end
 
   # Load shedding: when the mailbox is overloaded, only process essential messages.
   # Always process: responses/results (our request replies), new_peer (PeerDAS routing).

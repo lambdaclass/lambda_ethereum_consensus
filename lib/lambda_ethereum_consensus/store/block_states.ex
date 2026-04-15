@@ -8,10 +8,12 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
 
   @table :states_by_block_hash
   # Each BeaconState is ~460MB on Hoodi (~200K validators) and ~775MB on mainnet
-  # (~1.2M validators). With 6 entries on mainnet, the cache uses ~4.6GB.
-  # Previously 16 (12.4 GB on mainnet, causing OOM during epoch processing)
-  # and before that 128 (55+ GB, swap thrashing).
-  @max_entries 6
+  # (~1.2M validators). With 10 entries on mainnet, the cache uses ~7.7GB.
+  # 6 entries caused frequent cache misses triggering 30s+ LevelDB reads that
+  # blocked the Libp2pPort GenServer. 10 entries balances memory (7.7 GB) with
+  # cache hit rate. Previously 16 (12.4 GB, OOM during epoch processing) and
+  # before that 128 (55+ GB, swap thrashing).
+  @max_entries 10
   @batch_prune_size 2
 
   ##########################
