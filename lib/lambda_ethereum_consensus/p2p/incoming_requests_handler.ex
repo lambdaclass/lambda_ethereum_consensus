@@ -133,11 +133,22 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
 
       end_slot = start_slot + (truncated_count - 1)
 
-      # TODO: extend cache to support slots as keys
+      # Spawn a Task for LevelDB reads to avoid blocking Libp2pPort.
+      # BlocksByRange requires slot-keyed lookups (no ETS cache), so we
+      # run them off the main process. If the task takes too long, return
+      # an empty response rather than stalling Libp2pPort.
+      task =
+        Task.async(fn ->
+          start_slot..end_slot
+          |> Enum.map(&BlockDb.get_block_info_by_slot/1)
+          |> Enum.map(&map_block_result/1)
+        end)
+
       response_chunk =
-        start_slot..end_slot
-        |> Enum.map(&BlockDb.get_block_info_by_slot/1)
-        |> Enum.map(&map_block_result/1)
+        case Task.yield(task, 5_000) || Task.shutdown(task, :brutal_kill) do
+          {:ok, results} -> results
+          nil -> []
+        end
         |> Enum.reject(&(&1 == :skip))
         |> ReqResp.encode_response()
 
@@ -152,11 +163,15 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
       Logger.info("[BlocksByRoot] requested #{count} number of blocks")
       truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
+      # Cache-only block lookups to avoid blocking Libp2pPort on LevelDB reads.
       response_chunk =
         roots
         |> Enum.take(truncated_count)
-        |> Enum.map(&Blocks.get_block_info/1)
-        |> Enum.map(&map_block_result/1)
+        |> Enum.map(&Blocks.get_block_info_cached/1)
+        |> Enum.map(fn
+          nil -> :skip
+          block_info -> map_block_result(block_info)
+        end)
         |> Enum.reject(&(&1 == :skip))
         |> ReqResp.encode_response()
 
