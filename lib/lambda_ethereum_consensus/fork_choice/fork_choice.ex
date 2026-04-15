@@ -457,7 +457,11 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   def fetch_checkpoint_state(store, checkpoint) do
-    case Store.get_checkpoint_state(store, checkpoint) do
+    # Use cached-only fetch to avoid blocking the ForkChoice GenServer
+    # with 28-85s LevelDB reads for 775MB mainnet BeaconStates.
+    # If the state isn't in memory/ETS, we skip this checkpoint's attestations
+    # rather than stalling block processing for up to 85 seconds.
+    case Store.get_checkpoint_state_cached(store, checkpoint) do
       {_store, nil} -> []
       {_store, state} -> [{checkpoint, state}]
     end

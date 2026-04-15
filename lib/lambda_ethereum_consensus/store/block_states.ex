@@ -47,6 +47,15 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   @spec get_state_info(Types.root()) :: StateInfo.t() | nil
   def get_state_info(block_root), do: LRUCache.get(@table, block_root, &fetch_state/1)
 
+  @doc """
+  Get state info from the ETS LRU cache only, without falling through to
+  LevelDB. Returns nil on cache miss. Used by prefetch_states to avoid
+  blocking the ForkChoice GenServer with 28-85s LevelDB deserialization
+  of 775MB mainnet BeaconStates.
+  """
+  @spec get_state_info_cached(Types.root()) :: StateInfo.t() | nil
+  def get_state_info_cached(block_root), do: LRUCache.get_cached(@table, block_root)
+
   @spec get_state_info!(Types.root()) :: StateInfo.t()
   def get_state_info!(block_root) do
     case get_state_info(block_root) do

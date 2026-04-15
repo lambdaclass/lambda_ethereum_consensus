@@ -86,6 +86,23 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
     end
   end
 
+  @doc """
+  Get a value from the ETS cache only, without falling through to the
+  persistence layer. Returns nil on cache miss. Used by prefetch_states
+  to avoid blocking the ForkChoice GenServer with 28-85s LevelDB reads.
+  """
+  @spec get_cached(atom(), key()) :: value() | nil
+  def get_cached(table, key) do
+    case :ets.lookup_element(table, key, 2, nil) do
+      nil ->
+        nil
+
+      v ->
+        :ok = GenServer.cast(table, {:touch_entry, key})
+        v
+    end
+  end
+
   ##########################
   ### GenServer Callbacks
   ##########################

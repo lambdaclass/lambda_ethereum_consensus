@@ -203,6 +203,17 @@ defmodule Types.Store do
     end
   end
 
+  @doc """
+  Like get_state/2 but only checks in-memory maps and the ETS LRU cache.
+  Does NOT fall through to LevelDB. Returns nil on cache miss.
+  Used by prefetch_states to avoid 28-85s LevelDB reads.
+  """
+  def get_state_cached(store, root) when is_binary(root) do
+    with nil <- Map.get(store.states, root) do
+      BlockStates.get_state_info_cached(root)
+    end
+  end
+
   def get_state!(store, root) do
     %StateInfo{} = get_state(store, root)
   end
@@ -226,6 +237,20 @@ defmodule Types.Store do
   def get_checkpoint_state(store, %Checkpoint{} = checkpoint) do
     case Map.get(store.checkpoint_states, checkpoint) do
       nil -> compute_checkpoint_state(store, checkpoint)
+      state -> {store, state}
+    end
+  end
+
+  @doc """
+  Like get_checkpoint_state/2 but only uses in-memory and ETS-cached states.
+  Does NOT fall through to LevelDB on cache miss, returning {store, nil} instead.
+  Used by prefetch_states to avoid blocking the ForkChoice GenServer for 28-85s
+  during LevelDB deserialization of 775MB mainnet BeaconStates.
+  """
+  @spec get_checkpoint_state_cached(t(), Types.Checkpoint.t()) :: {t(), BeaconState.t() | nil}
+  def get_checkpoint_state_cached(store, %Checkpoint{} = checkpoint) do
+    case Map.get(store.checkpoint_states, checkpoint) do
+      nil -> compute_checkpoint_state_cached(store, checkpoint)
       state -> {store, state}
     end
   end
@@ -350,6 +375,26 @@ defmodule Types.Store do
         if state.slot < target_slot do
           # The only way this can fail is if state.slot < target_slot, which is false by
           # construction.
+          {:ok, new_state, _timings} = StateTransition.process_slots(state, target_slot)
+
+          {update_in(store.checkpoint_states, fn s -> Map.put(s, checkpoint, new_state) end),
+           new_state}
+        else
+          {store, state}
+        end
+    end
+  end
+
+  # Like compute_checkpoint_state but uses cache-only state lookup.
+  defp compute_checkpoint_state_cached(store, checkpoint) do
+    target_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch)
+
+    case get_state_cached(store, checkpoint.root) do
+      nil ->
+        {store, nil}
+
+      %StateInfo{beacon_state: state} ->
+        if state.slot < target_slot do
           {:ok, new_state, _timings} = StateTransition.process_slots(state, target_slot)
 
           {update_in(store.checkpoint_states, fn s -> Map.put(s, checkpoint, new_state) end),
