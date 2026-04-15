@@ -124,10 +124,12 @@ defmodule Types.Store do
   end
 
   def get_ancestor(%__MODULE__{} = store, root, slot) do
-    case Blocks.get_block(root) do
+    # Cache-only block lookup to avoid blocking Libp2pPort on eleveldb.get/3.
+    # On miss, return root as-is (same behavior as pruned blocks).
+    case Blocks.get_block_cached(root) do
       nil ->
-        # Block has been pruned. Return the root as-is so callers
-        # that compare ancestors (get_weight, finalized_check) will
+        # Block has been pruned or evicted from cache. Return the root as-is
+        # so callers that compare ancestors (get_weight, finalized_check) will
         # see a non-matching root and correctly discard the entry.
         root
 
@@ -157,7 +159,11 @@ defmodule Types.Store do
   def get_children(%__MODULE__{tree_cache: tree}, parent_root) do
     case Tree.get_children(tree, parent_root) do
       {:ok, children} ->
-        Enum.map(children, &{&1, Blocks.get_block!(&1)})
+        # Cache-only to avoid blocking Libp2pPort on LevelDB reads.
+        # Filter out any children whose block data isn't cached.
+        children
+        |> Enum.map(fn root -> {root, Blocks.get_block_cached(root)} end)
+        |> Enum.reject(fn {_root, block} -> is_nil(block) end)
 
       {:error, :not_found} ->
         Logger.warning(
@@ -355,7 +361,13 @@ defmodule Types.Store do
   @spec update_head_info(t()) :: t()
   def update_head_info(store) do
     {:ok, head_root} = Head.get_head(store)
-    %{slot: head_slot} = Blocks.get_block!(head_root)
+
+    head_slot =
+      case Blocks.get_block_cached(head_root) do
+        nil -> store.head_slot || 0
+        block -> block.slot
+      end
+
     update_head_info(store, head_slot, head_root)
   end
 

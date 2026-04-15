@@ -54,8 +54,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   end
 
   defp get_weight(%Store{} = store, root, state) do
-    block = Blocks.get_block!(root)
+    # Cache-only — avoid blocking Libp2pPort on LevelDB reads.
+    block = Blocks.get_block_cached(root)
 
+    # If block isn't cached, return 0 weight (conservative — favors cached branches).
+    if is_nil(block) do
+      0
+    else
+      get_weight_for_block(store, root, block, state)
+    end
+  end
+
+  defp get_weight_for_block(store, root, block, state) do
     # PERF: use ``Aja.Vector.foldl``
     {attestation_score, _} =
       Accessors.get_active_validator_indices(state, Accessors.get_current_epoch(state))
@@ -101,7 +111,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   # Only return the roots and their parent roots.
   defp get_filtered_block_tree(%Store{} = store) do
     base = store.justified_checkpoint.root
-    block = Blocks.get_block!(base)
+    # Cache-only — justified root should always be cached.
+    block = Blocks.get_block_cached(base) || Blocks.get_block!(base)
     {_, blocks} = filter_block_tree(store, base, block, %{})
     Enum.map(blocks, fn {root, block} -> {root, block.parent_root} end)
   end
@@ -172,7 +183,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
 
   # Compute the voting source checkpoint in event that block with root ``block_root`` is the head block
   defp get_voting_source(%Store{} = store, block_root) do
-    block = Blocks.get_block!(block_root)
+    # Cache-only — avoid blocking Libp2pPort on LevelDB reads.
+    case Blocks.get_block_cached(block_root) do
+      nil ->
+        # Block not cached — fall back to justified checkpoint.
+        store.justified_checkpoint
+
+      block ->
+        get_voting_source_for_block(store, block_root, block)
+    end
+  end
+
+  defp get_voting_source_for_block(store, block_root, block) do
     current_epoch = Store.get_current_epoch(store)
     block_epoch = Misc.compute_epoch_at_slot(block.slot)
 
