@@ -188,9 +188,12 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         is_from_block
       ) do
     with :ok <- check_attestation_valid(store, attestation, is_from_block),
-         # Get state at the `target` to fully validate attestation
+         # Get state at the `target` to fully validate attestation.
+         # Use cache-only lookup to avoid blocking Libp2pPort on LevelDB reads.
+         # Existing nil handling (below) skips the attestation if state isn't
+         # cached — attestations are best-effort for fork choice.
          {new_store, target_state} when not is_nil(target_state) <-
-           Store.get_checkpoint_state(store, attestation.data.target),
+           Store.get_checkpoint_state_cached(store, attestation.data.target),
          {:ok, indexed_attestation} <-
            Accessors.get_indexed_attestation(target_state, attestation),
          # Block attestations were already BLS-verified during state transition.
@@ -246,8 +249,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           attestation_2: %IndexedAttestation{} = attestation_2
         }
       ) do
-    state = Store.get_state!(store, store.justified_checkpoint.root).beacon_state
+    # Cache-only lookup — avoid blocking on LevelDB read of 775MB state.
+    # If justified checkpoint state isn't cached, skip this slashing (best-effort).
+    case Store.get_state_cached(store, store.justified_checkpoint.root) do
+      nil ->
+        {:error, "justified checkpoint state not cached, skipping slashing"}
 
+      %{beacon_state: state} ->
+        check_attester_slashing(store, state, attestation_1, attestation_2)
+    end
+  end
+
+  defp check_attester_slashing(store, state, attestation_1, attestation_2) do
     cond do
       not Predicates.slashable_attestation_data?(attestation_1.data, attestation_2.data) ->
         {:error, "attestation is not slashable"}
