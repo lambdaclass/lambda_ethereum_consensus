@@ -397,7 +397,17 @@ defmodule LambdaEthereumConsensus.ForkChoice do
     # since LMD-GHOST is already skipped. Using a small threshold (4 slots)
     # instead of SLOTS_PER_EPOCH prevents the 25-35s prefetch_states cost at
     # every epoch boundary during the transition from catch-up to normal mode.
-    catching_up? = wall_slot - block_slot > 4
+    #
+    # Check BOTH the arriving block's distance from wall clock AND our store's
+    # head distance from wall clock. If our head is far behind but a fresh
+    # gossip block arrives at tip (block_slot ≈ wall_slot), processing its
+    # attestations via prefetch_states still costs 30-45 s each — observed
+    # 2026-04-15 causing gap growth from 11 → 65 slots in 30 min. Treat
+    # "store head is far behind" as catching_up so we skip the expensive
+    # prefetch on every block until head catches up.
+    catching_up? =
+      wall_slot - block_slot > 4 or
+        wall_slot - store.head_slot > 4
 
     {states, timings} =
       if catching_up? do
