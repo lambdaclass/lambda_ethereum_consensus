@@ -735,15 +735,20 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ######################
 
   # Batch drain: pull all queued port data messages from the mailbox in a tight
-  # loop, processing essential ones (response/result/new_peer) and dropping the
-  # rest. This avoids the GenServer callback overhead per message which can't
+  # loop, processing essential ones (response/result) and dropping the rest.
+  # This avoids the GenServer callback overhead per message which can't
   # keep up when 10K+ messages are queued.
+  #
+  # new_peer was previously in the keep-list but is now dropped under overload:
+  # `Peerbook.handle_new_peer/2` does synchronous LevelDB reads that stall the
+  # drain loop for minutes during compaction. See `shed_load?/1` for the full
+  # explanation.
   defp batch_drain_port_messages(port, state, dropped) do
     receive do
       {^port, {:data, data}} ->
         %Notification{n: {type, payload}} = Notification.decode(data)
 
-        if type in [:response, :result, :new_peer] do
+        if type in [:response, :result] do
           state = handle_notification(payload, state)
           batch_drain_port_messages(port, state, dropped)
         else
@@ -757,11 +762,21 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   # Load shedding: when the mailbox is overloaded, only process essential messages.
-  # Always process: responses/results (our request replies), new_peer (PeerDAS routing).
-  # Drop when overloaded: gossip, incoming requests, tracer messages.
-  # new_peer MUST be processed because the Peerbook needs node_ids for PeerDAS
-  # custody column routing — without them, DataColumnDownloader reports :no_peers.
-  defp shed_load?(type) when type in [:response, :result, :new_peer], do: false
+  # Always process: responses/results (our request replies).
+  # Drop when overloaded: gossip, incoming requests, tracer messages, new_peer.
+  #
+  # new_peer WAS in the keep-list for PeerDAS custody column routing, but
+  # `Peerbook.handle_new_peer/2` does a synchronous `eleveldb:get/3` (peerbook
+  # stored via KvSchema). When finalized pruning triggers LevelDB compaction,
+  # each get can take seconds. During a gossip burst the drain loop then
+  # blocks inside eleveldb for minutes, stalling the whole Libp2pPort
+  # GenServer. Observed 2026-04-15 at slot 14,121,856 and 14,122,274: mailbox
+  # grew to 30-70k messages, node stopped processing blocks for 10+ min.
+  # Dropping new_peer during overload is strictly better than stalling —
+  # the Go-side libp2p port keeps the peer connected, only the Elixir-side
+  # bookkeeping misses this notification. When load clears, subsequent
+  # discovery events (and AddPeer calls) will re-populate Peerbook.
+  defp shed_load?(type) when type in [:response, :result], do: false
 
   defp shed_load?(_type) do
     {:message_queue_len, len} = Process.info(self(), :message_queue_len)
