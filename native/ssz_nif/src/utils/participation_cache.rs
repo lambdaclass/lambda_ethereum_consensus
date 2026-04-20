@@ -341,7 +341,10 @@ mod tests {
         reset_participation_cache(16);
         let updates = vec![(0, 7u8)];
         let fake_hash = [0u8; 32];
-        assert_eq!(apply_participation_updates(16, &updates, 100, &fake_hash), None);
+        assert_eq!(
+            apply_participation_updates(16, &updates, 100, &fake_hash),
+            None
+        );
     }
 
     #[test]

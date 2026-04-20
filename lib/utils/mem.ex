@@ -78,7 +78,10 @@ defmodule LambdaEthereumConsensus.Mem do
       {"system", mem[:system]}
     ]
 
-    header = String.pad_trailing("Category", 20) <> String.pad_leading("Bytes", 16) <> String.pad_leading("Human", 12)
+    header =
+      String.pad_trailing("Category", 20) <>
+        String.pad_leading("Bytes", 16) <> String.pad_leading("Human", 12)
+
     IO.puts(header)
     IO.puts(String.duplicate("-", 48))
 
@@ -142,7 +145,14 @@ defmodule LambdaEthereumConsensus.Mem do
     procs =
       Process.list()
       |> Enum.map(fn pid ->
-        case Process.info(pid, [:memory, :heap_size, :stack_size, :message_queue_len, :registered_name, :current_function]) do
+        case Process.info(pid, [
+               :memory,
+               :heap_size,
+               :stack_size,
+               :message_queue_len,
+               :registered_name,
+               :current_function
+             ]) do
           nil ->
             nil
 
@@ -213,7 +223,12 @@ defmodule LambdaEthereumConsensus.Mem do
             slot = bs.slot
             has_encoded = if state_info.encoded, do: "yes", else: "no"
             enc_size = if state_info.encoded, do: byte_size(state_info.encoded), else: 0
-            val_count = if is_struct(bs.validators, Aja.Vector), do: Aja.Vector.size(bs.validators), else: length(bs.validators)
+
+            val_count =
+              if is_struct(bs.validators, Aja.Vector),
+                do: Aja.Vector.size(bs.validators),
+                else: length(bs.validators)
+
             fh_count = map_size(state_info.field_hashes)
 
             # Measure actual ETS memory for this entry
@@ -296,27 +311,32 @@ defmodule LambdaEthereumConsensus.Mem do
     IO.puts(header)
     IO.puts(String.duplicate("-", 54))
 
-    total = Enum.reduce(cache_names, 0, fn name, acc ->
-      case :ets.info(name) do
-        :undefined ->
-          IO.puts(String.pad_trailing(Atom.to_string(name), 30) <> "  (not created)")
-          acc
+    total =
+      Enum.reduce(cache_names, 0, fn name, acc ->
+        case :ets.info(name) do
+          :undefined ->
+            IO.puts(String.pad_trailing(Atom.to_string(name), 30) <> "  (not created)")
+            acc
 
-        info ->
-          mem = info[:memory] * @word_size
+          info ->
+            mem = info[:memory] * @word_size
 
-          IO.puts(
-            String.pad_trailing(Atom.to_string(name), 30) <>
-              String.pad_leading(Integer.to_string(info[:size]), 10) <>
-              String.pad_leading(human(mem), 14)
-          )
+            IO.puts(
+              String.pad_trailing(Atom.to_string(name), 30) <>
+                String.pad_leading(Integer.to_string(info[:size]), 10) <>
+                String.pad_leading(human(mem), 14)
+            )
 
-          acc + mem
-      end
-    end)
+            acc + mem
+        end
+      end)
 
     IO.puts(String.duplicate("-", 54))
-    IO.puts(String.pad_trailing("TOTAL", 30) <> String.pad_leading("", 10) <> String.pad_leading(human(total), 14))
+
+    IO.puts(
+      String.pad_trailing("TOTAL", 30) <>
+        String.pad_leading("", 10) <> String.pad_leading(human(total), 14)
+    )
   end
 
   # ── Binary Stats ─────────────────────────────────────────────────────
@@ -332,7 +352,11 @@ defmodule LambdaEthereumConsensus.Mem do
 
     IO.puts("Binary memory (refc binaries): #{human(binary_mem)}")
     IO.puts("Total BEAM memory:             #{human(mem[:total])}")
-    IO.puts("Binary as % of total:          #{Float.round(binary_mem / max(mem[:total], 1) * 100, 1)}%")
+
+    IO.puts(
+      "Binary as % of total:          #{Float.round(binary_mem / max(mem[:total], 1) * 100, 1)}%"
+    )
+
     IO.puts("")
 
     # Find top processes by binary memory

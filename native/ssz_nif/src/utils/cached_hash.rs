@@ -220,11 +220,10 @@ fn compute_field_hash<'a, C: Config>(field_index: usize, field: Term<'a>) -> Nif
                 .map(|b| FromElx::from(b))
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e: FromElxError| rustler::Error::Term(Box::new(e.to_string())))?;
-            let vector =
-                ::ssz_types::FixedVector::<[u8; 32], C::EpochsPerHistoricalVector>::new(
-                    ssz_vec.clone(),
-                )
-                .map_err(|e| rustler::Error::Term(Box::new(format!("{e:?}"))))?;
+            let vector = ::ssz_types::FixedVector::<[u8; 32], C::EpochsPerHistoricalVector>::new(
+                ssz_vec.clone(),
+            )
+            .map_err(|e| rustler::Error::Term(Box::new(format!("{e:?}"))))?;
             let result = vector.tree_hash_root().0;
             // Seed the cache so targeted updates work on subsequent blocks.
             crate::utils::randao_cache::seed_cache(&ssz_vec, &result);

@@ -39,8 +39,8 @@ func NewListener(p *port.Port, config *proto_helpers.Config) Listener {
 	// Libp2pPort GenServer. Without limits, Go accepts hundreds of peers whose
 	// gossip messages flood the port, causing 500K+ message queue buildup.
 	cm, err := connmgr.NewConnManager(
-		60,  // LowWater: start pruning when above this many peers
-		80,  // HighWater: aggressively prune down to LowWater above this
+		60,                                   // LowWater: start pruning when above this many peers
+		80,                                   // HighWater: aggressively prune down to LowWater above this
 		connmgr.WithGracePeriod(time.Minute), // new peers get 1 min grace
 	)
 	utils.PanicIfError(err)

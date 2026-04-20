@@ -53,8 +53,11 @@ defmodule RewardsTestRunner do
       |> Stream.map(&Enum.map(&1, fn {reward, penalty} -> reward - penalty end))
       |> Enum.zip()
 
-    previous_epoch = LambdaEthereumConsensus.StateTransition.Accessors.get_previous_epoch(pre_state)
-    base_reward_per_increment = LambdaEthereumConsensus.StateTransition.Accessors.get_base_reward_per_increment(pre_state)
+    previous_epoch =
+      LambdaEthereumConsensus.StateTransition.Accessors.get_previous_epoch(pre_state)
+
+    base_reward_per_increment =
+      LambdaEthereumConsensus.StateTransition.Accessors.get_base_reward_per_increment(pre_state)
 
     calculated_deltas =
       Constants.participation_flag_weights()
