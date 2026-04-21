@@ -95,14 +95,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   @sync_delay_millis 15_000
   @head_drift_alert 12
 
-  # When the message queue exceeds this length, non-essential messages
-  # (gossip, incoming requests, peer notifications, tracer) are dropped
-  # to prevent unbounded queue growth and OOM. Responses and results
-  # (replies to our own requests) are always processed.
-  @max_queue_before_shedding 2000
-  # Log load-shedding warnings at most every N dropped messages
-  @shed_log_interval 1000
-
   ######################
   ### API
   ######################
@@ -567,28 +559,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   def handle_info(:on_tick, state) do
     schedule_next_tick()
     time = :os.system_time(:second)
-
-    # Reset shed count and log recovery when queue drains below threshold
-    shed_count = Map.get(state, :shed_count, 0)
-
-    state =
-      if shed_count > 0 do
-        {:message_queue_len, len} = Process.info(self(), :message_queue_len)
-
-        if len <= @max_queue_before_shedding do
-          Logger.info(
-            "[Libp2pPort] Load shedding ended: dropped #{shed_count} messages total, " <>
-              "queue_len=#{len}"
-          )
-
-          Map.put(state, :shed_count, 0)
-        else
-          state
-        end
-      else
-        state
-      end
-
     {:noreply, on_tick(time, state)}
   end
 
@@ -635,38 +605,9 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   @impl GenServer
-  def handle_info({port, {:data, data}}, state) do
-    %Notification{n: {type, payload}} = Notification.decode(data)
-
-    if shed_load?(type) do
-      # When dropping a gossip message, send :ignore validation back to the Go
-      # port so the validator goroutine doesn't block forever. Without this,
-      # leaked goroutines exhaust go-libp2p-pubsub's validation queue (600 slots)
-      # and gossip subscriptions die silently. Observed 2026-04-15/16/17: after
-      # 17-23h of operation, gossip blocks stop arriving because all validator
-      # slots are consumed by goroutines waiting on channels that will never fire.
-      maybe_ignore_gossip(port, type, payload)
-
-      # Batch drain: when shedding, process ALL queued port messages in one
-      # tight loop instead of returning {:noreply, state} for each one.
-      # Without this, the GenServer overhead of one callback per message can't
-      # keep up with incoming gossip, and the queue grows to 100K+ messages.
-      {state, batch_dropped} = batch_drain_port_messages(port, state, 0)
-      dropped = Map.get(state, :shed_count, 0) + 1 + batch_dropped
-
-      {:message_queue_len, len} = Process.info(self(), :message_queue_len)
-
-      if rem(dropped, @shed_log_interval) < batch_dropped + 1 do
-        Logger.warning(
-          "[Libp2pPort] Load shedding active: dropped #{dropped} non-essential messages, " <>
-            "queue_len=#{len}"
-        )
-      end
-
-      {:noreply, Map.put(state, :shed_count, dropped)}
-    else
-      {:noreply, handle_notification(payload, state)}
-    end
+  def handle_info({_port, {:data, data}}, state) do
+    %Notification{n: {_type, payload}} = Notification.decode(data)
+    {:noreply, handle_notification(payload, state)}
   end
 
   @impl GenServer
@@ -752,75 +693,6 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   ######################
   ### PRIVATE FUNCTIONS
   ######################
-
-  # Batch drain: pull all queued port data messages from the mailbox in a tight
-  # loop, processing essential ones (response/result) and dropping the rest.
-  # This avoids the GenServer callback overhead per message which can't
-  # keep up when 10K+ messages are queued.
-  #
-  # new_peer was previously in the keep-list but is now dropped under overload:
-  # `Peerbook.handle_new_peer/2` does synchronous LevelDB reads that stall the
-  # drain loop for minutes during compaction. See `shed_load?/1` for the full
-  # explanation.
-  defp batch_drain_port_messages(port, state, dropped) do
-    receive do
-      {^port, {:data, data}} ->
-        %Notification{n: {type, payload}} = Notification.decode(data)
-
-        if type in [:response, :result] do
-          state = handle_notification(payload, state)
-          batch_drain_port_messages(port, state, dropped)
-        else
-          # Send :ignore for dropped gossip so Go-side validator goroutines
-          # don't leak and exhaust the pubsub validation queue.
-          maybe_ignore_gossip(port, type, payload)
-          batch_drain_port_messages(port, state, dropped + 1)
-        end
-    after
-      0 ->
-        # No more port messages in the mailbox
-        {state, dropped}
-    end
-  end
-
-  # Load shedding: when the mailbox is overloaded, only process essential messages.
-  # Always process: responses/results (our request replies).
-  # Drop when overloaded: gossip, incoming requests, tracer messages, new_peer.
-  #
-  # new_peer WAS in the keep-list for PeerDAS custody column routing, but
-  # `Peerbook.handle_new_peer/2` does a synchronous `eleveldb:get/3` (peerbook
-  # stored via KvSchema). When finalized pruning triggers LevelDB compaction,
-  # each get can take seconds. During a gossip burst the drain loop then
-  # blocks inside eleveldb for minutes, stalling the whole Libp2pPort
-  # GenServer. Observed 2026-04-15 at slot 14,121,856 and 14,122,274: mailbox
-  # grew to 30-70k messages, node stopped processing blocks for 10+ min.
-  # Dropping new_peer during overload is strictly better than stalling —
-  # the Go-side libp2p port keeps the peer connected, only the Elixir-side
-  # bookkeeping misses this notification. When load clears, subsequent
-  # discovery events (and AddPeer calls) will re-populate Peerbook.
-  defp shed_load?(type) when type in [:response, :result], do: false
-
-  defp shed_load?(_type) do
-    {:message_queue_len, len} = Process.info(self(), :message_queue_len)
-    len > @max_queue_before_shedding
-  end
-
-  # When dropping a gossip message during load shedding, send :ignore validation
-  # back to the Go port. On the Go side, each gossip message spawns a validator
-  # goroutine that blocks on `return <-ch` (subscriptions.go ~line 180). If Elixir
-  # drops the message without validating, the goroutine blocks forever. These
-  # leaked goroutines exhaust go-libp2p-pubsub's validation queue (600 slots via
-  # WithValidateQueueSize). Once all slots are consumed, no new gossip messages
-  # can be validated and the subscription is functionally dead — the "gossip
-  # subscription stall" observed after 17-23h of operation.
-  defp maybe_ignore_gossip(port, :gossip, %GossipSub{msg_id: msg_id}) do
-    command =
-      %Command{c: {:validate_message, %ValidateMessage{msg_id: msg_id, result: :ignore}}}
-
-    send_data(port, Command.encode(command))
-  end
-
-  defp maybe_ignore_gossip(_port, _type, _payload), do: :ok
 
   defp handle_notification(%GossipSub{} = gs, %{subscribers: subscribers} = state) do
     :telemetry.execute([:port, :message], %{}, %{
