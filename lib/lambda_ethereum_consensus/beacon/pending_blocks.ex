@@ -180,8 +180,26 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def process_blocks(store) do
     case Blocks.get_blocks_with_status(:pending) do
       {:ok, blocks} ->
+        # Defensive filter: a :pending block should always carry its
+        # signed_block payload (status transitions to :pending via
+        # change_status from :download_blobs/:download_columns, never from
+        # :download placeholders). But the 2026-04-20 22:30 crash loop left
+        # the store with at least one :pending entry whose signed_block was
+        # nil, causing BadMapError here. Skipping such entries lets the
+        # remaining pending blocks progress; logging lets us investigate the
+        # upstream corruption separately.
+        {valid, broken} =
+          Enum.split_with(blocks, fn %BlockInfo{signed_block: sb} -> not is_nil(sb) end)
+
+        if broken != [] do
+          Logger.warning(
+            "[PendingBlocks] Skipping #{length(broken)} :pending block(s) with nil signed_block" <>
+              " (roots: #{Enum.map_join(broken, ",", fn b -> Base.encode16(b.root) |> String.slice(0, 8) end)})"
+          )
+        end
+
         sorted =
-          Enum.sort_by(blocks, fn %BlockInfo{} = block_info ->
+          Enum.sort_by(valid, fn %BlockInfo{} = block_info ->
             block_info.signed_block.message.slot
           end)
 
@@ -305,6 +323,16 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     case Blocks.get_blocks_with_status(:download_columns) do
       {:ok, blocks} ->
         custody_cols = DasCore.get_local_custody_columns()
+
+        # Defensive filter: a :download_columns block should always carry its
+        # signed_block (it got to this status after a successful block arrival
+        # via `add_block_fulu`). But the 2026-04-20 22:30 crash-loop left
+        # corrupted entries with nil signed_block, which crash
+        # `DataColumns.missing_columns_for_block` (it does
+        # `block.message.body.blob_kzg_commitments`). Skip those; upstream
+        # corruption will be addressed separately. Same pattern as
+        # `process_blocks/1`.
+        blocks = Enum.filter(blocks, fn %BlockInfo{signed_block: sb} -> not is_nil(sb) end)
 
         {ready, need_download} =
           Enum.split_with(blocks, fn block_info ->
