@@ -53,13 +53,43 @@ defmodule RewardsTestRunner do
       |> Stream.map(&Enum.map(&1, fn {reward, penalty} -> reward - penalty end))
       |> Enum.zip()
 
+    previous_epoch =
+      LambdaEthereumConsensus.StateTransition.Accessors.get_previous_epoch(pre_state)
+
+    base_reward_per_increment =
+      LambdaEthereumConsensus.StateTransition.Accessors.get_base_reward_per_increment(pre_state)
+
     calculated_deltas =
       Constants.participation_flag_weights()
       |> Stream.with_index()
-      |> Stream.map(fn {weight, index} ->
-        BeaconState.get_flag_index_deltas(pre_state, weight, index)
+      |> Stream.map(fn {weight, flag_index} ->
+        {:ok, unslashed_indices} =
+          LambdaEthereumConsensus.StateTransition.Accessors.get_unslashed_participating_indices(
+            pre_state,
+            flag_index,
+            previous_epoch
+          )
+
+        BeaconState.get_flag_index_deltas(
+          pre_state,
+          weight,
+          flag_index,
+          unslashed_indices,
+          base_reward_per_increment
+        )
       end)
-      |> Stream.concat([BeaconState.get_inactivity_penalty_deltas(pre_state)])
+      |> Stream.concat([
+        (
+          {:ok, target_indices} =
+            LambdaEthereumConsensus.StateTransition.Accessors.get_unslashed_participating_indices(
+              pre_state,
+              Constants.timely_target_flag_index(),
+              previous_epoch
+            )
+
+          BeaconState.get_inactivity_penalty_deltas(pre_state, target_indices)
+        )
+      ])
       |> Stream.zip()
       |> Enum.to_list()
 

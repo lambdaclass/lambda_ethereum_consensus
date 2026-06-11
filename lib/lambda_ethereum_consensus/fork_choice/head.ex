@@ -15,11 +15,19 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
     # Execute the LMD-GHOST fork choice
     head = store.justified_checkpoint.root
 
-    {_store, %BeaconState{} = justified_state} =
-      Store.get_checkpoint_state(store, store.justified_checkpoint)
+    # Cache-only checkpoint state lookup to avoid Libp2pPort stalling on
+    # eleveldb.get/3 (10+ min NIF blocks). If justified state isn't cached,
+    # fall back to returning the justified checkpoint root as head without
+    # running LMD-GHOST weight computation. This is conservative and safe —
+    # next block will re-attempt with a warm cache.
+    case Store.get_checkpoint_state_cached(store, store.justified_checkpoint) do
+      {_store, %BeaconState{} = justified_state} ->
+        head = compute_head(store, filtered_blocks, head, justified_state)
+        {:ok, head}
 
-    head = compute_head(store, filtered_blocks, head, justified_state)
-    {:ok, head}
+      {_store, nil} ->
+        {:ok, store.head_root || store.justified_checkpoint.root}
+    end
   end
 
   defp compute_head(store, blocks, current_root, justified_state) do
@@ -46,8 +54,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   end
 
   defp get_weight(%Store{} = store, root, state) do
-    block = Blocks.get_block!(root)
+    # Cache-only — avoid blocking Libp2pPort on LevelDB reads.
+    block = Blocks.get_block_cached(root)
 
+    # If block isn't cached, return 0 weight (conservative — favors cached branches).
+    if is_nil(block) do
+      0
+    else
+      get_weight_for_block(store, root, block, state)
+    end
+  end
+
+  defp get_weight_for_block(store, root, block, state) do
     # PERF: use ``Aja.Vector.foldl``
     {attestation_score, _} =
       Accessors.get_active_validator_indices(state, Accessors.get_current_epoch(state))
@@ -93,9 +111,16 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   # Only return the roots and their parent roots.
   defp get_filtered_block_tree(%Store{} = store) do
     base = store.justified_checkpoint.root
-    block = Blocks.get_block!(base)
-    {_, blocks} = filter_block_tree(store, base, block, %{})
-    Enum.map(blocks, fn {root, block} -> {root, block.parent_root} end)
+    # Cache-only — justified root should almost always be cached.
+    block = Blocks.get_block_cached(base)
+
+    if is_nil(block) do
+      # Return empty tree — head defaults to justified root.
+      []
+    else
+      {_, blocks} = filter_block_tree(store, base, block, %{})
+      Enum.map(blocks, fn {root, block} -> {root, block.parent_root} end)
+    end
   end
 
   defp filter_block_tree(%Store{} = store, block_root, block, blocks) do
@@ -121,58 +146,86 @@ defmodule LambdaEthereumConsensus.ForkChoice.Head do
   end
 
   defp filter_leaf_block(%Store{} = store, block_root, block, blocks) do
-    current_epoch = Store.get_current_epoch(store)
-    voting_source = get_voting_source(store, block_root)
-
-    # The voting source should be at the same height as the store's justified checkpoint
-    correct_justified =
-      store.justified_checkpoint.epoch == Constants.genesis_epoch() or
-        voting_source.epoch == store.justified_checkpoint.epoch or
-        voting_source.epoch + 2 >= current_epoch
-
-    # If the previous epoch is justified, the block should be pulled-up. In this case, check that unrealized
-    # justification is higher than the store and that the voting source is not more than two epochs ago
-    correct_justified =
-      if not correct_justified and previous_epoch_justified?(store) do
-        store.unrealized_justifications[block_root].epoch >= store.justified_checkpoint.epoch and
-          voting_source.epoch + 2 >= current_epoch
-      else
-        correct_justified
-      end
-
-    finalized_checkpoint_block =
-      Store.get_checkpoint_block(
-        store,
-        block_root,
-        store.finalized_checkpoint.epoch
-      )
-
-    correct_finalized =
-      store.finalized_checkpoint.epoch == Constants.genesis_epoch() or
-        store.finalized_checkpoint.root == finalized_checkpoint_block
+    correct_justified = justified_check(store, block_root)
+    correct_finalized = finalized_check(store, block_root)
 
     # If expected finalized/justified, add to viable block-tree and signal viability to parent.
     if correct_justified and correct_finalized do
       {true, Map.put(blocks, block_root, block)}
     else
-      # Otherwise, branch not viable
       {false, blocks}
     end
   end
 
+  defp justified_check(%Store{} = store, block_root) do
+    current_epoch = Store.get_current_epoch(store)
+    voting_source = get_voting_source(store, block_root)
+
+    correct =
+      store.justified_checkpoint.epoch == Constants.genesis_epoch() or
+        voting_source.epoch == store.justified_checkpoint.epoch or
+        voting_source.epoch + 2 >= current_epoch
+
+    if not correct and previous_epoch_justified?(store) do
+      pulled_up_check(store, block_root, voting_source, current_epoch)
+    else
+      correct
+    end
+  end
+
+  defp pulled_up_check(store, block_root, voting_source, current_epoch) do
+    unrealized = store.unrealized_justifications[block_root]
+
+    unrealized != nil and
+      unrealized.epoch >= store.justified_checkpoint.epoch and
+      voting_source.epoch + 2 >= current_epoch
+  end
+
+  defp finalized_check(%Store{} = store, block_root) do
+    store.finalized_checkpoint.epoch == Constants.genesis_epoch() or
+      store.finalized_checkpoint.root ==
+        Store.get_checkpoint_block(store, block_root, store.finalized_checkpoint.epoch)
+  end
+
   # Compute the voting source checkpoint in event that block with root ``block_root`` is the head block
   defp get_voting_source(%Store{} = store, block_root) do
-    block = Blocks.get_block!(block_root)
+    # Cache-only — avoid blocking Libp2pPort on LevelDB reads.
+    case Blocks.get_block_cached(block_root) do
+      nil ->
+        # Block not cached — fall back to justified checkpoint.
+        store.justified_checkpoint
+
+      block ->
+        get_voting_source_for_block(store, block_root, block)
+    end
+  end
+
+  defp get_voting_source_for_block(store, block_root, block) do
     current_epoch = Store.get_current_epoch(store)
     block_epoch = Misc.compute_epoch_at_slot(block.slot)
 
     if current_epoch > block_epoch do
-      # The block is from a prior epoch, the voting source will be pulled-up
-      store.unrealized_justifications[block_root]
+      # The block is from a prior epoch, the voting source will be pulled-up.
+      # After restart/recovery, unrealized_justifications may not have this root
+      # (rebuild_tree doesn't populate it). Fall back to the block's state.
+      store.unrealized_justifications[block_root] ||
+        voting_source_fallback(store, block_root)
     else
-      # The block is not from a prior epoch, therefore the voting source is not pulled up
-      head_state = Store.get_state!(store, block_root).beacon_state
-      head_state.current_justified_checkpoint
+      # The block is not from a prior epoch, therefore the voting source is not pulled up.
+      # Use cache-only lookup to avoid Libp2pPort stalling on LevelDB reads.
+      # On cache miss, fall back to voting_source_fallback which also uses cached
+      # lookups and returns store.justified_checkpoint if no state is available.
+      case Store.get_state_cached(store, block_root) do
+        %{beacon_state: state} -> state.current_justified_checkpoint
+        nil -> voting_source_fallback(store, block_root)
+      end
+    end
+  end
+
+  defp voting_source_fallback(store, block_root) do
+    case Store.get_state_cached(store, block_root) do
+      %{beacon_state: state} -> state.current_justified_checkpoint
+      nil -> store.justified_checkpoint
     end
   end
 

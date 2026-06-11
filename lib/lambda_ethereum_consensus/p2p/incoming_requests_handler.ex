@@ -41,13 +41,16 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     @request_names |> Enum.map(&Enum.join([@request_prefix, &1, "/ssz_snappy"]))
   end
 
-  @spec handle(String.t(), String.t(), binary()) :: {:ok, any()} | {:error, String.t()}
-  def handle(@request_prefix <> name, message_id, message) do
+  @spec handle(String.t(), String.t(), binary(), Types.Store.t() | nil) ::
+          {:ok, any()} | {:error, String.t()}
+  def handle(protocol, message_id, message, store \\ nil)
+
+  def handle(@request_prefix <> name, message_id, message, store) do
     Logger.debug("'#{name}' request received")
 
     result =
       Metrics.handler_span("request_handler", name |> String.split("/") |> List.first(), fn ->
-        handle_req(name, message_id, message)
+        handle_req(name, message_id, message, store)
       end)
 
     case result do
@@ -56,32 +59,42 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     end
   end
 
-  @spec handle_req(String.t(), String.t(), binary()) ::
+  @spec handle_req(String.t(), String.t(), binary(), Types.Store.t() | nil) ::
           {:ok, any()} | {:error, String.t()}
-  defp handle_req(protocol_name, message_id, message)
+  defp handle_req(protocol_name, message_id, message, store)
 
-  defp handle_req("status/1/ssz_snappy", message_id, message) do
+  defp handle_req("status/1/ssz_snappy", message_id, message, store) do
     with {:ok, request} <- ReqResp.decode_request(message, Types.StatusMessage) do
       Logger.debug("[Status] '#{inspect(request)}'")
-      payload = ForkChoice.get_current_status_message() |> ReqResp.encode_ok()
-      {:ok, {message_id, payload}}
+
+      payload =
+        if store,
+          do: ForkChoice.get_current_status_message(store),
+          else: ForkChoice.get_current_status_message()
+
+      {:ok, {message_id, ReqResp.encode_ok(payload)}}
     end
   end
 
-  defp handle_req("status/2/ssz_snappy", message_id, message) do
+  defp handle_req("status/2/ssz_snappy", message_id, message, store) do
     with {:ok, request} <- ReqResp.decode_request(message, Types.StatusMessageV2) do
       Logger.debug("[StatusV2] '#{inspect(request)}'")
-      payload = ForkChoice.get_current_status_message_v2() |> ReqResp.encode_ok()
-      {:ok, {message_id, payload}}
+
+      payload =
+        if store,
+          do: ForkChoice.get_current_status_message_v2(store),
+          else: ForkChoice.get_current_status_message_v2()
+
+      {:ok, {message_id, ReqResp.encode_ok(payload)}}
     end
   end
 
-  defp handle_req("goodbye/1/ssz_snappy", _, "") do
+  defp handle_req("goodbye/1/ssz_snappy", _, "", _store) do
     # ignore empty messages
     {:error, "Empty message"}
   end
 
-  defp handle_req("goodbye/1/ssz_snappy", message_id, message) do
+  defp handle_req("goodbye/1/ssz_snappy", message_id, message, _store) do
     case ReqResp.decode_request(message, TypeAliases.uint64()) do
       {:ok, goodbye_reason} ->
         Logger.debug("[Goodbye] reason: #{goodbye_reason}")
@@ -94,7 +107,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     end
   end
 
-  defp handle_req("ping/1/ssz_snappy", message_id, message) do
+  defp handle_req("ping/1/ssz_snappy", message_id, message, _store) do
     # Values are hardcoded
     with {:ok, seq_num} <- ReqResp.decode_request(message, TypeAliases.uint64()) do
       Logger.debug("[Ping] seq_number: #{seq_num}")
@@ -104,13 +117,13 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     end
   end
 
-  defp handle_req("metadata/2/ssz_snappy", message_id, _message) do
+  defp handle_req("metadata/2/ssz_snappy", message_id, _message, _store) do
     # NOTE: there's no request content so we just ignore it
     payload = Metadata.get_metadata() |> ReqResp.encode_ok()
     {:ok, {message_id, payload}}
   end
 
-  defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message) do
+  defp handle_req("beacon_blocks_by_range/2/ssz_snappy", message_id, message, _store) do
     with {:ok, request} <- ReqResp.decode_request(message, Types.BeaconBlocksByRangeRequest) do
       %{start_slot: start_slot, count: count} = request
 
@@ -120,11 +133,22 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
 
       end_slot = start_slot + (truncated_count - 1)
 
-      # TODO: extend cache to support slots as keys
+      # Spawn a Task for LevelDB reads to avoid blocking Libp2pPort.
+      # BlocksByRange requires slot-keyed lookups (no ETS cache), so we
+      # run them off the main process. If the task takes too long, return
+      # an empty response rather than stalling Libp2pPort.
+      task =
+        Task.async(fn ->
+          start_slot..end_slot
+          |> Enum.map(&BlockDb.get_block_info_by_slot/1)
+          |> Enum.map(&map_block_result/1)
+        end)
+
       response_chunk =
-        start_slot..end_slot
-        |> Enum.map(&BlockDb.get_block_info_by_slot/1)
-        |> Enum.map(&map_block_result/1)
+        case Task.yield(task, 5_000) || Task.shutdown(task, :brutal_kill) do
+          {:ok, results} -> results
+          nil -> []
+        end
         |> Enum.reject(&(&1 == :skip))
         |> ReqResp.encode_response()
 
@@ -132,18 +156,22 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     end
   end
 
-  defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message) do
+  defp handle_req("beacon_blocks_by_root/2/ssz_snappy", message_id, message, _store) do
     with {:ok, roots} <-
            ReqResp.decode_request(message, TypeAliases.beacon_blocks_by_root_request()) do
       count = length(roots)
       Logger.info("[BlocksByRoot] requested #{count} number of blocks")
       truncated_count = min(count, ChainSpec.get("MAX_REQUEST_BLOCKS"))
 
+      # Cache-only block lookups to avoid blocking Libp2pPort on LevelDB reads.
       response_chunk =
         roots
         |> Enum.take(truncated_count)
-        |> Enum.map(&Blocks.get_block_info/1)
-        |> Enum.map(&map_block_result/1)
+        |> Enum.map(&Blocks.get_block_info_cached/1)
+        |> Enum.map(fn
+          nil -> :skip
+          block_info -> map_block_result(block_info)
+        end)
         |> Enum.reject(&(&1 == :skip))
         |> ReqResp.encode_response()
 
@@ -151,13 +179,13 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     end
   end
 
-  defp handle_req("metadata/3/ssz_snappy", message_id, _message) do
+  defp handle_req("metadata/3/ssz_snappy", message_id, _message, _store) do
     # MetadataV3 (Fulu): adds custody_group_count to the metadata response.
     payload = Metadata.get_metadata() |> ReqResp.encode_ok()
     {:ok, {message_id, payload}}
   end
 
-  defp handle_req("data_column_sidecars_by_root/1/ssz_snappy", message_id, message) do
+  defp handle_req("data_column_sidecars_by_root/1/ssz_snappy", message_id, message, _store) do
     with {:ok, identifiers} <-
            ReqResp.decode_request(message, TypeAliases.data_column_sidecars_by_root_request()) do
       # Each DataColumnsByRootIdentifier has block_root + columns (list of indices).
@@ -186,7 +214,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     end
   end
 
-  defp handle_req("data_column_sidecars_by_range/1/ssz_snappy", message_id, _message) do
+  defp handle_req("data_column_sidecars_by_range/1/ssz_snappy", message_id, _message, _store) do
     # DataColumnSidecarsByRangeRequest has: start_slot, count, columns.
     # We serve stored sidecars for the requested slot range and column indices.
     # TODO: implement full range serving once DataColumnDb supports slot-indexed iteration.
@@ -194,7 +222,7 @@ defmodule LambdaEthereumConsensus.P2P.IncomingRequestsHandler do
     {:ok, {message_id, ReqResp.encode_response([])}}
   end
 
-  defp handle_req(protocol, _message_id, _message) do
+  defp handle_req(protocol, _message_id, _message, _store) do
     # This should never happen, since Libp2p only accepts registered protocols
     {:error, "Unsupported protocol: #{protocol}"}
   end

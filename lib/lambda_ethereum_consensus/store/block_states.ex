@@ -7,8 +7,14 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   alias Types.StateInfo
 
   @table :states_by_block_hash
-  @max_entries 128
-  @batch_prune_size 16
+  # Each BeaconState is ~460MB on Hoodi (~200K validators) and ~775MB on mainnet
+  # (~1.2M validators). With 10 entries on mainnet, the cache uses ~7.7GB.
+  # 6 entries caused frequent cache misses triggering 30s+ LevelDB reads that
+  # blocked the Libp2pPort GenServer. 10 entries balances memory (7.7 GB) with
+  # cache hit rate. Previously 16 (12.4 GB, OOM during epoch processing) and
+  # before that 128 (55+ GB, swap thrashing).
+  @max_entries 10
+  @batch_prune_size 2
 
   ##########################
   ### Public API
@@ -20,7 +26,11 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
       table: @table,
       max_entries: @max_entries,
       batch_prune_size: @batch_prune_size,
-      store_func: fn _k, v -> StateDb.store_state_info(v) end
+      # NOTE: LevelDB persistence is handled by the caller (handlers.ex uses
+      # Task.Supervisor for async writes). The LRU cache only manages ETS caching.
+      # Previously this was synchronous and blocked the Libp2pPort GenServer for
+      # 30-60s during state serialization+write.
+      store_func: fn _k, _v -> :ok end
     )
   end
 
@@ -32,10 +42,19 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
   end
 
   @spec store_state_info(StateInfo.t()) :: :ok
-  def store_state_info(state_info), do: LRUCache.put(@table, state_info.root, state_info)
+  def store_state_info(state_info), do: LRUCache.put_cache(@table, state_info.root, state_info)
 
   @spec get_state_info(Types.root()) :: StateInfo.t() | nil
   def get_state_info(block_root), do: LRUCache.get(@table, block_root, &fetch_state/1)
+
+  @doc """
+  Get state info from the ETS LRU cache only, without falling through to
+  LevelDB. Returns nil on cache miss. Used by prefetch_states to avoid
+  blocking the ForkChoice GenServer with 28-85s LevelDB deserialization
+  of 775MB mainnet BeaconStates.
+  """
+  @spec get_state_info_cached(Types.root()) :: StateInfo.t() | nil
+  def get_state_info_cached(block_root), do: LRUCache.get_cached(@table, block_root)
 
   @spec get_state_info!(Types.root()) :: StateInfo.t()
   def get_state_info!(block_root) do
@@ -44,6 +63,13 @@ defmodule LambdaEthereumConsensus.Store.BlockStates do
       v -> v
     end
   end
+
+  @doc """
+  Touch a cache entry to refresh its TTL without fetching or inserting.
+  Used to prevent parent state eviction during long prefetch operations.
+  """
+  @spec touch(Types.root()) :: :ok
+  def touch(block_root), do: LRUCache.touch(@table, block_root)
 
   ##########################
   ### Private Functions

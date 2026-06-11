@@ -1,6 +1,11 @@
+pub(crate) mod balance_cache;
+pub(crate) mod cached_hash;
 pub(crate) mod from_elx;
 pub(crate) mod from_ssz;
 pub(crate) mod helpers;
+pub(crate) mod participation_cache;
+pub(crate) mod randao_cache;
+pub(crate) mod shuffle;
 
 /// New containers should be added to this macro
 macro_rules! schema_match {

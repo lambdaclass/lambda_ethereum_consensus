@@ -1,5 +1,10 @@
 global:
-  scrape_interval: 1s
+  # The /metrics endpoint on mainnet returns ~96k lines and takes ~2s to serve,
+  # so the previous 1s scrape_interval caused every scrape to time out
+  # (scrape_timeout defaults to scrape_interval). Use 15s / 10s — enough headroom
+  # for mainnet, while still fine-grained for dashboards.
+  scrape_interval: 15s
+  scrape_timeout: 10s
 
 scrape_configs:
   - job_name: "prom_ex"

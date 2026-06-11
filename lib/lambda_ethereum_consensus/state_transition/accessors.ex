@@ -210,6 +210,45 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   end
 
   @doc """
+  Compute unslashed participating index sets for all 3 flag indices in a single O(V) pass.
+  Returns a list of 3 MapSets, one per flag index (0, 1, 2).
+  """
+  @spec get_all_unslashed_participating_indices(BeaconState.t(), Types.epoch()) ::
+          [MapSet.t()]
+  def get_all_unslashed_participating_indices(%BeaconState{} = state, epoch) do
+    epoch_participation =
+      if epoch == get_current_epoch(state) do
+        state.current_epoch_participation
+      else
+        state.previous_epoch_participation
+      end
+
+    state.validators
+    |> Aja.Vector.zip_with(epoch_participation, &{&1, &2})
+    |> Aja.Vector.with_index()
+    |> Aja.Vector.foldl(
+      {MapSet.new(), MapSet.new(), MapSet.new()},
+      &accumulate_participating_flags(&1, &2, epoch)
+    )
+    |> Tuple.to_list()
+  end
+
+  defp accumulate_participating_flags(
+         {{v, participation}, index},
+         {set0, set1, set2},
+         epoch
+       ) do
+    if not v.slashed and Predicates.active_validator?(v, epoch) do
+      set0 = if Predicates.has_flag(participation, 0), do: MapSet.put(set0, index), else: set0
+      set1 = if Predicates.has_flag(participation, 1), do: MapSet.put(set1, index), else: set1
+      set2 = if Predicates.has_flag(participation, 2), do: MapSet.put(set2, index), else: set2
+      {set0, set1, set2}
+    else
+      {set0, set1, set2}
+    end
+  end
+
+  @doc """
   Return the combined effective balance of the active validators.
   Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   """
@@ -335,19 +374,60 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   def compute_proposer_indices(state, epoch, seed, indices) do
     start_slot = Misc.compute_start_slot_at_epoch(epoch)
     slots_per_epoch = ChainSpec.get("SLOTS_PER_EPOCH")
+    rounds = ChainSpec.get("SHUFFLE_ROUND_COUNT")
+    max_effective_balance = ChainSpec.get("MAX_EFFECTIVE_BALANCE_ELECTRA")
 
-    0..(slots_per_epoch - 1)
-    |> Enum.reduce_while({:ok, []}, fn i, {:ok, acc} ->
-      slot_seed = SszEx.hash(seed <> Misc.uint64_to_bytes(start_slot + i))
+    # Extract effective balances from validators (not state.balances!) as a flat list.
+    # The spec uses validator.effective_balance for the proposer selection threshold.
+    effective_balances =
+      state.validators
+      |> Aja.Vector.map(& &1.effective_balance)
+      |> Aja.Vector.to_list()
 
-      case Misc.compute_proposer_index(state, indices, slot_seed) do
-        {:ok, proposer_index} -> {:cont, {:ok, [proposer_index | acc]}}
-        {:error, _} = err -> {:halt, err}
-      end
-    end)
-    |> case do
-      {:ok, reversed} -> {:ok, Enum.reverse(reversed)}
-      {:error, _} = err -> err
+    active_indices_list = Aja.Vector.to_list(indices)
+
+    rust_result =
+      Ssz.compute_proposer_indices(
+        seed,
+        start_slot,
+        slots_per_epoch,
+        active_indices_list,
+        effective_balances,
+        max_effective_balance,
+        rounds
+      )
+
+    # Cross-check: verify the Rust NIF result against the pure Elixir
+    # implementation for the first slot. If they disagree, fall back to
+    # Elixir for the entire epoch (slower but correct).
+    slot_seed = SszEx.hash(seed <> Misc.uint64_to_bytes(start_slot))
+
+    case Misc.compute_proposer_index(state, indices, slot_seed) do
+      {:ok, elixir_first} ->
+        rust_first = List.first(rust_result)
+
+        if elixir_first != rust_first do
+          Logger.error(
+            "[Accessors] Rust NIF proposer index mismatch at epoch #{epoch}! " <>
+              "Rust=#{rust_first}, Elixir=#{elixir_first}. Falling back to Elixir."
+          )
+
+          # Fall back to pure Elixir for correctness
+          elixir_result =
+            Enum.map(0..(slots_per_epoch - 1), fn i ->
+              slot = start_slot + i
+              ss = SszEx.hash(seed <> Misc.uint64_to_bytes(slot))
+              {:ok, idx} = Misc.compute_proposer_index(state, indices, ss)
+              idx
+            end)
+
+          {:ok, elixir_result}
+        else
+          {:ok, rust_result}
+        end
+
+      _ ->
+        {:ok, rust_result}
     end
   end
 
@@ -693,17 +773,13 @@ defmodule LambdaEthereumConsensus.StateTransition.Accessors do
   ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   Math safe up to ~10B ETH, after which this overflows uint64.
   """
-  @spec get_total_balance(BeaconState.t(), Enumerable.t(Types.validator_index())) ::
+  @spec get_total_balance(BeaconState.t(), MapSet.t(Types.validator_index())) ::
           Types.gwei()
-  def get_total_balance(state, indices) do
-    indices = MapSet.new(indices)
-
+  def get_total_balance(state, %MapSet{} = indices) do
     total_balance =
-      state.validators
-      |> Stream.with_index()
-      |> Stream.filter(fn {_, index} -> MapSet.member?(indices, index) end)
-      |> Stream.map(fn {%Types.Validator{effective_balance: n}, _} -> n end)
-      |> Enum.sum()
+      Enum.reduce(indices, 0, fn index, acc ->
+        acc + Aja.Vector.at!(state.validators, index).effective_balance
+      end)
 
     max(ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT"), total_balance)
   end

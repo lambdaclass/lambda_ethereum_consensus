@@ -17,6 +17,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   alias LambdaEthereumConsensus.Store.BlobDb
   alias LambdaEthereumConsensus.Store.BlockDb
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.StateDb
   alias LambdaEthereumConsensus.Store.StoreDb
   alias Types.Attestation
@@ -26,6 +27,44 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   ##########################
   ### Public API
   ##########################
+
+  # Persist the store asynchronously to avoid blocking the Libp2pPort GenServer.
+  # On mainnet, :erlang.term_to_binary + eleveldb.write can stall for minutes
+  # during LevelDB compaction, causing message queue explosion (observed 54K+ msgs).
+  #
+  # During catch-up sync (head_slot far behind wall clock), persist is skipped
+  # entirely because:
+  #   1. Deep-copying the Store struct (1.2M latest_messages) to a new process
+  #      takes 1-9 seconds and can cause OOM on 62 GB systems
+  #   2. LevelDB is already under heavy write pressure from state/block writes
+  #   3. The store can be recovered from checkpoint + replay if the node crashes
+  #
+  # Once caught up (<= 2 slots behind), persists once per epoch at mid-epoch
+  # (slot mod 32 == 16). We must avoid slots near epoch boundaries because:
+  #   - slot mod 32 == 0: epoch processing uses peak memory (rewards, merkleization)
+  #   - slot mod 32 == 1: epoch memory hasn't been GC'd yet
+  # Mid-epoch gives maximum time for GC to reclaim epoch processing memory.
+  @slots_per_epoch 32
+  @max_behind_slots 2
+  defp async_persist_store(store) do
+    current_slot = compute_current_slot(store.time, store.genesis_time)
+    head_slot = store.head_slot || 0
+    catching_up? = current_slot - head_slot > @max_behind_slots
+
+    cond do
+      catching_up? ->
+        # Skip persist during catch-up to avoid OOM and reduce memory pressure
+        :skip
+
+      rem(head_slot, @slots_per_epoch) == 16 ->
+        # Persist at mid-epoch. Serializes in-process (avoids Store deep-copy
+        # which takes 15s + 3-5 GB), then spawns only the LevelDB write.
+        StoreDb.persist_store_async(store)
+
+      true ->
+        :skip
+    end
+  end
 
   @spec init_store(Store.t(), Types.uint64()) :: Store.t()
   def init_store(%Store{head_slot: head_slot, head_root: head_root} = store, time) do
@@ -60,14 +99,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
       {:ok, new_store, timings} ->
         {new_store, timings} =
           StateTransition.timed(:recompute_head, timings, fn ->
-            recompute_head(new_store)
+            recompute_head(new_store, block_root, slot)
           end)
 
         new_store = prune_old_states(new_store, last_finalized_checkpoint.epoch)
 
         {_, timings} =
           StateTransition.timed(:store_persist, timings, fn ->
-            StoreDb.persist_store(new_store)
+            async_persist_store(new_store)
           end)
 
         total = System.monotonic_time(:millisecond) - total_start
@@ -107,7 +146,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         _ -> store
       end
 
-    tap(store, &StoreDb.persist_store/1)
+    tap(store, &async_persist_store/1)
   end
 
   @spec on_attester_slashing(Store.t(), Types.AttesterSlashing.t()) :: Store.t()
@@ -116,7 +155,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     case Handlers.on_attester_slashing(store, attester_slashing) do
       {:ok, new_store} ->
-        tap(new_store, &StoreDb.persist_store/1)
+        tap(new_store, &async_persist_store/1)
 
       _ ->
         Logger.error("[Fork choice] Failed to add attester slashing to the store")
@@ -130,7 +169,7 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
     Handlers.on_tick(store, time)
     |> prune_old_states(last_finalized_checkpoint.epoch)
-    |> tap(&StoreDb.persist_store/1)
+    |> tap(&async_persist_store/1)
   end
 
   @spec get_current_slot(Types.Store.t()) :: Types.slot()
@@ -224,13 +263,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @spec get_current_status_message() :: Types.StatusMessage.t()
-  def get_current_status_message() do
-    %{
-      head_root: head_root,
-      head_slot: head_slot,
-      finalized_checkpoint: %{root: finalized_root, epoch: finalized_epoch}
-    } = fetch_store!()
+  def get_current_status_message(), do: get_current_status_message(fetch_store!())
 
+  @spec get_current_status_message(Store.t()) :: Types.StatusMessage.t()
+  def get_current_status_message(%{
+        head_root: head_root,
+        head_slot: head_slot,
+        finalized_checkpoint: %{root: finalized_root, epoch: finalized_epoch}
+      }) do
     %Types.StatusMessage{
       fork_digest: compute_fork_digest(head_slot, ChainSpec.get_genesis_validators_root()),
       finalized_root: finalized_root,
@@ -241,16 +281,14 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   end
 
   @spec get_current_status_message_v2() :: Types.StatusMessageV2.t()
-  def get_current_status_message_v2() do
-    %{
-      head_root: head_root,
-      head_slot: head_slot,
-      finalized_checkpoint: %{root: finalized_root, epoch: finalized_epoch}
-    } = fetch_store!()
+  def get_current_status_message_v2(), do: get_current_status_message_v2(fetch_store!())
 
-    # Conservatively report the start of the finalized epoch as the earliest
-    # available slot. TODO: track the checkpoint sync start slot explicitly for
-    # a more accurate value.
+  @spec get_current_status_message_v2(Store.t()) :: Types.StatusMessageV2.t()
+  def get_current_status_message_v2(%{
+        head_root: head_root,
+        head_slot: head_slot,
+        finalized_checkpoint: %{root: finalized_root, epoch: finalized_epoch}
+      }) do
     earliest_available_slot = finalized_epoch * ChainSpec.get("SLOTS_PER_EPOCH")
 
     %Types.StatusMessageV2{
@@ -349,7 +387,65 @@ defmodule LambdaEthereumConsensus.ForkChoice do
   def process_block(%BlockInfo{signed_block: signed_block} = block_info, store) do
     attestations = signed_block.message.body.attestations
     attester_slashings = signed_block.message.body.attester_slashings
+    block_slot = signed_block.message.slot
+    wall_slot = get_current_chain_slot(store.genesis_time)
 
+    # During catch-up (>4 slots behind), skip expensive prefetch_states and
+    # attestation processing. Prefetching checkpoint states from LevelDB takes
+    # 28-35s per block (300MB BeaconState deserialization), and committee
+    # computation takes 10s. Attestation processing has no value during catch-up
+    # since LMD-GHOST is already skipped. Using a small threshold (4 slots)
+    # instead of SLOTS_PER_EPOCH prevents the 25-35s prefetch_states cost at
+    # every epoch boundary during the transition from catch-up to normal mode.
+    #
+    # Check BOTH the arriving block's distance from wall clock AND our store's
+    # head distance from wall clock. If our head is far behind but a fresh
+    # gossip block arrives at tip (block_slot ≈ wall_slot), processing its
+    # attestations via prefetch_states still costs 30-45 s each — observed
+    # 2026-04-15 causing gap growth from 11 → 65 slots in 30 min. Treat
+    # "store head is far behind" as catching_up so we skip the expensive
+    # prefetch on every block until head catches up.
+    catching_up? =
+      wall_slot - block_slot > 4 or
+        wall_slot - store.head_slot > 4
+
+    {states, timings} =
+      if catching_up? do
+        {[], %{}}
+      else
+        prefetch_states_and_committees(store, attestations)
+      end
+
+    # Re-touch the parent state in ETS so its TTL is fresh. This prevents
+    # eviction of the parent state during both prefetch_states (which can take
+    # seconds) and catch-up mode (where rapid sequential block processing can
+    # fill the 10-entry LRU cache, evicting the parent before the next block
+    # needs it). Without this, cache misses fall through to LevelDB reads
+    # that take 30s-10min+ on mainnet (775MB state deserialization + compaction).
+    BlockStates.touch(signed_block.message.parent_root)
+
+    new_store = update_in(store.checkpoint_states, fn cs -> Map.merge(cs, Map.new(states)) end)
+
+    on_block_opts = if catching_up?, do: [skip_pulled_up_tip: true], else: []
+
+    with {:ok, new_store, handler_timings} <- apply_on_block(new_store, block_info, on_block_opts) do
+      timings = Map.merge(timings, handler_timings)
+
+      if catching_up? do
+        # Skip attestation processing during catch-up — attestations from old
+        # blocks don't contribute to fork choice when LMD-GHOST is skipped.
+        {:ok, new_store, timings}
+      else
+        with {:ok, new_store, timings} <- process_attestations(new_store, attestations, timings),
+             {:ok, new_store, timings} <-
+               process_attester_slashings(new_store, attester_slashings, timings) do
+          {:ok, new_store, timings}
+        end
+      end
+    end
+  end
+
+  defp prefetch_states_and_committees(store, attestations) do
     # Prefetch relevant states.
     {states, timings} =
       StateTransition.timed(:prefetch_states, %{}, fn ->
@@ -367,28 +463,22 @@ defmodule LambdaEthereumConsensus.ForkChoice do
         end
       end)
 
-    new_store = update_in(store.checkpoint_states, fn cs -> Map.merge(cs, Map.new(states)) end)
-
-    with {:ok, new_store, handler_timings} <- apply_on_block(new_store, block_info) do
-      timings = Map.merge(timings, handler_timings)
-
-      with {:ok, new_store, timings} <- process_attestations(new_store, attestations, timings),
-           {:ok, new_store, timings} <-
-             process_attester_slashings(new_store, attester_slashings, timings) do
-        {:ok, new_store, timings}
-      end
-    end
+    {states, timings}
   end
 
   def fetch_checkpoint_state(store, checkpoint) do
-    case Store.get_checkpoint_state(store, checkpoint) do
+    # Use cached-only fetch to avoid blocking the ForkChoice GenServer
+    # with 28-85s LevelDB reads for 775MB mainnet BeaconStates.
+    # If the state isn't in memory/ETS, we skip this checkpoint's attestations
+    # rather than stalling block processing for up to 85 seconds.
+    case Store.get_checkpoint_state_cached(store, checkpoint) do
       {_store, nil} -> []
       {_store, state} -> [{checkpoint, state}]
     end
   end
 
-  defp apply_on_block(store, block_info) do
-    Handlers.on_block(store, block_info)
+  defp apply_on_block(store, block_info, opts \\ []) do
+    Handlers.on_block(store, block_info, opts)
   end
 
   defp process_attester_slashings(store, attester_slashings, timings) do
@@ -421,18 +511,35 @@ defmodule LambdaEthereumConsensus.ForkChoice do
 
   # Recomputes the head in the store and sends the new head to others (libP2P,
   # operations collector db, execution chain db).
-  @spec recompute_head(Store.t()) :: Store.t()
-  defp recompute_head(store) do
-    {:ok, head_root} = Head.get_head(store)
-    head_block = Blocks.get_block!(head_root)
+  @spec recompute_head(Store.t(), Types.root(), Types.slot()) :: Store.t()
+  defp recompute_head(store, block_root, block_slot) do
+    wall_slot = get_current_chain_slot(store.genesis_time)
 
-    Handlers.notify_forkchoice_update(store, head_block)
+    head_root =
+      if wall_slot - block_slot > 1 do
+        # When behind the chain tip (>1 slot), head is the latest processed
+        # block. Skip expensive LMD-GHOST (~3-4s) since during catch-up there
+        # are no competing forks — we only have the canonical chain from peers.
+        block_root
+      else
+        {:ok, root} = Head.get_head(store)
+        root
+      end
 
-    %{slot: slot, body: body} = head_block
+    # Cache-only — avoid blocking Libp2pPort on LevelDB reads.
+    head_block = Blocks.get_block_cached(head_root)
 
-    OperationsCollector.notify_new_block(head_block)
-    Libp2pPort.notify_new_head(slot, head_root)
-    ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
+    if head_block do
+      Handlers.notify_forkchoice_update(store, head_block)
+
+      %{slot: slot, body: body} = head_block
+
+      OperationsCollector.notify_new_block(head_block)
+      Libp2pPort.notify_new_head(slot, head_root)
+      ExecutionChain.notify_new_block(slot, body.eth1_data, body.execution_payload)
+    end
+
+    slot = if head_block, do: head_block.slot, else: store.head_slot || 0
 
     Logger.debug("[Fork choice] Updated fork choice cache", slot: slot)
 

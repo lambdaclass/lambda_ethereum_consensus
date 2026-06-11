@@ -5,6 +5,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
   alias LambdaEthereumConsensus.Metrics
   alias LambdaEthereumConsensus.StateTransition.Accessors
+  alias LambdaEthereumConsensus.StateTransition.Cache
   alias LambdaEthereumConsensus.StateTransition.Math
   alias LambdaEthereumConsensus.StateTransition.Misc
   alias LambdaEthereumConsensus.StateTransition.Mutators
@@ -146,20 +147,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
 
       total_proposer_reward = BitVector.count(aggregate.sync_committee_bits) * proposer_reward
 
-      # PERF: make Map with committee_index by pubkey, then
-      # Enum.map validators -> new balance all in place, without map_reduce
-      state.validators
-      |> get_sync_committee_indices(committee_pubkeys)
-      |> Stream.with_index()
-      |> Stream.map(fn {validator_index, committee_index} ->
-        if BitVector.set?(aggregate.sync_committee_bits, committee_index),
-          do: {validator_index, participant_reward},
-          else: {validator_index, -participant_reward}
-      end)
-      |> Enum.reduce(state.balances, fn {validator_index, delta}, balances ->
-        Aja.Vector.update_at!(balances, validator_index, &max(&1 + delta, 0))
-      end)
-      |> then(&%{state | balances: &1})
+      # Cache sync committee indices (stable within a sync committee period)
+      committee_indices = get_cached_sync_committee_indices(state, committee_pubkeys)
+
+      balances =
+        committee_indices
+        |> Enum.with_index()
+        |> Enum.reduce(state.balances, fn {validator_index, committee_index}, balances ->
+          delta =
+            if BitVector.set?(aggregate.sync_committee_bits, committee_index),
+              do: participant_reward,
+              else: -participant_reward
+
+          Aja.Vector.update_at!(balances, validator_index, &max(&1 + delta, 0))
+        end)
+
+      %{state | balances: balances}
       |> BeaconState.increase_balance(proposer_index, total_proposer_reward)
       |> then(&{:ok, &1})
     end
@@ -199,23 +202,44 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
     {participant_reward, proposer_reward}
   end
 
+  defp get_cached_sync_committee_indices(state, committee_pubkeys) do
+    epoch = Accessors.get_current_epoch(state)
+
+    compute_fn = fn ->
+      get_sync_committee_indices(state.validators, committee_pubkeys)
+    end
+
+    case Accessors.get_block_root_at_slot(
+           state,
+           max(Misc.compute_start_slot_at_epoch(epoch), 1) - 1
+         ) do
+      {:ok, root} -> Cache.lazily_compute(:sync_committee_indices, {epoch, root}, compute_fn)
+      _ -> compute_fn.()
+    end
+  end
+
   @spec get_sync_committee_indices(Aja.Vector.t(Validator.t()), list(Types.bls_pubkey())) ::
           list(Types.validator_index())
   defp get_sync_committee_indices(validators, committee_pubkeys) do
+    # Build map of committee pubkey -> [committee_indices] (only 512 entries)
     pk_map =
       committee_pubkeys
-      |> Stream.with_index()
+      |> Enum.with_index()
       |> Enum.reduce(%{}, fn {pk, i}, map ->
         Map.update(map, pk, [i], &[i | &1])
       end)
 
+    # Scan validators to resolve pubkeys to validator indices
     validators
-    |> Stream.with_index()
-    |> Stream.map(fn {%Validator{pubkey: pubkey}, i} -> {Map.get(pk_map, pubkey), i} end)
-    |> Stream.reject(fn {v, _} -> is_nil(v) end)
-    |> Stream.flat_map(fn {list, i} -> list |> Stream.map(&{&1, i}) end)
-    |> Enum.sort(fn {v1, _}, {v2, _} -> v1 <= v2 end)
-    |> Enum.map(fn {_, i} -> i end)
+    |> Aja.Vector.with_index()
+    |> Aja.Vector.foldl([], fn {%Validator{pubkey: pubkey}, validator_idx}, acc ->
+      case Map.get(pk_map, pubkey) do
+        nil -> acc
+        committee_indices -> Enum.reduce(committee_indices, acc, &[{&1, validator_idx} | &2])
+      end
+    end)
+    |> Enum.sort()
+    |> Enum.map(fn {_committee_idx, validator_idx} -> validator_idx end)
   end
 
   @doc """
@@ -388,55 +412,118 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         )
       end)
 
-    bound = state.validators |> Aja.Vector.size() |> min(max_validators_per_withdrawals_sweep)
-    # Sweep for remaining.
+    validator_count = Aja.Vector.size(state.validators)
+    bound = min(validator_count, max_validators_per_withdrawals_sweep)
+
+    # Pre-build partial withdrawal amounts by validator index for O(1) lookup
+    partial_amounts =
+      Enum.reduce(pending_partial_withdrawals, %{}, fn w, acc ->
+        Map.update(acc, w.validator_index, w.amount, &(&1 + w.amount))
+      end)
+
+    # Extract the sweep range as lists for O(1) sequential access instead of
+    # per-element Aja.Vector.at! (O(log N)). Handles wrap-around at validator_count.
+    start_index = state.next_withdrawal_validator_index
+
+    {validator_list, balance_list, index_list} =
+      extract_sweep_range(state.validators, state.balances, start_index, validator_count, bound)
+
     non_partial_withdrawals =
-      Stream.zip([state.validators, state.balances])
-      |> Stream.with_index()
-      |> Stream.cycle()
-      |> Stream.drop(state.next_withdrawal_validator_index)
-      |> Stream.take(bound)
-      |> Stream.map(fn {{validator, balance}, index} ->
-        partially_withdrawn_balance =
-          Enum.sum(
-            for withdrawal <- pending_partial_withdrawals,
-                withdrawal.validator_index == index,
-                do: withdrawal.amount
-          )
-
-        balance = balance - partially_withdrawn_balance
-
-        cond do
-          Validator.fully_withdrawable_validator?(validator, balance, epoch) ->
-            {validator, balance, index}
-
-          Validator.partially_withdrawable_validator?(validator, balance) ->
-            {validator, balance - Validator.get_max_effective_balance(validator), index}
-
-          true ->
-            nil
-        end
-      end)
-      |> Stream.reject(&is_nil/1)
-      |> Stream.with_index()
-      |> Stream.map(fn {{validator, balance, validator_index}, index} ->
-        %Validator{withdrawal_credentials: withdrawal_credentials} = validator
-
-        <<_::binary-size(12), execution_address::binary>> = withdrawal_credentials
-
-        %Withdrawal{
-          index: index + withdrawal_index,
-          validator_index: validator_index,
-          address: execution_address,
-          amount: balance
-        }
-      end)
+      sweep_validator_list(
+        validator_list,
+        balance_list,
+        index_list,
+        partial_amounts,
+        epoch,
+        withdrawal_index,
+        []
+      )
 
     complete_withdrawals =
-      (pending_partial_withdrawals ++ Enum.to_list(non_partial_withdrawals))
+      (pending_partial_withdrawals ++ non_partial_withdrawals)
       |> Enum.take(max_withdrawals_per_payload)
 
     {complete_withdrawals, processed_partial_withdrawals_count}
+  end
+
+  # Extract the sweep range as plain lists for O(1) sequential traversal.
+  # Handles wrap-around when start + bound > validator_count.
+  defp extract_sweep_range(validators, balances, start, count, bound) do
+    end_index = start + bound
+
+    if end_index <= count do
+      # No wrap-around: single contiguous slice
+      vl = validators |> Aja.Vector.slice(start..(end_index - 1)) |> Aja.Vector.to_list()
+      bl = balances |> Aja.Vector.slice(start..(end_index - 1)) |> Aja.Vector.to_list()
+      il = Enum.to_list(start..(end_index - 1))
+      {vl, bl, il}
+    else
+      # Wrap-around: two slices
+      first_len = count - start
+      second_len = bound - first_len
+
+      vl =
+        Aja.Vector.to_list(Aja.Vector.slice(validators, start..(count - 1))) ++
+          Aja.Vector.to_list(Aja.Vector.slice(validators, 0..(second_len - 1)))
+
+      bl =
+        Aja.Vector.to_list(Aja.Vector.slice(balances, start..(count - 1))) ++
+          Aja.Vector.to_list(Aja.Vector.slice(balances, 0..(second_len - 1)))
+
+      il = Enum.to_list(start..(count - 1)) ++ Enum.to_list(0..(second_len - 1))
+      {vl, bl, il}
+    end
+  end
+
+  # Sweep over pre-extracted lists with O(1) sequential access.
+  defp sweep_validator_list([], [], [], _partial_amounts, _epoch, _withdrawal_index, acc) do
+    Enum.reverse(acc)
+  end
+
+  defp sweep_validator_list(
+         [validator | vrest],
+         [raw_balance | brest],
+         [index | irest],
+         partial_amounts,
+         epoch,
+         withdrawal_index,
+         acc
+       ) do
+    balance = raw_balance - Map.get(partial_amounts, index, 0)
+
+    acc =
+      cond do
+        Validator.fully_withdrawable_validator?(validator, balance, epoch) ->
+          <<_::binary-size(12), addr::binary>> = validator.withdrawal_credentials
+
+          [
+            %Withdrawal{
+              index: withdrawal_index + length(acc),
+              validator_index: index,
+              address: addr,
+              amount: balance
+            }
+            | acc
+          ]
+
+        Validator.partially_withdrawable_validator?(validator, balance) ->
+          <<_::binary-size(12), addr::binary>> = validator.withdrawal_credentials
+
+          [
+            %Withdrawal{
+              index: withdrawal_index + length(acc),
+              validator_index: index,
+              address: addr,
+              amount: balance - Validator.get_max_effective_balance(validator)
+            }
+            | acc
+          ]
+
+        true ->
+          acc
+      end
+
+    sweep_validator_list(vrest, brest, irest, partial_amounts, epoch, withdrawal_index, acc)
   end
 
   defp process_partial_withdrawal(
@@ -713,18 +800,25 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
   end
 
   @spec validate_attestation(BeaconState.t(), Attestation.t()) :: :ok | {:error, String.t()}
-  def validate_attestation(
-        state,
-        %Attestation{data: data, aggregation_bits: aggregation_bits} = attestation
-      ) do
+  def validate_attestation(state, attestation) do
+    with {:ok, indexed_attestation} <- validate_attestation_structure(state, attestation) do
+      check_valid_indexed_attestation(state, indexed_attestation)
+    end
+  end
+
+  # Validate attestation structure (cheap checks + committee lookups) and return
+  # the indexed attestation for BLS verification and attesting indices extraction.
+  defp validate_attestation_structure(
+         state,
+         %Attestation{data: data, aggregation_bits: aggregation_bits} = attestation
+       ) do
     with :ok <- check_valid_target_epoch(data, state),
          :ok <- check_epoch_matches(data),
          :ok <- check_valid_slot_range(data, state),
          :ok <- check_data_index_zero(data),
          {:ok, committee_offset} <- check_committee_indices(attestation, state),
-         :ok <- check_matching_aggregation_bits_length(aggregation_bits, committee_offset),
-         {:ok, indexed_attestation} <- Accessors.get_indexed_attestation(state, attestation) do
-      check_valid_indexed_attestation(state, indexed_attestation)
+         :ok <- check_matching_aggregation_bits_length(aggregation_bits, committee_offset) do
+      Accessors.get_indexed_attestation(state, attestation)
     end
   end
 
@@ -827,11 +921,15 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
         current_epoch_updates,
         attestation_index
       ) do
-    with :ok <- validate_attestation(state, att),
+    # Validate structure and get indexed attestation in one pass, then extract
+    # attesting_indices from it. This avoids calling get_attesting_indices twice
+    # (once inside validate_attestation, once here).
+    with {:ok, indexed_attestation} <- validate_attestation_structure(state, att),
+         :ok <- check_valid_indexed_attestation(state, indexed_attestation),
          slot = state.slot - data.slot,
          {:ok, flag_indices} <-
-           Accessors.get_attestation_participation_flag_indices(state, data, slot),
-         {:ok, attesting_indices} <- Accessors.get_attesting_indices(state, att) do
+           Accessors.get_attestation_participation_flag_indices(state, data, slot) do
+      attesting_indices = MapSet.new(indexed_attestation.attesting_indices)
       is_current_epoch = data.target.epoch == Accessors.get_current_epoch(state)
       epoch_updates = if is_current_epoch, do: current_epoch_updates, else: previous_epoch_updates
 
@@ -845,9 +943,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Operations do
       v = {attestation_index, weights_mask}
 
       new_epoch_updates =
-        attesting_indices
-        |> Enum.to_list()
-        |> Enum.reduce(epoch_updates, fn i, epoch_updates ->
+        Enum.reduce(attesting_indices, epoch_updates, fn i, epoch_updates ->
           Map.update(epoch_updates, i, [v], &merge_masks(&1, v))
         end)
 

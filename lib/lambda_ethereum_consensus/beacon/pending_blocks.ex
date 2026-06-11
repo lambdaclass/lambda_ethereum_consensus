@@ -14,6 +14,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   alias LambdaEthereumConsensus.StateTransition.DasCore
   alias LambdaEthereumConsensus.Store.Blobs
   alias LambdaEthereumConsensus.Store.Blocks
+  alias LambdaEthereumConsensus.Store.DataColumnDb
   alias LambdaEthereumConsensus.Store.DataColumns
   alias LambdaEthereumConsensus.Utils
   alias Types.BlockInfo
@@ -34,6 +35,19 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @type state :: nil
 
   @download_retries 100
+  # Max blocks to process per retry_download_columns invocation.
+  # Keeps memory bounded by yielding the GenServer between batches,
+  # allowing GC to reclaim BeaconState objects (~300MB each).
+  @retry_batch_size 5
+  # Max blocks to process per process_blocks invocation.
+  # Yielding the GenServer between batches allows load shedding and
+  # GC to run, preventing unbounded message queue growth during catch-up.
+  @process_batch_size 5
+  # Max retries for "parent state not found" errors before marking invalid.
+  # Each retry is delayed by 5 seconds. This gives the async LevelDB write
+  # time to complete (~15 seconds total) while preventing infinite spin loops
+  # when the state is truly lost (e.g., processed during catch-up mode).
+  @max_state_retries 3
 
   @doc """
   If the block is not present, it will be stored as pending.
@@ -51,11 +65,12 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   @spec add_block(Store.t(), SignedBeaconBlock.t()) :: Store.t()
   def add_block(store, signed_block) do
     block_info = BlockInfo.from_block(signed_block)
-    loaded_block = Blocks.get_block_info(block_info.root)
+    loaded_block = Blocks.get_block_info_cached(block_info.root)
     log_md = [slot: signed_block.message.slot, root: block_info.root]
 
-    # If the block is new or was to be downloaded, we store it.
-    if is_nil(loaded_block) or loaded_block.status == :download do
+    # If the block is new, was to be downloaded, or was previously marked invalid
+    # (e.g. due to transient data availability failures), we (re-)process it.
+    if is_nil(loaded_block) or loaded_block.status in [:download, :invalid] do
       if HardForkAliasInjection.fulu?() do
         add_block_fulu(store, block_info, log_md)
       else
@@ -112,7 +127,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
       # Ensure the retry heartbeat is running so partial/empty responses
       # or transient errors don't leave this block permanently stuck.
-      Process.send_after(self(), :retry_download_columns, 60_000)
+      Process.send_after(self(), :retry_download_columns, 12_000)
 
       block_info
       |> BlockInfo.change_status(:download_columns)
@@ -120,6 +135,40 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
 
       store
     end
+  end
+
+  @doc """
+  On startup, resets blocks that were marked :invalid due to transient failures
+  (e.g. data not available during catch-up sync). Blocks with signed_block data
+  are moved back to :download_columns (Fulu) so they can be re-evaluated.
+  Blocks without signed_block data (download markers) remain :invalid.
+  """
+  @spec recover_invalid_blocks() :: :ok | :recovered
+  def recover_invalid_blocks() do
+    case Blocks.get_blocks_with_status(:invalid) do
+      {:ok, blocks} ->
+        blocks
+        |> Enum.filter(fn %BlockInfo{signed_block: sb} -> not is_nil(sb) end)
+        |> recover_blocks()
+
+      {:error, reason} ->
+        Logger.warning("[PendingBlocks] Failed to get invalid blocks for recovery: #{reason}")
+        :ok
+    end
+  end
+
+  defp recover_blocks([]), do: :ok
+
+  defp recover_blocks(recoverable) do
+    Logger.info(
+      "[PendingBlocks] Recovering #{length(recoverable)} previously-invalid blocks on startup"
+    )
+
+    target_status =
+      if HardForkAliasInjection.fulu?(), do: :download_columns, else: :download_blobs
+
+    Enum.each(recoverable, &Blocks.change_status(&1, target_status))
+    :recovered
   end
 
   @doc """
@@ -131,13 +180,46 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   def process_blocks(store) do
     case Blocks.get_blocks_with_status(:pending) do
       {:ok, blocks} ->
-        blocks
-        |> Enum.sort_by(fn %BlockInfo{} = block_info -> block_info.signed_block.message.slot end)
-        # Could we process just one/a small amount of blocks at a time? would it make more sense?
-        |> Enum.reduce(store, fn block_info, store ->
-          {store, _state} = process_block(store, block_info)
-          store
-        end)
+        # Defensive filter: a :pending block should always carry its
+        # signed_block payload (status transitions to :pending via
+        # change_status from :download_blobs/:download_columns, never from
+        # :download placeholders). But the 2026-04-20 22:30 crash loop left
+        # the store with at least one :pending entry whose signed_block was
+        # nil, causing BadMapError here. Skipping such entries lets the
+        # remaining pending blocks progress; logging lets us investigate the
+        # upstream corruption separately.
+        {valid, broken} =
+          Enum.split_with(blocks, fn %BlockInfo{signed_block: sb} -> not is_nil(sb) end)
+
+        if broken != [] do
+          Logger.warning(
+            "[PendingBlocks] Skipping #{length(broken)} :pending block(s) with nil signed_block" <>
+              " (roots: #{Enum.map_join(broken, ",", fn b -> Base.encode16(b.root) |> String.slice(0, 8) end)})"
+          )
+        end
+
+        sorted =
+          Enum.sort_by(valid, fn %BlockInfo{} = block_info ->
+            block_info.signed_block.message.slot
+          end)
+
+        # Process blocks in small batches, yielding the GenServer between
+        # batches so load shedding, GC, and other handlers can run.
+        # Without batching, processing 60+ blocks in one callback kept
+        # the GenServer busy for 3-5 minutes, causing mailbox overflow.
+        {batch, rest} = Enum.split(sorted, @process_batch_size)
+
+        store =
+          Enum.reduce(batch, store, fn block_info, store ->
+            {store, _state} = process_block(store, block_info)
+            store
+          end)
+
+        if rest != [] do
+          Process.send_after(self(), :retry_pending_blocks, 100)
+        end
+
+        store
 
       {:error, reason} ->
         Logger.error(
@@ -153,20 +235,22 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   """
   @spec process_blobs(Store.t(), {:ok, [Types.BlobSidecar.t()]}) :: {:ok, Store.t()}
   def process_blobs(store, {:ok, blobs}) do
-    blobs
-    |> Blobs.add_blobs()
-    |> Enum.reduce(store, fn root, store ->
-      with %BlockInfo{status: :download_blobs} = block_info <- Blocks.get_block_info(root),
-           [] <- Blobs.missing_for_block(block_info) do
-        block_info
-        |> Blocks.change_status(:pending)
-        |> then(&process_block_and_check_children(store, &1))
+    new_store =
+      blobs
+      |> Blobs.add_blobs()
+      |> Enum.reduce(store, fn root, store ->
+        with %BlockInfo{status: :download_blobs} = block_info <-
+               Blocks.get_block_info_cached(root),
+             [] <- Blobs.missing_for_block(block_info) do
+          block_info
+          |> Blocks.change_status(:pending)
+          |> then(&process_block_and_check_children(store, &1))
+        else
+          _ -> store
+        end
+      end)
 
-        {:ok, store}
-      else
-        _ -> {:ok, store}
-      end
-    end)
+    {:ok, new_store}
   end
 
   @spec process_blobs(Store.t(), {:error, any()}) :: {:ok, Store.t()}
@@ -182,37 +266,51 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   """
   @spec process_data_columns(Store.t(), {:ok, [Types.DataColumnSidecar.t()]}) :: {:ok, Store.t()}
   def process_data_columns(store, {:ok, sidecars}) do
-    sidecars
-    |> DataColumns.add_columns()
-    |> Enum.reduce(store, fn root, store ->
-      with %BlockInfo{status: :download_columns} = block_info <- Blocks.get_block_info(root),
-           [] <-
-             DataColumns.missing_columns_for_block(
-               block_info,
-               DasCore.get_local_custody_columns()
-             ) do
-        block_info
-        |> Blocks.change_status(:pending)
-        |> then(&process_block_and_check_children(store, &1))
+    custody_cols = DasCore.get_local_custody_columns()
 
-        {:ok, store}
-      else
-        _ -> {:ok, store}
-      end
-    end)
+    new_store =
+      sidecars
+      |> DataColumns.add_columns()
+      |> Enum.reduce(store, fn root, store ->
+        with %BlockInfo{status: :download_columns} = block_info <-
+               Blocks.get_block_info_cached(root),
+             [] <-
+               DataColumns.missing_columns_for_block(block_info, custody_cols) do
+          block_info
+          |> Blocks.change_status(:pending)
+          |> then(&process_block_and_check_children(store, &1))
+        else
+          # Partial response: some columns received but others still missing.
+          # Immediately re-request the remaining columns instead of waiting
+          # 30-60s for the retry timer. This is the most common case on mainnet
+          # where a peer custodies some but not all of our required columns.
+          still_missing when is_list(still_missing) and still_missing != [] ->
+            Logger.debug(
+              "[PendingBlocks] Partial column response, #{length(still_missing)} still missing. Re-requesting immediately."
+            )
+
+            request_missing_columns(Blocks.get_block_info_cached(root), custody_cols)
+            store
+
+          _ ->
+            store
+        end
+      end)
+
+    {:ok, new_store}
   end
 
   @spec process_data_columns(Store.t(), {:error, :no_peers}) :: {:ok, Store.t()}
   def process_data_columns(store, {:error, :no_peers}) do
     Logger.warning("[PendingBlocks] No peers for data column download, scheduling retry")
-    Process.send_after(self(), :retry_download_columns, 30_000)
+    Process.send_after(self(), :retry_download_columns, 5_000)
     {:ok, store}
   end
 
   @spec process_data_columns(Store.t(), {:error, any()}) :: {:ok, Store.t()}
   def process_data_columns(store, {:error, reason}) do
     Logger.error("[PendingBlocks] Error downloading data columns: #{inspect(reason)}")
-    Process.send_after(self(), :retry_download_columns, 30_000)
+    Process.send_after(self(), :retry_download_columns, 5_000)
     {:ok, store}
   end
 
@@ -225,13 +323,54 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
     case Blocks.get_blocks_with_status(:download_columns) do
       {:ok, blocks} ->
         custody_cols = DasCore.get_local_custody_columns()
-        Enum.each(blocks, &request_missing_columns(&1, custody_cols))
+
+        # Defensive filter: a :download_columns block should always carry its
+        # signed_block (it got to this status after a successful block arrival
+        # via `add_block_fulu`). But the 2026-04-20 22:30 crash-loop left
+        # corrupted entries with nil signed_block, which crash
+        # `DataColumns.missing_columns_for_block` (it does
+        # `block.message.body.blob_kzg_commitments`). Skip those; upstream
+        # corruption will be addressed separately. Same pattern as
+        # `process_blocks/1`.
+        blocks = Enum.filter(blocks, fn %BlockInfo{signed_block: sb} -> not is_nil(sb) end)
+
+        {ready, need_download} =
+          Enum.split_with(blocks, fn block_info ->
+            DataColumns.missing_columns_for_block(block_info, custody_cols) == []
+          end)
+
+        # Process only a small batch to prevent OOM from accumulating
+        # BeaconStates (~300MB each) in memory. Yielding the GenServer
+        # between batches allows GC and prevents message queue buildup.
+        {batch, rest} = Enum.split(ready, @retry_batch_size)
+
+        if batch != [] do
+          Logger.info(
+            "[PendingBlocks] Processing #{length(batch)} of #{length(ready)} ready blocks" <>
+              " (#{length(need_download)} still downloading)"
+          )
+        end
+
+        store =
+          Enum.reduce(batch, store, fn block_info, acc ->
+            block_info
+            |> Blocks.change_status(:pending)
+            |> then(&process_block_and_check_children(acc, &1))
+          end)
+
+        # Schedule a quick follow-up for remaining ready blocks.
+        if rest != [] do
+          Process.send_after(self(), :retry_download_columns, 1_000)
+        end
+
+        # Blocks still missing columns: re-request downloads.
+        Enum.each(need_download, &request_missing_columns(&1, custody_cols))
+        store
 
       {:error, reason} ->
         Logger.error("[PendingBlocks] Failed to get :download_columns blocks: #{reason}")
+        store
     end
-
-    store
   end
 
   defp request_missing_columns(block_info, custody_cols) do
@@ -276,7 +415,7 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
       log_md
     )
 
-    case Blocks.get_block_info(parent_root) do
+    case Blocks.get_block_info_cached(parent_root) do
       nil ->
         Logger.debug(
           "[PendingBlocks] Add parent with root: #{Utils.format_shorten_binary(parent_root)} to download",
@@ -308,41 +447,141 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
         {store, :invalid}
 
       %BlockInfo{status: :transitioned} ->
-        case ForkChoice.on_block(store, block_info) do
-          {:ok, store} ->
-            Logger.debug("[PendingBlocks] Block transitioned after ForkChoice.on_block/2", log_md)
-            Blocks.change_status(block_info, :transitioned)
-            {store, :transitioned}
-
-          {:error, reason, store} ->
-            handle_on_block_error(store, block_info, reason, log_md)
-        end
+        process_transitioned_parent(store, block_info, message, log_md)
 
       _other ->
         {store, :ok}
     end
   end
 
-  defp handle_on_block_error(store, block_info, reason, log_md) do
-    if execution_layer_error?(reason) do
-      # Transient EL error (connectivity, auth, etc.) — keep block as :pending.
-      # process_blocks is only triggered by :transitioned/:invalid events, so we
-      # schedule a delayed retry message to the calling GenServer (Libp2pPort).
-      Logger.warning(
-        "[PendingBlocks] Transient EL error, scheduling retry: #{reason}",
+  defp process_transitioned_parent(store, block_info, message, log_md) do
+    # Skip blocks that are far behind the current head. During catch-up,
+    # sync batches download blocks that may already be superseded by the
+    # canonical chain. Processing them triggers expensive epoch processing
+    # (10+ minutes for rewards_and_penalties + committee computation with
+    # 2.2M validators) while blocking the Libp2pPort GenServer, causing
+    # massive message queue buildup (50K-100K+).
+    if message.slot + 2 < store.head_slot do
+      Logger.info(
+        "[PendingBlocks] Skipping block behind head (slot #{message.slot} vs head #{store.head_slot})",
         log_md
       )
 
-      Process.send_after(self(), :retry_pending_blocks, 10_000)
-      {store, :ok}
+      Blocks.change_status(block_info, :transitioned)
+      {store, :transitioned}
     else
-      Logger.error(
-        "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
-        log_md
-      )
+      case ForkChoice.on_block(store, block_info) do
+        {:ok, store} ->
+          Logger.debug(
+            "[PendingBlocks] Block transitioned after ForkChoice.on_block/2",
+            log_md
+          )
 
-      Blocks.change_status(block_info, :invalid)
-      {store, :invalid}
+          Blocks.change_status(block_info, :transitioned)
+          {store, :transitioned}
+
+        {:error, reason, store} ->
+          handle_on_block_error(store, block_info, reason, log_md)
+      end
+    end
+  end
+
+  defp handle_on_block_error(store, block_info, reason, log_md) do
+    cond do
+      execution_layer_error?(reason) ->
+        # Transient EL error (connectivity, auth, etc.) — keep block as :pending.
+        # process_blocks is only triggered by :transitioned/:invalid events, so we
+        # schedule a delayed retry message to the calling GenServer (Libp2pPort).
+        Logger.warning(
+          "[PendingBlocks] Transient EL error, scheduling retry: #{reason}",
+          log_md
+        )
+
+        Process.send_after(self(), :retry_pending_blocks, 10_000)
+        {store, :ok}
+
+      data_availability_error?(reason) ->
+        # Check whether columns are genuinely missing (transient — retry download)
+        # or all present but verification failed (likely corrupted download).
+        custody_cols = DasCore.get_local_custody_columns()
+        missing = DataColumns.missing_columns_for_block(block_info, custody_cols)
+
+        if missing != [] do
+          Logger.warning(
+            "[PendingBlocks] Data not available (#{length(missing)} columns missing)," <>
+              " moving back to download_columns for retry",
+            log_md
+          )
+        else
+          # All columns present but KZG verification failed — purge stored columns
+          # so they get re-downloaded fresh. Without this, retry_download_columns
+          # would see "no missing columns", move the block to :pending, and loop.
+          Logger.warning(
+            "[PendingBlocks] Data not available but all #{length(custody_cols)} custody" <>
+              " columns present — purging columns for re-download",
+            log_md
+          )
+
+          DataColumnDb.delete_columns_for_block(block_info.root, custody_cols)
+        end
+
+        Blocks.change_status(block_info, :download_columns)
+        request_missing_columns(block_info, custody_cols)
+        Process.send_after(self(), :retry_download_columns, 5_000)
+        {store, :ok}
+
+      timing_error?(reason) ->
+        # "block is from the future" happens after GenServer restart when the
+        # store's time hasn't caught up via on_tick yet. Keep block as :pending
+        # and retry after a delay — the time will advance and the block will pass.
+        Logger.warning(
+          "[PendingBlocks] Transient timing error, scheduling retry: #{reason}",
+          log_md
+        )
+
+        Process.send_after(self(), :retry_pending_blocks, 12_000)
+        {store, :ok}
+
+      parent_state_missing_error?(reason) ->
+        # Parent state not found can be transient: the async LevelDB write may
+        # not have completed yet, or the state was evicted from the 16-entry ETS
+        # cache during expensive checkpoint state computation (epoch boundaries).
+        # Retry a few times to let the async write complete, but give up after
+        # @max_state_retries to avoid spinning forever when the state is truly lost
+        # (e.g., processed during catch-up mode where ETS/LevelDB writes are skipped).
+        retry_key = {:state_retry, block_info.root}
+        retries = Process.get(retry_key, 0)
+
+        if retries < @max_state_retries do
+          Process.put(retry_key, retries + 1)
+
+          Logger.warning(
+            "[PendingBlocks] Parent state not found (attempt #{retries + 1}/#{@max_state_retries}), scheduling retry: #{reason}",
+            log_md
+          )
+
+          Process.send_after(self(), :retry_pending_blocks, 5_000)
+          {store, :ok}
+        else
+          Process.delete(retry_key)
+
+          Logger.error(
+            "[PendingBlocks] Parent state permanently unavailable after #{@max_state_retries} retries, marking invalid: #{reason}",
+            log_md
+          )
+
+          Blocks.change_status(block_info, :invalid)
+          {store, :invalid}
+        end
+
+      true ->
+        Logger.error(
+          "[PendingBlocks] Saving block as invalid after ForkChoice.on_block/2 error: #{reason}",
+          log_md
+        )
+
+        Blocks.change_status(block_info, :invalid)
+        {store, :invalid}
     end
   end
 
@@ -351,6 +590,28 @@ defmodule LambdaEthereumConsensus.Beacon.PendingBlocks do
   # (e.g. "Invalid execution payload") or from the state transition are permanent.
   defp execution_layer_error?(reason) do
     String.starts_with?(reason, "Error when calling execution client:")
+  end
+
+  # Data availability failures are transient during catch-up sync — custody columns
+  # may not have been downloaded yet. The block should be retried, not invalidated.
+  defp data_availability_error?(reason) do
+    reason == "data not available"
+  end
+
+  # Timing errors happen after GenServer restart when the store's time hasn't
+  # been advanced by on_tick yet. The block is valid but appears to be "from
+  # the future" relative to the stale store time.
+  defp timing_error?(reason) do
+    reason == "block is from the future"
+  end
+
+  # Parent state missing errors are transient: they occur when the ETS LRU
+  # cache (16 entries) evicts the parent state during expensive checkpoint
+  # state computation, and the async LevelDB write hasn't completed yet.
+  # After a short delay, the LevelDB write should finish and the state
+  # becomes retrievable.
+  defp parent_state_missing_error?(reason) do
+    String.contains?(reason, "not found in store")
   end
 
   defp process_downloaded_block(store, {:ok, [block]}) do

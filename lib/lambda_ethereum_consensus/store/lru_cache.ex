@@ -38,6 +38,34 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
     :ok
   end
 
+  @doc """
+  Insert a value into the ETS cache without calling the store_func.
+  The ETS insert is immediate (public table), and TTL management is
+  deferred via GenServer.cast (non-blocking). Use this when LevelDB
+  persistence is handled separately by the caller.
+  """
+  @spec put_cache(atom(), key(), value()) :: :ok
+  def put_cache(table, key, value) do
+    :ets.insert(table, {key, value, nil})
+    GenServer.cast(table, {:touch_entry, key})
+    :ok
+  end
+
+  @doc """
+  Touch a cache entry to refresh its TTL without fetching or returning it.
+  No-op if the key is not in the cache. Used to prevent eviction of
+  critical entries (e.g., parent state) during long operations.
+  """
+  @spec touch(atom(), key()) :: :ok
+  def touch(table, key) do
+    case :ets.lookup_element(table, key, 2, nil) do
+      nil -> :ok
+      _v -> GenServer.cast(table, {:touch_entry, key})
+    end
+
+    :ok
+  end
+
   @spec get(atom(), key(), (key() -> value() | nil)) :: value() | nil
   def get(table, key, fetch_func) do
     case :ets.lookup_element(table, key, 2, nil) do
@@ -51,6 +79,23 @@ defmodule LambdaEthereumConsensus.Store.LRUCache do
             GenServer.call(table, {:cache_value, key, value})
             value
         end
+
+      v ->
+        :ok = GenServer.cast(table, {:touch_entry, key})
+        v
+    end
+  end
+
+  @doc """
+  Get a value from the ETS cache only, without falling through to the
+  persistence layer. Returns nil on cache miss. Used by prefetch_states
+  to avoid blocking the ForkChoice GenServer with 28-85s LevelDB reads.
+  """
+  @spec get_cached(atom(), key()) :: value() | nil
+  def get_cached(table, key) do
+    case :ets.lookup_element(table, key, 2, nil) do
+      nil ->
+        nil
 
       v ->
         :ok = GenServer.cast(table, {:touch_entry, key})

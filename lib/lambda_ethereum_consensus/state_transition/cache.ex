@@ -14,7 +14,9 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
     # k = {slot, {index, root}} ; v = [index]
     :beacon_committee,
     # k = {epoch, root} ; v = Aja.vec(index)
-    :active_validator_indices
+    :active_validator_indices,
+    # k = {epoch, root} ; v = [validator_index]
+    :sync_committee_indices
   ]
 
   @epoch_retain_window 3
@@ -31,9 +33,11 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
 
   defp ms_less_than(const) do
     # NOTE: no need to specify false clause
-    # This match-spec returns true for tuples with epoch/slot smaller than `const`
+    # This match-spec returns true for ETS records {key, value} where the first
+    # element of the key (epoch or slot) is smaller than `const`.
+    # ETS records are {key, value} tuples, so we match {{epoch_or_slot, _rest}, _value}.
     Ex2ms.fun do
-      {{x, _}} when x < ^const -> true
+      {{x, _}, _} when x < ^const -> true
     end
   end
 
@@ -42,6 +46,7 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
   defp generate_cleanup_spec(:active_validator_count, key), do: cleanup_epoch_ms(key)
   defp generate_cleanup_spec(:beacon_committee, key), do: cleanup_slot_ms(key)
   defp generate_cleanup_spec(:active_validator_indices, key), do: cleanup_epoch_ms(key)
+  defp generate_cleanup_spec(:sync_committee_indices, key), do: cleanup_epoch_ms(key)
 
   @spec initialize_cache() :: :ok
   def initialize_cache(), do: @tables |> Enum.each(&init_table/1)
@@ -75,5 +80,12 @@ defmodule LambdaEthereumConsensus.StateTransition.Cache do
   end
 
   def present?(table, key), do: :ets.member(table, key)
-  def set(table, key, value), do: :ets.insert_new(table, {key, value})
+
+  def set(table, key, value) do
+    unless :ets.member(table, key) do
+      clean_up_old_entries(table, key)
+    end
+
+    :ets.insert_new(table, {key, value})
+  end
 end

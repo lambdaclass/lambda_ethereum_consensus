@@ -46,17 +46,18 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
 
   def shuffle_list(input, seed) do
     rounds = ChainSpec.get("SHUFFLE_ROUND_COUNT")
-    shuffle_list(input, rounds - 1, seed)
+
+    # Use Rust NIF for the full shuffle — 5-10x faster than Elixir/:atomics.
+    # Convert Aja.Vector → list → NIF → list → Aja.Vector.
+    input
+    |> Aja.Vector.to_list()
+    |> Ssz.shuffle_list(seed, rounds)
+    |> Aja.Vector.new()
   end
 
-  @spec shuffle_list(Aja.Vector.t(), non_neg_integer(), binary()) ::
-          Aja.Vector.t()
+  defp shuffle_rounds(_arr, _input_size, round, _seed) when round < 0, do: :ok
 
-  defp shuffle_list(input, round, _seed) when round < 0, do: input
-
-  defp shuffle_list(input, round, seed) do
-    input_size = Aja.Enum.count(input)
-
+  defp shuffle_rounds(arr, input_size, round, seed) do
     round_bytes = :binary.encode_unsigned(round, :little)
 
     pivot =
@@ -70,22 +71,19 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
     source = (seed <> round_bytes <> position_bytes(pivot >>> 8)) |> SszEx.hash()
     byte_v = :binary.at(source, (pivot &&& 0xFF) >>> 3)
 
-    {_source, _byte_v, input} =
-      Enum.reduce(0..(mirror - 1)//1, {source, byte_v, input}, fn i, {source, byte_v, input} ->
+    {_source, _byte_v} =
+      Enum.reduce(0..(mirror - 1)//1, {source, byte_v}, fn i, {source, byte_v} ->
         j = pivot - i
 
         source = source(seed, round_bytes, j, source)
         byte_v = byte_v(source, j, byte_v)
         bit_v = bit_v(byte_v, j)
 
-        input =
-          if bit_v == 1 do
-            swap_values(input, i, j)
-          else
-            input
-          end
+        if bit_v == 1 do
+          swap_atomics(arr, i, j)
+        end
 
-        {source, byte_v, input}
+        {source, byte_v}
       end)
 
     mirror = (pivot + input_size + 1) >>> 1
@@ -93,10 +91,8 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
     source = (seed <> round_bytes <> position_bytes(list_end >>> 8)) |> SszEx.hash()
     byte_v = :binary.at(source, (list_end &&& 0xFF) >>> 3)
 
-    {_source, _byte_v, input} =
-      Enum.reduce((pivot + 1)..(mirror - 1)//1, {source, byte_v, input}, fn i,
-                                                                            {source, byte_v,
-                                                                             input} ->
+    {_source, _byte_v} =
+      Enum.reduce((pivot + 1)..(mirror - 1)//1, {source, byte_v}, fn i, {source, byte_v} ->
         loop_iter = i - (pivot + 1)
         j = list_end - loop_iter
 
@@ -104,17 +100,22 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
         byte_v = byte_v(source, j, byte_v)
         bit_v = bit_v(byte_v, j)
 
-        input =
-          if bit_v == 1 do
-            swap_values(input, i, j)
-          else
-            input
-          end
+        if bit_v == 1 do
+          swap_atomics(arr, i, j)
+        end
 
-        {source, byte_v, input}
+        {source, byte_v}
       end)
 
-    shuffle_list(input, round - 1, seed)
+    shuffle_rounds(arr, input_size, round - 1, seed)
+  end
+
+  # O(1) swap using :atomics (1-indexed)
+  defp swap_atomics(arr, i, j) do
+    vi = :atomics.get(arr, i + 1)
+    vj = :atomics.get(arr, j + 1)
+    :atomics.put(arr, i + 1, vj)
+    :atomics.put(arr, j + 1, vi)
   end
 
   @spec position_bytes(integer()) :: binary()
@@ -148,14 +149,5 @@ defmodule LambdaEthereumConsensus.StateTransition.Shuffling do
     byte_size = byte_size(binary)
     padding = max(n - byte_size, 0)
     <<binary::binary, 0::size(padding * 8)>>
-  end
-
-  def swap_values(list, i, j) do
-    value_i = Aja.Enum.at(list, i)
-    value_j = Aja.Enum.at(list, j)
-
-    list
-    |> Aja.Vector.replace_at(i, value_j)
-    |> Aja.Vector.replace_at(j, value_i)
   end
 end

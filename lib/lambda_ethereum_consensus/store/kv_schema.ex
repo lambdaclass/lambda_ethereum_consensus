@@ -65,19 +65,26 @@ defmodule LambdaEthereumConsensus.Store.KvSchema do
           direction = Keyword.get(opts, :direction, :prev)
 
           with {:ok, it} <- Db.iterate_keys(),
-               {:ok, encoded_start} <- do_encode_key(start_key),
-               {:ok, ^encoded_start} <- Db.iterator_move(it, encoded_start) do
-            res = iterate(it, starting_value, f, direction, encoded_start, include_first?)
-            Db.iterator_close(it)
-            {:ok, res}
-          else
-            # The iterator moved for the first time to a place where it wasn't expected.
-            {:ok, some_key} ->
-              {:error,
-               "Failed to start iterator for table #{@prefix}. The obtained key is: #{some_key}"}
+               {:ok, encoded_start} <- do_encode_key(start_key) do
+            result =
+              case Db.iterator_move(it, encoded_start) do
+                {:ok, ^encoded_start} ->
+                  iterate(it, starting_value, f, direction, encoded_start, include_first?)
 
-            other ->
-              other
+                {:ok, _other_key} ->
+                  # The exact start_key doesn't exist in the DB. The iterator is
+                  # positioned at the next lexicographically higher key. We can
+                  # still iterate from here — accumulate/4 validates the prefix
+                  # for each key, so we won't leave our table's key space.
+                  iterate(it, starting_value, f, direction)
+
+                {:error, :invalid_iterator} ->
+                  # No key at or after start_key exists in the DB.
+                  starting_value
+              end
+
+            Db.iterator_close(it)
+            {:ok, result}
           end
         end)
       end

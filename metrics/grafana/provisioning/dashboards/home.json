@@ -271,7 +271,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "sum(network_pubsub_peers_count{result=\"add\"}) - sum(network_pubsub_peers_count{result=\"remove\"})",
+          "expr": "peerbook_peers_count",
           "legendFormat": "{{job}}",
           "refId": "A"
         }
@@ -1338,7 +1338,7 @@
               "disableTextWrap": false,
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sum(network_pubsub_peers_count{result=\"add\"}) - sum(network_pubsub_peers_count{result=\"remove\"})",
+              "expr": "peerbook_peers_count",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,

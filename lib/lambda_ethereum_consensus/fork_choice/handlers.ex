@@ -58,17 +58,24 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   A block that is asserted as invalid due to unavailable PoW block may be valid at a later time,
   consider scheduling it for later processing in such case.
   """
-  @spec on_block(Store.t(), BlockInfo.t()) ::
+  @spec on_block(Store.t(), BlockInfo.t(), keyword()) ::
           {:ok, Store.t(), StateTransition.timings()} | {:error, String.t()}
-  def on_block(%Store{} = store, %BlockInfo{} = block_info) do
+  def on_block(%Store{} = store, %BlockInfo{} = block_info, opts \\ []) do
     block = block_info.signed_block.message
     %{epoch: finalized_epoch, root: finalized_root} = store.finalized_checkpoint
     finalized_slot = Misc.compute_start_slot_at_epoch(finalized_epoch)
 
-    base_state = Store.get_state(store, block.parent_root)
+    # Use cache-only lookup to avoid blocking Libp2pPort on LevelDB reads.
+    # On ETS cache miss, we drop the block (returning an error). Optimistic
+    # sync will re-pull blocks in sequence, at which point each parent is
+    # freshly cached from the previous block's processing. This prevents
+    # 10+ minute stalls from eleveldb.get/3 NIF calls of 775MB mainnet
+    # BeaconStates that block the scheduler.
+    base_state = Store.get_state_cached(store, block.parent_root)
 
     cond do
-      # Parent block must be known
+      # Parent block must be known (or parent state evicted from cache —
+      # drop block, optimistic sync will recover)
       base_state |> is_nil() ->
         {:error,
          "parent state (block root = #{Base.encode16(block.parent_root)}) not found in store"}
@@ -94,7 +101,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           end)
 
         if da_ok? do
-          compute_post_state(store, block_info, base_state, timings)
+          compute_post_state(store, block_info, base_state, timings, opts)
         else
           {:error, "data not available"}
         end
@@ -111,10 +118,14 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   def data_available?(_beacon_block_root, []), do: true
 
   def data_available?(beacon_block_root, blob_kzg_commitments) do
-    if HardForkAliasInjection.fulu?() do
-      columns_data_available?(beacon_block_root, blob_kzg_commitments)
+    if Application.get_env(:lambda_ethereum_consensus, :skip_data_availability, false) do
+      true
     else
-      blobs_data_available?(beacon_block_root, blob_kzg_commitments)
+      if HardForkAliasInjection.fulu?() do
+        columns_data_available?(beacon_block_root, blob_kzg_commitments)
+      else
+        blobs_data_available?(beacon_block_root, blob_kzg_commitments)
+      end
     end
   end
 
@@ -177,12 +188,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         is_from_block
       ) do
     with :ok <- check_attestation_valid(store, attestation, is_from_block),
-         # Get state at the `target` to fully validate attestation
+         # Get state at the `target` to fully validate attestation.
+         # Use cache-only lookup to avoid blocking Libp2pPort on LevelDB reads.
+         # Existing nil handling (below) skips the attestation if state isn't
+         # cached — attestations are best-effort for fork choice.
          {new_store, target_state} when not is_nil(target_state) <-
-           Store.get_checkpoint_state(store, attestation.data.target),
+           Store.get_checkpoint_state_cached(store, attestation.data.target),
          {:ok, indexed_attestation} <-
            Accessors.get_indexed_attestation(target_state, attestation),
-         :ok <- check_valid_indexed_attestation(target_state, indexed_attestation) do
+         # Block attestations were already BLS-verified during state transition.
+         :ok <-
+           if(is_from_block,
+             do: :ok,
+             else: check_valid_indexed_attestation(target_state, indexed_attestation)
+           ) do
       # Update latest messages for attesting indices
       update_latest_messages(new_store, indexed_attestation.attesting_indices, attestation)
     else
@@ -230,8 +249,18 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
           attestation_2: %IndexedAttestation{} = attestation_2
         }
       ) do
-    state = Store.get_state!(store, store.justified_checkpoint.root).beacon_state
+    # Cache-only lookup — avoid blocking on LevelDB read of 775MB state.
+    # If justified checkpoint state isn't cached, skip this slashing (best-effort).
+    case Store.get_state_cached(store, store.justified_checkpoint.root) do
+      nil ->
+        {:error, "justified checkpoint state not cached, skipping slashing"}
 
+      %{beacon_state: state} ->
+        check_attester_slashing(store, state, attestation_1, attestation_2)
+    end
+  end
+
+  defp check_attester_slashing(store, state, attestation_1, attestation_2) do
     cond do
       not Predicates.slashable_attestation_data?(attestation_1.data, attestation_2.data) ->
         {:error, "attestation is not slashable"}
@@ -257,7 +286,8 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         %Store{} = store,
         %BlockInfo{} = block_info,
         %StateInfo{} = state_info,
-        timings
+        timings,
+        opts \\ []
       ) do
     block = block_info.signed_block.message
 
@@ -300,14 +330,34 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
         time_into_slot = rem(store.time - store.genesis_time, seconds_per_slot)
         is_before_attesting_interval = time_into_slot < div(seconds_per_slot, intervals_per_slot)
 
-        # Add new block and state to the store
+        # Add new block and state to the in-memory store map (O(1)).
         new_store = Store.store_state(store, new_state_info.block_root, new_state_info)
-        BlockStates.store_state_info(new_state_info)
+        catching_up? = Keyword.get(opts, :skip_pulled_up_tip, false)
 
-        Task.Supervisor.start_child(
-          StoreStatesSupervisor,
-          fn -> StateDb.store_state_info(new_state_info) end
-        )
+        # Always write to ETS cache so the state is available for fork choice
+        # lookups even after catch-up transitions. The ETS insert takes ~160ms
+        # which is acceptable even during catch-up (blocks process in 1-2s).
+        # Without this, states processed during catch-up are only in store.states
+        # (in-memory map) which gets pruned after finalization, permanently losing
+        # the state and causing cascade invalid block failures.
+        {_, timings} =
+          StateTransition.timed(:store_state, timings, fn ->
+            BlockStates.store_state_info(new_state_info)
+          end)
+
+        # LevelDB write is expensive (~30-60s for serialization) and even
+        # infrequent writes cause compaction of 448MB SST tables that block
+        # concurrent reads for 5-10+ minutes on mainnet. Only persist at epoch
+        # boundaries (~every 6.4 min) and only when at head. This gives ~1
+        # LevelDB write per epoch instead of 8 (every 4th block) or 32 (every
+        # block). The ETS LRU cache (10 entries) is the primary storage;
+        # LevelDB is only for crash recovery to the nearest epoch boundary.
+        if not catching_up? and rem(block.slot, ChainSpec.get("SLOTS_PER_EPOCH")) == 0 do
+          Task.Supervisor.start_child(
+            StoreStatesSupervisor,
+            fn -> StateDb.store_state_info(new_state_info) end
+          )
+        end
 
         is_first_block = new_store.proposer_boost_root == <<0::256>>
 
@@ -317,19 +367,39 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
         state = new_state_info.beacon_state
 
-        new_store
-        |> Store.store_block_info(block_info)
-        |> if_then_update(
-          is_timely and is_first_block,
-          &%{&1 | proposer_boost_root: block_info.root}
-        )
-        # Update checkpoints in store if necessary
-        |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
-        # Eagerly compute unrealized justification and finality
-        |> compute_pulled_up_tip(block_info.root, block_info.signed_block.message, state)
-        |> case do
-          {:ok, store} -> {:ok, store, timings}
-          err -> err
+        {new_store, timings} =
+          StateTransition.timed(:store_block, timings, fn ->
+            new_store
+            |> Store.store_block_info(block_info)
+            |> if_then_update(
+              is_timely and is_first_block,
+              &%{&1 | proposer_boost_root: block_info.root}
+            )
+            # Update checkpoints in store if necessary
+            |> update_checkpoints(state.current_justified_checkpoint, state.finalized_checkpoint)
+          end)
+
+        # Eagerly compute unrealized justification and finality.
+        # Skip during catch-up: unrealized checkpoints are only needed for
+        # fork choice head computation, which doesn't run during catch-up sync.
+        # Each call scans 2.2M validators twice (~210ms per block).
+        if Keyword.get(opts, :skip_pulled_up_tip, false) do
+          {:ok, new_store, timings}
+        else
+          {result, timings} =
+            StateTransition.timed(:pulled_up_tip, timings, fn ->
+              compute_pulled_up_tip(
+                new_store,
+                block_info.root,
+                block_info.signed_block.message,
+                state
+              )
+            end)
+
+          case result do
+            {:ok, store} -> {:ok, store, timings}
+            err -> err
+          end
         end
       end
     end
@@ -337,14 +407,20 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
 
   @spec notify_forkchoice_update(Store.t(), BeaconBlock.t()) :: {:ok, any()} | {:error, any()}
   def notify_forkchoice_update(store, head_block) do
-    finalized_block = Blocks.get_block!(store.finalized_checkpoint.root)
+    # Cache-only — avoid blocking Libp2pPort on LevelDB reads.
+    finalized_block = Blocks.get_block_cached(store.finalized_checkpoint.root)
+    safe_block = Blocks.get_block_cached(store.finalized_checkpoint.root)
 
-    # TODO: do someting with the result from the execution client
-    ExecutionClient.notify_forkchoice_updated(%{
-      finalized_block_hash: finalized_block.body.execution_payload.block_hash,
-      head_block_hash: head_block.body.execution_payload.block_hash,
-      safe_block_hash: Store.get_safe_execution_payload_hash(store)
-    })
+    if is_nil(finalized_block) or is_nil(safe_block) do
+      {:error, "finalized/safe block not cached"}
+    else
+      # TODO: do someting with the result from the execution client
+      ExecutionClient.notify_forkchoice_updated(%{
+        finalized_block_hash: finalized_block.body.execution_payload.block_hash,
+        head_block_hash: head_block.body.execution_payload.block_hash,
+        safe_block_hash: safe_block.body.execution_payload.block_hash
+      })
+    end
   end
 
   ### Private functions ###
@@ -454,7 +530,9 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
   defp check_attestation_valid(%Store{} = store, %Attestation{} = attestation, true) do
     target = attestation.data.target
     block_root = attestation.data.beacon_block_root
-    head_block = Blocks.get_block(block_root)
+    # Cache-only lookups — avoid blocking Libp2pPort on eleveldb.get/3.
+    # If block data isn't in the 512-entry LRU, treat as unknown and skip.
+    head_block = Blocks.get_block_cached(block_root)
 
     # NOTE: we use cond instead of an `and` chain for better formatting
     cond do
@@ -465,7 +543,7 @@ defmodule LambdaEthereumConsensus.ForkChoice.Handlers do
       # Attestation target must be for a known block.
       # If target block is unknown, delay consideration until block is found
       # TODO: delay consideration until block is found
-      Blocks.get_block(target.root) |> is_nil() ->
+      Blocks.get_block_cached(target.root) |> is_nil() ->
         {:unknown_block, target.root}
 
       # Attestations must be for a known block. If block is unknown, delay consideration until the block is found

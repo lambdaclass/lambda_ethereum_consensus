@@ -108,114 +108,111 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
   @spec process_slashings(BeaconState.t()) :: {:ok, BeaconState.t()}
   def process_slashings(%BeaconState{validators: validators, slashings: slashings} = state) do
-    epoch = Accessors.get_current_epoch(state)
-    total_balance = Accessors.get_total_active_balance(state)
-
-    proportional_slashing_multiplier = ChainSpec.get("PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX")
-    epochs_per_slashings_vector = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
-    increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
-
     slashed_sum = Enum.reduce(slashings, 0, &+/2)
 
-    adjusted_total_slashing_balance =
-      min(slashed_sum * proportional_slashing_multiplier, total_balance)
+    # Short-circuit: when no slashings occurred, penalty is 0 for all validators.
+    # Avoids scanning 2.2M validators on the common case (no slashings on mainnet).
+    if slashed_sum == 0 do
+      {:ok, state}
+    else
+      epoch = Accessors.get_current_epoch(state)
+      total_balance = Accessors.get_total_active_balance(state)
 
-    penalty_per_effective_balance_increment =
-      div(adjusted_total_slashing_balance, div(total_balance, increment))
+      proportional_slashing_multiplier =
+        ChainSpec.get("PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX")
 
-    new_state =
-      validators
-      |> Stream.with_index()
-      |> Enum.reduce(state, fn {validator, index}, acc ->
-        if validator.slashed and
-             epoch + div(epochs_per_slashings_vector, 2) == validator.withdrawable_epoch do
-          effective_balance_increments = div(validator.effective_balance, increment)
-          penalty = penalty_per_effective_balance_increment * effective_balance_increments
+      epochs_per_slashings_vector = ChainSpec.get("EPOCHS_PER_SLASHINGS_VECTOR")
+      increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
 
-          BeaconState.decrease_balance(acc, index, penalty)
-        else
-          acc
-        end
-      end)
+      adjusted_total_slashing_balance =
+        min(slashed_sum * proportional_slashing_multiplier, total_balance)
 
-    {:ok, new_state}
+      penalty_per_ebi =
+        div(adjusted_total_slashing_balance, div(total_balance, increment))
+
+      target_withdrawable_epoch = epoch + div(epochs_per_slashings_vector, 2)
+
+      new_state =
+        validators
+        |> Aja.Vector.with_index()
+        |> Aja.Vector.foldl(state, fn {validator, index}, acc ->
+          if validator.slashed and validator.withdrawable_epoch == target_withdrawable_epoch do
+            penalty = penalty_per_ebi * div(validator.effective_balance, increment)
+            BeaconState.decrease_balance(acc, index, penalty)
+          else
+            acc
+          end
+        end)
+
+      {:ok, new_state}
+    end
   end
 
   @spec process_registry_updates(BeaconState.t()) :: {:ok, BeaconState.t()} | {:error, String.t()}
-  def process_registry_updates(%BeaconState{validators: validators} = state) do
+  def process_registry_updates(%BeaconState{} = state) do
     ejection_balance = ChainSpec.get("EJECTION_BALANCE")
     current_epoch = Accessors.get_current_epoch(state)
     activation_exit_epoch = Misc.compute_activation_exit_epoch(current_epoch)
+    far_future_epoch = Constants.far_future_epoch()
+    min_activation_balance = ChainSpec.get("MIN_ACTIVATION_BALANCE")
+    finalized_epoch = state.finalized_checkpoint.epoch
 
-    validators
-    |> Enum.with_index()
-    |> Enum.reduce_while(state, fn {validator, idx}, state ->
-      handle_validator_registry_update(
-        state,
-        validator,
-        idx,
-        current_epoch,
-        activation_exit_epoch,
-        ejection_balance
-      )
-    end)
-    |> then(fn
-      %BeaconState{} = state -> {:ok, state}
-      {:error, reason} -> {:error, reason}
-    end)
+    ctx =
+      {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
+       min_activation_balance, finalized_epoch}
+
+    # Use Aja.Vector.foldl instead of Enum.with_index + Enum.reduce_while
+    # to avoid materializing the vector to a list (~24MB allocation)
+    try do
+      state.validators
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.foldl(state, fn {validator, idx}, state ->
+        update_registry_for_validator(validator, idx, state, ctx)
+      end)
+      |> then(&{:ok, &1})
+    catch
+      {:error, _} = err -> err
+    end
   end
 
-  defp handle_validator_registry_update(
-         %BeaconState{} = state,
-         %Validator{} = validator,
+  defp update_registry_for_validator(
+         validator,
          idx,
-         current_epoch,
-         activation_exit_epoch,
-         ejection_balance
+         state,
+         {current_epoch, ejection_balance, activation_exit_epoch, far_future_epoch,
+          min_activation_balance, finalized_epoch}
        ) do
     cond do
-      Predicates.eligible_for_activation_queue?(validator) ->
-        updated_validator = %{
-          validator
-          | activation_eligibility_epoch: current_epoch + 1
-        }
-
-        {:cont,
-         %{
-           state
-           | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
-         }}
+      validator.activation_eligibility_epoch == far_future_epoch &&
+          validator.effective_balance >= min_activation_balance ->
+        updated = %{validator | activation_eligibility_epoch: current_epoch + 1}
+        replace_validator(state, idx, updated)
 
       Predicates.active_validator?(validator, current_epoch) &&
           validator.effective_balance <= ejection_balance ->
-        case Mutators.initiate_validator_exit(state, validator) do
-          {:ok, {state, ejected_validator}} ->
-            updated_state = %{
-              state
-              | validators: Aja.Vector.replace_at!(state.validators, idx, ejected_validator)
-            }
+        eject_validator(state, idx, validator)
 
-            {:cont, updated_state}
-
-          {:error, msg} ->
-            {:halt, {:error, msg}}
-        end
-
-      Predicates.eligible_for_activation?(state, validator) ->
-        updated_validator = %{
-          validator
-          | activation_epoch: activation_exit_epoch
-        }
-
-        updated_state = %{
-          state
-          | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)
-        }
-
-        {:cont, updated_state}
+      validator.activation_eligibility_epoch <= finalized_epoch &&
+          validator.activation_epoch == far_future_epoch ->
+        updated = %{validator | activation_epoch: activation_exit_epoch}
+        replace_validator(state, idx, updated)
 
       true ->
-        {:cont, state}
+        state
+    end
+  end
+
+  defp replace_validator(state, idx, updated_validator) do
+    %{state | validators: Aja.Vector.replace_at!(state.validators, idx, updated_validator)}
+  end
+
+  defp eject_validator(state, idx, validator) do
+    case Mutators.initiate_validator_exit(state, validator) do
+      {:ok, {state, ejected}} ->
+        replace_validator(state, idx, ejected)
+
+      {:error, msg} ->
+        throw({:error, msg})
     end
   end
 
@@ -252,33 +249,43 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     inactivity_score_bias = ChainSpec.get("INACTIVITY_SCORE_BIAS")
     inactivity_score_recovery_rate = ChainSpec.get("INACTIVITY_SCORE_RECOVERY_RATE")
     previous_epoch = Accessors.get_previous_epoch(state)
-
-    # PERF: this can be inlined and combined with the next pipeline
-    {:ok, unslashed_participating_indices} =
-      Accessors.get_unslashed_participating_indices(state, timely_target_index, previous_epoch)
-
     state_in_inactivity_leak? = Predicates.in_inactivity_leak?(state)
 
-    state.inactivity_scores
-    |> Stream.zip(state.validators)
-    |> Stream.with_index()
-    |> Enum.map(fn {{inactivity_score, validator}, index} ->
-      if Predicates.eligible_validator?(validator, previous_epoch) do
-        inactivity_score
-        |> Misc.increase_inactivity_score(
-          index,
-          unslashed_participating_indices,
-          inactivity_score_bias
-        )
-        |> Misc.decrease_inactivity_score(
-          state_in_inactivity_leak?,
-          inactivity_score_recovery_rate
-        )
-      else
-        inactivity_score
-      end
-    end)
-    |> then(&{:ok, %{state | inactivity_scores: &1}})
+    # Single-pass: inline the participation check directly instead of building
+    # a MapSet of 2.2M entries then doing MapSet.member? lookups.
+    # Zip validators, participation flags, and inactivity_scores together.
+    participation = state.previous_epoch_participation
+
+    new_scores =
+      state.inactivity_scores
+      |> Stream.zip(Aja.Vector.to_list(state.validators))
+      |> Stream.zip(Aja.Vector.to_list(participation))
+      |> Enum.map(fn {{inactivity_score, validator}, part_flags} ->
+        if Predicates.eligible_validator?(validator, previous_epoch) do
+          # Inline the unslashed participating check:
+          # not slashed AND active (already checked by eligible_validator?) AND has target flag
+          is_unslashed_participating =
+            not validator.slashed and
+              Predicates.has_flag(part_flags, timely_target_index)
+
+          inactivity_score =
+            if is_unslashed_participating do
+              inactivity_score - min(1, inactivity_score)
+            else
+              inactivity_score + inactivity_score_bias
+            end
+
+          if state_in_inactivity_leak? do
+            inactivity_score
+          else
+            inactivity_score - min(inactivity_score_recovery_rate, inactivity_score)
+          end
+        else
+          inactivity_score
+        end
+      end)
+
+    {:ok, %{state | inactivity_scores: new_scores}}
   end
 
   @spec process_historical_summaries_update(BeaconState.t()) :: {:ok, BeaconState.t()}
@@ -330,7 +337,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       previous_target_balance =
         get_total_participating_balance(state, target_index, previous_epoch)
 
-      current_target_balance = get_total_participating_balance(state, target_index, current_epoch)
+      current_target_balance =
+        get_total_participating_balance(state, target_index, current_epoch)
 
       total_active_balance = Accessors.get_total_active_balance(state)
 
@@ -343,7 +351,7 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     end
   end
 
-  # NOTE: epoch must be the current or previous one
+  # Single-pass per epoch: zip_with produces integers (0 or balance), foldl sums them.
   defp get_total_participating_balance(state, flag_index, epoch) do
     epoch_participation =
       if epoch == Accessors.get_current_epoch(state) do
@@ -354,11 +362,12 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     state.validators
     |> Aja.Vector.zip_with(epoch_participation, fn v, participation ->
-      {not v.slashed and Predicates.active_validator?(v, epoch) and
-         Predicates.has_flag(participation, flag_index), v.effective_balance}
+      if not v.slashed and Predicates.active_validator?(v, epoch) and
+           Predicates.has_flag(participation, flag_index),
+         do: v.effective_balance,
+         else: 0
     end)
-    |> Aja.Vector.filter(&elem(&1, 0))
-    |> Aja.Enum.reduce(0, fn {true, balance}, acc -> acc + balance end)
+    |> Aja.Vector.foldl(0, fn balance, acc -> acc + balance end)
   end
 
   defp weigh_justification_and_finalization(
@@ -434,28 +443,107 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
     if Accessors.get_current_epoch(state) == Constants.genesis_epoch() do
       {:ok, state}
     else
-      deltas =
-        Constants.participation_flag_weights()
-        |> Stream.with_index()
-        |> Stream.map(fn {weight, index} ->
-          BeaconState.get_flag_index_deltas(state, weight, index)
-        end)
-        |> Stream.concat([BeaconState.get_inactivity_penalty_deltas(state)])
-        |> Stream.zip()
-        |> Aja.Vector.new()
+      previous_epoch = Accessors.get_previous_epoch(state)
+      base_reward_per_increment = Accessors.get_base_reward_per_increment(state)
+      effective_balance_increment = ChainSpec.get("EFFECTIVE_BALANCE_INCREMENT")
+      weights = Constants.participation_flag_weights()
+      weight_denominator = Constants.weight_denominator()
+      in_inactivity_leak? = Predicates.in_inactivity_leak?(state)
+      timely_head_flag_index = Constants.timely_head_flag_index()
+      timely_target_flag_index = Constants.timely_target_flag_index()
 
-      state.balances
-      |> Aja.Vector.zip_with(deltas, &update_balance/2)
-      |> then(&{:ok, %BeaconState{state | balances: &1}})
+      penalty_denominator =
+        ChainSpec.get("INACTIVITY_SCORE_BIAS") *
+          ChainSpec.get("INACTIVITY_PENALTY_QUOTIENT_BELLATRIX")
+
+      active_increments =
+        div(Accessors.get_total_active_balance(state), effective_balance_increment)
+
+      participation = state.previous_epoch_participation
+
+      # Pass 1: compute participating balances for each flag (single O(V) scan)
+      {bal0, bal1, bal2} =
+        state.validators
+        |> Aja.Vector.zip_with(participation, fn v, p -> {v, p} end)
+        |> Aja.Vector.foldl({0, 0, 0}, fn {v, p}, {b0, b1, b2} ->
+          if not v.slashed and Predicates.active_validator?(v, previous_epoch) do
+            eb = v.effective_balance
+            b0 = if Predicates.has_flag(p, 0), do: b0 + eb, else: b0
+            b1 = if Predicates.has_flag(p, 1), do: b1 + eb, else: b1
+            b2 = if Predicates.has_flag(p, 2), do: b2 + eb, else: b2
+            {b0, b1, b2}
+          else
+            {b0, b1, b2}
+          end
+        end)
+
+      participating_increments = [
+        div(max(effective_balance_increment, bal0), effective_balance_increment),
+        div(max(effective_balance_increment, bal1), effective_balance_increment),
+        div(max(effective_balance_increment, bal2), effective_balance_increment)
+      ]
+
+      ctx =
+        {weights, participating_increments, active_increments, effective_balance_increment,
+         base_reward_per_increment, weight_denominator, in_inactivity_leak?,
+         timely_head_flag_index, timely_target_flag_index, penalty_denominator, previous_epoch}
+
+      # Pass 2: compute all deltas + apply to balances (single O(V) scan)
+      new_balances =
+        state.validators
+        |> Aja.Vector.zip_with(participation, fn v, p -> {v, p} end)
+        |> Aja.Vector.zip_with(state.balances, fn {v, p}, bal -> {v, p, bal} end)
+        |> Aja.Vector.zip_with(
+          Aja.Vector.new(state.inactivity_scores),
+          fn {v, p, bal}, iscore -> {v, p, bal, iscore} end
+        )
+        |> Aja.Vector.map(fn {validator, part_flags, balance, inactivity_score} ->
+          compute_and_apply_deltas(validator, part_flags, balance, inactivity_score, ctx)
+        end)
+
+      {:ok, %BeaconState{state | balances: new_balances}}
     end
   end
 
-  defp update_balance(balance, deltas) do
-    deltas
-    |> Tuple.to_list()
-    |> Enum.reduce(balance, fn delta, balance ->
-      max(balance + delta, 0)
-    end)
+  defp compute_and_apply_deltas(validator, part_flags, balance, inactivity_score, ctx) do
+    {weights, pi_list, ai, ebi, brpi, wd, in_leak?, thfi, ttfi, pd, prev_epoch} = ctx
+
+    if not Predicates.eligible_validator?(validator, prev_epoch) do
+      balance
+    else
+      base_reward = div(validator.effective_balance, ebi) * brpi
+
+      # Apply 3 flag deltas with per-delta clamping
+      balance =
+        weights
+        |> Enum.with_index()
+        |> Enum.reduce(balance, fn {weight, flag_index}, bal ->
+          upi = Enum.at(pi_list, flag_index)
+          is_unslashed = not validator.slashed and Predicates.has_flag(part_flags, flag_index)
+
+          delta =
+            cond do
+              is_unslashed and in_leak? -> 0
+              is_unslashed -> div(base_reward * weight * upi, ai * wd)
+              flag_index != thfi -> -div(base_reward * weight, wd)
+              true -> 0
+            end
+
+          max(bal + delta, 0)
+        end)
+
+      # Apply inactivity penalty delta with per-delta clamping
+      is_target_unslashed = not validator.slashed and Predicates.has_flag(part_flags, ttfi)
+
+      inactivity_delta =
+        if not is_target_unslashed do
+          -div(validator.effective_balance * inactivity_score, pd)
+        else
+          0
+        end
+
+      max(balance + inactivity_delta, 0)
+    end
   end
 
   @spec process_pending_deposits(BeaconState.t()) :: {:ok, BeaconState.t()}
@@ -464,43 +552,60 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
       state.deposit_balance_to_consume + Accessors.get_activation_exit_churn_limit(state)
 
     finalized_slot = Misc.compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
+    max_pending = ChainSpec.get("MAX_PENDING_DEPOSITS_PER_EPOCH")
 
-    {state, churn_limit_reached, processed_amount, deposits_to_postpone, last_processed_index} =
+    # Pre-build a pubkey→index map for deposit pubkeys with ONE validator scan.
+    # At most 16 deposits, so the lookup set and result map are tiny.
+    deposit_pubkeys =
+      state.pending_deposits
+      |> Enum.take(max_pending)
+      |> MapSet.new(& &1.pubkey)
+
+    pubkey_to_index = build_deposit_pubkey_index(state.validators, deposit_pubkeys)
+
+    {state, churn_limit_reached, processed_amount, deposits_to_postpone, last_processed_index,
+     _pubkey_to_index} =
       state.pending_deposits
       |> Enum.with_index()
-      |> Enum.reduce_while({state, false, 0, [], 0}, fn {deposit, index},
-                                                        {state, churn_limit_reached,
-                                                         processed_amount, deposits_to_postpone,
-                                                         _last_processed_index} ->
-        cond do
-          # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
-          deposit.slot > Constants.genesis_slot() &&
-              state.eth1_deposit_index < state.deposit_requests_start_index ->
-            {:halt,
-             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+      |> Enum.reduce_while(
+        {state, false, 0, [], 0, pubkey_to_index},
+        fn {deposit, index},
+           {state, churn_limit_reached, processed_amount, deposits_to_postpone,
+            _last_processed_index, pubkey_to_index} ->
+          cond do
+            # Do not process deposit requests if Eth1 bridge deposits are not yet applied.
+            deposit.slot > Constants.genesis_slot() &&
+                state.eth1_deposit_index < state.deposit_requests_start_index ->
+              {:halt,
+               {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1,
+                pubkey_to_index}}
 
-          # Check if deposit has been finalized, otherwise, stop processing.
-          deposit.slot > finalized_slot ->
-            {:halt,
-             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+            # Check if deposit has been finalized, otherwise, stop processing.
+            deposit.slot > finalized_slot ->
+              {:halt,
+               {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1,
+                pubkey_to_index}}
 
-          # Check if number of processed deposits has not reached the limit, otherwise, stop processing.
-          index >= ChainSpec.get("MAX_PENDING_DEPOSITS_PER_EPOCH") ->
-            {:halt,
-             {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1}}
+            # Check if number of processed deposits has not reached the limit, otherwise, stop processing.
+            index >= max_pending ->
+              {:halt,
+               {state, churn_limit_reached, processed_amount, deposits_to_postpone, index - 1,
+                pubkey_to_index}}
 
-          true ->
-            handle_pending_deposit(
-              deposit,
-              state,
-              churn_limit_reached,
-              processed_amount,
-              deposits_to_postpone,
-              index,
-              available_for_processing
-            )
+            true ->
+              handle_pending_deposit(
+                deposit,
+                state,
+                churn_limit_reached,
+                processed_amount,
+                deposits_to_postpone,
+                index,
+                available_for_processing,
+                pubkey_to_index
+              )
+          end
         end
-      end)
+      )
 
     deposit_balance_to_consume =
       if churn_limit_reached do
@@ -519,6 +624,23 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
      }}
   end
 
+  # Single scan of validators to find indices for a small set of deposit pubkeys
+  defp build_deposit_pubkey_index(validators, deposit_pubkeys) do
+    if MapSet.size(deposit_pubkeys) == 0 do
+      %{}
+    else
+      validators
+      |> Aja.Vector.with_index()
+      |> Aja.Vector.foldl(%{}, &match_deposit_pubkey(&1, &2, deposit_pubkeys))
+    end
+  end
+
+  defp match_deposit_pubkey({validator, idx}, acc, deposit_pubkeys) do
+    if MapSet.member?(deposit_pubkeys, validator.pubkey),
+      do: Map.put_new(acc, validator.pubkey, idx),
+      else: acc
+  end
+
   defp handle_pending_deposit(
          deposit,
          state,
@@ -526,32 +648,39 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
          processed_amount,
          deposits_to_postpone,
          index,
-         available_for_processing
+         available_for_processing,
+         pubkey_to_index
        ) do
     far_future_epoch = Constants.far_future_epoch()
-    next_epoch = Accessors.get_current_epoch(state)
+    # Spec: next_epoch = Epoch(get_current_epoch(state) + 1)
+    next_epoch = Accessors.get_current_epoch(state) + 1
 
     {is_validator_exited, is_validator_withdrawn} =
-      case Enum.find(state.validators, fn v -> v.pubkey == deposit.pubkey end) do
-        %Validator{} = validator ->
-          {validator.exit_epoch < far_future_epoch, validator.withdrawable_epoch < next_epoch}
-
-        _ ->
+      case Map.get(pubkey_to_index, deposit.pubkey) do
+        nil ->
           {false, false}
+
+        validator_index ->
+          validator = Aja.Vector.at!(state.validators, validator_index)
+          {validator.exit_epoch < far_future_epoch, validator.withdrawable_epoch < next_epoch}
       end
 
     cond do
       # Deposited balance will never become active. Increase balance but do not consume churn
       is_validator_withdrawn ->
-        {:ok, state} = apply_pending_deposit(state, deposit)
+        {:ok, state, pubkey_to_index} = apply_pending_deposit(state, deposit, pubkey_to_index)
 
-        {:cont, {state, churn_limit_reached, processed_amount, deposits_to_postpone, index}}
+        {:cont,
+         {state, churn_limit_reached, processed_amount, deposits_to_postpone, index,
+          pubkey_to_index}}
 
       # Validator is exiting, postpone the deposit until after withdrawable epoch
       is_validator_exited ->
         deposits_to_postpone = Enum.concat(deposits_to_postpone, [deposit])
 
-        {:cont, {state, churn_limit_reached, processed_amount, deposits_to_postpone, index}}
+        {:cont,
+         {state, churn_limit_reached, processed_amount, deposits_to_postpone, index,
+          pubkey_to_index}}
 
       true ->
         # Check if deposit fits in the churn, otherwise, do no more deposit processing in this epoch.
@@ -559,12 +688,14 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
           processed_amount + deposit.amount > available_for_processing
 
         if is_churn_limit_reached do
-          {:halt, {state, true, processed_amount, deposits_to_postpone, index - 1}}
+          {:halt,
+           {state, true, processed_amount, deposits_to_postpone, index - 1, pubkey_to_index}}
         else
           # Consume churn and apply deposit.
           processed_amount = processed_amount + deposit.amount
-          {:ok, state} = apply_pending_deposit(state, deposit)
-          {:cont, {state, false, processed_amount, deposits_to_postpone, index}}
+          {:ok, state, pubkey_to_index} = apply_pending_deposit(state, deposit, pubkey_to_index)
+
+          {:cont, {state, false, processed_amount, deposits_to_postpone, index, pubkey_to_index}}
         end
     end
   end
@@ -631,9 +762,8 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
      }}
   end
 
-  defp apply_pending_deposit(state, deposit) do
-    index =
-      Enum.find_index(state.validators, fn validator -> validator.pubkey == deposit.pubkey end)
+  defp apply_pending_deposit(state, deposit, pubkey_to_index) do
+    index = Map.get(pubkey_to_index, deposit.pubkey)
 
     current_validator? = is_number(index)
 
@@ -648,19 +778,24 @@ defmodule LambdaEthereumConsensus.StateTransition.EpochProcessing do
 
     cond do
       current_validator? ->
-        {:ok, BeaconState.increase_balance(state, index, deposit.amount)}
+        {:ok, BeaconState.increase_balance(state, index, deposit.amount), pubkey_to_index}
 
       !current_validator? && valid_signature? ->
-        Mutators.add_validator_to_registry(
-          state,
-          deposit.pubkey,
-          deposit.withdrawal_credentials,
-          deposit.amount
-        )
+        {:ok, new_state} =
+          Mutators.add_validator_to_registry(
+            state,
+            deposit.pubkey,
+            deposit.withdrawal_credentials,
+            deposit.amount
+          )
+
+        # Update map so subsequent deposits for this pubkey find the new validator
+        new_index = Aja.Vector.size(state.validators)
+        {:ok, new_state, Map.put(pubkey_to_index, deposit.pubkey, new_index)}
 
       true ->
         # Neither a validator nor have a valid signature, we do not apply the deposit
-        {:ok, state}
+        {:ok, state, pubkey_to_index}
     end
   end
 end

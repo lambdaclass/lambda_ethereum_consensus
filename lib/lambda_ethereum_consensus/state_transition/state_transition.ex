@@ -40,10 +40,20 @@ defmodule LambdaEthereumConsensus.StateTransition do
       }
     }
 
-    verified_transition(state_info.beacon_state, block_info, previous_roots)
+    verified_transition(
+      state_info.beacon_state,
+      block_info,
+      previous_roots,
+      state_info.field_hashes
+    )
   end
 
-  def verified_transition(%BeaconState{} = state, block_info, previous_roots \\ %{}) do
+  def verified_transition(
+        %BeaconState{} = state,
+        block_info,
+        previous_roots \\ %{},
+        prev_field_hashes \\ %{}
+      ) do
     with {:ok, st, timings} <- transition(state, block_info.signed_block, previous_roots) do
       {sig_result, timings} =
         timed(:signature_verify, timings, fn ->
@@ -53,20 +63,496 @@ defmodule LambdaEthereumConsensus.StateTransition do
         end)
 
       with {:ok, st} <- sig_result do
+        # Determine which field hashes can be reused from the previous state.
+        # On epoch boundary blocks, most fields change — don't cache anything.
+        # On non-epoch blocks, cache expensive fields that don't change.
+        cached_field_hashes =
+          cacheable_field_hashes(timings, block_info.signed_block.message, prev_field_hashes)
+
+        # Try incremental hashing for large Aja.Vector fields: collect changed indices
+        # from the block, apply them to the cached tree, and put hashes in cached_field_hashes.
+        # This avoids the expensive Aja.Vector.to_list + NIF decode for 2.2M entries.
+        # Pass prev_field_hashes so the NIF can validate the cache matches the parent fork.
+        cached_field_hashes =
+          maybe_incremental_balance_hash(
+            cached_field_hashes,
+            timings,
+            block_info.signed_block.message,
+            st,
+            prev_field_hashes
+          )
+
+        cached_field_hashes =
+          maybe_incremental_participation_hash(
+            cached_field_hashes,
+            timings,
+            block_info.signed_block.message,
+            st,
+            prev_field_hashes
+          )
+
+        cached_field_hashes =
+          maybe_incremental_randao_hash(
+            cached_field_hashes,
+            timings,
+            block_info.signed_block.message,
+            st,
+            prev_field_hashes
+          )
+
         {merkle_result, timings} =
           timed(:merkleization, timings, fn ->
-            StateInfo.from_beacon_state(st, block_root: block_info.root)
+            StateInfo.from_beacon_state(st,
+              block_root: block_info.root,
+              cached_field_hashes: cached_field_hashes
+            )
           end)
 
         with {:ok, new_state_info} <- merkle_result do
+          # DIAGNOSTIC: at every epoch boundary, cross-check hash_beacon_state_cached
+          # against the generic hash_tree_root to detect merkleization divergence.
+          epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
+
+          if epoch_processed? do
+            cross_check_merkle_roots(st, new_state_info, block_info.signed_block.message.slot)
+          end
+
           if block_info.signed_block.message.state_root == new_state_info.root do
             {:ok, new_state_info, timings}
           else
-            {:error, "mismatched state roots"}
+            # Incremental cache may have produced a wrong hash. Retry with full
+            # merkleization (no cached field hashes) before declaring the block invalid.
+            require Logger
+
+            if cached_field_hashes != %{} do
+              Logger.warning(
+                "[StateTransition] Incremental cache produced wrong state root for " <>
+                  "slot #{block_info.signed_block.message.slot}, retrying with full merkleization"
+              )
+
+              {retry_result, timings} =
+                timed(:merkleization, timings, fn ->
+                  StateInfo.from_beacon_state(st,
+                    block_root: block_info.root,
+                    cached_field_hashes: %{}
+                  )
+                end)
+
+              with {:ok, retry_state_info} <- retry_result do
+                if block_info.signed_block.message.state_root == retry_state_info.root do
+                  {:ok, retry_state_info, timings}
+                else
+                  diagnose_state_root_mismatch(st, block_info, retry_state_info)
+                  {:error, "mismatched state roots"}
+                end
+              end
+            else
+              diagnose_state_root_mismatch(st, block_info, new_state_info)
+              {:error, "mismatched state roots"}
+            end
           end
         end
       end
     end
+  end
+
+  # Proactive diagnostic: at every epoch boundary, compare hash_beacon_state_cached result
+  # against the generic hash_tree_root to detect which NIF path diverges.
+  defp cross_check_merkle_roots(state, state_info, slot) do
+    require Logger
+
+    case Ssz.hash_tree_root(state) do
+      {:ok, generic_root} ->
+        if generic_root == state_info.root do
+          Logger.info(
+            "[StateTransition] MERKLE CROSS-CHECK slot #{slot}: MATCH " <>
+              "(both 0x#{Base.encode16(generic_root, case: :lower) |> String.slice(0, 16)}...)"
+          )
+        else
+          Logger.error(
+            "[StateTransition] MERKLE CROSS-CHECK slot #{slot}: MISMATCH! " <>
+              "cached=0x#{Base.encode16(state_info.root, case: :lower) |> String.slice(0, 16)}..., " <>
+              "generic=0x#{Base.encode16(generic_root, case: :lower) |> String.slice(0, 16)}..."
+          )
+
+          # Identify which fields differ
+          diagnose_field_hashes(state, state_info.field_hashes)
+        end
+
+      {:error, err} ->
+        Logger.error("[StateTransition] MERKLE CROSS-CHECK failed: #{inspect(err)}")
+    end
+  end
+
+  # Diagnostic: when state root mismatches, compare hash_beacon_state_cached (field-by-field)
+  # against the generic hash_tree_root (full struct hashing) to isolate the bug.
+  defp diagnose_state_root_mismatch(state, block_info, state_info) do
+    slot = block_info.signed_block.message.slot
+    expected = block_info.signed_block.message.state_root
+    cached_root = state_info.root
+
+    Logger.error(
+      "[StateTransition] DIAGNOSTIC: state root mismatch at slot #{slot}. " <>
+        "Expected: 0x#{Base.encode16(expected, case: :lower)}, " <>
+        "cached_hash_root: 0x#{Base.encode16(cached_root, case: :lower)}"
+    )
+
+    # Compare against the generic hash_tree_root (completely different NIF path)
+    case Ssz.hash_tree_root(state) do
+      {:ok, generic_root} ->
+        if generic_root == cached_root do
+          Logger.error(
+            "[StateTransition] DIAGNOSTIC: generic hash_tree_root AGREES with cached_hash " <>
+              "(both 0x#{Base.encode16(generic_root, case: :lower)}). " <>
+              "Bug is in STATE TRANSITION, not merkleization."
+          )
+        else
+          Logger.error(
+            "[StateTransition] DIAGNOSTIC: generic hash_tree_root DISAGREES! " <>
+              "generic=0x#{Base.encode16(generic_root, case: :lower)}, " <>
+              "cached=0x#{Base.encode16(cached_root, case: :lower)}. " <>
+              "Bug is in hash_beacon_state_cached NIF."
+          )
+
+          # Find which field(s) differ
+          diagnose_field_hashes(state, state_info.field_hashes)
+        end
+
+      {:error, err} ->
+        Logger.error("[StateTransition] DIAGNOSTIC: hash_tree_root failed: #{inspect(err)}")
+    end
+  end
+
+  # Compare individual field hashes to find which field is wrong
+  defp diagnose_field_hashes(state, cached_field_hashes) do
+    field_names = [
+      {0, :genesis_time},
+      {1, :genesis_validators_root},
+      {2, :slot},
+      {3, :fork},
+      {4, :latest_block_header},
+      {5, :block_roots},
+      {6, :state_roots},
+      {7, :historical_roots},
+      {8, :eth1_data},
+      {9, :eth1_data_votes},
+      {10, :eth1_deposit_index},
+      {11, :validators},
+      {12, :balances},
+      {13, :randao_mixes},
+      {14, :slashings},
+      {15, :previous_epoch_participation},
+      {16, :current_epoch_participation},
+      {17, :justification_bits},
+      {18, :previous_justified_checkpoint},
+      {19, :current_justified_checkpoint},
+      {20, :finalized_checkpoint},
+      {21, :inactivity_scores},
+      {22, :current_sync_committee},
+      {23, :next_sync_committee},
+      {24, :latest_execution_payload_header},
+      {25, :next_withdrawal_index},
+      {26, :next_withdrawal_validator_index},
+      {27, :historical_summaries},
+      {28, :deposit_requests_start_index},
+      {29, :deposit_balance_to_consume},
+      {30, :exit_balance_to_consume},
+      {31, :earliest_exit_epoch},
+      {32, :consolidation_balance_to_consume},
+      {33, :earliest_consolidation_epoch},
+      {34, :pending_deposits},
+      {35, :pending_partial_withdrawals},
+      {36, :pending_consolidations},
+      {37, :proposer_lookahead}
+    ]
+
+    for {idx, name} <- field_names do
+      cached_hash = Map.get(cached_field_hashes, idx)
+
+      if cached_hash != nil do
+        Logger.error(
+          "[StateTransition] DIAGNOSTIC: field #{idx} (#{name}) " <>
+            "cached_hash=0x#{Base.encode16(cached_hash, case: :lower) |> String.slice(0, 16)}..."
+        )
+      end
+    end
+
+    :ok
+  end
+
+  # Fields safe to cache on non-epoch blocks when no validator-modifying operations present.
+  # These fields are only modified during epoch processing (not block operations):
+  #  7 = historical_roots (frozen), 11 = validators, 14 = slashings,
+  # 17 = justification_bits, 18 = previous_justified_checkpoint,
+  # 19 = current_justified_checkpoint, 20 = finalized_checkpoint,
+  # 21 = inactivity_scores, 22 = current_sync_committee,
+  # 23 = next_sync_committee, 27 = historical_summaries, 37 = proposer_lookahead
+  # NOTE: field 15 (previous_epoch_participation) is NOT cacheable — attestation
+  # processing updates it on every block for previous-epoch attestations.
+  @cacheable_non_epoch_fields [7, 11, 14, 17, 18, 19, 20, 21, 22, 23, 27, 37]
+
+  # When block operations DO modify validators (slashings, exits, BLS changes,
+  # consolidations, deposits), exclude fields also modified by those operations:
+  # 11 = validators (slashings/exits/BLS changes), 14 = slashings (slash_validator),
+  # 21 = inactivity_scores (add_validator_to_registry appends on new deposits)
+  @cacheable_non_epoch_fields_no_validators [7, 17, 18, 19, 20, 22, 23, 27, 37]
+
+  defp cacheable_field_hashes(_timings, _block, prev_field_hashes)
+       when prev_field_hashes == %{},
+       do: %{}
+
+  defp cacheable_field_hashes(timings, block, prev_field_hashes) do
+    # If epoch processing happened, don't cache anything (most fields change)
+    epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
+
+    if epoch_processed? do
+      %{}
+    else
+      fields =
+        if block_modifies_validators?(block),
+          do: @cacheable_non_epoch_fields_no_validators,
+          else: @cacheable_non_epoch_fields
+
+      Map.take(prev_field_hashes, fields)
+    end
+  end
+
+  # Check if a block contains operations that can modify state.validators.
+  # Slashings, exits, BLS-to-execution changes, withdrawal requests (full exits),
+  # consolidation requests, and legacy deposits can all modify the validators vector.
+  # Deposit requests (execution_requests.deposits) only modify pending_deposits, not validators.
+  defp block_modifies_validators?(block) do
+    body = block.body
+
+    body.proposer_slashings != [] or
+      body.attester_slashings != [] or
+      body.voluntary_exits != [] or
+      body.bls_to_execution_changes != [] or
+      body.deposits != [] or
+      body.execution_requests.withdrawals != [] or
+      body.execution_requests.consolidations != []
+  end
+
+  # Try to compute the balance field hash incrementally by passing only changed
+  # balance indices to the Rust NIF, avoiding the expensive Aja.Vector.to_list
+  # + NIF decode for 2.2M balances. Falls back gracefully on cache miss.
+  defp maybe_incremental_balance_hash(
+         cached_field_hashes,
+         timings,
+         block,
+         state,
+         prev_field_hashes
+       ) do
+    epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
+    prev_hash = Map.get(prev_field_hashes, 12)
+
+    if epoch_processed? or cached_field_hashes == %{} or is_nil(prev_hash) do
+      cached_field_hashes
+    else
+      case collect_changed_balance_indices(block, state) do
+        {:ok, indices} ->
+          updates =
+            indices
+            |> Enum.uniq()
+            |> Enum.map(fn idx -> {idx, Aja.Vector.at!(state.balances, idx)} end)
+
+          case Ssz.update_balance_cache(
+                 updates,
+                 Aja.Vector.size(state.balances),
+                 prev_hash
+               ) do
+            {:ok, hash} -> Map.put(cached_field_hashes, 12, hash)
+            {:error, :cache_miss} -> cached_field_hashes
+          end
+
+        :skip ->
+          cached_field_hashes
+      end
+    end
+  end
+
+  # Collect all validator indices whose balances changed during block processing.
+  # Sources: sync committee (512), withdrawals (<=16), proposer rewards, slashings.
+  defp collect_changed_balance_indices(block, state) do
+    # If slashings occurred, the slashed validator's balance changes AND the
+    # whistleblower/proposer reward is spread — hard to track precisely. Skip.
+    # Also skip when withdrawal/consolidation requests exist — these can trigger
+    # switch_to_compounding_validator → queue_excess_active_balance, which modifies
+    # balances at indices we can't easily predict.
+    body = block.body
+
+    if body.proposer_slashings != [] or body.attester_slashings != [] or
+         body.execution_requests.withdrawals != [] or
+         body.execution_requests.consolidations != [] do
+      :skip
+    else
+      epoch = Accessors.get_current_epoch(state)
+
+      # Sync committee indices: look up from ETS cache (populated by process_sync_aggregate)
+      sync_indices =
+        case Accessors.get_block_root_at_slot(
+               state,
+               max(Misc.compute_start_slot_at_epoch(epoch), 1) - 1
+             ) do
+          {:ok, root} ->
+            case :ets.lookup(:sync_committee_indices, {epoch, root}) do
+              [{{^epoch, ^root}, indices}] -> indices
+              [] -> :miss
+            end
+
+          _ ->
+            :miss
+        end
+
+      case sync_indices do
+        :miss ->
+          :skip
+
+        indices when is_list(indices) ->
+          # Withdrawal validator indices
+          withdrawal_indices =
+            Enum.map(block.body.execution_payload.withdrawals, & &1.validator_index)
+
+          # Proposer gets rewards from sync aggregate + attestations
+          {:ok, Enum.concat([indices, withdrawal_indices, [block.proposer_index]])}
+      end
+    end
+  end
+
+  # Try to compute the participation field hashes incrementally (fields 15, 16).
+  # Collects attesting validator indices from the block's attestations, reads
+  # their new participation values, and passes to the NIF for incremental update.
+  defp maybe_incremental_participation_hash(
+         cached_field_hashes,
+         timings,
+         block,
+         state,
+         prev_field_hashes
+       ) do
+    epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
+
+    if epoch_processed? or cached_field_hashes == %{} do
+      cached_field_hashes
+    else
+      epoch = Accessors.get_current_epoch(state)
+
+      # Collect attesting validator indices, split by target epoch
+      {prev_indices, curr_indices} =
+        collect_attesting_indices(block.body.attestations, state, epoch)
+
+      cached_field_hashes =
+        try_incremental_participation(
+          cached_field_hashes,
+          15,
+          prev_indices,
+          state.previous_epoch_participation,
+          prev_field_hashes
+        )
+
+      try_incremental_participation(
+        cached_field_hashes,
+        16,
+        curr_indices,
+        state.current_epoch_participation,
+        prev_field_hashes
+      )
+    end
+  end
+
+  defp try_incremental_participation(
+         cached_field_hashes,
+         field_num,
+         indices,
+         participation,
+         prev_field_hashes
+       ) do
+    prev_hash = Map.get(prev_field_hashes, field_num)
+
+    if is_nil(prev_hash) do
+      cached_field_hashes
+    else
+      if indices == [] do
+        # No changes to this participation field — pass empty updates to get current hash.
+        case Ssz.update_participation_cache(
+               field_num,
+               [],
+               Aja.Vector.size(participation),
+               prev_hash
+             ) do
+          {:ok, hash} -> Map.put(cached_field_hashes, field_num, hash)
+          {:error, :cache_miss} -> cached_field_hashes
+        end
+      else
+        updates =
+          indices
+          |> Enum.uniq()
+          |> Enum.map(fn idx -> {idx, Aja.Vector.at!(participation, idx)} end)
+
+        case Ssz.update_participation_cache(
+               field_num,
+               updates,
+               Aja.Vector.size(participation),
+               prev_hash
+             ) do
+          {:ok, hash} -> Map.put(cached_field_hashes, field_num, hash)
+          {:error, :cache_miss} -> cached_field_hashes
+        end
+      end
+    end
+  end
+
+  # Try to compute the randao_mixes field hash incrementally (field 13).
+  # Only 1 entry changes per block (current epoch's randao mix). Pass the index
+  # and new value to the NIF to update just 16 nodes instead of hashing 65536 entries.
+  defp maybe_incremental_randao_hash(
+         cached_field_hashes,
+         timings,
+         _block,
+         state,
+         prev_field_hashes
+       ) do
+    epoch_processed? = Map.has_key?(timings, :"epoch.rewards_and_penalties")
+    prev_hash = Map.get(prev_field_hashes, 13)
+
+    if epoch_processed? or cached_field_hashes == %{} or is_nil(prev_hash) do
+      cached_field_hashes
+    else
+      epoch = Accessors.get_current_epoch(state)
+      epochs_per_historical_vector = ChainSpec.get("EPOCHS_PER_HISTORICAL_VECTOR")
+      index = rem(epoch, epochs_per_historical_vector)
+      new_value = Aja.Vector.at!(state.randao_mixes, index)
+
+      case Ssz.update_randao_cache(
+             index,
+             new_value,
+             Aja.Vector.size(state.randao_mixes),
+             prev_hash
+           ) do
+        {:ok, hash} -> Map.put(cached_field_hashes, 13, hash)
+        {:error, :cache_miss} -> cached_field_hashes
+      end
+    end
+  end
+
+  # Collect attesting validator indices from block attestations, split by target epoch.
+  # Returns {previous_epoch_indices, current_epoch_indices}.
+  # Uses cached beacon committees from ETS for efficient lookup.
+  defp collect_attesting_indices(attestations, state, current_epoch) do
+    Enum.reduce(attestations, {[], []}, fn att, {prev_acc, curr_acc} ->
+      is_current = att.data.target.epoch == current_epoch
+
+      case Accessors.get_attesting_indices(state, att) do
+        {:ok, indices} ->
+          idx_list = MapSet.to_list(indices)
+
+          if is_current,
+            do: {prev_acc, idx_list ++ curr_acc},
+            else: {idx_list ++ prev_acc, curr_acc}
+
+        _ ->
+          {prev_acc, curr_acc}
+      end
+    end)
   end
 
   @spec transition(BeaconState.t(), SignedBeaconBlock.t()) ::
@@ -216,6 +702,11 @@ defmodule LambdaEthereumConsensus.StateTransition do
   end
 
   defp process_epoch(%BeaconState{} = state) do
+    # Force GC before epoch processing to start with a clean heap.
+    # Epoch processing allocates many large temporaries (Aja.Vectors, lists).
+    # Without this, deferred GC can cause 1-2s pauses mid-processing.
+    :erlang.garbage_collect()
+
     {:ok, state, %{}}
     |> epoch_op(
       :justification_and_finalization,
@@ -267,12 +758,30 @@ defmodule LambdaEthereumConsensus.StateTransition do
     |> block_op(:execution_payload, &Operations.process_execution_payload(&1, block.body))
     |> block_op(:randao, &Operations.process_randao(&1, block.body))
     |> block_op(:eth1_data, &Operations.process_eth1_data(&1, block.body))
+    |> prefetch_committees_for_block()
     |> block_op(:operations, &Operations.process_operations(&1, block.body))
     |> block_op(
       :sync_aggregate,
       &Operations.process_sync_aggregate(&1, block.body.sync_aggregate)
     )
   end
+
+  # Ensure beacon committees for the current epoch are cached before processing
+  # attestations. Without this, each attestation triggers an expensive on-demand
+  # committee computation (~650ms × 8 committees = ~5.2s per block). The full
+  # epoch prefetch (~10s) amortizes to ~312ms per block across 32 blocks.
+  defp prefetch_committees_for_block({:ok, state, timings}) do
+    epoch = Misc.compute_epoch_at_slot(state.slot)
+
+    {_, timings} =
+      timed(:prefetch_committees, timings, fn ->
+        Accessors.maybe_prefetch_committees(state, epoch)
+      end)
+
+    {:ok, state, timings}
+  end
+
+  defp prefetch_committees_for_block(err), do: err
 
   def epoch_op({:ok, state, timings}, operation, f) do
     key = :"epoch.#{operation}"

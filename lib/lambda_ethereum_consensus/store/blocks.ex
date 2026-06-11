@@ -48,6 +48,14 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @spec get_block_info(Types.root()) :: BlockInfo.t() | nil
   def get_block_info(block_root), do: LRUCache.get(@table, block_root, &fetch_block_info/1)
 
+  @doc """
+  Like get_block_info/1 but only checks the ETS LRU cache.
+  Returns nil on cache miss. Used by hot paths to avoid blocking
+  Libp2pPort on eleveldb.get/3 NIF reads.
+  """
+  @spec get_block_info_cached(Types.root()) :: BlockInfo.t() | nil
+  def get_block_info_cached(block_root), do: LRUCache.get_cached(@table, block_root)
+
   @spec get_block_info!(Types.root()) :: BlockInfo.t()
   def get_block_info!(block_root) do
     case LRUCache.get(@table, block_root, &fetch_block_info/1) do
@@ -59,6 +67,15 @@ defmodule LambdaEthereumConsensus.Store.Blocks do
   @spec get_block(Types.root()) :: BeaconBlock.t() | nil
   def get_block(block_root) do
     case get_block_info(block_root) do
+      nil -> nil
+      %{signed_block: %{message: block}} -> block
+    end
+  end
+
+  @doc "Cache-only block lookup; returns nil on miss."
+  @spec get_block_cached(Types.root()) :: BeaconBlock.t() | nil
+  def get_block_cached(block_root) do
+    case get_block_info_cached(block_root) do
       nil -> nil
       %{signed_block: %{message: block}} -> block
     end

@@ -19,3 +19,15 @@ block_info = fn "0x"<>root -> root |> Base.decode16(case: :lower) |> elem(1) |> 
 
 blocks_by_status = fn status -> Blocks.get_blocks_with_status(status) |> elem(1) end
 blocks_by_status_count = fn status -> blocks_by_status.(status) |> Enum.count() end
+
+# Memory introspection (see lib/utils/mem.ex)
+alias LambdaEthereumConsensus.Mem
+# Quick access:
+#   Mem.report()              — full memory report
+#   Mem.ets_tables()          — all ETS tables ranked by memory
+#   Mem.top_processes(10)     — top 10 processes by heap
+#   Mem.state_cache_detail()  — per-entry BlockStates breakdown
+#   Mem.checkpoint_detail()   — checkpoint states table
+#   Mem.binary_stats()        — binary/refc binary pressure
+#   Mem.cache_tables()        — StateTransition cache sizes
+#   snap = Mem.snapshot(); ...; Mem.diff_snapshot(snap) — delta tracking

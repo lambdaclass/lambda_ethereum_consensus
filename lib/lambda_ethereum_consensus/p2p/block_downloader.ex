@@ -66,30 +66,48 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   def request_blocks_by_range(slot, count, on_blocks, retries) do
     Logger.debug("Requesting block", slot: slot)
 
-    peer_id = get_some_peer()
+    case get_some_peer() do
+      :no_peers ->
+        # See comment in `request_blocks_by_root/3` — raising on no-peers used
+        # to crash Libp2pPort. Callers re-schedule on their own heartbeats
+        # (SyncBlocks.run is invoked from `:sync_blocks`), so we can safely
+        # no-op here.
+        :telemetry.execute(
+          [:network, :request],
+          %{blocks: 0},
+          %{type: "by_slot", reason: "no_peers", result: "error"}
+        )
 
-    request =
-      %Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count}
-      |> ReqResp.encode_request()
+        Logger.warning("[BlockDownloader] No peers available for BlocksByRange; will retry",
+          slot: slot
+        )
 
-    Libp2pPort.send_async_request(peer_id, @blocks_by_range_protocol_id, request, fn store,
-                                                                                     response ->
-      Metrics.handler_span(
-        "response_handler",
-        "blocks_by_range",
-        fn ->
-          handle_blocks_by_range_response(
-            store,
-            response,
-            slot,
-            count,
-            retries,
-            peer_id,
-            on_blocks
+        :ok
+
+      peer_id ->
+        request =
+          %Types.BeaconBlocksByRangeRequest{start_slot: slot, count: count}
+          |> ReqResp.encode_request()
+
+        Libp2pPort.send_async_request(peer_id, @blocks_by_range_protocol_id, request, fn store,
+                                                                                         response ->
+          Metrics.handler_span(
+            "response_handler",
+            "blocks_by_range",
+            fn ->
+              handle_blocks_by_range_response(
+                store,
+                response,
+                slot,
+                count,
+                retries,
+                peer_id,
+                on_blocks
+              )
+            end
           )
-        end
-      )
-    end)
+        end)
+    end
   end
 
   defp handle_blocks_by_range_response(store, response, slot, count, retries, peer_id, on_blocks) do
@@ -142,20 +160,42 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   def request_blocks_by_root(roots, on_blocks, retries) do
     Logger.debug("Requesting block for roots #{Enum.map_join(roots, ", ", &Base.encode16/1)}")
 
-    peer_id = get_some_peer()
+    case get_some_peer() do
+      :no_peers ->
+        # Peerbook is empty — this is recoverable (peers will reconnect / be
+        # rediscovered), and the block is already queued in
+        # `Blocks.add_block_to_download` by the caller, so it'll be retried on
+        # the next :check_pending_blocks tick once peers are back. Previously
+        # we raised here, which crashed the whole Libp2pPort GenServer
+        # (observed 2026-04-20 22:30): a multi-minute prefetch_states stall
+        # let all peers time out, and the subsequent :check_pending_blocks
+        # hit an empty Peerbook and crash-looped Libp2pPort every ~4 s. See
+        # TODO #1317. We intentionally do NOT invoke `on_blocks` here — we
+        # don't have a Store reference, and doing nothing preserves the block
+        # in the download queue for the next tick to retry.
+        :telemetry.execute(
+          [:network, :request],
+          %{blocks: 0},
+          %{type: "by_root", reason: "no_peers", result: "error"}
+        )
 
-    request = ReqResp.encode_request({roots, TypeAliases.beacon_blocks_by_root_request()})
+        Logger.warning("[BlockDownloader] No peers available for BlocksByRoot; will retry")
+        :ok
 
-    Libp2pPort.send_async_request(peer_id, @blocks_by_root_protocol_id, request, fn store,
-                                                                                    response ->
-      Metrics.handler_span(
-        "response_handler",
-        "blocks_by_root",
-        fn ->
-          handle_blocks_by_root_response(store, response, roots, on_blocks, peer_id, retries)
-        end
-      )
-    end)
+      peer_id ->
+        request = ReqResp.encode_request({roots, TypeAliases.beacon_blocks_by_root_request()})
+
+        Libp2pPort.send_async_request(peer_id, @blocks_by_root_protocol_id, request, fn store,
+                                                                                        response ->
+          Metrics.handler_span(
+            "response_handler",
+            "blocks_by_root",
+            fn ->
+              handle_blocks_by_root_response(store, response, roots, on_blocks, peer_id, retries)
+            end
+          )
+        end)
+    end
   end
 
   defp handle_blocks_by_root_response(store, response, roots, on_blocks, peer_id, retries) do
@@ -186,8 +226,11 @@ defmodule LambdaEthereumConsensus.P2P.BlockDownloader do
   defp get_some_peer() do
     case P2P.Peerbook.get_some_peer() do
       nil ->
-        # TODO: (#1317) handle no-peers asynchronously
-        raise "No peers available to request blocks from."
+        # Return a sentinel instead of raising — callers handle :no_peers
+        # gracefully by leaving the pending block in the download queue and
+        # retrying on the next :check_pending_blocks tick. Raising here
+        # previously crashed the owning Libp2pPort GenServer (TODO #1317).
+        :no_peers
 
       peer_id ->
         peer_id

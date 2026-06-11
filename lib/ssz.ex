@@ -105,6 +105,59 @@ defmodule Ssz do
     |> hash_tree_root_vector_rs(max_size, schema)
   end
 
+  @doc """
+  Hash a BeaconState with cached field hashes.
+  `cached_field_hashes` is a map of `%{field_index => 32-byte hash}` for fields
+  whose hash can be reused from a previous computation.
+  Returns `{:ok, root, field_hashes_binary}` where field_hashes_binary contains
+  all individual field hashes (num_fields * 32 bytes) for caching.
+  """
+  @spec hash_beacon_state_cached(struct, map) ::
+          {:ok, Types.root(), binary()} | {:error, String.t()}
+  def hash_beacon_state_cached(%Types.BeaconState{} = state, cached_field_hashes \\ %{}) do
+    state
+    |> encode_beacon_state_selective(cached_field_hashes)
+    |> hash_beacon_state_cached_rs(cached_field_hashes)
+  end
+
+  # Encode BeaconState, but skip expensive conversions for cached fields.
+  # Cached fields get placeholder values since the NIF won't read them.
+  # Field indices: 11=validators, 12=balances, 13=randao_mixes,
+  #                15=prev_participation, 16=curr_participation
+  defp encode_beacon_state_selective(%Types.BeaconState{} = state, cached) do
+    alias LambdaEthereumConsensus.Utils.BitVector
+
+    state =
+      if Map.has_key?(cached, 11),
+        do: state,
+        else: Map.update!(state, :validators, &Aja.Vector.to_list/1)
+
+    state =
+      if Map.has_key?(cached, 12),
+        do: state,
+        else: Map.update!(state, :balances, &Aja.Vector.to_list/1)
+
+    state =
+      if Map.has_key?(cached, 13),
+        do: state,
+        else: Map.update!(state, :randao_mixes, &Aja.Vector.to_list/1)
+
+    state =
+      if Map.has_key?(cached, 15),
+        do: state,
+        else: Map.update!(state, :previous_epoch_participation, &Aja.Vector.to_list/1)
+
+    state =
+      if Map.has_key?(cached, 16),
+        do: state,
+        else: Map.update!(state, :current_epoch_participation, &Aja.Vector.to_list/1)
+
+    # These conversions are always needed (small fields)
+    state
+    |> Map.update!(:latest_execution_payload_header, &Types.ExecutionPayloadHeader.encode/1)
+    |> Map.update!(:justification_bits, &BitVector.to_bytes/1)
+  end
+
   ##### Rust-side function stubs
   @spec to_ssz_rs(map | list, module, module) :: {:ok, binary} | {:error, String.t()}
   def to_ssz_rs(_term, _schema, _config \\ ChainSpec.get_preset()), do: error()
@@ -128,6 +181,110 @@ defmodule Ssz do
   def hash_tree_root_vector_rs(_vector, _max_size, _schema, _config \\ ChainSpec.get_preset()),
     do: error()
 
+  @spec hash_beacon_state_cached_rs(map, map, module) ::
+          {:ok, Types.root(), binary()} | {:error, String.t()}
+  def hash_beacon_state_cached_rs(
+        _state,
+        _cached_hashes,
+        _config \\ ChainSpec.get_preset()
+      ),
+      do: error()
+
+  @doc """
+  Apply targeted balance updates to the cached incremental balance merkle tree.
+  Returns `{:ok, hash}` or `{:error, :cache_miss}`.
+  `updates` is a list of `{index, new_value}` tuples.
+  """
+  @spec update_balance_cache(
+          list({non_neg_integer(), non_neg_integer()}),
+          non_neg_integer(),
+          binary()
+        ) ::
+          {:ok, binary()} | {:error, :cache_miss}
+  def update_balance_cache(updates, balance_count, expected_prev_hash),
+    do: update_balance_cache_rs(updates, balance_count, expected_prev_hash)
+
+  def update_balance_cache_rs(_updates, _balance_count, _expected_prev_hash), do: error()
+
+  @doc """
+  Apply targeted participation updates to the cached incremental participation merkle tree.
+  Returns `{:ok, hash}` or `{:error, :cache_miss}`.
+  `field_num` is 15 (previous_epoch_participation) or 16 (current_epoch_participation).
+  `updates` is a list of `{index, new_value}` tuples.
+  `expected_prev_hash` validates the cache matches the expected parent state.
+  """
+  @spec update_participation_cache(
+          15 | 16,
+          list({non_neg_integer(), non_neg_integer()}),
+          non_neg_integer(),
+          binary()
+        ) ::
+          {:ok, binary()} | {:error, :cache_miss}
+  def update_participation_cache(field_num, updates, value_count, expected_prev_hash),
+    do: update_participation_cache_rs(field_num, updates, value_count, expected_prev_hash)
+
+  def update_participation_cache_rs(_field_num, _updates, _value_count, _expected_prev_hash),
+    do: error()
+
+  @doc """
+  Apply a targeted randao_mixes update to the cached incremental merkle tree.
+  Returns `{:ok, hash}` or `{:error, :cache_miss}`.
+  `index` is the position to update, `new_value` is the new 32-byte entry.
+  `expected_prev_hash` validates the cache matches the expected parent state.
+  """
+  @spec update_randao_cache(
+          non_neg_integer(),
+          binary(),
+          non_neg_integer(),
+          binary()
+        ) ::
+          {:ok, binary()} | {:error, :cache_miss}
+  def update_randao_cache(index, new_value, total_count, expected_prev_hash),
+    do: update_randao_cache_rs(index, new_value, total_count, expected_prev_hash)
+
+  def update_randao_cache_rs(_index, _new_value, _total_count, _expected_prev_hash), do: error()
+
+  @doc """
+  Perform the full eth2 shuffle in Rust NIF. Takes a list of validator indices,
+  a 32-byte seed, and the number of shuffle rounds. Returns the shuffled list.
+  Runs on DirtyCpu scheduler to avoid blocking normal schedulers.
+  """
+  @spec shuffle_list([non_neg_integer()], binary(), non_neg_integer()) :: [non_neg_integer()]
+  def shuffle_list(indices, seed, rounds), do: shuffle_list_rs(indices, seed, rounds)
+
+  def shuffle_list_rs(_indices, _seed, _rounds), do: error()
+
+  @spec compute_proposer_indices(
+          binary(),
+          non_neg_integer(),
+          non_neg_integer(),
+          [non_neg_integer()],
+          [non_neg_integer()],
+          non_neg_integer(),
+          non_neg_integer()
+        ) :: [non_neg_integer()]
+  def compute_proposer_indices(
+        epoch_seed,
+        start_slot,
+        slots_per_epoch,
+        active_indices,
+        effective_balances,
+        max_effective_balance,
+        rounds
+      ),
+      do:
+        compute_proposer_indices_rs(
+          epoch_seed,
+          start_slot,
+          slots_per_epoch,
+          active_indices,
+          effective_balances,
+          max_effective_balance,
+          rounds
+        )
+
+  def compute_proposer_indices_rs(_, _, _, _, _, _, _), do: error()
+
   ##### Utils
   defp error(), do: :erlang.nif_error(:nif_not_loaded)
 
@@ -141,10 +298,6 @@ defmodule Ssz do
       |> Enum.map(fn {k, v} -> {k, encode(v)} end)
       |> then(&struct!(name, &1))
     end
-  end
-
-  defp encode(list) when is_list(list) do
-    Enum.map(list, &encode/1)
   end
 
   defp encode(list) when is_list(list), do: list |> Enum.map(&encode/1)

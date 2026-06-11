@@ -13,6 +13,7 @@ defmodule Types.Store do
   alias LambdaEthereumConsensus.Store.Blocks
   alias LambdaEthereumConsensus.Store.BlockStates
   alias LambdaEthereumConsensus.Store.CheckpointStates
+  alias LambdaEthereumConsensus.Store.StateDb
   alias Types.BeaconBlock
   alias Types.BeaconState
   alias Types.BlockInfo
@@ -87,6 +88,8 @@ defmodule Types.Store do
       time = anchor_state.genesis_time + ChainSpec.get("SECONDS_PER_SLOT") * anchor_state.slot
 
       BlockStates.store_state_info(state_info)
+      # Persist anchor state to LevelDB (BlockStates LRU no longer writes to DB)
+      Task.start(fn -> StateDb.store_state_info(state_info) end)
       CheckpointStates.put(anchor_checkpoint, anchor_state)
 
       %__MODULE__{
@@ -121,12 +124,21 @@ defmodule Types.Store do
   end
 
   def get_ancestor(%__MODULE__{} = store, root, slot) do
-    block = Blocks.get_block!(root)
+    # Cache-only block lookup to avoid blocking Libp2pPort on eleveldb.get/3.
+    # On miss, return root as-is (same behavior as pruned blocks).
+    case Blocks.get_block_cached(root) do
+      nil ->
+        # Block has been pruned or evicted from cache. Return the root as-is
+        # so callers that compare ancestors (get_weight, finalized_check) will
+        # see a non-matching root and correctly discard the entry.
+        root
 
-    if block.slot > slot do
-      get_ancestor(store, block.parent_root, slot)
-    else
-      root
+      block ->
+        if block.slot > slot do
+          get_ancestor(store, block.parent_root, slot)
+        else
+          root
+        end
     end
   end
 
@@ -147,7 +159,11 @@ defmodule Types.Store do
   def get_children(%__MODULE__{tree_cache: tree}, parent_root) do
     case Tree.get_children(tree, parent_root) do
       {:ok, children} ->
-        Enum.map(children, &{&1, Blocks.get_block!(&1)})
+        # Cache-only to avoid blocking Libp2pPort on LevelDB reads.
+        # Filter out any children whose block data isn't cached.
+        children
+        |> Enum.map(fn root -> {root, Blocks.get_block_cached(root)} end)
+        |> Enum.reject(fn {_root, block} -> is_nil(block) end)
 
       {:error, :not_found} ->
         Logger.warning(
@@ -193,6 +209,17 @@ defmodule Types.Store do
     end
   end
 
+  @doc """
+  Like get_state/2 but only checks in-memory maps and the ETS LRU cache.
+  Does NOT fall through to LevelDB. Returns nil on cache miss.
+  Used by prefetch_states to avoid 28-85s LevelDB reads.
+  """
+  def get_state_cached(store, root) when is_binary(root) do
+    with nil <- Map.get(store.states, root) do
+      BlockStates.get_state_info_cached(root)
+    end
+  end
+
   def get_state!(store, root) do
     %StateInfo{} = get_state(store, root)
   end
@@ -220,6 +247,20 @@ defmodule Types.Store do
     end
   end
 
+  @doc """
+  Like get_checkpoint_state/2 but only uses in-memory and ETS-cached states.
+  Does NOT fall through to LevelDB on cache miss, returning {store, nil} instead.
+  Used by prefetch_states to avoid blocking the ForkChoice GenServer for 28-85s
+  during LevelDB deserialization of 775MB mainnet BeaconStates.
+  """
+  @spec get_checkpoint_state_cached(t(), Types.Checkpoint.t()) :: {t(), BeaconState.t() | nil}
+  def get_checkpoint_state_cached(store, %Checkpoint{} = checkpoint) do
+    case Map.get(store.checkpoint_states, checkpoint) do
+      nil -> compute_checkpoint_state_cached(store, checkpoint)
+      state -> {store, state}
+    end
+  end
+
   def remove_cache(%__MODULE__{} = store) do
     store |> Map.put(:states, %{}) |> Map.put(:checkpoint_states, %{})
   end
@@ -242,21 +283,91 @@ defmodule Types.Store do
   end
 
   defp update_tree(%__MODULE__{} = store, block_root, parent_root) do
-    # We expect the finalized block to be in the tree
-    tree = Tree.update_root!(store.tree_cache, store.finalized_checkpoint.root)
+    finalized_root = store.finalized_checkpoint.root
+
+    tree =
+      case Tree.update_root(store.tree_cache, finalized_root) do
+        {:ok, pruned} ->
+          pruned
+
+        {:error, :not_found} ->
+          # Tree is stale (e.g. after restart/recovery). Rebuild from finalized root.
+          Logger.warning(
+            "[Store] Finalized root #{Base.encode16(finalized_root)} not in tree, rebuilding"
+          )
+
+          Tree.new(finalized_root)
+      end
 
     case Tree.add_block(tree, block_root, parent_root) do
-      {:ok, new_tree} -> %{store | tree_cache: new_tree}
-      # Block is older than current finalized block, or parent not in tree.
-      # Still save the pruned tree so tree_cache stays in sync with finalized_checkpoint.
-      {:error, :not_found} -> %{store | tree_cache: tree}
+      {:ok, new_tree} ->
+        %{store | tree_cache: new_tree}
+
+      {:error, :not_found} ->
+        # Parent not in tree. Walk the parent chain from parent_root back to
+        # the finalized root and add all intermediate blocks. This repairs the
+        # tree after it was rebuilt with only the finalized root, or after
+        # blocks were pruned but the chain wasn't maintained.
+        repaired = repair_tree_chain(tree, finalized_root, parent_root)
+
+        case Tree.add_block(repaired, block_root, parent_root) do
+          {:ok, new_tree} -> %{store | tree_cache: new_tree}
+          {:error, :not_found} -> %{store | tree_cache: repaired}
+        end
+    end
+  end
+
+  # Repair a tree by walking the parent chain from target_root back to
+  # finalized_root and adding all intermediate blocks. This fills in gaps
+  # when the tree only has the finalized root but blocks have been processed
+  # beyond it (e.g., after a Tree.new rebuild or finalization advance).
+  defp repair_tree_chain(tree, finalized_root, target_root) do
+    chain = collect_parent_chain(target_root, finalized_root, [])
+
+    if chain != [] do
+      Logger.info("[Store] Repairing tree: adding #{length(chain)} blocks from parent chain")
+    end
+
+    Enum.reduce(chain, tree, fn {root, parent}, acc ->
+      case Tree.add_block(acc, root, parent) do
+        {:ok, t} -> t
+        {:error, _} -> acc
+      end
+    end)
+  end
+
+  # Walk from current_root back to finalized_root, collecting {root, parent} pairs.
+  # Returns the chain in order from finalized_root's child down to current_root.
+  defp collect_parent_chain(current_root, finalized_root, acc)
+       when current_root == finalized_root,
+       do: acc
+
+  defp collect_parent_chain(current_root, finalized_root, acc) do
+    case Blocks.get_block_info_cached(current_root) do
+      %BlockInfo{signed_block: %{message: %{parent_root: parent}}} ->
+        collect_parent_chain(parent, finalized_root, [{current_root, parent} | acc])
+
+      _ ->
+        # Can't walk further (block not found or pruned), return what we have
+        Logger.warning(
+          "[Store] Parent chain walk stopped at #{Base.encode16(current_root)}, " <>
+            "#{length(acc)} blocks collected"
+        )
+
+        acc
     end
   end
 
   @spec update_head_info(t()) :: t()
   def update_head_info(store) do
     {:ok, head_root} = Head.get_head(store)
-    %{slot: head_slot} = Blocks.get_block!(head_root)
+
+    head_slot =
+      case Blocks.get_block_cached(head_root) do
+        nil -> store.head_slot || 0
+        block -> block.slot
+      end
+
     update_head_info(store, head_slot, head_root)
   end
 
@@ -276,6 +387,26 @@ defmodule Types.Store do
         if state.slot < target_slot do
           # The only way this can fail is if state.slot < target_slot, which is false by
           # construction.
+          {:ok, new_state, _timings} = StateTransition.process_slots(state, target_slot)
+
+          {update_in(store.checkpoint_states, fn s -> Map.put(s, checkpoint, new_state) end),
+           new_state}
+        else
+          {store, state}
+        end
+    end
+  end
+
+  # Like compute_checkpoint_state but uses cache-only state lookup.
+  defp compute_checkpoint_state_cached(store, checkpoint) do
+    target_slot = Misc.compute_start_slot_at_epoch(checkpoint.epoch)
+
+    case get_state_cached(store, checkpoint.root) do
+      nil ->
+        {store, nil}
+
+      %StateInfo{beacon_state: state} ->
+        if state.slot < target_slot do
           {:ok, new_state, _timings} = StateTransition.process_slots(state, target_slot)
 
           {update_in(store.checkpoint_states, fn s -> Map.put(s, checkpoint, new_state) end),

@@ -466,10 +466,15 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
   end
 
   # There may be pending blocks from a prior execution, regardless of the optimistic sync
-  # state. We should run a process_blocks round. If no pending blocks are available, this
-  # call is a noop.
+  # state. First recover any blocks that were wrongly marked :invalid due to transient
+  # failures, then run a process_blocks round. Schedule a column download retry so
+  # recovered blocks in :download_columns get their columns checked.
   @impl GenServer
   def handle_continue(:check_pending_blocks, state) do
+    if PendingBlocks.recover_invalid_blocks() == :recovered do
+      Process.send_after(self(), :retry_download_columns, 5_000)
+    end
+
     {:noreply, update_in(state.store, &PendingBlocks.process_blocks/1)}
   end
 
@@ -531,19 +536,29 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_cast({:error_downloading_chunk, range, reason}, state) do
+    {first_slot, last_slot} = range
+    count = last_slot - first_slot + 1
+
     Logger.error(
       "[Optimistic Sync] Failed to download the block range #{inspect(range)}, no retries left. Reason: #{inspect(reason)}"
     )
 
-    # TODO: kill the genserver or retry sync all together.
-    {:noreply, state}
+    # Decrement blocks_remaining so the node doesn't get stuck thinking it's
+    # still syncing. Without this, a failed range request leaves blocks_remaining
+    # positive forever, syncing stays true, and gossip subscription recovery
+    # never triggers.
+    new_state =
+      state
+      |> Map.update(:blocks_remaining, 0, fn n -> max(n - count, 0) end)
+      |> subscribe_if_no_blocks()
+
+    {:noreply, new_state}
   end
 
   @impl GenServer
   def handle_info(:on_tick, state) do
     schedule_next_tick()
     time = :os.system_time(:second)
-
     {:noreply, on_tick(time, state)}
   end
 
@@ -591,7 +606,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
   @impl GenServer
   def handle_info({_port, {:data, data}}, state) do
-    %Notification{n: {_, payload}} = Notification.decode(data)
+    %Notification{n: {_type, payload}} = Notification.decode(data)
     {:noreply, handle_notification(payload, state)}
   end
 
@@ -612,7 +627,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
 
     # Self-sustaining heartbeat: always reschedule so stuck :download_columns
     # blocks are retried regardless of failure mode (no_peers, partial/empty response, error).
-    Process.send_after(self(), :retry_download_columns, 60_000)
+    Process.send_after(self(), :retry_download_columns, 12_000)
     {:noreply, update_in(state.store, &PendingBlocks.retry_download_columns/1)}
   end
 
@@ -713,7 +728,7 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
       direction: "->elixir"
     })
 
-    case IncomingRequestsHandler.handle(protocol_id, request_id, message) do
+    case IncomingRequestsHandler.handle(protocol_id, request_id, message, state.store) do
       {:ok, response} ->
         send_response(response, port)
 
@@ -942,6 +957,28 @@ defmodule LambdaEthereumConsensus.Libp2pPort do
        )
        when slot - head_slot == 0,
        do: %{state | syncing: false}
+
+  defp update_syncing_status(
+         %{syncing: true, blocks_remaining: 0} = state,
+         {slot, _third},
+         %Types.Store{head_slot: head_slot}
+       )
+       when slot - head_slot > 2 do
+    last_resync_head = Map.get(state, :last_resync_head)
+
+    if last_resync_head == head_slot do
+      # Already triggered a resync and head hasn't moved yet (blocks still processing).
+      # Wait for the processing pipeline to make progress before re-syncing.
+      state
+    else
+      Logger.info(
+        "[Libp2p] Sync batch complete but still #{slot - head_slot} slots behind, re-syncing"
+      )
+
+      Process.send_after(self(), :sync_blocks, 500)
+      state |> Map.put(:blocks_remaining, -1) |> Map.put(:last_resync_head, head_slot)
+    end
+  end
 
   defp update_syncing_status(state, _slot_data, _), do: state
 
