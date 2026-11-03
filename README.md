@@ -1,5 +1,8 @@
 # Lambda Ethereum Consensus Client
 
+> [!WARNING]
+> This repository is archived and no longer maintained. Lambda's Ethereum consensus client is now [ethlambda](https://github.com/lambdaclass/ethlambda).
+
   [![CI](https://github.com/lambdaclass/lambda_ethereum_consensus/actions/workflows/ci.yml/badge.svg)](https://github.com/lambdaclass/lambda_ethereum_consensus/actions/workflows/ci.yml)
   [![Telegram chat](https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Flambdaconsensus%2F&logo=telegram&label=chat&color=neon)](https://t.me/lambdaconsensus)
 
